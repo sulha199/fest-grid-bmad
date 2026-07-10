@@ -29,7 +29,7 @@ Users can easily discover events through FestGrid\´s curated listings or by con
 
 ### Getting Started
 
-FestGrid will be readily accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, including personalized recommendations and advanced event integration with other platforms, users can easily connect their existing accounts. A premium tier will be available for those seeking even more powerful planning and discovery tools.
+FestGrid will be readily accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, including personalized recommendations and advanced event integration with other platforms, users can easily connect their existing accounts, optionally integrating their own Isolated Bring Your Own Key (BYOK) Gemini API key for advanced personalization.
 
 ---
 
@@ -43,9 +43,9 @@ A: FestGrid streamlines event discovery and scheduling with a dynamic calendar v
 
 A: At FestGrid, your privacy is paramount. Your personal data and event preferences are used solely to personalize your experience within the app – to show you events you\´ll love and help you organize your schedule. We employ industry-standard security measures to protect your information. We absolutely do not spam your calendar or sell your data to third parties. Crucially, we do not read your personal calendar; our \´add to calendar\´ feature works one-way, simply adding selected events to your calendar without accessing its existing content. You are always in control of your notification settings, and we are transparent about how your data is used, as detailed in our comprehensive Privacy Policy.
 
-### Q: Is FestGrid free, or is there a subscription cost? What features are included in each tier, and are there hidden fees?
+### Q: Is FestGrid free, or is there a subscription cost? Are there any hidden fees or different feature levels?
 
-A: FestGrid is completely free to use. All users can discover events, add them to their calendar, and receive basic reminders without any cost. This free experience is powered by curated events sourced largely through crowd contributions, ensuring a diverse and vibrant selection of local cultural, entertainment, and hobby events. For those seeking a more tailored and advanced experience, such as truly personalized event recommendations and the ability to view and subscribe to events directly from their preferred social media accounts (like Instagram), users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. This securely unlocks enhanced personalization and control without any subscription fees from FestGrid. There are absolutely no hidden costs; the only difference in features is based on whether a user chooses to provide their own Gemini API key for advanced personalization.
+A: FestGrid is and will remain completely free to use. There are no subscription costs, no tiers, and absolutely no hidden fees. All users can discover events, add them to their calendar, and receive basic reminders without any cost. This free experience is powered by curated events sourced largely through crowd contributions, ensuring a diverse and vibrant selection of local cultural, entertainment, and hobby events. For those seeking a more tailored and advanced experience, such as truly personalized event recommendations and the ability to view and subscribe to events directly from their preferred social media accounts (like Instagram), users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. This securely unlocks enhanced personalization and control, powered by their own Gemini API key and without any subscription fees or charges from FestGrid. The only difference in features is based on whether a user chooses to provide their own Gemini API key for advanced personalization.
 
 ### Q: How long does it typically take to find and add an event to my calendar? Is the interface easy enough for a busy parent or someone not tech-savvy to use quickly?
 
