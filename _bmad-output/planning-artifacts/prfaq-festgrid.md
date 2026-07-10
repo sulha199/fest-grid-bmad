@@ -67,14 +67,34 @@ A: While FestGrid strives to be the most comprehensive and reliable source for l
 
 ## Internal FAQ
 
-### Q: {Hardest internal question first}
+### Q: What are the key technical challenges in implementing FestGrid, especially concerning event data aggregation from diverse sources?
 
-A: {Honest, specific answer}
+A: The primary technical challenges involve harmonizing disparate event data formats (e.g., social media posts, various ticketing platforms, community calendars) and ensuring data freshness. We will employ a combination of AI-driven parsing for unstructured data and API integrations for structured sources. Scalability for real-time updates and robust error handling for broken links or changed event details will be crucial.
 
-### Q: {Next question}
+### Q: How will FestGrid ensure data privacy and security, especially given the BYOK Gemini API integration?
 
+A: Data privacy is paramount. User-provided Gemini API keys will be stored and used client-side only, never touching our servers. For general user data, we will adhere to industry best practices for encryption, access control, and anonymization. Our architecture will be designed with privacy-by-design principles, ensuring compliance with relevant data protection regulations (e.g., GDPR, CCPA).
 
-- A: {Answer}
+### Q: What is the monetization strategy for FestGrid, given it\´s a free-to-use platform?
+
+A: Initially, FestGrid will focus on user acquisition and community building, operating as a free service. Potential future monetization strategies, once a significant user base is established, could include premium features for event organizers (e.g., enhanced analytics, promotional tools), localized advertising that is non-intrusive and highly relevant, or partnerships with city tourism boards and local businesses. Crucially, any monetization will not compromise user data privacy or the core free user experience.
+
+### Q: What are the key performance indicators (KPIs) for FestGrid\´s success in the initial launch phase?
+
+A: Key KPIs for the initial launch phase include:
+*   **User Acquisition:** Number of new sign-ups, weekly active users (WAU), monthly active users (MAU).
+*   **Engagement:** Average session duration, number of events added to calendars per user, rate of social sharing.
+*   **Content Growth:** Number of new events added to the platform daily/weekly, diversity of event types and sources.
+*   **Retention:** User retention rates over 7, 30, and 90 days.
+*   **Operational Efficiency:** System uptime, API response times, bug reports, number of failures in scraping Instagram profiles, number of failures in extracting event data from posts.
+
+### Q: What is the plan for moderation and quality control of crowd-contributed event data?
+
+A: We will implement a multi-layered approach to moderation. This includes:
+*   **Automated Filters:** AI-driven scanning for inappropriate content, duplicates, and obvious spam.
+*   **Community Reporting:** Users will be able to flag inaccurate or inappropriate event listings.
+*   **Curator Review:** A small team of human curators will review flagged content and potentially curate featured events.
+*   **Reputation System:** Future iterations may include a reputation system for contributors to incentivize accurate submissions.
 
 ---
 
