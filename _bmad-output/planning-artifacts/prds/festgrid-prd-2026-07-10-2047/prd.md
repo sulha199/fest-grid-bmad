@@ -1,8 +1,14 @@
+
 ---
+
 title: "Product Requirements Document: FestGrid"
+
 status: "draft"
+
 created: "2026-07-10T20:50:17Z"
+
 updated: "2026-07-10T20:50:17Z"
+
 ---
 
 # Product Requirements Document: FestGrid
@@ -43,7 +49,7 @@ This feature allows users to curate their event feed by subscribing to specific 
 *   **Quota Management & Notifications:**
     *   **Email Notifications:** Users will receive email notifications if `X` number of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
     *   **In-App Queue Status:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user, providing transparency on API key performance and quota impact.
-*   **Display Subscribed Events:** Events extracted from subscribed social media accounts will be displayed to the user.
+*   **Display Subscribed Events:** Events extracted from a user's social media accounts will be displayed to the user.
     *   **View Options:** Users can view these events in a calendar-view (default) or a card-view.
     *   **Search and Filter:** Users can search and filter events from their subscribed accounts by event name, type, category, location, performers, and the specific social media account source.
 *   **Personalized Reminders:** Event data processed from subscribed accounts will be used to generate personalized event reminders.
@@ -52,7 +58,7 @@ This feature allows users to curate their event feed by subscribing to specific 
     *   **Invalid Key Attempts:** The system tracks consecutive invalid API key attempts. Once a configurable limit (`N`) is reached, an email notification is sent to the user explaining the issue and its impact.
     *   **Key Rollover:** For accounts subscribed to by multiple users, if one user\`s API key becomes invalid, the system will attempt to use a valid API key from another subscribing user to continue data extraction for that shared account.
     *   **Attempt Reset:** The count of invalid key attempts is reset upon successful data extraction.
-    *   **Feature Impact:** Users with an invalid API key will cease to receive push notifications for events from accounts relying on their specific key. However, they will still see available data and data fetched by other users\` valid keys for shared subscriptions.
+    *   **Feature Impact:** Users with an invalid API key will cease to receive push notifications for events from accounts relying on their specific key. However, they will still see available data and data fetched by other users' valid keys for shared subscriptions.
 
 ### 3.5 Gemini API Management and Capacity
 
@@ -61,7 +67,7 @@ To ensure reliable and stable operation while adhering to Google Gemini API usag
 *   **Proactive Throttling and Queuing:** All requests to the Gemini API will be routed through a dedicated API management layer that implements dynamic throttling and intelligent queuing mechanisms. This layer will manage the rate of outgoing requests per API key, per user, and globally, to prevent exceeding rate limits and to avoid patterns that could be flagged as suspicious activity by Google. This is particularly crucial when handling concurrent requests from multiple users, potentially using different API keys for the same social media account.
 *   **Suspicious Activity Mitigation:** The system is designed to proactively mitigate risks associated with "suspicious activity" flags from Google. This includes intelligently distributing API calls across available valid keys, introducing strategic delays, and implementing back-off algorithms to gracefully handle temporary API issues without triggering broader service disruptions.
 *   **MVP Capacity Limitations:** For the Minimum Viable Product (MVP), operating with a single backend server instance, there will be a finite capacity for the total number of social media accounts that can be actively subscribed and processed. This limit is dictated by factors such as the available Gemini API quotas (QPM/QPD), the average processing time required per subscribed account, and the overall server resources.
-*   **User Notification for Capacity Limits:** When the MVP\'s capacity limit for new social media account subscriptions is reached, users attempting to add further subscriptions will be gracefully informed via an in-app message that they cannot add more accounts at this time. The message will explain that this is due to current server capacity and that new subscriptions will be enabled once additional backend servers are provisioned or horizontal scaling is implemented.
+*   **User Notification for Capacity Limits:** When the MVP's capacity limit for new social media account subscriptions is reached, users attempting to add further subscriptions will be gracefully informed via an in-app message that they cannot add more accounts at this time. The message will explain that this is due to current server capacity and that new subscriptions will be enabled once additional backend servers are provisioned or horizontal scaling is implemented.
 *   **Capacity Calculation Formula:** A key architectural requirement is the definition and implementation of a clear, verifiable formula or methodology to calculate the maximum sustainable number of subscribed social media accounts per backend server instance. This formula will quantify the relationship between Gemini API quotas, average data extraction frequency, processing load, and system throughput. It will serve as the basis for capacity planning, informing decisions on when and how to scale the backend infrastructure horizontally.
 
 ### 3.6 Manual Event Data Correction and User Reporting
@@ -112,9 +118,10 @@ FestGrid will be accessible as a web application from any browser. Users can sig
 
 *   **Performance:** The web application must be fast and responsive, with minimal loading times.
 *   **Scalability:** The platform must be able to handle a growing number of users and events. This includes robust mechanisms for managing external API quotas (e.g., Gemini API) through intelligent throttling, queuing, and capacity planning based on a defined calculation formula. The architecture will support horizontal scaling to accommodate increased demand for social media account subscriptions, ensuring adherence to API usage policies while maintaining performance.
-*   **Security:** User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal data and event preferences are used solely to personalize your experience within the app; we do not spam your calendar, sell your data to third parties. Crucially, our \'add to calendar\' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
+*   **Security:** User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal data and event preferences are used solely to personalize your experience within the app; we do not spam your calendar, sell your data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
 *   **Usability:** The interface must be intuitive and easy to use for all demographics.
 *   **Reliability:** The platform should have high uptime and minimal downtime. This includes resilience against external API service disruptions through proactive error handling, back-off strategies, and intelligent API key management, ensuring continuous operation of the social media subscription feature.
+*   **Analytics:** The platform will use a web analytics service (e.g., Google Analytics) to collect anonymous data on page views and user engagement to measure key performance indicators and improve the service.
 *   **User Experience (Capacity Limits):** The system must gracefully inform users when they encounter temporary limitations, such as reaching the maximum number of social media account subscriptions due to current backend server capacity. Clear, actionable in-app messages will guide users and manage expectations regarding future scaling.
 *   **Event Status Updates:** Users are advised to independently verify event status (e.g., cancellations, rescheduling) with official organizers, as real-time tracking from diverse sources presents inherent challenges.
 
@@ -141,3 +148,5 @@ FestGrid will be accessible as a web application from any browser. Users can sig
     *   **Moderation Response Time (Dangerous Events):** Average time taken for moderators to review and act on reports of dangerous events.
     *   **Deletion Effectiveness (Cancelled Events):** Percentage of events soft-deleted after receiving 3 unique user reports for cancellation.
     *   **Moderator Override Rate:** Frequency with which moderators override automated decisions or user reports (e.g., restoring a soft-deleted event, marking a dangerous event as safe).
+
+
