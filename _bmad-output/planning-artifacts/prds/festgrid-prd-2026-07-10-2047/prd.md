@@ -37,9 +37,7 @@ This document outlines the product requirements for FestGrid, a platform designe
 *   **One-Click Calendar Integration:** Provide easy integration with personal calendars.
 *   **Event Details Centralization:** Consolidate all relevant event information in one place.
 
-### 3.3 Personalization (Optional)
 
-*   **AI-Powered Recommendations:** Offer personalized event recommendations based on user preferences and connected social media data (requires BYOK Gemini API key).
 
 ### 3.4 Social Media Account Subscription
 
@@ -68,7 +66,7 @@ To ensure reliable and stable operation while adhering to Google Gemini API usag
 *   **Suspicious Activity Mitigation:** The system is designed to proactively mitigate risks associated with "suspicious activity" flags from Google. This includes intelligently distributing API calls across available valid keys, introducing strategic delays, and implementing back-off algorithms to gracefully handle temporary API issues without triggering broader service disruptions.
 *   **MVP Capacity Limitations:** For the Minimum Viable Product (MVP), operating with a single backend server instance, there will be a finite capacity for the total number of social media accounts that can be actively subscribed and processed. This limit is dictated by factors such as the available Gemini API quotas (QPM/QPD), the average processing time required per subscribed account, and the overall server resources.
 *   **User Notification for Capacity Limits:** When the MVP's capacity limit for new social media account subscriptions is reached, users attempting to add further subscriptions will be gracefully informed via an in-app message that they cannot add more accounts at this time. The message will explain that this is due to current server capacity and that new subscriptions will be enabled once additional backend servers are provisioned or horizontal scaling is implemented.
-*   **Capacity Calculation Formula:** A key architectural requirement is the definition and implementation of a clear, verifiable formula or methodology to calculate the maximum sustainable number of subscribed social media accounts per backend server instance. This formula will quantify the relationship between Gemini API quotas, average data extraction frequency, processing load, and system throughput. It will serve as the basis for capacity planning, informing decisions on when and how to scale the backend infrastructure horizontally.
+*   **Capacity Calculation Formula:** A key architectural requirement is the definition and implementation of a clear, verifiable formula or methodology to calculate the maximum sustainable number of subscribed social media accounts per backend server instance. This formula will be defined in detail during the architectural planning phase. It will quantify the relationship between Gemini API quotas, average data extraction frequency, processing load, and system throughput. It will serve as the basis for capacity planning, informing decisions on when and how to scale the backend infrastructure horizontally.
 
 ### 3.6 Manual Event Data Correction and User Reporting
 
@@ -112,7 +110,7 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 
 ## 3.7 Getting Started and Onboarding
 
-FestGrid will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, including personalized recommendations and advanced event integration, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. Users are responsible for the validity and quota management of their BYOK Gemini API keys. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestGrid's full potential if they choose.
+FestGrid will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, such as subscribing to social media accounts for event extraction, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. Users are responsible for the validity and quota management of their BYOK Gemini API keys. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestGrid's full potential if they choose.
 
 ## 4. Non-Functional Requirements
 
@@ -124,10 +122,11 @@ FestGrid will be accessible as a web application from any browser. Users can sig
 *   **Analytics:** The platform will use a web analytics service (e.g., Google Analytics) to collect anonymous data on page views and user engagement to measure key performance indicators and improve the service.
 *   **User Experience (Capacity Limits):** The system must gracefully inform users when they encounter temporary limitations, such as reaching the maximum number of social media account subscriptions due to current backend server capacity. Clear, actionable in-app messages will guide users and manage expectations regarding future scaling.
 *   **Event Status Updates:** Users are advised to independently verify event status (e.g., cancellations, rescheduling) with official organizers, as real-time tracking from diverse sources presents inherent challenges.
+*   **Internationalization:** For the MVP, the platform will support Indonesian and English. The layout must be designed to support both Left-to-Right (LTR) and Right-to-Left (RTL) languages to facilitate future expansion.
 
 ## 5. Monetization Strategy
 
-*   **Free-to-Use Core:** The core event discovery and management features will remain free. Features leveraging the user's own BYOK Gemini API key (e.g., personalized recommendations, social media account subscriptions) will not incur any additional fees or charges from FestGrid.
+*   **Free-to-Use Core:** The core event discovery and management features will remain free. Features leveraging the user's own BYOK Gemini API key (e.g., social media account subscriptions) will not incur any additional fees or charges from FestGrid.
 *   **Future Premium Features (for Event Organizers - Post-MVP):** Implement features allowing event organizers to promote their events, such as appearing at the top of event discovery pages. This will function similarly to an advertising schema, enabling organizers to target users based on their interest in event type, category, and user geolocation. To facilitate this, as part of the post-MVP monetization strategy, we will collect user data related to their event interest (type, category) and geolocation. This data collection will be strictly anonymized and aggregated where possible, and users will be provided with clear opt-out mechanisms and transparency regarding data usage, fully adhering to our stated privacy principles. This feature is planned for a phase beyond the Minimum Viable Product (MVP) and will not affect the free core experience for end-users.
 *   **Localized Advertising:** Non-intrusive, highly relevant advertising based on location and event type.
 *   **Partnerships:** Collaborate with city tourism boards and local businesses.
