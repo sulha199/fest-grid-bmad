@@ -39,11 +39,20 @@ This document outlines the product requirements for FestGrid, a platform designe
 
 This feature allows users to curate their event feed by subscribing to specific social media accounts.
 
-*   **Account Subscription:** Users can subscribe to desired social media accounts by providing their own Gemini API Key (BYOK). Event data from these subscribed accounts will be processed by an AI agent to extract event details.
+*   **Account Subscription:** Users can subscribe to desired social media accounts by providing their own Gemini API Key (BYOK). Event data from these subscribed accounts will be processed by an AI agent to extract event details. For accounts subscribed to by multiple users, the system will intelligently utilize any valid API key from contributing users to optimize data extraction and distribute quota usage.
+*   **Quota Management & Notifications:**
+    *   **Email Notifications:** Users will receive email notifications if `X` number of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
+    *   **In-App Queue Status:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user, providing transparency on API key performance and quota impact.
 *   **Display Subscribed Events:** Events extracted from subscribed social media accounts will be displayed to the user.
     *   **View Options:** Users can view these events in a calendar-view (default) or a card-view.
     *   **Search and Filter:** Users can search and filter events from their subscribed accounts by event name, type, category, location, performers, and the specific social media account source.
 *   **Personalized Reminders:** Event data processed from subscribed accounts will be used to generate personalized event reminders.
+*   **API Key Validity & Notifications (Reactive):**
+    *   **Reactive Validation:** API keys are validated reactively. If an API key encounters an \"invalid API key\" error during data extraction, the system records this attempt.
+    *   **Invalid Key Attempts:** The system tracks consecutive invalid API key attempts. Once a configurable limit (`N`) is reached, an email notification is sent to the user explaining the issue and its impact.
+    *   **Key Rollover:** For accounts subscribed to by multiple users, if one user\`s API key becomes invalid, the system will attempt to use a valid API key from another subscribing user to continue data extraction for that shared account.
+    *   **Attempt Reset:** The count of invalid key attempts is reset upon successful data extraction.
+    *   **Feature Impact:** Users with an invalid API key will cease to receive push notifications for events from accounts relying on their specific key. However, they will still see available data and data fetched by other users\` valid keys for shared subscriptions.
 
 ### 3.5 Manual Event Data Correction and User Reporting
 
@@ -87,7 +96,7 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 
 ## 3.6 Getting Started and Onboarding
 
-FestGrid will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, including personalized recommendations and advanced event integration, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestGrid's full potential if they choose.
+FestGrid will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, including personalized recommendations and advanced event integration, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. Users are responsible for the validity and quota management of their BYOK Gemini API keys. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestGrid's full potential if they choose.
 
 ## 4. Non-Functional Requirements
 
@@ -114,6 +123,7 @@ FestGrid will be accessible as a web application from any browser. Users can sig
 *   **Operational Efficiency:** System uptime, API response times, bug reports,
     *   **Social Media Image/Caption Retrieval Success Rate:** Measures the success rate of obtaining image URLs and captions from social media posts.
     *   **AI Agent Call Success Rate:** Monitors the successful invocation of the AI agent, tracking failures due to issues like exhausted quotas or incorrect API keys.
+    *   **Average Queue Time for Scraped Posts (Quota Related):** Measures the average time posts remain in the queue due to Gemini API quota limitations.
     *   **Cron-triggered Event Data Extraction Accuracy (vs. Manual Correction):** Measures the accuracy of event data initially extracted by automated cron jobs by comparing it against data obtained through subsequent user-triggered manual extractions (e.g., if a cron job yielded empty data that was later successfully extracted manually, or if a user marked cron-extracted data as inaccurate).
     *   **User-Initiated Report Volume:** Number of reports submitted by users, broken down by type (correction, cancelled, dangerous, personal).
     *   **Correction Application Rate:** The percentage of user-suggested corrections successfully processed and applied to event data by the AI agent or moderators.
