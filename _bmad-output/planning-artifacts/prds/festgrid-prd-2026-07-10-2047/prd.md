@@ -45,20 +45,39 @@ This feature allows users to curate their event feed by subscribing to specific 
     *   **Search and Filter:** Users can search and filter events from their subscribed accounts by event name, type, category, location, performers, and the specific social media account source.
 *   **Personalized Reminders:** Event data processed from subscribed accounts will be used to generate personalized event reminders.
 
-### 3.5 Manual Event Data Correction
+### 3.5 Manual Event Data Correction and User Reporting
 
-To ensure data quality and allow for human intervention, a manual social-media-post extraction process can be triggered by users. This process aims to address cases where automated extraction falls short.
+To ensure data quality, allow for human intervention, and empower users to contribute to content accuracy, FestGrid incorporates a comprehensive manual event data correction and user reporting system. This system aims to address cases where automated extraction falls short or where event details change or become invalid.
 
-#### 3.5.1 Trigger Conditions and Reasons
+#### 3.5.1 Trigger Conditions and Reasons for Manual Extraction (AI Agent Input)
 
-Users can manually trigger event data extraction for a social media post under the following circumstances, providing a specific reason:
+Users can provide specific feedback to an AI agent for corrections, especially in cases where automated extraction provides incomplete or inaccurate data. This process can be triggered as follows:
 
-*   **Cron Job Failure / Empty Event Data:** If a post, initially processed by an automated cron job, returns with empty event data (marked as not having event data), and a user subsequently triggers a manual extraction by providing the post URL, which then successfully returns event data. This indicates the initial cron attempt was not successful.
-*   **Inaccurate Event Data from Cron:** If a post, initially processed by an automated cron job, returns with event data, but a user triggers a manual extraction with the reason "event data not accurate." This indicates that the accuracy of the previous cron-triggered extraction was not achieved.
+*   **Correction Input:** Users can submit free-text input (e.g., "start date should be 31 Dec 2026") to inform the AI agent about specific corrections to be made. For users with a BYOK key, they can also provide the URL of a social media post along with additional text for the AI agent.
+    *   **Context:** This feedback is particularly valuable when:
+        *   **Cron Job Failure / Empty Event Data:** An event, initially processed by an automated cron job, returns with empty event data, and a user subsequently provides a correction that successfully returns event data.
+        *   **Inaccurate Event Data from Cron:** An event, initially processed by an automated cron job, returns with event data, but a user identifies it as inaccurate and provides specific correction details.
 
-#### 3.5.2 Impact on Operational Efficiency KPIs
+#### 3.5.2 User Reporting and Event Moderation
 
-The outcomes of the manual extraction process directly influence the `Cron-triggered Event Data Extraction Accuracy (vs. Manual Correction)` KPI. Each instance where manual extraction corrects or succeeds where a cron job failed or was inaccurate will be logged and contribute to the overall accuracy metric.
+A 'Report' button will be available for all events (whether from Social Media Account Subscription or the main event discovery page, in list-view or detailed view). Unauthenticated users will need to log in to access the reporting functionality. Upon clicking, a popup will offer the following options:
+
+*   **Request Event Deletion (Soft Delete):** Users can request the removal of an event by selecting a reason.
+    *   **Reason: Event Cancelled:**
+        *   The reporting user will immediately no longer see the event.
+        *   If at least three unique users report the same event as cancelled, it will be soft-deleted and removed from public view by default.
+        *   A moderator is required to explicitly mark the event as *not cancelled* to restore it to public view.
+    *   **Reason: Dangerous, Illegal, or Similar Extreme Situation Event:**
+        *   The reporting user will immediately no longer see the event.
+        *   An admin/moderator will be notified immediately to verify the event's nature.
+        *   If the moderator marks the event as safe, subsequent similar reports from the *same* requesting user for that specific event will be ignored, though the event will remain hidden for that user.
+    *   **Reason: Personal:**
+        *   The reporting user will immediately no longer see the event. This action only affects the individual user's view and does not impact the event's visibility for other users.
+
+#### 3.5.3 User and Moderator Interfaces
+
+*   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
+*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database.
 
 ## 4. Non-Functional Requirements
 
@@ -67,10 +86,11 @@ The outcomes of the manual extraction process directly influence the `Cron-trigg
 *   **Security:** User data and privacy must be protected with industry-standard security measures. BYOK Gemini API keys must be handled client-side only.
 *   **Usability:** The interface must be intuitive and easy to use for all demographics.
 *   **Reliability:** The platform should have high uptime and minimal downtime.
+*   **Event Status Updates:** Users are advised to independently verify event status (e.g., cancellations, rescheduling) with official organizers, as real-time tracking from diverse sources presents inherent challenges.
 
 ## 5. Monetization Strategy
 
-*   **Free-to-Use Core:** The core event discovery and management features will remain free.
+*   **Free-to-Use Core:** The core event discovery and management features will remain free. Features leveraging the user's own BYOK Gemini API key (e.g., personalized recommendations, social media account subscriptions) will not incur any additional fees or charges from FestGrid.
 *   **Future Premium Features (for Event Organizers):** Potential for enhanced analytics and promotional tools for event organizers.
 *   **Localized Advertising:** Non-intrusive, highly relevant advertising based on location and event type.
 *   **Partnerships:** Collaborate with city tourism boards and local businesses.
@@ -79,9 +99,14 @@ The outcomes of the manual extraction process directly influence the `Cron-trigg
 
 *   **User Acquisition:** New sign-ups, weekly active users (WAU), monthly active users (MAU).
 *   **Engagement:** Average session duration, events added to calendars, social sharing.
-*   **Content Growth:** New events added daily/weekly, diversity of events.
+*   **Content Growth:** New events added daily/weekly, diversity of events. While aiming for high accuracy, it's important to note that a 100% real-time guarantee against all changes is challenging due to the crowd-sourced and social media-derived nature of the data.
 *   **Retention:** User retention rates (7, 30, 90 days).
 *   **Operational Efficiency:** System uptime, API response times, bug reports,
     *   **Social Media Image/Caption Retrieval Success Rate:** Measures the success rate of obtaining image URLs and captions from social media posts.
     *   **AI Agent Call Success Rate:** Monitors the successful invocation of the AI agent, tracking failures due to issues like exhausted quotas or incorrect API keys.
     *   **Cron-triggered Event Data Extraction Accuracy (vs. Manual Correction):** Measures the accuracy of event data initially extracted by automated cron jobs by comparing it against data obtained through subsequent user-triggered manual extractions (e.g., if a cron job yielded empty data that was later successfully extracted manually, or if a user marked cron-extracted data as inaccurate).
+    *   **User-Initiated Report Volume:** Number of reports submitted by users, broken down by type (correction, cancelled, dangerous, personal).
+    *   **Correction Application Rate:** The percentage of user-suggested corrections successfully processed and applied to event data by the AI agent or moderators.
+    *   **Moderation Response Time (Dangerous Events):** Average time taken for moderators to review and act on reports of dangerous events.
+    *   **Deletion Effectiveness (Cancelled Events):** Percentage of events soft-deleted after receiving 3 unique user reports for cancellation.
+    *   **Moderator Override Rate:** Frequency with which moderators override automated decisions or user reports (e.g., restoring a soft-deleted event, marking a dangerous event as safe).
