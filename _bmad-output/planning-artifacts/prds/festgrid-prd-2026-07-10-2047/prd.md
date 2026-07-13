@@ -39,14 +39,23 @@ This document outlines the product requirements for FestGrid, a platform designe
 
 
 
-### 3.4 Social Media Account Subscription
+### 3.3 Social Media Account Subscription
 
 This feature allows users to curate their event feed by subscribing to specific social media accounts.
 
 *   **Account Subscription:** Users can subscribe to desired social media accounts by providing their own Gemini API Key (BYOK). Event data from these subscribed accounts will be processed by an AI agent to extract event details. For accounts subscribed to by multiple users, the system will intelligently utilize any valid API key from contributing users to optimize data extraction and distribute quota usage.
 *   **Quota Management & Notifications:**
     *   **Email Notifications:** Users will receive email notifications if `X` number of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
-    *   **In-App Queue Status:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user, providing transparency on API key performance and quota impact.
+*   **In-App Queue Status:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user, providing transparency on API key performance and quota impact.
+
+> **Note:** The specific values for placeholders such as `X`, `Y`, and `N` in the notification and API key validity rules will be defined during the architectural planning phase.
+
+*   **Quota Management Algorithm:** To maximize the number of processed requests and ensure fairness, the following algorithm will be implemented:
+    *   **Internal Quota Tracking:** The system will internally track the usage of each API key to inform the fairness algorithm. This tracking will be reset at the beginning of each billing cycle.
+    *   **Tier 1: User-Specific Subscriptions:** Requests for social media accounts subscribed to by only one user will be processed first, using that user's API key(s).
+    *   **Tier 2: Shared Subscriptions (Round-Robin with Fairness):** For social media accounts subscribed to by multiple users, a round-robin approach will be used to cycle through the API keys of the subscribing users. To ensure fairness, the algorithm will prioritize keys from users who have contributed fewer API calls in the current billing cycle.
+    *   **Multiple API Keys:** If a user provides multiple API keys, the system will treat them as a pool of resources for that user, cycling through them as needed.
+    *   **Key Failure:** If a user's key fails or is rate-limited, it will be temporarily skipped, and the next user's key in the round-robin will be used.
 *   **Display Subscribed Events:** Events extracted from a user's social media accounts will be displayed to the user.
     *   **View Options:** Users can view these events in a calendar-view (default) or a card-view.
     *   **Search and Filter:** Users can search and filter events from their subscribed accounts by event name, type, category, location, performers, and the specific social media account source.
@@ -58,7 +67,7 @@ This feature allows users to curate their event feed by subscribing to specific 
     *   **Attempt Reset:** The count of invalid key attempts is reset upon successful data extraction.
     *   **Feature Impact:** Users with an invalid API key will cease to receive push notifications for events from accounts relying on their specific key. However, they will still see available data and data fetched by other users' valid keys for shared subscriptions.
 
-### 3.5 Gemini API Management and Capacity
+### 3.4 Gemini API Management and Capacity
 
 To ensure reliable and stable operation while adhering to Google Gemini API usage policies, FestGrid will implement comprehensive API management and capacity planning strategies:
 
@@ -68,11 +77,11 @@ To ensure reliable and stable operation while adhering to Google Gemini API usag
 *   **User Notification for Capacity Limits:** When the MVP's capacity limit for new social media account subscriptions is reached, users attempting to add further subscriptions will be gracefully informed via an in-app message that they cannot add more accounts at this time. The message will explain that this is due to current server capacity and that new subscriptions will be enabled once additional backend servers are provisioned or horizontal scaling is implemented.
 *   **Capacity Calculation Formula:** A key architectural requirement is the definition and implementation of a clear, verifiable formula or methodology to calculate the maximum sustainable number of subscribed social media accounts per backend server instance. This formula will be defined in detail during the architectural planning phase. It will quantify the relationship between Gemini API quotas, average data extraction frequency, processing load, and system throughput. It will serve as the basis for capacity planning, informing decisions on when and how to scale the backend infrastructure horizontally.
 
-### 3.6 Manual Event Data Correction and User Reporting
+### 3.5 Manual Event Data Correction and User Reporting
 
 To ensure data quality, allow for human intervention, and empower users to contribute to content accuracy, FestGrid incorporates a comprehensive manual event data correction and user reporting system. This system aims to address cases where automated extraction falls short or where event details change or become invalid.
 
-#### 3.6.1 Trigger Conditions and Reasons for Manual Extraction (AI Agent Input)
+#### 3.5.1 Trigger Conditions and Reasons for Manual Extraction (AI Agent Input)
 
 Users can provide specific feedback to an AI agent for corrections, especially in cases where automated extraction provides incomplete or inaccurate data. This process can be triggered as follows:
 
@@ -87,7 +96,7 @@ Users can provide specific feedback to an AI agent for corrections, especially i
         *   **Cron Job Failure / Empty Event Data:** An event, initially processed by an automated cron job, returns with empty event data, and a user subsequently provides a correction that successfully returns event data.
         *   **Inaccurate Event Data from Cron:** An event, initially processed by an automated cron job, returns with event data, but a user identifies it as inaccurate and provides specific correction details.
 
-#### 3.6.2 User Reporting and Event Moderation
+#### 3.5.2 User Reporting and Event Moderation
 
 A 'Report' button will be available for all events (whether from Social Media Account Subscription or the main event discovery page, in list-view or detailed view). Unauthenticated users will need to log in to access the reporting functionality. Upon clicking, a popup will offer the following options:
 
@@ -103,12 +112,12 @@ A 'Report' button will be available for all events (whether from Social Media Ac
     *   **Reason: Personal:**
         *   The reporting user will immediately no longer see the event. This action only affects the individual user's view and does not impact the event's visibility for other users.
 
-#### 3.6.3 User and Moderator Interfaces
+#### 3.5.3 User and Moderator Interfaces
 
 *   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
 *   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database.
 
-## 3.7 Getting Started and Onboarding
+## 3.6 Getting Started and Onboarding
 
 FestGrid will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, such as subscribing to social media accounts for event extraction, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. Users are responsible for the validity and quota management of their BYOK Gemini API keys. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestGrid's full potential if they choose.
 
