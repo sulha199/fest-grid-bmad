@@ -85,11 +85,15 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 *   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
 *   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database.
 
+## 3.6 Getting Started and Onboarding
+
+FestGrid will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, including personalized recommendations and advanced event integration, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestGrid's full potential if they choose.
+
 ## 4. Non-Functional Requirements
 
 *   **Performance:** The web application must be fast and responsive, with minimal loading times.
 *   **Scalability:** The platform must be able to handle a growing number of users and events.
-*   **Security:** User data and privacy must be protected with industry-standard security measures. BYOK Gemini API keys must be handled client-side only.
+*   **Security:** User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal data and event preferences are used solely to personalize your experience within the app; we do not spam your calendar, sell your data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
 *   **Usability:** The interface must be intuitive and easy to use for all demographics.
 *   **Reliability:** The platform should have high uptime and minimal downtime.
 *   **Event Status Updates:** Users are advised to independently verify event status (e.g., cancellations, rescheduling) with official organizers, as real-time tracking from diverse sources presents inherent challenges.
@@ -97,7 +101,7 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 ## 5. Monetization Strategy
 
 *   **Free-to-Use Core:** The core event discovery and management features will remain free. Features leveraging the user's own BYOK Gemini API key (e.g., personalized recommendations, social media account subscriptions) will not incur any additional fees or charges from FestGrid.
-*   **Future Premium Features (for Event Organizers):** Potential for enhanced analytics and promotional tools for event organizers.
+*   **Future Premium Features (for Event Organizers - Post-MVP):** Implement features allowing event organizers to promote their events, such as appearing at the top of event discovery pages. This will function similarly to an advertising schema, enabling organizers to target users based on their interest in event type, category, and user geolocation. To facilitate this, as part of the post-MVP monetization strategy, we will collect user data related to their event interest (type, category) and geolocation. This data collection will be strictly anonymized and aggregated where possible, and users will be provided with clear opt-out mechanisms and transparency regarding data usage, fully adhering to our stated privacy principles. This feature is planned for a phase beyond the Minimum Viable Product (MVP) and will not affect the free core experience for end-users.
 *   **Localized Advertising:** Non-intrusive, highly relevant advertising based on location and event type.
 *   **Partnerships:** Collaborate with city tourism boards and local businesses.
 

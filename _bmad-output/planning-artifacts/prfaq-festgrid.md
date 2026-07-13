@@ -45,7 +45,7 @@ A: At FestGrid, your privacy is paramount. Your personal data and event preferen
 
 ### Q: Is FestGrid free, or is there a subscription cost? Are there any hidden fees or different feature levels?
 
-A: FestGrid is and will remain completely free to use. There are no subscription costs, no tiers, and absolutely no hidden fees. All users can discover events, add them to their calendar, and receive basic reminders without any cost. This free experience is powered by curated events sourced largely through crowd contributions, ensuring a diverse and vibrant selection of local cultural, entertainment, and hobby events. For those seeking a more tailored and advanced experience, such as truly personalized event recommendations and the ability to view and subscribe to events directly from their preferred social media accounts (like Instagram), users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. This securely unlocks enhanced personalization and control, powered by their own Gemini API key and without any subscription fees or charges from FestGrid. The only difference in features is based on whether a user chooses to provide their own Gemini API key for advanced personalization.
+A: FestGrid is and will remain completely free to use. There are no subscription costs, no tiers, and absolutely no hidden fees. All users can discover events, add them to their calendar, and receive basic reminders without any cost. While FestGrid's core features for event discovery and management remain free for all end-users, future development phases may introduce distinct premium features specifically designed for event organizers to promote their events, which are separate from the core user experience and do not involve subscription fees for general users. This free experience is powered by curated events sourced largely through crowd contributions, ensuring a diverse and vibrant selection of local cultural, entertainment, and hobby events. For those seeking a more tailored and advanced experience, such as truly personalized event recommendations and the ability to view and subscribe to events directly from their preferred social media accounts (like Instagram), users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. This securely unlocks enhanced personalization and control, powered by their own Gemini API key and without any subscription fees or charges from FestGrid. The only difference in features is based on whether a user chooses to provide their own Gemini API key for advanced personalization.
 
 ### Q: How long does it typically take to find and add an event to my calendar? Is the interface easy enough for a busy parent or someone not tech-savvy to use quickly?
 
@@ -65,6 +65,10 @@ A: While FestGrid strives to be the most comprehensive and reliable source for l
 
 ---
 
+### Q: What if I find inaccurate event information or want to report an event?
+
+A: FestGrid is committed to providing accurate and up-to-date event information, leveraging both automated systems and community contributions. If you encounter incorrect details, such as wrong dates, times, or locations, you can use our built-in correction mechanism. Simply navigate to the event and select the 'Report' option. Here, you can provide free-text input to suggest specific corrections, or select from predefined reasons such as 'Event Cancelled,' 'Dangerous/Illegal Event,' or 'Personal (hide event from my view).' This feedback is then processed by our AI agent, which may apply the correction directly or flag it for human moderator review, ensuring data quality. For more serious concerns like dangerous or illegal events, our moderation team is notified immediately for urgent review. Authenticated users will also have a dedicated 'Reports' page under their user menu to track the status and history of their submitted reports, ensuring transparency and accountability.
+
 ## Internal FAQ
 
 ### Q: What are the key technical challenges in implementing FestGrid, especially concerning event data aggregation from diverse sources?
@@ -73,25 +77,34 @@ A: The primary technical challenges involve harmonizing disparate event data for
 
 ### Q: How will FestGrid ensure data privacy and security, especially given the BYOK Gemini API integration?
 
-A: Data privacy is paramount. User-provided Gemini API keys will be stored and used client-side only, never touching our servers. For general user data, we will adhere to industry best practices for encryption, access control, and anonymization. Our architecture will be designed with privacy-by-design principles, ensuring compliance with relevant data protection regulations (e.g., GDPR, CCPA).
+A: Data privacy is paramount. User-provided Gemini API keys will be used server-side for event data extraction. They will be securely stored and managed with robust encryption and access controls, never directly exposing the keys in client-side code. For general user data, we will adhere to industry best practices for encryption, access control, and anonymization. Our architecture will be designed with privacy-by-design principles, ensuring compliance with relevant data protection regulations (e.g., GDPR, CCPA).
 
 ### Q: What is the monetization strategy for FestGrid, given it\´s a free-to-use platform?
 
-A: Initially, FestGrid will focus on user acquisition and community building, operating as a free service. Potential future monetization strategies, once a significant user base is established, could include premium features for event organizers (e.g., enhanced analytics, promotional tools), localized advertising that is non-intrusive and highly relevant, or partnerships with city tourism boards and local businesses. Crucially, any monetization will not compromise user data privacy or the core free user experience.
+A: Initially, FestGrid will focus on user acquisition and community building, operating as a free service. Potential future monetization strategies, once a significant user base is established, could include premium features for event organizers (e.g., appearing at the top of event discovery pages via an advertising schema, enhanced analytics, promotional tools), localized advertising that is non-intrusive and highly relevant, or partnerships with city tourism boards and local businesses. For these post-MVP premium features for organizers, user data related to event interests (type, category) and geolocation may be collected. This collection will be strictly anonymized and aggregated where possible, with clear opt-out mechanisms and transparency for users. Crucially, any monetization will not compromise user data privacy or the core free user experience for end-users.
 
-### Q: What are the key performance indicators (KPIs) for FestGrid\´s success in the initial launch phase?
+### Q: What are the key performance indicators (KPIs) for FestGrid´s success in the initial launch phase?
 
 A: Key KPIs for the initial launch phase include:
 *   **User Acquisition:** Number of new sign-ups, weekly active users (WAU), monthly active users (MAU).
 *   **Engagement:** Average session duration, number of events added to calendars per user, rate of social sharing.
 *   **Content Growth:** Number of new events added to the platform daily/weekly, diversity of event types and sources.
 *   **Retention:** User retention rates over 7, 30, and 90 days.
-*   **Operational Efficiency:** System uptime, API response times, bug reports, number of failures in scraping Instagram profiles, number of failures in extracting event data from posts.
+*   **Operational Efficiency:** System uptime, API response times, bug reports,
+    *   **Social Media Image/Caption Retrieval Success Rate:** Measures the success rate of obtaining image URLs and captions from social media posts.
+    *   **AI Agent Call Success Rate:** Monitors the successful invocation of the AI agent, tracking failures due to issues like exhausted quotas or incorrect API keys.
+    *   **Cron-triggered Event Data Extraction Accuracy (vs. Manual Correction):** Measures the accuracy of event data initially extracted by automated cron jobs by comparing it against data obtained through subsequent user-triggered manual extractions (e.g., if a cron job yielded empty data that was later successfully extracted manually, or if a user marked cron-extracted data as inaccurate).
+    *   **User-Initiated Report Volume:** Number of reports submitted by users, broken down by type (correction, cancelled, dangerous, personal).
+    *   **Correction Application Rate:** The percentage of user-suggested corrections successfully processed and applied to event data by the AI agent or moderators.
+    *   **Moderation Response Time (Dangerous Events):** Average time taken for moderators to review and act on reports of dangerous events.
+    *   **Deletion Effectiveness (Cancelled Events):** Percentage of events soft-deleted after receiving 3 unique user reports for cancellation.
+    *   **Moderator Override Rate:** Frequency with which moderators override automated decisions or user reports (e.g., restoring a soft-deleted event, marking a dangerous event as safe).
 
 ### Q: What is the plan for moderation and quality control of crowd-contributed event data?
 
 A: We will implement a multi-layered approach to moderation. This includes:
 *   **Automated Filters:** AI-driven scanning for inappropriate content, duplicates, and obvious spam.
+*   **AI-Assisted Corrections:** For user-submitted corrections, an AI agent will process free-text input, utilizing guided input, AI confidence scoring, and human-in-the-loop review for critical data points to ensure accuracy and reduce misinterpretations.
 *   **Community Reporting:** Users will be able to flag inaccurate or inappropriate event listings.
 *   **Curator Review:** A small team of human curators will review flagged content and potentially curate featured events.
 *   **Reputation System:** Future iterations may include a reputation system for contributors to incentivize accurate submissions.
