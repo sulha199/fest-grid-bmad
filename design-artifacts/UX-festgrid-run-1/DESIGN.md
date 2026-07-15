@@ -29,6 +29,21 @@ components:
     secondary: "bg-gray-200 text-gray-800"
   grid:
     base: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+  calendar:
+    base: "border border-gray-200 rounded-lg"
+    header: "flex items-center justify-between p-4 border-b border-gray-200"
+    date_range: "text-lg font-semibold"
+    nav_button: "py-1 px-3 rounded-md bg-gray-100 text-gray-700"
+    grid_weekly: "grid grid-cols-7 divide-x divide-gray-200"
+    day_cell: "p-2 h-32"
+    day_header: "text-sm text-center font-medium"
+  event_card_compact:
+    base: "rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200"
+    image: "w-full h-12 object-cover rounded-t-md"
+    title: "text-xs font-bold truncate"
+  modal:
+    overlay: "fixed inset-0 bg-black bg-opacity-50"
+    dialog: "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 w-full max-w-md"
   spark:
     base: "text-coral-500"
   typography:
