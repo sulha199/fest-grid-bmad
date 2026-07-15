@@ -11,6 +11,8 @@ colors:
   secondary: "#6366F1"
   accent: "#FF5A5F"
   neutral: "#FAFAFC"
+  success: "#10B981"
+  error: "#EF4444"
 typography:
   font_family_base: "Inter, sans-serif"
   font_size_base: "16px"
@@ -44,6 +46,17 @@ components:
   modal:
     overlay: "fixed inset-0 bg-black bg-opacity-50"
     dialog: "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 w-full max-w-md"
+  notification:
+    base: "fixed bottom-5 right-5 w-full max-w-sm rounded-lg shadow-lg pointer-events-auto"
+    content_wrapper: "flex items-start p-4"
+    icon: "flex-shrink-0 h-6 w-6"
+    text_wrapper: "ml-3 w-0 flex-1 pt-0.5"
+    title: "text-sm font-medium"
+    message: "text-sm"
+    close_button: "ml-4 flex-shrink-0 p-1.5 rounded-md"
+    info: "bg-violet-100 text-violet-800"
+    success: "bg-green-100 text-green-800"
+    error: "bg-red-100 text-red-800"
   spark:
     base: "text-coral-500"
   typography:
@@ -58,7 +71,7 @@ The visual identity of FestGrid is modern, vibrant, and engaging. It uses a ligh
 ## Logo Concept: "The Spark in the Grid"
 
 FestGrid's visual identity combines the technological structure and the magic of discovery at the event.
-Visual Form: This logo uses a very neat basic event card grid ($2 \times 2$). However, one of the squares in the upper right corner "breaks" or transforms into a Spark shape (a sparkling four-pointed star) with a very vibrant Energy Coral gradient color. Typographic Direction: The word "Fest" uses a bold Sans-serif font with a Bold weight, while "Grid" uses a Light weight. Discovery Philosophy: Depicts a magical moment of discovery. Among hundreds of ordinary and boring schedules or calendar grids, the AI ​​Agent FestGrid manages to bring out one "gem" or the most exciting event that immediately catches the user's attention.
+Visual Form: This logo uses a very neat basic event card grid ($2 \times 2$). However, one of the squares in the upper right corner "breaks" or transforms into a Spark shape (a sparkling four-pointed star) with a very vibrant accent color. Typographic Direction: The word "Fest" uses a bold Sans-serif font with a Bold weight, while "Grid" uses a Light weight. Discovery Philosophy: Depicts a magical moment of discovery. Among hundreds of ordinary and boring schedules or calendar grids, the AI ​​Agent FestGrid manages to bring out one "gem" or the most exciting event that immediately catches the user's attention.
 
 * **Logomark (Icon):** A minimalist 2x2 grid structure. Three squares are in a neutral base color, while the square in the upper right corner transforms into a **Spark (4-Pointed Star)** shape, symbolizing the moment of *Exciting Discovery*.
-* **Logotype (Text):** "Fest" (Bold, Slate Dark) + "Grid" (Light, Electric Violet)
+* **Logotype (Text):** "Fest" (Bold, primary) + "Grid" (Light, secondary)
