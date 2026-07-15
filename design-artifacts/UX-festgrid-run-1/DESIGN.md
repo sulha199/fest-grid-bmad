@@ -39,6 +39,15 @@ components:
     grid_weekly: "grid grid-cols-7 divide-x divide-gray-200"
     day_cell: "p-2 h-32"
     day_header: "text-sm text-center font-medium"
+    event_rendering:
+      discovery_view:
+        max_events_per_day: 5
+      personal_view:
+        max_events_per_day: -1 # Show all events
+      more_link: "text-xs text-center text-violet-600 hover:underline"
+      multi_day_event: "w-full bg-violet-50 border border-violet-200 rounded-md p-1 relative"
+      time_indicator_bar: "absolute bottom-0 left-0 h-1 bg-violet-400"
+      hover_tooltip: "absolute z-10 p-2 text-sm bg-gray-800 text-white rounded-md shadow-lg"
   event_card_compact:
     base: "rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200"
     image: "w-full h-12 object-cover rounded-t-md"
