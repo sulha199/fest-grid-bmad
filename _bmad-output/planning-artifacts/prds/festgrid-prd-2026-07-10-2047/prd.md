@@ -171,6 +171,10 @@ interface EventInfo {
    * A description of the event.
    */
   description?: string;
+  /**
+   * A unique identifier for the event, generated using Nano ID.
+   */
+  id: string;
 }
 ```
 
@@ -263,6 +267,10 @@ interface Schedule {
    * Detailed information about the event\_s location.
    */
   locationDetails?: LocationDetails;
+  /**
+   * A unique identifier for the schedule within the event, generated using Nano ID.
+   */
+  id: string;
 }
 ```
 
