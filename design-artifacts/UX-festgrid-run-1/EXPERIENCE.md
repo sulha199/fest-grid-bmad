@@ -12,11 +12,20 @@ sources:
 
 The main view allows users to switch between a grid-view of event cards and a weekly-view calendar. This provides flexibility for users to discover events in their preferred format.
 
-- **Calendar View**: The weekly calendar includes a header with previous/next week navigation and a "Today" button. Events are displayed as compact cards. The start and end dates of an event are represented by its position on the grid.
+- **Calendar View**: The weekly calendar includes a header with previous/next week navigation and a "Today" button. Each schedule of an event is displayed as a separate compact card. The title of the card is formatted to distinguish between main and sub-schedules.
 
 # Interaction Primitives
 
-- **Event Discovery**: Clicking on an event card in either the main grid view or the calendar view opens a modal dialog containing detailed information about the event. Simultaneously, the URL is updated to provide a direct link to this event (deep-linking).
+- **Event Discovery**: Clicking on an event card in the main grid view opens a modal with the full event details. Clicking on a specific schedule in the calendar view also opens the modal with the full event details, potentially highlighting the selected schedule. The URL is updated for deep-linking in both cases.
+
+# User Flows
+
+- **Default Location for Subscriptions:**
+  1. User navigates to the "Manage Subscriptions" page.
+  2. For each subscription, there is an option to "Set Default Location".
+  3. Clicking this option reveals a text input field.
+  4. The user types a location (e.g., "Grand Indonesia Mall, Jakarta").
+  5. The system saves this location and associates it with the subscription.
 
 # Voice and Tone
 

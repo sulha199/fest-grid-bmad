@@ -46,6 +46,9 @@ components:
         max_events_per_day: -1 # Show all events
       more_link: "text-xs text-center text-violet-600 hover:underline"
       multi_day_event: "w-full bg-violet-50 border border-violet-200 rounded-md p-1 relative"
+      title_formatting:
+        main_schedule: "font-bold"
+        sub_schedule: "font-normal"
       time_indicator_bar: "absolute bottom-0 left-0 h-1 bg-violet-400"
       hover_tooltip: "absolute z-10 p-2 text-sm bg-gray-800 text-white rounded-md shadow-lg"
   event_card_compact:
@@ -68,6 +71,10 @@ components:
     error: "bg-red-100 text-red-800"
   spark:
     base: "text-accent"
+  input_with_label:
+    base: "flex flex-col gap-1"
+    label: "text-sm font-medium"
+    input: "border border-gray-300 rounded-md p-2"
   typography:
     fest: "font-bold"
     grid: "font-light"

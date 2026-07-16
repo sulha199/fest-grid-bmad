@@ -44,6 +44,7 @@ This document outlines the product requirements for FestGrid, a platform designe
 This feature allows users to curate their event feed by subscribing to specific social media accounts.
 
 *   **Account Subscription:** Users can subscribe to desired social media accounts by providing their own Gemini API Key (BYOK). Event data from these subscribed accounts will be processed by an AI agent to extract event details. For accounts subscribed to by multiple users, the system will intelligently utilize any valid API key from contributing users to optimize data extraction and distribute quota usage.
+    *   **Default Location for Subscriptions:** To handle cases where an event\'s location is implicit (e.g., an event at a mall posted on the mall\'s social media), users can optionally set a "Default Location" when subscribing to an account. If the AI agent does not find an explicit location in a post, it will use this default location for the event.
 *   **Quota Management & Notifications:**
     *   **Email Notifications:** Users will receive email notifications if `X` number of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
 *   **In-App Queue Status:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user, providing transparency on API key performance and quota impact.
@@ -58,8 +59,18 @@ This feature allows users to curate their event feed by subscribing to specific 
     *   **Key Failure:** If a user's key fails or is rate-limited, it will be temporarily skipped, and the next user's key in the round-robin will be used.
 *   **Display Subscribed Events:** Events extracted from a user's social media accounts will be displayed to the user.
     *   **View Options:** Users can view these events in a calendar-view (default) or a card-view.
+        *   **Calendar View Behavior:**
+            *   Each schedule within an `EventInfo` object will be displayed as a separate, clickable item in the calendar.
+            *   The title of the calendar item will be formatted as follows:
+                *   If `isMainSchedule` is `true`, the title will be the `eventName`.
+                *   If `isMainSchedule` is `false`, the title will be a combination of the event name and the schedule title, in the format: `eventName - schedule.title`.
+            *   Clicking on any schedule item in the calendar will open a detail view for the entire event, with all its schedules listed. The selected schedule may be highlighted for context.
     *   **Search and Filter:** Users can search and filter events from their subscribed accounts by event name, type, category, location, performers, and the specific social media account source.
 *   **Personalized Reminders:** Event data processed from subscribed accounts will be used to generate personalized event reminders.
+*   **Timezone Inference:** When an event's timezone is not explicitly provided, the system will infer it using the following strategies, in order of preference:
+    *   **Location-based Inference:** The event's location will be used to determine the timezone via a standard geolocation service. To manage API costs and limits, results from the geolocation service will be cached.
+    *   **User's Timezone:** If the location is unavailable or ambiguous, the timezone of the user who subscribed to the event source will be used as a fallback.
+    *   **Manual Clarification:** If the timezone cannot be determined with high confidence, the event will be flagged for the user to provide clarification.
 *   **API Key Validity & Notifications (Reactive):**
     *   **Reactive Validation:** API keys are validated reactively. If an API key encounters an \"invalid API key\" error during data extraction, the system records this attempt.
     *   **Invalid Key Attempts:** The system tracks consecutive invalid API key attempts. Once a configurable limit (`N`) is reached, an email notification is sent to the user explaining the issue and its impact.
@@ -121,10 +132,148 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 
 FestGrid will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, such as subscribing to social media accounts for event extraction, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. Users are responsible for the validity and quota management of their BYOK Gemini API keys. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestGrid's full potential if they choose.
 
-## 4. Non-Functional Requirements
+## 4. Event Data Schema
+
+This section defines the data structure for events extracted and managed by FestGrid.
+
+### 4.1. EventInfo Interface
+
+```typescript
+/**
+ * Represents the information extracted from an event poster.
+ */
+interface EventInfo {
+  /**
+   * True if the image is an event poster.
+   */
+  isEvent: boolean;
+  /**
+   * The name of the event.
+   */
+  eventName: string;
+  /**
+   * A list of schedules for the event.
+   */
+  schedules: Schedule[];
+  /**
+   * The general location of the event.
+   */
+  location: string;
+  /**
+   * The organizer of the event.
+   */
+  eventOwner?: string;
+  /**
+   * Contact information for the event.
+   */
+  contactInfo?: string;
+  /**
+   * A description of the event.
+   */
+  description?: string;
+}
+```
+
+### 4.2. Coordinates Interface
+
+```typescript
+/**
+ * Represents geographical coordinates.
+ */
+interface Coordinates {
+  latitude: number;
+  longitude: number;
+}
+```
+
+### 4.3. LocationDetails Interface
+
+```typescript
+/**
+ * Represents detailed information about a location from a geolocation service.
+ */
+interface LocationDetails {
+  /**
+   * The geographical coordinates of the location.
+   */
+  coordinates: Coordinates;
+  /**
+   * The name of the place (e.g., "The Grand Mall").
+   */
+  placeName?: string;
+  /**
+   * The unique identifier for the place from the geolocation provider (e.g., Google Place ID).
+   */
+  placeId?: string;
+  /**
+   * The full, formatted address of the location.
+   */
+  formattedAddress?: string;
+  /**
+   * The IANA time zone name for this location (e.g., "Europe/Paris").
+   */
+  timezone?: string;
+}
+```
+
+### 4.4. Schedule Interface
+
+```typescript
+/**
+ * Represents a single schedule for an event.
+ */
+interface Schedule {
+  /**
+   * Indicates if this is the main schedule for the event.
+   */
+  isMainSchedule: boolean;
+  /**
+   * The start date of the event in YYYY-MM-DD format.
+   */
+  eventStartDate: string;
+  /**
+   * The title of the schedule.
+   */
+  title?: string;
+  /**
+   * The end date of the event in YYYY-MM-DD format.
+   */
+  eventEndDate?: string;
+  /**
+   * The start time of the event in HH:MM format.
+   */
+  eventStartTime?: string;
+  /**
+   * The end time of the event in HH:MM format.
+   */
+  eventEndTime?: string;
+  /**
+   * A list of performers or artists at the event.
+   */
+  performers?: string[];
+  /**
+   * The location of the event for this specific schedule.
+   */
+  location?: string;
+  /**
+   * The ticket price for this schedule.
+   */
+  ticketPrice?: string;
+  /**
+   * Detailed information about the event\_s location.
+   */
+  locationDetails?: LocationDetails;
+}
+```
+
+## 5. Non-Functional Requirements
 
 *   **Performance:** The web application must be fast and responsive, with minimal loading times.
 *   **Scalability:** The platform must be able to handle a growing number of users and events. This includes robust mechanisms for managing external API quotas (e.g., Gemini API) through intelligent throttling, queuing, and capacity planning based on a defined calculation formula. The architecture will support horizontal scaling to accommodate increased demand for social media account subscriptions, ensuring adherence to API usage policies while maintaining performance.
+*   **External API Management:** The application relies on external APIs (e.g., Google Gemini, Google Geolocation) and must manage them responsibly.
+    *   **API Key Security:** All API keys must be stored securely in environment variables and must not be committed to the source code repository, especially since the project is open source. Documentation for self-hosting should instruct users to provide their own keys.
+    *   **API Key Restriction:** To minimize the impact of a potential key leak, all API keys should be restricted in the Google Cloud Console. This includes applying API restrictions (e.g., only allowing the Geolocation API) and Application restrictions (e.g., by HTTP referrer or IP address).
+    *   **Quota Management:** To stay within the free tier limits of external APIs like Google Geolocation, a caching mechanism will be implemented. Lookups for the same location will be served from the cache to minimize redundant API calls.
 *   **Security:** User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal data and event preferences are used solely to personalize your experience within the app; we do not spam your calendar, sell your data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
 *   **Usability:** The interface must be intuitive and easy to use for all demographics.
 *   **Reliability:** The platform should have high uptime and minimal downtime. This includes resilience against external API service disruptions through proactive error handling, back-off strategies, and intelligent API key management, ensuring continuous operation of the social media subscription feature.
@@ -133,14 +282,14 @@ FestGrid will be accessible as a web application from any browser. Users can sig
 *   **Event Status Updates:** Users are advised to independently verify event status (e.g., cancellations, rescheduling) with official organizers, as real-time tracking from diverse sources presents inherent challenges.
 *   **Internationalization:** For the MVP, the platform will support Indonesian and English. The layout must be designed to support both Left-to-Right (LTR) and Right-to-Left (RTL) languages to facilitate future expansion.
 
-## 5. Monetization Strategy
+## 6. Monetization Strategy
 
 *   **Free-to-Use Core:** The core event discovery and management features will remain free. Features leveraging the user's own BYOK Gemini API key (e.g., social media account subscriptions) will not incur any additional fees or charges from FestGrid.
 *   **Future Premium Features (for Event Organizers - Post-MVP):** Implement features allowing event organizers to promote their events, such as appearing at the top of event discovery pages. This will function similarly to an advertising schema, enabling organizers to target users based on their interest in event type, category, and user geolocation. To facilitate this, as part of the post-MVP monetization strategy, we will collect user data related to their event interest (type, category) and geolocation. This data collection will be strictly anonymized and aggregated where possible, and users will be provided with clear opt-out mechanisms and transparency regarding data usage, fully adhering to our stated privacy principles. This feature is planned for a phase beyond the Minimum Viable Product (MVP) and will not affect the free core experience for end-users.
 *   **Localized Advertising:** Non-intrusive, highly relevant advertising based on location and event type.
 *   **Partnerships:** Collaborate with city tourism boards and local businesses.
 
-## 6. Key Performance Indicators (KPIs)
+## 7. Key Performance Indicators (KPIs)
 
 *   **User Acquisition:** New sign-ups, weekly active users (WAU), monthly active users (MAU).
 *   **Engagement:** Average session duration, events added to calendars, social sharing.
