@@ -41,7 +41,7 @@ Users can easily discover events through FestGrid's curated listings or by conne
 
 ### Getting Started
 
-FestGrid will be readily accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, such as subscribing to social media accounts for event extraction, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key.
+FestGrid will be readily accessible as a web application from any browser. Our launch will happen in two phases. Initially, we will welcome **Contributing Users** who can unlock the full power of the platform by providing their own API key to subscribe to any public social media account. Following this beta phase, we will launch a **Free Tier** for the general public, allowing everyone to experience the best events their city has to offer.
 
 ---
 
@@ -49,7 +49,7 @@ FestGrid will be readily accessible as a web application from any browser. Users
 
 ### Q: There are so many event listing sites and apps already. How is FestGrid truly different and better than what I can already find on [popular event platform] or even just social media?
 
-A: FestGrid streamlines event discovery and scheduling with a dynamic calendar view. Users can easily find and filter events by type (e.g., seminars, tournaments, entertainment, exhibitions, promotions), category (e.g., music, religious, cultural, art), location, or even specific performers.
+A: FestGrid streamlines event discovery and scheduling with a dynamic calendar view. Users can easily find and filter events by type (e.g., seminars, tournaments, entertainment, exhibitions, promotions), category (e.g., music, religious, cultural, art), location, or even specific performers. Our unique social media subscription feature allows you to create a personalized event feed from the sources you already follow.
 
 ### Q: What happens to my personal data and event preferences? Will my calendar be spammed or my information sold?
 
@@ -57,72 +57,62 @@ A: At FestGrid, your privacy is paramount. Your personal data and event preferen
 
 ### Q: Is FestGrid free, or is there a subscription cost? Are there any hidden fees or different feature levels?
 
-A: FestGrid is and will remain completely free to use. There are no subscription costs, no tiers, and absolutely no hidden fees. All users can discover events, add them to their calendar, and receive basic reminders without any cost. While FestGrid's core features for event discovery and management remain free for all end-users, future development phases may introduce distinct premium features specifically designed for event organizers to promote their events, which are separate from the core user experience and do not involve subscription fees for general users. This free experience is powered by curated events sourced largely through crowd contributions, ensuring a diverse and vibrant selection of local cultural, entertainment, and hobby events. For those seeking a more advanced experience, such as the ability to view and subscribe to events directly from their preferred social media accounts (like Instagram), users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. This unlocks the social media subscription feature, powered by their own Gemini API key and without any subscription fees or charges from FestGrid. Users are responsible for the validity and quota management of their BYOK Gemini API keys. To ensure a smooth experience, FestGrid intelligently uses available valid API keys from any subscribing user for shared social media accounts, distributing the load and optimizing data extraction. You'll receive email notifications if your subscribed posts are queued due to quota exhaustion, with suggestions for adding more keys, and you can monitor the status of your queued posts via a dedicated in-app page. If your API key becomes invalid, you'll be notified via email after a few failed attempts and will no longer receive push notifications for events relying on your key. However, you'll still see available data and data fetched by other users' valid keys for shared subscriptions.
+A: FestGrid offers two ways to enjoy the platform:
 
-**Transparent API Management & Capacity Limits (Crucial Update):** While we strive to provide seamless service and prevent API issues, there will be a maximum number of social media accounts our current system can efficiently process across all user subscriptions. If this overall capacity limit is reached (especially with our initial backend server setup), you will be temporarily unable to add new social media accounts for subscription until our backend server capacity is expanded. We will clearly communicate these temporary limits within the app to ensure transparency.
+*   **Free Tier:** This is the perfect way to get started. You can browse all discovered events and subscribe to a limited number of our most popular, shared public event sources. It's completely free, with no hidden costs.
+
+*   **Contributing User (BYOK):** For our power users and early adopters, we have the Contributing User program. By providing your own Gemini API key (Bring Your Own Key), you unlock the ability to subscribe to any public social media account you want, creating a truly personalized event feed. This helps the entire community by discovering new event sources that may become part of the Free Tier over time. There are no subscription fees from FestGrid for this tier.
+
+Our core discovery and calendar management features are free for everyone. Future premium features will be for event organizers, not our general users.
 
 ### Q: How long does it typically take to find and add an event to my calendar? Is the interface easy enough for a busy parent or someone not tech-savvy to use quickly?
 
-A: We've designed FestGrid for speed and simplicity. For most users, finding and adding an event to their calendar is remarkably fast: simply browse the homepage or use the search function, click 'add-to-calendar', and the event is automatically imported into your preferred calendar application. This entire process takes mere seconds. We understand that some advanced features, like integrating your own Gemini API key for subscribing to social media accounts, require a brief setup process on Google's developer console. While this is more technical, we provide clear, step-by-step guides and direct links to assist you, ensuring everyone can unlock FestGrid's full potential if they choose.
+A: We've designed FestGrid for speed and simplicity. For most users, finding and adding an event to their calendar is remarkably fast: simply browse the homepage or use the search function, click 'add-to-calendar', and the event is automatically imported into your preferred calendar application. This entire process takes mere seconds. We understand that becoming a Contributing User by integrating your own API key requires a brief setup process on Google's developer console. We provide clear, step-by-step guides and direct links to assist you with this one-time setup.
 
 ### Q: What if an event I planned to attend gets canceled or rescheduled? Does FestGrid notify me, or do I need to track that myself?
 
-A: Currently, FestGrid's primary strength lies in event discovery and scheduling, aggregating information primarily from social media and crowd contributions. While we strive to present accurate event details, directly tracking real-time cancellations or rescheduling presents a significant challenge. Social media posts rarely contain formal cancellation announcements in an easily extractable format, making it difficult for our system to reliably detect and match these changes to events you've saved. Therefore, users will need to independently verify event status with the organizers or on the event's official channels. We are continually exploring ways to improve this aspect of event management, but for now, we recommend users cross-reference with official sources for any last-minute changes.
+A: Currently, FestGrid's primary strength lies in event discovery and scheduling. While we strive to present accurate event details, tracking real-time cancellations or rescheduling is a significant challenge. We recommend users independently verify event status with the organizers, especially for last-minute changes. Our platform includes community reporting features to flag canceled events, which helps keep the data fresh for everyone.
 
 ### Q: Does FestGrid cover all types of events (e.g., small local community gatherings, school events, sports leagues) or just major public cultural events?
 
-A: FestGrid is designed to be as comprehensive as the community and our users make it. We don't artificially limit event types; our platform thrives on the diversity of content generated by crowd contributions and the events users discover through their subscribed social media accounts. This means you can find everything from major public cultural festivals and concerts to smaller, local community gatherings, school plays, sports leagues, and niche hobby workshops. If an event is being shared or organized within your community or on your connected social platforms, chances are it can be found and managed through FestGrid. Our goal is to reflect the full, vibrant spectrum of city life.
+A: FestGrid is designed to be as comprehensive as the community and our users make it. We don't artificially limit event types; our platform thrives on the diversity of content generated by our Contributing Users and their subscribed social media accounts. This means you can find everything from major public cultural festivals and concerts to smaller, local community gatherings and niche hobby workshops.
 
 ### Q: With all these different event sources, how can you guarantee that FestGrid won't miss important events, and that the information provided is always accurate and up-to-date?
 
-A: While FestGrid strives to be the most comprehensive and reliable source for local events, it's important to understand our data model. We leverage a robust system of crowd contributions and integrated social media sources to curate our event listings. This approach allows us to capture a vast and diverse range of events that might be missed by other platforms. We aim for 99% accuracy for event schedules as initially posted, and diligently work to provide comprehensive details like rundowns, performers, and precise locations. However, as with any crowd-sourced platform, absolute 100% real-time guarantee against all changes is a continuous challenge. Our commitment is to rapid aggregation and presentation of the most current publicly available information, empowering our community to contribute and validate, constantly improving the data quality. We recommend users always cross-reference with official event organizers for critical information, especially closer to the event date.
+A: While FestGrid strives to be the most comprehensive and reliable source for local events, it's important to understand our data model. We leverage our community of Contributing Users and their integrated social media sources to curate our event listings. We aim for high accuracy as initially posted, but as with any crowd-sourced platform, a 100% real-time guarantee is a challenge. Our commitment is to rapid aggregation and presentation of the most current publicly available information, and our user reporting tools help the community constantly improve data quality.
 
 ---
 
 ### Q: What if I find inaccurate event information or want to report an event?
 
-A: FestGrid is committed to providing accurate and up-to-date event information, leveraging both automated systems and community contributions. If you encounter incorrect details, such as wrong dates, times, or locations, you can use our built-in correction mechanism. Simply navigate to the event and select the 'Report' option. Here, you can provide free-text input to suggest specific corrections, or select from predefined reasons such as 'Event Cancelled,' 'Dangerous/Illegal Event,' or 'Personal (hide event from my view).' This feedback is then processed by our AI agent, which may apply the correction directly or flag it for human moderator review, ensuring data quality. For more serious concerns like dangerous or illegal events, our moderation team is notified immediately for urgent review. Authenticated users will also have a dedicated 'Reports' page under their user menu to track the status and history of their submitted reports, ensuring transparency and accountability.
+A: FestGrid is committed to providing accurate and up-to-date event information. If you encounter incorrect details, you can use our built-in 'Report' option. Here, you can suggest specific corrections or select from predefined reasons such as 'Event Cancelled,' or 'Dangerous/Illegal Event.' This feedback is processed by our system to ensure data quality. For serious concerns, our moderation team is notified immediately.
 
 ## Internal FAQ
 
 ### Q: What are the key technical challenges in implementing FestGrid, especially concerning event data aggregation from diverse sources?
 
-A: The primary technical challenges involve harmonizing disparate event data formats (e.g., social media posts, various ticketing platforms, community calendars) and ensuring data freshness. We will employ a combination of AI-driven parsing for unstructured data and API integrations for structured sources. Scalability for real-time updates, smart API key usage for shared subscriptions, and robust error handling (including reactive API key validation and key rollover) for broken links or changed event details will be crucial.
+A: The primary technical challenges involve harmonizing disparate event data formats and ensuring data freshness. We will employ a combination of AI-driven parsing for unstructured data (via an adapter-based architecture) and a resilient, queue-based system for processing. Scalability for real-time updates and robust error handling will be crucial.
 
 ### Q: How will FestGrid ensure data privacy and security, especially given the BYOK Gemini API integration?
 
-A: Data privacy is paramount. User-provided Gemini API keys will be used server-side for event data extraction. They will be securely stored and managed with robust encryption and access controls, never directly exposing the keys in client-side code. For general user data, we will adhere to industry best practices for encryption, access control, and anonymization. Our architecture will be designed with privacy-by-design principles, ensuring compliance with relevant data protection regulations (e.g., GDPR, CCPA).
+A: Data privacy is paramount. User-provided API keys will be used server-side and managed with robust encryption and access controls. For general user data, we will adhere to industry best practices for encryption, access control, and anonymization. Our architecture will be designed with privacy-by-design principles.
 
 ### Q: What is the monetization strategy for FestGrid, given it's a free-to-use platform?
 
-A: Initially, FestGrid will focus on user acquisition and community building, operating as a free service. Potential future monetization strategies, once a significant user base is established, could include premium features for event organizers (e.g., appearing at the top of event discovery pages via an advertising schema, enhanced analytics, promotional tools), localized advertising that is non-intrusive and highly relevant, or partnerships with city tourism boards and local businesses. For these post-MVP premium features for organizers, user data related to event interests (type, category) and geolocation may be collected. This collection will be strictly anonymized and aggregated where possible, with clear opt-out mechanisms and transparency for users. Crucially, any monetization will not compromise user data privacy or the core free user experience for end-users.
+A: Our primary focus is on user acquisition via our two-tiered model (Free and Contributing User). Future monetization will focus on premium features for event organizers (e.g., promotional tools) and will not compromise the core free user experience.
 
 ### Q: What are the key performance indicators (KPIs) for FestGrid´s success in the initial launch phase?
 
 A: Key KPIs for the initial launch phase include:
-*   **User Acquisition:** Number of new sign-ups, weekly active users (WAU), monthly active users (MAU).
-*   **Engagement:** Average session duration, number of events added to calendars per user, rate of social sharing.
-*   **Content Growth:** Number of new events added to the platform daily/weekly, diversity of event types and sources.
+*   **User Acquisition:** Number of new sign-ups (both Free and Contributing), weekly active users (WAU).
+*   **Engagement:** Average session duration, number of events added to calendars per user.
+*   **Content Growth:** Number of new `Shared Public Accounts` added by Contributing Users.
 *   **Retention:** User retention rates over 7, 30, and 90 days.
-*   **Operational Efficiency:** System uptime, API response times, bug reports,
-    *   **Social Media Image/Caption Retrieval Success Rate:** Measures the success rate of obtaining image URLs and captions from social media posts.
-    *   **AI Agent Call Success Rate:** Monitors the successful invocation of the AI agent, tracking failures due to issues like exhausted quotas or incorrect API keys.
-    *   **Average Queue Time for Scraped Posts (Quota Related):** Measures the average time posts remain in the queue due to Gemini API quota limitations.
-    *   **Cron-triggered Event Data Extraction Accuracy (vs. Manual Correction):** Measures the accuracy of event data initially extracted by automated cron jobs by comparing it against data obtained through subsequent user-triggered manual extractions (e.g., if a cron job yielded empty data that was later successfully extracted manually, or if a user marked cron-extracted data as inaccurate).
-    *   **User-Initiated Report Volume:** Number of reports submitted by users, broken down by type (correction, cancelled, dangerous, personal).
-    *   **Correction Application Rate:** The percentage of user-suggested corrections successfully processed and applied to event data by the AI agent or moderators.
-    *   **Moderation Response Time (Dangerous Events):** Average time taken for moderators to review and act on reports of dangerous events.
-    *   **Deletion Effectiveness (Cancelled Events):** Percentage of events soft-deleted after receiving 3 unique user reports for cancellation.
-    *   **Moderator Override Rate:** Frequency with which moderators override automated decisions or user reports (e.g., restoring a soft-deleted event, marking a dangerous event as safe).
+*   **Operational Efficiency:** System uptime, API response times, AI extraction success rate.
 
 ### Q: What is the plan for moderation and quality control of crowd-contributed event data?
 
-A: We will implement a multi-layered approach to moderation. This includes:
-*   **Automated Filters:** AI-driven scanning for inappropriate content, duplicates, and obvious spam.
-*   **AI-Assisted Corrections:** For user-submitted corrections, an AI agent will process free-text input, utilizing guided input, AI confidence scoring, and human-in-the-loop review for critical data points to ensure accuracy and reduce misinterpretations.
-*   **Community Reporting:** Users will be able to flag inaccurate or inappropriate event listings.
-*   **Curator Review:** A small team of human curators will review flagged content and potentially curate featured events.
-*   **Reputation System:** Future iterations may include a reputation system for contributors to incentivize accurate submissions.
+A: We will implement a multi-layered approach including automated filters, AI-assisted corrections with confidence scoring, community reporting tools, and human curator review for flagged content.
 
 ---
 
@@ -131,36 +121,18 @@ A: We will implement a multi-layered approach to moderation. This includes:
 **Forged in Steel (Strengths):**
 
 *   **Strong Problem-Solution Fit:** The core value proposition of solving the fragmented and ephemeral nature of local event discovery is clear, compelling, and addresses a common pain point.
-*   **Innovative BYOK Model:** The Bring-Your-Own-Key approach for social media integration is a clever and scalable solution to the high cost and rate-limiting challenges of third-party APIs. It empowers users while keeping the platform financially viable.
+*   **Innovative Phased Rollout:** The two-phase launch strategy (BYOK-first for `Contributing Users`, then a `Free Tier`) is a clever and pragmatic approach. It solves the initial content seeding problem by empowering early adopters and mitigates the financial risk of AI processing costs.
 *   **Community-Centric Features:** The inclusion of robust user reporting, data correction, and moderation tools from the outset shows a strong understanding of the requirements for building a reliable, community-driven data source.
 
 **Needs More Heat (Areas for Refinement):**
 
-*   **Onboarding for Non-Technical Users:** The process of acquiring and inputting a Gemini API key is a significant point of friction. The success of the key subscription feature hinges on making this process exceptionally simple and well-guided.
-*   **Initial Content Seeding:** The platform's value is dependent on a critical mass of events. The strategy for initial content acquisition, before community contributions and subscriptions ramp up, needs to be clearly defined.
-*   **Event Accuracy Management:** While acknowledged as a challenge, the reliance on user reports for event changes (cancellations, rescheduling) could be a point of user frustration. Exploring more proactive validation methods post-MVP will be important.
+*   **Onboarding for Contributing Users:** The process of acquiring and inputting a Gemini API key is a significant point of friction. The success of the `contributing_user` tier hinges on making this process exceptionally simple and well-guided.
+*   **Curating the Free Tier:** The process for promoting a `Shared Public Account` to the curated list for free users needs to be defined. This includes setting thresholds for popularity and ensuring a high-quality experience.
 
 **Cracks in the Foundation (Potential Risks):**
 
-*   **External API Dependency:** The heavy reliance on the Google Gemini API creates a significant external dependency. Any changes to Google's API policies, pricing, or availability could fundamentally impact the core functionality.
-*   **MVP Capacity Limitations:** The hard limit on subscribable accounts in the MVP could stifle early growth and lead to a poor initial user experience if not managed and communicated carefully.
+*   **External API Dependency:** The reliance on external APIs (both for scraping and AI) creates a significant dependency. Any changes to policies, pricing, or availability could fundamentally impact the core functionality. The use of adapters for both scraping and AI provides architectural flexibility to mitigate this, but the risk remains.
 *   **Competitive Landscape:** The event aggregation space is crowded. The unique value of the social media subscription feature must be messaged clearly and effectively to differentiate FestGrid from established players.
 
-<!-- coaching-notes-stage-1 -->
-Concept Type: Commercial Product (Web Application)
-Rationale: Directly addresses a market need for event discovery and management among a specific demographic.
-Initial Assumptions Challenged: The initial broad definition of the customer as "everyone" was challenged and refined to "City Residents & Families." This was crucial for understanding specific pain points.
-Why this direction over alternatives discussed: The user consistently gravitated towards solving the problem of event discovery and management for a broad entertainment category for city residents and families, specifically those found on social media (Instagram).
-Key subagent findings that shaped the concept framing: (No subagent findings yet as this is the initial draft)
-Any user context captured that doesn't fit the PRFAQ itself: Detailed technical considerations regarding Gemini API usage, API key management, collaborative caching, and rate limiting were noted for future stages but are not directly part of the PRFAQ.
-
-<!-- coaching-notes-stage-2 -->
-Headline Refinements: Initial headline "FestGrid Launches to Help City Dwellers Never Miss a Beat in Their Urban Social Life" was refined to "FestGrid: Your City's Events, Never Miss Out Again" for conciseness and direct customer benefit.
-Subheadline Refinements: Initial subheadline was refined from "New web app centralizes local events and delivers timely notifications, ensuring young professionals can easily discover and attend their favorite cultural experiences." to "City Residents & Families: Discover, Schedule, and Enjoy Your City's Best Cultural, Entertainment, and Hobby Events." to broaden the target audience and event types.
-Opening Paragraph Refinements: Initial paragraph was refined to be more inclusive of "city residents and families" and emphasize "cultural, entertainment, and hobby events" and "scheduling." Avoided "groundbreaking" and "pervasive."
-Solution Paragraph Refinements: Refined to emphasize "effortlessly managing" and "smart scheduling tools" for "cultural, entertainment, and hobby events" for "city residents and families."
-Leader Quote Refinements: Revised to be more inclusive of "every city resident and family" and emphasize "effortless discovery, planning, and experience" for "cultural, entertainment, and hobby events."
-How It Works Refinements: Broadened event discovery beyond Instagram and reinforced scheduling aspects for "city residents and families."
-Customer Quote Refinements: Revised to a "Engaged Resident" persona, addressing "missing out" and highlighting "clever scheduling tools" for a broader range of events.
 
 

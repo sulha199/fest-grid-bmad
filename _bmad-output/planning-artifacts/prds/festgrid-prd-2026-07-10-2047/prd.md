@@ -54,7 +54,7 @@ This feature allows users to curate their event feed by subscribing to specific 
 *   **Quota Management Algorithm:** To maximize the number of processed requests and ensure fairness, the following algorithm will be implemented:
     *   **Internal Quota Tracking:** The system will internally track the usage of each API key to inform the fairness algorithm. This tracking will be reset at the beginning of each billing cycle.
     *   **Tier 1: User-Specific Subscriptions:** Requests for social media accounts subscribed to by only one user will be processed first, using that user's API key(s).
-    *   **Tier 2: Shared Subscriptions (Round-Robin with Fairness):** For social media accounts subscribed to by multiple users, a round-robin approach will be used to cycle through the API keys of the subscribing users. To ensure fairness, the algorithm will prioritize keys from users who have contributed fewer API calls in the current billing cycle.
+    *   **Tier 2: Shared Subscriptions (Round-Robin with Fairness):** For social-media accounts subscribed to by multiple users, a round-robin approach will be used to cycle through the API keys of the subscribing users. To ensure fairness, the algorithm will prioritize keys from users who have contributed fewer API calls in the current billing cycle.
     *   **Multiple API Keys:** If a user provides multiple API keys, the system will treat them as a pool of resources for that user, cycling through them as needed.
     *   **Key Failure:** If a user's key fails or is rate-limited, it will be temporarily skipped, and the next user's key in the round-robin will be used.
 *   **Display Subscribed Events:** Events extracted from a user's social media accounts will be displayed to the user.
@@ -76,13 +76,13 @@ This feature allows users to curate their event feed by subscribing to specific 
     *   **Invalid Key Attempts:** The system tracks consecutive invalid API key attempts. Once a configurable limit (`N`) is reached, an email notification is sent to the user explaining the issue and its impact.
     *   **Key Rollover:** For accounts subscribed to by multiple users, if one user\`s API key becomes invalid, the system will attempt to use a valid API key from another subscribing user to continue data extraction for that shared account.
     *   **Attempt Reset:** The count of invalid key attempts is reset upon successful data extraction.
-    *   **Feature Impact:** Users with an invalid API key will cease to receive push notifications for events from accounts relying on their specific key. However, they will still see available data and data fetched by other users' valid keys for shared subscriptions.
+    *   **Feature Impact:** Users with an invalid API key will cease to receive push notifications for events from accounts relying on their specific key. However, they will still see available data and data fetched by other users\' valid keys for shared subscriptions.
 
 ### 3.4 Gemini API Management and Capacity
 
 To ensure reliable and stable operation while adhering to Google Gemini API usage policies, FestGrid will implement comprehensive API management and capacity planning strategies:
 
-*   **Proactive Throttling and Queuing:** All requests to the Gemini API will be routed through a dedicated API management layer that implements dynamic throttling and intelligent queuing mechanisms. This layer will manage the rate of outgoing requests per API key, per user, and globally, to prevent exceeding rate limits and to avoid patterns that could be flagged as suspicious activity by Google. This is particularly crucial when handling concurrent requests from multiple users, potentially using different API keys for the same social media account.
+*   **Proactive Throttling and Queuing:** All requests to external AI services (like the Gemini API) will be routed through a dedicated **AI Gateway** layer. This layer implements dynamic throttling and intelligent queuing using a decoupled, multi-queue architecture (`ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`). This approach allows for resilience and independent scaling. The gateway will manage the rate of outgoing requests based on rules defined within an **Adapter** for each AI service, preventing rate limit violations and mitigating suspicious activity flags.
 *   **Suspicious Activity Mitigation:** The system is designed to proactively mitigate risks associated with "suspicious activity" flags from Google. This includes intelligently distributing API calls across available valid keys, introducing strategic delays, and implementing back-off algorithms to gracefully handle temporary API issues without triggering broader service disruptions.
 *   **MVP Capacity Limitations:** For the Minimum Viable Product (MVP), operating with a single backend server instance, there will be a finite capacity for the total number of social media accounts that can be actively subscribed and processed. This limit is dictated by factors such as the available Gemini API quotas (QPM/QPD), the average processing time required per subscribed account, and the overall server resources.
 *   **User Notification for Capacity Limits:** When the MVP's capacity limit for new social media account subscriptions is reached, users attempting to add further subscriptions will be gracefully informed via an in-app message that they cannot add more accounts at this time. The message will explain that this is due to current server capacity and that new subscriptions will be enabled once additional backend servers are provisioned or horizontal scaling is implemented.
@@ -175,6 +175,10 @@ interface EventInfo {
    * A unique identifier for the event, generated using Nano ID.
    */
   id: string;
+  /**
+   * A score from 0.0 to 1.0 indicating the AI's confidence in the accuracy of the extracted data.
+   */
+  confidenceScore?: number;
 }
 ```
 
@@ -277,11 +281,12 @@ interface Schedule {
 ## 5. Non-Functional Requirements
 
 *   **Performance:** The web application must be fast and responsive, with minimal loading times.
-*   **Scalability:** The platform must be able to handle a growing number of users and events. This includes robust mechanisms for managing external API quotas (e.g., Gemini API) through intelligent throttling, queuing, and capacity planning based on a defined calculation formula. The architecture will support horizontal scaling to accommodate increased demand for social media account subscriptions, ensuring adherence to API usage policies while maintaining performance.
-*   **External API Management:** The application relies on external APIs (e.g., Google Gemini, Google Geolocation) and must manage them responsibly.
+*   **Scalability:** The platform must be able to handle a growing number of users and events. The architecture will be based on a decoupled, multi-queue system (e.g., `ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`) to ensure resilience and allow components to be scaled independently. This includes robust mechanisms for managing external API quotas (e.g., Gemini API) through an intelligent `AIGateway`, and capacity planning based on a defined calculation formula.
+*   **External API Management:** The application relies on external APIs (e.g., Google Gemini, Google Geolocation) and must manage them responsibly. An Adapter pattern will be used for AI services to allow for future flexibility in swapping models.
     *   **API Key Security:** All API keys must be stored securely in environment variables and must not be committed to the source code repository, especially since the project is open source. Documentation for self-hosting should instruct users to provide their own keys.
     *   **API Key Restriction:** To minimize the impact of a potential key leak, all API keys should be restricted in the Google Cloud Console. This includes applying API restrictions (e.g., only allowing the Geolocation API) and Application restrictions (e.g., by HTTP referrer or IP address).
     *   **Quota Management:** To stay within the free tier limits of external APIs like Google Geolocation, a caching mechanism will be implemented. Lookups for the same location will be served from the cache to minimize redundant API calls.
+*   **AI Extraction Quality**: All AI-driven event extractions must produce a `confidenceScore` along with the `EventInfo` data. Events with a score below a defined threshold will be automatically flagged for human review to ensure data quality.
 *   **Security:** User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal data and event preferences are used solely to personalize your experience within the app; we do not spam your calendar, sell your data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
 *   **Usability:** The interface must be intuitive and easy to use for all demographics.
 *   **Reliability:** The platform should have high uptime and minimal downtime. This includes resilience against external API service disruptions through proactive error handling, back-off strategies, and intelligent API key management, ensuring continuous operation of the social media subscription feature.
@@ -292,7 +297,14 @@ interface Schedule {
 
 ## 6. Monetization Strategy
 
-*   **Free-to-Use Core:** The core event discovery and management features will remain free. Features leveraging the user's own BYOK Gemini API key (e.g., social media account subscriptions) will not incur any additional fees or charges from FestGrid.
+FestGrid will launch with a two-phase rollout to manage costs and build a valuable data foundation before scaling. This model defines two primary user roles: `Contributing User` and `Free User`.
+
+*   **Phase 1: Invitation-Only Beta (`contributing_user` Tier):** The initial release will be for `contributing_user`s who operate on a Bring-Your-Own-Key (BYOK) model. These early adopters provide their own API key to subscribe to any public social media account. This strategy allows us to test the core technology while these users help seed the platform with a diverse range of `Shared Public Accounts` at no AI-processing cost to the platform.
+
+*   **Phase 2: Public Launch (`free_user` Tier):** Once a critical mass of shared accounts is established, a `free_user` tier will be introduced. These users can subscribe to a limited number (e.g., 2) of popular `Shared Public Accounts`. The platform will use a managed pool of API keys to handle processing for these shared accounts, ensuring reliability.
+
+*   **Core Feature Access:** The core event discovery (for non-subscription events) and management features will remain free for all users.
+
 *   **Future Premium Features (for Event Organizers - Post-MVP):** Implement features allowing event organizers to promote their events, such as appearing at the top of event discovery pages. This will function similarly to an advertising schema, enabling organizers to target users based on their interest in event type, category, and user geolocation. To facilitate this, as part of the post-MVP monetization strategy, we will collect user data related to their event interest (type, category) and geolocation. This data collection will be strictly anonymized and aggregated where possible, and users will be provided with clear opt-out mechanisms and transparency regarding data usage, fully adhering to our stated privacy principles. This feature is planned for a phase beyond the Minimum Viable Product (MVP) and will not affect the free core experience for end-users.
 *   **Localized Advertising:** Non-intrusive, highly relevant advertising based on location and event type.
 *   **Partnerships:** Collaborate with city tourism boards and local businesses.
@@ -313,5 +325,6 @@ interface Schedule {
     *   **Moderation Response Time (Dangerous Events):** Average time taken for moderators to review and act on reports of dangerous events.
     *   **Deletion Effectiveness (Cancelled Events):** Percentage of events soft-deleted after receiving 3 unique user reports for cancellation.
     *   **Moderator Override Rate:** Frequency with which moderators override automated decisions or user reports (e.g., restoring a soft-deleted event, marking a dangerous event as safe).
+
 
 
