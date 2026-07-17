@@ -7,7 +7,7 @@ status: "draft"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-07-10T20:50:17Z"
+updated: "2026-07-17T10:30:00Z"
 
 ---
 
@@ -30,21 +30,37 @@ This document outlines the product requirements for FestGrid, a platform designe
 
 *   **Curated Listings:** Display a curated selection of local events.
 *   **Search and Filter:** Allow users to search and filter events by type, category, location, and performers.
+*   **Default View:** By default, the event discovery page will only display ongoing and upcoming events.
 
+### 3.2 Personalization Features
 
-### 3.2 Event Management
+*   **3.2.1. Favorite Events:** Users can "favorite" events they are interested in.
+*   **3.2.2. Dedicated Favorite Events Page:** A dedicated page will show all favorited events.
+*   **3.2.3. Dedicated Added Events Page:** A dedicated page will show all events the user has added to their calendar.
 
-*   **One-Click Calendar Integration:** Provide easy integration with personal calendars.
-*   **Event Details Centralization:** Consolidate all relevant event information in one place.
+### 3.3 Event Management
 
+*   **3.3.1. Calendar Integration:**
+    *   When adding an event to a calendar, users can select which specific schedules to add.
+    *   For MVP, this is a one-way integration (app to calendar).
+*   **3.3.2. Event Details Centralization:** Consolidate all relevant event information in one place.
 
+### 3.4 Global View Rules
 
-### 3.3 Social Media Account Subscription
+*   **3.4.1. Default View:** All event discovery pages (main discovery, subscribed events) will by default only show ongoing and upcoming events.
+*   **3.4.2. Personalized Views Past Event Rule:** Events in a user's personal lists ('favorited' or 'added to calendar') will be hidden `N` days after they have passed. `N` is configurable via an environment variable with a default value of 7.
+
+### 3.5 Calendar View Enhancements
+
+*   **3.5.1. Visual Distinction:** "Favorited" and "Added to Calendar" events will have a distinct visual treatment on the calendar.
+*   **3.5.2. View Toggles:** The calendar will have toggles to show/hide all "favorited" events and all "added" events.
+
+### 3.6 Social Media Account Subscription
 
 This feature allows users to curate their event feed by subscribing to specific social media accounts.
 
 *   **Account Subscription:** Users can subscribe to desired social media accounts by providing their own Gemini API Key (BYOK). Event data from these subscribed accounts will be processed by an AI agent to extract event details. For accounts subscribed to by multiple users, the system will intelligently utilize any valid API key from contributing users to optimize data extraction and distribute quota usage.
-    *   **Default Location for Subscriptions:** To handle cases where an event\'s location is implicit (e.g., an event at a mall posted on the mall\'s social media), users can optionally set a "Default Location" when subscribing to an account. If the AI agent does not find an explicit location in a post, it will use this default location for the event.
+    *   **Default Location for Subscriptions:** To handle cases where an event's location is implicit (e.g., an event at a mall posted on the mall's social media), users can optionally set a "Default Location" when subscribing to an account. If the AI agent does not find an explicit location in a post, it will use this default location for the event.
 *   **Quota Management & Notifications:**
 *   **Email Notifications:** Users will receive email notifications if `X` of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
 *   **In-App Queue Status:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user, providing transparency on API key performance and quota impact.
@@ -72,13 +88,13 @@ This feature allows users to curate their event feed by subscribing to specific 
     *   **User's Timezone:** If the location is unavailable or ambiguous, the timezone of the user who subscribed to the event source will be used as a fallback.
     *   **Manual Clarification:** If the timezone cannot be determined with high confidence, the event will be flagged for the user to provide clarification.
 *   **API Key Validity & Notifications (Reactive):**
-    *   **Reactive Validation:** API keys are validated reactively. If an API key encounters an \"invalid API key\" error during data extraction, the system records this attempt.
+    *   **Reactive Validation:** API keys are validated reactively. If an API key encounters an "invalid API key" error during data extraction, the system records this attempt.
     *   **Invalid Key Attempts:** The system tracks consecutive invalid API key attempts. Once a configurable limit (`N`) is reached, an email notification is sent to the user explaining the issue and its impact.
-    *   **Key Rollover:** For accounts subscribed to by multiple users, if one user\`s API key becomes invalid, the system will attempt to use a valid API key from another subscribing user to continue data extraction for that shared account.
+    *   **Key Rollover:** For accounts subscribed to by multiple users, if one user's API key becomes invalid, the system will attempt to use a valid API key from another subscribing user to continue data extraction for that shared account.
     *   **Attempt Reset:** The count of invalid key attempts is reset upon successful data extraction.
-    *   **Feature Impact:** Users with an invalid API key will cease to receive push notifications for events from accounts relying on their specific key. However, they will still see available data and data fetched by other users\' valid keys for shared subscriptions.
+    *   **Feature Impact:** Users with an invalid API key will cease to receive push notifications for events from accounts relying on their specific key. However, they will still see available data and data fetched by other users' valid keys for shared subscriptions.
 
-### 3.4 Gemini API Management and Capacity
+### 3.7 Gemini API Management and Capacity
 
 To ensure reliable and stable operation while adhering to Google Gemini API usage policies, FestGrid will implement comprehensive API management and capacity planning strategies:
 
@@ -88,11 +104,11 @@ To ensure reliable and stable operation while adhering to Google Gemini API usag
 *   **User Notification for Capacity Limits:** When the MVP's capacity limit for new social media account subscriptions is reached, users attempting to add further subscriptions will be gracefully informed via an in-app message that they cannot add more accounts at this time. The message will explain that this is due to current server capacity and that new subscriptions will be enabled once additional backend servers are provisioned or horizontal scaling is implemented.
 *   **Capacity Calculation Formula:** A key architectural requirement is the definition and implementation of a clear, verifiable formula or methodology to calculate the maximum sustainable number of subscribed social media accounts per backend server instance. This formula will be defined in detail during the architectural planning phase. It will quantify the relationship between Gemini API quotas, average data extraction frequency, processing load, and system throughput. It will serve as the basis for capacity planning, informing decisions on when and how to scale the backend infrastructure horizontally.
 
-### 3.5 Manual Event Data Correction and User Reporting
+### 3.8 Manual Event Data Correction and User Reporting
 
 To ensure data quality, allow for human intervention, and empower users to contribute to content accuracy, FestGrid incorporates a comprehensive manual event data correction and user reporting system. This system aims to address cases where automated extraction falls short or where event details change or become invalid.
 
-#### 3.5.1 Trigger Conditions and Reasons for Manual Extraction (AI Agent Input)
+#### 3.8.1 Trigger Conditions and Reasons for Manual Extraction (AI Agent Input)
 
 Users can provide specific feedback to an AI agent for corrections, especially in cases where automated extraction provides incomplete or inaccurate data. This process can be triggered as follows:
 
@@ -107,7 +123,7 @@ Users can provide specific feedback to an AI agent for corrections, especially i
         *   **Cron Job Failure / Empty Event Data:** An event, initially processed by an automated cron job, returns with empty event data, and a user subsequently provides a correction that successfully returns event data.
         *   **Inaccurate Event Data from Cron:** An event, initially processed by an automated cron job, returns with event data, but a user identifies it as inaccurate and provides specific correction details.
 
-#### 3.5.2 User Reporting and Event Moderation
+#### 3.8.2 User Reporting and Event Moderation
 
 A 'Report' button will be available for all events (whether from Social Media Account Subscription or the main event discovery page, in list-view or detailed view). Unauthenticated users will need to log in to access the reporting functionality. Upon clicking, a popup will offer the following options:
 
@@ -123,12 +139,12 @@ A 'Report' button will be available for all events (whether from Social Media Ac
     *   **Reason: Personal:**
         *   The reporting user will immediately no longer see the event. This action only affects the individual user's view and does not impact the event's visibility for other users.
 
-#### 3.5.3 User and Moderator Interfaces
+#### 3.8.3 User and Moderator Interfaces
 
 *   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
 *   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database.
 
-## 3.6 Getting Started and Onboarding
+### 3.9 Getting Started and Onboarding
 
 FestGrid will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, such as subscribing to social media accounts for event extraction, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. Users are responsible for the validity and quota management of their BYOK Gemini API keys. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestGrid's full potential if they choose.
 
@@ -268,7 +284,7 @@ interface Schedule {
    */
   ticketPrice?: string;
   /**
-   * Detailed information about the event\_s location.
+   * Detailed information about the event's location.
    */
   locationDetails?: LocationDetails;
   /**
@@ -376,10 +392,10 @@ FestGrid will launch with a two-phase rollout to manage costs and build a valuab
 
 *   **User Acquisition:** New sign-ups, weekly active users (WAU), monthly active users (MAU).
 *   **Engagement:** Average session duration, events added to calendars, social sharing.
-*   **Content Growth:** New events added daily/weekly, diversity of events. While aiming for high accuracy, it's important to note that a 100% real-time guarantee against all changes is challenging due to the crowd-sourced and social media-derived nature of the data.
+*   **Content Growth:** New events added daily/weekly, diversity of events. While aiming for high accuracy, it is important to note that a 100% real-time guarantee against all changes is challenging due to the crowd-sourced and social media-derived nature of the data.
 *   **Retention:** User retention rates (7, 30, 90 days).
 *   **Operational Efficiency:** System uptime, API response times, bug reports,
-    *   **Social Media Image/Caption Retrieval Success Rate:** Measures the success rate of obtaining image URLs and captions from social media posts.
+    *   **Social Media Image/Caption retrieval Success Rate:** Measures the success rate of obtaining image URLs and captions from social media posts.
     *   **AI Agent Call Success Rate:** Monitors the successful invocation of the AI agent, tracking failures due to issues like exhausted quotas or incorrect API keys.
     *   **Average Queue Time for Scraped Posts (Quota Related):** Measures the average time posts remain in the queue due to Gemini API quota limitations.
     *   **Cron-triggered Event Data Extraction Accuracy (vs. Manual Correction):** Measures the accuracy of event data initially extracted by automated cron jobs by comparing it against data obtained through subsequent user-triggered manual extractions (e.g., if a cron job yielded empty data that was later successfully extracted manually, or if a user marked cron-extracted data as inaccurate).
@@ -388,6 +404,3 @@ FestGrid will launch with a two-phase rollout to manage costs and build a valuab
     *   **Moderation Response Time (Dangerous Events):** Average time taken for moderators to review and act on reports of dangerous events.
     *   **Deletion Effectiveness (Cancelled Events):** Percentage of events soft-deleted after receiving 3 unique user reports for cancellation.
     *   **Moderator Override Rate:** Frequency with which moderators override automated decisions or user reports (e.g., restoring a soft-deleted event, marking a dangerous event as safe).
-
-
-
