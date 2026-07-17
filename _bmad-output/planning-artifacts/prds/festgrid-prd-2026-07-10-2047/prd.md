@@ -46,10 +46,10 @@ This feature allows users to curate their event feed by subscribing to specific 
 *   **Account Subscription:** Users can subscribe to desired social media accounts by providing their own Gemini API Key (BYOK). Event data from these subscribed accounts will be processed by an AI agent to extract event details. For accounts subscribed to by multiple users, the system will intelligently utilize any valid API key from contributing users to optimize data extraction and distribute quota usage.
     *   **Default Location for Subscriptions:** To handle cases where an event\'s location is implicit (e.g., an event at a mall posted on the mall\'s social media), users can optionally set a "Default Location" when subscribing to an account. If the AI agent does not find an explicit location in a post, it will use this default location for the event.
 *   **Quota Management & Notifications:**
-    *   **Email Notifications:** Users will receive email notifications if `X` number of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
+*   **Email Notifications:** Users will receive email notifications if `X` of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
 *   **In-App Queue Status:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user, providing transparency on API key performance and quota impact.
 
-> **Note:** The specific values for placeholders such as `X`, `Y`, and `N` in the notification and API key validity rules will be defined during the architectural planning phase.
+> **Note:** The thresholds for notifications and event cancellation are configurable via environment variables. The default values are: `X=3` (posts) and `Y=3` (days) for queue notifications; `N=5` (attempts) for invalid API key notifications; and 3 users reporting within 7 days for event cancellation.
 
 *   **Quota Management Algorithm:** To maximize the number of processed requests and ensure fairness, the following algorithm will be implemented:
     *   **Internal Quota Tracking:** The system will internally track the usage of each API key to inform the fairness algorithm. This tracking will be reset at the beginning of each billing cycle.
@@ -114,7 +114,7 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 *   **Request Event Deletion (Soft Delete):** Users can request the removal of an event by selecting a reason.
     *   **Reason: Event Cancelled:**
         *   The reporting user will immediately no longer see the event.
-        *   If at least three unique users report the same event as cancelled, it will be soft-deleted and removed from public view by default.
+        *   If at least a configurable number of unique users (default: 3) report the same event as cancelled within a configurable number of days (default: 7), it will be soft-deleted and removed from public view by default.
         *   A moderator is required to explicitly mark the event as *not cancelled* to restore it to public view.
     *   **Reason: Dangerous, Illegal, or Similar Extreme Situation Event:**
         *   The reporting user will immediately no longer see the event.
@@ -314,22 +314,49 @@ interface SocialMediaAccountProfile {
 }
 ```
   
-  ## 5. Non-Functional Requirements
+## 5. Non-Functional Requirements
 
-*   **Performance:** The web application must be fast and responsive, with minimal loading times.
-*   **Scalability:** The platform must be able to handle a growing number of users and events. The architecture will be based on a decoupled, multi-queue system (e.g., `ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`) to ensure resilience and allow components to be scaled independently. This includes robust mechanisms for managing external API quotas (e.g., Gemini API) through an intelligent `AIGateway`, and capacity planning based on a defined calculation formula.
-*   **External API Management:** The application relies on external APIs (e.g., Google Gemini, Google Geolocation) and must manage them responsibly. An Adapter pattern will be used for AI services to allow for future flexibility in swapping models.
+### Performance
+*   **Page Load Time (PLT):** Event discovery page should load in under 2 seconds on a standard 4G connection.
+*   **Time to Interactive (TTI):** Key interactive elements, like the search bar and filters, should be interactive within 1.5 seconds.
+*   **API Response Time:** 95% of API calls should complete in under 500ms.
+
+### Scalability (MVP)
+*   The system should be able to handle 100 concurrent users with a response time degradation of no more than 15%.
+*   The event ingestion pipeline should be able to process 100 events per hour.
+*   The architecture should be designed to be horizontally scalable to accommodate future growth.
+
+### Reliability
+*   **Uptime:** The service should have 99.9% uptime (max ~43 minutes of downtime per month).
+*   **Error Rate:** Server-side error rate should be below 0.5%.
+
+### Usability
+*   **Task Completion Rate:** At least 90% of users should be able to add an event to their calendar in their first session without assistance.
+*   **System Usability Scale (SUS):** Target a SUS score of 75 or higher.
+
+### External API Management
+*   The application relies on external APIs (e.g., Google Gemini, Google Geolocation) and must manage them responsibly. An Adapter pattern will be used for AI services to allow for future flexibility in swapping models.
     *   **API Key Security:** All API keys must be stored securely in environment variables and must not be committed to the source code repository, especially since the project is open source. Documentation for self-hosting should instruct users to provide their own keys.
     *   **API Key Restriction:** To minimize the impact of a potential key leak, all API keys should be restricted in the Google Cloud Console. This includes applying API restrictions (e.g., only allowing the Geolocation API) and Application restrictions (e.g., by HTTP referrer or IP address).
     *   **Quota Management:** To stay within the free tier limits of external APIs like Google Geolocation, a caching mechanism will be implemented. Lookups for the same location will be served from the cache to minimize redundant API calls.
-*   **AI Extraction Quality**: All AI-driven event extractions must produce a `confidenceScore` along with the `EventInfo` data. Events with a score below a defined threshold will be automatically flagged for human review to ensure data quality.
-*   **Security:** User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal data and event preferences are used solely to personalize your experience within the app; we do not spam your calendar, sell your data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
-*   **Usability:** The interface must be intuitive and easy to use for all demographics.
-*   **Reliability:** The platform should have high uptime and minimal downtime. This includes resilience against external API service disruptions through proactive error handling, back-off strategies, and intelligent API key management, ensuring continuous operation of the social media subscription feature.
-*   **Analytics:** The platform will use a web analytics service (e.g., Google Analytics) to collect anonymous data on page views and user engagement to measure key performance indicators and improve the service.
-*   **User Experience (Capacity Limits):** The system must gracefully inform users when they encounter temporary limitations, such as reaching the maximum number of social media account subscriptions due to current backend server capacity. Clear, actionable in-app messages will guide users and manage expectations regarding future scaling.
-*   **Event Status Updates:** Users are advised to independently verify event status (e.g., cancellations, rescheduling) with official organizers, as real-time tracking from diverse sources presents inherent challenges.
-*   **Internationalization:** For the MVP, the platform will support Indonesian and English. The layout must be designed to support both Left-to-Right (LTR) and Right-to-Left (RTL) languages to facilitate future expansion.
+
+### AI Extraction Quality
+*   All AI-driven event extractions must produce a `confidenceScore` along with the `EventInfo` data. Events with a score below a defined threshold will be automatically flagged for human review to ensure data quality.
+
+### Security
+*   User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal data and event preferences are used solely to personalize your experience within the app; we do not spam your calendar, sell your data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
+
+### Analytics
+*   The platform will use a web analytics service (e.g., Google Analytics) to collect anonymous data on page views and user engagement to measure key performance indicators and improve the service.
+
+### User Experience (Capacity Limits)
+*   The system must gracefully inform users when they encounter temporary limitations, such as reaching the maximum number of social media account subscriptions due to current backend server capacity. Clear, actionable in-app messages will guide users and manage expectations regarding future scaling.
+
+### Event Status Updates
+*   Users are advised to independently verify event status (e.g., cancellations, rescheduling) with official organizers, as real-time tracking from diverse sources presents inherent challenges.
+
+### Internationalization
+*   For the MVP, the platform will support Indonesian and English. The layout must be designed to support both Left-to-Right (LTR) and Right-to-Left (RTL) languages to facilitate future expansion.
 
 ## 6. Monetization Strategy
 

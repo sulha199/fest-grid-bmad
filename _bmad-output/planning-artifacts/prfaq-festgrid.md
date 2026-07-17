@@ -15,7 +15,7 @@ inputs: []
 
 ---
 
-# FestGrid: Your City's Events, Never Miss Out Again
+# FestGrid: Your City's Culture, Unlocked.
 
 ## City Residents & Families: Discover, Schedule, and Enjoy Your City's Best Cultural, Entertainment, and Hobby Events.
 
@@ -36,8 +36,8 @@ FestGrid transforms the experience of engaging with your city by offering a sing
 
 Users can easily discover events through FestGrid's curated listings or by connecting their preferred social media and event platforms. Once an interesting cultural, entertainment, or hobby event is found, a simple tap adds it to their personal calendar, ensuring no more missed opportunities. FestGrid provides timely reminders and notifications, giving users the advantage to secure their spots for popular events. The platform intelligently centralizes all event details, making planning and participation seamless for city residents and families.
 
-> "I used to hear about amazing city events after they happened, or forget about them entirely. FestGrid means I actually discover cultural festivals, fun workshops, and entertainment for the whole family, and their clever scheduling tools help us get there. No more 'if only we'd known!'"
-> — [Fictional User Name], Engaged Resident
+> "I finally feel connected to my city. Last weekend, we discovered a hidden jazz festival just two blocks away, thanks to FestGrid. My kids loved it!"
+> — Sarah, a local parent
 
 ### Getting Started
 
@@ -49,7 +49,7 @@ FestGrid will be readily accessible as a web application from any browser. Our l
 
 ### Q: There are so many event listing sites and apps already. How is FestGrid truly different and better than what I can already find on [popular event platform] or even just social media?
 
-A: FestGrid streamlines event discovery and scheduling with a dynamic calendar view. Users can easily find and filter events by type (e.g., seminars, tournaments, entertainment, exhibitions, promotions), category (e.g., music, religious, cultural, art), location, or even specific performers. Our unique social media subscription feature allows you to create a personalized event feed from the sources you already follow.
+A: While other platforms show you what they *think* you want to see, FestGrid puts you in control. Our unique **Social Media Subscription** feature lets you create a personalized event feed from the sources you already trust and follow. It's your city, your feed. Plus, our intuitive calendar view makes it effortless to see what's happening and when, so you never miss out.
 
 ### Q: What happens to my personal data and event preferences? Will my calendar be spammed or my information sold?
 
@@ -113,6 +113,10 @@ A: Key KPIs for the initial launch phase include:
 ### Q: What is the plan for moderation and quality control of crowd-contributed event data?
 
 A: We will implement a multi-layered approach including automated filters, AI-assisted corrections with confidence scoring, community reporting tools, and human curator review for flagged content.
+
+### Q: How will you handle moderation at scale?
+
+A: We are aware that manual moderation does not scale. For the MVP, we will rely on a small team of moderators. Post-MVP, we will explore more scalable solutions, such as a reputation system for users who provide reliable data, and more sophisticated AI models to automate moderation tasks. We will closely monitor the operational cost of moderation and invest in automation as we grow.
 
 ---
 
