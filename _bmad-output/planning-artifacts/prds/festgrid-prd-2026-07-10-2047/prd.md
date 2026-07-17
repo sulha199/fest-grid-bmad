@@ -274,11 +274,47 @@ interface Schedule {
   /**
    * A unique identifier for the schedule within the event, generated using Nano ID.
    */
-  id: string;
+   id: string;
+  }
+  ```
+
+### 4.5. SocialMediaAccountProfile Interface
+
+```typescript
+/**
+ * Represents a normalized profile for a subscribed social media account.
+ * This data is stored to allow users to select from existing shared accounts,
+ * particularly for the 'free_user' tier feature.
+ */
+interface SocialMediaAccountProfile {
+  /**
+   * Unique identifier for the account on its platform (e.g., Twitter User ID, Facebook Page ID).
+   */
+  accountId: string;
+  /**
+   * The social media platform (e.g., 'Twitter', 'Facebook', 'Instagram').
+   */
+  platform: string;
+  /**
+   * The user-friendly display name (e.g., 'The Music Hall').
+   */
+  displayName: string;
+  /**
+   * The account's handle or username (e.g., '@musichall').
+   */
+  username: string;
+  /**
+   * URL for the profile picture.
+   */
+  profileImageUrl?: string;
+  /**
+   * A brief description or bio of the account.
+   */
+  description?: string;
 }
 ```
-
-## 5. Non-Functional Requirements
+  
+  ## 5. Non-Functional Requirements
 
 *   **Performance:** The web application must be fast and responsive, with minimal loading times.
 *   **Scalability:** The platform must be able to handle a growing number of users and events. The architecture will be based on a decoupled, multi-queue system (e.g., `ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`) to ensure resilience and allow components to be scaled independently. This includes robust mechanisms for managing external API quotas (e.g., Gemini API) through an intelligent `AIGateway`, and capacity planning based on a defined calculation formula.
