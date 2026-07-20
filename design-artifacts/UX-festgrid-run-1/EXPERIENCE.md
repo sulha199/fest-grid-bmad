@@ -24,6 +24,7 @@ The application's structure is as follows:
 *   **/ (Event Discovery):** The main landing page for authenticated users.
 *   **/favorites:** A dedicated page showing the user's favorited events.
 *   **/my-calendar:** A dedicated page showing events the user has added to their calendar.
+*   **/feed:** The page where a user views events from their subscribed accounts.
 *   **/settings:** A parent page for all user settings.
 *   **/settings/locations:** The "Manage Locations" screen.
 *   **/settings/subscriptions:** The "Manage Subscribed Accounts" screen.
@@ -62,6 +63,7 @@ The feeling of using FestGrid should be one of exciting discovery. Microcopy sho
 - **Platform Adaptability:** Components will be responsive and adapt their layout and density for optimal viewing on both mobile and desktop platforms.
 - **Motion & Animation:** Subtle animations will be used on interactive elements (like button presses or card selection) to provide feedback and enhance the sense of discovery.
 - **Content Density:** Components will adjust their information density based on the screen size, showing more detailed information on larger screens and a more concise version on smaller screens.
+- **In-Table Add Form:** For managing lists of items (e.g., API Keys, Subscriptions), the mechanism for adding a new item is an always-present, editable row at the bottom of the table. This row contains the necessary input fields and an "Add" (`+`) action button.
 
 ## State Patterns
 
