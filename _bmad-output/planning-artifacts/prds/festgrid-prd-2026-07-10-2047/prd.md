@@ -238,6 +238,20 @@ interface EventInfo {
    * A score from 0.0 to 1.0 indicating the AI's confidence in the accuracy of the extracted data.
    */
   confidenceScore?: number;
+  /**
+   * The ID of the SocialMediaAccountProfile that was the source of this event.
+   */
+  sourceSocialMediaAccountId?: string;
+  /**
+   * Indicates if the event has been favorited by the current user.
+   * This is a user-contextual field added at runtime.
+   */
+  isFavorited?: boolean;
+  /**
+   * Indicates if the event has been added to the current user's calendar.
+   * This is a user-contextual field added at runtime.
+   */
+  isAddedToCalendar?: boolean;
 }
 ```
 
