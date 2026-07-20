@@ -29,7 +29,7 @@ This document outlines the product requirements for FestGrid, a platform designe
 ### 3.1 Event Discovery
 
 *   **Curated Listings:** Display a curated selection of local events.
-*   **Search and Filter:** Allow users to search and filter events by type, category, location, and performers.
+*   **Search and Filter:** A free-text search bar will allow users to search by event-name, performers, and location name. Users can also filter events by type and category.
 *   **Default View:** By default, the event discovery page will only display ongoing and upcoming events.
 
 ### 3.2 Personalization Features
@@ -38,24 +38,29 @@ This document outlines the product requirements for FestGrid, a platform designe
 *   **3.2.2. Dedicated Favorite Events Page:** A dedicated page will show all favorited events.
 *   **3.2.3. Dedicated Added Events Page:** A dedicated page will show all events the user has added to their calendar.
 
-### 3.3 Event Management
+### 3.3 Saved Location Preferences
+*   Users can save multiple named locations (e.g., "Home", "Work").
+*   A location can be set by using the user's current location or by picking a point on a map.
+*   These saved locations can be used to find "nearby events" within a user-defined radius (e.g., between 1km and 50km).
+
+### 3.4 Event Management
 
 *   **3.3.1. Calendar Integration:**
     *   When adding an event to a calendar, users can select which specific schedules to add.
     *   For MVP, this is a one-way integration (app to calendar).
 *   **3.3.2. Event Details Centralization:** Consolidate all relevant event information in one place.
 
-### 3.4 Global View Rules
+### 3.5 Global View Rules
 
 *   **3.4.1. Default View:** All event discovery pages (main discovery, subscribed events) will by default only show ongoing and upcoming events.
 *   **3.4.2. Personalized Views Past Event Rule:** Events in a user's personal lists ('favorited' or 'added to calendar') will be hidden `N` days after they have passed. `N` is configurable via an environment variable with a default value of 7.
 
-### 3.5 Calendar View Enhancements
+### 3.6 Calendar View Enhancements
 
 *   **3.5.1. Visual Distinction:** "Favorited" and "Added to Calendar" events will have a distinct visual treatment on the calendar.
 *   **3.5.2. View Toggles:** The calendar will have toggles to show/hide all "favorited" events and all "added" events.
 
-### 3.6 Social Media Account Subscription
+### 3.7 Social Media Account Subscription
 
 This feature allows users to curate their event feed by subscribing to specific social media accounts.
 
@@ -81,7 +86,7 @@ This feature allows users to curate their event feed by subscribing to specific 
                 *   If `isMainSchedule` is `true`, the title will be the `eventName`.
                 *   If `isMainSchedule` is `false`, the title will be a combination of the event name and the schedule title, in the format: `eventName - schedule.title`.
             *   Clicking on any schedule item in the calendar will open a detail view for the entire event, with all its schedules listed. The selected schedule may be highlighted for context.
-    *   **Search and Filter:** Users can search and filter events from their subscribed accounts by event name, type, category, location, performers, and the specific social media account source.
+*   **Search and Filter:** A free-text search bar will allow users to search events from their subscribed accounts by event name, performers, and location name. Users can also filter events by type, category, and the specific social media account source.
 *   **Personalized Reminders:** Event data processed from subscribed accounts will be used to generate personalized event reminders.
 *   **Timezone Inference:** When an event's timezone is not explicitly provided, the system will infer it using the following strategies, in order of preference:
     *   **Location-based Inference:** The event's location will be used to determine the timezone via a standard geolocation service. To manage API costs and limits, results from the geolocation service will be cached.
@@ -94,7 +99,7 @@ This feature allows users to curate their event feed by subscribing to specific 
     *   **Attempt Reset:** The count of invalid key attempts is reset upon successful data extraction.
     *   **Feature Impact:** Users with an invalid API key will cease to receive push notifications for events from accounts relying on their specific key. However, they will still see available data and data fetched by other users' valid keys for shared subscriptions.
 
-### 3.7 Gemini API Management and Capacity
+### 3.8 Gemini API Management and Capacity
 
 To ensure reliable and stable operation while adhering to Google Gemini API usage policies, FestGrid will implement comprehensive API management and capacity planning strategies:
 
@@ -104,11 +109,11 @@ To ensure reliable and stable operation while adhering to Google Gemini API usag
 *   **User Notification for Capacity Limits:** When the MVP's capacity limit for new social media account subscriptions is reached, users attempting to add further subscriptions will be gracefully informed via an in-app message that they cannot add more accounts at this time. The message will explain that this is due to current server capacity and that new subscriptions will be enabled once additional backend servers are provisioned or horizontal scaling is implemented.
 *   **Capacity Calculation Formula:** A key architectural requirement is the definition and implementation of a clear, verifiable formula or methodology to calculate the maximum sustainable number of subscribed social media accounts per backend server instance. This formula will be defined in detail during the architectural planning phase. It will quantify the relationship between Gemini API quotas, average data extraction frequency, processing load, and system throughput. It will serve as the basis for capacity planning, informing decisions on when and how to scale the backend infrastructure horizontally.
 
-### 3.8 Manual Event Data Correction and User Reporting
+### 3.9 Manual Event Data Correction and User Reporting
 
 To ensure data quality, allow for human intervention, and empower users to contribute to content accuracy, FestGrid incorporates a comprehensive manual event data correction and user reporting system. This system aims to address cases where automated extraction falls short or where event details change or become invalid.
 
-#### 3.8.1 Trigger Conditions and Reasons for Manual Extraction (AI Agent Input)
+#### 3.9.1 Trigger Conditions and Reasons for Manual Extraction (AI Agent Input)
 
 Users can provide specific feedback to an AI agent for corrections, especially in cases where automated extraction provides incomplete or inaccurate data. This process can be triggered as follows:
 
@@ -123,7 +128,7 @@ Users can provide specific feedback to an AI agent for corrections, especially i
         *   **Cron Job Failure / Empty Event Data:** An event, initially processed by an automated cron job, returns with empty event data, and a user subsequently provides a correction that successfully returns event data.
         *   **Inaccurate Event Data from Cron:** An event, initially processed by an automated cron job, returns with event data, but a user identifies it as inaccurate and provides specific correction details.
 
-#### 3.8.2 User Reporting and Event Moderation
+#### 3.9.2 User Reporting and Event Moderation
 
 A 'Report' button will be available for all events (whether from Social Media Account Subscription or the main event discovery page, in list-view or detailed view). Unauthenticated users will need to log in to access the reporting functionality. Upon clicking, a popup will offer the following options:
 
@@ -139,12 +144,12 @@ A 'Report' button will be available for all events (whether from Social Media Ac
     *   **Reason: Personal:**
         *   The reporting user will immediately no longer see the event. This action only affects the individual user's view and does not impact the event's visibility for other users.
 
-#### 3.8.3 User and Moderator Interfaces
+#### 3.9.3 User and Moderator Interfaces
 
 *   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
 *   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database.
 
-### 3.9 Getting Started and Onboarding
+### 3.10 Getting Started and Onboarding
 
 FestGrid will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, such as subscribing to social media accounts for event extraction, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. Users are responsible for the validity and quota management of their BYOK Gemini API keys. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestGrid's full potential if they choose.
 
@@ -367,6 +372,36 @@ interface SocialMediaAccountProfile {
   description?: string;
 }
 ```
+
+### 4.6. UserLocationPreference Interface
+
+```typescript
+/**
+ * Represents a user's saved location preference.
+ */
+interface UserLocationPreference {
+  /**
+   * A unique identifier for the location preference.
+   */
+  id: string;
+  /**
+   * The ID of the user who owns this preference.
+   */
+  userId: string;
+  /**
+   * A human-readable name for the location (e.g., "Home", "Work").
+   */
+  name: string;
+  /**
+   * The geographical coordinates of the location.
+   */
+  coordinates: Coordinates;
+  /**
+   * The search radius in kilometers (e.g., between 1 and 50).
+   */
+  radius: number;
+}
+```
   
 ## 5. Non-Functional Requirements
 
@@ -441,4 +476,10 @@ FestGrid will launch with a two-phase rollout to manage costs and build a valuab
     *   **Correction Application Rate:** The percentage of user-suggested corrections successfully processed and applied to event data by the AI agent or moderators.
     *   **Moderation Response Time (Dangerous Events):** Average time taken for moderators to review and act on reports of dangerous events.
     *   **Deletion Effectiveness (Cancelled Events):** Percentage of events soft-deleted after receiving 3 unique user reports for cancellation.
-    *   **Moderator Override Rate:** Frequency with which moderators override automated decisions or user reports (e.g., restoring a soft-deleted event, marking a dangerous event as safe).
+*   **Moderator Override Rate:** Frequency with which moderators override automated decisions or user reports (e.g., restoring a soft-deleted event, marking a dangerous event as safe).
+
+## 8. Post-MVP Features
+
+### 8.1 Map View
+
+A map view for event discovery will be implemented after the MVP. This will include performance optimizations such as server-side clustering and a zoom-aware API to handle a large number of events.
