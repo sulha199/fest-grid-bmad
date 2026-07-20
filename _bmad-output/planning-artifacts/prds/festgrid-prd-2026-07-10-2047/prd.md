@@ -155,6 +155,36 @@ This section defines the data structure for events extracted and managed by Fest
 ### 4.1. EventInfo Interface
 
 ```typescript
+enum EventType {
+  EXHIBITION,         // Art shows, trade shows
+  COMPETITION,        // Tournaments, contests
+  FESTIVAL,           // Multi-day cultural or music festivals
+  PERFORMANCE,        // Concerts, plays, stand-up
+  WORKSHOP,           // Classes, hands-on activities
+  SEMINAR,            // Talks, lectures, conferences
+  MARKET,             // Farmers' markets, bazaars
+  GATHERING,          // Community meetups, parties
+  PROMOTION,          // Product launches, sales events
+  FUNDRAISER,         // Charity events, galas, auctions (New)
+  CIVIC,              // Town halls, public forums (New)
+  OTHER
+}
+
+enum EventCategory {
+  MUSIC,
+  ARTS_AND_CULTURE,
+  FOOD_AND_DRINK,
+  SPORTS_AND_FITNESS,
+  FAMILY_AND_KIDS,
+  HOBBIES_AND_INTERESTS,
+  BUSINESS_AND_NETWORKING,
+  HEALTH_AND_WELLNESS,
+  HOLIDAY,
+  CHARITY_AND_CAUSES,     // Fundraisers, non-profit events (New)
+  CIVIC_AND_COMMUNITY,    // Town halls, local government, volunteering (New)
+  OTHER
+}
+
 /**
  * Represents the information extracted from an event poster.
  */
@@ -167,6 +197,14 @@ interface EventInfo {
    * The name of the event.
    */
   eventName: string;
+  /**
+   * A list of types for the event.
+   */
+  types: EventType[];
+  /**
+   * A list of categories for the event.
+   */
+  categories: EventCategory[];
   /**
    * A list of schedules for the event.
    */

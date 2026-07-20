@@ -10,13 +10,16 @@ sources:
 
 # Information Architecture
 
-The main view allows users to switch between a grid-view of event cards and a weekly-view calendar. This provides flexibility for users to discover events in their preferred format.
+The main view is centered around a filterable, dynamic grid of events that can be viewed as either a card-grid or a weekly calendar. This provides flexibility for users to discover events in their preferred format.
 
+- **Filter Hub**: Prominently displayed at the top of the discovery view, the Filter Hub contains controls for filtering events by `EventType` and `EventCategory`. These controls will support multi-selection, allowing users to combine filters (e.g., `FESTIVAL` + `MUSIC` + `FAMILY_AND_KIDS`).
+- **Dynamic Event Grid**: The event grid (both card and calendar view) dynamically updates as filters are applied, showing only the events that match the user's criteria.
 - **Calendar View**: The weekly calendar includes a header with previous/next week navigation and a "Today" button. Each schedule of an event is displayed as a separate compact card. The title of the card is formatted to distinguish between main and sub-schedules.
 
 # Interaction Primitives
 
-- **Event Discovery**: Clicking on an event card in the main grid view opens a modal with the full event details. Clicking on a specific schedule in the calendar view also opens the modal with the full event details, potentially highlighting the selected schedule. The URL is updated for deep-linking in both cases.
+- **Filtering**: Users can tap on `EventType` or `EventCategory` buttons/tags in the Filter Hub. The event grid below will update in real-time with each selection. Selected filters are clearly indicated.
+- **Event Discovery**: Clicking on an event card in the main grid view opens a modal with the full event details, including a clear display of its types and categories as tags. Clicking on a specific schedule in the calendar view also opens the modal with the full event details. The URL is updated for deep-linking in both cases.
 
 # User Flows
 
