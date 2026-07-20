@@ -1,6 +1,5 @@
 ---
 status: final
-
 ---
 
 # EXPERIENCE.md
@@ -23,6 +22,7 @@ A dynamic, global page that handles multi-step flows. This page is configured vi
     -   `path`: The path of the page for this step.
     -   `title`: The title of the step, displayed in the wizard's step summary.
     -   `description`: A short description of the step.
+    -   `canSkipStep` (optional): A boolean indicating whether the step can be skipped. This can be determined by a variable, e.g., `!isMvp`. Defaults to `false`.
 -   `exitPath`: The path to redirect to when the user clicks the `Complete` button on the final step.
 -   `currentStep` (optional): The index of the current step. Defaults to `0`.
 
@@ -51,27 +51,22 @@ A dynamic, global page that handles multi-step flows. This page is configured vi
 -   **Buttons:**
     -   `Previous Step`: Navigates to the previous step. Disabled on the first step.
     -   `Next Step`: Navigates to the next step. Disabled if the `isStepCompleted` state is `false`.
+    -   `Skip Step`: Skips the current step. Only visible if `canSkipStep` is `true` for the current step.
     -   `Complete`: Displayed on the final step. Navigates to the `exitPath`.
 
 ## Key Flows
 
-### API Key Gate
+### Wizard Flow
 
-This flow describes how a user is guided to add an API key before they can manage subscriptions.
+This flow describes the generic behavior of the wizard page.
 
-1.  **Trigger:** User clicks "Manage Subscriptions" but does not have an API key.
-2.  **Action:** The application redirects the user to the `/wizard` page with the following configuration:
-    -   **`steps`:**
-        -   `path`: `/settings/api-keys`
-        -   `title`: "Add API Key"
-        -   `description`: "You need to add an API key before you can subscribe to new accounts."
-    -   **`exitPath`:** `/settings/subscriptions`
-3.  **User Interaction:**
-    -   The user is shown the `/settings/api-keys` page within the wizard chrome.
-    -   The user adds an API key.
-    -   The page uses the `useWizardStep` hook to set `isStepCompleted` to `true`.
-    -   The `Next Step` button becomes `Complete` (since this is a single-step wizard for this flow).
-    -   The user clicks `Complete`.
-4.  **Result:** The user is redirected to the `/settings/subscriptions` page.
-
-
+1.  **Trigger:** An action in the application requires a multi-step process.
+2.  **Action:** The application constructs a `steps` array, a `exitPath`, and optionally a `currentStep`.
+3.  **Redirect:** The user is redirected to the `/wizard` page with the `steps`, `exitPath`, and `currentStep` as query parameters.
+4.  **User Interaction:**
+    -   The user is presented with the page for the current step, embedded within the wizard chrome.
+    -   The user completes the step.
+    -   The embedded page uses the `useWizardStep` hook to set `isStepCompleted` to `true`.
+    -   The user clicks "Next Step".
+    -   This process repeats for all steps.
+    -   On the final step, the user clicks "Complete" and is redirected to the `exitPath`.
