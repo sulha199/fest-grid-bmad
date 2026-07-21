@@ -134,6 +134,14 @@ FR29: Epic 4
 FR30: Epic 5
 FR31: Epic 5
 FR32: Epic 1, 2, 3, 4, 5, 6
+FR33: Epic 7
+FR34: Epic 7
+FR35: Epic 7
+FR36: Epic 6
+FR37: Epic 6
+FR38: Epic 6
+FR39: Epic 4
+FR40: Epic 5
 
 ## Epic List
 
@@ -313,7 +321,7 @@ So that I can discover events that are convenient for me to attend.
 
 ### Epic 4: Social Media Integration & Event Extraction
 Users can subscribe to social media accounts and have events automatically extracted and displayed.
-**FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR29
+**FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR29, FR39
 
 ### Story 4.1: Subscribe to a Social Media Account
 
@@ -382,9 +390,21 @@ So that I can take action to resolve them.
 **Then** I should receive an email notification after a configurable number of failures.
 **And** I should be able to see the real-time queue status of my pending extractions in the app.
 
+### Story 4.6: Quota Management Display
+As a user,
+I want to see my remaining API quota when selecting posts for extraction,
+So that I can manage my usage effectively.
+
+**Acceptance Criteria:**
+
+**Given** I am on the manual post selection screen
+**When** I select one or more posts
+**Then** a summary bar should display the number of selected posts against my remaining API quota.
+**And** the system should prevent me from extracting more posts than my quota allows.
+
 ### Epic 5: Onboarding and Wizard Framework
 Users are guided through the initial setup of the application.
-**FRs covered:** FR30, FR31
+**FRs covered:** FR30, FR31, FR40
 
 ### Story 5.1: Implement a Generic Wizard Component
 
@@ -426,9 +446,21 @@ So that I can manually extract events at any time.
 **Then** I should see an "Extract event from post(s)" option.
 **And** if I haven't added a subscription or API key yet, I should be guided through the wizard to do so.
 
+### Story 5.4: Getting Started and Onboarding
+As a new user,
+I want to be able to sign up for free and start exploring events,
+with the option to add my own API key for enhanced features.
+
+**Acceptance Criteria:**
+
+**Given** I am a new user on the FestGrid website
+**When** I sign up for a new account
+**Then** I should be able to start exploring events immediately.
+**And** I should be presented with clear guidance on how to add my own Gemini API key to unlock enhanced features.
+
 ### Epic 6: Data Quality and Moderation
 Users can contribute to the accuracy of event data by reporting issues and suggesting corrections.
-**FRs covered:** FR27, FR28
+**FRs covered:** FR27, FR28, FR36, FR37, FR38
 
 ### Story 6.1: Manually Correct Event Data
 
@@ -473,6 +505,46 @@ So that I can track their resolution.
 
 ### Story 6.4: Moderator Tools
 
+### Epic 7: API Management and Capacity
+To ensure reliable and stable operation while adhering to Google Gemini API usage policies.
+**FRs covered:** FR33, FR34, FR35
+
+### Story 7.1: Proactive Throttling and Queuing
+As a system admin,
+I want to have proactive throttling and queuing for external API requests,
+So that the application can manage API rate limits effectively and prevent service disruptions.
+
+**Acceptance Criteria:**
+
+**Given** the application needs to make a request to an external AI service
+**When** the request is sent
+**Then** it should be routed through a dedicated AI Gateway layer.
+**And** the AI Gateway should implement dynamic throttling and intelligent queuing.
+
+### Story 7.2: Suspicious Activity Mitigation
+As a system admin,
+I want to mitigate suspicious activity flags from Google,
+So that the service is not disrupted.
+
+**Acceptance Criteria:**
+
+**Given** the application is making requests to the Gemini API
+**When** a "suspicious activity" flag is received
+**Then** the system should intelligently distribute API calls across available valid keys.
+**And** the system should introduce strategic delays and implement back-off algorithms.
+
+### Story 7.3: User Notification for Capacity Limits
+As a user,
+I want to be informed when I cannot add more subscriptions due to capacity limits,
+So that I understand the limitation and can try again later.
+
+**Acceptance Criteria:**
+
+**Given** the MVP's capacity limit for new social media account subscriptions is reached
+**When** I attempt to add a new subscription
+**Then** I should be shown an in-app message explaining that I cannot add more accounts at this time.
+**And** the message should explain that this is due to current server capacity.
+
 As a moderator,
 I want to have a dedicated page to review and manage user reports,
 So that I can maintain the quality and safety of the platform.
@@ -484,6 +556,51 @@ So that I can maintain the quality and safety of the platform.
 **Then** I should see a list of all user reports.
 **And** I should be able to filter reports by type and status.
 **And** I should be able to take action on each report (e.g., soft-delete an event, mark as safe).
+
+### Story 6.5: Data Inconsistency Checks
+As a user,
+I want the system to perform data inconsistency checks when I submit a correction,
+So that I can be confident that the data is accurate.
+
+**Acceptance Criteria:**
+
+**Given** I am submitting a correction for an event
+**When** I enter an end date that is earlier than the start date
+**Then** I should see an error message.
+
+### Story 6.6: AI-Assisted Correction
+As a user,
+I want to be able to provide a URL to a social media post to pre-fill the correction form,
+So that I can correct event data more easily.
+
+**Acceptance Criteria:**
+
+**Given** I am on the event correction form
+**When** I provide a URL to a social media post
+**Then** the system should attempt to extract the correct information from the post.
+**And** the correction form should be pre-filled with the extracted information.
+**And** I should be able to review and approve the pre-filled information.
+
+### Story 6.7: User and Moderator Interfaces
+As a user,
+I want to have a dedicated page to see my reports,
+So that I can track their status.
+As a moderator,
+I want to have a dedicated page to manage user reports,
+So that I can maintain the quality of the platform.
+
+**Acceptance Criteria:**
+
+**Given** I am a logged-in user
+**When** I navigate to the "My Reports" page
+**Then** I should see a list of my submitted reports and their status.
+
+**Given** I am a moderator
+**When** I navigate to the "Moderator Items" page
+**Then** I should see a list of all user reports.
+**And** I should be able to filter and take action on them.
+**When** I enter an end time that is earlier than the start time on the same day
+**Then** I should see an error message.
 
 <!-- Repeat for each epic in epics_list (N = 1, 2, 3...) -->
 
