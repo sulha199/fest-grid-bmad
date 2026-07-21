@@ -29,7 +29,7 @@ This document outlines the product requirements for FestGrid, a platform designe
 ### 3.1 Event Discovery
 
 *   **Curated Listings:** Display a curated selection of local events.
-*   **Search and Filter:** A free-text search bar will allow users to search by event-name, performers, and location name. Users can also filter events by type and category.
+*   **Search and Filter:** A free-text search bar will allow users to search by event-name, performers, and location name, using partial matching for performance. Users can also filter events by type and category.
 *   **Default View:** By default, the event discovery page will only display ongoing and upcoming events.
 
 ### 3.2 Personalization Features
@@ -113,20 +113,21 @@ To ensure reliable and stable operation while adhering to Google Gemini API usag
 
 To ensure data quality, allow for human intervention, and empower users to contribute to content accuracy, FestGrid incorporates a comprehensive manual event data correction and user reporting system. This system aims to address cases where automated extraction falls short or where event details change or become invalid.
 
-#### 3.9.1 Trigger Conditions and Reasons for Manual Extraction (AI Agent Input)
+#### 3.9.1 Manual Correction with Typed Inputs
 
-Users can provide specific feedback to an AI agent for corrections, especially in cases where automated extraction provides incomplete or inaccurate data. This process can be triggered as follows:
+To ensure data accuracy and streamline the correction process, users can submit corrections through a structured form with typed inputs for each field of the `EventInfo` and `Schedule` interfaces. This approach minimizes ambiguity and reduces the need for complex NLP.
 
-*   **Correction Input:** Users can submit free-text input (e.g., "start date should be 31 Dec 2026") to inform the AI agent about specific corrections to be made. For users with a BYOK key, they can also provide the URL of a social media post along with additional text for the AI agent.
-    *   **Challenges with Free-Text Input for AI:** The primary challenge with free-text input is the variability, ambiguity, and lack of structured constraints of natural language. Translating user instructions into precise, executable commands for updating specific event data fields (e.g., `start_date`, `end_time`, `location`) requires robust natural language processing (NLP) capabilities, handles potential ambiguities in phrasing, and validates proposed changes against data schemas and business rules. Robust error handling for misinterpretations or failed applications of corrections must also be in place.
-    *   **Mitigation Strategies for Free-Text Input:** To address these challenges, the system will employ several mitigation strategies:
-        *   **Guided Input:** Consider offering structured fields alongside free text for common corrections (e.g., separate fields for "Corrected Date," "Corrected Time," "Corrected Location") to guide users and provide more structured input for the AI. The free text can then be used for nuanced explanations.
-        *   **AI Confidence Scoring:** The AI will provide a confidence score for its proposed correction. Corrections below a certain confidence threshold will be flagged for mandatory human review.
-        *   **Human-in-the-Loop:** For critical data points, or if the AI's confidence is low, the proposed AI correction will be presented to a human moderator for review and approval before being applied to the live event data.
-        *   **Clearer Prompts for AI:** Ensure the AI agent is explicitly instructed on how to interpret and apply these corrections, potentially with examples.
-    *   **Context:** This feedback is particularly valuable when:
-        *   **Cron Job Failure / Empty Event Data:** An event, initially processed by an automated cron job, returns with empty event data, and a user subsequently provides a correction that successfully returns event data.
-        *   **Inaccurate Event Data from Cron:** An event, initially processed by an automated cron job, returns with event data, but a user identifies it as inaccurate and provides specific correction details.
+*   **Correction Interface:** A dedicated correction interface will present users with a form that mirrors the structure of the event data. Each field will have the appropriate input type (e.g., text input for `eventName`, date picker for `eventStartDate`, etc.).
+
+*   **Data Inconsistency Checks:** Before submitting a correction, the system will perform the following inconsistency checks:
+    *   **Date and Time Logic:** `eventEndDate` must not be earlier than `eventStartDate`. `eventEndTime` must be later than `eventStartTime` if the dates are the same.
+    *   **Schedule Consistency:** If a `Schedule` has a specific `location`, it should be verified against the main `location` of the event if provided.
+
+*   **AI-Assisted Correction (Optional):** For users with a BYOK key, an optional feature will allow them to provide a URL to a social media post. The AI agent will then attempt to extract the correct information and pre-fill the correction form, which the user can then review and approve.
+
+*   **Context for Corrections:** This feature is particularly valuable in the following scenarios:
+    *   **Cron Job Failure / Empty Event Data:** An event, initially processed by an automated cron job, returns with empty event data, and a user subsequently provides a correction that successfully returns event data.
+    *   **Inaccurate Event Data from Cron:** An event, initially processed by an automated cron job, returns with event data, but a user identifies it as inaccurate and provides specific correction details.
 
 #### 3.9.2 User Reporting and Event Moderation
 
@@ -149,7 +150,30 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 *   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
 *   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database.
 
-### 3.10 Getting Started and Onboarding
+### 3.10 Manual Post Selection for Event Extraction
+
+To provide users with greater control over their API quota usage and improve the relevance of extracted events, FestGrid will offer a manual post selection feature. This allows users to choose which specific social media posts should be processed by the AI agent.
+
+*   **User Interface:** A new screen will be introduced, featuring a tab-based layout where each tab corresponds to one of the user's subscribed social media accounts.
+    *   **Tab Content:** Each tab, when selected, will display a list of the 20 most recent posts from that account, presented in a card-based view.
+    *   **Lazy Loading:** The posts within the tabs can be loaded lazily to improve initial page load performance.
+*   **Post Selection:**
+    *   Users can select multiple posts by clicking a checkbox on each post card.
+    *   The selection state is preserved as the user navigates between different tabs.
+    *   Posts that have already been processed and resulted in an event will be visually disabled and cannot be selected for re-extraction.
+*   **Quota Management:**
+    *   A summary bar will display the number of selected posts against the user's remaining API quota (e.g., "Selected Posts: 5 / 50").
+    *   The system will prevent users from extracting more posts than their quota allows.
+*   **Inactive Account Handling:**
+    *   If a subscribed account has not published any posts within a configurable period (e.g., 30 days), a warning icon will be displayed on its tab.
+    *   The tab's content will show a warning message and a button allowing the user to remove the inactive subscription.
+*   **Wizard Integration:**
+    *   The manual post selection screen is integrated as a new step in the getting started wizard, appearing after the user adds their subscriptions.
+    *   When a user adds a new subscription, it will be marked as `isNewlyAdded`, and the corresponding tab will be automatically activated in the selection screen.
+*   **Menu Access:**
+    *   Users can also access this feature via an "Extract event from post(s)" item in the user menu. If the user has not yet provided an API key or subscribed to any accounts, they will be guided through the necessary steps of the wizard first.
+
+### 3.11 Getting Started and Onboarding
 
 FestGrid will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, such as subscribing to social media accounts for event extraction, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. Users are responsible for the validity and quota management of their BYOK Gemini API keys. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestGrid's full potential if they choose.
 
@@ -384,6 +408,15 @@ interface SocialMediaAccountProfile {
    * A brief description or bio of the account.
    */
   description?: string;
+  /**
+   * A flag to indicate if the subscription was just added. Used to auto-activate the tab in the post selection screen.
+   * This is a client-side state property.
+   */
+  isNewlyAdded?: boolean;
+  /**
+   * The date of the last post from this account. Used to identify inactive accounts.
+   */
+  lastPostDate?: string;
 }
 ```
 
@@ -413,7 +446,37 @@ interface UserLocationPreference {
   /**
    * The search radius in kilometers (e.g., between 1 and 50).
    */
-  radius: number;
+   radius: number;
+}
+```
+
+### 4.7. Post Interface
+
+```typescript
+/**
+ * Represents a social media post to be displayed for selection.
+ */
+interface Post {
+  /**
+   * A unique identifier for the post.
+   */
+  id: string;
+  /**
+   * The content (text) of the post.
+   */
+  content: string;
+  /**
+   * The URL of the image in the post, if any.
+   */
+  imageUrl?: string;
+  /**
+   * The URL of the post.
+   */
+  postUrl: string;
+  /**
+   * True if the post has already been processed and an event has been extracted.
+   */
+  isExtracted?: boolean;
 }
 ```
   

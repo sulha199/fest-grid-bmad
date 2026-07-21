@@ -1,7 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<!--
+  PRD Validation Report — skeleton template.
+
+  This file is a starter the synthesis pass fills in directly. There is no
+  substitution engine. The LLM:
+    1. Reads {doc_workspace}/review-rubric.md and every review-{slug}.md from
+       additional reviewers.
+    2. Copies this skeleton.
+    3. Replaces the placeholder content (everything between TEMPLATE markers)
+       with the consolidated review, preserving the structure and CSS.
+    4. Writes the result to {doc_workspace}/validation-report.html.
+    5. Writes a markdown twin to {doc_workspace}/validation-report.md.
+
+  Visual rules the LLM must preserve:
+    - The container width, the color tokens, the typography.
+    - One dimension = one collapsible <section class=\"dimension\">.
+    - Verdict pill uses the verdict-* class matching its judgment.
+    - Severity badge uses the sev-* class matching its level.
+    - Each extra reviewer (adversarial, etc.) gets its own collapsible section
+      below the rubric dimensions.
+    - The footer always shows the artifact paths and timestamp.
+-->
+<html lang=\"en\">
 <head>
-<meta charset="utf-8">
+<meta charset=\"utf-8\">
 <title>PRD Validation: FestGrid</title>
 <style>
   :root {
@@ -10,14 +32,17 @@
     --border: #e7e5e4;
     --text: #1c1917;
     --muted: #78716c;
+
     --verdict-strong: #16a34a;
     --verdict-adequate: #65a30d;
     --verdict-thin: #d97706;
     --verdict-broken: #dc2626;
+
     --sev-low: #64748b;
     --sev-medium: #ca8a04;
     --sev-high: #ea580c;
     --sev-critical: #dc2626;
+
     --grade-exc: #16a34a;
     --grade-good: #65a30d;
     --grade-fair: #d97706;
@@ -26,13 +51,14 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Inter, system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
     line-height: 1.6;
     font-size: 15px;
   }
   .container { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+
   header.report-header {
     display: flex;
     align-items: flex-start;
@@ -43,7 +69,7 @@
     margin-bottom: 24px;
   }
   .title h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
-  .title .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .title .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; font-family: ui-monospace, \"SF Mono\", Menlo, monospace; }
   .grade {
     padding: 10px 18px;
     border-radius: 8px;
@@ -52,7 +78,11 @@
     font-size: 15px;
     white-space: nowrap;
   }
+  .grade-excellent { background: var(--grade-exc); }
   .grade-good { background: var(--grade-good); }
+  .grade-fair { background: var(--grade-fair); }
+  .grade-poor { background: var(--grade-poor); }
+
   .synthesis {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -64,6 +94,7 @@
   }
   .synthesis p { margin: 0 0 10px; }
   .synthesis p:last-child { margin-bottom: 0; }
+
   .dimension-summary {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -78,6 +109,7 @@
   }
   .dim-card .dim-name { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   .dim-card .dim-verdict { font-size: 14px; font-weight: 600; }
+
   section.dimension, section.reviewer-section { margin-bottom: 14px; }
   section.dimension details, section.reviewer-section details {
     background: var(--surface);
@@ -96,7 +128,7 @@
   }
   section summary::-webkit-details-marker { display: none; }
   section summary::before {
-    content: "▸";
+    content: \"▸\";
     display: inline-block;
     color: var(--muted);
     transition: transform 0.15s ease;
@@ -121,9 +153,13 @@
   }
   .verdict-strong { background: var(--verdict-strong); }
   .verdict-adequate { background: var(--verdict-adequate); }
+  .verdict-thin { background: var(--verdict-thin); }
+  .verdict-broken { background: var(--verdict-broken); }
+
   .dim-body { padding: 4px 20px 18px; }
   .dim-judgment { color: var(--text); font-size: 14.5px; }
   .dim-judgment p { margin: 0 0 10px; }
+
   .findings-list { padding: 0 20px 4px; }
   article.finding {
     padding: 14px 0;
@@ -148,10 +184,19 @@
   }
   .badge-sev-low { background: rgba(100, 116, 139, 0.12); color: var(--sev-low); }
   .badge-sev-medium { background: rgba(202, 138, 4, 0.14); color: var(--sev-medium); }
+  .badge-sev-high { background: rgba(234, 88, 12, 0.14); color: var(--sev-high); }
+  .badge-sev-critical { background: rgba(220, 38, 38, 0.14); color: var(--sev-critical); }
   .finding-title { margin: 0; font-size: 15px; font-weight: 500; flex: 1; min-width: 200px; }
-  .finding-location { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--muted); }
+  .finding-location { font-family: ui-monospace, \"SF Mono\", Menlo, monospace; font-size: 12.5px; color: var(--muted); }
   .finding-note, .finding-fix { margin-top: 6px; font-size: 14px; }
   .finding-fix strong { color: var(--muted); font-weight: 500; }
+
+  .reviewer-source {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, \"SF Mono\", Menlo, monospace;
+  }
+
   .mechanical {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -163,205 +208,188 @@
   .mechanical h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .mechanical ul { margin: 0; padding-left: 20px; }
   .mechanical li { margin-bottom: 4px; color: var(--text); }
+
   footer.report-footer {
     margin-top: 40px;
     padding-top: 16px;
     border-top: 1px solid var(--border);
     font-size: 12px;
     color: var(--muted);
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-family: ui-monospace, \"SF Mono\", Menlo, monospace;
   }
   footer .meta { display: flex; gap: 24px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
-  <div class="container">
-    <header class="report-header">
-      <div class="title">
+  <div class=\"container\">
+    <header class=\"report-header\">
+      <div class=\"title\">
         <h1>FestGrid — Validation Report</h1>
-        <div class="subtitle">_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md</div>
+        <div class=\"subtitle\">_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md</div>
       </div>
-      <div class="grade grade-good">Good</div>
+      <div class=\"grade grade-good\">Good</div>
     </header>
 
-    <div class="synthesis">
-      <p>The PRD for FestGrid is strong, with a clear strategic vision and detailed data schemas that will be highly beneficial for development. The core features are well-defined, and the MVP scope is clear. The main areas for improvement are in providing more specific, testable acceptance criteria for some functional requirements and being more explicit about trade-offs in decision-making.</p>
+    <div class=\"synthesis\">
+      <p>The PRD is well-structured and detailed, providing a solid foundation for development. It excels in its detailed data schema and clear scope definition. The main area for improvement is in explicitly stating trade-offs to make the decision-making process more transparent.</p>
     </div>
 
-    <div class="dimension-summary">
-      <div class="dim-card">
-        <div class="dim-name">Decision-readiness</div>
-        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+    <div class=\"dimension-summary\">
+      <div class=\"dim-card\">
+        <div class=\"dim-name\">Decision-readiness</div>
+        <div class=\"dim-verdict\" style=\"color: var(--verdict-adequate)\">adequate</div>
       </div>
-      <div class="dim-card">
-        <div class="dim-name">Substance over theater</div>
-        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      <div class=\"dim-card\">
+        <div class=\"dim-name\">Substance over theater</div>
+        <div class=\"dim-verdict\" style=\"color: var(--verdict-strong)\">strong</div>
       </div>
-      <div class="dim-card">
-        <div class="dim-name">Strategic coherence</div>
-        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      <div class=\"dim-card\">
+        <div class=\"dim-name\">Strategic coherence</div>
+        <div class=\"dim-verdict\" style=\"color: var(--verdict-strong)\">strong</div>
       </div>
-      <div class="dim-card">
-        <div class="dim-name">Done-ness clarity</div>
-        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      <div class=\"dim-card\">
+        <div class=\"dim-name\">Done-ness clarity</div>
+        <div class=\"dim-verdict\" style=\"color: var(--verdict-strong)\">strong</div>
       </div>
-      <div class="dim-card">
-        <div class="dim-name">Scope honesty</div>
-        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      <div class=\"dim-card\">
+        <div class=\"dim-name\">Scope honesty</div>
+        <div class=\"dim-verdict\" style=\"color: var(--verdict-strong)\">strong</div>
       </div>
-      <div class="dim-card">
-        <div class="dim-name">Downstream usability</div>
-        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      <div class=\"dim-card\">
+        <div class=\"dim-name\">Downstream usability</div>
+        <div class=\"dim-verdict\" style=\"color: var(--verdict-strong)\">strong</div>
       </div>
-      <div class="dim-card">
-        <div class="dim-name">Shape fit</div>
-        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      <div class=\"dim-card\">
+        <div class=\"dim-name\">Shape fit</div>
+        <div class=\"dim-verdict\" style=\"color: var(--verdict-strong)\">strong</div>
       </div>
     </div>
 
-    <section class="dimension">
-      <details>
+    <section class=\"dimension\">
+      <details open>
         <summary>
           <h2>Decision-readiness</h2>
-          <span class="verdict-pill verdict-adequate">adequate</span>
+          <span class=\"verdict-pill verdict-adequate\">adequate</span>
         </summary>
-        <div class="dim-body">
-          <div class="dim-judgment">
-            <p>The PRD surfaces some open questions and deferred decisions (e.g., line 52), which is good. However, many decisions are presented without discussing alternatives or trade-offs. To improve, the PRD could be more explicit about why certain choices were made over others.</p>
+        <div class=\"dim-body\">
+          <div class=\"dim-judgment\">
+            <p>The PRD now specifies a structured-input approach for manual corrections, which is a more robust solution. However, it could still benefit from a more explicit discussion of why this approach was chosen over others.</p>
           </div>
         </div>
-        <div class="findings-list">
-          <article class="finding">
+        <div class=\"findings-list\">
+          <article class=\"finding\">
             <header>
-              <span class="badge badge-sev-medium">medium</span>
-              <h3 class="finding-title">Vague deferral of notification rules</h3>
-              <span class="finding-location">§3.3</span>
+              <span class=\"badge badge-sev-low\">low</span>
+              <h3 class=\"finding-title\">Lack of explicit trade-offs</h3>
+              <span class=\"finding-location\">§ 3.9.1</span>
             </header>
-            <div class="finding-note">The note on line 52 defers the definition of `X` and `Y` for notifications. While deferring is acceptable, providing a range or a guiding principle would make this more decision-ready for the architecture phase.</div>
-            <div class="finding-fix"><strong>Fix:</strong> Add a sentence like "These values will be determined based on a balance between user annoyance and the need for timely intervention, with initial estimates being X=5 posts and Y=3 days."</div>
+            <div class=\"finding-note\">While the new approach is better, the PRD doesn't explicitly state why typed-input was chosen over other potential solutions.</div>
+            <div class=\"finding-fix\"><strong>Fix:</strong> Add a brief \"Alternatives Considered\" section that outlines the trade-offs.</div>
           </article>
         </div>
       </details>
     </section>
 
-    <section class="dimension">
+    <section class=\"dimension\">
       <details>
         <summary>
           <h2>Substance over theater</h2>
-          <span class="verdict-pill verdict-adequate">adequate</span>
+          <span class=\"verdict-pill verdict-strong\">strong</span>
         </summary>
-        <div class="dim-body">
-          <div class="dim-judgment">
-            <p>The PRD avoids persona theater by not including any. The core subscription feature feels genuinely innovative. However, some of the non-functional requirements and the high-level goals are a bit generic and could be more tailored to the specifics of FestGrid.</p>
+        <div class=\"dim-body\">
+          <div class=\"dim-judgment\">
+            <p>The PRD has a good substance-to-theater ratio. The features are well-defined and serve the product's purpose. I don't see any obvious signs of \"theater\".</p>
           </div>
         </div>
-        <div class="findings-list">
-          <article class="finding">
-            <header>
-              <span class="badge badge-sev-low">low</span>
-              <h3 class="finding-title">Generic NFRs</h3>
-              <span class="finding-location">§5</span>
-            </header>
-            <div class="finding-note">Some NFRs like "The web application must be fast and responsive" are boilerplate.</div>
-            <div class="finding-fix"><strong>Fix:</strong> Add specific targets, e.g., "Page load times for event discovery should be under 2 seconds on a standard 4G connection."</div>
-          </article>
+        <div class=\"findings-list\">
         </div>
       </details>
     </section>
 
-    <section class="dimension">
+    <section class=\"dimension\">
       <details>
         <summary>
           <h2>Strategic coherence</h2>
-          <span class="verdict-pill verdict-strong">strong</span>
+          <span class=\"verdict-pill verdict-strong\">strong</span>
         </summary>
-        <div class="dim-body">
-          <div class="dim-judgment">
-            <p>The features described in the PRD directly support the stated goals. The monetization strategy is well thought out and phased. The KPIs are detailed and cover both user-facing and operational aspects.</p>
+        <div class=\"dim-body\">
+          <div class=\"dim-judgment\">
+            <p>The PRD has a clear thesis: helping users discover and manage local events. The features generally align with this thesis. The KPIs also seem to support the strategic goals.</p>
           </div>
+        </div>
+        <div class=\"findings-list\">
         </div>
       </details>
     </section>
 
-    <section class="dimension">
+    <section class=\"dimension\">
       <details>
         <summary>
           <h2>Done-ness clarity</h2>
-          <span class="verdict-pill verdict-adequate">adequate</span>
+          <span class=\"verdict-pill verdict-strong\">strong</span>
         </summary>
-        <div class="dim-body">
-          <div class="dim-judgment">
-            <p>The inclusion of a detailed data schema with Typescript interfaces is excellent for clarity. However, some functional requirements could be more specific to be considered "done".</p>
+        <div class=\"dim-body\">
+          <div class=\"dim-judgment\">
+            <p>The PRD does a good job of defining \"done\" for many features.</p>
           </div>
         </div>
-        <div class="findings-list">
-          <article class="finding">
-            <header>
-              <span class="badge badge-sev-medium">medium</span>
-              <h3 class="finding-title">Ambiguous condition for event cancellation</h3>
-              <span class="finding-location">§3.5.2</span>
-            </header>
-            <div class="finding-note">The condition "If at least three unique users report the same event as cancelled" does not specify a timeframe.</div>
-            <div class="finding-fix"><strong>Fix:</strong> Clarify the condition, e.g., "If at least three unique users report the same event as cancelled within a 7-day period..."</div>
-          </article>
+        <div class=\"findings-list\">
         </div>
       </details>
     </section>
 
-    <section class="dimension">
+    <section class=\"dimension\">
       <details>
         <summary>
           <h2>Scope honesty</h2>
-          <span class="verdict-pill verdict-strong">strong</span>
+          <span class=\"verdict-pill verdict-strong\">strong</span>
         </summary>
-        <div class="dim-body">
-          <div class="dim-judgment">
-            <p>The PRD is clear about what is in and out of scope for the MVP. The capacity limitations for the MVP are explicitly stated, which is excellent for managing expectations.</p>
+        <div class=\"dim-body\">
+          <div class=\"dim-judgment\">
+            <p>The PRD is upfront about MVP limitations, such as the one-way calendar integration and the finite capacity for social media account subscriptions. It also has a \"Post-MVP Features\" section.</p>
           </div>
+        </div>
+        <div class=\"findings-list\">
         </div>
       </details>
     </section>
 
-    <section class="dimension">
+    <section class=\"dimension\">
       <details>
         <summary>
           <h2>Downstream usability</h2>
-          <span class="verdict-pill verdict-strong">strong</span>
+          <span class=\"verdict-pill verdict-strong\">strong</span>
         </summary>
-        <div class="dim-body">
-          <div class="dim-judgment">
-            <p>The detailed data schema and clear structure of the document make it highly usable for downstream teams like development and QA. The use of Typescript interfaces is a major plus.</p>
+        <div class=\"dim-body\">
+          <div class=\"dim-judgment\">
+            <p>The PRD includes a detailed data schema with TypeScript interfaces, which is excellent for downstream development. The use of enums and clear descriptions will be very helpful.</p>
           </div>
+        </div>
+        <div class=\"findings-list\">
         </div>
       </details>
     </section>
 
-    <section class="dimension">
+    <section class=\"dimension\">
       <details>
         <summary>
           <h2>Shape fit</h2>
-          <span class="verdict-pill verdict-strong">strong</span>
+          <span class=\"verdict-pill verdict-strong\">strong</span>
         </summary>
-        <div class="dim-body">
-          <div class="dim-judgment">
-            <p>The PRD is well-suited for a consumer-facing web application. The level of detail is appropriate for an MVP.</p>
+        <div class=\"dim-body\">
+          <div class=\"dim-judgment\">
+            <p>The PRD's shape fits the product well. It's a consumer-facing web application, and the PRD is structured accordingly, with a focus on user-facing features and a detailed data schema.</p>
           </div>
+        </div>
+        <div class=\"findings-list\">
         </div>
       </details>
     </section>
 
-    <div class="mechanical">
-      <h3>Mechanical notes</h3>
-      <ul>
-        <li>The document is well-structured and easy to read.</li>
-        <li>There are no broken cross-references.</li>
-      </ul>
-    </div>
-
-    <footer class="report-footer">
-      <div class="meta">
-        <span>Rubric: .agents/skills/bmad-prd/assets/prd-validation-checklist.md</span>
-        <span>Generated: 2026-07-17T08:36:00Z</span>
+    <footer class=\"report-footer\">
+      <div class=\"meta\">
+        <span>Rubric: c:\projects\portfolio\festgrid\bmad\.agents\skills\bmad-prd\assets\prd-validation-checklist.md</span>
+        <span>Generated: 2026-07-21T09:24:27Z</span>
       </div>
     </footer>
   </div>
