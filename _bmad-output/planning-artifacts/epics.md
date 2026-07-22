@@ -211,7 +211,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 
 ## Epic List
 
-### Epic 1: Project Setup & DevOps
+### Epic 0: Project Setup & DevOps
 
 The project is set up with a solid foundation and CI/CD pipeline.
 **FRs covered:** N/A (Covers NFRs, ARs, and foundational UX-DRs)
@@ -258,18 +258,18 @@ The project is set up with a solid foundation and CI/CD pipeline.
 *   **Then** the component is styled with the project's themes (e.g., primary, secondary, accent colors).
 *   **And** the application supports both light and dark themes.
 
-### Story 1.4: Set up Drizzle ORM and generate the initial database schema
+### Story 1.4: Set up Drizzle ORM for schema migrations
 
 **As a** developer,
-**I want** to set up Drizzle ORM in the monorepo and generate the initial database schema based on the entities defined in `shared-types`,
-**So that** I can interact with the database in a type-safe way.
+**I want** to set up Drizzle ORM and `drizzle-kit` in the monorepo,
+**So that** I can define database schemas in TypeScript and generate SQL migrations from them.
 
 **Acceptance Criteria:**
 
 *   **Given** the pnpm monorepo is initialized,
-*   **When** I define a new entity in the `shared-types` package,
-*   **Then** I can use `drizzle-kit` to generate a database migration.
-*   **And** the generated migration can be applied to the Supabase (PostgreSQL) database.
+*   **When** I define a new Drizzle schema for a table (e.g., a simple `users` table),
+*   **Then** I can run a `pnpm` script to generate a new SQL migration file.
+*   **And** the generated migration can be successfully applied to the database.
 
 ### Story 1.5: Set up CI/CD pipeline with GitHub Actions
 
@@ -289,7 +289,19 @@ The project is set up with a solid foundation and CI/CD pipeline.
 Users can discover and browse events.
 **FRs covered:** FR1, FR2, FR3, FR4, FR13, FR14, FR63
 
-### Story 2.0: Seed database with mock data
+### Story 2.0: Create initial database tables
+
+**As a** developer,
+**I want** to create the initial database tables for Events, Schedules, Users, Locations, and Subscriptions,
+**So that** the core features of the application can be built upon a solid data foundation.
+
+**Acceptance Criteria:**
+
+*   **Given** the Drizzle ORM migration tool is set up,
+*   **When** I run the migration script,
+*   **Then** the `events`, `schedules`, `users`, `user_locations`, `subscriptions`, and `api_keys` tables are created in the database with the correct columns and relationships.
+
+### Story 2.1: Seed database with mock data
 
 **As a** developer,
 **I want** to have a script that seeds the database with mock event data,
@@ -303,7 +315,7 @@ Users can discover and browse events.
 *   **When** I run the seed script,
 *   **Then** the database is populated with a set of mock events, including names, dates, locations, schedules, performers, and all related nested data.
 
-### Story 2.1: Display a list of events on the main page
+### Story 2.2: Display a list of events on the main page
 
 **As a** user,
 **I want** to see a list of curated local events on the main page,
@@ -318,7 +330,7 @@ Users can discover and browse events.
 *   **And** the events displayed are ongoing or upcoming.
 *   **And** the event data is fetched from the database.
 
-### Story 2.2: Search for events
+### Story 2.3: Search for events
 
 **As a** user,
 **I want** to be able to search for events by name, performer, and location,
@@ -332,7 +344,7 @@ Users can discover and browse events.
 *   **And** the search is performed on the event name, performers, and location name.
 *   **And** the search supports partial matching.
 
-### Story 2.3: Filter events by type and category
+### Story 2.4: Filter events by type and category
 
 **As a** user,
 **I want** to be able to filter events by type and category,
@@ -345,7 +357,7 @@ Users can discover and browse events.
 *   **Then** the list of events is filtered to show only events that match the selected types and categories.
 *   **And** I can clear the filters to see all events again.
 
-### Story 2.4: View event details
+### Story 2.5: View event details
 
 **As a** user,
 **I want** to be able to click on an event to see its full details,
@@ -359,7 +371,7 @@ Users can discover and browse events.
 *   **And** the details include the event name, description, date and time, location, performers, and any other relevant information.
 *   **And** the event details are fetched from the database.
 
-### Story 2.5: User Signup and Login with Google
+### Story 2.6: User Signup and Login with Google
 
 **As a** new user,
 **I want** to be able to sign up and log in using my Google account,
