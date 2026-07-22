@@ -631,9 +631,9 @@ Users can subscribe to social media accounts to import events into their feed.
 
 ### Story 4.9: Implement API key quota management
 
-**As a** system,
-**I want** to track the usage of each Gemini API key and implement a round-robin with fairness algorithm for shared subscriptions,
-**So that** I can optimize quota usage and ensure fairness among users.
+**As a** user who has subscribed to a popular account,
+**I want** the system to fairly use the API keys from all subscribers,
+**So that** event extraction is reliable and not dependent on a single user's quota.
 
 **Acceptance Criteria:**
 
@@ -708,9 +708,9 @@ Users can contribute to data quality by correcting event details and reporting i
 
 ### Story 5.4: Handle "Event Cancelled" reports
 
-**As a** system,
-**I want** to automatically soft-delete an event if enough users report it as cancelled, and allow moderators to restore it,
-**So that** the event listings remain accurate and up-to-date.
+**As a** user,
+**I want** events that are widely reported as "cancelled" to be removed from the public view,
+**So that** I don't see inaccurate information.
 
 **Acceptance Criteria:**
 
@@ -721,9 +721,9 @@ Users can contribute to data quality by correcting event details and reporting i
 
 ### Story 5.5: Handle "Dangerous Event" reports
 
-**As a** system,
-**I want** to immediately notify moderators about reports of dangerous events and handle subsequent reports from the same user if the event is marked as safe,
-**So that** I can ensure the safety of the community.
+**As a** user who has reported a dangerous event,
+**I want** moderators to be notified immediately,
+**So that** they can take swift action to protect the community.
 
 **Acceptance Criteria:**
 
