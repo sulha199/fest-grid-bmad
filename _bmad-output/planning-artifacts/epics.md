@@ -607,6 +607,103 @@ Users can subscribe to social media accounts to import events into their feed.
 Users can contribute to data quality by correcting event details and reporting issues.
 **FRs covered:** FR38, FR39, FR40, FR41, FR42, FR43, FR44, FR45, FR46, FR47, FR48, FR49, FR50
 
+### Story 5.1: Manually correct event data
+
+**As a** user,
+**I want** to be able to manually correct the details of an event,
+**So that** I can fix any inaccuracies in the event information.
+
+**Acceptance Criteria:**
+
+*   **Given** I am viewing the details of an event,
+*   **When** I click the "Correct Data" button,
+*   **Then** a form is displayed with the current event data pre-filled.
+*   **And** I can edit the fields and submit the corrections.
+*   **And** the system performs data inconsistency checks before accepting the correction.
+
+### Story 5.2: AI-assisted event data correction
+
+**As a** user with a BYOK key,
+**I want** the system to be able to automatically extract corrected event information from a URL I provide,
+**So that** I can more easily correct event data.
+
+**Acceptance Criteria:**
+
+*   **Given** I am correcting the data for an event,
+*   **And** I have provided my own Gemini API Key (BYOK),
+*   **When** I provide a URL to a social media post and click "Extract",
+*   **Then** the system uses the Gemini API to extract event information from the post.
+*   **And** the correction form is pre-filled with the extracted information for my review.
+
+### Story 5.3: Report an event
+
+**As a** user,
+**I want** to be able to report an event for various reasons,
+**So that** I can help maintain the quality and accuracy of the event listings.
+
+**Acceptance Criteria:**
+
+*   **Given** I am viewing an event,
+*   **When** I click the "Report" button,
+*   **Then** if I am not logged in, I am prompted to log in.
+*   **And** once logged in, I am presented with a form where I can select a reason for reporting (e.g., "Event Cancelled", "Dangerous Event", "Personal").
+*   **And** I can provide additional details in a text field.
+*   **And** when I submit the report, it is recorded in the system.
+*   **And** the reported event is immediately hidden from my view.
+
+### Story 5.4: Handle "Event Cancelled" reports
+
+**As a** system,
+**I want** to automatically soft-delete an event if enough users report it as cancelled, and allow moderators to restore it,
+**So that** the event listings remain accurate and up-to-date.
+
+**Acceptance Criteria:**
+
+*   **Given** an event has been reported as "Cancelled" by a user,
+*   **When** the number of unique users reporting the same event as cancelled reaches a configurable threshold (default: 3) within a configurable timeframe (default: 7 days),
+*   **Then** the event is soft-deleted and no longer visible to regular users.
+*   **And** a moderator can view the soft-deleted event and has the option to restore it.
+
+### Story 5.5: Handle "Dangerous Event" reports
+
+**As a** system,
+**I want** to immediately notify moderators about reports of dangerous events and handle subsequent reports from the same user if the event is marked as safe,
+**So that** I can ensure the safety of the community.
+
+**Acceptance Criteria:**
+
+*   **Given** a user reports an event as "Dangerous",
+*   **When** the report is submitted,
+*   **Then** an email notification is immediately sent to all moderators.
+*   **And** when a moderator marks the event as safe, they have the option to ignore subsequent "Dangerous" reports from the same user for that same event.
+
+### Story 5.6: User's Reports page
+
+**As a** user,
+**I want** to have a dedicated page where I can see the history and status of my submitted reports,
+**So that** I can track the outcome of my reports.
+
+**Acceptance Criteria:**
+
+*   **Given** I am logged in,
+*   **When** I navigate to the "My Reports" page from the user menu,
+*   **Then** I see a list of all the reports I have submitted.
+*   **And** for each report, I can see the reported event, the reason for the report, and the current status (e.g., "Pending", "Resolved").
+
+### Story 5.7: Moderator Items page
+
+**As a** moderator,
+**I want** to have a dedicated page where I can see all reported events and take action on them,
+**So that** I can effectively moderate the content on the platform.
+
+**Acceptance Criteria:**
+
+*   **Given** I am logged in as a moderator,
+*   **When** I navigate to the "Moderator Items" page from the user menu,
+*   **Then** I see a list of all reported events that require my attention.
+*   **And** for each reported event, I can see the reason for the report and any additional details.
+*   **And** I can take action on the report, such as marking an event as safe, restoring a soft-deleted event, or permanently deleting an event.
+
 ### Epic 6: Onboarding and Manual Event Extraction
 
 Users are guided through the initial setup and can manually select posts for event extraction.
