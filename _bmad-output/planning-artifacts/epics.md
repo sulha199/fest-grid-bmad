@@ -617,6 +617,20 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** I receive a push notification on my registered devices.
 *   **And** the push notification contains the event name and a short description.
 
+### Story 4.9: Implement API key quota management
+
+**As a** system,
+**I want** to track the usage of each Gemini API key and implement a round-robin with fairness algorithm for shared subscriptions,
+**So that** I can optimize quota usage and ensure fairness among users.
+
+**Acceptance Criteria:**
+
+*   **Given** there are multiple users subscribed to the same social media account,
+*   **When** the system needs to process a post from that account,
+*   **Then** it uses a round-robin with fairness algorithm to select which user's API key to use.
+*   **And** the system tracks the usage of each API key.
+*   **And** the usage tracking is reset at the beginning of each billing cycle.
+
 ### Epic 5: Data Quality and Moderation
 
 Users can contribute to data quality by correcting event details and reporting issues.
@@ -757,8 +771,8 @@ Users are guided through the initial setup and can manually select posts for eve
 ### Story 6.3: Display and enforce API quota
 
 **As a** user,
-**I want** to see how many posts I can select for extraction based on my API quota,
-**So that** I can manage my API usage effectively.
+**I want** to see how many posts I can select for extraction based on my API quota, and see which posts have already been processed,
+**So that** I can manage my API usage effectively and avoid redundant extractions.
 
 **Acceptance Criteria:**
 
