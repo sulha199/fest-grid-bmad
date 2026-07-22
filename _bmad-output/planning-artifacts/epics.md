@@ -289,6 +289,20 @@ The project is set up with a solid foundation and CI/CD pipeline.
 Users can discover and browse events.
 **FRs covered:** FR1, FR2, FR3, FR4, FR13, FR14, FR63
 
+### Story 2.0: Seed database with mock data
+
+**As a** developer,
+**I want** to have a script that seeds the database with mock event data,
+**So that** I can develop and test the event discovery features with realistic data.
+
+**Acceptance Criteria:**
+
+*   **Given** the database schema is set up,
+*   **And** we have a defined set of mock data including locations, Instagram post URLs, image URLs, and SocialMediaAccountProfile data,
+*   **And** all foreign key relationships in the mock EventInfo data are populated with corresponding mock data,
+*   **When** I run the seed script,
+*   **Then** the database is populated with a set of mock events, including names, dates, locations, schedules, performers, and all related nested data.
+
 ### Story 2.1: Display a list of events on the main page
 
 **As a** user,
@@ -302,7 +316,7 @@ Users can discover and browse events.
 *   **Then** I see a grid of event cards.
 *   **And** each event card displays the event name, date, and main image.
 *   **And** the events displayed are ongoing or upcoming.
-*   **And** the event data is fetched from a mock API endpoint.
+*   **And** the event data is fetched from the database.
 
 ### Story 2.2: Search for events
 
@@ -343,7 +357,7 @@ Users can discover and browse events.
 *   **When** I click on an event card,
 *   **Then** a modal or a new page appears with the full details of the event.
 *   **And** the details include the event name, description, date and time, location, performers, and any other relevant information.
-*   **And** the event details are fetched from a mock API endpoint.
+*   **And** the event details are fetched from the database.
 
 ### Story 2.5: User Signup and Login with Google
 
