@@ -143,71 +143,71 @@ This document provides the complete epic and story breakdown for festgrid, decom
 
 ### FR Coverage Map
 
-- FR1: Epic 2 - Core App and Event Discovery
-- FR2: Epic 2 - Core App and Event Discovery
-- FR3: Epic 2 - Core App and Event Discovery
-- FR4: Epic 2 - Core App and Event Discovery
-- FR5: Epic 3 - User Personalization
-- FR6: Epic 3 - User Personalization
-- FR7: Epic 3 - User Personalization
-- FR8: Epic 3 - User Personalization
-- FR9: Epic 3 - User Personalization
-- FR10: Epic 3 - User Personalization
-- FR11: Epic 3 - User Personalization
-- FR12: Epic 3 - User Personalization
-- FR13: Epic 2 - Core App and Event Discovery
-- FR14: Epic 2 - Core App and Event Discovery
-- FR15: Epic 3 - User Personalization
-- FR16: Epic 3 - User Personalization
-- FR17: Epic 3 - User Personalization
-- FR18: Epic 4 - Social Media Event Integration
-- FR19: Epic 4 - Social Media Event Integration
-- FR20: Epic 4 - Social Media Event Integration
-- FR21: Epic 4 - Social Media Event Integration
-- FR22: Epic 4 - Social Media Event Integration
-- FR23: Epic 4 - Social Media Event Integration
-- FR24: Epic 4 - Social Media Event Integration
-- FR25: Epic 4 - Social Media Event Integration
-- FR26: Epic 4 - Social Media Event Integration
-- FR27: Epic 4 - Social Media Event Integration
-- FR28: Epic 4 - Social Media Event Integration
-- FR29: Epic 4 - Social Media Event Integration
-- FR30: Epic 4 - Social Media Event Integration
-- FR31: Epic 4 - Social Media Event Integration
-- FR32: Epic 4 - Social Media Event Integration
-- FR33: Epic 4 - Social Media Event Integration
-- FR34: Epic 4 - Social Media Event Integration
-- FR35: Epic 4 - Social Media Event Integration
-- FR36: Epic 4 - Social Media Event Integration
-- FR37: Epic 4 - Social Media Event Integration
-- FR38: Epic 5 - Data Quality and Moderation
-- FR39: Epic 5 - Data Quality and Moderation
-- FR40: Epic 5 - Data Quality and Moderation
-- FR41: Epic 5 - Data Quality and Moderation
-- FR42: Epic 5 - Data Quality and Moderation
-- FR43: Epic 5 - Data Quality and Moderation
-- FR44: Epic 5 - Data Quality and Moderation
-- FR45: Epic 5 - Data Quality and Moderation
-- FR46: Epic 5 - Data Quality and Moderation
-- FR47: Epic 5 - Data Quality and Moderation
-- FR48: Epic 5 - Data Quality and Moderation
-- FR49: Epic 5 - Data Quality and Moderation
-- FR50: Epic 5 - Data Quality and Moderation
-- FR51: Epic 6 - Onboarding and Manual Event Extraction
-- FR52: Epic 6 - Onboarding and Manual Event Extraction
-- FR53: Epic 6 - Onboarding and Manual Event Extraction
-- FR54: Epic 6 - Onboarding and Manual Event Extraction
-- FR55: Epic 6 - Onboarding and Manual Event Extraction
-- FR56: Epic 6 - Onboarding and Manual Event Extraction
-- FR57: Epic 6 - Onboarding and Manual Event Extraction
-- FR58: Epic 6 - Onboarding and Manual Event Extraction
-- FR59: Epic 6 - Onboarding and Manual Event Extraction
-- FR60: Epic 6 - Onboarding and Manual Event Extraction
-- FR61: Epic 6 - Onboarding and Manual Event Extraction
-- FR62: Epic 6 - Onboarding and Manual Event Extraction
-- FR63: Epic 2 - Core App and Event Discovery
-- FR64: Epic 6 - Onboarding and Manual Event Extraction
-- FR65: Epic 6 - Onboarding and Manual Event Extraction
+- FR1: Epic 1 - Core App and Event Discovery
+- FR2: Epic 1 - Core App and Event Discovery
+- FR3: Epic 1 - Core App and Event Discovery
+- FR4: Epic 1 - Core App and Event Discovery
+- FR5: Epic 2 - User Personalization
+- FR6: Epic 2 - User Personalization
+- FR7: Epic 2 - User Personalization
+- FR8: Epic 2 - User Personalization
+- FR9: Epic 2 - User Personalization
+- FR10: Epic 2 - User Personalization
+- FR11: Epic 2 - User Personalization
+- FR12: Epic 2 - User Personalization
+- FR13: Epic 1 - Core App and Event Discovery
+- FR14: Epic 1 - Core App and Event Discovery
+- FR15: Epic 2 - User Personalization
+- FR16: Epic 2 - User Personalization
+- FR17: Epic 2 - User Personalization
+- FR18: Epic 3 - Social Media Event Integration
+- FR19: Epic 3 - Social Media Event Integration
+- FR20: Epic 3 - Social Media Event Integration
+- FR21: Epic 3 - Social Media Event Integration
+- FR22: Epic 3 - Social Media Event Integration
+- FR23: Epic 3 - Social Media Event Integration
+- FR24: Epic 3 - Social Media Event Integration
+- FR25: Epic 3 - Social Media Event Integration
+- FR26: Epic 3 - Social Media Event Integration
+- FR27: Epic 3 - Social Media Event Integration
+- FR28: Epic 3 - Social Media Event Integration
+- FR29: Epic 3 - Social Media Event Integration
+- FR30: Epic 3 - Social Media Event Integration
+- FR31: Epic 3 - Social Media Event Integration
+- FR32: Epic 3 - Social Media Event Integration
+- FR33: Epic 3 - Social Media Event Integration
+- FR34: Epic 3 - Social Media Event Integration
+- FR35: Epic 3 - Social Media Event Integration
+- FR36: Epic 3 - Social Media Event Integration
+- FR37: Epic 3 - Social Media Event Integration
+- FR38: Epic 4 - Data Quality and Moderation
+- FR39: Epic 4 - Data Quality and Moderation
+- FR40: Epic 4 - Data Quality and Moderation
+- FR41: Epic 4 - Data Quality and Moderation
+- FR42: Epic 4 - Data Quality and Moderation
+- FR43: Epic 4 - Data Quality and Moderation
+- FR44: Epic 4 - Data Quality and Moderation
+- FR45: Epic 4 - Data Quality and Moderation
+- FR46: Epic 4 - Data Quality and Moderation
+- FR47: Epic 4 - Data Quality and Moderation
+- FR48: Epic 4 - Data Quality and Moderation
+- FR49: Epic 4 - Data Quality and Moderation
+- FR50: Epic 4 - Data Quality and Moderation
+- FR51: Epic 5 - Onboarding and Manual Event Extraction
+- FR52: Epic 5 - Onboarding and Manual Event Extraction
+- FR53: Epic 5 - Onboarding and Manual Event Extraction
+- FR54: Epic 5 - Onboarding and Manual Event Extraction
+- FR55: Epic 5 - Onboarding and Manual Event Extraction
+- FR56: Epic 5 - Onboarding and Manual Event Extraction
+- FR57: Epic 5 - Onboarding and Manual Event Extraction
+- FR58: Epic 5 - Onboarding and Manual Event Extraction
+- FR59: Epic 5 - Onboarding and Manual Event Extraction
+- FR60: Epic 5 - Onboarding and Manual Event Extraction
+- FR61: Epic 5 - Onboarding and Manual Event Extraction
+- FR62: Epic 5 - Onboarding and Manual Event Extraction
+- FR63: Epic 1 - Core App and Event Discovery
+- FR64: Epic 5 - Onboarding and Manual Event Extraction
+- FR65: Epic 5 - Onboarding and Manual Event Extraction
 
 ## Epic List
 
@@ -216,7 +216,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 The project is set up with a solid foundation and CI/CD pipeline.
 **FRs covered:** N/A (Covers NFRs, ARs, and foundational UX-DRs)
 
-### Story 1.1: Initialize pnpm monorepo
+### Story 0.1: Initialize pnpm monorepo
 
 **As a** developer,
 **I want** to initialize a pnpm monorepo with a Next.js frontend app and a shared-types package,
@@ -230,7 +230,7 @@ The project is set up with a solid foundation and CI/CD pipeline.
 *   **And** the Next.js application can be started in development mode without errors.
 *   **And** the `shared-types` package can be imported into the Next.js application.
 
-### Story 1.2: Configure TypeScript and ESLint for the monorepo
+### Story 0.2: Configure TypeScript and ESLint for the monorepo
 
 **As a** developer,
 **I want** to have TypeScript and ESLint configured for the monorepo with strict rules, using a global configuration that is inherited by all packages,
@@ -245,7 +245,7 @@ The project is set up with a solid foundation and CI/CD pipeline.
 *   **And** the configuration enforces strict TypeScript settings.
 *   **And** there is a global `tsconfig.base.json` and `.eslintrc.json` at the root of the monorepo that are extended by the individual packages.
 
-### Story 1.3: Set up Shadcn/UI and configure themes
+### Story 0.3: Set up Shadcn/UI and configure themes
 
 **As a** developer,
 **I want** to set up Shadcn/UI in the Next.js app and configure it with the project's color palette and themes,
@@ -258,7 +258,7 @@ The project is set up with a solid foundation and CI/CD pipeline.
 *   **Then** the component is styled with the project's themes (e.g., primary, secondary, accent colors).
 *   **And** the application supports both light and dark themes.
 
-### Story 1.4: Set up Drizzle ORM for schema migrations
+### Story 0.4: Set up Drizzle ORM for schema migrations
 
 **As a** developer,
 **I want** to set up Drizzle ORM and `drizzle-kit` in the monorepo,
@@ -271,7 +271,7 @@ The project is set up with a solid foundation and CI/CD pipeline.
 *   **Then** I can run a `pnpm` script to generate a new SQL migration file.
 *   **And** the generated migration can be successfully applied to the database.
 
-### Story 1.5: Set up CI/CD pipeline with GitHub Actions
+### Story 0.5: Set up CI/CD pipeline with GitHub Actions
 
 **As a** developer,
 **I want** to have a basic CI/CD pipeline set up with GitHub Actions,
@@ -284,12 +284,12 @@ The project is set up with a solid foundation and CI/CD pipeline.
 *   **Then** the workflow installs dependencies, runs linting, and executes tests for all packages.
 *   **And** the workflow fails if any of these steps fail.
 
-### Epic 2: Core App and Event Discovery
+### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
 **FRs covered:** FR1, FR2, FR3, FR4, FR13, FR14, FR63
 
-### Story 2.0: Create initial database tables
+### Story 1.1: Create initial database tables
 
 **As a** developer,
 **I want** to create the initial database tables for Events, Schedules, Users, Locations, and Subscriptions,
@@ -301,7 +301,7 @@ Users can discover and browse events.
 *   **When** I run the migration script,
 *   **Then** the `events`, `schedules`, `users`, `user_locations`, `subscriptions`, and `api_keys` tables are created in the database with the correct columns and relationships.
 
-### Story 2.1: Seed database with mock data
+### Story 1.2: Seed database with mock data
 
 **As a** developer,
 **I want** to have a script that seeds the database with mock event data,
@@ -315,7 +315,7 @@ Users can discover and browse events.
 *   **When** I run the seed script,
 *   **Then** the database is populated with a set of mock events, including names, dates, locations, schedules, performers, and all related nested data.
 
-### Story 2.2: Display a list of events on the main page
+### Story 1.3: Display a list of events on the main page
 
 **As a** user,
 **I want** to see a list of curated local events on the main page,
@@ -330,7 +330,7 @@ Users can discover and browse events.
 *   **And** the events displayed are ongoing or upcoming.
 *   **And** the event data is fetched from the database.
 
-### Story 2.3: Search for events
+### Story 1.4: Search for events
 
 **As a** user,
 **I want** to be able to search for events by name, performer, and location,
@@ -344,7 +344,7 @@ Users can discover and browse events.
 *   **And** the search is performed on the event name, performers, and location name.
 *   **And** the search supports partial matching.
 
-### Story 2.4: Filter events by type and category
+### Story 1.5: Filter events by type and category
 
 **As a** user,
 **I want** to be able to filter events by type and category,
@@ -357,7 +357,7 @@ Users can discover and browse events.
 *   **Then** the list of events is filtered to show only events that match the selected types and categories.
 *   **And** I can clear the filters to see all events again.
 
-### Story 2.5: View event details
+### Story 1.6: View event details
 
 **As a** user,
 **I want** to be able to click on an event to see its full details,
@@ -371,7 +371,7 @@ Users can discover and browse events.
 *   **And** the details include the event name, description, date and time, location, performers, and any other relevant information.
 *   **And** the event details are fetched from the database.
 
-### Story 2.6: User Signup and Login with Google
+### Story 1.7: User Signup and Login with Google
 
 **As a** new user,
 **I want** to be able to sign up and log in using my Google account,
@@ -386,12 +386,12 @@ Users can discover and browse events.
 *   **And** I am logged in to the application.
 *   **And** I am redirected to the main page.
 
-### Epic 3: User Personalization
+### Epic 2: User Personalization
 
 Users can personalize their experience by saving favorite events and locations.
 **FRs covered:** FR5, FR6, FR7, FR8, FR9, FR10, FR15, FR16, FR17
 
-### Story 3.1: Favorite an event
+### Story 2.1: Favorite an event
 
 **As a** user,
 **I want** to be able to favorite an event,
@@ -405,7 +405,7 @@ Users can personalize their experience by saving favorite events and locations.
 *   **And** the "Favorite" button changes to an "Unfavorite" button.
 *   **And** when I click the "Unfavorite" button, the event is no longer marked as a favorite.
 
-### Story 3.2: View favorited events
+### Story 2.2: View favorited events
 
 **As a** user,
 **I want** to have a dedicated page that shows all my favorited events,
@@ -418,7 +418,7 @@ Users can personalize their experience by saving favorite events and locations.
 *   **Then** I see a list of all the events I have favorited.
 *   **And** I can unfavorite an event directly from this page.
 
-### Story 3.3: Manage saved locations
+### Story 2.3: Manage saved locations
 
 **As a** user,
 **I want** to be able to save and manage a list of named locations,
@@ -432,7 +432,7 @@ Users can personalize their experience by saving favorite events and locations.
 *   **And** I can see a list of my saved locations.
 *   **And** I can delete a location from the list.
 
-### Story 3.4: Set location by current location or map
+### Story 2.4: Set location by current location or map
 
 **As a** user,
 **I want** to be able to set a location by using my current location or by picking a point on a map,
@@ -446,7 +446,7 @@ Users can personalize their experience by saving favorite events and locations.
 *   **And when** I click the "Pick on map" button,
 *   **Then** a map is displayed, allowing me to select a location by clicking on it.
 
-### Story 3.5: Find nearby events
+### Story 2.5: Find nearby events
 
 **As a** user,
 **I want** to be able to find events near my saved locations,
@@ -460,7 +460,7 @@ Users can personalize their experience by saving favorite events and locations.
 *   **And** I can specify a radius (e.g., 1km, 5km, 10km) to define "nearby".
 *   **And** the list of events is filtered to show only events within the specified radius of the selected location.
 
-### Story 3.6: View and manage events on a calendar
+### Story 2.6: View and manage events on a calendar
 
 **As a** user,
 **I want** to see my "favorited" and "added to calendar" events on a dedicated calendar page,
@@ -474,7 +474,7 @@ Users can personalize their experience by saving favorite events and locations.
 *   **And** "favorited" and "added to calendar" events have a distinct visual treatment.
 *   **And** I can toggle the visibility of "favorited" and "added to calendar" events on the calendar.
 
-### Story 3.7: Automatically hide past events
+### Story 2.7: Automatically hide past events
 
 **As a** user,
 **I want** past events in my personal lists to be automatically hidden after a configurable number of days,
@@ -487,7 +487,7 @@ Users can personalize their experience by saving favorite events and locations.
 *   **Then** the event is no longer visible in the list.
 *   **And** the value of `N` is configurable in the user settings.
 
-### Story 3.8: User Menu
+### Story 2.8: User Menu
 
 **As a** logged-in user,
 **I want** to have a user menu,
@@ -501,7 +501,7 @@ Users can personalize their experience by saving favorite events and locations.
 *   **And** the menu contains links to "My Favorites", "My Calendar", "My Locations", and "Settings".
 *   **And** the menu also contains a "Logout" button.
 
-### Story 3.9: Manage Push Notification Settings
+### Story 2.9: Manage Push Notification Settings
 
 **As a** user,
 **I want** to be able to enable or disable push notifications for new events,
@@ -514,12 +514,12 @@ Users can personalize their experience by saving favorite events and locations.
 *   **Then** I see a toggle to enable or disable push notifications for new events.
 *   **And** my choice is saved and respected by the system.
 
-### Epic 4: Social Media Event Integration
+### Epic 3: Social Media Event Integration
 
 Users can subscribe to social media accounts to import events into their feed.
 **FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37
 
-### Story 4.1: Onboarding wizard for API key and subscriptions
+### Story 3.1: Onboarding wizard for API key and subscriptions
 
 **As a** new user,
 **I want** to be guided through a wizard to add my Gemini API key and subscribe to my first social media account,
@@ -534,7 +534,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** the second step prompts me to subscribe to my first social media account.
 *   **And** after completing the wizard, I am redirected back to the page I was trying to access.
 
-### Story 4.2: Subscribe to a social media account
+### Story 3.2: Subscribe to a social media account
 
 **As a** user,
 **I want** to be able to subscribe to a social media account from the "My Subscriptions" page,
@@ -548,7 +548,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** the subscription is saved to my account.
 *   **And** I see the new subscription in my list of subscriptions.
 
-### Story 4.3: Set a default location for a subscription
+### Story 3.3: Set a default location for a subscription
 
 **As a** user,
 **I want** to be able to set a default location when I subscribe to a social media account,
@@ -561,7 +561,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** I have an optional field to set a default location for this subscription.
 *   **And** if a default location is set, the AI agent will use it when it cannot find an explicit location in a post.
 
-### Story 4.4: Scrape new posts from subscribed accounts
+### Story 3.4: Scrape new posts from subscribed accounts
 
 **As a** system,
 **I want** to periodically scrape new posts from the social media accounts that users have subscribed to,
@@ -574,7 +574,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** the system retrieves the latest posts from the subscribed accounts.
 *   **And** the scraped posts are stored temporarily for the next step in the processing pipeline.
 
-### Story 4.5: Add new posts to a processing queue
+### Story 3.5: Add new posts to a processing queue
 
 **As a** system,
 **I want** to add the scraped posts to a processing queue,
@@ -587,7 +587,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** the post is added as a message to an SQS queue.
 *   **And** the message contains all the necessary information about the post (e.g., URL, content, metadata).
 
-### Story 4.6: Process posts from the queue and extract event information
+### Story 3.6: Process posts from the queue and extract event information
 
 **As a** system,
 **I want** to process posts from the queue, use the Gemini API to extract event information, and save the structured data to the database,
@@ -601,7 +601,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** the extracted information is validated and transformed into a structured `EventInfo` object.
 *   **And** the `EventInfo` object is saved to the database.
 
-### Story 4.7: Display extracted events to the user
+### Story 3.7: Display extracted events to the user
 
 **As a** user,
 **I want** to see the events that have been extracted from my subscribed social media accounts,
@@ -615,7 +615,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** I see a list of events that have been extracted from my subscribed accounts.
 *   **And** I can view the events in a calendar view or a card view.
 
-### Story 4.8: Push notifications for extracted events
+### Story 3.8: Push notifications for extracted events
 
 **As a** user,
 **I want** to receive a push notification when a new event is extracted from one of my subscribed accounts,
@@ -629,7 +629,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** I receive a push notification on my registered devices.
 *   **And** the push notification contains the event name and a short description.
 
-### Story 4.9: Implement API key quota management
+### Story 3.9: Implement API key quota management
 
 **As a** user who has subscribed to a popular account,
 **I want** the system to fairly use the API keys from all subscribers,
@@ -643,7 +643,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** the system tracks the usage of each API key.
 *   **And** the usage tracking is reset at the beginning of each billing cycle.
 
-### Story 4.10: Email notifications for queued posts
+### Story 3.10: Email notifications for queued posts
 
 **As a** user,
 **I want** to receive an email notification when my subscribed posts are not being processed due to API quota issues,
@@ -657,12 +657,12 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** an email notification is sent to the user.
 *   **And** the email suggests contributing an additional API key.
 
-### Epic 5: Data Quality and Moderation
+### Epic 4: Data Quality and Moderation
 
 Users can contribute to data quality by correcting event details and reporting issues.
 **FRs covered:** FR38, FR39, FR40, FR41, FR42, FR43, FR44, FR45, FR46, FR47, FR48, FR49, FR50
 
-### Story 5.1: Manually correct event data
+### Story 4.1: Manually correct event data
 
 **As a** user,
 **I want** to be able to manually correct the details of an event,
@@ -676,7 +676,7 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **And** I can edit the fields and submit the corrections.
 *   **And** the system performs data inconsistency checks before accepting the correction.
 
-### Story 5.2: AI-assisted event data correction
+### Story 4.2: AI-assisted event data correction
 
 **As a** user with a BYOK key,
 **I want** the system to be able to automatically extract corrected event information from a URL I provide,
@@ -690,7 +690,7 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **Then** the system uses the Gemini API to extract event information from the post.
 *   **And** the correction form is pre-filled with the extracted information for my review.
 
-### Story 5.3: Report an event
+### Story 4.3: Report an event
 
 **As a** user,
 **I want** to be able to report an event for various reasons,
@@ -706,7 +706,7 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **And** when I submit the report, it is recorded in the system.
 *   **And** the reported event is immediately hidden from my view.
 
-### Story 5.4: Handle "Event Cancelled" reports
+### Story 4.4: Handle "Event Cancelled" reports
 
 **As a** user,
 **I want** events that are widely reported as "cancelled" to be removed from the public view,
@@ -719,7 +719,7 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **Then** the event is soft-deleted and no longer visible to regular users.
 *   **And** a moderator can view the soft-deleted event and has the option to restore it.
 
-### Story 5.5: Handle "Dangerous Event" reports
+### Story 4.5: Handle "Dangerous Event" reports
 
 **As a** user who has reported a dangerous event,
 **I want** moderators to be notified immediately,
@@ -732,7 +732,7 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **Then** an email notification is immediately sent to all moderators.
 *   **And** when a moderator marks the event as safe, they have the option to ignore subsequent "Dangerous" reports from the same user for that same event.
 
-### Story 5.6: User's Reports page
+### Story 4.6: User's Reports page
 
 **As a** user,
 **I want** to have a dedicated page where I can see the history and status of my submitted reports,
@@ -745,7 +745,7 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **Then** I see a list of all the reports I have submitted.
 *   **And** for each report, I can see the reported event, the reason for the report, and the current status (e.g., "Pending", "Resolved").
 
-### Story 5.7: Moderator Items page
+### Story 4.7: Moderator Items page
 
 **As a** moderator,
 **I want** to have a dedicated page where I can see all reported events and take action on them,
@@ -759,12 +759,12 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **And** for each reported event, I can see the reason for the report and any additional details.
 *   **And** I can take action on the report, such as marking an event as safe, restoring a soft-deleted event, or permanently deleting an event.
 
-### Epic 6: Onboarding and Manual Event Extraction
+### Epic 5: Onboarding and Manual Event Extraction
 
 Users are guided through the initial setup and can manually select posts for event extraction.
 **FRs covered:** FR51, FR52, FR53, FR54, FR55, FR56, FR57, FR58, FR59, FR60, FR61, FR62, FR64, FR65
 
-### Story 6.1: Manual post selection screen
+### Story 5.1: Manual post selection screen
 
 **As a** user,
 **I want** a screen where I can see the most recent posts from my subscribed accounts,
@@ -779,7 +779,7 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **And** each tab displays the 20 most recent posts from that account.
 *   **And** posts are loaded lazily to improve performance.
 
-### Story 6.2: Select posts for extraction
+### Story 5.2: Select posts for extraction
 
 **As a** user,
 **I want** to be able to select multiple posts from different subscribed accounts to be processed for event extraction,
@@ -794,7 +794,7 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **And** the selection state is preserved when I switch between tabs.
 *   **And** there is a summary bar that shows the total number of selected posts.
 
-### Story 6.3: Display and enforce API quota
+### Story 5.3: Display and enforce API quota
 
 **As a** user,
 **I want** to see how many posts I can select for extraction based on my API quota, and see which posts have already been processed,
@@ -808,7 +808,7 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **And** I am prevented from selecting more posts than my quota allows.
 *   **And** posts that have already been processed are visually disabled and cannot be selected.
 
-### Story 6.4: Inactive account warning
+### Story 5.4: Inactive account warning
 
 **As a** user,
 **I want** to see a warning for my subscribed accounts that have become inactive,
@@ -821,7 +821,7 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **Then** a warning icon is displayed on the account's tab.
 *   **And** the tab's content shows a warning message and a button to remove the inactive subscription.
 
-### Story 6.5: Integrate manual post selection into the getting started wizard
+### Story 5.5: Integrate manual post selection into the getting started wizard
 
 **As a** new user,
 **I want** to be prompted to select posts for extraction immediately after subscribing to new accounts in the getting started wizard,
