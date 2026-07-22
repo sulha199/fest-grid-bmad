@@ -289,6 +289,77 @@ The project is set up with a solid foundation and CI/CD pipeline.
 Users can discover and browse events.
 **FRs covered:** FR1, FR2, FR3, FR4, FR13, FR14, FR63
 
+### Story 2.1: Display a list of events on the main page
+
+**As a** user,
+**I want** to see a list of curated local events on the main page,
+**So that** I can discover what's happening around me.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the main page of the application,
+*   **When** the page loads,
+*   **Then** I see a grid of event cards.
+*   **And** each event card displays the event name, date, and main image.
+*   **And** the events displayed are ongoing or upcoming.
+*   **And** the event data is fetched from a mock API endpoint.
+
+### Story 2.2: Search for events
+
+**As a** user,
+**I want** to be able to search for events by name, performer, and location,
+**So that** I can find specific events I am interested in.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the main page of the application,
+*   **When** I type a search query in the search bar and press enter,
+*   **Then** the list of events is filtered to show only events that match the search query.
+*   **And** the search is performed on the event name, performers, and location name.
+*   **And** the search supports partial matching.
+
+### Story 2.3: Filter events by type and category
+
+**As a** user,
+**I want** to be able to filter events by type and category,
+**So that** I can narrow down the list of events to my interests.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the main page of the application,
+*   **When** I select one or more event types or categories from the filter controls,
+*   **Then** the list of events is filtered to show only events that match the selected types and categories.
+*   **And** I can clear the filters to see all events again.
+
+### Story 2.4: View event details
+
+**As a** user,
+**I want** to be able to click on an event to see its full details,
+**So that** I can get all the information I need about the event.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the main page of the application,
+*   **When** I click on an event card,
+*   **Then** a modal or a new page appears with the full details of the event.
+*   **And** the details include the event name, description, date and time, location, performers, and any other relevant information.
+*   **And** the event details are fetched from a mock API endpoint.
+
+### Story 2.5: User Signup and Login with Google
+
+**As a** new user,
+**I want** to be able to sign up and log in using my Google account,
+**So that** I can easily and securely access the application.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the login page,
+*   **When** I click the "Sign in with Google" button,
+*   **Then** I am redirected to the Google authentication page.
+*   **And** after successful authentication, a new user account is created in the system if it doesn't exist.
+*   **And** I am logged in to the application.
+*   **And** I am redirected to the main page.
+
 ### Epic 3: User Personalization
 
 Users can personalize their experience by saving favorite events and locations.
