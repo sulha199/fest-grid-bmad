@@ -507,21 +507,36 @@ Users can personalize their experience by saving favorite events and locations.
 Users can subscribe to social media accounts to import events into their feed.
 **FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37
 
-### Story 4.1: Subscribe to a social media account
+### Story 4.1: Onboarding wizard for API key and subscriptions
+
+**As a** new user,
+**I want** to be guided through a wizard to add my Gemini API key and subscribe to my first social media account,
+**So that** I can get started with the application easily.
+
+**Acceptance Criteria:**
+
+*   **Given** I am a new user,
+*   **When** I first try to access a feature that requires an API key (e.g., "Manage Subscriptions"),
+*   **Then** I am redirected to a wizard.
+*   **And** the first step of the wizard prompts me to add my Gemini API key.
+*   **And** the second step prompts me to subscribe to my first social media account.
+*   **And** after completing the wizard, I am redirected back to the page I was trying to access.
+
+### Story 4.2: Subscribe to a social media account
 
 **As a** user,
-**I want** to be able to subscribe to a social media account by providing the account's URL and my Gemini API Key,
-**So that** the system can start monitoring the account for new events.
+**I want** to be able to subscribe to a social media account from the "My Subscriptions" page,
+**So that** I can add new accounts to monitor for events.
 
 **Acceptance Criteria:**
 
 *   **Given** I am on the "My Subscriptions" page,
-*   **When** I enter a social media account URL and my Gemini API Key and click "Subscribe",
+*   **And** I have at least one API key,
+*   **When** I enter a social media account URL and click "Subscribe",
 *   **Then** the subscription is saved to my account.
-*   **And** the system begins to monitor the account for new posts.
 *   **And** I see the new subscription in my list of subscriptions.
 
-### Story 4.2: Set a default location for a subscription
+### Story 4.3: Set a default location for a subscription
 
 **As a** user,
 **I want** to be able to set a default location when I subscribe to a social media account,
@@ -534,7 +549,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** I have an optional field to set a default location for this subscription.
 *   **And** if a default location is set, the AI agent will use it when it cannot find an explicit location in a post.
 
-### Story 4.3: Scrape new posts from subscribed accounts
+### Story 4.4: Scrape new posts from subscribed accounts
 
 **As a** system,
 **I want** to periodically scrape new posts from the social media accounts that users have subscribed to,
@@ -547,7 +562,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** the system retrieves the latest posts from the subscribed accounts.
 *   **And** the scraped posts are stored temporarily for the next step in the processing pipeline.
 
-### Story 4.4: Add new posts to a processing queue
+### Story 4.5: Add new posts to a processing queue
 
 **As a** system,
 **I want** to add the scraped posts to a processing queue,
@@ -560,7 +575,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** the post is added as a message to an SQS queue.
 *   **And** the message contains all the necessary information about the post (e.g., URL, content, metadata).
 
-### Story 4.5: Process posts from the queue and extract event information
+### Story 4.6: Process posts from the queue and extract event information
 
 **As a** system,
 **I want** to process posts from the queue, use the Gemini API to extract event information, and save the structured data to the database,
@@ -574,7 +589,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** the extracted information is validated and transformed into a structured `EventInfo` object.
 *   **And** the `EventInfo` object is saved to the database.
 
-### Story 4.6: Display extracted events to the user
+### Story 4.7: Display extracted events to the user
 
 **As a** user,
 **I want** to see the events that have been extracted from my subscribed social media accounts,
@@ -588,7 +603,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** I see a list of events that have been extracted from my subscribed accounts.
 *   **And** I can view the events in a calendar view or a card view.
 
-### Story 4.7: Push notifications for extracted events
+### Story 4.8: Push notifications for extracted events
 
 **As a** user,
 **I want** to receive a push notification when a new event is extracted from one of my subscribed accounts,
