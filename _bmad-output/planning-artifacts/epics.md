@@ -365,6 +365,102 @@ Users can discover and browse events.
 Users can personalize their experience by saving favorite events and locations.
 **FRs covered:** FR5, FR6, FR7, FR8, FR9, FR10, FR15, FR16, FR17
 
+### Story 3.1: Favorite an event
+
+**As a** user,
+**I want** to be able to favorite an event,
+**So that** I can easily find it later.
+
+**Acceptance Criteria:**
+
+*   **Given** I am viewing the details of an event,
+*   **When** I click the "Favorite" button,
+*   **Then** the event is marked as a favorite.
+*   **And** the "Favorite" button changes to an "Unfavorite" button.
+*   **And** when I click the "Unfavorite" button, the event is no longer marked as a favorite.
+
+### Story 3.2: View favorited events
+
+**As a** user,
+**I want** to have a dedicated page that shows all my favorited events,
+**So that** I can easily keep track of them.
+
+**Acceptance Criteria:**
+
+*   **Given** I am logged in,
+*   **When** I navigate to the "Favorites" page,
+*   **Then** I see a list of all the events I have favorited.
+*   **And** I can unfavorite an event directly from this page.
+
+### Story 3.3: Manage saved locations
+
+**As a** user,
+**I want** to be able to save and manage a list of named locations,
+**So that** I can easily find events near them.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the "My Locations" page,
+*   **When** I add a new location by providing a name and address,
+*   **Then** the location is saved to my list of locations.
+*   **And** I can see a list of my saved locations.
+*   **And** I can delete a location from the list.
+
+### Story 3.4: Set location by current location or map
+
+**As a** user,
+**I want** to be able to set a location by using my current location or by picking a point on a map,
+**So that** I can easily save locations without having to type in an address.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the "My Locations" page and adding a new location,
+*   **When** I click the "Use my current location" button,
+*   **Then** the location fields are pre-filled with my current location.
+*   **And when** I click the "Pick on map" button,
+*   **Then** a map is displayed, allowing me to select a location by clicking on it.
+
+### Story 3.5: Find nearby events
+
+**As a** user,
+**I want** to be able to find events near my saved locations,
+**So that** I can easily discover events happening close to me.
+
+**Acceptance Criteria:**
+
+*   **Given** I have at least one saved location,
+*   **When** I am viewing the event list,
+*   **Then** I can select one of my saved locations to see nearby events.
+*   **And** I can specify a radius (e.g., 1km, 5km, 10km) to define "nearby".
+*   **And** the list of events is filtered to show only events within the specified radius of the selected location.
+
+### Story 3.6: View and manage events on a calendar
+
+**As a** user,
+**I want** to see my "favorited" and "added to calendar" events on a dedicated calendar page,
+**So that** I can visualize my upcoming event schedule.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the "My Calendar" page,
+*   **When** the page loads,
+*   **Then** I see a calendar view with all my "favorited" and "added to calendar" events.
+*   **And** "favorited" and "added to calendar" events have a distinct visual treatment.
+*   **And** I can toggle the visibility of "favorited" and "added to calendar" events on the calendar.
+
+### Story 3.7: Automatically hide past events
+
+**As a** user,
+**I want** past events in my personal lists to be automatically hidden after a configurable number of days,
+**So that** my lists stay clean and relevant.
+
+**Acceptance Criteria:**
+
+*   **Given** I have events in my "Favorites" or "My Calendar" list that have passed,
+*   **When** `N` days have passed since the event ended,
+*   **Then** the event is no longer visible in the list.
+*   **And** the value of `N` is configurable in the user settings.
+
 ### Epic 4: Social Media Event Integration
 
 Users can subscribe to social media accounts to import events into their feed.
