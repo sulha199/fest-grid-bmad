@@ -25,8 +25,9 @@ _This file contains critical rules and patterns that AI agents must follow when 
 *   **Monorepo:** `pnpm` and `turbo`
 *   **Language:** `TypeScript 5` (Strict mode enabled)
 *   **Frontend:** `Next.js 14.2.3`, `React 18`
-*   **Backend API:** `Express.js`, `pg` (PostgreSQL)
-*   **Backend Scraper:** Node.js
+*   **Backend:** Serverless on AWS (`API Gateway`, `Lambda`, `SQS`, `EventBridge`)
+*   **Database:** `Supabase` (PostgreSQL) with `Drizzle ORM`
+*   **Push Notifications:** `Firebase Cloud Messaging (FCM)`
 *   **Shared Code:** Workspace packages (`@festgrid/shared-types`, `@festgrid/config`)
 *   **Linting:** `ESLint` with `eslint-config-next`
 *   **UI Component Library:** `Shadcn/ui` (built on Radix UI and Tailwind CSS)
@@ -35,27 +36,29 @@ _This file contains critical rules and patterns that AI agents must follow when 
 
 ### API & Data
 1.  **API Style (GraphQL):** The backend API **must** use GraphQL for all client-server data fetching.
-2.  **Data Schemas:** The Prisma schema and the PRD's TypeScript interfaces are the single source of truth for data structures.
+2.  **Data Schemas:** The Drizzle ORM schema, defined in TypeScript, and the PRD's TypeScript interfaces are the single source of truth for data structures.
 3.  **End-to-End Type Safety:** Use `GraphQL Code Generator` to generate TypeScript types from the GraphQL schema, ensuring client and server are always in sync.
 4.  **Runtime Schema Validation:** All data entering the system from external sources (APIs, scrapers) **must** be validated at the point of entry with `Zod` (frontend) or `AJV` (backend).
 
 ### Database & Performance
-5.  **Database Access (Prisma):** All database access **must** be handled through the Prisma ORM.
-6.  **Optimized DB Queries:** To prevent over-fetching from the database, GraphQL resolvers **must** use a generic, reusable utility function to translate the GraphQL `info` object into a Prisma `select` or `include` object.
+5.  **Database Access (Drizzle ORM):** All database access **must** be handled through the Drizzle ORM. Do not use the Supabase client for data queries.
+6.  **Optimized DB Queries:** To prevent over-fetching from the database, GraphQL resolvers running in AWS Lambda **must** dynamically build Drizzle queries to select only the specific fields requested in the GraphQL operation.
+7.  **Database Indexing for Performance:** To ensure fast query performance for search and filtering, database columns that are frequently used in `WHERE` clauses **must** be indexed. This specifically includes columns for `eventName`, `performers`, `location`, `types`, and `categories`.
 
 ### Security
-7.  **API Key Security:** API keys **must** be loaded from environment variables and never be hardcoded.
-8.  **Resilient External API Access:** All external API calls **must** go through a central gateway that implements queuing, rate-limiting, and exponential backoff.
-9.  **Prevent GraphQL Abuse:** The GraphQL server **must** be configured with query depth and complexity limits to prevent DoS attacks.
+7.  **API Key Security:** API keys used by the application itself **must** be loaded from environment variables and never be hardcoded.
+8.  **User API Key Encryption:** All user-provided API keys (BYOK) **must** be stored encrypted at rest in the database. The application **must** use a dedicated, secure service like AWS KMS for managing encryption keys. Keys will be decrypted in memory by a trusted service (e.g., an AWS Lambda function with specific IAM permissions) only when needed to make an external API call, and never logged or stored in plaintext.
+9.  **Resilient Processing Pipeline:** The backend processing pipeline **must** use Amazon SQS queues (`ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`) to decouple services and manage flow between AWS Lambda functions, as defined in the infrastructure architecture.
+10. **Prevent GraphQL Abuse:** The GraphQL server **must** be configured with query depth and complexity limits to prevent DoS attacks.
 
 ### General Architecture
-10. **TypeScript Strict Mode:** All code **must** be compliant with strict TypeScript.
-11. **Path Aliases:** Use monorepo path aliases (e.g., `@festgrid/shared-types`) for all internal package imports.
-12. **Adapter Pattern:** Use an adapter pattern for all external AI services (e.g., Gemini) to ensure modularity.
-13. **Core Principle:** Internationalization is a foundational requirement, not an afterthought. All user-facing components and content must be developed with i18n in mind from the start.
-14. **Framework:** Use the `next-intl` library for all i18n handling in the Next.js frontend.
-15. **Locale Management:** Locales (e.g., `en`, `id`) will be managed via a dedicated `locales` directory, with separate JSON files for each language.
-16. **Component Design:** All UI components must be designed to accommodate varying text lengths and support both LTR and RTL layouts to ensure future scalability to other languages.
+11. **TypeScript Strict Mode:** All code **must** be compliant with strict TypeScript.
+12. **Path Aliases:** Use monorepo path aliases (e.g., `@festgrid/shared-types`) for all internal package imports.
+13. **Adapter Pattern:** Use an adapter pattern for all external AI services (e.g., Gemini) to ensure modularity.
+14. **Core Principle:** Internationalization is a foundational requirement, not an afterthought. All user-facing components and content must be developed with i18n in mind from the start.
+15. **Framework:** Use the `next-intl` library for all i18n handling in the Next.js frontend.
+16. **Locale Management:** Locales (e.g., `en`, `id`) will be managed via a dedicated `locales` directory, with separate JSON files for each language.
+17. **Component Design:** All UI components must be designed to accommodate varying text lengths and support both LTR and RTL layouts to ensure future scalability to other languages.
 
 ### Code Quality & Style Rules
 
