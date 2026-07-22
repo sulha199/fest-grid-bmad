@@ -78,7 +78,7 @@ This document defines the core architectural invariants for the FestGrid applica
 
 *   **Binds:** All database schema changes and migrations.
 *   **Prevents:** Manual, ad-hoc database changes and inconsistencies between environments.
-*   **Rule:** Database schema will be managed using the Prisma ORM. Schema changes will be defined in the `schema.prisma` file. Migrations will be generated and applied using `prisma migrate`. The full schema will be applied at the beginning of the project, and migrations will be used for all subsequent changes.
+*   **Rule:** Database schema will be managed code-first using Drizzle ORM TypeScript schema definitions. Migrations will be generated as SQL files using `drizzle-kit`. These migration files will be committed to the repository and applied automatically as part of the CI/CD deployment pipeline to ensure consistency across all environments.
 
 ---
 
