@@ -1,103 +1,240 @@
 ---
-stepsCompleted: []
-inputDocuments:
-  - c:\projects\portfolio\festgrid\bmad\_bmad-output\planning-artifacts\prds\festgrid-prd-2026-07-10-2047\prd.md
-  - c:\projects\portfolio\festgrid\bmad\_bmad-output\planning-artifacts\festgrid-architecture-spine.md
-  - c:\projects\portfolio\festgrid\bmad\design-artifacts\UX-festgrid-run-1\DESIGN.md
-  - c:\projects\portfolio\festgrid\bmad\design-artifacts\UX-festgrid-run-1\EXPERIENCE.md
-  - c:\projects\portfolio\festgrid\bmad\design-artifacts\UX-wizard-page-run-1\DESIGN.md
-  - c:\projects\portfolio\festgrid\bmad\design-artifacts\UX-wizard-page-run-1\EXPERIENCE.md
+stepsCompleted: ["step-01-validate-prerequisites", "step-02-design-epics"]
+inputDocuments: [
+  "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md",
+  "_bmad-output/planning-artifacts/festgrid-architecture-spine.md",
+  "design-artifacts/UX-festgrid-run-1/DESIGN.md",
+  "design-artifacts/UX-festgrid-run-1/EXPERIENCE.md",
+  "_bmad-output/project-context.md",
+  "docs/infrastructure.md"
+]
 ---
-
 # festgrid - Epic Breakdown
 
 ## Overview
-
 This document provides the complete epic and story breakdown for festgrid, decomposing the requirements from the PRD, UX Design if it exists, and Architecture requirements into implementable stories.
 
 ## Requirements Inventory
 
 ### Functional Requirements
+- **FR1:** Display a curated selection of local events.
+- **FR2:** Allow users to search by event-name, performers, and location name with partial matching.
+- **FR3:** Allow users to filter events by type and category.
+- **FR4:** Default event discovery page to show only ongoing and upcoming events.
+- **FR5:** Users can "favorite" events.
+- **FR6:** A dedicated page will show all favorited events.
+- **FR7:** A dedicated page will show all events the user has added to their calendar.
+- **FR8:** Users can save multiple named locations (e.g., "Home", "Work").
+- **FR9:** A location can be set by using the user's current location or by picking a point on a map.
+- **FR10:** Saved locations can be used to find "nearby events" within a user-defined radius (1km-50km).
+- **FR11:** When adding an event to a calendar, users can select which specific schedules to add.
+- **FR12:** One-way calendar integration (app to calendar) for MVP.
+- **FR13:** Consolidate all relevant event information in one place.
+- **FR14:** All event discovery pages will by default only show ongoing and upcoming events.
+- **FR15:** Events in a user's personal lists ('favorited' or 'added to calendar') will be hidden `N` days after they have passed. `N` is configurable.
+- **FR16:** "Favorited" and "Added to Calendar" events will have a distinct visual treatment on the calendar.
+- **FR17:** The calendar will have toggles to show/hide all "favorited" events and all "added" events.
+- **FR18:** Users can subscribe to social media accounts by providing their own Gemini API Key (BYOK).
+- **FR19:** For accounts subscribed to by multiple users, the system will intelligently utilize any valid API key from contributing users.
+- **FR20:** Users can optionally set a "Default Location" when subscribing to an account.
+- **FR21:** If the AI agent does not find an explicit location in a post, it will use the default location.
+- **FR22:** Users will receive email notifications if `X` of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion.
+- **FR23:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction.
+- **FR24:** Implement a quota management algorithm for API keys (Tier 1: User-Specific, Tier 2: Shared with round-robin).
+- **FR25:** Events extracted from a user's social media accounts will be displayed to the user.
+- **FR26:** Users can view subscribed events in a calendar-view (default) or a card-view.
+- **FR27:** Each schedule within an `EventInfo` object will be displayed as a separate, clickable item in the calendar.
+- **FR28:** Calendar item title will be `eventName` if `isMainSchedule` is true, otherwise `eventName - schedule.title`.
+- **FR29:** Clicking on any schedule item in the calendar will open a detail view for the entire event.
+- **FR30:** A free-text search bar will allow users to search events from their subscribed accounts by event name, performers, and location name.
+- **FR31:** Users can filter subscribed events by type, category, and the specific social media account source.
+- **FR32:** Event data processed from subscribed accounts will be used to generate personalized event reminders.
+- **FR33:** Infer timezone from location, or user's timezone, or ask for clarification.
+- **FR34:** API keys are validated reactively.
+- **FR35:** Track consecutive invalid API key attempts and send email notification after `N` attempts.
+- **FR36:** For shared accounts, if one user's API key becomes invalid, use another user's key.
+- **FR37:** Users with an invalid API key will cease to receive push notifications for events from accounts relying on their specific key.
+- **FR38:** Implement a manual event data correction system with typed inputs.
+- **FR39:** Perform data inconsistency checks on corrections.
+- **FR40:** Optional AI-assisted correction for users with a BYOK key.
+- **FR41:** A 'Report' button will be available for all events.
+- **FR42:** Unauthenticated users will need to log in to report.
+- **FR43:** Users can request event deletion with a reason.
+- **FR44:** If 3 users report an event as cancelled in 7 days, it is soft-deleted.
+- **FR45:** A moderator can restore a cancelled event.
+- **FR46:** Reports of dangerous events will notify an admin/moderator immediately.
+- **FR47:** If a moderator marks an event as safe, subsequent reports from the same user for that event will be ignored for that user.
+- **FR48:** Users can report an event for personal reasons, hiding it only for themselves.
+- **FR49:** Authenticated users will have a 'Reports' page.
+- **FR50:** Moderators will have a 'Moderator Items' page.
+- **FR51:** Manual post selection for event extraction.
+- **FR52:** A new screen will show the 20 most recent posts from each subscribed account in tabs.
+- **FR53:** Lazy loading of posts in tabs.
+- **FR54:** Users can select multiple posts to process.
+- **FR55:** Selection state is preserved between tabs.
+- **FR56:** Processed posts will be visually disabled.
+- **FR57:** A summary bar will display the number of selected posts against the user's remaining API quota.
+- **FR58:** Prevent users from extracting more posts than their quota allows.
+- **FR59:** A warning icon will be displayed on inactive accounts.
+- **FR60:** The manual post selection screen is integrated into the getting started wizard.
+- **FR61:** When a new subscription is added, its tab will be automatically activated.
+- **FR62:** Users can access the manual post selection from the user menu.
+- **FR63:** Free signup for the web application.
+- **FR64:** Users can optionally integrate their own BYOK Gemini API key.
+- **FR65:** Provide guides for setting up BYOK.
 
-FR1: Display a curated selection of local events.
-FR2: Users can search by event-name, performers, and location name, using partial matching.
-FR3: Users can filter events by type and category.
-FR4: The event discovery page will only display ongoing and upcoming events by default.
-FR5: Users can "favorite" events they are interested in.
-FR6: A dedicated page will show all favorited events.
-FR7: A dedicated page will show all events the user has added to their calendar.
-FR8: Users can save multiple named locations (e.g., "Home", "Work").
-FR9: A location can be set by using the user's current location or by picking a point on a map.
-FR10: These saved locations can be used to find "nearby events" within a user-defined radius (e.g., between 1km and 50km).
-FR11: When adding an event to a calendar, users can select which specific schedules to add.
-FR12: For MVP, this is a one-way integration (app to calendar).
-FR13: Consolidate all relevant event information in one place.
-FR14: All event discovery pages (main discovery, subscribed events) will by default only show ongoing and upcoming events.
-FR15: Events in a user's personal lists ('favorited' or 'added to calendar') will be hidden `N` days after they have passed. `N` is configurable via an environment variable with a default value of 7.
-FR16: "Favorited" and "Added to Calendar" events will have a distinct visual treatment on the calendar.
-FR17: The calendar will have toggles to show/hide all "favorited" events and all "added" events.
-FR18: Users can subscribe to desired social media accounts by providing their own Gemini API Key (BYOK).
-FR19: Users can optionally set a "Default Location" when subscribing to an account.
-FR20: Users will receive email notifications if `X` of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion.
-FR21: A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user.
-FR22: Events extracted from a user's social media accounts will be displayed to the user.
-FR23: Users can view these events in a calendar-view (default) or a card-view.
-FR24: A free-text search bar will allow users to search events from their subscribed accounts by event name, performers, and location name. Users can also filter events by type, category, and the specific social media account source.
-FR25: Event data processed from subscribed accounts will be used to generate personalized event reminders.
-FR26: API keys are validated reactively.
-FR27: Users can submit corrections through a structured form with typed inputs for each field of the `EventInfo` and `Schedule` interfaces.
-FR28: A 'Report' button will be available for all events.
-FR29: Users can select which specific social media posts should be processed by the AI agent.
-FR30: The manual post selection screen is integrated as a new step in the getting started wizard.
-FR31: Users can also access this feature via an "Extract event from post(s)" item in the user menu.
-FR32: The platform will support Indonesian and English.
-FR33: Proactive Throttling and Queuing for Gemini API.
-FR34: User Notification for Capacity Limits.
-FR35: Manual Event Data Correction with Typed Inputs.
-FR36: Data Inconsistency Checks for corrections.
-FR37: AI-Assisted Correction.
-FR38: User Reporting and Event Moderation.
-FR39: User and Moderator Interfaces.
-FR40: Manual Post Selection for Event Extraction.
-FR41: Manual Post Selection - Wizard Integration.
-FR42: Manual Post Selection - Menu Access.
-FR43: Getting Started and Onboarding.
+### NonFunctional Requirements
+- **NFR1:** Event discovery page should load in under 2 seconds on a standard 4G connection.
+- **NFR2:** Key interactive elements should be interactive within 1.5 seconds.
+- **NFR3:** 95% of API calls should complete in under 500ms.
+- **NFR4:** The system should be able to handle 100 concurrent users with a response time degradation of no more than 15%.
+- **NFR5:** The event ingestion pipeline should be able to process 100 events per hour.
+- **NFR6:** The architecture should be designed to be horizontally scalable.
+- **NFR7:** The service should have 99.9% uptime.
+- **NFR8:** Server-side error rate should be below 0.5%.
+- **NFR9:** At least 90% of users should be able to add an event to their calendar in their first session without assistance.
+- **NFR10:** Target a SUS score of 75 or higher.
+- **NFR11:** Use an Adapter pattern for AI services.
+- **NFR12:** All API keys must be stored securely in environment variables.
+- **NFR13:** All API keys should be restricted in the Google Cloud Console.
+- **NFR14:** A caching mechanism will be implemented for the Geolocation service.
+- **NFR15:** All AI-driven event extractions must produce a `confidenceScore`.
+- **NFR16:** Events with a score below a defined threshold will be flagged for human review.
+- **NFR17:** User data and privacy must be protected.
+- **NFR18:** BYOK Gemini API keys must be securely stored and managed.
+- **NFR19:** The 'add to calendar' feature works one-way.
+- **NFR20:** The platform will use a web analytics service.
+- **NFR21:** Gracefully inform users about capacity limits.
+- **NFR22:** Advise users to independently verify event status.
+- **NFR23:** Support Indonesian and English for MVP.
+- **NFR24:** The layout must support both LTR and RTL languages.
+
+### Additional Requirements
+- **AR1:** All event queries sent from a client to the backend will conform to a unified JSON-based Domain Specific Language (DSL).
+- **AR2:** All event collections must be retrieved through the primary event query endpoint using the Unified Query DSL.
+- **AR3:** Database schema will be managed code-first using Drizzle ORM TypeScript schema definitions.
+- **AR4:** Migrations will be generated as SQL files using `drizzle-kit` and applied automatically via CI/CD.
+
+### UX Design Requirements
+- **UX-DR1:** Implement a light theme with a clean grid of cards for events.
+- **UX-DR2:** Implement the "Spark in the Grid" logo concept.
+- **UX-DR3:** Use "Inter" font, with "Fest" as bold and "Grid" as light.
+- **UX-DR4:** Implement the color palette: primary: "#1E293B", secondary: "#6366F1", accent: "#FF5A5F", neutral: "#FAFAFC", success: "#10B981", error: "#EF4444".
+- **UX-DR5:** Use a base corner radius of 0.5rem.
+- **UX-DR6:** Use a spacing unit of 0.25rem.
+- **UX-DR7:** Implement the following components with the specified styles: Card, Button, Grid, Calendar, Event Card Compact, Modal, Notification, Spark, Input with Label.
+- **UX-DR8:** The primary experience is mobile-first, but the application will be a responsive web app.
+- **UX-DR9:** Create the following pages/routes: `/`, `/favorites`, `/my-calendar`, `/feed`, `/settings`, `/settings/locations`, `/settings/subscriptions`, `/settings/api-keys`, `/settings/notifications`.
+- **UX-DR10:** Implement a Filter Hub at the top of the discovery view for filtering events by `EventType` and `EventCategory` with multi-selection.
+- **UX-DR11:** The event grid should update dynamically as filters are applied.
+- **UX-DR12:** The weekly calendar should have previous/next week navigation and a "Today" button.
+- **UX-DR13:** Each schedule of an event is displayed as a separate compact card in the calendar.
+- **UX-DR14:** Clicking on an event card or schedule opens a modal with full event details and updates the URL.
+- **UX-DR15:** On mobile, a swipe gesture on a list item reveals a "Delete" button.
+- **UX-DR16:** Implement the "Set Default Location" user flow for subscriptions.
+- **UX-DR17:** Microcopy should be clear, concise, and helpful, providing immediate feedback.
+- **UX-DR18:** All components must meet WCAG 2.1 AA standards.
+- **UX-DR19:** Use subtle animations on interactive elements.
+- **UX-DR20:** Components should adjust information density based on screen size.
+- **UX-DR21:** Implement an in-table add form for managing lists.
+- **UX-DR22:** Implement the "Soft Delete with Undo" pattern for all destructive actions.
+
+### FR Coverage Map
+
+- FR1: Epic 2 - Core App and Event Discovery
+- FR2: Epic 2 - Core App and Event Discovery
+- FR3: Epic 2 - Core App and Event Discovery
+- FR4: Epic 2 - Core App and Event Discovery
+- FR5: Epic 3 - User Personalization
+- FR6: Epic 3 - User Personalization
+- FR7: Epic 3 - User Personalization
+- FR8: Epic 3 - User Personalization
+- FR9: Epic 3 - User Personalization
+- FR10: Epic 3 - User Personalization
+- FR11: Epic 3 - User Personalization
+- FR12: Epic 3 - User Personalization
+- FR13: Epic 2 - Core App and Event Discovery
+- FR14: Epic 2 - Core App and Event Discovery
+- FR15: Epic 3 - User Personalization
+- FR16: Epic 3 - User Personalization
+- FR17: Epic 3 - User Personalization
+- FR18: Epic 4 - Social Media Event Integration
+- FR19: Epic 4 - Social Media Event Integration
+- FR20: Epic 4 - Social Media Event Integration
+- FR21: Epic 4 - Social Media Event Integration
+- FR22: Epic 4 - Social Media Event Integration
+- FR23: Epic 4 - Social Media Event Integration
+- FR24: Epic 4 - Social Media Event Integration
+- FR25: Epic 4 - Social Media Event Integration
+- FR26: Epic 4 - Social Media Event Integration
+- FR27: Epic 4 - Social Media Event Integration
+- FR28: Epic 4 - Social Media Event Integration
+- FR29: Epic 4 - Social Media Event Integration
+- FR30: Epic 4 - Social Media Event Integration
+- FR31: Epic 4 - Social Media Event Integration
+- FR32: Epic 4 - Social Media Event Integration
+- FR33: Epic 4 - Social Media Event Integration
+- FR34: Epic 4 - Social Media Event Integration
+- FR35: Epic 4 - Social Media Event Integration
+- FR36: Epic 4 - Social Media Event Integration
+- FR37: Epic 4 - Social Media Event Integration
+- FR38: Epic 5 - Data Quality and Moderation
+- FR39: Epic 5 - Data Quality and Moderation
+- FR40: Epic 5 - Data Quality and Moderation
+- FR41: Epic 5 - Data Quality and Moderation
+- FR42: Epic 5 - Data Quality and Moderation
+- FR43: Epic 5 - Data Quality and Moderation
+- FR44: Epic 5 - Data Quality and Moderation
+- FR45: Epic 5 - Data Quality and Moderation
+- FR46: Epic 5 - Data Quality and Moderation
+- FR47: Epic 5 - Data Quality and Moderation
+- FR48: Epic 5 - Data Quality and Moderation
+- FR49: Epic 5 - Data Quality and Moderation
+- FR50: Epic 5 - Data Quality and Moderation
+- FR51: Epic 6 - Onboarding and Manual Event Extraction
+- FR52: Epic 6 - Onboarding and Manual Event Extraction
+- FR53: Epic 6 - Onboarding and Manual Event Extraction
+- FR54: Epic 6 - Onboarding and Manual Event Extraction
+- FR55: Epic 6 - Onboarding and Manual Event Extraction
+- FR56: Epic 6 - Onboarding and Manual Event Extraction
+- FR57: Epic 6 - Onboarding and Manual Event Extraction
+- FR58: Epic 6 - Onboarding and Manual Event Extraction
+- FR59: Epic 6 - Onboarding and Manual Event Extraction
+- FR60: Epic 6 - Onboarding and Manual Event Extraction
+- FR61: Epic 6 - Onboarding and Manual Event Extraction
+- FR62: Epic 6 - Onboarding and Manual Event Extraction
+- FR63: Epic 2 - Core App and Event Discovery
+- FR64: Epic 6 - Onboarding and Manual Event Extraction
+- FR65: Epic 6 - Onboarding and Manual Event Extraction
 
 ## Epic List
 
-### Epic 0: Project Setup & DevOps
-Establish the foundation of the project, including the monorepo structure, development environment, and CI/CD pipeline.
+### Epic 1: Project Setup & DevOps
 
-**Stories:**
-*   **Story 0.1: Initial Project Scaffolding:** Set up the monorepo with pnpm, turbo, and the initial application structure (frontend, backend, shared packages).
-*   **Story 0.2: Development Environment Configuration:** Configure local development environment with scripts to run the applications, linting, and formatting.
-*   **Story 0.3: CI/CD Pipeline Setup:** Set up a basic CI/CD pipeline for automated testing, linting, and building of the applications.
-*   **Story 0.4: Internationalization (i18n) Foundation:** Set up the `next-intl` library and create the initial locale structure for English and Indonesian.
+The project is set up with a solid foundation and CI/CD pipeline.
+**FRs covered:** N/A (Covers NFRs, ARs, and foundational UX-DRs)
 
-### Epic 1: Core Event Discovery & Personalization
-Users can discover, search, filter, and personalize their event experience.
-**FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6, FR7, FR11, FR12, FR13, FR14, FR15, FR16, FR17
+### Epic 2: Core App and Event Discovery
 
-### Epic 2: Location-Based Features
-Users can save locations and find events nearby.
-**FRs covered:** FR8, FR9, FR10
+Users can discover and browse events.
+**FRs covered:** FR1, FR2, FR3, FR4, FR13, FR14, FR63
 
-### Epic 3: Social Media Integration & Event Extraction
-Users can subscribe to social media accounts and have events automatically extracted and displayed.
-**FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26
+### Epic 3: User Personalization
 
-### Epic 4: Data Quality & Moderation
-Users can contribute to the accuracy of event data by reporting issues and suggesting corrections.
-**FRs covered:** FR27, FR28, FR35, FR36, FR37, FR38, FR39
+Users can personalize their experience by saving favorite events and locations.
+**FRs covered:** FR5, FR6, FR7, FR8, FR9, FR10, FR15, FR16, FR17
 
-### Epic 5: Manual Post Selection & Onboarding
-Users are guided through the initial setup and can manually select posts for extraction.
-**FRs covered:** FR29, FR30, FR31, FR40, FR41, FR42, FR43
+### Epic 4: Social Media Event Integration
 
-### Epic 6: API Management and Capacity
-To ensure reliable and stable operation while adhering to Google Gemini API usage policies.
-**FRs covered:** FR33, FR34
+Users can subscribe to social media accounts to import events into their feed.
+**FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37
 
-### Epic 7: Add New Languages (Post-MVP)
-Add support for additional languages post-MVP.
-**FRs covered:** FR32 (foundation laid in Epic 0)
+### Epic 5: Data Quality and Moderation
+
+Users can contribute to data quality by correcting event details and reporting issues.
+**FRs covered:** FR38, FR39, FR40, FR41, FR42, FR43, FR44, FR45, FR46, FR47, FR48, FR49, FR50
+
+### Epic 6: Onboarding and Manual Event Extraction
+
+Users are guided through the initial setup and can manually select posts for event extraction.
+**FRs covered:** FR51, FR52, FR53, FR54, FR55, FR56, FR57, FR58, FR59, FR60, FR61, FR62, FR64, FR65
