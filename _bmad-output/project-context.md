@@ -23,7 +23,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 ## Technology Stack & Versions
 
 *   **Monorepo:** `pnpm` and `turbo`
-*   **Language:** `TypeScript 5` (Strict mode enabled)
+*   **Language:** `TypeScript 6` (Strict mode enabled)
 *   **Frontend:** `Next.js 15+`, `React 19`
 *   **Backend:** Serverless on AWS (`API Gateway`, `Lambda`, `SQS`, `EventBridge`)
 *   **Database:** `Supabase` (PostgreSQL) with `Drizzle ORM`
@@ -93,4 +93,4 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - Update when the technology stack or core patterns change.
 - Review quarterly to remove rules that have become obvious or obsolete.
 
-_Last Updated: 2026-07-22T09:08:00Z_
+_Last Updated: 2026-07-22T22:15:00Z_

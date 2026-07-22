@@ -1,0 +1,16 @@
+{
+  "name": "festgrid",
+  "private": true,
+  "packageManager": "pnpm@11.15.1",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "eslint": "^9.9.0",
+    "turbo": "^2.0.14",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.50.0"
+  }
+}
