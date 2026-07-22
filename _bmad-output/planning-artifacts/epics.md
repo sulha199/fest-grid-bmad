@@ -708,3 +708,74 @@ Users can contribute to data quality by correcting event details and reporting i
 
 Users are guided through the initial setup and can manually select posts for event extraction.
 **FRs covered:** FR51, FR52, FR53, FR54, FR55, FR56, FR57, FR58, FR59, FR60, FR61, FR62, FR64, FR65
+
+### Story 6.1: Manual post selection screen
+
+**As a** user,
+**I want** a screen where I can see the most recent posts from my subscribed accounts,
+**So that** I can choose which posts to process for event extraction.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on any page in the application,
+*   **When** I navigate to the "Manual Post Selection" screen from the user menu,
+*   **Then** if I have not provided an API key or subscribed to any accounts, I am guided through the process of doing so.
+*   **And** if I have at least one subscribed account, I see a tab for each of my subscribed accounts.
+*   **And** each tab displays the 20 most recent posts from that account.
+*   **And** posts are loaded lazily to improve performance.
+
+### Story 6.2: Select posts for extraction
+
+**As a** user,
+**I want** to be able to select multiple posts from different subscribed accounts to be processed for event extraction,
+**So that** I can efficiently choose which posts to process.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the "Manual Post Selection" screen,
+*   **When** I click the checkbox on a post card,
+*   **Then** the post is marked as selected.
+*   **And** I can select multiple posts across different tabs.
+*   **And** the selection state is preserved when I switch between tabs.
+*   **And** there is a summary bar that shows the total number of selected posts.
+
+### Story 6.3: Display and enforce API quota
+
+**As a** user,
+**I want** to see how many posts I can select for extraction based on my API quota,
+**So that** I can manage my API usage effectively.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the "Manual Post Selection" screen,
+*   **When** I select posts for extraction,
+*   **Then** a summary bar displays the number of selected posts against my remaining API quota.
+*   **And** I am prevented from selecting more posts than my quota allows.
+*   **And** posts that have already been processed are visually disabled and cannot be selected.
+
+### Story 6.4: Inactive account warning
+
+**As a** user,
+**I want** to see a warning for my subscribed accounts that have become inactive,
+**So that** I can manage my subscriptions effectively.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the "Manual Post Selection" screen,
+*   **When** a subscribed account has not published any posts within a configurable period (e.g., 30 days),
+*   **Then** a warning icon is displayed on the account's tab.
+*   **And** the tab's content shows a warning message and a button to remove the inactive subscription.
+
+### Story 6.5: Integrate manual post selection into the getting started wizard
+
+**As a** new user,
+**I want** to be prompted to select posts for extraction immediately after subscribing to new accounts in the getting started wizard,
+**So that** I can get events into my feed right away.
+
+**Acceptance Criteria:**
+
+*   **Given** I am in the getting started wizard,
+*   **And** I have just added a new subscription,
+*   **When** I complete the subscription step,
+*   **Then** I am taken to the "Manual Post Selection" screen.
+*   **And** the tab for the newly added subscription is automatically activated.
