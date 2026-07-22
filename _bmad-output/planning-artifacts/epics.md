@@ -5,6 +5,8 @@ inputDocuments: [
   "_bmad-output/planning-artifacts/festgrid-architecture-spine.md",
   "design-artifacts/UX-festgrid-run-1/DESIGN.md",
   "design-artifacts/UX-festgrid-run-1/EXPERIENCE.md",
+  "design-artifacts/UX-wizard-page-run-1/DESIGN.md",
+  "design-artifacts/UX-wizard-page-run-1/EXPERIENCE.md",
   "_bmad-output/project-context.md",
   "docs/infrastructure.md"
 ]
