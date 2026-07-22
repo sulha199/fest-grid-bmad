@@ -1,15 +1,26 @@
-import React from 'react';
-import type { Event } from '@festgrid/shared-types';
+import type { EventInfo } from '@festgrid/shared-types';
+import { EventType, EventCategory } from '@festgrid/shared-types';
 
-const sampleEvent: Event = {
+const sampleEvent: EventInfo = {
   id: '1',
+  isEvent: true,
   eventName: 'Coachella 2026',
-  performers: ['Various Artists'],
+  types: [EventType.FESTIVAL],
+  categories: [EventCategory.MUSIC],
   location: 'Indio, California',
-  date: '2026-04-10',
+  schedules: [
+    {
+      id: 'sched-1',
+      isMainSchedule: true,
+      eventStartDate: '2026-04-10T12:00:00Z',
+      performers: ['Various Artists'],
+    }
+  ]
 };
 
 export default function Home() {
+  const mainSchedule = sampleEvent.schedules[0];
+
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
       <h1>Welcome to FestGrid 🎧</h1>
@@ -18,7 +29,10 @@ export default function Home() {
         <h2>Sample Event from @festgrid/shared-types:</h2>
         <p><strong>Name:</strong> {sampleEvent.eventName}</p>
         <p><strong>Location:</strong> {sampleEvent.location}</p>
-        <p><strong>Date:</strong> {sampleEvent.date}</p>
+        <p><strong>Date:</strong> {mainSchedule?.eventStartDate}</p>
+        {mainSchedule?.performers && (
+          <p><strong>Performers:</strong> {mainSchedule.performers.join(', ')}</p>
+        )}
       </div>
     </div>
   );

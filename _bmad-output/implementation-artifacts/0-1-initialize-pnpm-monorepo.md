@@ -4,7 +4,7 @@ baseline_commit: 1c36b8e5bfd8eae626ef3fcbdc8f158bad523119
 
 # Story 0.1: Initialize pnpm monorepo
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -83,3 +83,11 @@ None. Build succeeded cleanly with `pnpm install --ignore-scripts` and `turbo ru
 - `apps/web/next-env.d.ts`
 - `apps/web/src/app/layout.tsx`
 - `apps/web/src/app/page.tsx`
+
+### Review Findings
+
+- [x] [Review][Defer] Missing next-intl integration vs. project i18n constraint — deferred, pre-existing (Reason: To address i18n setup in a dedicated workspace setup story)
+- [x] [Review][Patch] Namespace Inconsistency in Workspace Configurations [packages/eslint-config/package.json:2]
+- [x] [Review][Patch] Next.js ESLint Plugin Version Mismatch [packages/eslint-config/package.json:12]
+- [x] [Review][Patch] Redundant React import in Next.js 15 + React 19 pages [apps/web/src/app/page.tsx:1]
+- [x] [Review][Patch] Ambiguous Event Date Representation [packages/shared-types/src/index.ts:13]

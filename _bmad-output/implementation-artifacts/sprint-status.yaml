@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-22T21:05:00Z
-last_updated: 2026-07-22T21:20:00Z
+last_updated: 2026-07-22T22:35:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -49,7 +49,7 @@ story_location: _bmad-output/implementation-artifacts
 
 development_status:
   epic-0: in-progress
-  0-1-initialize-pnpm-monorepo: review
+  0-1-initialize-pnpm-monorepo: done
   0-2-configure-typescript-and-eslint-for-the-monorepo: backlog
   0-3-set-up-shadcn-ui-and-configure-themes: backlog
   0-4-set-up-drizzle-orm-for-schema-migrations: backlog
