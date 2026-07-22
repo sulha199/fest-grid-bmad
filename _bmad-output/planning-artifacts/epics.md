@@ -489,10 +489,118 @@ Users can personalize their experience by saving favorite events and locations.
 *   **And** the menu contains links to "My Favorites", "My Calendar", "My Locations", and "Settings".
 *   **And** the menu also contains a "Logout" button.
 
+### Story 3.9: Manage Push Notification Settings
+
+**As a** user,
+**I want** to be able to enable or disable push notifications for new events,
+**So that** I have control over the notifications I receive.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the "Settings" page,
+*   **When** I navigate to the "Notifications" section,
+*   **Then** I see a toggle to enable or disable push notifications for new events.
+*   **And** my choice is saved and respected by the system.
+
 ### Epic 4: Social Media Event Integration
 
 Users can subscribe to social media accounts to import events into their feed.
 **FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37
+
+### Story 4.1: Subscribe to a social media account
+
+**As a** user,
+**I want** to be able to subscribe to a social media account by providing the account's URL and my Gemini API Key,
+**So that** the system can start monitoring the account for new events.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the "My Subscriptions" page,
+*   **When** I enter a social media account URL and my Gemini API Key and click "Subscribe",
+*   **Then** the subscription is saved to my account.
+*   **And** the system begins to monitor the account for new posts.
+*   **And** I see the new subscription in my list of subscriptions.
+
+### Story 4.2: Set a default location for a subscription
+
+**As a** user,
+**I want** to be able to set a default location when I subscribe to a social media account,
+**So that** the system can use this location if it cannot find an explicit location in a post.
+
+**Acceptance Criteria:**
+
+*   **Given** I am subscribing to a new social media account,
+*   **When** I am filling out the subscription form,
+*   **Then** I have an optional field to set a default location for this subscription.
+*   **And** if a default location is set, the AI agent will use it when it cannot find an explicit location in a post.
+
+### Story 4.3: Scrape new posts from subscribed accounts
+
+**As a** system,
+**I want** to periodically scrape new posts from the social media accounts that users have subscribed to,
+**So that** I can begin the event extraction process.
+
+**Acceptance Criteria:**
+
+*   **Given** there are active subscriptions to social media accounts,
+*   **When** the scraping process is triggered (e.g., on a schedule),
+*   **Then** the system retrieves the latest posts from the subscribed accounts.
+*   **And** the scraped posts are stored temporarily for the next step in the processing pipeline.
+
+### Story 4.4: Add new posts to a processing queue
+
+**As a** system,
+**I want** to add the scraped posts to a processing queue,
+**So that** I can reliably and asynchronously process them for event extraction.
+
+**Acceptance Criteria:**
+
+*   **Given** a new post has been scraped from a subscribed account,
+*   **When** the post is ready to be processed,
+*   **Then** the post is added as a message to an SQS queue.
+*   **And** the message contains all the necessary information about the post (e.g., URL, content, metadata).
+
+### Story 4.5: Process posts from the queue and extract event information
+
+**As a** system,
+**I want** to process posts from the queue, use the Gemini API to extract event information, and save the structured data to the database,
+**So that** new events are added to the application.
+
+**Acceptance Criteria:**
+
+*   **Given** there is a message in the SQS queue containing a post to be processed,
+*   **When** the message is consumed by a Lambda function,
+*   **Then** the function calls the Gemini API to extract event information from the post content.
+*   **And** the extracted information is validated and transformed into a structured `EventInfo` object.
+*   **And** the `EventInfo` object is saved to the database.
+
+### Story 4.6: Display extracted events to the user
+
+**As a** user,
+**I want** to see the events that have been extracted from my subscribed social media accounts,
+**So that** I can see the results of the event extraction process.
+
+**Acceptance Criteria:**
+
+*   **Given** I have subscribed to at least one social media account,
+*   **And** the system has extracted events from that account,
+*   **When** I navigate to my "Feed" page,
+*   **Then** I see a list of events that have been extracted from my subscribed accounts.
+*   **And** I can view the events in a calendar view or a card view.
+
+### Story 4.7: Push notifications for extracted events
+
+**As a** user,
+**I want** to receive a push notification when a new event is extracted from one of my subscribed accounts,
+**So that** I can be immediately informed about new events.
+
+**Acceptance Criteria:**
+
+*   **Given** I have subscribed to a social media account,
+*   **And** I have enabled push notifications in my settings,
+*   **When** a new event is successfully extracted from the account,
+*   **Then** I receive a push notification on my registered devices.
+*   **And** the push notification contains the event name and a short description.
 
 ### Epic 5: Data Quality and Moderation
 
