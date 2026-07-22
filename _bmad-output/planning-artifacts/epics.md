@@ -216,6 +216,74 @@ This document provides the complete epic and story breakdown for festgrid, decom
 The project is set up with a solid foundation and CI/CD pipeline.
 **FRs covered:** N/A (Covers NFRs, ARs, and foundational UX-DRs)
 
+### Story 1.1: Initialize pnpm monorepo
+
+**As a** developer,
+**I want** to initialize a pnpm monorepo with a Next.js frontend app and a shared-types package,
+**So that** I can start building the FestGrid application with a scalable and maintainable codebase.
+
+**Acceptance Criteria:**
+
+*   **Given** I am in the project's root directory
+*   **When** I run `pnpm install`
+*   **Then** all dependencies for the frontend app and shared-types package are installed successfully.
+*   **And** the Next.js application can be started in development mode without errors.
+*   **And** the `shared-types` package can be imported into the Next.js application.
+
+### Story 1.2: Configure TypeScript and ESLint for the monorepo
+
+**As a** developer,
+**I want** to have TypeScript and ESLint configured for the monorepo with strict rules, using a global configuration that is inherited by all packages,
+**So that** I can ensure code quality and consistency across the project.
+
+**Acceptance Criteria:**
+
+*   **Given** the pnpm monorepo is initialized,
+*   **When** I create a new TypeScript file in either the frontend app or the shared-types package,
+*   **Then** the code is type-checked and linted according to the project's rules.
+*   **And** running the `lint` script in the root of the monorepo checks all packages.
+*   **And** the configuration enforces strict TypeScript settings.
+*   **And** there is a global `tsconfig.base.json` and `.eslintrc.json` at the root of the monorepo that are extended by the individual packages.
+
+### Story 1.3: Set up Shadcn/UI and configure themes
+
+**As a** developer,
+**I want** to set up Shadcn/UI in the Next.js app and configure it with the project's color palette and themes,
+**So that** I can use a consistent and accessible component library for building the user interface.
+
+**Acceptance Criteria:**
+
+*   **Given** the Next.js app is initialized,
+*   **When** I add a new Shadcn/UI component to the project,
+*   **Then** the component is styled with the project's themes (e.g., primary, secondary, accent colors).
+*   **And** the application supports both light and dark themes.
+
+### Story 1.4: Set up Drizzle ORM and generate the initial database schema
+
+**As a** developer,
+**I want** to set up Drizzle ORM in the monorepo and generate the initial database schema based on the entities defined in `shared-types`,
+**So that** I can interact with the database in a type-safe way.
+
+**Acceptance Criteria:**
+
+*   **Given** the pnpm monorepo is initialized,
+*   **When** I define a new entity in the `shared-types` package,
+*   **Then** I can use `drizzle-kit` to generate a database migration.
+*   **And** the generated migration can be applied to the Supabase (PostgreSQL) database.
+
+### Story 1.5: Set up CI/CD pipeline with GitHub Actions
+
+**As a** developer,
+**I want** to have a basic CI/CD pipeline set up with GitHub Actions,
+**So that** I can automatically run tests, linting, and build checks on every push to the repository.
+
+**Acceptance Criteria:**
+
+*   **Given** a push is made to any branch in the GitHub repository,
+*   **When** the GitHub Actions workflow is triggered,
+*   **Then** the workflow installs dependencies, runs linting, and executes tests for all packages.
+*   **And** the workflow fails if any of these steps fail.
+
 ### Epic 2: Core App and Event Discovery
 
 Users can discover and browse events.
