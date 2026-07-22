@@ -631,6 +631,20 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** the system tracks the usage of each API key.
 *   **And** the usage tracking is reset at the beginning of each billing cycle.
 
+### Story 4.10: Email notifications for queued posts
+
+**As a** user,
+**I want** to receive an email notification when my subscribed posts are not being processed due to API quota issues,
+**So that** I can take action to resolve the problem.
+
+**Acceptance Criteria:**
+
+*   **Given** a user's subscribed posts have been in the processing queue for a configurable number of days (default: 3),
+*   **And** the number of queued posts exceeds a configurable threshold (default: 3),
+*   **When** the system checks for long-queued posts,
+*   **Then** an email notification is sent to the user.
+*   **And** the email suggests contributing an additional API key.
+
 ### Epic 5: Data Quality and Moderation
 
 Users can contribute to data quality by correcting event details and reporting issues.
