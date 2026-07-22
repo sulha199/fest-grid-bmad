@@ -475,6 +475,20 @@ Users can personalize their experience by saving favorite events and locations.
 *   **Then** the event is no longer visible in the list.
 *   **And** the value of `N` is configurable in the user settings.
 
+### Story 3.8: User Menu
+
+**As a** logged-in user,
+**I want** to have a user menu,
+**So that** I can easily navigate to my personalized sections of the application.
+
+**Acceptance Criteria:**
+
+*   **Given** I am logged in,
+*   **When** I click on my profile icon,
+*   **Then** a dropdown menu appears.
+*   **And** the menu contains links to "My Favorites", "My Calendar", "My Locations", and "Settings".
+*   **And** the menu also contains a "Logout" button.
+
 ### Epic 4: Social Media Event Integration
 
 Users can subscribe to social media accounts to import events into their feed.
