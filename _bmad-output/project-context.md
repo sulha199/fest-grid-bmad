@@ -24,7 +24,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 
 *   **Monorepo:** `pnpm` and `turbo`
 *   **Language:** `TypeScript 5` (Strict mode enabled)
-*   **Frontend:** `Next.js 14.2.3`, `React 18`
+*   **Frontend:** `Next.js 15+`, `React 19`
 *   **Backend:** Serverless on AWS (`API Gateway`, `Lambda`, `SQS`, `EventBridge`)
 *   **Database:** `Supabase` (PostgreSQL) with `Drizzle ORM`
 *   **Push Notifications:** `Firebase Cloud Messaging (FCM)`
