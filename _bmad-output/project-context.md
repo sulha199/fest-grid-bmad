@@ -52,7 +52,10 @@ _This file contains critical rules and patterns that AI agents must follow when 
 10. **TypeScript Strict Mode:** All code **must** be compliant with strict TypeScript.
 11. **Path Aliases:** Use monorepo path aliases (e.g., `@festgrid/shared-types`) for all internal package imports.
 12. **Adapter Pattern:** Use an adapter pattern for all external AI services (e.g., Gemini) to ensure modularity.
-13. **Internationalization (I18n):** The application must support both English and Indonesian. Design components to be compatible with both LTR and RTL languages.
+13. **Core Principle:** Internationalization is a foundational requirement, not an afterthought. All user-facing components and content must be developed with i18n in mind from the start.
+14. **Framework:** Use the `next-intl` library for all i18n handling in the Next.js frontend.
+15. **Locale Management:** Locales (e.g., `en`, `id`) will be managed via a dedicated `locales` directory, with separate JSON files for each language.
+16. **Component Design:** All UI components must be designed to accommodate varying text lengths and support both LTR and RTL layouts to ensure future scalability to other languages.
 
 ### Code Quality & Style Rules
 
