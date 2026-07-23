@@ -428,7 +428,7 @@ interface SocialMediaAccountProfile {
  */
 interface UserLocationPreference {
   /**
-   * A unique identifier for the location preference.
+   * A unique identifier for the location preference, generated using Nano ID.
    */
   id: string;
   /**
@@ -458,7 +458,7 @@ interface UserLocationPreference {
  */
 interface Post {
   /**
-   * A unique identifier for the post.
+   * A unique identifier for the post, generated using Nano ID.
    */
   id: string;
   /**
