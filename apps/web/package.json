@@ -25,7 +25,6 @@
   "devDependencies": {
     "@festgrid/eslint-config": "workspace:*",
     "@festgrid/typescript-config": "workspace:*",
-    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20.14.10",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",

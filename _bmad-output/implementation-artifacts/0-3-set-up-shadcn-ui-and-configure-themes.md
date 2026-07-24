@@ -4,7 +4,7 @@ baseline_commit: HEAD
 
 # Story 0.3: Set up Shadcn/UI and configure themes
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -42,6 +42,11 @@ Status: ready-for-dev
 - [x] Task 3: Test component installation and styling (AC: 2)
   - [x] Install basic Shadcn components (e.g., Button, Card, Dialog)
   - [x] Implement them on the main page to verify styling matches the color palettes, button disabled states match Wizard design, and dark/light toggle works
+
+### Review Findings
+
+- [x] [Review][Patch] Inter font not configured in Tailwind [apps/web/tailwind.config.ts]
+- [x] [Review][Patch] Tailwind CSS vs PostCSS plugin versions mismatch [apps/web/package.json]
 
 ## Dev Notes
 

@@ -1,0 +1,777 @@
+diff --git a/_bmad-output/implementation-artifacts/0-3-set-up-shadcn-ui-and-configure-themes.md b/_bmad-output/implementation-artifacts/0-3-set-up-shadcn-ui-and-configure-themes.md
+index cb926e0..73d2957 100644
+--- a/_bmad-output/implementation-artifacts/0-3-set-up-shadcn-ui-and-configure-themes.md
++++ b/_bmad-output/implementation-artifacts/0-3-set-up-shadcn-ui-and-configure-themes.md
+@@ -21,13 +21,13 @@ Status: ready-for-dev
+ 
+ ## Tasks / Subtasks
+ 
+-- [ ] Task 1: Initialize Shadcn UI in the Next.js app (`apps/web/`) (AC: 1)
+-  - [ ] Run Shadcn CLI to initialize configuration in `apps/web/`
+-  - [ ] Verify `components.json`, `tailwind.config.ts` (or JS), and globals.css are generated correctly
+-- [ ] Task 2: Configure project themes and font (AC: 3, 4)
+-  - [ ] Add `next-themes` and set up `ThemeProvider` to support light/dark modes
+-  - [ ] Configure `Inter` font in Next.js layout
+-  - [ ] Define the UX color palette in Tailwind config and CSS variables, including FestGrid and Wizard specifications:
++- [x] Task 1: Initialize Shadcn UI in the Next.js app (`apps/web/`) (AC: 1)
++  - [x] Run Shadcn CLI to initialize configuration in `apps/web/`
++  - [x] Verify `components.json`, `tailwind.config.ts` (or JS), and globals.css are generated correctly
++- [x] Task 2: Configure project themes and font (AC: 3, 4)
++  - [x] Add `next-themes` and set up `ThemeProvider` to support light/dark modes
++  - [x] Configure `Inter` font in Next.js layout
++  - [x] Define the UX color palette in Tailwind config and CSS variables, including FestGrid and Wizard specifications:
+         - primary: "#1E293B"
+         - secondary: "#6366F1"
+         - accent: "#FF5A5F"
+@@ -38,10 +38,10 @@ Status: ready-for-dev
+         - foreground (text): "#111827" (from Wizard DESIGN.md)
+         - wizard-primary: "#3B82F6"
+         - wizard-secondary: "#6B7280"
+-  - [ ] Set base corner radius to `0.5rem` (from FestGrid DESIGN.md)
+-- [ ] Task 3: Test component installation and styling (AC: 2)
+-  - [ ] Install basic Shadcn components (e.g., Button, Card, Dialog)
+-  - [ ] Implement them on the main page to verify styling matches the color palettes, button disabled states match Wizard design, and dark/light toggle works
++  - [x] Set base corner radius to `0.5rem` (from FestGrid DESIGN.md)
++- [x] Task 3: Test component installation and styling (AC: 2)
++  - [x] Install basic Shadcn components (e.g., Button, Card, Dialog)
++  - [x] Implement them on the main page to verify styling matches the color palettes, button disabled states match Wizard design, and dark/light toggle works
+ 
+ ## Dev Notes
+ 
+diff --git a/_bmad-output/implementation-artifacts/sprint-status.yaml b/_bmad-output/implementation-artifacts/sprint-status.yaml
+index 3dcbde1..b992365 100644
+--- a/_bmad-output/implementation-artifacts/sprint-status.yaml
++++ b/_bmad-output/implementation-artifacts/sprint-status.yaml
+@@ -51,7 +51,7 @@ development_status:
+   epic-0: in-progress
+   0-1-initialize-pnpm-monorepo: done
+   0-2-configure-typescript-and-eslint-for-the-monorepo: done
+-  0-3-set-up-shadcn-ui-and-configure-themes: ready-for-dev
++  0-3-set-up-shadcn-ui-and-configure-themes: in-progress
+   0-4-set-up-drizzle-orm-for-schema-migrations: backlog
+   0-5-set-up-ci-cd-pipeline-with-github-actions: backlog
+   epic-0-retrospective: optional
+diff --git a/apps/web/components.json b/apps/web/components.json
+new file mode 100644
+index 0000000..2f4b7b7
+--- /dev/null
++++ b/apps/web/components.json
+@@ -0,0 +1,21 @@
++{
++  "$schema": "https://ui.shadcn.com/schema.json",
++  "style": "default",
++  "rsc": true,
++  "tsx": true,
++  "tailwind": {
++    "config": "tailwind.config.ts",
++    "css": "src/app/globals.css",
++    "baseColor": "slate",
++    "cssVariables": true,
++    "prefix": ""
++  },
++  "aliases": {
++    "components": "@/components",
++    "utils": "@/lib/utils",
++    "ui": "@/components/ui",
++    "lib": "@/lib",
++    "hooks": "@/hooks"
++  },
++  "iconLibrary": "lucide"
++}
+\ No newline at end of file
+diff --git a/apps/web/package.json b/apps/web/package.json
+index 9218b74..1b0ab1e 100644
+--- a/apps/web/package.json
++++ b/apps/web/package.json
+@@ -9,17 +9,29 @@
+     "lint": "next lint"
+   },
+   "dependencies": {
++    "@festgrid/shared-types": "workspace:*",
++    "@radix-ui/react-dialog": "^1.1.21",
++    "@radix-ui/react-slot": "^1.3.1",
++    "class-variance-authority": "^0.7.1",
++    "clsx": "^2.1.1",
++    "lucide-react": "^1.25.0",
+     "next": "^15.1.3",
++    "next-themes": "^0.4.6",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+-    "@festgrid/shared-types": "workspace:*"
++    "tailwind-merge": "^3.6.0",
++    "tailwindcss-animate": "^1.0.7"
+   },
+   "devDependencies": {
++    "@festgrid/eslint-config": "workspace:*",
++    "@festgrid/typescript-config": "workspace:*",
++    "@tailwindcss/postcss": "^4.3.3",
+     "@types/node": "^20.14.10",
+     "@types/react": "^19.0.2",
+     "@types/react-dom": "^19.0.2",
+-    "@festgrid/eslint-config": "workspace:*",
+-    "@festgrid/typescript-config": "workspace:*",
++    "autoprefixer": "^10.5.4",
++    "postcss": "^8.5.22",
++    "tailwindcss": "^3.4.1",
+     "typescript": "^6.0.3"
+   }
+ }
+diff --git a/apps/web/postcss.config.mjs b/apps/web/postcss.config.mjs
+new file mode 100644
+index 0000000..fbe14a4
+--- /dev/null
++++ b/apps/web/postcss.config.mjs
+@@ -0,0 +1,6 @@
++export default {
++  plugins: {
++    tailwindcss: {},
++    autoprefixer: {},
++  },
++};
+\ No newline at end of file
+diff --git a/apps/web/src/app/globals.css b/apps/web/src/app/globals.css
+new file mode 100644
+index 0000000..5610861
+--- /dev/null
++++ b/apps/web/src/app/globals.css
+@@ -0,0 +1,88 @@
++@tailwind base;
++@tailwind components;
++@tailwind utilities;
++
++@layer base {
++  :root {
++    --background: 210 20% 98%; /* #F9FAFB */
++    --foreground: 221 39% 11%; /* #111827 */
++
++    --card: 0 0% 100%;
++    --card-foreground: 221 39% 11%;
++
++    --popover: 0 0% 100%;
++    --popover-foreground: 221 39% 11%;
++
++    --primary: 217 33% 17%; /* #1E293B */
++    --primary-foreground: 210 40% 98%;
++
++    --secondary: 238 82% 67%; /* #6366F1 */
++    --secondary-foreground: 210 40% 98%;
++
++    --accent: 358 100% 68%; /* #FF5A5F */
++    --accent-foreground: 210 40% 98%;
++
++    --success: 160 84% 39%; /* #10B981 */
++    --success-foreground: 210 40% 98%;
++
++    --destructive: 0 84% 60%; /* error: #EF4444 */
++    --destructive-foreground: 210 40% 98%;
++
++    --muted: 210 40% 96.1%;
++    --muted-foreground: 215.4 16.3% 46.9%;
++
++    --border: 214.3 31.8% 91.4%;
++    --input: 214.3 31.8% 91.4%;
++    --ring: 221.2 83.2% 53.3%;
++
++    --wizard-primary: 217 91% 60%; /* #3B82F6 */
++    --wizard-secondary: 220 9% 46%; /* #6B7280 */
++
++    --radius: 0.5rem;
++  }
++
++  .dark {
++    --background: 222.2 84% 4.9%;
++    --foreground: 210 40% 98%;
++
++    --card: 222.2 84% 4.9%;
++    --card-foreground: 210 40% 98%;
++
++    --popover: 222.2 84% 4.9%;
++    --popover-foreground: 210 40% 98%;
++
++    --primary: 210 40% 98%;
++    --primary-foreground: 222.2 47.4% 11.2%;
++
++    --secondary: 217.2 32.6% 17.5%;
++    --secondary-foreground: 210 40% 98%;
++
++    --muted: 217.2 32.6% 17.5%;
++    --muted-foreground: 215 20.2% 65.1%;
++
++    --accent: 217.2 32.6% 17.5%;
++    --accent-foreground: 210 40% 98%;
++
++    --destructive: 0 62.8% 30.6%;
++    --destructive-foreground: 210 40% 98%;
++
++    --success: 160 84% 39%; /* Keep same for now */
++    --success-foreground: 210 40% 98%;
++    
++    --wizard-primary: 217 91% 60%;
++    --wizard-secondary: 220 9% 46%;
++
++    --border: 217.2 32.6% 17.5%;
++    --input: 217.2 32.6% 17.5%;
++    --ring: 212.7 26.8% 83.9%;
++  }
++}
++
++@layer base {
++  * {
++    @apply border-border;
++  }
++  body {
++    @apply bg-background text-foreground;
++  }
++}
+\ No newline at end of file
+diff --git a/apps/web/src/app/layout.tsx b/apps/web/src/app/layout.tsx
+index 4f6f396..8e4501f 100644
+--- a/apps/web/src/app/layout.tsx
++++ b/apps/web/src/app/layout.tsx
+@@ -1,4 +1,9 @@
+ import { ReactNode } from 'react';
++import { Inter } from 'next/font/google';
++import './globals.css';
++import { ThemeProvider } from '@/components/providers/theme-provider';
++
++const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+ 
+ export const metadata = {
+   title: 'FestGrid',
+@@ -11,9 +16,16 @@ export default function RootLayout({
+   children: ReactNode;
+ }) {
+   return (
+-    <html lang="en">
+-      <body>
+-        <main>{children}</main>
++    <html lang="en" suppressHydrationWarning>
++      <body className={`${inter.variable} font-sans antialiased bg-background text-foreground`}>
++        <ThemeProvider
++          attribute="class"
++          defaultTheme="light"
++          enableSystem
++          disableTransitionOnChange
++        >
++          <main>{children}</main>
++        </ThemeProvider>
+       </body>
+     </html>
+   );
+diff --git a/apps/web/src/app/page.tsx b/apps/web/src/app/page.tsx
+index f1bb3ed..05f4f55 100644
+--- a/apps/web/src/app/page.tsx
++++ b/apps/web/src/app/page.tsx
+@@ -1,41 +1,70 @@
+-import type { EventInfo } from '@festgrid/shared-types';
+-import { EventType, EventCategory } from '@festgrid/shared-types';
++"use client"
+ 
+-const sampleEvent: EventInfo = {
+-  id: '1',
+-  slug: 'coachella-2026',
+-  isEvent: true,
+-  eventName: 'Coachella 2026',
+-  types: [EventType.FESTIVAL],
+-  categories: [EventCategory.MUSIC],
+-  location: 'Indio, California',
+-  schedules: [
+-    {
+-      id: 'sched-1',
+-      slug: 'coachella-2026-main',
+-      isMainSchedule: true,
+-      eventStartDate: '2026-04-10T12:00:00Z',
+-      performers: ['Various Artists'],
+-    }
+-  ]
+-};
++import { useTheme } from "next-themes"
++import { Button } from "@/components/ui/button"
++import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
++import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+ 
+ export default function Home() {
+-  const mainSchedule = sampleEvent.schedules[0];
++  const { theme, setTheme } = useTheme()
+ 
+   return (
+-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
+-      <h1>Welcome to FestGrid 🎧</h1>
+-      <p>Initializing pnpm monorepo successful!</p>
+-      <div style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid #ccc', borderRadius: '8px' }}>
+-        <h2>Sample Event from @festgrid/shared-types:</h2>
+-        <p><strong>Name:</strong> {sampleEvent.eventName}</p>
+-        <p><strong>Location:</strong> {sampleEvent.location}</p>
+-        <p><strong>Date:</strong> {mainSchedule?.eventStartDate}</p>
+-        {mainSchedule?.performers && (
+-          <p><strong>Performers:</strong> {mainSchedule.performers.join(', ')}</p>
+-        )}
++    <div className="p-8 space-y-8 max-w-4xl mx-auto">
++      <div className="flex justify-between items-center">
++        <h1 className="text-3xl font-bold">FestGrid Design System Verification</h1>
++        <Button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
++          Toggle Theme
++        </Button>
++      </div>
++
++      <div className="grid grid-cols-2 gap-4">
++        <Card>
++          <CardHeader>
++            <CardTitle>Theme Colors</CardTitle>
++            <CardDescription>Primary, Secondary, Accent</CardDescription>
++          </CardHeader>
++          <CardContent className="space-y-4">
++            <div className="flex gap-2">
++              <Button variant="default">Primary</Button>
++              <Button variant="secondary">Secondary</Button>
++              <Button className="bg-accent text-accent-foreground hover:bg-accent/90">Accent</Button>
++            </div>
++            <div className="flex gap-2">
++              <Button variant="destructive">Destructive</Button>
++              <Button className="bg-success text-success-foreground hover:bg-success/90">Success</Button>
++            </div>
++            <div className="flex gap-2">
++              <Button className="bg-wizard-primary text-primary-foreground hover:bg-wizard-primary/90">Wizard Primary</Button>
++              <Button className="bg-wizard-secondary text-primary-foreground hover:bg-wizard-secondary/90">Wizard Secondary</Button>
++            </div>
++          </CardContent>
++        </Card>
++
++        <Card>
++          <CardHeader>
++            <CardTitle>Button States</CardTitle>
++            <CardDescription>Verify disabled styling</CardDescription>
++          </CardHeader>
++          <CardContent className="space-y-4">
++            <Button disabled>Disabled Button</Button>
++          </CardContent>
++          <CardFooter>
++            <Dialog>
++              <DialogTrigger asChild>
++                <Button variant="outline">Open Dialog</Button>
++              </DialogTrigger>
++              <DialogContent>
++                <DialogHeader>
++                  <DialogTitle>Dialog verification</DialogTitle>
++                  <DialogDescription>
++                    This verifies that modal patterns and dialog styling work as intended with the base border radius.
++                  </DialogDescription>
++                </DialogHeader>
++              </DialogContent>
++            </Dialog>
++          </CardFooter>
++        </Card>
+       </div>
+     </div>
+-  );
+-}
++  )
++}
+\ No newline at end of file
+diff --git a/apps/web/src/components/providers/theme-provider.tsx b/apps/web/src/components/providers/theme-provider.tsx
+new file mode 100644
+index 0000000..e018a73
+--- /dev/null
++++ b/apps/web/src/components/providers/theme-provider.tsx
+@@ -0,0 +1,11 @@
++"use client"
++
++import * as React from "react"
++import { ThemeProvider as NextThemesProvider } from "next-themes"
++
++export function ThemeProvider({
++  children,
++  ...props
++}: React.ComponentProps<typeof NextThemesProvider>) {
++  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
++}
+\ No newline at end of file
+diff --git a/apps/web/src/components/ui/button.tsx b/apps/web/src/components/ui/button.tsx
+new file mode 100644
+index 0000000..36496a2
+--- /dev/null
++++ b/apps/web/src/components/ui/button.tsx
+@@ -0,0 +1,56 @@
++import * as React from "react"
++import { Slot } from "@radix-ui/react-slot"
++import { cva, type VariantProps } from "class-variance-authority"
++
++import { cn } from "@/lib/utils"
++
++const buttonVariants = cva(
++  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
++  {
++    variants: {
++      variant: {
++        default: "bg-primary text-primary-foreground hover:bg-primary/90",
++        destructive:
++          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
++        outline:
++          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
++        secondary:
++          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
++        ghost: "hover:bg-accent hover:text-accent-foreground",
++        link: "text-primary underline-offset-4 hover:underline",
++      },
++      size: {
++        default: "h-10 px-4 py-2",
++        sm: "h-9 rounded-md px-3",
++        lg: "h-11 rounded-md px-8",
++        icon: "h-10 w-10",
++      },
++    },
++    defaultVariants: {
++      variant: "default",
++      size: "default",
++    },
++  }
++)
++
++export interface ButtonProps
++  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
++    VariantProps<typeof buttonVariants> {
++  asChild?: boolean
++}
++
++const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
++  ({ className, variant, size, asChild = false, ...props }, ref) => {
++    const Comp = asChild ? Slot : "button"
++    return (
++      <Comp
++        className={cn(buttonVariants({ variant, size, className }))}
++        ref={ref}
++        {...props}
++      />
++    )
++  }
++)
++Button.displayName = "Button"
++
++export { Button, buttonVariants }
+diff --git a/apps/web/src/components/ui/card.tsx b/apps/web/src/components/ui/card.tsx
+new file mode 100644
+index 0000000..f62edea
+--- /dev/null
++++ b/apps/web/src/components/ui/card.tsx
+@@ -0,0 +1,79 @@
++import * as React from "react"
++
++import { cn } from "@/lib/utils"
++
++const Card = React.forwardRef<
++  HTMLDivElement,
++  React.HTMLAttributes<HTMLDivElement>
++>(({ className, ...props }, ref) => (
++  <div
++    ref={ref}
++    className={cn(
++      "rounded-lg border bg-card text-card-foreground shadow-sm",
++      className
++    )}
++    {...props}
++  />
++))
++Card.displayName = "Card"
++
++const CardHeader = React.forwardRef<
++  HTMLDivElement,
++  React.HTMLAttributes<HTMLDivElement>
++>(({ className, ...props }, ref) => (
++  <div
++    ref={ref}
++    className={cn("flex flex-col space-y-1.5 p-6", className)}
++    {...props}
++  />
++))
++CardHeader.displayName = "CardHeader"
++
++const CardTitle = React.forwardRef<
++  HTMLDivElement,
++  React.HTMLAttributes<HTMLDivElement>
++>(({ className, ...props }, ref) => (
++  <div
++    ref={ref}
++    className={cn(
++      "text-2xl font-semibold leading-none tracking-tight",
++      className
++    )}
++    {...props}
++  />
++))
++CardTitle.displayName = "CardTitle"
++
++const CardDescription = React.forwardRef<
++  HTMLDivElement,
++  React.HTMLAttributes<HTMLDivElement>
++>(({ className, ...props }, ref) => (
++  <div
++    ref={ref}
++    className={cn("text-sm text-muted-foreground", className)}
++    {...props}
++  />
++))
++CardDescription.displayName = "CardDescription"
++
++const CardContent = React.forwardRef<
++  HTMLDivElement,
++  React.HTMLAttributes<HTMLDivElement>
++>(({ className, ...props }, ref) => (
++  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
++))
++CardContent.displayName = "CardContent"
++
++const CardFooter = React.forwardRef<
++  HTMLDivElement,
++  React.HTMLAttributes<HTMLDivElement>
++>(({ className, ...props }, ref) => (
++  <div
++    ref={ref}
++    className={cn("flex items-center p-6 pt-0", className)}
++    {...props}
++  />
++))
++CardFooter.displayName = "CardFooter"
++
++export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
+diff --git a/apps/web/src/components/ui/dialog.tsx b/apps/web/src/components/ui/dialog.tsx
+new file mode 100644
+index 0000000..f38593b
+--- /dev/null
++++ b/apps/web/src/components/ui/dialog.tsx
+@@ -0,0 +1,122 @@
++"use client"
++
++import * as React from "react"
++import * as DialogPrimitive from "@radix-ui/react-dialog"
++import { X } from "lucide-react"
++
++import { cn } from "@/lib/utils"
++
++const Dialog = DialogPrimitive.Root
++
++const DialogTrigger = DialogPrimitive.Trigger
++
++const DialogPortal = DialogPrimitive.Portal
++
++const DialogClose = DialogPrimitive.Close
++
++const DialogOverlay = React.forwardRef<
++  React.ElementRef<typeof DialogPrimitive.Overlay>,
++  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
++>(({ className, ...props }, ref) => (
++  <DialogPrimitive.Overlay
++    ref={ref}
++    className={cn(
++      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
++      className
++    )}
++    {...props}
++  />
++))
++DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
++
++const DialogContent = React.forwardRef<
++  React.ElementRef<typeof DialogPrimitive.Content>,
++  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
++>(({ className, children, ...props }, ref) => (
++  <DialogPortal>
++    <DialogOverlay />
++    <DialogPrimitive.Content
++      ref={ref}
++      className={cn(
++        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
++        className
++      )}
++      {...props}
++    >
++      {children}
++      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
++        <X className="h-4 w-4" />
++        <span className="sr-only">Close</span>
++      </DialogPrimitive.Close>
++    </DialogPrimitive.Content>
++  </DialogPortal>
++))
++DialogContent.displayName = DialogPrimitive.Content.displayName
++
++const DialogHeader = ({
++  className,
++  ...props
++}: React.HTMLAttributes<HTMLDivElement>) => (
++  <div
++    className={cn(
++      "flex flex-col space-y-1.5 text-center sm:text-left",
++      className
++    )}
++    {...props}
++  />
++)
++DialogHeader.displayName = "DialogHeader"
++
++const DialogFooter = ({
++  className,
++  ...props
++}: React.HTMLAttributes<HTMLDivElement>) => (
++  <div
++    className={cn(
++      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
++      className
++    )}
++    {...props}
++  />
++)
++DialogFooter.displayName = "DialogFooter"
++
++const DialogTitle = React.forwardRef<
++  React.ElementRef<typeof DialogPrimitive.Title>,
++  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
++>(({ className, ...props }, ref) => (
++  <DialogPrimitive.Title
++    ref={ref}
++    className={cn(
++      "text-lg font-semibold leading-none tracking-tight",
++      className
++    )}
++    {...props}
++  />
++))
++DialogTitle.displayName = DialogPrimitive.Title.displayName
++
++const DialogDescription = React.forwardRef<
++  React.ElementRef<typeof DialogPrimitive.Description>,
++  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
++>(({ className, ...props }, ref) => (
++  <DialogPrimitive.Description
++    ref={ref}
++    className={cn("text-sm text-muted-foreground", className)}
++    {...props}
++  />
++))
++DialogDescription.displayName = DialogPrimitive.Description.displayName
++
++export {
++  Dialog,
++  DialogPortal,
++  DialogOverlay,
++  DialogClose,
++  DialogTrigger,
++  DialogContent,
++  DialogHeader,
++  DialogFooter,
++  DialogTitle,
++  DialogDescription,
++}
+diff --git a/apps/web/src/global.d.ts b/apps/web/src/global.d.ts
+new file mode 100644
+index 0000000..7f70183
+--- /dev/null
++++ b/apps/web/src/global.d.ts
+@@ -0,0 +1 @@
++declare module "*.css";
+\ No newline at end of file
+diff --git a/apps/web/src/lib/utils.ts b/apps/web/src/lib/utils.ts
+new file mode 100644
+index 0000000..1a860ee
+--- /dev/null
++++ b/apps/web/src/lib/utils.ts
+@@ -0,0 +1,6 @@
++import { type ClassValue, clsx } from "clsx"
++import { twMerge } from "tailwind-merge"
++
++export function cn(...inputs: ClassValue[]) {
++  return twMerge(clsx(inputs))
++}
+\ No newline at end of file
+diff --git a/apps/web/tailwind.config.ts b/apps/web/tailwind.config.ts
+new file mode 100644
+index 0000000..2033369
+--- /dev/null
++++ b/apps/web/tailwind.config.ts
+@@ -0,0 +1,86 @@
++import type { Config } from "tailwindcss";
++
++const config = {
++  darkMode: "class",
++  content: [
++    './src/pages/**/*.{ts,tsx}',
++    './src/components/**/*.{ts,tsx}',
++    './src/app/**/*.{ts,tsx}',
++    './src/**/*.{ts,tsx}',
++  ],
++  prefix: "",
++  theme: {
++    container: {
++      center: true,
++      padding: "2rem",
++      screens: {
++        "2xl": "1400px",
++      },
++    },
++    extend: {
++      colors: {
++        border: "hsl(var(--border))",
++        input: "hsl(var(--input))",
++        ring: "hsl(var(--ring))",
++        background: "hsl(var(--background))",
++        foreground: "hsl(var(--foreground))",
++        primary: {
++          DEFAULT: "hsl(var(--primary))",
++          foreground: "hsl(var(--primary-foreground))",
++        },
++        secondary: {
++          DEFAULT: "hsl(var(--secondary))",
++          foreground: "hsl(var(--secondary-foreground))",
++        },
++        destructive: {
++          DEFAULT: "hsl(var(--destructive))",
++          foreground: "hsl(var(--destructive-foreground))",
++        },
++        success: {
++          DEFAULT: "hsl(var(--success))",
++          foreground: "hsl(var(--success-foreground))",
++        },
++        "wizard-primary": "hsl(var(--wizard-primary))",
++        "wizard-secondary": "hsl(var(--wizard-secondary))",
++        muted: {
++          DEFAULT: "hsl(var(--muted))",
++          foreground: "hsl(var(--muted-foreground))",
++        },
++        accent: {
++          DEFAULT: "hsl(var(--accent))",
++          foreground: "hsl(var(--accent-foreground))",
++        },
++        popover: {
++          DEFAULT: "hsl(var(--popover))",
++          foreground: "hsl(var(--popover-foreground))",
++        },
++        card: {
++          DEFAULT: "hsl(var(--card))",
++          foreground: "hsl(var(--card-foreground))",
++        },
++      },
++      borderRadius: {
++        lg: "var(--radius)",
++        md: "calc(var(--radius) - 2px)",
++        sm: "calc(var(--radius) - 4px)",
++      },
++      keyframes: {
++        "accordion-down": {
++          from: { height: "0" },
++          to: { height: "var(--radix-accordion-content-height)" },
++        },
++        "accordion-up": {
++          from: { height: "var(--radix-accordion-content-height)" },
++          to: { height: "0" },
++        },
++      },
++      animation: {
++        "accordion-down": "accordion-down 0.2s ease-out",
++        "accordion-up": "accordion-up 0.2s ease-out",
++      },
++    },
++  },
++  plugins: [require("tailwindcss-animate")],
++} satisfies Config;
++
++export default config;
+\ No newline at end of file
