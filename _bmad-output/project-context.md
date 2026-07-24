@@ -20,6 +20,27 @@ _This file contains critical rules and patterns that AI agents must follow when 
 
 ---
 
+## Reference Documents
+
+The following documents contain detailed specifications, architectures, and design definitions for the project. Ensure you read only the required ones when it matters.
+
+### Planning & Requirements
+- `_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md`
+
+### Architecture & Infrastructure
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`
+- `docs/infrastructure.md`
+
+### UX Design (Festgrid Main App)
+- `design-artifacts/UX-festgrid-run-1/DESIGN.md`
+- `design-artifacts/UX-festgrid-run-1/EXPERIENCE.md`
+
+### UX Design (Wizard Page)
+- `design-artifacts/UX-wizard-page-run-1/DESIGN.md`
+- `design-artifacts/UX-wizard-page-run-1/EXPERIENCE.md`
+
+---
+
 ## Technology Stack & Versions
 
 *   **Monorepo:** `pnpm` and `turbo`
