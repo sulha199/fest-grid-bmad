@@ -12,5 +12,11 @@
     "turbo": "^2.0.14",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.50.0"
+  },
+  "pnpm": {
+    "approvedBuilds": [
+      "es5-ext",
+      "esbuild"
+    ]
   }
 }
