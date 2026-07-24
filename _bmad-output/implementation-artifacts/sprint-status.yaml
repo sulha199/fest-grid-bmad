@@ -53,7 +53,7 @@ development_status:
   0-2-configure-typescript-and-eslint-for-the-monorepo: done
   0-3-set-up-shadcn-ui-and-configure-themes: done
   0-4-set-up-drizzle-orm-for-schema-migrations: ready-for-dev
-  0-5-set-up-ci-cd-pipeline-with-github-actions: backlog
+  0-5-set-up-ci-cd-pipeline-with-github-actions: ready-for-dev
   epic-0-retrospective: optional
   epic-1: backlog
   1-1-create-initial-database-tables: backlog

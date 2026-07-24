@@ -29,7 +29,6 @@ The following documents contain detailed specifications, architectures, and desi
 
 ### Architecture & Infrastructure
 - `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`
-- `docs/infrastructure.md`
 
 ### UX Design (Festgrid Main App)
 - `design-artifacts/UX-festgrid-run-1/DESIGN.md`
