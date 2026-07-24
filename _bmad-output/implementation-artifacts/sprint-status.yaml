@@ -51,7 +51,7 @@ development_status:
   epic-0: in-progress
   0-1-initialize-pnpm-monorepo: done
   0-2-configure-typescript-and-eslint-for-the-monorepo: done
-  0-3-set-up-shadcn-ui-and-configure-themes: ready-for-dev
+  0-3-set-up-shadcn-ui-and-configure-themes: in-progress
   0-4-set-up-drizzle-orm-for-schema-migrations: backlog
   0-5-set-up-ci-cd-pipeline-with-github-actions: backlog
   epic-0-retrospective: optional

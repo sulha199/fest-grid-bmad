@@ -1,41 +1,70 @@
-import type { EventInfo } from '@festgrid/shared-types';
-import { EventType, EventCategory } from '@festgrid/shared-types';
+"use client"
 
-const sampleEvent: EventInfo = {
-  id: '1',
-  slug: 'coachella-2026',
-  isEvent: true,
-  eventName: 'Coachella 2026',
-  types: [EventType.FESTIVAL],
-  categories: [EventCategory.MUSIC],
-  location: 'Indio, California',
-  schedules: [
-    {
-      id: 'sched-1',
-      slug: 'coachella-2026-main',
-      isMainSchedule: true,
-      eventStartDate: '2026-04-10T12:00:00Z',
-      performers: ['Various Artists'],
-    }
-  ]
-};
+import { useTheme } from "next-themes"
+import { Button } from "@/components/ui/button"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 
 export default function Home() {
-  const mainSchedule = sampleEvent.schedules[0];
+  const { theme, setTheme } = useTheme()
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-      <h1>Welcome to FestGrid 🎧</h1>
-      <p>Initializing pnpm monorepo successful!</p>
-      <div style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid #ccc', borderRadius: '8px' }}>
-        <h2>Sample Event from @festgrid/shared-types:</h2>
-        <p><strong>Name:</strong> {sampleEvent.eventName}</p>
-        <p><strong>Location:</strong> {sampleEvent.location}</p>
-        <p><strong>Date:</strong> {mainSchedule?.eventStartDate}</p>
-        {mainSchedule?.performers && (
-          <p><strong>Performers:</strong> {mainSchedule.performers.join(', ')}</p>
-        )}
+    <div className="p-8 space-y-8 max-w-4xl mx-auto">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">FestGrid Design System Verification</h1>
+        <Button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+          Toggle Theme
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Theme Colors</CardTitle>
+            <CardDescription>Primary, Secondary, Accent</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Button variant="default">Primary</Button>
+              <Button variant="secondary">Secondary</Button>
+              <Button className="bg-accent text-accent-foreground hover:bg-accent/90">Accent</Button>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="destructive">Destructive</Button>
+              <Button className="bg-success text-success-foreground hover:bg-success/90">Success</Button>
+            </div>
+            <div className="flex gap-2">
+              <Button className="bg-wizard-primary text-primary-foreground hover:bg-wizard-primary/90">Wizard Primary</Button>
+              <Button className="bg-wizard-secondary text-primary-foreground hover:bg-wizard-secondary/90">Wizard Secondary</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Button States</CardTitle>
+            <CardDescription>Verify disabled styling</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button disabled>Disabled Button</Button>
+          </CardContent>
+          <CardFooter>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline">Open Dialog</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Dialog verification</DialogTitle>
+                  <DialogDescription>
+                    This verifies that modal patterns and dialog styling work as intended with the base border radius.
+                  </DialogDescription>
+                </DialogHeader>
+              </DialogContent>
+            </Dialog>
+          </CardFooter>
+        </Card>
       </div>
     </div>
-  );
+  )
 }

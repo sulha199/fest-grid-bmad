@@ -21,13 +21,13 @@ Status: ready-for-dev
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Initialize Shadcn UI in the Next.js app (`apps/web/`) (AC: 1)
-  - [ ] Run Shadcn CLI to initialize configuration in `apps/web/`
-  - [ ] Verify `components.json`, `tailwind.config.ts` (or JS), and globals.css are generated correctly
-- [ ] Task 2: Configure project themes and font (AC: 3, 4)
-  - [ ] Add `next-themes` and set up `ThemeProvider` to support light/dark modes
-  - [ ] Configure `Inter` font in Next.js layout
-  - [ ] Define the UX color palette in Tailwind config and CSS variables, including FestGrid and Wizard specifications:
+- [x] Task 1: Initialize Shadcn UI in the Next.js app (`apps/web/`) (AC: 1)
+  - [x] Run Shadcn CLI to initialize configuration in `apps/web/`
+  - [x] Verify `components.json`, `tailwind.config.ts` (or JS), and globals.css are generated correctly
+- [x] Task 2: Configure project themes and font (AC: 3, 4)
+  - [x] Add `next-themes` and set up `ThemeProvider` to support light/dark modes
+  - [x] Configure `Inter` font in Next.js layout
+  - [x] Define the UX color palette in Tailwind config and CSS variables, including FestGrid and Wizard specifications:
         - primary: "#1E293B"
         - secondary: "#6366F1"
         - accent: "#FF5A5F"
@@ -38,10 +38,10 @@ Status: ready-for-dev
         - foreground (text): "#111827" (from Wizard DESIGN.md)
         - wizard-primary: "#3B82F6"
         - wizard-secondary: "#6B7280"
-  - [ ] Set base corner radius to `0.5rem` (from FestGrid DESIGN.md)
-- [ ] Task 3: Test component installation and styling (AC: 2)
-  - [ ] Install basic Shadcn components (e.g., Button, Card, Dialog)
-  - [ ] Implement them on the main page to verify styling matches the color palettes, button disabled states match Wizard design, and dark/light toggle works
+  - [x] Set base corner radius to `0.5rem` (from FestGrid DESIGN.md)
+- [x] Task 3: Test component installation and styling (AC: 2)
+  - [x] Install basic Shadcn components (e.g., Button, Card, Dialog)
+  - [x] Implement them on the main page to verify styling matches the color palettes, button disabled states match Wizard design, and dark/light toggle works
 
 ## Dev Notes
 
