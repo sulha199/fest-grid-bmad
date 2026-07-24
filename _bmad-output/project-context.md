@@ -28,8 +28,8 @@ _This file contains critical rules and patterns that AI agents must follow when 
 *   **Backend:** Serverless on AWS (`API Gateway`, `Lambda`, `SQS`, `EventBridge`)
 *   **Database:** `Supabase` (PostgreSQL) with `Drizzle ORM`
 *   **Push Notifications:** `Firebase Cloud Messaging (FCM)`
-*   **Shared Code:** Workspace packages (`@festgrid/shared-types`, `@festgrid/config`)
-*   **Linting:** `ESLint` with `eslint-config-next`
+*   **Shared Code:** Workspace packages (`@festgrid/shared-types`, `@festgrid/typescript-config`, `@festgrid/eslint-config`)
+*   **Linting:** `ESLint` extending global flat configurations in `packages/eslint-config`
 *   **UI Component Library:** `Shadcn/ui` (built on Radix UI and Tailwind CSS)
 
 ## Critical Implementation Rules
@@ -64,6 +64,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 ### Code Quality & Style Rules
 
 1.  **Code Organization:** Pure, framework-agnostic business logic **must** live in a dedicated `packages/domain` package. Within this package, logic should be organized into sub-folders by domain area (e.g., `/events`, `/users`, `/subscriptions`). UI components and API handlers should be lean and delegate complex logic to this package.
+2.  **Shared Linting & TypeScript Base Configurations:** All workspace packages **must** extend the global linting flat configurations from `@festgrid/eslint-config` (inside `packages/eslint-config`) and TypeScript configurations from `@festgrid/typescript-config` (inside `packages/typescript-config`).
 
 ### Testing Rules
 

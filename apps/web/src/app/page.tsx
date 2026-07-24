@@ -3,6 +3,7 @@ import { EventType, EventCategory } from '@festgrid/shared-types';
 
 const sampleEvent: EventInfo = {
   id: '1',
+  slug: 'coachella-2026',
   isEvent: true,
   eventName: 'Coachella 2026',
   types: [EventType.FESTIVAL],
@@ -11,6 +12,7 @@ const sampleEvent: EventInfo = {
   schedules: [
     {
       id: 'sched-1',
+      slug: 'coachella-2026-main',
       isMainSchedule: true,
       eventStartDate: '2026-04-10T12:00:00Z',
       performers: ['Various Artists'],

@@ -18,6 +18,8 @@
     "@types/node": "^20.14.10",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
+    "@festgrid/eslint-config": "workspace:*",
+    "@festgrid/typescript-config": "workspace:*",
     "typescript": "^6.0.3"
   }
 }

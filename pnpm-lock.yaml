@@ -36,6 +36,12 @@ importers:
         specifier: ^19.0.0
         version: 19.2.7(react@19.2.7)
     devDependencies:
+      '@festgrid/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@festgrid/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
       '@types/node':
         specifier: ^20.14.10
         version: 20.19.43
@@ -85,7 +91,14 @@ importers:
         specifier: ^8.50.0
         version: 8.65.0(eslint@9.39.5(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)
 
-  packages/shared-types: {}
+  packages/shared-types:
+    devDependencies:
+      '@festgrid/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@festgrid/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
 
   packages/typescript-config: {}
 
