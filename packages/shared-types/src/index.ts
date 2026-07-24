@@ -56,6 +56,11 @@ export interface LocationDetails {
 
 export interface Schedule {
   id: string;
+  /**
+   * Unique, URL-friendly slug initially generated using Nano ID.
+   * Supports custom modification (Post-MVP for premium users).
+   */
+  slug: string;
   isMainSchedule: boolean;
   eventStartDate: DateOnlyIso;
   title?: string;
@@ -73,6 +78,11 @@ export interface Schedule {
  */
 export interface EventInfo {
   id: string;
+  /**
+   * Unique, URL-friendly slug initially generated using Nano ID.
+   * Supports custom modification (Post-MVP for premium users).
+   */
+  slug: string;
   isEvent: boolean;
   eventName: string;
   types: EventType[];
