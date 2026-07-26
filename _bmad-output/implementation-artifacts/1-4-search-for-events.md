@@ -32,7 +32,7 @@
 
 ### File Structure Requirements
 - `apps/web/app/page.tsx`: Read URL search parameters and pass them to the GraphQL query.
-- `packages/ui/src/components/events/SearchBar.tsx`: A new client component that updates the URL search params when the user types and presses enter. (Reusable UI Component)
+- `packages/ui/src/features/events/SearchBar.tsx`: A new client component that updates the URL search params when the user types and presses enter. (Reusable UI Component)
 - `packages/domain/src/events/`: Ensure the GraphQL query resolver and the DSL parser fully support the `"or"` operator and the `"contains"` operator across the required fields. (Reusable Domain Logic)
 - `packages/database/`: Check or add a migration script via `drizzle-kit` to ensure indexes are present for `eventName`, `performers`, and `locationName`.
 

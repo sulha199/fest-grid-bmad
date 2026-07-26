@@ -35,8 +35,8 @@
 
 ### File Structure Requirements
 - `apps/web/app/page.tsx` (or similar main page route): The main Next.js page component.
-- `packages/ui/src/components/events/EventGrid.tsx`: Component for displaying the grid of events. (Reusable UI Component)
-- `packages/ui/src/components/events/EventCard.tsx`: Component for a single event card. (Reusable UI Component)
+- `packages/ui/src/features/events/EventGrid.tsx`: Component for displaying the grid of events. (Reusable UI Component)
+- `packages/ui/src/features/events/EventCard.tsx`: Component for a single event card. (Reusable UI Component)
 - `packages/domain/src/events/`: Pure business logic for fetching events via GraphQL and processing DSL queries. (Reusable Domain Logic)
 
 ### Dev Notes (Custom Rules)

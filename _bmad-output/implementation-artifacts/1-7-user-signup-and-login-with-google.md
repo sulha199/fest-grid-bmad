@@ -42,7 +42,7 @@ so that I can easily and securely access the application.
 ### Project Structure Notes
 
 - Pure, framework-agnostic authentication logic, auth state handlers, and Supabase auth integrations must be placed in `packages/domain/auth`.
-- The `packages/ui` workspace should be used for the Google Login button and associated UI components.
+- The `packages/ui` workspace should be used for the Google Login button and associated UI components (e.g., `packages/ui/src/features/auth/GoogleLoginButton.tsx`).
 
 ### References
 

@@ -39,9 +39,9 @@
 
 ### File Structure Requirements
 - `packages/ui/`: Create a new workspace package for shared UI components if it doesn't exist yet, exporting the Shadcn/ui elements.
-- `packages/ui/src/components/multi-select.tsx`: Create the reusable multi-select faceted filter component described above. (Reusable UI Component)
+- `packages/ui/src/core/multi-select.tsx`: Create the reusable generic multi-select faceted filter component described above. (Reusable UI Component)
 - `apps/web/app/page.tsx`: Update to extract `type` and `category` from `searchParams` and include them in the GraphQL DSL payload.
-- `packages/ui/src/components/events/FilterHub.tsx`: Create a new client component for the filter UI that uses the `MultiSelect` from `@festgrid/ui` and updates URL query parameters dynamically on selection changes. (Reusable UI Component)
+- `packages/ui/src/features/events/FilterHub.tsx`: Create a new client component for the filter UI that uses the `MultiSelect` from `@festgrid/ui` and updates URL query parameters dynamically on selection changes. (Reusable UI Component)
 - `packages/domain/src/events/`: Verify and update the DSL parser to support multi-value filtering (e.g., the `in` operator) for `type` and `category` fields, and ensure 100% unit test coverage for any new logic. (Reusable Domain Logic)
 - `packages/database/`: Verify or add Drizzle migrations to ensure indexes exist for `type` and `category` columns.
 

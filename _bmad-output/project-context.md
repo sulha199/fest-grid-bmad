@@ -88,7 +88,9 @@ The following documents contain detailed specifications, architectures, and desi
 ### Code Quality & Style Rules
 
 - **Code Organization:** Pure, framework-agnostic business logic **must** live in a dedicated `packages/domain` package. Within this package, logic should be organized into sub-folders by domain area (e.g., `/events`, `/users`, `/subscriptions`). UI components and API handlers should be lean and delegate complex logic to this package.
-- **UI Components:** All reusable UI components (e.g., Shadcn/ui components, custom generic components) **must** be created in a dedicated `packages/ui` workspace package and exported for use by applications.
+- **UI Components & Scalability:** All reusable UI components (e.g., Shadcn/ui components, custom generic components) **must** be created in a dedicated `packages/ui` workspace package. To ensure scalability and ease of future migration (if we need to break the UI into separate packages), components **must** be strictly organized by role within `packages/ui/src/`:
+  - **Core Primitives:** Place generic, domain-agnostic components (e.g., Shadcn `Button`, `Card`, generic `MultiSelect`) in `packages/ui/src/core/`.
+  - **Domain Features:** Place domain-specific reusable components in `packages/ui/src/features/<domain>/` (e.g., `packages/ui/src/features/events/EventCard.tsx`, `packages/ui/src/features/events/FilterHub.tsx`, `packages/ui/src/features/auth/GoogleLoginButton.tsx`).
 - **Shared Linting & TypeScript Base Configurations:** All workspace packages **must** extend the global linting flat configurations from `@festgrid/eslint-config` (inside `packages/eslint-config`) and TypeScript configurations from `@festgrid/typescript-config` (inside `packages/typescript-config`).
 
 ### Testing Rules
