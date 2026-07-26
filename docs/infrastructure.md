@@ -77,6 +77,16 @@ graph TD
 *   **Description:** The frontend is a React application built with TypeScript. It will be hosted on Vercel.
 *   **Reasoning:** Vercel is the ideal platform for your React frontend. It offers a seamless Git-based workflow, automatic deployments, a global CDN, and a generous free tier that is perfect for a project like yours.
 
+#### Vercel Deployment Setup (Manual Step)
+Since Vercel natively integrates with GitHub for Continuous Deployment (CD), you must manually link the GitHub repository to a Vercel project:
+1. Go to the [Vercel Dashboard](https://vercel.com/dashboard).
+2. Click **Add New...** -> **Project**.
+3. Select this GitHub repository (`festgrid`) from your connected Git provider.
+4. Set the Framework Preset to **Next.js**.
+5. Set the Root Directory to `apps/web`.
+6. To ensure Vercel correctly resolves monorepo workspace dependencies, go to Project Settings -> Build & Development Settings. Set the "Build Command" to `cd ../.. && npx turbo run build --filter=web...` and ensure the install command is properly handled by Vercel's native pnpm workspace support, or leave the root directory as `/` and set the output directory to `apps/web/.next`.
+7. Click **Deploy**. Future pushes to the `main` branch will automatically trigger a new deployment.
+
 ### 2. Backend
 
 The backend is built entirely with TypeScript on a serverless architecture using AWS.

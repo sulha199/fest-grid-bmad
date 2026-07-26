@@ -16,7 +16,7 @@
     "migrate": "tsx migrate.ts",
     "migrate:prod": "node dist/migrate.js",
     "studio": "drizzle-kit studio",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
     "drizzle-orm": "^0.30.10",

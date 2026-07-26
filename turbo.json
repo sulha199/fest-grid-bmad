@@ -6,7 +6,18 @@
       "outputs": [".next/**", "dist/**"]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": []
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "db:push": {
+      "dependsOn": [],
+      "env": ["DATABASE_URL"]
+    },
+    "migrate": {
+      "dependsOn": ["^build"],
+      "env": ["DATABASE_URL"]
     },
     "dev": {
       "cache": false,
