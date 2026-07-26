@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-22T21:05:00Z
-last_updated: 2026-07-24T09:22:00Z
+last_updated: 2026-07-26T12:59:18Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -55,8 +55,8 @@ development_status:
   0-4-set-up-drizzle-orm-for-schema-migrations: review
   0-5-set-up-ci-cd-pipeline-with-github-actions: review
   epic-0-retrospective: optional
-  epic-1: backlog
-  1-1-create-initial-database-tables: backlog
+  epic-1: in-progress
+  1-1-create-initial-database-tables: ready-for-dev
   1-2-seed-database-with-mock-data: backlog
   1-3-display-a-list-of-events-on-the-main-page: backlog
   1-4-search-for-events: backlog

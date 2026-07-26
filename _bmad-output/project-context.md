@@ -65,6 +65,7 @@ The following documents contain detailed specifications, architectures, and desi
 - **Drizzle ORM Types:** When defining database schemas, **must** utilize PostgreSQL-specific data types directly imported from `drizzle-orm/pg-core` (e.g. `{ pgTable, uuid, text, integer, timestamp }`). Avoid using generic defaults when specific types are required (e.g. use `uuid` instead of `serial` for identifiers).
 
 ### Database & Performance
+- **Database Environments:** Local development will use a local PostgreSQL database (configured via `DATABASE_URL` in `packages/database/.env`), while Supabase is strictly used as the cloud database for production environments. All migrations and Drizzle queries must work seamlessly across both.
 - **Database Access (Drizzle ORM):** All database access **must** be handled through the Drizzle ORM. Do not use the Supabase client for data queries.
 - **Optimized DB Queries:** To prevent over-fetching from the database, GraphQL resolvers running in AWS Lambda **must** dynamically build Drizzle queries to select only the specific fields requested in the GraphQL operation.
 - **Database Indexing for Performance:** To ensure fast query performance for search and filtering, database columns that are frequently used in `WHERE` clauses **must** be indexed. This specifically includes columns for `eventName`, `performers`, `location`, `types`, and `categories`.
