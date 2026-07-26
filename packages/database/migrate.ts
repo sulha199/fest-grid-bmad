@@ -4,8 +4,8 @@ import postgres from 'postgres';
 import * as dotenv from 'dotenv';
 import { resolve } from 'path';
 
-dotenv.config({ path: resolve(process.cwd(), '.env') });
-dotenv.config({ path: resolve(process.cwd(), '../../.env') });
+dotenv.config({ path: resolve(__dirname, '.env') });
+dotenv.config({ path: resolve(__dirname, '../../.env') });
 
 const runMigrate = async () => {
   if (!process.env.DATABASE_URL) {
@@ -15,12 +15,15 @@ const runMigrate = async () => {
   const connectionString = process.env.DATABASE_URL;
 
   // for migrations
-  const migrationClient = postgres(connectionString, { max: 1 });
+  const migrationClient = postgres(connectionString, { 
+    max: 1,
+    ssl: 'require' 
+  });
   const db = drizzle(migrationClient);
 
   console.log('Running migrations...');
 
-  await migrate(db, { migrationsFolder: './migrations' });
+  await migrate(db, { migrationsFolder: resolve(__dirname, './migrations') });
 
   console.log('Migrations completed successfully');
 

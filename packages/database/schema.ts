@@ -1,8 +1,15 @@
-import { pgTable, uuid, text, integer, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp } from 'drizzle-orm/pg-core';
 
-export const dummyTesting = pgTable('dummy_testing', {
+// Reusable timestamp columns for future tables to ensure correct timezone handling
+export const timestamps = {
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+};
+
+// Dummy table to verify Drizzle ORM setup and migrations.
+// To be removed once actual domain tables are created.
+export const healthCheck = pgTable('health_check', {
   id: uuid('id').defaultRandom().primaryKey(),
-  name: text('name').notNull(),
-  age: integer('age'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  status: text('status').notNull(),
+  ...timestamps,
 });

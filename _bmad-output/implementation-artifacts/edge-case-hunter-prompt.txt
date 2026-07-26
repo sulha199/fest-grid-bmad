@@ -1,4 +1,512 @@
 Invoke the `bmad-review-edge-case-hunter` skill on this diff:
 
 ```diff
-[Paste the contents of temp_diff_output.diff here]
+diff --git a/_bmad-output/implementation-artifacts/0-4-set-up-drizzle-orm-for-schema-migrations.md b/_bmad-output/implementation-artifacts/0-4-set-up-drizzle-orm-for-schema-migrations.md
+new file mode 100644
+index 0000000..d1c7ca2
+--- /dev/null
++++ b/_bmad-output/implementation-artifacts/0-4-set-up-drizzle-orm-for-schema-migrations.md
+@@ -0,0 +1,72 @@
++---
++baseline_commit: HEAD
++---
++
++# Story 0.4: Set up Drizzle ORM for schema migrations
++
++Status: review
++
++## Story
++
++**As a** developer,
++**I want** to set up Drizzle ORM and `drizzle-kit` in the monorepo,
++**So that** I can define database schemas in TypeScript and generate SQL migrations from them.
++
++## Acceptance Criteria
++
++1. **Given** the pnpm monorepo is initialized,
++2. **When** I define a new Drizzle schema for a table (e.g., a dummy table to test generation),
++3. **Then** I can run a `pnpm` script to generate a new SQL migration file.
++4. **And** the generated migration can be successfully applied to the database.
++
++## Tasks / Subtasks
++
++- [x] Task 1: Install Drizzle ORM and Drizzle Kit dependencies
++- [x] Task 2: Configure drizzle-kit (drizzle.config.ts)
++- [x] Task 3: Create a dummy schema to test generation (CRITICAL: Do not create the final application tables yet, as those are handled in Story 1.1)
++- [x] Task 4: Add `pnpm run generate` and `pnpm run migrate` scripts
++- [x] Task 5: Verify that migrations can be generated and applied successfully
++
++## Developer Context & Guardrails
++
++- **Architecture Compliance:** Database access must be handled through Drizzle ORM. Supabase client should not be used for data queries as per `project-context.md`.
++- **Database Schema & Migrations Location:** We are using Supabase (PostgreSQL). Create a dedicated `packages/database` package (or `packages/domain` as per project context if preferred for all business logic, but a separate DB package is standard in monorepos, though `packages/database` is preferable) to house the Drizzle ORM schema, the `drizzle.config.ts`, and the generated SQL migration files. The migration files should be stored within this package, not inside the Next.js app or backend lambda apps.
++- **CRITICAL:** Do NOT create the full `users`, `events`, `schedules` tables upfront as part of this story. Story 1.1 is strictly for creating the initial database tables. We just need to make sure Drizzle ORM is set up and functional. A dummy `testing` or `health_check` table is sufficient to verify setup.
++
++## Latest Tech Information
++- Ensure to use the latest Drizzle ORM version compatible with our TypeScript and Node environment.
++
++## Project Context Reference
++Please refer to `_bmad-output/project-context.md` for overall architecture rules.
++
++## Dev Agent Record
++
++### Implementation Plan
++- Create `packages/database` package
++- Install `drizzle-orm` and `drizzle-kit`
++- Configure `drizzle.config.ts` and `schema.ts`
++- Add dummy table `dummy_testing`
++- Write migration script `migrate.ts`
++- Verify locally with docker postgres instance
++
++### Completion Notes
++✅ All tasks completed successfully. Drizzle ORM is set up, schemas are generated, and test migrations applied to a local postgres instance.
++
++## File List
++- `packages/database/package.json`
++- `packages/database/tsconfig.json`
++- `packages/database/drizzle.config.ts`
++- `packages/database/schema.ts`
++- `packages/database/migrate.ts`
++- `packages/database/.env`
++- `packages/database/migrations/0000_broken_meggan.sql`
++- `packages/database/migrations/0001_square_typhoid_mary.sql`
++- `packages/database/migrations/meta/0000_snapshot.json`
++- `packages/database/migrations/meta/0001_snapshot.json`
++- `packages/database/migrations/meta/_journal.json`
++
++## Change Log
++- Added `packages/database` workspace package
++- Installed `drizzle-orm` and `postgres` dependencies
++- Set up `drizzle-kit` with a dummy schema for testing migrations
++- Updated dummy schema to use UUID as requested in PR review
+diff --git a/_bmad-output/implementation-artifacts/0-5-set-up-ci-cd-pipeline-with-github-actions.md b/_bmad-output/implementation-artifacts/0-5-set-up-ci-cd-pipeline-with-github-actions.md
+new file mode 100644
+index 0000000..67f210c
+--- /dev/null
++++ b/_bmad-output/implementation-artifacts/0-5-set-up-ci-cd-pipeline-with-github-actions.md
+@@ -0,0 +1,45 @@
++# Story 0.5: Set up CI/CD pipeline with GitHub Actions
++
++## Story Context
++**Epic:** Epic 0 - Project Setup & DevOps
++**Story ID:** 0.5
++**Status:** ready-for-dev
++
++## User Story
++**As a** developer,
++**I want** to have a basic CI/CD pipeline set up with GitHub Actions,
++**So that** I can automatically run tests, linting, and build checks on every push to the repository.
++
++## Acceptance Criteria
++- [ ] **Given** a push is made to any branch in the GitHub repository,
++- [ ] **When** the GitHub Actions workflow is triggered,
++- [ ] **Then** the workflow installs dependencies, runs linting, and executes tests for all packages.
++- [ ] **And** the workflow fails if any of these steps fail.
++- [ ] **And** the CI/CD pipeline automatically applies database migrations using `drizzle-kit` for consistent schema management.
++- [ ] **And** the frontend is automatically deployed to Vercel upon merging to main (handled via Vercel's native GitHub integration).
++- [ ] **And** the GitHub Actions pipeline includes a placeholder/stub for deploying the AWS serverless backend (which will be implemented once the backend package is created).
++
++## Developer Context
++
++### Architecture Guardrails
++- **Migration Pipeline:** Migrations generated as SQL files using `drizzle-kit` MUST be applied automatically via CI/CD as defined in AR4 and AD-3.
++- **Linting:** Must use the monorepo `lint` script that utilizes the global flat config from `@festgrid/eslint-config`.
++- **Infrastructure Alignment:** 
++  - Frontend (`apps/web`): Vercel handles CD natively. The GitHub Action only needs to handle CI (lint, build check, tests).
++  - Backend (`apps/api` - to be created): AWS Serverless. The GitHub Action will eventually handle both CI and CD (deploying to AWS) for the backend.
++
++### Technical Requirements
++- Create a `.github/workflows/ci.yml` file.
++- Action should trigger on `push` and `pull_request` to `main` branch.
++- Use `pnpm` setup action to install dependencies (`pnpm install`), since the project uses `pnpm`.
++- Use `turbo run lint build test` (or similar) to run the respective monorepo tasks (which acts as CI for both frontend and backend).
++- Ensure the pipeline has permissions and steps to execute `drizzle-kit migrate` (or similar) for Supabase migrations (requires `DATABASE_URL` secret).
++- Document the manual step needed to link the GitHub repository to a Vercel project for the frontend CD.
++- Add a commented-out deployment step or placeholder job in the GitHub Action for the AWS backend deployment, noting that it will require AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`).
++
++### Code Quality & Testing Rules
++- Ensure that the GitHub Action fails on test failures or linting errors.
++- The pipeline MUST enforce 100% unit test coverage for `packages/domain` by failing if coverage is not met.
++
++### Dependencies
++- Use standard GitHub Actions like `actions/checkout@v4`, `pnpm/action-setup@v3`, `actions/setup-node@v4`.
+diff --git a/_bmad-output/implementation-artifacts/sprint-status.yaml b/_bmad-output/implementation-artifacts/sprint-status.yaml
+index 1da632f..c5325ea 100644
+--- a/_bmad-output/implementation-artifacts/sprint-status.yaml
++++ b/_bmad-output/implementation-artifacts/sprint-status.yaml
+@@ -52,8 +52,8 @@ development_status:
+   0-1-initialize-pnpm-monorepo: done
+   0-2-configure-typescript-and-eslint-for-the-monorepo: done
+   0-3-set-up-shadcn-ui-and-configure-themes: done
+-  0-4-set-up-drizzle-orm-for-schema-migrations: backlog
+-  0-5-set-up-ci-cd-pipeline-with-github-actions: backlog
++  0-4-set-up-drizzle-orm-for-schema-migrations: review
++  0-5-set-up-ci-cd-pipeline-with-github-actions: ready-for-dev
+   epic-0-retrospective: optional
+   epic-1: backlog
+   1-1-create-initial-database-tables: backlog
+diff --git a/_bmad-output/project-context.md b/_bmad-output/project-context.md
+index 1775018..0d17cd3 100644
+--- a/_bmad-output/project-context.md
++++ b/_bmad-output/project-context.md
+@@ -29,7 +29,6 @@ The following documents contain detailed specifications, architectures, and desi
+ 
+ ### Architecture & Infrastructure
+ - `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`
+-- `docs/infrastructure.md`
+ 
+ ### UX Design (Festgrid Main App)
+ - `design-artifacts/UX-festgrid-run-1/DESIGN.md`
+@@ -61,26 +60,27 @@ The following documents contain detailed specifications, architectures, and desi
+ 3.  **End-to-End Type Safety:** Use `GraphQL Code Generator` to generate TypeScript types from the GraphQL schema, ensuring client and server are always in sync.
+ 4.  **Runtime Schema Validation:** All data entering the system from external sources (APIs, scrapers) **must** be validated at the point of entry with `Zod` (frontend) or `AJV` (backend).
+ 5.  **Unique Identifiers (Database UUIDs & Slugs):** All primary entity identifier fields (`id: string`) **must** be generated automatically as UUIDs by the PostgreSQL database (e.g. via Drizzle ORM). However, for `EventInfo` and `Schedule`, a unique `slug: string` property **must** be present. This `slug` is initially autogenerated using the Nano ID mechanism and supports manual/custom modification (to be fully implemented post-MVP for premium users).
++6.  **Drizzle ORM Types:** When defining database schemas, **must** utilize PostgreSQL-specific data types directly imported from `drizzle-orm/pg-core` (e.g. `{ pgTable, uuid, text, integer, timestamp }`). Avoid using generic defaults when specific types are required (e.g. use `uuid` instead of `serial` for identifiers).
+ 
+ ### Database & Performance
+-6.  **Database Access (Drizzle ORM):** All database access **must** be handled through the Drizzle ORM. Do not use the Supabase client for data queries.
+-7.  **Optimized DB Queries:** To prevent over-fetching from the database, GraphQL resolvers running in AWS Lambda **must** dynamically build Drizzle queries to select only the specific fields requested in the GraphQL operation.
+-8.  **Database Indexing for Performance:** To ensure fast query performance for search and filtering, database columns that are frequently used in `WHERE` clauses **must** be indexed. This specifically includes columns for `eventName`, `performers`, `location`, `types`, and `categories`.
++7.  **Database Access (Drizzle ORM):** All database access **must** be handled through the Drizzle ORM. Do not use the Supabase client for data queries.
++8.  **Optimized DB Queries:** To prevent over-fetching from the database, GraphQL resolvers running in AWS Lambda **must** dynamically build Drizzle queries to select only the specific fields requested in the GraphQL operation.
++9.  **Database Indexing for Performance:** To ensure fast query performance for search and filtering, database columns that are frequently used in `WHERE` clauses **must** be indexed. This specifically includes columns for `eventName`, `performers`, `location`, `types`, and `categories`.
+ 
+ ### Security
+-9.  **API Key Security:** API keys used by the application itself **must** be loaded from environment variables and never be hardcoded.
+-10. **User API Key Encryption:** All user-provided API keys (BYOK) **must** be stored encrypted at rest in the database. The application **must** use a dedicated, secure service like AWS KMS for managing encryption keys. Keys will be decrypted in memory by a trusted service (e.g., an AWS Lambda function with specific IAM permissions) only when needed to make an external API call, and never logged or stored in plaintext.
+-11. **Resilient Processing Pipeline:** The backend processing pipeline **must** use Amazon SQS queues (`ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`) to decouple services and manage flow between AWS Lambda functions, as defined in the infrastructure architecture.
+-12. **Prevent GraphQL Abuse:** The GraphQL server **must** be configured with query depth and complexity limits to prevent DoS attacks.
++10. **Credential Management:** Important credentials (e.g. `DATABASE_URL`, API keys) **must** be stored securely in `.env` files and never be hardcoded or have fallback default values in code.
++11. **User API Key Encryption:** All user-provided API keys (BYOK) **must** be stored encrypted at rest in the database. The application **must** use a dedicated, secure service like AWS KMS for managing encryption keys. Keys will be decrypted in memory by a trusted service (e.g., an AWS Lambda function with specific IAM permissions) only when needed to make an external API call, and never logged or stored in plaintext.
++12. **Resilient Processing Pipeline:** The backend processing pipeline **must** use Amazon SQS queues (`ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`) to decouple services and manage flow between AWS Lambda functions, as defined in the infrastructure architecture.
++13. **Prevent GraphQL Abuse:** The GraphQL server **must** be configured with query depth and complexity limits to prevent DoS attacks.
+ 
+ ### General Architecture
+-11. **TypeScript Strict Mode:** All code **must** be compliant with strict TypeScript.
+-12. **Path Aliases:** Use monorepo path aliases (e.g., `@festgrid/shared-types`) for all internal package imports.
+-13. **Adapter Pattern:** Use an adapter pattern for all external AI services (e.g., Gemini) to ensure modularity.
+-14. **Core Principle:** Internationalization is a foundational requirement, not an afterthought. All user-facing components and content must be developed with i18n in mind from the start.
+-15. **Framework:** Use the `next-intl` library for all i18n handling in the Next.js frontend.
+-16. **Locale Management:** Locales (e.g., `en`, `id`) will be managed via a dedicated `locales` directory, with separate JSON files for each language.
+-17. **Component Design:** All UI components must be designed to accommodate varying text lengths and support both LTR and RTL layouts to ensure future scalability to other languages.
++14. **TypeScript Strict Mode:** All code **must** be compliant with strict TypeScript.
++15. **Path Aliases:** Use monorepo path aliases (e.g., `@festgrid/shared-types`) for all internal package imports.
++16. **Adapter Pattern:** Use an adapter pattern for all external AI services (e.g., Gemini) to ensure modularity.
++17. **Core Principle:** Internationalization is a foundational requirement, not an afterthought. All user-facing components and content must be developed with i18n in mind from the start.
++18. **Framework:** Use the `next-intl` library for all i18n handling in the Next.js frontend.
++19. **Locale Management:** Locales (e.g., `en`, `id`) will be managed via a dedicated `locales` directory, with separate JSON files for each language.
++20. **Component Design:** All UI components must be designed to accommodate varying text lengths and support both LTR and RTL layouts to ensure future scalability to other languages.
+ 
+ ### Code Quality & Style Rules
+ 
+diff --git a/package.json b/package.json
+index 349563f..d46e22e 100644
+--- a/package.json
++++ b/package.json
+@@ -12,5 +12,11 @@
+     "turbo": "^2.0.14",
+     "typescript": "^6.0.3",
+     "typescript-eslint": "^8.50.0"
++  },
++  "pnpm": {
++    "approvedBuilds": [
++      "es5-ext",
++      "esbuild"
++    ]
+   }
+ }
+diff --git a/packages/database/drizzle.config.ts b/packages/database/drizzle.config.ts
+new file mode 100644
+index 0000000..7bb7d3d
+--- /dev/null
++++ b/packages/database/drizzle.config.ts
+@@ -0,0 +1,21 @@
++import { defineConfig } from 'drizzle-kit';
++import * as dotenv from 'dotenv';
++import { resolve } from 'path';
++
++dotenv.config({ path: resolve(process.cwd(), '.env') });
++dotenv.config({ path: resolve(process.cwd(), '../../.env') });
++
++if (!process.env.DATABASE_URL) {
++  throw new Error('DATABASE_URL is not defined in environment variables.');
++}
++
++export default defineConfig({
++  schema: './schema.ts',
++  out: './migrations',
++  dialect: 'postgresql',
++  dbCredentials: {
++    url: process.env.DATABASE_URL,
++  },
++  verbose: true,
++  strict: true,
++});
+diff --git a/packages/database/migrate.ts b/packages/database/migrate.ts
+new file mode 100644
+index 0000000..51ba3f8
+--- /dev/null
++++ b/packages/database/migrate.ts
+@@ -0,0 +1,34 @@
++import { drizzle } from 'drizzle-orm/postgres-js';
++import { migrate } from 'drizzle-orm/postgres-js/migrator';
++import postgres from 'postgres';
++import * as dotenv from 'dotenv';
++import { resolve } from 'path';
++
++dotenv.config({ path: resolve(process.cwd(), '.env') });
++dotenv.config({ path: resolve(process.cwd(), '../../.env') });
++
++const runMigrate = async () => {
++  if (!process.env.DATABASE_URL) {
++    throw new Error('DATABASE_URL is not defined');
++  }
++
++  const connectionString = process.env.DATABASE_URL;
++
++  // for migrations
++  const migrationClient = postgres(connectionString, { max: 1 });
++  const db = drizzle(migrationClient);
++
++  console.log('Running migrations...');
++
++  await migrate(db, { migrationsFolder: './migrations' });
++
++  console.log('Migrations completed successfully');
++
++  await migrationClient.end();
++  process.exit(0);
++};
++
++runMigrate().catch((err) => {
++  console.error('Migration failed:', err);
++  process.exit(1);
++});
+diff --git a/packages/database/migrations/0000_broken_meggan.sql b/packages/database/migrations/0000_broken_meggan.sql
+new file mode 100644
+index 0000000..6c604b6
+--- /dev/null
++++ b/packages/database/migrations/0000_broken_meggan.sql
+@@ -0,0 +1,5 @@
++CREATE TABLE IF NOT EXISTS "dummy_testing" (
++	"id" serial PRIMARY KEY NOT NULL,
++	"name" text NOT NULL,
++	"created_at" timestamp DEFAULT now() NOT NULL
++);
+diff --git a/packages/database/migrations/0001_square_typhoid_mary.sql b/packages/database/migrations/0001_square_typhoid_mary.sql
+new file mode 100644
+index 0000000..2f0b37a
+--- /dev/null
++++ b/packages/database/migrations/0001_square_typhoid_mary.sql
+@@ -0,0 +1,3 @@
++ALTER TABLE "dummy_testing" ALTER COLUMN "id" SET DATA TYPE uuid;--> statement-breakpoint
++ALTER TABLE "dummy_testing" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();--> statement-breakpoint
++ALTER TABLE "dummy_testing" ADD COLUMN "age" integer;
+\ No newline at end of file
+diff --git a/packages/database/migrations/meta/0000_snapshot.json b/packages/database/migrations/meta/0000_snapshot.json
+new file mode 100644
+index 0000000..fbdafdd
+--- /dev/null
++++ b/packages/database/migrations/meta/0000_snapshot.json
+@@ -0,0 +1,44 @@
++{
++  "id": "eb3e650f-e244-4124-b939-6052df1d1769",
++  "prevId": "00000000-0000-0000-0000-000000000000",
++  "version": "6",
++  "dialect": "postgresql",
++  "tables": {
++    "public.dummy_testing": {
++      "name": "dummy_testing",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "serial",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {}
++    }
++  },
++  "enums": {},
++  "schemas": {},
++  "_meta": {
++    "columns": {},
++    "schemas": {},
++    "tables": {}
++  }
++}
+\ No newline at end of file
+diff --git a/packages/database/migrations/meta/0001_snapshot.json b/packages/database/migrations/meta/0001_snapshot.json
+new file mode 100644
+index 0000000..77d7449
+--- /dev/null
++++ b/packages/database/migrations/meta/0001_snapshot.json
+@@ -0,0 +1,51 @@
++{
++  "id": "4c24d5a6-5307-47d7-986d-133e60146dd4",
++  "prevId": "eb3e650f-e244-4124-b939-6052df1d1769",
++  "version": "6",
++  "dialect": "postgresql",
++  "tables": {
++    "public.dummy_testing": {
++      "name": "dummy_testing",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "age": {
++          "name": "age",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {}
++    }
++  },
++  "enums": {},
++  "schemas": {},
++  "_meta": {
++    "columns": {},
++    "schemas": {},
++    "tables": {}
++  }
++}
+\ No newline at end of file
+diff --git a/packages/database/migrations/meta/_journal.json b/packages/database/migrations/meta/_journal.json
+new file mode 100644
+index 0000000..0a2d7f0
+--- /dev/null
++++ b/packages/database/migrations/meta/_journal.json
+@@ -0,0 +1,20 @@
++{
++  "version": "6",
++  "dialect": "postgresql",
++  "entries": [
++    {
++      "idx": 0,
++      "version": "6",
++      "when": 1784887776583,
++      "tag": "0000_broken_meggan",
++      "breakpoints": true
++    },
++    {
++      "idx": 1,
++      "version": "6",
++      "when": 1784889958354,
++      "tag": "0001_square_typhoid_mary",
++      "breakpoints": true
++    }
++  ]
++}
+\ No newline at end of file
+diff --git a/packages/database/package.json b/packages/database/package.json
+new file mode 100644
+index 0000000..3911503
+--- /dev/null
++++ b/packages/database/package.json
+@@ -0,0 +1,24 @@
++{
++  "name": "@festgrid/database",
++  "version": "1.0.0",
++  "description": "Drizzle ORM schema and migrations for FestGrid",
++  "main": "index.ts",
++  "scripts": {
++    "generate": "drizzle-kit generate",
++    "migrate": "tsx migrate.ts",
++    "studio": "drizzle-kit studio",
++    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
++  },
++  "dependencies": {
++    "drizzle-orm": "^0.30.10",
++    "postgres": "^3.4.4"
++  },
++  "devDependencies": {
++    "drizzle-kit": "^0.21.2",
++    "@festgrid/typescript-config": "workspace:*",
++    "@festgrid/eslint-config": "workspace:*",
++    "typescript": "^5.4.5",
++    "tsx": "^4.9.0",
++    "dotenv": "^16.4.5"
++  }
++}
+diff --git a/packages/database/schema.ts b/packages/database/schema.ts
+new file mode 100644
+index 0000000..0a4eded
+--- /dev/null
++++ b/packages/database/schema.ts
+@@ -0,0 +1,8 @@
++import { pgTable, uuid, text, integer, timestamp } from 'drizzle-orm/pg-core';
++
++export const dummyTesting = pgTable('dummy_testing', {
++  id: uuid('id').defaultRandom().primaryKey(),
++  name: text('name').notNull(),
++  age: integer('age'),
++  createdAt: timestamp('created_at').defaultNow().notNull(),
++});
+diff --git a/packages/database/tsconfig.json b/packages/database/tsconfig.json
+new file mode 100644
+index 0000000..db27f97
+--- /dev/null
++++ b/packages/database/tsconfig.json
+@@ -0,0 +1,10 @@
++{
++  "extends": "@festgrid/typescript-config/base.json",
++  "compilerOptions": {
++    "module": "NodeNext",
++    "moduleResolution": "NodeNext",
++    "outDir": "dist"
++  },
++  "include": ["."],
++  "exclude": ["node_modules", "dist"]
++}
+diff --git a/pnpm-workspace.yaml b/pnpm-workspace.yaml
+index d51c59f..afc922c 100644
+--- a/pnpm-workspace.yaml
++++ b/pnpm-workspace.yaml
+@@ -2,4 +2,6 @@ packages:
+   - 'apps/*'
+   - 'packages/*'
+ allowBuilds:
++  es5-ext: set this to true or false
++  esbuild: set this to true or false
+   sharp: true
