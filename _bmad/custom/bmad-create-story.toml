@@ -1,0 +1,5 @@
+[workflow]
+persistent_facts = [
+  "When creating a story, automatically identify if the story requires UI components that should be reusable. If so, explicitly mention in the story that the component should be created inside `packages/ui`.",
+  "When creating a story, automatically identify if the story requires function/mechanism that should be reusable. If so, explicitly mention in the story that the function/mechanism should be created inside `packages/domain`."
+]

@@ -35,9 +35,13 @@
 
 ### File Structure Requirements
 - `apps/web/app/page.tsx` (or similar main page route): The main Next.js page component.
-- `apps/web/components/events/EventGrid.tsx`: Component for displaying the grid of events.
-- `apps/web/components/events/EventCard.tsx`: Component for a single event card.
-- `packages/domain/src/events/`: Pure business logic for fetching events via GraphQL and processing DSL queries.
+- `packages/ui/src/components/events/EventGrid.tsx`: Component for displaying the grid of events. (Reusable UI Component)
+- `packages/ui/src/components/events/EventCard.tsx`: Component for a single event card. (Reusable UI Component)
+- `packages/domain/src/events/`: Pure business logic for fetching events via GraphQL and processing DSL queries. (Reusable Domain Logic)
+
+### Dev Notes (Custom Rules)
+- **UI Components:** Because this story requires UI components that should be reusable (e.g. EventCard, EventGrid), these components must be created inside `packages/ui` as per project rules.
+- **Domain Logic:** Because this story requires a function/mechanism that should be reusable (e.g. `buildOptimizedDrizzleSelect`, GraphQL fetching), explicitly create them inside `packages/domain`.
 
 ### Project Context Reference
 - Ensure all code strictly follows the TypeScript configurations from `@festgrid/typescript-config`.
