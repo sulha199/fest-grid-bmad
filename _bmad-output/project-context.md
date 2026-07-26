@@ -50,9 +50,9 @@ The following documents contain detailed specifications, architectures, and desi
 *   **Backend:** Serverless on AWS (`API Gateway`, `Lambda`, `SQS`, `EventBridge`)
 *   **Database:** `Supabase` (PostgreSQL) with `Drizzle ORM`
 *   **Push Notifications:** `Firebase Cloud Messaging (FCM)`
-*   **Shared Code:** Workspace packages (`@festgrid/shared-types`, `@festgrid/typescript-config`, `@festgrid/eslint-config`)
+*   **Shared Code:** Workspace packages (`@festgrid/shared-types`, `@festgrid/typescript-config`, `@festgrid/eslint-config`, `@festgrid/ui`)
 *   **Linting:** `ESLint` extending global flat configurations in `packages/eslint-config`
-*   **UI Component Library:** `Shadcn/ui` (built on Radix UI and Tailwind CSS)
+*   **UI Component Library:** `Shadcn/ui` (built on Radix UI and Tailwind CSS) - all reusable UI components must be placed in the `@festgrid/ui` package.
 
 ## Critical Implementation Rules
 
@@ -88,6 +88,7 @@ The following documents contain detailed specifications, architectures, and desi
 ### Code Quality & Style Rules
 
 - **Code Organization:** Pure, framework-agnostic business logic **must** live in a dedicated `packages/domain` package. Within this package, logic should be organized into sub-folders by domain area (e.g., `/events`, `/users`, `/subscriptions`). UI components and API handlers should be lean and delegate complex logic to this package.
+- **UI Components:** All reusable UI components (e.g., Shadcn/ui components, custom generic components) **must** be created in a dedicated `packages/ui` workspace package and exported for use by applications.
 - **Shared Linting & TypeScript Base Configurations:** All workspace packages **must** extend the global linting flat configurations from `@festgrid/eslint-config` (inside `packages/eslint-config`) and TypeScript configurations from `@festgrid/typescript-config` (inside `packages/typescript-config`).
 
 ### Testing Rules
