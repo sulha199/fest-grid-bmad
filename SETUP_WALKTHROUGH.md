@@ -36,9 +36,16 @@ The frontend is a React application built with TypeScript and hosted on Vercel.
 
     *   Run the development server: `npm start`
 
-5.  **Deployment:**
+### Vercel Deployment Setup (Manual Step)
 
-    *   Deploy to Vercel: `vercel --prod`
+Since Vercel natively integrates with GitHub for Continuous Deployment (CD), you must manually link the GitHub repository to a Vercel project:
+1. Go to the [Vercel Dashboard](https://vercel.com/dashboard).
+2. Click **Add New...** -> **Project**.
+3. Select this GitHub repository (`festgrid`) from your connected Git provider.
+4. Select `apps/web` as the **Root Directory**. (Vercel will automatically detect that this is part of a larger monorepo).
+5. Set the Framework Preset to **Next.js**.
+6. **Important**: Do NOT override the Build Command or Install Command. Leave them as their defaults. Vercel natively understands Turborepo and `pnpm` workspaces; it will automatically install dependencies at the repository root and use turbo to build the project.
+7. Click **Deploy**. Future pushes to the `main` branch will automatically trigger a new deployment.
 
 ## 2. Backend (AWS Serverless)
 

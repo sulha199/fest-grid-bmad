@@ -30,6 +30,7 @@ The following documents contain detailed specifications, architectures, and desi
 ### Architecture & Infrastructure
 - `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`
 - `docs/infrastructure.md`
+- `SETUP_WALKTHROUGH.md` *(Read only if you need to read/write related to deployment/setup to save token usage)*
 
 ### UX Design (Festgrid Main App)
 - `design-artifacts/UX-festgrid-run-1/DESIGN.md`
