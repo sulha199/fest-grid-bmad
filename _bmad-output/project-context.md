@@ -67,7 +67,7 @@ The following documents contain detailed specifications, architectures, and desi
 ### Database & Performance
 - **Database Environments:** Local development will use a local PostgreSQL database (configured via `DATABASE_URL` in `packages/database/.env`), while Supabase is strictly used as the cloud database for production environments. All migrations and Drizzle queries must work seamlessly across both.
 - **Database Access (Drizzle ORM):** All database access **must** be handled through the Drizzle ORM. Do not use the Supabase client for data queries.
-- **Optimized DB Queries:** To prevent over-fetching from the database, GraphQL resolvers running in AWS Lambda **must** dynamically build Drizzle queries to select only the specific fields requested in the GraphQL operation.
+- **Optimized DB Queries:** To prevent over-fetching from the database, GraphQL resolvers running in AWS Lambda **must** dynamically build Drizzle queries to select only the specific fields requested in the GraphQL operation. This **must** be implemented using a generic, strictly-typed function named `buildOptimizedDrizzleSelect` that translates GraphQL AST into an optimized Drizzle `select` query, ensuring this optimization is reused whenever reading data.
 - **Database Indexing for Performance:** To ensure fast query performance for search and filtering, database columns that are frequently used in `WHERE` clauses **must** be indexed. This specifically includes columns for `eventName`, `performers`, `location`, `types`, and `categories`.
 
 ### Security
