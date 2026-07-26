@@ -49,6 +49,9 @@
 - `packages/database/schema.ts`: Define all tables and relations here.
 - `packages/database/README.md` (Optional but recommended): Add instructions for the Supabase DB deployment setup.
 
+### Dev Notes (Custom Rules)
+- **External Services:** Because this story requires a cloud or external service to be setup (Supabase Postgres), it will include updating steps in SETUP_WALKTHROUGH.md.
+
 ### Project Context Reference
 - Ensure you adhere to the overarching rules in `_bmad-output/project-context.md` (especially end-to-end type safety, unique identifiers logic, and strict Drizzle ORM usage).
 
