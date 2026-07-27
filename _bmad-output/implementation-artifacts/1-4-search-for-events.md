@@ -39,6 +39,7 @@
 ### Dev Notes (Custom Rules)
 - **UI Components:** Because this story requires UI components that should be reusable (e.g. SearchBar), these components must be created inside `packages/ui` as per project rules.
 - **Domain Logic:** Because this story requires a function/mechanism that should be reusable (e.g. GraphQL resolver, DSL parser logic), explicitly create them inside `packages/domain`.
+- **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Track a "Search Performed" event with the search term.
 
 ### Project Context Reference
 - **API Style (GraphQL):** All client-server data fetching must use GraphQL.

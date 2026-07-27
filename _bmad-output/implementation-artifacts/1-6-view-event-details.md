@@ -37,6 +37,9 @@
 - **From Story 1.3:** The `EventCard` component was created to display events on the main page. This component needs to be updated. You must wrap the entire card (or the primary clickable area) with a Next.js `<Link href={\`/events/${event.slug}\`}>` to trigger the route interception.
 - **From Story 1.1 & 1.2:** The `slug` field is present in the `events` table and populated by the seed script. Ensure the GraphQL schema exposes the `slug`.
 
+### Dev Notes (Custom Rules)
+- **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Track an "Event Details Viewed" event containing the event ID and name when the details modal or page is opened.
+
 ### File Structure Requirements
 - `apps/web/app/layout.tsx`: Update to accept `modal` as a React Node prop and render it alongside `children`.
 - `apps/web/app/events/[slug]/page.tsx`: Create the full-page view for direct access.

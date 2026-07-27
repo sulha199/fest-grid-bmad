@@ -521,7 +521,7 @@ interface Post {
 *   User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal data and event preferences are used solely to personalize your experience within the app; we do not spam your calendar, sell your data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
 
 ### Analytics
-*   The platform will use a web analytics service (e.g., Google Analytics) to collect anonymous data on page views and user engagement to measure key performance indicators and improve the service.
+*   The platform will use **PostHog** to collect product analytics, track user interaction events, and optionally record session replays. This provides a modern alternative to Google Analytics, tailored for deep product usage insights, while allowing anonymization of user data to measure key performance indicators and improve the service.
 
 ### User Experience (Capacity Limits)
 *   The system must gracefully inform users when they encounter temporary limitations, such as reaching the maximum number of social media account subscriptions due to current backend server capacity. Clear, actionable in-app messages will guide users and manage expectations regarding future scaling.

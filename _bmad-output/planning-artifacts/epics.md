@@ -386,6 +386,20 @@ Users can discover and browse events.
 *   **And** I am logged in to the application.
 *   **And** I am redirected to the main page.
 
+### Story 1.8: Setup PostHog Analytics
+
+**As a** developer/system administrator,
+**I want** to integrate PostHog into the application,
+**So that** we can start tracking user interactions, page views, and core events across the whole app.
+
+**Acceptance Criteria:**
+
+*   **Given** I have a PostHog account and project API key,
+*   **When** I configure the Next.js application,
+*   **Then** a `PostHogProvider` is added to the root layout to initialize PostHog globally.
+*   **And** the required environment variables (`NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`) are documented in the setup guide.
+*   **And** PostHog automatically captures basic page views and interactions.
+
 ### Epic 2: User Personalization
 
 Users can personalize their experience by saving favorite events and locations.

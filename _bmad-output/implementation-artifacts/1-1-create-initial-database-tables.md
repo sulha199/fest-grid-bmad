@@ -1,3 +1,6 @@
+---
+baseline_commit: 7b5043d2db00f086634cdf234d713c28909b73a3
+---
 # Story 1.1: Create initial database tables
 
 ## Story Details
@@ -56,5 +59,33 @@
 - Ensure you adhere to the overarching rules in `_bmad-output/project-context.md` (especially end-to-end type safety, unique identifiers logic, and strict Drizzle ORM usage).
 
 ## Completion Status
-*   Status: ready-for-dev
+*   Status: review
 *   Ultimate context engine analysis completed - comprehensive developer guide created.
+
+## Tasks / Subtasks
+- [x] Create database schemas (`events`, `schedules`, `users`, `user_locations`, `subscriptions`, `api_keys`)
+- [x] Remove `healthCheck` dummy table
+- [x] Generate database migrations
+
+## Dev Agent Record
+### Debug Log
+- Loaded story 1.1 and checked schemas in PRD
+- Implemented `schema.ts` in `packages/database`
+- Removed dummy `healthCheck` table
+- Generated SQL migrations via Drizzle Kit
+- Updated `SETUP_WALKTHROUGH.md` with instructions for Local Postgres vs Supabase Cloud
+
+### Completion Notes
+- All requested schemas implemented strictly according to the PRD definitions and project rules.
+- Added Postgres indices on frequently searched columns (`eventName`, `types`, `categories`, `location`, `performers`).
+
+## File List
+- `packages/database/schema.ts`
+- `packages/database/migrations/0001_cuddly_shatterstar.sql`
+- `packages/database/migrations/0002_dusty_moon_knight.sql`
+- `SETUP_WALKTHROUGH.md`
+
+## Change Log
+- Added `events`, `schedules`, `users`, `user_locations`, `subscriptions`, and `api_keys` to the database schema.
+- Dropped dummy `health_check` table.
+- Documented Drizzle ORM deployment strategy in the walkthrough.

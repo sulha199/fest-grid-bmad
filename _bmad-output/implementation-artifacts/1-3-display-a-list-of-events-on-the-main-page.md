@@ -42,6 +42,7 @@
 ### Dev Notes (Custom Rules)
 - **UI Components:** Because this story requires UI components that should be reusable (e.g. EventCard, EventGrid), these components must be created inside `packages/ui` as per project rules.
 - **Domain Logic:** Because this story requires a function/mechanism that should be reusable (e.g. `buildOptimizedDrizzleSelect`, GraphQL fetching), explicitly create them inside `packages/domain`.
+- **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Since this is the first front-facing page, ensure PostHog is initialized (via a Provider) and track a "Main Page Viewed" event.
 
 ### Project Context Reference
 - Ensure all code strictly follows the TypeScript configurations from `@festgrid/typescript-config`.

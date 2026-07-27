@@ -49,6 +49,7 @@ The following documents contain detailed specifications, architectures, and desi
 *   **Frontend:** `Next.js 15+`, `React 19`
 *   **Backend:** Serverless on AWS (`API Gateway`, `Lambda`, `SQS`, `EventBridge`)
 *   **Database:** `Supabase` (PostgreSQL) with `Drizzle ORM`
+*   **Analytics & User Interactions:** `PostHog` (for product analytics, session replay, and feature flags)
 *   **Push Notifications:** `Firebase Cloud Messaging (FCM)`
 *   **Shared Code:** Workspace packages (`@festgrid/shared-types`, `@festgrid/typescript-config`, `@festgrid/eslint-config`, `@festgrid/ui`)
 *   **Linting:** `ESLint` extending global flat configurations in `packages/eslint-config`
