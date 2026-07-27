@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-22T21:05:00Z
-last_updated: 2026-07-26T21:30:00Z
+last_updated: 2026-07-27T13:51:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -56,7 +56,7 @@ development_status:
   0-5-set-up-ci-cd-pipeline-with-github-actions: review
   epic-0-retrospective: optional
   epic-1: in-progress
-  1-1-create-initial-database-tables: review
+  1-1-create-initial-database-tables: done
   1-2-seed-database-with-mock-data: ready-for-dev
   1-3-display-a-list-of-events-on-the-main-page: ready-for-dev
   1-4-search-for-events: ready-for-dev

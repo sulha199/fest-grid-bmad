@@ -6,7 +6,7 @@ baseline_commit: 7b5043d2db00f086634cdf234d713c28909b73a3
 ## Story Details
 - **Epic:** 1 - Core App and Event Discovery
 - **Story ID:** 1.1
-- **Status:** ready-for-dev
+- **Status:** done
 
 ## User Story
 **As a** developer,
@@ -59,13 +59,25 @@ baseline_commit: 7b5043d2db00f086634cdf234d713c28909b73a3
 - Ensure you adhere to the overarching rules in `_bmad-output/project-context.md` (especially end-to-end type safety, unique identifiers logic, and strict Drizzle ORM usage).
 
 ## Completion Status
-*   Status: review
+*   Status: done
 *   Ultimate context engine analysis completed - comprehensive developer guide created.
 
 ## Tasks / Subtasks
 - [x] Create database schemas (`events`, `schedules`, `users`, `user_locations`, `subscriptions`, `api_keys`)
 - [x] Remove `healthCheck` dummy table
 - [x] Generate database migrations
+
+### Review Findings
+- [x] [Review][Patch] Rename `eventOwner` to `organizerName` and add comment [packages/database/schema.ts]
+- [x] [Review][Patch] Add comment clarifying `events.location` vs schedules [packages/database/schema.ts]
+- [x] [Review][Patch] Add comment clarifying `ticketPrice` extracted free-text format [packages/database/schema.ts]
+- [x] [Review][Patch] Add comment clarifying split `date` and `time` for incomplete poster data [packages/database/schema.ts]
+- [x] [Review][Patch] Unused Enums for Event Types and Categories [packages/database/schema.ts]
+- [x] [Review][Patch] isLocal string matching fails in Docker or remote dev [packages/database/migrate.ts]
+- [x] [Review][Patch] Missing setup instructions for creating the local database [SETUP_WALKTHROUGH.md]
+- [x] [Review][Defer] Vague local Postgres instance setup — deferred, pre-existing
+- [x] [Review][Patch] radius stored as integer without unit — Add comment radius in meters in schema and update PRD/Epics
+- [x] [Review][Patch] apiKeys uses cascading deletes on userId — Implement soft delete on users and apiKeys, removing cascade
 
 ## Dev Agent Record
 ### Debug Log

@@ -15,9 +15,10 @@ const runMigrate = async () => {
   const connectionString = process.env.DATABASE_URL;
 
   // for migrations
+  const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1') || !connectionString.includes('supabase');
   const migrationClient = postgres(connectionString, { 
     max: 1,
-    ssl: 'require' 
+    ssl: isLocal ? false : 'require' 
   });
   const db = drizzle(migrationClient);
 

@@ -1,826 +1,272 @@
-diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
-new file mode 100644
-index 0000000..5587b26
---- /dev/null
-+++ b/.github/workflows/ci.yml
-@@ -0,0 +1,106 @@
-+name: CI/CD Pipeline
-+
-+on:
-+  push:
-+    branches:
-+      - main
-+  pull_request:
-+    branches:
-+      - main
-+
-+jobs:
-+  ci:
-+    name: Continuous Integration
-+    runs-on: ubuntu-latest
-+    steps:
-+      - name: Checkout Repository
-+        uses: actions/checkout@v4
-+
-+      - name: Setup Node.js
-+        uses: actions/setup-node@v4
-+        with:
-+          node-version: 22
-+
-+      - name: Setup pnpm
-+        uses: pnpm/action-setup@v3
-+        with:
-+          version: 11.15.1
-+          run_install: false
-+
-+      - name: Get pnpm store directory
-+        id: pnpm-cache
-+        shell: bash
-+        run: |
-+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-+
-+      - name: Setup pnpm cache
-+        uses: actions/cache@v4
-+        with:
-+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-+          restore-keys: |
-+            ${{ runner.os }}-pnpm-store-
-+
-+      - name: Install dependencies
-+        run: pnpm install --frozen-lockfile
-+
-+      - name: Run lint
-+        run: pnpm run lint
-+
-+      - name: Run build
-+        run: pnpm run build
-+
-+      - name: Run tests
-+        run: pnpm run test
-+
-+  db-migrate:
-+    name: Database Migrations
-+    needs: ci
-+    runs-on: ubuntu-latest
-+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-+    steps:
-+      - name: Checkout Repository
-+        uses: actions/checkout@v4
-+
-+      - name: Setup Node.js
-+        uses: actions/setup-node@v4
-+        with:
-+          node-version: 22
-+
-+      - name: Setup pnpm
-+        uses: pnpm/action-setup@v3
-+        with:
-+          version: 11.15.1
-+          run_install: false
-+
-+      - name: Install dependencies
-+        run: pnpm install --frozen-lockfile
-+
-+      - name: Run Database Migrations
-+        env:
-+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-+        run: |
-+          cd packages/database
-+          pnpm run migrate
-+
-+  aws-backend-deploy-stub:
-+    name: Deploy Backend to AWS (Stub)
-+    needs: ci
-+    runs-on: ubuntu-latest
-+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-+    steps:
-+      - name: Checkout Repository
-+        uses: actions/checkout@v4
-+      
-+      - name: AWS Deployment Placeholder
-+        run: |
-+          echo "This is a placeholder for deploying the serverless backend to AWS."
-+          echo "Will require AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets."
-+          # AWS configuration and serverless deploy step will be added here
-+          # Example:
-+          # uses: aws-actions/configure-aws-credentials@v4
-+          # with:
-+          #   aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-+          #   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-+          #   aws-region: us-east-1
-+          # run: cd apps/api && pnpm exec serverless deploy
-diff --git a/_bmad-output/implementation-artifacts/0-5-set-up-ci-cd-pipeline-with-github-actions.md b/_bmad-output/implementation-artifacts/0-5-set-up-ci-cd-pipeline-with-github-actions.md
-index 67f210c..0b415e2 100644
---- a/_bmad-output/implementation-artifacts/0-5-set-up-ci-cd-pipeline-with-github-actions.md
-+++ b/_bmad-output/implementation-artifacts/0-5-set-up-ci-cd-pipeline-with-github-actions.md
-@@ -1,9 +1,12 @@
+diff --git a/_bmad-output/implementation-artifacts/1-1-create-initial-database-tables.md b/_bmad-output/implementation-artifacts/1-1-create-initial-database-tables.md
+index 8c7c40e..e2e3da5 100644
+--- a/_bmad-output/implementation-artifacts/1-1-create-initial-database-tables.md
++++ b/_bmad-output/implementation-artifacts/1-1-create-initial-database-tables.md
+@@ -1,3 +1,6 @@
 +---
-+baseline_commit: cb176275d6d25427cea8c7faae04125865fe72aa
++baseline_commit: 7b5043d2db00f086634cdf234d713c28909b73a3
 +---
- # Story 0.5: Set up CI/CD pipeline with GitHub Actions
+ # Story 1.1: Create initial database tables
  
- ## Story Context
- **Epic:** Epic 0 - Project Setup & DevOps
- **Story ID:** 0.5
--**Status:** ready-for-dev
-+**Status:** review
+ ## Story Details
+@@ -56,5 +59,33 @@
+ - Ensure you adhere to the overarching rules in `_bmad-output/project-context.md` (especially end-to-end type safety, unique identifiers logic, and strict Drizzle ORM usage).
  
- ## User Story
- **As a** developer,
-@@ -11,15 +14,24 @@
- **So that** I can automatically run tests, linting, and build checks on every push to the repository.
- 
- ## Acceptance Criteria
--- [ ] **Given** a push is made to any branch in the GitHub repository,
--- [ ] **When** the GitHub Actions workflow is triggered,
--- [ ] **Then** the workflow installs dependencies, runs linting, and executes tests for all packages.
--- [ ] **And** the workflow fails if any of these steps fail.
--- [ ] **And** the CI/CD pipeline automatically applies database migrations using `drizzle-kit` for consistent schema management.
--- [ ] **And** the frontend is automatically deployed to Vercel upon merging to main (handled via Vercel's native GitHub integration).
--- [ ] **And** the GitHub Actions pipeline includes a placeholder/stub for deploying the AWS serverless backend (which will be implemented once the backend package is created).
-+1. **Given** a push is made to any branch in the GitHub repository,
-+2. **When** the GitHub Actions workflow is triggered,
-+3. **Then** the workflow installs dependencies, runs linting, and executes tests for all packages.
-+4. **And** the workflow fails if any of these steps fail.
-+5. **And** the CI/CD pipeline automatically applies database migrations using `drizzle-kit` for consistent schema management.
-+6. **And** the frontend is automatically deployed to Vercel upon merging to main (handled via Vercel's native GitHub integration).
-+7. **And** the GitHub Actions pipeline includes a placeholder/stub for deploying the AWS serverless backend (which will be implemented once the backend package is created).
- 
--## Developer Context
+ ## Completion Status
+-*   Status: ready-for-dev
+-*   Ultimate context engine analysis completed - comprehensive developer guide created.
+\ No newline at end of file
++*   Status: review
++*   Ultimate context engine analysis completed - comprehensive developer guide created.
++
 +## Tasks / Subtasks
-+- [x] Task 1: Create a `.github/workflows/ci.yml` file.
-+- [x] Task 2: Configure action to trigger on `push` and `pull_request` to `main` branch.
-+- [x] Task 3: Use `pnpm` setup action to install dependencies (`pnpm install`).
-+- [x] Task 4: Add step to run lint, build, and test (`turbo run lint build test`).
-+- [x] Task 5: Add step to execute `drizzle-kit migrate` for Supabase migrations.
-+- [x] Task 6: Document manual step needed to link GitHub repository to Vercel.
-+- [x] Task 7: Add placeholder job for AWS backend deployment.
-+
-+## Dev Notes
- 
- ### Architecture Guardrails
- - **Migration Pipeline:** Migrations generated as SQL files using `drizzle-kit` MUST be applied automatically via CI/CD as defined in AR4 and AD-3.
-@@ -43,3 +55,28 @@
- 
- ### Dependencies
- - Use standard GitHub Actions like `actions/checkout@v4`, `pnpm/action-setup@v3`, `actions/setup-node@v4`.
++- [x] Create database schemas (`events`, `schedules`, `users`, `user_locations`, `subscriptions`, `api_keys`)
++- [x] Remove `healthCheck` dummy table
++- [x] Generate database migrations
 +
 +## Dev Agent Record
-+### Implementation Plan
-+- Created `.github/workflows/ci.yml` defining the Github actions for pushing to the `main` branch and creating pull requests.
-+- The pipeline defines jobs for `ci` (linting, testing, and building), `db-migrate` for applying database migrations on the `main` branch, and `aws-backend-deploy-stub` as a stub for the backend deployment to AWS.
-+- Configured root `package.json` to have an empty test command so that `turbo run test` passes when there are no tests.
-+- Fixed a linting error in the database package because of not ignoring the `dist` directory by adding an `eslint.config.mjs` for the `database` workspace package, and fixing the command in `package.json`.
-+- Documented Vercel setup in `docs/infrastructure.md`.
++### Debug Log
++- Loaded story 1.1 and checked schemas in PRD
++- Implemented `schema.ts` in `packages/database`
++- Removed dummy `healthCheck` table
++- Generated SQL migrations via Drizzle Kit
++- Updated `SETUP_WALKTHROUGH.md` with instructions for Local Postgres vs Supabase Cloud
 +
 +### Completion Notes
-+✅ Setup CI/CD with Github Actions successfully. The pipeline performs installation using pnpm, testing, building, linting, database migrations, and contains a stub for deploying the backend to AWS. Vercel deployment manual setup documentation was added. 
++- All requested schemas implemented strictly according to the PRD definitions and project rules.
++- Added Postgres indices on frequently searched columns (`eventName`, `types`, `categories`, `location`, `performers`).
 +
 +## File List
-+- `.github/workflows/ci.yml`
-+- `docs/infrastructure.md`
-+- `package.json`
-+- `turbo.json`
-+- `packages/database/eslint.config.mjs`
-+- `packages/database/package.json`
++- `packages/database/schema.ts`
++- `packages/database/migrations/0001_cuddly_shatterstar.sql`
++- `packages/database/migrations/0002_dusty_moon_knight.sql`
++- `SETUP_WALKTHROUGH.md`
 +
 +## Change Log
-+- Add Github Actions workflow for CI/CD.
-+- Add Vercel deployment manual steps to `docs/infrastructure.md`.
-+- Fix linting for `database` package by correctly ignoring the `dist` directory.
-+- Update root `package.json` with a stub test script.
++- Added `events`, `schedules`, `users`, `user_locations`, `subscriptions`, and `api_keys` to the database schema.
++- Dropped dummy `health_check` table.
++- Documented Drizzle ORM deployment strategy in the walkthrough.
+diff --git a/_bmad-output/implementation-artifacts/1-3-display-a-list-of-events-on-the-main-page.md b/_bmad-output/implementation-artifacts/1-3-display-a-list-of-events-on-the-main-page.md
+index c44d102..0991df9 100644
+--- a/_bmad-output/implementation-artifacts/1-3-display-a-list-of-events-on-the-main-page.md
++++ b/_bmad-output/implementation-artifacts/1-3-display-a-list-of-events-on-the-main-page.md
+@@ -42,6 +42,7 @@
+ ### Dev Notes (Custom Rules)
+ - **UI Components:** Because this story requires UI components that should be reusable (e.g. EventCard, EventGrid), these components must be created inside `packages/ui` as per project rules.
+ - **Domain Logic:** Because this story requires a function/mechanism that should be reusable (e.g. `buildOptimizedDrizzleSelect`, GraphQL fetching), explicitly create them inside `packages/domain`.
++- **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Since this is the first front-facing page, ensure PostHog is initialized (via a Provider) and track a "Main Page Viewed" event.
+ 
+ ### Project Context Reference
+ - Ensure all code strictly follows the TypeScript configurations from `@festgrid/typescript-config`.
+diff --git a/_bmad-output/implementation-artifacts/1-4-search-for-events.md b/_bmad-output/implementation-artifacts/1-4-search-for-events.md
+index d3ca6bd..7a4cff0 100644
+--- a/_bmad-output/implementation-artifacts/1-4-search-for-events.md
++++ b/_bmad-output/implementation-artifacts/1-4-search-for-events.md
+@@ -39,6 +39,7 @@
+ ### Dev Notes (Custom Rules)
+ - **UI Components:** Because this story requires UI components that should be reusable (e.g. SearchBar), these components must be created inside `packages/ui` as per project rules.
+ - **Domain Logic:** Because this story requires a function/mechanism that should be reusable (e.g. GraphQL resolver, DSL parser logic), explicitly create them inside `packages/domain`.
++- **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Track a "Search Performed" event with the search term.
+ 
+ ### Project Context Reference
+ - **API Style (GraphQL):** All client-server data fetching must use GraphQL.
+diff --git a/_bmad-output/implementation-artifacts/1-5-filter-events-by-type-and-category.md b/_bmad-output/implementation-artifacts/1-5-filter-events-by-type-and-category.md
+index 4f447a8..d8ec945 100644
+--- a/_bmad-output/implementation-artifacts/1-5-filter-events-by-type-and-category.md
++++ b/_bmad-output/implementation-artifacts/1-5-filter-events-by-type-and-category.md
+@@ -48,6 +48,7 @@
+ ### Dev Notes (Custom Rules)
+ - **UI Components:** Because this story requires UI components that should be reusable (e.g. MultiSelect, FilterHub), these components must be created inside `packages/ui` as per project rules.
+ - **Domain Logic:** Because this story requires a function/mechanism that should be reusable (e.g. multi-value DSL parser extension), explicitly create them inside `packages/domain`.
++- **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Track a "Filter Applied" event containing the selected types and categories.
+ 
+ ### Project Context Reference
+ - **API Style (GraphQL):** All client-server data fetching must use GraphQL.
+diff --git a/_bmad-output/implementation-artifacts/1-6-view-event-details.md b/_bmad-output/implementation-artifacts/1-6-view-event-details.md
+index 40e60e0..13a5e0f 100644
+--- a/_bmad-output/implementation-artifacts/1-6-view-event-details.md
++++ b/_bmad-output/implementation-artifacts/1-6-view-event-details.md
+@@ -37,6 +37,9 @@
+ - **From Story 1.3:** The `EventCard` component was created to display events on the main page. This component needs to be updated. You must wrap the entire card (or the primary clickable area) with a Next.js `<Link href={\`/events/${event.slug}\`}>` to trigger the route interception.
+ - **From Story 1.1 & 1.2:** The `slug` field is present in the `events` table and populated by the seed script. Ensure the GraphQL schema exposes the `slug`.
+ 
++### Dev Notes (Custom Rules)
++- **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Track an "Event Details Viewed" event containing the event ID and name when the details modal or page is opened.
++
+ ### File Structure Requirements
+ - `apps/web/app/layout.tsx`: Update to accept `modal` as a React Node prop and render it alongside `children`.
+ - `apps/web/app/events/[slug]/page.tsx`: Create the full-page view for direct access.
+diff --git a/_bmad-output/implementation-artifacts/1-7-user-signup-and-login-with-google.md b/_bmad-output/implementation-artifacts/1-7-user-signup-and-login-with-google.md
+index 5aa2c16..8293caa 100644
+--- a/_bmad-output/implementation-artifacts/1-7-user-signup-and-login-with-google.md
++++ b/_bmad-output/implementation-artifacts/1-7-user-signup-and-login-with-google.md
+@@ -35,6 +35,7 @@ so that I can easily and securely access the application.
+ - **UI Components:** This story requires creating a "Sign in with Google" button and standard login page layout. **Because this story requires UI components that should be reusable, these components must be created inside `packages/ui`** as per project rules.
+ - **Domain Logic:** This story requires building an authentication mechanism. **Because this story requires a function/mechanism that should be reusable, the authentication functions and handlers must be created inside `packages/domain`** (e.g., `packages/domain/auth`).
+ - **External Services:** Because this story requires a cloud or external service to be setup (Google OAuth / Supabase Auth), it will include updating steps in SETUP_WALKTHROUGH.md.
++- **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Track a "User Signup" or "User Login" event and ensure you call `posthog.identify()` with the user's ID after successful authentication.
+ - **Relevant architecture patterns and constraints:**
+   - Supabase is used as the backend. Use Supabase Auth for handling Google OAuth.
+   - Ensure any new environment variables (e.g. Supabase Auth, Google OAuth credentials) are securely documented in `.env` instructions.
+diff --git a/_bmad-output/implementation-artifacts/1-8-setup-posthog-analytics.md b/_bmad-output/implementation-artifacts/1-8-setup-posthog-analytics.md
+new file mode 100644
+index 0000000..fe92fdf
+--- /dev/null
++++ b/_bmad-output/implementation-artifacts/1-8-setup-posthog-analytics.md
+@@ -0,0 +1,65 @@
++# Story 1.8: Setup PostHog Analytics
++
++## Story Details
++- **Epic:** 1 - Core App and Event Discovery
++- **Story ID:** 1.8
++- **Status:** ready-for-dev
++
++## User Story
++**As a** developer/system administrator,
++**I want** to integrate PostHog into the application,
++**So that** we can start tracking user interactions, page views, and core events across the whole app.
++
++## Acceptance Criteria
++*   **Given** I have a PostHog account and project API key,
++*   **When** I configure the Next.js application,
++*   **Then** a `PostHogProvider` is added to the root layout to initialize PostHog globally.
++*   **And** the required environment variables (`NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`) are documented in the setup guide.
++*   **And** PostHog automatically captures basic page views and interactions.
++
++## Developer Context
++
++### Architecture & Technical Requirements
++- **PostHog Integration:** Follow the official PostHog Next.js documentation for App Router to integrate `posthog-js/react`.
++- **Environment Variables:**
++  - Update `packages/database/.env` and `apps/web/.env` (or whatever the central env file is) with placeholder values for `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST`.
++  - Update `SETUP_WALKTHROUGH.md` to instruct the developer/user on where to get these keys and how to set them up.
++- **Provider Wrapper:** The `PostHogProvider` must be added in a way that respects Next.js 15+ Server Components (it requires a client component wrapper in `layout.tsx`).
++
++### Analytics and Tracking Map (Whole App)
++The following events are identified across the epics to be tracked. The provider setup in this story lays the groundwork for these actions:
++
++**Epic 1: Core App & Event Discovery**
++- **Main Page Viewed** (Story 1.3)
++- **Search Performed** (Story 1.4) - Track the search query.
++- **Filter Applied** (Story 1.5) - Track `types` and `categories` selected.
++- **Event Details Viewed** (Story 1.6) - Track `eventId` and `eventName`.
++- **User Signup / User Login** (Story 1.7) - Trigger `posthog.identify()` with the user's UUID.
++
++**Epic 2: User Personalization**
++- **Event Favorited / Event Unfavorited** (Story 2.1)
++- **Favorites Page Viewed** (Story 2.2)
++- **Location Saved / Location Deleted** (Story 2.3)
++- **Nearby Events Searched** (Story 2.5) - Track location name and radius.
++- **Calendar Viewed** (Story 2.6)
++
++**Epic 3: Social Media Event Integration**
++- **Subscription Added** (Story 3.2) - Track the social media platform and account.
++- **Push Notification Toggled** (Story 2.9)
++
++**Epic 4 & 5: Data Quality & Onboarding**
++- **Event Manually Corrected** (Story 4.1)
++- **Event Reported** (Story 4.3) - Track the reason.
++- **Manual Posts Selected for Extraction** (Story 5.2)
++
++### Dev Notes (Custom Rules)
++- **Cloud/External Service:** Because this story requires a cloud or external service to be setup (PostHog), explicitly include updating steps in `SETUP_WALKTHROUGH.md`.
++- **Analytics Foundation:** Ensure the initialization is robust, prevents tracking on server environments incorrectly, and safely skips tracking if the env variables are missing (to not break local dev without keys).
++
++### Project Context Reference
++- **Strict TypeScript:** Code must comply with `@festgrid/typescript-config`.
++- **App Router:** Ensure compatibility with Next.js 15+ App Router patterns.
++
++## Completion Status
++*   Status: ready-for-dev
++*   Ultimate context engine analysis completed - comprehensive developer guide created.
 diff --git a/_bmad-output/implementation-artifacts/sprint-status.yaml b/_bmad-output/implementation-artifacts/sprint-status.yaml
-index c5325ea..50272eb 100644
+index 2451200..c392148 100644
 --- a/_bmad-output/implementation-artifacts/sprint-status.yaml
 +++ b/_bmad-output/implementation-artifacts/sprint-status.yaml
-@@ -53,7 +53,7 @@ development_status:
-   0-2-configure-typescript-and-eslint-for-the-monorepo: done
-   0-3-set-up-shadcn-ui-and-configure-themes: done
-   0-4-set-up-drizzle-orm-for-schema-migrations: review
--  0-5-set-up-ci-cd-pipeline-with-github-actions: ready-for-dev
-+  0-5-set-up-ci-cd-pipeline-with-github-actions: review
+@@ -41,7 +41,7 @@
+ # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
+ 
+ generated: 2026-07-22T21:05:00Z
+-last_updated: 2026-07-26T20:59:00Z
++last_updated: 2026-07-26T21:30:00Z
+ project: festgrid
+ project_key: NOKEY
+ tracking_system: file-system
+@@ -56,13 +56,14 @@ development_status:
+   0-5-set-up-ci-cd-pipeline-with-github-actions: review
    epic-0-retrospective: optional
-   epic-1: backlog
-   1-1-create-initial-database-tables: backlog
-diff --git a/docs/infrastructure.md b/docs/infrastructure.md
-index 55268df..4df8add 100644
---- a/docs/infrastructure.md
-+++ b/docs/infrastructure.md
-@@ -77,6 +77,16 @@ graph TD
- *   **Description:** The frontend is a React application built with TypeScript. It will be hosted on Vercel.
- *   **Reasoning:** Vercel is the ideal platform for your React frontend. It offers a seamless Git-based workflow, automatic deployments, a global CDN, and a generous free tier that is perfect for a project like yours.
+   epic-1: in-progress
+-  1-1-create-initial-database-tables: ready-for-dev
++  1-1-create-initial-database-tables: review
+   1-2-seed-database-with-mock-data: ready-for-dev
+   1-3-display-a-list-of-events-on-the-main-page: ready-for-dev
+   1-4-search-for-events: ready-for-dev
+   1-5-filter-events-by-type-and-category: ready-for-dev
+   1-6-view-event-details: ready-for-dev
+   1-7-user-signup-and-login-with-google: ready-for-dev
++  1-8-setup-posthog-analytics: backlog
+   epic-1-retrospective: optional
+   epic-2: backlog
+   2-1-favorite-an-event: backlog
+diff --git a/_bmad-output/planning-artifacts/epics.md b/_bmad-output/planning-artifacts/epics.md
+index bfa50c2..44b1701 100644
+--- a/_bmad-output/planning-artifacts/epics.md
++++ b/_bmad-output/planning-artifacts/epics.md
+@@ -386,6 +386,20 @@ Users can discover and browse events.
+ *   **And** I am logged in to the application.
+ *   **And** I am redirected to the main page.
  
-+#### Vercel Deployment Setup (Manual Step)
-+Since Vercel natively integrates with GitHub for Continuous Deployment (CD), you must manually link the GitHub repository to a Vercel project:
-+1. Go to the [Vercel Dashboard](https://vercel.com/dashboard).
-+2. Click **Add New...** -> **Project**.
-+3. Select this GitHub repository (`festgrid`) from your connected Git provider.
-+4. Set the Framework Preset to **Next.js**.
-+5. Set the Root Directory to `apps/web` (since this is a monorepo, Vercel needs to know where the frontend app lives).
-+6. Configure the Build Command to `pnpm run build` or let Vercel auto-detect the turbo settings.
-+7. Click **Deploy**. Future pushes to the `main` branch will automatically trigger a new deployment.
++### Story 1.8: Setup PostHog Analytics
 +
- ### 2. Backend
- 
- The backend is built entirely with TypeScript on a serverless architecture using AWS.
-diff --git a/package.json b/package.json
-index d46e22e..152382e 100644
---- a/package.json
-+++ b/package.json
-@@ -5,9 +5,11 @@
-   "scripts": {
-     "build": "turbo run build",
-     "dev": "turbo run dev",
--    "lint": "turbo run lint"
-+    "lint": "turbo run lint",
-+    "test": "turbo run test"
-   },
-   "devDependencies": {
-+    "@festgrid/eslint-config": "workspace:*",
-     "eslint": "^9.9.0",
-     "turbo": "^2.0.14",
-     "typescript": "^6.0.3",
-diff --git a/packages/database/eslint.config.mjs b/packages/database/eslint.config.mjs
-new file mode 100644
-index 0000000..c2c99fb
---- /dev/null
-+++ b/packages/database/eslint.config.mjs
-@@ -0,0 +1,6 @@
-+import { config as baseConfig } from "@festgrid/eslint-config/base";
++**As a** developer/system administrator,
++**I want** to integrate PostHog into the application,
++**So that** we can start tracking user interactions, page views, and core events across the whole app.
 +
-+/** @type {import("eslint").Linter.Config[]} */
-+export default [
-+  ...baseConfig,
-+];
-\ No newline at end of file
-diff --git a/packages/database/package.json b/packages/database/package.json
-index c4cb88c..4346eba 100644
---- a/packages/database/package.json
-+++ b/packages/database/package.json
-@@ -16,7 +16,7 @@
-     "migrate": "tsx migrate.ts",
-     "migrate:prod": "node dist/migrate.js",
-     "studio": "drizzle-kit studio",
--    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
-+    "lint": "eslint . --max-warnings 0"
-   },
-   "dependencies": {
-     "drizzle-orm": "^0.30.10",
-diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
-index eb7b954..ba73c4b 100644
---- a/pnpm-lock.yaml
-+++ b/pnpm-lock.yaml
-@@ -8,6 +8,9 @@ importers:
++**Acceptance Criteria:**
++
++*   **Given** I have a PostHog account and project API key,
++*   **When** I configure the Next.js application,
++*   **Then** a `PostHogProvider` is added to the root layout to initialize PostHog globally.
++*   **And** the required environment variables (`NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`) are documented in the setup guide.
++*   **And** PostHog automatically captures basic page views and interactions.
++
+ ### Epic 2: User Personalization
  
-   .:
-     devDependencies:
-+      '@festgrid/eslint-config':
-+        specifier: workspace:*
-+        version: link:packages/eslint-config
-       eslint:
-         specifier: ^9.9.0
-         version: 9.39.5(jiti@2.7.0)(supports-color@7.2.0)
-diff --git a/temp_diff_output.diff b/temp_diff_output.diff
-index 6978f4f..5a51b2f 100644
---- a/temp_diff_output.diff
-+++ b/temp_diff_output.diff
-@@ -1,509 +0,0 @@
--diff --git a/_bmad-output/implementation-artifacts/0-4-set-up-drizzle-orm-for-schema-migrations.md b/_bmad-output/implementation-artifacts/0-4-set-up-drizzle-orm-for-schema-migrations.md
--new file mode 100644
--index 0000000..d1c7ca2
----- /dev/null
--+++ b/_bmad-output/implementation-artifacts/0-4-set-up-drizzle-orm-for-schema-migrations.md
--@@ -0,0 +1,72 @@
--+---
--+baseline_commit: HEAD
--+---
--+
--+# Story 0.4: Set up Drizzle ORM for schema migrations
--+
--+Status: review
--+
--+## Story
--+
--+**As a** developer,
--+**I want** to set up Drizzle ORM and `drizzle-kit` in the monorepo,
--+**So that** I can define database schemas in TypeScript and generate SQL migrations from them.
--+
--+## Acceptance Criteria
--+
--+1. **Given** the pnpm monorepo is initialized,
--+2. **When** I define a new Drizzle schema for a table (e.g., a dummy table to test generation),
--+3. **Then** I can run a `pnpm` script to generate a new SQL migration file.
--+4. **And** the generated migration can be successfully applied to the database.
--+
--+## Tasks / Subtasks
--+
--+- [x] Task 1: Install Drizzle ORM and Drizzle Kit dependencies
--+- [x] Task 2: Configure drizzle-kit (drizzle.config.ts)
--+- [x] Task 3: Create a dummy schema to test generation (CRITICAL: Do not create the final application tables yet, as those are handled in Story 1.1)
--+- [x] Task 4: Add `pnpm run generate` and `pnpm run migrate` scripts
--+- [x] Task 5: Verify that migrations can be generated and applied successfully
--+
--+## Developer Context & Guardrails
--+
--+- **Architecture Compliance:** Database access must be handled through Drizzle ORM. Supabase client should not be used for data queries as per `project-context.md`.
--+- **Database Schema & Migrations Location:** We are using Supabase (PostgreSQL). Create a dedicated `packages/database` package (or `packages/domain` as per project context if preferred for all business logic, but a separate DB package is standard in monorepos, though `packages/database` is preferable) to house the Drizzle ORM schema, the `drizzle.config.ts`, and the generated SQL migration files. The migration files should be stored within this package, not inside the Next.js app or backend lambda apps.
--+- **CRITICAL:** Do NOT create the full `users`, `events`, `schedules` tables upfront as part of this story. Story 1.1 is strictly for creating the initial database tables. We just need to make sure Drizzle ORM is set up and functional. A dummy `testing` or `health_check` table is sufficient to verify setup.
--+
--+## Latest Tech Information
--+- Ensure to use the latest Drizzle ORM version compatible with our TypeScript and Node environment.
--+
--+## Project Context Reference
--+Please refer to `_bmad-output/project-context.md` for overall architecture rules.
--+
--+## Dev Agent Record
--+
--+### Implementation Plan
--+- Create `packages/database` package
--+- Install `drizzle-orm` and `drizzle-kit`
--+- Configure `drizzle.config.ts` and `schema.ts`
--+- Add dummy table `dummy_testing`
--+- Write migration script `migrate.ts`
--+- Verify locally with docker postgres instance
--+
--+### Completion Notes
--+✅ All tasks completed successfully. Drizzle ORM is set up, schemas are generated, and test migrations applied to a local postgres instance.
--+
--+## File List
--+- `packages/database/package.json`
--+- `packages/database/tsconfig.json`
--+- `packages/database/drizzle.config.ts`
--+- `packages/database/schema.ts`
--+- `packages/database/migrate.ts`
--+- `packages/database/.env`
--+- `packages/database/migrations/0000_broken_meggan.sql`
--+- `packages/database/migrations/0001_square_typhoid_mary.sql`
--+- `packages/database/migrations/meta/0000_snapshot.json`
--+- `packages/database/migrations/meta/0001_snapshot.json`
--+- `packages/database/migrations/meta/_journal.json`
--+
--+## Change Log
--+- Added `packages/database` workspace package
--+- Installed `drizzle-orm` and `postgres` dependencies
--+- Set up `drizzle-kit` with a dummy schema for testing migrations
--+- Updated dummy schema to use UUID as requested in PR review
--diff --git a/_bmad-output/implementation-artifacts/0-5-set-up-ci-cd-pipeline-with-github-actions.md b/_bmad-output/implementation-artifacts/0-5-set-up-ci-cd-pipeline-with-github-actions.md
--new file mode 100644
--index 0000000..67f210c
----- /dev/null
--+++ b/_bmad-output/implementation-artifacts/0-5-set-up-ci-cd-pipeline-with-github-actions.md
--@@ -0,0 +1,45 @@
--+# Story 0.5: Set up CI/CD pipeline with GitHub Actions
--+
--+## Story Context
--+**Epic:** Epic 0 - Project Setup & DevOps
--+**Story ID:** 0.5
--+**Status:** ready-for-dev
--+
--+## User Story
--+**As a** developer,
--+**I want** to have a basic CI/CD pipeline set up with GitHub Actions,
--+**So that** I can automatically run tests, linting, and build checks on every push to the repository.
--+
--+## Acceptance Criteria
--+- [ ] **Given** a push is made to any branch in the GitHub repository,
--+- [ ] **When** the GitHub Actions workflow is triggered,
--+- [ ] **Then** the workflow installs dependencies, runs linting, and executes tests for all packages.
--+- [ ] **And** the workflow fails if any of these steps fail.
--+- [ ] **And** the CI/CD pipeline automatically applies database migrations using `drizzle-kit` for consistent schema management.
--+- [ ] **And** the frontend is automatically deployed to Vercel upon merging to main (handled via Vercel's native GitHub integration).
--+- [ ] **And** the GitHub Actions pipeline includes a placeholder/stub for deploying the AWS serverless backend (which will be implemented once the backend package is created).
--+
--+## Developer Context
--+
--+### Architecture Guardrails
--+- **Migration Pipeline:** Migrations generated as SQL files using `drizzle-kit` MUST be applied automatically via CI/CD as defined in AR4 and AD-3.
--+- **Linting:** Must use the monorepo `lint` script that utilizes the global flat config from `@festgrid/eslint-config`.
--+- **Infrastructure Alignment:** 
--+  - Frontend (`apps/web`): Vercel handles CD natively. The GitHub Action only needs to handle CI (lint, build check, tests).
--+  - Backend (`apps/api` - to be created): AWS Serverless. The GitHub Action will eventually handle both CI and CD (deploying to AWS) for the backend.
--+
--+### Technical Requirements
--+- Create a `.github/workflows/ci.yml` file.
--+- Action should trigger on `push` and `pull_request` to `main` branch.
--+- Use `pnpm` setup action to install dependencies (`pnpm install`), since the project uses `pnpm`.
--+- Use `turbo run lint build test` (or similar) to run the respective monorepo tasks (which acts as CI for both frontend and backend).
--+- Ensure the pipeline has permissions and steps to execute `drizzle-kit migrate` (or similar) for Supabase migrations (requires `DATABASE_URL` secret).
--+- Document the manual step needed to link the GitHub repository to a Vercel project for the frontend CD.
--+- Add a commented-out deployment step or placeholder job in the GitHub Action for the AWS backend deployment, noting that it will require AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`).
--+
--+### Code Quality & Testing Rules
--+- Ensure that the GitHub Action fails on test failures or linting errors.
--+- The pipeline MUST enforce 100% unit test coverage for `packages/domain` by failing if coverage is not met.
--+
--+### Dependencies
--+- Use standard GitHub Actions like `actions/checkout@v4`, `pnpm/action-setup@v3`, `actions/setup-node@v4`.
--diff --git a/_bmad-output/implementation-artifacts/sprint-status.yaml b/_bmad-output/implementation-artifacts/sprint-status.yaml
--index 1da632f..c5325ea 100644
----- a/_bmad-output/implementation-artifacts/sprint-status.yaml
--+++ b/_bmad-output/implementation-artifacts/sprint-status.yaml
--@@ -52,8 +52,8 @@ development_status:
--   0-1-initialize-pnpm-monorepo: done
--   0-2-configure-typescript-and-eslint-for-the-monorepo: done
--   0-3-set-up-shadcn-ui-and-configure-themes: done
---  0-4-set-up-drizzle-orm-for-schema-migrations: backlog
---  0-5-set-up-ci-cd-pipeline-with-github-actions: backlog
--+  0-4-set-up-drizzle-orm-for-schema-migrations: review
--+  0-5-set-up-ci-cd-pipeline-with-github-actions: ready-for-dev
--   epic-0-retrospective: optional
--   epic-1: backlog
--   1-1-create-initial-database-tables: backlog
--diff --git a/_bmad-output/project-context.md b/_bmad-output/project-context.md
--index 1775018..0d17cd3 100644
----- a/_bmad-output/project-context.md
--+++ b/_bmad-output/project-context.md
--@@ -29,7 +29,6 @@ The following documents contain detailed specifications, architectures, and desi
-- 
-- ### Architecture & Infrastructure
-- - `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`
---- `docs/infrastructure.md`
-- 
-- ### UX Design (Festgrid Main App)
-- - `design-artifacts/UX-festgrid-run-1/DESIGN.md`
--@@ -61,26 +60,27 @@ The following documents contain detailed specifications, architectures, and desi
-- 3.  **End-to-End Type Safety:** Use `GraphQL Code Generator` to generate TypeScript types from the GraphQL schema, ensuring client and server are always in sync.
-- 4.  **Runtime Schema Validation:** All data entering the system from external sources (APIs, scrapers) **must** be validated at the point of entry with `Zod` (frontend) or `AJV` (backend).
-- 5.  **Unique Identifiers (Database UUIDs & Slugs):** All primary entity identifier fields (`id: string`) **must** be generated automatically as UUIDs by the PostgreSQL database (e.g. via Drizzle ORM). However, for `EventInfo` and `Schedule`, a unique `slug: string` property **must** be present. This `slug` is initially autogenerated using the Nano ID mechanism and supports manual/custom modification (to be fully implemented post-MVP for premium users).
--+6.  **Drizzle ORM Types:** When defining database schemas, **must** utilize PostgreSQL-specific data types directly imported from `drizzle-orm/pg-core` (e.g. `{ pgTable, uuid, text, integer, timestamp }`). Avoid using generic defaults when specific types are required (e.g. use `uuid` instead of `serial` for identifiers).
-- 
-- ### Database & Performance
---6.  **Database Access (Drizzle ORM):** All database access **must** be handled through the Drizzle ORM. Do not use the Supabase client for data queries.
---7.  **Optimized DB Queries:** To prevent over-fetching from the database, GraphQL resolvers running in AWS Lambda **must** dynamically build Drizzle queries to select only the specific fields requested in the GraphQL operation.
---8.  **Database Indexing for Performance:** To ensure fast query performance for search and filtering, database columns that are frequently used in `WHERE` clauses **must** be indexed. This specifically includes columns for `eventName`, `performers`, `location`, `types`, and `categories`.
--+7.  **Database Access (Drizzle ORM):** All database access **must** be handled through the Drizzle ORM. Do not use the Supabase client for data queries.
--+8.  **Optimized DB Queries:** To prevent over-fetching from the database, GraphQL resolvers running in AWS Lambda **must** dynamically build Drizzle queries to select only the specific fields requested in the GraphQL operation.
--+9.  **Database Indexing for Performance:** To ensure fast query performance for search and filtering, database columns that are frequently used in `WHERE` clauses **must** be indexed. This specifically includes columns for `eventName`, `performers`, `location`, `types`, and `categories`.
-- 
-- ### Security
---9.  **API Key Security:** API keys used by the application itself **must** be loaded from environment variables and never be hardcoded.
---10. **User API Key Encryption:** All user-provided API keys (BYOK) **must** be stored encrypted at rest in the database. The application **must** use a dedicated, secure service like AWS KMS for managing encryption keys. Keys will be decrypted in memory by a trusted service (e.g., an AWS Lambda function with specific IAM permissions) only when needed to make an external API call, and never logged or stored in plaintext.
---11. **Resilient Processing Pipeline:** The backend processing pipeline **must** use Amazon SQS queues (`ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`) to decouple services and manage flow between AWS Lambda functions, as defined in the infrastructure architecture.
---12. **Prevent GraphQL Abuse:** The GraphQL server **must** be configured with query depth and complexity limits to prevent DoS attacks.
--+10. **Credential Management:** Important credentials (e.g. `DATABASE_URL`, API keys) **must** be stored securely in `.env` files and never be hardcoded or have fallback default values in code.
--+11. **User API Key Encryption:** All user-provided API keys (BYOK) **must** be stored encrypted at rest in the database. The application **must** use a dedicated, secure service like AWS KMS for managing encryption keys. Keys will be decrypted in memory by a trusted service (e.g., an AWS Lambda function with specific IAM permissions) only when needed to make an external API call, and never logged or stored in plaintext.
--+12. **Resilient Processing Pipeline:** The backend processing pipeline **must** use Amazon SQS queues (`ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`) to decouple services and manage flow between AWS Lambda functions, as defined in the infrastructure architecture.
--+13. **Prevent GraphQL Abuse:** The GraphQL server **must** be configured with query depth and complexity limits to prevent DoS attacks.
-- 
-- ### General Architecture
---11. **TypeScript Strict Mode:** All code **must** be compliant with strict TypeScript.
---12. **Path Aliases:** Use monorepo path aliases (e.g., `@festgrid/shared-types`) for all internal package imports.
---13. **Adapter Pattern:** Use an adapter pattern for all external AI services (e.g., Gemini) to ensure modularity.
---14. **Core Principle:** Internationalization is a foundational requirement, not an afterthought. All user-facing components and content must be developed with i18n in mind from the start.
---15. **Framework:** Use the `next-intl` library for all i18n handling in the Next.js frontend.
---16. **Locale Management:** Locales (e.g., `en`, `id`) will be managed via a dedicated `locales` directory, with separate JSON files for each language.
---17. **Component Design:** All UI components must be designed to accommodate varying text lengths and support both LTR and RTL layouts to ensure future scalability to other languages.
--+14. **TypeScript Strict Mode:** All code **must** be compliant with strict TypeScript.
--+15. **Path Aliases:** Use monorepo path aliases (e.g., `@festgrid/shared-types`) for all internal package imports.
--+16. **Adapter Pattern:** Use an adapter pattern for all external AI services (e.g., Gemini) to ensure modularity.
--+17. **Core Principle:** Internationalization is a foundational requirement, not an afterthought. All user-facing components and content must be developed with i18n in mind from the start.
--+18. **Framework:** Use the `next-intl` library for all i18n handling in the Next.js frontend.
--+19. **Locale Management:** Locales (e.g., `en`, `id`) will be managed via a dedicated `locales` directory, with separate JSON files for each language.
--+20. **Component Design:** All UI components must be designed to accommodate varying text lengths and support both LTR and RTL layouts to ensure future scalability to other languages.
-- 
-- ### Code Quality & Style Rules
-- 
--diff --git a/package.json b/package.json
--index 349563f..d46e22e 100644
----- a/package.json
--+++ b/package.json
--@@ -12,5 +12,11 @@
--     "turbo": "^2.0.14",
--     "typescript": "^6.0.3",
--     "typescript-eslint": "^8.50.0"
--+  },
--+  "pnpm": {
--+    "approvedBuilds": [
--+      "es5-ext",
--+      "esbuild"
--+    ]
--   }
-- }
--diff --git a/packages/database/drizzle.config.ts b/packages/database/drizzle.config.ts
--new file mode 100644
--index 0000000..7bb7d3d
----- /dev/null
--+++ b/packages/database/drizzle.config.ts
--@@ -0,0 +1,21 @@
--+import { defineConfig } from 'drizzle-kit';
--+import * as dotenv from 'dotenv';
--+import { resolve } from 'path';
--+
--+dotenv.config({ path: resolve(process.cwd(), '.env') });
--+dotenv.config({ path: resolve(process.cwd(), '../../.env') });
--+
--+if (!process.env.DATABASE_URL) {
--+  throw new Error('DATABASE_URL is not defined in environment variables.');
--+}
--+
--+export default defineConfig({
--+  schema: './schema.ts',
--+  out: './migrations',
--+  dialect: 'postgresql',
--+  dbCredentials: {
--+    url: process.env.DATABASE_URL,
--+  },
--+  verbose: true,
--+  strict: true,
--+});
--diff --git a/packages/database/migrate.ts b/packages/database/migrate.ts
--new file mode 100644
--index 0000000..51ba3f8
----- /dev/null
--+++ b/packages/database/migrate.ts
--@@ -0,0 +1,34 @@
--+import { drizzle } from 'drizzle-orm/postgres-js';
--+import { migrate } from 'drizzle-orm/postgres-js/migrator';
--+import postgres from 'postgres';
--+import * as dotenv from 'dotenv';
--+import { resolve } from 'path';
--+
--+dotenv.config({ path: resolve(process.cwd(), '.env') });
--+dotenv.config({ path: resolve(process.cwd(), '../../.env') });
--+
--+const runMigrate = async () => {
--+  if (!process.env.DATABASE_URL) {
--+    throw new Error('DATABASE_URL is not defined');
--+  }
--+
--+  const connectionString = process.env.DATABASE_URL;
--+
--+  // for migrations
--+  const migrationClient = postgres(connectionString, { max: 1 });
--+  const db = drizzle(migrationClient);
--+
--+  console.log('Running migrations...');
--+
--+  await migrate(db, { migrationsFolder: './migrations' });
--+
--+  console.log('Migrations completed successfully');
--+
--+  await migrationClient.end();
--+  process.exit(0);
--+};
--+
--+runMigrate().catch((err) => {
--+  console.error('Migration failed:', err);
--+  process.exit(1);
--+});
--diff --git a/packages/database/migrations/0000_broken_meggan.sql b/packages/database/migrations/0000_broken_meggan.sql
--new file mode 100644
--index 0000000..6c604b6
----- /dev/null
--+++ b/packages/database/migrations/0000_broken_meggan.sql
--@@ -0,0 +1,5 @@
--+CREATE TABLE IF NOT EXISTS "dummy_testing" (
--+	"id" serial PRIMARY KEY NOT NULL,
--+	"name" text NOT NULL,
--+	"created_at" timestamp DEFAULT now() NOT NULL
--+);
--diff --git a/packages/database/migrations/0001_square_typhoid_mary.sql b/packages/database/migrations/0001_square_typhoid_mary.sql
--new file mode 100644
--index 0000000..2f0b37a
----- /dev/null
--+++ b/packages/database/migrations/0001_square_typhoid_mary.sql
--@@ -0,0 +1,3 @@
--+ALTER TABLE "dummy_testing" ALTER COLUMN "id" SET DATA TYPE uuid;--> statement-breakpoint
--+ALTER TABLE "dummy_testing" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();--> statement-breakpoint
--+ALTER TABLE "dummy_testing" ADD COLUMN "age" integer;
--\ No newline at end of file
--diff --git a/packages/database/migrations/meta/0000_snapshot.json b/packages/database/migrations/meta/0000_snapshot.json
--new file mode 100644
--index 0000000..fbdafdd
----- /dev/null
--+++ b/packages/database/migrations/meta/0000_snapshot.json
--@@ -0,0 +1,44 @@
--+{
--+  "id": "eb3e650f-e244-4124-b939-6052df1d1769",
--+  "prevId": "00000000-0000-0000-0000-000000000000",
--+  "version": "6",
--+  "dialect": "postgresql",
--+  "tables": {
--+    "public.dummy_testing": {
--+      "name": "dummy_testing",
--+      "schema": "",
--+      "columns": {
--+        "id": {
--+          "name": "id",
--+          "type": "serial",
--+          "primaryKey": true,
--+          "notNull": true
--+        },
--+        "name": {
--+          "name": "name",
--+          "type": "text",
--+          "primaryKey": false,
--+          "notNull": true
--+        },
--+        "created_at": {
--+          "name": "created_at",
--+          "type": "timestamp",
--+          "primaryKey": false,
--+          "notNull": true,
--+          "default": "now()"
--+        }
--+      },
--+      "indexes": {},
--+      "foreignKeys": {},
--+      "compositePrimaryKeys": {},
--+      "uniqueConstraints": {}
--+    }
--+  },
--+  "enums": {},
--+  "schemas": {},
--+  "_meta": {
--+    "columns": {},
--+    "schemas": {},
--+    "tables": {}
--+  }
--+}
--\ No newline at end of file
--diff --git a/packages/database/migrations/meta/0001_snapshot.json b/packages/database/migrations/meta/0001_snapshot.json
--new file mode 100644
--index 0000000..77d7449
----- /dev/null
--+++ b/packages/database/migrations/meta/0001_snapshot.json
--@@ -0,0 +1,51 @@
--+{
--+  "id": "4c24d5a6-5307-47d7-986d-133e60146dd4",
--+  "prevId": "eb3e650f-e244-4124-b939-6052df1d1769",
--+  "version": "6",
--+  "dialect": "postgresql",
--+  "tables": {
--+    "public.dummy_testing": {
--+      "name": "dummy_testing",
--+      "schema": "",
--+      "columns": {
--+        "id": {
--+          "name": "id",
--+          "type": "uuid",
--+          "primaryKey": true,
--+          "notNull": true,
--+          "default": "gen_random_uuid()"
--+        },
--+        "name": {
--+          "name": "name",
--+          "type": "text",
--+          "primaryKey": false,
--+          "notNull": true
--+        },
--+        "age": {
--+          "name": "age",
--+          "type": "integer",
--+          "primaryKey": false,
--+          "notNull": false
--+        },
--+        "created_at": {
--+          "name": "created_at",
--+          "type": "timestamp",
--+          "primaryKey": false,
--+          "notNull": true,
--+          "default": "now()"
--+        }
--+      },
--+      "indexes": {},
--+      "foreignKeys": {},
--+      "compositePrimaryKeys": {},
--+      "uniqueConstraints": {}
--+    }
--+  },
--+  "enums": {},
--+  "schemas": {},
--+  "_meta": {
--+    "columns": {},
--+    "schemas": {},
--+    "tables": {}
--+  }
--+}
--\ No newline at end of file
--diff --git a/packages/database/migrations/meta/_journal.json b/packages/database/migrations/meta/_journal.json
--new file mode 100644
--index 0000000..0a2d7f0
----- /dev/null
--+++ b/packages/database/migrations/meta/_journal.json
--@@ -0,0 +1,20 @@
--+{
--+  "version": "6",
--+  "dialect": "postgresql",
--+  "entries": [
--+    {
--+      "idx": 0,
--+      "version": "6",
--+      "when": 1784887776583,
--+      "tag": "0000_broken_meggan",
--+      "breakpoints": true
--+    },
--+    {
--+      "idx": 1,
--+      "version": "6",
--+      "when": 1784889958354,
--+      "tag": "0001_square_typhoid_mary",
--+      "breakpoints": true
--+    }
--+  ]
--+}
--\ No newline at end of file
--diff --git a/packages/database/package.json b/packages/database/package.json
--new file mode 100644
--index 0000000..3911503
----- /dev/null
--+++ b/packages/database/package.json
--@@ -0,0 +1,24 @@
--+{
--+  "name": "@festgrid/database",
--+  "version": "1.0.0",
--+  "description": "Drizzle ORM schema and migrations for FestGrid",
--+  "main": "index.ts",
--+  "scripts": {
--+    "generate": "drizzle-kit generate",
--+    "migrate": "tsx migrate.ts",
--+    "studio": "drizzle-kit studio",
--+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
--+  },
--+  "dependencies": {
--+    "drizzle-orm": "^0.30.10",
--+    "postgres": "^3.4.4"
--+  },
--+  "devDependencies": {
--+    "drizzle-kit": "^0.21.2",
--+    "@festgrid/typescript-config": "workspace:*",
--+    "@festgrid/eslint-config": "workspace:*",
--+    "typescript": "^5.4.5",
--+    "tsx": "^4.9.0",
--+    "dotenv": "^16.4.5"
--+  }
--+}
--diff --git a/packages/database/schema.ts b/packages/database/schema.ts
--new file mode 100644
--index 0000000..0a4eded
----- /dev/null
--+++ b/packages/database/schema.ts
--@@ -0,0 +1,8 @@
--+import { pgTable, uuid, text, integer, timestamp } from 'drizzle-orm/pg-core';
--+
--+export const dummyTesting = pgTable('dummy_testing', {
--+  id: uuid('id').defaultRandom().primaryKey(),
--+  name: text('name').notNull(),
--+  age: integer('age'),
--+  createdAt: timestamp('created_at').defaultNow().notNull(),
--+});
--diff --git a/packages/database/tsconfig.json b/packages/database/tsconfig.json
--new file mode 100644
--index 0000000..db27f97
----- /dev/null
--+++ b/packages/database/tsconfig.json
--@@ -0,0 +1,10 @@
--+{
--+  "extends": "@festgrid/typescript-config/base.json",
--+  "compilerOptions": {
--+    "module": "NodeNext",
--+    "moduleResolution": "NodeNext",
--+    "outDir": "dist"
--+  },
--+  "include": ["."],
--+  "exclude": ["node_modules", "dist"]
--+}
--diff --git a/pnpm-workspace.yaml b/pnpm-workspace.yaml
--index d51c59f..afc922c 100644
----- a/pnpm-workspace.yaml
--+++ b/pnpm-workspace.yaml
--@@ -2,4 +2,6 @@ packages:
--   - 'apps/*'
--   - 'packages/*'
-- allowBuilds:
--+  es5-ext: set this to true or false
--+  esbuild: set this to true or false
--   sharp: true
-diff --git a/turbo.json b/turbo.json
-index 84237f6..0b858b2 100644
---- a/turbo.json
-+++ b/turbo.json
-@@ -1,5 +1,6 @@
- {
-   "$schema": "https://turbo.build/schema.json",
-+  "globalEnv": ["DATABASE_URL"],
-   "tasks": {
-     "build": {
-       "dependsOn": ["^build"],
-@@ -8,6 +9,17 @@
-     "lint": {
-       "dependsOn": ["^lint"]
-     },
-+    "test": {
-+      "dependsOn": ["^test"]
-+    },
-+    "db:push": {
-+      "dependsOn": ["^db:push"],
-+      "env": ["DATABASE_URL"]
-+    },
-+    "migrate": {
-+      "dependsOn": ["^migrate"],
-+      "env": ["DATABASE_URL"]
-+    },
-     "dev": {
-       "cache": false,
-       "persistent": true
+ Users can personalize their experience by saving favorite events and locations.
+diff --git a/_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md b/_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md
+index 7ba51f7..241fca9 100644
+--- a/_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md
++++ b/_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md
+@@ -521,7 +521,7 @@ interface Post {
+ *   User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal data and event preferences are used solely to personalize your experience within the app; we do not spam your calendar, sell your data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
+ 
+ ### Analytics
+-*   The platform will use a web analytics service (e.g., Google Analytics) to collect anonymous data on page views and user engagement to measure key performance indicators and improve the service.
++*   The platform will use **PostHog** to collect product analytics, track user interaction events, and optionally record session replays. This provides a modern alternative to Google Analytics, tailored for deep product usage insights, while allowing anonymization of user data to measure key performance indicators and improve the service.
+ 
+ ### User Experience (Capacity Limits)
+ *   The system must gracefully inform users when they encounter temporary limitations, such as reaching the maximum number of social media account subscriptions due to current backend server capacity. Clear, actionable in-app messages will guide users and manage expectations regarding future scaling.
+diff --git a/_bmad-output/project-context.md b/_bmad-output/project-context.md
+index f842914..04427e3 100644
+--- a/_bmad-output/project-context.md
++++ b/_bmad-output/project-context.md
+@@ -49,6 +49,7 @@ The following documents contain detailed specifications, architectures, and desi
+ *   **Frontend:** `Next.js 15+`, `React 19`
+ *   **Backend:** Serverless on AWS (`API Gateway`, `Lambda`, `SQS`, `EventBridge`)
+ *   **Database:** `Supabase` (PostgreSQL) with `Drizzle ORM`
++*   **Analytics & User Interactions:** `PostHog` (for product analytics, session replay, and feature flags)
+ *   **Push Notifications:** `Firebase Cloud Messaging (FCM)`
+ *   **Shared Code:** Workspace packages (`@festgrid/shared-types`, `@festgrid/typescript-config`, `@festgrid/eslint-config`, `@festgrid/ui`)
+ *   **Linting:** `ESLint` extending global flat configurations in `packages/eslint-config`
+diff --git a/_bmad/custom/bmad-create-story.toml b/_bmad/custom/bmad-create-story.toml
+index a1a7bd1..f87e93e 100644
+--- a/_bmad/custom/bmad-create-story.toml
++++ b/_bmad/custom/bmad-create-story.toml
+@@ -2,5 +2,6 @@
+ persistent_facts = [
+   "When creating a story, automatically identify if the story requires UI components that should be reusable. If so, explicitly mention in the story that the component should be created inside `packages/ui`.",
+   "When creating a story, automatically identify if the story requires function/mechanism that should be reusable. If so, explicitly mention in the story that the function/mechanism should be created inside `packages/domain`.",
+-  "When creating a story, automatically identify if the story requires a cloud or external service to be setup. If so, explicitly mention in the story that it will include updating steps in SETUP_WALKTHROUGH.md"
++  "When creating a story, automatically identify if the story requires a cloud or external service to be setup. If so, explicitly mention in the story that it will include updating steps in SETUP_WALKTHROUGH.md",
++  "When creating a story, automatically identify if the story requires tracking user interactions or adding user-analytics. If so, explicitly mention in the story that it must include adding PostHog analytics actions."
+ ]

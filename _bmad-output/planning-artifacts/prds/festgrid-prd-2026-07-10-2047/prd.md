@@ -41,7 +41,7 @@ This document outlines the product requirements for FestGrid, a platform designe
 ### 3.3 Saved Location Preferences
 *   Users can save multiple named locations (e.g., "Home", "Work").
 *   A location can be set by using the user's current location or by picking a point on a map.
-*   These saved locations can be used to find "nearby events" within a user-defined radius (e.g., between 1km and 50km).
+*   These saved locations can be used to find "nearby events" within a user-defined radius (stored in meters for processing, e.g., 1000m to 50000m, but displayed in kilometers in the UI).
 
 ### 3.4 Event Management
 
@@ -245,7 +245,7 @@ interface EventInfo {
   /**
    * The organizer of the event.
    */
-  eventOwner?: string;
+  organizerName?: string;
   /**
    * Contact information for the event.
    */
@@ -452,9 +452,10 @@ interface UserLocationPreference {
    */
   coordinates: Coordinates;
   /**
-   * The search radius in kilometers (e.g., between 1 and 50).
+   * The search radius, Stored in meters for processing, displayed in kilometers (e.g., between 1 and 50).
    */
-   radius: number;
+   radius: number; // 
+
 }
 ```
 

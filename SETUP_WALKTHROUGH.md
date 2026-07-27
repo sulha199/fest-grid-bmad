@@ -90,23 +90,31 @@ The backend is built with TypeScript on a serverless architecture using AWS.
 
     *   Deploy the service to AWS: `serverless deploy`
 
-## 3. Database (Supabase)
+## 3. Database (Drizzle ORM, Local Postgres & Supabase)
 
-The database is a managed PostgreSQL instance from Supabase.
+The database schemas are managed code-first using Drizzle ORM in the `packages/database` workspace. The project utilizes a dual environment setup:
 
-### Setup Steps
+### Local Development (PostgreSQL)
+
+1.  **Start a Local Postgres Instance:**
+    Ensure you have a PostgreSQL database running locally (e.g., via Docker or native installation).
+    *Tip: You may need to create the database first using `createdb festgrid` or via your Postgres client.*
+2.  **Configure Environment:**
+    Set your `DATABASE_URL` in `packages/database/.env` (e.g., `postgresql://postgres:postgres@localhost:5432/festgrid`).
+3.  **Generate and Run Migrations:**
+    Run `pnpm --filter @festgrid/database generate` to generate migration files.
+    Run `pnpm --filter @festgrid/database migrate` to apply migrations to your local database.
+
+### Production (Supabase Cloud)
 
 1.  **Create a new Supabase project:**
-
-    *   Go to [supabase.com](https://supabase.com/) and create a new project.
-
+    Go to [supabase.com](https://supabase.com/) and create a new project.
 2.  **Get Database Credentials:**
-
-    *   In your Supabase project dashboard, go to `Settings` -> `Database` and find your connection string.
-
-3.  **Connect from Backend:**
-
-    *   Use a PostgreSQL client library for Node.js (e.g., `pg`) in your AWS Lambda functions to connect to the Supabase database using the credentials from the previous step.
+    In your Supabase project dashboard, go to `Settings` -> `Database` and find your production connection string.
+3.  **Configure CI/CD:**
+    Add the Supabase connection string to your CI/CD environment variables as `DATABASE_URL`.
+4.  **Deployment:**
+    The CI/CD pipeline runs `drizzle-kit` to automatically apply the generated SQL migration files directly to the Supabase Postgres instance upon deployment.
 
 ## 4. Push Notifications (Firebase Cloud Messaging)
 

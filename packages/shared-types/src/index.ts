@@ -9,6 +9,7 @@ export interface User {
   id: string;
   email: string;
   name?: string;
+  deletedAt?: DateTimeIso; // Soft delete support
 }
 
 export enum EventType {
@@ -89,7 +90,7 @@ export interface EventInfo {
   categories: EventCategory[];
   schedules: Schedule[];
   location: string;
-  eventOwner?: string;
+  organizerName?: string;
   contactInfo?: string;
   description?: string;
   confidenceScore?: number;
@@ -114,6 +115,7 @@ export interface UserLocationPreference {
   userId: string;
   name: string;
   coordinates: Coordinates;
+  /** Radius in meters, Stored in meters for processing, displayed in km */
   radius: number;
 }
 

@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, pgEnum, index } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
 
 // Reusable timestamp columns for future tables to ensure correct timezone handling
 export const timestamps = {
@@ -6,10 +7,142 @@ export const timestamps = {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 };
 
-// Dummy table to verify Drizzle ORM setup and migrations.
-// To be removed once actual domain tables are created.
-export const healthCheck = pgTable('health_check', {
+export const eventTypeEnum = pgEnum('event_type', [
+  'EXHIBITION', 'COMPETITION', 'FESTIVAL', 'PERFORMANCE', 'WORKSHOP', 
+  'SEMINAR', 'MARKET', 'GATHERING', 'PROMOTION', 'FUNDRAISER', 'CIVIC', 'OTHER'
+]);
+
+export const eventCategoryEnum = pgEnum('event_category', [
+  'MUSIC', 'ARTS_AND_CULTURE', 'FOOD_AND_DRINK', 'SPORTS_AND_FITNESS', 
+  'FAMILY_AND_KIDS', 'HOBBIES_AND_INTERESTS', 'BUSINESS_AND_NETWORKING', 
+  'HEALTH_AND_WELLNESS', 'HOLIDAY', 'CHARITY_AND_CAUSES', 'CIVIC_AND_COMMUNITY', 'OTHER'
+]);
+
+export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
-  status: text('status').notNull(),
+  email: text('email').unique().notNull(),
+  name: text('name'),
+  avatarUrl: text('avatar_url'),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete support
   ...timestamps,
 });
+
+export const userLocations = pgTable('user_locations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  latitude: doublePrecision('latitude').notNull(),
+  longitude: doublePrecision('longitude').notNull(),
+  // Radius in meters
+  radius: integer('radius').notNull(),
+  ...timestamps,
+});
+
+export const subscriptions = pgTable('subscriptions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  accountId: text('account_id').notNull(),
+  platform: text('platform').notNull(),
+  displayName: text('display_name').notNull(),
+  username: text('username').notNull(),
+  profileImageUrl: text('profile_image_url'),
+  description: text('description'),
+  lastPostDate: timestamp('last_post_date', { withTimezone: true }),
+  ...timestamps,
+});
+
+export const apiKeys = pgTable('api_keys', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  // Soft delete enabled: no cascade delete to preserve audit trails
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  keyEncrypted: text('key_encrypted').notNull(),
+  provider: text('provider').notNull(),
+  isValid: boolean('is_valid').default(true).notNull(),
+  invalidAttempts: integer('invalid_attempts').default(0).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete support
+  ...timestamps,
+});
+
+export const events = pgTable('events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  slug: text('slug').unique().notNull(),
+  eventName: text('event_name').notNull(),
+  // Drizzle doesn't perfectly support enum arrays, so we use text arrays but expect values from eventTypeEnum
+  types: text('types').array(),
+  // Expect values from eventCategoryEnum
+  categories: text('categories').array(),
+  // High-level summary of location (e.g. "Chicago, IL"). Specific coordinates are in schedules[n].locationDetails
+  location: text('location').notNull(),
+  // Organizer name, NOT a reference to users.id
+  organizerName: text('organizer_name'),
+  contactInfo: text('contact_info'),
+  description: text('description'),
+  confidenceScore: doublePrecision('confidence_score'),
+  sourceSocialMediaAccountId: text('source_social_media_account_id'),
+  ...timestamps,
+}, (t) => ({
+  nameIdx: index('event_name_idx').on(t.eventName),
+  typesIdx: index('event_types_idx').on(t.types),
+  categoriesIdx: index('event_categories_idx').on(t.categories),
+  locationIdx: index('event_location_idx').on(t.location),
+}));
+
+export const schedules = pgTable('schedules', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  slug: text('slug').unique().notNull(),
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  isMainSchedule: boolean('is_main_schedule').default(true).notNull(),
+  // Split into date and time to support incomplete extracted data from posters (where time might be missing)
+  eventStartDate: date('event_start_date').notNull(),
+  eventEndDate: date('event_end_date'),
+  eventStartTime: time('event_start_time'),
+  eventEndTime: time('event_end_time'),
+  title: text('title'),
+  performers: text('performers').array(),
+  location: text('location'),
+  // Kept as text to support free-form extracted data from posters (e.g., "$10-$20" or "Free before 9 PM")
+  ticketPrice: text('ticket_price'),
+  locationDetails: jsonb('location_details'),
+  ...timestamps,
+}, (t) => ({
+  performersIdx: index('schedule_performers_idx').on(t.performers),
+  locationIdx: index('schedule_location_idx').on(t.location),
+}));
+
+export const eventsRelations = relations(events, ({ many }) => ({
+  schedules: many(schedules),
+}));
+
+export const schedulesRelations = relations(schedules, ({ one }) => ({
+  event: one(events, {
+    fields: [schedules.eventId],
+    references: [events.id],
+  }),
+}));
+
+export const usersRelations = relations(users, ({ many }) => ({
+  userLocations: many(userLocations),
+  subscriptions: many(subscriptions),
+  apiKeys: many(apiKeys),
+}));
+
+export const userLocationsRelations = relations(userLocations, ({ one }) => ({
+  user: one(users, {
+    fields: [userLocations.userId],
+    references: [users.id],
+  }),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [subscriptions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  user: one(users, {
+    fields: [apiKeys.userId],
+    references: [users.id],
+  }),
+}));
