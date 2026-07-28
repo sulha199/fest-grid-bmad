@@ -329,6 +329,8 @@ Users can discover and browse events.
 *   **And** each event card displays the event name, date, and main image.
 *   **And** the events displayed are ongoing or upcoming.
 *   **And** the event data is fetched from the database.
+*   **And** the list implements infinite scrolling, seamlessly fetching and appending the next page of results as I scroll near the bottom.
+*   **And** a localized non-blocking spinner is displayed at the bottom of the list while fetching subsequent pages.
 
 ### Story 1.4: Search for events
 
@@ -370,6 +372,8 @@ Users can discover and browse events.
 *   **Then** a modal or a new page appears with the full details of the event.
 *   **And** the details include the event name, description, date and time, location, performers, and any other relevant information.
 *   **And** the event details are fetched from the database.
+*   **And** the detail view provides "Next" and "Previous" navigation controls that respect the search, filter, and sort context of the list I navigated from.
+*   **And** if I navigate to the end of the currently loaded page using the "Next" button, the system automatically fetches the next page of results in the background.
 
 ### Story 1.7: User Signup and Login with Google
 

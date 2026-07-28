@@ -177,6 +177,20 @@ To provide users with greater control over their API quota usage and improve the
 
 FestGrid will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, such as subscribing to social media accounts for event extraction, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. Users are responsible for the validity and quota management of their BYOK Gemini API keys. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestGrid's full potential if they choose.
 
+### 3.12 Global UI & Navigation Patterns
+
+To ensure a high-quality, app-like experience, the following global UI patterns apply across the platform:
+
+*   **Loaders:**
+    *   **Blocking:** Critical asynchronous actions (e.g., submitting forms, data extraction, reporting) will use a full-screen semi-transparent overlay with a spinner to prevent user interaction until the process completes.
+    *   **Non-Blocking:** Initial page data fetching will utilize Skeleton screens that mirror the expected content layout. Fetching subsequent data (e.g., infinite scroll) will use a localized spinner at the bottom of the list.
+*   **Infinite Scroll (Autoscroll):** All long lists (e.g., Main Discovery Feed, Favorites, Manual Post Selection, My Calendar) must implement infinite scrolling to seamlessly append data as the user scrolls, rather than requiring traditional pagination clicks.
+*   **Context-Aware Detail Views:** 
+    *   When a user clicks on an item in a list to view its details, the detail view must provide "Next" and "Previous" navigation controls.
+    *   This navigation operates within the exact context of the list the user originated from, respecting active search queries, filters, and sort orders.
+    *   If a user clicks "Next" and reaches the end of the currently fetched page of data, the system will automatically fetch the next page of results in the background, ensuring uninterrupted navigation.
+    *   *Exception:* This context-aware navigation is not required if the detail view is accessed via a direct deep-link URL (i.e., without prior list context).
+
 ## 4. Event Data Schema
 
 This section defines the data structure for events extracted and managed by FestGrid.

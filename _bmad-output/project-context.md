@@ -77,6 +77,14 @@ The following documents contain detailed specifications, architectures, and desi
 - **Resilient Processing Pipeline:** The backend processing pipeline **must** use Amazon SQS queues (`ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`) to decouple services and manage flow between AWS Lambda functions, as defined in the infrastructure architecture.
 - **Prevent GraphQL Abuse:** The GraphQL server **must** be configured with query depth and complexity limits to prevent DoS attacks.
 
+### UI Patterns & UX Invariants
+- **Loaders:** The application must strictly differentiate between blocking and non-blocking asynchronous operations. 
+  - **Blocking:** For critical mutations (e.g., submitting a report, saving a location), a full-screen, semi-transparent overlay with a spinner must be used to prevent further interaction.
+  - **Non-Blocking (Initial Load):** Use Skeleton screens matching the layout of the incoming data to reduce Cumulative Layout Shift (CLS) and improve perceived performance.
+  - **Non-Blocking (Infinite Scroll):** Use a localized spinner at the bottom of the list when fetching subsequent pages to avoid disrupting the user's reading flow.
+- **List Navigation:** All long lists (Discovery, Favorites, Subscriptions, etc.) **must** implement infinite scrolling (autoscroll) rather than traditional pagination controls.
+- **Context-Aware Detail Views:** When opening an item's detail view from any list, the detail view must provide "Next" and "Previous" navigation buttons. This navigation must inherit the context of the list it was opened from (search query, filters, sort). If a user navigates to the end of the currently loaded page of data, the system must seamlessly fetch the next page of results in the background to maintain uninterrupted navigation. (This requirement may be bypassed if the detail view is accessed via a direct deep-link without prior list context).
+
 ### General Architecture
 - **TypeScript Strict Mode:** All code **must** be compliant with strict TypeScript.
 - **Path Aliases:** Use monorepo path aliases (e.g., `@festgrid/shared-types`) for all internal package imports.
