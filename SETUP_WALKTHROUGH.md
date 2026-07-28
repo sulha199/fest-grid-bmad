@@ -147,11 +147,15 @@ PostHog is used for tracking user interactions, page views, and core events acro
     *   Copy your "Project API Key" (starts with `phc_`).
     *   Note your Instance address (e.g., `https://us.i.posthog.com`).
 3.  **Configure Local Environment:**
-    *   Open `apps/web/.env` and `packages/database/.env` and set the keys:
+    *   Open the root `.env` file and set the keys:
         ```env
+        DATABASE_URL="postgresql://postgres:postgres@localhost:5432/festgrid"
         NEXT_PUBLIC_POSTHOG_KEY="your_api_key"
         NEXT_PUBLIC_POSTHOG_HOST="https://us.i.posthog.com"
+        NEXT_PUBLIC_POSTHOG_DEFAULTS="2026-05-30"
         ```
+    *   `NEXT_PUBLIC_POSTHOG_DEFAULTS` is required and used directly by PostHog initialization.
+    *   Local package-level `.env` files are optional and should only contain overrides for root `.env` values.
     *   *(Note: Local analytics initialization safely skips if these keys are missing to prevent errors during local development).*
 
 This walkthrough provides a high-level overview of the setup process. For detailed configuration and implementation, refer to the official documentation of each service.

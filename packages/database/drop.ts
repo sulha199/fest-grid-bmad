@@ -1,13 +1,8 @@
 import postgres from 'postgres';
-import * as dotenv from 'dotenv';
-import { resolve } from 'path';
-
-dotenv.config({ path: resolve(__dirname, '.env') });
-dotenv.config({ path: resolve(__dirname, '../../.env') });
+import { loadDatabaseEnv } from './env';
 
 const runDrop = async () => {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) throw new Error('No DATABASE_URL');
+  const { databaseUrl: connectionString } = loadDatabaseEnv(__dirname);
   
   const sql = postgres(connectionString, { max: 1 });
   
