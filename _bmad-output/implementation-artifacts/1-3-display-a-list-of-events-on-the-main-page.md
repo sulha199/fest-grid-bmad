@@ -40,6 +40,7 @@
 - `packages/domain/src/events/`: Pure business logic for fetching events via GraphQL and processing DSL queries. (Reusable Domain Logic)
 
 ### Dev Notes (Custom Rules)
+- **State Management:** Because this story requires state management, explicitly categorize the state into Server State (React Query) for fetching events data, and Client Global State (zustand) if any ephemeral UI state crosses boundaries..
 - **UI Components:** Because this story requires UI components that should be reusable (e.g. EventCard, EventGrid), these components must be created inside `packages/ui` as per project rules.
 - **Domain Logic:** Because this story requires a function/mechanism that should be reusable (e.g. `buildOptimizedDrizzleSelect`, GraphQL fetching), explicitly create them inside `packages/domain`.
 - **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Since this is the first front-facing page, ensure PostHog is initialized (via a Provider) and track a "Main Page Viewed" event.

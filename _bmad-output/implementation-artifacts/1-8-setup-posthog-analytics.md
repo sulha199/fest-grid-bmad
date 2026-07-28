@@ -57,6 +57,7 @@ The following events are identified across the epics to be tracked. The provider
 - **Manual Posts Selected for Extraction** (Story 5.2)
 
 ### Dev Notes (Custom Rules)
+- **State Management:** Because this story requires state management, explicitly categorize the state into No specific state management tier required, but the analytics provider acts as an external side-effect..
 - **Cloud/External Service:** Because this story requires a cloud or external service to be setup (PostHog), explicitly include updating steps in `SETUP_WALKTHROUGH.md`.
 - **Analytics Foundation:** Ensure the initialization is robust, prevents tracking on server environments incorrectly, and safely skips tracking if the env variables are missing (to not break local dev without keys).
 

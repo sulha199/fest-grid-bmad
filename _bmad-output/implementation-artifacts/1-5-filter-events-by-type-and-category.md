@@ -46,6 +46,7 @@
 - `packages/database/`: Verify or add Drizzle migrations to ensure indexes exist for `type` and `category` columns.
 
 ### Dev Notes (Custom Rules)
+- **State Management:** Because this story requires state management, explicitly categorize the state into URL State (nuqs) to manage the selected event types and categories in the URL..
 - **UI Components:** Because this story requires UI components that should be reusable (e.g. MultiSelect, FilterHub), these components must be created inside `packages/ui` as per project rules.
 - **Domain Logic:** Because this story requires a function/mechanism that should be reusable (e.g. multi-value DSL parser extension), explicitly create them inside `packages/domain`.
 - **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Track a "Filter Applied" event containing the selected types and categories.

@@ -38,6 +38,7 @@
 - **From Story 1.1 & 1.2:** The `slug` field is present in the `events` table and populated by the seed script. Ensure the GraphQL schema exposes the `slug`.
 
 ### Dev Notes (Custom Rules)
+- **State Management:** Because this story requires state management, explicitly categorize the state into URL State (nuqs) to capture the previous list context, and Server State (React Query) to fetch specific event details from the cache or backend..
 - **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Track an "Event Details Viewed" event containing the event ID and name when the details modal or page is opened.
 
 ### File Structure Requirements

@@ -37,6 +37,7 @@
 - `packages/database/`: Check or add a migration script via `drizzle-kit` to ensure indexes are present for `eventName`, `performers`, and `locationName`.
 
 ### Dev Notes (Custom Rules)
+- **State Management:** Because this story requires state management, explicitly categorize the state into URL State (nuqs) to manage the search query parameters, enabling shareable URLs and SSR..
 - **UI Components:** Because this story requires UI components that should be reusable (e.g. SearchBar), these components must be created inside `packages/ui` as per project rules.
 - **Domain Logic:** Because this story requires a function/mechanism that should be reusable (e.g. GraphQL resolver, DSL parser logic), explicitly create them inside `packages/domain`.
 - **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Track a "Search Performed" event with the search term.
