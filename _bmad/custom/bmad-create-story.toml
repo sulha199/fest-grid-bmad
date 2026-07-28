@@ -8,5 +8,7 @@ persistent_facts = [
   "When creating a story, automatically identify if the story involves an asynchronous process. If so, explicitly categorize the required loader as Blocking (full-screen overlay for critical mutations/actions) or Non-Blocking (Skeleton screens for initial load/transitions, localized spinner for infinite scroll) based on the UI invariant rules, and mention this required categorization in the story.",
   "file:{project-root}/_bmad-output/planning-artifacts/story-content-structure.md",
   "Every newly created story must follow the canonical section order and status vocabulary from story-content-structure.md.",
-  "Every newly created story must include a concise Global Rules References section pointing to project-context, story-content-structure, architecture spine, and infrastructure docs."
+  "Every newly created story must include a concise Global Rules References section pointing to project-context, story-content-structure, architecture spine, and infrastructure docs.",
+  "Every newly created story must include a concrete Implementation Plan (Rule-Compliant) with File Change Plan, Rule Mapping, and Verification Plan.",
+  "Every newly created story must include a Pre-Coding Approval Gate checklist with default pending approval state before implementation starts."
 ]

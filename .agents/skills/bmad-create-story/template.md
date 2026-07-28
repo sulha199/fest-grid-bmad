@@ -39,6 +39,27 @@ so that {{benefit}}.
 - System architecture spine: _bmad-output/planning-artifacts/festgrid-architecture-spine.md
 - Infrastructure constraints: docs/infrastructure.md
 
+## Implementation Plan (Rule-Compliant)
+
+### File Change Plan
+
+- List exact files/modules expected to be touched for this story
+
+### Rule Mapping
+
+- Map each critical implementation decision to a referenced global rule
+
+### Verification Plan
+
+- List specific checks and test runs to confirm rule compliance before completion
+
+## Pre-Coding Approval Gate
+
+- [ ] Scope and acceptance criteria reviewed
+- [ ] Architecture and data/API boundaries confirmed
+- [ ] Testing plan reviewed and accepted
+- [ ] Approval to start coding granted
+
 ### Project Structure Notes
 
 - Alignment with unified project structure (paths, modules, naming)

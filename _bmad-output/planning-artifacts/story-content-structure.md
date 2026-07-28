@@ -16,12 +16,14 @@ Standardize story files so BMad workflows remain predictable, auditable, and imp
 5. `## Tasks / Subtasks`
 6. `## Dev Notes`
 7. `## Global Rules References`
-8. `## Testing Requirements`
-9. `## Deliverables Checklist`
-10. `## Out of Scope`
-11. `## Definition of Done`
-12. `## Completion Status`
-13. `## Dev Agent Record`
+8. `## Implementation Plan (Rule-Compliant)`
+9. `## Pre-Coding Approval Gate`
+10. `## Testing Requirements`
+11. `## Deliverables Checklist`
+12. `## Out of Scope`
+13. `## Definition of Done`
+14. `## Completion Status`
+15. `## Dev Agent Record`
 
 ## Required Story Details Fields
 
@@ -59,6 +61,25 @@ Dev Notes must include:
 - File/path expectations
 - Data/API boundary constraints
 - References to source artifacts
+
+## Implementation Plan Rules
+
+Implementation Plan must include concise, concrete planning with:
+- File Change Plan: exact files or modules expected to be touched
+- Rule Mapping: story decisions mapped to referenced global rules
+- Verification Plan: tests and runtime checks to prove compliance
+
+The implementation plan must be specific enough for user verification before coding begins.
+
+## Pre-Coding Approval Gate Rules
+
+Pre-Coding Approval Gate must include a checklist with:
+- Scope confirmation
+- Architecture and boundary confirmation
+- Testing plan confirmation
+- Explicit human approval state
+
+Default state for newly created stories should be pending approval.
 
 ## Definition of Done Rules
 
