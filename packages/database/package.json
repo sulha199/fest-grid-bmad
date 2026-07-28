@@ -14,6 +14,8 @@
     "build": "tsc",
     "generate": "drizzle-kit generate",
     "migrate": "tsx migrate.ts",
+    "seed": "tsx seed.ts",
+    "test:seed": "tsx --test seed.integration.test.ts",
     "migrate:prod": "node dist/migrate.js",
     "studio": "drizzle-kit studio",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0"

@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^pnpm --filter @festgrid/database lint$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
