@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@festgrid/analytics": "workspace:*",
     "@festgrid/shared-types": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.21",
     "@radix-ui/react-slot": "^1.3.1",

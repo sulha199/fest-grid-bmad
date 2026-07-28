@@ -1,3 +1,7 @@
+---
+baseline_commit: 7d4b335be302c0af7fab07e8d4ef371734b013ad
+---
+
 # Story 1.8: Setup PostHog Analytics
 
 ## Story Details
@@ -60,6 +64,49 @@ The following events are identified across the epics to be tracked. The provider
 - **Strict TypeScript:** Code must comply with `@festgrid/typescript-config`.
 - **App Router:** Ensure compatibility with Next.js 15+ App Router patterns.
 
+## Tasks/Subtasks
+- [x] Create a new `packages/analytics` workspace package.
+- [x] Install `posthog-js` inside `packages/analytics`.
+- [x] Implement `PostHogProvider` client component in `packages/analytics` and export it.
+- [x] Add `@festgrid/analytics` dependency to `apps/web`.
+- [x] Add `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` to `apps/web/.env.example` and `packages/database/.env.example`.
+- [x] Wrap the children in `apps/web/src/app/layout.tsx` with the `PostHogProvider` from `@festgrid/analytics`.
+- [x] Update `SETUP_WALKTHROUGH.md` with instructions on how to set up PostHog keys.
+
+## Dev Agent Record
+### Implementation Plan
+- Extract PostHog implementation into a dedicated `@festgrid/analytics` package for better isolation in the monorepo.
+- Add `PostHogProvider` with a safe initialization check to prevent errors when environment variables are missing during local development.
+- Expose `usePostHog` and `PostHogProvider` from `@festgrid/analytics`.
+- Integrate `@festgrid/analytics` in `apps/web` root layout.
+
+### Debug Log
+- Handled pnpm virtual-store-dir-max-length diff by clearing `node_modules` and doing a fresh install.
+
+### Completion Notes
+- The package `@festgrid/analytics` is set up properly with `posthog-js`.
+- Root layout in `apps/web` is wrapped with `PostHogProvider`.
+- Environment variable placeholders added and instructions updated in `SETUP_WALKTHROUGH.md`.
+
+## File List
+- `packages/analytics/package.json`
+- `packages/analytics/tsconfig.json`
+- `packages/analytics/src/index.ts`
+- `packages/analytics/src/posthog-provider.tsx`
+- `apps/web/package.json`
+- `apps/web/.env`
+- `apps/web/.env.example`
+- `packages/database/.env`
+- `packages/database/.env.example`
+- `apps/web/src/app/layout.tsx`
+- `SETUP_WALKTHROUGH.md`
+
+## Change Log
+- **feat:** Added `@festgrid/analytics` workspace package.
+- **feat:** Configured PostHog initialization in `PostHogProvider`.
+- **feat:** Wrapped Next.js app layout with `PostHogProvider`.
+- **docs:** Updated `SETUP_WALKTHROUGH.md` for analytics setup.
+
 ## Completion Status
-*   Status: ready-for-dev
+*   Status: review
 *   Ultimate context engine analysis completed - comprehensive developer guide created.

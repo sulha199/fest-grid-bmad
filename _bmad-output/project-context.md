@@ -51,7 +51,7 @@ The following documents contain detailed specifications, architectures, and desi
 *   **Database:** `Supabase` (PostgreSQL) with `Drizzle ORM`
 *   **Analytics & User Interactions:** `PostHog` (for product analytics, session replay, and feature flags)
 *   **Push Notifications:** `Firebase Cloud Messaging (FCM)`
-*   **Shared Code:** Workspace packages (`@festgrid/shared-types`, `@festgrid/typescript-config`, `@festgrid/eslint-config`, `@festgrid/ui`)
+*   **Shared Code:** Workspace packages (`@festgrid/shared-types`, `@festgrid/typescript-config`, `@festgrid/eslint-config`, `@festgrid/ui`, `@festgrid/analytics`)
 *   **Linting:** `ESLint` extending global flat configurations in `packages/eslint-config`
 *   **UI Component Library:** `Shadcn/ui` (built on Radix UI and Tailwind CSS) - all reusable UI components must be placed in the `@festgrid/ui` package.
 

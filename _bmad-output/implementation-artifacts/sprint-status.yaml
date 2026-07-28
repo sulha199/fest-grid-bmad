@@ -63,7 +63,7 @@ development_status:
   1-5-filter-events-by-type-and-category: ready-for-dev
   1-6-view-event-details: ready-for-dev
   1-7-user-signup-and-login-with-google: ready-for-dev
-  1-8-setup-posthog-analytics: backlog
+  1-8-setup-posthog-analytics: review
   epic-1-retrospective: optional
   epic-2: backlog
   2-1-favorite-an-event: backlog

@@ -1,0 +1,16 @@
+{
+  "name": "@festgrid/analytics",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "dependencies": {
+    "posthog-js": "^1.218.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@festgrid/typescript-config": "workspace:*",
+    "@types/node": "^20.14.10",
+    "@types/react": "^19.0.2",
+    "typescript": "^6.0.3"
+  }
+}

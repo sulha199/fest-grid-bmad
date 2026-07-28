@@ -134,4 +134,24 @@ FCM is used for sending push notifications.
 
     *   Use an FCM library for Node.js (e.g., `fcm-node`) in your AWS Lambda functions to send notifications using the API key.
 
+## 5. Analytics (PostHog)
+
+PostHog is used for tracking user interactions, page views, and core events across the application.
+
+### Setup Steps
+
+1.  **Create a PostHog project:**
+    *   Sign up at [posthog.com](https://posthog.com) and create a new organization/project.
+2.  **Get Project API Key and Host:**
+    *   In your PostHog dashboard, navigate to **Project Settings**.
+    *   Copy your "Project API Key" (starts with `phc_`).
+    *   Note your Instance address (e.g., `https://us.i.posthog.com`).
+3.  **Configure Local Environment:**
+    *   Open `apps/web/.env` and `packages/database/.env` and set the keys:
+        ```env
+        NEXT_PUBLIC_POSTHOG_KEY="your_api_key"
+        NEXT_PUBLIC_POSTHOG_HOST="https://us.i.posthog.com"
+        ```
+    *   *(Note: Local analytics initialization safely skips if these keys are missing to prevent errors during local development).*
+
 This walkthrough provides a high-level overview of the setup process. For detailed configuration and implementation, refer to the official documentation of each service.
