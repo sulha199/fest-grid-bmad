@@ -14,13 +14,19 @@
 *   **Given** I am on the main page of the application,
 *   **When** I select one or more event types or categories from the filter controls,
 *   **Then** the list of events is filtered to show only events that match the selected types and categories.
+*   **And** within one filter group, multiple selected values use OR semantics.
+*   **And** between filter groups and active search query, conditions use AND semantics.
 *   **And** I can clear the filters to see all events again.
+*   **And** clearing filters resets filter URL state while preserving unrelated URL parameters and returns the default ongoing/upcoming list behavior.
+*   **And** all filter UI labels and control microcopy are localized via `next-intl`.
+*   **And** integration tests cover multi-select query semantics and reset behavior.
 
 ## Developer Context
 
 ### Architecture & Technical Requirements
 - **Unified Query DSL (AR1):** The filter functionality **must** leverage the Unified Query DSL. Selecting types or categories should translate into `"in"` or `"contains"` conditions within the DSL payload.
 - **Combined Queries:** The filter conditions **must** be combined with the default "ongoing or upcoming" filter (Story 1.3) and any active search queries (Story 1.4) using an `"and"` operator.
+- **Filter Semantics:** Use OR logic within one facet (`types`, `categories`) and AND logic across facets and search/default filters.
 - **URL State Management:** In Next.js 15+, filter state **must** be managed via URL query parameters (e.g., `?type=festival,concert&category=music`). This ensures that filters are shareable, bookmarkable, and compatible with server-side data fetching. Use `useSearchParams`, `usePathname`, and `useRouter` from `next/navigation` to update the URL dynamically.
 - **UX Requirements:** 
   - **UX-DR10:** Implement a Filter Hub at the top of the discovery view for filtering events by `EventType` and `EventCategory` with multi-selection.
@@ -57,6 +63,28 @@
 - **Pure Business Logic:** Any additions to the DSL parser must live in `packages/domain` and be 100% unit tested.
 - **Database Access:** Handled exclusively through Drizzle ORM.
 
+## Testing Requirements
+- Add integration tests for:
+  - OR semantics within one selected facet,
+  - AND semantics across facets/search/default filters,
+  - clear-filter reset behavior for URL and query results.
+- Add one E2E happy-path test for selecting, combining, and clearing filters.
+
+## Deliverables Checklist
+- Reusable `MultiSelect` component and `FilterHub` integration.
+- DSL parser support for multi-value filters.
+- URL-state wiring for filters via `nuqs`.
+- Integration and E2E tests for filter behavior.
+
+## Out of Scope
+- Detail navigation behavior (Story 1.6).
+- Favorites and calendar filtering (Epic 2).
+
+## Definition of Done
+- Filter semantics match AC (OR within group, AND across groups).
+- Clear-filter action restores default behavior and URL state.
+- Localization and analytics hooks are implemented.
+- Lint and type checks pass for touched packages.
+
 ## Completion Status
-*   Status: ready-for-dev
 *   Ultimate context engine analysis completed - comprehensive developer guide created.

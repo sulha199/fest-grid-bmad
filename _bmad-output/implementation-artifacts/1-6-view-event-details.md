@@ -16,6 +16,11 @@
 *   **Then** a modal or a new page appears with the full details of the event.
 *   **And** the details include the event name, description, date and time, location, performers, and any other relevant information.
 *   **And** the event details are fetched from the database.
+*   **And** when opened from a list context, Next/Previous navigation respects current search/filter/sort context.
+*   **And** when accessed via direct deep-link without list context, details render correctly without requiring Next/Previous context navigation.
+*   **And** modal route and full-page route render the same event detail data shape and error/loading states.
+*   **And** all static labels in the detail view are localized via `next-intl`.
+*   **And** integration tests validate the GraphQL by-slug query behavior and E2E tests validate modal open and deep-link fallback behavior.
 
 ## Developer Context
 
@@ -31,6 +36,7 @@
 - **Component UI Requirements:**
   - Create an `EventDetails` UI component that accepts the fetched event data and displays `eventName`, `description`, `location`, `types`, `categories`, and `schedules` (including dates, times, and `performers`).
   - Use Shadcn/ui `Dialog` components for the modal implementation to ensure accessibility and consistent styling.
+  - Ensure shared rendering parity: the same core `EventDetails` component shape is used for both direct page and intercepted modal routes.
 - **Internationalization (i18n):** All static labels in the event details view (e.g., "Location:", "Performers:", "Date & Time:") must be translated using `next-intl`.
 
 ### Previous Story Intelligence
@@ -60,6 +66,29 @@
 - **Pure Business Logic:** Any additions to the data fetching logic must live in `packages/domain` and be 100% unit tested.
 - **Database Access:** Handled exclusively through Drizzle ORM.
 
+## Testing Requirements
+- Add integration tests for `GetEventBySlug` resolver behavior and field selection compatibility.
+- Add E2E tests for:
+  - opening detail modal from list,
+  - direct navigation to `/events/[slug]`,
+  - deep-link fallback without list context.
+
+## Deliverables Checklist
+- Shared `EventDetails` rendering component.
+- Full-page route and intercepted modal route.
+- By-slug GraphQL query and resolver using optimized select logic.
+- Context-aware navigation behavior with safe deep-link fallback.
+- Integration and E2E coverage for core detail flows.
+
+## Out of Scope
+- Editing/correcting event data (Epic 4).
+- Favorites and calendar-add flows (Epic 2).
+
+## Definition of Done
+- Detail route works for modal and full-page access.
+- Context-aware navigation works when context exists; deep-link fallback works when it does not.
+- Localization and analytics hooks are implemented.
+- Lint and type checks pass for touched packages.
+
 ## Completion Status
-*   Status: ready-for-dev
 *   Ultimate context engine analysis completed - comprehensive developer guide created.

@@ -17,6 +17,10 @@
 *   **And** each event card displays the event name, date, and main image.
 *   **And** the events displayed are ongoing or upcoming.
 *   **And** the event data is fetched from the database.
+*   **And** the list uses infinite scrolling with cursor or page-based pagination and appends more items without replacing already loaded items.
+*   **And** while fetching the next page, a localized bottom spinner is shown without blocking interaction.
+*   **And** all user-facing labels and empty/loading/error messages on this page are localized through `next-intl`.
+*   **And** integration coverage validates the query/filter behavior and E2E coverage validates the primary happy path for initial load and infinite-scroll append.
 
 ## Developer Context
 
@@ -29,6 +33,7 @@
 - **UI Components:** Use `Shadcn/ui` components (Card, Grid, Event Card Compact) and follow the color palette (primary: "#1E293B", secondary: "#6366F1", accent: "#FF5A5F", neutral: "#FAFAFC", success: "#10B981", error: "#EF4444"). Base corner radius of 0.5rem.
 - **Date Handling:** Display dates correctly according to the user's timezone or event timezone.
 - **Code Organization:** Pure, framework-agnostic business logic **must** live in a dedicated `packages/domain` package (e.g., `/events`). UI components and API handlers should be lean.
+- **Responsibility Split:** Keep query construction, filtering rules, and pagination contracts in domain/infrastructure layers; keep rendering and interaction behavior in `packages/ui` and `apps/web`.
 
 ### Previous Story Intelligence
 - **From Story 1.2:** The database is seeded with mock event data containing various scenarios (ongoing, upcoming, past events). Ensure the GraphQL query properly filters out past events using the Unified Query DSL.
@@ -53,6 +58,26 @@
 - All new data structures entering from GraphQL must be validated with Zod on the frontend.
 - Utilize PostgreSQL-specific data types directly imported from `drizzle-orm/pg-core`.
 
+## Testing Requirements
+- Add integration tests for ongoing/upcoming filter behavior and paginated append behavior.
+- Add an E2E happy-path test for discovery page render + infinite-scroll append + localized loading UI.
+
+## Deliverables Checklist
+- Main page query implementation using GraphQL + unified DSL.
+- Event grid and event card rendering wired to paginated fetch.
+- Infinite-scroll trigger and localized bottom spinner.
+- Localization keys and translations for page-level microcopy.
+- Integration and E2E tests for core flow.
+
+## Out of Scope
+- Detail view implementation (handled in Story 1.6).
+- Favorites, subscriptions, and personalization features (Epic 2+).
+
+## Definition of Done
+- Acceptance criteria are met and validated by tests.
+- Pagination append behavior works without list reset.
+- Localization is present for all user-facing page text.
+- Lint and type checks pass for touched packages.
+
 ## Completion Status
-*   Status: ready-for-dev
 *   Ultimate context engine analysis completed - comprehensive developer guide created.

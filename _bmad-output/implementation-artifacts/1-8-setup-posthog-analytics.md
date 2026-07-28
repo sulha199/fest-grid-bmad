@@ -7,7 +7,7 @@ baseline_commit: 7d4b335be302c0af7fab07e8d4ef371734b013ad
 ## Story Details
 - **Epic:** 1 - Core App and Event Discovery
 - **Story ID:** 1.8
-- **Status:** ready-for-dev
+- **Status:** review
 
 ## User Story
 **As a** developer/system administrator,
@@ -20,6 +20,8 @@ baseline_commit: 7d4b335be302c0af7fab07e8d4ef371734b013ad
 *   **Then** a `PostHogProvider` is added to the root layout to initialize PostHog globally.
 *   **And** the required environment variables (`NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`) are documented in the setup guide.
 *   **And** PostHog automatically captures basic page views and interactions.
+*   **And** when PostHog environment variables are missing in local development, the app remains functional and analytics calls safely no-op without runtime crashes.
+*   **And** event names and event payload properties follow a documented naming convention used consistently across stories.
 
 ## Developer Context
 
@@ -65,6 +67,27 @@ The following events are identified across the epics to be tracked. The provider
 - **Strict TypeScript:** Code must comply with `@festgrid/typescript-config`.
 - **App Router:** Ensure compatibility with Next.js 15+ App Router patterns.
 
+## Testing Requirements
+- Validate app boot and route navigation with missing PostHog env vars (no crash behavior).
+- Validate provider initialization when env vars are present.
+- Validate one representative tracked event uses naming convention and expected payload keys.
+
+## Deliverables Checklist
+- `PostHogProvider` integration at app root.
+- Env var documentation and `.env.example` updates.
+- Safe no-op behavior when analytics keys are absent.
+- Analytics event naming convention documented and applied.
+
+## Out of Scope
+- Full analytics taxonomy governance for all future epics.
+- Dashboard/report creation inside PostHog.
+
+## Definition of Done
+- Provider is integrated and functional.
+- Missing-env local development does not break the app.
+- Naming convention exists and is used by implemented analytics events.
+- Lint and type checks pass for touched packages.
+
 ## Tasks/Subtasks
 - [x] Create a new `packages/analytics` workspace package.
 - [x] Install `posthog-js` inside `packages/analytics`.
@@ -109,5 +132,4 @@ The following events are identified across the epics to be tracked. The provider
 - **docs:** Updated `SETUP_WALKTHROUGH.md` for analytics setup.
 
 ## Completion Status
-*   Status: review
 *   Ultimate context engine analysis completed - comprehensive developer guide created.

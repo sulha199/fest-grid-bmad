@@ -16,6 +16,10 @@
 *   **And** all foreign key relationships in the mock EventInfo data are populated with corresponding mock data,
 *   **When** I run the seed script,
 *   **Then** the database is populated with a set of mock events, including names, dates, locations, schedules, performers, and all related nested data.
+*   **And** the seed process is deterministic, producing stable reference fixtures for local development and automated tests.
+*   **And** rerunning the seed is idempotent and does not leave duplicated records.
+*   **And** the cleanup plus insert process is transaction-safe, so partial failures do not leave inconsistent FK state.
+*   **And** an integration test verifies expected record counts and relationships after seeding.
 
 ## Developer Context
 
@@ -26,7 +30,10 @@
   - Ensure the mock data spans various scenarios: ongoing events, upcoming events, and past events to properly test filtering logic later.
   - Generate UUIDs for primary keys where needed if not relying entirely on Postgres `defaultRandom()`. 
   - Generate unique `slug` strings for `events` and `schedules` using a library like `nanoid`.
+  - Use deterministic fixture generation (fixed seed source or committed fixtures) so repeated runs produce stable outputs for tests.
 - **Database Clean-up:** The seed script should handle clearing existing data safely before insertion to ensure idempotency.
+  - Define explicit deletion ordering to satisfy foreign-key constraints.
+  - Wrap cleanup and insertion in one transaction where practical; rollback on failure.
 - **Realistic Data:** Mock data must be realistic. Include mock user accounts, locations, mock Instagram post URLs, and associated social media profile data to accurately reflect the application's domain logic.
 - **Environment Configuration:** The seed script should utilize the `DATABASE_URL` from `packages/database/.env` for local seeding.
 
@@ -42,6 +49,27 @@
 - Ensure all code strictly follows the TypeScript configurations from `@festgrid/typescript-config`.
 - Avoid hardcoding fallback default credentials in the code. Ensure everything relies on environment variables safely.
 
+## Testing Requirements
+- Add an integration test that runs seed on a test database and verifies:
+  - expected non-zero data is inserted for each core table,
+  - FK relationships remain valid,
+  - running seed twice does not duplicate records.
+
+## Deliverables Checklist
+- Seed script in `packages/database/src/seed.ts`.
+- `seed` script entry in `packages/database/package.json`.
+- Deterministic fixture approach documented.
+- Integration test for seed idempotency and relational integrity.
+
+## Out of Scope
+- Production data migration scripts.
+- Non-mock third-party data ingestion.
+
+## Definition of Done
+- Seed script runs successfully on local database.
+- Seed run is deterministic and idempotent.
+- Integration test passes.
+- Lint and type checks pass for touched packages.
+
 ## Completion Status
-*   Status: ready-for-dev
 *   Ultimate context engine analysis completed - comprehensive developer guide created.

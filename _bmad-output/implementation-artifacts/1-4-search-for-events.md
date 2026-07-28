@@ -16,13 +16,16 @@
 *   **Then** the list of events is filtered to show only events that match the search query.
 *   **And** the search is performed on the event name, performers, and location name.
 *   **And** the search supports partial matching.
+*   **And** the search query is persisted in URL state and shareable via direct link.
+*   **And** search UI text (placeholder, empty state, and validation messaging) is localized using `next-intl`.
+*   **And** integration tests cover DSL partial-match semantics and E2E tests cover typing a query and seeing filtered results.
 
 ## Developer Context
 
 ### Architecture & Technical Requirements
 - **Unified Query DSL (AD-1):** The search functionality **must** leverage the Unified Query DSL. The search input should translate to a nested `"or"` condition checking for partial matches (`"contains"`) on `eventName`, `performers`, and `locationName` fields.
 - **Combined Queries:** The search condition **must** be combined with the default "ongoing or upcoming" filter (from Story 1.3) using an `"and"` operator.
-- **URL State Management:** In Next.js 15+, search state should be managed via URL query parameters (e.g., `?q=search_term`). This allows for shareable links, server-side data fetching, and native browser navigation.
+- **URL State Management:** In Next.js 15+, search state must be managed with `nuqs` over URL query parameters (e.g., `?q=search_term`) for typed parsing, shareable links, SSR compatibility, and native browser navigation.
 - **Database Performance:** According to `project-context.md`, columns frequently used in `WHERE` clauses **must** be indexed. Ensure database migrations add indexes for `eventName`, `performers`, and `location` columns to ensure fast search queries.
 - **Internationalization (i18n):** The search bar placeholder and any related text must be localized using `next-intl`.
 - **UI Components:** Use `Shadcn/ui` for the search input. Following UX-DR17, microcopy should be clear and concise.
@@ -48,6 +51,27 @@
 - **Pure Business Logic:** Any additions to the DSL parser must live in `packages/domain` and be 100% unit tested.
 - **Database Access:** Handled exclusively through Drizzle ORM.
 
+## Testing Requirements
+- Add integration tests for:
+	- partial matching on `eventName`, `performers`, and `locationName`,
+	- combined default filter plus search query behavior.
+- Add E2E test for search input interaction and URL-state persistence.
+
+## Deliverables Checklist
+- SearchBar component wired to URL state via `nuqs`.
+- GraphQL query path using DSL search clauses.
+- Database index coverage for search fields validated.
+- Integration and E2E tests for search flow.
+
+## Out of Scope
+- Filter controls by type/category (Story 1.5).
+- Event details page/modal (Story 1.6).
+
+## Definition of Done
+- Search query updates URL and survives refresh/navigation.
+- Search results satisfy AC matching rules.
+- Localization and analytics hooks are in place for search UI.
+- Lint and type checks pass for touched packages.
+
 ## Completion Status
-*   Status: ready-for-dev
 *   Ultimate context engine analysis completed - comprehensive developer guide created.
