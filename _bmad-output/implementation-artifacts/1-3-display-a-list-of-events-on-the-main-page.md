@@ -40,6 +40,8 @@
 - `packages/domain/src/events/`: Pure business logic for fetching events via GraphQL and processing DSL queries. (Reusable Domain Logic)
 
 ### Dev Notes (Custom Rules)
+- **UI Components (Loaders):** Create reusable `Skeleton` screens for initial load and a `LocalizedSpinner` for infinite scroll inside `packages/ui`.
+- **Hooks (Infinite Scroll):** Create a reusable `useInfiniteScroll` hook or component mechanism strictly inside `packages/ui/src/hooks/` (NO React code is allowed in `packages/domain`) to handle the intersection observer and fetching next pages.
 - **State Management:** Because this story requires state management, explicitly categorize the state into Server State (React Query) for fetching events data, and Client Global State (zustand) if any ephemeral UI state crosses boundaries..
 - **UI Components:** Because this story requires UI components that should be reusable (e.g. EventCard, EventGrid), these components must be created inside `packages/ui` as per project rules.
 - **Domain Logic:** Because this story requires a function/mechanism that should be reusable (e.g. `buildOptimizedDrizzleSelect`, GraphQL fetching), explicitly create them inside `packages/domain`.

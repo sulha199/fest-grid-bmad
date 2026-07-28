@@ -32,6 +32,8 @@ so that I can easily and securely access the application.
 
 ## Dev Notes
 
+- **UI Components (Loaders):** Create a reusable `BlockingLoader` component (full-screen semi-transparent overlay) inside `packages/ui` to use during the authentication redirect/processing.
+
 - **UI Components:** This story requires creating a "Sign in with Google" button and standard login page layout. **Because this story requires UI components that should be reusable, these components must be created inside `packages/ui`** as per project rules.
 - **Domain Logic:** This story requires building an authentication mechanism. **Because this story requires a function/mechanism that should be reusable, the authentication functions and handlers must be created inside `packages/domain`** (e.g., `packages/domain/auth`).
 - **External Services:** Because this story requires a cloud or external service to be setup (Google OAuth / Supabase Auth), it will include updating steps in SETUP_WALKTHROUGH.md.

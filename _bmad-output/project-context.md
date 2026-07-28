@@ -102,7 +102,9 @@ To avoid monolithic global stores and ensure strict end-to-end typing, the appli
 
 ### Code Quality & Style Rules
 
-- **Code Organization:** Pure, framework-agnostic business logic **must** live in a dedicated `packages/domain` package. Within this package, logic should be organized into sub-folders by domain area (e.g., `/events`, `/users`, `/subscriptions`). UI components and API handlers should be lean and delegate complex logic to this package.
+- **Code Organization (Domain vs UI):** Pure, framework-agnostic business logic **must** live in a dedicated `packages/domain` package. Within this package, logic should be organized into sub-folders by domain area (e.g., `/events`, `/users`, `/subscriptions`). 
+  - **CRITICAL RESTRICTION:** Absolutely NO React code (including hooks, UI state, or React imports) is allowed in `packages/domain`. This package may be imported by Node/Backend stacks (e.g., AWS Lambda), and importing React will bloat or break backend bundles.
+  - Any reusable React hooks (e.g., `useInfiniteScroll`, `useListContext`) or stateful UI logic must be placed inside `packages/ui/src/hooks/` or co-located with their UI components.
 - **UI Components & Scalability:** All reusable UI components (e.g., Shadcn/ui components, custom generic components) **must** be created in a dedicated `packages/ui` workspace package. To ensure scalability and ease of future migration (if we need to break the UI into separate packages), components **must** be strictly organized by role within `packages/ui/src/`:
   - **Core Primitives:** Place generic, domain-agnostic components (e.g., Shadcn `Button`, `Card`, generic `MultiSelect`) in `packages/ui/src/core/`.
   - **Domain Features:** Place domain-specific reusable components in `packages/ui/src/features/<domain>/` (e.g., `packages/ui/src/features/events/EventCard.tsx`, `packages/ui/src/features/events/FilterHub.tsx`, `packages/ui/src/features/auth/GoogleLoginButton.tsx`).
