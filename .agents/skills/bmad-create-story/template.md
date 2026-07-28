@@ -32,6 +32,13 @@ so that {{benefit}}.
 - Data/API boundaries and invariants
 - Testing standards summary
 
+## Global Rules References
+
+- Shared implementation rules: _bmad-output/project-context.md
+- Story structure contract: _bmad-output/planning-artifacts/story-content-structure.md
+- System architecture spine: _bmad-output/planning-artifacts/festgrid-architecture-spine.md
+- Infrastructure constraints: docs/infrastructure.md
+
 ### Project Structure Notes
 
 - Alignment with unified project structure (paths, modules, naming)

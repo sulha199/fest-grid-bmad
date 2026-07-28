@@ -15,12 +15,13 @@ Standardize story files so BMad workflows remain predictable, auditable, and imp
 4. `## Acceptance Criteria`
 5. `## Tasks / Subtasks`
 6. `## Dev Notes`
-7. `## Testing Requirements`
-8. `## Deliverables Checklist`
-9. `## Out of Scope`
-10. `## Definition of Done`
-11. `## Completion Status`
-12. `## Dev Agent Record`
+7. `## Global Rules References`
+8. `## Testing Requirements`
+9. `## Deliverables Checklist`
+10. `## Out of Scope`
+11. `## Definition of Done`
+12. `## Completion Status`
+13. `## Dev Agent Record`
 
 ## Required Story Details Fields
 
