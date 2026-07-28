@@ -3,5 +3,6 @@ persistent_facts = [
   "When creating a story, automatically identify if the story requires UI components that should be reusable. If so, explicitly mention in the story that the component should be created inside `packages/ui`.",
   "When creating a story, automatically identify if the story requires function/mechanism that should be reusable. If so, explicitly mention in the story that the function/mechanism should be created inside `packages/domain`.",
   "When creating a story, automatically identify if the story requires a cloud or external service to be setup. If so, explicitly mention in the story that it will include updating steps in SETUP_WALKTHROUGH.md",
-  "When creating a story, automatically identify if the story requires tracking user interactions or adding user-analytics. If so, explicitly mention in the story that it must include adding PostHog analytics actions."
+  "When creating a story, automatically identify if the story requires tracking user interactions or adding user-analytics. If so, explicitly mention in the story that it must include adding PostHog analytics actions.",
+  "When creating a story, automatically identify if the story requires state management. If so, explicitly categorize the state into Server State (React Query), URL State (nuqs), or Client Global State (zustand) based on the architectural guidelines, and mention this required categorization in the story."
 ]

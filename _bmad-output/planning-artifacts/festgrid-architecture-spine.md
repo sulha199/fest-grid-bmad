@@ -82,6 +82,17 @@ This document defines the core architectural invariants for the FestGrid applica
 
 ---
 
+### AD-4: Multi-Tiered Strict State Management
+
+*   **Binds:** The implementation of all stateful logic on the frontend client.
+*   **Prevents:** Monolithic global stores, untyped URL parameters, and overlapping responsibilities between server caches and client stores.
+*   **Rule:** The frontend application must rigidly separate its state into three distinct, strictly-typed tiers:
+    1.  **Server State:** `@tanstack/react-query` combined with `graphql-request` handles all async data (e.g., event feeds). It must rely on auto-generated types from `GraphQL Code Generator` to guarantee end-to-end type safety.
+    2.  **URL State:** `nuqs` manages all shareable UI state (filters, search queries) by parsing URL parameters directly into strict TypeScript types (e.g., parsing a string into an `EventType` array), eliminating runtime string-parsing bugs.
+    3.  **Client Global State:** `zustand` is reserved strictly for ephemeral UI state that crosses component boundaries (e.g., multi-tab post selection state). All Zustand stores must be interface-driven with strictly defined states and actions.
+
+---
+
 ## Related Documents
 
 - [Infrastructure](../../docs/infrastructure.md)
