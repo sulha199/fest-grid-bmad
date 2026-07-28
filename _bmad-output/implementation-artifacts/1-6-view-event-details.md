@@ -16,6 +16,10 @@
 *   **Then** a modal or a new page appears with the full details of the event.
 *   **And** the details include the event name, description, date and time, location, performers, and any other relevant information.
 *   **And** the event details are fetched from the database.
+*   **And** when source post metadata exists, the event details display:
+    *   A link to the original social media post, constructed from `postId`, `platformId` (social media platform), and scraper source data.
+    *   A link to the proxy-platform post URL, constructed from `postId`, `platformId` (social media platform), and scraper source data.
+*   **And** full source URLs are **not** stored in the database; URL generation happens at read/render time from stored metadata.
 *   **And** when opened from a list context, Next/Previous navigation respects current search/filter/sort context.
 *   **And** when accessed via direct deep-link without list context, details render correctly without requiring Next/Previous context navigation.
 *   **And** modal route and full-page route render the same event detail data shape and error/loading states.
@@ -33,10 +37,13 @@
   - Define a new GraphQL query (e.g., `query GetEventBySlug($slug: String!)`) to fetch a single event.
   - The backend resolver must use a specific domain function `getEventBySlug` (or similar) from `packages/domain` to fetch the data.
   - You **must** utilize the generic `buildOptimizedDrizzleSelect` function in the resolver to ensure the Drizzle query only selects the fields requested by the GraphQL operation.
+  - Ensure the event details payload includes source-link construction metadata (`postId`, `platformId`, scraper source data). Do **not** rely on persisted full URLs in the database.
+  - Implement deterministic URL builders for original social post and proxy-platform post URLs; if required metadata is missing, return `null`.
 - **Component UI Requirements:**
   - Create an `EventDetails` UI component that accepts the fetched event data and displays `eventName`, `description`, `location`, `types`, `categories`, and `schedules` (including dates, times, and `performers`).
   - Use Shadcn/ui `Dialog` components for the modal implementation to ensure accessibility and consistent styling.
   - Ensure shared rendering parity: the same core `EventDetails` component shape is used for both direct page and intercepted modal routes.
+  - Render both source links ("Original Post" and "Proxy Post") when available, and hide each link when its constructed URL is `null`.
 - **Internationalization (i18n):** All static labels in the event details view (e.g., "Location:", "Performers:", "Date & Time:") must be translated using `next-intl`.
 
 ### Previous Story Intelligence
@@ -56,6 +63,7 @@
 - `apps/web/app/@modal/(.)events/[slug]/page.tsx`: Create the intercepted route view that renders the `Dialog` modal.
 - `apps/web/components/events/EventDetails.tsx`: Create a shared UI component for displaying the event data, used by both the page and the modal.
 - `apps/web/components/events/EventCard.tsx` (or wherever the card is defined): Update to include the Next.js `Link` to `/events/[slug]`.
+- `packages/shared-types/src/index.ts` and GraphQL event types: include `postId`, `platformId`, and scraper source metadata plus optional constructed URLs used by the UI.
 - `packages/domain/src/events/`: Implement `getEventBySlug` business logic. It must be 100% unit-tested.
 - `packages/database/src/schema/`: Ensure no schema changes are needed, but verify `slug` is uniquely queryable.
 - GraphQL Schema and Resolvers: Update to include the new query for fetching an event by slug and ensure `buildOptimizedDrizzleSelect` is utilized.
@@ -68,6 +76,8 @@
 
 ## Testing Requirements
 - Add integration tests for `GetEventBySlug` resolver behavior and field selection compatibility.
+- Add integration/UI tests for source links: both shown when constructible, only one shown when partial metadata exists, none shown when metadata is missing.
+- Add unit tests for URL-construction helpers to verify both URLs are derived from `postId` + `platformId` + scraper source data (without DB-stored full URLs).
 - Add E2E tests for:
   - opening detail modal from list,
   - direct navigation to `/events/[slug]`,
