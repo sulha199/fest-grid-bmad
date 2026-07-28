@@ -1,6 +1,10 @@
 # Story {{epic_num}}.{{story_num}}: {{story_title}}
 
-Status: ready-for-dev
+## Story Details
+
+- Epic: {{epic_num}}
+- Story ID: {{epic_num}}.{{story_num}}
+- Status: ready-for-dev
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -25,6 +29,7 @@ so that {{benefit}}.
 
 - Relevant architecture patterns and constraints
 - Source tree components to touch
+- Data/API boundaries and invariants
 - Testing standards summary
 
 ### Project Structure Notes
@@ -35,6 +40,28 @@ so that {{benefit}}.
 ### References
 
 - Cite all technical details with source paths and sections, e.g. [Source: docs/<file>.md#Section]
+
+## Testing Requirements
+
+- Integration and/or E2E expectations tied to ACs
+
+## Deliverables Checklist
+
+- List concrete outputs expected for this story
+
+## Out of Scope
+
+- Explicit exclusions to avoid scope creep
+
+## Definition of Done
+
+- All ACs satisfied
+- Required tests pass
+- Lint and type checks pass for touched packages
+
+## Completion Status
+
+- Story context prepared for implementation
 
 ## Dev Agent Record
 
