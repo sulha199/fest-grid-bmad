@@ -1,83 +1,160 @@
 # Story 1.3: Display a list of events on the main page
 
 ## Story Details
-- **Epic:** 1 - Core App and Event Discovery
-- **Story ID:** 1.3
-- **Status:** ready-for-dev
 
-## User Story
-**As a** user,
-**I want** to see a list of curated local events on the main page,
-**So that** I can discover what's happening around me.
+- Epic: 1 - Core App and Event Discovery
+- Story ID: 1.3
+- Status: ready-for-dev
+
+## Story
+
+As a user,
+I want to see a list of curated local events on the main page,
+so that I can discover what is happening around me.
 
 ## Acceptance Criteria
-*   **Given** I am on the main page of the application,
-*   **When** the page loads,
-*   **Then** I see a grid of event cards.
-*   **And** each event card displays the event name, date, and main image.
-*   **And** the events displayed are ongoing or upcoming.
-*   **And** the event data is fetched from the database.
-*   **And** the list uses infinite scrolling with cursor or page-based pagination and appends more items without replacing already loaded items.
-*   **And** while fetching the next page, a localized bottom spinner is shown without blocking interaction.
-*   **And** all user-facing labels and empty/loading/error messages on this page are localized through `next-intl`.
-*   **And** integration coverage validates the query/filter behavior and E2E coverage validates the primary happy path for initial load and infinite-scroll append.
 
-## Developer Context
+1. Given I am on the main page of the application, when the page loads, then I see a grid of event cards.
+2. And each event card displays the event name, date, and main image.
+3. And the events displayed are only ongoing or upcoming events by default.
+4. And the event list data is fetched through the GraphQL event query path backed by database data.
+5. And the list implements infinite scrolling that appends the next page of items without replacing already loaded items.
+6. And while fetching subsequent pages, a localized non-blocking spinner is shown at the bottom of the list.
+7. And initial loading uses non-blocking skeleton UI aligned to the card layout.
+8. And all user-facing labels and loading, empty, and error states on this page are localized using next-intl.
+9. And integration tests verify ongoing/upcoming filtering and paginated append behavior, and one E2E happy-path test verifies initial render plus infinite-scroll append.
 
-### Architecture & Technical Requirements
-- **API Style (GraphQL):** The backend API **must** use GraphQL for all client-server data fetching. Implement or use the primary GraphQL event query endpoint.
-- **Unified Query DSL (AD-1 & AD-2):** All event collections must be retrieved through the primary event query endpoint using the Unified Query DSL. To fetch "ongoing or upcoming" events, the DSL query should filter events based on their end date being greater than or equal to the current date.
-- **Drizzle ORM Queries:** GraphQL resolvers running in AWS Lambda **must** dynamically build Drizzle queries to select only the specific fields requested in the GraphQL operation to prevent over-fetching. Ensure we implement a generic strictly-typed function named `buildOptimizedDrizzleSelect` that translates GraphQL resolvers into an optimized Drizzle query. This function should be reused when reading data. Reference `C:\projects\portfolio\meta-api-benchmarker\packages\adapter-drizzle\src\adapters\DrizzleAdapter.ts` for an example implementation (only copy the AST optimization part for the select query, not the whole adapter structure).
-- **Frontend Framework:** Use Next.js 15+ and React 19 features (like Server Components) for fetching and rendering data where appropriate to optimize performance (NFR1: Load in under 2 seconds).
-- **Internationalization (i18n):** All user-facing components must use `next-intl` from the start.
-- **UI Components:** Use `Shadcn/ui` components (Card, Grid, Event Card Compact) and follow the color palette (primary: "#1E293B", secondary: "#6366F1", accent: "#FF5A5F", neutral: "#FAFAFC", success: "#10B981", error: "#EF4444"). Base corner radius of 0.5rem.
-- **Date Handling:** Display dates correctly according to the user's timezone or event timezone.
-- **Code Organization:** Pure, framework-agnostic business logic **must** live in a dedicated `packages/domain` package (e.g., `/events`). UI components and API handlers should be lean.
-- **Responsibility Split:** Keep query construction, filtering rules, and pagination contracts in domain/infrastructure layers; keep rendering and interaction behavior in `packages/ui` and `apps/web`.
+## Tasks / Subtasks
 
-### Previous Story Intelligence
-- **From Story 1.2:** The database is seeded with mock event data containing various scenarios (ongoing, upcoming, past events). Ensure the GraphQL query properly filters out past events using the Unified Query DSL.
+- [ ] Task 1: Implement GraphQL discovery query path for default event list (AC: 3, 4)
+	- [ ] Add or update the main event query contract to use Unified Query DSL constraints for ongoing or upcoming results.
+	- [ ] Ensure resolver and data access stay in GraphQL plus Drizzle boundaries.
+- [ ] Task 2: Implement optimized data selection and date filter semantics (AC: 3, 4)
+	- [ ] Use or introduce buildOptimizedDrizzleSelect so field selection matches requested GraphQL fields.
+	- [ ] Enforce ongoing or upcoming semantics from PRD default view rules.
+- [ ] Task 3: Build discovery page list UI and reusable event list components (AC: 1, 2)
+	- [ ] Render event cards in a grid on the main page.
+	- [ ] Ensure card fields include name, date, and main image.
+- [ ] Task 4: Add infinite-scroll behavior and non-blocking loaders (AC: 5, 6, 7)
+	- [ ] Implement infinite-scroll append behavior without resetting existing items.
+	- [ ] Add skeleton state for initial load and localized bottom spinner for next-page fetch.
+- [ ] Task 5: Localize page UI copy and states (AC: 8)
+	- [ ] Add next-intl keys and translations for labels and loading, empty, and error states.
+- [ ] Task 6: Add analytics and quality checks (AC: 9)
+	- [ ] Track a Main Page Viewed analytics event.
+	- [ ] Add integration tests for filter semantics and append behavior.
+	- [ ] Add one E2E happy-path test for discovery list load and infinite-scroll append.
 
-### File Structure Requirements
-- `apps/web/app/page.tsx` (or similar main page route): The main Next.js page component.
-- `packages/ui/src/features/events/EventGrid.tsx`: Component for displaying the grid of events. (Reusable UI Component)
-- `packages/ui/src/features/events/EventCard.tsx`: Component for a single event card. (Reusable UI Component)
-- `packages/domain/src/events/`: Pure business logic for fetching events via GraphQL and processing DSL queries. (Reusable Domain Logic)
+## Dev Notes
 
-### Dev Notes (Custom Rules)
-- **UI Components (Loaders):** Create reusable `Skeleton` screens for initial load and a `LocalizedSpinner` for infinite scroll inside `packages/ui`.
-- **Hooks (Infinite Scroll):** Create a reusable `useInfiniteScroll` hook or component mechanism strictly inside `packages/ui/src/hooks/` (NO React code is allowed in `packages/domain`) to handle the intersection observer and fetching next pages.
-- **State Management:** Because this story requires state management, explicitly categorize the state into Server State (React Query) for fetching events data, and Client Global State (zustand) if any ephemeral UI state crosses boundaries..
-- **UI Components:** Because this story requires UI components that should be reusable (e.g. EventCard, EventGrid), these components must be created inside `packages/ui` as per project rules.
-- **Domain Logic:** Because this story requires a function/mechanism that should be reusable (e.g. `buildOptimizedDrizzleSelect`, GraphQL fetching), explicitly create them inside `packages/domain`.
-- **Analytics:** Because this story requires tracking user interactions or adding user-analytics, explicitly include adding PostHog analytics actions. Since this is the first front-facing page, ensure PostHog is initialized (via a Provider) and track a "Main Page Viewed" event.
+- Architecture and technical constraints:
+	- Use GraphQL for all client-server event fetching.
+	- Follow AD-1 and AD-2 by using Unified Query DSL through the primary event query endpoint.
+	- Keep dynamic selected-field optimization in the Drizzle resolver path via buildOptimizedDrizzleSelect.
+	- Keep state responsibilities split across server state, URL state, and ephemeral UI state per architecture rules.
+- File/path expectations:
+	- Main route UI in apps/web/app/page.tsx.
+	- Reusable list UI in packages/ui/src/features/events/ (for EventGrid and event card components).
+	- Reusable infinite scroll logic in packages/ui/src/hooks/.
+	- Framework-agnostic query and filter logic in packages/domain/src/events/.
+- Data/API boundaries:
+	- Do not query database directly from app UI; go through GraphQL contracts.
+	- Validate external/runtime data at boundaries per project rules.
+- Source references:
+	- Story source: _bmad-output/planning-artifacts/epics.md (Story 1.3)
+	- PRD source: _bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md
+	- Architecture source: _bmad-output/planning-artifacts/festgrid-architecture-spine.md
 
-### Project Context Reference
-- Ensure all code strictly follows the TypeScript configurations from `@festgrid/typescript-config`.
-- Pure business logic **must** live in `packages/domain` and be 100% unit tested.
-- All new data structures entering from GraphQL must be validated with Zod on the frontend.
-- Utilize PostgreSQL-specific data types directly imported from `drizzle-orm/pg-core`.
+## Global Rules References
+
+- Shared implementation rules: _bmad-output/project-context.md
+- Story structure contract: _bmad-output/planning-artifacts/story-content-structure.md
+- Architecture invariants: _bmad-output/planning-artifacts/festgrid-architecture-spine.md
+- Infrastructure constraints: docs/infrastructure.md
+
+## Implementation Plan (Rule-Compliant)
+
+### File Change Plan
+
+- apps/web/app/page.tsx: load and render discovery feed using paginated query flow.
+- packages/ui/src/features/events/: event grid and event card rendering.
+- packages/ui/src/hooks/: infinite-scroll behavior hook or helper.
+- packages/domain/src/events/: query/filter contracts and reusable mapping helpers.
+- GraphQL schema and resolver layer: event query contract and optimized select usage.
+- Test suites: integration and E2E coverage for this story behavior.
+
+### Rule Mapping
+
+- GraphQL-only app data access: all list reads use GraphQL endpoint and resolver boundaries.
+- Unified Query DSL: ongoing/upcoming default filter is encoded in query conditions.
+- Loader semantics: skeleton for initial load and localized bottom spinner for next-page fetch.
+- i18n-first implementation: all user-facing strings and states are localized with next-intl.
+- Domain and UI boundary: reusable business logic stays framework-agnostic in packages/domain; UI stays in apps/web and packages/ui.
+
+### Verification Plan
+
+- Verify default list excludes past events and includes ongoing/upcoming events.
+- Verify infinite-scroll appends next pages without replacing existing items.
+- Verify localized loading, empty, and error states are rendered.
+- Run integration tests for query/filter and append behavior.
+- Run one E2E happy-path test for initial render and infinite-scroll append.
+- Run lint and type checks for touched packages.
+
+## Pre-Coding Approval Gate
+
+- [x] Scope and acceptance criteria reviewed
+- [x] Architecture and API/data boundaries confirmed
+- [x] Testing plan reviewed
+- [ ] Human approval to start coding granted (pending)
 
 ## Testing Requirements
-- Add integration tests for ongoing/upcoming filter behavior and paginated append behavior.
-- Add an E2E happy-path test for discovery page render + infinite-scroll append + localized loading UI.
+
+- Integration coverage for ongoing/upcoming filter semantics.
+- Integration coverage for paginated append behavior.
+- One E2E happy-path flow for discovery page initial load and infinite-scroll append.
 
 ## Deliverables Checklist
-- Main page query implementation using GraphQL + unified DSL.
-- Event grid and event card rendering wired to paginated fetch.
-- Infinite-scroll trigger and localized bottom spinner.
-- Localization keys and translations for page-level microcopy.
-- Integration and E2E tests for core flow.
+
+- GraphQL event query path for main discovery feed.
+- Event grid and card rendering on the main page.
+- Infinite-scroll append behavior and localized bottom spinner.
+- Skeleton state for initial load.
+- next-intl translations for discovery page UI states.
+- Integration and E2E tests for this story flow.
 
 ## Out of Scope
-- Detail view implementation (handled in Story 1.6).
+
+- Event detail view behavior and context navigation (Story 1.6).
 - Favorites, subscriptions, and personalization features (Epic 2+).
 
 ## Definition of Done
-- Acceptance criteria are met and validated by tests.
-- Pagination append behavior works without list reset.
-- Localization is present for all user-facing page text.
+
+- Acceptance criteria satisfied.
+- Required integration and E2E tests pass.
 - Lint and type checks pass for touched packages.
 
 ## Completion Status
-*   Ultimate context engine analysis completed - comprehensive developer guide created.
+
+- Story validated against epics, PRD, architecture, and story structure rules.
+- Story reformatted to the standardized BMad story contract.
+- Status remains ready-for-dev and aligned with sprint-status.yaml.
+
+## Dev Agent Record
+
+### Agent Model Used
+
+GPT-5.3-Codex
+
+### Debug Log References
+
+- Reformat and validation run for Story 1.3 using story-content-structure and active planning artifacts.
+
+### Completion Notes List
+
+- Acceptance criteria normalized into testable numbered statements.
+- Added AC-linked tasks and explicit rule-compliant implementation plan.
+- Added approval gate with explicit pending human approval state.
+
+### File List
+
+- _bmad-output/implementation-artifacts/1-3-display-a-list-of-events-on-the-main-page.md
