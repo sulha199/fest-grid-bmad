@@ -32,6 +32,15 @@ so that {{benefit}}.
 - Data/API boundaries and invariants
 - Testing standards summary
 
+## Data Type Compatibility & Migration Requirements
+
+- Compatibility finding: [No mismatch found | Describe missing/incompatible data types]
+- Impacted fields/contracts: [DB columns, API payloads, TypeScript models/interfaces]
+- Required DB migration changes: [DDL/data migration/backfill details, or "No changes required"]
+- Required TypeScript type changes: [Type/interface/schema updates, or "No changes required"]
+- Backward compatibility and rollout notes: [versioning, fallbacks, sequencing]
+- Verification checks: [tests/queries/type checks proving end-to-end data type alignment]
+
 ## Global Rules References
 
 - Shared implementation rules: _bmad-output/project-context.md

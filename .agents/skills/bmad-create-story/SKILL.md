@@ -301,7 +301,8 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
   versions - **Code Structure:** Folder organization, naming conventions, file patterns - **API Patterns:** Service structure, endpoint
   patterns, data contracts - **Database Schemas:** Tables, relationships, constraints relevant to story - **Security Requirements:**
   Authentication patterns, authorization rules - **Performance Requirements:** Caching strategies, optimization patterns - **Testing
-  Standards:** Testing frameworks, coverage expectations, test patterns - **Deployment Patterns:** Environment configurations, build
+  Standards:** Testing frameworks, coverage expectations, test patterns - **Data Type Compatibility:** Alignment across DB schema,
+  API contracts, and TypeScript models/interfaces (including nullability, enum values, precision/scale, and optionality) - **Deployment Patterns:** Environment configurations, build
   processes - **Integration Patterns:** External service integrations, data flows <action>Extract any story-specific requirements that the
   developer MUST follow</action>
   <action>Identify any architectural decisions that override previous patterns</action>
@@ -314,6 +315,15 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     - What this story changes: the specific sections or behaviors being modified
     - What must be preserved: existing interactions and behaviors the story must not break
   </action>
+  <action>Audit data-type compatibility across the story scope. If any missing or incompatible data type is found,
+    add an explicit "Data Type Compatibility & Migration Requirements" section in the story with:
+    - The mismatch and impacted fields/contracts
+    - Required database migration changes (DDL/data migration/backfill as needed)
+    - Required TypeScript type/interface/schema updates
+    - Backward compatibility and rollout notes
+    - Verification checks/tests to prove alignment end-to-end
+  </action>
+  <action>If no mismatch is found, still include the same section and record "No changes required" with a brief rationale.</action>
   <critical>A story implementation must leave the system working end-to-end — not just satisfy its stated ACs.
   If a behavior is required for the feature to work correctly in the existing system, it is a requirement
   whether or not it is explicitly written in the story. The dev agent owns this.</critical>
@@ -362,6 +372,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
   <template-output file="{default_output_file}">
   file_structure_requirements</template-output>
   <template-output file="{default_output_file}">testing_requirements</template-output>
+  <template-output file="{default_output_file}">data_type_compatibility_requirements</template-output>
 
   <!-- Previous story intelligence -->
   <check
