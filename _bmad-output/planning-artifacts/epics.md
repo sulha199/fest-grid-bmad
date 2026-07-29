@@ -284,11 +284,63 @@ The project is set up with a solid foundation and CI/CD pipeline.
 *   **Then** the workflow installs dependencies, runs linting, and executes tests for all packages.
 *   **And** the workflow fails if any of these steps fail.
 
+### Story 0.6: Set up i18n foundation (next-intl)
+
+**As a** developer,
+**I want** the Next.js app wired up with `next-intl` for locale routing and message loading before any user-facing page is built,
+**So that** i18n is a foundational capability every future story consumes, not something bolted on ad hoc per feature (AR: Core Principle — i18n is foundational, not an afterthought).
+
+**Acceptance Criteria:**
+
+*   **Given** the Next.js app is initialized (Story 0.1) and Shadcn/UI themes are configured (Story 0.3),
+*   **When** the app boots,
+*   **Then** `next-intl` is configured with locale routing/middleware and a dedicated `locales` directory containing separate JSON message files for `en` and `id` (NFR23).
+*   **And** the root layout is wrapped with the i18n provider so any page/component can call `useTranslations` without additional setup.
+*   **And** the layout/container structure supports both LTR and RTL rendering (NFR24) even though only LTR locales ship at MVP.
+*   **And** at least one existing hardcoded string (e.g. on the placeholder home page) is migrated to a message key, proving the pipeline works end-to-end.
+
+**Note:** This story resolves the i18n gap flagged in `deferred-work.md` (code review of 0-1, 2026-07-22) and Gate 3 (`story-split-gate.md`) — i18n must not be re-introduced ad hoc inside individual feature stories.
+
+### Story 0.7: Build the global app shell & navigation layout
+
+**As a** developer,
+**I want** a shared, responsive app shell (header/nav, content region, footer as applicable) established once in `packages/ui`/`apps/web`,
+**So that** every route in UX-DR9 (`/`, `/favorites`, `/my-calendar`, `/feed`, `/settings`, etc.) is built on a consistent, mobile-first layout instead of each feature story reinventing page chrome.
+
+**Acceptance Criteria:**
+
+*   **Given** Shadcn/UI themes (Story 0.3) and the i18n provider (Story 0.6) are set up,
+*   **When** the root layout renders,
+*   **Then** it composes a shared app shell (navigation, content region) that all routes render inside of.
+*   **And** the shell is mobile-first and responsive per UX-DR8, and its containers are RTL/LTR-ready per NFR24.
+*   **And** the shell exposes clear extension points for feature stories to register nav entries as new routes are added (Epics 1-5), without needing to modify shared layout code for every new page.
+*   **And** the shell is where cross-cutting providers (i18n, analytics, theming) are composed, so feature stories only add their page content — they do not re-wire providers.
+
+**Note:** This story exists because of Gate 3 (`story-split-gate.md`) — layout/navigation is shared across every future epic, and must not be defined incidentally while building the Story 1.3 main page.
+
+### Story 0.8: Set up GraphQL server scaffold, Code Generator pipeline, and the optimized-select query utility
+
+**As a** developer,
+**I want** the GraphQL server foundation, the GraphQL Code Generator pipeline, and the mandated `buildOptimizedDrizzleSelect` utility built once as shared, generic infrastructure,
+**So that** every future resolver (events now; schedules, users, locations, subscriptions later) reuses the same query-optimization and type-generation machinery instead of each feature reimplementing it.
+
+**Acceptance Criteria:**
+
+*   **Given** Drizzle ORM and the initial schema exist (Stories 0.4, 1.1),
+*   **When** the backend app (`apps/backend`) starts,
+*   **Then** a GraphQL server is running with query depth/complexity limits configured to prevent abuse.
+*   **And** `GraphQL Code Generator` is configured against the GraphQL schema, generating end-to-end TypeScript types (and typed `graphql-request`/`react-query` hooks) consumed by `apps/web`, so client and server can never silently drift out of sync.
+*   **And** a generic, strictly-typed `buildOptimizedDrizzleSelect` function exists in `packages/database`, translating GraphQL resolve-info/AST into an optimized Drizzle `select` that only fetches requested fields.
+*   **And** `buildOptimizedDrizzleSelect` is table/schema-agnostic (not events-specific) so any future resolver can import and reuse it, and it has dedicated unit tests proving correct field-selection behavior.
+*   **And** the codegen script runs as part of `pnpm build`/CI (Story 0.5) so type drift fails the build.
+
+**Note:** This story exists because of Gate 3 (`story-split-gate.md`) — GraphQL scaffolding, codegen, and `buildOptimizedDrizzleSelect` are named as mandatory in `project-context.md` but had no owning story; Story 1.3a below builds the events-specific resolver on top of this foundation rather than re-deriving it.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
 **FRs covered:** FR1, FR2, FR3, FR4, FR13, FR14, FR63
-**Architecture & UX compliance:** All event retrieval in this epic must go through the backend GraphQL API using the Unified Query DSL (AD-1/AD-2) — never directly from the database or domain package. Shareable search/filter state must use URL state (AD-4, `nuqs`). `bmad-create-story` must run the Architecture/Infra Completeness and UI Complexity & Reusability gates from `story-split-gate.md` for every story below; the splits already reflected here (1.3a/1.3b, 1.6a) are the result of applying those gates retroactively to this epic.
+**Architecture & UX compliance:** All event retrieval in this epic must go through the backend GraphQL API using the Unified Query DSL (AD-1/AD-2) — never directly from the database or domain package. Shareable search/filter state must use URL state (AD-4, `nuqs`). `bmad-create-story` must run the Architecture/Infra Completeness, UI Complexity & Reusability, and Foundational/Cross-Cutting Dependency gates from `story-split-gate.md` for every story below; the splits already reflected here (1.3a/1.3b, 1.6a) — and the promotion of shared tooling into Epic 0 Stories 0.6-0.8 — are the result of applying those gates retroactively to this epic.
 
 ### Story 1.1: Create initial database tables
 
@@ -324,12 +376,14 @@ Users can discover and browse events.
 
 **Acceptance Criteria:**
 
-*   **Given** the initial database tables and mock data exist (Stories 1.1, 1.2),
+*   **Given** the GraphQL server scaffold, Code Generator pipeline, and `buildOptimizedDrizzleSelect` utility exist (Story 0.8), and the initial database tables and mock data exist (Stories 1.1, 1.2),
 *   **When** a client sends a Unified Query DSL request (AD-1) to the backend GraphQL API,
-*   **Then** the backend resolves it against the database via Drizzle and returns matching events with pagination support.
+*   **Then** the backend resolves it against the database via Drizzle, using `buildOptimizedDrizzleSelect` (Story 0.8) to fetch only requested fields, and returns matching events with pagination support.
 *   **And** the API supports filtering by name/performer/location (`contains`), type/category (`in`), and combining conditions with `and`/`or`, per AD-1.
 *   **And** the API supports fetching a single event by ID for the detail view.
-*   **And** no package outside `apps/backend` imports the database/domain layer directly — `apps/web` only talks to events data through this API (e.g. via `graphql-request`).
+*   **And** no package outside `apps/backend` imports the database/domain layer directly — `apps/web` only talks to events data through this API (e.g. via generated `graphql-request` types from Story 0.8).
+
+**Depends on:** Story 0.8
 
 ### Story 1.3b: Build the reusable EventCard component
 
@@ -362,7 +416,7 @@ Users can discover and browse events.
 *   **And** the list implements infinite scrolling, seamlessly fetching and appending the next page of results as I scroll near the bottom.
 *   **And** a localized non-blocking spinner is displayed at the bottom of the list while fetching subsequent pages.
 
-**Depends on:** Story 1.3a, Story 1.3b
+**Depends on:** Story 0.6, Story 0.7, Story 1.3a, Story 1.3b
 
 ### Story 1.4: Search for events
 
