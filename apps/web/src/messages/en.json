@@ -1,0 +1,11 @@
+{
+  "home": {
+    "title": "Discover local events",
+    "description": "Browse curated events happening now and soon.",
+    "loading": "Loading events…",
+    "loadingMore": "Loading more events…",
+    "empty": "No events are available right now.",
+    "error": "We could not load events. Please try again.",
+    "retry": "Try again"
+  }
+}

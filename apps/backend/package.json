@@ -1,0 +1,32 @@
+{
+  "name": "@festgrid/backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FestGrid GraphQL API backend. Runs as an AWS Lambda function behind API Gateway in production, and as a local HTTP server during development.",
+  "main": "./dist/handler.js",
+  "types": "./dist/handler.d.ts",
+  "scripts": {
+    "dev": "tsx watch src/local-server.ts",
+    "build": "tsc",
+    "start": "node dist/local-server.js",
+    "test": "node --import tsx --test src/**/*.test.ts",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "@festgrid/database": "workspace:*",
+    "@festgrid/domain": "workspace:*",
+    "@festgrid/shared-types": "workspace:*",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.30.10",
+    "graphql": "^16.9.0",
+    "postgres": "^3.4.4"
+  },
+  "devDependencies": {
+    "@festgrid/eslint-config": "workspace:*",
+    "@festgrid/typescript-config": "workspace:*",
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "^20.14.10",
+    "tsx": "^4.9.0",
+    "typescript": "^6.0.3"
+  }
+}

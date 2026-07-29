@@ -1,70 +1,164 @@
-"use client"
+"use client";
 
-import { useTheme } from "next-themes"
-import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
+import type { EventInfo } from '@festgrid/shared-types';
+import { EventGrid, useInfiniteScroll } from '@festgrid/ui';
+import { usePostHog } from '@festgrid/analytics';
+import { LoaderCircle } from 'lucide-react';
 
-export default function Home() {
-  const { theme, setTheme } = useTheme()
+const PAGE_SIZE = 6;
+
+export default function HomePage() {
+  const t = useTranslations('home');
+  const posthog = usePostHog();
+  const [events, setEvents] = useState<EventInfo[]>([]);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    posthog?.capture('Main Page Viewed');
+    // Only fire once per mount; the analytics client instance is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadInitialPage = async () => {
+      try {
+        const response = await fetch(`/api/events?page=1&pageSize=${PAGE_SIZE}`);
+        if (!response.ok) {
+          throw new Error('Failed to load events');
+        }
+
+        const data = (await response.json()) as { items: EventInfo[]; hasMore: boolean };
+        if (isActive) {
+          setEvents(data.items);
+          setHasMore(data.hasMore);
+          setHasError(false);
+        }
+      } catch (error) {
+        console.error(error);
+        if (isActive) {
+          setEvents([]);
+          setHasMore(false);
+          setHasError(true);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadInitialPage();
+
+    return () => {
+      isActive = false;
+    };
+  }, [reloadToken]);
+
+  const loadMore = async () => {
+    if (isLoadingMore || !hasMore) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+
+    try {
+      const response = await fetch(`/api/events?page=${nextPage}&pageSize=${PAGE_SIZE}`);
+      if (!response.ok) {
+        throw new Error('Failed to load more events');
+      }
+
+      const data = (await response.json()) as { items: EventInfo[]; hasMore: boolean };
+      setEvents((prev) => [...prev, ...data.items]);
+      setPage(nextPage);
+      setHasMore(data.hasMore);
+    } catch (error) {
+      console.error(error);
+      setHasMore(false);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const { sentinelRef } = useInfiniteScroll({
+    enabled: !isLoading,
+    hasMore,
+    isLoading: isLoadingMore,
+    onLoadMore: loadMore,
+  });
+
+  const retryInitialLoad = () => {
+    setIsLoading(true);
+    setHasError(false);
+    setPage(1);
+    setHasMore(true);
+    setEvents([]);
+    setReloadToken((token) => token + 1);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 p-8">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold">{t('title')}</h1>
+          <p className="text-muted-foreground">{t('description')}</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: PAGE_SIZE }).map((_, index) => (
+            <div key={index} className="space-y-3 rounded-xl border border-border bg-card p-4">
+              <div className="h-32 animate-pulse rounded-lg bg-muted" />
+              <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8 space-y-8 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">FestGrid Design System Verification</h1>
-        <Button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-          Toggle Theme
-        </Button>
+    <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 p-8">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-semibold">{t('title')}</h1>
+        <p className="text-muted-foreground">{t('description')}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Theme Colors</CardTitle>
-            <CardDescription>Primary, Secondary, Accent</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Button variant="default">Primary</Button>
-              <Button variant="secondary">Secondary</Button>
-              <Button className="bg-accent text-accent-foreground hover:bg-accent/90">Accent</Button>
+      {hasError ? (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">
+          <p>{t('error')}</p>
+          <button
+            type="button"
+            onClick={retryInitialLoad}
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            {t('retry')}
+          </button>
+        </div>
+      ) : events.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">
+          {t('empty')}
+        </div>
+      ) : (
+        <>
+          <EventGrid events={events} />
+          {isLoadingMore ? (
+            <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+              {t('loadingMore')}
             </div>
-            <div className="flex gap-2">
-              <Button variant="destructive">Destructive</Button>
-              <Button className="bg-success text-success-foreground hover:bg-success/90">Success</Button>
-            </div>
-            <div className="flex gap-2">
-              <Button className="bg-wizard-primary text-primary-foreground hover:bg-wizard-primary/90">Wizard Primary</Button>
-              <Button className="bg-wizard-secondary text-primary-foreground hover:bg-wizard-secondary/90">Wizard Secondary</Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Button States</CardTitle>
-            <CardDescription>Verify disabled styling</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button disabled>Disabled Button</Button>
-          </CardContent>
-          <CardFooter>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline">Open Dialog</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Dialog verification</DialogTitle>
-                  <DialogDescription>
-                    This verifies that modal patterns and dialog styling work as intended with the base border radius.
-                  </DialogDescription>
-                </DialogHeader>
-              </DialogContent>
-            </Dialog>
-          </CardFooter>
-        </Card>
-      </div>
+          ) : null}
+          <div ref={sentinelRef} className="h-1" />
+        </>
+      )}
     </div>
-  )
+  );
 }

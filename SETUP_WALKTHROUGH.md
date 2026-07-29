@@ -49,46 +49,31 @@ Since Vercel natively integrates with GitHub for Continuous Deployment (CD), you
 
 ## 2. Backend (AWS Serverless)
 
-The backend is built with TypeScript on a serverless architecture using AWS.
+The backend lives in `apps/backend` and is built with TypeScript. It exposes a single GraphQL endpoint (`POST /graphql`) backed by Drizzle ORM/Postgres, following the Unified Query DSL defined in the architecture spine.
 
-### Prerequisites
+### Local Development
 
-*   An AWS account.
-*   AWS CLI installed and configured.
-*   Serverless Framework installed: `npm install -g serverless`
+1.  **Configure environment:**
+    Ensure `DATABASE_URL` is set in the root `.env` (see Section 3). Optionally override `BACKEND_PORT` (defaults to `4001`).
+2.  **Run the local dev server:**
+    From the repo root: `pnpm --filter @festgrid/backend dev` (or `pnpm dev` to run all apps via Turborepo).
+    This starts a plain Node HTTP server at `http://localhost:4001/graphql` that reuses the exact same request-handling code as the Lambda handler.
+3.  **How `apps/web` reaches it:**
+    The Next.js route handler at `apps/web/src/app/api/events` proxies GraphQL requests to `BACKEND_GRAPHQL_URL` (defaults to `http://localhost:4001/graphql`), so the browser never talks to the backend directly.
 
-### Setup Steps
+### Production Deployment (Not Yet Automated)
 
-1.  **Create a new Serverless project:**
+*   An AWS account and AWS CLI configured.
+*   Serverless Framework (or AWS CDK/SAM) installed: `npm install -g serverless`
 
-    ```bash
-    serverless create --template aws-nodejs-typescript --path backend
-    cd backend
-    ```
+The Lambda entry point already exists at `apps/backend/src/handler.ts` (exported as `handler`), written against the API Gateway HTTP API (`APIGatewayProxyEventV2`) event shape. What's still needed:
 
-2.  **Project Structure:**
+1.  **Infrastructure-as-code:** Add a `serverless.yml` (or CDK/SAM stack) under `apps/backend` defining the API Gateway HTTP API route (`POST /graphql`), the Lambda function (pointing at the compiled `dist/handler.js`), and the `DATABASE_URL`/`CORS_ALLOWED_ORIGIN` environment variables.
+2.  **Deployment:** `cd apps/backend && pnpm run build && pnpm exec serverless deploy`.
+3.  **Wire up `BACKEND_GRAPHQL_URL`:** Point the Vercel-deployed `apps/web` at the deployed API Gateway URL.
 
-    Your `serverless.yml` file will define the AWS resources (API Gateway, Lambda, SQS, EventBridge). You will need to create separate Lambda functions for:
+Separate Lambda functions for the Scraper, AI Processor, and Ingestor (and their SQS queues) are still out of scope until the Epic 3 stories that require them.
 
-    *   API Logic
-    *   Scraper
-    *   AI Processor
-    *   Ingestor
-
-3.  **Install dependencies:**
-
-    ```bash
-    npm install
-    npm install aws-sdk
-    ```
-
-4.  **Implement the Unified Query DSL:**
-
-    In your API Logic Lambda, you will need to implement the logic to parse and handle the Unified Query DSL defined in the architecture spine.
-
-5.  **Deployment:**
-
-    *   Deploy the service to AWS: `serverless deploy`
 
 ## 3. Database (Drizzle ORM, Local Postgres & Supabase)
 
