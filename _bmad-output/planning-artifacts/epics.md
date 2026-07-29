@@ -336,6 +336,63 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Note:** This story exists because of Gate 3 (`story-split-gate.md`) — GraphQL scaffolding, codegen, and `buildOptimizedDrizzleSelect` are named as mandatory in `project-context.md` but had no owning story; Story 1.3a below builds the events-specific resolver on top of this foundation rather than re-deriving it.
 
+### Story 0.9: Set up state management foundation (React Query, nuqs, Zustand)
+
+**As a** developer,
+**I want** to configure `@tanstack/react-query`, `nuqs`, and `zustand` strictly within the frontend application (`apps/web`),
+**So that** all future features have a clear, type-safe pattern for managing server state, URL state, and client global state without creating unnecessary shared workspace packages.
+
+**Acceptance Criteria:**
+
+*   **Given** the Next.js app is initialized,
+*   **When** I load a page,
+*   **Then** a `QueryClientProvider` is configured at the root to handle server state fetching and caching.
+*   **And** `nuqs` is configured for handling URL search parameters type-safely.
+*   **And** a pattern for ephemeral global UI state using `zustand` is established with examples or documentation for future stories to follow.
+*   **And** all these state dependencies remain isolated in `apps/web`.
+
+### Story 0.10: Set up testing frameworks foundation (Vitest, MSW, Playwright)
+
+**As a** developer,
+**I want** to configure `Vitest`, `MSW` (Mock Service Worker), and `Playwright` in the monorepo,
+**So that** all packages and applications have the necessary tools for the "testing trophy" approach.
+
+**Acceptance Criteria:**
+
+*   **Given** the monorepo is initialized,
+*   **When** I run `pnpm test`,
+*   **Then** a shared testing configuration workspace package (`@festgrid/testing-config`) is established to prevent duplicated setup code.
+*   **And** `Vitest` runs unit/integration tests across all packages (`packages/domain`, `packages/ui`, etc.).
+*   **And** `MSW` is configured to intercept and mock API calls for integration tests.
+*   **And** `Playwright` is set up strictly in `apps/web` (or a dedicated e2e root) for running E2E tests against the Next.js app.
+
+### Story 0.11: Set up runtime schema validation (Zod, AJV)
+
+**As a** developer,
+**I want** to establish `Zod` (for frontend) and `AJV` (for backend) validation patterns with strict package dependency isolation,
+**So that** all data entering the system is strictly validated at the boundaries without bundle pollution.
+
+**Acceptance Criteria:**
+
+*   **Given** the frontend and backend apps are running,
+*   **When** external data is received (e.g., via API request or scraping),
+*   **Then** the project uses `AJV` strictly installed in `apps/backend` for fast JSON schema validation on the backend.
+*   **And** the project uses `Zod` strictly installed in `apps/web` (or specific UI packages) for form validation and client-side data parsing.
+*   **And** there is no shared validation package that mixes these dependencies.
+
+### Story 0.12: Set up Firebase Cloud Messaging (FCM) foundation
+
+**As a** developer,
+**I want** to integrate the Firebase Admin SDK exclusively on the backend and the Firebase JS SDK exclusively on the frontend,
+**So that** the project has the infrastructure ready for sending and receiving push notifications without leaking Node.js admin libraries into the browser bundle.
+
+**Acceptance Criteria:**
+
+*   **Given** the Firebase project is configured,
+*   **When** the backend needs to send a notification,
+*   **Then** it successfully interfaces with the `firebase-admin` SDK (installed strictly in `apps/backend`).
+*   **And** the frontend is capable of requesting notification permissions and registering device tokens using the `firebase` JS SDK (installed strictly in `apps/web`).
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
