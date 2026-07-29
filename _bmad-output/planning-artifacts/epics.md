@@ -288,6 +288,7 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 Users can discover and browse events.
 **FRs covered:** FR1, FR2, FR3, FR4, FR13, FR14, FR63
+**Architecture & UX compliance:** All event retrieval in this epic must go through the backend GraphQL API using the Unified Query DSL (AD-1/AD-2) — never directly from the database or domain package. Shareable search/filter state must use URL state (AD-4, `nuqs`). `bmad-create-story` must run the Architecture/Infra Completeness and UI Complexity & Reusability gates from `story-split-gate.md` for every story below; the splits already reflected here (1.3a/1.3b, 1.6a) are the result of applying those gates retroactively to this epic.
 
 ### Story 1.1: Create initial database tables
 
@@ -315,6 +316,36 @@ Users can discover and browse events.
 *   **When** I run the seed script,
 *   **Then** the database is populated with a set of mock events, including names, dates, locations, schedules, performers, and all related nested data.
 
+### Story 1.3a: Build the events backend GraphQL API layer
+
+**As a** developer,
+**I want** a backend GraphQL API layer that resolves event queries using the Unified Query DSL (AD-1/AD-2) against the database,
+**So that** every event discovery feature (list, search, filter, details, and later favorites/calendar views) retrieves data through one consistent, secure API instead of the frontend accessing the database directly.
+
+**Acceptance Criteria:**
+
+*   **Given** the initial database tables and mock data exist (Stories 1.1, 1.2),
+*   **When** a client sends a Unified Query DSL request (AD-1) to the backend GraphQL API,
+*   **Then** the backend resolves it against the database via Drizzle and returns matching events with pagination support.
+*   **And** the API supports filtering by name/performer/location (`contains`), type/category (`in`), and combining conditions with `and`/`or`, per AD-1.
+*   **And** the API supports fetching a single event by ID for the detail view.
+*   **And** no package outside `apps/backend` imports the database/domain layer directly — `apps/web` only talks to events data through this API (e.g. via `graphql-request`).
+
+### Story 1.3b: Build the reusable EventCard component
+
+**As a** developer,
+**I want** a reusable `EventCard` component in `packages/ui`,
+**So that** the main event list (and future views like favorites/calendar) can display events consistently, including their image and loading/empty/error states.
+
+**Acceptance Criteria:**
+
+*   **Given** an event's data (name, date, main image, and metadata),
+*   **When** `EventCard` renders,
+*   **Then** it displays the event name, date, and main image.
+*   **And** it displays a graceful fallback/placeholder when no image is available.
+*   **And** it exposes a loading (skeleton) state and renders correctly with only the fields guaranteed by the API contract.
+*   **And** the component is documented/exported from `packages/ui` for reuse across features.
+
 ### Story 1.3: Display a list of events on the main page
 
 **As a** user,
@@ -325,12 +356,13 @@ Users can discover and browse events.
 
 *   **Given** I am on the main page of the application,
 *   **When** the page loads,
-*   **Then** I see a grid of event cards.
-*   **And** each event card displays the event name, date, and main image.
+*   **Then** I see a grid of `EventCard`s (Story 1.3b).
 *   **And** the events displayed are ongoing or upcoming.
-*   **And** the event data is fetched from the database.
+*   **And** the event data is fetched via the backend GraphQL API using the Unified Query DSL (Story 1.3a) — not directly from the database.
 *   **And** the list implements infinite scrolling, seamlessly fetching and appending the next page of results as I scroll near the bottom.
 *   **And** a localized non-blocking spinner is displayed at the bottom of the list while fetching subsequent pages.
+
+**Depends on:** Story 1.3a, Story 1.3b
 
 ### Story 1.4: Search for events
 
@@ -342,9 +374,10 @@ Users can discover and browse events.
 
 *   **Given** I am on the main page of the application,
 *   **When** I type a search query in the search bar and press enter,
-*   **Then** the list of events is filtered to show only events that match the search query.
+*   **Then** the list of events is filtered to show only events that match the search query, via a `contains` condition sent through the Unified Query DSL (Story 1.3a) — not a client-side filter of already-fetched data.
 *   **And** the search is performed on the event name, performers, and location name.
 *   **And** the search supports partial matching.
+*   **And** the active search query is reflected in the URL as shareable/bookmarkable state (AD-4 URL State via `nuqs`).
 
 ### Story 1.5: Filter events by type and category
 
@@ -356,8 +389,22 @@ Users can discover and browse events.
 
 *   **Given** I am on the main page of the application,
 *   **When** I select one or more event types or categories from the filter controls,
-*   **Then** the list of events is filtered to show only events that match the selected types and categories.
+*   **Then** the list of events is filtered via `in` conditions sent through the Unified Query DSL (Story 1.3a) — not a client-side filter of already-fetched data.
 *   **And** I can clear the filters to see all events again.
+*   **And** the active filters are reflected in the URL as shareable/bookmarkable state (AD-4 URL State via `nuqs`), combinable with the search query from Story 1.4.
+
+### Story 1.6a: Build the reusable event detail view component
+
+**As a** developer,
+**I want** a reusable event detail display component in `packages/ui`,
+**So that** the event name, description, date/time, location, and performers can be presented consistently wherever event details are shown.
+
+**Acceptance Criteria:**
+
+*   **Given** a fully-loaded event's details,
+*   **When** the component renders,
+*   **Then** it displays the event name, description, date and time, location, performers, and image, with a graceful fallback for any missing optional field.
+*   **And** it exposes loading and error states independent of how it is invoked (modal or full page).
 
 ### Story 1.6: View event details
 
@@ -369,11 +416,12 @@ Users can discover and browse events.
 
 *   **Given** I am on the main page of the application,
 *   **When** I click on an event card,
-*   **Then** a modal or a new page appears with the full details of the event.
-*   **And** the details include the event name, description, date and time, location, performers, and any other relevant information.
-*   **And** the event details are fetched from the database.
+*   **Then** a modal or a new page appears, using the event detail component (Story 1.6a), with the full details of the event.
+*   **And** the event details are fetched via the backend GraphQL API using the Unified Query DSL (Story 1.3a) — not directly from the database.
 *   **And** the detail view provides "Next" and "Previous" navigation controls that respect the search, filter, and sort context of the list I navigated from.
 *   **And** if I navigate to the end of the currently loaded page using the "Next" button, the system automatically fetches the next page of results in the background.
+
+**Depends on:** Story 1.3a, Story 1.6a
 
 ### Story 1.7: User Signup and Login with Google
 
@@ -386,7 +434,7 @@ Users can discover and browse events.
 *   **Given** I am on the login page,
 *   **When** I click the "Sign in with Google" button,
 *   **Then** I am redirected to the Google authentication page.
-*   **And** after successful authentication, a new user account is created in the system if it doesn't exist.
+*   **And** after successful authentication, a new user account is created in the system if it doesn't exist, persisted via the backend API layer — not a direct database write from `apps/web`.
 *   **And** I am logged in to the application.
 *   **And** I am redirected to the main page.
 

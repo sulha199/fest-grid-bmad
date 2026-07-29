@@ -5,12 +5,13 @@ Scope: Applies to `bmad-create-story` for all epics/stories from this point forw
 
 ## Why This Exists
 
-Retrospective on Story 1.3 found two recurring failure modes that the original `bmad-create-story` → `bmad-quick-dev` pass did not catch, because nothing in the workflow explicitly checked for them:
+Retrospective on Story 1.3 found recurring failure modes that the original `bmad-create-story` → `bmad-quick-dev` pass did not catch, because nothing in the workflow explicitly checked for them:
 
 1. **Missing reusable-component/complex-UI refinement.** `EventCard.tsx` was built without the event image, because the story bundled "build the reusable card" into a larger feature story instead of giving it its own focused refinement pass (props/variants, image handling, loading/empty/error states, a11y).
 2. **Missing infra/architectural layer.** The frontend called the DB/domain layer directly instead of going through a backend + GraphQL serverless layer, because no story existed yet for that layer — the feature story quietly absorbed the missing layer instead of surfacing it as a prerequisite.
+3. **Missing foundational/cross-cutting dependency.** i18n (next-intl) was flagged back on 2026-07-22 as needing its own dedicated setup story, but no such story was ever created — so i18n config, the global app shell/layout, the GraphQL Code Generator pipeline, and the mandated `buildOptimizedDrizzleSelect` utility all got built ad hoc (or not at all) as side effects of feature stories, instead of as their own reusable, one-time-built Epic 0 stories.
 
-This document defines two mandatory gates that `bmad-create-story` must run before finalizing any story, so gaps like these are surfaced and split off *before* a story is written, not discovered after `bmad-quick-dev` ships it.
+This document defines three mandatory gates that `bmad-create-story` must run before finalizing any story, so gaps like these are surfaced and split off *before* a story is written, not discovered after `bmad-quick-dev` ships it.
 
 ## Gate 1 — Architecture / Infrastructure Completeness
 
@@ -40,14 +41,30 @@ This document defines two mandatory gates that `bmad-create-story` must run befo
 
 The `bmad-create-story` input table only looks for `*ux*.md` under `{planning_artifacts}`. For this project, the actual authoritative UX specs live under `{project-root}/design-artifacts/<UX-*-run-*>/DESIGN.md` and `EXPERIENCE.md` (WDS module output), which that glob never matches. Gate 2 must always locate and read the relevant `DESIGN.md`/`EXPERIENCE.md` for the feature area in `design-artifacts/`, in addition to (not instead of) the `planning_artifacts` glob.
 
+## Gate 3 — Foundational / Cross-Cutting Dependency Completeness
+
+**Owner persona:** Winston (`bmad-agent-architect`)
+
+Distinct from Gate 1 (which asks "does *this feature* need its own backend/API layer?"), Gate 3 asks "does this story quietly depend on shared, project-wide tooling/infrastructure that isn't built yet and that *other* future stories/epics will also need?" Feature-scoped gaps stay feature-scoped (Gate 1/2); cross-cutting gaps get split into their own foundational story, typically under Epic 0.
+
+**Trigger heuristics** — flag if the story-in-progress would need to set up, configure, or first-introduce any of:
+- A global app shell/layout (navigation, header/footer, responsive/mobile-first structure, RTL/LTR-ready containers) used across ≥2 routes/epics — not just this story's page.
+- i18n foundation (routing, locale/message-file structure, provider wiring) — anything beyond adding strings to an existing, already-set-up i18n system.
+- Analytics/observability foundation (provider wiring, event-taxonomy conventions) — anything beyond adding a new tracked event to an already-set-up system.
+- The GraphQL server scaffold and/or GraphQL Code Generator pipeline, if not already established.
+- A named, reusable utility explicitly mandated in `project-context.md`'s Technology Stack/Critical Implementation Rules (e.g. `buildOptimizedDrizzleSelect`) that has no home yet and is meant to be reused by resolvers/features beyond this one.
+- Any dependency that is referenced in `project-context.md` or the architecture spine but has **no corresponding story anywhere in `epics.md`**.
+
+**Required action when triggered:** Do not build the shared dependency as a byproduct of the feature story. Split it into its own foundational story (Epic 0 unless the architecture dictates otherwise), scoped as reusable, generic, and owned independently of any single feature.
+
 ## Execution Protocol
 
 1. Run these gates after architecture analysis (story creation Step 3) and before the story file is written (Step 5).
-2. For each gate, use the `runSubagent` tool to adopt the owning persona and evaluate the draft story scope against that gate's trigger heuristics, using the loaded architecture/epics/UX content as evidence.
+2. For each gate, use the `runSubagent` tool to adopt the owning persona and evaluate the draft story scope against that gate's trigger heuristics, using the loaded architecture/epics/UX/project-context content as evidence.
 3. If a gate reports **no gap**, note "No gap found" and proceed normally.
-4. If a gate reports a **gap**, do NOT silently absorb the missing layer/component into the current story's tasks. Instead:
+4. If a gate reports a **gap**, do NOT silently absorb the missing layer/component/dependency into the current story's tasks. Instead:
    - Add an **"Architecture & UX Gate Findings"** subsection under `## Dev Notes` summarizing the gap, which gate raised it, and why.
-   - List the deferred scope under `## Out of Scope` with a suggested prerequisite story key (e.g. `1-3a-eventcard-image-and-states`, `0-6-events-graphql-api-layer`).
+   - List the deferred scope under `## Out of Scope` with a suggested prerequisite story key (e.g. `1-3a-eventcard-image-and-states`, `0-6-events-graphql-api-layer`, `0-8-graphql-codegen-and-optimized-select`).
    - Add a corresponding new `backlog` entry for the prerequisite story to `sprint-status.yaml` (do not overwrite existing entries; append).
    - Add a checklist item under `## Pre-Coding Approval Gate` confirming the prerequisite is either already done, or the user has explicitly accepted the gap and wants to proceed anyway.
 5. Report all gate findings and any new prerequisite story keys in the final completion summary shown to the user.
