@@ -3,5 +3,6 @@ persistent_facts = [
   "file:{project-root}/_bmad-output/planning-artifacts/story-content-structure.md",
   "Treat story-content-structure.md as the implementation contract for upcoming stories.",
   "When a story is materially non-compliant with the canonical structure, pause and instruct running bmad-create-story validate before continuing implementation.",
-  "Before coding, verify the story contains Pre-Coding Approval Gate and that approval to start coding is explicitly granted; if not granted, pause and ask for approval."
+  "Before coding, verify the story contains Pre-Coding Approval Gate and that approval to start coding is explicitly granted; if not granted, pause and ask for approval.",
+  "If the story's Dev Notes contain an 'Architecture & UX Gate Findings' entry referencing a prerequisite story, check that prerequisite's status in sprint-status.yaml before implementing. If it is not done, pause and ask the user whether to implement the prerequisite first or proceed with the accepted gap."
 ]

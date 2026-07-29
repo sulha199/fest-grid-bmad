@@ -11,5 +11,10 @@ persistent_facts = [
   "Every newly created story must follow the canonical section order and status vocabulary from story-content-structure.md.",
   "Every newly created story must include a concise Global Rules References section pointing to project-context, story-content-structure, architecture spine, and infrastructure docs.",
   "Every newly created story must include a concrete Implementation Plan (Rule-Compliant) with File Change Plan, Rule Mapping, and Verification Plan.",
-  "Every newly created story must include a Pre-Coding Approval Gate checklist with default pending approval state before implementation starts."
+  "Every newly created story must include a Pre-Coding Approval Gate checklist with default pending approval state before implementation starts.",
+  "file:{project-root}/_bmad-output/planning-artifacts/story-split-gate.md",
+  "Treat story-split-gate.md as mandatory: before Step 5 writes the story file, run Gate 1 (Architecture/Infra Completeness, persona bmad-agent-architect/Winston) and Gate 2 (UI Complexity & Reusability, persona wds-agent-freya-ux/Freya, fallback bmad-agent-ux-designer/Sally) via the runSubagent tool against the draft story scope.",
+  "The project's authoritative UX specs live under {project-root}/design-artifacts/<UX-*-run-*>/DESIGN.md and EXPERIENCE.md (WDS module output) — always locate and load the relevant DESIGN.md/EXPERIENCE.md for the feature area in addition to any *ux*.md under planning_artifacts, since the latter is typically absent for this project.",
+  "If Gate 1 or Gate 2 finds a blocking gap (missing infra/architecture layer, or a reusable/complex UI component, hook, or util that deserves its own story), do not absorb it into the current story. Instead add an 'Architecture & UX Gate Findings' subsection under Dev Notes, list the deferred scope under Out of Scope with a suggested prerequisite story key, append a new backlog entry for it to sprint-status.yaml, and add a Pre-Coding Approval Gate checklist item confirming the prerequisite is done or the gap is explicitly accepted by the user.",
+  "Always report gate findings and any new prerequisite story keys added to sprint-status.yaml in the final completion summary."
 ]
