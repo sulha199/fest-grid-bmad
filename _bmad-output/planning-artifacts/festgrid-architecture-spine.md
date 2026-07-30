@@ -117,5 +117,5 @@ This document defines the core architectural invariants for the FestGrid applica
 
 ## Related Documents
 
-- [Infrastructure](../../docs/infrastructure.md)
+- [Infrastructure](../../docs/infrastructure/index.md)
 

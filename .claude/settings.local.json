@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --yes @kayvan/markdown-tree-parser explode docs/infrastructure.md docs/infrastructure)",
+      "Bash(python3 _bmad/scripts/resolve_customization.py --skill .claude/skills/bmad-create-story --key workflow.persistent_facts)"
+    ]
+  }
+}

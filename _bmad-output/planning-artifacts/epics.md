@@ -8,7 +8,7 @@ inputDocuments: [
   "design-artifacts/UX-wizard-page-run-1/DESIGN.md",
   "design-artifacts/UX-wizard-page-run-1/EXPERIENCE.md",
   "_bmad-output/project-context.md",
-  "docs/infrastructure.md"
+  "docs/infrastructure/index.md"
 ]
 ---
 # festgrid - Epic Breakdown
