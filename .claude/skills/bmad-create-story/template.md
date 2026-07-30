@@ -1,6 +1,10 @@
 # Story {{epic_num}}.{{story_num}}: {{story_title}}
 
-Status: ready-for-dev
+## Story Details
+
+- Epic: {{epic_num}}
+- Story ID: {{epic_num}}.{{story_num}}
+- Status: ready-for-dev
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -27,7 +31,11 @@ so that {{benefit}}.
 - Source tree components to touch
 - Testing standards summary
 
-## Data Type Compatibility & Migration Requirements
+### Architecture & UX Gate Findings
+
+- No gap found.
+
+### Data Type Compatibility & Migration Requirements
 
 - Compatibility finding: [No mismatch found | Describe missing/incompatible data types]
 - Impacted fields/contracts: [DB columns, API payloads, TypeScript models/interfaces]
@@ -44,6 +52,51 @@ so that {{benefit}}.
 ### References
 
 - Cite all technical details with source paths and sections, e.g. [Source: docs/<file>.md#Section]
+
+## Global Rules References
+
+- [ ] project-context.md
+- [ ] story-content-structure.md
+- [ ] architecture spine
+- [ ] infrastructure docs
+
+## Implementation Plan (Rule-Compliant)
+
+- File Change Plan: [exact files or modules expected to be touched]
+- Rule Mapping: [story decisions mapped to referenced global rules]
+- Verification Plan: [tests and runtime checks to prove compliance]
+
+## Pre-Coding Approval Gate
+
+- [ ] Scope confirmation
+- [ ] Architecture and boundary confirmation
+- [ ] Testing plan confirmation
+- [ ] Explicit human approval state (Default: pending approval)
+- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted
+
+## Testing Requirements
+
+- [ ] Integration tests
+- [ ] E2E tests
+
+## Deliverables Checklist
+
+- [ ] [Deliverable 1]
+- [ ] [Deliverable 2]
+
+## Out of Scope
+
+- [Deferred scope or explicitly excluded features]
+
+## Definition of Done
+
+- [ ] AC satisfaction
+- [ ] Required tests passing
+- [ ] Lint and type checks passing for touched packages
+
+## Completion Status
+
+- [ ] Not started
 
 ## Dev Agent Record
 

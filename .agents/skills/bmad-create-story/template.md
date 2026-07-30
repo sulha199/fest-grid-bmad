@@ -29,10 +29,13 @@ so that {{benefit}}.
 
 - Relevant architecture patterns and constraints
 - Source tree components to touch
-- Data/API boundaries and invariants
 - Testing standards summary
 
-## Data Type Compatibility & Migration Requirements
+### Architecture & UX Gate Findings
+
+- No gap found.
+
+### Data Type Compatibility & Migration Requirements
 
 - Compatibility finding: [No mismatch found | Describe missing/incompatible data types]
 - Impacted fields/contracts: [DB columns, API payloads, TypeScript models/interfaces]
@@ -40,34 +43,6 @@ so that {{benefit}}.
 - Required TypeScript type changes: [Type/interface/schema updates, or "No changes required"]
 - Backward compatibility and rollout notes: [versioning, fallbacks, sequencing]
 - Verification checks: [tests/queries/type checks proving end-to-end data type alignment]
-
-## Global Rules References
-
-- Shared implementation rules: _bmad-output/project-context.md
-- Story structure contract: _bmad-output/planning-artifacts/story-content-structure.md
-- System architecture spine: _bmad-output/planning-artifacts/festgrid-architecture-spine.md
-- Infrastructure constraints: docs/infrastructure.md
-
-## Implementation Plan (Rule-Compliant)
-
-### File Change Plan
-
-- List exact files/modules expected to be touched for this story
-
-### Rule Mapping
-
-- Map each critical implementation decision to a referenced global rule
-
-### Verification Plan
-
-- List specific checks and test runs to confirm rule compliance before completion
-
-## Pre-Coding Approval Gate
-
-- [ ] Scope and acceptance criteria reviewed
-- [ ] Architecture and data/API boundaries confirmed
-- [ ] Testing plan reviewed and accepted
-- [ ] Approval to start coding granted
 
 ### Project Structure Notes
 
@@ -78,27 +53,50 @@ so that {{benefit}}.
 
 - Cite all technical details with source paths and sections, e.g. [Source: docs/<file>.md#Section]
 
+## Global Rules References
+
+- [ ] project-context.md
+- [ ] story-content-structure.md
+- [ ] architecture spine
+- [ ] infrastructure docs
+
+## Implementation Plan (Rule-Compliant)
+
+- File Change Plan: [exact files or modules expected to be touched]
+- Rule Mapping: [story decisions mapped to referenced global rules]
+- Verification Plan: [tests and runtime checks to prove compliance]
+
+## Pre-Coding Approval Gate
+
+- [ ] Scope confirmation
+- [ ] Architecture and boundary confirmation
+- [ ] Testing plan confirmation
+- [ ] Explicit human approval state (Default: pending approval)
+- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted
+
 ## Testing Requirements
 
-- Integration and/or E2E expectations tied to ACs
+- [ ] Integration tests
+- [ ] E2E tests
 
 ## Deliverables Checklist
 
-- List concrete outputs expected for this story
+- [ ] [Deliverable 1]
+- [ ] [Deliverable 2]
 
 ## Out of Scope
 
-- Explicit exclusions to avoid scope creep
+- [Deferred scope or explicitly excluded features]
 
 ## Definition of Done
 
-- All ACs satisfied
-- Required tests pass
-- Lint and type checks pass for touched packages
+- [ ] AC satisfaction
+- [ ] Required tests passing
+- [ ] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- Story context prepared for implementation
+- [ ] Not started
 
 ## Dev Agent Record
 

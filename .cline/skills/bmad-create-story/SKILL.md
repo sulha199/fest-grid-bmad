@@ -329,6 +329,32 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
   whether or not it is explicitly written in the story. The dev agent owns this.</critical>
 </step>
 
+<step n="3.5" goal="Story Split Gate Validation">
+  <critical>🛑 STORY SPLIT GATES - Execute mandatory architecture, UX, and foundational dependency checks before writing the story.</critical>
+  <action>Run the three mandatory gates defined in `story-split-gate.md` against the draft story scope.</action>
+  
+  <action>Gate 1 — Architecture / Infrastructure Completeness
+    Use `runSubagent` with persona Winston (`bmad-agent-architect`).
+    Evaluate if the story bypasses the backend/API layer, calls external services directly from frontend, adds unbacked API surfaces, or lacks IaC.
+  </action>
+
+  <action>Gate 2 — UI Complexity & Reusability
+    Use `runSubagent` with persona Freya (`wds-agent-freya-ux`) or fallback Sally (`bmad-agent-ux-designer`).
+    Evaluate if the story includes complex/reusable UI components or hooks that should be split into their own stories.
+    Make sure to locate and read relevant `DESIGN.md`/`EXPERIENCE.md` from `design-artifacts/`.
+  </action>
+
+  <action>Gate 3 — Foundational / Cross-Cutting Dependency Completeness
+    Use `runSubagent` with persona Winston (`bmad-agent-architect`).
+    Evaluate if the story implicitly depends on shared foundational infrastructure (i18n, analytics, global app shell, code generator) that hasn't been established in its own story.
+  </action>
+
+  <action>Compile Gate Findings:
+    - If all gates report no gap, record "No gap found" for the Architecture & UX Gate Findings.
+    - If any gate reports a gap, do NOT absorb the missing scope into this story. Document the gap in `### Architecture & UX Gate Findings`, list deferred scope in `## Out of Scope`, and append a new prerequisite backlog entry to `sprint-status.yaml`.
+  </action>
+</step>
+
 <step n="4" goal="Web research for latest technical specifics">
   <critical>🌐 ENSURE LATEST TECH KNOWLEDGE - Prevent outdated implementations!</critical> **WEB INTELLIGENCE:** <action>Identify specific
   technical areas that require latest version knowledge:</action>
