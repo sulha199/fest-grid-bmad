@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(npx --yes @kayvan/markdown-tree-parser explode docs/infrastructure.md docs/infrastructure)",
-      "Bash(python3 _bmad/scripts/resolve_customization.py --skill .claude/skills/bmad-create-story --key workflow.persistent_facts)"
+      "Bash(python3 _bmad/scripts/resolve_customization.py --skill .claude/skills/bmad-create-story --key workflow.persistent_facts)",
+      "Bash(mkdir -p .agents/skills/bmad-epic-readiness-check .cline/skills/bmad-epic-readiness-check)",
+      "Bash(cp .claude/skills/bmad-epic-readiness-check/SKILL.md .agents/skills/bmad-epic-readiness-check/SKILL.md)",
+      "Bash(cp .claude/skills/bmad-epic-readiness-check/customize.toml .agents/skills/bmad-epic-readiness-check/customize.toml)",
+      "Bash(cp .claude/skills/bmad-epic-readiness-check/SKILL.md .cline/skills/bmad-epic-readiness-check/SKILL.md)",
+      "Bash(cp .claude/skills/bmad-epic-readiness-check/customize.toml .cline/skills/bmad-epic-readiness-check/customize.toml)",
+      "Bash(cp .claude/skills/bmad-create-story/SKILL.md .agents/skills/bmad-create-story/SKILL.md)",
+      "Bash(cp .claude/skills/bmad-create-story/SKILL.md .cline/skills/bmad-create-story/SKILL.md)",
+      "Bash(python3 _bmad/scripts/resolve_customization.py --skill .claude/skills/bmad-epic-readiness-check --key workflow.persistent_facts)"
     ]
   }
 }

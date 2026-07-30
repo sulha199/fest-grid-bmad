@@ -34,7 +34,7 @@ Use these as single source of truth for global rules:
 
 1. _bmad-output/project-context.md
 2. _bmad-output/planning-artifacts/story-content-structure.md
-3. docs/infrastructure.md
+3. docs/infrastructure/index.md (sharded — read the relevant section file under docs/infrastructure/ only when relevant)
 4. _bmad-output/planning-artifacts/festgrid-architecture-spine.md
 
 ## What Must Stay as Local One-Liners (Hybrid Guardrails)
@@ -56,7 +56,7 @@ Add this short section to each new story:
 - Shared implementation rules: _bmad-output/project-context.md
 - Story structure contract: _bmad-output/planning-artifacts/story-content-structure.md
 - System architecture spine: _bmad-output/planning-artifacts/festgrid-architecture-spine.md
-- Infrastructure constraints: docs/infrastructure.md
+- Infrastructure constraints: docs/infrastructure/index.md
 
 ## Rollout Plan (Low Risk)
 

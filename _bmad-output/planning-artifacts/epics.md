@@ -393,6 +393,43 @@ The project is set up with a solid foundation and CI/CD pipeline.
 *   **Then** it successfully interfaces with the `firebase-admin` SDK (installed strictly in `apps/backend`).
 *   **And** the frontend is capable of requesting notification permissions and registering device tokens using the `firebase` JS SDK (installed strictly in `apps/web`).
 
+### Story 0.13: Set up the AI Gateway adapter layer for Gemini
+
+**As a** developer,
+**I want** a dedicated AI Gateway layer that wraps all outbound Gemini API calls behind a single Adapter interface, with dynamic throttling, intelligent queuing, BYOK API key round-robin selection (Tier 1 user-specific / Tier 2 shared with fairness), and KMS-backed decryption of stored keys,
+**So that** every feature that calls an external AI service (event extraction now; AI-assisted correction later) reuses the same rate-limiting, key-management, and modularity guarantees instead of each feature calling Gemini directly.
+
+**Acceptance Criteria:**
+
+*   **Given** a feature needs to extract or correct event data using Gemini,
+*   **When** it needs to call the Gemini API,
+*   **Then** it does so exclusively through this Adapter's exposed interface — never the raw Gemini SDK/HTTP API.
+*   **And** the Adapter manages outgoing request rate (dynamic throttling/queuing) to prevent rate-limit violations and Google "suspicious activity" flags (PRD §3.8).
+*   **And** the Adapter selects which user's API key to use per the quota-management algorithm (Tier 1: sole subscriber's key(s); Tier 2: round-robin across subscribers' keys, prioritizing users with fewer calls this billing cycle).
+*   **And** the Adapter decrypts a user's BYOK key in memory only when needed, using AWS KMS, and never logs or persists the decrypted value.
+*   **And** the Adapter skips a failed/rate-limited/invalid key and falls through to the next available key per the round-robin.
+*   **And** internal per-key usage tracking is reset at the start of each billing cycle.
+
+**Note:** This story exists because of Gate 3 (`story-split-gate.md`), surfaced while creating Story 3.6 — the Adapter pattern for external AI services is mandated project-wide (`project-context.md`, NFR11, PRD §3.8) but had no owning story. It is needed by both Epic 3 (Story 3.6, event extraction) and Epic 4 (Story 4.2, AI-assisted correction), so it is placed in Epic 0 rather than scoped to a single epic.
+
+**Depends on:** Story 1.1 (`api_keys` table).
+
+### Story 0.14: Set up AWS IaC for Lambda, SQS, EventBridge, and KMS
+
+**As a** developer,
+**I want** infrastructure-as-code provisioning the backend Lambda functions, SQS queues (`ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`), an EventBridge scheduled rule, API Gateway, and a KMS key for BYOK key encryption,
+**So that** every backend pipeline story (scraping, queuing, AI processing, ingestion) deploys onto consistently provisioned, version-controlled infrastructure instead of each story inventing its own ad hoc AWS setup.
+
+**Acceptance Criteria:**
+
+*   **Given** the monorepo and CI/CD pipeline exist (Stories 0.1, 0.5),
+*   **When** the IaC stack is applied,
+*   **Then** the four backend Lambda functions (API, Scraper, AI Processor, Ingestor), the three SQS queues, an EventBridge scheduled rule, API Gateway, and a KMS key are provisioned and wired together per `docs/infrastructure/high-level-overview.md`.
+*   **And** the stack deploys automatically as part of CI/CD (Story 0.5) on merge to the main branch.
+*   **And** environment-specific configuration (dev/staging/prod) is supported without duplicating the stack definition.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced while creating Story 3.6 — no IaC/deploy story existed for any of the Lambdas/queues/KMS key that the Epic 3 processing pipeline (Stories 3.4-3.6, 3.6b) and the AI Gateway (Story 0.13) depend on.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
@@ -738,6 +775,24 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** I have an optional field to set a default location for this subscription.
 *   **And** if a default location is set, the AI agent will use it when it cannot find an explicit location in a post.
 
+### Story 3.3a: Create posts table and persist scraped posts
+
+**As a** developer,
+**I want** a `posts` table (matching the PRD's `Post` interface: `id`, `content`, `imageUrl`, `postUrl`, `isExtracted`, plus a `subscriptionId` reference and `publishedAt` timestamp) and the persistence logic scraped posts are written to,
+**So that** the scraping/queuing/extraction pipeline (Stories 3.4-3.6) and the manual post selection screens (Epic 5) share one consistent, queryable record of every scraped post and its extraction status.
+
+**Acceptance Criteria:**
+
+*   **Given** the initial database tables exist (Story 1.1),
+*   **When** I run the migration script,
+*   **Then** a `posts` table is created with columns for `id`, `subscription_id` (FK to `subscriptions`), `content`, `image_url`, `post_url`, `is_extracted` (default false), `published_at`, and standard timestamps.
+*   **And** the table is indexed on `subscription_id` and `published_at` to support Epic 5's "20 most recent posts per account" and inactive-account (30-day) queries.
+*   **And** a persistence function exists for writing a newly scraped post (used by Story 3.4) and for updating a post's `is_extracted` status (used by Stories 3.6/3.6b).
+
+**Note:** This story exists because of Gate 3 (`story-split-gate.md`), surfaced while creating Story 3.6 — the PRD's `Post` interface implies a persisted entity with an extraction-status flag, but Story 1.1 only created `events`/`schedules`/`users`/`user_locations`/`subscriptions`/`api_keys`. This table is written by Epic 3 (Stories 3.4-3.6) and read by Epic 5 (Stories 5.1-5.4), so — following the precedent of Story 1.1 scoping core data tables to their originating epic rather than Epic 0 — it is placed here, before Story 3.4, rather than in Epic 0.
+
+**Depends on:** Story 1.1.
+
 ### Story 3.4: Scrape new posts from subscribed accounts
 
 **As a** system,
@@ -767,16 +822,37 @@ Users can subscribe to social media accounts to import events into their feed.
 ### Story 3.6: Process posts from the queue and extract event information
 
 **As a** system,
-**I want** to process posts from the queue, use the Gemini API to extract event information, and save the structured data to the database,
-**So that** new events are added to the application.
+**I want** to process posts from the queue, call the Gemini API (through the AI Gateway adapter) to extract event information, and enqueue the validated result for ingestion,
+**So that** new events can be reliably added to the application without this Lambda also owning the database write.
 
 **Acceptance Criteria:**
 
-*   **Given** there is a message in the SQS queue containing a post to be processed,
-*   **When** the message is consumed by a Lambda function,
-*   **Then** the function calls the Gemini API to extract event information from the post content.
-*   **And** the extracted information is validated and transformed into a structured `EventInfo` object.
-*   **And** the `EventInfo` object is saved to the database.
+*   **Given** there is a message in the `AIProcessingQueue` containing a post to be processed,
+*   **When** the message is consumed by the AI Processor Lambda,
+*   **Then** the Lambda calls the Gemini API exclusively through the AI Gateway adapter (Story 0.13) to extract event information from the post content.
+*   **And** the extracted information is validated (AJV) and transformed into a structured `EventInfo` object, including a populated `confidenceScore`.
+*   **And** the validated `EventInfo` object is enqueued to the `DataIngestionQueue` — this Lambda does not write to the database directly (Story 3.6b handles ingestion).
+
+**Note:** AC corrected by Gate 1 (`story-split-gate.md`) — the original draft had this Lambda both call Gemini and save directly to the database, bypassing the separate Ingestor Lambda shown in `docs/infrastructure/high-level-overview.md`.
+
+**Depends on:** Story 0.13, Story 3.3a, Story 3.5.
+
+### Story 3.6b: Ingest processed events into the database
+
+**As a** system,
+**I want** to consume a validated `EventInfo` message from the `DataIngestionQueue` and write it to the database,
+**So that** the AI Processor Lambda (Story 3.6) stays decoupled from the database per the architecture's queue-based pipeline design.
+
+**Acceptance Criteria:**
+
+*   **Given** there is a message in the `DataIngestionQueue` containing a validated `EventInfo` object,
+*   **When** the message is consumed by the Ingestor Lambda,
+*   **Then** the `EventInfo` (and its `schedules`) is written to the database via Drizzle.
+*   **And** duplicate/already-ingested events are handled gracefully (no duplicate rows for the same source post).
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`) — Story 3.6's original draft had the AI Processor Lambda both call Gemini and write to the database, bypassing the separate Ingestor Lambda (`L_Ingest`) shown in `docs/infrastructure/high-level-overview.md`. This story is that Ingestor Lambda.
+
+**Depends on:** Story 3.6.
 
 ### Story 3.7: Display extracted events to the user
 

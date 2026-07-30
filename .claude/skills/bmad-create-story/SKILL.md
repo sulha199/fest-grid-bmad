@@ -331,27 +331,44 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
 
 <step n="3.5" goal="Story Split Gate Validation">
   <critical>🛑 STORY SPLIT GATES - Execute mandatory architecture, UX, and foundational dependency checks before writing the story.</critical>
-  <action>Run the three mandatory gates defined in `story-split-gate.md` against the draft story scope.</action>
-  
-  <action>Gate 1 — Architecture / Infrastructure Completeness
-    Use `runSubagent` with persona Winston (`bmad-agent-architect`).
-    Evaluate if the story bypasses the backend/API layer, calls external services directly from frontend, adds unbacked API surfaces, or lacks IaC.
-  </action>
 
-  <action>Gate 2 — UI Complexity & Reusability
-    Use `runSubagent` with persona Freya (`wds-agent-freya-ux`) or fallback Sally (`bmad-agent-ux-designer`).
-    Evaluate if the story includes complex/reusable UI components or hooks that should be split into their own stories.
-    Make sure to locate and read relevant `DESIGN.md`/`EXPERIENCE.md` from `design-artifacts/`.
-  </action>
+  <action>Check whether `_bmad-output/planning-artifacts/epic-readiness/epic-{{epic_num}}-readiness.md` exists and its frontmatter has `swept: true`.</action>
 
-  <action>Gate 3 — Foundational / Cross-Cutting Dependency Completeness
-    Use `runSubagent` with persona Winston (`bmad-agent-architect`).
-    Evaluate if the story implicitly depends on shared foundational infrastructure (i18n, analytics, global app shell, code generator) that hasn't been established in its own story.
-  </action>
+  <check if="epic readiness report exists and is swept">
+    <action>Skip the Gate 1 and Gate 3 subagent calls for this story — they were already run epic-wide by `bmad-epic-readiness-check`.</action>
+    <action>Load the epic readiness report and cite its relevant findings/prerequisite story keys directly in this story's Architecture & UX Gate Findings instead of re-deriving them.</action>
+    <action>Run ONLY Gate 2 — UI Complexity & Reusability
+      Use `runSubagent` with persona Freya (`wds-agent-freya-ux`) or fallback Sally (`bmad-agent-ux-designer`).
+      Evaluate if the story includes complex/reusable UI components or hooks that should be split into their own stories.
+      Make sure to locate and read relevant `DESIGN.md`/`EXPERIENCE.md` from `design-artifacts/`.
+    </action>
+    <action>Lightweight guard (no subagent call): before finalizing, reason whether this specific story's scope contains anything the epic-wide sweep plausibly didn't anticipate (a new external service, a new data entity, a new infra dependency not covered by the sweep). If so, do not silently trust the sweep — run Gate 1 and/or Gate 3 fresh for this story only, and note in the story why the sweep was insufficient.</action>
+  </check>
+
+  <check if="no epic readiness report exists, or it is not marked swept">
+    <output>ℹ️ No epic readiness sweep found for Epic {{epic_num}}. Recommend running `bmad-epic-readiness-check` before creating further stories in this epic to avoid re-paying Gate 1/3 cost per story.</output>
+    <action>Run the three mandatory gates defined in `story-split-gate.md` against the draft story scope (fallback: today's per-story behavior).</action>
+
+    <action>Gate 1 — Architecture / Infrastructure Completeness
+      Use `runSubagent` with persona Winston (`bmad-agent-architect`).
+      Evaluate if the story bypasses the backend/API layer, calls external services directly from frontend, adds unbacked API surfaces, or lacks IaC.
+    </action>
+
+    <action>Gate 2 — UI Complexity & Reusability
+      Use `runSubagent` with persona Freya (`wds-agent-freya-ux`) or fallback Sally (`bmad-agent-ux-designer`).
+      Evaluate if the story includes complex/reusable UI components or hooks that should be split into their own stories.
+      Make sure to locate and read relevant `DESIGN.md`/`EXPERIENCE.md` from `design-artifacts/`.
+    </action>
+
+    <action>Gate 3 — Foundational / Cross-Cutting Dependency Completeness
+      Use `runSubagent` with persona Winston (`bmad-agent-architect`).
+      Evaluate if the story implicitly depends on shared foundational infrastructure (i18n, analytics, global app shell, code generator) that hasn't been established in its own story.
+    </action>
+  </check>
 
   <action>Compile Gate Findings:
-    - If all gates report no gap, record "No gap found" for the Architecture & UX Gate Findings.
-    - If any gate reports a gap, do NOT absorb the missing scope into this story. Document the gap in `### Architecture & UX Gate Findings`, list deferred scope in `## Out of Scope`, and append a new prerequisite backlog entry to `sprint-status.yaml`.
+    - If all gates (whether run fresh or sourced from the epic readiness report) report no gap, record "No gap found" for the Architecture & UX Gate Findings.
+    - If any gate reports a gap, do NOT absorb the missing scope into this story. Document the gap in `### Architecture & UX Gate Findings`, list deferred scope in `## Out of Scope`, and append a new prerequisite backlog entry to `sprint-status.yaml` — following the numbering rule in `bmad-epic-readiness-check`'s SKILL.md (tooling gap → new Epic 0 whole number; shared-data gap → lettered suffix in the owning epic; single-story split → lettered suffix off that story). Also add the corresponding full story section to `epics.md`, not just a `sprint-status.yaml` key.
   </action>
 </step>
 

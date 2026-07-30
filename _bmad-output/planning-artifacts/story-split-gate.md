@@ -65,9 +65,24 @@ Distinct from Gate 1 (which asks "does *this feature* need its own backend/API l
 4. If a gate reports a **gap**, do NOT silently absorb the missing layer/component/dependency into the current story's tasks. Instead:
    - Add an **"Architecture & UX Gate Findings"** subsection under `## Dev Notes` summarizing the gap, which gate raised it, and why.
    - List the deferred scope under `## Out of Scope` with a suggested prerequisite story key (e.g. `1-3a-eventcard-image-and-states`, `0-6-events-graphql-api-layer`, `0-8-graphql-codegen-and-optimized-select`).
-   - Add a corresponding new `backlog` entry for the prerequisite story to `sprint-status.yaml` (do not overwrite existing entries; append).
+   - Write a **full section into `epics.md`** for the prerequisite story (As a/I want/So that, Acceptance Criteria, and a `Note:` explaining which gate and story surfaced it) — a `sprint-status.yaml` key alone is not sufficient, since `epics.md` is the authoritative source `bmad-create-story` reads requirements from. Classify and position it per the numbering rule below.
+   - Add a corresponding new `backlog` entry for the prerequisite story to `sprint-status.yaml` (do not overwrite existing entries; append, positioned to match `epics.md`).
    - Add a checklist item under `## Pre-Coding Approval Gate` confirming the prerequisite is either already done, or the user has explicitly accepted the gap and wants to proceed anyway.
 5. Report all gate findings and any new prerequisite story keys in the final completion summary shown to the user.
+
+## Numbering Rule for New Prerequisite Stories
+
+Every prerequisite story produced by a gate finding must map to exactly one of these placements. Never renumber an existing story to make room — only append (Epic 0) or insert a new lettered story.
+
+- **Tooling/infrastructure gap** (an adapter, IaC, a scaffold/codegen pipeline, an i18n/analytics/testing/validation foundation — reusable across features by nature) → new Epic 0 story, numbered sequentially after Epic 0's current highest story, with a `Note:` mirroring the style of Stories 0.6-0.8.
+- **Shared data-ownership gap** (a table this epic originates but other epics read) → lettered suffix within the *originating* epic, positioned before the first story that needs to write it — following the precedent of Story 1.1 scoping core tables to Epic 1 rather than Epic 0.
+- **Single-story architecture/UI split** (a layer or component needed by exactly one story) → lettered suffix directly off that one story, matching the `1.3a`/`1.3b`/`1.6a` pattern.
+
+## Epic-Level Sweep Mode
+
+Gate 1 and Gate 3 findings are typically epic-wide (the same adapter/queue/schema gap tends to affect most stories in a pipeline epic), so running them fresh per story re-derives the same conclusion repeatedly at full cost. `bmad-epic-readiness-check` runs Gate 1 and Gate 3 **once** against an epic's full story list before any of its stories are created, producing `epic-{N}-readiness.md`.
+
+When `bmad-create-story` finds that report marked `swept: true` for the epic in scope, it skips Gate 1 and Gate 3 for that individual story, citing the report's findings instead, and runs only Gate 2 (UI Complexity & Reusability, which stays per-story since UI scope is story-specific) plus a lightweight non-subagent check for anything the sweep didn't anticipate. If no swept report exists, `bmad-create-story` falls back to running all three gates per-story as described above.
 
 ## Escape Hatch
 

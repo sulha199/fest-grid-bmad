@@ -1,0 +1,15 @@
+[workflow]
+
+# Overrides merge per BMad structural rules: scalars override, arrays append.
+
+activation_steps_prepend = []
+activation_steps_append = []
+
+persistent_facts = [
+  "file:{project-root}/_bmad-output/project-context.md",
+  "file:{project-root}/_bmad-output/planning-artifacts/story-split-gate.md",
+  "file:{project-root}/docs/infrastructure/index.md",
+  "Read the relevant shard under docs/infrastructure/ (not just the index) if the epic's stories plausibly touch backend compute, queues, cron, or database provisioning.",
+]
+
+on_complete = ""

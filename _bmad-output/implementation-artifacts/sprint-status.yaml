@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-07-30T01:42:00Z
+last_updated: 2026-07-30T10:45:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -61,6 +61,8 @@ development_status:
   0-10-set-up-testing-frameworks-foundation: backlog
   0-11-set-up-runtime-schema-validation: backlog
   0-12-set-up-firebase-cloud-messaging-foundation: backlog
+  0-13-set-up-ai-gateway-adapter-layer-for-gemini: backlog
+  0-14-set-up-aws-iac-for-lambda-sqs-eventbridge-and-kms: backlog
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
@@ -86,13 +88,15 @@ development_status:
   2-8-user-menu: backlog
   2-9-manage-push-notification-settings: backlog
   epic-2-retrospective: optional
-  epic-3: backlog
+  epic-3: in-progress
   3-1-onboarding-wizard-for-api-key-and-subscriptions: backlog
   3-2-subscribe-to-a-social-media-account: backlog
   3-3-set-a-default-location-for-a-subscription: backlog
+  3-3a-create-posts-table-and-persist-scraped-posts: backlog
   3-4-scrape-new-posts-from-subscribed-accounts: backlog
   3-5-add-new-posts-to-a-processing-queue: backlog
-  3-6-process-posts-from-the-queue-and-extract-event-information: backlog
+  3-6-process-posts-from-the-queue-and-extract-event-information: ready-for-dev
+  3-6b-ingest-processed-events-into-the-database: backlog
   3-7-display-extracted-events-to-the-user: backlog
   3-8-push-notifications-for-extracted-events: backlog
   3-9-implement-api-key-quota-management: backlog
