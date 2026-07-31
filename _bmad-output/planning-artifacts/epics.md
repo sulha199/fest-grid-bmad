@@ -572,6 +572,26 @@ Users can discover and browse events.
 *   **And** it exposes a loading (skeleton) state and renders correctly with only the fields guaranteed by the API contract.
 *   **And** the component is documented/exported from `packages/ui` for reuse across features.
 
+### Story 1.3c: Build the reusable infinite-scroll hook
+
+**As a** developer,
+**I want** a generic, reusable `useInfiniteScroll` hook in `packages/ui/src/hooks/`,
+**So that** every long list in the application (Main Discovery Feed, Favorites, My Calendar, Manual Post Selection tabs) fetches and appends subsequent pages the same way, instead of each feature story reimplementing its own IntersectionObserver/fetch/append logic.
+
+**Acceptance Criteria:**
+
+*   **Given** a list of items and a `fetchNextPage`/`hasNextPage` contract (matching the shape React Query's infinite-query APIs expose),
+*   **When** the hook's returned sentinel ref enters the viewport (via `IntersectionObserver`),
+*   **Then** it invokes the caller-supplied fetch-next-page callback, without replacing already-loaded items — the caller owns appending the new page's results to existing state (e.g. via React Query's `data.pages` accumulation).
+*   **And** the hook does not re-trigger a fetch while a fetch is already in flight, and stops observing once `hasNextPage` is `false`.
+*   **And** the hook cleans up its `IntersectionObserver` on unmount and on sentinel-ref change, leaving no dangling observers.
+*   **And** if the fetch-next-page callback rejects/errors, the hook surfaces that error state (via its return value) rather than silently retrying in a loop; the caller decides how to render the error.
+*   **And** the hook is documented and exported from `packages/ui`'s public entry point for reuse across features.
+
+**Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced while creating Story 1.3 — `project-context.md`'s Code Organization rule already names `useInfiniteScroll` by name as the canonical example of a hook belonging in `packages/ui/src/hooks/`, but no story owned building it, and PRD §3.12 / `project-context.md`'s "List Navigation" rule mandate infinite scroll for every long list (Main Discovery Feed, Favorites, My Calendar, Manual Post Selection), not just Story 1.3's. Story 2.2 ("View favorited events") and Epic 5's manual post selection screen (Story 5.1/5.1a, FR52/FR53 lazy loading) both silently assume this mechanism exists with no story building it. Classified as a single-story-origin UI split (mirroring the 1.3a/1.3b/1.6a precedent — built once, reused across epics, homed off the first story that needs it rather than Epic 0, matching how Story 1.3b's cross-epic-reusable `EventCard` was scoped) — positioned immediately before Story 1.3, its first consumer.
+
+**Depends on:** None (pure presentation/behavior hook, no backend dependency).
+
 ### Story 1.3: Display a list of events on the main page
 
 **As a** user,
@@ -585,10 +605,10 @@ Users can discover and browse events.
 *   **Then** I see a grid of `EventCard`s (Story 1.3b).
 *   **And** the events displayed are ongoing or upcoming.
 *   **And** the event data is fetched via the backend GraphQL API using the Unified Query DSL (Story 1.3a) — not directly from the database.
-*   **And** the list implements infinite scrolling, seamlessly fetching and appending the next page of results as I scroll near the bottom.
+*   **And** the list implements infinite scrolling, using the shared `useInfiniteScroll` hook (Story 1.3c), seamlessly fetching and appending the next page of results as I scroll near the bottom.
 *   **And** a localized non-blocking spinner is displayed at the bottom of the list while fetching subsequent pages.
 
-**Depends on:** Story 0.6, Story 0.7, Story 1.3a, Story 1.3b
+**Depends on:** Story 0.6, Story 0.7, Story 1.3a, Story 1.3b, Story 1.3c
 
 ### Story 1.4: Search for events
 
