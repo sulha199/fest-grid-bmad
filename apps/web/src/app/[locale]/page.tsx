@@ -1,17 +1,19 @@
 "use client"
 
 import { useTheme } from "next-themes"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 
 export default function Home() {
   const { theme, setTheme } = useTheme()
+  const t = useTranslations('HomePage')
 
   return (
     <div className="p-8 space-y-8 max-w-4xl mx-auto">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">FestGrid Design System Verification</h1>
+        <h1 className="text-3xl font-bold">{t('title')}</h1>
         <Button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
           Toggle Theme
         </Button>

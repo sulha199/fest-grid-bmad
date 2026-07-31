@@ -54,7 +54,7 @@ development_status:
   0-3-set-up-shadcn-ui-and-configure-themes: done
   0-4-set-up-drizzle-orm-for-schema-migrations: review
   0-5-set-up-ci-cd-pipeline-with-github-actions: review
-  0-6-set-up-i18n-foundation-next-intl: ready-for-dev
+  0-6-set-up-i18n-foundation-next-intl: review
   0-7-build-the-global-app-shell-and-navigation-layout: ready-for-dev
   0-8-set-up-graphql-server-scaffold-code-generator-pipeline-and-the-optimized-select-query-utility: ready-for-dev
   0-9-set-up-state-management-foundation: ready-for-dev
@@ -81,12 +81,16 @@ development_status:
   1-8-setup-posthog-analytics: review
   epic-1-retrospective: optional
   epic-2: in-progress
+  2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: backlog
   2-1-favorite-an-event: ready-for-dev
   2-2-view-favorited-events: backlog
+  2-3a-build-the-saved-locations-backend-graphql-api-layer: backlog
   2-3-manage-saved-locations: backlog
   2-4-set-location-by-current-location-or-map: backlog
+  2-5a-extend-the-events-graphql-api-with-geo-distance-query-support: backlog
   2-5-find-nearby-events: backlog
   2-6-view-and-manage-events-on-a-calendar: backlog
+  2-6a-create-user-settings-table-and-settings-query-mutation-resolvers: backlog
   2-7-automatically-hide-past-events: backlog
   2-8-user-menu: backlog
   2-9-manage-push-notification-settings: backlog
@@ -106,15 +110,19 @@ development_status:
   3-10-email-notifications-for-queued-posts: backlog
   epic-3-retrospective: optional
   epic-4: backlog
+  4-1a-build-the-corrections-backend-graphql-api-layer: backlog
   4-1-manually-correct-event-data: backlog
   4-2-ai-assisted-event-data-correction: backlog
+  4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering: backlog
   4-3-report-an-event: backlog
+  4-4a-add-soft-delete-to-the-events-table-and-extend-the-events-resolver-and-moderator-mutations: backlog
   4-4-handle-event-cancelled-reports: backlog
   4-5-handle-dangerous-event-reports: backlog
   4-6-users-reports-page: backlog
   4-7-moderator-items-page: backlog
   epic-4-retrospective: optional
   epic-5: backlog
+  5-1a-build-the-manual-post-selection-and-extraction-graphql-api-layer: backlog
   5-1-manual-post-selection-screen: backlog
   5-2-select-posts-for-extraction: backlog
   5-3-display-and-enforce-api-quota: backlog
