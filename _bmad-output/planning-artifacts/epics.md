@@ -531,6 +531,8 @@ Users can discover and browse events.
 *   **And** the API supports filtering by name/performer/location (`contains`), type/category (`in`), and combining conditions with `and`/`or`, per AD-1.
 *   **And** the API supports fetching a single event by ID for the detail view.
 *   **And** no package outside `apps/backend` imports the database/domain layer directly — `apps/web` only talks to events data through this API (e.g. via generated `graphql-request` types from Story 0.8).
+*   **And** the API supports filtering events by `sourceSocialMediaAccountId` scoped to the current authenticated user's subscriptions (Story 0.17), so Epic 3's Feed (Story 3.7) can retrieve only events extracted from the user's subscribed accounts by reusing this resolver rather than a separate one.
+*   **And** events with `status='soft_deleted'` (Story 4.4a) are excluded by default; a moderator-scoped argument (guarded by `requireModerator`, Story 0.17) allows including them, backing Story 4.7's moderation view.
 
 **Depends on:** Story 0.8
 
@@ -660,6 +662,25 @@ Users can discover and browse events.
 Users can personalize their experience by saving favorite events and locations.
 **FRs covered:** FR5, FR6, FR7, FR8, FR9, FR10, FR15, FR16, FR17
 
+### Story 2.1a: Build the favorites and calendar-additions backend GraphQL API layer
+
+**As a** developer,
+**I want** `favorites` and `calendar_additions` tables plus mutation/query resolvers that let a client toggle and read per-user favorite/calendar state on events,
+**So that** Stories 2.1, 2.2, 2.6, and 2.7 have a real backend write/read path instead of each quietly inventing its own storage or bypassing the API.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 0.17's auth context, Story 1.1's `events`/`schedules` tables, and Story 1.3a's events resolver exist,
+*   **When** the migration script runs,
+*   **Then** a `favorites` table (`user_id` FK, `event_id` FK, `created_at`, unique on `user_id`+`event_id`) and a `calendar_additions` table (`user_id` FK, `event_id` FK, `schedule_id` FK nullable, `created_at`, unique on `user_id`+`event_id`) are created.
+*   **And** a `toggleFavorite(eventId)` mutation and a `toggleCalendarAddition(eventId, scheduleId)` mutation are exposed, both scoped to `context.user` via `requireAuth` (Story 0.17) — never trusting a client-supplied user ID.
+*   **And** the events resolver (Story 1.3a) is extended to accept `isFavorited`/`isAddedToCalendar` `equals` conditions per AD-2, and to return them as per-user computed booleans, joined against the caller's `favorites`/`calendar_additions` rows using `buildOptimizedDrizzleSelect` (Story 0.8).
+*   **And** no package outside `apps/backend` writes to these tables directly — `apps/web` only mutates favorite/calendar state through these two mutations.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced by the Epic 2 readiness sweep (`bmad-epic-readiness-check`) — Story 1.3a is query-only with no mutations, and no story anywhere creates the favorites/calendar-additions data AD-2 assumes already exists. Classified as a shared data-ownership gap (consumed by Stories 2.1, 2.2, 2.6, and 2.7, all within Epic 2), positioned immediately before Story 2.1, the first consumer — mirroring the Story 1.3/1.3a split.
+
+**Depends on:** Story 0.8, Story 0.17, Story 1.1, Story 1.3a.
+
 ### Story 2.1: Favorite an event
 
 **As a** user,
@@ -686,6 +707,25 @@ Users can personalize their experience by saving favorite events and locations.
 *   **When** I navigate to the "Favorites" page,
 *   **Then** I see a list of all the events I have favorited.
 *   **And** I can unfavorite an event directly from this page.
+
+### Story 2.3a: Build the saved-locations backend GraphQL API layer
+
+**As a** developer,
+**I want** GraphQL mutations and a query to create, update, delete, and list a user's saved locations,
+**So that** Stories 2.3, 2.4, and 2.5 read and write saved locations through the backend API instead of the frontend calling the database directly.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 0.17's auth context and Story 1.1's `user_locations` table exist,
+*   **When** a client sends `createUserLocation(name, address, lat, lng)`, `updateUserLocation(id, ...)`, or `deleteUserLocation(id)` mutations,
+*   **Then** the corresponding row is created/updated/deleted scoped to `context.user`'s ID, never trusting a client-supplied user ID.
+*   **And** a `myLocations` query returns only the authenticated caller's saved locations.
+*   **And** any address-to-coordinate resolution needed to populate `lat`/`lng` is performed backend-side, exclusively through the Geolocation adapter (Story 0.16) — never a direct Google API call from `apps/web`.
+*   **And** no package outside `apps/backend` imports the database/domain layer directly for locations data.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`) — Story 1.1 already created the `user_locations` table, but no story exposes it via GraphQL. Classified as a single-story-family architecture split (needed by Stories 2.3, 2.4, and 2.5), positioned immediately before Story 2.3, mirroring the Story 1.3/1.3a split.
+
+**Depends on:** Story 0.16, Story 0.17, Story 1.1.
 
 ### Story 2.3: Manage saved locations
 
@@ -715,6 +755,24 @@ Users can personalize their experience by saving favorite events and locations.
 *   **And when** I click the "Pick on map" button,
 *   **Then** a map is displayed, allowing me to select a location by clicking on it.
 
+### Story 2.5a: Extend the events GraphQL API with geo-distance query support
+
+**As a** developer,
+**I want** a new radius/distance condition type in the Unified Query DSL and matching resolver logic in the events API,
+**So that** Story 2.5 can filter events by proximity to a saved location without inventing a parallel, non-conforming query mechanism.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 2.3a's saved locations and Story 1.3a's events resolver exist,
+*   **When** a client sends a Unified Query DSL request (AD-1) containing a new `withinRadius` condition referencing a `locationPreferenceId` and a `radiusKm` value,
+*   **Then** the backend resolves it by computing distance from that saved location's coordinates against each event's coordinates (e.g. `ST_DWithin`/haversine) and returns only events within the specified radius.
+*   **And** the formal field/operator list maintained in the API docs (AD-1) is updated to document the `withinRadius` operator and its shape.
+*   **And** any indexing needed to keep radius filtering performant (e.g. a spatial index on event coordinates) is added, extending project-context.md's Database Indexing rule (currently silent on geo lookups).
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`) — AD-1's DSL as specified has no geo-distance operator, and Story 2.5 cannot be built against it as-is. Classified as a single-story architecture split (needed only by Story 2.5), positioned immediately before it.
+
+**Depends on:** Story 1.3a, Story 2.3a.
+
 ### Story 2.5: Find nearby events
 
 **As a** user,
@@ -742,6 +800,25 @@ Users can personalize their experience by saving favorite events and locations.
 *   **Then** I see a calendar view with all my "favorited" and "added to calendar" events.
 *   **And** "favorited" and "added to calendar" events have a distinct visual treatment.
 *   **And** I can toggle the visibility of "favorited" and "added to calendar" events on the calendar.
+
+### Story 2.6a: Create user-settings table and settings query/mutation resolvers
+
+**As a** developer,
+**I want** a `user_settings` table (holding at least `hidePastEventsAfterDays` and `pushNotificationsEnabled`, keyed to `users`) with a `mySettings` query and `updateUserSettings` mutation,
+**So that** every feature needing a per-user preference — past-event auto-hide (Epic 2), notification toggle (Epic 2), and notification-gated delivery (Epic 3) — reads and writes through one consistent, owned settings store instead of each feature inventing its own.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 1.1's `users` table and Story 0.17's auth context exist,
+*   **When** the migration script runs,
+*   **Then** a `user_settings` table is created with (at minimum) `user_id` FK (unique), `hide_past_events_after_days` (int, sensible default), and `push_notifications_enabled` (boolean, default per NFR/PRD), plus standard timestamps.
+*   **And** an `updateUserSettings(...)` mutation and a `mySettings` query are exposed, scoped to `context.user` via `requireAuth` (Story 0.17) — never trusting a client-supplied user ID.
+*   **And** Story 2.7's past-event hiding logic and Story 2.9's notification toggle both read/write through this single table rather than each defining its own storage.
+*   **And** Epic 3's Story 3.8 reads `pushNotificationsEnabled` from this same table/query rather than a separate notification-preferences store, per the cross-epic dependency identified in this readiness sweep.
+
+**Note:** This story exists because of Gate 3 (`story-split-gate.md`), surfaced by the Epic 2 readiness sweep (`bmad-epic-readiness-check`) — no story anywhere creates user-settings storage, and it is needed by both Epic 2 (Stories 2.7, 2.9) and Epic 3 (Story 3.8), making it a cross-epic shared-data-ownership gap rather than an Epic-2-only concern. Positioned immediately before Story 2.7, the first Epic 2 consumer, following the Story 1.1/3.3a precedent of scoping originating tables to the epic that first needs them rather than to Epic 0.
+
+**Depends on:** Story 0.17, Story 1.1.
 
 ### Story 2.7: Automatically hide past events
 
@@ -802,6 +879,8 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** the first step of the wizard prompts me to add my Gemini API key.
 *   **And** the second step prompts me to subscribe to my first social media account.
 *   **And** after completing the wizard, I am redirected back to the page I was trying to access.
+*   **And** submitting the Gemini API key persists it via a backend GraphQL mutation (Story 0.8 scaffold, Story 0.17 authenticated context) that encrypts the key using the KMS key (Story 0.14) before storage — never stored in plaintext and never encrypted client-side.
+*   **And** subscribing to the first social media account persists the subscription via the same backend GraphQL mutation layer — not a direct database write from `apps/web`.
 
 ### Story 3.2: Subscribe to a social media account
 
@@ -816,6 +895,8 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **When** I enter a social media account URL and click "Subscribe",
 *   **Then** the subscription is saved to my account.
 *   **And** I see the new subscription in my list of subscriptions.
+*   **And** the subscription is saved via a backend GraphQL mutation (Story 0.8 scaffold, Story 0.17 authenticated context) — not a direct database write from `apps/web`.
+*   **And** the subscription is created with `isNewlyAdded: true` (PRD §3.10) — consumed by Story 5.1a's `mySubscriptions` query/`markSubscriptionViewed` mutation to auto-activate and then clear the corresponding tab in Epic 5's Manual Post Selection screen.
 
 ### Story 3.3: Set a default location for a subscription
 
@@ -829,6 +910,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **When** I am filling out the subscription form,
 *   **Then** I have an optional field to set a default location for this subscription.
 *   **And** if a default location is set, the AI agent will use it when it cannot find an explicit location in a post.
+*   **And** the default location, when set, is persisted via the same backend GraphQL mutation used by Story 3.2 — not a direct database write from `apps/web`.
 
 ### Story 3.3a: Create posts table and persist scraped posts
 
@@ -869,10 +951,15 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Acceptance Criteria:**
 
-*   **Given** a new post has been scraped from a subscribed account,
-*   **When** the post is ready to be processed,
-*   **Then** the post is added as a message to an SQS queue.
+*   **Given** a new post has been scraped from a subscribed account and persisted (Story 3.3a),
+*   **When** a post becomes "ready to be processed" — i.e. a user selects it for extraction via Story 5.1a's `selectPostsForExtraction` mutation (PRD §3.10) — not automatically for every scraped post, since Epic 5's manual selection is the deliberate entry point that lets users stay within their API quota,
+*   **Then** the post is added as a message to the `AIProcessingQueue` SQS queue.
 *   **And** the message contains all the necessary information about the post (e.g., URL, content, metadata).
+*   **And** this story's queue-producer logic is the shared mechanism Story 5.1a's mutation calls into — Story 5.1a does not reimplement queueing.
+
+**Note:** AC corrected by Gate 1 (`story-split-gate.md`), surfaced by the Epic 5 readiness sweep (`bmad-epic-readiness-check`) — the original draft implied posts are queued automatically right after scraping, which conflicts with PRD §3.10 (manual post selection is what "should be processed by the AI agent") and with Story 5.3's quota-enforcement requirement. Queueing is now explicitly tied to user selection.
+
+**Depends on:** Story 3.3a.
 
 ### Story 3.6: Process posts from the queue and extract event information
 
@@ -922,6 +1009,7 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **When** I navigate to my "Feed" page,
 *   **Then** I see a list of events that have been extracted from my subscribed accounts.
 *   **And** I can view the events in a calendar view or a card view.
+*   **And** the events are fetched via the backend GraphQL API using the Unified Query DSL (Story 1.3a), scoped to events sourced from the current user's subscribed accounts — not directly from the database.
 
 ### Story 3.8: Push notifications for extracted events
 
@@ -937,6 +1025,8 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** I receive a push notification on my registered devices.
 *   **And** the push notification contains the event name and a short description.
 
+**Depends on:** Story 0.12, Story 2.9.
+
 ### Story 3.9: Implement API key quota management
 
 **As a** user who has subscribed to a popular account,
@@ -947,9 +1037,12 @@ Users can subscribe to social media accounts to import events into their feed.
 
 *   **Given** there are multiple users subscribed to the same social media account,
 *   **When** the system needs to process a post from that account,
-*   **Then** it uses a round-robin with fairness algorithm to select which user's API key to use.
-*   **And** the system tracks the usage of each API key.
-*   **And** the usage tracking is reset at the beginning of each billing cycle.
+*   **Then** it uses the AI Gateway Adapter's (Story 0.13) Tier 1/Tier 2 quota-management algorithm to select which user's API key to use — this story does not reimplement key-selection or usage-tracking logic, which already lives in Story 0.13.
+*   **And** end-to-end/integration tests confirm the observable behavior across ≥2 real subscribers: when Subscriber A's key is exhausted/invalid, extraction continues using Subscriber B's key, and per-key usage counters visibly reset at the start of a new billing cycle.
+
+**Note:** AC corrected by Gate 1 (`story-split-gate.md`), surfaced by the Epic 3 readiness sweep (`bmad-epic-readiness-check`) — FR24's quota algorithm is already fully implemented by Story 0.13's AC. This story is narrowed from "implement the algorithm" to "verify its observable multi-subscriber behavior end-to-end," avoiding two stories independently owning the same logic.
+
+**Depends on:** Story 0.13.
 
 ### Story 3.10: Email notifications for queued posts
 
@@ -965,10 +1058,32 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** an email notification is sent to the user.
 *   **And** the email suggests contributing an additional API key.
 
+**Depends on:** Story 0.15.
+
 ### Epic 4: Data Quality and Moderation
 
 Users can contribute to data quality by correcting event details and reporting issues.
 **FRs covered:** FR38, FR39, FR40, FR41, FR42, FR43, FR44, FR45, FR46, FR47, FR48, FR49, FR50
+
+### Story 4.1a: Build the corrections backend GraphQL API layer
+
+**As a** developer,
+**I want** a `corrections` table plus a `submitCorrection` mutation,
+**So that** Stories 4.1 and 4.2 write event corrections through a real backend path instead of ad hoc storage.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 0.17's auth context and Story 1.1's `events`/`schedules` tables exist,
+*   **When** the migration script runs,
+*   **Then** a `corrections` table is created (`id`, `event_id` FK, `submitted_by_user_id` FK, `proposed_data` JSONB matching the `EventInfo`/`Schedule` shape, `source` enum [`manual`, `ai_assisted`], `status` enum [`pending`,`applied`,`rejected`], `created_at`, `resolved_at` nullable).
+*   **And** a `submitCorrection(eventId, proposedData, source)` mutation is exposed, scoped to `context.user` via `requireAuth` (Story 0.17).
+*   **And** the mutation runs the data inconsistency checks server-side via AJV (Story 0.11) as the authoritative gate — any client-side Zod validation (Story 0.11) is a UX convenience only, never the sole check.
+*   **And** corrections that pass validation are applied directly to `events`/`schedules` (`status='applied'`); corrections that fail validation are rejected (`status='rejected'`) and returned to the caller with the validation errors.
+*   **And** no package outside `apps/backend` writes to `corrections` or `events` directly.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced by the Epic 4 readiness sweep (`bmad-epic-readiness-check`) — Stories 4.1 and 4.2 both submit event corrections but no table or backend mutation exists for them anywhere in `epics.md`. Classified as a shared data-ownership gap (consumed by both 4.1 and 4.2), positioned immediately before Story 4.1, the first consumer.
+
+**Depends on:** Story 0.8, Story 0.11, Story 0.17, Story 1.1.
 
 ### Story 4.1: Manually correct event data
 
@@ -983,6 +1098,9 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **Then** a form is displayed with the current event data pre-filled.
 *   **And** I can edit the fields and submit the corrections.
 *   **And** the system performs data inconsistency checks before accepting the correction.
+*   **And** the correction is submitted via the backend `submitCorrection` mutation (Story 4.1a) — not a direct database write from `apps/web`.
+
+**Depends on:** Story 4.1a.
 
 ### Story 4.2: AI-assisted event data correction
 
@@ -995,8 +1113,32 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **Given** I am correcting the data for an event,
 *   **And** I have provided my own Gemini API Key (BYOK),
 *   **When** I provide a URL to a social media post and click "Extract",
-*   **Then** the system uses the Gemini API to extract event information from the post.
+*   **Then** the system uses the Gemini API to extract event information from the post, calling it exclusively through the AI Gateway adapter (Story 0.13) — never a raw Gemini SDK/HTTP call from `apps/web`.
 *   **And** the correction form is pre-filled with the extracted information for my review.
+*   **And** approving the pre-filled form submits it via the same `submitCorrection` mutation (Story 4.1a) used by Story 4.1, with `source='ai_assisted'` — it is not written directly to the database.
+
+**Depends on:** Story 0.13, Story 4.1, Story 4.1a.
+
+### Story 4.3a: Build the reports backend GraphQL API layer and personal-visibility filtering
+
+**As a** developer,
+**I want** a `reports` table plus mutation/query resolvers, and a per-user "hidden" computed field on the events resolver,
+**So that** Stories 4.3, 4.5, 4.6, and 4.7 share one real data path instead of each inventing storage or client-side filtering.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 0.17's auth context and Story 1.3a's events resolver exist,
+*   **When** the migration script runs,
+*   **Then** a `reports` table is created (`id`, `event_id` FK, `reporter_user_id` FK, `reason` enum [`cancelled`,`dangerous`,`personal`], `details` text nullable, `status` enum [`pending`,`resolved`], `moderator_ignored` boolean default false, `created_at`, `resolved_at` nullable), indexed on `event_id` and `reason` to support Story 4.4's threshold check.
+*   **And** a `submitReport(eventId, reason, details)` mutation is exposed, scoped to `context.user` via `requireAuth` (Story 0.17); submission is rejected server-side if the caller already has a `dangerous`-reason report on that event marked `moderator_ignored`.
+*   **And** a `myReports` query returns the caller's own reports with the reported event, reason, and status (Story 4.6).
+*   **And** a moderator-only `reportedEvents` query and a `resolveReport`/`ignoreSubsequentReports` mutation pair (guarded by `requireModerator`, Story 0.17) support Story 4.7 and Story 4.5's "ignore subsequent reports" action.
+*   **And** the events resolver (Story 1.3a) is extended to return a per-user `isHiddenForCurrentUser` computed boolean, true when the caller has an active `personal`-reason report on that event, joined via `buildOptimizedDrizzleSelect` (Story 0.8) — Story 4.3's "immediately hidden from my view" behavior reads this field rather than filtering a client-side list.
+*   **And** no package outside `apps/backend` writes to `reports` directly.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced by the Epic 4 readiness sweep (`bmad-epic-readiness-check`) — no `reports` table or backend layer exists anywhere in `epics.md`, though Stories 4.3, 4.5, 4.6, and 4.7 all assume one. Classified as a shared data-ownership gap, positioned immediately before Story 4.3, the first consumer.
+
+**Depends on:** Story 0.8, Story 0.17, Story 1.3a.
 
 ### Story 4.3: Report an event
 
@@ -1011,8 +1153,29 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **Then** if I am not logged in, I am prompted to log in.
 *   **And** once logged in, I am presented with a form where I can select a reason for reporting (e.g., "Event Cancelled", "Dangerous Event", "Personal").
 *   **And** I can provide additional details in a text field.
-*   **And** when I submit the report, it is recorded in the system.
-*   **And** the reported event is immediately hidden from my view.
+*   **And** when I submit the report, it is recorded via the backend `submitReport` mutation (Story 4.3a) — not a direct database write from `apps/web`.
+*   **And** the reported event is immediately hidden from my view, implemented by reading the `isHiddenForCurrentUser` field (Story 4.3a) rather than a client-side list filter.
+
+**Depends on:** Story 4.3a.
+
+### Story 4.4a: Add soft-delete to the events table and extend the events resolver and moderator mutations
+
+**As a** developer,
+**I want** a soft-delete column on `events` plus resolver/mutation support to exclude, restore, and permanently delete soft-deleted events,
+**So that** Story 4.4's threshold-triggered removal and Story 4.7's moderator actions have real backend support, and every other epic's event queries stop surfacing removed events by default.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 1.1's `events` table and Story 4.3a's `reports` table and `submitReport` mutation exist,
+*   **When** the migration script runs,
+*   **Then** `events` gains a `status` column (enum [`active`,`soft_deleted`], default `active`) and a `deleted_at` column (nullable timestamp).
+*   **And** Story 1.3a's events resolver filters `status='active'` by default on every query; a moderator-only argument (guarded by `requireModerator`, Story 0.17) allows including soft-deleted rows, backing Story 4.7's list view.
+*   **And** `submitReport` (Story 4.3a) is extended so that when a `cancelled`-reason report brings the count of unique reporters for an event to a configurable threshold (default 3) within a configurable window (default 7 days), the mutation sets that event's `status='soft_deleted'`/`deleted_at=now()` synchronously in the same call — no separate scheduled job is introduced, since the per-report check is cheap at write-time.
+*   **And** moderator-only `restoreEvent(eventId)` and `deleteEventPermanently(eventId)` mutations (guarded by `requireModerator`, Story 0.17) are exposed, backing Story 4.7.
+
+**Note:** This story exists because of Gate 1 and Gate 3 (`story-split-gate.md`), surfaced by the Epic 4 readiness sweep (`bmad-epic-readiness-check`) — Story 4.4's soft-delete/restore behavior has no backing schema or mutations anywhere in `epics.md`. This is also a Gate 3 cross-epic finding: the new `status` column redefines what "visible" means for every epic that already reads events through Story 1.3a's resolver (Epic 1's listing/search/filter, Epic 2's favorites via Story 2.1a, Epic 3's feed via Story 3.7) — see the corresponding correction to Story 1.3a's Acceptance Criteria. Classified as a shared data-ownership gap originating in Epic 4 (matching the Story 1.1/3.3a precedent of scoping originating tables to the epic that first needs them, not Epic 0), positioned immediately before Story 4.4.
+
+**Depends on:** Story 0.17, Story 1.1, Story 1.3a, Story 4.3a.
 
 ### Story 4.4: Handle "Event Cancelled" reports
 
@@ -1024,8 +1187,10 @@ Users can contribute to data quality by correcting event details and reporting i
 
 *   **Given** an event has been reported as "Cancelled" by a user,
 *   **When** the number of unique users reporting the same event as cancelled reaches a configurable threshold (default: 3) within a configurable timeframe (default: 7 days),
-*   **Then** the event is soft-deleted and no longer visible to regular users.
-*   **And** a moderator can view the soft-deleted event and has the option to restore it.
+*   **Then** the event is soft-deleted and no longer visible to regular users, via the threshold check running synchronously inside the `submitReport` mutation (Stories 4.3a, 4.4a) — no separate scheduled job.
+*   **And** a moderator can view the soft-deleted event and has the option to restore it via the `restoreEvent` mutation (Story 4.4a).
+
+**Depends on:** Story 4.3a, Story 4.4a.
 
 ### Story 4.5: Handle "Dangerous Event" reports
 
@@ -1037,8 +1202,10 @@ Users can contribute to data quality by correcting event details and reporting i
 
 *   **Given** a user reports an event as "Dangerous",
 *   **When** the report is submitted,
-*   **Then** an email notification is immediately sent to all moderators.
-*   **And** when a moderator marks the event as safe, they have the option to ignore subsequent "Dangerous" reports from the same user for that same event.
+*   **Then** an email notification is immediately sent to all moderators, exclusively through the outbound email adapter (Story 0.15) — never a raw SMTP/provider SDK call from feature code.
+*   **And** when a moderator marks the event as safe, they have the option to ignore subsequent "Dangerous" reports from the same user for that same event, persisted via Story 4.3a's `ignoreSubsequentReports` mutation.
+
+**Depends on:** Story 0.15, Story 4.3a.
 
 ### Story 4.6: User's Reports page
 
@@ -1050,8 +1217,10 @@ Users can contribute to data quality by correcting event details and reporting i
 
 *   **Given** I am logged in,
 *   **When** I navigate to the "My Reports" page from the user menu,
-*   **Then** I see a list of all the reports I have submitted.
+*   **Then** I see a list of all the reports I have submitted, fetched via the `myReports` query (Story 4.3a) — not directly from the database.
 *   **And** for each report, I can see the reported event, the reason for the report, and the current status (e.g., "Pending", "Resolved").
+
+**Depends on:** Story 4.3a.
 
 ### Story 4.7: Moderator Items page
 
@@ -1063,14 +1232,38 @@ Users can contribute to data quality by correcting event details and reporting i
 
 *   **Given** I am logged in as a moderator,
 *   **When** I navigate to the "Moderator Items" page from the user menu,
-*   **Then** I see a list of all reported events that require my attention.
+*   **Then** I see a list of all reported events that require my attention, fetched via the moderator-only `reportedEvents` query (Story 4.3a) — not directly from the database.
 *   **And** for each reported event, I can see the reason for the report and any additional details.
-*   **And** I can take action on the report, such as marking an event as safe, restoring a soft-deleted event, or permanently deleting an event.
+*   **And** I can take action on the report, such as marking an event as safe, restoring a soft-deleted event, or permanently deleting an event, using Story 4.3a's report-resolution mutations and Story 4.4a's `restoreEvent`/`deleteEventPermanently` mutations — not direct database access from `apps/web`.
+
+**Depends on:** Story 4.3a, Story 4.4a, Story 0.17.
 
 ### Epic 5: Onboarding and Manual Event Extraction
 
 Users are guided through the initial setup and can manually select posts for event extraction.
 **FRs covered:** FR51, FR52, FR53, FR54, FR55, FR56, FR57, FR58, FR59, FR60, FR61, FR62, FR64, FR65
+
+### Story 5.1a: Build the manual post selection & extraction GraphQL API layer
+
+**As a** developer,
+**I want** GraphQL queries and mutations exposing a user's subscriptions (with new/inactive status), their subscribed accounts' posts, their remaining extraction quota, and the ability to submit selected posts for processing or remove a subscription,
+**So that** Stories 5.1-5.5 read and write manual-post-selection data through the backend API instead of the frontend querying the database or the AI Gateway adapter directly.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 0.8's GraphQL scaffold, Story 0.17's auth context, Story 0.13's AI Gateway adapter, and Story 3.3a's `posts` table exist,
+*   **When** a client requests `mySubscriptions`,
+*   **Then** it returns the authenticated caller's subscriptions (scoped via `requireAuth`, Story 0.17), each including the `isNewlyAdded` flag (Story 3.2) and a computed `isInactive` flag (true when no posts have been published within a configurable period, default 30 days, derived from the `posts` table's `published_at` column, Story 3.3a).
+*   **And** a `postsBySubscription(subscriptionId, cursor, limit)` query returns that subscription's posts ordered by `publishedAt` descending (20 most recent, lazily paginated per FR52/FR53) with each post's `isExtracted` status (Story 3.3a), scoped so a caller can only query subscriptions they own.
+*   **And** a `myExtractionQuota` query returns the authenticated user's remaining extraction quota for the current billing cycle, read from the AI Gateway adapter's per-key usage tracking (Story 0.13) — this story does not reimplement usage tracking.
+*   **And** a `selectPostsForExtraction(postIds: [ID!])` mutation validates server-side that the selection does not exceed `myExtractionQuota` (never trusting client-side enforcement alone, FR58), then enqueues the selected posts onto the `AIProcessingQueue` via Story 3.5's queue-producer logic — this mutation is the entry point Story 3.5 expects for manually-selected posts (PRD §3.10).
+*   **And** a `markSubscriptionViewed(subscriptionId)` mutation clears that subscription's `isNewlyAdded` flag once its tab has been opened in the Manual Post Selection screen.
+*   **And** a `removeSubscription(subscriptionId)` mutation deletes the caller's subscription, scoped via `requireAuth` — no story anywhere previously exposed subscription removal, which Story 5.4's inactive-account warning requires.
+*   **And** no package outside `apps/backend` writes to `subscriptions` or `posts`, or reads AI Gateway usage-tracking state, directly.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced by the Epic 5 readiness sweep (`bmad-epic-readiness-check`) — none of Stories 5.1-5.5 had any backend API layer; each read as a pure frontend screen manipulating subscriptions/posts/quota data directly, and no mutation anywhere exposed subscription removal or a manual extraction-trigger endpoint. Classified as a shared data-ownership gap (consumed by Stories 5.1, 5.2, 5.3, 5.4, and 5.5), positioned immediately before Story 5.1, the first consumer — mirroring the Story 2.1a/2.3a precedent.
+
+**Depends on:** Story 0.8, Story 0.13, Story 0.17, Story 3.2, Story 3.3a, Story 3.5.
 
 ### Story 5.1: Manual post selection screen
 
@@ -1083,9 +1276,11 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **Given** I am on any page in the application,
 *   **When** I navigate to the "Manual Post Selection" screen from the user menu,
 *   **Then** if I have not provided an API key or subscribed to any accounts, I am guided through the process of doing so.
-*   **And** if I have at least one subscribed account, I see a tab for each of my subscribed accounts.
-*   **And** each tab displays the 20 most recent posts from that account.
+*   **And** if I have at least one subscribed account, I see a tab for each of my subscribed accounts, fetched via the `mySubscriptions` query (Story 5.1a) — not directly from the database.
+*   **And** each tab displays the 20 most recent posts from that account, fetched via the `postsBySubscription` query (Story 5.1a).
 *   **And** posts are loaded lazily to improve performance.
+
+**Depends on:** Story 5.1a.
 
 ### Story 5.2: Select posts for extraction
 
@@ -1101,6 +1296,9 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **And** I can select multiple posts across different tabs.
 *   **And** the selection state is preserved when I switch between tabs.
 *   **And** there is a summary bar that shows the total number of selected posts.
+*   **And** submitting my selection calls the `selectPostsForExtraction` mutation (Story 5.1a), which enqueues the chosen posts onto the `AIProcessingQueue` (Story 3.5) — not a direct database write or queue call from `apps/web`.
+
+**Depends on:** Story 5.1a.
 
 ### Story 5.3: Display and enforce API quota
 
@@ -1112,9 +1310,11 @@ Users are guided through the initial setup and can manually select posts for eve
 
 *   **Given** I am on the "Manual Post Selection" screen,
 *   **When** I select posts for extraction,
-*   **Then** a summary bar displays the number of selected posts against my remaining API quota.
-*   **And** I am prevented from selecting more posts than my quota allows.
-*   **And** posts that have already been processed are visually disabled and cannot be selected.
+*   **Then** a summary bar displays the number of selected posts against my remaining API quota, read from the `myExtractionQuota` query (Story 5.1a).
+*   **And** I am prevented from selecting more posts than my quota allows, enforced both client-side (UX) and authoritatively server-side by the `selectPostsForExtraction` mutation (Story 5.1a) — the client-side check is a convenience only.
+*   **And** posts that have already been processed are visually disabled and cannot be selected, using each post's `isExtracted` field from the `postsBySubscription` query (Story 5.1a).
+
+**Depends on:** Story 5.1a.
 
 ### Story 5.4: Inactive account warning
 
@@ -1125,9 +1325,11 @@ Users are guided through the initial setup and can manually select posts for eve
 **Acceptance Criteria:**
 
 *   **Given** I am on the "Manual Post Selection" screen,
-*   **When** a subscribed account has not published any posts within a configurable period (e.g., 30 days),
+*   **When** a subscribed account has not published any posts within a configurable period (e.g., 30 days), read via the `isInactive` field on `mySubscriptions` (Story 5.1a),
 *   **Then** a warning icon is displayed on the account's tab.
-*   **And** the tab's content shows a warning message and a button to remove the inactive subscription.
+*   **And** the tab's content shows a warning message and a button to remove the inactive subscription, which calls the `removeSubscription` mutation (Story 5.1a) — not a direct database write from `apps/web`.
+
+**Depends on:** Story 5.1a.
 
 ### Story 5.5: Integrate manual post selection into the getting started wizard
 
@@ -1141,4 +1343,6 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **And** I have just added a new subscription,
 *   **When** I complete the subscription step,
 *   **Then** I am taken to the "Manual Post Selection" screen.
-*   **And** the tab for the newly added subscription is automatically activated.
+*   **And** the tab for the newly added subscription is automatically activated, using the `isNewlyAdded` flag (Story 3.2) surfaced by the `mySubscriptions` query (Story 5.1a); the flag is cleared via `markSubscriptionViewed` (Story 5.1a) once the tab is opened.
+
+**Depends on:** Story 3.2, Story 5.1a.
