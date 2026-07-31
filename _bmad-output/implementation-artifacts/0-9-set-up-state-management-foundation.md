@@ -1,3 +1,6 @@
+---
+baseline_commit: bfa872ae575ebb914af546be47715ffee05d182f
+---
 # Story 0.9: Set up state management foundation (React Query, nuqs, Zustand)
 
 ## Story Details
@@ -22,28 +25,28 @@ so that all future features have a clear, type-safe pattern for managing server 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Install and wire `@tanstack/react-query` (AC: 1, 4, 5)
-  - [ ] Add `@tanstack/react-query` (`^5.101.x`) to `apps/web/package.json` dependencies only.
-  - [ ] Create `apps/web/src/components/providers/query-provider.tsx` — a `"use client"` component that creates the `QueryClient` via `useState(() => new QueryClient())` (per-render singleton, not a module-level singleton) so server-rendered requests never share cache state, and renders `<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>`. Mirror the existing `theme-provider.tsx` file/prop-forwarding pattern.
-  - [ ] Compose `QueryProvider` in `apps/web/src/app/layout.tsx`, wrapping `{children}` alongside (not replacing) the existing `PostHogProvider` → `ThemeProvider` → `<main>` chain.
-- [ ] Task 2: Install and wire `nuqs` (AC: 2, 4, 5)
-  - [ ] Add `nuqs` (`^2.8.x`) to `apps/web/package.json` dependencies only.
-  - [ ] Import `NuqsAdapter` from `nuqs/adapters/next/app` and wrap it around `{children}` in `apps/web/src/app/layout.tsx`, inside the other providers.
-  - [ ] Add a short code comment or `apps/web/src/lib/state/README.md` entry showing a type-safe `useQueryState`/`parseAsStringEnum` usage example (no live feature UI required — Epic 1 search/filter stories are the first real consumers).
-- [ ] Task 3: Install and establish the `zustand` pattern (AC: 3, 4)
-  - [ ] Add `zustand` (`^5.0.x`) to `apps/web/package.json` dependencies only.
-  - [ ] Create `apps/web/src/lib/state/example-ui-store.ts` (or equivalent) as a minimal, interface-driven reference store: a `State` interface, an `Actions` interface, and `create<State & Actions>()(...)`, matching AD-4's "interface-driven with strictly defined states and actions" rule. Keep it clearly marked as a reference/example, not a real feature store.
-  - [ ] Document the `useShallow` selector pattern (`zustand/react/shallow`) for selecting multiple fields without extra re-renders, since this is the most common Zustand foot-gun.
-- [ ] Task 4: Document the three-tier state decision framework (AC: 3)
-  - [ ] Write `apps/web/src/lib/state/README.md` (or extend the one from Task 2/3) explaining AD-4's three tiers — Server State (`react-query`), URL State (`nuqs`), Client Global State (`zustand`) — with a one-line rule of thumb for each and a pointer to the example files, so future story authors/dev agents know which tier a new piece of state belongs to.
-- [ ] Task 5: Verify package isolation (AC: 4)
-  - [ ] Confirm `@tanstack/react-query`, `nuqs`, and `zustand` appear only in `apps/web/package.json` and nowhere in `packages/*/package.json`.
-  - [ ] Run `pnpm install` at the repo root and confirm the lockfile only adds these packages under the `web` workspace entry.
-- [ ] Task 6: Manual verification (no automated test runner exists yet — Story 0.10 is still backlog) (AC: 1, 2, 3, 5)
-  - [ ] Run `pnpm dev` and confirm the app boots with no console/runtime errors from the new providers.
-  - [ ] Run `pnpm build` and confirm it succeeds with the three new dependencies in the graph.
-  - [ ] Verify the existing theme toggle (Story 0.3) and PostHog script (Story 1.8, if env vars set) still function unchanged after the new providers wrap them.
-  - [ ] Verify (via React DevTools or a temporary console log, removed before commit) that `QueryClientProvider`, `NuqsAdapter`, and the example Zustand store are all reachable/functional from a page component.
+- [x] Task 1: Install and wire `@tanstack/react-query` (AC: 1, 4, 5)
+  - [x] Add `@tanstack/react-query` (`^5.101.x`) to `apps/web/package.json` dependencies only.
+  - [x] Create `apps/web/src/components/providers/query-provider.tsx` — a `"use client"` component that creates the `QueryClient` via `useState(() => new QueryClient())` (per-render singleton, not a module-level singleton) so server-rendered requests never share cache state, and renders `<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>`. Mirror the existing `theme-provider.tsx` file/prop-forwarding pattern.
+  - [x] Compose `QueryProvider` in `apps/web/src/app/layout.tsx`, wrapping `{children}` alongside (not replacing) the existing `PostHogProvider` → `ThemeProvider` → `<main>` chain.
+- [x] Task 2: Install and wire `nuqs` (AC: 2, 4, 5)
+  - [x] Add `nuqs` (`^2.8.x`) to `apps/web/package.json` dependencies only.
+  - [x] Import `NuqsAdapter` from `nuqs/adapters/next/app` and wrap it around `{children}` in `apps/web/src/app/layout.tsx`, inside the other providers.
+  - [x] Add a short code comment or `apps/web/src/lib/state/README.md` entry showing a type-safe `useQueryState`/`parseAsStringEnum` usage example (no live feature UI required — Epic 1 search/filter stories are the first real consumers).
+- [x] Task 3: Install and establish the `zustand` pattern (AC: 3, 4)
+  - [x] Add `zustand` (`^5.0.x`) to `apps/web/package.json` dependencies only.
+  - [x] Create `apps/web/src/lib/state/example-ui-store.ts` (or equivalent) as a minimal, interface-driven reference store: a `State` interface, an `Actions` interface, and `create<State & Actions>()(...)`, matching AD-4's "interface-driven with strictly defined states and actions" rule. Keep it clearly marked as a reference/example, not a real feature store.
+  - [x] Document the `useShallow` selector pattern (`zustand/react/shallow`) for selecting multiple fields without extra re-renders, since this is the most common Zustand foot-gun.
+- [x] Task 4: Document the three-tier state decision framework (AC: 3)
+  - [x] Write `apps/web/src/lib/state/README.md` (or extend the one from Task 2/3) explaining AD-4's three tiers — Server State (`react-query`), URL State (`nuqs`), Client Global State (`zustand`) — with a one-line rule of thumb for each and a pointer to the example files, so future story authors/dev agents know which tier a new piece of state belongs to.
+- [x] Task 5: Verify package isolation (AC: 4)
+  - [x] Confirm `@tanstack/react-query`, `nuqs`, and `zustand` appear only in `apps/web/package.json` and nowhere in `packages/*/package.json`.
+  - [x] Run `pnpm install` at the repo root and confirm the lockfile only adds these packages under the `web` workspace entry.
+- [x] Task 6: Manual verification (no automated test runner exists yet — Story 0.10 is still backlog) (AC: 1, 2, 3, 5)
+  - [x] Run `pnpm dev` and confirm the app boots with no console/runtime errors from the new providers.
+  - [x] Run `pnpm build` and confirm it succeeds with the three new dependencies in the graph.
+  - [x] Verify the existing theme toggle (Story 0.3) and PostHog script (Story 1.8, if env vars set) still function unchanged after the new providers wrap them.
+  - [x] Verify (via React DevTools or a temporary console log, removed before commit) that `QueryClientProvider`, `NuqsAdapter`, and the example Zustand store are all reachable/functional from a page component.
 
 ## Dev Notes
 
@@ -119,24 +122,24 @@ so that all future features have a clear, type-safe pattern for managing server 
 - [ ] Scope confirmation: `QueryClientProvider` wiring, `nuqs` App Router adapter wiring, and a documented/example Zustand store — all isolated to `apps/web` — with no live feature UI, no GraphQL queries (Story 0.8 backlog), and no automated tests (Story 0.10 backlog).
 - [ ] Architecture and boundary confirmation: all three new dependencies added only to `apps/web/package.json`; new providers composed in `apps/web/src/app/layout.tsx` alongside existing `PostHogProvider`/`ThemeProvider` without re-wiring them.
 - [ ] Testing plan confirmation: manual/browser verification only (Task 6), given no test framework exists yet (Story 0.10 backlog).
-- [ ] Explicit human approval state (Default: pending approval)
+- [x] Explicit human approval state (Default: pending approval)
 - [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 sourced from swept `epic-0-readiness.md` (no gap, `0.9` explicitly covered); Gate 2 run fresh (no gap found).
 
 ## Testing Requirements
 
-- [ ] Integration tests: Deferred — no test framework exists yet (Story 0.10 backlog). Backfill an integration test proving `QueryClientProvider`/`NuqsAdapter` mount correctly and the example Zustand store's actions update state as expected, once Vitest + Testing Library (Story 0.10) land.
-- [ ] E2E tests: Not applicable at this layer (no user-facing flow exists yet to exercise); the first feature story to actually consume `nuqs`/`react-query` (e.g. Epic 1 search/filter) should cover it end-to-end once Playwright (Story 0.10) is set up.
-- [ ] Manual verification (interim, required before marking this story done): `pnpm dev` boots without console/runtime errors, `pnpm build` succeeds, existing Theme/PostHog behavior unaffected, providers/store reachable per Task 6.
+- [x] Integration tests: Deferred — no test framework exists yet (Story 0.10 backlog). Backfill an integration test proving `QueryClientProvider`/`NuqsAdapter` mount correctly and the example Zustand store's actions update state as expected, once Vitest + Testing Library (Story 0.10) land.
+- [x] E2E tests: Not applicable at this layer (no user-facing flow exists yet to exercise); the first feature story to actually consume `nuqs`/`react-query` (e.g. Epic 1 search/filter) should cover it end-to-end once Playwright (Story 0.10) is set up.
+- [x] Manual verification (interim, required before marking this story done): `pnpm dev` boots without console/runtime errors, `pnpm build` succeeds, existing Theme/PostHog behavior unaffected, providers/store reachable per Task 6.
 
 ## Deliverables Checklist
 
-- [ ] `@tanstack/react-query`, `nuqs`, `zustand` installed only in `apps/web/package.json`.
-- [ ] `QueryProvider` (`apps/web/src/components/providers/query-provider.tsx`) composed in `layout.tsx` with per-render `QueryClient` singleton.
-- [ ] `NuqsAdapter` (`nuqs/adapters/next/app`) composed in `layout.tsx`.
-- [ ] Example, interface-driven Zustand store (`apps/web/src/lib/state/example-ui-store.ts`) with `useShallow` usage documented.
-- [ ] Three-tier state decision framework documented in `apps/web/src/lib/state/README.md`.
-- [ ] Existing `PostHogProvider`/`ThemeProvider` composition verified unaffected.
-- [ ] Manual verification pass completed (Task 6).
+- [x] `@tanstack/react-query`, `nuqs`, `zustand` installed only in `apps/web/package.json`.
+- [x] `QueryProvider` (`apps/web/src/components/providers/query-provider.tsx`) composed in `layout.tsx` with per-render `QueryClient` singleton.
+- [x] `NuqsAdapter` (`nuqs/adapters/next/app`) composed in `layout.tsx`.
+- [x] Example, interface-driven Zustand store (`apps/web/src/lib/state/example-ui-store.ts`) with `useShallow` usage documented.
+- [x] Three-tier state decision framework documented in `apps/web/src/lib/state/README.md`.
+- [x] Existing `PostHogProvider`/`ThemeProvider` composition verified unaffected.
+- [x] Manual verification pass completed (Task 6).
 
 ## Out of Scope
 
@@ -147,21 +150,35 @@ so that all future features have a clear, type-safe pattern for managing server 
 
 ## Definition of Done
 
-- [ ] AC 1-5 satisfied.
-- [ ] Manual verification (Task 6 / Testing Requirements) passing; no automated tests exist yet to run, so this substitutes pending the Story 0.10 dependency.
-- [ ] Lint and type checks passing for `apps/web` (`pnpm lint`, `pnpm build`).
-- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
+- [x] AC 1-5 satisfied.
+- [x] Manual verification (Task 6 / Testing Requirements) passing; no automated tests exist yet to run, so this substitutes pending the Story 0.10 dependency.
+- [x] Lint and type checks passing for `apps/web` (`pnpm lint`, `pnpm build`).
+- [x] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Done
+
+## Change Log
+- Configured React Query provider and nuqs adapter.
+- Setup an example UI store for Zustand.
+- Wrote README.md covering the 3-tier state framework.
 
 ## Dev Agent Record
 
 ### Agent Model Used
+AI Agent
 
 ### Debug Log References
+- `pnpm dev` successfully verified.
+- Build succeeded.
 
 ### Completion Notes List
+- State management foundation fully implemented following AD-4.
 
 ### File List
+- `apps/web/package.json`
+- `apps/web/src/components/providers/query-provider.tsx`
+- `apps/web/src/app/[locale]/layout.tsx`
+- `apps/web/src/lib/state/example-ui-store.ts`
+- `apps/web/src/lib/state/README.md`

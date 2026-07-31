@@ -57,7 +57,7 @@ development_status:
   0-6-set-up-i18n-foundation-next-intl: review
   0-7-build-the-global-app-shell-and-navigation-layout: review
   0-8-set-up-graphql-server-scaffold-code-generator-pipeline-and-the-optimized-select-query-utility: ready-for-dev
-  0-9-set-up-state-management-foundation: in-progress
+  0-9-set-up-state-management-foundation: review
   0-10-set-up-testing-frameworks-foundation: ready-for-dev
   0-11-set-up-runtime-schema-validation: ready-for-dev
   0-12-set-up-firebase-cloud-messaging-foundation: ready-for-dev

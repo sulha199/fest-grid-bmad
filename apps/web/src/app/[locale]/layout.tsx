@@ -2,6 +2,8 @@ import { ReactNode } from 'react';
 import { Inter } from 'next/font/google';
 import '../globals.css';
 import { ThemeProvider } from '@/components/providers/theme-provider';
+import { QueryProvider } from '@/components/providers/query-provider';
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { PostHogProvider } from '@festgrid/analytics';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
@@ -53,7 +55,11 @@ export default async function RootLayout({
               enableSystem
               disableTransitionOnChange
             >
-              <AppShell>{children}</AppShell>
+              <QueryProvider>
+                <NuqsAdapter>
+                  <AppShell>{children}</AppShell>
+                </NuqsAdapter>
+              </QueryProvider>
             </ThemeProvider>
           </PostHogProvider>
         </NextIntlClientProvider>
