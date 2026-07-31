@@ -64,17 +64,14 @@ Load `{project-root}/_bmad/bmm/config.yaml` and resolve `project_name`, `user_na
   <action>Scan `epics.md` for OTHER epics' stories that reference the same external services, tables, or infra this epic's stories reference (needed for Gate 3's cross-epic reuse check — e.g. Epic 3 and Epic 4 both calling Gemini).</action>
 </step>
 
-<step n="3" goal="Run Gate 1 and Gate 3 once, epic-wide">
+<step n="3" goal="Run Gate 1 and Gate 3 once, epic-wide, in a single subagent pass">
   <critical>These gates evaluate the WHOLE epic's story list as one unit, not story-by-story. This is what makes the sweep cheaper than N individual runs — the subagent reasons about shared dependencies directly instead of each story rediscovering them.</critical>
 
-  <action>Gate 1 — Architecture / Infrastructure Completeness (epic-wide)
-    Use `runSubagent` with persona Winston (`bmad-agent-architect`).
-    Provide ALL of the epic's story ACs together. Evaluate per `story-split-gate.md`'s Gate 1 heuristics: does any story (or the epic's pipeline as a whole) bypass the backend/API layer, call external services directly instead of through a mandated adapter, introduce API surfaces with no backing layer, or depend on infra with no IaC/deploy story? Report findings once, not per story — if the same gap affects multiple stories, say so explicitly rather than repeating it.
-  </action>
-
-  <action>Gate 3 — Foundational / Cross-Cutting Dependency Completeness (epic-wide + cross-epic)
-    Use `runSubagent` with persona Winston (`bmad-agent-architect`).
-    Provide ALL of the epic's story ACs, plus the cross-epic references gathered in Step 2. Evaluate per `story-split-gate.md`'s Gate 3 heuristics: does this epic depend on shared tooling/infrastructure (i18n, analytics, GraphQL scaffold, a named reusable utility, an external-service adapter, a shared data table) that has no owning story anywhere in `epics.md`, and that other epics also need or would need? Explicitly check for reuse across epics, not just within this one.
+  <action>Use ONE `runSubagent` call with persona Winston (`bmad-agent-architect`) to evaluate Gate 1 and Gate 3 together against the same evidence. They share the same owning persona and the same input (the epic's full story ACs) — splitting them into two separate subagent calls only pays context-loading overhead twice for no reasoning benefit.
+    Provide ALL of the epic's story ACs together, plus the cross-epic references gathered in Step 2.
+    Ask Winston to evaluate both gates and report findings as two clearly labeled sections in a single response:
+    - **Gate 1 — Architecture / Infrastructure Completeness (epic-wide):** per `story-split-gate.md`'s Gate 1 heuristics, does any story (or the epic's pipeline as a whole) bypass the backend/API layer, call external services directly instead of through a mandated adapter, introduce API surfaces with no backing layer, or depend on infra with no IaC/deploy story? Report findings once, not per story — if the same gap affects multiple stories, say so explicitly rather than repeating it.
+    - **Gate 3 — Foundational / Cross-Cutting Dependency Completeness (epic-wide + cross-epic):** per `story-split-gate.md`'s Gate 3 heuristics, does this epic depend on shared tooling/infrastructure (i18n, analytics, GraphQL scaffold, a named reusable utility, an external-service adapter, a shared data table) that has no owning story anywhere in `epics.md`, and that other epics also need or would need? Explicitly check for reuse across epics, not just within this one.
   </action>
 
   <note>Gate 2 (UI Complexity & Reusability) is intentionally NOT run here — it stays per-story in `bmad-create-story`, since UI scope varies story to story and this sweep would either skip it shallowly or blow up in scope trying to evaluate every story's UI at once.</note>
