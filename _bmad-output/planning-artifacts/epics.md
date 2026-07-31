@@ -330,7 +330,7 @@ The project is set up with a solid foundation and CI/CD pipeline.
 *   **When** the backend app (`apps/backend`) starts,
 *   **Then** a GraphQL server is running with query depth/complexity limits configured to prevent abuse.
 *   **And** `GraphQL Code Generator` is configured against the GraphQL schema, generating end-to-end TypeScript types (and typed `graphql-request`/`react-query` hooks) consumed by `apps/web`, so client and server can never silently drift out of sync.
-*   **And** a generic, strictly-typed `buildOptimizedDrizzleSelect` function exists in `packages/database`, translating GraphQL resolve-info/AST into an optimized Drizzle `select` that only fetches requested fields.
+*   **And** a generic, strictly-typed `buildOptimizedDrizzleSelect` function exists in `packages/graphql-select` (a dedicated package, kept separate from `packages/database`'s pure schema/migration/seed concerns so CI jobs like `db-migrate` never need to declare GraphQL dependencies), translating GraphQL resolve-info/AST into an optimized Drizzle `select` that only fetches requested fields.
 *   **And** `buildOptimizedDrizzleSelect` is table/schema-agnostic (not events-specific) so any future resolver can import and reuse it, and it has dedicated unit tests proving correct field-selection behavior.
 *   **And** the codegen script runs as part of `pnpm build`/CI (Story 0.5) so type drift fails the build.
 
@@ -429,6 +429,61 @@ The project is set up with a solid foundation and CI/CD pipeline.
 *   **And** environment-specific configuration (dev/staging/prod) is supported without duplicating the stack definition.
 
 **Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced while creating Story 3.6 — no IaC/deploy story existed for any of the Lambdas/queues/KMS key that the Epic 3 processing pipeline (Stories 3.4-3.6, 3.6b) and the AI Gateway (Story 0.13) depend on.
+
+### Story 0.15: Set up outbound email adapter
+
+**As a** developer,
+**I want** a dedicated outbound email adapter that wraps a transactional email provider (e.g. AWS SES) behind a single interface, with templated messages and delivery via the backend only,
+**So that** every feature that needs to notify a user or moderator by email (quota-exhaustion warnings, invalid-key-attempt alerts, dangerous-event moderator alerts) reuses the same sending mechanism instead of each feature integrating its own email client.
+
+**Acceptance Criteria:**
+
+*   **Given** the AWS IaC stack (Story 0.14) provisions the backend Lambdas,
+*   **When** a backend Lambda needs to notify a user or moderator by email,
+*   **Then** it does so exclusively through this adapter's exposed interface — never a raw SMTP/provider SDK call from feature code.
+*   **And** the adapter's sending-service resource and IAM permissions are provisioned via IaC (Story 0.14).
+*   **And** the adapter supports templated messages so each consumer supplies only a template key and variables, not raw markup.
+*   **And** sending credentials/config are stored per the project's credential-management rules (`.env`, never hardcoded).
+
+**Note:** This story exists because of Gate 1/Gate 3 (`story-split-gate.md`), surfaced by the Epic 0 readiness sweep (`bmad-epic-readiness-check`) — Story 3.10 (Epic 3, quota-exhaustion emails) and Story 4.5 (Epic 4, dangerous-event moderator emails) both require outbound email, and FR35's invalid-API-key-attempt email is a third consumer, but no story anywhere provisioned an email-sending service or adapter.
+
+**Depends on:** Story 0.14.
+
+### Story 0.16: Set up Geolocation adapter with caching layer
+
+**As a** developer,
+**I want** a dedicated Geolocation adapter that wraps all outbound calls to the Google Geolocation/Places API behind a single interface, with a caching layer for repeated lookups and a restricted, backend-only API key,
+**So that** every feature that resolves coordinates, addresses, or timezones (map-based location picking, nearby-event search, timezone inference for extracted events) reuses the same client and cache instead of each feature calling the Geolocation API directly and re-incurring cost/quota.
+
+**Acceptance Criteria:**
+
+*   **Given** a feature needs to resolve a location (address, place ID, or coordinates) or infer a timezone,
+*   **When** it needs geolocation data,
+*   **Then** it does so exclusively through this Adapter's exposed interface — never the raw Google Geolocation/Places SDK/HTTP API from feature code.
+*   **And** the Adapter caches lookups for the same location so repeated queries are served from cache rather than re-calling the external API (NFR14).
+*   **And** the Google API key used by the Adapter is restricted in the Google Cloud Console (API restrictions + application restrictions) per the PRD's API key security requirements.
+*   **And** the Adapter is backend-only — no direct Geolocation API calls are made from `apps/web`.
+
+**Note:** This story exists because of Gate 3 (`story-split-gate.md`), surfaced by the Epic 0 readiness sweep (`bmad-epic-readiness-check`) — Story 2.4 (Epic 2, map-based/current-location picking) and FR33 (Epic 3, timezone inference) both depend on a geolocation service, and NFR14 mandates a caching layer, but no story anywhere set up this adapter, mirroring the AI Gateway adapter (Story 0.13) built for Gemini.
+
+### Story 0.17: Set up GraphQL authenticated-context layer
+
+**As a** developer,
+**I want** the GraphQL server to verify a caller's Supabase Auth session/JWT on incoming requests and expose the authenticated user's identity and role via resolver context,
+**So that** every mutation or query that requires "the current user" (favoriting, saved locations, subscriptions, reports, moderator actions) can enforce ownership/authorization consistently instead of each feature story inventing its own verification.
+
+**Acceptance Criteria:**
+
+*   **Given** the GraphQL server scaffold (Story 0.8) and Supabase Auth-based login (Story 1.7) exist,
+*   **When** an authenticated client sends a GraphQL request carrying its Supabase session token,
+*   **Then** the server verifies the token and populates resolver context with the caller's `userId` (matching the `users` table, Story 1.1) — never trusting a client-supplied user ID.
+*   **And** requests without a valid session expose `context.user` as `null`, and resolvers/mutations that require authentication reject unauthenticated calls with a clear, consistent error.
+*   **And** the `users` table (Story 1.1) gains a `role` column (default `user`, supporting a `moderator` value per the PRD's "moderator access levels are assigned manually via the database" MVP scope), so resolver context also exposes the caller's role.
+*   **And** a reusable authorization helper (e.g. `requireAuth`/`requireModerator`) is exported for resolvers to import, rather than each resolver hand-rolling its own check.
+
+**Note:** This story exists because of Gate 1/Gate 3 (`story-split-gate.md`), surfaced by the Epic 1 readiness sweep (`bmad-epic-readiness-check`) — Story 1.7 wires Supabase Auth into the frontend for identity/session only; no story defines how the backend GraphQL server verifies that session and exposes the caller's identity/role to resolvers. Story 2.1 (Epic 2, favorite/unfavorite), Story 3.2 (Epic 3, subscriptions), and Stories 4.1/4.3/4.6/4.7 (Epic 4, corrections/reports/moderation) all assume this layer exists. Placed in Epic 0 (despite originating from Epic 1's Story 1.7) following the Story 0.13 precedent — a foundation reusable/needed across ≥2 other epics belongs in Epic 0 even when it forward-depends on a later epic's story.
+
+**Depends on:** Story 0.8, Story 1.1, Story 1.7.
 
 ### Epic 1: Core App and Event Discovery
 
