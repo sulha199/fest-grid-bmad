@@ -84,6 +84,14 @@ Gate 1 and Gate 3 findings are typically epic-wide (the same adapter/queue/schem
 
 When `bmad-create-story` finds that report marked `swept: true` for the epic in scope, it skips Gate 1 and Gate 3 for that individual story, citing the report's findings instead, and runs only Gate 2 (UI Complexity & Reusability, which stays per-story since UI scope is story-specific) plus a lightweight non-subagent check for anything the sweep didn't anticipate. If no swept report exists, `bmad-create-story` falls back to running all three gates per-story as described above.
 
+## Full Gate Lifecycle
+
+These gates span three skills across an epic's lifecycle — each answers a different question and none substitutes for the others:
+
+1. **`bmad-epic-readiness-check`** (before any story exists) — runs Gate 1 + Gate 3 once against the epic's *planned* ACs in `epics.md`, producing `epic-{N}-readiness.md`.
+2. **`bmad-create-story`** (per story) — cites that report and skips Gate 1/3; runs only Gate 2 plus the lightweight escape-hatch guard described above.
+3. **`bmad-epic-readiness-review`** (after all stories are `done`) — the post-implementation counterpart. Reconciles the readiness report's prerequisites against actual completion, collects any escape-hatch findings individual stories logged mid-epic, and runs one final Gate 1 pass against the *as-built* code (reading real File Lists, not story descriptions) plus a Gate 2 duplication check across the epic's stories. Produces `epic-{N}-review.md`. Run this before `bmad-retrospective` so its readiness discussion has objective evidence instead of relying on the user's self-report alone.
+
 ## Escape Hatch
 
 The user may explicitly override a gate finding (e.g. "ship it without the image for now"). If so, record that decision in the story's Dev Notes so `bmad-dev-story` and future reviews know it was a deliberate, accepted gap — not a missed one.

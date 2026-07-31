@@ -10,7 +10,12 @@
       "Bash(cp .claude/skills/bmad-epic-readiness-check/customize.toml .cline/skills/bmad-epic-readiness-check/customize.toml)",
       "Bash(cp .claude/skills/bmad-create-story/SKILL.md .agents/skills/bmad-create-story/SKILL.md)",
       "Bash(cp .claude/skills/bmad-create-story/SKILL.md .cline/skills/bmad-create-story/SKILL.md)",
-      "Bash(python3 _bmad/scripts/resolve_customization.py --skill .claude/skills/bmad-epic-readiness-check --key workflow.persistent_facts)"
+      "Bash(python3 _bmad/scripts/resolve_customization.py --skill .claude/skills/bmad-epic-readiness-check --key workflow.persistent_facts)",
+      "Bash(mkdir -p .agents/skills/bmad-epic-readiness-review .cline/skills/bmad-epic-readiness-review)",
+      "Bash(cp .claude/skills/bmad-epic-readiness-review/SKILL.md .agents/skills/bmad-epic-readiness-review/SKILL.md)",
+      "Bash(cp .claude/skills/bmad-epic-readiness-review/customize.toml .agents/skills/bmad-epic-readiness-review/customize.toml)",
+      "Bash(cp .claude/skills/bmad-epic-readiness-review/SKILL.md .cline/skills/bmad-epic-readiness-review/SKILL.md)",
+      "Bash(cp .claude/skills/bmad-epic-readiness-review/customize.toml .cline/skills/bmad-epic-readiness-review/customize.toml)"
     ]
   }
 }
