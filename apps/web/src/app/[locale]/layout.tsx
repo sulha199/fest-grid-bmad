@@ -6,6 +6,7 @@ import { PostHogProvider } from '@festgrid/analytics';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
 import { routing } from '../../i18n/routing';
+import { AppShell } from '@festgrid/ui';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -52,7 +53,7 @@ export default async function RootLayout({
               enableSystem
               disableTransitionOnChange
             >
-              <main>{children}</main>
+              <AppShell>{children}</AppShell>
             </ThemeProvider>
           </PostHogProvider>
         </NextIntlClientProvider>
