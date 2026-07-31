@@ -2,8 +2,12 @@
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST", "NEXT_PUBLIC_POSTHOG_DEFAULTS", "ALLOW_DESTRUCTIVE_SEED"],
   "tasks": {
+    "codegen": {
+      "dependsOn": [],
+      "outputs": ["src/generated/**"]
+    },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "codegen"],
       "env": ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST", "NEXT_PUBLIC_POSTHOG_DEFAULTS"],
       "outputs": [".next/**", "dist/**"]
     },

@@ -1,0 +1,31 @@
+{
+  "name": "@festgrid/graphql-select",
+  "version": "1.0.0",
+  "description": "Utility to optimize Drizzle queries based on GraphQL AST",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsx --test *.test.ts",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "@festgrid/database": "workspace:*",
+    "drizzle-orm": "^0.30.10",
+    "graphql": "^16.8.0",
+    "graphql-parse-resolve-info": "^4.14.0"
+  },
+  "devDependencies": {
+    "@festgrid/eslint-config": "workspace:*",
+    "@festgrid/typescript-config": "workspace:*",
+    "@types/node": "^20.14.10",
+    "tsx": "^4.16.2",
+    "typescript": "^5.4.5"
+  }
+}

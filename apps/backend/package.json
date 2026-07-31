@@ -1,0 +1,29 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "GraphQL backend for FestGrid",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/src/index.js",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "codegen": "graphql-codegen --config codegen.ts"
+  },
+  "dependencies": {
+    "@escape.tech/graphql-armor": "^3.2.0",
+    "@festgrid/shared-types": "workspace:*",
+    "graphql": "^16.8.0",
+    "graphql-yoga": "^5.21.2"
+  },
+  "devDependencies": {
+    "@festgrid/eslint-config": "workspace:*",
+    "@festgrid/typescript-config": "workspace:*",
+    "@graphql-codegen/cli": "^5.0.2",
+    "@graphql-codegen/typescript": "^4.0.9",
+    "@graphql-codegen/typescript-resolvers": "^4.2.1",
+    "dotenv": "^16.4.5",
+    "tsx": "^4.16.2",
+    "typescript": "^5.4.5"
+  }
+}
