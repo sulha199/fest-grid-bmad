@@ -532,7 +532,8 @@ Users can discover and browse events.
 *   **And** the API supports fetching a single event by ID for the detail view.
 *   **And** no package outside `apps/backend` imports the database/domain layer directly — `apps/web` only talks to events data through this API (e.g. via generated `graphql-request` types from Story 0.8).
 *   **And** the API supports filtering events by `sourceSocialMediaAccountId` scoped to the current authenticated user's subscriptions (Story 0.17), so Epic 3's Feed (Story 3.7) can retrieve only events extracted from the user's subscribed accounts by reusing this resolver rather than a separate one.
-*   **And** events with `status='soft_deleted'` (Story 4.4a) are excluded by default; a moderator-scoped argument (guarded by `requireModerator`, Story 0.17) allows including them, backing Story 4.7's moderation view.
+
+**Note:** Story 4.4a (Epic 4) will later extend this resolver to exclude `status='soft_deleted'` events by default (with a moderator-scoped override, backing Story 4.7's moderation view). Not specified as an AC here because Story 1.1 does not create a `status` column and Story 4.4a — which does — is not built yet; implementation and ownership of that filter live entirely in Story 4.4a's own Acceptance Criteria.
 
 **Depends on:** Story 0.8
 
@@ -1173,7 +1174,7 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **And** `submitReport` (Story 4.3a) is extended so that when a `cancelled`-reason report brings the count of unique reporters for an event to a configurable threshold (default 3) within a configurable window (default 7 days), the mutation sets that event's `status='soft_deleted'`/`deleted_at=now()` synchronously in the same call — no separate scheduled job is introduced, since the per-report check is cheap at write-time.
 *   **And** moderator-only `restoreEvent(eventId)` and `deleteEventPermanently(eventId)` mutations (guarded by `requireModerator`, Story 0.17) are exposed, backing Story 4.7.
 
-**Note:** This story exists because of Gate 1 and Gate 3 (`story-split-gate.md`), surfaced by the Epic 4 readiness sweep (`bmad-epic-readiness-check`) — Story 4.4's soft-delete/restore behavior has no backing schema or mutations anywhere in `epics.md`. This is also a Gate 3 cross-epic finding: the new `status` column redefines what "visible" means for every epic that already reads events through Story 1.3a's resolver (Epic 1's listing/search/filter, Epic 2's favorites via Story 2.1a, Epic 3's feed via Story 3.7) — see the corresponding correction to Story 1.3a's Acceptance Criteria. Classified as a shared data-ownership gap originating in Epic 4 (matching the Story 1.1/3.3a precedent of scoping originating tables to the epic that first needs them, not Epic 0), positioned immediately before Story 4.4.
+**Note:** This story exists because of Gate 1 and Gate 3 (`story-split-gate.md`), surfaced by the Epic 4 readiness sweep (`bmad-epic-readiness-check`) — Story 4.4's soft-delete/restore behavior has no backing schema or mutations anywhere in `epics.md`. This is also a Gate 3 cross-epic finding: the new `status` column redefines what "visible" means for every epic that already reads events through Story 1.3a's resolver (Epic 1's listing/search/filter, Epic 2's favorites via Story 2.1a, Epic 3's feed via Story 3.7) — Story 1.3a carries a forward-reference `Note:` pointing here, since the filter itself can't be implemented until this story's migration exists. Classified as a shared data-ownership gap originating in Epic 4 (matching the Story 1.1/3.3a precedent of scoping originating tables to the epic that first needs them, not Epic 0), positioned immediately before Story 4.4.
 
 **Depends on:** Story 0.17, Story 1.1, Story 1.3a, Story 4.3a.
 
