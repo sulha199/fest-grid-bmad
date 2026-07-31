@@ -1,0 +1,20 @@
+{
+  "name": "@festgrid/testing-config",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    "./vitest-node": "./vitest-node.ts",
+    "./vitest-react": "./vitest-react.ts",
+    "./msw-handlers": "./msw-handlers.ts",
+    "./vitest.setup": "./vitest.setup.ts"
+  },
+  "devDependencies": {
+    "@festgrid/typescript-config": "workspace:^",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "16.3.0",
+    "jsdom": "^30.0.1",
+    "msw": "2.15.0",
+    "vitest": "^4.1.10"
+  }
+}

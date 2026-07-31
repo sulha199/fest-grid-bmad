@@ -1,10 +1,13 @@
+---
+baseline_commit: 07f8c16cb72a383700ff8a965d3becfa9cc1bdcd
+---
 # Story 0.10: Set up testing frameworks foundation (Vitest, MSW, Playwright)
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.10
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -23,41 +26,41 @@ so that all packages and applications have the necessary tools for the "testing 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Scaffold the `@festgrid/testing-config` shared package (AC: 1)
-  - [ ] Create `packages/testing-config/package.json` mirroring the `@festgrid/eslint-config` pattern (`private: true`, subpath `exports`, `devDependencies` only — this package ships config, not runtime code).
-  - [ ] Add subpath exports: `./vitest-node` (Node/domain-agnostic preset — no DOM), `./vitest-react` (jsdom environment + `@testing-library/react` + `@testing-library/jest-dom` + MSW server setup), and `./msw-handlers` (a base/example `http.get`/`http.post` handler array consumers extend).
-  - [ ] Add `packages/testing-config/tsconfig.json` extending `@festgrid/typescript-config/base.json`.
-  - [ ] Add `packages/testing-config/eslint.config.mjs` extending `@festgrid/eslint-config/base`.
-- [ ] Task 2: Wire the Node/domain-agnostic Vitest preset (AC: 1, 2)
-  - [ ] In `packages/testing-config/vitest-node.ts`, export a base `defineConfig`/`mergeConfig`-compatible object: `test.environment: "node"`, coverage provider `v8`, standard `include`/`exclude` globs.
-  - [ ] Consuming packages create a **thin** `vitest.config.ts` that imports and re-exports/extends this preset (per Vitest 4's guidance: individual package configs should own their own small config next to their source and import shared pieces — the root config uses `test.projects`, not the deprecated `test.workspace`, to discover them).
-  - [ ] Add a root `vitest.config.ts` at the repo root using `test.projects: ["apps/web", "packages/database", "packages/analytics"]` (glob-based) so a single `vitest run` from the root can execute every package's tests, in addition to each package's own `turbo run test`.
-- [ ] Task 3: Wire the jsdom/React Vitest preset + Testing Library (AC: 1, 2, 3)
-  - [ ] In `packages/testing-config/vitest-react.ts`, extend the Node preset with `test.environment: "jsdom"`, `test.setupFiles` pointing to a `vitest.setup.ts` that imports `@testing-library/jest-dom/vitest` matchers and starts/stops the MSW `setupServer` (`beforeAll`/`afterEach`/`afterAll` lifecycle hooks: `server.listen()`, `server.resetHandlers()`, `server.close()`).
-  - [ ] Add `@testing-library/react` (`^16.3.x`, required for React 19 compatibility — see Latest Tech Information) and `@testing-library/jest-dom` as `devDependencies` of `packages/testing-config`.
-- [ ] Task 4: Set up MSW (AC: 3)
-  - [ ] Add `msw` (`^2.15.x`) as a `devDependency` of `packages/testing-config`.
-  - [ ] Create `packages/testing-config/msw-handlers.ts` exporting an empty/example `handlers: HttpHandler[]` array using the v2 `http`/`HttpResponse` API (not the deprecated v1 `rest` API) that consumers spread/extend with their own handlers.
-  - [ ] `setupServer(...handlers)` lives in the `vitest-react.ts` setup file (Node-only MSW integration — no Service Worker file needed for Vitest's Node/jsdom environment, per MSW's Node testing docs).
-- [ ] Task 5: Wire `apps/web`, `packages/database`, `packages/analytics` to the shared config (AC: 2, 5)
-  - [ ] `apps/web/package.json`: add `"test": "vitest run"` script; add `vitest`, `jsdom`, and `@festgrid/testing-config` (`workspace:*`) as `devDependencies`; add `apps/web/vitest.config.ts` importing `@festgrid/testing-config/vitest-react`.
-  - [ ] `packages/database/package.json`: add `"test": "vitest run"` script (distinct from the existing `test:seed` — see AC6/Dev Notes); add `vitest` + `@festgrid/testing-config` (`workspace:*`) as `devDependencies`; add `packages/database/vitest.config.ts` importing `@festgrid/testing-config/vitest-node` (no DOM needed — pure Node/Drizzle logic).
-  - [ ] `packages/analytics/package.json`: add `"test": "vitest run"` script; add `vitest`, `jsdom`, `@festgrid/testing-config` (`workspace:*`) as `devDependencies`; add `packages/analytics/vitest.config.ts` importing `@festgrid/testing-config/vitest-react` (it exports a `"use client"` React provider, so jsdom is appropriate).
-  - [ ] Confirm `turbo.json`'s existing `test` task (`dependsOn: ["^build"]`) picks up the three new `test` scripts automatically — no `turbo.json` changes needed since the task is already defined generically.
-- [ ] Task 6: Write one proof-of-pipeline test per wired package (AC: 1, 2, 3, 5)
-  - [ ] `apps/web`: a unit test for the pure `cn()` utility (`apps/web/src/lib/utils.ts`) using the Node preset's assertions, **plus** one integration test (jsdom + MSW) that mounts a minimal component and asserts an MSW-mocked `fetch`/`http` call resolves as expected — this is the concrete proof AC3 requires.
-  - [ ] `packages/database`: a small pure-function unit test (e.g. a slug/id helper already exported from `schema.ts`/`seed.ts` — do not write a new live-DB test; that pattern is already covered by `seed.integration.test.ts`, which is explicitly out of scope per AC6).
-  - [ ] `packages/analytics`: a unit test for a pure exported helper (e.g. from `env.ts`) — do not attempt to unit-test `posthog-js` initialization itself (external SDK, no add-on value here).
-- [ ] Task 7: Set up Playwright in `apps/web` only (AC: 4)
-  - [ ] Add `@playwright/test` (`^1.62.x`) as a `devDependency` of `apps/web` **only** — never `packages/testing-config` or any shared package (per project-context.md's strict package-isolation rule: Playwright must stay in `apps/web`).
-  - [ ] Create `apps/web/playwright.config.ts` (`testDir: "./e2e"`, `webServer` block that runs `pnpm dev`/`pnpm build && pnpm start` against a local port, per Playwright's Next.js guidance).
-  - [ ] Add `apps/web/package.json` script `"test:e2e": "playwright test"` (kept separate from `"test"`/Vitest per the testing-trophy split — E2E is a distinct, slower lane, not run by the default `turbo run test`).
-  - [ ] Write one smoke E2E test (`apps/web/e2e/home.spec.ts`) that loads `/` and asserts the page renders (e.g. the "FestGrid Design System Verification" heading is visible) — proves the Playwright pipeline works end-to-end without depending on any not-yet-built feature.
-- [ ] Task 8: CI verification (AC: 5)
-  - [ ] Confirm `.github/workflows/ci.yml`'s existing `Run tests` step (`pnpm run test`) now executes the new Vitest suites via `turbo run test` — no CI YAML changes should be needed since the step already exists (Story 0.5); only the underlying package `test` scripts were missing before this story.
-  - [ ] Do **not** add `test:e2e`/Playwright to the CI `ci` job in this story — Playwright's browser-install and `webServer` boot requirements are a heavier, separate CI concern; note this explicitly under Out of Scope rather than silently expanding CI scope.
-- [ ] Task 9: Documentation (AC: 1)
-  - [ ] Add `packages/testing-config/README.md` explaining the three exports (`vitest-node`, `vitest-react`, `msw-handlers`), when each package should import which, and the Testing Philosophy split from `project-context.md` (Vitest+MSW = testing-trophy integration layer; Playwright = critical-path E2E only; `packages/domain`'s future 100%-unit-coverage rule uses `vitest-node`).
+- [x] Task 1: Scaffold the `@festgrid/testing-config` shared package (AC: 1)
+  - [x] Create `packages/testing-config/package.json` mirroring the `@festgrid/eslint-config` pattern (`private: true`, subpath `exports`, `devDependencies` only — this package ships config, not runtime code).
+  - [x] Add subpath exports: `./vitest-node` (Node/domain-agnostic preset — no DOM), `./vitest-react` (jsdom environment + `@testing-library/react` + `@testing-library/jest-dom` + MSW server setup), and `./msw-handlers` (a base/example `http.get`/`http.post` handler array consumers extend).
+  - [x] Add `packages/testing-config/tsconfig.json` extending `@festgrid/typescript-config/base.json`.
+  - [x] Add `packages/testing-config/eslint.config.mjs` extending `@festgrid/eslint-config/base`.
+- [x] Task 2: Wire the Node/domain-agnostic Vitest preset (AC: 1, 2)
+  - [x] In `packages/testing-config/vitest-node.ts`, export a base `defineConfig`/`mergeConfig`-compatible object: `test.environment: "node"`, coverage provider `v8`, standard `include`/`exclude` globs.
+  - [x] Consuming packages create a **thin** `vitest.config.ts` that imports and re-exports/extends this preset (per Vitest 4's guidance: individual package configs should own their own small config next to their source and import shared pieces — the root config uses `test.projects`, not the deprecated `test.workspace`, to discover them).
+  - [x] Add a root `vitest.config.ts` at the repo root using `test.projects: ["apps/web", "packages/database", "packages/analytics"]` (glob-based) so a single `vitest run` from the root can execute every package's tests, in addition to each package's own `turbo run test`.
+- [x] Task 3: Wire the jsdom/React Vitest preset + Testing Library (AC: 1, 2, 3)
+  - [x] In `packages/testing-config/vitest-react.ts`, extend the Node preset with `test.environment: "jsdom"`, `test.setupFiles` pointing to a `vitest.setup.ts` that imports `@testing-library/jest-dom/vitest` matchers and starts/stops the MSW `setupServer` (`beforeAll`/`afterEach`/`afterAll` lifecycle hooks: `server.listen()`, `server.resetHandlers()`, `server.close()`).
+  - [x] Add `@testing-library/react` (`^16.3.x`, required for React 19 compatibility — see Latest Tech Information) and `@testing-library/jest-dom` as `devDependencies` of `packages/testing-config`.
+- [x] Task 4: Set up MSW (AC: 3)
+  - [x] Add `msw` (`^2.15.x`) as a `devDependency` of `packages/testing-config`.
+  - [x] Create `packages/testing-config/msw-handlers.ts` exporting an empty/example `handlers: HttpHandler[]` array using the v2 `http`/`HttpResponse` API (not the deprecated v1 `rest` API) that consumers spread/extend with their own handlers.
+  - [x] `setupServer(...handlers)` lives in the `vitest-react.ts` setup file (Node-only MSW integration — no Service Worker file needed for Vitest's Node/jsdom environment, per MSW's Node testing docs).
+- [x] Task 5: Wire `apps/web`, `packages/database`, `packages/analytics` to the shared config (AC: 2, 5)
+  - [x] `apps/web/package.json`: add `"test": "vitest run"` script; add `vitest`, `jsdom`, and `@festgrid/testing-config` (`workspace:*`) as `devDependencies`; add `apps/web/vitest.config.ts` importing `@festgrid/testing-config/vitest-react`.
+  - [x] `packages/database/package.json`: add `"test": "vitest run"` script (distinct from the existing `test:seed` — see AC6/Dev Notes); add `vitest` + `@festgrid/testing-config` (`workspace:*`) as `devDependencies`; add `packages/database/vitest.config.ts` importing `@festgrid/testing-config/vitest-node` (no DOM needed — pure Node/Drizzle logic).
+  - [x] `packages/analytics/package.json`: add `"test": "vitest run"` script; add `vitest`, `jsdom`, `@festgrid/testing-config` (`workspace:*`) as `devDependencies`; add `packages/analytics/vitest.config.ts` importing `@festgrid/testing-config/vitest-react` (it exports a `"use client"` React provider, so jsdom is appropriate).
+  - [x] Confirm `turbo.json`'s existing `test` task (`dependsOn: ["^build"]`) picks up the three new `test` scripts automatically — no `turbo.json` changes needed since the task is already defined generically.
+- [x] Task 6: Write one proof-of-pipeline test per wired package (AC: 1, 2, 3, 5)
+  - [x] `apps/web`: a unit test for the pure `cn()` utility (`apps/web/src/lib/utils.ts`) using the Node preset's assertions, **plus** one integration test (jsdom + MSW) that mounts a minimal component and asserts an MSW-mocked `fetch`/`http` call resolves as expected — this is the concrete proof AC3 requires.
+  - [x] `packages/database`: a small pure-function unit test (e.g. a slug/id helper already exported from `schema.ts`/`seed.ts` — do not write a new live-DB test; that pattern is already covered by `seed.integration.test.ts`, which is explicitly out of scope per AC6).
+  - [x] `packages/analytics`: a unit test for a pure exported helper (e.g. from `env.ts`) — do not attempt to unit-test `posthog-js` initialization itself (external SDK, no add-on value here).
+- [x] Task 7: Set up Playwright in `apps/web` only (AC: 4)
+  - [x] Add `@playwright/test` (`^1.62.x`) as a `devDependency` of `apps/web` **only** — never `packages/testing-config` or any shared package (per project-context.md's strict package-isolation rule: Playwright must stay in `apps/web`).
+  - [x] Create `apps/web/playwright.config.ts` (`testDir: "./e2e"`, `webServer` block that runs `pnpm dev`/`pnpm build && pnpm start` against a local port, per Playwright's Next.js guidance).
+  - [x] Add `apps/web/package.json` script `"test:e2e": "playwright test"` (kept separate from `"test"`/Vitest per the testing-trophy split — E2E is a distinct, slower lane, not run by the default `turbo run test`).
+  - [x] Write one smoke E2E test (`apps/web/e2e/home.spec.ts`) that loads `/` and asserts the page renders (e.g. the "FestGrid Design System Verification" heading is visible) — proves the Playwright pipeline works end-to-end without depending on any not-yet-built feature.
+- [x] Task 8: CI verification (AC: 5)
+  - [x] Confirm `.github/workflows/ci.yml`'s existing `Run tests` step (`pnpm run test`) now executes the new Vitest suites via `turbo run test` — no CI YAML changes should be needed since the step already exists (Story 0.5); only the underlying package `test` scripts were missing before this story.
+  - [x] Do **not** add `test:e2e`/Playwright to the CI `ci` job in this story — Playwright's browser-install and `webServer` boot requirements are a heavier, separate CI concern; note this explicitly under Out of Scope rather than silently expanding CI scope.
+- [x] Task 9: Documentation (AC: 1)
+  - [x] Add `packages/testing-config/README.md` explaining the three exports (`vitest-node`, `vitest-react`, `msw-handlers`), when each package should import which, and the Testing Philosophy split from `project-context.md` (Vitest+MSW = testing-trophy integration layer; Playwright = critical-path E2E only; `packages/domain`'s future 100%-unit-coverage rule uses `vitest-node`).
 
 ## Dev Notes
 
@@ -183,14 +186,14 @@ so that all packages and applications have the necessary tools for the "testing 
 
 ## Definition of Done
 
-- [ ] AC 1-6 satisfied.
-- [ ] `pnpm test`, `pnpm lint`, and `pnpm build` all pass at the repo root.
-- [ ] Lint and type checks passing for all touched packages (`apps/web`, `packages/database`, `packages/analytics`, `packages/testing-config`).
-- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
+- [x] AC 1-6 satisfied.
+- [x] `pnpm test`, `pnpm lint`, and `pnpm build` all pass at the repo root.
+- [x] Lint and type checks passing for all touched packages (`apps/web`, `packages/database`, `packages/analytics`, `packages/testing-config`).
+- [x] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed
 
 ## Dev Agent Record
 
@@ -200,4 +203,37 @@ so that all packages and applications have the necessary tools for the "testing 
 
 ### Completion Notes List
 
+- Set up `@festgrid/testing-config` shared workspace package with presets for Node.js (`vitest-node`), React (`vitest-react`), and `msw-handlers`.
+- Set up root `vitest.config.ts` using `test.projects` to execute the monorepo test suites via `pnpm test`.
+- Wired `vitest` correctly for `apps/web`, `packages/database`, and `packages/analytics` including simple proof-of-pipeline tests.
+- Set up `msw` node server integration in the `vitest-react` preset, including an example integration test in `apps/web`.
+- Set up Playwright correctly in `apps/web` with a smoke test for the home page.
+- Excluded existing live-database integration tests (`*.integration.test.ts`) from vitest Node preset explicitly.
+- Fixed TS Config node-resolution quirks to support clean imports in tests.
+
 ### File List
+
+- `packages/testing-config/package.json`
+- `packages/testing-config/tsconfig.json`
+- `packages/testing-config/eslint.config.mjs`
+- `packages/testing-config/README.md`
+- `packages/testing-config/vitest-node.ts`
+- `packages/testing-config/vitest-react.ts`
+- `packages/testing-config/vitest.setup.ts`
+- `packages/testing-config/msw-handlers.ts`
+- `vitest.config.ts`
+- `apps/web/vitest.config.ts`
+- `apps/web/playwright.config.ts`
+- `apps/web/e2e/home.spec.ts`
+- `apps/web/src/components/msw.test.tsx`
+- `apps/web/src/lib/utils.test.ts`
+- `apps/web/package.json`
+- `packages/database/vitest.config.ts`
+- `packages/database/package.json`
+- `packages/database/seed.ts`
+- `packages/database/seed.test.ts`
+- `packages/analytics/vitest.config.ts`
+- `packages/analytics/package.json`
+- `packages/analytics/src/env.ts`
+- `packages/analytics/src/env.test.ts`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`

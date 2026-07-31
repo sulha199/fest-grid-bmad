@@ -18,18 +18,21 @@
     "test:seed": "tsx --test seed.integration.test.ts",
     "migrate:prod": "node dist/migrate.js",
     "studio": "drizzle-kit studio",
-    "lint": "eslint . --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "test": "vitest run"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "drizzle-orm": "^0.30.10",
-    "postgres": "^3.4.4",
-    "dotenv": "^16.4.5"
+    "postgres": "^3.4.4"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.21.2",
-    "@festgrid/typescript-config": "workspace:*",
     "@festgrid/eslint-config": "workspace:*",
+    "@festgrid/testing-config": "workspace:^",
+    "@festgrid/typescript-config": "workspace:*",
+    "drizzle-kit": "^0.21.2",
+    "tsx": "^4.9.0",
     "typescript": "^5.4.5",
-    "tsx": "^4.9.0"
+    "vitest": "^4.1.10"
   }
 }

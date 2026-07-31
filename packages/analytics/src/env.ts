@@ -8,7 +8,7 @@ export interface PostHogEnv {
 
 const SUPPORTED_POSTHOG_DEFAULTS: PostHogDefaults = '2026-05-30';
 
-function parsePostHogDefaults(value: string | undefined): PostHogDefaults | undefined {
+export function parsePostHogDefaults(value: string | undefined): PostHogDefaults | undefined {
   if (!value) {
     return undefined;
   }

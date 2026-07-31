@@ -1,0 +1,10 @@
+{
+  "extends": "@festgrid/typescript-config/base.json",
+  "compilerOptions": {
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true
+  },
+  "include": ["."],
+  "exclude": ["node_modules"]
+}

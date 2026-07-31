@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
     "codegen": "graphql-codegen --config codegen.ts && node fix-codegen.js"
   },
   "dependencies": {
@@ -33,18 +35,26 @@
   },
   "devDependencies": {
     "@festgrid/eslint-config": "workspace:*",
+    "@festgrid/testing-config": "workspace:^",
     "@festgrid/typescript-config": "workspace:*",
     "@graphql-codegen/cli": "^5.0.2",
     "@graphql-codegen/typescript": "^4.0.9",
     "@graphql-codegen/typescript-operations": "^6.1.2",
     "@graphql-codegen/typescript-react-query": "^7.0.5",
     "@graphql-typed-document-node/core": "^3.2.0",
+    "@playwright/test": "1.62.0",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "16.3.0",
     "@types/node": "^20.14.10",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^6.0.5",
     "autoprefixer": "^10.5.4",
+    "jsdom": "^30.0.1",
     "postcss": "^8.5.22",
     "tailwindcss": "^3.4.1",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.10"
   }
 }

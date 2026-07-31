@@ -209,7 +209,7 @@ export const FIXTURE_SCHEDULE_IDS = FIXTURE_SCHEDULES.map((schedule) => schedule
 export const FIXTURE_EVENT_SLUGS = FIXTURE_EVENTS.map((event) => event.slug).sort();
 export const FIXTURE_SCHEDULE_SLUGS = FIXTURE_SCHEDULES.map((schedule) => schedule.slug).sort();
 
-function isLocalConnectionString(connectionString: string): boolean {
+export function isLocalConnectionString(connectionString: string): boolean {
   try {
     const parsed = new URL(connectionString);
     const hostname = parsed.hostname.toLowerCase();
