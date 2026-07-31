@@ -23,10 +23,11 @@
 - **AC4:** No package outside `apps/backend` imports the database/domain layer directly — `apps/web` only talks to events data through this API (e.g. via generated `graphql-request` types from Story 0.8).
 - **AC5:** The API supports filtering events by `sourceSocialMediaAccountId` (`in`), scoped to the current authenticated user's subscriptions (Story 0.17), so Epic 3's Feed (Story 3.7) can retrieve only events extracted from the user's subscribed accounts by reusing this resolver rather than a separate one.
   - **Sequencing note:** Story 0.17 (GraphQL authenticated-context layer) is still `backlog` as of this story. See Dev Notes "Architecture & UX Gate Findings" and the Pre-Coding Approval Gate for how AC5 is scoped given that dependency is not yet built.
+- **AC6 (added 2026-08-01, surfaced while creating Story 1.3b):** The returned `Event` GraphQL type exposes a runtime-computed `imageUrl: String` field, resolved by joining `posts` through the `events.postId` FK (Story 1.2a) — not a stored field on `EventInfo`/`events` itself, mirroring how `isFavorited`/`isAddedToCalendar` are already runtime-computed rather than stored. Consumed directly by Story 1.3b's `EventCard` once Story 1.3 wires real data in.
 
 **Note (from epics.md):** Story 4.4a (Epic 4) will later extend this resolver to exclude `status='soft_deleted'` events by default (with a moderator-scoped override, backing Story 4.7's moderation view). Not an AC here — Story 1.1 does not create a `status` column and Story 4.4a owns that filter entirely.
 
-**Depends on:** Story 0.8 (hard dependency — scaffold/codegen/`buildOptimizedDrizzleSelect`). Story 0.17 (soft dependency for AC5's ownership-scoping only — see Pre-Coding Approval Gate).
+**Depends on:** Story 0.8 (hard dependency — scaffold/codegen/`buildOptimizedDrizzleSelect`). Story 0.17 (soft dependency for AC5's ownership-scoping only — see Pre-Coding Approval Gate). Story 1.2a (hard dependency for AC6's `postId`/`imageUrl` join).
 
 ## Tasks / Subtasks
 - [ ] 1. Scaffold `packages/domain` as a real workspace package (AC1, AC2, AC4). It does not exist on disk yet (confirmed: only `node_modules/.bin` present, no `package.json`) — Story 0.10's Dev Notes explicitly anticipated this ("packages/domain does not yet exist... established generically so it adopts it with zero extra setup once scaffolded by its owning story").
@@ -63,7 +64,8 @@
 Story 0.17 already exists as its own tracked prerequisite story (created by the epic-1 readiness sweep) — per `story-split-gate.md`'s protocol, a gap only gets a *new* prerequisite story when none already exists. Since 0.17 is `backlog` (not started) at the time this story is drafted, true request-scoped ownership enforcement ("only the caller's own subscriptions") cannot be implemented yet: AD-7 explicitly forbids trusting a client-supplied user ID for authorization decisions, and no resolver context/`context.user` exists until Story 0.17 wires it (confirmed directly in `apps/backend/src/server.ts` — `createYoga({ schema, plugins })` has no `context:` factory today). This is handled as an explicit Pre-Coding Approval Gate sign-off item (mirroring the precedent Stories 0.7/0.8 used for their own forward-dependencies), not a new split story.
 
 ### Data Type Compatibility & Migration Requirements
-- **No DB schema changes required** — Stories 1.1/1.2 already created and seeded `events`/`schedules` with every column this story's `Event`/`Schedule` GraphQL types need.
+- **DB schema change required for AC6 only:** `events.postId` (nullable FK to `posts.id`) and the `posts` table itself are created by Story 1.2a, not this story. AC6's `imageUrl` field resolver joins `posts` through that FK — this story does not run its own migration for it, it only consumes the column/table Story 1.2a provides.
+- Beyond AC6, **no further DB schema changes required** — Stories 1.1/1.2 already created and seeded `events`/`schedules` with every other column this story's `Event`/`Schedule` GraphQL types need.
 - `EventType`/`EventCategory`: `packages/database/schema.ts`'s `eventTypeEnum`/`eventCategoryEnum` values are already 1:1 with `packages/shared-types`' `EventType`/`EventCategory` TS enums — safe to mirror directly as GraphQL enums.
 - `events.types`/`events.categories` are stored as `text[]` (not a true Postgres enum array — see the schema comment: "Drizzle doesn't perfectly support enum arrays"). Nothing at the DB layer stops an invalid string from landing in that array; this story's resolvers only need to *read* already-seeded valid data, so no cast/validation logic is required here, but do not assume the DB enforces enum membership — that is a future ingestion-story concern (Story 0.11 Zod/AJV territory), not this one.
 - `schedules.locationDetails` is a nullable `jsonb` column; map it to the `LocationDetails` GraphQL/shared-types shape (`coordinates`, `placeName?`, `placeId?`, `formattedAddress?`, `timezone?`) and mark the corresponding GraphQL fields nullable — do not assume every schedule has structured location data.
@@ -129,6 +131,7 @@ Story 0.10 ("Set up testing frameworks foundation — Vitest/MSW/Playwright, `@f
 - [ ] Architecture confirmed: Follows AD-1, AD-2, and AD-7 (as scoped above) from the Architecture Spine.
 - [ ] Testing plan confirmed: Unit tests for the DSL parser (100% coverage, `packages/domain`), integration tests for resolvers (`apps/backend`).
 - [ ] Gate 1/2/3 prerequisites confirmed: Gate 1/3 sourced from swept `epic-1-readiness.md` (no new gap — AC5's dependency already tracked as Story 0.17); Gate 2 run fresh (no gap).
+- [ ] **AC6/Story 1.2a sequencing accepted:** Story `1-2a-create-posts-table-and-link-seeded-events-to-their-source-post` is `backlog` (not started). Confirm it is done before implementing AC6, or explicitly accept shipping this story without AC6's `imageUrl` field for now (Story 1.3b's `EventCard` is already decoupled via a generic prop and does not hard-block on this).
 - [ ] Explicit human approval state (Default: pending approval)
 
 ## Testing Requirements

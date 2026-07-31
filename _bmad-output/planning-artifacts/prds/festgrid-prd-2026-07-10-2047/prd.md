@@ -7,7 +7,7 @@ status: "draft"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-07-17T10:30:00Z"
+updated: "2026-08-01T01:45:00Z"
 
 ---
 
@@ -285,6 +285,12 @@ interface EventInfo {
    */
   sourceSocialMediaAccountId?: string;
   /**
+   * The ID of the `Post` (see the `Post` interface, Section 4.7) this event was extracted from, if any.
+   * EventInfo intentionally has no image field of its own — an event's image is resolved via this
+   * relation, from the source post's `imageUrl`.
+   */
+  postId?: string;
+  /**
    * Indicates if the event has been favorited by the current user.
    * This is a user-contextual field added at runtime.
    */
@@ -477,7 +483,9 @@ interface UserLocationPreference {
 
 ```typescript
 /**
- * Represents a social media post to be displayed for selection.
+ * Represents a social media post to be displayed for selection, and — when it yields an
+ * extracted event — the source an `EventInfo` links back to via `EventInfo.postId` (Section 4.1),
+ * which is how an event's image is resolved (from this interface's `imageUrl`).
  */
 interface Post {
   /**

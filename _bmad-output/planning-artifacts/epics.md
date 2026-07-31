@@ -517,6 +517,25 @@ Users can discover and browse events.
 *   **When** I run the seed script,
 *   **Then** the database is populated with a set of mock events, including names, dates, locations, schedules, performers, and all related nested data.
 
+### Story 1.2a: Create posts table and link seeded events to their source post
+
+**As a** developer,
+**I want** a `posts` table (matching the PRD's `Post` interface plus a `subscriptionId` reference and `publishedAt` timestamp — the same shape Story 3.3a specifies for the social-media scraping pipeline) created now, and the `events` table extended with a nullable `postId` foreign key referencing it,
+**So that** `EventCard` (Story 1.3b) and the events GraphQL API (Story 1.3a) can resolve an event's real image via its source post — matching the PRD's actual data model, where `EventInfo` (PRD §4.1) has no image field of its own because images travel via `Post.imageUrl` (PRD §4.7) — instead of Epic 3's scraping pipeline being the only story that ever populates this table.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 1.1's tables exist, **when** the migration script runs, **then** a `posts` table is created with `id` (uuid pk), `subscription_id` (FK to `subscriptions`, nullable), `content` (text), `image_url` (text, nullable), `post_url` (text, nullable), `is_extracted` (boolean, default false), `published_at` (timestamp), and standard timestamps — exactly the shape Story 3.3a's original AC specified — indexed on `subscription_id` and `published_at`.
+*   **And** the `events` table gains a nullable `post_id` column (FK to `posts.id`), via a new Drizzle-kit-generated migration (AD-3).
+*   **And** `packages/shared-types`'s `EventInfo` interface gains an optional `postId?: string`; no direct image field is added to `EventInfo` — the image is a runtime-computed field resolved via the post relationship, mirroring how `isFavorited`/`isAddedToCalendar` are already documented as runtime-computed rather than stored on the base type.
+*   **And** `packages/database/seed.ts` is updated to create one `posts` fixture row per existing fixture event (linked to that event's matching subscription, e.g. `FIXTURE_SUBSCRIPTIONS[0].id`), populated with the `image_url` currently embedded as text inside that event's `description` field, and each fixture event's `post_id` is set to reference its corresponding new post row; the `"Poster image: ..."` substring is removed from `description` once the URL lives in its proper structured column.
+*   **And** the seed integration test (`packages/database/seed.integration.test.ts`, from Story 1.2) is extended to assert the new `posts` table's row count and that every fixture event's `post_id` resolves to a `posts` row with a non-null `image_url`.
+*   **And** this story does not implement any of the actual scraping/persistence logic for real scraped posts (writing newly-scraped posts, updating `is_extracted`) — that remains Story 3.3a's scope, narrowed to build on top of the table this story creates rather than creating it from scratch (see the amendment note on Story 3.3a).
+
+**Note:** This story exists because of a Data Type Compatibility gap surfaced while creating Story 1.3b (`EventCard`) — the PRD's `EventInfo` interface has no image field, because event images are meant to travel via the source `Post.imageUrl`, not a field on the event itself. Story 3.3a already defines the target `posts` table shape but scoped it to Epic 3's scraping pipeline, chronologically after Epic 1. Since Epic 1's `EventCard`/events API need real, non-placeholder images sooner, this story pulls the table-creation portion of Story 3.3a's scope earlier — following the Story 1.1 precedent of scoping originating tables to the epic that first needs them — and narrows Story 3.3a accordingly. Classified as a shared data-ownership gap per `story-split-gate.md`'s numbering rule, positioned immediately after Story 1.2 (which it extends) and before Story 1.3a (its first consumer).
+
+**Depends on:** Story 1.1, Story 1.2.
+
 ### Story 1.3a: Build the events backend GraphQL API layer
 
 **As a** developer,
@@ -532,10 +551,11 @@ Users can discover and browse events.
 *   **And** the API supports fetching a single event by ID for the detail view.
 *   **And** no package outside `apps/backend` imports the database/domain layer directly — `apps/web` only talks to events data through this API (e.g. via generated `graphql-request` types from Story 0.8).
 *   **And** the API supports filtering events by `sourceSocialMediaAccountId` scoped to the current authenticated user's subscriptions (Story 0.17), so Epic 3's Feed (Story 3.7) can retrieve only events extracted from the user's subscribed accounts by reusing this resolver rather than a separate one.
+*   **And** the returned `Event` GraphQL type exposes a runtime-computed `imageUrl: String` field, resolved by joining `posts` through the `events.postId` FK (Story 1.2a) via `buildOptimizedDrizzleSelect`/a dedicated join — not a stored field on `EventInfo` itself, mirroring how `isFavorited`/`isAddedToCalendar` are already runtime-computed. Consumed directly by Story 1.3b's `EventCard`.
 
 **Note:** Story 4.4a (Epic 4) will later extend this resolver to exclude `status='soft_deleted'` events by default (with a moderator-scoped override, backing Story 4.7's moderation view). Not specified as an AC here because Story 1.1 does not create a `status` column and Story 4.4a — which does — is not built yet; implementation and ownership of that filter live entirely in Story 4.4a's own Acceptance Criteria.
 
-**Depends on:** Story 0.8
+**Depends on:** Story 0.8, Story 1.2a (for the `postId`/`imageUrl` resolution AC above)
 
 ### Story 1.3b: Build the reusable EventCard component
 
@@ -929,7 +949,9 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Note:** This story exists because of Gate 3 (`story-split-gate.md`), surfaced while creating Story 3.6 — the PRD's `Post` interface implies a persisted entity with an extraction-status flag, but Story 1.1 only created `events`/`schedules`/`users`/`user_locations`/`subscriptions`/`api_keys`. This table is written by Epic 3 (Stories 3.4-3.6) and read by Epic 5 (Stories 5.1-5.4), so — following the precedent of Story 1.1 scoping core data tables to their originating epic rather than Epic 0 — it is placed here, before Story 3.4, rather than in Epic 0.
 
-**Depends on:** Story 1.1.
+**Amendment (2026-08-01):** This story's original scope included creating the `posts` table from scratch (first AC below). That table is now created earlier by Story 1.2a, surfaced by a Data Type Compatibility gap found while creating Story 1.3b (`EventCard`) — Epic 1 needs real event images sooner than Epic 3's scraping pipeline would otherwise exist to provide them. This story's remaining scope is narrowed to the actual scraping-persistence write path (Story 3.4's writes into the `posts` table) and the `is_extracted` status-update logic (Stories 3.6/3.6b) against the table Story 1.2a already created — the migration itself is no longer this story's deliverable. The AC below is left as-is to document the full target table shape (already satisfied by Story 1.2a); only the "who creates it" ownership changed.
+
+**Depends on:** Story 1.1, Story 1.2a.
 
 ### Story 3.4: Scrape new posts from subscribed accounts
 
