@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-07-30T10:45:00Z
+last_updated: 2026-07-31T02:45:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -54,15 +54,18 @@ development_status:
   0-3-set-up-shadcn-ui-and-configure-themes: done
   0-4-set-up-drizzle-orm-for-schema-migrations: review
   0-5-set-up-ci-cd-pipeline-with-github-actions: review
-  0-6-set-up-i18n-foundation-next-intl: backlog
-  0-7-build-the-global-app-shell-and-navigation-layout: backlog
-  0-8-set-up-graphql-server-scaffold-code-generator-pipeline-and-the-optimized-select-query-utility: backlog
-  0-9-set-up-state-management-foundation: backlog
-  0-10-set-up-testing-frameworks-foundation: backlog
-  0-11-set-up-runtime-schema-validation: backlog
-  0-12-set-up-firebase-cloud-messaging-foundation: backlog
-  0-13-set-up-ai-gateway-adapter-layer-for-gemini: backlog
+  0-6-set-up-i18n-foundation-next-intl: ready-for-dev
+  0-7-build-the-global-app-shell-and-navigation-layout: ready-for-dev
+  0-8-set-up-graphql-server-scaffold-code-generator-pipeline-and-the-optimized-select-query-utility: ready-for-dev
+  0-9-set-up-state-management-foundation: ready-for-dev
+  0-10-set-up-testing-frameworks-foundation: ready-for-dev
+  0-11-set-up-runtime-schema-validation: ready-for-dev
+  0-12-set-up-firebase-cloud-messaging-foundation: ready-for-dev
+  0-13-set-up-ai-gateway-adapter-layer-for-gemini: ready-for-dev
   0-14-set-up-aws-iac-for-lambda-sqs-eventbridge-and-kms: backlog
+  0-15-set-up-outbound-email-adapter: backlog
+  0-16-set-up-geolocation-adapter-with-caching-layer: backlog
+  0-17-set-up-graphql-authenticated-context-layer: backlog
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done

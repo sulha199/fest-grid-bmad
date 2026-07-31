@@ -15,7 +15,17 @@
       "Bash(cp .claude/skills/bmad-epic-readiness-review/SKILL.md .agents/skills/bmad-epic-readiness-review/SKILL.md)",
       "Bash(cp .claude/skills/bmad-epic-readiness-review/customize.toml .agents/skills/bmad-epic-readiness-review/customize.toml)",
       "Bash(cp .claude/skills/bmad-epic-readiness-review/SKILL.md .cline/skills/bmad-epic-readiness-review/SKILL.md)",
-      "Bash(cp .claude/skills/bmad-epic-readiness-review/customize.toml .cline/skills/bmad-epic-readiness-review/customize.toml)"
+      "Bash(cp .claude/skills/bmad-epic-readiness-review/customize.toml .cline/skills/bmad-epic-readiness-review/customize.toml)",
+      "WebSearch",
+      "Bash(python3 _bmad/scripts/resolve_customization.py --skill .claude/skills/bmad-epic-readiness-check --key workflow)",
+      "Bash(python3 _bmad/scripts/resolve_customization.py --skill _bmad/../.claude/skills/bmad-create-story --key workflow)",
+      "Bash(python3 \"c:/projects/portfolio/festgrid/bmad/_bmad/scripts/resolve_customization.py\" --skill \"c:/projects/portfolio/festgrid/bmad/.claude/skills/bmad-create-story\" --key workflow)",
+      "Bash(python3 /c/projects/portfolio/festgrid/bmad/_bmad/scripts/resolve_customization.py --skill /c/projects/portfolio/festgrid/bmad/.claude/skills/bmad-create-story --key workflow)",
+      "Bash(python3 c:/projects/portfolio/festgrid/bmad/_bmad/scripts/resolve_customization.py --skill c:/projects/portfolio/festgrid/bmad/.claude/skills/bmad-create-story --key workflow)",
+      "Bash(python3 /c/projects/portfolio/festgrid/bmad/_bmad/scripts/resolve_customization.py --skill /c/projects/portfolio/festgrid/bmad/.claude/skills/bmad-create-story --key workflow.on_complete)",
+      "Bash(python3 \"c:/projects/portfolio/festgrid/bmad/_bmad/scripts/resolve_customization.py\" --skill \"c:/projects/portfolio/festgrid/bmad/.claude/skills/bmad-create-story\" --key workflow.on_complete)",
+      "Bash(python3 _bmad/scripts/resolve_customization.py --skill .claude/skills/bmad-create-story --key workflow)",
+      "WebFetch(domain:www.npmjs.com)"
     ]
   }
 }
