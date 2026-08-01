@@ -9,6 +9,17 @@ content = "export type Incremental<T> = T | { [P in keyof T]?: P extends ' $frag
 
 // Replace duplicate Exact
 content = content.replace(/export type Exact<T extends \{ \[key: string\]: unknown \}> = \{ \[K in keyof T\]: T\[K\] \};\r?\n/g, '');
+content = content.replace(/\/\*\* Internal type\. DO NOT USE DIRECTLY\. \*\/\r?\ntype Exact<T extends \{ \[key: string\]: unknown \}> = \{ \[K in keyof T\]: T\[K\] \};\r?\n/g, '');
 content = "export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };\n" + content;
+
+// Fix graphql-request/dist/types.dom import issue
+content = content.replace(/import \{ RequestInit \} from 'graphql-request\/dist\/types\.dom';\r?\n/g, "type RequestInit = any;\n");
+
+// Fix generic return type for fetcher
+content = content.replace(/client\.request\(\{/g, 'client.request<TData>({');
+
+// Fix duplicate enum/type declarations
+content = content.replace(/export type EventCategory =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type EventType =[\s\S]*?;\r?\n/g, '');
 
 fs.writeFileSync(file, content);

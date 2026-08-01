@@ -1,0 +1,20 @@
+query getEvents($limit: Int, $offset: Int) {
+  events(limit: $limit, offset: $offset) {
+    items {
+      id
+      eventName
+      imageUrl
+      location
+      types
+      categories
+      schedules {
+        id
+        isMainSchedule
+        eventStartDate
+        ticketPrice
+      }
+    }
+    hasMore
+    totalCount
+  }
+}

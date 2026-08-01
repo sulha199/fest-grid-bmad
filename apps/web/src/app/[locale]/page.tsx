@@ -1,72 +1,106 @@
 "use client"
 
-import { useTheme } from "next-themes"
 import { useTranslations } from "next-intl"
-import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { useInfiniteQuery, InfiniteData } from "@tanstack/react-query"
+import { EventCard, useInfiniteScroll } from "@festgrid/ui"
+import { GetEventsDocument, GetEventsQuery } from "@/generated/graphql"
+import { graphqlClient } from "@/lib/graphql-client"
 
 export default function Home() {
-  const { theme, setTheme } = useTheme()
-  const t = useTranslations('HomePage')
+  const t = useTranslations('DiscoveryPage')
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    status,
+    error
+  } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, string[], number>({
+    queryKey: ['events'],
+    queryFn: async ({ pageParam }) => {
+      return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
+        limit: 10,
+        offset: pageParam as number
+      })
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.events.hasMore ? allPages.length * 10 : undefined
+    }
+  })
+
+  const { sentinelRef } = useInfiniteScroll({
+    hasNextPage: !!hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  })
+
+  type EventItem = GetEventsQuery['events']['items'][number];
+  const events: EventItem[] = (data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []
 
   return (
-    <div className="p-8 space-y-8 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">{t('title')}</h1>
-        <Button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-          Toggle Theme
-        </Button>
-      </div>
+    <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
+      <h1 className="text-3xl font-bold">{t('title')}</h1>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Theme Colors</CardTitle>
-            <CardDescription>Primary, Secondary, Accent</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Button variant="default">Primary</Button>
-              <Button variant="secondary">Secondary</Button>
-              <Button className="bg-accent text-accent-foreground hover:bg-accent/90">Accent</Button>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="destructive">Destructive</Button>
-              <Button className="bg-success text-success-foreground hover:bg-success/90">Success</Button>
-            </div>
-            <div className="flex gap-2">
-              <Button className="bg-wizard-primary text-primary-foreground hover:bg-wizard-primary/90">Wizard Primary</Button>
-              <Button className="bg-wizard-secondary text-primary-foreground hover:bg-wizard-secondary/90">Wizard Secondary</Button>
-            </div>
-          </CardContent>
-        </Card>
+      {status === 'pending' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <EventCard
+              key={i}
+              eventName=""
+              startDate=""
+              loading={true}
+            />
+          ))}
+        </div>
+      )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Button States</CardTitle>
-            <CardDescription>Verify disabled styling</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button disabled>Disabled Button</Button>
-          </CardContent>
-          <CardFooter>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline">Open Dialog</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Dialog verification</DialogTitle>
-                  <DialogDescription>
-                    This verifies that modal patterns and dialog styling work as intended with the base border radius.
-                  </DialogDescription>
-                </DialogHeader>
-              </DialogContent>
-            </Dialog>
-          </CardFooter>
-        </Card>
-      </div>
+      {status === 'error' && (
+        <div className="text-center py-10 text-destructive">
+          <p>{t('errorState')}</p>
+          <pre className="text-xs mt-4 text-left max-w-full overflow-auto bg-destructive/10 p-4 rounded text-destructive">
+            {error?.message || JSON.stringify(error)}
+          </pre>
+        </div>
+      )}
+
+      {status === 'success' && events.length === 0 && (
+        <div className="text-center py-10 text-muted-foreground">
+          {t('emptyState')}
+        </div>
+      )}
+
+      {status === 'success' && events.length > 0 && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {events.map((event: EventItem) => {
+              const mainSchedule = event.schedules.find((s: any) => s.isMainSchedule) || event.schedules[0]
+              return (
+                <EventCard
+                  key={event.id}
+                  eventName={event.eventName}
+                  startDate={mainSchedule?.eventStartDate || ''}
+                  imageUrl={event.imageUrl ?? undefined}
+                  locationName={event.location ?? undefined}
+                  categories={event.categories ?? []}
+                  types={event.types ?? []}
+                  priceFrom={mainSchedule?.ticketPrice ?? undefined}
+                />
+              )
+            })}
+          </div>
+
+          <div ref={sentinelRef} className="py-4 flex justify-center">
+            {isFetchingNextPage && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+                <span>{t('loadingMore')}</span>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

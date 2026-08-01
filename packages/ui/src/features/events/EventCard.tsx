@@ -1,3 +1,5 @@
+"use client"
+
 import React, { useState } from 'react';
 import { MapPin, Tag, Heart } from 'lucide-react';
 import type { EventCardProps } from './EventCard.types';

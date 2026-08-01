@@ -5,9 +5,14 @@ import { resolvers } from './schema/resolvers.js';
 import { EnvelopArmor } from '@escape.tech/graphql-armor';
 import { createContext, GraphQLContext } from './lib/auth/context.js';
 
+import { join } from 'path';
+import { readdirSync } from 'fs';
+
 export function buildServer() {
   // Read relative to cwd, assuming server is started from apps/backend
-  const typeDefs = readFileSync(resolve(process.cwd(), 'src/schema/typeDefs.graphql'), 'utf8');
+  const schemaDir = resolve(process.cwd(), 'src/schema');
+  const files = readdirSync(schemaDir).filter(f => f.endsWith('.graphql'));
+  const typeDefs = files.map(f => readFileSync(join(schemaDir, f), 'utf8')).join('\n');
 
   const schema = createSchema<GraphQLContext>({
     typeDefs,

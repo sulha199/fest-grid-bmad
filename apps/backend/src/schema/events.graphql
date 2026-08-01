@@ -1,29 +1,32 @@
 scalar JSON
 
 enum EventType {
-  FESTIVAL
-  CONCERT
-  CLUB_NIGHT
   EXHIBITION
-  NETWORKING
+  COMPETITION
+  FESTIVAL
+  PERFORMANCE
   WORKSHOP
-  SPORTS
-  THEATER
-  COMEDY
+  SEMINAR
+  MARKET
+  GATHERING
+  PROMOTION
+  FUNDRAISER
+  CIVIC
   OTHER
 }
 
 enum EventCategory {
   MUSIC
-  ARTS
+  ARTS_AND_CULTURE
   FOOD_AND_DRINK
-  TECHNOLOGY
-  BUSINESS
-  HEALTH_AND_WELLNESS
   SPORTS_AND_FITNESS
-  EDUCATION
-  ENTERTAINMENT
-  COMMUNITY
+  FAMILY_AND_KIDS
+  HOBBIES_AND_INTERESTS
+  BUSINESS_AND_NETWORKING
+  HEALTH_AND_WELLNESS
+  HOLIDAY
+  CHARITY_AND_CAUSES
+  CIVIC_AND_COMMUNITY
   OTHER
 }
 
@@ -87,7 +90,7 @@ input EventQueryConditionInput {
   value: JSON
 }
 
-type Query {
+extend type Query {
   events(query: EventQueryConditionInput, limit: Int, offset: Int): EventConnection!
   event(id: ID!): Event
 }

@@ -1,5 +1,8 @@
 {
-  "HomePage": {
-    "title": "Verifikasi Sistem Desain FestGrid"
+  "DiscoveryPage": {
+    "title": "Temukan Acara",
+    "loadingMore": "Memuat acara lainnya...",
+    "emptyState": "Tidak ada acara yang ditemukan.",
+    "errorState": "Gagal memuat acara. Silakan coba lagi nanti."
   }
 }

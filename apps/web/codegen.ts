@@ -13,7 +13,8 @@ const config: CodegenConfig = {
       ],
       config: {
         fetcher: 'graphql-request',
-        documentMode: 'string'
+        documentMode: 'string',
+        reactQueryVersion: 5
       }
     }
   }
