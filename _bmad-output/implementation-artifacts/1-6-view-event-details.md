@@ -35,10 +35,9 @@
 - **URL Structure:** Use the event's `slug` for the URL (e.g., `/events/my-awesome-event`).
 - **Data Fetching (GraphQL):** 
   - Define a new GraphQL query (e.g., `query GetEventBySlug($slug: String!)`) to fetch a single event.
-  - The backend resolver must use a specific domain function `getEventBySlug` (or similar) from `packages/domain` to fetch the data.
-  - You **must** utilize the generic `buildOptimizedDrizzleSelect` function in the resolver to ensure the Drizzle query only selects the fields requested by the GraphQL operation.
+  - The backend resolver (in `apps/backend`) fetches the event by slug directly via Drizzle, using the generic `buildOptimizedDrizzleSelect` function so the query only selects the fields requested by the GraphQL operation. Do **not** put this DB fetch in `packages/domain` — per `project-context.md`'s domain-purity rule, a Drizzle-coupled query belongs in `apps/backend` (or `packages/graphql-select`), not `packages/domain`.
   - Ensure the event details payload includes source-link construction metadata (`postId`, `platformId`, scraper source data). Do **not** rely on persisted full URLs in the database.
-  - Implement deterministic URL builders for original social post and proxy-platform post URLs; if required metadata is missing, return `null`.
+  - Implement deterministic URL builders for original social post and proxy-platform post URLs as pure functions in `packages/domain/src/events/`; if required metadata is missing, return `null`.
 - **Component UI Requirements:**
   - Create an `EventDetails` UI component that accepts the fetched event data and displays `eventName`, `description`, `location`, `types`, `categories`, and `schedules` (including dates, times, and `performers`).
   - Use Shadcn/ui `Dialog` components for the modal implementation to ensure accessibility and consistent styling.
@@ -64,14 +63,15 @@
 - `apps/web/components/events/EventDetails.tsx`: Create a shared UI component for displaying the event data, used by both the page and the modal.
 - `apps/web/components/events/EventCard.tsx` (or wherever the card is defined): Update to include the Next.js `Link` to `/events/[slug]`.
 - `packages/shared-types/src/index.ts` and GraphQL event types: include `postId`, `platformId`, and scraper source metadata plus optional constructed URLs used by the UI.
-- `packages/domain/src/events/`: Implement `getEventBySlug` business logic. It must be 100% unit-tested.
+- `packages/domain/src/events/`: Implement the pure source-link URL-builder helpers (original post / proxy post). No DB/ORM access — these must be 100% unit-tested and dependency-free of `drizzle-orm`/`@festgrid/database`.
+- `apps/backend`: Implement the by-slug fetch (Drizzle query via `buildOptimizedDrizzleSelect`) and the resolver that fetches the event and calls the `packages/domain` URL builders to populate the source links.
 - `packages/database/src/schema/`: Ensure no schema changes are needed, but verify `slug` is uniquely queryable.
 - GraphQL Schema and Resolvers: Update to include the new query for fetching an event by slug and ensure `buildOptimizedDrizzleSelect` is utilized.
 
 ### Project Context Reference
 - **API Style (GraphQL):** All client-server data fetching must use GraphQL.
 - **Strict TypeScript:** Code must comply with `@festgrid/typescript-config`.
-- **Pure Business Logic:** Any additions to the data fetching logic must live in `packages/domain` and be 100% unit tested.
+- **Pure Business Logic:** Any pure, framework-agnostic logic (e.g. the source-link URL builders) must live in `packages/domain` and be 100% unit tested. The actual DB fetch is Drizzle/ORM-coupled and must live in `apps/backend`, not `packages/domain`, per `project-context.md`'s domain-purity rule.
 - **Database Access:** Handled exclusively through Drizzle ORM.
 
 ## Testing Requirements

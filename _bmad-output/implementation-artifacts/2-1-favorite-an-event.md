@@ -43,9 +43,9 @@ so that I can easily find it later.
   - Keep app data access through GraphQL and Drizzle boundaries.
 - File/path expectations:
   - UI updates in apps/web and reusable UI in packages/ui when generic.
-  - Business logic remains framework-agnostic in packages/domain.
+  - *Pure* business logic remains framework-agnostic and DB-free in packages/domain; anything touching persistence or the auth session lives in apps/backend.
 - Data/API boundaries:
-  - Auth identity context is required for favorite ownership; data persistence remains GraphQL/Drizzle.
+  - Auth identity context is required for favorite ownership; ownership enforcement and persistence happen in apps/backend's resolver via Drizzle, never in packages/domain.
 - Source references:
   - Story source: _bmad-output/planning-artifacts/epics.md (Story 2.1)
 
@@ -61,7 +61,7 @@ so that I can easily find it later.
 ### File Change Plan
 
 - apps/web: add or update event detail favorite action UI behavior.
-- packages/domain: add framework-agnostic favorite use-case contract and validation.
+- packages/domain/src/favorites/: pure validation only (e.g. shape/type guards for the favorite mutation input). No Drizzle imports, no DB lookups, no ownership checks — those run in the resolver against the authenticated user context.
 - GraphQL schema/resolver layer: add favorite/unfavorite mutation contract.
 - Persistence layer with Drizzle: add favorite mapping and ownership enforcement.
 
