@@ -1,13 +1,41 @@
 "use client"
 
+import { useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, InfiniteData } from "@tanstack/react-query"
 import { EventCard, useInfiniteScroll } from "@festgrid/ui"
+import { EventCategory, EventType } from "@festgrid/shared-types"
 import { GetEventsDocument, GetEventsQuery } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 
+// Falls back to the raw enum value if a translation key is missing, so a
+// locale file drifting out of sync with the enum degrades gracefully instead
+// of throwing on every render.
+function buildEnumLabels(values: string[], translate: (key: string) => string) {
+  return Object.fromEntries(
+    values.map((value) => {
+      try {
+        return [value, translate(value)]
+      } catch {
+        return [value, value]
+      }
+    })
+  )
+}
+
 export default function Home() {
   const t = useTranslations('DiscoveryPage')
+  const tCategory = useTranslations('EventCategory')
+  const tType = useTranslations('EventType')
+
+  const categoryLabels = useMemo(
+    () => buildEnumLabels(Object.values(EventCategory), tCategory),
+    [tCategory]
+  )
+  const typeLabels = useMemo(
+    () => buildEnumLabels(Object.values(EventType), tType),
+    [tType]
+  )
 
   const {
     data,
@@ -86,6 +114,7 @@ export default function Home() {
                   categories={event.categories ?? []}
                   types={event.types ?? []}
                   priceFrom={mainSchedule?.ticketPrice ?? undefined}
+                  labels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
                 />
               )
             })}

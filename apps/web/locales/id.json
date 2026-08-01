@@ -3,6 +3,35 @@
     "title": "Temukan Acara",
     "loadingMore": "Memuat acara lainnya...",
     "emptyState": "Tidak ada acara yang ditemukan.",
-    "errorState": "Gagal memuat acara. Silakan coba lagi nanti."
+    "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",
+    "priceFrom": "Mulai dari"
+  },
+  "EventType": {
+    "EXHIBITION": "Pameran",
+    "COMPETITION": "Kompetisi",
+    "FESTIVAL": "Festival",
+    "PERFORMANCE": "Pertunjukan",
+    "WORKSHOP": "Workshop",
+    "SEMINAR": "Seminar",
+    "MARKET": "Pasar",
+    "GATHERING": "Gathering",
+    "PROMOTION": "Promosi",
+    "FUNDRAISER": "Penggalangan Dana",
+    "CIVIC": "Kemasyarakatan",
+    "OTHER": "Lainnya"
+  },
+  "EventCategory": {
+    "MUSIC": "Musik",
+    "ARTS_AND_CULTURE": "Seni & Budaya",
+    "FOOD_AND_DRINK": "Makanan & Minuman",
+    "SPORTS_AND_FITNESS": "Olahraga & Kebugaran",
+    "FAMILY_AND_KIDS": "Keluarga & Anak",
+    "HOBBIES_AND_INTERESTS": "Hobi & Minat",
+    "BUSINESS_AND_NETWORKING": "Bisnis & Jejaring",
+    "HEALTH_AND_WELLNESS": "Kesehatan & Kebugaran",
+    "HOLIDAY": "Hari Libur",
+    "CHARITY_AND_CAUSES": "Amal & Kemanusiaan",
+    "CIVIC_AND_COMMUNITY": "Kemasyarakatan & Komunitas",
+    "OTHER": "Lainnya"
   }
 }

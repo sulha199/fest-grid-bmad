@@ -4,6 +4,12 @@ export interface EventCardLabels {
   imageFallbackAlt?: string;
   loading?: string;
   favoriteToggle?: string;
+  /** Label shown before the starting price (e.g. "From"). Defaults to "From" if not provided. */
+  priceFrom?: string;
+  /** Translated display label per event type enum member, keyed by the raw enum value (e.g. { FESTIVAL: 'Festival' }). Falls back to the raw value if a key is missing. */
+  typeLabels?: Record<string, string>;
+  /** Translated display label per event category enum member, keyed by the raw enum value (e.g. { MUSIC: 'Music' }). Falls back to the raw value if a key is missing. */
+  categoryLabels?: Record<string, string>;
 }
 
 export interface EventCardProps {

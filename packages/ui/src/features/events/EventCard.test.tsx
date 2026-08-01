@@ -46,6 +46,45 @@ describe('EventCard', () => {
     expect(screen.getByText('50')).toBeInTheDocument();
   });
 
+  it('renders translated labels for categories/types/price when provided, falling back to raw values otherwise', () => {
+    render(
+      <EventCard
+        {...defaultProps}
+        locale="en-US"
+        categories={['MUSIC']}
+        types={['FESTIVAL']}
+        priceFrom={50}
+        labels={{
+          categoryLabels: { MUSIC: 'Music' },
+          typeLabels: { FESTIVAL: 'Festival' },
+          priceFrom: 'Starting at',
+        }}
+      />
+    );
+
+    expect(screen.getByText('Music')).toBeInTheDocument();
+    expect(screen.getByText('Festival')).toBeInTheDocument();
+    expect(screen.getByText('Starting at')).toBeInTheDocument();
+    expect(screen.queryByText('MUSIC')).not.toBeInTheDocument();
+    expect(screen.queryByText('FESTIVAL')).not.toBeInTheDocument();
+
+    cleanup();
+
+    // No labels provided: falls back to the raw value rather than throwing/blanking
+    render(
+      <EventCard
+        {...defaultProps}
+        locale="en-US"
+        categories={['MUSIC']}
+        types={['FESTIVAL']}
+        priceFrom={50}
+      />
+    );
+    expect(screen.getByText('MUSIC')).toBeInTheDocument();
+    expect(screen.getByText('FESTIVAL')).toBeInTheDocument();
+    expect(screen.getByText('From')).toBeInTheDocument();
+  });
+
   it('handles image success', () => {
     render(<EventCard {...defaultProps} imageUrl="http://example.com/image.jpg" />);
     

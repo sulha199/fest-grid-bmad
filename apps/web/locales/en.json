@@ -3,6 +3,35 @@
     "title": "Discover Events",
     "loadingMore": "Loading more events...",
     "emptyState": "No events found.",
-    "errorState": "Failed to load events. Please try again later."
+    "errorState": "Failed to load events. Please try again later.",
+    "priceFrom": "From"
+  },
+  "EventType": {
+    "EXHIBITION": "Exhibition",
+    "COMPETITION": "Competition",
+    "FESTIVAL": "Festival",
+    "PERFORMANCE": "Performance",
+    "WORKSHOP": "Workshop",
+    "SEMINAR": "Seminar",
+    "MARKET": "Market",
+    "GATHERING": "Gathering",
+    "PROMOTION": "Promotion",
+    "FUNDRAISER": "Fundraiser",
+    "CIVIC": "Civic",
+    "OTHER": "Other"
+  },
+  "EventCategory": {
+    "MUSIC": "Music",
+    "ARTS_AND_CULTURE": "Arts & Culture",
+    "FOOD_AND_DRINK": "Food & Drink",
+    "SPORTS_AND_FITNESS": "Sports & Fitness",
+    "FAMILY_AND_KIDS": "Family & Kids",
+    "HOBBIES_AND_INTERESTS": "Hobbies & Interests",
+    "BUSINESS_AND_NETWORKING": "Business & Networking",
+    "HEALTH_AND_WELLNESS": "Health & Wellness",
+    "HOLIDAY": "Holiday",
+    "CHARITY_AND_CAUSES": "Charity & Causes",
+    "CIVIC_AND_COMMUNITY": "Civic & Community",
+    "OTHER": "Other"
   }
 }

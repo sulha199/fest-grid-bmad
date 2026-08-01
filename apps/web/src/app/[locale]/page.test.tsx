@@ -7,6 +7,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import Home from './page';
+import enMessages from '../../../locales/en.json';
 
 // Mock the graphql client to use absolute URL for testing
 vi.mock('@/lib/graphql-client', async () => {
@@ -44,8 +45,8 @@ const mockEventsDataPage1 = {
         eventName: 'Test Event 1',
         imageUrl: null,
         location: 'Test Location 1',
-        types: [],
-        categories: [],
+        types: ['FESTIVAL'],
+        categories: ['MUSIC'],
         schedules: [
           {
             id: 's1',
@@ -97,14 +98,9 @@ beforeAll(() => mswServer.listen({ onUnhandledRequest: 'bypass' }));
 afterEach(() => mswServer.resetHandlers());
 afterAll(() => mswServer.close());
 
-const messages = {
-  DiscoveryPage: {
-    title: "Discover Events",
-    loadingMore: "Loading more events...",
-    emptyState: "No events found.",
-    errorState: "Failed to load events. Please try again later."
-  }
-};
+// Reuse the real locale file rather than a hand-duplicated copy, so a key
+// rename/removal in en.json breaks this test instead of drifting silently.
+const messages = enMessages;
 
 function renderWithProviders(ui: React.ReactElement) {
   const queryClient = new QueryClient({
@@ -135,9 +131,18 @@ test('renders initial skeleton, then events, and supports infinite scroll append
   await waitFor(() => {
     expect(screen.getByText('Test Event 1')).toBeInTheDocument();
   });
-  
+
   // Skeleton should be gone
   expect(screen.queryByRole('article', { busy: true })).not.toBeInTheDocument();
+
+  // Enum values must render as translated labels, not raw enum members
+  expect(screen.getByText('Music')).toBeInTheDocument();
+  expect(screen.getByText('Festival')).toBeInTheDocument();
+  expect(screen.queryByText('MUSIC')).not.toBeInTheDocument();
+  expect(screen.queryByText('FESTIVAL')).not.toBeInTheDocument();
+
+  // Price label must be translated, not hardcoded
+  expect(screen.getByText('From')).toBeInTheDocument();
 
   // Trigger scroll to fetch next page
   (window as any).triggerScroll();

@@ -2,9 +2,9 @@
 project_name: 'festgrid'
 baseline_commit: 198301f0757cfed0df2316ac947793691ff189e9
 user_name: 'shulha'
-date: '2026-08-01T07:35:00Z'
+date: '2026-08-01T08:00:00Z'
 status: 'complete'
-rule_count: 20
+rule_count: 21
 optimized_for_llm: true
 sections_completed:
   - 'technology_stack'
@@ -101,6 +101,11 @@ To avoid monolithic global stores and ensure strict end-to-end typing, the appli
 - **Framework:** Use the `next-intl` library for all i18n handling in the Next.js frontend.
 - **Locale Management:** Locales (e.g., `en`, `id`) will be managed via a dedicated `locales` directory, with separate JSON files for each language.
 - **Component Design:** All UI components must be designed to accommodate varying text lengths and support both LTR and RTL layouts to ensure future scalability to other languages.
+- **Locale-Sensitive Data Rendering:** Data that varies in display by locale **must never** be rendered raw (i.e. directly interpolated into JSX without a formatting/translation step). This applies to:
+  - **Enums:** Enum values (e.g. `EventCategory`, `EventType`) **must** resolve through a dedicated `next-intl` translation namespace keyed by the exact enum member name (e.g. `locales/en.json` → `"EventCategory": { "MUSIC": "Music", ... }`), resolved via `useTranslations()` at render time.
+  - **Dates & DateTimes:** **must** be formatted with `Intl.DateTimeFormat` (or a `next-intl` date formatter) using the active locale — see `EventCard.tsx`'s `formattedDate` for the pattern to follow. Never render a raw ISO string or apply a fixed, non-locale-aware format.
+  - **Numbers stored as numeric types:** any value stored as `number`/`decimal`/`integer` (currency amounts, counts, percentages, etc.) **must** be formatted with `Intl.NumberFormat` using the active locale (with `style: 'currency'` and the correct currency code where applicable) — never interpolated as a raw number. This does **not** apply to fields that are intentionally free-form text at the source (e.g. `Schedule.ticketPrice`, stored and scraped as text like `"IDR 150000"` or `"Free"`) — those remain unchanged and are out of scope for this rule.
+  - **Known gap (deferred, see deferred-work.md):** `apps/web/src/app/[locale]/page.tsx` never resolves the active route locale (via `useLocale()`/route params) and never passes it as the `locale` prop to `EventCard`, so `EventCard.tsx`'s `formattedDate` always falls back to its hardcoded `'en-US'` default regardless of whether the user is on `/en/` or `/id/`. Fix this when next touching date rendering on that page.
 
 ### Code Quality & Style Rules
 
@@ -143,4 +148,4 @@ To avoid monolithic global stores and ensure strict end-to-end typing, the appli
 - Update when the technology stack or core patterns change.
 - Review quarterly to remove rules that have become obvious or obsolete.
 
-_Last Updated: 2026-08-01T07:35:00Z_
+_Last Updated: 2026-08-01T08:00:00Z_

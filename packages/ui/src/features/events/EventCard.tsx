@@ -46,7 +46,10 @@ export function EventCard({
     imageFallbackAlt: 'No image available',
     loading: 'Loading event details',
     favoriteToggle: 'Toggle favorite',
+    priceFrom: 'From',
     ...labels,
+    typeLabels: labels.typeLabels ?? {},
+    categoryLabels: labels.categoryLabels ?? {},
   };
 
   const [imgError, setImgError] = useState(false);
@@ -144,19 +147,19 @@ export function EventCard({
           {(categories.length > 0 || types.length > 0) && (
             <div className="flex flex-wrap gap-1.5 mt-auto pt-2">
               {types.map((type) => (
-                <span 
-                  key={type} 
+                <span
+                  key={type}
                   className="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground"
                 >
-                  {type}
+                  {defaultLabels.typeLabels[type] ?? type}
                 </span>
               ))}
               {categories.map((cat) => (
-                <span 
-                  key={cat} 
+                <span
+                  key={cat}
                   className="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground"
                 >
-                  {cat}
+                  {defaultLabels.categoryLabels[cat] ?? cat}
                 </span>
               ))}
             </div>
@@ -164,7 +167,7 @@ export function EventCard({
 
           {priceFrom !== undefined && (
             <div className="flex items-center justify-between mt-2 pt-3 border-t">
-              <span className="text-sm font-medium">From</span>
+              <span className="text-sm font-medium">{defaultLabels.priceFrom}</span>
               <span className="text-sm font-semibold">{priceFrom}</span>
             </div>
           )}
