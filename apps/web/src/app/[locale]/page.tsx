@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { Suspense, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, InfiniteData } from "@tanstack/react-query"
 import { EventCard, useInfiniteScroll, SearchBar } from "@festgrid/ui"
@@ -46,6 +46,14 @@ function buildEnumLabels(values: string[], translate: (key: string) => string) {
 }
 
 export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
+  )
+}
+
+function HomeContent() {
   const t = useTranslations('DiscoveryPage')
   const tCategory = useTranslations('EventCategory')
   const tType = useTranslations('EventType')
