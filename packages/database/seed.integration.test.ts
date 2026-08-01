@@ -5,6 +5,7 @@ import { eq, isNull, sql } from 'drizzle-orm';
 import {
   apiKeys,
   events,
+  posts,
   schedules,
   subscriptions,
   userLocations,
@@ -15,6 +16,7 @@ import {
   FIXTURE_COUNTS,
   FIXTURE_EVENT_IDS,
   FIXTURE_EVENT_SLUGS,
+  FIXTURE_POST_IDS,
   FIXTURE_SCHEDULE_IDS,
   FIXTURE_SCHEDULE_SLUGS,
   FIXTURE_SUBSCRIPTION_IDS,
@@ -51,6 +53,7 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const [userLocationCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(userLocations);
       const [subscriptionCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(subscriptions);
       const [apiKeyCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(apiKeys);
+      const [postCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(posts);
       const [eventCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(events);
       const [scheduleCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(schedules);
 
@@ -58,8 +61,19 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.equal(userLocationCount.count, FIXTURE_COUNTS.userLocations);
       assert.equal(subscriptionCount.count, FIXTURE_COUNTS.subscriptions);
       assert.equal(apiKeyCount.count, FIXTURE_COUNTS.apiKeys);
+      assert.equal(postCount.count, FIXTURE_COUNTS.posts);
       assert.equal(eventCount.count, FIXTURE_COUNTS.events);
       assert.equal(scheduleCount.count, FIXTURE_COUNTS.schedules);
+
+      const eventPostJoins = await db
+        .select({ eventId: events.id, imageUrl: posts.imageUrl })
+        .from(events)
+        .leftJoin(posts, eq(events.postId, posts.id));
+      
+      assert.equal(eventPostJoins.length, FIXTURE_COUNTS.events);
+      eventPostJoins.forEach((row) => {
+        assert.ok(row.imageUrl !== null && row.imageUrl !== undefined, `Event ${row.eventId} is missing linked post imageUrl`);
+      });
 
       const orphanSchedules = await db
         .select({ scheduleId: schedules.id })
@@ -96,6 +110,7 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const userLocationIdRows = await db.select({ id: userLocations.id }).from(userLocations);
       const subscriptionIdRows = await db.select({ id: subscriptions.id }).from(subscriptions);
       const apiKeyIdRows = await db.select({ id: apiKeys.id }).from(apiKeys);
+      const postIdRows = await db.select({ id: posts.id }).from(posts);
       const eventIdRows = await db.select({ id: events.id }).from(events);
       const scheduleIdRows = await db.select({ id: schedules.id }).from(schedules);
 
@@ -114,6 +129,10 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.deepEqual(
         apiKeyIdRows.map((row) => row.id).sort(),
         FIXTURE_API_KEY_IDS,
+      );
+      assert.deepEqual(
+        postIdRows.map((row) => row.id).sort(),
+        FIXTURE_POST_IDS,
       );
       assert.deepEqual(
         eventIdRows.map((row) => row.id).sort(),
@@ -182,6 +201,9 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const [apiKeyCountSecondRun] = await dbAfterSecondRun
         .select({ count: sql<number>`cast(count(*) as int)` })
         .from(apiKeys);
+      const [postCountSecondRun] = await dbAfterSecondRun
+        .select({ count: sql<number>`cast(count(*) as int)` })
+        .from(posts);
       const [eventCountSecondRun] = await dbAfterSecondRun
         .select({ count: sql<number>`cast(count(*) as int)` })
         .from(events);
@@ -193,8 +215,19 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.equal(userLocationCountSecondRun.count, FIXTURE_COUNTS.userLocations);
       assert.equal(subscriptionCountSecondRun.count, FIXTURE_COUNTS.subscriptions);
       assert.equal(apiKeyCountSecondRun.count, FIXTURE_COUNTS.apiKeys);
+      assert.equal(postCountSecondRun.count, FIXTURE_COUNTS.posts);
       assert.equal(eventCountSecondRun.count, FIXTURE_COUNTS.events);
       assert.equal(scheduleCountSecondRun.count, FIXTURE_COUNTS.schedules);
+
+      const eventPostJoinsSecondRun = await dbAfterSecondRun
+        .select({ eventId: events.id, imageUrl: posts.imageUrl })
+        .from(events)
+        .leftJoin(posts, eq(events.postId, posts.id));
+      
+      assert.equal(eventPostJoinsSecondRun.length, FIXTURE_COUNTS.events);
+      eventPostJoinsSecondRun.forEach((row) => {
+        assert.ok(row.imageUrl !== null && row.imageUrl !== undefined, `Event ${row.eventId} is missing linked post imageUrl`);
+      });
 
       const userIdRowsSecondRun = await dbAfterSecondRun.select({ id: users.id }).from(users);
       const userLocationIdRowsSecondRun = await dbAfterSecondRun
@@ -206,6 +239,9 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const apiKeyIdRowsSecondRun = await dbAfterSecondRun
         .select({ id: apiKeys.id })
         .from(apiKeys);
+      const postIdRowsSecondRun = await dbAfterSecondRun
+        .select({ id: posts.id })
+        .from(posts);
       const eventIdRowsSecondRun = await dbAfterSecondRun.select({ id: events.id }).from(events);
       const scheduleIdRowsSecondRun = await dbAfterSecondRun
         .select({ id: schedules.id })
@@ -230,6 +266,10 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.deepEqual(
         apiKeyIdRowsSecondRun.map((row) => row.id).sort(),
         FIXTURE_API_KEY_IDS,
+      );
+      assert.deepEqual(
+        postIdRowsSecondRun.map((row) => row.id).sort(),
+        FIXTURE_POST_IDS,
       );
       assert.deepEqual(
         eventIdRowsSecondRun.map((row) => row.id).sort(),

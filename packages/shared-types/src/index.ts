@@ -97,6 +97,7 @@ export interface EventInfo {
   sourceSocialMediaAccountId?: string;
   isFavorited?: boolean;
   isAddedToCalendar?: boolean;
+  postId?: string;
 }
 
 export interface SocialMediaAccountProfile {

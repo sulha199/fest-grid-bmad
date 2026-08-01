@@ -63,6 +63,20 @@ export const apiKeys = pgTable('api_keys', {
   ...timestamps,
 });
 
+export const posts = pgTable('posts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  subscriptionId: uuid('subscription_id').references(() => subscriptions.id),
+  content: text('content').notNull(),
+  imageUrl: text('image_url'),
+  postUrl: text('post_url'),
+  isExtracted: boolean('is_extracted').default(false).notNull(),
+  publishedAt: timestamp('published_at', { withTimezone: true }).notNull(),
+  ...timestamps,
+}, (t) => ({
+  subscriptionIdIdx: index('subscription_id_idx').on(t.subscriptionId),
+  publishedAtIdx: index('published_at_idx').on(t.publishedAt),
+}));
+
 export const events = pgTable('events', {
   id: uuid('id').defaultRandom().primaryKey(),
   slug: text('slug').unique().notNull(),
@@ -79,12 +93,14 @@ export const events = pgTable('events', {
   description: text('description'),
   confidenceScore: doublePrecision('confidence_score'),
   sourceSocialMediaAccountId: text('source_social_media_account_id'),
+  postId: uuid('post_id').references(() => posts.id, { onDelete: 'set null' }),
   ...timestamps,
 }, (t) => ({
   nameIdx: index('event_name_idx').on(t.eventName),
   typesIdx: index('event_types_idx').on(t.types),
   categoriesIdx: index('event_categories_idx').on(t.categories),
   locationIdx: index('event_location_idx').on(t.location),
+  postIdIdx: index('event_post_id_idx').on(t.postId),
 }));
 
 export const schedules = pgTable('schedules', {
@@ -109,8 +125,20 @@ export const schedules = pgTable('schedules', {
   locationIdx: index('schedule_location_idx').on(t.location),
 }));
 
-export const eventsRelations = relations(events, ({ many }) => ({
+export const eventsRelations = relations(events, ({ one, many }) => ({
   schedules: many(schedules),
+  post: one(posts, {
+    fields: [events.postId],
+    references: [posts.id],
+  }),
+}));
+
+export const postsRelations = relations(posts, ({ one, many }) => ({
+  subscription: one(subscriptions, {
+    fields: [posts.subscriptionId],
+    references: [subscriptions.id],
+  }),
+  events: many(events),
 }));
 
 export const schedulesRelations = relations(schedules, ({ one }) => ({
@@ -133,11 +161,12 @@ export const userLocationsRelations = relations(userLocations, ({ one }) => ({
   }),
 }));
 
-export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+export const subscriptionsRelations = relations(subscriptions, ({ one, many }) => ({
   user: one(users, {
     fields: [subscriptions.userId],
     references: [users.id],
   }),
+  posts: many(posts),
 }));
 
 export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
