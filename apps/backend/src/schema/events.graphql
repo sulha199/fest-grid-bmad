@@ -27,6 +27,7 @@ enum EventCategory {
   HOLIDAY
   CHARITY_AND_CAUSES
   CIVIC_AND_COMMUNITY
+  RELIGION_AND_SPIRITUALITY # Worship services, retreats, interfaith gatherings
   OTHER
 }
 

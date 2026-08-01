@@ -31,3 +31,15 @@ This file tracks work deferred from development stories, code reviews, and plann
 - source_spec: `_bmad-output/implementation-artifacts/spec-enum-i18n-eventcard-fix.md`
   summary: Pairing the translated "From"/"Mulai dari" price label with free-text `ticketPrice` values like `"Free"` (yielding "From  Free") was not reconsidered — may need a product decision on when to show/hide the price-from label based on value.
   evidence: Pre-existing UX question about `ticketPrice` display, not introduced by the label-translation fix; surfaced by adversarial review.
+
+## Deferred from: quick-dev addition of RELIGION_AND_SPIRITUALITY category (2026-08-01)
+
+- source_spec: none
+  summary: `apps/backend`'s own GraphQL codegen (`apps/backend/codegen.ts`) generates the `Resolvers` type from a stub `src/schema/typeDefs.graphql` (`type Query { health: Boolean! }`), not from the real schema files under `src/schema/` (e.g. `events.graphql`) that are loaded separately at runtime via `readdirSync` in `server.ts`. Combined with `useIndexSignature: true` in that codegen config (which adds a catch-all index signature suppressing excess-property checks), `resolvers.ts` gets zero compile-time verification against the actual runtime schema — a typo'd or removed field/enum value in `events.graphql` would not be caught by `tsc`.
+  evidence: Pre-existing architecture gap, unrelated to the category addition itself; surfaced by adversarial review while adding `RELIGION_AND_SPIRITUALITY` to `events.graphql`.
+- source_spec: none
+  summary: No test asserts that the backend's runtime-merged GraphQL schema (all `*.graphql` files under `src/schema/`, string-concatenated in `server.ts`) actually parses/builds successfully, or that a query touching a given `EventCategory` value round-trips end to end.
+  evidence: Pre-existing test-coverage gap, not specific to this change; surfaced by adversarial review while adding `RELIGION_AND_SPIRITUALITY`.
+- source_spec: none
+  summary: This change is the first migration in the repo to add a value to an existing Postgres enum via `ALTER TYPE ... ADD VALUE` (previous category/type values were all part of the initial `CREATE TYPE` in `0000_cultured_ultragirl.sql`). Postgres has no `ALTER TYPE ... DROP VALUE` — once applied, removing or renaming `RELIGION_AND_SPIRITUALITY` requires recreating the whole `event_category` type and repointing every dependent column. No process doc currently flags this one-way-door risk for future enum additions.
+  evidence: Inherent Postgres limitation, not a defect in this change; noted by adversarial review since this is the first migration of this kind in the repo.

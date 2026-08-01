@@ -12,10 +12,12 @@ export const eventTypeEnum = pgEnum('event_type', [
   'SEMINAR', 'MARKET', 'GATHERING', 'PROMOTION', 'FUNDRAISER', 'CIVIC', 'OTHER'
 ]);
 
+// RELIGION_AND_SPIRITUALITY: Worship services, retreats, interfaith gatherings
 export const eventCategoryEnum = pgEnum('event_category', [
-  'MUSIC', 'ARTS_AND_CULTURE', 'FOOD_AND_DRINK', 'SPORTS_AND_FITNESS', 
-  'FAMILY_AND_KIDS', 'HOBBIES_AND_INTERESTS', 'BUSINESS_AND_NETWORKING', 
-  'HEALTH_AND_WELLNESS', 'HOLIDAY', 'CHARITY_AND_CAUSES', 'CIVIC_AND_COMMUNITY', 'OTHER'
+  'MUSIC', 'ARTS_AND_CULTURE', 'FOOD_AND_DRINK', 'SPORTS_AND_FITNESS',
+  'FAMILY_AND_KIDS', 'HOBBIES_AND_INTERESTS', 'BUSINESS_AND_NETWORKING',
+  'HEALTH_AND_WELLNESS', 'HOLIDAY', 'CHARITY_AND_CAUSES', 'CIVIC_AND_COMMUNITY',
+  'RELIGION_AND_SPIRITUALITY', 'OTHER'
 ]);
 
 export const userRoleEnum = pgEnum('user_role', ['user', 'moderator']);

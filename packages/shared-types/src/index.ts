@@ -39,6 +39,7 @@ export enum EventCategory {
   HOLIDAY = 'HOLIDAY',
   CHARITY_AND_CAUSES = 'CHARITY_AND_CAUSES',     // Fundraisers, non-profit events (New)
   CIVIC_AND_COMMUNITY = 'CIVIC_AND_COMMUNITY',    // Town halls, local government, volunteering (New)
+  RELIGION_AND_SPIRITUALITY = 'RELIGION_AND_SPIRITUALITY', // Worship services, retreats, interfaith gatherings (New)
   OTHER = 'OTHER'
 }
 

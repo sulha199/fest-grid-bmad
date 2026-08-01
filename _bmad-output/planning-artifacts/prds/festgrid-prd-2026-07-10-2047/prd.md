@@ -229,6 +229,7 @@ enum EventCategory {
   HOLIDAY,
   CHARITY_AND_CAUSES,     // Fundraisers, non-profit events (New)
   CIVIC_AND_COMMUNITY,    // Town halls, local government, volunteering (New)
+  RELIGION_AND_SPIRITUALITY, // Worship services, retreats, interfaith gatherings (New)
   OTHER
 }
 
