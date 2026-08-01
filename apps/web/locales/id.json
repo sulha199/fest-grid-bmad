@@ -1,4 +1,10 @@
 {
+  "Metadata": {
+    "defaultTitle": "FestDaily",
+    "defaultDescription": "Jadwal dan Grid Festival Musik Berbasis AI",
+    "discoveryTitle": "Temukan Acara | FestDaily",
+    "discoveryDescription": "Jelajahi dan cari acara mendatang di FestDaily."
+  },
   "DiscoveryPage": {
     "title": "Temukan Acara",
     "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",

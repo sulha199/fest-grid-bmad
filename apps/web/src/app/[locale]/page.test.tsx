@@ -7,12 +7,24 @@ import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
-import Home from './page';
+import { HomeContent as Home } from './home-content';
+import { generateMetadata } from './page';
 import enMessages from '../../../locales/en.json';
 
+// Mock next-intl/server for testing generateMetadata
+vi.mock('next-intl/server', () => ({
+  getTranslations: async ({ locale, namespace }: any) => {
+    const messages = await import(`../../../locales/${locale}.json`);
+    return (key: string) => messages.default[namespace][key];
+  },
+  getMessages: vi.fn(),
+  setRequestLocale: vi.fn()
+}));
+
 // Mock PostHog
+const mockPostHog = { capture: vi.fn() };
 vi.mock('@festgrid/analytics', () => ({
-  usePostHog: () => ({ capture: vi.fn() })
+  usePostHog: () => mockPostHog
 }));
 
 // Mock nuqs to use React state for testing
@@ -138,6 +150,28 @@ function renderWithProviders(ui: React.ReactElement) {
     </NextIntlClientProvider>
   );
 }
+
+test('generateMetadata resolves Discovery page title distinct from root default', async () => {
+  const metadataEN = await generateMetadata({ params: Promise.resolve({ locale: 'en' }) });
+  expect(metadataEN).toEqual({
+    title: 'Discover Events | FestDaily',
+    description: 'Browse and search for upcoming events on FestDaily.',
+    openGraph: {
+      title: 'Discover Events | FestDaily',
+      description: 'Browse and search for upcoming events on FestDaily.',
+    }
+  });
+
+  const metadataID = await generateMetadata({ params: Promise.resolve({ locale: 'id' }) });
+  expect(metadataID).toEqual({
+    title: 'Temukan Acara | FestDaily',
+    description: 'Jelajahi dan cari acara mendatang di FestDaily.',
+    openGraph: {
+      title: 'Temukan Acara | FestDaily',
+      description: 'Jelajahi dan cari acara mendatang di FestDaily.',
+    }
+  });
+});
 
 test('renders initial skeleton, then events, and supports infinite scroll append', async () => {
   renderWithProviders(<Home />);

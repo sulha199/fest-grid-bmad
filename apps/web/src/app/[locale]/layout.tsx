@@ -6,16 +6,22 @@ import { QueryProvider } from '@/components/providers/query-provider';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { PostHogProvider } from '@festgrid/analytics';
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages, setRequestLocale } from 'next-intl/server';
+import { getMessages, setRequestLocale, getTranslations } from 'next-intl/server';
 import { routing } from '../../i18n/routing';
 import { AppShell, ScopedLocaleProvider } from '@festgrid/ui';
+import { buildPageMetadata } from '@/lib/metadata';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
-export const metadata = {
-  title: 'FestGrid',
-  description: 'AI-Powered Music Festival Grid and Scheduler',
-};
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
+  const resolvedParams = await params;
+  const t = await getTranslations({ locale: resolvedParams.locale, namespace: 'Metadata' });
+
+  return buildPageMetadata({
+    title: t('defaultTitle'),
+    description: t('defaultDescription'),
+  });
+}
 
 export function generateStaticParams() {
   return routing.locales.map((locale: string) => ({ locale }));

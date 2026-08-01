@@ -30,23 +30,23 @@ so that I can tell tabs apart, get an accurate preview when I share a link, and 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Add `Metadata` i18n namespace (AC: #1, #2, #6)
-  - [ ] Add a `Metadata` key to `apps/web/locales/en.json` and `apps/web/locales/id.json` with `defaultTitle`/`defaultDescription` (root) and `discoveryTitle`/`discoveryDescription` (Home/Discovery page) entries.
-- [ ] Task 2 — Build the shared metadata helper (AC: #4, #5)
-  - [ ] Create `apps/web/src/lib/metadata.ts` exporting `buildPageMetadata({ title, description }): Metadata` (Next.js `Metadata` type) that populates `title`, `description`, `openGraph.title`, `openGraph.description`.
-  - [ ] Add `apps/web/src/lib/metadata.test.ts` covering the helper's output shape.
-- [ ] Task 3 — Localize and dynamize the root layout metadata (AC: #1)
-  - [ ] Replace the static `export const metadata = {...}` in `apps/web/src/app/[locale]/layout.tsx` with `export async function generateMetadata({ params }: { params: Promise<{ locale: string }> })` that resolves `locale`, calls `getTranslations({ locale, namespace: 'Metadata' })` from `next-intl/server`, and returns `buildPageMetadata(...)`.
-- [ ] Task 4 — Split the Discovery/Home page so it can export its own metadata (AC: #2, #3)
-  - [ ] Extract the current `"use client"` implementation of `apps/web/src/app/[locale]/page.tsx` (the `HomeContent` function and its `buildEventsQuery`/`buildEnumLabels` helpers) into a new client component file, `apps/web/src/app/[locale]/home-content.tsx`, unchanged in behavior.
-  - [ ] Rewrite `apps/web/src/app/[locale]/page.tsx` as a Server Component: keep the `<Suspense>` wrapper, render the extracted `HomeContent` from `./home-content`, and add `export async function generateMetadata({ params })` using `getTranslations({ locale, namespace: 'Metadata' })` + `buildPageMetadata(...)` for the Discovery-page title/description.
-  - [ ] Update `apps/web/src/app/[locale]/page.test.tsx`'s `import Home from './page'` to import the relocated client component (`./home-content`) instead, since the default export of `page.tsx` is now a Server Component that a client-rendering test (`@testing-library/react` + jsdom) cannot render/await the way it renders today.
-- [ ] Task 5 — Verify rendered output (AC: #3, #4)
-  - [ ] Confirm via dev server / build output that the compiled `<head>` contains the expected `<title>` and `og:title`/`og:description` for both the root default and the Discovery page, and that a client-side navigation between two routes updates `document.title` (can be exercised once a second route exists; for this story, verify at minimum that `generateMetadata` re-runs per requested segment via an integration test using Next.js's metadata resolution, not a manual multi-route click-through).
-- [ ] Task 6 — Testing (AC: all)
-  - [ ] Integration test: root layout's `generateMetadata` resolves the correct localized title/description for `en` and `id`.
-  - [ ] Integration test: Discovery page's `generateMetadata` resolves a title distinct from the root default.
-  - [ ] Update/rerun the existing `page.test.tsx` suite against the relocated `home-content.tsx` to confirm no regression in the Discovery page's existing search/filter/infinite-scroll behavior.
+- [x] Task 1 — Add `Metadata` i18n namespace (AC: #1, #2, #6)
+  - [x] Add a `Metadata` key to `apps/web/locales/en.json` and `apps/web/locales/id.json` with `defaultTitle`/`defaultDescription` (root) and `discoveryTitle`/`discoveryDescription` (Home/Discovery page) entries.
+- [x] Task 2 — Build the shared metadata helper (AC: #4, #5)
+  - [x] Create `apps/web/src/lib/metadata.ts` exporting `buildPageMetadata({ title, description }): Metadata` (Next.js `Metadata` type) that populates `title`, `description`, `openGraph.title`, `openGraph.description`.
+  - [x] Add `apps/web/src/lib/metadata.test.ts` covering the helper's output shape.
+- [x] Task 3 — Localize and dynamize the root layout metadata (AC: #1)
+  - [x] Replace the static `export const metadata = {...}` in `apps/web/src/app/[locale]/layout.tsx` with `export async function generateMetadata({ params }: { params: Promise<{ locale: string }> })` that resolves `locale`, calls `getTranslations({ locale, namespace: 'Metadata' })` from `next-intl/server`, and returns `buildPageMetadata(...)`.
+- [x] Task 4 — Split the Discovery/Home page so it can export its own metadata (AC: #2, #3)
+  - [x] Extract the current `"use client"` implementation of `apps/web/src/app/[locale]/page.tsx` (the `HomeContent` function and its `buildEventsQuery`/`buildEnumLabels` helpers) into a new client component file, `apps/web/src/app/[locale]/home-content.tsx`, unchanged in behavior.
+  - [x] Rewrite `apps/web/src/app/[locale]/page.tsx` as a Server Component: keep the `<Suspense>` wrapper, render the extracted `HomeContent` from `./home-content`, and add `export async function generateMetadata({ params })` using `getTranslations({ locale, namespace: 'Metadata' })` + `buildPageMetadata(...)` for the Discovery-page title/description.
+  - [x] Update `apps/web/src/app/[locale]/page.test.tsx`'s `import Home from './page'` to import the relocated client component (`./home-content`) instead, since the default export of `page.tsx` is now a Server Component that a client-rendering test (`@testing-library/react` + jsdom) cannot render/await the way it renders today.
+- [x] Task 5 — Verify rendered output (AC: #3, #4)
+  - [x] Confirm via dev server / build output that the compiled `<head>` contains the expected `<title>` and `og:title`/`og:description` for both the root default and the Discovery page, and that a client-side navigation between two routes updates `document.title` (can be exercised once a second route exists; for this story, verify at minimum that `generateMetadata` re-runs per requested segment via an integration test using Next.js's metadata resolution, not a manual multi-route click-through).
+- [x] Task 6 — Testing (AC: all)
+  - [x] Integration test: root layout's `generateMetadata` resolves the correct localized title/description for `en` and `id`.
+  - [x] Integration test: Discovery page's `generateMetadata` resolves a title distinct from the root default.
+  - [x] Update/rerun the existing `page.test.tsx` suite against the relocated `home-content.tsx` to confirm no regression in the Discovery page's existing search/filter/infinite-scroll behavior.
 
 ## Dev Notes
 
@@ -136,13 +136,13 @@ so that I can tell tabs apart, get an accurate preview when I share a link, and 
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Done
 
 ## Dev Agent Record
 
@@ -152,4 +152,20 @@ so that I can tell tabs apart, get an accurate preview when I share a link, and 
 
 ### Completion Notes List
 
+- Implemented `buildPageMetadata` utility to standardize OpenGraph metadata tags.
+- Extracted `HomeContent` into a separate client component file to allow `page.tsx` to serve as a server component for metadata generation.
+- Added `Metadata` namespace in `en.json` and `id.json` and updated layout and page components to use `next-intl`'s `getTranslations`.
+- Added unit tests for `metadata.ts` and updated `page.test.tsx` (and `layout.test.tsx`) to verify expected behavior.
+- Fixed a bug in `home-content.tsx` by wrapping the `onSubmit` inline arrow function in `useMemo` so that the search bar component does not continuously reset the query string on every render due to unstable reference.
+
 ### File List
+
+- `apps/web/src/lib/metadata.ts`
+- `apps/web/src/lib/metadata.test.ts`
+- `apps/web/src/app/[locale]/layout.tsx`
+- `apps/web/src/app/[locale]/layout.test.tsx`
+- `apps/web/src/app/[locale]/page.tsx`
+- `apps/web/src/app/[locale]/page.test.tsx`
+- `apps/web/src/app/[locale]/home-content.tsx`
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`

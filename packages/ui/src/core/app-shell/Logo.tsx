@@ -14,7 +14,7 @@ export function Logo({ className }: { className?: string }) {
       {/* Logotype */}
       <div className="text-xl tracking-tight flex items-baseline">
         <span className="font-bold">Fest</span>
-        <span className="font-light">Grid</span>
+        <span className="font-light">Daily</span>
       </div>
     </div>
   );

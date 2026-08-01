@@ -84,7 +84,7 @@ development_status:
   1-7a-build-the-reusable-blockingloader-component: backlog
   1-7-user-signup-and-login-with-google: ready-for-dev
   1-8-setup-posthog-analytics: review
-  1-9-dynamic-browser-title-and-meta-tags: ready-for-dev
+  1-9-dynamic-browser-title-and-meta-tags: review
   epic-1-retrospective: optional
   epic-2: in-progress
   2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: backlog
