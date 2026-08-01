@@ -8,7 +8,9 @@ baseline_commit: cf0949a8d2ca42b6ab393b4976080e35afd71487
 - **Epic:** 1 - Core App and Event Discovery
 - **Story ID:** 1.2a
 - **Story Key:** 1-2a-create-posts-table-and-link-seeded-events-to-their-source-post
-- **Status:** review
+- **Status:** in-progress
+
+> **Amendment (2026-08-01, source-attribution requirement via `bmad-correct-course`):** AC1's original `posts` table shape (Tasks 1–12 below, all previously completed and reviewed-pending) needs one additive change: a new nullable `original_post_url` column, populated by the scraper adapter when it can derive the canonical original-platform URL for a post (e.g. `imginn.com`'s Instagram-mirroring adapter preserves Instagram's own post ID). See AC7 and Task 13 below. Status moved back to `in-progress` because this is real, unimplemented required scope — not a documentation-only change — surfaced while creating Story 1.6 ("View event details").
 
 ## Story
 **As a** developer,
@@ -22,6 +24,7 @@ baseline_commit: cf0949a8d2ca42b6ab393b4976080e35afd71487
 - **AC4:** `packages/database/seed.ts` is updated to create one `posts` fixture row per existing fixture event (linked to that event's matching subscription, e.g. `FIXTURE_SUBSCRIPTIONS[0].id`), populated with the `image_url` currently embedded as text inside that event's `description` field, and each fixture event's `post_id` is set to reference its corresponding new post row; the `"Poster image: ..."` substring is removed from `description` once the URL lives in its proper structured column.
 - **AC5:** The seed integration test (`packages/database/seed.integration.test.ts`, from Story 1.2) is extended to assert the new `posts` table's row count and that every fixture event's `post_id` resolves to a `posts` row with a non-null `image_url`.
 - **AC6:** This story does not implement any of the actual scraping/persistence logic for real scraped posts (writing newly-scraped posts, updating `is_extracted`) — that remains Story 3.3a's scope, narrowed to build on top of the table this story creates rather than creating it from scratch (see the amendment note on Story 3.3a in `epics.md`).
+- **AC7 (added 2026-08-01, source-attribution amendment):** The `posts` table gains a nullable `original_post_url` (text) column, via a new Drizzle-kit-generated migration (AD-3) additive to the one this story already generated. `packages/shared-types`'s `Post` interface gains a matching optional `originalPostUrl?: string`. No seed-data population is required by this AC — the existing `FIXTURE_POSTS` fixtures may leave `originalPostUrl` unset (`null`), since deriving it is a scraper-adapter concern (Story 3.4, not yet implemented), not this story's fixture-authoring responsibility.
 
 **Note (from epics.md):** This story exists because of a Data Type Compatibility gap surfaced while creating Story 1.3b (`EventCard`) — the PRD's `EventInfo` interface has no image field, because event images are meant to travel via the source `Post.imageUrl`, not a field on the event itself. Story 3.3a already defines the target `posts` table shape but scoped it to Epic 3's scraping pipeline, chronologically after Epic 1. Since Epic 1's `EventCard`/events API need real, non-placeholder images sooner, this story pulls the table-creation portion of Story 3.3a's scope earlier — following the Story 1.1 precedent of scoping originating tables to the epic that first needs them — and narrows Story 3.3a accordingly.
 
@@ -40,6 +43,7 @@ baseline_commit: cf0949a8d2ca42b6ab393b4976080e35afd71487
 - [x] 10. Add `posts: FIXTURE_POSTS.length` to the exported `FIXTURE_COUNTS` object, and a sorted `FIXTURE_POST_IDS` export, mirroring every other fixture-id export already in the file (AC4, AC5).
 - [x] 11. Extend `packages/database/seed.integration.test.ts` (AC5): import the `posts` table and the new `FIXTURE_COUNTS.posts`/`FIXTURE_POST_IDS` exports; assert the `posts` row count on both the first and second (idempotency) seed runs, following the exact pattern already used for `users`/`events`/etc. in this file. Add a join-based assertion (`events` left-joined to `posts` on `events.postId = posts.id`) proving every one of the 3 fixture events resolves to a `posts` row with a non-null `imageUrl` (AC5's literal requirement) — assert the joined-row count equals `FIXTURE_COUNTS.events` and that no row has a null `imageUrl`.
 - [x] 12. Run `pnpm --filter @festgrid/database lint`, `pnpm --filter @festgrid/database build`, and `pnpm --filter @festgrid/database test:seed` (the `tsx --test` integration test) to confirm everything passes end-to-end against a local database.
+- [ ] 13. **(Added 2026-08-01, source-attribution amendment, AC7):** Add `originalPostUrl: text('original_post_url')` (nullable, no `.notNull()`) to the `posts` table in `packages/database/schema.ts`. Add `originalPostUrl?: string;` to the `Post` interface in `packages/shared-types/src/index.ts`, with a doc comment mirroring `postUrl`'s (see PRD §4.7). Run `pnpm --filter @festgrid/database run generate` to produce a second, additive migration file (do not hand-edit Task 4's already-committed migration). Run `pnpm --filter @festgrid/database run migrate` to apply it locally. Re-run `pnpm --filter @festgrid/database lint`, `build`, and `test:seed` to confirm nothing regresses (existing seed fixtures may leave the new column `null` — no fixture-data changes required by this task).
 
 ## Dev Notes
 
@@ -55,6 +59,8 @@ baseline_commit: cf0949a8d2ca42b6ab393b4976080e35afd71487
 - **Required TypeScript type changes:** `EventInfo.postId?: string` added to `packages/shared-types` (Task 6). The `Post` interface itself is intentionally **not** modified — `subscriptionId`/`publishedAt` exist as DB columns (needed for Epic 3/5's future scraping-pipeline queries per Story 3.3a's original spec) but have no TypeScript-level consumer yet; adding them to the shared `Post` type now would be speculative and is deferred to whichever story (3.3a or later) first needs to read them through the API.
 - **Backward compatibility and rollout notes:** `post_id` is nullable, so existing rows (and any future event created without a linked post) remain valid. `ON DELETE SET NULL` on `events.post_id` (AC2) ensures a future post deletion can never cascade into deleting a real event — protecting the more valuable, publicly-visible `events` row over the supplementary `posts` row. This story's seed-data changes are the only rollout: no production data migration is needed since the app has not shipped real user-facing data yet (Story 1.2's fixtures are dev/test-only).
 - **Verification checks:** Task 11's extended `seed.integration.test.ts` proves end-to-end alignment — every fixture event's `post_id` resolves to a real `posts` row with a non-null `image_url`, on both the first seed run and the idempotent second run.
+
+**Amendment (2026-08-01, AC7/Task 13):** Adds one nullable `original_post_url` column to `posts` and a matching optional `Post.originalPostUrl` shared type. Purely additive — no existing row, query, or type consumer breaks (nothing reads this field yet). No new migration risk beyond the standard `drizzle-kit generate`/`migrate` flow already used by Task 4. Verification: re-run the existing `test:seed` suite (Task 13) to confirm the additive column doesn't disturb existing assertions; no new test assertions are required since no fixture data populates this column yet.
 
 ### Previous Story Intelligence (Story 1.2)
 - Story 1.2 established the deterministic, transactional seeding pattern this story extends: fixed fixture UUIDs/slugs (not random), an explicit FK-safe deletion order wrapped in one `db.transaction`, and an integration test asserting both row counts and relational integrity (orphan checks) on a first *and* second (idempotency) run. This story's Tasks 7–11 follow that exact same pattern rather than introducing a new one.
@@ -109,7 +115,8 @@ baseline_commit: cf0949a8d2ca42b6ab393b4976080e35afd71487
 - [x] Testing plan confirmed: extend the existing `node:test`/`tsx --test` `seed.integration.test.ts` (Story 1.2's established pattern) — not a new Vitest integration suite — with posts-count and event→post join assertions, verified on both a first and idempotent second seed run.
 - [x] Gate 1/2/3 findings acknowledged: Gate 1/3 re-reasoned narrowly since this story postdates the swept `epic-1-readiness.md` report (no gap found); Gate 2 run fresh via subagent (no gap found — pure schema/data story, zero UI surface).
 - [x] Fixture data decision accepted: `FIXTURE_POSTS.content` is authored as new deterministic caption text (no existing source string to reuse); `imageUrl` values are moved verbatim from each event's current `description` text rather than derived via a parsing utility (deliberately avoiding a speculative "extract from description" abstraction for what is one-time static fixture data — see Task 7).
-- [x] Explicit human approval state (Default: **approved**)
+- [x] Explicit human approval state (Default: **approved**) — for AC1–AC6/Tasks 1–12 (already implemented).
+- [ ] **Amendment scope (AC7/Task 13) approval:** additive `original_post_url` nullable column + matching `packages/shared-types` field. Low risk (nullable, no existing consumer). Pending explicit approval before resuming implementation.
 
 ## Testing Requirements
 - Extend `packages/database/seed.integration.test.ts` (`node:test` via `tsx --test`, matching Story 1.2's established interim testing strategy) to assert: the `posts` table's row count matches `FIXTURE_COUNTS.posts` on both the first and second (idempotent) seed run; every fixture event's `post_id` resolves to a `posts` row via a join, with that joined row's `image_url` non-null, on both runs; no new orphaned rows are introduced by the reordered delete/insert sequence (Task 9).
@@ -124,6 +131,7 @@ baseline_commit: cf0949a8d2ca42b6ab393b4976080e35afd71487
 - [x] `packages/database/seed.ts` updated: `FIXTURE_POSTS` added, `FIXTURE_EVENTS` linked via `postId` with the `"Poster image: ..."` text removed from `description`, insert/delete ordering updated, `FIXTURE_COUNTS`/id exports updated.
 - [x] `seed.integration.test.ts` extended with posts-count and event→post join assertions, verified on first and second seed runs.
 - [x] `pnpm --filter @festgrid/database lint`, `build`, `run generate`, `run migrate`, and `test:seed` all pass locally.
+- [ ] **(Amendment, AC7/Task 13)** `original_post_url` nullable column added to `posts`; matching `Post.originalPostUrl?` added to `packages/shared-types`; second migration generated/applied; lint/build/test:seed re-verified.
 
 ## Out of Scope
 - Any GraphQL resolver work exposing `imageUrl`/`postId` (handled by Story `1-3a-build-the-events-backend-graphql-api-layer`'s AC6, `ready-for-dev`).
@@ -134,11 +142,12 @@ baseline_commit: cf0949a8d2ca42b6ab393b4976080e35afd71487
 
 ## Definition of Done
 - [x] AC1–AC6 satisfied.
+- [ ] AC7 satisfied (amendment, 2026-08-01).
 - [x] Required tests passing: extended `seed.integration.test.ts` (`pnpm --filter @festgrid/database test:seed`).
 - [x] Lint and type checks passing for `packages/database` and `packages/shared-types`.
 
 ## Completion Status
-Complete
+AC1–AC6 complete and reviewed-pending. AC7 (2026-08-01 source-attribution amendment) not yet implemented — story moved back to `in-progress`.
 
 ## Dev Agent Record
 - Added `posts` table to `packages/database/schema.ts` with required columns and indexes.
@@ -150,3 +159,4 @@ Complete
 - Adjusted the transactional insert/delete order to respect new FK constraints.
 - Extended `seed.integration.test.ts` to verify the deterministic row count and relational validity for `posts`, including an idempotency check and join assertions on `events.postId`.
 - Ran tests and linting specifically on `@festgrid/database` and `@festgrid/shared-types` and all pass locally.
+- **(Amendment pending, 2026-08-01):** AC7/Task 13 (`original_post_url` column) not yet implemented.

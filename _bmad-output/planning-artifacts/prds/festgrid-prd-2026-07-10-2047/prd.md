@@ -49,6 +49,7 @@ This document outlines the product requirements for FestGrid, a platform designe
     *   When adding an event to a calendar, users can select which specific schedules to add.
     *   For MVP, this is a one-way integration (app to calendar).
 *   **3.3.2. Event Details Centralization:** Consolidate all relevant event information in one place.
+*   **3.3.3. Source Attribution:** The event details view will display attribution for, and links back to, the social media post the event was extracted from: the original-platform post (`Post.originalPostUrl`, when the scraper adapter was able to derive it) and/or the source post actually scraped (`Post.postUrl`, which may be a proxy/mirror site — see Section 3.7). Whichever of the two is unavailable for a given post is simply omitted, not shown broken. These are read-only informational links, not editable/correctable fields (see Section 3.9 for corrections).
 
 ### 3.5 Global View Rules
 
@@ -64,6 +65,7 @@ This document outlines the product requirements for FestGrid, a platform designe
 
 This feature allows users to curate their event feed by subscribing to specific social media accounts.
 
+*   **Scraping Approach (Adapter-Specific):** Posts are scraped via a platform-specific scraper adapter (see Architecture Spine's Adapter Pattern rule). Where a platform blocks direct scraping (e.g. Instagram), the adapter scrapes through a proxy/mirror site instead (e.g. `imginn.com`) and persists the URL it actually fetched (`Post.postUrl`). When the adapter can also determine the canonical original-platform URL for that post (e.g. `imginn.com` preserves Instagram's own post ID, letting the original URL be deterministically derived), it persists that too (`Post.originalPostUrl`). This derivation rule is adapter-specific — a future adapter for a different platform/proxy may need to capture the original URL separately rather than derive it, or may not be able to supply one at all.
 *   **Account Subscription:** Users can subscribe to desired social media accounts by providing their own Gemini API Key (BYOK). Event data from these subscribed accounts will be processed by an AI agent to extract event details. For accounts subscribed to by multiple users, the system will intelligently utilize any valid API key from contributing users to optimize data extraction and distribute quota usage.
     *   **Default Location for Subscriptions:** To handle cases where an event's location is implicit (e.g., an event at a mall posted on the mall's social media), users can optionally set a "Default Location" when subscribing to an account. If the AI agent does not find an explicit location in a post, it will use this default location for the event.
         *   **Shared, Account-Level Setting:** A "Default Location" belongs to the social media account, not to an individual subscriber — because AI extraction runs once per post for accounts with multiple subscribers, a per-subscriber default would be ambiguous about which value applies to the resulting event. Any subscriber may set it if unset.
@@ -289,7 +291,8 @@ interface EventInfo {
   /**
    * The ID of the `Post` (see the `Post` interface, Section 4.7) this event was extracted from, if any.
    * EventInfo intentionally has no image field of its own — an event's image is resolved via this
-   * relation, from the source post's `imageUrl`.
+   * relation, from the source post's `imageUrl`. The event details view also uses this relation to
+   * surface attribution and links back to the source post's `postUrl`/`originalPostUrl` (Section 3.3.3).
    */
   postId?: string;
   /**
@@ -507,7 +510,8 @@ interface UserLocationPreference {
 /**
  * Represents a social media post to be displayed for selection, and — when it yields an
  * extracted event — the source an `EventInfo` links back to via `EventInfo.postId` (Section 4.1),
- * which is how an event's image is resolved (from this interface's `imageUrl`).
+ * which is how an event's image (`imageUrl`) and source attribution links (`postUrl`/
+ * `originalPostUrl`, Section 3.3.3) are resolved.
  */
 interface Post {
   /**
@@ -523,9 +527,17 @@ interface Post {
    */
   imageUrl?: string;
   /**
-   * The URL of the post.
+   * The URL the scraper adapter actually fetched this post from. For platforms scraped via a
+   * proxy/mirror (e.g. Instagram via `imginn.com`), this is the proxy URL, not the original
+   * platform's URL (Section 3.7).
    */
   postUrl: string;
+  /**
+   * The canonical original-platform URL for this post, when the scraper adapter is able to
+   * determine it (e.g. derived from a post ID/shortcode shared with the proxy site). Nullable —
+   * not every adapter can supply this for every post (Section 3.7).
+   */
+  originalPostUrl?: string;
   /**
    * True if the post has already been processed and an event has been extracted.
    */

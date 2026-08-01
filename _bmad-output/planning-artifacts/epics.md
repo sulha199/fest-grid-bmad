@@ -31,7 +31,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **FR10:** Saved locations can be used to find "nearby events" within a user-defined radius (1km-50km).
 - **FR11:** When adding an event to a calendar, users can select which specific schedules to add.
 - **FR12:** One-way calendar integration (app to calendar) for MVP.
-- **FR13:** Consolidate all relevant event information in one place.
+- **FR13:** Consolidate all relevant event information in one place, including attribution/links back to the source social media post the event was extracted from — both the original-platform post (when derivable) and the post as actually scraped, which may be a proxy/mirror site (PRD §3.3.3/§3.7).
 - **FR14:** All event discovery pages will by default only show ongoing and upcoming events.
 - **FR15:** Events in a user's personal lists ('favorited' or 'added to calendar') will be hidden `N` days after they have passed. `N` is configurable.
 - **FR16:** "Favorited" and "Added to Calendar" events will have a distinct visual treatment on the calendar.
@@ -538,6 +538,8 @@ Users can discover and browse events.
 
 **Note:** This story exists because of a Data Type Compatibility gap surfaced while creating Story 1.3b (`EventCard`) — the PRD's `EventInfo` interface has no image field, because event images are meant to travel via the source `Post.imageUrl`, not a field on the event itself. Story 3.3a already defines the target `posts` table shape but scoped it to Epic 3's scraping pipeline, chronologically after Epic 1. Since Epic 1's `EventCard`/events API need real, non-placeholder images sooner, this story pulls the table-creation portion of Story 3.3a's scope earlier — following the Story 1.1 precedent of scoping originating tables to the epic that first needs them — and narrows Story 3.3a accordingly. Classified as a shared data-ownership gap per `story-split-gate.md`'s numbering rule, positioned immediately after Story 1.2 (which it extends) and before Story 1.3a (its first consumer).
 
+**Amendment (2026-08-01, source-attribution requirement via `bmad-correct-course`):** Add a nullable `original_post_url` column to `posts` (new Drizzle-kit migration — this table is already implemented and this story is `review` status), populated by the scraper adapter when it can derive the canonical original-platform URL for a post (PRD §3.7). The existing `post_url` column keeps its current meaning unchanged (whatever URL the adapter actually scraped from, which may be a proxy/mirror site). `packages/shared-types`'s `Post` interface gains a matching optional `originalPostUrl?: string`. Surfaced while creating Story 1.6 ("View event details"), whose Gate 2 review found the previous draft's source-link requirement ungrounded, prompting a `bmad-correct-course` pass that confirmed it as a real requirement and traced it to this story's table. Consumers: Story 1.6/1.6a (display) and Story 3.4 (Scrape new posts — future story, responsible for populating `original_post_url` per its adapter's own derivation rules when implemented).
+
 **Depends on:** Story 1.1, Story 1.2.
 
 ### Story 1.3a: Build the events backend GraphQL API layer
@@ -678,6 +680,26 @@ Users can discover and browse events.
 *   **When** the component renders,
 *   **Then** it displays the event name, description, date and time, location, performers, and image, with a graceful fallback for any missing optional field.
 *   **And** it exposes loading and error states independent of how it is invoked (modal or full page).
+*   **And** when a source-post original-platform URL and/or proxy/scraped-source URL is provided by the caller, it displays attribution link(s) back to the source post; whichever one is absent for a given event is simply omitted, not shown broken (mirrors the existing `mapUrl` decoupling pattern).
+
+### Story 1.6b: Build the context-aware list navigation hook
+
+**As a** developer,
+**I want** a reusable, headless hook that resolves "Next"/"Previous" targets from a list's search/filter/sort context and triggers background pagination when the boundary of the currently loaded page is reached,
+**So that** any detail view opened from any list (event discovery, favorites, calendar) can offer consistent context-aware navigation without re-deriving list-position and pagination logic per feature.
+
+**Acceptance Criteria:**
+
+*   **Given** a list's context (current query/filter/sort state and its currently-loaded items or an ID-ordered sequence),
+*   **When** the hook is used from a detail view opened from that list,
+*   **Then** it returns whether a "Next"/"Previous" target exists, the target's identifier, and loading/disabled state for each direction.
+*   **And** when the user is at the last loaded item and requests "Next," it triggers the list's next-page fetch in the background and resolves to the newly-loaded next item once available, without blocking the UI.
+*   **And** when the detail view is opened via a direct deep-link without any list context, the hook reports no Next/Previous targets (both hidden/disabled) rather than erroring.
+*   **And** it exposes a strictly-typed, headless contract (no rendering) so it can be reused by Story 1.6 (event discovery detail) and future Epic 2 detail views (Favorites, Calendar).
+
+**Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced while creating Story 1.6 — the draft folded "Next/Previous navigation that reads list context (search/filter/sort), detects list-boundary, and triggers a background next-page fetch" directly into Story 1.6, but this combines the same independent state dimensions (fetch + derived state + side effects) that triggered the Story 1.3c (`useInfiniteScroll`) split, and clears the reuse bar independently since `project-context.md`'s "Context-Aware Detail Views" invariant explicitly generalizes this across "any list" and Epic 2's Story 2.2 (View favorited events) and Story 2.6 (View and manage events on a calendar) are near-term consumers of the same detail-view navigation pattern. Classified as a single-story-origin UI/mechanism split (mirroring the 1.3c/1.5a/1.6a precedent) — positioned immediately before Story 1.6, its first consumer.
+
+**Depends on:** None (headless hook; consumes whatever list context/pagination state its caller passes in — no direct GraphQL/DSL dependency of its own).
 
 ### Story 1.6: View event details
 
@@ -690,11 +712,12 @@ Users can discover and browse events.
 *   **Given** I am on the main page of the application,
 *   **When** I click on an event card,
 *   **Then** a modal or a new page appears, using the event detail component (Story 1.6a), with the full details of the event.
-*   **And** the event details are fetched via the backend GraphQL API using the Unified Query DSL (Story 1.3a) — not directly from the database.
-*   **And** the detail view provides "Next" and "Previous" navigation controls that respect the search, filter, and sort context of the list I navigated from.
+*   **And** the event details are fetched via the backend GraphQL API (Story 1.3a's layer) — not directly from the database. This is a single-item lookup by slug, not an event collection, so it does not go through the Unified Query DSL (AD-1/AD-2 scope collections only), mirroring the existing non-DSL `event(id)` query precedent.
+*   **And** the detail view provides "Next" and "Previous" navigation controls, using the context-aware list navigation hook (Story 1.6b), that respect the search, filter, and sort context of the list I navigated from.
 *   **And** if I navigate to the end of the currently loaded page using the "Next" button, the system automatically fetches the next page of results in the background.
+*   **And** the event details include attribution/links back to the source social media post — `Post.originalPostUrl` (when derivable) and/or `Post.postUrl` (the post as actually scraped, which may be a proxy/mirror site) — via `EventInfo.postId`, fetched via the backend GraphQL API, when the event has a linked post (PRD §3.3.3/§3.7).
 
-**Depends on:** Story 1.3a, Story 1.6a
+**Depends on:** Story 1.3a, Story 1.6a, Story 1.6b
 
 ### Story 1.7: User Signup and Login with Google
 
@@ -1056,8 +1079,10 @@ Users can subscribe to social media accounts to import events into their feed.
 
 *   **Given** there are active subscriptions to social media accounts,
 *   **When** the scraping process is triggered (e.g., on a schedule),
-*   **Then** the system retrieves the latest posts from the subscribed accounts.
-*   **And** the scraped posts are stored temporarily for the next step in the processing pipeline.
+*   **Then** the system retrieves the latest posts from the subscribed accounts via a platform-specific scraper adapter (PRD §3.7) — never a hardcoded, single-platform scraping implementation.
+*   **And** the scraped posts are stored temporarily for the next step in the processing pipeline, with `post_url` set to whatever URL the adapter actually scraped from (which may be a proxy/mirror site, e.g. `imginn.com` for Instagram) and `original_post_url` (Story 1.2a's amendment) populated whenever that adapter's own derivation rule can determine the canonical original-platform URL for that post.
+
+**Note (2026-08-01, added via `bmad-correct-course`):** This story's AC is still high-level/placeholder (Epic 3 has not had its own readiness/create-story pass yet) — the `original_post_url` line above records the requirement so it isn't lost, but the actual per-adapter derivation logic (e.g. imginn.com's shared post-ID pattern) should be specified when this story is properly detailed.
 
 ### Story 3.5: Add new posts to a processing queue
 

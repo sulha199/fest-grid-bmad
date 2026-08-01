@@ -35,7 +35,8 @@
       "Bash(pnpm --filter backend build)",
       "Bash(pnpm --filter @festgrid/domain lint)",
       "Bash(pnpm --filter @festgrid/graphql-select lint)",
-      "Bash(pnpm --filter backend lint)"
+      "Bash(pnpm --filter backend lint)",
+      "Bash(python3 _bmad/scripts/resolve_customization.py --skill .claude/skills/bmad-correct-course --key workflow)"
     ]
   }
 }
