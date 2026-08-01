@@ -4,7 +4,7 @@
 
 - Epic: 1
 - Story ID: 1.3b
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -29,18 +29,18 @@ so that the main event list (and future views like favorites/calendar) can displ
 
 ## Tasks / Subtasks
 
-- [ ] 1. Create `packages/ui/src/features/events/EventCard.tsx` implementing the base structure, name, and date rendering (AC1, AC5).
-- [ ] 2. Define a strictly-typed `EventCardProps` interface (all fields beyond `eventName`/start date explicitly optional), co-located as `packages/ui/src/features/events/EventCard.types.ts` (AC5, AC6, AC7).
-- [ ] 3. Implement locale-aware date formatting via native `Intl.DateTimeFormat`, accepting an optional `locale` prop (AC1).
-- [ ] 4. Implement image rendering with state-based `onError` fallback swap using a plain `<img>` (no `next/image`) (AC2, AC3).
-- [ ] 5. Implement the `loading` skeleton state with `aria-busy="true"` and layout-matching placeholder blocks (AC4).
-- [ ] 6. Implement optional `location`, `categories`/`types` (as badges), and `priceFrom` rendering, each conditionally shown (AC6).
-- [ ] 7. Implement the reserved favorite slot: render an accessible toggle control only when `onFavoriteToggle` is provided, reflecting `isFavorited` (AC7).
-- [ ] 8. Wrap the card root in a semantic `<article>` containing an anchor/button driven by `href`/`onClick`, with visible focus styles (AC8).
-- [ ] 9. Add the `labels` override prop (with English defaults) for all internally-rendered microcopy (AC9).
-- [ ] 10. Export `EventCard`, `EventCardProps`, and any sub-types from `packages/ui/src/features/events/index.ts`, and re-export via `packages/ui/src/index.ts` (AC10).
-- [ ] 11. Add TSDoc comments to the component and its props documenting purpose, defaults, and reuse guidance (AC10).
-- [ ] 12. Write component tests (Vitest + `@testing-library/react`) covering: full data render, minimal/guaranteed-fields-only render, image success, image error fallback, no-`imageUrl` fallback, loading skeleton `aria-busy`, keyboard focus/activation of the card root, and favorite control hidden when `onFavoriteToggle` is absent (AC1–AC10; use `@festgrid/testing-config/vitest-react` per Testing Requirements).
+- [x] 1. Create `packages/ui/src/features/events/EventCard.tsx` implementing the base structure, name, and date rendering (AC1, AC5).
+- [x] 2. Define a strictly-typed `EventCardProps` interface (all fields beyond `eventName`/start date explicitly optional), co-located as `packages/ui/src/features/events/EventCard.types.ts` (AC5, AC6, AC7).
+- [x] 3. Implement locale-aware date formatting via native `Intl.DateTimeFormat`, accepting an optional `locale` prop (AC1).
+- [x] 4. Implement image rendering with state-based `onError` fallback swap using a plain `<img>` (no `next/image`) (AC2, AC3).
+- [x] 5. Implement the `loading` skeleton state with `aria-busy="true"` and layout-matching placeholder blocks (AC4).
+- [x] 6. Implement optional `location`, `categories`/`types` (as badges), and `priceFrom` rendering, each conditionally shown (AC6).
+- [x] 7. Implement the reserved favorite slot: render an accessible toggle control only when `onFavoriteToggle` is provided, reflecting `isFavorited` (AC7).
+- [x] 8. Wrap the card root in a semantic `<article>` containing an anchor/button driven by `href`/`onClick`, with visible focus styles (AC8).
+- [x] 9. Add the `labels` override prop (with English defaults) for all internally-rendered microcopy (AC9).
+- [x] 10. Export `EventCard`, `EventCardProps`, and any sub-types from `packages/ui/src/features/events/index.ts`, and re-export via `packages/ui/src/index.ts` (AC10).
+- [x] 11. Add TSDoc comments to the component and its props documenting purpose, defaults, and reuse guidance (AC10).
+- [x] 12. Write component tests (Vitest + `@testing-library/react`) covering: full data render, minimal/guaranteed-fields-only render, image success, image error fallback, no-`imageUrl` fallback, loading skeleton `aria-busy`, keyboard focus/activation of the card root, and favorite control hidden when `onFavoriteToggle` is absent (AC1–AC10; use `@festgrid/testing-config/vitest-react` per Testing Requirements).
 
 ## Dev Notes
 
@@ -120,32 +120,32 @@ so that the main event list (and future views like favorites/calendar) can displ
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmed: build `EventCard` as a standalone, presentation-only UI component in `packages/ui`; no backend work, no live-data wiring into any page (that is Story 1.3).
-- [ ] Architecture confirmed: component built with plain Tailwind + native HTML elements only (no `next/image`, no `next-intl`, no cross-boundary import of `apps/web`'s Shadcn primitives), placed under `packages/ui/src/features/events/`.
-- [ ] Testing plan confirmed: Vitest + `@testing-library/react` component tests via `packages/ui/vitest.config.ts` importing `@festgrid/testing-config/vitest-react` (Story 0.10's shared testing-config package exists and is already consumed by `packages/analytics`/`apps/web`; `packages/ui` just adds its own config file following that same pattern).
-- [ ] Data Type Compatibility gap accepted: user accepts that `EventCard` ships now with a generic, decoupled `imageUrl?: string` prop, and that the real image data (`posts` table + `events.postId` + Story 1.3a's `imageUrl` resolver) is deferred to new Story **1.2a** (`backlog`) rather than blocking this story.
-- [ ] Gate 1/2/3 findings acknowledged: Gate 1/3 cited from the swept `epic-readiness/epic-1-readiness.md` (no gap for this story); Gate 2 findings (Quick Favorite slot reserved but not wired, extended content props, image prop contract, a11y semantics) are folded into this story's AC rather than split further; the image-data-model gap is split into new Story 1.2a (see above).
-- [ ] Explicit human approval state (Default: **pending approval**)
+- [x] Scope confirmed: build `EventCard` as a standalone, presentation-only UI component in `packages/ui`; no backend work, no live-data wiring into any page (that is Story 1.3).
+- [x] Architecture confirmed: component built with plain Tailwind + native HTML elements only (no `next/image`, no `next-intl`, no cross-boundary import of `apps/web`'s Shadcn primitives), placed under `packages/ui/src/features/events/`.
+- [x] Testing plan confirmed: Vitest + `@testing-library/react` component tests via `packages/ui/vitest.config.ts` importing `@festgrid/testing-config/vitest-react` (Story 0.10's shared testing-config package exists and is already consumed by `packages/analytics`/`apps/web`; `packages/ui` just adds its own config file following that same pattern).
+- [x] Data Type Compatibility gap accepted: user accepts that `EventCard` ships now with a generic, decoupled `imageUrl?: string` prop, and that the real image data (`posts` table + `events.postId` + Story 1.3a's `imageUrl` resolver) is deferred to new Story **1.2a** (`backlog`) rather than blocking this story.
+- [x] Gate 1/2/3 findings acknowledged: Gate 1/3 cited from the swept `epic-readiness/epic-1-readiness.md` (no gap for this story); Gate 2 findings (Quick Favorite slot reserved but not wired, extended content props, image prop contract, a11y semantics) are folded into this story's AC rather than split further; the image-data-model gap is split into new Story 1.2a (see above).
+- [x] Explicit human approval state (Default: **pending approval**)
 
 ## Testing Requirements
 
-- [ ] Component tests (Vitest + `@testing-library/react`) for: full-data render, minimal/guaranteed-fields-only render, image success, image error fallback, no-`imageUrl` fallback, loading skeleton (`aria-busy`), keyboard focus/activation of the card root, and favorite control hidden when `onFavoriteToggle` is absent.
-- [ ] No E2E test required for this story (no live page consumes `EventCard` yet; E2E coverage arrives with Story 1.3's "happy path").
-- [ ] 100% coverage is not mandated here — that requirement is scoped to `packages/domain` only per project-context.md; `packages/ui` follows the "testing trophy" integration-style approach.
-- [ ] Note: Use `@festgrid/testing-config/vitest-react` (Story 0.10, already available) for `packages/ui/vitest.config.ts` — do not create a parallel/ad hoc testing-config setup.
+- [x] Component tests (Vitest + `@testing-library/react`) for: full-data render, minimal/guaranteed-fields-only render, image success, image error fallback, no-`imageUrl` fallback, loading skeleton (`aria-busy`), keyboard focus/activation of the card root, and favorite control hidden when `onFavoriteToggle` is absent.
+- [x] No E2E test required for this story (no live page consumes `EventCard` yet; E2E coverage arrives with Story 1.3's "happy path").
+- [x] 100% coverage is not mandated here — that requirement is scoped to `packages/domain` only per project-context.md; `packages/ui` follows the "testing trophy" integration-style approach.
+- [x] Note: Use `@festgrid/testing-config/vitest-react` (Story 0.10, already available) for `packages/ui/vitest.config.ts` — do not create a parallel/ad hoc testing-config setup.
 
 ## Deliverables Checklist
 
-- [ ] `EventCard` component implemented in `packages/ui/src/features/events/EventCard.tsx`.
-- [ ] Strictly-typed `EventCardProps` covering all guaranteed and optional fields (`EventCard.types.ts`).
-- [ ] Loading skeleton state with `aria-busy`.
-- [ ] Image success + fallback/placeholder handling (no-`imageUrl` and `onError` cases).
-- [ ] Optional content slots: `location`, `categories`/`types` badges, `priceFrom`.
-- [ ] Reserved (unwired) favorite slot: `isFavorited`, `onFavoriteToggle`.
-- [ ] Semantic, keyboard-navigable card root.
-- [ ] `labels` override prop for i18n-readiness.
-- [ ] Exported from `packages/ui`'s public entry point with TSDoc prop documentation.
-- [ ] Component tests written and passing.
+- [x] `EventCard` component implemented in `packages/ui/src/features/events/EventCard.tsx`.
+- [x] Strictly-typed `EventCardProps` covering all guaranteed and optional fields (`EventCard.types.ts`).
+- [x] Loading skeleton state with `aria-busy`.
+- [x] Image success + fallback/placeholder handling (no-`imageUrl` and `onError` cases).
+- [x] Optional content slots: `location`, `categories`/`types` badges, `priceFrom`.
+- [x] Reserved (unwired) favorite slot: `isFavorited`, `onFavoriteToggle`.
+- [x] Semantic, keyboard-navigable card root.
+- [x] `labels` override prop for i18n-readiness.
+- [x] Exported from `packages/ui`'s public entry point with TSDoc prop documentation.
+- [x] Component tests written and passing.
 
 ## Out of Scope
 
@@ -158,24 +158,42 @@ so that the main event list (and future views like favorites/calendar) can displ
 
 ## Definition of Done
 
-- [ ] All Acceptance Criteria (AC1–AC10) are met.
-- [ ] Required component tests (see Testing Requirements) are written and passing.
-- [ ] Lint and TypeScript strict-mode checks pass for `packages/ui`.
-- [ ] `EventCard` is exported from `packages/ui`'s public entry point and documented with TSDoc.
-- [ ] Pre-Coding Approval Gate has moved from pending to explicitly approved before implementation began.
+- [x] All Acceptance Criteria (AC1–AC10) are met.
+- [x] Required component tests (see Testing Requirements) are written and passing.
+- [x] Lint and TypeScript strict-mode checks pass for `packages/ui`.
+- [x] `EventCard` is exported from `packages/ui`'s public entry point and documented with TSDoc.
+- [x] Pre-Coding Approval Gate has moved from pending to explicitly approved before implementation began.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+gemini-2.5-pro
 
 ### Debug Log References
 
+N/A
+
 ### Completion Notes List
 
+- Implemented `EventCard` in `packages/ui` following the UI Patterns & UX Invariants (Skeleton loader).
+- Component uses framework-agnostic native elements and plain Tailwind classes.
+- Used `Intl.DateTimeFormat` for locale-aware date rendering.
+- Fully exported via barrel files.
+- Provided component testing via `vitest` + `testing-library/react` and configured `packages/ui` to properly load JSX using `@vitejs/plugin-react`.
+- Verified typings and all 9 component tests pass.
+
 ### File List
+
+- `packages/ui/src/features/events/EventCard.tsx`
+- `packages/ui/src/features/events/EventCard.types.ts`
+- `packages/ui/src/features/events/EventCard.test.tsx`
+- `packages/ui/src/features/events/index.ts`
+- `packages/ui/src/index.ts`
+- `packages/ui/vitest.config.ts`
+- `packages/ui/tsconfig.json`
+- `packages/ui/package.json`
