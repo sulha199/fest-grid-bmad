@@ -3,12 +3,13 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { resolvers } from './schema/resolvers.js';
 import { EnvelopArmor } from '@escape.tech/graphql-armor';
+import { createContext, GraphQLContext } from './lib/auth/context.js';
 
 export function buildServer() {
   // Read relative to cwd, assuming server is started from apps/backend
   const typeDefs = readFileSync(resolve(process.cwd(), 'src/schema/typeDefs.graphql'), 'utf8');
 
-  const schema = createSchema({
+  const schema = createSchema<GraphQLContext>({
     typeDefs,
     resolvers,
   });
@@ -23,6 +24,7 @@ export function buildServer() {
 
   return createYoga({
     schema,
+    context: createContext,
     plugins: [
       ...armor.protect().plugins
     ],

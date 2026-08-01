@@ -111,7 +111,9 @@ The database schemas are managed code-first using Drizzle ORM in the `packages/d
     Go to [supabase.com](https://supabase.com/) and create a new project.
 2.  **Get Database Credentials:**
     In your Supabase project dashboard, go to `Settings` -> `Database` and find your production connection string.
-3.  **Configure CI/CD:**
+3.  **Find your Project URL:**
+    Go to `Settings` -> `API` -> `Project URL`. Copy this URL and set it as `SUPABASE_URL` in your environment (used for JWT verification).
+4.  **Configure CI/CD:**
     Add the Supabase connection string to your CI/CD environment variables as `DATABASE_URL`.
 4.  **Deployment:**
     The CI/CD pipeline runs `drizzle-kit` to automatically apply the generated SQL migration files directly to the Supabase Postgres instance upon deployment.

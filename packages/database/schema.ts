@@ -18,11 +18,14 @@ export const eventCategoryEnum = pgEnum('event_category', [
   'HEALTH_AND_WELLNESS', 'HOLIDAY', 'CHARITY_AND_CAUSES', 'CIVIC_AND_COMMUNITY', 'OTHER'
 ]);
 
+export const userRoleEnum = pgEnum('user_role', ['user', 'moderator']);
+
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: text('email').unique().notNull(),
   name: text('name'),
   avatarUrl: text('avatar_url'),
+  role: userRoleEnum('role').default('user').notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete support
   ...timestamps,
 });

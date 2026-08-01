@@ -4,9 +4,14 @@ const config: CodegenConfig = {
   schema: 'src/schema/typeDefs.graphql',
   generates: {
     'src/generated/resolvers-types.ts': {
-      plugins: ['typescript', 'typescript-resolvers'],
+      plugins: [
+        { add: { content: '/* eslint-disable */' } },
+        'typescript',
+        'typescript-resolvers',
+      ],
       config: {
         useIndexSignature: true,
+        contextType: '../lib/auth/context.js#GraphQLContext',
       },
     },
   },
