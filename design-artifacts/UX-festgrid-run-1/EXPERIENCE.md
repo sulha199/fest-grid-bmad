@@ -2,7 +2,7 @@
 title: "EXPERIENCE.md: festgrid"
 status: "draft"
 created: "2026-07-20T10:59:00Z"
-updated: "2026-07-20T11:09:00Z"
+updated: "2026-08-01T07:45:00Z"
 sources:
   - "design-artifacts/UX-festgrid-run-1/DESIGN.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -45,12 +45,11 @@ The main view is centered around a filterable, dynamic grid of events that can b
 
 ## User Flows
 
-- **Default Location for Subscriptions:**
-  1. User navigates to the "Manage Subscriptions" page.
-  2. For each subscription, there is an option to "Set Default Location".
-  3. Clicking this option reveals a text input field.
-  4. The user types a location (e.g., "Grand Indonesia Mall, Jakarta").
-  5. The system saves this location and associates it with the subscription.
+- **Default Location for a Subscribed Account:**
+  1. User navigates to the "Manage Subscribed Accounts" page (`/settings/subscriptions`).
+  2. Each subscribed account's row shows its current default location, if any, and a "Set/Edit Default Location" action, following the In-Table Add Form pattern.
+  3. **First time set (no default location on the account yet):** clicking the action reveals a text input field; the user types a location (e.g., "Grand Indonesia Mall, Jakarta") and saves. The location is persisted immediately and associated with the *account* — not the individual subscription — so every other subscriber to that account inherits it too.
+  4. **Editing an already-set default location:** the field shows the existing value, editable. Saving is never blocked — the change applies immediately — but it triggers the "Default Location Pending Review" state (see State Patterns), since an edit here silently changes what every other subscriber of the account sees.
 
 ## Voice and Tone
 
@@ -80,3 +79,15 @@ This pattern is used for any destructive action on a user-created item (e.g., de
     *   A temporary confirmation message (e.g., a toast notification) appears, saying "Item deleted" with an "Undo" action.
 *   **"Undo" Action:** If the user clicks "Undo", the item returns to its initial state. The deletion is cancelled.
 *   **Final State (Commit):** The deletion is committed (i.e., the backend call is made and the item is permanently removed from the user's view) when the user navigates away from the current page. The next time the user visits the page, the item will be gone.
+
+### Default Location Pending Review
+
+This pattern applies only when a user edits an *already-set* default location on a shared subscribed account — not the first-time-set case, which has no prior value to protect and needs no review.
+
+*   **Initial State:** The account row shows its current default location value.
+*   **Trigger:** User edits the value and saves.
+*   **Immediate State:**
+    *   The new value saves and displays right away — the save is never blocked waiting on a moderator.
+    *   A confirmation message acknowledges the save and briefly notes that the change affects every subscriber to this account and has been sent for moderator review — informative, not alarming (Voice and Tone).
+    *   The row shows a "Pending Review" badge until a moderator resolves it.
+*   **Resolution (external):** A moderator accepts or reverts the change from Moderator Tools (Epic 4). On revert, the row's value reverts to the prior location and the badge clears; on accept, the badge simply clears.
