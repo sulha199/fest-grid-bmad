@@ -224,7 +224,7 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **As a** developer,
 **I want** to initialize a pnpm monorepo with a Next.js frontend app and a shared-types package,
-**So that** I can start building the FestGrid application with a scalable and maintainable codebase.
+**So that** I can start building the FestDaily application with a scalable and maintainable codebase.
 
 **Acceptance Criteria:**
 
@@ -641,10 +641,10 @@ Users can discover and browse events.
 
 *   **Given** a facet label (e.g. "Type", "Category") and a list of selectable options,
 *   **When** `MultiSelect` renders,
-*   **Then** it displays the facet label and the currently selected option(s), clearly indicating selection state, matching the authoritative UX interaction described in `EXPERIENCE.md`/the Sarah discovery scenario — tap-to-toggle options with the grid updating on each selection (not a searchable combobox/popover pattern, which is not specified in any authoritative FestGrid UX artifact).
+*   **Then** it displays the facet label and the currently selected option(s), clearly indicating selection state, matching the authoritative UX interaction described in `EXPERIENCE.md`/the Sarah discovery scenario — tap-to-toggle options with the grid updating on each selection (not a searchable combobox/popover pattern, which is not specified in any authoritative FestDaily UX artifact).
 *   **And** selecting or deselecting an option toggles its membership in the component's selected-values set, supporting zero, one, or many simultaneous selections.
 *   **And** it exposes a "Clear" action that resets the facet's selection to empty.
-*   **And** it is domain-agnostic (accepts options/labels/selection as props — no FestGrid-specific business logic) so it can be reused for any facet, not just `EventType`/`EventCategory`.
+*   **And** it is domain-agnostic (accepts options/labels/selection as props — no FestDaily-specific business logic) so it can be reused for any facet, not just `EventType`/`EventCategory`.
 *   **And** it meets accessibility requirements for a multi-select control (keyboard operable, selection state exposed to assistive tech).
 *   **And** it is documented and exported from `packages/ui`'s public entry point for reuse across features.
 
@@ -729,7 +729,7 @@ Users can discover and browse events.
 
 *   **Given** a boolean `active`/`visible` prop, **when** it is `true`, **then** the component renders a full-screen, semi-transparent overlay with a centered spinner that visually blocks the rest of the page.
 *   **And** while active, the overlay prevents interaction with underlying page content (e.g. pointer-events disabled beneath it, keyboard focus contained within the overlay) and exposes `aria-busy="true"`/appropriate ARIA live-region semantics so assistive tech announces the busy state.
-*   **And** the component accepts an optional label/message node (for localized status text, resolved by the caller via `next-intl` — the component itself hardcodes no FestGrid-specific copy and performs no date/number/enum formatting, so it has no need of `useScopedLocale`/`useScopedTimezone`).
+*   **And** the component accepts an optional label/message node (for localized status text, resolved by the caller via `next-intl` — the component itself hardcodes no FestDaily-specific copy and performs no date/number/enum formatting, so it has no need of `useScopedLocale`/`useScopedTimezone`).
 *   **And** it renders nothing (no DOM overlay, no lingering focus trap) when inactive.
 *   **And** it is documented and exported from `packages/ui`'s public entry point for reuse across features.
 

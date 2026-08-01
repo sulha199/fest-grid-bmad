@@ -1,8 +1,8 @@
-# Simplified Project Brief: FestGrid
+# Simplified Project Brief: FestDaily
 
 ## 1. Project Scope
 
-FestGrid is a web application designed to help city residents and families discover, schedule, and enjoy local cultural, entertainment, and hobby events.
+FestDaily is a web application designed to help city residents and families discover, schedule, and enjoy local cultural, entertainment, and hobby events.
 
 Users will interact with a visually engaging grid or calendar of events. Key interactions include:
 - Searching and filtering events.
@@ -11,7 +11,7 @@ Users will interact with a visually engaging grid or calendar of events. Key int
 
 ## 2. Challenge & Opportunity
 
-The project addresses the common frustration of missing out on local events due to disorganized information and forgotten plans. FestGrid provides a centralized and intuitive platform to solve this problem, turning a challenge into an opportunity for deeper community engagement.
+The project addresses the common frustration of missing out on local events due to disorganized information and forgotten plans. FestDaily provides a centralized and intuitive platform to solve this problem, turning a challenge into an opportunity for deeper community engagement.
 
 ## 3. Design Goals
 

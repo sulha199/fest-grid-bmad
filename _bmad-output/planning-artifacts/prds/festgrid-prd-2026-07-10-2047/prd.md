@@ -1,7 +1,7 @@
 
 ---
 
-title: "Product Requirements Document: FestGrid"
+title: "Product Requirements Document: FestDaily"
 
 status: "draft"
 
@@ -11,11 +11,11 @@ updated: "2026-08-01T07:15:00Z"
 
 ---
 
-# Product Requirements Document: FestGrid
+# Product Requirements Document: FestDaily
 
 ## 1. Introduction
 
-This document outlines the product requirements for FestGrid, a platform designed to help city residents and families discover, schedule, and enjoy local cultural, entertainment, and hobby events. It aims to solve the problem of missed opportunities due to disorganized information and forgotten plans.
+This document outlines the product requirements for FestDaily, a platform designed to help city residents and families discover, schedule, and enjoy local cultural, entertainment, and hobby events. It aims to solve the problem of missed opportunities due to disorganized information and forgotten plans.
 
 ## 2. Goals
 
@@ -105,7 +105,7 @@ This feature allows users to curate their event feed by subscribing to specific 
 
 ### 3.8 Gemini API Management and Capacity
 
-To ensure reliable and stable operation while adhering to Google Gemini API usage policies, FestGrid will implement comprehensive API management and capacity planning strategies:
+To ensure reliable and stable operation while adhering to Google Gemini API usage policies, FestDaily will implement comprehensive API management and capacity planning strategies:
 
 *   **Proactive Throttling and Queuing:** All requests to external AI services (like the Gemini API) will be routed through a dedicated **AI Gateway** layer. This layer implements dynamic throttling and intelligent queuing using a decoupled, multi-queue architecture (`ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`). This approach allows for resilience and independent scaling. The gateway will manage the rate of outgoing requests based on rules defined within an **Adapter** for each AI service, preventing rate limit violations and mitigating suspicious activity flags.
 *   **Suspicious Activity Mitigation:** The system is designed to proactively mitigate risks associated with "suspicious activity" flags from Google. This includes intelligently distributing API calls across available valid keys, introducing strategic delays, and implementing back-off algorithms to gracefully handle temporary API issues without triggering broader service disruptions.
@@ -115,7 +115,7 @@ To ensure reliable and stable operation while adhering to Google Gemini API usag
 
 ### 3.9 Manual Event Data Correction and User Reporting
 
-To ensure data quality, allow for human intervention, and empower users to contribute to content accuracy, FestGrid incorporates a comprehensive manual event data correction and user reporting system. This system aims to address cases where automated extraction falls short or where event details change or become invalid.
+To ensure data quality, allow for human intervention, and empower users to contribute to content accuracy, FestDaily incorporates a comprehensive manual event data correction and user reporting system. This system aims to address cases where automated extraction falls short or where event details change or become invalid.
 
 #### 3.9.1 Manual Correction with Typed Inputs
 
@@ -156,7 +156,7 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 
 ### 3.10 Manual Post Selection for Event Extraction
 
-To provide users with greater control over their API quota usage and improve the relevance of extracted events, FestGrid will offer a manual post selection feature. This allows users to choose which specific social media posts should be processed by the AI agent.
+To provide users with greater control over their API quota usage and improve the relevance of extracted events, FestDaily will offer a manual post selection feature. This allows users to choose which specific social media posts should be processed by the AI agent.
 
 *   **User Interface:** A new screen will be introduced, featuring a tab-based layout where each tab corresponds to one of the user's subscribed social media accounts.
     *   **Tab Content:** Each tab, when selected, will display a list of the 20 most recent posts from that account, presented in a card-based view.
@@ -179,7 +179,7 @@ To provide users with greater control over their API quota usage and improve the
 
 ### 3.11 Getting Started and Onboarding
 
-FestGrid will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, such as subscribing to social media accounts for event extraction, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. Users are responsible for the validity and quota management of their BYOK Gemini API keys. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestGrid's full potential if they choose.
+FestDaily will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, such as subscribing to social media accounts for event extraction, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. Users are responsible for the validity and quota management of their BYOK Gemini API keys. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestDaily's full potential if they choose.
 
 ### 3.12 Global UI & Navigation Patterns
 
@@ -197,7 +197,7 @@ To ensure a high-quality, app-like experience, the following global UI patterns 
 
 ## 4. Event Data Schema
 
-This section defines the data structure for events extracted and managed by FestGrid.
+This section defines the data structure for events extracted and managed by FestDaily.
 
 ### 4.1. EventInfo Interface
 
@@ -837,7 +837,7 @@ interface DefaultLocationChangeRequest {
 
 ## 6. Monetization Strategy
 
-FestGrid will launch with a two-phase rollout to manage costs and build a valuable data foundation before scaling. This model defines two primary user roles: `Contributing User` and `Free User`.
+FestDaily will launch with a two-phase rollout to manage costs and build a valuable data foundation before scaling. This model defines two primary user roles: `Contributing User` and `Free User`.
 
 *   **Phase 1: Invitation-Only Beta (`contributing_user` Tier):** The initial release will be for `contributing_user`s who operate on a Bring-Your-Own-Key (BYOK) model. These early adopters provide their own API key to subscribe to any public social media account. This strategy allows us to test the core technology while these users help seed the platform with a diverse range of `Shared Public Accounts` at no AI-processing cost to the platform.
 

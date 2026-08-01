@@ -7,7 +7,7 @@ status: final
 
 ## Brand & Style
 
-The wizard component should align with the existing brand and style of the FestGrid application. It should be clean, modern, and intuitive.
+The wizard component should align with the existing brand and style of the FestDaily application. It should be clean, modern, and intuitive.
 
 ## Colors
 

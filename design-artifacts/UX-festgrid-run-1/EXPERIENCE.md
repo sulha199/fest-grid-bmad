@@ -8,9 +8,9 @@ sources:
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
 ---
 
-# EXPERIENCE.md: FestGrid
+# EXPERIENCE.md: FestDaily
 
-This document defines the information architecture, behavior, states, and interactions for the FestGrid application. It is the authority on *how the app works*.
+This document defines the information architecture, behavior, states, and interactions for the FestDaily application. It is the authority on *how the app works*.
 
 ## Foundation
 
@@ -53,7 +53,7 @@ The main view is centered around a filterable, dynamic grid of events that can b
 
 ## Voice and Tone
 
-The feeling of using FestGrid should be one of exciting discovery. Microcopy should be clear, concise, and helpful. Avoid technical jargon where possible. Provide immediate and clear feedback for user actions (e.g., "Event favorited", "API Key saved").
+The feeling of using FestDaily should be one of exciting discovery. Microcopy should be clear, concise, and helpful. Avoid technical jargon where possible. Provide immediate and clear feedback for user actions (e.g., "Event favorited", "API Key saved").
 
 ## Component Patterns
 

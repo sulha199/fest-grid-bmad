@@ -38,7 +38,7 @@ Find a suitable family-friendly event and add it to her calendar, feeling confid
 ## Device & Starting Point (Q5 + Q6)
 
 **Device:** Mobile
-**Entry:** Opens the FestGrid app/website directly.
+**Entry:** Opens the FestDaily app/website directly.
 
 ---
 

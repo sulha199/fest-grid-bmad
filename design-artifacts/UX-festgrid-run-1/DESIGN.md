@@ -82,12 +82,12 @@ components:
 
 # Brand & Style
 
-The visual identity of FestGrid is modern, vibrant, and engaging. It uses a light theme to create a clean and welcoming feel. The layout is a clean grid of cards, each representing an event.
+The visual identity of FestDaily is modern, vibrant, and engaging. It uses a light theme to create a clean and welcoming feel. The layout is a clean grid of cards, each representing an event.
 
 ## Logo Concept: "The Spark in the Grid"
 
-FestGrid's visual identity combines the technological structure and the magic of discovery at the event.
-Visual Form: This logo uses a very neat basic event card grid ($2 \times 2$). However, one of the squares in the upper right corner "breaks" or transforms into a Spark shape (a sparkling four-pointed star) with a very vibrant accent color. Typographic Direction: The word "Fest" uses a bold Sans-serif font with a Bold weight, while "Grid" uses a Light weight. Discovery Philosophy: Depicts a magical moment of discovery. Among hundreds of ordinary and boring schedules or calendar grids, the AI ​​Agent FestGrid manages to bring out one "gem" or the most exciting event that immediately catches the user's attention.
+FestDaily's visual identity combines the technological structure and the magic of discovery at the event.
+Visual Form: This logo uses a very neat basic event card grid ($2 \times 2$). However, one of the squares in the upper right corner "breaks" or transforms into a Spark shape (a sparkling four-pointed star) with a very vibrant accent color. Typographic Direction: The word "Fest" uses a bold Sans-serif font with a Bold weight, while "Grid" uses a Light weight. Discovery Philosophy: Depicts a magical moment of discovery. Among hundreds of ordinary and boring schedules or calendar grids, the AI ​​Agent FestDaily manages to bring out one "gem" or the most exciting event that immediately catches the user's attention.
 
 * **Logomark (Icon):** A minimalist 2x2 grid structure. Three squares are in a neutral base color, while the square in the upper right corner transforms into a **Spark (4-Pointed Star)** shape, symbolizing the moment of *Exciting Discovery*.
 * **Logotype (Text):** "Fest" (Bold, primary) + "Grid" (Light, secondary)

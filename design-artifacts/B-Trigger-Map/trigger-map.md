@@ -1,4 +1,4 @@
-# Trigger Map: FestGrid
+# Trigger Map: FestDaily
 
 This document maps our business goals to user motivations, providing a strategic reference for design and development.
 

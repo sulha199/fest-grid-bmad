@@ -1,13 +1,13 @@
 ---
-title: "Architecture Spine: FestGrid"
+title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
 updated: "2026-08-01T07:30:00Z"
 ---
 
-# Architecture Spine: FestGrid
+# Architecture Spine: FestDaily
 
-This document defines the core architectural invariants for the FestGrid application. These decisions are binding for all development to ensure consistency and coherence across the platform.
+This document defines the core architectural invariants for the FestDaily application. These decisions are binding for all development to ensure consistency and coherence across the platform.
 
 ## Architectural Decisions
 
