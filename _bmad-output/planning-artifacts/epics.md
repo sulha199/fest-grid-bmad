@@ -719,6 +719,24 @@ Users can discover and browse events.
 
 **Depends on:** Story 1.3a, Story 1.6a, Story 1.6b
 
+### Story 1.7a: Build the reusable BlockingLoader component
+
+**As a** developer,
+**I want** a reusable, full-screen blocking loader/overlay component in `packages/ui`,
+**So that** any critical, in-flight async operation (OAuth redirect processing, submitting a report, saving a location, etc. — PRD §3.12 "Global UI & Navigation Patterns") can present a consistent, accessible overlay that prevents further interaction, instead of each feature story building its own one-off spinner.
+
+**Acceptance Criteria:**
+
+*   **Given** a boolean `active`/`visible` prop, **when** it is `true`, **then** the component renders a full-screen, semi-transparent overlay with a centered spinner that visually blocks the rest of the page.
+*   **And** while active, the overlay prevents interaction with underlying page content (e.g. pointer-events disabled beneath it, keyboard focus contained within the overlay) and exposes `aria-busy="true"`/appropriate ARIA live-region semantics so assistive tech announces the busy state.
+*   **And** the component accepts an optional label/message node (for localized status text, resolved by the caller via `next-intl` — the component itself hardcodes no FestGrid-specific copy and performs no date/number/enum formatting, so it has no need of `useScopedLocale`/`useScopedTimezone`).
+*   **And** it renders nothing (no DOM overlay, no lingering focus trap) when inactive.
+*   **And** it is documented and exported from `packages/ui`'s public entry point for reuse across features.
+
+**Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced while creating Story 1.7 — `project-context.md`'s UI Patterns & UX Invariants section and PRD §3.12 both mandate a full-screen blocking overlay pattern for all critical mutations (report submission, saving a location, OAuth redirect processing), not just this story's login flow, but no story yet owns building it as the shared, reusable primitive the rule assumes (confirmed not built by Story 0.7's app shell). Classified as a single-story-origin UI split (mirroring the 1.3b/1.3c/1.5a/1.6a precedent) — positioned immediately before Story 1.7, its first consumer. Unrelated to, and unaffected by, the 2026-08-01 "Source Post Attribution" sprint change proposal (scoped to Stories 1.2a/1.6/1.6a/3.4 only).
+
+**Depends on:** None (pure presentation component, no backend dependency).
+
 ### Story 1.7: User Signup and Login with Google
 
 **As a** new user,

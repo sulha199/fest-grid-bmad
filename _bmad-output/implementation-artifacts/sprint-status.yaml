@@ -81,6 +81,7 @@ development_status:
   1-6a-build-the-reusable-event-detail-view-component: ready-for-dev
   1-6b-build-the-context-aware-list-navigation-hook: backlog
   1-6-view-event-details: ready-for-dev
+  1-7a-build-the-reusable-blockingloader-component: backlog
   1-7-user-signup-and-login-with-google: ready-for-dev
   1-8-setup-posthog-analytics: review
   epic-1-retrospective: optional
