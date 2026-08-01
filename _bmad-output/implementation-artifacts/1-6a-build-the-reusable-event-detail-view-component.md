@@ -31,6 +31,7 @@ so that the event name, description, all schedules (date/time/performers/price/l
 13. **AC13 — i18n-ready microcopy:** Any internal microcopy the component renders itself (fallback `alt` text default, loading-state label, error-state label, empty-schedule-list fallback, section headings like "Performers"/"Location") is exposed via an optional `labels` override prop with sensible English defaults, so the consuming app can localize it via `next-intl` at the call site (AD-6) without coupling `packages/ui` to `next-intl` directly — same pattern as `EventCard` AC9.
 14. **AC14 — Documented & exported for reuse:** `EventDetailView` (and its prop types) is exported from `packages/ui`'s public entry point with prop-level documentation (TSDoc), and has component tests proving the loading / error / image-success / image-fallback / multi-schedule / minimal-data states, so it is discoverable and reusable across both the modal and full-page consumers in Story 1.6.
 15. **AC15 — Source-post attribution links (added 2026-08-01 via `bmad-correct-course`):** `EventDetailView` accepts two independent, optional caller-supplied URL props — `originalPostUrl` (the canonical original-platform post, e.g. Instagram, when the caller was able to derive it) and `sourcePostUrl` (the post as actually scraped, which may be a proxy/mirror site, e.g. `imginn.com`) — and renders an attribution link for whichever is present; when both are absent, no attribution section renders (not an empty block); when only one is present, only that one renders. `packages/ui` does not construct or validate these URLs itself (same decoupling as `mapUrl`, AC4) — the caller resolves and passes them in.
+16. **AC16 — Account attribution link (added 2026-08-02 via `bmad-correct-course`):** `EventDetailView` accepts optional caller-supplied `accountName`, `accountPlatformIconUrl` (or equivalent platform-icon identifier), and `accountHref` props (a pre-built `/{platformSlug}/{accountId}` URL, Story 3.11 — the caller resolves this, mirroring the `mapUrl`/AC4 and attribution-link/AC15 decoupling pattern); when all three are present, it renders the account's platform icon and display name as a link to `accountHref`; when any are absent, the account-attribution section is omitted entirely (not a broken/partial render). This is independent of, and renders alongside, the AC15 source-post attribution links — the two point to different destinations (account page vs. original post) and either may be present without the other.
 
 ## Tasks / Subtasks
 
@@ -50,6 +51,7 @@ so that the event name, description, all schedules (date/time/performers/price/l
 - [ ] 14. Add TSDoc comments to the component and its props documenting purpose, defaults, and reuse guidance (AC14).
 - [ ] 15. Write component tests (Vitest + `@testing-library/react`) covering: full-data render with multiple schedules, minimal/guaranteed-fields-only render, image success, image error fallback, no-`imageUrl` fallback, loading skeleton `aria-busy`, error state, map link present/absent, tag rendering present/absent, and favorite/calendar controls hidden when their handlers are absent (AC1–AC14; use `@festgrid/testing-config/vitest-react` per Testing Requirements).
 - [ ] 16. **(Added 2026-08-01, source-attribution amendment, AC15):** Implement the `originalPostUrl`/`sourcePostUrl` optional props on `EventDetailViewProps`; render an attribution link for each one present, omit the section entirely when both are absent. Add component tests: both links present, only `originalPostUrl` present, only `sourcePostUrl` present, neither present (no broken/empty section rendered).
+- [ ] 17. **(Added 2026-08-02, account-attribution amendment, AC16):** Implement the `accountName`/`accountPlatformIconUrl`/`accountHref` optional props on `EventDetailViewProps`; render the account's platform icon + name as a link to `accountHref` when all three are present, omit the section entirely otherwise. Add component tests: all three present (renders link), any one missing (section omitted), and confirm this section renders independently alongside AC15's source-post attribution links (both present simultaneously).
 
 ## Dev Notes
 
@@ -101,6 +103,7 @@ so that the event name, description, all schedules (date/time/performers/price/l
 - [Source: _bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md#4.1] (`EventInfo`), [#4.4] (`Schedule`), [#4.3] (`LocationDetails`), [#3.12] (Context-Aware Detail Views, loaders).
 - [Source: packages/shared-types/src/index.ts] — confirmed current `EventInfo`/`Schedule` field shapes, no mismatch.
 - [Source: packages/ui/src/core/app-shell/AppShell.tsx] — established `packages/ui` component conventions (plain Tailwind, no Next.js coupling).
+- [Source: _bmad-output/planning-artifacts/epics.md#Story-3.1a] and [#Story-3.11] — `SocialMediaAccountProfile.accountId`/`platform` fields and the public account page (`/{platformSlug}/{accountId}`) this story's AC16 links to, added via `bmad-correct-course` (2026-08-02).
 
 ## Global Rules References
 
@@ -116,6 +119,7 @@ so that the event name, description, all schedules (date/time/performers/price/l
   - NEW `packages/ui/src/features/events/EventDetailView.types.ts` — `EventDetailViewProps`, `ScheduleDetail`, and related types.
   - NEW `packages/ui/src/features/events/EventDetailView.test.tsx` — component tests.
   - **(Amendment, AC15)** `EventDetailView.tsx`/`.types.ts`/`.test.tsx` above also cover the new `originalPostUrl`/`sourcePostUrl` optional props — no additional new files.
+  - **(Amendment, AC16)** `EventDetailView.tsx`/`.types.ts`/`.test.tsx` above also cover the new `accountName`/`accountPlatformIconUrl`/`accountHref` optional props — no additional new files. `accountHref` is a fully-resolved `/{platformSlug}/{accountId}` URL string (Story 3.11) built by the caller; this component does not construct it.
   - NEW-OR-UPDATE `packages/ui/src/features/events/index.ts` — barrel export for the `events` feature folder; create it if no sibling events-feature story has landed yet, otherwise extend it (check for naming conflicts with `EventCard`/`FilterHub` exports first).
   - UPDATE `packages/ui/src/index.ts` — add `export * from './features/events';` if not already present.
   - NEW-OR-VERIFY `packages/ui/vitest.config.ts` — `mergeConfig(reactConfig, defineConfig({}))` importing `@festgrid/testing-config/vitest-react`, matching the pattern already used by `packages/analytics/vitest.config.ts` and `apps/web/vitest.config.ts` (Story 0.10's `@festgrid/testing-config` package exists with `vitest-react.ts`/`msw-handlers.ts`); create only if Story 1.3b/1.3c/1.4/1.5a hasn't already added it.
@@ -162,6 +166,7 @@ so that the event name, description, all schedules (date/time/performers/price/l
 - [ ] Exported from `packages/ui`'s public entry point with TSDoc prop documentation.
 - [ ] Component tests written and passing.
 - [ ] **(Amendment, AC15)** Optional `originalPostUrl`/`sourcePostUrl` attribution links, each independently omittable, with component tests for all four presence/absence combinations.
+- [ ] **(Amendment, AC16)** Optional `accountName`/`accountPlatformIconUrl`/`accountHref` account-attribution link (all-or-nothing), rendering independently alongside the AC15 source-post links, with component tests covering both present-together and each-missing cases.
 
 ## Out of Scope
 
@@ -176,7 +181,7 @@ so that the event name, description, all schedules (date/time/performers/price/l
 
 ## Definition of Done
 
-- [ ] All Acceptance Criteria (AC1–AC14) are met.
+- [ ] All Acceptance Criteria (AC1–AC16) are met.
 - [ ] Required component tests (see Testing Requirements) are written and passing.
 - [ ] Lint and TypeScript strict-mode checks pass for `packages/ui`.
 - [ ] `EventDetailView` is exported from `packages/ui`'s public entry point and documented with TSDoc.

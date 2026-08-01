@@ -212,6 +212,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR65: Epic 5 - Onboarding and Manual Event Extraction
 - FR66: Epic 3 - Social Media Event Integration
 - FR67: Epic 4 - Data Quality and Moderation
+- FR68: Epic 3 - Social Media Event Integration
 
 ## Epic List
 
@@ -681,6 +682,9 @@ Users can discover and browse events.
 *   **Then** it displays the event name, description, date and time, location, performers, and image, with a graceful fallback for any missing optional field.
 *   **And** it exposes loading and error states independent of how it is invoked (modal or full page).
 *   **And** when a source-post original-platform URL and/or proxy/scraped-source URL is provided by the caller, it displays attribution link(s) back to the source post; whichever one is absent for a given event is simply omitted, not shown broken (mirrors the existing `mapUrl` decoupling pattern).
+*   **And** when the event's source account data is available (Story 3.1a's `SocialMediaAccountProfile`, surfaced via the source post's account relation), it displays the account's platform icon and display name; clicking it navigates to that account's public event page (`/{platformSlug}/{accountId}`, Story 3.11, using `SocialMediaAccountProfile.accountId` — not the internal `id`). This is additive to — and independent of — the source-post attribution link above, which points to the original post rather than the account.
+
+**Amendment (2026-08-02, added via bmad-correct-course):** Added the account name/platform-icon link, driven by new Story 3.11 (public per-account event page, FR68). This is additive to the existing AC — the account link and the source-post attribution link are shown independently, since they point to different destinations (account page vs. original post) and either may be absent (e.g. no source account data available) without affecting the other.
 
 ### Story 1.6b: Build the context-aware list navigation hook
 
@@ -1002,14 +1006,17 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Acceptance Criteria:**
 
-*   **Given** Story 1.1's tables exist, **when** the migration script runs, **then** a `social_media_account_profiles` table is created with `id` (uuid pk), `platform`, `username`, `displayName`, `profileImageUrl`, `description`, `lastPostDate`, and `defaultLocation` (jsonb, nullable, PRD §4.5) — the fields currently duplicated on `subscriptions` — plus standard timestamps.
+*   **Given** Story 1.1's tables exist, **when** the migration script runs, **then** a `social_media_account_profiles` table is created with `id` (uuid pk), `account_id` (text, not null — the platform-native identifier, PRD §4.5's `accountId`, e.g. a Twitter User ID or Instagram account ID, unique per `platform`), `platform`, `username`, `displayName`, `profileImageUrl`, `description`, `lastPostDate`, and `defaultLocation` (jsonb, nullable, PRD §4.5) — the fields currently duplicated on `subscriptions` — plus standard timestamps.
 *   **And** the `subscriptions` table is migrated to drop `accountId` (text), `platform`, `displayName`, `username`, `profileImageUrl`, `description`, `lastPostDate`, replacing them with a single `accountId` (uuid, FK to `social_media_account_profiles.id`, not null); `subscriptions` becomes the pure per-user join row described by the amended PRD §4.9. No production user data exists yet (Story 1.2's fixtures are dev/test-only per Story 1.2a's precedent), so this is a destructive schema change, not a backfill migration.
 *   **And** `subscriptions.deletedAt` (timestamp, nullable) is added per AD-8 (Soft-Delete Convention) — the first consumer is Story 5.1a's `removeSubscription` mutation.
-*   **And** subscribing to an account that has no existing `social_media_account_profiles` row (matched by platform + username) creates one; subscribing to an already-profiled account only creates a new `subscriptions` join row — this lookup-or-create logic is exposed for Story 3.1/3.2's mutation to call, not reimplemented per-story.
+*   **And** subscribing to an account that has no existing `social_media_account_profiles` row (matched by `platform` + `account_id`) creates one; subscribing to an already-profiled account only creates a new `subscriptions` join row — this lookup-or-create logic is exposed for Story 3.1/3.2's mutation to call, not reimplemented per-story.
 *   **And** `packages/shared-types`'s `Subscription` and new `SocialMediaAccountProfile` interfaces are added/updated to match (PRD §4.5, §4.9).
 *   **And** the `posts` table (Story 1.2a, Epic 1 — already exists by the time this story runs) is migrated: add `account_id` (uuid, FK to `social_media_account_profiles.id`), backfill it from each post's `subscription_id` via `subscriptions.accountId`, then drop `subscription_id` and make `account_id` not null, with an index on `account_id` replacing the old `subscription_id` index. Story 1.2a itself is intentionally left creating `posts.subscription_id` — Epic 1 must stay buildable without this story existing yet, the same reasoning that pulled `posts`'s creation into Epic 1 ahead of Epic 3 in the first place; this story evolves the column once it runs, rather than 1.2a depending forward on it.
+*   **And** a new, unauthenticated `socialMediaAccountProfileByAccountId(platform, accountId)` query is exposed, returning the profile (including its internal `id`) — this is the lookup Story 3.11's public account page uses to resolve a URL's `platform`/`accountId` to the profile row, and it is deliberately not behind `requireAuth` (Story 0.17), since the account page itself is public.
 
 **Note:** Classified as a shared data-ownership gap by the Epic 3 readiness re-sweep (`bmad-epic-readiness-check`, re-run 2026-08-01 following FR66/FR67 and Story 3.3b) — Gate 3 found `SocialMediaAccountProfile` (PRD §4.5, amended by the 2026-08-01 `defaultLocation` PRD change) has no owning story anywhere, while Story 1.1's `subscriptions` table (done) still duplicates account-profile fields per-subscriber, the exact ambiguity the `defaultLocation` amendment says it's moving away from. Needed by Epic 3 (Stories 3.1-3.3b) and read by Epic 4 (Story 4.7's `DefaultLocationChangeRequest.accountId`) — clears Gate 3's cross-epic reuse bar. Following the precedent of Story 1.1 scoping core tables to their originating epic, this is placed here, before Story 3.1, rather than in Epic 0. The `posts.account_id` migration AC above was added specifically to avoid making Epic 1's already-`ready-for-dev` Story 1.2a depend forward on this Epic 3 story — see that AC's own note.
+
+**Amendment (2026-08-02, added via bmad-correct-course):** Added the `account_id` column, its uniqueness per `platform`, and the `socialMediaAccountProfileByAccountId` query. The PRD's `SocialMediaAccountProfile.accountId` (§4.5) — the platform-native identifier — was documented from the start but never actually persisted by this story's original AC, and the lookup-or-create match key incorrectly used `username` (which can be renamed) instead. Surfaced while adding new Story 3.11 (public per-account event page, FR68), which needs a stable, public-facing identifier to resolve URLs like `/{platformSlug}/{accountId}` to a profile row — `username` doesn't satisfy that, and the internal `id` (uuid) is deliberately kept out of URLs.
 
 **Depends on:** Story 1.1, Story 1.2a (for the `posts` table this story migrates).
 
@@ -1241,6 +1248,27 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** the email suggests contributing an additional API key.
 
 **Depends on:** Story 0.15.
+
+### Story 3.11: View events for a social media account
+
+**As a** visitor,
+**I want** a dedicated page showing all events sourced from a single social media account,
+**So that** I can browse an account's events directly — e.g. via a shared link — without needing to log in or be subscribed to it.
+
+**Acceptance Criteria:**
+
+*   **Given** a `social_media_account_profiles` row exists (Story 3.1a) with at least one associated event,
+*   **When** I navigate to `/{locale}/{platformSlug}/{accountId}` (e.g. `/en/ig/17841400000000000`), where `platformSlug` is a short, stable slug derived from `SocialMediaAccountProfile.platform` and `accountId` is `SocialMediaAccountProfile.accountId` (Story 3.1a's platform-native identifier — not the internal database `id`),
+*   **Then** I see that account's events rendered with the same card view, calendar view, search, and filter behavior as the main discovery page (Stories 1.3, 1.3b, 1.3c, 1.5, 1.5a, 2.6) — reusing those components rather than re-implementing them.
+*   **And** the page first resolves `platformSlug`+`accountId` to the account profile via Story 3.1a's `socialMediaAccountProfileByAccountId(platform, accountId)` query, then fetches events via the events GraphQL API (Story 1.3a) using the Unified Query DSL's existing `socialMediaAccountProfileId equals <profile.id>` condition (AD-1) — the profile's internal `id`, not its public `accountId`, is what the DSL condition takes; no new query mechanism is introduced for events themselves.
+*   **And** this page requires no authentication and no subscription to the account — both the profile lookup and the events query are publicly accessible given a valid `platformSlug`/`accountId`.
+*   **And** if `platformSlug` matches no known platform, or `socialMediaAccountProfileByAccountId` finds no matching profile, a not-found state is shown rather than an error.
+*   **And** the page sets its title/meta description via `generateMetadata`, per the Dynamic Page Title invariant (project-context.md), using the account's `displayName`.
+*   **And** the platform-to-slug mapping (e.g. Instagram -> `ig`) is defined once in a shared location alongside the platform-specific scraper adapters (PRD §3.7) and reused for routing — not hardcoded per-component.
+
+**Note:** This story exists because of new user-driven scope (`bmad-correct-course`, 2026-08-02) — the PRD previously only described a logged-in user's personalized feed across their subscriptions (§3.7 "Display Subscribed Events"), not a public per-account page. Architecturally unblocked: AD-1 already names "subscribed account page" as a bound use case and already defines the `socialMediaAccountProfileId` DSL field this story's events query needs; the new `socialMediaAccountProfileByAccountId` query (Story 3.1a amendment) is the only new read path, needed because the DSL field takes the profile's internal `id`, not the public-facing `accountId` this story's URL exposes. Cross-referenced by an amendment to Story 1.6a, which links the event detail view's account attribution to this page. New FR68 covers this capability. Positioned at the end of Epic 3 rather than near Story 3.1a — it has no dependency on the scraping/quota pipeline stories (3.4-3.10) and only needs Story 3.1a's table/query plus already-built Epic 1 components.
+
+**Depends on:** Story 3.1a, Story 1.3a, Story 1.3b, Story 1.3c, Story 1.5a, Story 2.6.
 
 ### Epic 4: Data Quality and Moderation
 

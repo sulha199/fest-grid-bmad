@@ -50,6 +50,7 @@ This document outlines the product requirements for FestDaily, a platform design
     *   For MVP, this is a one-way integration (app to calendar).
 *   **3.3.2. Event Details Centralization:** Consolidate all relevant event information in one place.
 *   **3.3.3. Source Attribution:** The event details view will display attribution for, and links back to, the social media post the event was extracted from: the original-platform post (`Post.originalPostUrl`, when the scraper adapter was able to derive it) and/or the source post actually scraped (`Post.postUrl`, which may be a proxy/mirror site — see Section 3.7). Whichever of the two is unavailable for a given post is simply omitted, not shown broken. These are read-only informational links, not editable/correctable fields (see Section 3.9 for corrections).
+*   **3.3.4. Account Attribution:** The event details view will also display the source account's name and platform icon (from `SocialMediaAccountProfile`, Section 4.5). Clicking it navigates to that account's public event page (Section 3.7). This is separate from the source-post attribution links (3.3.3), which point to the original post rather than the account.
 
 ### 3.5 Global View Rules
 
@@ -91,6 +92,7 @@ This feature allows users to curate their event feed by subscribing to specific 
                 *   If `isMainSchedule` is `false`, the title will be a combination of the event name and the schedule title, in the format: `eventName - schedule.title`.
             *   Clicking on any schedule item in the calendar will open a detail view for the entire event, with all its schedules listed. The selected schedule may be highlighted for context.
 *   **Search and Filter:** A free-text search bar will allow users to search events from their subscribed accounts by event name, performers, and location name. Users can also filter events by type, category, and the specific social media account source.
+*   **Public Account Page:** Each social media account has its own public, unauthenticated page at `/{platform-slug}/{accountId}` (e.g. an Instagram account at `/ig/{accountId}`), showing every event sourced from that account. This page offers the same card view, calendar view, search, and filtering behavior as the main event discovery page (Section 3.1), reusing its components. Unlike "Display Subscribed Events" above, this page requires no subscription or login — it is a shareable, public view scoped to a single account. `{platform-slug}` is a short, stable slug derived from `SocialMediaAccountProfile.platform` (e.g. `ig` for Instagram); `{accountId}` is `SocialMediaAccountProfile.accountId` (Section 4.5) — the account's platform-native identifier — not the application's internal database id.
 *   **Personalized Reminders:** Event data processed from subscribed accounts will be used to generate personalized event reminders.
 *   **Timezone Inference:** When an event's timezone is not explicitly provided, the system will infer it using the following strategies, in order of preference:
     *   **Location-based Inference:** The event's location will be used to determine the timezone via a standard geolocation service. To manage API costs and limits, results from the geolocation service will be cached.
@@ -430,6 +432,9 @@ interface Schedule {
 interface SocialMediaAccountProfile {
   /**
    * Unique identifier for the account on its platform (e.g., Twitter User ID, Facebook Page ID).
+   * Persisted as `social_media_account_profiles.account_id` (Story 3.1a) — unique per `platform` —
+   * and used as the public identifier in account page URLs (Section 3.7). Distinct from the
+   * table's internal `id` (uuid primary key), which is never exposed in a URL.
    */
   accountId: string;
   /**
