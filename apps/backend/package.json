@@ -8,11 +8,14 @@
     "build": "tsc",
     "start": "node dist/src/index.js",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
-    "codegen": "graphql-codegen --config codegen.ts"
+    "codegen": "graphql-codegen --config codegen.ts",
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "@escape.tech/graphql-armor": "^3.2.0",
     "@festgrid/shared-types": "workspace:*",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "graphql": "^16.8.0",
     "graphql-yoga": "^5.21.2"
   },

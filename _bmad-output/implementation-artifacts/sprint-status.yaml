@@ -59,7 +59,7 @@ development_status:
   0-8-set-up-graphql-server-scaffold-code-generator-pipeline-and-the-optimized-select-query-utility: review
   0-9-set-up-state-management-foundation: review
   0-10-set-up-testing-frameworks-foundation: review
-  0-11-set-up-runtime-schema-validation: in-progress
+  0-11-set-up-runtime-schema-validation: review
   0-12-set-up-firebase-cloud-messaging-foundation: ready-for-dev
   0-13-set-up-ai-gateway-adapter-layer-for-gemini: ready-for-dev
   0-14-set-up-aws-iac-for-lambda-sqs-eventbridge-and-kms: ready-for-dev

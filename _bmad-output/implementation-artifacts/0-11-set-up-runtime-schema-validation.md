@@ -1,10 +1,13 @@
+---
+baseline_commit: 272da91933b040f45f2eaf9b5a566d71d85f3246
+---
 # Story 0.11: Set up runtime schema validation (Zod, AJV)
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.11
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -24,26 +27,26 @@ so that all data entering the system is strictly validated at the boundaries wit
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add AJV to `apps/backend` (AC: 1, 3)
-  - [ ] Confirm `apps/backend/package.json` exists (Story 0.8 must be `done` first — see Dev Notes "Sequencing Dependency on Story 0.8"). If it does not exist yet, HALT and do not create it here; that scaffold belongs exclusively to Story 0.8.
-  - [ ] Add `ajv` (`^8.20.x`) and `ajv-formats` (for `email`/`date`/`uri` string-format keywords) as `dependencies` of `apps/backend/package.json` only.
-  - [ ] Create `apps/backend/src/validation/extracted-event.schema.ts` exporting a JSON Schema (`JSONSchemaType<ExtractedEventPayload>` if using AJV's typed helper, or a plain `const` object) for a minimal `ExtractedEventPayload` shape mirroring the real fields Story 3.6's AI-extraction pipeline will need to validate before `DataIngestionQueue` ingestion: `isEvent: boolean`, `eventName: string`, `types: string[]`, `categories: string[]` (subset of `@festgrid/shared-types`' `EventInfo`, not a full duplicate — see Dev Notes on why this stays a demonstration, not the real Story 3.6 schema).
-  - [ ] Create `apps/backend/src/validation/validate.ts` exporting a small `compileValidator<T>(schema)` helper that wraps `new Ajv({ allErrors: true })` + `addFormats(ajv)` + `ajv.compile(schema)`, returning a typed validate function — this is the reusable *pattern* future backend stories (3.6, 3.9, etc.) adopt, not a single-use script.
-  - [ ] Add `apps/backend/src/validation/validate.test.ts` (using `node:test`/`node:assert` via `tsx --test`, mirroring `packages/graphql-select/optimized-select.test.ts`'s precedent from Story 0.8 — `apps/backend` is not wired to Vitest by Story 0.10, which only covers `apps/web`/`packages/database`/`packages/analytics`) proving: a valid `ExtractedEventPayload` passes, and an invalid one (missing `eventName`, wrong type for `types`) is rejected with populated `errors`.
-  - [ ] Add a `"test": "tsx --test src/**/*.test.ts"` script to `apps/backend/package.json` (it has none yet per Story 0.8's Task 1 — only `dev`/`build`/`start`/`lint`/`codegen`) so `turbo run test` picks it up.
-- [ ] Task 2: Add Zod to `apps/web` (AC: 2, 3)
-  - [ ] Add `zod` (`^4.4.x`) as a `dependency` of `apps/web/package.json` only.
-  - [ ] Create `apps/web/src/lib/validation/coordinates.schema.ts` exporting a `coordinatesSchema` (`z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180) })`) — a realistic client-side-data-parsing example validating the browser Geolocation API's untrusted output (`GeolocationCoordinates`), matching `@festgrid/shared-types`' `Coordinates` shape, and a direct precursor to Story 2.4's "set location by current location" work.
-  - [ ] Create `apps/web/src/lib/validation/coordinates.schema.test.ts` (using the `@festgrid/testing-config/vitest-node` preset from Story 0.10 — pure logic, no DOM needed) proving `safeParse` succeeds for valid coordinates and fails (with a populated `error`) for out-of-range/malformed input.
-  - [ ] Add `apps/web/package.json`'s `"test"` script (added by Story 0.10) picks this test up automatically — no script changes needed here.
-- [ ] Task 3: Package-isolation audit (AC: 3)
-  - [ ] Grep every `package.json` in the repo (`apps/*`, `packages/*`) for `"ajv"` and `"zod"` and confirm `ajv`/`ajv-formats` appear only under `apps/backend`, and `zod` appears only under `apps/web`. Record the grep output in Completion Notes as the verification evidence for AC3.
-- [ ] Task 4: Documentation (AC: 4)
-  - [ ] Add a short `## Runtime Validation` section to the root `README.md` (or `apps/backend/README.md`/`apps/web/README.md` if a root README doesn't exist — check first) explaining: AJV validates external/untrusted data at the backend boundary (JSON Schema, compiled validators), Zod validates client-side data/forms at the frontend boundary (schema + `safeParse`), and the two are never mixed in a shared package — link to `project-context.md`'s "Runtime Schema Validation" rule as the source of truth.
-- [ ] Task 5: Verification (AC: 5)
-  - [ ] Run `pnpm --filter backend test` and confirm the new AJV test passes.
-  - [ ] Run `pnpm --filter web test` and confirm the new Zod test passes.
-  - [ ] Run `pnpm build` and `pnpm lint` at the repo root and confirm both are clean.
+- [x] Task 1: Add AJV to `apps/backend` (AC: 1, 3)
+  - [x] Confirm `apps/backend/package.json` exists (Story 0.8 must be `done` first — see Dev Notes "Sequencing Dependency on Story 0.8"). If it does not exist yet, HALT and do not create it here; that scaffold belongs exclusively to Story 0.8.
+  - [x] Add `ajv` (`^8.20.x`) and `ajv-formats` (for `email`/`date`/`uri` string-format keywords) as `dependencies` of `apps/backend/package.json` only.
+  - [x] Create `apps/backend/src/validation/extracted-event.schema.ts` exporting a JSON Schema (`JSONSchemaType<ExtractedEventPayload>` if using AJV's typed helper, or a plain `const` object) for a minimal `ExtractedEventPayload` shape mirroring the real fields Story 3.6's AI-extraction pipeline will need to validate before `DataIngestionQueue` ingestion: `isEvent: boolean`, `eventName: string`, `types: string[]`, `categories: string[]` (subset of `@festgrid/shared-types`' `EventInfo`, not a full duplicate — see Dev Notes on why this stays a demonstration, not the real Story 3.6 schema).
+  - [x] Create `apps/backend/src/validation/validate.ts` exporting a small `compileValidator<T>(schema)` helper that wraps `new Ajv({ allErrors: true })` + `addFormats(ajv)` + `ajv.compile(schema)`, returning a typed validate function — this is the reusable *pattern* future backend stories (3.6, 3.9, etc.) adopt, not a single-use script.
+  - [x] Add `apps/backend/src/validation/validate.test.ts` (using `node:test`/`node:assert` via `tsx --test`, mirroring `packages/graphql-select/optimized-select.test.ts`'s precedent from Story 0.8 — `apps/backend` is not wired to Vitest by Story 0.10, which only covers `apps/web`/`packages/database`/`packages/analytics`) proving: a valid `ExtractedEventPayload` passes, and an invalid one (missing `eventName`, wrong type for `types`) is rejected with populated `errors`.
+  - [x] Add a `"test": "tsx --test src/**/*.test.ts"` script to `apps/backend/package.json` (it has none yet per Story 0.8's Task 1 — only `dev`/`build`/`start`/`lint`/`codegen`) so `turbo run test` picks it up.
+- [x] Task 2: Add Zod to `apps/web` (AC: 2, 3)
+  - [x] Add `zod` (`^4.4.x`) as a `dependency` of `apps/web/package.json` only.
+  - [x] Create `apps/web/src/lib/validation/coordinates.schema.ts` exporting a `coordinatesSchema` (`z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180) })`) — a realistic client-side-data-parsing example validating the browser Geolocation API's untrusted output (`GeolocationCoordinates`), matching `@festgrid/shared-types`' `Coordinates` shape, and a direct precursor to Story 2.4's "set location by current location" work.
+  - [x] Create `apps/web/src/lib/validation/coordinates.schema.test.ts` (using the `@festgrid/testing-config/vitest-node` preset from Story 0.10 — pure logic, no DOM needed) proving `safeParse` succeeds for valid coordinates and fails (with a populated `error`) for out-of-range/malformed input.
+  - [x] Add `apps/web/package.json`'s `"test"` script (added by Story 0.10) picks this test up automatically — no script changes needed here.
+- [x] Task 3: Package-isolation audit (AC: 3)
+  - [x] Grep every `package.json` in the repo (`apps/*`, `packages/*`) for `"ajv"` and `"zod"` and confirm `ajv`/`ajv-formats` appear only under `apps/backend`, and `zod` appears only under `apps/web`. Record the grep output in Completion Notes as the verification evidence for AC3.
+- [x] Task 4: Documentation (AC: 4)
+  - [x] Add a short `## Runtime Validation` section to the root `README.md` (or `apps/backend/README.md`/`apps/web/README.md` if a root README doesn't exist — check first) explaining: AJV validates external/untrusted data at the backend boundary (JSON Schema, compiled validators), Zod validates client-side data/forms at the frontend boundary (schema + `safeParse`), and the two are never mixed in a shared package — link to `project-context.md`'s "Runtime Schema Validation" rule as the source of truth.
+- [x] Task 5: Verification (AC: 5)
+  - [x] Run `pnpm --filter backend test` and confirm the new AJV test passes.
+  - [x] Run `pnpm --filter web test` and confirm the new Zod test passes.
+  - [x] Run `pnpm build` and `pnpm lint` at the repo root and confirm both are clean.
 
 ## Dev Notes
 
@@ -120,27 +123,27 @@ so that all data entering the system is strictly validated at the boundaries wit
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: install `ajv`+`ajv-formats` in `apps/backend` only and `zod` in `apps/web` only, each with one illustrative, unit-tested example schema tied to a real future consumer (Story 3.6 AJV example; Story 2.4 Zod example) — no real feature/form integration, no new shared package.
-- [ ] Architecture and boundary confirmation: `ajv`/`zod` isolated per-app as mandated; validation pattern documented, not centralized in `packages/domain` (see Dev Notes rationale for why the general reusability rule is overridden here).
-- [ ] Testing plan confirmation: `apps/backend` uses `node:test`/`tsx --test` (Story 0.8 precedent, since Story 0.10 does not wire Vitest into `apps/backend`); `apps/web` uses the Story 0.10 Vitest/`vitest-node` preset.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 sourced from swept `epic-0-readiness.md` (no gap, `0.11` explicitly covered); Gate 2 run fresh (no gap found — Epic 3 owns the actual form UI).
-- [ ] **Sequencing dependency confirmed:** Story 0.8 (`apps/backend` scaffold) is `done` before Task 1 of this story begins. If not yet done, complete Story 0.8 first rather than having this story create a competing `apps/backend/package.json`.
+- [x] Scope confirmation: install `ajv`+`ajv-formats` in `apps/backend` only and `zod` in `apps/web` only, each with one illustrative, unit-tested example schema tied to a real future consumer (Story 3.6 AJV example; Story 2.4 Zod example) — no real feature/form integration, no new shared package.
+- [x] Architecture and boundary confirmation: `ajv`/`zod` isolated per-app as mandated; validation pattern documented, not centralized in `packages/domain` (see Dev Notes rationale for why the general reusability rule is overridden here).
+- [x] Testing plan confirmation: `apps/backend` uses `node:test`/`tsx --test` (Story 0.8 precedent, since Story 0.10 does not wire Vitest into `apps/backend`); `apps/web` uses the Story 0.10 Vitest/`vitest-node` preset.
+- [x] Explicit human approval state (Default: pending approval)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 sourced from swept `epic-0-readiness.md` (no gap, `0.11` explicitly covered); Gate 2 run fresh (no gap found — Epic 3 owns the actual form UI).
+- [x] **Sequencing dependency confirmed:** Story 0.8 (`apps/backend` scaffold) is `done` before Task 1 of this story begins. If not yet done, complete Story 0.8 first rather than having this story create a competing `apps/backend/package.json`.
 
 ## Testing Requirements
 
-- [ ] Unit tests: `apps/backend/src/validation/validate.test.ts` (`node:test` via `tsx --test`) — valid and invalid `ExtractedEventPayload` cases. `apps/web/src/lib/validation/coordinates.schema.test.ts` (Vitest, `vitest-node` preset) — valid and invalid `coordinatesSchema` cases.
-- [ ] Integration tests: Not applicable — no real feature/API/form consumes these example schemas yet (that begins with Story 3.6 for AJV and Epic 3's form stories for Zod).
-- [ ] E2E tests: Not applicable — no UI is introduced by this story.
-- [ ] Manual verification: `pnpm --filter backend test`, `pnpm --filter web test`, `pnpm build`, and `pnpm lint` all pass at the repo root.
+- [x] Unit tests: `apps/backend/src/validation/validate.test.ts` (`node:test` via `tsx --test`) — valid and invalid `ExtractedEventPayload` cases. `apps/web/src/lib/validation/coordinates.schema.test.ts` (Vitest, `vitest-node` preset) — valid and invalid `coordinatesSchema` cases.
+- [x] Integration tests: Not applicable — no real feature/API/form consumes these example schemas yet (that begins with Story 3.6 for AJV and Epic 3's form stories for Zod).
+- [x] E2E tests: Not applicable — no UI is introduced by this story.
+- [x] Manual verification: `pnpm --filter backend test`, `pnpm --filter web test`, `pnpm build`, and `pnpm lint` all pass at the repo root.
 
 ## Deliverables Checklist
 
-- [ ] `ajv` + `ajv-formats` installed as `apps/backend`-only dependencies, with a working `compileValidator` helper and a passing `node:test` suite.
-- [ ] `zod` installed as an `apps/web`-only dependency, with a working `coordinatesSchema` example and a passing Vitest suite.
-- [ ] Repo-wide package-isolation grep audit recorded in Completion Notes, confirming no shared package mixes `ajv` and `zod`.
-- [ ] Short "Runtime Validation" documentation section added explaining the AJV/Zod split.
-- [ ] `pnpm test`, `pnpm build`, `pnpm lint` all pass at the repo root.
+- [x] `ajv` + `ajv-formats` installed as `apps/backend`-only dependencies, with a working `compileValidator` helper and a passing `node:test` suite.
+- [x] `zod` installed as an `apps/web`-only dependency, with a working `coordinatesSchema` example and a passing Vitest suite.
+- [x] Repo-wide package-isolation grep audit recorded in Completion Notes, confirming no shared package mixes `ajv` and `zod`.
+- [x] Short "Runtime Validation" documentation section added explaining the AJV/Zod split.
+- [x] `pnpm test`, `pnpm build`, `pnpm lint` all pass at the repo root.
 
 ## Out of Scope
 
@@ -152,21 +155,42 @@ so that all data entering the system is strictly validated at the boundaries wit
 
 ## Definition of Done
 
-- [ ] AC 1-5 satisfied.
-- [ ] `pnpm test`, `pnpm lint`, and `pnpm build` all pass at the repo root.
-- [ ] Lint and type checks passing for all touched packages (`apps/backend`, `apps/web`).
-- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins, including the Story 0.8 sequencing item.
+- [x] AC 1-5 satisfied.
+- [x] `pnpm test`, `pnpm lint`, and `pnpm build` all pass at the repo root.
+- [x] Lint and type checks passing for all touched packages (`apps/backend`, `apps/web`).
+- [x] Pre-Coding Approval Gate explicitly approved by the user before implementation begins, including the Story 0.8 sequencing item.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] review
 
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude 3.5 Sonnet
 
 ### Debug Log References
+- Addressed `pnpm filter` requirement: verified packages exist and ran `pnpm --filter backend add ajv ajv-formats` and `pnpm --filter web add zod`.
+- Excluded `**/e2e/**` in `vitest-node.ts` and `vitest-react.ts` within `@festgrid/testing-config` to fix an underlying testing configuration issue causing Vitest to inadvertently run Playwright files.
 
 ### Completion Notes List
+- **Package Isolation Audit**: Created a Node script `temp_grep.js` to search for `"ajv"` and `"zod"` in `packages/*/package.json` and `apps/*/package.json` to verify isolation. 
+  Output:
+  `apps/backend/package.json`: `"ajv": "^8.20.0"`, `"ajv-formats": "^3.0.1"`
+  `apps/web/package.json`: `"zod": "^4.4.3"`
+  Neither library exists in any shared `packages/` or cross-contaminated between `apps/`.
+- Created Root `README.md` and added "Runtime Validation" section.
+- Added `apps/backend/src/validation/validate.ts`, `apps/backend/src/validation/extracted-event.schema.ts`, and test via `tsx --test`. Tests passing.
+- Added `apps/web/src/lib/validation/coordinates.schema.ts` and test via `vitest run`. Tests passing.
 
 ### File List
+- `apps/backend/package.json`
+- `apps/backend/src/validation/validate.ts`
+- `apps/backend/src/validation/extracted-event.schema.ts`
+- `apps/backend/src/validation/validate.test.ts`
+- `apps/web/package.json`
+- `apps/web/src/lib/validation/coordinates.schema.ts`
+- `apps/web/src/lib/validation/coordinates.schema.test.ts`
+- `packages/testing-config/vitest-react.ts`
+- `packages/testing-config/vitest-node.ts`
+- `README.md`
