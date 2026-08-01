@@ -70,7 +70,7 @@ development_status:
   epic-1: in-progress
   1-1-create-initial-database-tables: done
   1-2-seed-database-with-mock-data: done
-  1-2a-create-posts-table-and-link-seeded-events-to-their-source-post: ready-for-dev
+  1-2a-create-posts-table-and-link-seeded-events-to-their-source-post: in-progress
   1-3a-build-the-events-backend-graphql-api-layer: ready-for-dev
   1-3b-build-the-reusable-eventcard-component: ready-for-dev
   1-3c-build-the-reusable-infinite-scroll-hook: ready-for-dev
