@@ -1,3 +1,4 @@
+export type EventQueryConditionInput = { conditions?: InputMaybe<Array<EventQueryConditionInput>>; field?: InputMaybe<Scalars['String']['input']>; operator?: InputMaybe<Scalars['String']['input']>; value?: InputMaybe<Scalars['JSON']['input']>; };
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 /** Internal type. DO NOT USE DIRECTLY. */
@@ -73,12 +74,6 @@ export type EventConnection = {
   totalCount: Scalars['Int']['output'];
 };
 
-export type EventQueryConditionInput = {
-  conditions?: InputMaybe<Array<EventQueryConditionInput>>;
-  field?: InputMaybe<Scalars['String']['input']>;
-  operator?: InputMaybe<Scalars['String']['input']>;
-  value?: InputMaybe<Scalars['JSON']['input']>;
-};
 
 export enum EventType {
   Civic = 'CIVIC',
@@ -145,9 +140,11 @@ export type Schedule = {
 
 
 
+
 export type GetEventsQueryVariables = Exact<{
   limit?: number | null | undefined;
   offset?: number | null | undefined;
+  query?: EventQueryConditionInput | null | undefined;
 }>;
 
 
@@ -174,8 +171,8 @@ export class TypedDocumentString<TResult, TVariables>
 }
 
 export const GetEventsDocument = new TypedDocumentString(`
-    query getEvents($limit: Int, $offset: Int) {
-  events(limit: $limit, offset: $offset) {
+    query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
+  events(limit: $limit, offset: $offset, query: $query) {
     items {
       id
       eventName

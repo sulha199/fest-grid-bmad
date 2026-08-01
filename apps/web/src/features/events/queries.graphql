@@ -1,5 +1,5 @@
-query getEvents($limit: Int, $offset: Int) {
-  events(limit: $limit, offset: $offset) {
+query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
+  events(limit: $limit, offset: $offset, query: $query) {
     items {
       id
       eventName

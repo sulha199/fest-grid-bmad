@@ -21,5 +21,7 @@ content = content.replace(/client\.request\(\{/g, 'client.request<TData>({');
 // Fix duplicate enum/type declarations
 content = content.replace(/export type EventCategory =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type EventType =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type EventQueryConditionInput = \{[\s\S]*?\};\r?\n/g, '');
+content = "export type EventQueryConditionInput = { conditions?: InputMaybe<Array<EventQueryConditionInput>>; field?: InputMaybe<Scalars['String']['input']>; operator?: InputMaybe<Scalars['String']['input']>; value?: InputMaybe<Scalars['JSON']['input']>; };\n" + content;
 
 fs.writeFileSync(file, content);

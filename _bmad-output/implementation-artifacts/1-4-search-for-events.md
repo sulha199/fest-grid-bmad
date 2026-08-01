@@ -1,10 +1,13 @@
+---
+baseline_commit: 7f746c0b46f26fca25a33918deb411a78238b5e4
+---
 # Story 1.4: Search for events
 
 ## Story Details
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.4
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -24,27 +27,27 @@ so that I can find specific events I am interested in.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Build the reusable `SearchBar` component (AC1, AC5, AC6)
-  - [ ] Create `packages/ui/src/features/events/SearchBar.tsx` (Gate 2 finding — see Dev Notes: build in this story's scope, but placed in `packages/ui` for reuse by future Event List View consumers such as Story 2.2/2.5/3.7, not co-located in `apps/web`).
-  - [ ] Controlled text input with a clear/reset affordance; calls an `onSubmit(query: string)` (or equivalent) callback on Enter — no debounce, no live-as-you-type filtering (matches epics.md's explicit "press Enter" AC, not `01-event-list-view.md`'s more generic "real-time" phrasing — see Dev Notes documentation-consistency note).
-  - [ ] Trim whitespace before submit; submitting an empty/whitespace string is treated as "clear" (AC5), not a validation error.
-  - [ ] Export `SearchBar` from `packages/ui/src/index.ts` (create/extend a `packages/ui/src/features/events/index.ts` barrel if Story 1.3b hasn't already created one — check for conflicts if 1.3b has landed first).
-- [ ] Task 2: Wire the search query into URL state (AC4, AC5)
-  - [ ] Use `nuqs`'s `useQueryState('q', parseAsString.withDefault(''))` (already available — `NuqsAdapter` is already composed in `apps/web/src/app/[locale]/layout.tsx`, no new provider setup needed) to read/write the `q` search param.
-  - [ ] On submit, setting `q` to `''` must remove the param from the URL (not leave `?q=`), matching AC5's "clear" behavior.
-- [ ] Task 3: Extend the discovery page's DSL query construction (AC2, AC3)
-  - [ ] In `apps/web/src/app/[locale]/page.tsx` (or Story 1.3's page-level query-building logic, whichever lands first — see Dev Notes), when `q` is non-empty, build the `or` group of three `contains` conditions (`eventName`, `performers`, `location`) and combine it into the existing DSL payload per the "Combining with Story 1.3's base query" note below.
-  - [ ] Structure this as a small, extensible query-builder (e.g. a local `buildEventsQuery({ search })` function) rather than an inline one-off object — Story 1.5 (filter by type/category) is expected to extend the same builder with additional `in` conditions inside the same `and` group (epics.md Story 1.5 AC: "combinable with the search query from Story 1.4").
-  - [ ] Pass the resulting DSL object as the `query` variable to the existing generated `events` query hook (Story 1.3's react-query wiring) — no new GraphQL operation document is needed; only the variables change.
-- [ ] Task 4: Empty-results state (AC6)
-  - [ ] When a search returns zero results, render a localized empty-state message distinct from the page's generic "no events" empty state (Story 1.3 AC7/Task 4) if the copy needs to differ (e.g. "No events match 'x'") — reuse Story 1.3's empty-state component/slot if it accepts a message override, otherwise add a minimal conditional message.
-- [ ] Task 5: Analytics (AD-5)
-  - [ ] Call `usePostHog()` (from `@festgrid/analytics` — the current actual exported surface; no dedicated typed tracking helper exists yet, see Dev Notes) to `.capture('search_submitted', { query: string })` when the user submits a non-empty search (do not fire on clear/empty submit).
-- [ ] Task 6: Localize copy (AC6)
-  - [ ] Add new message keys to `apps/web/locales/en.json` and `apps/web/locales/id.json` (e.g. `SearchBar.placeholder`, `SearchBar.clearLabel`, `DiscoveryPage.searchEmptyState`) and consume them via `useTranslations` — do not hardcode strings.
-- [ ] Task 7: Tests (AC7)
-  - [ ] Integration tests (Vitest + MSW, `@festgrid/testing-config`) covering: submitting a query sends the correct `or`-of-`contains` DSL shape combined with the base query via `and`; the DSL is case-insensitive/partial-match by construction (assert the request shape — actual `ilike` matching is Story 1.3a's resolver-side responsibility, not testable from `apps/web`); the `q` URL param updates on submit and clears on empty submit; the search-specific empty state renders when results are empty.
-  - [ ] One E2E happy-path test (`apps/web/e2e/search.spec.ts`, Playwright, alongside the existing `apps/web/e2e/home.spec.ts`) covering: typing a query, pressing Enter, seeing the filtered list, and the URL reflecting `?q=...`.
+- [x] Task 1: Build the reusable `SearchBar` component (AC1, AC5, AC6)
+  - [x] Create `packages/ui/src/features/events/SearchBar.tsx` (Gate 2 finding — see Dev Notes: build in this story's scope, but placed in `packages/ui` for reuse by future Event List View consumers such as Story 2.2/2.5/3.7, not co-located in `apps/web`).
+  - [x] Controlled text input with a clear/reset affordance; calls an `onSubmit(query: string)` (or equivalent) callback on Enter — no debounce, no live-as-you-type filtering (matches epics.md's explicit "press Enter" AC, not `01-event-list-view.md`'s more generic "real-time" phrasing — see Dev Notes documentation-consistency note).
+  - [x] Trim whitespace before submit; submitting an empty/whitespace string is treated as "clear" (AC5), not a validation error.
+  - [x] Export `SearchBar` from `packages/ui/src/index.ts` (create/extend a `packages/ui/src/features/events/index.ts` barrel if Story 1.3b hasn't already created one — check for conflicts if 1.3b has landed first).
+- [x] Task 2: Wire the search query into URL state (AC4, AC5)
+  - [x] Use `nuqs`'s `useQueryState('q', parseAsString.withDefault(''))` (already available — `NuqsAdapter` is already composed in `apps/web/src/app/[locale]/layout.tsx`, no new provider setup needed) to read/write the `q` search param.
+  - [x] On submit, setting `q` to `''` must remove the param from the URL (not leave `?q=`), matching AC5's "clear" behavior.
+- [x] Task 3: Extend the discovery page's DSL query construction (AC2, AC3)
+  - [x] In `apps/web/src/app/[locale]/page.tsx` (or Story 1.3's page-level query-building logic, whichever lands first — see Dev Notes), when `q` is non-empty, build the `or` group of three `contains` conditions (`eventName`, `performers`, `location`) and combine it into the existing DSL payload per the "Combining with Story 1.3's base query" note below.
+  - [x] Structure this as a small, extensible query-builder (e.g. a local `buildEventsQuery({ search })` function) rather than an inline one-off object — Story 1.5 (filter by type/category) is expected to extend the same builder with additional `in` conditions inside the same `and` group (epics.md Story 1.5 AC: "combinable with the search query from Story 1.4").
+  - [x] Pass the resulting DSL object as the `query` variable to the existing generated `events` query hook (Story 1.3's react-query wiring) — no new GraphQL operation document is needed; only the variables change.
+- [x] Task 4: Empty-results state (AC6)
+  - [x] When a search returns zero results, render a localized empty-state message distinct from the page's generic "no events" empty state (Story 1.3 AC7/Task 4) if the copy needs to differ (e.g. "No events match 'x'") — reuse Story 1.3's empty-state component/slot if it accepts a message override, otherwise add a minimal conditional message.
+- [x] Task 5: Analytics (AD-5)
+  - [x] Call `usePostHog()` (from `@festgrid/analytics` — the current actual exported surface; no dedicated typed tracking helper exists yet, see Dev Notes) to `.capture('search_submitted', { query: string })` when the user submits a non-empty search (do not fire on clear/empty submit).
+- [x] Task 6: Localize copy (AC6)
+  - [x] Add new message keys to `apps/web/locales/en.json` and `apps/web/locales/id.json` (e.g. `SearchBar.placeholder`, `SearchBar.clearLabel`, `DiscoveryPage.searchEmptyState`) and consume them via `useTranslations` — do not hardcode strings.
+- [x] Task 7: Tests (AC7)
+  - [x] Integration tests (Vitest + MSW, `@festgrid/testing-config`) covering: submitting a query sends the correct `or`-of-`contains` DSL shape combined with the base query via `and`; the DSL is case-insensitive/partial-match by construction (assert the request shape — actual `ilike` matching is Story 1.3a's resolver-side responsibility, not testable from `apps/web`); the `q` URL param updates on submit and clears on empty submit; the search-specific empty state renders when results are empty.
+  - [x] One E2E happy-path test (`apps/web/e2e/search.spec.ts`, Playwright, alongside the existing `apps/web/e2e/home.spec.ts`) covering: typing a query, pressing Enter, seeing the filtered list, and the URL reflecting `?q=...`.
 
 ## Dev Notes
 
@@ -162,13 +165,13 @@ Either way, the query-builder in Task 3 must be structured so Story 1.5's type/c
 
 ## Deliverables Checklist
 
-- [ ] `SearchBar` component (`packages/ui/src/features/events/SearchBar.tsx`) built and exported.
-- [ ] Search query wired to URL state via `nuqs` (`q` param), shareable and clearable.
-- [ ] Discovery page's DSL query-builder extended with the search `or` group, combined correctly with Story 1.3's base query.
-- [ ] Localized empty-state for zero search results.
-- [ ] `en`/`id` message keys added for all new search UI copy.
-- [ ] `search_submitted` PostHog event instrumented.
-- [ ] Integration and E2E tests written and passing.
+- [x] `SearchBar` component (`packages/ui/src/features/events/SearchBar.tsx`) built and exported.
+- [x] Search query wired to URL state via `nuqs` (`q` param), shareable and clearable.
+- [x] Discovery page's DSL query-builder extended with the search `or` group, combined correctly with Story 1.3's base query.
+- [x] Localized empty-state for zero search results.
+- [x] `en`/`id` message keys added for all new search UI copy.
+- [x] `search_submitted` PostHog event instrumented.
+- [x] Integration and E2E tests written and passing.
 
 ## Out of Scope
 
@@ -187,16 +190,33 @@ Either way, the query-builder in Task 3 must be structured so Story 1.5's type/c
 
 ## Completion Status
 
-Not started.
+review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-3.5-sonnet
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- Implemented `SearchBar` component in `packages/ui` and exported it correctly.
+- Wired `SearchBar` in Discovery Page with `nuqs` URL state synchronization.
+- Created `buildEventsQuery` to extend DSL payload to support complex `or` + `contains` condition.
+- Localized `SearchBar` placeholder, clear label, and empty-state messaging properly using `next-intl` in `en.json` and `id.json` avoiding interpolations when not needed.
+- Passed Vitest test suite on `page.test.tsx` and `SearchBar.test.tsx`.
+- Wrote Playwright E2E happy path tests for Search functionality in `search.spec.ts`.
+- Sent posthog analytics payload on submit correctly.
+
 ### File List
+
+- `packages/ui/src/features/events/SearchBar.tsx`
+- `packages/ui/src/features/events/SearchBar.test.tsx`
+- `packages/ui/src/features/events/index.ts`
+- `apps/web/src/app/[locale]/page.tsx`
+- `apps/web/src/app/[locale]/page.test.tsx`
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`
+- `apps/web/e2e/search.spec.ts`

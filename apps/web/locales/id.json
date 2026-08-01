@@ -1,10 +1,13 @@
 {
   "DiscoveryPage": {
     "title": "Temukan Acara",
-    "loadingMore": "Memuat acara lainnya...",
-    "emptyState": "Tidak ada acara yang ditemukan.",
     "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",
-    "priceFrom": "Mulai dari"
+    "emptyState": "Tidak ada acara yang ditemukan.",
+    "searchEmptyState": "Tidak ada acara yang cocok dengan pencarian Anda.",
+    "priceFrom": "Mulai dari",
+    "loadingMore": "Memuat lebih banyak acara...",
+    "searchPlaceholder": "Cari berdasarkan nama, pengisi acara, atau lokasi...",
+    "searchClearLabel": "Hapus pencarian"
   },
   "EventType": {
     "EXHIBITION": "Pameran",

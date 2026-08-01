@@ -1,13 +1,25 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import { expect, test, beforeAll, afterEach, afterAll, vi } from 'vitest';
 import { graphql, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from 'react';
 
 import Home from './page';
 import enMessages from '../../../locales/en.json';
+
+// Mock PostHog
+vi.mock('@festgrid/analytics', () => ({
+  usePostHog: () => ({ capture: vi.fn() })
+}));
+
+// Mock nuqs to use React state for testing
+vi.mock('nuqs', () => ({
+  useQueryState: () => React.useState(''),
+  parseAsString: { withDefault: () => {} }
+}));
 
 // Mock the graphql client to use absolute URL for testing
 vi.mock('@/lib/graphql-client', async () => {
@@ -85,8 +97,11 @@ const mockEventsDataPage2 = {
   }
 };
 
+export let lastQueryVariables: any = null;
+
 const mswServer = setupServer(
   graphql.query('getEvents', ({ variables }) => {
+    lastQueryVariables = variables;
     if ((variables as any).offset === 0) {
       return HttpResponse.json({ data: mockEventsDataPage1 });
     }
@@ -95,7 +110,11 @@ const mswServer = setupServer(
 );
 
 beforeAll(() => mswServer.listen({ onUnhandledRequest: 'bypass' }));
-afterEach(() => mswServer.resetHandlers());
+afterEach(() => {
+  cleanup();
+  mswServer.resetHandlers();
+  lastQueryVariables = null;
+});
 afterAll(() => mswServer.close());
 
 // Reuse the real locale file rather than a hand-duplicated copy, so a key
@@ -185,5 +204,66 @@ test('renders error state when query fails', async () => {
 
   await waitFor(() => {
     expect(screen.getByText('Failed to load events. Please try again later.')).toBeInTheDocument();
+  });
+});
+
+test('search integration: submits DSL payload and renders search empty state', async () => {
+  renderWithProviders(<Home />);
+
+  // Wait for initial load
+  await waitFor(() => {
+    expect(screen.getByText('Test Event 1')).toBeInTheDocument();
+  });
+
+  // Type in search bar and press Enter
+  const searchInput = screen.getByPlaceholderText('Search by name, performer, or location...');
+  fireEvent.change(searchInput, { target: { value: 'Rock' } });
+  fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+
+  // Assert the DSL shape sent to the server
+  await waitFor(() => {
+    expect(lastQueryVariables.query).toEqual({
+      operator: 'and',
+      conditions: [
+        {
+          operator: 'or',
+          conditions: [
+            { field: 'eventName', operator: 'contains', value: 'Rock' },
+            { field: 'performers', operator: 'contains', value: 'Rock' },
+            { field: 'location', operator: 'contains', value: 'Rock' },
+          ]
+        }
+      ]
+    });
+  });
+
+  // Mock an empty result for the search
+  mswServer.use(
+    graphql.query('getEvents', () => {
+      return HttpResponse.json({
+        data: {
+          events: { hasMore: false, totalCount: 0, items: [] }
+        }
+      });
+    })
+  );
+
+  // Type something else to trigger new fetch with empty results
+  fireEvent.change(searchInput, { target: { value: 'Nothing' } });
+  fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+
+  await waitFor(() => {
+    // Assert search-specific empty state is rendered
+    expect(screen.getByText('No events match your search.')).toBeInTheDocument();
+  });
+
+  // Clear search using the "clear" button and expect base query without filters
+  // We expect the UI to immediately revert to the default list (Test Event 1) 
+  // because react-query has it cached under q=""
+  const clearButton = screen.getByRole('button', { name: 'Clear search' });
+  fireEvent.click(clearButton);
+
+  await waitFor(() => {
+    expect(screen.getByText('Test Event 1')).toBeInTheDocument();
   });
 });

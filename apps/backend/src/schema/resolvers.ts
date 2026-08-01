@@ -20,8 +20,8 @@ export const resolvers: Resolvers = {
         categories: events.categories,
         sourceSocialMediaAccountId: events.sourceSocialMediaAccountId,
         postId: events.postId,
-        performers: sql`"schedules"."performers"`, // mapped to joined table
-        scheduleLocation: sql`"schedules"."location"` // to support filtering by schedule location
+        performers: schedules.performers, // mapped to joined table
+        scheduleLocation: schedules.location // to support filtering by schedule location
       };
 
       const whereClause = buildDrizzleWhere(query as QueryCondition, fieldMap);

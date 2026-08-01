@@ -1,10 +1,13 @@
 {
   "DiscoveryPage": {
     "title": "Discover Events",
-    "loadingMore": "Loading more events...",
-    "emptyState": "No events found.",
     "errorState": "Failed to load events. Please try again later.",
-    "priceFrom": "From"
+    "emptyState": "No events found.",
+    "searchEmptyState": "No events match your search.",
+    "priceFrom": "From",
+    "loadingMore": "Loading more events...",
+    "searchPlaceholder": "Search by name, performer, or location...",
+    "searchClearLabel": "Clear search"
   },
   "EventType": {
     "EXHIBITION": "Exhibition",

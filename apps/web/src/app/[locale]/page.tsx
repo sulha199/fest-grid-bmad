@@ -3,10 +3,32 @@
 import { useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, InfiniteData } from "@tanstack/react-query"
-import { EventCard, useInfiniteScroll } from "@festgrid/ui"
+import { EventCard, useInfiniteScroll, SearchBar } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
-import { GetEventsDocument, GetEventsQuery } from "@/generated/graphql"
+import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
+import { useQueryState, parseAsString } from "nuqs"
+import { usePostHog } from "@festgrid/analytics"
+
+function buildEventsQuery({ search }: { search: string }): EventQueryConditionInput | undefined {
+  if (!search.trim()) {
+    return undefined
+  }
+  
+  return {
+    operator: "and",
+    conditions: [
+      {
+        operator: "or",
+        conditions: [
+          { field: "eventName", operator: "contains", value: search },
+          { field: "performers", operator: "contains", value: search },
+          { field: "location", operator: "contains", value: search },
+        ]
+      }
+    ]
+  }
+}
 
 // Falls back to the raw enum value if a translation key is missing, so a
 // locale file drifting out of sync with the enum degrades gracefully instead
@@ -37,6 +59,9 @@ export default function Home() {
     [tType]
   )
 
+  const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
+  const posthog = usePostHog()
+
   const {
     data,
     fetchNextPage,
@@ -44,12 +69,13 @@ export default function Home() {
     isFetchingNextPage,
     status,
     error
-  } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, string[], number>({
-    queryKey: ['events'],
+  } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
+    queryKey: ['events', { q }],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
-        offset: pageParam as number
+        offset: pageParam as number,
+        query: buildEventsQuery({ search: q })
       })
     },
     initialPageParam: 0,
@@ -70,6 +96,19 @@ export default function Home() {
   return (
     <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold">{t('title')}</h1>
+
+      <SearchBar
+        query={q}
+        onChange={() => {}} // Internal state only, URL updates on submit per AC1
+        onSubmit={(searchQuery) => {
+          setQ(searchQuery || '')
+          if (searchQuery.trim()) {
+            posthog.capture('search_submitted', { query: searchQuery })
+          }
+        }}
+        placeholder={t('searchPlaceholder')}
+        clearLabel={t('searchClearLabel')}
+      />
 
       {status === 'pending' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -95,7 +134,7 @@ export default function Home() {
 
       {status === 'success' && events.length === 0 && (
         <div className="text-center py-10 text-muted-foreground">
-          {t('emptyState')}
+          {q.trim() ? t('searchEmptyState') : t('emptyState')}
         </div>
       )}
 

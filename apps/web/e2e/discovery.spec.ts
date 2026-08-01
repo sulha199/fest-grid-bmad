@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Discovery Page', () => {
   test('should render initial events and support infinite scroll', async ({ page }) => {
     // Navigate to the main page
-    await page.goto('/');
+    await page.goto('/en');
 
     // Check that the title is visible
     await expect(page.locator('h1', { hasText: 'Discover Events' })).toBeVisible();
