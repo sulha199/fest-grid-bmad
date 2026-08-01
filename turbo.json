@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST", "NEXT_PUBLIC_POSTHOG_DEFAULTS", "ALLOW_DESTRUCTIVE_SEED"],
+  "globalEnv": ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST", "NEXT_PUBLIC_POSTHOG_DEFAULTS", "ALLOW_DESTRUCTIVE_SEED", "BACKEND_GRAPHQL_URL"],
   "tasks": {
     "codegen": {
       "dependsOn": [],
