@@ -910,6 +910,25 @@ Users can personalize their experience by saving favorite events and locations.
 Users can subscribe to social media accounts to import events into their feed.
 **FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37, FR66
 
+### Story 3.1a: Create social media account profiles table
+
+**As a** developer,
+**I want** a `social_media_account_profiles` table (matching the PRD's `SocialMediaAccountProfile` interface, PRD §4.5) that is shared across every subscriber of an account, with `subscriptions` narrowed to a pure per-user join (`id`, `userId`, `accountId` FK, `createdAt`, `deletedAt` — PRD §4.9) instead of duplicating platform/displayName/username/profileImageUrl/description/lastPostDate on every subscriber's row,
+**So that** account-level data — starting with `defaultLocation` (FR66/FR67, Story 3.3/3.3b) — has exactly one row per account instead of being ambiguously duplicated per subscriber.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 1.1's tables exist, **when** the migration script runs, **then** a `social_media_account_profiles` table is created with `id` (uuid pk), `platform`, `username`, `displayName`, `profileImageUrl`, `description`, `lastPostDate`, and `defaultLocation` (jsonb, nullable, PRD §4.5) — the fields currently duplicated on `subscriptions` — plus standard timestamps.
+*   **And** the `subscriptions` table is migrated to drop `accountId` (text), `platform`, `displayName`, `username`, `profileImageUrl`, `description`, `lastPostDate`, replacing them with a single `accountId` (uuid, FK to `social_media_account_profiles.id`, not null); `subscriptions` becomes the pure per-user join row described by the amended PRD §4.9. No production user data exists yet (Story 1.2's fixtures are dev/test-only per Story 1.2a's precedent), so this is a destructive schema change, not a backfill migration.
+*   **And** `subscriptions.deletedAt` (timestamp, nullable) is added per AD-8 (Soft-Delete Convention) — the first consumer is Story 5.1a's `removeSubscription` mutation.
+*   **And** subscribing to an account that has no existing `social_media_account_profiles` row (matched by platform + username) creates one; subscribing to an already-profiled account only creates a new `subscriptions` join row — this lookup-or-create logic is exposed for Story 3.1/3.2's mutation to call, not reimplemented per-story.
+*   **And** `packages/shared-types`'s `Subscription` and new `SocialMediaAccountProfile` interfaces are added/updated to match (PRD §4.5, §4.9).
+*   **And** the `posts` table (Story 1.2a, Epic 1 — already exists by the time this story runs) is migrated: add `account_id` (uuid, FK to `social_media_account_profiles.id`), backfill it from each post's `subscription_id` via `subscriptions.accountId`, then drop `subscription_id` and make `account_id` not null, with an index on `account_id` replacing the old `subscription_id` index. Story 1.2a itself is intentionally left creating `posts.subscription_id` — Epic 1 must stay buildable without this story existing yet, the same reasoning that pulled `posts`'s creation into Epic 1 ahead of Epic 3 in the first place; this story evolves the column once it runs, rather than 1.2a depending forward on it.
+
+**Note:** Classified as a shared data-ownership gap by the Epic 3 readiness re-sweep (`bmad-epic-readiness-check`, re-run 2026-08-01 following FR66/FR67 and Story 3.3b) — Gate 3 found `SocialMediaAccountProfile` (PRD §4.5, amended by the 2026-08-01 `defaultLocation` PRD change) has no owning story anywhere, while Story 1.1's `subscriptions` table (done) still duplicates account-profile fields per-subscriber, the exact ambiguity the `defaultLocation` amendment says it's moving away from. Needed by Epic 3 (Stories 3.1-3.3b) and read by Epic 4 (Story 4.7's `DefaultLocationChangeRequest.accountId`) — clears Gate 3's cross-epic reuse bar. Following the precedent of Story 1.1 scoping core tables to their originating epic, this is placed here, before Story 3.1, rather than in Epic 0. The `posts.account_id` migration AC above was added specifically to avoid making Epic 1's already-`ready-for-dev` Story 1.2a depend forward on this Epic 3 story — see that AC's own note.
+
+**Depends on:** Story 1.1, Story 1.2a (for the `posts` table this story migrates).
+
 ### Story 3.1: Onboarding wizard for API key and subscriptions
 
 **As a** new user,
@@ -925,7 +944,9 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** the second step prompts me to subscribe to my first social media account.
 *   **And** after completing the wizard, I am redirected back to the page I was trying to access.
 *   **And** submitting the Gemini API key persists it via a backend GraphQL mutation (Story 0.8 scaffold, Story 0.17 authenticated context) that encrypts the key using the KMS key (Story 0.14) before storage — never stored in plaintext and never encrypted client-side.
-*   **And** subscribing to the first social media account persists the subscription via the same backend GraphQL mutation layer — not a direct database write from `apps/web`.
+*   **And** subscribing to the first social media account persists the subscription via the same backend GraphQL mutation layer — not a direct database write from `apps/web` — using Story 3.1a's account-profile lookup-or-create logic.
+
+**Depends on:** Story 3.1a.
 
 ### Story 3.2: Subscribe to a social media account
 
@@ -942,6 +963,8 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** I see the new subscription in my list of subscriptions.
 *   **And** the subscription is saved via a backend GraphQL mutation (Story 0.8 scaffold, Story 0.17 authenticated context) — not a direct database write from `apps/web`.
 *   **And** the subscription is created with `isNewlyAdded: true` (PRD §3.10) — consumed by Story 5.1a's `mySubscriptions` query/`markSubscriptionViewed` mutation to auto-activate and then clear the corresponding tab in Epic 5's Manual Post Selection screen.
+
+**Depends on:** Story 3.1a.
 
 ### Story 3.3: Set a default location for a subscription
 
@@ -963,22 +986,24 @@ Users can subscribe to social media accounts to import events into their feed.
 ### Story 3.3a: Create posts table and persist scraped posts
 
 **As a** developer,
-**I want** a `posts` table (matching the PRD's `Post` interface: `id`, `content`, `imageUrl`, `postUrl`, `isExtracted`, plus a `subscriptionId` reference and `publishedAt` timestamp) and the persistence logic scraped posts are written to,
+**I want** a `posts` table (matching the PRD's `Post` interface: `id`, `content`, `imageUrl`, `postUrl`, `isExtracted`, plus an `accountId` reference and `publishedAt` timestamp) and the persistence logic scraped posts are written to,
 **So that** the scraping/queuing/extraction pipeline (Stories 3.4-3.6) and the manual post selection screens (Epic 5) share one consistent, queryable record of every scraped post and its extraction status.
 
 **Acceptance Criteria:**
 
-*   **Given** the initial database tables exist (Story 1.1),
+*   **Given** the initial database tables exist (Story 1.1), the `posts` table exists (Story 1.2a, with `subscription_id`), and `social_media_account_profiles` exists with `posts.account_id` migrated in (Story 3.1a),
 *   **When** I run the migration script,
-*   **Then** a `posts` table is created with columns for `id`, `subscription_id` (FK to `subscriptions`), `content`, `image_url`, `post_url`, `is_extracted` (default false), `published_at`, and standard timestamps.
-*   **And** the table is indexed on `subscription_id` and `published_at` to support Epic 5's "20 most recent posts per account" and inactive-account (30-day) queries.
+*   **Then** the `posts` table (already created by Story 1.2a, already migrated to `account_id` by Story 3.1a) has columns `id`, `account_id` (FK to `social_media_account_profiles`), `content`, `image_url`, `post_url`, `is_extracted` (default false), `published_at`, and standard timestamps — no further schema change is this story's responsibility.
+*   **And** the table is indexed on `account_id` and `published_at` to support Epic 5's "20 most recent posts per account" and inactive-account (30-day) queries — index already added by Story 3.1a's migration.
 *   **And** a persistence function exists for writing a newly scraped post (used by Story 3.4) and for updating a post's `is_extracted` status (used by Stories 3.6/3.6b).
 
 **Note:** This story exists because of Gate 3 (`story-split-gate.md`), surfaced while creating Story 3.6 — the PRD's `Post` interface implies a persisted entity with an extraction-status flag, but Story 1.1 only created `events`/`schedules`/`users`/`user_locations`/`subscriptions`/`api_keys`. This table is written by Epic 3 (Stories 3.4-3.6) and read by Epic 5 (Stories 5.1-5.4), so — following the precedent of Story 1.1 scoping core data tables to their originating epic rather than Epic 0 — it is placed here, before Story 3.4, rather than in Epic 0.
 
-**Amendment (2026-08-01):** This story's original scope included creating the `posts` table from scratch (first AC below). That table is now created earlier by Story 1.2a, surfaced by a Data Type Compatibility gap found while creating Story 1.3b (`EventCard`) — Epic 1 needs real event images sooner than Epic 3's scraping pipeline would otherwise exist to provide them. This story's remaining scope is narrowed to the actual scraping-persistence write path (Story 3.4's writes into the `posts` table) and the `is_extracted` status-update logic (Stories 3.6/3.6b) against the table Story 1.2a already created — the migration itself is no longer this story's deliverable. The AC below is left as-is to document the full target table shape (already satisfied by Story 1.2a); only the "who creates it" ownership changed.
+**Amendment (2026-08-01):** This story's original scope included creating the `posts` table from scratch (first AC below). That table is now created earlier by Story 1.2a, surfaced by a Data Type Compatibility gap found while creating Story 1.3b (`EventCard`) — Epic 1 needs real event images sooner than Epic 3's scraping pipeline would otherwise exist to provide them. This story's remaining scope is narrowed to the actual scraping-persistence write path (Story 3.4's writes into the `posts` table) and the `is_extracted` status-update logic (Stories 3.6/3.6b) against the table Story 1.2a already created — the migration itself is no longer this story's deliverable. The AC below is left as-is to document the full target table shape; only the "who creates it" ownership changed.
 
-**Depends on:** Story 1.1, Story 1.2a.
+**Amendment 2 (2026-08-01, Epic 3 readiness re-sweep):** The AC above was corrected from `subscription_id` to `account_id`. The PRD's amended `Post` interface (§4.7) now defines `Post.accountId` referencing `SocialMediaAccountProfile`, not `Subscription` — a post is published by the account, not by any one subscriber's subscription row, and an account can have multiple subscribers (PRD §3.7 Tier 2 round-robin). Story 1.2a keeps creating `posts.subscription_id` unchanged (Epic 1 must stay buildable without Epic 3 existing yet); Story 3.1a is the one that migrates it to `account_id` once Epic 3 runs. By the time this story (3.3a) executes, that migration has already happened.
+
+**Depends on:** Story 1.1, Story 1.2a, Story 3.1a.
 
 ### Story 3.3b: Edit an account's default location
 
@@ -1041,11 +1066,14 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **When** the message is consumed by the AI Processor Lambda,
 *   **Then** the Lambda calls the Gemini API exclusively through the AI Gateway adapter (Story 0.13) to extract event information from the post content.
 *   **And** the extracted information is validated (AJV) and transformed into a structured `EventInfo` object, including a populated `confidenceScore`.
+*   **And** if the Gemini response does not include an explicit event location, the transform falls back to the source post's account's `SocialMediaAccountProfile.defaultLocation` (via `posts.accountId`, Story 3.1a/3.3a) when one is set (PRD §3.7); if no `defaultLocation` is set either, `EventInfo.location` is left absent rather than fabricated.
 *   **And** the validated `EventInfo` object is enqueued to the `DataIngestionQueue` — this Lambda does not write to the database directly (Story 3.6b handles ingestion).
 
 **Note:** AC corrected by Gate 1 (`story-split-gate.md`) — the original draft had this Lambda both call Gemini and save directly to the database, bypassing the separate Ingestor Lambda shown in `docs/infrastructure/high-level-overview.md`.
 
-**Depends on:** Story 0.13, Story 3.3a, Story 3.5.
+**Amendment (2026-08-01, PM pass following Epic 3 readiness re-sweep):** Added the `defaultLocation` fallback AC. PRD §3.7 has required this behavior since before Story 3.3 existed ("If the AI agent does not find an explicit location in a post, it will use this default location for the event"), but no AC in this story ever implemented it — a requirements-coverage gap, not an architecture gap, surfaced while reviewing the 2026-08-01 `defaultLocation`/`SocialMediaAccountProfile` PRD amendment.
+
+**Depends on:** Story 0.13, Story 3.1a, Story 3.3a, Story 3.5.
 
 ### Story 3.6b: Ingest processed events into the database
 
@@ -1321,17 +1349,21 @@ Users are guided through the initial setup and can manually select posts for eve
 
 **Acceptance Criteria:**
 
-*   **Given** Story 0.8's GraphQL scaffold, Story 0.17's auth context, Story 0.13's AI Gateway adapter, and Story 3.3a's `posts` table exist,
+*   **Given** Story 0.8's GraphQL scaffold, Story 0.17's auth context, Story 0.13's AI Gateway adapter, Story 3.1a's `social_media_account_profiles`/`subscriptions` tables, and Story 3.3a's `posts` table exist,
 *   **When** a client requests `mySubscriptions`,
-*   **Then** it returns the authenticated caller's subscriptions (scoped via `requireAuth`, Story 0.17), each including the `isNewlyAdded` flag (Story 3.2) and a computed `isInactive` flag (true when no posts have been published within a configurable period, default 30 days, derived from the `posts` table's `published_at` column, Story 3.3a).
-*   **And** a `postsBySubscription(subscriptionId, cursor, limit)` query returns that subscription's posts ordered by `publishedAt` descending (20 most recent, lazily paginated per FR52/FR53) with each post's `isExtracted` status (Story 3.3a), scoped so a caller can only query subscriptions they own.
+*   **Then** it returns the authenticated caller's active (`deletedAt IS NULL`, AD-8) subscriptions (scoped via `requireAuth`, Story 0.17), each including the `isNewlyAdded` flag (Story 3.2) and a computed `isInactive` flag (true when no posts have been published within a configurable period, default 30 days, derived from the `posts` table's `published_at` column, Story 3.3a).
+*   **And** a `postsByAccount(accountId, cursor, limit)` query returns that account's posts ordered by `publishedAt` descending (20 most recent, lazily paginated per FR52/FR53) with each post's `isExtracted` status (Story 3.3a), scoped so a caller can only query accounts they hold an active subscription to (Story 3.1a).
 *   **And** a `myExtractionQuota` query returns the authenticated user's remaining extraction quota for the current billing cycle, read from the AI Gateway adapter's per-key usage tracking (Story 0.13) — this story does not reimplement usage tracking.
 *   **And** a `selectPostsForExtraction(postIds: [ID!])` mutation validates server-side that the selection does not exceed `myExtractionQuota` (never trusting client-side enforcement alone, FR58), then enqueues the selected posts onto the `AIProcessingQueue` via Story 3.5's queue-producer logic — this mutation is the entry point Story 3.5 expects for manually-selected posts (PRD §3.10).
 *   **And** a `markSubscriptionViewed(subscriptionId)` mutation clears that subscription's `isNewlyAdded` flag once its tab has been opened in the Manual Post Selection screen.
-*   **And** a `removeSubscription(subscriptionId)` mutation deletes the caller's subscription, scoped via `requireAuth` — no story anywhere previously exposed subscription removal, which Story 5.4's inactive-account warning requires.
-*   **And** no package outside `apps/backend` writes to `subscriptions` or `posts`, or reads AI Gateway usage-tracking state, directly.
+*   **And** a `removeSubscription(subscriptionId)` mutation soft-deletes the caller's subscription (sets `deletedAt`, AD-8 — never a hard delete, preserving history for quota/fairness accounting per PRD §4.9), scoped via `requireAuth` — no story anywhere previously exposed subscription removal, which Story 5.4's inactive-account warning requires.
+*   **And** no package outside `apps/backend` writes to `subscriptions`, `social_media_account_profiles`, or `posts`, or reads AI Gateway usage-tracking state, directly.
 
 **Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced by the Epic 5 readiness sweep (`bmad-epic-readiness-check`) — none of Stories 5.1-5.5 had any backend API layer; each read as a pure frontend screen manipulating subscriptions/posts/quota data directly, and no mutation anywhere exposed subscription removal or a manual extraction-trigger endpoint. Classified as a shared data-ownership gap (consumed by Stories 5.1, 5.2, 5.3, 5.4, and 5.5), positioned immediately before Story 5.1, the first consumer — mirroring the Story 2.1a/2.3a precedent.
+
+**Amendment (2026-08-01, Epic 3 readiness re-sweep):** `postsBySubscription(subscriptionId, ...)` renamed to `postsByAccount(accountId, ...)` and `removeSubscription` corrected from a hard delete to a soft delete. Both follow from Story 3.1a: posts now belong to the shared `social_media_account_profiles` row (an account can have multiple subscribers), not to any one subscription, and `Subscription` is one of AD-8's newly-declared soft-delete-bound tables.
+
+**Depends on:** Story 3.1a.
 
 **Depends on:** Story 0.8, Story 0.13, Story 0.17, Story 3.2, Story 3.3a, Story 3.5.
 

@@ -98,6 +98,7 @@ development_status:
   2-9-manage-push-notification-settings: backlog
   epic-2-retrospective: optional
   epic-3: in-progress
+  3-1a-create-social-media-account-profiles-table: backlog
   3-1-onboarding-wizard-for-api-key-and-subscriptions: backlog
   3-2-subscribe-to-a-social-media-account: backlog
   3-3-set-a-default-location-for-a-subscription: backlog
@@ -105,7 +106,7 @@ development_status:
   3-3b-edit-an-accounts-default-location: backlog
   3-4-scrape-new-posts-from-subscribed-accounts: backlog
   3-5-add-new-posts-to-a-processing-queue: backlog
-  3-6-process-posts-from-the-queue-and-extract-event-information: ready-for-dev
+  3-6-process-posts-from-the-queue-and-extract-event-information: backlog
   3-6b-ingest-processed-events-into-the-database: backlog
   3-7-display-extracted-events-to-the-user: backlog
   3-8-push-notifications-for-extracted-events: backlog
