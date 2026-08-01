@@ -716,8 +716,9 @@ Users can discover and browse events.
 *   **And** the detail view provides "Next" and "Previous" navigation controls, using the context-aware list navigation hook (Story 1.6b), that respect the search, filter, and sort context of the list I navigated from.
 *   **And** if I navigate to the end of the currently loaded page using the "Next" button, the system automatically fetches the next page of results in the background.
 *   **And** the event details include attribution/links back to the source social media post — `Post.originalPostUrl` (when derivable) and/or `Post.postUrl` (the post as actually scraped, which may be a proxy/mirror site) — via `EventInfo.postId`, fetched via the backend GraphQL API, when the event has a linked post (PRD §3.3.3/§3.7).
+*   **And** (added 2026-08-01, `project-context.md`'s "Dynamic Page Title & Meta Tags" rule) both the full-page route (`/events/[slug]`) and the intercepted modal route set the browser tab title/meta description to the event's own name/description via a route-level `generateMetadata` export built with the shared `apps/web/src/lib/metadata.ts` helper (Story 1.9) and next-intl's server-side `getTranslations()` — never a static export or a client-side `document.title` mutation. Since both routes fetch event data client-side, each route's `page.tsx` follows Story 1.9's established split: a Server Component `page.tsx` (holding `generateMetadata`) rendering the client-fetching logic from a colocated file.
 
-**Depends on:** Story 1.3a, Story 1.6a, Story 1.6b
+**Depends on:** Story 1.3a, Story 1.6a, Story 1.6b, Story 1.9 (for the `generateMetadata`/`buildPageMetadata` convention)
 
 ### Story 1.7a: Build the reusable BlockingLoader component
 
@@ -751,6 +752,7 @@ Users can discover and browse events.
 *   **And** after successful authentication, a new user account is created in the system if it doesn't exist, persisted via the backend API layer — not a direct database write from `apps/web`.
 *   **And** I am logged in to the application.
 *   **And** I am redirected to the main page.
+*   **And** (added 2026-08-01, `project-context.md`'s "Dynamic Page Title & Meta Tags" rule) the `/login` route sets its own browser tab title/meta description via a route-level `generateMetadata` export, built with the shared `apps/web/src/lib/metadata.ts` helper (Story 1.9) and next-intl's server-side `getTranslations()` — not the root layout's generic default. Since the login page's own logic is a Client Component, `apps/web/src/app/[locale]/login/page.tsx` follows Story 1.9's established split: a Server Component `page.tsx` (holding `generateMetadata`) rendering the client login logic from a colocated file.
 
 ### Story 1.8: Setup PostHog Analytics
 

@@ -2,6 +2,12 @@
 epic: 1
 swept: true
 date: 2026-07-31
+addenda:
+  - date: 2026-08-01
+    trigger: "Dynamic Page Title & Meta Tags rule added to project-context.md"
+    stories_corrected:
+      - 1.6
+      - 1.7
 stories_covered:
   - 1.1
   - 1.2
@@ -57,3 +63,14 @@ Written as a full section (As a/I want/So that + Acceptance Criteria + `Note:` +
 ## AC Corrections Applied to Existing Stories
 
 None. Story 2.1's existing AC4 ("only authenticated users can favorite or unfavorite events") remains a valid business-level AC — it now has a backing story (0.17) rather than needing rewording. No epics.md story required narrowing.
+
+## Addendum (2026-08-01) — Dynamic Page Title & Meta Tags rule
+
+**Trigger:** `project-context.md` gained a new cross-cutting invariant, "Dynamic Page Title & Meta Tags" (every `apps/web` route must set title/description via `generateMetadata` + the shared `apps/web/src/lib/metadata.ts` helper + next-intl server-side `getTranslations()`, never a static `metadata` export or client-side `document.title` mutation), authored alongside Story 1.9 (which already implements the helper/convention against the one route that existed at the time, the Discovery/Home page). This addendum re-runs a narrow, targeted Gate 1/Gate 3 pass against Epic 1's remaining `ready-for-dev` stories to check whether any of them originate an `apps/web` route left non-compliant with the new rule — a full re-sweep of Stories 1.1-1.8 was not warranted since the original findings (Gate 1/3, auth-context gap → Story 0.17) are unaffected by this rule.
+
+- **Gate 1/Gate 3 finding — no new tooling/infrastructure gap.** The shared `buildPageMetadata()` helper and `Metadata` i18n namespace already exist (built by Story 1.9); nothing here requires a new Epic 0 story or a new shared package. This is a convention-application gap on already-drafted stories, not an architecture gap — handled per `story-split-gate.md`'s "correction to an existing story's AC" escape hatch (direct correction, no new story number).
+- **Stories affected (both `ready-for-dev`, both originate an `apps/web` route):**
+  - **Story 1.6 ("View event details")** — both its full-page route (`/events/[slug]`) and its intercepted modal route fetch event data client-side, so each needs the Story 1.9 `page.tsx` (Server Component + `generateMetadata`) / colocated client-content-file split. Story 1.9's own Dev Notes had already flagged this story as the next expected consumer of the convention but epics.md/the story file had not yet been updated with a corresponding AC. **Corrected directly:** new AC (epics.md) / AC12 (story file), Tasks 7/7a/8/8a split, Dev Notes, File Structure, Deliverables, Testing Requirements, Pre-Coding Approval Gate.
+  - **Story 1.7 ("User Signup and Login with Google")** — its `/login` route was drafted as a plain `"use client"` `page.tsx` (Task 4), which cannot export `generateMetadata` under the new rule. **Corrected directly:** new AC10 (epics.md and story file), Task 4 split into Server Component `page.tsx` + colocated `login-content.tsx`, Dev Notes, File Structure, Deliverables, Testing Requirements, Pre-Coding Approval Gate.
+- **Stories checked and found not affected:** Story 1.5 / 1.5a (filter UI on the existing Discovery page, no new route), Story 1.6a (a `packages/ui` component, not a route itself — consumed by 1.6's routes), Story 1.9 (the originating/reference story, already compliant).
+- **No `sprint-status.yaml` changes** — this addendum only corrects existing `ready-for-dev` stories' content; it does not add, remove, or change the status of any story.

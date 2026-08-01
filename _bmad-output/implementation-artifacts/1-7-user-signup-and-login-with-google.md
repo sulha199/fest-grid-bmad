@@ -29,6 +29,7 @@ so that I can easily and securely access the application.
 7. **And** app data access after authentication remains entirely GraphQL/Drizzle-based — Supabase Auth (and `@supabase/supabase-js`/`@supabase/ssr`) is used for identity/session only, never for reading or writing `EventInfo`/`User`/any other application data table directly. [Derived — project-context.md "Database Access (Drizzle ORM)" rule]
 8. **And** an explicit logout action clears the Supabase session (browser + any server-set cookies), shows a brief toast confirmation ("You have been logged out successfully" — localized), and redirects to the home page. [epics.md — Note references Story 0.17's login/logout lifecycle; UX scenario `00.2-logout.md`]
 9. **And** all user-facing auth text (button label, login page copy, error messages, logout toast) is localized via `next-intl` for both `en` and `id` locales. [Derived — AD-6, project-context.md i18n rule]
+10. **And** (added 2026-08-01, `project-context.md`'s "Dynamic Page Title & Meta Tags" rule) `/login` sets its own browser tab title and meta description via a route-level `generateMetadata` export, built with the shared `apps/web/src/lib/metadata.ts` helper (Story 1.9) and sourced through next-intl's server-side `getTranslations()` — never a static `metadata` export or a client-side `document.title` mutation, with baseline `og:title`/`og:description` mirroring the resolved title/description. [epics.md AC — added 2026-08-01]
 
 ## Tasks / Subtasks
 
@@ -45,10 +46,11 @@ so that I can easily and securely access the application.
   - [ ] Create `apps/web/src/app/auth/callback/route.ts` (a Route Handler outside the `[locale]` segment — the OAuth redirect URI is a fixed technical endpoint, not a localized page) implementing the PKCE code exchange: read the `code` search param, call `supabase.auth.exchangeCodeForSession(code)` via the server client (Task 2), and on success redirect (`NextResponse.redirect`) to the main page at `/${locale}` — resolve `locale` from the `NEXT_LOCALE` cookie set by `next-intl`'s middleware, falling back to `routing.defaultLocale` (`apps/web/src/i18n/routing.ts`) if absent.
   - [ ] On exchange failure (missing/invalid `code`, Supabase error), redirect to `/${locale}/login?error=auth_failed` instead of throwing an unhandled error (AC5).
   - [ ] On the `/login` page (Task 4), read the `error` search param and render the localized error state when present.
-- [ ] Task 4: Build the Login page UI and GoogleLoginButton component (AC: 1, 5, 6, 9)
+- [ ] Task 4: Build the Login page UI and GoogleLoginButton component (AC: 1, 5, 6, 9, 10)
   - [ ] Create `packages/ui/src/features/auth/GoogleLoginButton.tsx` — a **presentational** component (no Supabase import) accepting `onClick`, `disabled`, and `label`/children props, styled with the existing Shadcn `Button` primitive (`packages/ui`'s existing `button.tsx` pattern). Export it via a new `packages/ui/src/features/auth/index.ts`, added to `packages/ui/src/index.ts`'s barrel (`export * from './features/auth';`), matching the `features/events` precedent.
-  - [ ] Create `apps/web/src/app/[locale]/login/page.tsx` (client component): renders `GoogleLoginButton`, wires its `onClick` to `getSupabaseBrowserClient().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` } })`, shows Story 1.7a's `BlockingLoader` while the call is in flight (AC6), and renders a localized error message when `?error=auth_failed` is present in the URL (AC5).
-  - [ ] Add an `Auth` message namespace to `apps/web/locales/en.json` and `apps/web/locales/id.json` (mirroring the existing `DiscoveryPage` namespace shape) with keys for: the Google sign-in button label, the login page heading/copy, the auth-failed error message, and the logout toast confirmation text (AC9).
+  - [ ] Create `apps/web/src/app/[locale]/login/page.tsx` as a **Server Component** holding `export async function generateMetadata({ params })`: resolve `locale`, call `getTranslations({ locale, namespace: 'Metadata' })` (extending Story 1.9's namespace with `loginTitle`/`loginDescription` keys) and `buildPageMetadata(...)` (Story 1.9's shared helper) for the login page's title/description (AC10), then render the extracted client logic from a colocated `login-content.tsx` (next bullet) — mirroring Story 1.9's `page.tsx`/`home-content.tsx` split, needed because `generateMetadata` cannot be exported from a `"use client"` file.
+  - [ ] Create `apps/web/src/app/[locale]/login/login-content.tsx` (`"use client"`): renders `GoogleLoginButton`, wires its `onClick` to `getSupabaseBrowserClient().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` } })`, shows Story 1.7a's `BlockingLoader` while the call is in flight (AC6), and renders a localized error message when `?error=auth_failed` is present in the URL (AC5).
+  - [ ] Add an `Auth` message namespace to `apps/web/locales/en.json` and `apps/web/locales/id.json` (mirroring the existing `DiscoveryPage` namespace shape) with keys for: the Google sign-in button label, the login page heading/copy, the auth-failed error message, and the logout toast confirmation text (AC9). Also extend Story 1.9's `Metadata` namespace with `loginTitle`/`loginDescription` keys for the new route's `generateMetadata` call (AC10).
 - [ ] Task 5: Add the authenticated `me` query and wire the frontend Authorization header (AC: 2, 3, 7)
   - [ ] Extend `apps/backend`'s schema with a small `me` query (new `apps/backend/src/schema/auth.graphql`: `type Me { id: ID! email: String! role: String! } type Query { me: Me! }`) and a resolver in `apps/backend/src/schema/resolvers.ts` (or a new `apps/backend/src/schema/auth-resolvers.ts` merged into the existing `resolvers` map) that calls `requireAuth(context)` (Story 0.17) and looks up the `users` row by `id = user.userId` via Drizzle to return `{ id, email, role }` — `AuthenticatedUser` (context) only carries `userId`/`role`, not `email`, so the resolver must query the row itself rather than reading `context.user` alone. This is the expected, anticipated first real caller of `requireAuth` that Story 0.17's own Dev Notes and Out-of-Scope section named Story 1.7 as providing — not a new Gate 1 gap (see Architecture & UX Gate Findings).
   - [ ] Run `pnpm --filter backend run codegen` to regenerate `apps/backend/src/generated/resolvers-types.ts` with the new `Query.me`/`Me` types.
@@ -78,6 +80,7 @@ so that I can easily and securely access the application.
 - **Logout trigger has no permanent home yet.** UX scenario `00.2-logout.md` says logout "typically" lives in the user menu, but Story 2.8 ("User menu") is still `backlog`. This story ships a working logout action from some minimal, temporary UI surface (e.g., a visible link/button on the main page or login page while authenticated) — Story 2.8 is expected to relocate the *trigger* into the real user menu later; this story owns the logout *behavior* (session clear, toast, redirect), which Story 2.8 will reuse, not rebuild.
 - **Not in scope: the "Getting Started" wizard / API-key gate.** UX scenarios `00.1-google-login.md`/`00.3-getting-started-onboarding.md` describe a *different* entry point (login triggered by an API-key-gated feature, redirecting into the onboarding wizard) — that belongs to Epic 3's Story 3.1 (`backlog`, not yet through its own `bmad-create-story` pass). `epics.md`'s actual Story 1.7 AC is explicit: redirect to the main page. This story implements the main-page login entry point only.
 - **Unaffected by the 2026-08-01 "Source Post Attribution" sprint change proposal** — that change is scoped entirely to Stories 1.2a/1.6/1.6a/3.4 (event detail source links) and touches neither auth nor `packages/ui/src/features/auth`.
+- **Dynamic page title & meta tags (added 2026-08-01):** `project-context.md`'s "Dynamic Page Title & Meta Tags" rule requires every `apps/web` route to set its title/description via `generateMetadata`. The pre-existing draft of Task 4 planned `apps/web/src/app/[locale]/login/page.tsx` as a plain `"use client"` file — under the new rule this is not viable (`generateMetadata` cannot be exported from a Client Component), so Task 4 now splits it into a Server Component `page.tsx` (holding `generateMetadata`) plus a colocated `login-content.tsx` client file, exactly mirroring the split Story 1.9 already performed on the Discovery page. No new architecture/tooling gap: the shared `buildPageMetadata()` helper and `Metadata` i18n namespace already exist (Story 1.9); this story only adds two new namespace keys and applies the established split.
 
 ### Architecture & UX Gate Findings
 
@@ -95,7 +98,7 @@ so that I can easily and securely access the application.
 
 ### Project Structure Notes
 
-- New: `apps/web/src/lib/supabase/{client,server}.ts`; `apps/web/src/app/auth/callback/route.ts`; `apps/web/src/app/[locale]/login/page.tsx`; `apps/web/src/components/providers/auth-session-provider.tsx`; `packages/ui/src/features/auth/{GoogleLoginButton.tsx,index.ts}`; `apps/backend/src/schema/auth.graphql`; a new resolver for `Query.me` in `apps/backend/src/schema/resolvers.ts` (or a new `auth-resolvers.ts` merged in); matching `.test.ts`/`.test.tsx` files (Task 7).
+- New: `apps/web/src/lib/supabase/{client,server}.ts`; `apps/web/src/app/auth/callback/route.ts`; `apps/web/src/app/[locale]/login/page.tsx` (Server Component, `generateMetadata`) and `apps/web/src/app/[locale]/login/login-content.tsx` (`"use client"`, extracted login UI/logic); `apps/web/src/components/providers/auth-session-provider.tsx`; `packages/ui/src/features/auth/{GoogleLoginButton.tsx,index.ts}`; `apps/backend/src/schema/auth.graphql`; a new resolver for `Query.me` in `apps/backend/src/schema/resolvers.ts` (or a new `auth-resolvers.ts` merged in); matching `.test.ts`/`.test.tsx` files (Task 7).
 - Modified: `apps/web/package.json` (new deps); `apps/web/src/app/[locale]/layout.tsx` (adds `AuthSessionProvider`); `apps/web/locales/{en,id}.json` (new `Auth` namespace); `packages/ui/src/index.ts` (new barrel export); root `.env.example` (two new `NEXT_PUBLIC_` entries); `turbo.json` (`globalEnv` + task `env` arrays); `SETUP_WALKTHROUGH.md` §3 (extended, not duplicated); `apps/backend/src/generated/resolvers-types.ts` and `apps/web/src/generated/graphql.ts` (regenerated).
 - Not modified: `packages/domain`, `packages/database/schema.ts` (no migration), `apps/backend/src/lib/auth/*` (Story 0.17's files are consumed, not changed), `apps/infrastructure`.
 - Detected conflicts or variances: The prior draft of this story (superseded by this regeneration) assumed a bespoke "sync or create user" task; that assumption is now corrected per Story 0.17's actual (already-implemented) JIT-provisioning mechanism — see Dev Notes.
@@ -143,6 +146,7 @@ so that I can easily and securely access the application.
   - Cloud/external-service setup → `SETUP_WALKTHROUGH.md` §3 extension (Task 1), persistent fact.
   - `NEXT_PUBLIC_` build-time env vars → `turbo.json` registration (Task 1), matching `NEXT_PUBLIC_POSTHOG_*` precedent.
   - Data Type Compatibility check → performed, no mismatch found (Dev Notes subsection).
+  - Dynamic page title & meta tags (AC10, `project-context.md`) → `/login` split into Server Component `page.tsx` (`generateMetadata` + `buildPageMetadata`, Story 1.9's helper) + colocated `"use client"` `login-content.tsx`, per Story 1.9's established convention.
 - **Verification Plan:**
   - `packages/ui/src/features/auth/GoogleLoginButton.test.tsx` (Task 7).
   - `apps/web/src/app/auth/callback/route.test.ts` with `msw`-mocked Supabase exchange (Task 7).
@@ -157,6 +161,7 @@ so that I can easily and securely access the application.
 - [ ] Testing plan confirmation: unit test for `GoogleLoginButton`, integration tests for the callback route and `me` resolver, Playwright coverage limited to mockable paths (real Google OAuth E2E deferred, mirroring Story 0.17's precedent).
 - [ ] Explicit human approval state (Default: pending approval)
 - [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 cited from `epic-1-readiness.md` (swept, no new gap) — accepted; Gate 2 gap accepted via the new **Story 1.7a** (BlockingLoader) — confirm Story 1.7a is done, or explicitly accept building this story against an interim/inline loader until 1.7a ships.
+- [ ] **Dynamic page title & meta tags (2026-08-01 rule) acknowledged:** `/login` is now scoped to Story 1.9's `page.tsx` (Server Component + `generateMetadata`) / colocated client-content-file split (AC10, Task 4) — confirm this additional split is acceptable within this story's scope, given the helper/convention already exist and only the split itself is new work here.
 - [ ] **Shared `graphqlClient` singleton `Authorization`-header wiring accepted for client-side-only use:** confirmed this story does not introduce any authenticated server-side (RSC/route-handler) GraphQL fetch using this singleton; any future story adding one must first move to a per-request client (Dev Notes).
 - [ ] **Interim logout-trigger location accepted:** confirmed placing a temporary logout entry point ahead of Story 2.8's real user menu is acceptable, with the understanding Story 2.8 relocates (not rebuilds) it.
 
@@ -167,10 +172,12 @@ so that I can easily and securely access the application.
 - [ ] Integration test: `me` resolver (`UNAUTHENTICATED` without a session; correct `{id, email, role}` with one).
 - [ ] E2E (Playwright): `/login` renders and is reachable; authenticated main-page render given a mocked/stubbed session; logout clears session, shows the toast, and redirects home.
 - [ ] Manual verification (deferred, tracked): a real end-to-end check against a live, configured Supabase Auth project with real Google login — record as deferred in Completion Notes if not performed, mirroring Story 0.17's precedent.
+- [ ] Integration test: `/login`'s `generateMetadata` resolves a login-specific title/description (distinct from the Discovery page's default) for both `en`/`id` locales (AC10), mirroring Story 1.9's `metadata.test.ts`/root-layout `generateMetadata` test pattern.
 
 ## Deliverables Checklist
 
 - [ ] Google OAuth login route/page and `GoogleLoginButton` component.
+- [ ] `/login`'s `page.tsx` exports `generateMetadata` (via `buildPageMetadata`/next-intl `getTranslations()`) with a login-specific title/description; login UI/logic lives in a colocated `login-content.tsx` client file (AC10).
 - [ ] OAuth callback route performing PKCE session exchange, redirecting to the main page or a localized error state.
 - [ ] `Authorization`-header wiring from the Supabase session onto the existing `graphqlClient` singleton.
 - [ ] Authenticated `me` GraphQL query (backend + generated frontend hook), confirming/triggering Story 0.17's JIT-provisioning.
@@ -191,7 +198,7 @@ so that I can easily and securely access the application.
 
 ## Definition of Done
 
-- AC 1-9 satisfied.
+- AC 1-10 satisfied.
 - Story 1.7a done, or its gap explicitly accepted per the Pre-Coding Approval Gate.
 - `packages/ui/src/features/auth/GoogleLoginButton.test.tsx`, `apps/web/src/app/auth/callback/route.test.ts`, and the backend `me`-resolver test all passing.
 - `pnpm --filter backend run codegen` and `pnpm --filter web run codegen` regenerate cleanly; `pnpm build` and `pnpm lint` pass at the repo root for all touched packages.
