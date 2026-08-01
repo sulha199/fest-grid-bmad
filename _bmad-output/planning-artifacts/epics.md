@@ -629,6 +629,27 @@ Users can discover and browse events.
 *   **And** the search supports partial matching.
 *   **And** the active search query is reflected in the URL as shareable/bookmarkable state (AD-4 URL State via `nuqs`).
 
+### Story 1.5a: Build the reusable MultiSelect component
+
+**As a** developer,
+**I want** a generic, reusable `MultiSelect` faceted-filter component in `packages/ui/src/core/`,
+**So that** Story 1.5's Filter Hub (and future filter surfaces, e.g. Epic 3's FR31 filtering of subscribed-account events by type/category) can offer consistent multi-value selection without each feature rebuilding its own popover/toggle/selection-state logic.
+
+**Acceptance Criteria:**
+
+*   **Given** a facet label (e.g. "Type", "Category") and a list of selectable options,
+*   **When** `MultiSelect` renders,
+*   **Then** it displays the facet label and the currently selected option(s), clearly indicating selection state, matching the authoritative UX interaction described in `EXPERIENCE.md`/the Sarah discovery scenario — tap-to-toggle options with the grid updating on each selection (not a searchable combobox/popover pattern, which is not specified in any authoritative FestGrid UX artifact).
+*   **And** selecting or deselecting an option toggles its membership in the component's selected-values set, supporting zero, one, or many simultaneous selections.
+*   **And** it exposes a "Clear" action that resets the facet's selection to empty.
+*   **And** it is domain-agnostic (accepts options/labels/selection as props — no FestGrid-specific business logic) so it can be reused for any facet, not just `EventType`/`EventCategory`.
+*   **And** it meets accessibility requirements for a multi-select control (keyboard operable, selection state exposed to assistive tech).
+*   **And** it is documented and exported from `packages/ui`'s public entry point for reuse across features.
+
+**Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced while creating Story 1.5 — the draft folded a Shadcn `Popover`+`Command` "faceted filter" combobox pattern (trigger button, badges, search-within-popover, checkmark list, clear footer) into Story 1.5 itself, but that pattern stacks the same category of independent state dimensions (open/close, internal search-filter, multi-toggle selection, keyboard nav, a11y) that triggered the Story 1.3b (`EventCard`)/1.3c (`useInfiniteScroll`) splits, and clears the reuse bar independently since Epic 3's FR31 is a near-certain second consumer beyond Story 1.5's `FilterHub`. Gate 2 also flagged that neither `DESIGN.md`/`EXPERIENCE.md` nor the Sarah discovery scenario (`01.1-event-discovery.md`) describes a searchable popover/combobox — both describe simple tap-to-toggle buttons/tags — so this story's ACs are scoped to that authoritative interaction rather than the richer combobox the draft had assumed. Classified as a single-story-origin UI split (mirroring the 1.3a/1.3b/1.3c/1.6a precedent) — positioned immediately before Story 1.5, its first consumer.
+
+**Depends on:** None (pure presentation component, no backend dependency).
+
 ### Story 1.5: Filter events by type and category
 
 **As a** user,
@@ -642,6 +663,8 @@ Users can discover and browse events.
 *   **Then** the list of events is filtered via `in` conditions sent through the Unified Query DSL (Story 1.3a) — not a client-side filter of already-fetched data.
 *   **And** I can clear the filters to see all events again.
 *   **And** the active filters are reflected in the URL as shareable/bookmarkable state (AD-4 URL State via `nuqs`), combinable with the search query from Story 1.4.
+
+**Depends on:** Story 1.3a, Story 1.4, Story 1.5a
 
 ### Story 1.6a: Build the reusable event detail view component
 
