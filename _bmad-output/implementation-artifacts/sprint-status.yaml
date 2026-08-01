@@ -65,7 +65,7 @@ development_status:
   0-14-set-up-aws-iac-for-lambda-sqs-eventbridge-and-kms: ready-for-dev
   0-15-set-up-outbound-email-adapter: ready-for-dev
   0-16-set-up-geolocation-adapter-with-caching-layer: ready-for-dev
-  0-17-set-up-graphql-authenticated-context-layer: in-progress
+  0-17-set-up-graphql-authenticated-context-layer: review
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
