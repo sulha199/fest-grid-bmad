@@ -766,6 +766,24 @@ Users can discover and browse events.
 *   **And** the required environment variables (`NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`) are documented in the setup guide.
 *   **And** PostHog automatically captures basic page views and interactions.
 
+### Story 1.9: Dynamic browser title and meta tags on page navigation
+
+**As a** user browsing FestGrid,
+**I want** the browser tab title and page meta tags to reflect the page I'm currently on,
+**So that** I can tell tabs apart, get an accurate preview when I share a link, and pages are indexable with correct titles/descriptions.
+
+**Acceptance Criteria:**
+
+*   **Given** the root layout currently hardcodes a static, English-only `metadata` object,
+*   **When** a user visits any locale route,
+*   **Then** the root/default title and description are resolved via `next-intl`'s server-side `getTranslations()` for the active locale.
+*   **And** a route that defines its own page content (the Discovery/Home page today) resolves its own distinct title/description via a route-level `generateMetadata` export.
+*   **And** client-side navigation between routes correctly re-resolves the destination route's metadata (Next.js App Router per-segment resolution).
+*   **And** each route's metadata includes baseline Open Graph tags (`og:title`, `og:description`) mirroring the resolved title/description.
+*   **And** a shared helper builds the `Metadata` object consistently across routes, with strings sourced from a new `Metadata` i18n namespace in both `en.json` and `id.json`.
+
+Note: Added 2026-08-01 at user request, scoped to Epic 1 (the only route it can apply to today is the Discovery/Home page). Establishes the `generateMetadata` convention future page stories (e.g. Story 1.6's event detail page) must follow — see `_bmad-output/implementation-artifacts/1-9-dynamic-browser-title-and-meta-tags.md` for the full gate analysis (no Epic 0 split needed; reuses existing next-intl/Next.js foundations).
+
 ### Epic 2: User Personalization
 
 Users can personalize their experience by saving favorite events and locations.

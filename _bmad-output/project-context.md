@@ -2,9 +2,9 @@
 project_name: 'festgrid'
 baseline_commit: 198301f0757cfed0df2316ac947793691ff189e9
 user_name: 'shulha'
-date: '2026-08-01T09:00:00Z'
+date: '2026-08-01T00:00:00Z'
 status: 'complete'
-rule_count: 21
+rule_count: 22
 optimized_for_llm: true
 sections_completed:
   - 'technology_stack'
@@ -86,6 +86,7 @@ The following documents contain detailed specifications, architectures, and desi
   - **Non-Blocking (Infinite Scroll):** Use a localized spinner at the bottom of the list when fetching subsequent pages to avoid disrupting the user's reading flow.
 - **List Navigation:** All long lists (Discovery, Favorites, Subscriptions, etc.) **must** implement infinite scrolling (autoscroll) rather than traditional pagination controls.
 - **Context-Aware Detail Views:** When opening an item's detail view from any list, the detail view must provide "Next" and "Previous" navigation buttons. This navigation must inherit the context of the list it was opened from (search query, filters, sort). If a user navigates to the end of the currently loaded page of data, the system must seamlessly fetch the next page of results in the background to maintain uninterrupted navigation. (This requirement may be bypassed if the detail view is accessed via a direct deep-link without prior list context).
+- **Dynamic Page Title & Meta Tags:** Every route in `apps/web` **must** set its browser tab title and meta description via Next.js App Router's `generateMetadata` — never a static `metadata` export, and never a client-side `document.title` mutation (the latter fights the framework's own per-segment metadata resolution and breaks SSR/SEO). Title/description strings **must** be sourced through next-intl's server-side `getTranslations()` (not the client `useTranslations` hook) from a dedicated `Metadata` i18n namespace, and built via the shared `apps/web/src/lib/metadata.ts` helper so every route's `Metadata` object (including baseline `og:title`/`og:description`) has a consistent shape. If a route's default export must be a Client Component, split it into a Server Component `page.tsx` (holding `generateMetadata`) that renders the client logic from a colocated file, rather than exporting metadata from a `"use client"` file (not supported). Reference implementation: Story 1.9 (`_bmad-output/implementation-artifacts/1-9-dynamic-browser-title-and-meta-tags.md`).
 
 ### State Management Architecture
 To avoid monolithic global stores and ensure strict end-to-end typing, the application state **must** be divided into three distinct scopes:
@@ -153,4 +154,4 @@ To avoid monolithic global stores and ensure strict end-to-end typing, the appli
 - Update when the technology stack or core patterns change.
 - Review quarterly to remove rules that have become obvious or obsolete.
 
-_Last Updated: 2026-08-01T09:00:00Z_
+_Last Updated: 2026-08-01T00:00:00Z_
