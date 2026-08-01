@@ -19,15 +19,16 @@ export interface ScheduleDetail {
  * Allows localization (e.g. via next-intl) without coupling the component to a framework.
  */
 export interface EventDetailViewLabels {
-  loadingText?: string;
-  errorText?: string;
-  locationLabel?: string;
-  performersLabel?: string;
-  ticketPriceLabel?: string;
-  noSchedulesLabel?: string;
-  defaultScheduleTitle?: string;
-  favoriteButtonLabel?: string;
-  addToCalendarButtonLabel?: string;
+  loadingText: string;
+  errorText: string;
+  locationLabel: string;
+  performersLabel: string;
+  ticketPriceLabel: string;
+  noSchedulesLabel: string;
+  defaultScheduleTitle: string;
+  favoriteButtonLabel: string;
+  removeFavoriteButtonLabel: string;
+  addToCalendarButtonLabel: string;
 }
 
 /**
@@ -61,7 +62,7 @@ export interface EventDetailViewProps {
 
   // Render options
   locale?: string;
-  labels?: EventDetailViewLabels;
+  labels: EventDetailViewLabels;
 
   // Handlers (AC11)
   isFavorited?: boolean;

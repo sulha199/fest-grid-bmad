@@ -16,6 +16,18 @@ describe('EventDetailView', () => {
         eventStartDate: '2026-08-10T10:00:00Z',
       },
     ],
+    labels: {
+      loadingText: 'Loading event details...',
+      errorText: 'Failed to load event.',
+      locationLabel: 'Location',
+      performersLabel: 'Performers',
+      ticketPriceLabel: 'Ticket Price',
+      noSchedulesLabel: 'No schedules available.',
+      defaultScheduleTitle: 'Schedule',
+      favoriteButtonLabel: 'Add to Favorites',
+      removeFavoriteButtonLabel: 'Remove from Favorites',
+      addToCalendarButtonLabel: 'Add to Calendar',
+    },
   };
 
   const fullProps = {

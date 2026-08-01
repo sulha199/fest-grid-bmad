@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { MapPin, CalendarDays, ExternalLink, Image as ImageIcon, Heart, User, DollarSign, CalendarPlus } from 'lucide-react';
+import React from 'react';
+import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus } from 'lucide-react';
 import { EventDetailViewProps, ScheduleDetail } from './EventDetailView.types';
+import { EventImage } from './EventImage';
 
 /**
  * EventDetailView is a reusable, presentation-only component that displays
@@ -28,30 +29,15 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   loading = false,
   error = null,
   locale = 'en-US',
-  labels = {},
+  labels,
   isFavorited,
   onFavoriteToggle,
   isAddedToCalendar,
   onAddToCalendar,
 }) => {
-  const [imageError, setImageError] = useState(false);
-
-  const l = {
-    loadingText: 'Loading event details...',
-    errorText: 'Failed to load event.',
-    locationLabel: 'Location',
-    performersLabel: 'Performers',
-    ticketPriceLabel: 'Ticket Price',
-    noSchedulesLabel: 'No schedules available.',
-    defaultScheduleTitle: 'Schedule',
-    favoriteButtonLabel: isFavorited ? 'Remove from Favorites' : 'Add to Favorites',
-    addToCalendarButtonLabel: 'Add to Calendar',
-    ...labels,
-  };
-
   if (loading) {
     return (
-      <div className="animate-pulse flex flex-col gap-6" aria-busy="true" aria-label={l.loadingText}>
+      <div className="animate-pulse flex flex-col gap-6" aria-busy="true" aria-label={labels.loadingText}>
         <div className="w-full h-64 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
         <div className="flex flex-col gap-4">
           <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
@@ -69,7 +55,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center p-8 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-center">
-        <p className="font-medium">{l.errorText}</p>
+        <p className="font-medium">{labels.errorText}</p>
         <p className="text-sm mt-2">{error.message}</p>
       </div>
     );
@@ -123,7 +109,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
             <button
               onClick={onFavoriteToggle}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              aria-label={l.favoriteButtonLabel}
+              aria-label={isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}
               aria-pressed={isFavorited}
             >
               <Heart className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
@@ -133,7 +119,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
             <button
               onClick={onAddToCalendar}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              aria-label={l.addToCalendarButtonLabel}
+              aria-label={labels.addToCalendarButtonLabel}
               aria-pressed={isAddedToCalendar}
             >
               <CalendarPlus className={`w-6 h-6 ${isAddedToCalendar ? 'text-primary' : 'text-gray-500'}`} />
@@ -143,20 +129,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
       )}
 
       {/* Image */}
-      <div className="w-full relative aspect-video bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden flex items-center justify-center">
-        {imageUrl && !imageError ? (
-          <img
-            src={imageUrl}
-            alt={imageAlt || eventName}
-            onError={() => setImageError(true)}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center text-gray-400">
-            <ImageIcon className="w-12 h-12 mb-2 opacity-50" />
-          </div>
-        )}
-      </div>
+      <EventImage imageUrl={imageUrl} imageAlt={imageAlt} eventName={eventName} />
 
       <header className="flex flex-col gap-3">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{eventName}</h1>
@@ -194,7 +167,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                 <li key={idx} className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg flex flex-col gap-3">
                   <h3 className="font-semibold text-lg flex items-center gap-2">
                     <CalendarDays className="w-5 h-5 text-gray-500" />
-                    {schedule.title || `${l.defaultScheduleTitle} ${idx + 1}`}
+                    {schedule.title || `${labels.defaultScheduleTitle} ${idx + 1}`}
                   </h3>
                   
                   <div className="flex flex-col gap-2 ml-7 text-sm text-gray-600 dark:text-gray-400">
@@ -205,7 +178,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                     <address className="not-italic flex items-start gap-2">
                       <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
                       <div>
-                        <span className="sr-only">{l.locationLabel}:</span>
+                        <span className="sr-only">{labels.locationLabel}:</span>
                         {schedule.mapUrl ? (
                           <a href={schedule.mapUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
                             {scheduleLocation}
@@ -221,7 +194,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                       <div className="flex items-start gap-2">
                         <User className="w-4 h-4 shrink-0 mt-0.5" />
                         <div>
-                          <span className="sr-only">{l.performersLabel}:</span>
+                          <span className="sr-only">{labels.performersLabel}:</span>
                           <span>{schedule.performers}</span>
                         </div>
                       </div>
@@ -231,7 +204,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                       <div className="flex items-start gap-2">
                         <DollarSign className="w-4 h-4 shrink-0 mt-0.5" />
                         <div>
-                          <span className="sr-only">{l.ticketPriceLabel}:</span>
+                          <span className="sr-only">{labels.ticketPriceLabel}:</span>
                           <span>{schedule.ticketPrice}</span>
                         </div>
                       </div>
@@ -242,7 +215,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
             })}
           </ul>
         ) : (
-          <p className="text-gray-500 italic">{l.noSchedulesLabel}</p>
+          <p className="text-gray-500 italic">{labels.noSchedulesLabel}</p>
         )}
       </section>
 
