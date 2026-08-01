@@ -2,9 +2,9 @@
 project_name: 'festgrid'
 baseline_commit: 198301f0757cfed0df2316ac947793691ff189e9
 user_name: 'shulha'
-date: '2026-07-22T09:08:00Z'
+date: '2026-08-01T07:35:00Z'
 status: 'complete'
-rule_count: 19
+rule_count: 20
 optimized_for_llm: true
 sections_completed:
   - 'technology_stack'
@@ -71,6 +71,7 @@ The following documents contain detailed specifications, architectures, and desi
 - **Database Access (Drizzle ORM):** All database access **must** be handled through the Drizzle ORM. Do not use the Supabase client for data queries.
 - **Optimized DB Queries:** To prevent over-fetching from the database, GraphQL resolvers running in AWS Lambda **must** dynamically build Drizzle queries to select only the specific fields requested in the GraphQL operation. This **must** be implemented using a generic, strictly-typed function named `buildOptimizedDrizzleSelect` that translates GraphQL AST into an optimized Drizzle `select` query, ensuring this optimization is reused whenever reading data.
 - **Database Indexing for Performance:** To ensure fast query performance for search and filtering, database columns that are frequently used in `WHERE` clauses **must** be indexed. This specifically includes columns for `eventName`, `performers`, `location`, `types`, and `categories`.
+- **Soft-Delete Convention:** Tables that support removal (`EventInfo`, `Favorite`, `CalendarEntry`, `Subscription`, `ApiKey` — see Architecture Spine AD-8) **must** use a `deletedAt: timestamp | null` column instead of hard deletes. All Drizzle queries against these tables **must** default to `deletedAt IS NULL` (enforced once in `buildOptimizedDrizzleSelect`, not per-resolver); only explicit admin/moderator read paths may include soft-deleted rows. Index these tables with **partial indexes** scoped to `WHERE deleted_at IS NULL` on their hot lookup columns, not a bare index on `deleted_at` — e.g. `CREATE INDEX idx_favorite_active ON favorite (user_id) WHERE deleted_at IS NULL;`.
 
 ### Security
 - **Credential Management:** Important credentials (e.g. `DATABASE_URL`, API keys) **must** be stored securely in `.env` files and never be hardcoded or have fallback default values in code.
@@ -140,4 +141,4 @@ To avoid monolithic global stores and ensure strict end-to-end typing, the appli
 - Update when the technology stack or core patterns change.
 - Review quarterly to remove rules that have become obvious or obsolete.
 
-_Last Updated: 2026-07-22T22:15:00Z_
+_Last Updated: 2026-08-01T07:35:00Z_

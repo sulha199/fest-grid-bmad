@@ -84,6 +84,8 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **FR63:** Free signup for the web application.
 - **FR64:** Users can optionally integrate their own BYOK Gemini API key.
 - **FR65:** Provide guides for setting up BYOK.
+- **FR66:** Users can edit an already-subscribed account's "Default Location"; the change applies immediately, with no pre-approval gate.
+- **FR67:** Moderators are notified by email when an account's "Default Location" is changed, and can accept or revert the change from Moderator Tools.
 
 ### NonFunctional Requirements
 - **NFR1:** Event discovery page should load in under 2 seconds on a standard 4G connection.
@@ -208,6 +210,8 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR63: Epic 1 - Core App and Event Discovery
 - FR64: Epic 5 - Onboarding and Manual Event Extraction
 - FR65: Epic 5 - Onboarding and Manual Event Extraction
+- FR66: Epic 3 - Social Media Event Integration
+- FR67: Epic 4 - Data Quality and Moderation
 
 ## Epic List
 
@@ -904,7 +908,7 @@ Users can personalize their experience by saving favorite events and locations.
 ### Epic 3: Social Media Event Integration
 
 Users can subscribe to social media accounts to import events into their feed.
-**FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37
+**FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37, FR66
 
 ### Story 3.1: Onboarding wizard for API key and subscriptions
 
@@ -942,16 +946,19 @@ Users can subscribe to social media accounts to import events into their feed.
 ### Story 3.3: Set a default location for a subscription
 
 **As a** user,
-**I want** to be able to set a default location when I subscribe to a social media account,
+**I want** to be able to set a default location when I subscribe to a social media account that doesn't have one yet,
 **So that** the system can use this location if it cannot find an explicit location in a post.
 
 **Acceptance Criteria:**
 
-*   **Given** I am subscribing to a new social media account,
+*   **Given** I am subscribing to a social media account whose `SocialMediaAccountProfile.defaultLocation` is not yet set,
 *   **When** I am filling out the subscription form,
-*   **Then** I have an optional field to set a default location for this subscription.
+*   **Then** I have an optional field to set a default location for that account.
 *   **And** if a default location is set, the AI agent will use it when it cannot find an explicit location in a post.
-*   **And** the default location, when set, is persisted via the same backend GraphQL mutation used by Story 3.2 — not a direct database write from `apps/web`.
+*   **And** the default location, when set, is persisted on the `SocialMediaAccountProfile` (not the subscription) via the same backend GraphQL mutation used by Story 3.2 — not a direct database write from `apps/web`.
+*   **And** if the account already has a `defaultLocation` set (by any previous subscriber), this field is read-only here, showing the existing value — editing an already-set default location is Story 3.3b, not this story.
+
+**Amendment (2026-08-01):** This story originally scoped `defaultLocation` as per-subscription, set once at signup. Architecture review found that AI extraction runs once per post for accounts with multiple subscribers (PRD §3.7 Tier 2 round-robin), so a per-subscriber default would be ambiguous about which value applies to the shared extracted event. `defaultLocation` moved to `SocialMediaAccountProfile` (PRD §4.5) — account-level, shared across all subscribers. This story is narrowed to the "no default exists yet" path (first subscriber sets it, no moderation needed since there's no prior value to protect); editing an existing default location is out of scope here and covered by the new Story 3.3b, which also adds moderator oversight since that path can silently change what every other subscriber sees.
 
 ### Story 3.3a: Create posts table and persist scraped posts
 
@@ -972,6 +979,24 @@ Users can subscribe to social media accounts to import events into their feed.
 **Amendment (2026-08-01):** This story's original scope included creating the `posts` table from scratch (first AC below). That table is now created earlier by Story 1.2a, surfaced by a Data Type Compatibility gap found while creating Story 1.3b (`EventCard`) — Epic 1 needs real event images sooner than Epic 3's scraping pipeline would otherwise exist to provide them. This story's remaining scope is narrowed to the actual scraping-persistence write path (Story 3.4's writes into the `posts` table) and the `is_extracted` status-update logic (Stories 3.6/3.6b) against the table Story 1.2a already created — the migration itself is no longer this story's deliverable. The AC below is left as-is to document the full target table shape (already satisfied by Story 1.2a); only the "who creates it" ownership changed.
 
 **Depends on:** Story 1.1, Story 1.2a.
+
+### Story 3.3b: Edit an account's default location
+
+**As a** user,
+**I want** to be able to view and edit the default location already set for a social media account I'm subscribed to,
+**So that** I can correct or update it if it's wrong or outdated.
+
+**Acceptance Criteria:**
+
+*   **Given** I am subscribed to a social media account that already has a `defaultLocation` set (Story 3.3),
+*   **When** I edit its default location and save,
+*   **Then** the change is persisted to `SocialMediaAccountProfile.defaultLocation` immediately — there is no pre-approval gate blocking the save (FR66).
+*   **And** the edit is performed via a backend GraphQL mutation, guarded by `requireAuth` (Story 0.17) — not a direct database write from `apps/web`.
+*   **And** the mutation records a `DefaultLocationChangeRequest` row (PRD §4.14) capturing `accountId`, `changedByUserId`, `previousLocation`, `newLocation`, and `status: PENDING_REVIEW`.
+*   **And** saving the change triggers an email notification to moderators, per FR67 — reusing this project's existing email notification infrastructure (Story 3.x quota-notification emails) rather than introducing a new email pathway.
+*   **And** every subscriber of this account will see the new `defaultLocation` applied to subsequent extractions, since the field is account-level, not per-subscriber (Story 3.3's amendment).
+
+**Depends on:** Story 3.3, Story 0.17.
 
 ### Story 3.4: Scrape new posts from subscribed accounts
 
@@ -1106,7 +1131,7 @@ Users can subscribe to social media accounts to import events into their feed.
 ### Epic 4: Data Quality and Moderation
 
 Users can contribute to data quality by correcting event details and reporting issues.
-**FRs covered:** FR38, FR39, FR40, FR41, FR42, FR43, FR44, FR45, FR46, FR47, FR48, FR49, FR50
+**FRs covered:** FR38, FR39, FR40, FR41, FR42, FR43, FR44, FR45, FR46, FR47, FR48, FR49, FR50, FR67
 
 ### Story 4.1a: Build the corrections backend GraphQL API layer
 
@@ -1278,8 +1303,10 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **Then** I see a list of all reported events that require my attention, fetched via the moderator-only `reportedEvents` query (Story 4.3a) — not directly from the database.
 *   **And** for each reported event, I can see the reason for the report and any additional details.
 *   **And** I can take action on the report, such as marking an event as safe, restoring a soft-deleted event, or permanently deleting an event, using Story 4.3a's report-resolution mutations and Story 4.4a's `restoreEvent`/`deleteEventPermanently` mutations — not direct database access from `apps/web`.
+*   **And** I also see a separate list of pending `DefaultLocationChangeRequest` rows (status `PENDING_REVIEW`, PRD §4.14) awaiting my review, fetched via a moderator-only `pendingDefaultLocationChanges` query, gated by `requireModerator` (Story 0.17) per Architecture Spine AD-7 rule 5.
+*   **And** for each pending change, I can see the `accountId`, `previousLocation`, and `newLocation`, and either **accept** it (setting `status: ACCEPTED`, leaving `SocialMediaAccountProfile.defaultLocation` as `newLocation`) or **revert** it (setting `status: REVERTED` and writing `SocialMediaAccountProfile.defaultLocation` back to `previousLocation`), via a `resolveDefaultLocationChange(id, action)` mutation guarded by `requireModerator`.
 
-**Depends on:** Story 4.3a, Story 4.4a, Story 0.17.
+**Depends on:** Story 4.3a, Story 4.4a, Story 3.3b, Story 0.17.
 
 ### Epic 5: Onboarding and Manual Event Extraction
 

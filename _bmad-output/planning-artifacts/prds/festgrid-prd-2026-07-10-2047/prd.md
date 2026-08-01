@@ -7,7 +7,7 @@ status: "draft"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-08-01T01:45:00Z"
+updated: "2026-08-01T07:15:00Z"
 
 ---
 
@@ -66,6 +66,8 @@ This feature allows users to curate their event feed by subscribing to specific 
 
 *   **Account Subscription:** Users can subscribe to desired social media accounts by providing their own Gemini API Key (BYOK). Event data from these subscribed accounts will be processed by an AI agent to extract event details. For accounts subscribed to by multiple users, the system will intelligently utilize any valid API key from contributing users to optimize data extraction and distribute quota usage.
     *   **Default Location for Subscriptions:** To handle cases where an event's location is implicit (e.g., an event at a mall posted on the mall's social media), users can optionally set a "Default Location" when subscribing to an account. If the AI agent does not find an explicit location in a post, it will use this default location for the event.
+        *   **Shared, Account-Level Setting:** A "Default Location" belongs to the social media account, not to an individual subscriber — because AI extraction runs once per post for accounts with multiple subscribers, a per-subscriber default would be ambiguous about which value applies to the resulting event. Any subscriber may set it if unset.
+        *   **Immediate Apply with Moderator Oversight:** Editing a "Default Location" takes effect immediately, with no pre-approval gate — extraction is not blocked waiting on review. When a change is made, moderators are notified by email and can, from Moderator Tools (Section 3.9.3), accept the change or revert the account to its previous default location.
 *   **Quota Management & Notifications:**
 *   **Email Notifications:** Users will receive email notifications if `X` of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
 *   **In-App Queue Status:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user, providing transparency on API key performance and quota impact.
@@ -148,7 +150,7 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 #### 3.9.3 User and Moderator Interfaces
 
 *   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
-*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database.
+*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database. In addition to user reports, this page surfaces pending "Default Location" changes (Section 3.7) for a moderator to accept or revert.
 
 ### 3.10 Manual Post Selection for Event Extraction
 
@@ -300,6 +302,12 @@ interface EventInfo {
    * This is a user-contextual field added at runtime.
    */
   isAddedToCalendar?: boolean;
+  /**
+   * Timestamp of a soft-delete (e.g., an upheld cancellation report, Section 3.9.2).
+   * Absent/undefined means the event is active. Soft-deleted events are excluded
+   * from all discovery/list views by default.
+   */
+  deletedAt?: string;
 }
 ```
 
@@ -400,6 +408,10 @@ interface Schedule {
    * A unique, URL-friendly slug initially generated using Nano ID, with support for manual custom modification post-MVP.
    */
    slug: string;
+  /**
+   * The ID of the parent `EventInfo` this schedule belongs to.
+   */
+   eventId: string;
   }
   ```
 
@@ -445,6 +457,16 @@ interface SocialMediaAccountProfile {
    * The date of the last post from this account. Used to identify inactive accounts.
    */
   lastPostDate?: string;
+  /**
+   * The default location used to backfill an event's location when a post's
+   * location is implicit (Section 3.7). Account-level and shared across every
+   * subscriber of this account — not per-user — because AI extraction runs once
+   * per post for shared accounts, so a per-subscriber value would be ambiguous
+   * about which one applies. Changing it applies immediately; see Section 3.7
+   * for the moderator notify/accept/revert flow, and `DefaultLocationChangeRequest`
+   * (Section 4.14) for the audit trail.
+   */
+  defaultLocation?: LocationDetails;
 }
 ```
 
@@ -508,9 +530,254 @@ interface Post {
    * True if the post has already been processed and an event has been extracted.
    */
   isExtracted?: boolean;
+  /**
+   * The ID of the `SocialMediaAccountProfile` (Section 4.5) that published this post.
+   */
+  accountId: string;
 }
 ```
-  
+
+### 4.8. User Interface
+
+```typescript
+enum UserTier {
+  CONTRIBUTING_USER,  // BYOK, Phase 1 (Section 6)
+  FREE_USER,          // managed key pool, Phase 2 (Section 6)
+}
+
+enum UserRole {
+  USER,
+  MODERATOR,          // assigned manually via the database for MVP (Section 3.9.3)
+}
+
+/**
+ * Represents a platform user. `id` mirrors the Supabase Auth user ID (1:1) —
+ * this interface holds the app-domain profile data that Auth itself doesn't own.
+ */
+interface User {
+  id: string;
+  email: string;
+  displayName?: string;
+  tier: UserTier;
+  role: UserRole;
+  /**
+   * Fallback timezone used for event timezone inference when location-based
+   * lookup is unavailable or ambiguous (Section 3.7, "User's Timezone").
+   */
+  timezone?: string;
+  /**
+   * The user's preferred locale.
+   */
+  locale?: string; // 'en' | 'id' (Section 5, Internationalization)
+  createdAt: string;
+}
+```
+
+### 4.9. Subscription Interface
+
+```typescript
+/**
+ * Join entity representing a user's subscription to a `SocialMediaAccountProfile`
+ * (Section 4.5). A single account can have many subscribing users (Section 3.7).
+ */
+interface Subscription {
+  id: string;
+  /**
+   * The ID of the subscribing `User` (Section 4.8).
+   */
+  userId: string;
+  /**
+   * The ID of the `SocialMediaAccountProfile` (Section 4.5) being subscribed to.
+   */
+  accountId: string;
+  createdAt: string;
+  /**
+   * Timestamp of a soft-delete. Unsubscribing sets this instead of removing the row,
+   * preserving history for quota/fairness accounting (Section 3.7).
+   */
+  deletedAt?: string;
+}
+```
+
+### 4.10. Favorite Interface
+
+```typescript
+/**
+ * Join entity representing a user's favorited event (Section 3.2.1). Unique per
+ * (userId, eventId).
+ */
+interface Favorite {
+  id: string;
+  /**
+   * The ID of the `User` (Section 4.8) who favorited the event.
+   */
+  userId: string;
+  /**
+   * The ID of the favorited `EventInfo` (Section 4.1).
+   */
+  eventId: string;
+  createdAt: string;
+  /**
+   * Timestamp of a soft-delete. Un-favoriting sets this instead of removing the
+   * row; re-favoriting clears it rather than inserting a new row.
+   */
+  deletedAt?: string;
+}
+```
+
+### 4.11. CalendarEntry Interface
+
+```typescript
+/**
+ * Join entity representing a single schedule a user has added to their calendar
+ * (Section 3.3.1). One row per schedule, not per event, because users select
+ * which specific schedules to add and the calendar view treats each `Schedule`
+ * as its own clickable item (Section 3.7). Unique per (userId, scheduleId).
+ */
+interface CalendarEntry {
+  id: string;
+  /**
+   * The ID of the `User` (Section 4.8) who added the schedule.
+   */
+  userId: string;
+  /**
+   * The ID of the parent `EventInfo` (Section 4.1). Denormalized from `scheduleId`
+   * to support querying "all added schedules for this event" directly.
+   */
+  eventId: string;
+  /**
+   * The ID of the added `Schedule` (Section 4.4).
+   */
+  scheduleId: string;
+  createdAt: string;
+  /**
+   * Timestamp of a soft-delete. Removing an event from the calendar sets this
+   * instead of removing the row.
+   */
+  deletedAt?: string;
+}
+```
+
+### 4.12. Report Interface
+
+```typescript
+enum ReportReason {
+  CANCELLED,
+  DANGEROUS,
+  PERSONAL,
+}
+
+enum ReportStatus {
+  PENDING,    // awaiting threshold (cancelled) or moderator action (dangerous)
+  UPHELD,     // event soft-deleted / kept hidden
+  DISMISSED,  // moderator restored the event / marked it safe
+}
+
+/**
+ * Represents a user report against an event (Section 3.9.2), and its
+ * moderation outcome.
+ */
+interface Report {
+  id: string;
+  /**
+   * The ID of the reported `EventInfo` (Section 4.1).
+   */
+  eventId: string;
+  /**
+   * The ID of the `User` (Section 4.8) who filed the report.
+   */
+  reportingUserId: string;
+  reason: ReportReason;
+  status: ReportStatus;
+  createdAt: string;
+  /**
+   * The ID of the moderator `User` (role = MODERATOR) who resolved the report, if any.
+   */
+  resolvedByModeratorId?: string;
+  resolvedAt?: string;
+}
+```
+
+### 4.13. ApiKey Interface
+
+```typescript
+enum ApiKeyStatus {
+  VALID,
+  INVALID,
+}
+
+/**
+ * Represents a user-contributed BYOK API key (Section 3.7, 3.11). `encryptedKey`
+ * is KMS ciphertext only — decrypted in memory at call time, never logged or
+ * stored in plaintext (see Section 5, Security).
+ */
+interface ApiKey {
+  id: string;
+  /**
+   * The ID of the owning `User` (Section 4.8).
+   */
+  userId: string;
+  /**
+   * The external AI service this key belongs to (e.g. "gemini"). A string rather
+   * than an enum so the Adapter pattern (Section 5) can add providers without a
+   * schema migration.
+   */
+  provider: string;
+  encryptedKey: string;
+  status: ApiKeyStatus;
+  /**
+   * Consecutive invalid-key attempts. Reset to 0 on successful extraction;
+   * triggers a notification at the configurable threshold `N` (default 5, Section 3.7).
+   */
+  consecutiveInvalidAttempts: number;
+  /**
+   * Internal usage count for the current billing cycle, feeding the Tier 2
+   * round-robin fairness algorithm (Section 3.7).
+   */
+  usageCountCurrentCycle: number;
+  billingCycleResetAt: string;
+  createdAt: string;
+}
+```
+
+### 4.14. DefaultLocationChangeRequest Interface
+
+```typescript
+enum DefaultLocationChangeStatus {
+  PENDING_REVIEW,
+  ACCEPTED,
+  REVERTED,
+}
+
+/**
+ * Audit and moderation-queue record for edits to
+ * `SocialMediaAccountProfile.defaultLocation` (Section 4.5). The change applies
+ * immediately on write; this record is what a moderator reviews and acts on —
+ * accepting keeps `newLocation`, reverting restores `previousLocation`
+ * (Section 3.7, Section 3.9.3).
+ */
+interface DefaultLocationChangeRequest {
+  id: string;
+  /**
+   * The ID of the affected `SocialMediaAccountProfile` (Section 4.5).
+   */
+  accountId: string;
+  /**
+   * The ID of the `User` (Section 4.8) who made the change.
+   */
+  changedByUserId: string;
+  previousLocation?: LocationDetails;
+  newLocation: LocationDetails;
+  status: DefaultLocationChangeStatus;
+  /**
+   * The ID of the moderator `User` (role = MODERATOR) who reviewed the change, if any.
+   */
+  reviewedByModeratorId?: string;
+  reviewedAt?: string;
+  createdAt: string;
+}
+```
+
 ## 5. Non-Functional Requirements
 
 ### Performance

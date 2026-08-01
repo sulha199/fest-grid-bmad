@@ -102,6 +102,7 @@ development_status:
   3-2-subscribe-to-a-social-media-account: backlog
   3-3-set-a-default-location-for-a-subscription: backlog
   3-3a-create-posts-table-and-persist-scraped-posts: backlog
+  3-3b-edit-an-accounts-default-location: backlog
   3-4-scrape-new-posts-from-subscribed-accounts: backlog
   3-5-add-new-posts-to-a-processing-queue: backlog
   3-6-process-posts-from-the-queue-and-extract-event-information: ready-for-dev
@@ -122,6 +123,7 @@ development_status:
   4-5-handle-dangerous-event-reports: backlog
   4-6-users-reports-page: backlog
   4-7-moderator-items-page: backlog
+  # 4-7-moderator-items-page scope extended to include DefaultLocationChangeRequest review (see epics.md)
   epic-4-retrospective: optional
   epic-5: backlog
   5-1a-build-the-manual-post-selection-and-extraction-graphql-api-layer: backlog

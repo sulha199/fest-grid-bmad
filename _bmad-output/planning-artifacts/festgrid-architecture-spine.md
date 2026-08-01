@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestGrid"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-08-01T00:40:00Z"
+updated: "2026-08-01T07:30:00Z"
 ---
 
 # Architecture Spine: FestGrid
@@ -124,6 +124,24 @@ This document defines the core architectural invariants for the FestGrid applica
     2.  **`public.users.id === auth.users.id`:** The application's `users` table is keyed identically to Supabase Auth's own user ID. When a verified JWT's `sub` has no matching `users` row yet, the row is just-in-time provisioned using that `sub` as the explicit primary key (never relying on a database-generated default) — no separate bridging/lookup column exists or is needed.
     3.  **Single enforcement surface:** `requireAuth`/`requireModerator` (exported once from the backend's auth-context layer) are the only sanctioned way for a resolver to enforce "caller must be logged in" / "caller must be a moderator." Individual resolvers must import and call these rather than re-implementing equivalent checks.
     4.  **Role model:** Application-level authorization uses the `users.role` column (`user` | `moderator`, assigned manually via direct database access per the PRD's MVP scope — no self-service promotion). This is distinct from Supabase's own JWT `role` claim, which reflects the caller's Postgres role (`authenticated`/`anon`/`service_role`) for Supabase's Row Level Security and must never be used for application-level authorization decisions.
+    5.  **New moderator-gated resources extend, not bypass, this surface:** e.g. accepting/reverting a `DefaultLocationChangeRequest` (PRD Section 4.14) is gated by the same `requireModerator` check as report moderation — a new resource type, not a new enforcement mechanism.
+
+---
+
+### AD-8: Soft-Delete Convention
+
+*   **Binds:** All reads and writes against `EventInfo`, `Favorite`, `CalendarEntry`, `Subscription`, and `ApiKey` (PRD Section 4).
+*   **Prevents:** Hard deletes on these tables, and any read path that bypasses the active-rows-only default — which would silently resurface data a user removed or a moderator reverted.
+*   **Rule:**
+    1.  **Field:** Each table carries `deletedAt: timestamp | null`. `null`/absent means the row is active.
+    2.  **Query default:** The `Unified Query DSL` (AD-1) and `Unified Event Querying` (AD-2) apply an implicit `deletedAt IS NULL` condition on these tables for every query, enforced once in the shared query-building layer — never per-resolver. A caller must explicitly opt in to see soft-deleted rows (e.g., the Moderator Items screen).
+    3.  **Indexing:** Use Postgres partial indexes scoped to active rows (`WHERE deleted_at IS NULL`) on each table's hot lookup columns, rather than a bare index on `deleted_at` — the default-excluded majority of queries benefit from the partial index; the low-volume moderator/admin paths that need soft-deleted rows can fall back to a sequential scan or a dedicated index.
+
+        ```sql
+        CREATE INDEX idx_favorite_active ON favorite (user_id) WHERE deleted_at IS NULL;
+        CREATE INDEX idx_calendar_entry_active ON calendar_entry (user_id, schedule_id) WHERE deleted_at IS NULL;
+        CREATE INDEX idx_subscription_active ON subscription (user_id, account_id) WHERE deleted_at IS NULL;
+        ```
 
 ---
 
