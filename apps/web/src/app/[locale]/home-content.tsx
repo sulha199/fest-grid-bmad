@@ -3,30 +3,50 @@
 import { useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, InfiniteData } from "@tanstack/react-query"
-import { EventCard, useInfiniteScroll, SearchBar } from "@festgrid/ui"
+import { EventCard, useInfiniteScroll, SearchBar, FilterHub } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
-import { useQueryState, parseAsString } from "nuqs"
+import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs"
 import { usePostHog } from "@festgrid/analytics"
 
-function buildEventsQuery({ search }: { search: string }): EventQueryConditionInput | undefined {
-  if (!search.trim()) {
+function buildEventsQuery({ search, types, categories }: { search: string, types: string[], categories: string[] }): EventQueryConditionInput | undefined {
+  const conditions: EventQueryConditionInput[] = []
+
+  if (search.trim()) {
+    conditions.push({
+      operator: "or",
+      conditions: [
+        { field: "eventName", operator: "contains", value: search },
+        { field: "performers", operator: "contains", value: search },
+        { field: "location", operator: "contains", value: search },
+      ]
+    })
+  }
+
+  if (types.length > 0) {
+    conditions.push({
+      field: "types",
+      operator: "in",
+      value: types
+    })
+  }
+
+  if (categories.length > 0) {
+    conditions.push({
+      field: "categories",
+      operator: "in",
+      value: categories
+    })
+  }
+
+  if (conditions.length === 0) {
     return undefined
   }
   
   return {
     operator: "and",
-    conditions: [
-      {
-        operator: "or",
-        conditions: [
-          { field: "eventName", operator: "contains", value: search },
-          { field: "performers", operator: "contains", value: search },
-          { field: "location", operator: "contains", value: search },
-        ]
-      }
-    ]
+    conditions
   }
 }
 
@@ -48,8 +68,12 @@ function buildEnumLabels(values: string[], translate: (key: string) => string) {
 export function HomeContent() {
   const t = useTranslations('DiscoveryPage')
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
+  const [types] = useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))
+  const [categories] = useQueryState('categories', parseAsArrayOf(parseAsString).withDefault([]))
+  
   const tCategory = useTranslations('EventCategory')
   const tType = useTranslations('EventType')
+  const tFilterHub = useTranslations('FilterHub')
 
   const categoryLabels = useMemo(
     () => buildEnumLabels(Object.values(EventCategory), tCategory),
@@ -62,6 +86,26 @@ export function HomeContent() {
 
   const posthog = usePostHog()
 
+  const filterLabels = useMemo(() => ({
+    typeLabel: tFilterHub('typeLabel'),
+    categoryLabel: tFilterHub('categoryLabel'),
+    clearLabel: tFilterHub('clearLabel'),
+  }), [tFilterHub])
+
+  const typesOptions = useMemo(() => Object.values(EventType).map(value => ({
+    value,
+    label: typeLabels[value] || value
+  })), [typeLabels])
+
+  const categoriesOptions = useMemo(() => Object.values(EventCategory).map(value => ({
+    value,
+    label: categoryLabels[value] || value
+  })), [categoryLabels])
+
+  const handleFilterChange = (newTypes: string[], newCategories: string[]) => {
+    posthog.capture('filter_applied', { types: newTypes, categories: newCategories })
+  }
+
   const {
     data,
     fetchNextPage,
@@ -70,12 +114,12 @@ export function HomeContent() {
     status,
     error
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ['events', { q }],
+    queryKey: ['events', { q, types, categories }],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
         offset: pageParam as number,
-        query: buildEventsQuery({ search: q })
+        query: buildEventsQuery({ search: q, types, categories })
       })
     },
     initialPageParam: 0,
@@ -104,13 +148,22 @@ export function HomeContent() {
     <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold">{t('title')}</h1>
 
-      <SearchBar
-        query={q}
-        onChange={() => {}} // Internal state only, URL updates on submit per AC1
-        onSubmit={handleSearchSubmit}
-        placeholder={t('searchPlaceholder')}
-        clearLabel={t('searchClearLabel')}
-      />
+      <div className="flex flex-col gap-6">
+        <SearchBar
+          query={q}
+          onChange={() => {}} // Internal state only, URL updates on submit per AC1
+          onSubmit={handleSearchSubmit}
+          placeholder={t('searchPlaceholder')}
+          clearLabel={t('searchClearLabel')}
+        />
+
+        <FilterHub
+          labels={filterLabels}
+          types={typesOptions}
+          categories={categoriesOptions}
+          onChange={handleFilterChange}
+        />
+      </div>
 
       {status === 'pending' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

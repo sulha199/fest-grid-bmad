@@ -5,6 +5,11 @@
     "discoveryTitle": "Discover Events | FestDaily",
     "discoveryDescription": "Browse and search for upcoming events on FestDaily."
   },
+  "FilterHub": {
+    "typeLabel": "Type",
+    "categoryLabel": "Category",
+    "clearLabel": "Clear filters"
+  },
   "DiscoveryPage": {
     "title": "Discover Events",
     "errorState": "Failed to load events. Please try again later.",

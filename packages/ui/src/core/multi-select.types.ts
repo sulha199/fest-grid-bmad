@@ -32,4 +32,8 @@ export interface MultiSelectProps {
      */
     clearLabel?: string;
   };
+  /**
+   * If true, hides the individual clear action button.
+   */
+  hideClearAction?: boolean;
 }

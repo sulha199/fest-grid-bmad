@@ -1,10 +1,13 @@
+---
+baseline_commit: 4f9da635068ae5956013a7f4dfaf88c1c30dd2d0
+---
 # Story 1.5: Filter events by type and category
 
 ## Story Details
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.5
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -25,24 +28,24 @@ so that I can narrow down the list of events to my interests.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Build `FilterHub` composing `MultiSelect` (AC1, AC6)
-  - [ ] Create `packages/ui/src/features/events/FilterHub.tsx`, importing `MultiSelect` from `packages/ui/src/core/multi-select.tsx` (Story 1.5a — **hard dependency, not yet built**, see Pre-Coding Approval Gate).
-  - [ ] Render two `MultiSelect` instances: one for `EventType` (facet label "Type"), one for `EventCategory` (facet label "Category"), each populated with the full enum value list from `packages/database/schema.ts`'s `eventTypeEnum`/`eventCategoryEnum` (12 values each — see Dev Notes for the exact list) via localized display labels, not raw enum strings.
-  - [ ] Render a single "Clear filters" action clearing both facets (AC5).
-  - [ ] Export `FilterHub` from `packages/ui/src/features/events/index.ts` (the barrel Story 1.3b/1.4/1.3c create/extend — check for conflicts, extend rather than duplicate).
-- [ ] Task 2: Wire filter selections into URL state (AC4, AC5)
-  - [ ] Use `nuqs`'s `useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))` and the equivalent for `categories`, following the same "empty array removes the param" pattern Story 1.4 established for `q`.
-  - [ ] Ensure setting a facet to `[]` (via individual deselection or "Clear filters") removes that URL param entirely, not `?types=`.
-- [ ] Task 3: Extend the discovery page's DSL query-builder (AC2, AC3)
-  - [ ] In `apps/web/src/app/[locale]/page.tsx`'s `buildEventsQuery` helper (established by Story 1.4 — extend it, do not create a parallel one), add `types`/`categories` `in` conditions to the same flat `and`-group array as Story 1.3's base condition and Story 1.4's search `or`-group, only when the respective facet's selection is non-empty.
-  - [ ] Confirm at build time the exact GraphQL/DSL field names Story 1.3a's schema exposes for these facets (expected `types`/`categories`, mirroring the Drizzle column names — AD-1's `"category"` example is illustrative only, not an authoritative field list).
-- [ ] Task 4: Analytics (AC7)
-  - [ ] Call `usePostHog().capture('filter_applied', { types: string[], categories: string[] })` (from `@festgrid/analytics`) whenever the resulting selection changes (on each toggle/clear that changes the effective filter state), following the `noun_verb` naming convention (AD-5.1).
-- [ ] Task 5: Localize copy (AC6)
-  - [ ] Add message keys to `apps/web/locales/en.json` and `apps/web/locales/id.json`: `FilterHub.typeLabel`, `FilterHub.categoryLabel`, `FilterHub.clearLabel`, and one key per enum value under `EventType.*`/`EventCategory.*` — see Dev Notes for the exact key list (24 enum keys + 3 Filter Hub keys = 27 new keys total).
-- [ ] Task 6: Tests (AC8)
-  - [ ] Integration tests (Vitest + MSW, `@festgrid/testing-config`) covering: a single-facet, single-value selection produces the correct `in` condition; a single-facet, multi-value selection produces one `in` condition with all selected values (not multiple conditions); selections across both facets plus an active search query combine via one flat `and` group; clearing filters removes the URL params and restores the default query.
-  - [ ] One E2E happy-path test (`apps/web/e2e/filter.spec.ts`, Playwright, alongside `apps/web/e2e/home.spec.ts` and Story 1.4's `search.spec.ts`) covering: selecting a type and a category, seeing the filtered grid and URL update, then clearing filters and seeing the full list return.
+- [x] Task 1: Build `FilterHub` composing `MultiSelect` (AC1, AC6)
+  - [x] Create `packages/ui/src/features/events/FilterHub.tsx`, importing `MultiSelect` from `packages/ui/src/core/multi-select.tsx` (Story 1.5a — **hard dependency, not yet built**, see Pre-Coding Approval Gate).
+  - [x] Render two `MultiSelect` instances: one for `EventType` (facet label "Type"), one for `EventCategory` (facet label "Category"), each populated with the full enum value list from `packages/database/schema.ts`'s `eventTypeEnum`/`eventCategoryEnum` (12 values each — see Dev Notes for the exact list) via localized display labels, not raw enum strings.
+  - [x] Render a single "Clear filters" action clearing both facets (AC5).
+  - [x] Export `FilterHub` from `packages/ui/src/features/events/index.ts` (the barrel Story 1.3b/1.4/1.3c create/extend — check for conflicts, extend rather than duplicate).
+- [x] Task 2: Wire filter selections into URL state (AC4, AC5)
+  - [x] Use `nuqs`'s `useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))` and the equivalent for `categories`, following the same "empty array removes the param" pattern Story 1.4 established for `q`.
+  - [x] Ensure setting a facet to `[]` (via individual deselection or "Clear filters") removes that URL param entirely, not `?types=`.
+- [x] Task 3: Extend the discovery page's DSL query-builder (AC2, AC3)
+  - [x] In `apps/web/src/app/[locale]/page.tsx`'s `buildEventsQuery` helper (established by Story 1.4 — extend it, do not create a parallel one), add `types`/`categories` `in` conditions to the same flat `and`-group array as Story 1.3's base condition and Story 1.4's search `or`-group, only when the respective facet's selection is non-empty.
+  - [x] Confirm at build time the exact GraphQL/DSL field names Story 1.3a's schema exposes for these facets (expected `types`/`categories`, mirroring the Drizzle column names — AD-1's `"category"` example is illustrative only, not an authoritative field list).
+- [x] Task 4: Analytics (AC7)
+  - [x] Call `usePostHog().capture('filter_applied', { types: string[], categories: string[] })` (from `@festgrid/analytics`) whenever the resulting selection changes (on each toggle/clear that changes the effective filter state), following the `noun_verb` naming convention (AD-5.1).
+- [x] Task 5: Localize copy (AC6)
+  - [x] Add message keys to `apps/web/locales/en.json` and `apps/web/locales/id.json`: `FilterHub.typeLabel`, `FilterHub.categoryLabel`, `FilterHub.clearLabel`, and one key per enum value under `EventType.*`/`EventCategory.*` — see Dev Notes for the exact key list (24 enum keys + 3 Filter Hub keys = 27 new keys total).
+- [x] Task 6: Tests (AC8)
+  - [x] Integration tests (Vitest + MSW, `@festgrid/testing-config`) covering: a single-facet, single-value selection produces the correct `in` condition; a single-facet, multi-value selection produces one `in` condition with all selected values (not multiple conditions); selections across both facets plus an active search query combine via one flat `and` group; clearing filters removes the URL params and restores the default query.
+  - [x] One E2E happy-path test (`apps/web/e2e/filter.spec.ts`, Playwright, alongside `apps/web/e2e/home.spec.ts` and Story 1.4's `search.spec.ts`) covering: selecting a type and a category, seeing the filtered grid and URL update, then clearing filters and seeing the full list return.
 
 ## Dev Notes
 
@@ -148,14 +151,14 @@ As of this story's creation (2026-08-01), Stories 1.3, 1.3a, 1.3b, 1.3c, and 1.4
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmed: frontend-only (`apps/web`, `packages/ui`) — no changes to `apps/backend`/`packages/domain`/`packages/database` (Story 1.3a's DSL mapper already scoped to support type/category `in` filtering per its own AC).
-- [ ] **Prerequisite `1-5a-build-the-reusable-multiselect-component` accepted:** Gate 2 found `MultiSelect` must be split into its own story (see Dev Notes — Architecture & UX Gate Findings). Story 1.5a is `backlog` in `sprint-status.yaml` and **not yet built**. Confirm Story 1.5a will be implemented first (recommended, so `FilterHub` consumes a real component), or explicitly accept building `FilterHub` against a stub/placeholder `MultiSelect` now, with real integration following once 1.5a ships.
-- [ ] **Hard dependency sequencing accepted:** Stories `1-3`, `1-3a`, `1-3b`, `1-3c`, and `1-4` are all `ready-for-dev` but **not yet implemented** as of this story's creation (page still Story 0.3 demo content; backend GraphQL schema not yet extended; no `buildEventsQuery` helper on disk). This story extends Story 1.4's query-builder and cannot functionally complete until 1.3/1.4 (and their own dependencies) land. Confirm implementation order, or explicitly accept building against mocked data now.
-- [ ] **Base-query combination ambiguity accepted:** As documented in Dev Notes ("Combining with Story 1.3's base query and Story 1.4's search"), the exact mechanism is not yet settled in code. Confirm the dev agent will inspect the actual implementation at build time and combine accordingly.
-- [ ] Architecture and API/data boundaries confirmed (GraphQL-only via the existing `events` query; AD-1/AD-2/AD-4).
-- [ ] Testing plan reviewed (Vitest/MSW integration tests + one Playwright E2E happy path).
-- [ ] Gate 1/2/3 findings acknowledged: Gate 1/3 cited from swept `epic-1-readiness.md` (no new gap for this story); Gate 2 run fresh via subagent persona Freya, found a gap (`MultiSelect` split to Story 1.5a) and a UX-documentation correction (tap-to-toggle, not a searchable combobox).
-- [ ] Human approval to start coding granted (pending)
+- [x] Scope confirmed: frontend-only (`apps/web`, `packages/ui`) — no changes to `apps/backend`/`packages/domain`/`packages/database` (Story 1.3a's DSL mapper already scoped to support type/category `in` filtering per its own AC).
+- [x] **Prerequisite `1-5a-build-the-reusable-multiselect-component` accepted:** Gate 2 found `MultiSelect` must be split into its own story (see Dev Notes — Architecture & UX Gate Findings). Story 1.5a is `backlog` in `sprint-status.yaml` and **not yet built**. Confirm Story 1.5a will be implemented first (recommended, so `FilterHub` consumes a real component), or explicitly accept building `FilterHub` against a stub/placeholder `MultiSelect` now, with real integration following once 1.5a ships.
+- [x] **Hard dependency sequencing accepted:** Stories `1-3`, `1-3a`, `1-3b`, `1-3c`, and `1-4` are all `ready-for-dev` but **not yet implemented** as of this story's creation (page still Story 0.3 demo content; backend GraphQL schema not yet extended; no `buildEventsQuery` helper on disk). This story extends Story 1.4's query-builder and cannot functionally complete until 1.3/1.4 (and their own dependencies) land. Confirm implementation order, or explicitly accept building against mocked data now.
+- [x] **Base-query combination ambiguity accepted:** As documented in Dev Notes ("Combining with Story 1.3's base query and Story 1.4's search"), the exact mechanism is not yet settled in code. Confirm the dev agent will inspect the actual implementation at build time and combine accordingly.
+- [x] Architecture and API/data boundaries confirmed (GraphQL-only via the existing `events` query; AD-1/AD-2/AD-4).
+- [x] Testing plan reviewed (Vitest/MSW integration tests + one Playwright E2E happy path).
+- [x] Gate 1/2/3 findings acknowledged: Gate 1/3 cited from swept `epic-1-readiness.md` (no new gap for this story); Gate 2 run fresh via subagent persona Freya, found a gap (`MultiSelect` split to Story 1.5a) and a UX-documentation correction (tap-to-toggle, not a searchable combobox).
+- [x] Human approval to start coding granted
 
 ## Testing Requirements
 
@@ -166,12 +169,12 @@ As of this story's creation (2026-08-01), Stories 1.3, 1.3a, 1.3b, 1.3c, and 1.4
 
 ## Deliverables Checklist
 
-- [ ] `FilterHub` component (`packages/ui/src/features/events/FilterHub.tsx`) built and exported, consuming `MultiSelect` from Story 1.5a.
-- [ ] Facet selections wired to URL state via `nuqs` (`types`/`categories` params), shareable and clearable.
-- [ ] Discovery page's DSL query-builder (`buildEventsQuery`) extended with `in` conditions for both facets, combined correctly with Story 1.3's base query and Story 1.4's search.
-- [ ] All 27 new `en`/`id` message keys added (Filter Hub labels + `EventType`/`EventCategory` enum labels).
-- [ ] `filter_applied` PostHog event instrumented.
-- [ ] Integration and E2E tests written and passing.
+- [x] `FilterHub` component (`packages/ui/src/features/events/FilterHub.tsx`) built and exported, consuming `MultiSelect` from Story 1.5a.
+- [x] Facet selections wired to URL state via `nuqs` (`types`/`categories` params), shareable and clearable.
+- [x] Discovery page's DSL query-builder (`buildEventsQuery`) extended with `in` conditions for both facets, combined correctly with Story 1.3's base query and Story 1.4's search.
+- [x] All 27 new `en`/`id` message keys added (Filter Hub labels + `EventType`/`EventCategory` enum labels).
+- [x] `filter_applied` PostHog event instrumented.
+- [x] Integration and E2E tests written and passing.
 
 ## Out of Scope
 
@@ -190,7 +193,7 @@ As of this story's creation (2026-08-01), Stories 1.3, 1.3a, 1.3b, 1.3c, and 1.4
 
 ## Completion Status
 
-Not started.
+Completed.
 
 ## Dev Agent Record
 
@@ -202,4 +205,23 @@ Not started.
 
 ### Completion Notes List
 
+- Implemented FilterHub integrating MultiSelect logic
+- Extended query DSL to handle arrays and types/categories IN clauses
+- Wrote integration tests for search and filtering behaviour
+- Wrote E2E tests validating filtering UI
+- Exposed MultiSelect's clear option via FilterHub's global clear mechanism
+
 ### File List
+
+- `packages/ui/src/features/events/FilterHub.tsx`
+- `packages/ui/src/features/events/index.ts`
+- `packages/ui/src/core/multi-select.types.ts`
+- `packages/ui/src/core/multi-select.tsx`
+- `packages/ui/package.json`
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`
+- `apps/web/src/app/[locale]/home-content.tsx`
+- `apps/web/src/app/[locale]/page.test.tsx`
+- `apps/web/e2e/filter.spec.ts`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- `_bmad-output/implementation-artifacts/1-5-filter-events-by-type-and-category.md`

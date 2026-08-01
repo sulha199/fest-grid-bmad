@@ -11,6 +11,7 @@ export function MultiSelect({
   selectedValues,
   onChange,
   labels,
+  hideClearAction,
 }: MultiSelectProps) {
   if (options.length === 0) {
     return (
@@ -43,7 +44,7 @@ export function MultiSelect({
         <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
           {facetLabel}
         </span>
-        {hasSelection && (
+        {hasSelection && !hideClearAction && (
           <button
             type="button"
             onClick={handleClear}

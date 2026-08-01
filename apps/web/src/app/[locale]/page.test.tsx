@@ -28,10 +28,47 @@ vi.mock('@festgrid/analytics', () => ({
 }));
 
 // Mock nuqs to use React state for testing
-vi.mock('nuqs', () => ({
-  useQueryState: () => React.useState(''),
-  parseAsString: { withDefault: () => {} }
-}));
+vi.mock('nuqs', () => {
+  const React = require('react');
+  const store: Record<string, any> = {};
+  const listeners: Record<string, Set<Function>> = {};
+  
+  (global as any).__resetNuqsStore = () => {
+    for (const key in store) delete store[key];
+    for (const key in listeners) listeners[key].clear();
+  };
+
+  return {
+    useQueryState: (key: string, options?: any) => {
+      const defaultValue = options?.defaultValue ?? '';
+      if (!(key in store)) {
+        store[key] = defaultValue;
+      }
+      const [state, setState] = React.useState(store[key]);
+      
+      React.useEffect(() => {
+        if (!listeners[key]) listeners[key] = new Set();
+        listeners[key].add(setState);
+        return () => {
+          listeners[key].delete(setState);
+        };
+      }, [key]);
+
+      const setSharedState = React.useCallback((val: any) => {
+        const newValue = typeof val === 'function' ? val(store[key]) : val;
+        const resolvedValue = newValue === null ? defaultValue : newValue;
+        store[key] = resolvedValue;
+        if (listeners[key]) {
+          listeners[key].forEach((listener: any) => listener(resolvedValue));
+        }
+      }, [key, defaultValue]);
+
+      return [state, setSharedState];
+    },
+    parseAsString: { withDefault: (val: any) => ({ defaultValue: val }) },
+    parseAsArrayOf: () => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
+  };
+});
 
 // Mock the graphql client to use absolute URL for testing
 vi.mock('@/lib/graphql-client', async () => {
@@ -122,10 +159,14 @@ const mswServer = setupServer(
 );
 
 beforeAll(() => mswServer.listen({ onUnhandledRequest: 'bypass' }));
+
 afterEach(() => {
   cleanup();
   mswServer.resetHandlers();
   lastQueryVariables = null;
+  if ((global as any).__resetNuqsStore) {
+    (global as any).__resetNuqsStore();
+  }
 });
 afterAll(() => mswServer.close());
 
@@ -189,8 +230,8 @@ test('renders initial skeleton, then events, and supports infinite scroll append
   expect(screen.queryByRole('article', { busy: true })).not.toBeInTheDocument();
 
   // Enum values must render as translated labels, not raw enum members
-  expect(screen.getByText('Music')).toBeInTheDocument();
-  expect(screen.getByText('Festival')).toBeInTheDocument();
+  expect(screen.getAllByText('Music').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('Festival').length).toBeGreaterThan(0);
   expect(screen.queryByText('MUSIC')).not.toBeInTheDocument();
   expect(screen.queryByText('FESTIVAL')).not.toBeInTheDocument();
 
@@ -299,5 +340,113 @@ test('search integration: submits DSL payload and renders search empty state', a
 
   await waitFor(() => {
     expect(screen.getByText('Test Event 1')).toBeInTheDocument();
+  });
+});
+
+test('filter integration: single-facet, single-value selection produces correct in condition', async () => {
+  renderWithProviders(<Home />);
+
+  await waitFor(() => {
+    expect(screen.getByText('Test Event 1')).toBeInTheDocument();
+  });
+
+  // Select 'Festival' type
+  const festivalButton = screen.getAllByRole('button', { name: 'Festival' })[0];
+  fireEvent.click(festivalButton);
+
+  await waitFor(() => {
+    expect(lastQueryVariables.query).toEqual({
+      operator: 'and',
+      conditions: [
+        { field: 'types', operator: 'in', value: ['FESTIVAL'] }
+      ]
+    });
+  });
+});
+
+test('filter integration: single-facet, multi-value selection produces one in condition', async () => {
+  renderWithProviders(<Home />);
+
+  await waitFor(() => {
+    expect(screen.getByText('Test Event 1')).toBeInTheDocument();
+  });
+
+  const festivalButton = screen.getAllByRole('button', { name: 'Festival' })[0];
+  fireEvent.click(festivalButton);
+  
+  const performanceButton = screen.getAllByRole('button', { name: 'Performance' })[0];
+  fireEvent.click(performanceButton);
+
+  await waitFor(() => {
+    expect(lastQueryVariables.query).toEqual({
+      operator: 'and',
+      conditions: [
+        { field: 'types', operator: 'in', value: ['FESTIVAL', 'PERFORMANCE'] }
+      ]
+    });
+  });
+});
+
+test('filter integration: selections across both facets plus active search combine via one flat and group', async () => {
+  renderWithProviders(<Home />);
+
+  await waitFor(() => {
+    expect(screen.getByText('Test Event 1')).toBeInTheDocument();
+  });
+
+  const searchInput = screen.getByPlaceholderText('Search by name, performer, or location...');
+  fireEvent.change(searchInput, { target: { value: 'Rock' } });
+  fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+
+  const festivalButton = screen.getAllByRole('button', { name: 'Festival' })[0];
+  fireEvent.click(festivalButton);
+
+  const musicButton = screen.getAllByRole('button', { name: 'Music' })[0];
+  fireEvent.click(musicButton);
+
+  await waitFor(() => {
+    expect(lastQueryVariables.query).toEqual({
+      operator: 'and',
+      conditions: [
+        {
+          operator: 'or',
+          conditions: [
+            { field: 'eventName', operator: 'contains', value: 'Rock' },
+            { field: 'performers', operator: 'contains', value: 'Rock' },
+            { field: 'location', operator: 'contains', value: 'Rock' },
+          ]
+        },
+        { field: 'types', operator: 'in', value: ['FESTIVAL'] },
+        { field: 'categories', operator: 'in', value: ['MUSIC'] }
+      ]
+    });
+  });
+});
+
+test('filter integration: clearing filters restores default query', async () => {
+  renderWithProviders(<Home />);
+
+  await waitFor(() => {
+    expect(screen.getByText('Test Event 1')).toBeInTheDocument();
+  });
+
+  const festivalButton = screen.getAllByRole('button', { name: 'Festival' })[0];
+  fireEvent.click(festivalButton);
+
+  await waitFor(() => {
+    expect(lastQueryVariables.query).toEqual({
+      operator: 'and',
+      conditions: [
+        { field: 'types', operator: 'in', value: ['FESTIVAL'] }
+      ]
+    });
+  });
+
+  const clearButton = screen.getByRole('button', { name: 'Clear filters' });
+  fireEvent.click(clearButton);
+
+  await waitFor(() => {
+    // Should be undefined because no conditions exist.
+    expect(lastQueryVariables.query).toBeUndefined();
   });
 });

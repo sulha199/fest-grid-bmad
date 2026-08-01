@@ -10,6 +10,9 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
+  "peerDependencies": {
+    "nuqs": "^2.9.0"
+  },
   "scripts": {
     "test": "vitest run"
   },

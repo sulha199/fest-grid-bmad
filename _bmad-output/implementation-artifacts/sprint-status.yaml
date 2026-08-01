@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-01T00:00:00Z
+last_updated: 2026-08-02T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -77,7 +77,7 @@ development_status:
   1-3-display-a-list-of-events-on-the-main-page: review
   1-4-search-for-events: review
   1-5a-build-the-reusable-multiselect-component: review
-  1-5-filter-events-by-type-and-category: ready-for-dev
+  1-5-filter-events-by-type-and-category: in-progress
   1-6a-build-the-reusable-event-detail-view-component: ready-for-dev
   1-6b-build-the-context-aware-list-navigation-hook: backlog
   1-6-view-event-details: ready-for-dev
@@ -116,6 +116,7 @@ development_status:
   3-8-push-notifications-for-extracted-events: backlog
   3-9-implement-api-key-quota-management: backlog
   3-10-email-notifications-for-queued-posts: backlog
+  3-11-view-events-for-a-social-media-account: backlog
   epic-3-retrospective: optional
   epic-4: backlog
   4-1a-build-the-corrections-backend-graphql-api-layer: backlog
