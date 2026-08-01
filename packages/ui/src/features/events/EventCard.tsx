@@ -2,7 +2,37 @@
 
 import React, { useState } from 'react';
 import { MapPin, Tag, Heart } from 'lucide-react';
+import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
+
+const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+};
+
+/**
+ * Formats with graceful degradation: an invalid IANA timezone or locale tag
+ * (e.g. bad/typo'd LocationDetails.timezone data, or an unrecognized locale)
+ * throws a RangeError from Intl — retry without the timezone, then without
+ * the custom locale, rather than crashing the whole card.
+ */
+function formatEventDate(locale: string, timezone: string | undefined, dateObj: Date): string {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      ...DATE_FORMAT_OPTIONS,
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(dateObj);
+  } catch {
+    try {
+      return new Intl.DateTimeFormat(locale, DATE_FORMAT_OPTIONS).format(dateObj);
+    } catch {
+      return new Intl.DateTimeFormat('en-US', DATE_FORMAT_OPTIONS).format(dateObj);
+    }
+  }
+}
 
 /**
  * EventCard is a reusable, framework-agnostic presentation component for displaying
@@ -28,7 +58,8 @@ import type { EventCardProps } from './EventCard.types';
 export function EventCard({
   eventName,
   startDate,
-  locale = 'en-US',
+  locale,
+  timezone,
   imageUrl,
   imageAlt,
   loading = false,
@@ -53,6 +84,12 @@ export function EventCard({
   };
 
   const [imgError, setImgError] = useState(false);
+  const contextLocale = useScopedLocale();
+  const contextTimezone = useScopedTimezone();
+  // `||` (not `??`) so an accidental empty-string prop also falls through to context/default
+  // instead of being passed straight to Intl and throwing.
+  const activeLocale = locale || contextLocale;
+  const activeTimezone = timezone || contextTimezone;
 
   if (loading) {
     return (
@@ -71,13 +108,7 @@ export function EventCard({
   }
 
   const dateObj = typeof startDate === 'string' ? new Date(startDate) : startDate;
-  const formattedDate = new Intl.DateTimeFormat(locale, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(dateObj);
+  const formattedDate = formatEventDate(activeLocale, activeTimezone, dateObj);
 
   const fallbackAlt = defaultLabels.imageFallbackAlt;
   const finalImageAlt = imageAlt || eventName;

@@ -8,7 +8,7 @@ import { PostHogProvider } from '@festgrid/analytics';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
 import { routing } from '../../i18n/routing';
-import { AppShell } from '@festgrid/ui';
+import { AppShell, ScopedLocaleProvider } from '@festgrid/ui';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -24,6 +24,15 @@ export function generateStaticParams() {
 const localeDirectionMap: Record<string, 'ltr' | 'rtl'> = {
   en: 'ltr',
   id: 'ltr',
+};
+
+// next-intl's `routing.locales` are bare language subtags ('en', 'id'); map to a
+// region-qualified BCP-47 tag for Intl-consuming components (ScopedLocaleProvider,
+// EventCard's Intl.DateTimeFormat) so formatting is explicit rather than relying on
+// the bare tag happening to match the desired region's conventions.
+const localeIntlTagMap: Record<string, string> = {
+  en: 'en-US',
+  id: 'id-ID',
 };
 
 export default async function RootLayout({
@@ -57,7 +66,9 @@ export default async function RootLayout({
             >
               <QueryProvider>
                 <NuqsAdapter>
-                  <AppShell>{children}</AppShell>
+                  <ScopedLocaleProvider locale={localeIntlTagMap[locale] ?? locale}>
+                    <AppShell>{children}</AppShell>
+                  </ScopedLocaleProvider>
                 </NuqsAdapter>
               </QueryProvider>
             </ThemeProvider>

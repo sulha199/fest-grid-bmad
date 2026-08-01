@@ -2,7 +2,7 @@
 project_name: 'festgrid'
 baseline_commit: 198301f0757cfed0df2316ac947793691ff189e9
 user_name: 'shulha'
-date: '2026-08-01T08:00:00Z'
+date: '2026-08-01T09:00:00Z'
 status: 'complete'
 rule_count: 21
 optimized_for_llm: true
@@ -105,7 +105,12 @@ To avoid monolithic global stores and ensure strict end-to-end typing, the appli
   - **Enums:** Enum values (e.g. `EventCategory`, `EventType`) **must** resolve through a dedicated `next-intl` translation namespace keyed by the exact enum member name (e.g. `locales/en.json` → `"EventCategory": { "MUSIC": "Music", ... }`), resolved via `useTranslations()` at render time.
   - **Dates & DateTimes:** **must** be formatted with `Intl.DateTimeFormat` (or a `next-intl` date formatter) using the active locale — see `EventCard.tsx`'s `formattedDate` for the pattern to follow. Never render a raw ISO string or apply a fixed, non-locale-aware format.
   - **Numbers stored as numeric types:** any value stored as `number`/`decimal`/`integer` (currency amounts, counts, percentages, etc.) **must** be formatted with `Intl.NumberFormat` using the active locale (with `style: 'currency'` and the correct currency code where applicable) — never interpolated as a raw number. This does **not** apply to fields that are intentionally free-form text at the source (e.g. `Schedule.ticketPrice`, stored and scraped as text like `"IDR 150000"` or `"Free"`) — those remain unchanged and are out of scope for this rule.
-  - **Known gap (deferred, see deferred-work.md):** `apps/web/src/app/[locale]/page.tsx` never resolves the active route locale (via `useLocale()`/route params) and never passes it as the `locale` prop to `EventCard`, so `EventCard.tsx`'s `formattedDate` always falls back to its hardcoded `'en-US'` default regardless of whether the user is on `/en/` or `/id/`. Fix this when next touching date rendering on that page.
+  - **Scoped locale/timezone context:** `packages/ui` components that need the active locale and/or IANA timezone but must stay framework-agnostic (no direct `next-intl` dependency, per the Adapter/decoupling principle below) **must** read them via `useScopedLocale()`/`useScopedTimezone()` from `packages/ui/src/hooks/useScopedLocale.tsx` — never a hardcoded default or a required prop. Named distinctly from `next-intl`'s own `useLocale`/`useTimeZone` (different semantics, no `NextIntlClientProvider` dependency) so the two are never confused in an `apps/web` file that imports both.
+    - Both hooks resolve to the nearest ancestor `ScopedLocaleProvider`'s value. `useScopedLocale()` falls back to `'en-US'` if no provider is present; `useScopedTimezone()` falls back to `undefined` (letting `Intl` use the runtime's default timezone).
+    - Providers may be nested. A nested provider overrides `locale` unconditionally, but a nested provider that omits `timezone` **inherits** the outer provider's timezone rather than resetting it to "unset" — only an explicitly-passed `timezone` overrides the ambient value.
+    - A component's own `locale`/`timezone` props (if it exposes them, e.g. `EventCard`), when explicitly passed (including guarding against an accidental empty string), always take precedence over the context value.
+    - The app root (`apps/web/src/app/[locale]/layout.tsx`) wraps `<AppShell>` in `<ScopedLocaleProvider locale={...}>`, mapping the route's bare locale code (`en`/`id`) to a region-qualified BCP-47 tag (`en-US`/`id-ID`) via `localeIntlTagMap` rather than passing the bare code straight to `Intl`. No app-wide `timezone` is sourced yet — `LocationDetails.timezone` on the event's location is a candidate per-event source for a future pass, not wired up here.
+    - Components consuming a possibly-invalid IANA timezone/locale string (e.g. scraped/CMS-sourced data, not a trusted enum) **must** degrade gracefully instead of letting `Intl` throw — see `formatEventDate` in `EventCard.tsx` for the retry-without-timezone-then-without-locale pattern.
 
 ### Code Quality & Style Rules
 
@@ -148,4 +153,4 @@ To avoid monolithic global stores and ensure strict end-to-end typing, the appli
 - Update when the technology stack or core patterns change.
 - Review quarterly to remove rules that have become obvious or obsolete.
 
-_Last Updated: 2026-08-01T08:00:00Z_
+_Last Updated: 2026-08-01T09:00:00Z_

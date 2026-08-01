@@ -3,6 +3,25 @@ import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { EventCard } from './EventCard';
+import { ScopedLocaleProvider } from '../../hooks/useScopedLocale';
+
+// Mirrors EventCard's own Intl.DateTimeFormat options, so expected values are
+// computed with the same ICU data the component under test uses — this keeps
+// the assertions correct regardless of which locale data the CI Node build
+// ships (Node bundles full ICU by default since v13, so 'id' formatting is
+// expected to be available; this pattern is just defense against the assumption
+// ever becoming false, or the format options drifting).
+const DATE_OPTS: Intl.DateTimeFormatOptions = {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+};
+
+function expectedDate(locale: string, date: Date, timeZone?: string) {
+  return new Intl.DateTimeFormat(locale, { ...DATE_OPTS, ...(timeZone ? { timeZone } : {}) }).format(date);
+}
 
 describe('EventCard', () => {
   afterEach(() => {
@@ -12,6 +31,64 @@ describe('EventCard', () => {
     eventName: 'Summer Music Festival',
     startDate: new Date('2026-08-15T18:00:00Z'),
   };
+
+  it('formats the date using the nearest ScopedLocaleProvider when no locale prop is given', () => {
+    render(
+      <ScopedLocaleProvider locale="id">
+        <EventCard {...defaultProps} />
+      </ScopedLocaleProvider>
+    );
+    expect(screen.getByText(expectedDate('id', defaultProps.startDate))).toBeInTheDocument();
+    expect(screen.queryByText(expectedDate('en-US', defaultProps.startDate))).not.toBeInTheDocument();
+  });
+
+  it('lets an explicit locale prop override the ambient ScopedLocaleProvider', () => {
+    render(
+      <ScopedLocaleProvider locale="id">
+        <EventCard {...defaultProps} locale="en-US" />
+      </ScopedLocaleProvider>
+    );
+    expect(screen.getByText(expectedDate('en-US', defaultProps.startDate))).toBeInTheDocument();
+  });
+
+  it('formats the date using the nearest ScopedLocaleProvider timezone when no timezone prop is given', () => {
+    render(
+      <ScopedLocaleProvider locale="en-US" timezone="Asia/Jakarta">
+        <EventCard {...defaultProps} />
+      </ScopedLocaleProvider>
+    );
+    expect(
+      screen.getByText(expectedDate('en-US', defaultProps.startDate, 'Asia/Jakarta'))
+    ).toBeInTheDocument();
+  });
+
+  it('lets an explicit timezone prop override the ambient ScopedLocaleProvider timezone', () => {
+    render(
+      <ScopedLocaleProvider locale="en-US" timezone="Asia/Jakarta">
+        <EventCard {...defaultProps} timezone="UTC" />
+      </ScopedLocaleProvider>
+    );
+    expect(screen.getByText(expectedDate('en-US', defaultProps.startDate, 'UTC'))).toBeInTheDocument();
+  });
+
+  it('inherits the timezone from an outer provider when a nested provider only overrides locale', () => {
+    render(
+      <ScopedLocaleProvider locale="id" timezone="Asia/Jakarta">
+        <ScopedLocaleProvider locale="en-US">
+          <EventCard {...defaultProps} />
+        </ScopedLocaleProvider>
+      </ScopedLocaleProvider>
+    );
+    expect(
+      screen.getByText(expectedDate('en-US', defaultProps.startDate, 'Asia/Jakarta'))
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to a safe format instead of crashing when given an invalid timezone', () => {
+    render(<EventCard {...defaultProps} locale="en-US" timezone="Not/A_Real_Zone" />);
+    // Degrades to locale-only formatting (no timeZone applied) rather than throwing.
+    expect(screen.getByText(expectedDate('en-US', defaultProps.startDate))).toBeInTheDocument();
+  });
 
   it('renders the guaranteed fields only (minimal render)', () => {
     render(<EventCard {...defaultProps} />);

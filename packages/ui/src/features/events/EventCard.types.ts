@@ -19,8 +19,11 @@ export interface EventCardProps {
   /** The primary schedule's start date/time (required) */
   startDate: Date | string;
 
-  /** Optional explicit locale for formatting the date. Defaults to 'en' or browser default if not provided */
+  /** Optional explicit locale for formatting the date. If omitted, falls back to the nearest ancestor ScopedLocaleProvider's locale (see useScopedLocale/ScopedLocaleProvider in packages/ui/src/hooks), or that hook's default if none is present. */
   locale?: string;
+
+  /** Optional explicit IANA timezone (e.g. 'Asia/Jakarta') for formatting the date. If omitted, falls back to the nearest ancestor ScopedLocaleProvider's timezone (see useScopedTimezone/ScopedLocaleProvider), or the runtime's default timezone if none is present/set. */
+  timezone?: string;
 
   /** Optional URL for the event image */
   imageUrl?: string;
