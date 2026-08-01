@@ -1,0 +1,6 @@
+No projects matched the filters "c:\projects\portfolio\festgrid\bmad" in "C:\projects\portfolio\festgrid\bmad"
+▶ getOrCreateUser
+  ✖ creates a new user and returns role user (77.8175ms)
+  ✖ returns existing user without inserting a duplicate (2.999ms)
+  ✖ preserves moderator role for existing users (64.843ms)
+✖ getOrCreateUser (149.8576ms)

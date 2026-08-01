@@ -1,0 +1,25 @@
+{
+  "name": "@festgrid/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./query": "./src/query/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint . --max-warnings 0",
+    "clean": "rm -rf .turbo node_modules dist"
+  },
+  "dependencies": {
+    "@festgrid/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@festgrid/eslint-config": "workspace:*",
+    "@festgrid/typescript-config": "workspace:*",
+    "typescript": "^5.5.4",
+    "@types/node": "^20.14.9"
+  }
+}

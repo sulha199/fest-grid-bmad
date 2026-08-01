@@ -30,8 +30,14 @@ importers:
         specifier: ^3.2.0
         version: 3.2.0(@envelop/core@5.5.1)(@escape.tech/graphql-armor-types@0.7.0)
       '@festgrid/database':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../../packages/database
+      '@festgrid/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@festgrid/graphql-select':
+        specifier: workspace:*
+        version: link:../../packages/graphql-select
       '@festgrid/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -47,6 +53,9 @@ importers:
       graphql:
         specifier: ^16.8.0
         version: 16.14.2
+      graphql-scalars:
+        specifier: ^1.23.0
+        version: 1.25.0(graphql@16.14.2)
       graphql-yoga:
         specifier: ^5.21.2
         version: 5.21.2(graphql@16.14.2)
@@ -63,6 +72,9 @@ importers:
       '@festgrid/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
+      '@graphql-codegen/add':
+        specifier: ^5.0.3
+        version: 5.0.3(graphql@16.14.2)
       '@graphql-codegen/cli':
         specifier: ^5.0.2
         version: 5.0.7(@parcel/watcher@2.6.0)(@types/node@20.19.43)(graphql@16.14.2)(typescript@5.9.3)
@@ -280,6 +292,25 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@20.19.43)(jsdom@30.0.1)(msw@2.15.0(@types/node@20.19.43)(typescript@5.9.3))(vite@8.2.0(@types/node@20.19.43)(esbuild@0.19.12)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
 
+  packages/domain:
+    dependencies:
+      '@festgrid/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+    devDependencies:
+      '@festgrid/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@festgrid/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: ^20.14.9
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
   packages/eslint-config:
     devDependencies:
       '@eslint/js':
@@ -321,6 +352,9 @@ importers:
       '@festgrid/database':
         specifier: workspace:*
         version: link:../database
+      '@festgrid/domain':
+        specifier: workspace:*
+        version: link:../domain
       drizzle-orm:
         specifier: ^0.30.10
         version: 0.30.10(@types/react@19.2.17)(postgres@3.4.9)(react@19.2.7)
@@ -3405,6 +3439,12 @@ packages:
     resolution: {integrity: sha512-xfr+zFb/QYbs4l4ty0dltqiXIp07U6sl+tOKAb0t50/EnQek6CVVBLjETXi+FghElytvgaAWtIOt3EV7zLzIAQ==}
     peerDependencies:
       graphql: 14 - 16
+
+  graphql-scalars@1.25.0:
+    resolution: {integrity: sha512-b0xyXZeRFkne4Eq7NAnL400gStGqG/Sx9VqX0A05nHyEbv57UJnWKsjNnrpVqv5e/8N1MUxkt0wwcRXbiyKcFg==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0
 
   graphql-tag@2.12.7:
     resolution: {integrity: sha512-xnE/NFzy+0eIesvAsREJZ284zTl/wYuBAvpsFSDhRGRdRHdnE90M21Q3xAWyYInb0J756c6x0pIQ62+vtvOs1Q==}
@@ -8430,6 +8470,11 @@ snapshots:
     dependencies:
       '@graphql-typed-document-node/core': 3.2.0(graphql@16.14.2)
       graphql: 16.14.2
+
+  graphql-scalars@1.25.0(graphql@16.14.2):
+    dependencies:
+      graphql: 16.14.2
+      tslib: 2.8.1
 
   graphql-tag@2.12.7(graphql@16.14.2):
     dependencies:

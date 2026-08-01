@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@festgrid/database": "workspace:*",
+    "@festgrid/domain": "workspace:*",
     "drizzle-orm": "^0.30.10",
     "graphql": "^16.8.0",
     "graphql-parse-resolve-info": "^4.14.0"

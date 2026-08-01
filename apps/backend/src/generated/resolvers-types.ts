@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { GraphQLResolveInfo } from 'graphql';
 import { GraphQLContext } from '../lib/auth/context.js';
 export type Maybe<T> = T | null;

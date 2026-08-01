@@ -1,0 +1,93 @@
+scalar JSON
+
+enum EventType {
+  FESTIVAL
+  CONCERT
+  CLUB_NIGHT
+  EXHIBITION
+  NETWORKING
+  WORKSHOP
+  SPORTS
+  THEATER
+  COMEDY
+  OTHER
+}
+
+enum EventCategory {
+  MUSIC
+  ARTS
+  FOOD_AND_DRINK
+  TECHNOLOGY
+  BUSINESS
+  HEALTH_AND_WELLNESS
+  SPORTS_AND_FITNESS
+  EDUCATION
+  ENTERTAINMENT
+  COMMUNITY
+  OTHER
+}
+
+type Coordinates {
+  lat: Float!
+  lng: Float!
+}
+
+type LocationDetails {
+  coordinates: Coordinates!
+  placeName: String
+  placeId: String
+  formattedAddress: String
+  timezone: String
+}
+
+type Schedule {
+  id: ID!
+  eventId: ID!
+  isMainSchedule: Boolean!
+  eventStartDate: String!
+  eventEndDate: String
+  eventStartTime: String
+  eventEndTime: String
+  timezone: String
+  performers: [String!]
+  location: String
+  locationDetails: LocationDetails
+  ticketPrice: String
+  ticketUrl: String
+  registrationUrl: String
+  updatedAt: String!
+  createdAt: String!
+}
+
+type Event {
+  id: ID!
+  eventName: String!
+  description: String
+  types: [EventType!]
+  categories: [EventCategory!]
+  location: String
+  sourceSocialMediaAccountId: ID
+  postId: ID
+  imageUrl: String
+  updatedAt: String!
+  createdAt: String!
+  schedules: [Schedule!]!
+}
+
+type EventConnection {
+  items: [Event!]!
+  hasMore: Boolean!
+  totalCount: Int!
+}
+
+input EventQueryConditionInput {
+  operator: String
+  conditions: [EventQueryConditionInput!]
+  field: String
+  value: JSON
+}
+
+type Query {
+  events(query: EventQueryConditionInput, limit: Int, offset: Int): EventConnection!
+  event(id: ID!): Event
+}

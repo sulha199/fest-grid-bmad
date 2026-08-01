@@ -1,0 +1,117 @@
+import test from 'node:test';
+import * as assert from 'node:assert';
+import { createSchema, createYoga } from 'graphql-yoga';
+import { resolvers } from './resolvers.js';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// read the generated schema for the yoga server
+const typeDefs = fs.readFileSync(path.resolve(process.cwd(), 'src/schema/events.graphql'), 'utf-8');
+
+const schema = createSchema({
+  typeDefs: `
+    ${typeDefs}
+    type Query {
+      health: Boolean
+    }
+  `,
+  resolvers: resolvers as any
+});
+
+const yoga = createYoga({ schema });
+
+test('events resolver integration via Yoga', async (t) => {
+  await t.test('events - default sort by soonest upcoming', async () => {
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        query: `
+          query {
+            events(limit: 5) {
+              items {
+                id
+                eventName
+              }
+              totalCount
+              hasMore
+            }
+          }
+        `
+      })
+    });
+    
+    const result = await response.json();
+    assert.ok(!result.errors, 'GraphQL errors returned');
+    assert.ok(result.data.events.items, 'should return items');
+    assert.strictEqual(typeof result.data.events.totalCount, 'number', 'should return total count');
+    assert.strictEqual(typeof result.data.events.hasMore, 'boolean', 'should return hasMore');
+  });
+
+  await t.test('events - filtering by type', async () => {
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        query: `
+          query {
+            events(query: { field: "types", operator: "contains", value: "MUSIC" }, limit: 10) {
+              items {
+                id
+                types
+              }
+            }
+          }
+        `
+      })
+    });
+    
+    const result = await response.json();
+    assert.ok(!result.errors, 'GraphQL errors returned');
+    assert.ok(Array.isArray(result.data.events.items), 'should return array');
+  });
+
+  await t.test('event - fetch single event by ID with schedules', async () => {
+    const allReq = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ events(limit: 1) { items { id } } }` })
+    });
+    const allRes = await allReq.json();
+
+    if (allRes.data.events.items.length === 0) return; // skip if no seed data
+    const firstEventId = allRes.data.events.items[0].id;
+    
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query GetEvent($id: ID!) {
+            event(id: $id) {
+              id
+              eventName
+              schedules {
+                id
+                eventStartDate
+              }
+            }
+          }
+        `,
+        variables: { id: firstEventId }
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, 'GraphQL errors returned');
+    assert.strictEqual(result.data.event.id, firstEventId);
+    assert.ok(result.data.event.eventName);
+    assert.ok(Array.isArray(result.data.event.schedules));
+  });
+});

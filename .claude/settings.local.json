@@ -25,7 +25,17 @@
       "Bash(python3 /c/projects/portfolio/festgrid/bmad/_bmad/scripts/resolve_customization.py --skill /c/projects/portfolio/festgrid/bmad/.claude/skills/bmad-create-story --key workflow.on_complete)",
       "Bash(python3 \"c:/projects/portfolio/festgrid/bmad/_bmad/scripts/resolve_customization.py\" --skill \"c:/projects/portfolio/festgrid/bmad/.claude/skills/bmad-create-story\" --key workflow.on_complete)",
       "Bash(python3 _bmad/scripts/resolve_customization.py --skill .claude/skills/bmad-create-story --key workflow)",
-      "WebFetch(domain:www.npmjs.com)"
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(python3 \"c:/projects/portfolio/festgrid/bmad/_bmad/scripts/resolve_customization.py\" --help)",
+      "Bash(python3 \"c:/projects/portfolio/festgrid/bmad/_bmad/scripts/resolve_customization.py\" --skill \"c:/projects/portfolio/festgrid/bmad/.claude/skills/bmad-create-story\" --key workflow.persistent_facts)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm --filter @festgrid/domain build)",
+      "Bash(pnpm --filter @festgrid/graphql-select build)",
+      "Bash(pnpm --filter @festgrid/graphql-select test)",
+      "Bash(pnpm --filter backend build)",
+      "Bash(pnpm --filter @festgrid/domain lint)",
+      "Bash(pnpm --filter @festgrid/graphql-select lint)",
+      "Bash(pnpm --filter backend lint)"
     ]
   }
 }
