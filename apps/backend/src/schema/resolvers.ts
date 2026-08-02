@@ -1,7 +1,8 @@
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts } from '@festgrid/database';
+import { events, schedules, posts, users } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere } from '@festgrid/graphql-select';
+import { requireAuth } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and } from 'drizzle-orm';
 import { QueryCondition } from '@festgrid/domain/query';
 import { GraphQLJSON } from 'graphql-scalars';
@@ -10,6 +11,19 @@ export const resolvers: Resolvers = {
   JSON: GraphQLJSON,
   Query: {
     health: () => true,
+    me: async (_: any, __: any, context: any) => {
+      const authUser = requireAuth(context);
+      const rows = await db.select({
+        id: users.id,
+        email: users.email,
+        role: users.role,
+      }).from(users).where(eq(users.id, authUser.userId));
+
+      if (rows.length === 0) {
+        throw new Error('User not found');
+      }
+      return rows[0];
+    },
     events: async (_: any, { query, limit, offset }: any, context: any, info: any) => {
       // Create field map for DSL
       const fieldMap = {

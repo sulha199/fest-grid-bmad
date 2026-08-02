@@ -112,10 +112,17 @@ The database schemas are managed code-first using Drizzle ORM in the `packages/d
 2.  **Get Database Credentials:**
     In your Supabase project dashboard, go to `Settings` -> `Database` and find your production connection string.
 3.  **Find your Project URL:**
-    Go to `Settings` -> `API` -> `Project URL`. Copy this URL and set it as `SUPABASE_URL` in your environment (used for JWT verification).
-4.  **Configure CI/CD:**
+    Go to `Settings` -> `API` -> `Project URL`. Copy this URL and set it as `SUPABASE_URL` in your environment (used for JWT verification). Also use this URL for `NEXT_PUBLIC_SUPABASE_URL` on the frontend.
+4.  **Get Project API Keys:**
+    Go to `Settings` -> `API` -> `Project API keys` -> `anon public`. Copy this key and set it as `NEXT_PUBLIC_SUPABASE_ANON_KEY` in your frontend environment variables.
+5.  **Configure Google OAuth Provider:**
+    *   Enable the Google provider in the Supabase Dashboard under `Authentication` -> `Providers` -> `Google`.
+    *   Create a Google Cloud Console OAuth Client ID and Client Secret.
+    *   Set the Authorized redirect URI in the Google Cloud Console to `{SUPABASE_URL}/auth/v1/callback` (replace `{SUPABASE_URL}` with your actual Supabase Project URL).
+    *   Copy the Client ID and Client Secret into the Supabase Google Provider configuration and save.
+6.  **Configure CI/CD:**
     Add the Supabase connection string to your CI/CD environment variables as `DATABASE_URL`.
-4.  **Deployment:**
+7.  **Deployment:**
     The CI/CD pipeline runs `drizzle-kit` to automatically apply the generated SQL migration files directly to the Supabase Postgres instance upon deployment.
 
 ## 4. Push Notifications (Firebase Cloud Messaging)

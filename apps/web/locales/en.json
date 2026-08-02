@@ -5,7 +5,9 @@
     "discoveryTitle": "Discover Events | FestDaily",
     "discoveryDescription": "Browse and search for upcoming events on FestDaily.",
     "eventDetailTitle": "{eventName} | FestDaily",
-    "eventDetailDescription": "Get details, schedules, and tickets for {eventName} on FestDaily."
+    "eventDetailDescription": "Get details, schedules, and tickets for {eventName} on FestDaily.",
+    "loginTitle": "Sign In | FestDaily",
+    "loginDescription": "Log in to your FestDaily account to access schedules and favorites."
   },
   "EventDetailsPage": {
     "next": "Next Event",
@@ -68,5 +70,13 @@
     "CIVIC_AND_COMMUNITY": "Civic & Community",
     "RELIGION_AND_SPIRITUALITY": "Religion & Spirituality",
     "OTHER": "Other"
+  },
+  "Auth": {
+    "heading": "Welcome back",
+    "copy": "Sign in to access your dashboard, save favorite events, and manage your custom calendar schedules.",
+    "googleButtonLabel": "Sign in with Google",
+    "authFailedError": "Authentication failed. Please try signing in again.",
+    "logoutSuccess": "You have been logged out successfully.",
+    "loading": "Processing authentication..."
   }
 }

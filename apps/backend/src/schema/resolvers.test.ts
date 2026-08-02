@@ -4,13 +4,18 @@ import { createSchema, createYoga } from 'graphql-yoga';
 import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { db } from '../db/client.js';
+import { users } from '@festgrid/database';
+import { eq } from 'drizzle-orm';
 
 // read the generated schema for the yoga server
 const typeDefs = fs.readFileSync(path.resolve(process.cwd(), 'src/schema/events.graphql'), 'utf-8');
+const authDefs = fs.readFileSync(path.resolve(process.cwd(), 'src/schema/auth.graphql'), 'utf-8');
 
 const schema = createSchema({
   typeDefs: `
     ${typeDefs}
+    ${authDefs}
     type Query {
       health: Boolean
     }
@@ -18,7 +23,14 @@ const schema = createSchema({
   resolvers: resolvers as any
 });
 
-const yoga = createYoga({ schema });
+let mockUser: any = null;
+
+const yoga = createYoga({
+  schema,
+  context: () => ({
+    user: mockUser,
+  }) as any,
+});
 
 test('events resolver integration via Yoga', async (t) => {
   await t.test('events - default sort by soonest upcoming', async () => {
@@ -178,5 +190,59 @@ test('events resolver integration via Yoga', async (t) => {
     const result = await response.json();
     assert.ok(!result.errors, 'GraphQL errors returned');
     assert.strictEqual(result.data.eventBySlug, null);
+  });
+
+  await t.test('me - throws UNAUTHENTICATED error when not authenticated', async () => {
+    mockUser = null;
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            me {
+              id
+              email
+              role
+            }
+          }
+        `
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(result.errors, 'should return errors');
+    assert.strictEqual(result.errors[0].extensions?.code, 'UNAUTHENTICATED');
+  });
+
+  await t.test('me - returns user details when authenticated', async () => {
+    // Get an existing seeded user
+    const seededUsers = await db.select().from(users).limit(1);
+    if (seededUsers.length === 0) return;
+
+    const testUser = seededUsers[0];
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            me {
+              id
+              email
+              role
+            }
+          }
+        `
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, 'GraphQL errors returned');
+    assert.strictEqual(result.data.me.id, testUser.id);
+    assert.strictEqual(result.data.me.email, testUser.email);
+    assert.strictEqual(result.data.me.role, testUser.role);
   });
 });

@@ -11,6 +11,7 @@ import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs"
 import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
+import { useAuthSession } from "@/components/providers/auth-session-provider"
 
 function buildEventsQuery({ search, types, categories }: { search: string, types: string[], categories: string[] }): EventQueryConditionInput | undefined {
   const conditions: EventQueryConditionInput[] = []
@@ -69,6 +70,8 @@ function buildEnumLabels(values: string[], translate: (key: string) => string) {
 
 export function HomeContent() {
   const t = useTranslations('DiscoveryPage')
+  const tAuth = useTranslations('Auth')
+  const { session, signOut } = useAuthSession()
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
   const [types] = useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))
   const [categories] = useQueryState('categories', parseAsArrayOf(parseAsString).withDefault([]))
@@ -108,6 +111,12 @@ export function HomeContent() {
 
   const handleFilterChange = (newTypes: string[], newCategories: string[]) => {
     posthog.capture('filter_applied', { types: newTypes, categories: newCategories })
+  }
+
+  const handleSignOut = async () => {
+    await signOut()
+    alert(tAuth('logoutSuccess'))
+    router.push('/')
   }
 
   const {
@@ -150,7 +159,31 @@ export function HomeContent() {
 
   return (
     <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold">{t('title')}</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">{t('title')}</h1>
+        <div>
+          {session ? (
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                {session.user.email}
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors shadow-sm"
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => router.push('/login')}
+              className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors shadow-sm"
+            >
+              Sign In
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="flex flex-col gap-6">
         <SearchBar

@@ -102,12 +102,20 @@ export type LocationDetails = {
   timezone?: Maybe<Scalars['String']['output']>;
 };
 
+export type Me = {
+  __typename?: 'Me';
+  email: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  role: Scalars['String']['output'];
+};
+
 export type Query = {
   __typename?: 'Query';
   event?: Maybe<Event>;
   eventBySlug?: Maybe<Event>;
   events: EventConnection;
   health: Scalars['Boolean']['output'];
+  me: Me;
 };
 
 
@@ -150,6 +158,11 @@ export type Schedule = {
 
 
 
+export type MeQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MeQuery = { me: { id: string, email: string, role: string } };
+
 export type GetEventsQueryVariables = Exact<{
   limit?: number | null | undefined;
   offset?: number | null | undefined;
@@ -185,6 +198,34 @@ export class TypedDocumentString<TResult, TVariables>
     return this.value;
   }
 }
+
+export const MeDocument = new TypedDocumentString(`
+    query me {
+  me {
+    id
+    email
+    role
+  }
+}
+    `);
+
+export const useMeQuery = <
+      TData = MeQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: MeQueryVariables,
+      options?: Omit<UseQueryOptions<MeQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<MeQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<MeQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['me'] : ['me', variables],
+    queryFn: fetcher<MeQuery, MeQueryVariables>(client, MeDocument, variables, headers),
+    ...options
+  }
+    )};
 
 export const GetEventsDocument = new TypedDocumentString(`
     query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {

@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import '../globals.css';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
+import { AuthSessionProvider } from '@/components/providers/auth-session-provider';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { PostHogProvider } from '@festgrid/analytics';
 import { NextIntlClientProvider } from 'next-intl';
@@ -74,12 +75,14 @@ export default async function RootLayout({
             >
               <QueryProvider>
                 <NuqsAdapter>
-                  <ScopedLocaleProvider locale={localeIntlTagMap[locale] ?? locale}>
-                    <AppShell>
-                      {children}
-                      {modal}
-                    </AppShell>
-                  </ScopedLocaleProvider>
+                  <AuthSessionProvider>
+                    <ScopedLocaleProvider locale={localeIntlTagMap[locale] ?? locale}>
+                      <AppShell>
+                        {children}
+                        {modal}
+                      </AppShell>
+                    </ScopedLocaleProvider>
+                  </AuthSessionProvider>
                 </NuqsAdapter>
               </QueryProvider>
             </ThemeProvider>

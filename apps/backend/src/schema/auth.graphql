@@ -1,0 +1,9 @@
+type Me {
+  id: ID!
+  email: String!
+  role: String!
+}
+
+extend type Query {
+  me: Me!
+}

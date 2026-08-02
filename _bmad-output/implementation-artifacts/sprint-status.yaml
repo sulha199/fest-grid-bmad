@@ -82,7 +82,7 @@ development_status:
   1-6b-build-the-context-aware-list-navigation-hook: review
   1-6-view-event-details: review
   1-7a-build-the-reusable-blockingloader-component: review
-  1-7-user-signup-and-login-with-google: ready-for-dev
+  1-7-user-signup-and-login-with-google: review
   1-8-setup-posthog-analytics: review
   1-9-dynamic-browser-title-and-meta-tags: review
   epic-1-retrospective: optional

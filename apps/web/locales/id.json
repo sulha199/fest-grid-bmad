@@ -5,7 +5,9 @@
     "discoveryTitle": "Temukan Acara | FestDaily",
     "discoveryDescription": "Jelajahi dan cari acara mendatang di FestDaily.",
     "eventDetailTitle": "{eventName} | FestDaily",
-    "eventDetailDescription": "Dapatkan detail, jadwal, dan tiket untuk {eventName} di FestDaily."
+    "eventDetailDescription": "Dapatkan detail, jadwal, dan tiket untuk {eventName} di FestDaily.",
+    "loginTitle": "Masuk | FestDaily",
+    "loginDescription": "Masuk ke akun FestDaily Anda untuk mengakses jadwal dan favorit."
   },
   "EventDetailsPage": {
     "next": "Acara Selanjutnya",
@@ -68,5 +70,13 @@
     "CIVIC_AND_COMMUNITY": "Kemasyarakatan & Komunitas",
     "RELIGION_AND_SPIRITUALITY": "Agama & Spiritualitas",
     "OTHER": "Lainnya"
+  },
+  "Auth": {
+    "heading": "Selamat datang kembali",
+    "copy": "Masuk untuk mengakses dasbor Anda, menyimpan acara favorit, dan mengelola jadwal kalender kustom Anda.",
+    "googleButtonLabel": "Masuk dengan Google",
+    "authFailedError": "Autentikasi gagal. Silakan coba masuk kembali.",
+    "logoutSuccess": "Anda telah berhasil keluar.",
+    "loading": "Memproses autentikasi..."
   }
 }

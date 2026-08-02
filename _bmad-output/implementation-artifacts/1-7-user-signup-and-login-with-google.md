@@ -208,14 +208,54 @@ so that I can easily and securely access the application.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Done (Ready for review)
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+Claude 3.5 Sonnet
+
 ### Debug Log References
+
+Fully implemented frontend Google OAuth login/logout via Supabase Auth. Extended backend schema with Query.me to trigger Story 0.17's context-based JIT-provisioning. Verified frontend and backend builds cleanly, and all written component/route/resolver tests pass 100%.
 
 ### Completion Notes List
 
+- Installed `@supabase/supabase-js` and `@supabase/ssr` on frontend web package.
+- Built lazy-memoized Supabase client initializers for both browser client and server Route Handlers.
+- Built `auth/callback` code-exchange endpoint resolving `NEXT_LOCALE` cookie with default-locale fallback.
+- Implemented presentational `GoogleLoginButton` in packages/ui with a gorgeous custom SVG Google logo and full Tailwind styles.
+- Created `/login` page conforming to the Server-Metadata / Client-Content split rule.
+- Added localized strings for en/id in route metadata and 'Auth' namespaces.
+- Wired standard React context `AuthSessionProvider` managing user auth token, syncing to `graphqlClient` singleton on every state change.
+- Added `Query.me` backend query with Drizzle SQL query to resolve user email, role, and details.
+- Added integration tests for route handler, button component, and GraphQL me resolver.
+- Verified local build and backend tests pass 100% cleanly.
+
 ### File List
+
+- `apps/web/src/lib/supabase/client.ts` (new)
+- `apps/web/src/lib/supabase/server.ts` (new)
+- `apps/web/src/app/auth/callback/route.ts` (new)
+- `apps/web/src/app/auth/callback/route.test.ts` (new)
+- `packages/ui/src/features/auth/GoogleLoginButton.tsx` (new)
+- `packages/ui/src/features/auth/GoogleLoginButton.test.tsx` (new)
+- `packages/ui/src/features/auth/index.ts` (new)
+- `packages/ui/src/index.ts` (modified)
+- `apps/web/src/app/[locale]/login/page.tsx` (new)
+- `apps/web/src/app/[locale]/login/login-content.tsx` (new)
+- `apps/web/locales/en.json` (modified)
+- `apps/web/locales/id.json` (modified)
+- `apps/web/package.json` (modified)
+- `apps/web/src/components/providers/auth-session-provider.tsx` (new)
+- `apps/web/src/app/[locale]/layout.tsx` (modified)
+- `apps/web/src/app/[locale]/home-content.tsx` (modified)
+- `apps/backend/src/schema/auth.graphql` (new)
+- `apps/backend/src/schema/resolvers.ts` (modified)
+- `apps/backend/src/schema/resolvers.test.ts` (modified)
+- `apps/web/src/features/auth/queries.graphql` (new)
+- `SETUP_WALKTHROUGH.md` (modified)
+- `turbo.json` (modified)
+- `.env.example` (modified)
+- `_bmad-output/implementation-artifacts/1-7-user-signup-and-login-with-google.md` (modified)
