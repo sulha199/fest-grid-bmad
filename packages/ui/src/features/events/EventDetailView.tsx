@@ -163,17 +163,24 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
           <ul className="flex flex-col gap-4">
             {schedules.map((schedule, idx) => {
               const scheduleLocation = schedule.location || location;
+              const scheduleAsHeader = !schedule.title && schedules.length === 1;
               return (
                 <li key={idx} className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg flex flex-col gap-3">
                   <h3 className="font-semibold text-lg flex items-center gap-2">
                     <CalendarDays className="w-5 h-5 text-gray-500" />
-                    {schedule.title || `${labels.defaultScheduleTitle} ${idx + 1}`}
+                    { 
+                      scheduleAsHeader ? 
+                        formatScheduleDate(schedule) : 
+                        (schedule.title || `${labels.defaultScheduleTitle} ${idx + 1}`)
+                    }
                   </h3>
                   
-                  <div className="flex flex-col gap-2 ml-7 text-sm text-gray-600 dark:text-gray-400">
-                    <p className="font-medium text-gray-900 dark:text-gray-100">
-                      {formatScheduleDate(schedule)}
-                    </p>
+                  <div className={`flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-400 ${scheduleAsHeader ? "" : "ml-7"}`}>
+                    {!scheduleAsHeader && (
+                      <p className="font-medium text-gray-900 dark:text-gray-100">
+                        {formatScheduleDate(schedule)}
+                      </p>
+                    )}
 
                     <address className="not-italic flex items-start gap-2">
                       <MapPin className="w-4 h-4 shrink-0 mt-0.5" />

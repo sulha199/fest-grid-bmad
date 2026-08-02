@@ -21,7 +21,9 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
 export function mapGraphQLEventToDetailViewProps(
   event: NonNullable<GetEventBySlugQuery['eventBySlug']>,
   labels: EventDetailViewLabels,
-  locale: string
+  locale: string,
+  tType: (key: string) => string,
+  tCategory: (key: string) => string
 ): Omit<EventDetailViewProps, 'labels'> & { labels: EventDetailViewLabels } {
   const mappedSchedules: ScheduleDetail[] = (event.schedules || []).map((s) => {
     let mapUrl: string | null = null;
@@ -45,13 +47,29 @@ export function mapGraphQLEventToDetailViewProps(
     };
   });
 
+  const mappedTypes = (event.types || []).map((t) => {
+    try {
+      return tType(t);
+    } catch {
+      return t;
+    }
+  });
+
+  const mappedCategories = (event.categories || []).map((c) => {
+    try {
+      return tCategory(c);
+    } catch {
+      return c;
+    }
+  });
+
   return {
     eventName: event.eventName,
     description: event.description,
     schedules: mappedSchedules,
     location: event.location || '',
-    types: event.types || [],
-    categories: event.categories || [],
+    types: mappedTypes,
+    categories: mappedCategories,
     imageUrl: event.imageUrl,
     imageAlt: event.eventName,
     originalPostUrl: event.originalPostUrl,

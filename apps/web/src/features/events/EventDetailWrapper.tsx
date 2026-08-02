@@ -8,7 +8,7 @@ import { mapGraphQLEventToDetailViewProps, useEventDetailViewLabels } from "./ma
 import { useListNavigationForEvent } from "./navigation-hook"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
-import { useTranslations } from "next-intl"
+import { useTranslations, useLocale } from "next-intl"
 import { usePostHog } from "@festgrid/analytics"
 import { ChevronLeft, ChevronRight, Home } from "lucide-react"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
@@ -24,6 +24,9 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   const posthog = usePostHog()
   const t = useTranslations("EventDetailsPage")
   const labels = useEventDetailViewLabels()
+  const locale = useLocale()
+  const tType = useTranslations("EventType")
+  const tCategory = useTranslations("EventCategory")
 
   const { data, isPending, error } = useGetEventBySlugQuery(
     graphqlClient,
@@ -88,7 +91,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   }
 
   const mappedProps = data?.eventBySlug
-    ? mapGraphQLEventToDetailViewProps(data.eventBySlug, labels, "en-US")
+    ? mapGraphQLEventToDetailViewProps(data.eventBySlug, labels, locale, tType, tCategory)
     : null
 
   const navigationHeader = (
