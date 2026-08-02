@@ -43,9 +43,11 @@ const localeIntlTagMap: Record<string, string> = {
 
 export default async function RootLayout({
   children,
+  modal,
   params
 }: {
   children: ReactNode;
+  modal: ReactNode;
   params: Promise<{ locale: string }>;
 }) {
   const resolvedParams = await params;
@@ -73,7 +75,10 @@ export default async function RootLayout({
               <QueryProvider>
                 <NuqsAdapter>
                   <ScopedLocaleProvider locale={localeIntlTagMap[locale] ?? locale}>
-                    <AppShell>{children}</AppShell>
+                    <AppShell>
+                      {children}
+                      {modal}
+                    </AppShell>
                   </ScopedLocaleProvider>
                 </NuqsAdapter>
               </QueryProvider>

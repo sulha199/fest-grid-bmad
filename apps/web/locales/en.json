@@ -3,7 +3,27 @@
     "defaultTitle": "FestDaily",
     "defaultDescription": "AI-Powered Music Festival Grid and Scheduler",
     "discoveryTitle": "Discover Events | FestDaily",
-    "discoveryDescription": "Browse and search for upcoming events on FestDaily."
+    "discoveryDescription": "Browse and search for upcoming events on FestDaily.",
+    "eventDetailTitle": "{eventName} | FestDaily",
+    "eventDetailDescription": "Get details, schedules, and tickets for {eventName} on FestDaily."
+  },
+  "EventDetailsPage": {
+    "next": "Next Event",
+    "previous": "Previous Event",
+    "closeModal": "Close modal",
+    "notFoundTitle": "Event Not Found",
+    "notFoundBody": "Sorry, the event you are looking for could not be found.",
+    "backToHome": "Back to Home",
+    "loadingText": "Loading event details...",
+    "errorText": "Failed to load event details. Please try again later.",
+    "locationLabel": "Location",
+    "performersLabel": "Performers",
+    "ticketPriceLabel": "Ticket Price",
+    "noSchedulesLabel": "No schedules available for this event.",
+    "defaultScheduleTitle": "Main Schedule",
+    "favoriteButtonLabel": "Add to Favorites",
+    "removeFavoriteButtonLabel": "Remove from Favorites",
+    "addToCalendarButtonLabel": "Add to Calendar"
   },
   "FilterHub": {
     "typeLabel": "Type",

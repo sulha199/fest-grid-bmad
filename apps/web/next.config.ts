@@ -1,3 +1,4 @@
+import path from 'path';
 import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin(
@@ -6,7 +7,11 @@ const withNextIntl = createNextIntlPlugin(
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  // apps/web sits two levels below the bmad monorepo root (which owns the
+  // pnpm-workspace.yaml/turbo.json/pnpm-lock.yaml this project actually uses).
+  // Without this, Next.js's lockfile-based root inference walks up into the
+  // unrelated outer `festgrid/` repo instead, since it also has a pnpm-lock.yaml.
+  outputFileTracingRoot: path.join(__dirname, '..', '..'),
 };
 
 export default withNextIntl(nextConfig);

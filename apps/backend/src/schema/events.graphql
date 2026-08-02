@@ -66,6 +66,7 @@ type Schedule {
 type Event {
   id: ID!
   eventName: String!
+  slug: String!
   description: String
   types: [EventType!]
   categories: [EventCategory!]
@@ -73,6 +74,8 @@ type Event {
   sourceSocialMediaAccountId: ID
   postId: ID
   imageUrl: String
+  sourcePostUrl: String
+  originalPostUrl: String
   updatedAt: String!
   createdAt: String!
   schedules: [Schedule!]!
@@ -94,4 +97,5 @@ input EventQueryConditionInput {
 extend type Query {
   events(query: EventQueryConditionInput, limit: Int, offset: Int): EventConnection!
   event(id: ID!): Event
+  eventBySlug(slug: String!): Event
 }

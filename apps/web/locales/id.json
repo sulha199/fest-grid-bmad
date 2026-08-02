@@ -3,7 +3,27 @@
     "defaultTitle": "FestDaily",
     "defaultDescription": "Jadwal dan Grid Festival Musik Berbasis AI",
     "discoveryTitle": "Temukan Acara | FestDaily",
-    "discoveryDescription": "Jelajahi dan cari acara mendatang di FestDaily."
+    "discoveryDescription": "Jelajahi dan cari acara mendatang di FestDaily.",
+    "eventDetailTitle": "{eventName} | FestDaily",
+    "eventDetailDescription": "Dapatkan detail, jadwal, dan tiket untuk {eventName} di FestDaily."
+  },
+  "EventDetailsPage": {
+    "next": "Acara Selanjutnya",
+    "previous": "Acara Sebelumnya",
+    "closeModal": "Tutup modal",
+    "notFoundTitle": "Acara Tidak Ditemukan",
+    "notFoundBody": "Maaf, acara yang Anda cari tidak dapat ditemukan.",
+    "backToHome": "Kembali ke Beranda",
+    "loadingText": "Memuat detail acara...",
+    "errorText": "Gagal memuat detail acara. Silakan coba lagi nanti.",
+    "locationLabel": "Lokasi",
+    "performersLabel": "Pengisi Acara",
+    "ticketPriceLabel": "Harga Tiket",
+    "noSchedulesLabel": "Tidak ada jadwal yang tersedia untuk acara ini.",
+    "defaultScheduleTitle": "Jadwal Utama",
+    "favoriteButtonLabel": "Tambah ke Favorit",
+    "removeFavoriteButtonLabel": "Hapus dari Favorit",
+    "addToCalendarButtonLabel": "Tambah ke Kalender"
   },
   "FilterHub": {
     "typeLabel": "Tipe",

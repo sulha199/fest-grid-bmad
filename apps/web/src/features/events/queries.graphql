@@ -3,6 +3,7 @@ query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
     items {
       id
       eventName
+      slug
       imageUrl
       location
       types
@@ -16,5 +17,43 @@ query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
     }
     hasMore
     totalCount
+  }
+}
+
+query getEventBySlug($slug: String!) {
+  eventBySlug(slug: $slug) {
+    id
+    eventName
+    slug
+    description
+    location
+    types
+    categories
+    imageUrl
+    sourcePostUrl
+    originalPostUrl
+    schedules {
+      id
+      isMainSchedule
+      eventStartDate
+      eventEndDate
+      eventStartTime
+      eventEndTime
+      performers
+      location
+      locationDetails {
+        coordinates {
+          lat
+          lng
+        }
+        placeName
+        placeId
+        formattedAddress
+        timezone
+      }
+      ticketPrice
+      ticketUrl
+      registrationUrl
+    }
   }
 }

@@ -173,7 +173,7 @@ const FIXTURE_SCHEDULES = [
     performers: ['Nusa Trio', 'Kota Brass'],
     location: 'South Jakarta Art Hall - Stage A',
     ticketPrice: 'IDR 150000',
-    locationDetails: { lat: -6.2615, lng: 106.8106 },
+    locationDetails: { coordinates: { lat: -6.2615, lng: 106.8106 } },
   },
   {
     id: '50000000-0000-0000-0000-000000000002',
@@ -188,7 +188,7 @@ const FIXTURE_SCHEDULES = [
     performers: ['Rotating Local Communities'],
     location: 'Merdeka Square - Main Area',
     ticketPrice: 'Free',
-    locationDetails: { lat: -6.1701, lng: 106.8283 },
+    locationDetails: { coordinates: { lat: -6.1701, lng: 106.8283 } },
   },
   {
     id: '50000000-0000-0000-0000-000000000003',
@@ -203,7 +203,7 @@ const FIXTURE_SCHEDULES = [
     performers: ['Creative Kids Lab'],
     location: 'Bandung Community Hub - Room 2',
     ticketPrice: 'IDR 50000',
-    locationDetails: { lat: -6.9147, lng: 107.6098 },
+    locationDetails: { coordinates: { lat: -6.9147, lng: 107.6098 } },
   },
   {
     id: '50000000-0000-0000-0000-000000000004',
@@ -218,7 +218,7 @@ const FIXTURE_SCHEDULES = [
     performers: ['Community Facilitator Team'],
     location: 'Bandung Community Hub - Garden Deck',
     ticketPrice: 'Free with registration',
-    locationDetails: { lat: -6.9153, lng: 107.6109 },
+    locationDetails: { coordinates: { lat: -6.9153, lng: 107.6109 } },
   },
 ];
 

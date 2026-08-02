@@ -44,8 +44,11 @@ export type Event = {
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   location?: Maybe<Scalars['String']['output']>;
+  originalPostUrl?: Maybe<Scalars['String']['output']>;
   postId?: Maybe<Scalars['ID']['output']>;
   schedules: Array<Schedule>;
+  slug: Scalars['String']['output'];
+  sourcePostUrl?: Maybe<Scalars['String']['output']>;
   sourceSocialMediaAccountId?: Maybe<Scalars['ID']['output']>;
   types?: Maybe<Array<EventType>>;
   updatedAt: Scalars['String']['output'];
@@ -102,6 +105,7 @@ export type LocationDetails = {
 export type Query = {
   __typename?: 'Query';
   event?: Maybe<Event>;
+  eventBySlug?: Maybe<Event>;
   events: EventConnection;
   health: Scalars['Boolean']['output'];
 };
@@ -109,6 +113,11 @@ export type Query = {
 
 export type QueryEventArgs = {
   id: Scalars['ID']['input'];
+};
+
+
+export type QueryEventBySlugArgs = {
+  slug: Scalars['String']['input'];
 };
 
 
@@ -148,7 +157,14 @@ export type GetEventsQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, imageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, ticketPrice: string | null }> }> } };
+export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, ticketPrice: string | null }> }> } };
+
+export type GetEventBySlugQueryVariables = Exact<{
+  slug: string;
+}>;
+
+
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -176,6 +192,7 @@ export const GetEventsDocument = new TypedDocumentString(`
     items {
       id
       eventName
+      slug
       imageUrl
       location
       types
@@ -207,6 +224,64 @@ export const useGetEventsQuery = <
       {
     queryKey: variables === undefined ? ['getEvents'] : ['getEvents', variables],
     queryFn: fetcher<GetEventsQuery, GetEventsQueryVariables>(client, GetEventsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetEventBySlugDocument = new TypedDocumentString(`
+    query getEventBySlug($slug: String!) {
+  eventBySlug(slug: $slug) {
+    id
+    eventName
+    slug
+    description
+    location
+    types
+    categories
+    imageUrl
+    sourcePostUrl
+    originalPostUrl
+    schedules {
+      id
+      isMainSchedule
+      eventStartDate
+      eventEndDate
+      eventStartTime
+      eventEndTime
+      performers
+      location
+      locationDetails {
+        coordinates {
+          lat
+          lng
+        }
+        placeName
+        placeId
+        formattedAddress
+        timezone
+      }
+      ticketPrice
+      ticketUrl
+      registrationUrl
+    }
+  }
+}
+    `);
+
+export const useGetEventBySlugQuery = <
+      TData = GetEventBySlugQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: GetEventBySlugQueryVariables,
+      options?: Omit<UseQueryOptions<GetEventBySlugQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetEventBySlugQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetEventBySlugQuery, TError, TData>(
+      {
+    queryKey: ['getEventBySlug', variables],
+    queryFn: fetcher<GetEventBySlugQuery, GetEventBySlugQueryVariables>(client, GetEventBySlugDocument, variables, headers),
     ...options
   }
     )};

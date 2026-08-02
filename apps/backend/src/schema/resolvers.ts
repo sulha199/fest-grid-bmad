@@ -1,6 +1,6 @@
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules } from '@festgrid/database';
+import { events, schedules, posts } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere } from '@festgrid/graphql-select';
 import { eq, count, sql, asc, and } from 'drizzle-orm';
 import { QueryCondition } from '@festgrid/domain/query';
@@ -46,6 +46,7 @@ export const resolvers: Resolvers = {
       const itemsQuery = db.select({
         ...requestedFields,
         id: events.id,
+        postId: events.postId,
       }).from(events)
         .leftJoin(schedules, mainSchedulesOnly)
         .$dynamic();
@@ -81,7 +82,19 @@ export const resolvers: Resolvers = {
       const rows = await db.select({
         ...requestedFields,
         id: events.id,
+        postId: events.postId,
       }).from(events).where(eq(events.id, id));
+
+      return (rows[0] as any) || null;
+    },
+    eventBySlug: async (_: any, { slug }: any, context: any, info: any) => {
+      const requestedFields = buildOptimizedDrizzleSelect(events, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: events.id,
+        postId: events.postId,
+        slug: events.slug,
+      }).from(events).where(eq(events.slug, slug));
 
       return (rows[0] as any) || null;
     }
@@ -94,6 +107,17 @@ export const resolvers: Resolvers = {
         id: schedules.id
       }).from(schedules).where(eq(schedules.eventId, parent.id));
       return rows as any;
-    }
+    },
+    imageUrl: async (parent: any) => {
+      if (!parent.postId) return null;
+      const rows = await db.select({ imageUrl: posts.imageUrl }).from(posts).where(eq(posts.id, parent.postId));
+      return rows[0]?.imageUrl || null;
+    },
+    sourcePostUrl: async (parent: any) => {
+      if (!parent.postId) return null;
+      const rows = await db.select({ postUrl: posts.postUrl }).from(posts).where(eq(posts.id, parent.postId));
+      return rows[0]?.postUrl || null;
+    },
+    originalPostUrl: () => null
   }
 };

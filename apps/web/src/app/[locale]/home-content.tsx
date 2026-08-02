@@ -9,6 +9,8 @@ import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput } from "@/g
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs"
 import { usePostHog } from "@festgrid/analytics"
+import { useRouter } from "@/i18n/navigation"
+import { useSearchParams } from "next/navigation"
 
 function buildEventsQuery({ search, types, categories }: { search: string, types: string[], categories: string[] }): EventQueryConditionInput | undefined {
   const conditions: EventQueryConditionInput[] = []
@@ -84,6 +86,8 @@ export function HomeContent() {
     [tType]
   )
 
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const posthog = usePostHog()
 
   const filterLabels = useMemo(() => ({
@@ -209,6 +213,11 @@ export function HomeContent() {
                   types={event.types ?? []}
                   priceFrom={mainSchedule?.ticketPrice ?? undefined}
                   labels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
+                  onClick={() => {
+                    const paramsStr = searchParams.toString();
+                    const url = `/events/${event.slug}${paramsStr ? `?${paramsStr}` : ''}`;
+                    router.push(url);
+                  }}
                 />
               )
             })}

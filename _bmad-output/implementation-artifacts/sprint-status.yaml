@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-02T01:35:00Z
+last_updated: 2026-08-02T05:32:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -80,7 +80,7 @@ development_status:
   1-5-filter-events-by-type-and-category: review
   1-6a-build-the-reusable-event-detail-view-component: review
   1-6b-build-the-context-aware-list-navigation-hook: review
-  1-6-view-event-details: ready-for-dev
+  1-6-view-event-details: review
   1-7a-build-the-reusable-blockingloader-component: backlog
   1-7-user-signup-and-login-with-google: ready-for-dev
   1-8-setup-posthog-analytics: review
