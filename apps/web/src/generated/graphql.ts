@@ -43,6 +43,8 @@ export type Event = {
   eventName: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
+  isAddedToCalendar: Scalars['Boolean']['output'];
+  isFavorited: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
   originalPostUrl?: Maybe<Scalars['String']['output']>;
   postId?: Maybe<Scalars['ID']['output']>;
@@ -109,6 +111,23 @@ export type Me = {
   role: Scalars['String']['output'];
 };
 
+export type Mutation = {
+  __typename?: 'Mutation';
+  toggleCalendarAddition: ToggleCalendarAdditionResult;
+  toggleFavorite: ToggleFavoriteResult;
+};
+
+
+export type MutationToggleCalendarAdditionArgs = {
+  eventId: Scalars['ID']['input'];
+  scheduleId: Scalars['ID']['input'];
+};
+
+
+export type MutationToggleFavoriteArgs = {
+  eventId: Scalars['ID']['input'];
+};
+
 export type Query = {
   __typename?: 'Query';
   event?: Maybe<Event>;
@@ -144,6 +163,7 @@ export type Schedule = {
   eventStartDate: Scalars['String']['output'];
   eventStartTime?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
+  isAddedToCalendar: Scalars['Boolean']['output'];
   isMainSchedule: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
   locationDetails?: Maybe<LocationDetails>;
@@ -153,6 +173,19 @@ export type Schedule = {
   ticketUrl?: Maybe<Scalars['String']['output']>;
   timezone?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['String']['output'];
+};
+
+export type ToggleCalendarAdditionResult = {
+  __typename?: 'ToggleCalendarAdditionResult';
+  eventId: Scalars['ID']['output'];
+  isAddedToCalendar: Scalars['Boolean']['output'];
+  scheduleId: Scalars['ID']['output'];
+};
+
+export type ToggleFavoriteResult = {
+  __typename?: 'ToggleFavoriteResult';
+  eventId: Scalars['ID']['output'];
+  isFavorited: Scalars['Boolean']['output'];
 };
 
 

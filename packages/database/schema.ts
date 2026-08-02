@@ -1,5 +1,5 @@
-import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, pgEnum, index } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, pgEnum, index, unique } from 'drizzle-orm/pg-core';
+import { relations, sql } from 'drizzle-orm';
 
 // Reusable timestamp columns for future tables to ensure correct timezone handling
 export const timestamps = {
@@ -130,8 +130,33 @@ export const schedules = pgTable('schedules', {
   locationIdx: index('schedule_location_idx').on(t.location),
 }));
 
+export const favorites = pgTable('favorites', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => ({
+  unq: unique().on(t.userId, t.eventId),
+  activeIdx: index('idx_favorites_active').on(t.userId).where(sql`deleted_at IS NULL`),
+}));
+
+export const calendarAdditions = pgTable('calendar_additions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  scheduleId: uuid('schedule_id').references(() => schedules.id, { onDelete: 'cascade' }).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => ({
+  unq: unique().on(t.userId, t.scheduleId),
+  activeIdx: index('idx_calendar_additions_active').on(t.userId, t.scheduleId).where(sql`deleted_at IS NULL`),
+}));
+
 export const eventsRelations = relations(events, ({ one, many }) => ({
   schedules: many(schedules),
+  favorites: many(favorites),
+  calendarAdditions: many(calendarAdditions),
   post: one(posts, {
     fields: [events.postId],
     references: [posts.id],
@@ -146,17 +171,46 @@ export const postsRelations = relations(posts, ({ one, many }) => ({
   events: many(events),
 }));
 
-export const schedulesRelations = relations(schedules, ({ one }) => ({
+export const schedulesRelations = relations(schedules, ({ one, many }) => ({
   event: one(events, {
     fields: [schedules.eventId],
     references: [events.id],
   }),
+  calendarAdditions: many(calendarAdditions),
 }));
 
 export const usersRelations = relations(users, ({ many }) => ({
   userLocations: many(userLocations),
   subscriptions: many(subscriptions),
   apiKeys: many(apiKeys),
+  favorites: many(favorites),
+  calendarAdditions: many(calendarAdditions),
+}));
+
+export const favoritesRelations = relations(favorites, ({ one }) => ({
+  user: one(users, {
+    fields: [favorites.userId],
+    references: [users.id],
+  }),
+  event: one(events, {
+    fields: [favorites.eventId],
+    references: [events.id],
+  }),
+}));
+
+export const calendarAdditionsRelations = relations(calendarAdditions, ({ one }) => ({
+  user: one(users, {
+    fields: [calendarAdditions.userId],
+    references: [users.id],
+  }),
+  event: one(events, {
+    fields: [calendarAdditions.eventId],
+    references: [events.id],
+  }),
+  schedule: one(schedules, {
+    fields: [calendarAdditions.scheduleId],
+    references: [schedules.id],
+  }),
 }));
 
 export const userLocationsRelations = relations(userLocations, ({ one }) => ({

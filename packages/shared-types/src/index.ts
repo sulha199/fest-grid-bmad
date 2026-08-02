@@ -128,3 +128,20 @@ export interface Post {
   postUrl: string;
   isExtracted?: boolean;
 }
+
+export interface Favorite {
+  id: string;
+  userId: string;
+  eventId: string;
+  createdAt: DateTimeIso;
+  deletedAt?: DateTimeIso;
+}
+
+export interface CalendarEntry {
+  id: string;
+  userId: string;
+  eventId: string;
+  scheduleId: string;
+  createdAt: DateTimeIso;
+  deletedAt?: DateTimeIso;
+}

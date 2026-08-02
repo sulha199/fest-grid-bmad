@@ -33,6 +33,8 @@ export type Event = {
   eventName: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
+  isAddedToCalendar: Scalars['Boolean']['output'];
+  isFavorited: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
   originalPostUrl?: Maybe<Scalars['String']['output']>;
   postId?: Maybe<Scalars['ID']['output']>;
@@ -105,6 +107,23 @@ export type Me = {
   role: Scalars['String']['output'];
 };
 
+export type Mutation = {
+  __typename?: 'Mutation';
+  toggleCalendarAddition: ToggleCalendarAdditionResult;
+  toggleFavorite: ToggleFavoriteResult;
+};
+
+
+export type MutationToggleCalendarAdditionArgs = {
+  eventId: Scalars['ID']['input'];
+  scheduleId: Scalars['ID']['input'];
+};
+
+
+export type MutationToggleFavoriteArgs = {
+  eventId: Scalars['ID']['input'];
+};
+
 export type Query = {
   __typename?: 'Query';
   event?: Maybe<Event>;
@@ -140,6 +159,7 @@ export type Schedule = {
   eventStartDate: Scalars['String']['output'];
   eventStartTime?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
+  isAddedToCalendar: Scalars['Boolean']['output'];
   isMainSchedule: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
   locationDetails?: Maybe<LocationDetails>;
@@ -149,6 +169,19 @@ export type Schedule = {
   ticketUrl?: Maybe<Scalars['String']['output']>;
   timezone?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['String']['output'];
+};
+
+export type ToggleCalendarAdditionResult = {
+  __typename?: 'ToggleCalendarAdditionResult';
+  eventId: Scalars['ID']['output'];
+  isAddedToCalendar: Scalars['Boolean']['output'];
+  scheduleId: Scalars['ID']['output'];
+};
+
+export type ToggleFavoriteResult = {
+  __typename?: 'ToggleFavoriteResult';
+  eventId: Scalars['ID']['output'];
+  isFavorited: Scalars['Boolean']['output'];
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -236,9 +269,12 @@ export type ResolversTypes = ResolversObject<{
   JSON: ResolverTypeWrapper<Scalars['JSON']['output']>;
   LocationDetails: ResolverTypeWrapper<LocationDetails>;
   Me: ResolverTypeWrapper<Me>;
+  Mutation: ResolverTypeWrapper<{}>;
   Query: ResolverTypeWrapper<{}>;
   Schedule: ResolverTypeWrapper<Schedule>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
+  ToggleCalendarAdditionResult: ResolverTypeWrapper<ToggleCalendarAdditionResult>;
+  ToggleFavoriteResult: ResolverTypeWrapper<ToggleFavoriteResult>;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
@@ -254,9 +290,12 @@ export type ResolversParentTypes = ResolversObject<{
   JSON: Scalars['JSON']['output'];
   LocationDetails: LocationDetails;
   Me: Me;
+  Mutation: {};
   Query: {};
   Schedule: Schedule;
   String: Scalars['String']['output'];
+  ToggleCalendarAdditionResult: ToggleCalendarAdditionResult;
+  ToggleFavoriteResult: ToggleFavoriteResult;
 }>;
 
 export type CoordinatesResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Coordinates'] = ResolversParentTypes['Coordinates']> = ResolversObject<{
@@ -272,6 +311,8 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  isAddedToCalendar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  isFavorited?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   location?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   originalPostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   postId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
@@ -311,6 +352,11 @@ export type MeResolvers<ContextType = GraphQLContext, ParentType extends Resolve
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type MutationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
+  toggleCalendarAddition?: Resolver<ResolversTypes['ToggleCalendarAdditionResult'], ParentType, ContextType, RequireFields<MutationToggleCalendarAdditionArgs, 'eventId' | 'scheduleId'>>;
+  toggleFavorite?: Resolver<ResolversTypes['ToggleFavoriteResult'], ParentType, ContextType, RequireFields<MutationToggleFavoriteArgs, 'eventId'>>;
+}>;
+
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
   event?: Resolver<Maybe<ResolversTypes['Event']>, ParentType, ContextType, RequireFields<QueryEventArgs, 'id'>>;
   eventBySlug?: Resolver<Maybe<ResolversTypes['Event']>, ParentType, ContextType, RequireFields<QueryEventBySlugArgs, 'slug'>>;
@@ -327,6 +373,7 @@ export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends R
   eventStartDate?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   eventStartTime?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  isAddedToCalendar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isMainSchedule?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   location?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   locationDetails?: Resolver<Maybe<ResolversTypes['LocationDetails']>, ParentType, ContextType>;
@@ -339,6 +386,19 @@ export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends R
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type ToggleCalendarAdditionResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ToggleCalendarAdditionResult'] = ResolversParentTypes['ToggleCalendarAdditionResult']> = ResolversObject<{
+  eventId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  isAddedToCalendar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  scheduleId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ToggleFavoriteResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ToggleFavoriteResult'] = ResolversParentTypes['ToggleFavoriteResult']> = ResolversObject<{
+  eventId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  isFavorited?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Coordinates?: CoordinatesResolvers<ContextType>;
   Event?: EventResolvers<ContextType>;
@@ -346,7 +406,10 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   JSON?: GraphQLScalarType;
   LocationDetails?: LocationDetailsResolvers<ContextType>;
   Me?: MeResolvers<ContextType>;
+  Mutation?: MutationResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Schedule?: ScheduleResolvers<ContextType>;
+  ToggleCalendarAdditionResult?: ToggleCalendarAdditionResultResolvers<ContextType>;
+  ToggleFavoriteResult?: ToggleFavoriteResultResolvers<ContextType>;
 }>;
 

@@ -1,0 +1,15 @@
+type Mutation {
+  toggleFavorite(eventId: ID!): ToggleFavoriteResult!
+  toggleCalendarAddition(eventId: ID!, scheduleId: ID!): ToggleCalendarAdditionResult!
+}
+
+type ToggleFavoriteResult {
+  eventId: ID!
+  isFavorited: Boolean!
+}
+
+type ToggleCalendarAdditionResult {
+  eventId: ID!
+  scheduleId: ID!
+  isAddedToCalendar: Boolean!
+}
