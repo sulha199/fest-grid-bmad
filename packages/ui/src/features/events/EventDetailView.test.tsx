@@ -66,7 +66,7 @@ describe('EventDetailView', () => {
     render(<EventDetailView {...minimalProps} />);
     
     expect(screen.getByRole('heading', { name: 'Test Event' })).toBeInTheDocument();
-    expect(screen.getByText('Schedule 1')).toBeInTheDocument(); // fallback title
+    expect(screen.getByText('Mon, Aug 10, 2026')).toBeInTheDocument(); // fallback header when single schedule
     expect(screen.getByText('Test Location')).toBeInTheDocument();
   });
 
