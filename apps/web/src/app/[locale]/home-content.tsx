@@ -215,7 +215,7 @@ export function HomeContent() {
                   labels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
                   onClick={() => {
                     const paramsStr = searchParams.toString();
-                    const url = `/events/${event.slug}${paramsStr ? `?${paramsStr}` : ''}`;
+                    const url = `/events/${event.slug}?fromList=true${paramsStr ? `&${paramsStr}` : ""}`;
                     router.push(url);
                   }}
                 />

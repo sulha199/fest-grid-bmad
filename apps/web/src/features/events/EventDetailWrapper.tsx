@@ -11,7 +11,6 @@ import { useSearchParams } from "next/navigation"
 import { useTranslations, useLocale } from "next-intl"
 import { usePostHog } from "@festgrid/analytics"
 import { ChevronLeft, ChevronRight, Home } from "lucide-react"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
 
 interface EventDetailWrapperProps {
   slug: string
@@ -27,6 +26,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   const locale = useLocale()
   const tType = useTranslations("EventType")
   const tCategory = useTranslations("EventCategory")
+  const tMeta = useTranslations("Metadata")
 
   const { data, isPending, error } = useGetEventBySlugQuery(
     graphqlClient,
@@ -46,24 +46,47 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     }
   }, [data?.eventBySlug, posthog])
 
+  // Update browser document tab title & meta description dynamically when event details successfully load on client side
+  useEffect(() => {
+    if (data?.eventBySlug) {
+      const eventName = data.eventBySlug.eventName
+      const translatedTitle = tMeta("eventDetailTitle", { eventName })
+      const originalTitle = document.title
+      document.title = translatedTitle
+
+      const metaDescription = document.querySelector('meta[name="description"]')
+      const originalDescription = metaDescription?.getAttribute("content") || ""
+      if (metaDescription) {
+        metaDescription.setAttribute("content", data.eventBySlug.description || tMeta("eventDetailDescription", { eventName }))
+      }
+
+      return () => {
+        document.title = originalTitle
+        if (metaDescription) {
+          metaDescription.setAttribute("content", originalDescription)
+        }
+      }
+    }
+  }, [data?.eventBySlug, tMeta])
+
   const handleNext = async () => {
     const target = await nav.requestNext()
     if (target?.item) {
       const paramsStr = searchParams.toString()
-      router.push(`/events/${target.item.slug}${paramsStr ? `?${paramsStr}` : ""}`)
+      router.replace(`/events/${target.item.slug}${paramsStr ? `?${paramsStr}` : ""}`)
     }
   }
 
   const handlePrevious = () => {
     if (nav.previous.target?.item) {
       const paramsStr = searchParams.toString()
-      router.push(`/events/${nav.previous.target.item.slug}${paramsStr ? `?${paramsStr}` : ""}`)
+      router.replace(`/events/${nav.previous.target.item.slug}${paramsStr ? `?${paramsStr}` : ""}`)
     }
   }
 
   // Not Found view
   if (!isPending && !error && !data?.eventBySlug) {
-    const notFoundContent = (
+    return (
       <div className="flex flex-col items-center justify-center p-12 text-center bg-background rounded-lg border border-gray-200 dark:border-gray-800 max-w-md mx-auto my-8 space-y-4">
         <h2 className="text-2xl font-bold text-foreground">{t("notFoundTitle")}</h2>
         <p className="text-muted-foreground">{t("notFoundBody")}</p>
@@ -76,18 +99,6 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
         </button>
       </div>
     )
-
-    if (isModal) {
-      return (
-        <Dialog open={true} onOpenChange={(open) => { if (!open) router.back() }}>
-          <DialogContent className="max-w-xl p-0 overflow-hidden bg-transparent border-none shadow-none">
-            {notFoundContent}
-          </DialogContent>
-        </Dialog>
-      )
-    }
-
-    return notFoundContent
   }
 
   const mappedProps = data?.eventBySlug
@@ -148,13 +159,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   )
 
   if (isModal) {
-    return (
-      <Dialog open={true} onOpenChange={(open) => { if (!open) router.back() }}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-6 rounded-xl">
-          {detailViewContent}
-        </DialogContent>
-      </Dialog>
-    )
+    return detailViewContent
   }
 
   return (
