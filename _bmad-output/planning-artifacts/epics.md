@@ -100,7 +100,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **NFR10:** Target a SUS score of 75 or higher.
 - **NFR11:** Use an Adapter pattern for AI services.
 - **NFR12:** All API keys must be stored securely in environment variables.
-- **NFR13:** All API keys should be restricted in the Google Cloud Console.
+- **NFR13:** All API keys should be restricted at the provider level wherever supported (e.g. Google Cloud Console for Gemini; Geoapify's dashboard for the geolocation adapter).
 - **NFR14:** A caching mechanism will be implemented for the Geolocation service.
 - **NFR15:** All AI-driven event extractions must produce a `confidenceScore`.
 - **NFR16:** Events with a score below a defined threshold will be flagged for human review.
@@ -419,17 +419,17 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Depends on:** Story 1.1 (`api_keys` table).
 
-### Story 0.14: Set up AWS IaC for Lambda, SQS, EventBridge, and KMS
+### Story 0.14: Set up AWS IaC for Lambda, SQS, EventBridge, KMS, and SES
 
 **As a** developer,
-**I want** infrastructure-as-code provisioning the backend Lambda functions, SQS queues (`ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`), an EventBridge scheduled rule, API Gateway, and a KMS key for BYOK key encryption,
-**So that** every backend pipeline story (scraping, queuing, AI processing, ingestion) deploys onto consistently provisioned, version-controlled infrastructure instead of each story inventing its own ad hoc AWS setup.
+**I want** infrastructure-as-code provisioning the backend Lambda functions, SQS queues (`ScrapingQueue`, `AIProcessingQueue`, `DataIngestionQueue`), an EventBridge scheduled rule, API Gateway, a KMS key for BYOK key encryption, and AWS SES (Simple Email Service) identity/permissions,
+**So that** every backend pipeline story (scraping, queuing, AI processing, ingestion, and email notifications) deploys onto consistently provisioned, version-controlled infrastructure instead of each story inventing its own ad hoc AWS setup.
 
 **Acceptance Criteria:**
 
 *   **Given** the monorepo and CI/CD pipeline exist (Stories 0.1, 0.5),
 *   **When** the IaC stack is applied,
-*   **Then** the four backend Lambda functions (API, Scraper, AI Processor, Ingestor), the three SQS queues, an EventBridge scheduled rule, API Gateway, and a KMS key are provisioned and wired together per `docs/infrastructure/high-level-overview.md`.
+*   **Then** the four backend Lambda functions (API, Scraper, AI Processor, Ingestor), the three SQS queues, an EventBridge scheduled rule, API Gateway, a KMS key, and AWS SES configurations/IAM permissions are provisioned and wired together per `docs/infrastructure/high-level-overview.md`.
 *   **And** the stack deploys automatically as part of CI/CD (Story 0.5) on merge to the main branch.
 *   **And** environment-specific configuration (dev/staging/prod) is supported without duplicating the stack definition.
 
@@ -457,19 +457,20 @@ The project is set up with a solid foundation and CI/CD pipeline.
 ### Story 0.16: Set up Geolocation adapter with caching layer
 
 **As a** developer,
-**I want** a dedicated Geolocation adapter that wraps all outbound calls to the Google Geolocation/Places API behind a single interface, with a caching layer for repeated lookups and a restricted, backend-only API key,
-**So that** every feature that resolves coordinates, addresses, or timezones (map-based location picking, nearby-event search, timezone inference for extracted events) reuses the same client and cache instead of each feature calling the Geolocation API directly and re-incurring cost/quota.
+**I want** a dedicated Geolocation adapter that wraps all outbound calls to the Geoapify Geocoding/Places/Reverse-Geocoding API behind a single interface, with a caching layer for repeated lookups and a restricted, backend-only API key,
+**So that** every feature that resolves coordinates, addresses, or timezones (map-based location picking, nearby-event search, timezone inference for extracted events) reuses the same client and cache instead of each feature calling the Geoapify API directly and re-incurring cost/quota.
 
 **Acceptance Criteria:**
 
 *   **Given** a feature needs to resolve a location (address, place ID, or coordinates) or infer a timezone,
 *   **When** it needs geolocation data,
-*   **Then** it does so exclusively through this Adapter's exposed interface — never the raw Google Geolocation/Places SDK/HTTP API from feature code.
-*   **And** the Adapter caches lookups for the same location so repeated queries are served from cache rather than re-calling the external API (NFR14).
-*   **And** the Google API key used by the Adapter is restricted in the Google Cloud Console (API restrictions + application restrictions) per the PRD's API key security requirements.
-*   **And** the Adapter is backend-only — no direct Geolocation API calls are made from `apps/web`.
+*   **Then** it does so exclusively through this Adapter's exposed interface — never the raw Geoapify SDK/HTTP API from feature code.
+*   **And** the Adapter caches lookups for the same location so repeated queries are served from cache rather than re-calling the external API (NFR14) — Geoapify's terms explicitly permit indefinite storage/caching of returned place data, so the cache has no forced TTL/expiry beyond what NFR14's cost-management goal requires.
+*   **And** the Geoapify API key used by the Adapter is restricted in the Geoapify dashboard (domain/IP referrer restrictions) per the PRD's API key security requirements.
+*   **And** the Adapter is backend-only — no direct Geoapify API calls are made from `apps/web`.
+*   **And** timezone resolution reuses the same Geoapify geocode/reverse-geocode response (Geoapify returns an IANA `timezone.name` field inline) rather than requiring a separate Time-Zone-specific API call, unlike the Google-based design this story originally assumed.
 
-**Note:** This story exists because of Gate 3 (`story-split-gate.md`), surfaced by the Epic 0 readiness sweep (`bmad-epic-readiness-check`) — Story 2.4 (Epic 2, map-based/current-location picking) and FR33 (Epic 3, timezone inference) both depend on a geolocation service, and NFR14 mandates a caching layer, but no story anywhere set up this adapter, mirroring the AI Gateway adapter (Story 0.13) built for Gemini.
+**Note:** This story exists because of Gate 3 (`story-split-gate.md`), surfaced by the Epic 0 readiness sweep (`bmad-epic-readiness-check`) — Story 2.4 (Epic 2, map-based/current-location picking) and FR33 (Epic 3, timezone inference) both depend on a geolocation service, and NFR14 mandates a caching layer, but no story anywhere set up this adapter, mirroring the AI Gateway adapter (Story 0.13) built for Gemini. Provider changed from Google Geolocation/Places to Geoapify per Sprint Change Proposal 2026-08-03 — see that document for rationale (storage/caching ToS compliance, native timezone-in-response, single-key autocomplete+places+geocoding).
 
 ### Story 0.17: Set up GraphQL authenticated-context layer
 
@@ -532,6 +533,44 @@ The project is set up with a solid foundation and CI/CD pipeline.
 **Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced while creating Story 0.18 — `DESIGN.md`'s `UX-DR15` and `EXPERIENCE.md`'s "Swipe-to-delete" primitive are both explicitly named as generic across every list in the app, but no story anywhere builds this reusable gesture mechanism. Story 0.18 deliberately keeps its own hook trigger-agnostic (a button click or a swipe reveal both just call `markPending`) and explicitly excludes the swipe gesture itself from its scope. Placed in Epic 0 as a new sequential story following the Story 0.13/0.17/0.18 precedent — a foundation reusable across ≥2 future features belongs in Epic 0 even though no feature story currently consumes it yet (mirrors the "reserved slot, not implemented" pattern).
 
 **Depends on:** Story 0.3.
+
+### Story 0.20: Create geolocation cache database table
+
+**As a** developer,
+**I want** to create a `geolocation_cache` table in the database,
+**So that** the Geolocation adapter (Story 0.16) has a persistence layer to cache coordinates, timezones, and address resolutions per NFR14, avoiding repeated external API calls and quota exhaustion.
+
+**Acceptance Criteria:**
+
+*   **Given** the Drizzle ORM migration tool is set up (Story 0.4),
+*   **When** I run the migration script,
+*   **Then** a `geolocation_cache` table is created with columns mapping to the `LocationDetails` interface (e.g. place ID, coordinates, formatted address, timezone), plus a primary key and created/updated timestamps.
+*   **And** the table is optimized for lookups by place ID or address string.
+*   **And** no direct GraphQL API is exposed for this table, as it is strictly backend-internal infrastructure for the Geolocation adapter.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced by the Epic 0 readiness sweep (`bmad-epic-readiness-check`) — Story 0.16 mandates a caching layer for Geoapify, but no storage infrastructure (table or ElastiCache) was provisioned anywhere to store it. Added to Epic 0 as it is foundational infrastructure.
+
+**Depends on:** Story 0.4.
+
+**SUPERSEDED (2026-08-04):** When Story 0.16 was fully regenerated for the Google→Geoapify provider swap (Sprint Change Proposal 2026-08-03), its regenerated Task 3 absorbed this exact table-creation scope directly (`geolocationQueryTypeEnum` + `geolocationCache` table — `id`, `cache_key` unique/indexed, `query_type`, `result jsonb`, timestamps — via a committed `drizzle-kit generate` migration, with its own cache-store round-trip tests), fully satisfying this story's three ACs. Confirmed with the user during `bmad-create-story 0-20` (2026-08-04) rather than drafting a duplicate story file. No independent implementation of Story 0.20 is needed — its scope is tracked to completion via Story 0.16 Task 3 instead. See `sprint-status.yaml`'s `0-20-*` entry.
+
+### Story 0.21: Set up FCM device token registry
+
+**As a** developer,
+**I want** an `fcm_tokens` table and a GraphQL mutation resolver to register/unregister device tokens,
+**So that** the backend can reliably map a user to their active devices when sending push notifications (Story 0.12) and clean up inactive tokens.
+
+**Acceptance Criteria:**
+
+*   **Given** the GraphQL server scaffold (Story 0.8) and FCM SDK setup (Story 0.12) exist,
+*   **When** the migration script runs,
+*   **Then** an `fcm_tokens` table is created (`token` PK, `user_id` FK, `created_at`, `updated_at`).
+*   **And** a `registerFcmToken(token: String!)` mutation is exposed, scoped to `context.user` via `requireAuth` (Story 0.17), which upserts the token for the current user.
+*   **And** a `unregisterFcmToken(token: String!)` mutation is exposed to allow clients to explicitly remove a token on logout.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced by the Epic 0 readiness sweep (`bmad-epic-readiness-check`) — Story 0.12 establishes the FCM SDKs but omits the actual database table and API surface needed to store device tokens, meaning notifications could not actually be routed to users. Added to Epic 0 as it completes the FCM foundation.
+
+**Depends on:** Story 0.8, Story 0.12, Story 0.17.
 
 ### Epic 1: Core App and Event Discovery
 
@@ -896,7 +935,7 @@ Users can personalize their experience by saving favorite events and locations.
 *   **When** a client sends `createUserLocation(name, address, lat, lng)`, `updateUserLocation(id, ...)`, or `deleteUserLocation(id)` mutations,
 *   **Then** the corresponding row is created/updated/deleted scoped to `context.user`'s ID, never trusting a client-supplied user ID.
 *   **And** a `myLocations` query returns only the authenticated caller's saved locations.
-*   **And** any address-to-coordinate resolution needed to populate `lat`/`lng` is performed backend-side, exclusively through the Geolocation adapter (Story 0.16) — never a direct Google API call from `apps/web`.
+*   **And** any address-to-coordinate resolution needed to populate `lat`/`lng` is performed backend-side, exclusively through the Geolocation adapter (Story 0.16) — never a direct Geoapify API call from `apps/web`.
 *   **And** no package outside `apps/backend` imports the database/domain layer directly for locations data.
 
 **Note:** This story exists because of Gate 1 (`story-split-gate.md`) — Story 1.1 already created the `user_locations` table, but no story exposes it via GraphQL. Classified as a single-story-family architecture split (needed by Stories 2.3, 2.4, and 2.5), positioned immediately before Story 2.3, mirroring the Story 1.3/1.3a split.
@@ -913,10 +952,9 @@ Users can personalize their experience by saving favorite events and locations.
 
 *   **Given** Story 0.16's Geolocation adapter exists but exposes no predictions/autocomplete capability,
 *   **When** a client needs address suggestions for partial input,
-*   **Then** a new adapter method (e.g. `getAddressPredictions(input: string, sessionToken?: string): Promise<AddressPrediction[]>`) wraps Google's Places API (New) Autocomplete endpoint (`https://places.googleapis.com/v1/places:autocomplete`), returning candidate `{ placeId, description }` pairs, exclusively through this adapter — never a direct Google call from `apps/web`.
-*   **And** a new `addressAutocomplete(input: String!, sessionToken: String): [AddressSuggestion!]!` GraphQL query, `requireAuth`-scoped (this fronts a billed external API, unlike the public `events` query), exposes this capability to the frontend.
+*   **Then** a new adapter method (e.g. `getAddressPredictions(input: string): Promise<AddressPrediction[]>`) wraps Geoapify's Geocoding Autocomplete endpoint (`https://api.geoapify.com/v1/geocode/autocomplete`), returning candidate `{ placeId, description }` pairs, exclusively through this adapter — never a direct Geoapify call from `apps/web`.
+*   **And** a new `addressAutocomplete(input: String!): [AddressSuggestion!]!` GraphQL query, `requireAuth`-scoped (this fronts a billed external API, unlike the public `events` query), exposes this capability to the frontend.
 *   **And** `CreateUserLocationInput`/`UpdateUserLocationInput` (Story 2.3a) gain an optional `placeId: String` field as a third, mutually-exclusive input mode alongside the existing `address`/`latitude`+`longitude` modes, wired to the Geolocation adapter's already-built but previously-unused `PLACE_ID` `GeolocationQuery` variant (`getPlaceDetails`) — so selecting an autocomplete suggestion resolves to full `LocationDetails` via one Place Details call, not a redundant re-geocode of the suggestion's description text.
-*   **And** a client-generated session token (UUID) is threaded through both the `addressAutocomplete` query and the subsequent `createUserLocation`/`updateUserLocation` call when `placeId` mode is used, per Google's Autocomplete+Place-Details session-billing guidance.
 *   **And** the query is subject to the same GraphQL depth/complexity limits (Story 0.8) as the rest of the schema, given it fronts a paid, quota-limited external API.
 
 **Note:** This story exists because of Gate 1 (`story-split-gate.md`) — Story 2.3's own creation surfaced a genuine, user-directed decision to build live address-autocomplete/typeahead (rather than a plain single-geocode text field), which needs backend capability neither Story 0.16's adapter nor Story 2.3a's mutations expose (no predictions/autocomplete method, no `placeId` input mode wired to GraphQL). Classified as a single-story architecture split (needed only by Story 2.3 today), positioned immediately after Story 2.3a and before Story 2.3, mirroring the Story 1.3/1.3a/1.3b split.

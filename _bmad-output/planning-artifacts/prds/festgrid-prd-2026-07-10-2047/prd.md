@@ -7,7 +7,7 @@ status: "draft"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-08-01T07:15:00Z"
+updated: "2026-08-03T00:00:00Z"
 
 ---
 
@@ -817,10 +817,10 @@ interface DefaultLocationChangeRequest {
 *   **System Usability Scale (SUS):** Target a SUS score of 75 or higher.
 
 ### External API Management
-*   The application relies on external APIs (e.g., Google Gemini, Google Geolocation) and must manage them responsibly. An Adapter pattern will be used for AI services to allow for future flexibility in swapping models.
+*   The application relies on external APIs (e.g., Google Gemini, Geoapify) and must manage them responsibly. An Adapter pattern will be used for AI services to allow for future flexibility in swapping models.
     *   **API Key Security:** All API keys must be stored securely in environment variables and must not be committed to the source code repository, especially since the project is open source. Documentation for self-hosting should instruct users to provide their own keys.
-    *   **API Key Restriction:** To minimize the impact of a potential key leak, all API keys should be restricted in the Google Cloud Console. This includes applying API restrictions (e.g., only allowing the Geolocation API) and Application restrictions (e.g., by HTTP referrer or IP address).
-    *   **Quota Management:** To stay within the free tier limits of external APIs like Google Geolocation, a caching mechanism will be implemented. Lookups for the same location will be served from the cache to minimize redundant API calls.
+    *   **API Key Restriction:** To minimize the impact of a potential key leak, all API keys should be restricted at the provider level wherever supported (e.g. Google Cloud Console API/application restrictions for Gemini; Geoapify's dashboard domain/IP referrer restrictions for the geolocation adapter).
+    *   **Quota Management:** To stay within the free tier limits of external APIs like Geoapify, a caching mechanism will be implemented. Lookups for the same location will be served from the cache to minimize redundant API calls.
 
 ### AI Extraction Quality
 *   All AI-driven event extractions must produce a `confidenceScore` along with the `EventInfo` data. Events with a score below a defined threshold will be automatically flagged for human review to ensure data quality.

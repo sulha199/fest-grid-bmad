@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-03T10:15:00Z
+last_updated: 2026-08-04T01:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -64,10 +64,19 @@ development_status:
   0-13-set-up-ai-gateway-adapter-layer-for-gemini: ready-for-dev
   0-14-set-up-aws-iac-for-lambda-sqs-eventbridge-and-kms: ready-for-dev
   0-15-set-up-outbound-email-adapter: ready-for-dev
+  # regenerated 2026-08-03 via bmad-create-story against Geoapify-based epics.md text
+  # (Sprint Change Proposal 2026-08-03); Postgres-backed no-TTL cache and the API-key
+  # restriction MVP limitation were confirmed with the user during story creation.
   0-16-set-up-geolocation-adapter-with-caching-layer: ready-for-dev
   0-17-set-up-graphql-authenticated-context-layer: review
-  0-18-build-the-reusable-soft-delete-with-undo-ui-primitive: ready-for-dev
+  0-18-build-the-reusable-soft-delete-with-undo-ui-primitive: review
   0-19-build-the-reusable-swipe-to-reveal-action-ui-primitive: ready-for-dev
+  # SUPERSEDED 2026-08-04 via bmad-create-story: fully absorbed by Story 0.16's
+  # regenerated Task 3 (Geoapify provider swap, Sprint Change Proposal 2026-08-03),
+  # which now creates this exact geolocation_cache table. Not built independently;
+  # tracked to completion via 0-16 instead. See epics.md Story 0.20 note.
+  0-20-create-geolocation-cache-database-table: superseded-by-0.16
+  0-21-set-up-fcm-device-token-registry: ready-for-dev
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
