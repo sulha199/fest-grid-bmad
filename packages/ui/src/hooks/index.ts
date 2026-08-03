@@ -4,3 +4,5 @@ export * from './useScopedLocale';
 export * from './useDebounce';
 export * from './useContextAwareListNavigation';
 export * from './useContextAwareListNavigation.types';
+export * from './useSoftDeleteWithUndo';
+export * from './useSoftDeleteWithUndo.types';

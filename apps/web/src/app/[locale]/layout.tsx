@@ -9,7 +9,7 @@ import { PostHogProvider } from '@festgrid/analytics';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale, getTranslations } from 'next-intl/server';
 import { routing } from '../../i18n/routing';
-import { AppShell, ScopedLocaleProvider } from '@festgrid/ui';
+import { AppShell, ScopedLocaleProvider, SoftDeleteToaster } from '@festgrid/ui';
 import { buildPageMetadata } from '@/lib/metadata';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -81,6 +81,7 @@ export default async function RootLayout({
                         {children}
                         {modal}
                       </AppShell>
+                      <SoftDeleteToaster />
                     </ScopedLocaleProvider>
                   </AuthSessionProvider>
                 </NuqsAdapter>
