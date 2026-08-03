@@ -7,7 +7,7 @@ baseline_commit: 7c5acb262ba7fe82fbc1886ebbcad1c5c6a6d8da
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.5a
-- Status: review
+- Status: done
 
 ## Story
 

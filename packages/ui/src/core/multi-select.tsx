@@ -13,6 +13,8 @@ export function MultiSelect({
   labels,
   hideClearAction,
 }: MultiSelectProps) {
+  const [optimisticValues, setOptimisticValues] = React.useOptimistic(selectedValues);
+
   if (options.length === 0) {
     return (
       <div className="flex flex-col gap-2">
@@ -24,18 +26,24 @@ export function MultiSelect({
   }
 
   const clearLabel = labels?.clearLabel ?? 'Clear';
-  const hasSelection = selectedValues.length > 0;
+  const hasSelection = optimisticValues.length > 0;
 
   const handleToggle = (value: string) => {
-    if (selectedValues.includes(value)) {
-      onChange(selectedValues.filter((v) => v !== value));
-    } else {
-      onChange([...selectedValues, value]);
-    }
+    const next = optimisticValues.includes(value)
+      ? optimisticValues.filter((v) => v !== value)
+      : [...optimisticValues, value];
+
+    React.startTransition(() => {
+      setOptimisticValues(next);
+      onChange(next);
+    });
   };
 
   const handleClear = () => {
-    onChange([]);
+    React.startTransition(() => {
+      setOptimisticValues([]);
+      onChange([]);
+    });
   };
 
   return (
@@ -60,7 +68,7 @@ export function MultiSelect({
         className="flex flex-wrap items-center gap-2"
       >
         {options.map((option) => {
-          const isSelected = selectedValues.includes(option.value);
+          const isSelected = optimisticValues.includes(option.value);
           return (
             <button
               key={option.value}

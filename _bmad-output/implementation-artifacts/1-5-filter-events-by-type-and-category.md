@@ -7,7 +7,7 @@ baseline_commit: 4f9da635068ae5956013a7f4dfaf88c1c30dd2d0
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.5
-- Status: review
+- Status: done
 
 ## Story
 
@@ -46,6 +46,12 @@ so that I can narrow down the list of events to my interests.
 - [x] Task 6: Tests (AC8)
   - [x] Integration tests (Vitest + MSW, `@festgrid/testing-config`) covering: a single-facet, single-value selection produces the correct `in` condition; a single-facet, multi-value selection produces one `in` condition with all selected values (not multiple conditions); selections across both facets plus an active search query combine via one flat `and` group; clearing filters removes the URL params and restores the default query.
   - [x] One E2E happy-path test (`apps/web/e2e/filter.spec.ts`, Playwright, alongside `apps/web/e2e/home.spec.ts` and Story 1.4's `search.spec.ts`) covering: selecting a type and a category, seeing the filtered grid and URL update, then clearing filters and seeing the full list return.
+
+### Review Findings
+
+- [x] [Review][Patch] Missing Localization Keys & Flawed Fallback Logic [apps/web/locales/en.json]
+- [x] [Review][Patch] SQL Type Mismatch Risk & Unauthorized Backend Modification [packages/graphql-select/drizzle-where.ts]
+- [x] [Review][Patch] State Race Condition on Rapid Toggling in MultiSelect [packages/ui/src/core/multi-select.tsx]
 
 ## Dev Notes
 

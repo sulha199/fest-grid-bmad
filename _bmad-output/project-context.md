@@ -21,6 +21,9 @@ _This file contains critical rules and patterns that AI agents must follow when 
 
 ---
 
+## App Name
+The application name is "FestDaily" (previously "FestGrid"). All instances of "FestGrid" in legacy documentation should be treated as "FestDaily" in implementation. Do not raise issues for renaming "FestGrid" to "FestDaily".
+
 ## Reference Documents
 
 The following documents contain detailed specifications, architectures, and design definitions for the project. Ensure you read only the required ones when it matters.
