@@ -8,7 +8,7 @@ baseline_commit: cf0949a8d2ca42b6ab393b4976080e35afd71487
 - **Epic:** 1 - Core App and Event Discovery
 - **Story ID:** 1.2a
 - **Story Key:** 1-2a-create-posts-table-and-link-seeded-events-to-their-source-post
-- **Status:** in-progress
+- **Status:** done
 
 > **Amendment (2026-08-01, source-attribution requirement via `bmad-correct-course`):** AC1's original `posts` table shape (Tasks 1–12 below, all previously completed and reviewed-pending) needs one additive change: a new nullable `original_post_url` column, populated by the scraper adapter when it can derive the canonical original-platform URL for a post (e.g. `imginn.com`'s Instagram-mirroring adapter preserves Instagram's own post ID). See AC7 and Task 13 below. Status moved back to `in-progress` because this is real, unimplemented required scope — not a documentation-only change — surfaced while creating Story 1.6 ("View event details").
 
@@ -43,7 +43,7 @@ baseline_commit: cf0949a8d2ca42b6ab393b4976080e35afd71487
 - [x] 10. Add `posts: FIXTURE_POSTS.length` to the exported `FIXTURE_COUNTS` object, and a sorted `FIXTURE_POST_IDS` export, mirroring every other fixture-id export already in the file (AC4, AC5).
 - [x] 11. Extend `packages/database/seed.integration.test.ts` (AC5): import the `posts` table and the new `FIXTURE_COUNTS.posts`/`FIXTURE_POST_IDS` exports; assert the `posts` row count on both the first and second (idempotency) seed runs, following the exact pattern already used for `users`/`events`/etc. in this file. Add a join-based assertion (`events` left-joined to `posts` on `events.postId = posts.id`) proving every one of the 3 fixture events resolves to a `posts` row with a non-null `imageUrl` (AC5's literal requirement) — assert the joined-row count equals `FIXTURE_COUNTS.events` and that no row has a null `imageUrl`.
 - [x] 12. Run `pnpm --filter @festgrid/database lint`, `pnpm --filter @festgrid/database build`, and `pnpm --filter @festgrid/database test:seed` (the `tsx --test` integration test) to confirm everything passes end-to-end against a local database.
-- [ ] 13. **(Added 2026-08-01, source-attribution amendment, AC7):** Add `originalPostUrl: text('original_post_url')` (nullable, no `.notNull()`) to the `posts` table in `packages/database/schema.ts`. Add `originalPostUrl?: string;` to the `Post` interface in `packages/shared-types/src/index.ts`, with a doc comment mirroring `postUrl`'s (see PRD §4.7). Run `pnpm --filter @festgrid/database run generate` to produce a second, additive migration file (do not hand-edit Task 4's already-committed migration). Run `pnpm --filter @festgrid/database run migrate` to apply it locally. Re-run `pnpm --filter @festgrid/database lint`, `build`, and `test:seed` to confirm nothing regresses (existing seed fixtures may leave the new column `null` — no fixture-data changes required by this task).
+- [x] 13. **(Added 2026-08-01, source-attribution amendment, AC7):** Add `originalPostUrl: text('original_post_url')` (nullable, no `.notNull()`) to the `posts` table in `packages/database/schema.ts`. Add `originalPostUrl?: string;` to the `Post` interface in `packages/shared-types/src/index.ts`, with a doc comment mirroring `postUrl`'s (see PRD §4.7). Run `pnpm --filter @festgrid/database run generate` to produce a second, additive migration file (do not hand-edit Task 4's already-committed migration). Run `pnpm --filter @festgrid/database run migrate` to apply it locally. Re-run `pnpm --filter @festgrid/database lint`, `build`, and `test:seed` to confirm nothing regresses (existing seed fixtures may leave the new column `null` — no fixture-data changes required by this task).
 
 ## Dev Notes
 
@@ -131,7 +131,7 @@ baseline_commit: cf0949a8d2ca42b6ab393b4976080e35afd71487
 - [x] `packages/database/seed.ts` updated: `FIXTURE_POSTS` added, `FIXTURE_EVENTS` linked via `postId` with the `"Poster image: ..."` text removed from `description`, insert/delete ordering updated, `FIXTURE_COUNTS`/id exports updated.
 - [x] `seed.integration.test.ts` extended with posts-count and event→post join assertions, verified on first and second seed runs.
 - [x] `pnpm --filter @festgrid/database lint`, `build`, `run generate`, `run migrate`, and `test:seed` all pass locally.
-- [ ] **(Amendment, AC7/Task 13)** `original_post_url` nullable column added to `posts`; matching `Post.originalPostUrl?` added to `packages/shared-types`; second migration generated/applied; lint/build/test:seed re-verified.
+- [x] **(Amendment, AC7/Task 13)** `original_post_url` nullable column added to `posts`; matching `Post.originalPostUrl?` added to `packages/shared-types`; second migration generated/applied; lint/build/test:seed re-verified.
 
 ## Out of Scope
 - Any GraphQL resolver work exposing `imageUrl`/`postId` (handled by Story `1-3a-build-the-events-backend-graphql-api-layer`'s AC6, `ready-for-dev`).
@@ -142,12 +142,12 @@ baseline_commit: cf0949a8d2ca42b6ab393b4976080e35afd71487
 
 ## Definition of Done
 - [x] AC1–AC6 satisfied.
-- [ ] AC7 satisfied (amendment, 2026-08-01).
+- [x] AC7 satisfied (amendment, 2026-08-01).
 - [x] Required tests passing: extended `seed.integration.test.ts` (`pnpm --filter @festgrid/database test:seed`).
 - [x] Lint and type checks passing for `packages/database` and `packages/shared-types`.
 
 ## Completion Status
-AC1–AC6 complete and reviewed-pending. AC7 (2026-08-01 source-attribution amendment) not yet implemented — story moved back to `in-progress`.
+AC1–AC7 complete. Reviewed and passed.
 
 ## Dev Agent Record
 - Added `posts` table to `packages/database/schema.ts` with required columns and indexes.
@@ -159,4 +159,8 @@ AC1–AC6 complete and reviewed-pending. AC7 (2026-08-01 source-attribution amen
 - Adjusted the transactional insert/delete order to respect new FK constraints.
 - Extended `seed.integration.test.ts` to verify the deterministic row count and relational validity for `posts`, including an idempotency check and join assertions on `events.postId`.
 - Ran tests and linting specifically on `@festgrid/database` and `@festgrid/shared-types` and all pass locally.
-- **(Amendment pending, 2026-08-01):** AC7/Task 13 (`original_post_url` column) not yet implemented.
+- **(Amendment pending, 2026-08-01):** AC7/Task 13 (`original_post_url` column) implemented during review.
+
+### Review Findings
+- [x] [Review][Patch] Missing AC7 original_post_url implementation [packages/database/schema.ts:63]
+- [x] [Review][Defer] Extra changes (generateSlug using crypto, RELIGION_AND_SPIRITUALITY) — deferred, pre-existing

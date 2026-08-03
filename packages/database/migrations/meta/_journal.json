@@ -36,6 +36,13 @@
       "when": 1785660587419,
       "tag": "0004_optimal_frog_thor",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1785720592505,
+      "tag": "0005_puzzling_mad_thinker",
+      "breakpoints": true
     }
   ]
 }

@@ -126,6 +126,7 @@ export interface Post {
   content: string;
   imageUrl?: string;
   postUrl: string;
+  originalPostUrl?: string;
   isExtracted?: boolean;
 }
 

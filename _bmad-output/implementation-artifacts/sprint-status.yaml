@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-02T09:15:00Z
+last_updated: 2026-08-03T08:31:28Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -66,11 +66,12 @@ development_status:
   0-15-set-up-outbound-email-adapter: ready-for-dev
   0-16-set-up-geolocation-adapter-with-caching-layer: ready-for-dev
   0-17-set-up-graphql-authenticated-context-layer: review
+  0-18-build-the-reusable-soft-delete-with-undo-ui-primitive: backlog
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
   1-2-seed-database-with-mock-data: done
-  1-2a-create-posts-table-and-link-seeded-events-to-their-source-post: review
+  1-2a-create-posts-table-and-link-seeded-events-to-their-source-post: done
   1-3a-build-the-events-backend-graphql-api-layer: review
   1-3b-build-the-reusable-eventcard-component: review
   1-3c-build-the-reusable-infinite-scroll-hook: review
@@ -89,7 +90,7 @@ development_status:
   epic-2: in-progress
   2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: review
   2-1-favorite-an-event: in-progress
-  2-2-view-favorited-events: backlog
+  2-2-view-favorited-events: ready-for-dev
   2-3a-build-the-saved-locations-backend-graphql-api-layer: backlog
   2-3-manage-saved-locations: backlog
   2-4-set-location-by-current-location-or-map: backlog

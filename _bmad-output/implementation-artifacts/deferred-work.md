@@ -43,3 +43,7 @@ This file tracks work deferred from development stories, code reviews, and plann
 - source_spec: none
   summary: This change is the first migration in the repo to add a value to an existing Postgres enum via `ALTER TYPE ... ADD VALUE` (previous category/type values were all part of the initial `CREATE TYPE` in `0000_cultured_ultragirl.sql`). Postgres has no `ALTER TYPE ... DROP VALUE` — once applied, removing or renaming `RELIGION_AND_SPIRITUALITY` requires recreating the whole `event_category` type and repointing every dependent column. No process doc currently flags this one-way-door risk for future enum additions.
   evidence: Inherent Postgres limitation, not a defect in this change; noted by adversarial review since this is the first migration of this kind in the repo.
+
+## Deferred from: code review of 1-2a-create-posts-table-and-link-seeded-events-to-their-source-post.md (2026-08-03)
+
+- Extra changes (generateSlug using crypto, RELIGION_AND_SPIRITUALITY) in the diff baseline. Pre-existing changes from other commits on master.

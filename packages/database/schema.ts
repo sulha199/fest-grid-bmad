@@ -78,6 +78,7 @@ export const posts = pgTable('posts', {
   content: text('content').notNull(),
   imageUrl: text('image_url'),
   postUrl: text('post_url'),
+  originalPostUrl: text('original_post_url'),
   isExtracted: boolean('is_extracted').default(false).notNull(),
   publishedAt: timestamp('published_at', { withTimezone: true }).notNull(),
   ...timestamps,
