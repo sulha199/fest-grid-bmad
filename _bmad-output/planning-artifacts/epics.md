@@ -490,6 +490,27 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Depends on:** Story 0.8, Story 1.1, Story 1.7.
 
+### Story 0.18: Build the reusable Soft-Delete-with-Undo UI primitive
+
+**As a** developer,
+**I want** a reusable, generic UI primitive implementing `EXPERIENCE.md`'s "Soft Delete with Undo" state pattern (greyed-out/pending item, a toast with an "Undo" action, deferred commit-on-navigate-away),
+**So that** any feature that lets a user reversibly remove/unfavorite/delete an item from a list (Favorites, Saved Locations, API Keys, Subscriptions) can reuse one consistent, tested mechanism instead of each feature story re-implementing the same commit-on-unmount plumbing and introducing its own toast handling ad hoc.
+
+**Acceptance Criteria:**
+
+*   **Given** `EXPERIENCE.md`'s "Soft Delete with Undo" State Pattern (Initial State → Trigger → Intermediate State → Undo Action → Final State/Commit),
+*   **When** a consuming feature marks an item as "pending removal" via this primitive (e.g. `useSoftDeleteWithUndo`, `packages/ui/src/hooks/`),
+*   **Then** the hook exposes a `pending` boolean/set per item so the consumer applies its own visual treatment (greyed-out card, strikethrough table row, etc.) — the primitive does not dictate item markup, since consumers render different shapes (event cards, table rows, list rows).
+*   **And** marking an item pending surfaces a toast notification (introducing a toast library, e.g. `sonner` — none exists in the codebase today) with an "Undo" action.
+*   **And** clicking "Undo" (in the toast or an equivalent in-row control the consumer renders) reverts the item to its normal state and cancels the pending removal; no backend call is ever made for that item.
+*   **And** if the user navigates away from the page (component unmount) while one or more items are still "pending removal" (never undone), the primitive invokes a consumer-supplied async commit callback exactly once per still-pending item — the primitive itself has no knowledge of GraphQL/mutations; the consumer supplies the commit function.
+*   **And** the primitive is exposed as `useSoftDeleteWithUndo` (`packages/ui/src/hooks/`) plus its toast-wiring component (`packages/ui/src/core/`), reusable across features with no feature-specific coupling.
+*   **And** it has its own integration test suite (Vitest) covering: mark-pending → visual/toast state, Undo cancels with no commit call, unmount commits all still-pending items exactly once, multiple concurrent pending items are tracked independently.
+
+**Note:** This story exists because of Gate 3 (`story-split-gate.md`), surfaced while creating Story 2.2 — `EXPERIENCE.md`'s "Soft Delete with Undo" pattern (State Patterns section) explicitly names "deleting a saved location, an API key, a subscription, or unfavoriting an event from a list" as its scope, but no story anywhere builds this reusable primitive, and no toast library exists in the codebase (confirmed absent from `packages/ui` and every `package.json`). Story 2.2 (Epic 2, favorites list) is the first concrete consumer; Stories 2.3/2.4 (saved locations) and future API-key/subscription-management stories (Epic 3/4) are anticipated consumers of the same pattern. Placed in Epic 0 as a new sequential story following the Story 0.13/0.17 precedent — a foundation reusable across ≥2 future features belongs in Epic 0 even though its first concrete need surfaces mid-Epic-2.
+
+**Depends on:** Story 0.3, Story 0.9.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
