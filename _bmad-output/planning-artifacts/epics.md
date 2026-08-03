@@ -511,6 +511,28 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Depends on:** Story 0.3, Story 0.9.
 
+### Story 0.19: Build the reusable Swipe-to-Reveal-Action UI primitive
+
+**As a** developer,
+**I want** a reusable, generic UI primitive implementing `DESIGN.md`'s mobile swipe gesture (`UX-DR15`) — a swipeable list-item wrapper that reveals a consumer-supplied action button (e.g. "Delete") on horizontal swipe past a reveal threshold, with snap-back if released early,
+**So that** any list item across the app (Favorites, Saved Locations, API Keys, Subscriptions) that needs a mobile delete/action affordance can reuse one consistent, tested, accessible gesture mechanism, and the revealed action can trigger any downstream mechanism (e.g. Story 0.18's Soft-Delete-with-Undo) without coupling the gesture itself to what it triggers.
+
+**Acceptance Criteria:**
+
+*   **Given** `DESIGN.md`'s `UX-DR15` ("On mobile, a swipe gesture on a list item reveals a 'Delete' button") and `EXPERIENCE.md`'s "Swipe-to-delete" interaction primitive,
+*   **When** a user swipes a list item horizontally on a touch interface past a reveal threshold,
+*   **Then** a consumer-supplied action button slides into view within the item's bounds, the item's content shifting to make room — the primitive does not dictate what the revealed button does or looks like beyond a generic action slot, since different consumers trigger different mechanisms (Story 0.18's `markPending`, a direct delete, etc.).
+*   **And** releasing the swipe before the reveal threshold snaps the item back to its resting position with no action taken.
+*   **And** clicking the revealed action button invokes a consumer-supplied `onAction` callback exactly once — the primitive has no knowledge of Soft-Delete-with-Undo, GraphQL, or any other downstream mechanism.
+*   **And** the same action is reachable via an always-visible or hover-revealed control for non-touch (keyboard/mouse) input — never swipe-only — per WCAG 2.1 AA (`project-context.md`).
+*   **And** swipe direction mirrors for RTL layouts, per `project-context.md`'s Component Design i18n rule.
+*   **And** it is exposed as a reusable component (e.g. `SwipeToReveal`, `packages/ui/src/core/`) accepting the item's normal content as children plus an action slot, reusable across features with no feature-specific coupling.
+*   **And** it has its own integration test suite (Vitest + Testing Library, simulated pointer/touch events) covering: swipe past threshold reveals the action, swipe below threshold snaps back, clicking the revealed action invokes `onAction` exactly once, the non-touch equivalent control is present and functional, RTL mirrors direction.
+
+**Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced while creating Story 0.18 — `DESIGN.md`'s `UX-DR15` and `EXPERIENCE.md`'s "Swipe-to-delete" primitive are both explicitly named as generic across every list in the app, but no story anywhere builds this reusable gesture mechanism. Story 0.18 deliberately keeps its own hook trigger-agnostic (a button click or a swipe reveal both just call `markPending`) and explicitly excludes the swipe gesture itself from its scope. Placed in Epic 0 as a new sequential story following the Story 0.13/0.17/0.18 precedent — a foundation reusable across ≥2 future features belongs in Epic 0 even though no feature story currently consumes it yet (mirrors the "reserved slot, not implemented" pattern).
+
+**Depends on:** Story 0.3.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.

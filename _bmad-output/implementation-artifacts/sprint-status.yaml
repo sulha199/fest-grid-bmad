@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-03T08:31:28Z
+last_updated: 2026-08-03T09:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -66,7 +66,7 @@ development_status:
   0-15-set-up-outbound-email-adapter: ready-for-dev
   0-16-set-up-geolocation-adapter-with-caching-layer: ready-for-dev
   0-17-set-up-graphql-authenticated-context-layer: review
-  0-18-build-the-reusable-soft-delete-with-undo-ui-primitive: backlog
+  0-18-build-the-reusable-soft-delete-with-undo-ui-primitive: ready-for-dev
   0-19-build-the-reusable-swipe-to-reveal-action-ui-primitive: backlog
   epic-0-retrospective: optional
   epic-1: in-progress
