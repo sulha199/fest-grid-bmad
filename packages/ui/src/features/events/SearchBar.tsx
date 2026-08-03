@@ -7,6 +7,7 @@ export interface SearchBarProps {
   query: string;
   onChange: (query: string) => void;
   onSubmit: (query: string) => void;
+  onEnter?: (query: string) => void;
   placeholder: string;
   clearLabel: string;
   className?: string;
@@ -19,6 +20,7 @@ export function SearchBar({
   query,
   onChange,
   onSubmit,
+  onEnter,
   placeholder,
   clearLabel,
   className = '',
@@ -45,6 +47,9 @@ export function SearchBar({
       e.preventDefault();
       const trimmed = inputValue.trim();
       onSubmit(trimmed);
+      if (onEnter) {
+        onEnter(trimmed);
+      }
     }
   };
 

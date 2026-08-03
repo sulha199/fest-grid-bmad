@@ -7,7 +7,7 @@ baseline_commit: 7f746c0b46f26fca25a33918deb411a78238b5e4
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.4
-- Status: review
+- Status: done
 
 ## Story
 
@@ -190,7 +190,7 @@ Either way, the query-builder in Task 3 must be structured so Story 1.5's type/c
 
 ## Completion Status
 
-review
+done
 
 ## Dev Agent Record
 
@@ -220,3 +220,9 @@ claude-3.5-sonnet
 - `apps/web/locales/en.json`
 - `apps/web/locales/id.json`
 - `apps/web/e2e/search.spec.ts`
+
+### Review Findings
+
+- [x] [Review][Patch] SearchBar implements debounce instead of submit-on-Enter [packages/ui/src/features/events/SearchBar.tsx:28]
+- [x] [Review][Patch] Analytics event search_submitted fires continuously as you type due to debounce [apps/web/src/app/[locale]/page.tsx:99]
+- [x] [Review][Patch] EventCard.types export accidentally deleted [packages/ui/src/features/events/index.ts:2]

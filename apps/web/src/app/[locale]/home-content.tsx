@@ -152,10 +152,13 @@ export function HomeContent() {
 
   const handleSearchSubmit = useMemo(() => (searchQuery: string) => {
     setQ(searchQuery || '')
+  }, [setQ]);
+
+  const handleSearchEnter = useMemo(() => (searchQuery: string) => {
     if (searchQuery.trim()) {
       posthog.capture('search_submitted', { query: searchQuery })
     }
-  }, [setQ, posthog]);
+  }, [posthog]);
 
   return (
     <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
@@ -190,6 +193,7 @@ export function HomeContent() {
           query={q}
           onChange={() => {}} // Internal state only, URL updates on submit per AC1
           onSubmit={handleSearchSubmit}
+          onEnter={handleSearchEnter}
           placeholder={t('searchPlaceholder')}
           clearLabel={t('searchClearLabel')}
         />

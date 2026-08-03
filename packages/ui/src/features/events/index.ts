@@ -1,4 +1,5 @@
 export * from './EventCard';
+export * from './EventCard.types';
 export * from './SearchBar';
 export * from './FilterHub';
 export * from './EventImage';
