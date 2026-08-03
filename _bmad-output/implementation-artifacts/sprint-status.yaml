@@ -67,15 +67,16 @@ development_status:
   0-16-set-up-geolocation-adapter-with-caching-layer: ready-for-dev
   0-17-set-up-graphql-authenticated-context-layer: review
   0-18-build-the-reusable-soft-delete-with-undo-ui-primitive: backlog
+  0-19-build-the-reusable-swipe-to-reveal-action-ui-primitive: backlog
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
   1-2-seed-database-with-mock-data: done
   1-2a-create-posts-table-and-link-seeded-events-to-their-source-post: done
-  1-3a-build-the-events-backend-graphql-api-layer: review
-  1-3b-build-the-reusable-eventcard-component: review
-  1-3c-build-the-reusable-infinite-scroll-hook: review
-  1-3-display-a-list-of-events-on-the-main-page: review
+  1-3a-build-the-events-backend-graphql-api-layer: done
+  1-3b-build-the-reusable-eventcard-component: done
+  1-3c-build-the-reusable-infinite-scroll-hook: done
+  1-3-display-a-list-of-events-on-the-main-page: done
   1-4-search-for-events: review
   1-5a-build-the-reusable-multiselect-component: review
   1-5-filter-events-by-type-and-category: review
