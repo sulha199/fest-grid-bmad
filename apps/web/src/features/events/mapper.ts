@@ -15,6 +15,9 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
     favoriteButtonLabel: t('favoriteButtonLabel'),
     removeFavoriteButtonLabel: t('removeFavoriteButtonLabel'),
     addToCalendarButtonLabel: t('addToCalendarButtonLabel'),
+    postedByLabel: t('postedByLabel'),
+    viewOriginalPostLabel: t('viewOriginalPostLabel'),
+    viewSourceLabel: t('viewSourceLabel'),
   };
 }
 
@@ -41,7 +44,7 @@ export function mapGraphQLEventToDetailViewProps(
       eventEndTime: s.eventEndTime,
       title: null,
       performers: s.performers?.join(', ') || null,
-      location: s.location,
+      location: s.location?.trim() ? s.location : null,
       ticketPrice: s.ticketPrice,
       mapUrl,
     };

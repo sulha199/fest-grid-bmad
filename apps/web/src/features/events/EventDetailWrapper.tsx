@@ -87,7 +87,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   })
 
   const eventId = data?.eventBySlug?.id || ""
-  const nav = useListNavigationForEvent(eventId)
+  const nav = useListNavigationForEvent(eventId, isModal)
 
   // Fire analytics exactly once when details view is successfully opened with populated event data
   useEffect(() => {
@@ -98,29 +98,6 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       })
     }
   }, [data?.eventBySlug, posthog])
-
-  // Update browser document tab title & meta description dynamically when event details successfully load on client side
-  useEffect(() => {
-    if (data?.eventBySlug) {
-      const eventName = data.eventBySlug.eventName
-      const translatedTitle = tMeta("eventDetailTitle", { eventName })
-      const originalTitle = document.title
-      document.title = translatedTitle
-
-      const metaDescription = document.querySelector('meta[name="description"]')
-      const originalDescription = metaDescription?.getAttribute("content") || ""
-      if (metaDescription) {
-        metaDescription.setAttribute("content", data.eventBySlug.description || tMeta("eventDetailDescription", { eventName }))
-      }
-
-      return () => {
-        document.title = originalTitle
-        if (metaDescription) {
-          metaDescription.setAttribute("content", originalDescription)
-        }
-      }
-    }
-  }, [data?.eventBySlug, tMeta])
 
   const handleNext = async () => {
     const target = await nav.requestNext()
@@ -172,7 +149,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   const navigationHeader = (
     <div className="flex justify-between items-center mb-6 pb-3 border-b border-gray-100 dark:border-gray-800">
       <div className="flex gap-2">
-        {nav.hasListContext && (
+        {nav.hasListContext ? (
           <>
             <button
               onClick={handlePrevious}
@@ -195,6 +172,16 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
               <ChevronRight className="w-4 h-4" />
             </button>
           </>
+        ) : (
+          !isModal && (
+            <button
+              onClick={() => router.push("/")}
+              className="flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              {t("backToList") || "Back to Events"}
+            </button>
+          )
         )}
       </div>
       {isModal && (

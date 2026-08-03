@@ -80,9 +80,9 @@ development_status:
   1-4-search-for-events: done
   1-5a-build-the-reusable-multiselect-component: done
   1-5-filter-events-by-type-and-category: done
-  1-6a-build-the-reusable-event-detail-view-component: review
-  1-6b-build-the-context-aware-list-navigation-hook: review
-  1-6-view-event-details: review
+  1-6a-build-the-reusable-event-detail-view-component: done
+  1-6b-build-the-context-aware-list-navigation-hook: done
+  1-6-view-event-details: done
   1-7a-build-the-reusable-blockingloader-component: review
   1-7-user-signup-and-login-with-google: review
   1-8-setup-posthog-analytics: review

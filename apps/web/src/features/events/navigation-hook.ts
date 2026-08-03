@@ -27,14 +27,19 @@ function buildEventsQuery({ search, types, categories }: { search: string, types
   return { operator: "and", conditions }
 }
 
-export function useListNavigationForEvent(currentEventId: string) {
+export function useListNavigationForEvent(currentEventId: string, isModal: boolean) {
   const searchParams = useSearchParams()
   const [q] = useQueryState('q', parseAsString.withDefault(''))
   const [types] = useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))
   const [categories] = useQueryState('categories', parseAsArrayOf(parseAsString).withDefault([]))
 
-  // Only enable if search params are present (signaling originating list context)
-  const hasListContext = searchParams.size > 0;
+  // URL context explicitly requires actual filter parameters, not just any query string (like tracking params)
+  const hasUrlFilters = searchParams.has('q') || searchParams.has('types') || searchParams.has('categories');
+  
+  // We only fetch if we are actually requesting list context on a full-page load.
+  // (In the modal, the underlying list already fetches, so we don't strictly need to enable this query, 
+  // but it's safe to do so. We disable it on full-page loads without filters to avoid unnecessary fetches.)
+  const shouldFetchList = isModal || hasUrlFilters;
 
   const {
     data,
@@ -54,7 +59,7 @@ export function useListNavigationForEvent(currentEventId: string) {
     getNextPageParam: (lastPage, allPages) => {
       return lastPage.events.hasMore ? allPages.length * 10 : undefined
     },
-    enabled: hasListContext,
+    enabled: shouldFetchList,
   })
 
   type EventItem = GetEventsQuery['events']['items'][number];
@@ -68,8 +73,14 @@ export function useListNavigationForEvent(currentEventId: string) {
     fetchNextPage,
   })
 
+  // We explicitly declare list context exists ONLY if:
+  // 1. We are in the modal (always has list context) OR the URL carries filter context
+  // AND
+  // 2. The item was actually found in the list (nav.hasContext)
+  const isContextValidForRoute = isModal || hasUrlFilters;
+
   return {
     ...nav,
-    hasListContext,
+    hasListContext: isContextValidForRoute && nav.hasContext,
   }
 }

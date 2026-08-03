@@ -28,7 +28,11 @@
     "addToCalendarButtonLabel": "Tambahkan ke Kalender",
     "favoriteSuccessAnnouncement": "Acara ditambahkan ke favorit",
     "unfavoriteSuccessAnnouncement": "Acara dihapus dari favorit",
-    "favoriteErrorAnnouncement": "Terjadi kesalahan. Silakan coba lagi."
+    "favoriteErrorAnnouncement": "Terjadi kesalahan. Silakan coba lagi.",
+    "postedByLabel": "Diposting oleh:",
+    "viewOriginalPostLabel": "Lihat pos asli",
+    "viewSourceLabel": "Lihat sumber",
+    "backToList": "Kembali ke Acara"
   },
   "FilterHub": {
     "typeLabel": "Tipe",

@@ -7,7 +7,7 @@ baseline_commit: 12ca5c11c335303ffb96f499c62f88346b58111c
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.6
-- Status: review
+- Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -199,6 +199,13 @@ so that I can get all the information I need about the event.
 - [ ] **(Amendment)** `Event.sourcePostUrl`/`Event.originalPostUrl` resolvers implemented and wired into `EventDetailView`'s attribution-link props.
 - [ ] **(Amendment, 2026-08-01)** Both the full-page route and the intercepted modal route export `generateMetadata` (via `buildPageMetadata`/next-intl `getTranslations()`) with an event-specific title/description, per the `page.tsx` + colocated client-content-file split (AC12).
 
+### Review Findings
+
+- [x] [Review][Patch] Duplicate queries for source attribution fields / Hardcoded backend resolver [apps/backend/src/schema/resolvers.ts]
+- [x] [Review][Patch] Hardcoded UI Strings bypass i18n [packages/ui/src/features/events/EventDetailView.tsx]
+- [x] [Review][Patch] Anti-pattern DOM Manipulation for Metadata [apps/web/src/features/events/EventDetailWrapper.tsx]
+- [x] [Review][Patch] `useContextAwareListNavigation` edge cases with concurrent fetches [packages/ui/src/hooks/useContextAwareListNavigation.ts]
+
 ## Out of Scope
 
 - `EventDetailView`'s own rendering/props/states — Story 1.6a.
@@ -219,7 +226,7 @@ so that I can get all the information I need about the event.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Done
 
 ## Dev Agent Record
 

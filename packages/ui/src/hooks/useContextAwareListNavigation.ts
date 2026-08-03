@@ -81,6 +81,16 @@ export function useContextAwareListNavigation<TItem extends { id: string }>({
   // Watch for items or state changes to resolve pending request
   useEffect(() => {
     if (pendingResolverRef.current && expectedNextIndexRef.current !== null) {
+      // Ensure the list is contiguous and our current ID is still where we expect it
+      if (items[expectedNextIndexRef.current - 1]?.id !== currentId) {
+        const resolve = pendingResolverRef.current;
+        pendingResolverRef.current = null;
+        expectedNextIndexRef.current = null;
+        setIsRequesting(false);
+        resolve(null);
+        return;
+      }
+
       if (items.length > expectedNextIndexRef.current) {
         const nextItem = items[expectedNextIndexRef.current];
         const resolve = pendingResolverRef.current;
@@ -88,7 +98,8 @@ export function useContextAwareListNavigation<TItem extends { id: string }>({
         expectedNextIndexRef.current = null;
         setIsRequesting(false);
         resolve({ id: nextItem.id, item: nextItem });
-      } else if (!hasNextPage && !isFetchingNextPage) {
+      } else if (!isFetchingNextPage) {
+        // If fetch completed but list didn't grow enough, resolve null
         const resolve = pendingResolverRef.current;
         pendingResolverRef.current = null;
         expectedNextIndexRef.current = null;
@@ -96,7 +107,7 @@ export function useContextAwareListNavigation<TItem extends { id: string }>({
         resolve(null);
       }
     }
-  }, [items, hasNextPage, isFetchingNextPage]);
+  }, [items, hasNextPage, isFetchingNextPage, currentId]);
 
   const requestNext = useCallback(async (): Promise<ListNavigationTarget<TItem> | null> => {
     const currentItems = itemsRef.current;
@@ -120,16 +131,22 @@ export function useContextAwareListNavigation<TItem extends { id: string }>({
 
     // AC5, AC6: Boundary with more available, guard against concurrent calls
     if (isRequestingRef.current || isFetchingNextPageRef.current) {
-      if (pendingResolverRef.current) {
-        return new Promise<ListNavigationTarget<TItem> | null>((resolve) => {
-          const prevResolver = pendingResolverRef.current!;
+      return new Promise<ListNavigationTarget<TItem> | null>((resolve) => {
+        if (pendingResolverRef.current) {
+          const prevResolver = pendingResolverRef.current;
           pendingResolverRef.current = (target) => {
             prevResolver(target);
             resolve(target);
           };
-        });
-      }
-      return null;
+        } else {
+          // If a background fetch is running but no pending resolver exists,
+          // create one so we don't drop the imperative request silently.
+          expectedNextIndexRef.current = currentIdx + 1;
+          pendingResolverRef.current = resolve;
+          isRequestingRef.current = true;
+          setIsRequesting(true);
+        }
+      });
     }
 
     isRequestingRef.current = true;
@@ -195,5 +212,6 @@ export function useContextAwareListNavigation<TItem extends { id: string }>({
     next,
     requestNext,
     error,
+    hasContext: !noContext,
   };
 }

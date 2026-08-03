@@ -167,8 +167,12 @@ export const resolvers: Resolvers = {
         ...requestedFields,
         id: events.id,
         postId: events.postId,
+        imageUrl: posts.imageUrl,
+        sourcePostUrl: posts.postUrl,
+        originalPostUrl: posts.originalPostUrl,
       }).from(events)
         .leftJoin(schedules, mainSchedulesOnly)
+        .leftJoin(posts, eq(events.postId, posts.id))
         .$dynamic();
 
       if (whereClause) {
@@ -203,7 +207,12 @@ export const resolvers: Resolvers = {
         ...requestedFields,
         id: events.id,
         postId: events.postId,
-      }).from(events).where(eq(events.id, id));
+        imageUrl: posts.imageUrl,
+        sourcePostUrl: posts.postUrl,
+        originalPostUrl: posts.originalPostUrl,
+      }).from(events)
+        .leftJoin(posts, eq(events.postId, posts.id))
+        .where(eq(events.id, id));
 
       return (rows[0] as any) || null;
     },
@@ -214,7 +223,12 @@ export const resolvers: Resolvers = {
         id: events.id,
         postId: events.postId,
         slug: events.slug,
-      }).from(events).where(eq(events.slug, slug));
+        imageUrl: posts.imageUrl,
+        sourcePostUrl: posts.postUrl,
+        originalPostUrl: posts.originalPostUrl,
+      }).from(events)
+        .leftJoin(posts, eq(events.postId, posts.id))
+        .where(eq(events.slug, slug));
 
       return (rows[0] as any) || null;
     }
@@ -228,17 +242,9 @@ export const resolvers: Resolvers = {
       }).from(schedules).where(eq(schedules.eventId, parent.id));
       return rows as any;
     },
-    imageUrl: async (parent: any) => {
-      if (!parent.postId) return null;
-      const rows = await db.select({ imageUrl: posts.imageUrl }).from(posts).where(eq(posts.id, parent.postId));
-      return rows[0]?.imageUrl || null;
-    },
-    sourcePostUrl: async (parent: any) => {
-      if (!parent.postId) return null;
-      const rows = await db.select({ postUrl: posts.postUrl }).from(posts).where(eq(posts.id, parent.postId));
-      return rows[0]?.postUrl || null;
-    },
-    originalPostUrl: () => null,
+    imageUrl: (parent: any) => parent.imageUrl || null,
+    sourcePostUrl: (parent: any) => parent.sourcePostUrl || null,
+    originalPostUrl: (parent: any) => parent.originalPostUrl || null,
     isFavorited: async (parent: any, _: any, context: any) => {
       try {
         const authUser = requireAuth(context);

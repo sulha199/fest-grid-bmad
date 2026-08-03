@@ -231,7 +231,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
         <section className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3 text-sm text-gray-500">
           {hasAccountAttribution && (
             <div className="flex items-center gap-2">
-              <span>Posted by:</span>
+              <span>{labels.postedByLabel}</span>
               <a href={accountHref!} className="flex items-center gap-2 hover:underline text-gray-900 dark:text-gray-100 font-medium">
                 <img src={accountPlatformIconUrl!} alt="" className="w-4 h-4 rounded-sm" aria-hidden="true" />
                 {accountName}
@@ -243,12 +243,12 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
             <div className="flex items-center gap-4 flex-wrap">
               {originalPostUrl && (
                 <a href={originalPostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
-                  View original post <ExternalLink className="w-3 h-3" />
+                  {labels.viewOriginalPostLabel} <ExternalLink className="w-3 h-3" />
                 </a>
               )}
               {sourcePostUrl && (
                 <a href={sourcePostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
-                  View source <ExternalLink className="w-3 h-3" />
+                  {labels.viewSourceLabel} <ExternalLink className="w-3 h-3" />
                 </a>
               )}
             </div>

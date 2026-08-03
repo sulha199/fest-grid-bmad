@@ -71,4 +71,10 @@ export interface UseContextAwareListNavigationResult<TItem extends { id: string 
    * Cleared on the next successful trigger.
    */
   error: unknown | null;
+
+  /**
+   * Whether the hook successfully found the current item in the list.
+   * If false, the item is not part of the currently loaded context.
+   */
+  hasContext: boolean;
 }
