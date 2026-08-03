@@ -1,5 +1,8 @@
 import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, pgEnum, index, unique } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
+import { randomBytes } from 'crypto';
+
+const generateSlug = () => randomBytes(6).toString('hex');
 
 // Reusable timestamp columns for future tables to ensure correct timezone handling
 export const timestamps = {
@@ -53,6 +56,7 @@ export const subscriptions = pgTable('subscriptions', {
   profileImageUrl: text('profile_image_url'),
   description: text('description'),
   lastPostDate: timestamp('last_post_date', { withTimezone: true }),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
   ...timestamps,
 });
 
@@ -84,7 +88,7 @@ export const posts = pgTable('posts', {
 
 export const events = pgTable('events', {
   id: uuid('id').defaultRandom().primaryKey(),
-  slug: text('slug').unique().notNull(),
+  slug: text('slug').$defaultFn(generateSlug).unique().notNull(),
   eventName: text('event_name').notNull(),
   // Drizzle doesn't perfectly support enum arrays, so we use text arrays but expect values from eventTypeEnum
   types: text('types').array(),
@@ -110,7 +114,7 @@ export const events = pgTable('events', {
 
 export const schedules = pgTable('schedules', {
   id: uuid('id').defaultRandom().primaryKey(),
-  slug: text('slug').unique().notNull(),
+  slug: text('slug').$defaultFn(generateSlug).unique().notNull(),
   eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
   isMainSchedule: boolean('is_main_schedule').default(true).notNull(),
   // Split into date and time to support incomplete extracted data from posters (where time might be missing)

@@ -68,6 +68,10 @@ baseline_commit: 7b5043d2db00f086634cdf234d713c28909b73a3
 - [x] Generate database migrations
 
 ### Review Findings
+- [x] [Review][Patch] Missing slug default generator [packages/database/schema.ts]
+- [x] [Review][Patch] Missing Soft-Delete Columns [packages/database/schema.ts]
+- [x] [Review][Patch] Unremoved Cascading Deletes [packages/database/schema.ts]
+- [x] [Review][Patch] Missing Radius Comment [packages/database/schema.ts]
 - [x] [Review][Patch] Rename `eventOwner` to `organizerName` and add comment [packages/database/schema.ts]
 - [x] [Review][Patch] Add comment clarifying `events.location` vs schedules [packages/database/schema.ts]
 - [x] [Review][Patch] Add comment clarifying `ticketPrice` extracted free-text format [packages/database/schema.ts]
