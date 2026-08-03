@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-03T09:20:00Z
+last_updated: 2026-08-03T10:15:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -93,7 +93,8 @@ development_status:
   2-1-favorite-an-event: in-progress
   2-2-view-favorited-events: ready-for-dev
   2-3a-build-the-saved-locations-backend-graphql-api-layer: ready-for-dev
-  2-3-manage-saved-locations: backlog
+  2-3b-extend-the-geolocation-adapter-and-saved-locations-api-with-address-autocomplete-support: backlog
+  2-3-manage-saved-locations: ready-for-dev
   2-4-set-location-by-current-location-or-map: backlog
   2-5a-extend-the-events-graphql-api-with-geo-distance-query-support: backlog
   2-5-find-nearby-events: backlog

@@ -57,3 +57,7 @@ The following prerequisite stories were previously added and remain correctly in
 ## AC Corrections Applied to Existing Stories
 
 None required.
+
+## Addendum (post-sweep, added during Story 2.3's creation, 2026-08-03)
+
+`bmad-create-story`'s per-story escape-hatch guard found a Gate 1 gap this epic-wide sweep could not have anticipated: during Story 2.3's creation, the user directed that saved-location address input use live autocomplete/typeahead rather than a plain single-geocode field. Neither Story 0.16's Geolocation adapter nor Story 2.3a's mutations expose an autocomplete/predictions capability or a `placeId` input mode. Split into new **Story 2.3b** ("Extend the Geolocation adapter and saved-locations API with address autocomplete support"), added to `epics.md` (immediately after Story 2.3a) and `sprint-status.yaml` (`backlog`). This is a single-story gap (Story 2.3 only), not a re-opening of this sweep's own Gate 1/3 conclusions above.

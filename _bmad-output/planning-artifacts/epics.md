@@ -903,6 +903,26 @@ Users can personalize their experience by saving favorite events and locations.
 
 **Depends on:** Story 0.16, Story 0.17, Story 1.1.
 
+### Story 2.3b: Extend the Geolocation adapter and saved-locations API with address autocomplete support
+
+**As a** developer,
+**I want** the Geolocation adapter and the saved-locations GraphQL API extended with an address-autocomplete/predictions capability and a place-ID-based location input mode,
+**So that** Story 2.3's "My Locations" add/edit form can offer a live typeahead search-and-select experience instead of a single blind geocode call on a raw address string.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 0.16's Geolocation adapter exists but exposes no predictions/autocomplete capability,
+*   **When** a client needs address suggestions for partial input,
+*   **Then** a new adapter method (e.g. `getAddressPredictions(input: string, sessionToken?: string): Promise<AddressPrediction[]>`) wraps Google's Places API (New) Autocomplete endpoint (`https://places.googleapis.com/v1/places:autocomplete`), returning candidate `{ placeId, description }` pairs, exclusively through this adapter — never a direct Google call from `apps/web`.
+*   **And** a new `addressAutocomplete(input: String!, sessionToken: String): [AddressSuggestion!]!` GraphQL query, `requireAuth`-scoped (this fronts a billed external API, unlike the public `events` query), exposes this capability to the frontend.
+*   **And** `CreateUserLocationInput`/`UpdateUserLocationInput` (Story 2.3a) gain an optional `placeId: String` field as a third, mutually-exclusive input mode alongside the existing `address`/`latitude`+`longitude` modes, wired to the Geolocation adapter's already-built but previously-unused `PLACE_ID` `GeolocationQuery` variant (`getPlaceDetails`) — so selecting an autocomplete suggestion resolves to full `LocationDetails` via one Place Details call, not a redundant re-geocode of the suggestion's description text.
+*   **And** a client-generated session token (UUID) is threaded through both the `addressAutocomplete` query and the subsequent `createUserLocation`/`updateUserLocation` call when `placeId` mode is used, per Google's Autocomplete+Place-Details session-billing guidance.
+*   **And** the query is subject to the same GraphQL depth/complexity limits (Story 0.8) as the rest of the schema, given it fronts a paid, quota-limited external API.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`) — Story 2.3's own creation surfaced a genuine, user-directed decision to build live address-autocomplete/typeahead (rather than a plain single-geocode text field), which needs backend capability neither Story 0.16's adapter nor Story 2.3a's mutations expose (no predictions/autocomplete method, no `placeId` input mode wired to GraphQL). Classified as a single-story architecture split (needed only by Story 2.3 today), positioned immediately after Story 2.3a and before Story 2.3, mirroring the Story 1.3/1.3a/1.3b split.
+
+**Depends on:** Story 0.16, Story 2.3a.
+
 ### Story 2.3: Manage saved locations
 
 **As a** user,
