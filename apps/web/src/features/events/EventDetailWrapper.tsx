@@ -1,8 +1,10 @@
 "use client"
 
-import React, { useEffect } from "react"
-import { useGetEventBySlugQuery } from "@/generated/graphql"
+import React, { useEffect, useState } from "react"
+import { useGetEventBySlugQuery, useToggleFavoriteMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
+import { useQueryClient } from "@tanstack/react-query"
+import { useAuthSession } from "@/components/providers/auth-session-provider"
 import { EventDetailView } from "@festgrid/ui"
 import { mapGraphQLEventToDetailViewProps, useEventDetailViewLabels } from "./mapper"
 import { useListNavigationForEvent } from "./navigation-hook"
@@ -20,6 +22,9 @@ interface EventDetailWrapperProps {
 export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, isModal = false }) => {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
+  const { session } = useAuthSession()
+  const [liveMessage, setLiveMessage] = useState("")
   const posthog = usePostHog()
   const t = useTranslations("EventDetailsPage")
   const labels = useEventDetailViewLabels()
@@ -32,6 +37,54 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     graphqlClient,
     { slug }
   )
+
+  const { mutate: toggleFavorite } = useToggleFavoriteMutation(graphqlClient, {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["getEventBySlug"] })
+      const previousData = queryClient.getQueriesData({ queryKey: ["getEventBySlug"] })[0]?.[1]
+
+      queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, (old: unknown) => {
+        const typedOld = old as any
+        if (!typedOld?.eventBySlug) return typedOld
+        return {
+          ...typedOld,
+          eventBySlug: {
+            ...typedOld.eventBySlug,
+            isFavorited: !typedOld.eventBySlug.isFavorited,
+          },
+        }
+      })
+
+      return { previousData }
+    },
+    onError: (err, newTodo, context) => {
+      if (context?.previousData) {
+        queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, context.previousData)
+      }
+      setLiveMessage(t("favoriteErrorAnnouncement"))
+    },
+    onSuccess: (data, variables) => {
+      const cached = queryClient.getQueriesData({ queryKey: ["getEventBySlug"] })[0]?.[1] as unknown
+      const typedCached = cached as any
+      posthog.capture(data.toggleFavorite.isFavorited ? "event_favorited" : "event_unfavorited", {
+        eventId: variables.eventId,
+        eventName: data.toggleFavorite.eventId ? typedCached?.eventBySlug?.eventName || "" : "",
+      })
+      setLiveMessage(data.toggleFavorite.isFavorited ? t("favoriteSuccessAnnouncement") : t("unfavoriteSuccessAnnouncement"))
+      
+      queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, (old: unknown) => {
+        const typedOld = old as any
+        if (!typedOld?.eventBySlug) return typedOld
+        return {
+          ...typedOld,
+          eventBySlug: {
+            ...typedOld.eventBySlug,
+            isFavorited: data.toggleFavorite.isFavorited,
+          },
+        }
+      })
+    },
+  })
 
   const eventId = data?.eventBySlug?.id || ""
   const nav = useListNavigationForEvent(eventId)
@@ -102,7 +155,18 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   }
 
   const mappedProps = data?.eventBySlug
-    ? mapGraphQLEventToDetailViewProps(data.eventBySlug, labels, locale, tType, tCategory)
+    ? {
+        ...mapGraphQLEventToDetailViewProps(data.eventBySlug, labels, locale, tType, tCategory),
+        onFavoriteToggle: () => {
+          if (!session) {
+            router.push("/login")
+            return
+          }
+          if (eventId) {
+            toggleFavorite({ eventId })
+          }
+        }
+      }
     : null
 
   const navigationHeader = (
@@ -147,11 +211,14 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
 
   const detailViewContent = (
     <div className="space-y-4">
+      <div aria-live="polite" className="sr-only">
+        {liveMessage}
+      </div>
       {navigationHeader}
       {isPending ? (
         <EventDetailView loading={true} labels={labels} eventName="" location="" schedules={[]} />
       ) : error ? (
-        <EventDetailView error={{ message: (error as any).message || "Unknown error" }} labels={labels} eventName="" location="" schedules={[]} />
+        <EventDetailView error={{ message: (error as Error).message || "Unknown error" }} labels={labels} eventName="" location="" schedules={[]} />
       ) : mappedProps ? (
         <EventDetailView {...mappedProps} />
       ) : null}

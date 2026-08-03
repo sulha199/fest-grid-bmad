@@ -25,7 +25,10 @@
     "defaultScheduleTitle": "Main Schedule",
     "favoriteButtonLabel": "Add to Favorites",
     "removeFavoriteButtonLabel": "Remove from Favorites",
-    "addToCalendarButtonLabel": "Add to Calendar"
+    "addToCalendarButtonLabel": "Add to Calendar",
+    "favoriteSuccessAnnouncement": "Event favorited",
+    "unfavoriteSuccessAnnouncement": "Event removed from favorites",
+    "favoriteErrorAnnouncement": "Something went wrong. Please try again."
   },
   "FilterHub": {
     "typeLabel": "Type",

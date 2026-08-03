@@ -70,7 +70,7 @@ development_status:
   epic-1: in-progress
   1-1-create-initial-database-tables: done
   1-2-seed-database-with-mock-data: done
-  1-2a-create-posts-table-and-link-seeded-events-to-their-source-post: in-progress
+  1-2a-create-posts-table-and-link-seeded-events-to-their-source-post: review
   1-3a-build-the-events-backend-graphql-api-layer: review
   1-3b-build-the-reusable-eventcard-component: review
   1-3c-build-the-reusable-infinite-scroll-hook: review
@@ -87,8 +87,8 @@ development_status:
   1-9-dynamic-browser-title-and-meta-tags: review
   epic-1-retrospective: optional
   epic-2: in-progress
-  2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: in-progress
-  2-1-favorite-an-event: ready-for-dev
+  2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: review
+  2-1-favorite-an-event: in-progress
   2-2-view-favorited-events: backlog
   2-3a-build-the-saved-locations-backend-graphql-api-layer: backlog
   2-3-manage-saved-locations: backlog

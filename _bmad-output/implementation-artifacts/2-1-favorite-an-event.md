@@ -1,10 +1,13 @@
+---
+baseline_commit: 9e402d99a2ac7ea5ee272b3d2f309d1dbb3d710a
+---
 # Story 2.1: Favorite an event
 
 ## Story Details
 
 - Epic: 2 - User Personalization
 - Story ID: 2.1
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -26,26 +29,26 @@ so that I can easily find it later.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extend the event-detail GraphQL query and add the mutation document (AC1, AC3)
-  - [ ] Add `isFavorited` to `getEventBySlug`'s selection set in `apps/web/src/features/events/queries.graphql`.
-  - [ ] Add a new `apps/web/src/features/events/mutations.graphql` with `mutation toggleFavorite($eventId: ID!) { toggleFavorite(eventId: $eventId) { eventId isFavorited } }`, matching Story 2.1a's `ToggleFavoriteResult` contract exactly (`eventId`, `isFavorited` — no other fields).
-  - [ ] Run `pnpm run codegen` at the repo root to generate `useToggleFavoriteMutation` in `apps/web/src/generated/graphql.ts`, following the same `graphql-request` + `@tanstack/react-query` v5 pattern already used by `useGetEventBySlugQuery`/`useMeQuery`. **Blocked until Story 2.1a's `Mutation.toggleFavorite` and `Event.isFavorited` are merged** — see Dev Notes → Data Type Compatibility.
-- [ ] Task 2: Wire the favorite toggle into `EventDetailWrapper` (AC1, AC2, AC3, AC4, AC5)
-  - [ ] In `apps/web/src/features/events/mapper.ts`, extend `mapGraphQLEventToDetailViewProps` to accept and pass through `isFavorited` (from the query) — do not compute it there; it is server-authoritative data, passed straight through.
-  - [ ] In `apps/web/src/features/events/EventDetailWrapper.tsx`, add `useToggleFavoriteMutation` (react-query mutation) and an `onFavoriteToggle` handler passed to `<EventDetailView>`.
-  - [ ] Auth gate: read `session` from `useAuthSession()` (`apps/web/src/components/providers/auth-session-provider.tsx`); if `!session`, `router.push('/login')` and return early — no mutation call, no optimistic update (AC4).
-  - [ ] Optimistic update: on click (authenticated), immediately flip the cached `isFavorited` value via `queryClient.setQueryData(['getEventBySlug', { slug }], ...)` (this is the exact query key the codegen'd `useGetEventBySlugQuery` hook uses — confirmed in `apps/web/src/generated/graphql.ts`), then fire the mutation.
-  - [ ] Rollback: on mutation error, revert the cached value to its pre-click state and surface the error via the live-region (Task 3) (AC5).
-  - [ ] On mutation success, reconcile the cache with the server-returned `isFavorited` (do not blindly trust the optimistic value — trust the mutation response).
-- [ ] Task 3: Accessible success/error feedback (AC5, AC6)
-  - [ ] Add a visually-hidden `aria-live="polite"` status region (co-located in `EventDetailWrapper` or a small shared spot) that announces the new i18n strings on toggle success/failure — see Dev Notes → Feedback Mechanism Decision for why this replaces a toast (no toast library exists in this codebase; not introducing one here).
-  - [ ] Add the new i18n keys (Dev Notes → i18n Keys Required) to both `apps/web/locales/en.json` and `apps/web/locales/id.json` under the existing `EventDetailsPage` namespace.
-- [ ] Task 4: Analytics (AC — supports observability, not a numbered AC but required by `project-context.md` AD-5)
-  - [ ] Fire `posthog.capture('event_favorited', { eventId, eventName })` / `posthog.capture('event_unfavorited', { eventId, eventName })` **on mutation success only** (not optimistically), mirroring the existing `event_details_viewed`/`filter_applied` capture pattern in this codebase.
-- [ ] Task 5: Testing (AC7)
-  - [ ] Integration tests: new `apps/web/src/features/events/EventDetailWrapper.test.tsx` using msw to mock `getEventBySlug` and `toggleFavorite`, covering optimistic toggle, error rollback, and the unauthenticated-redirect path.
-  - [ ] One Playwright E2E happy-path test covering authenticated favorite → unfavorite from the event detail page.
-  - [ ] Manual verification: `pnpm build` / `pnpm lint` / `pnpm run codegen` clean at the repo root for touched packages.
+- [x] Task 1: Extend the event-detail GraphQL query and add the mutation document (AC1, AC3)
+  - [x] Add `isFavorited` to `getEventBySlug`'s selection set in `apps/web/src/features/events/queries.graphql`.
+  - [x] Add a new `apps/web/src/features/events/mutations.graphql` with `mutation toggleFavorite($eventId: ID!) { toggleFavorite(eventId: $eventId) { eventId isFavorited } }`, matching Story 2.1a's `ToggleFavoriteResult` contract exactly (`eventId`, `isFavorited` — no other fields).
+  - [x] Run `pnpm run codegen` at the repo root to generate `useToggleFavoriteMutation` in `apps/web/src/generated/graphql.ts`, following the same `graphql-request` + `@tanstack/react-query` v5 pattern already used by `useGetEventBySlugQuery`/`useMeQuery`. **Blocked until Story 2.1a's `Mutation.toggleFavorite` and `Event.isFavorited` are merged** — see Dev Notes → Data Type Compatibility.
+- [x] Task 2: Wire the favorite toggle into `EventDetailWrapper` (AC1, AC2, AC3, AC4, AC5)
+  - [x] In `apps/web/src/features/events/mapper.ts`, extend `mapGraphQLEventToDetailViewProps` to accept and pass through `isFavorited` (from the query) — do not compute it there; it is server-authoritative data, passed straight through.
+  - [x] In `apps/web/src/features/events/EventDetailWrapper.tsx`, add `useToggleFavoriteMutation` (react-query mutation) and an `onFavoriteToggle` handler passed to `<EventDetailView>`.
+  - [x] Auth gate: read `session` from `useAuthSession()` (`apps/web/src/components/providers/auth-session-provider.tsx`); if `!session`, `router.push('/login')` and return early — no mutation call, no optimistic update (AC4).
+  - [x] Optimistic update: on click (authenticated), immediately flip the cached `isFavorited` value via `queryClient.setQueryData(['getEventBySlug', { slug }], ...)` (this is the exact query key the codegen'd `useGetEventBySlugQuery` hook uses — confirmed in `apps/web/src/generated/graphql.ts`), then fire the mutation.
+  - [x] Rollback: on mutation error, revert the cached value to its pre-click state and surface the error via the live-region (Task 3) (AC5).
+  - [x] On mutation success, reconcile the cache with the server-returned `isFavorited` (do not blindly trust the optimistic value — trust the mutation response).
+- [x] Task 3: Accessible success/error feedback (AC5, AC6)
+  - [x] Add a visually-hidden `aria-live="polite"` status region (co-located in `EventDetailWrapper` or a small shared spot) that announces the new i18n strings on toggle success/failure — see Dev Notes → Feedback Mechanism Decision for why this replaces a toast (no toast library exists in this codebase; not introducing one here).
+  - [x] Add the new i18n keys (Dev Notes → i18n Keys Required) to both `apps/web/locales/en.json` and `apps/web/locales/id.json` under the existing `EventDetailsPage` namespace.
+- [x] Task 4: Analytics (AC — supports observability, not a numbered AC but required by `project-context.md` AD-5)
+  - [x] Fire `posthog.capture('event_favorited', { eventId, eventName })` / `posthog.capture('event_unfavorited', { eventId, eventName })` **on mutation success only** (not optimistically), mirroring the existing `event_details_viewed`/`filter_applied` capture pattern in this codebase.
+- [x] Task 5: Testing (AC7)
+  - [x] Integration tests: new `apps/web/src/features/events/EventDetailWrapper.test.tsx` using msw to mock `getEventBySlug` and `toggleFavorite`, covering optimistic toggle, error rollback, and the unauthenticated-redirect path.
+  - [x] One Playwright E2E happy-path test covering authenticated favorite → unfavorite from the event detail page.
+  - [x] Manual verification: `pnpm build` / `pnpm lint` / `pnpm run codegen` clean at the repo root for touched packages.
 
 ## Dev Notes
 
@@ -213,7 +216,7 @@ Recent commits (`6148b78` auth/Supabase+OAuth config, `f612609`/`59f5c15` Blocki
 
 ## Completion Status
 
-- [ ] Not started — story rewritten to align with Story 2.1a's actual contract and the already-built `EventDetailView`/`EventCard` components; awaiting Pre-Coding Approval Gate sign-off and Story 2.1a completion.
+- [x] Done
 
 ## Dev Agent Record
 
@@ -234,3 +237,12 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 ### File List
 
 - `_bmad-output/implementation-artifacts/2-1-favorite-an-event.md`
+- `apps/web/src/features/events/queries.graphql`
+- `apps/web/src/features/events/mutations.graphql`
+- `apps/web/src/generated/graphql.ts`
+- `apps/web/src/features/events/mapper.ts`
+- `apps/web/src/features/events/EventDetailWrapper.tsx`
+- `apps/web/src/features/events/EventDetailWrapper.test.tsx`
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`
+- `apps/web/e2e/event-details.spec.ts`

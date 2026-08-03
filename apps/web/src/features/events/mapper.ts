@@ -74,6 +74,7 @@ export function mapGraphQLEventToDetailViewProps(
     imageAlt: event.eventName,
     originalPostUrl: event.originalPostUrl,
     sourcePostUrl: event.sourcePostUrl,
+    isFavorited: event.isFavorited,
     locale,
     labels,
   };

@@ -5,7 +5,7 @@ export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' |
 import { GraphQLClient } from 'graphql-request';
 type RequestInit = any;
 import { DocumentTypeDecoration } from '@graphql-typed-document-node/core';
-import { useQuery, UseQueryOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
 export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
@@ -196,6 +196,13 @@ export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type MeQuery = { me: { id: string, email: string, role: string } };
 
+export type ToggleFavoriteMutationVariables = Exact<{
+  eventId: string | number;
+}>;
+
+
+export type ToggleFavoriteMutation = { toggleFavorite: { eventId: string, isFavorited: boolean } };
+
 export type GetEventsQueryVariables = Exact<{
   limit?: number | null | undefined;
   offset?: number | null | undefined;
@@ -210,7 +217,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, isFavorited: boolean, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -256,6 +263,32 @@ export const useMeQuery = <
       {
     queryKey: variables === undefined ? ['me'] : ['me', variables],
     queryFn: fetcher<MeQuery, MeQueryVariables>(client, MeDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const ToggleFavoriteDocument = new TypedDocumentString(`
+    mutation toggleFavorite($eventId: ID!) {
+  toggleFavorite(eventId: $eventId) {
+    eventId
+    isFavorited
+  }
+}
+    `);
+
+export const useToggleFavoriteMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ToggleFavoriteMutation, TError, ToggleFavoriteMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ToggleFavoriteMutation, TError, ToggleFavoriteMutationVariables, TContext>(
+      {
+    mutationKey: ['toggleFavorite'],
+    mutationFn: (variables?: ToggleFavoriteMutationVariables) => fetcher<ToggleFavoriteMutation, ToggleFavoriteMutationVariables>(client, ToggleFavoriteDocument, variables, headers)(),
     ...options
   }
     )};
@@ -315,6 +348,7 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
     imageUrl
     sourcePostUrl
     originalPostUrl
+    isFavorited
     schedules {
       id
       isMainSchedule

@@ -25,7 +25,10 @@
     "defaultScheduleTitle": "Jadwal Utama",
     "favoriteButtonLabel": "Tambah ke Favorit",
     "removeFavoriteButtonLabel": "Hapus dari Favorit",
-    "addToCalendarButtonLabel": "Tambah ke Kalender"
+    "addToCalendarButtonLabel": "Tambahkan ke Kalender",
+    "favoriteSuccessAnnouncement": "Acara ditambahkan ke favorit",
+    "unfavoriteSuccessAnnouncement": "Acara dihapus dari favorit",
+    "favoriteErrorAnnouncement": "Terjadi kesalahan. Silakan coba lagi."
   },
   "FilterHub": {
     "typeLabel": "Tipe",

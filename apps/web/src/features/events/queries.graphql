@@ -32,6 +32,7 @@ query getEventBySlug($slug: String!) {
     imageUrl
     sourcePostUrl
     originalPostUrl
+    isFavorited
     schedules {
       id
       isMainSchedule
