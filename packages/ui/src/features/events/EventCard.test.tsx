@@ -190,6 +190,15 @@ describe('EventCard', () => {
     expect(screen.getByText('No image available')).toBeInTheDocument();
   });
 
+  it('applies pending-removal visual state when pendingRemoval is true', () => {
+    render(<EventCard {...defaultProps} pendingRemoval={true} />);
+
+    const article = screen.getByRole('article');
+    expect(article).toHaveClass('opacity-50');
+    expect(article).toHaveClass('grayscale');
+    expect(article).toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('renders loading skeleton with aria-busy', () => {
     const { container } = render(<EventCard {...defaultProps} loading={true} />);
     

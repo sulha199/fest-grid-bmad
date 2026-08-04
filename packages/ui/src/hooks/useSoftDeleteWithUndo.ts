@@ -55,7 +55,10 @@ export function useSoftDeleteWithUndo<TId extends string = string>(
   useEffect(() => {
     return () => {
       const remainingPending = pendingMapRef.current;
-      for (const commit of remainingPending.values()) {
+      const commits = Array.from(remainingPending.values());
+      remainingPending.clear();
+
+      for (const commit of commits) {
         // We invoke exactly once. We don't await or swallow errors, 
         // allowing rejections to propagate as unhandled.
         commit().catch((err) => {

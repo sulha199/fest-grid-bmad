@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from 'react';
-import { MapPin, Tag, Heart } from 'lucide-react';
+import { MapPin, Heart } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
 
@@ -67,6 +67,7 @@ export function EventCard({
   categories = [],
   types = [],
   priceFrom,
+  pendingRemoval = false,
   isFavorited = false,
   onFavoriteToggle,
   href,
@@ -121,7 +122,12 @@ export function EventCard({
       : {};
 
   return (
-    <article className="w-full max-w-sm rounded-xl overflow-hidden shadow-sm border border-border bg-card transition-all hover:shadow-md relative group flex flex-col">
+    <article
+      className={`w-full max-w-sm rounded-xl overflow-hidden shadow-sm border border-border bg-card transition-all hover:shadow-md relative group flex flex-col ${
+        pendingRemoval ? 'opacity-50 grayscale' : ''
+      }`}
+      aria-disabled={pendingRemoval}
+    >
       {onFavoriteToggle && (
         <button
           type="button"

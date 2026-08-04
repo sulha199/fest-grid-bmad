@@ -12,6 +12,7 @@ const nextConfig = {
   // Without this, Next.js's lockfile-based root inference walks up into the
   // unrelated outer `festgrid/` repo instead, since it also has a pnpm-lock.yaml.
   outputFileTracingRoot: path.join(__dirname, '..', '..'),
+  transpilePackages: ['@festgrid/domain'],
 };
 
 export default withNextIntl(nextConfig);

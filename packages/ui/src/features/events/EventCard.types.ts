@@ -46,6 +46,9 @@ export interface EventCardProps {
   /** Optional starting price to display */
   priceFrom?: string | number;
 
+  /** Optional visual state for deferred unfavorite flows where removal is pending confirmation */
+  pendingRemoval?: boolean;
+
   /** Reserved slot for favorite state. When onFavoriteToggle is provided, a heart icon/button is rendered */
   isFavorited?: boolean;
 

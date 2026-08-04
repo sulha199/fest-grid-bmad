@@ -3,11 +3,29 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./query": "./src/query/index.ts",
-    "./geolocation": "./src/geolocation/index.ts",
-    "./calendar": "./src/calendar/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./query": {
+      "types": "./dist/query/index.d.ts",
+      "default": "./dist/query/index.js"
+    },
+    "./events": {
+      "types": "./dist/events/index.d.ts",
+      "default": "./dist/events/index.js"
+    },
+    "./geolocation": {
+      "types": "./dist/geolocation/index.d.ts",
+      "default": "./dist/geolocation/index.js"
+    },
+    "./calendar": {
+      "types": "./dist/calendar/index.d.ts",
+      "default": "./dist/calendar/index.js"
+    }
   },
   "scripts": {
     "build": "tsc",

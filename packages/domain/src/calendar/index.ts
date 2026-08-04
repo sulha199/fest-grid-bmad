@@ -1,2 +1,2 @@
-export * from './types';
-export * from './buildIcsCalendar';
+export * from './types.js';
+export * from './buildIcsCalendar.js';

@@ -7,7 +7,9 @@
     "eventDetailTitle": "{eventName} | FestDaily",
     "eventDetailDescription": "Get details, schedules, and tickets for {eventName} on FestDaily.",
     "loginTitle": "Sign In | FestDaily",
-    "loginDescription": "Log in to your FestDaily account to access schedules and favorites."
+    "loginDescription": "Log in to your FestDaily account to access schedules and favorites.",
+    "favoritesTitle": "My Favorites | FestDaily",
+    "favoritesDescription": "View and manage your favorited events on FestDaily."
   },
   "EventDetailsPage": {
     "next": "Next Event",
@@ -48,6 +50,19 @@
     "loadingMore": "Loading more events...",
     "searchPlaceholder": "Search by name, performer, or location...",
     "searchClearLabel": "Clear search"
+  },
+  "FavoritesPage": {
+    "title": "My Favorites",
+    "errorState": "Failed to load favorited events. Please try again later.",
+    "emptyState": "You have no favorited events yet.",
+    "searchEmptyState": "No favorited events match your search.",
+    "priceFrom": "From",
+    "loadingMore": "Loading more favorited events...",
+    "searchPlaceholder": "Search in your favorites...",
+    "searchClearLabel": "Clear search",
+    "favoriteButtonLabel": "Remove from Favorites",
+    "pendingRemovalToastMessage": "Event marked for removal",
+    "undoLabel": "Undo"
   },
   "EventType": {
     "EXHIBITION": "Exhibition",

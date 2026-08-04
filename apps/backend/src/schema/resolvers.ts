@@ -3,7 +3,7 @@ import { db } from '../db/client.js';
 import { events, schedules, posts, users, favorites, calendarAdditions } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere } from '@festgrid/graphql-select';
 import { requireAuth } from '../lib/auth/context.js';
-import { eq, count, sql, asc, and, exists, isNull } from 'drizzle-orm';
+import { eq, count, sql, asc, and, exists, isNull, desc } from 'drizzle-orm';
 import { QueryCondition } from '@festgrid/domain/query';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
@@ -103,6 +103,16 @@ export const resolvers: Resolvers = {
       return rows[0];
     },
     events: async (_: any, { query, limit, offset }: any, context: any, info: any) => {
+      const hasFavoritedEqTrue = (condition: QueryCondition | undefined): boolean => {
+        if (!condition) {
+          return false;
+        }
+        if ('conditions' in condition) {
+          return condition.conditions.some(hasFavoritedEqTrue);
+        }
+        return condition.field === 'isFavorited' && condition.operator === 'eq' && condition.value === true;
+      };
+
       // Create field map for DSL
       // Check auth silently for filter correlations
       let userId: string | null = null;
@@ -115,6 +125,7 @@ export const resolvers: Resolvers = {
 
       // Create field map for DSL
       const fieldMap = {
+        id: events.id,
         eventName: events.eventName,
         description: events.description,
         location: events.location,
@@ -146,8 +157,9 @@ export const resolvers: Resolvers = {
 
       const whereClause = buildDrizzleWhere(query as QueryCondition, fieldMap);
       
-      const qLimit = limit ?? 20;
+      const qLimit = Math.min(limit ?? 1000, 1000);
       const qOffset = offset ?? 0;
+      const sortByFavoritedAt = Boolean(userId) && hasFavoritedEqTrue(query as QueryCondition | undefined);
 
       const requestedFields = buildOptimizedDrizzleSelect(events, info, {
         path: 'items',
@@ -175,11 +187,26 @@ export const resolvers: Resolvers = {
         .leftJoin(posts, eq(events.postId, posts.id))
         .$dynamic();
 
+      if (sortByFavoritedAt && userId) {
+        itemsQuery.leftJoin(
+          favorites,
+          and(
+            eq(favorites.userId, userId),
+            eq(favorites.eventId, events.id),
+            isNull(favorites.deletedAt)
+          )
+        );
+      }
+
       if (whereClause) {
         itemsQuery.where(whereClause as any);
       }
 
-      itemsQuery.orderBy(asc(schedules.eventStartDate), asc(schedules.eventStartTime));
+      if (sortByFavoritedAt) {
+        itemsQuery.orderBy(desc(favorites.createdAt));
+      } else {
+        itemsQuery.orderBy(asc(schedules.eventStartDate), asc(schedules.eventStartTime));
+      }
       itemsQuery.limit(qLimit + 1).offset(qOffset);
 
       const fetchedItems = await itemsQuery;

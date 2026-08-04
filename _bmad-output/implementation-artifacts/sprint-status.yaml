@@ -101,7 +101,7 @@ development_status:
   2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: review
   2-1-favorite-an-event: review
   2-1b-build-the-ics-route-handler-and-generator-utility: review
-  2-2-view-favorited-events: ready-for-dev
+  2-2-view-favorited-events: review
   2-3a-build-the-saved-locations-backend-graphql-api-layer: ready-for-dev
   2-3b-extend-the-geolocation-adapter-and-saved-locations-api-with-address-autocomplete-support: ready-for-dev
   # regenerated 2026-08-04 via bmad-create-story at user's request: re-verified against

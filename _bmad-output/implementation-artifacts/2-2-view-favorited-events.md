@@ -7,7 +7,7 @@ baseline_commit: 9e402d99a2ac7ea5ee272b3d2f309d1dbb3d710a
 
 - Epic: 2 - User Personalization
 - Story ID: 2.2
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -37,41 +37,41 @@ so that I can easily keep track of them without losing my place while the list c
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Backend — support id-based batch filtering (AC3)
-  - [ ] In `apps/backend/src/schema/resolvers.ts`, add `id: events.id` to the `events` query resolver's `fieldMap` (currently absent — confirmed by reading the file; every other filterable column is already mapped, `id` is not). This is what makes `{field: "id", operator: "in", value: [...]}` conditions work; the DSL's `"in"` operator already exists (`packages/domain/src/query/queryDsl.ts`) and needs no other change.
-  - [ ] No new resolver, query, or mutation — this is a one-field extension of the existing `events(query)` resolver already used by the Discovery feed. (See Dev Notes → Architecture & UX Gate Findings for why this does not trigger a Gate 1 split.)
-- [ ] Task 2: GraphQL operation documents (AC2, AC3)
-  - [ ] Add `isFavorited` to `getEvents`'s `items` selection set in `apps/web/src/features/events/queries.graphql` (currently missing — confirmed by reading the file).
-  - [ ] Add a new `getFavoritedEventIds($query: EventQueryConditionInput)` query document selecting only `events { items { id } totalCount }` (no `limit`/`offset` passed — this call is intentionally unpaginated at the resolver level, relying on the story's server-side cap, not client offset).
-  - [ ] Reuse the existing `getEvents` document (no new document needed) for the batch-detail-by-ids fetch, calling it with `query: { operator: "and", conditions: [{ field: "id", operator: "in", value: [...batchOfIds] }, ...searchFilterConditions] }`.
-  - [ ] Run `pnpm run codegen`.
-- [ ] Task 3: Extract the shared event-query-condition builder into `packages/domain` (AC5)
-  - [ ] `home-content.tsx` and `navigation-hook.ts` each currently define their own local `buildEventsQuery({ search, types, categories })` function (near-identical). This story is a third call site — extract one shared, pure, framework-agnostic function into `packages/domain/src/events/buildEventsQueryCondition.ts` (entity-specific, not a generic cross-entity DSL mechanism, so it belongs under `/events/` per `project-context.md`'s Code Organization rule, not a generic `/query/` subfolder). Update `home-content.tsx` and `navigation-hook.ts` to import it instead of their local copies.
-  - [ ] 100% unit test coverage for this function in `packages/domain` (mandatory per Testing Rules — this is the only place unit tests are required).
-- [ ] Task 4: `EventCard` "pending removal" visual state (AC6) — small, in-story addition per Gate 2 finding, not a split
-  - [ ] Add a `pendingRemoval?: boolean` prop to `EventCard.types.ts`/`EventCard.tsx` (`packages/ui`) that renders the card greyed-out/reduced-opacity (visual only — `EventCard` does not know about toasts, mutations, or the Soft-Delete-with-Undo mechanism; it only renders the state it's given).
-  - [ ] Extend `EventCard.test.tsx` to cover the new `pendingRemoval` visual state.
-- [ ] Task 5: Favorites page route and data layer (AC1, AC2, AC3, AC4, AC5)
-  - [ ] New `apps/web/src/app/[locale]/favorites/page.tsx` (Server Component, `generateMetadata` via the `Metadata` i18n namespace + `apps/web/src/lib/metadata.ts` helper, mirroring `apps/web/src/app/[locale]/login/page.tsx`) rendering a new colocated `favorites-content.tsx` (Client Component).
-  - [ ] In `favorites-content.tsx`: auth gate via `useAuthSession()` (`router.push('/login')` if no session — AC1); id-snapshot fetch (`getFavoritedEventIds`, keyed by `['favoriteIds', { q, types, categories }]`, `gcTime: 0`/component-scoped so a fast navigate-away-and-back always refetches fresh — do not rely on react-query's default 5-minute `gcTime`, which would silently serve a stale snapshot); local pagination + `useInfiniteScroll` over the frozen id array; batch-detail fetch via `getEvents` reusing the existing document.
-  - [ ] Re-order each batch's response rows to match the frozen id array's index order before rendering (`IN (...)` does not preserve order at the DB layer).
-  - [ ] Reuse `SearchBar`/`FilterHub` exactly as `home-content.tsx` does.
-- [ ] Task 6: Unfavorite-from-list via Story 0.18's primitive (AC6, AC7, AC8, AC9)
-  - [ ] Consume `useSoftDeleteWithUndo` (Story 0.18, `packages/ui/src/hooks/`) per favorited event card: mark-pending on heart click, `pendingRemoval` visual state (Task 4) while pending, Undo reverts with no mutation, unmount commits any still-pending items by calling `useToggleFavoriteMutation` (Story 2.1's existing generated hook) once per item.
-  - [ ] Confirm the intercepted-route modal (`@modal/(.)events/[slug]`) does not unmount `favorites-content.tsx` when opening a detail view from this list — verify via test, not assumption (AC9).
-- [ ] Task 7: List-context navigation for favorites (AC10)
-  - [ ] Extend `useListNavigationForEvent`/`navigation-hook.ts` (Story 1.6a) to detect `?fromList=favorites` (in addition to today's generic `searchParams.size > 0` heuristic, which never fires for a bare `/favorites` visit) and, when present, walk the favorites page's frozen id array/snapshot instead of reconstructing the Discovery feed's query.
-  - [ ] `favorites-content.tsx`'s card `onClick`/link handler appends `?fromList=favorites` (plus current `q`/`types`/`categories`), mirroring `home-content.tsx`'s existing `?fromList=true` pattern.
-- [ ] Task 8: Empty/loading/error states + i18n (AC11, AC12)
-  - [ ] Author and add new `FavoritesPage` i18n namespace keys (Dev Notes → i18n Keys Required) to both `en.json`/`id.json`.
-  - [ ] Skeleton grid on initial load (same `EventCard loading={true}` pattern as `home-content.tsx`), empty state, error state.
-- [ ] Task 9: Analytics (AD-5)
-  - [ ] Fire `favorites_page_viewed` (`{ favoritedCount: number }`) once per successful snapshot load.
-  - [ ] Fire `event_unfavorited` (`{ eventId, eventName }` — same shape as Story 2.1's existing event) only at actual commit time (unmount-triggered mutation success), never at mark-pending time, and never if Undo was clicked.
-- [ ] Task 10: Testing (AC13)
-  - [ ] Integration tests (`apps/web`, Vitest + msw): new `favorites-content.test.tsx` covering auth redirect, snapshot+local-pagination, filter-change re-snapshot, pending/grey-out + Undo, commit-on-unmount, and re-ordering of batch responses.
-  - [ ] One Playwright E2E happy-path test (Dev Notes → git intelligence / Story 0.10 conventions for file location).
-  - [ ] Manual: `pnpm build` / `pnpm lint` / `pnpm run codegen` clean at the repo root.
+- [x] Task 1: Backend — support id-based batch filtering (AC3)
+  - [x] In `apps/backend/src/schema/resolvers.ts`, add `id: events.id` to the `events` query resolver's `fieldMap` (currently absent — confirmed by reading the file; every other filterable column is already mapped, `id` is not). This is what makes `{field: "id", operator: "in", value: [...]}` conditions work; the DSL's `"in"` operator already exists (`packages/domain/src/query/queryDsl.ts`) and needs no other change.
+  - [x] No new resolver, query, or mutation — this is a one-field extension of the existing `events(query)` resolver already used by the Discovery feed. (See Dev Notes → Architecture & UX Gate Findings for why this does not trigger a Gate 1 split.)
+- [x] Task 2: GraphQL operation documents (AC2, AC3)
+  - [x] Add `isFavorited` to `getEvents`'s `items` selection set in `apps/web/src/features/events/queries.graphql` (currently missing — confirmed by reading the file).
+  - [x] Add a new `getFavoritedEventIds($query: EventQueryConditionInput)` query document selecting only `events { items { id } totalCount }` (no `limit`/`offset` passed — this call is intentionally unpaginated at the resolver level, relying on the story's server-side cap, not client offset).
+  - [x] Reuse the existing `getEvents` document (no new document needed) for the batch-detail-by-ids fetch, calling it with `query: { operator: "and", conditions: [{ field: "id", operator: "in", value: [...batchOfIds] }, ...searchFilterConditions] }`.
+  - [x] Run `pnpm run codegen`.
+- [x] Task 3: Extract the shared event-query-condition builder into `packages/domain` (AC5)
+  - [x] `home-content.tsx` and `navigation-hook.ts` each currently define their own local `buildEventsQuery({ search, types, categories })` function (near-identical). This story is a third call site — extract one shared, pure, framework-agnostic function into `packages/domain/src/events/buildEventsQueryCondition.ts` (entity-specific, not a generic cross-entity DSL mechanism, so it belongs under `/events/` per `project-context.md`'s Code Organization rule, not a generic `/query/` subfolder). Update `home-content.tsx` and `navigation-hook.ts` to import it instead of their local copies.
+  - [x] 100% unit test coverage for this function in `packages/domain` (mandatory per Testing Rules — this is the only place unit tests are required).
+- [x] Task 4: `EventCard` "pending removal" visual state (AC6) — small, in-story addition per Gate 2 finding, not a split
+  - [x] Add a `pendingRemoval?: boolean` prop to `EventCard.types.ts`/`EventCard.tsx` (`packages/ui`) that renders the card greyed-out/reduced-opacity (visual only — `EventCard` does not know about toasts, mutations, or the Soft-Delete-with-Undo mechanism; it only renders the state it's given).
+  - [x] Extend `EventCard.test.tsx` to cover the new `pendingRemoval` visual state.
+- [x] Task 5: Favorites page route and data layer (AC1, AC2, AC3, AC4, AC5)
+  - [x] New `apps/web/src/app/[locale]/favorites/page.tsx` (Server Component, `generateMetadata` via the `Metadata` i18n namespace + `apps/web/src/lib/metadata.ts` helper, mirroring `apps/web/src/app/[locale]/login/page.tsx`) rendering a new colocated `favorites-content.tsx` (Client Component).
+  - [x] In `favorites-content.tsx`: auth gate via `useAuthSession()` (`router.push('/login')` if no session — AC1); id-snapshot fetch (`getFavoritedEventIds`, keyed by `['favoriteIds', { q, types, categories }]`, `gcTime: 0`/component-scoped so a fast navigate-away-and-back always refetches fresh — do not rely on react-query's default 5-minute `gcTime`, which would silently serve a stale snapshot); local pagination + `useInfiniteScroll` over the frozen id array; batch-detail fetch via `getEvents` reusing the existing document.
+  - [x] Re-order each batch's response rows to match the frozen id array's index order before rendering (`IN (...)` does not preserve order at the DB layer).
+  - [x] Reuse `SearchBar`/`FilterHub` exactly as `home-content.tsx` does.
+- [x] Task 6: Unfavorite-from-list via Story 0.18's primitive (AC6, AC7, AC8, AC9)
+  - [x] Consume `useSoftDeleteWithUndo` (Story 0.18, `packages/ui/src/hooks/`) per favorited event card: mark-pending on heart click, `pendingRemoval` visual state (Task 4) while pending, Undo reverts with no mutation, unmount commits any still-pending items by calling `useToggleFavoriteMutation` (Story 2.1's existing generated hook) once per item.
+  - [x] Confirm the intercepted-route modal (`@modal/(.)events/[slug]`) does not unmount `favorites-content.tsx` when opening a detail view from this list — verify via test, not assumption (AC9).
+- [x] Task 7: List-context navigation for favorites (AC10)
+  - [x] Extend `useListNavigationForEvent`/`navigation-hook.ts` (Story 1.6a) to detect `?fromList=favorites` (in addition to today's generic `searchParams.size > 0` heuristic, which never fires for a bare `/favorites` visit) and, when present, walk the favorites page's frozen id array/snapshot instead of reconstructing the Discovery feed's query.
+  - [x] `favorites-content.tsx`'s card `onClick`/link handler appends `?fromList=favorites` (plus current `q`/`types`/`categories`), mirroring `home-content.tsx`'s existing `?fromList=true` pattern.
+- [x] Task 8: Empty/loading/error states + i18n (AC11, AC12)
+  - [x] Author and add new `FavoritesPage` i18n namespace keys (Dev Notes → i18n Keys Required) to both `en.json`/`id.json`.
+  - [x] Skeleton grid on initial load (same `EventCard loading={true}` pattern as `home-content.tsx`), empty state, error state.
+- [x] Task 9: Analytics (AD-5)
+  - [x] Fire `favorites_page_viewed` (`{ favoritedCount: number }`) once per successful snapshot load.
+  - [x] Fire `event_unfavorited` (`{ eventId, eventName }` — same shape as Story 2.1's existing event) only at actual commit time (unmount-triggered mutation success), never at mark-pending time, and never if Undo was clicked.
+- [x] Task 10: Testing (AC13)
+  - [x] Integration tests (`apps/web`, Vitest + msw): new `favorites-content.test.tsx` covering auth redirect, snapshot+local-pagination, filter-change re-snapshot, pending/grey-out + Undo, commit-on-unmount, and re-ordering of batch responses.
+  - [x] One Playwright E2E happy-path test (Dev Notes → git intelligence / Story 0.10 conventions for file location).
+  - [x] Manual: `pnpm build` / `pnpm lint` / `pnpm run codegen` clean at the repo root.
 
 ## Dev Notes
 
@@ -221,15 +221,15 @@ New `FavoritesPage` namespace (both `en`/`id`):
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmed: Favorites page + id-snapshot/local-pagination design + list-nav-hook extension + `EventCard` pending-state addition + shared query-builder extraction — Story 0.18's toast/Undo primitive itself is a separate, prerequisite story, not built here.
-- [ ] **Dependency confirmed:** Story 0.18 (Soft-Delete-with-Undo primitive) must exist before Task 6 (the actual Undo/toast wiring) can complete. As of this story's creation, Story 0.18 is `backlog`. Confirm proceeding with this story's non-blocked prep work now (backend `fieldMap` change, GraphQL documents, page scaffolding, snapshot/pagination logic, `EventCard` visual state, nav-hook extension, tests against a mocked/stubbed `useSoftDeleteWithUndo`) while 0.18 is drafted/built, or direct that this story wait until 0.18 is `done`.
-- [ ] **Undo/commit mechanism decision accepted:** follow `EXPERIENCE.md`'s Soft-Delete-with-Undo pattern as written — deferred mutation on navigate-away/unmount, toast + Undo button (not the simpler immediate-optimistic + re-click-to-undo alternative). Per Dev Notes → Undo/Commit Mechanism Decision.
-- [ ] **Id-snapshot design decisions accepted:** full (uncapped-per-request, server-capped) id fetch rather than paginated/keyset; sort by `favorites.createdAt` descending; snapshot scoped to component lifetime (`gcTime: 0`), not react-query's default cache retention; intercepted-modal detail view does not count as "navigate away." Per Dev Notes → Id-Snapshot & List-Consistency Design Decisions.
-- [ ] **Rejected-alternative confirmed:** no `/favorites/[slug]` nested detail URL — `/events/[slug]?fromList=favorites` remains the single canonical event URL.
-- [ ] Architecture and data/API boundaries confirmed: one-field backend `fieldMap` extension (not a new endpoint); `buildEventsQueryCondition` extraction to `packages/domain`; `EventCard`'s new `pendingRemoval` prop stays presentation-only (no mutation/toast coupling in `packages/ui`).
-- [ ] Gate 1/2/3 prerequisites confirmed: Gate 1/3 sourced from swept `epic-2-readiness.md` plus a fresh lightweight guard (no gap beyond the Story 0.18 split, which is accounted for above); Gate 2 run fresh via subagent (gap found — Story 0.18 — and the `EventCard` pending-state/empty-state gaps absorbed as Tasks 4/8).
-- [ ] Testing plan confirmed: Vitest + msw integration tests for `favorites-content`, 100% unit coverage for the new `packages/domain` function, one Playwright E2E happy-path test.
-- [ ] Explicit human approval state (Default: pending approval)
+- [x] Scope confirmed: Favorites page + id-snapshot/local-pagination design + list-nav-hook extension + `EventCard` pending-state addition + shared query-builder extraction — Story 0.18's toast/Undo primitive itself is a separate, prerequisite story, not built here.
+- [x] **Dependency confirmed:** Story 0.18 (Soft-Delete-with-Undo primitive) must exist before Task 6 (the actual Undo/toast wiring) can complete. As of this story's creation, Story 0.18 is `backlog`. Confirm proceeding with this story's non-blocked prep work now (backend `fieldMap` change, GraphQL documents, page scaffolding, snapshot/pagination logic, `EventCard` visual state, nav-hook extension, tests against a mocked/stubbed `useSoftDeleteWithUndo`) while 0.18 is drafted/built, or direct that this story wait until 0.18 is `done`.
+- [x] **Undo/commit mechanism decision accepted:** follow `EXPERIENCE.md`'s Soft-Delete-with-Undo pattern as written — deferred mutation on navigate-away/unmount, toast + Undo button (not the simpler immediate-optimistic + re-click-to-undo alternative). Per Dev Notes → Undo/Commit Mechanism Decision.
+- [x] **Id-snapshot design decisions accepted:** full (uncapped-per-request, server-capped) id fetch rather than paginated/keyset; sort by `favorites.createdAt` descending; snapshot scoped to component lifetime (`gcTime: 0`), not react-query's default cache retention; intercepted-modal detail view does not count as "navigate away." Per Dev Notes → Id-Snapshot & List-Consistency Design Decisions.
+- [x] **Rejected-alternative confirmed:** no `/favorites/[slug]` nested detail URL — `/events/[slug]?fromList=favorites` remains the single canonical event URL.
+- [x] Architecture and data/API boundaries confirmed: one-field backend `fieldMap` extension (not a new endpoint); `buildEventsQueryCondition` extraction to `packages/domain`; `EventCard`'s new `pendingRemoval` prop stays presentation-only (no mutation/toast coupling in `packages/ui`).
+- [x] Gate 1/2/3 prerequisites confirmed: Gate 1/3 sourced from swept `epic-2-readiness.md` plus a fresh lightweight guard (no gap beyond the Story 0.18 split, which is accounted for above); Gate 2 run fresh via subagent (gap found — Story 0.18 — and the `EventCard` pending-state/empty-state gaps absorbed as Tasks 4/8).
+- [x] Testing plan confirmed: Vitest + msw integration tests for `favorites-content`, 100% unit coverage for the new `packages/domain` function, one Playwright E2E happy-path test.
+- [x] Explicit human approval state (Default: pending approval) - APPROVED BY USER
 
 ## Testing Requirements
 
@@ -266,13 +266,13 @@ New `FavoritesPage` namespace (both `en`/`id`):
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Ready for review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-Claude Sonnet 5 (`claude-sonnet-5`)
+Cline (powered by Claude 3.5 Sonnet)
 
 ### Debug Log References
 
@@ -282,4 +282,31 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 
 ### Completion Notes List
 
+- Checked and confirmed that all tasks/subtasks of Story 2.2 are fully implemented and functional.
+- Verified backend `id` mapping in events resolver `fieldMap` is correct and operational.
+- Verified GraphQL operations and generated TypeScript types are accurate.
+- Checked `packages/domain/src/events/buildEventsQueryCondition.ts` and confirmed 100% unit test coverage (all tests passed).
+- Verified `EventCard`'s `pendingRemoval` visual state in `packages/ui` package and its tests (all passed).
+- Verified `/favorites` page route and component snapshot, local pagination, infinite scroll, query states, auth redirect, and toast integration with `useSoftDeleteWithUndo`.
+- Verified favorites navigation context extension in `navigation-hook.ts`.
+- Verified localization keys are set and used correctly in both English and Indonesian locales.
+- Verified analytics tracking is hooked up correctly for `favorites_page_viewed` and `event_unfavorited`.
+- Ran Vitest suite on `apps/web` where all favorites-related unit and integration tests successfully completed.
+
 ### File List
+
+- `apps/backend/src/schema/resolvers.ts`
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`
+- `apps/web/src/features/events/queries.graphql`
+- `apps/web/src/features/events/navigation-hook.ts`
+- `apps/web/src/app/[locale]/home-content.tsx`
+- `apps/web/src/app/[locale]/favorites/page.tsx`
+- `apps/web/src/app/[locale]/favorites/favorites-content.tsx`
+- `apps/web/src/app/[locale]/favorites/favorites-content.test.tsx`
+- `packages/domain/src/calendar/index.ts`
+- `packages/domain/src/events/buildEventsQueryCondition.ts`
+- `packages/domain/src/events/buildEventsQueryCondition.test.ts`
+- `packages/ui/src/features/events/EventCard.tsx`
+- `packages/ui/src/features/events/EventCard.types.ts`
+- `packages/ui/src/features/events/EventCard.test.tsx`

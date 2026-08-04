@@ -12,46 +12,7 @@ import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
-
-function buildEventsQuery({ search, types, categories }: { search: string, types: string[], categories: string[] }): EventQueryConditionInput | undefined {
-  const conditions: EventQueryConditionInput[] = []
-
-  if (search.trim()) {
-    conditions.push({
-      operator: "or",
-      conditions: [
-        { field: "eventName", operator: "contains", value: search },
-        { field: "performers", operator: "contains", value: search },
-        { field: "location", operator: "contains", value: search },
-      ]
-    })
-  }
-
-  if (types.length > 0) {
-    conditions.push({
-      field: "types",
-      operator: "in",
-      value: types
-    })
-  }
-
-  if (categories.length > 0) {
-    conditions.push({
-      field: "categories",
-      operator: "in",
-      value: categories
-    })
-  }
-
-  if (conditions.length === 0) {
-    return undefined
-  }
-  
-  return {
-    operator: "and",
-    conditions
-  }
-}
+import { buildEventsQueryCondition } from "@festgrid/domain/events"
 
 // Falls back to the raw enum value if a translation key is missing, so a
 // locale file drifting out of sync with the enum degrades gracefully instead
@@ -132,7 +93,7 @@ export function HomeContent() {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
         offset: pageParam as number,
-        query: buildEventsQuery({ search: q, types, categories })
+        query: buildEventsQueryCondition({ search: q, types, categories }) as EventQueryConditionInput | undefined
       })
     },
     initialPageParam: 0,

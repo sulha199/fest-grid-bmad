@@ -4,6 +4,7 @@ query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
       id
       eventName
       slug
+      isFavorited
       imageUrl
       location
       types
@@ -16,6 +17,15 @@ query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
       }
     }
     hasMore
+    totalCount
+  }
+}
+
+query getFavoritedEventIds($query: EventQueryConditionInput) {
+  events(query: $query) {
+    items {
+      id
+    }
     totalCount
   }
 }

@@ -9,16 +9,18 @@ import { NuqsTestingAdapter } from "nuqs/adapters/testing"
 
 // Mock router and auth session
 const mockRouterPush = vi.fn()
+const mockRouterReplace = vi.fn()
 vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({
     push: mockRouterPush,
-    replace: vi.fn(),
+    replace: mockRouterReplace,
     back: vi.fn(),
   }),
 }))
 
+let mockSearchParams = new URLSearchParams()
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams,
 }))
 
 const mockPosthogCapture = vi.fn()
@@ -64,7 +66,40 @@ const handlers = [
       },
     })
   }),
-  graphql.mutation("toggleFavorite", ({ query, variables }) => {
+  graphql.query("getEvents", ({ variables }) => {
+    const idCondition = (variables as any)?.query?.conditions?.find((c: any) => c?.field === "id")
+    const ids = (idCondition?.value ?? []) as string[]
+
+    const rows = ids.map((id) => ({
+      id,
+      eventName: id === "evt_2" ? "Second Event" : "Test Event",
+      slug: id === "evt_2" ? "second-event" : "test-event",
+      isFavorited: true,
+      imageUrl: null,
+      location: "Test Location",
+      types: [],
+      categories: [],
+      schedules: [
+        {
+          id: `${id}-schedule`,
+          isMainSchedule: true,
+          eventStartDate: new Date().toISOString(),
+          ticketPrice: null,
+        },
+      ],
+    }))
+
+    return HttpResponse.json({
+      data: {
+        events: {
+          items: rows,
+          hasMore: false,
+          totalCount: rows.length,
+        },
+      },
+    })
+  }),
+  graphql.mutation("toggleFavorite", ({ variables }) => {
     const { eventId } = variables as any
     if (eventId === "evt_fail") {
       return HttpResponse.json({ errors: [{ message: "Mutation failed" }] })
@@ -93,6 +128,7 @@ describe("EventDetailWrapper", () => {
       defaultOptions: { queries: { retry: false } },
     })
     mockSession = { user: { id: "u_1" } } // Default authenticated
+    mockSearchParams = new URLSearchParams()
     currentMockEvent = {
       id: "evt_1",
       eventName: "Test Event",
@@ -108,6 +144,7 @@ describe("EventDetailWrapper", () => {
       schedules: [],
     }
     mockPosthogCapture.mockClear()
+    mockRouterReplace.mockClear()
   })
 
   afterEach(() => {
@@ -189,5 +226,22 @@ describe("EventDetailWrapper", () => {
     await waitFor(() => {
       expect(screen.getByText("EventDetailsPage.favoriteErrorAnnouncement")).toBeInTheDocument()
     })
+  })
+
+  it('uses favorites list context for next navigation when opened from favorites', async () => {
+    mockSearchParams = new URLSearchParams('fromList=favorites&favoriteIds=evt_1,evt_2');
+
+    renderComponent();
+
+    expect(await screen.findByRole('heading', { name: 'Test Event' })).toBeInTheDocument();
+
+    const nextButton = await screen.findByRole('button', { name: 'EventDetailsPage.next' });
+    fireEvent.click(nextButton);
+
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith(
+        '/events/second-event?fromList=favorites&favoriteIds=evt_1%2Cevt_2'
+      );
+    });
   })
 })

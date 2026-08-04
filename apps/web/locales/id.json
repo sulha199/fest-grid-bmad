@@ -7,7 +7,9 @@
     "eventDetailTitle": "{eventName} | FestDaily",
     "eventDetailDescription": "Dapatkan detail, jadwal, dan tiket untuk {eventName} di FestDaily.",
     "loginTitle": "Masuk | FestDaily",
-    "loginDescription": "Masuk ke akun FestDaily Anda untuk mengakses jadwal dan favorit."
+    "loginDescription": "Masuk ke akun FestDaily Anda untuk mengakses jadwal dan favorit.",
+    "favoritesTitle": "Favorit Saya | FestDaily",
+    "favoritesDescription": "Lihat dan kelola acara favorit Anda di FestDaily."
   },
   "EventDetailsPage": {
     "next": "Acara Selanjutnya",
@@ -48,6 +50,19 @@
     "loadingMore": "Memuat lebih banyak acara...",
     "searchPlaceholder": "Cari berdasarkan nama, pengisi acara, atau lokasi...",
     "searchClearLabel": "Hapus pencarian"
+  },
+  "FavoritesPage": {
+    "title": "Favorit Saya",
+    "errorState": "Gagal memuat acara favorit. Silakan coba lagi nanti.",
+    "emptyState": "Anda belum memiliki acara favorit.",
+    "searchEmptyState": "Tidak ada acara favorit yang cocok dengan pencarian Anda.",
+    "priceFrom": "Mulai dari",
+    "loadingMore": "Memuat lebih banyak acara favorit...",
+    "searchPlaceholder": "Cari di favorit Anda...",
+    "searchClearLabel": "Hapus pencarian",
+    "favoriteButtonLabel": "Hapus dari Favorit",
+    "pendingRemovalToastMessage": "Acara ditandai untuk dihapus",
+    "undoLabel": "Urungkan"
   },
   "EventType": {
     "EXHIBITION": "Pameran",

@@ -210,7 +210,14 @@ export type GetEventsQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, ticketPrice: string | null }> }> } };
+export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, isFavorited: boolean, imageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, ticketPrice: string | null }> }> } };
+
+export type GetFavoritedEventIdsQueryVariables = Exact<{
+  query?: EventQueryConditionInput | null | undefined;
+}>;
+
+
+export type GetFavoritedEventIdsQuery = { events: { totalCount: number, items: Array<{ id: string }> } };
 
 export type GetEventBySlugQueryVariables = Exact<{
   slug: string;
@@ -307,6 +314,7 @@ export const GetEventsDocument = new TypedDocumentString(`
       id
       eventName
       slug
+      isFavorited
       imageUrl
       location
       types
@@ -338,6 +346,35 @@ export const useGetEventsQuery = <
       {
     queryKey: variables === undefined ? ['getEvents'] : ['getEvents', variables],
     queryFn: fetcher<GetEventsQuery, GetEventsQueryVariables>(client, GetEventsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetFavoritedEventIdsDocument = new TypedDocumentString(`
+    query getFavoritedEventIds($query: EventQueryConditionInput) {
+  events(query: $query) {
+    items {
+      id
+    }
+    totalCount
+  }
+}
+    `);
+
+export const useGetFavoritedEventIdsQuery = <
+      TData = GetFavoritedEventIdsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: GetFavoritedEventIdsQueryVariables,
+      options?: Omit<UseQueryOptions<GetFavoritedEventIdsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetFavoritedEventIdsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetFavoritedEventIdsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['getFavoritedEventIds'] : ['getFavoritedEventIds', variables],
+    queryFn: fetcher<GetFavoritedEventIdsQuery, GetFavoritedEventIdsQueryVariables>(client, GetFavoritedEventIdsDocument, variables, headers),
     ...options
   }
     )};
