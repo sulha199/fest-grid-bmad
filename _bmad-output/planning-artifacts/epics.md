@@ -1026,6 +1026,25 @@ Users can personalize their experience by saving favorite events and locations.
 
 **Depends on:** Story 0.3.
 
+### Story 2.4b: Extend the Geolocation adapter with a reverse-geocode preview query
+
+**As a** developer,
+**I want** a new `previewLocation(latitude: Float!, longitude: Float!): LocationDetails!` GraphQL query that wraps Story 0.16's existing `resolveLocation` in its `{ kind: 'COORDINATES', coordinates }` mode without persisting anything,
+**So that** Story 2.4's "Use my current location" and "Pick on map" flows can show the user the actual resolved, human-readable address before they commit to saving it, instead of only raw coordinates.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 0.16's Geolocation adapter's `resolveLocation` already supports reverse-geocoding via a `{ kind: 'COORDINATES', coordinates }` query,
+*   **When** a client sends `previewLocation(latitude, longitude)`,
+*   **Then** the resolver calls `resolveLocation` with that mode and returns the resulting `LocationDetails` (`formattedAddress`, `placeName`, `coordinates`, `provider`) — a pure read, no database write.
+*   **And** the query is `requireAuth`-scoped (Story 0.17), matching `addressAutocomplete`'s (Story 2.3b) treatment as a billed, quota-limited external-API-backed read, not a public query.
+*   **And** the query is subject to the same GraphQL depth/complexity limits (Story 0.8) as the rest of the schema.
+*   **And** repeated calls with the same coordinates reuse Story 0.16's existing Postgres-backed geolocation cache — no duplicate provider calls for the same coordinate pair within the cache's lifetime.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced during Story 2.4's creation (2026-08-04). Story 2.4a's own Out-of-Scope note assigns "reverse-geocoding a clicked point into a human-readable address" to Story 2.4, but no existing GraphQL query exposes reverse-geocoding as a standalone read — only as a side effect of the `createUserLocation`/`updateUserLocation` mutations (Story 2.3a), which persist a row. Story 2.4 needs to preview the resolved address before the user commits to Save, presented to and confirmed by the user as the preferred option over a coordinates-only preview (2026-08-04). Classified as a single-story architecture split (needed only by Story 2.4 today), positioned immediately after Story 2.4a and before Story 2.5a.
+
+**Depends on:** Story 0.16, Story 0.17.
+
 ### Story 2.5a: Extend the events GraphQL API with geo-distance query support
 
 **As a** developer,

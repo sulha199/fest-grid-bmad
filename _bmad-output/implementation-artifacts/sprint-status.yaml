@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-04T04:00:00Z
+last_updated: 2026-08-04T10:20:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -100,7 +100,7 @@ development_status:
   epic-2: in-progress
   2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: review
   2-1-favorite-an-event: in-progress
-  2-1b-build-the-ics-route-handler-and-generator-utility: ready-for-dev
+  2-1b-build-the-ics-route-handler-and-generator-utility: in-progress
   2-2-view-favorited-events: ready-for-dev
   2-3a-build-the-saved-locations-backend-graphql-api-layer: ready-for-dev
   2-3b-extend-the-geolocation-adapter-and-saved-locations-api-with-address-autocomplete-support: ready-for-dev
@@ -109,11 +109,16 @@ development_status:
   # dropped sessionToken arg; Story 0.16 progressed to review/implemented, narrowing the
   # dependency chain to 2.3a/2.3b only). Status unchanged (already ready-for-dev).
   2-3-manage-saved-locations: ready-for-dev
-  2-4-set-location-by-current-location-or-map: backlog
+  2-4-set-location-by-current-location-or-map: ready-for-dev
   # regenerated 2026-08-04 via bmad-create-story: raw maplibre-gl (not
   # @vis.gl/react-maplibre) and a pointer-only, documented a11y limitation for
   # marker placement were confirmed with the user during story creation.
   2-4a-set-up-frontend-map-integration-and-reusable-map-component: ready-for-dev
+  # drafted 2026-08-04 via bmad-create-story: Gate 1 gap surfaced during Story 2.4's
+  # creation (see epics.md Story 2.4b note) — no query exposes reverse-geocoding as
+  # a standalone read; Story 2.4's address-preview flow needs one. No dependency on
+  # Story 2.3a/2.3b (Story 0.16/0.17, this story's only real deps, are both `review`).
+  2-4b-extend-the-geolocation-adapter-with-a-reverse-geocode-preview-query: ready-for-dev
   2-5a-extend-the-events-graphql-api-with-geo-distance-query-support: backlog
   2-5-find-nearby-events: backlog
   2-6-view-and-manage-events-on-a-calendar: backlog
