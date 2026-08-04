@@ -910,6 +910,24 @@ Users can personalize their experience by saving favorite events and locations.
 *   **And** the "Favorite" button changes to an "Unfavorite" button.
 *   **And** when I click the "Unfavorite" button, the event is no longer marked as a favorite.
 
+### Story 2.1b: Build the ICS route handler and generator utility
+
+**As a** developer,
+**I want** a Next.js Route Handler and a shared ICS generation utility,
+**So that** the "Add to Calendar" MVP feature (FR11, FR12) has a backing API surface to generate and deliver standard `.ics` files using event and schedule data, rather than the frontend assembling it ad hoc.
+
+**Acceptance Criteria:**
+
+*   **Given** a client needs to export an event or specific schedules to an external calendar,
+*   **When** a request is made to the new ICS Route Handler,
+*   **Then** it dynamically builds an `.ics` string using a reusable generation utility (e.g., parsing `EventInfo` and `Schedule` into the standard format).
+*   **And** the endpoint returns the data with the `text/calendar` content type so the browser/OS natively handles the file download or calendar opening.
+*   **And** the generation utility is built as a portable function decoupled from the HTTP layer, allowing future backend paths (like Epic 3 reminders) to reuse it if needed.
+
+**Note:** This story exists because of Gate 1 / Gate 3 (`story-split-gate.md`), surfaced by the Epic 2 readiness sweep re-run. FR11 and FR12 require one-way calendar integration, but no API surface or utility existed to safely assemble and deliver `.ics` files. Classified as a single-story-family architecture split, positioned before Epic 2's calendar features.
+
+**Depends on:** Story 1.3a.
+
 ### Story 2.2: View favorited events
 
 **As a** user,
@@ -988,6 +1006,25 @@ Users can personalize their experience by saving favorite events and locations.
 *   **Then** the location fields are pre-filled with my current location.
 *   **And when** I click the "Pick on map" button,
 *   **Then** a map is displayed, allowing me to select a location by clicking on it.
+
+### Story 2.4a: Set up frontend map integration and reusable Map component
+
+**As a** developer,
+**I want** a reusable frontend map component integrated with a tile provider (e.g., MapLibre GL JS with Geoapify tiles) and a restricted frontend API key,
+**So that** Story 2.4 has the infrastructure needed to render a map for location picking without directly calling unmanaged external services or exposing the backend API key.
+
+**Acceptance Criteria:**
+
+*   **Given** a feature needs to display an interactive map (e.g., location picking in Story 2.4),
+*   **When** the Map component renders,
+*   **Then** it successfully loads map tiles using a secure, restricted frontend API key specific to the tile provider (e.g., Geoapify Maps).
+*   **And** it supports displaying a marker and emitting the selected coordinates back to its parent form.
+*   **And** it is encapsulated in `packages/ui` so the raw mapping library is not leaked into feature pages.
+*   **And** this client-side key is stored in `.env` and restricted by HTTP referrer in the provider's dashboard, completely separate from Story 0.16's backend geocoding key.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced by the Epic 2 readiness sweep re-run. Story 2.4 requires picking a location on a map, but the Geolocation adapter (Story 0.16) is strictly backend-only. A frontend map tile integration and component must be explicitly set up. Classified as a single-story UI/architecture split, positioned immediately before Story 2.5a.
+
+**Depends on:** Story 0.3.
 
 ### Story 2.5a: Extend the events GraphQL API with geo-distance query support
 

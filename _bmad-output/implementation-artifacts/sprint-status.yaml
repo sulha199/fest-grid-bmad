@@ -100,11 +100,13 @@ development_status:
   epic-2: in-progress
   2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: review
   2-1-favorite-an-event: in-progress
+  2-1b-build-the-ics-route-handler-and-generator-utility: backlog
   2-2-view-favorited-events: ready-for-dev
   2-3a-build-the-saved-locations-backend-graphql-api-layer: ready-for-dev
   2-3b-extend-the-geolocation-adapter-and-saved-locations-api-with-address-autocomplete-support: backlog
   2-3-manage-saved-locations: ready-for-dev
   2-4-set-location-by-current-location-or-map: backlog
+  2-4a-set-up-frontend-map-integration-and-reusable-map-component: backlog
   2-5a-extend-the-events-graphql-api-with-geo-distance-query-support: backlog
   2-5-find-nearby-events: backlog
   2-6-view-and-manage-events-on-a-calendar: backlog

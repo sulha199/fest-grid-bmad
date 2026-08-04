@@ -1,14 +1,17 @@
 ---
 epic: 2
 swept: true
-date: 2026-08-02T08:23:00Z
+date: 2026-08-04T00:00:00Z
 stories_covered:
   - 2.1a
   - 2.1
+  - 2.1b
   - 2.2
   - 2.3a
+  - 2.3b
   - 2.3
   - 2.4
+  - 2.4a
   - 2.5a
   - 2.5
   - 2.6
@@ -25,17 +28,16 @@ stories_covered:
 
 ## Gate 1 — Architecture / Infrastructure Completeness
 
-**Checked, no new gaps found.** 
-All required architectural and infrastructure layers for Epic 2 have been established.
-Previously identified gaps have been addressed by the following existing prerequisite stories:
-- **Story 2.1a:** Build the favorites and calendar-additions backend GraphQL API layer (Supports 2.1, 2.2, 2.6, 2.7).
-- **Story 2.3a:** Build the saved-locations backend GraphQL API layer (Supports 2.3, 2.4, 2.5).
-- **Story 2.5a:** Extend the events GraphQL API with geo-distance query support (Supports 2.5).
+**Gaps Found:**
+- **Frontend Map Tile Integration:** Story 2.4 requires displaying a map for location picking. Because the existing Geolocation adapter (Story 0.16) is strictly backend-only, rendering map tiles on the client requires calling an external tile provider directly from the frontend. This needs an explicit infrastructure setup for a restricted frontend API key and tile provider configuration; otherwise, Story 2.4 will introduce an unmanaged external service call. Addressed via **Story 2.4a**.
+- **ICS Download API Surface:** FR12 requires one-way calendar integration (app to calendar) via `.ics` file delivery. Currently, no story provisions a backend endpoint or route handler to serve these files with the correct `text/calendar` content type. Addressed via **Story 2.1b**.
 
 ## Gate 3 — Foundational / Cross-Cutting Dependency Completeness
 
-**Checked, no new gaps found.** 
-All foundational and cross-cutting dependencies are accounted for.
+**Gaps Found:**
+- **ICS Generator Utility:** To support FR11 and FR12, a shared utility function is required to parse `EventInfo` and `Schedule` data into the standard ICS format. This utility should be built once and decoupled from the HTTP layer so it can be reused across other features that deal with calendar data (e.g., Epic 3's reminders). Addressed via **Story 2.1b**.
+
+*Previous sweep findings remaining applicable:*
 - **Cross-epic shared-data-ownership:** User-settings storage for past-event auto-hide (Story 2.7) and push notifications (Story 2.9, 3.8) is addressed by **Story 2.6a**.
 - **Existing tooling dependencies:** i18n (Story 0.6), analytics (Story 1.8), GraphQL scaffold/codegen (Story 0.8), auth context (Story 0.17), and geolocation adapter (Story 0.16) are already established in earlier epics.
 
@@ -43,20 +45,18 @@ All foundational and cross-cutting dependencies are accounted for.
 
 ## New Prerequisite Stories Added
 
-None in this run. 
-
-The following prerequisite stories were previously added and remain correctly integrated in `epics.md` and `sprint-status.yaml`:
+The following prerequisite stories were added in this run to resolve the gaps above:
 
 | Story key | Title | Classification | Position in `epics.md` | Gate |
 |---|---|---|---|---|
-| `2.1a` | Build the favorites and calendar-additions backend GraphQL API layer | Shared data-ownership (within Epic 2; consumed by 2.1, 2.2, 2.6, 2.7) | Immediately before Story 2.1 | Gate 1 |
-| `2.3a` | Build the saved-locations backend GraphQL API layer | Single-story-family architecture split (needed by 2.3, 2.4, 2.5) | Immediately before Story 2.3 | Gate 1 |
-| `2.5a` | Extend the events GraphQL API with geo-distance query support | Single-story architecture split (needed only by 2.5) | Immediately before Story 2.5 | Gate 1 |
-| `2.6a` | Create user-settings table and settings query/mutation resolvers | Shared data-ownership (cross-epic: Epic 2 Stories 2.7/2.9 + Epic 3 Story 3.8) | Immediately before Story 2.7 (after Story 2.6) | Gate 3 |
+| `2.1b` | Build the ICS route handler and generator utility | Single-story-family architecture split | Immediately after Story 2.1 | Gate 1 & 3 |
+| `2.4a` | Set up frontend map integration and reusable Map component | Single-story UI/architecture split | Immediately after Story 2.4 | Gate 1 |
+
+*Note: Stories 2.1a, 2.3a, 2.3b, 2.5a, and 2.6a were added in previous sweep runs and are preserved in `epics.md`.*
 
 ## AC Corrections Applied to Existing Stories
 
-None required.
+None required in this run.
 
 ## Addendum (post-sweep, added during Story 2.3's creation, 2026-08-03)
 
