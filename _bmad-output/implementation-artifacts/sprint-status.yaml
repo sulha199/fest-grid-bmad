@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-04T10:20:00Z
+last_updated: 2026-08-04T10:30:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -99,7 +99,7 @@ development_status:
   epic-1-retrospective: optional
   epic-2: in-progress
   2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: review
-  2-1-favorite-an-event: in-progress
+  2-1-favorite-an-event: review
   2-1b-build-the-ics-route-handler-and-generator-utility: in-progress
   2-2-view-favorited-events: ready-for-dev
   2-3a-build-the-saved-locations-backend-graphql-api-layer: ready-for-dev
