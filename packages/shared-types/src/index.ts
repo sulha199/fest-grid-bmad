@@ -48,12 +48,15 @@ export interface Coordinates {
   longitude: number;
 }
 
+export type GeolocationProvider = 'GEOAPIFY';
+
 export interface LocationDetails {
   coordinates: Coordinates;
   placeName?: string;
   placeId?: string;
   formattedAddress?: string;
   timezone?: string;
+  provider?: GeolocationProvider;
 }
 
 export interface Schedule {

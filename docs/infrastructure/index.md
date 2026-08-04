@@ -8,4 +8,5 @@
   - [2. Backend](#2-backend)
   - [3. Database](#3-database)
   - [4. Push Notifications](#4-push-notifications)
+  - [5. Geolocation](#5-geolocation)
   - [Note for the Future](#note-for-the-future)

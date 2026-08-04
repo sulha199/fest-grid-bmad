@@ -5,6 +5,7 @@ export interface BackendEnv {
   port: number;
   supabaseUrl?: string;
   databaseUrl?: string;
+  geoapifyApiKey?: string;
 }
 
 export function loadBackendEnv(): BackendEnv {
@@ -23,5 +24,10 @@ export function loadBackendEnv(): BackendEnv {
   }
 
   // eslint-disable-next-line turbo/no-undeclared-env-vars
-  return { port, supabaseUrl: process.env.SUPABASE_URL, databaseUrl: process.env.DATABASE_URL };
+  return { 
+    port, 
+    supabaseUrl: process.env.SUPABASE_URL, 
+    databaseUrl: process.env.DATABASE_URL,
+    geoapifyApiKey: process.env.GEOAPIFY_API_KEY
+  };
 }

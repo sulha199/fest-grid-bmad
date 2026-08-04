@@ -5,13 +5,15 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./query": "./src/query/index.ts"
+    "./query": "./src/query/index.ts",
+    "./geolocation": "./src/geolocation/index.ts"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "eslint . --max-warnings 0",
-    "clean": "rm -rf .turbo node_modules dist"
+    "clean": "rm -rf .turbo node_modules dist",
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "@festgrid/shared-types": "workspace:*"
@@ -20,6 +22,7 @@
     "@festgrid/eslint-config": "workspace:*",
     "@festgrid/typescript-config": "workspace:*",
     "typescript": "^5.5.4",
-    "@types/node": "^20.14.9"
+    "@types/node": "^20.14.9",
+    "tsx": "^4.16.2"
   }
 }

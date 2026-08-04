@@ -43,6 +43,13 @@
       "when": 1785720592505,
       "tag": "0005_puzzling_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1785805297982,
+      "tag": "0006_fuzzy_nitro",
+      "breakpoints": true
     }
   ]
 }

@@ -42,6 +42,7 @@ graph TD
         Supabase[Supabase (PostgreSQL)]
         FCM[Firebase Cloud Messaging]
         Gemini[Google Gemini API]
+        Geoapify[Geoapify]
     end
 
     U --> V
@@ -63,5 +64,6 @@ graph TD
 
     L_API -- interacts with --> Supabase
     L_API -- sends to --> FCM
+    L_API -- resolves location via --> Geoapify
 ```
-
+

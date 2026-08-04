@@ -167,4 +167,18 @@ PostHog is used for tracking user interactions, page views, and core events acro
     *   Local package-level `.env` files are optional and should only contain overrides for root `.env` values.
     *   *(Note: Local analytics initialization safely skips if these keys are missing to prevent errors during local development).*
 
+## 6. Geolocation Adapter (Geoapify)
+
+Geoapify provides the backend-only address, place, and coordinate resolution.
+
+### Setup Steps
+
+1.  **Create a Geoapify project:**
+    *   Sign up at [Geoapify MyProjects](https://myprojects.geoapify.com/) (no credit card required for the free tier) and create a project.
+2.  **Get API Key:**
+    *   Copy the auto-generated project API key (or generate a dedicated one for this backend).
+    *   *Note: While the PRD requires API key restriction via domain/IP referrer restrictions in the Geoapify dashboard, neither option meaningfully secures a server-to-server Lambda call today without a static outbound IP (NAT Gateway). For MVP, the key is used unrestricted, and this security-posture trade-off is accepted.*
+3.  **Configure Environment:**
+    *   Add the key to your `.env` file as `GEOAPIFY_API_KEY`. (It does not get a `NEXT_PUBLIC_` prefix since the key is strictly backend-only).
+
 This walkthrough provides a high-level overview of the setup process. For detailed configuration and implementation, refer to the official documentation of each service.

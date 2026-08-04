@@ -25,6 +25,8 @@ export const eventCategoryEnum = pgEnum('event_category', [
 
 export const userRoleEnum = pgEnum('user_role', ['user', 'moderator']);
 
+export const geolocationQueryTypeEnum = pgEnum('geolocation_query_type', ['GEOCODE', 'REVERSE_GEOCODE', 'PLACE_DETAILS']);
+
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: text('email').unique().notNull(),
@@ -57,6 +59,14 @@ export const subscriptions = pgTable('subscriptions', {
   description: text('description'),
   lastPostDate: timestamp('last_post_date', { withTimezone: true }),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  ...timestamps,
+});
+
+export const geolocationCache = pgTable('geolocation_cache', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  cacheKey: text('cache_key').unique().notNull(),
+  queryType: geolocationQueryTypeEnum('query_type').notNull(),
+  result: jsonb('result').notNull(),
   ...timestamps,
 });
 
