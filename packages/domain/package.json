@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./query": "./src/query/index.ts",
-    "./geolocation": "./src/geolocation/index.ts"
+    "./geolocation": "./src/geolocation/index.ts",
+    "./calendar": "./src/calendar/index.ts"
   },
   "scripts": {
     "build": "tsc",
@@ -16,13 +17,15 @@
     "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
-    "@festgrid/shared-types": "workspace:*"
+    "@festgrid/shared-types": "workspace:*",
+    "date-fns-tz": "3",
+    "ics": "3"
   },
   "devDependencies": {
     "@festgrid/eslint-config": "workspace:*",
     "@festgrid/typescript-config": "workspace:*",
-    "typescript": "^5.5.4",
     "@types/node": "^20.14.9",
-    "tsx": "^4.16.2"
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
   }
 }

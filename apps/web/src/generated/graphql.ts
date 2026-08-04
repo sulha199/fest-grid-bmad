@@ -219,6 +219,13 @@ export type GetEventBySlugQueryVariables = Exact<{
 
 export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, isFavorited: boolean, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
+export type GetEventForIcsExportQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type GetEventForIcsExportQuery = { event: { id: string, eventName: string, slug: string, description: string | null, location: string | null, schedules: Array<{ id: string, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, location: string | null, locationDetails: { formattedAddress: string | null } | null }> } | null };
+
 
 export class TypedDocumentString<TResult, TVariables>
   extends String
@@ -390,6 +397,48 @@ export const useGetEventBySlugQuery = <
       {
     queryKey: ['getEventBySlug', variables],
     queryFn: fetcher<GetEventBySlugQuery, GetEventBySlugQueryVariables>(client, GetEventBySlugDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetEventForIcsExportDocument = new TypedDocumentString(`
+    query getEventForIcsExport($id: ID!) {
+  event(id: $id) {
+    id
+    eventName
+    slug
+    description
+    location
+    schedules {
+      id
+      eventStartDate
+      eventEndDate
+      eventStartTime
+      eventEndTime
+      timezone
+      location
+      locationDetails {
+        formattedAddress
+      }
+    }
+  }
+}
+    `);
+
+export const useGetEventForIcsExportQuery = <
+      TData = GetEventForIcsExportQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: GetEventForIcsExportQueryVariables,
+      options?: Omit<UseQueryOptions<GetEventForIcsExportQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetEventForIcsExportQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetEventForIcsExportQuery, TError, TData>(
+      {
+    queryKey: ['getEventForIcsExport', variables],
+    queryFn: fetcher<GetEventForIcsExportQuery, GetEventForIcsExportQueryVariables>(client, GetEventForIcsExportDocument, variables, headers),
     ...options
   }
     )};

@@ -58,3 +58,25 @@ query getEventBySlug($slug: String!) {
     }
   }
 }
+
+query getEventForIcsExport($id: ID!) {
+  event(id: $id) {
+    id
+    eventName
+    slug
+    description
+    location
+    schedules {
+      id
+      eventStartDate
+      eventEndDate
+      eventStartTime
+      eventEndTime
+      timezone
+      location
+      locationDetails {
+        formattedAddress
+      }
+    }
+  }
+}
