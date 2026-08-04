@@ -207,18 +207,9 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     <action if="incomplete task or subtask requirements ambiguous">ASK user to clarify or HALT</action>
   </step>
 
-  <step n="2" goal="Load project context and story information">
-    <critical>Load all available context to inform implementation</critical>
-
-    <action>Load {project_context} for coding standards and project-wide patterns (if exists)</action>
-    <action>Parse sections: Story, Acceptance Criteria, Tasks/Subtasks, Dev Notes, Dev Agent Record, File List, Change Log, Status</action>
-    <action>Load comprehensive context from story file's Dev Notes section</action>
-    <action>Extract developer guidance from Dev Notes: architecture requirements, previous learnings, technical specifications</action>
-    <action>Use enhanced story context to inform implementation decisions and approaches</action>
-    <output>✅ **Context Loaded**
-      Story and project context available for implementation
-    </output>
-  </step>
+  <!-- Step 2 removed: project-context.md is already loaded as a persistent_fact during
+       activation (Step 3), and story sections/Dev Notes are already parsed at Step 1's
+       task_check anchor. Re-doing either here was pure duplication with no new input. -->
 
   <step n="3" goal="Detect review continuation and extract review context">
     <critical>Determine if this is a fresh start or continuation after code review</critical>
@@ -429,6 +420,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
       - Change Log includes summary of changes
       - Only permitted story sections were modified
     </action>
+    <action>Store the pass/fail outcome of each item above as {{dod_validation_results}} for reuse in Step 10's completion report</action>
 
     <!-- Mark story ready for review - sprint status conditional -->
     <check if="{sprint_status} file exists AND {{current_sprint_status}} != 'no-sprint-tracking'">
@@ -460,7 +452,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
   </step>
 
   <step n="10" goal="Completion communication and user support">
-    <action>Execute the enhanced definition-of-done checklist using the validation framework</action>
+    <action>Populate checklist.md's "Final Validation Output" template (Definition of Done, Completion Score, Quality Gates, Test Results, Documentation) using {{dod_validation_results}} already captured in Step 9 — this is a formatting/reporting pass only, do NOT re-run the DoD checklist items</action>
     <action>Prepare a concise summary in Dev Agent Record → Completion Notes</action>
 
     <action>Communicate to {user_name} that story implementation is complete and ready for review</action>
