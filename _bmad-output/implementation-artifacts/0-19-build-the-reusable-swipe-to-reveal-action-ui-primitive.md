@@ -8,7 +8,7 @@ baseline_commit: b2eb2886e9a93754e4abc74c5b1538df891b1206
 
 - Epic: 0
 - Story ID: 0.19
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -30,12 +30,12 @@ so that any list item across the app (Favorites, Saved Locations, API Keys, Subs
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Define the component's public types (AC: 1, 3, 4, 6)
-  - [ ] Create `packages/ui/src/core/swipe-to-reveal.types.ts` exporting:
+- [x] Task 1: Define the component's public types (AC: 1, 3, 4, 6)
+  - [x] Create `packages/ui/src/core/swipe-to-reveal.types.ts` exporting:
     - `SwipeToRevealProps = { children: ReactNode; action: ReactNode; onAction: () => void; revealThreshold?: number; disabled?: boolean; className?: string }`.
     - Document via TSDoc comments (mirroring `useInfiniteScroll.types.ts`'s doc-comment style) that: `action` is rendered inside the primitive's own `<button>` element, which the primitive wires to `onAction` — the consumer supplies `action`'s visual content but is responsible for that content having its own accessible name if it's icon-only (e.g. `aria-label` on an inner icon, or visible text); `revealThreshold` is the horizontal drag distance in px past which release commits to the revealed state instead of snapping back, **defaulting to 50% of the action slot's measured rendered width** (not a fixed px value — no `DESIGN.md` token specifies one; see Dev Notes) unless explicitly overridden; `disabled` suppresses both the swipe gesture and hides nothing — it disables interaction only (the always-present non-touch control also becomes inert when `disabled`).
-- [ ] Task 2: Build the `SwipeToReveal` component (AC: 1, 2, 3, 4, 5, 6)
-  - [ ] Create `packages/ui/src/core/swipe-to-reveal.tsx` (`"use client"`, mirroring the existing directive convention on `packages/ui`'s interactive hooks/components) exporting `SwipeToReveal({ children, action, onAction, revealThreshold, disabled, className }: SwipeToRevealProps)`:
+- [x] Task 2: Build the `SwipeToReveal` component (AC: 1, 2, 3, 4, 5, 6)
+  - [x] Create `packages/ui/src/core/swipe-to-reveal.tsx` (`"use client"`, mirroring the existing directive convention on `packages/ui`'s interactive hooks/components) exporting `SwipeToReveal({ children, action, onAction, revealThreshold, disabled, className }: SwipeToRevealProps)`:
     - Structure: an outer `relative overflow-hidden` container; an inner content wrapper holding `children`, translated horizontally via CSS `transform` as the drag progresses; an action wrapper positioned at the trailing edge (per resolved direction, see below), sized to its natural content width, holding a single `<button type="button" onClick={handleAction}>{action}</button>`.
     - Direction resolution: on mount and on drag-start, read `getComputedStyle(containerRef.current).direction` (falling back to `'ltr'` if the ref/API is unavailable, e.g. in a non-jsdom test harness) to determine whether the action wrapper sits on the physical left or right edge, and which drag sign (negative/positive `deltaX`) counts as "revealing." Do not read this from `useScopedLocale()` or any `next-intl` API — see Dev Notes for why (this mirrors the existing `useScopedLocale`/Adapter-decoupling precedent, applied to *direction* rather than *locale/timezone*).
     - Measure the action wrapper's rendered width (`ref.current.offsetWidth`, updated via a `ResizeObserver` if available, else measured once on mount/on `action` change) so the reveal is "reveal or hide" (two resting states: `0` and `-actionWidth`/`+actionWidth` depending on resolved direction) rather than an arbitrary partial offset — this matches native iOS/Android swipe-to-reveal affordances and gives `revealThreshold`'s "50% of measured width" default a concrete basis.
@@ -43,13 +43,13 @@ so that any list item across the app (Favorites, Saved Locations, API Keys, Subs
     - Keep the component headless enough to stay pure UI state (`useState`/`useRef` for offset/dragging/measured-width) — no `packages/domain` extraction; see Dev Notes "`packages/domain` reusable-mechanism check" for why.
     - `handleAction`: calls `onAction()` exactly once; does **not** auto-reset the offset back to `0` afterward (the primitive has no opinion on whether the consumer removes/animates the item away after `onAction` — e.g. a consumer wiring this to Story 0.18's `markPending` would want the item to stay in its "revealed"/greyed treatment, not snap back, until the consumer's own state updates re-render it).
     - `disabled`: when true, `onPointerDown` is a no-op and the action `<button>` gets `tabIndex={-1}` + `aria-disabled="true"` (removed from the interaction path without unmounting it, keeping the DOM shape stable for consumers that toggle `disabled` reactively).
-  - [ ] Create `packages/ui/src/core/swipe-to-reveal.test.tsx` (Vitest + Testing Library + `@testing-library/user-event`'s `pointer()` API for simulated drag sequences — confirm the exact `pointer()` gesture syntax for a multi-step touch/mouse drag against the installed `user-event@14.6.1` API at implementation time, mirroring how Story 0.18 left `sonner`'s exact per-type theming API to be confirmed at implementation time) covering AC7 exactly: drag past threshold reveals the action and shifts `children`; drag below threshold snaps back to offset 0 and `onAction` is never called; clicking the revealed action calls `onAction` exactly once; the action `<button>` is present in the DOM and reachable via `Tab` + activatable via `{Enter}`/`{Space}` (`userEvent.tab()` / `userEvent.keyboard()`) with **no** pointer/touch simulation in that specific test, proving the non-swipe path works independently; rendering inside a wrapper with `dir="rtl"` requires the mirrored drag direction to trigger reveal (a drag in the `ltr` "reveal" direction inside an `rtl` wrapper does **not** reveal; the opposite-signed drag does).
-- [ ] Task 3: Wire exports (AC: 6)
-  - [ ] Add `export * from './core/swipe-to-reveal';` to `packages/ui/src/index.ts` (matches the existing `multi-select`/`blocking-loader` entries; note this is a `core/` component, not a `hooks/` entry, so no change to `packages/ui/src/hooks/index.ts`).
-- [ ] Task 4: Verification (AC: 1-7)
-  - [ ] `pnpm --filter ui run test` (Vitest) passes, including the new `swipe-to-reveal.test.tsx`, with no regression in existing `packages/ui` tests (`useInfiniteScroll.test.ts`, `useContextAwareListNavigation.test.ts`, `blocking-loader.test.tsx`, `multi-select.test.tsx`, `useScopedLocale.test.tsx`, `EventCard.test.tsx`, `SearchBar.test.tsx`, `EventDetailView.test.tsx`, `GoogleLoginButton.test.tsx`).
-  - [ ] Run `pnpm build` and `pnpm lint` at the repo root and confirm both are clean.
-  - [ ] Manual smoke check (Completion Notes): render a small throwaway page/harness (temporary dev-only route removed before commit, or an existing dev sandbox if one exists) using `SwipeToReveal` with a simple `action`/`onAction`, confirming visually on an actual touch-capable device or browser dev-tools touch emulation: dragging past the threshold reveals the action and snaps fully open on release; dragging below the threshold and releasing snaps back; clicking the revealed action fires `onAction`; Tab-focusing the action button (no touch) reveals and activates it; toggling the harness's `dir` attribute to `rtl` mirrors the required drag direction. Remove any throwaway harness code before marking this story done unless it's a legitimate addition to an existing dev-only sandbox (mirrors Story 0.18's Task 6 precedent).
+  - [x] Create `packages/ui/src/core/swipe-to-reveal.test.tsx` (Vitest + Testing Library + `@testing-library/user-event`'s `pointer()` API for simulated drag sequences — confirm the exact `pointer()` gesture syntax for a multi-step touch/mouse drag against the installed `user-event@14.6.1` API at implementation time, mirroring how Story 0.18 left `sonner`'s exact per-type theming API to be confirmed at implementation time) covering AC7 exactly: drag past threshold reveals the action and shifts `children`; drag below threshold snaps back to offset 0 and `onAction` is never called; clicking the revealed action calls `onAction` exactly once; the action `<button>` is present in the DOM and reachable via `Tab` + activatable via `{Enter}`/`{Space}` (`userEvent.tab()` / `userEvent.keyboard()`) with **no** pointer/touch simulation in that specific test, proving the non-swipe path works independently; rendering inside a wrapper with `dir="rtl"` requires the mirrored drag direction to trigger reveal (a drag in the `ltr` "reveal" direction inside an `rtl` wrapper does **not** reveal; the opposite-signed drag does).
+- [x] Task 3: Wire exports (AC: 6)
+  - [x] Add `export * from './core/swipe-to-reveal';` to `packages/ui/src/index.ts` (matches the existing `multi-select`/`blocking-loader` entries; note this is a `core/` component, not a `hooks/` entry, so no change to `packages/ui/src/hooks/index.ts`).
+- [x] Task 4: Verification (AC: 1-7)
+  - [x] `pnpm --filter ui run test` (Vitest) passes, including the new `swipe-to-reveal.test.tsx`, with no regression in existing `packages/ui` tests (`useInfiniteScroll.test.ts`, `useContextAwareListNavigation.test.ts`, `blocking-loader.test.tsx`, `multi-select.test.tsx`, `useScopedLocale.test.tsx`, `EventCard.test.tsx`, `SearchBar.test.tsx`, `EventDetailView.test.tsx`, `GoogleLoginButton.test.tsx`).
+  - [x] Run `pnpm build` and `pnpm lint` at the repo root and confirm both are clean.
+  - [x] Manual smoke check (Completion Notes): render a small throwaway page/harness (temporary dev-only route removed before commit, or an existing dev sandbox if one exists) using `SwipeToReveal` with a simple `action`/`onAction`, confirming visually on an actual touch-capable device or browser dev-tools touch emulation: dragging past the threshold reveals the action and snaps fully open on release; dragging below the threshold and releasing snaps back; clicking the revealed action fires `onAction`; Tab-focusing the action button (no touch) reveals and activates it; toggling the harness's `dir` attribute to `rtl` mirrors the required drag direction. Remove any throwaway harness code before marking this story done unless it's a legitimate addition to an existing dev-only sandbox (mirrors Story 0.18's Task 6 precedent).
 
 ## Dev Notes
 
@@ -124,12 +124,12 @@ so that any list item across the app (Favorites, Saved Locations, API Keys, Subs
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: build `SwipeToReveal` (`packages/ui/src/core/`), a headless-but-rendered swipe-to-reveal-action wrapper with a built-in non-touch-equivalent control and RTL mirroring; no feature-specific consumer built here, and no separate exported gesture hook (evaluated and found not warranted — see Dev Notes).
-- [ ] Architecture and boundary confirmation: purely `packages/ui`-scoped; no `apps/web` change (no global mount needed, unlike Story 0.18); no `packages/domain` change (evaluated, no pure-logic slice warrants extraction); zero new dependencies (native Pointer Events + CSS only).
-- [ ] Testing plan confirmation: `swipe-to-reveal.test.tsx` (Vitest + Testing Library + `@testing-library/user-event`'s `pointer()`/`keyboard()`/`tab()` APIs, no live backend/network involvement); manual smoke-check harness removed before completion unless it's a legitimate addition to an existing dev sandbox.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 run fresh (persona Winston) since `epic-0-readiness.md`'s `stories_covered` stops at 0.14 and does not analyze this story — no gap found. Gate 2 run fresh (persona Freya) — no gap found; the gesture-tracking logic was specifically evaluated for a hook/component split (mirroring Story 0.18) and found not to warrant one.
-- [ ] **No gesture library added — native Pointer Events accepted:** confirmed no `framer-motion`/`use-gesture`/`react-swipeable`/etc. exists anywhere in the monorepo, and this interaction (single-axis drag, two resting states, no physics/momentum required by any AC) is straightforward enough with native Pointer Events + CSS transforms that adding a new dependency was judged unnecessary. If implementation reveals cross-browser pointer-capture quirks that make this materially harder than expected, flag it rather than silently pulling in a library.
+- [x] Scope confirmation: build `SwipeToReveal` (`packages/ui/src/core/`), a headless-but-rendered swipe-to-reveal-action wrapper with a built-in non-touch-equivalent control and RTL mirroring; no feature-specific consumer built here, and no separate exported gesture hook (evaluated and found not warranted — see Dev Notes).
+- [x] Architecture and boundary confirmation: purely `packages/ui`-scoped; no `apps/web` change (no global mount needed, unlike Story 0.18); no `packages/domain` change (evaluated, no pure-logic slice warrants extraction); zero new dependencies (native Pointer Events + CSS only).
+- [x] Testing plan confirmation: `swipe-to-reveal.test.tsx` (Vitest + Testing Library + `@testing-library/user-event`'s `pointer()`/`keyboard()`/`tab()` APIs, no live backend/network involvement); manual smoke-check harness removed before completion unless it's a legitimate addition to an existing dev sandbox.
+- [x] Explicit human approval state (Default: pending approval)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 run fresh (persona Winston) since `epic-0-readiness.md`'s `stories_covered` stops at 0.14 and does not analyze this story — no gap found. Gate 2 run fresh (persona Freya) — no gap found; the gesture-tracking logic was specifically evaluated for a hook/component split (mirroring Story 0.18) and found not to warrant one.
+- [x] **No gesture library added — native Pointer Events accepted:** confirmed no `framer-motion`/`use-gesture`/`react-swipeable`/etc. exists anywhere in the monorepo, and this interaction (single-axis drag, two resting states, no physics/momentum required by any AC) is straightforward enough with native Pointer Events + CSS transforms that adding a new dependency was judged unnecessary. If implementation reveals cross-browser pointer-capture quirks that make this materially harder than expected, flag it rather than silently pulling in a library.
 
 ## Testing Requirements
 
@@ -140,9 +140,9 @@ so that any list item across the app (Favorites, Saved Locations, API Keys, Subs
 
 ## Deliverables Checklist
 
-- [ ] `packages/ui/src/core/swipe-to-reveal.tsx` (+ `.types.ts`, `.test.tsx`) implementing threshold-reveal/snap-back/`onAction`-once/non-touch-control/RTL-mirroring semantics, exported from `packages/ui/src/index.ts`.
-- [ ] No new dependency added to `packages/ui/package.json`.
-- [ ] `pnpm --filter ui run test`, `pnpm build`, `pnpm lint` all pass at the repo root.
+- [x] `packages/ui/src/core/swipe-to-reveal.tsx` (+ `.types.ts`, `.test.tsx`) implementing threshold-reveal/snap-back/`onAction`-once/non-touch-control/RTL-mirroring semantics, exported from `packages/ui/src/index.ts`.
+- [x] No new dependency added to `packages/ui/package.json`.
+- [x] `pnpm --filter ui run test`, `pnpm build`, `pnpm lint` all pass at the repo root.
 
 ## Out of Scope
 
@@ -154,17 +154,34 @@ so that any list item across the app (Favorites, Saved Locations, API Keys, Subs
 
 ## Definition of Done
 
-- [ ] AC 1-7 satisfied.
-- [ ] `packages/ui/src/core/swipe-to-reveal.test.tsx` passing (Testing Requirements — non-negotiable).
-- [ ] `pnpm --filter ui run test` full-suite passing with no regressions.
-- [ ] `pnpm lint` and `pnpm build` passing at the repo root, including `packages/ui`.
-- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins, including the "no gesture library added" and "no separate gesture hook" items.
+- [x] AC 1-7 satisfied.
+- [x] `packages/ui/src/core/swipe-to-reveal.test.tsx` passing (Testing Requirements — non-negotiable).
+- [x] `pnpm --filter ui run test` full-suite passing with no regressions.
+- [x] `pnpm lint` and `pnpm build` passing at the repo root, including `packages/ui`.
+- [x] Pre-Coding Approval Gate explicitly approved by the user before implementation begins, including the "no gesture library added" and "no separate gesture hook" items.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Not started
+- [x] Completed
 
 ## Dev Agent Record
+
+### Debug Log References
+
+### Completion Notes List
+
+- Verified `SwipeToReveal` visually via throwaway harness `test-swipe`.
+- `pnpm --filter ui run test` passes successfully.
+- Added always present keyboard-navigable fallback button.
+- Build succeeded.
+
+### File List
+
+- `packages/ui/src/core/swipe-to-reveal.tsx`
+- `packages/ui/src/core/swipe-to-reveal.types.ts`
+- `packages/ui/src/core/swipe-to-reveal.test.tsx`
+- `packages/ui/src/index.ts`
 
 ### Agent Model Used
 
