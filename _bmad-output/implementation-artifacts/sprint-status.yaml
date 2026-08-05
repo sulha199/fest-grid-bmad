@@ -85,6 +85,12 @@ development_status:
   1-3a-build-the-events-backend-graphql-api-layer: done
   1-3b-build-the-reusable-eventcard-component: done
   1-3c-build-the-reusable-infinite-scroll-hook: done
+  # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
+  # home-content.tsx (this story's sibling 1.3) and favorites-content.tsx (Story 2.2) were
+  # found to duplicate an identical loading/error/empty/grid/infinite-scroll shell below
+  # their SearchBar/FilterHub row. Positioned as a 1.3-family lettered suffix per user
+  # decision (see story Dev Notes → Retroactive Extraction Rationale).
+  1-3d-build-the-reusable-eventlistview-component: ready-for-dev
   1-3-display-a-list-of-events-on-the-main-page: done
   1-4-search-for-events: done
   1-5a-build-the-reusable-multiselect-component: done

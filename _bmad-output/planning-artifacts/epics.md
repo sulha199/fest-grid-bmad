@@ -681,6 +681,30 @@ Users can discover and browse events.
 
 **Depends on:** None (pure presentation/behavior hook, no backend dependency).
 
+### Story 1.3d: Build the reusable EventListView component
+
+**As a** developer,
+**I want** a reusable `EventListView` presentational component in `packages/ui`,
+**So that** the Discovery feed (Story 1.3) and Favorites page (Story 2.2) — and any future long event list — render the same loading/error/empty/grid/infinite-scroll shell instead of each page independently duplicating it.
+
+**Acceptance Criteria:**
+
+*   **Given** a `status` of `'loading'`, **when** `EventListView` renders, **then** it shows a skeleton grid of `EventCard`s with `loading={true}` (default 6, matching the existing `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6` layout used identically by both `home-content.tsx` and `favorites-content.tsx` today).
+*   **And** **given** a `status` of `'error'`, **when** it renders, **then** it shows the caller-supplied `errorMessage` (translated) and `errorDetail` (raw technical string, already resolved by the caller from whichever error object is relevant) in the existing `text-destructive`/`<pre>` layout.
+*   **And** **given** a `status` of `'success'` with an empty `events` array, **when** it renders, **then** it renders the caller-supplied `emptyState` node verbatim — the shell does not encode empty-state branching logic itself, since Discovery's and Favorites' empty-state conditions differ (single search-vs-default ternary vs. a three-way search/filter/error-combined condition).
+*   **And** **given** a `status` of `'success'` with a non-empty `events` array, **when** it renders, **then** it renders a grid of `EventCard`s, deriving each card's `startDate`/`priceFrom` internally from `event.schedules.find(s => s.isMainSchedule) || event.schedules[0]` (the identical derivation both pages duplicate today) and merging in the per-event props returned by a caller-supplied `getCardProps(event)` callback (e.g. `isFavorited`/`isGreyedOut`/`pendingRemoval`/`onFavoriteToggle`/`onClick`/`href` — the props that genuinely diverge between Discovery's immediate-optimistic-mutation pattern and Favorites' deferred soft-delete-with-undo pattern, per Story 2.2).
+*   **And** it renders the `useInfiniteScroll` (Story 1.3c) sentinel at the bottom of the grid, showing a localized spinner + caller-supplied `loadingMoreLabel` while `isFetchingNextPage` is true — `EventListView` accepts `sentinelRef`/`isFetchingNextPage` as props (the caller still owns its own `useInfiniteScroll(...)` call and `fetchNextPage`/`hasNextPage` wiring; this component only renders the passthrough result).
+*   **And** the component defines its own minimal event-shape type (`id`, `slug`, `eventName`, `imageUrl?`, `location?`, `categories?`, `types?`, `schedules: {isMainSchedule, eventStartDate, ticketPrice?}[]`, generic over `TEvent extends` that shape) — it does **not** import any `apps/web`-generated GraphQL type, matching how `EventCard` already stays decoupled from any specific query shape.
+*   **And** all labels (`priceFrom`, `categoryLabels`, `typeLabels`, `favoriteToggle`) are passed in pre-translated via a `cardLabels` prop (mirroring `EventCard`'s existing `labels` prop pattern) — `packages/ui` does not import `next-intl` directly, per `project-context.md`'s framework-agnostic UI rule.
+*   **And** `home-content.tsx` is refactored to consume `EventListView`, removing its duplicated skeleton/error/empty/grid/sentinel JSX, with **zero visible behavior change**: the Sign In/Sign Out header, the unauthenticated-favorite-click login modal, and the optimistic-mutation favorite toggle stay in `home-content.tsx`, wired through `getCardProps`.
+*   **And** `favorites-content.tsx` is refactored to consume `EventListView` identically, with **zero visible behavior change**: its two-stage (`idSnapshotStatus`/`status`) loading gate is collapsed into the single `status` prop before calling `EventListView`; its three-branch empty-state condition and combined error condition are resolved into the `emptyState`/`errorMessage`/`errorDetail` props; the soft-delete-with-undo grey-out (`isGreyedOut`/`pendingRemoval`) and `?fromList=favorites&favoriteIds=...` click URL stay wired through `getCardProps`.
+*   **And** View Toggles (Card/Calendar) and Filter-by-Location — both named in `design-artifacts/D-Design-System/01-event-list-view.md` but not implemented anywhere in the codebase today — are explicitly out of scope for this story (Calendar View is Epic 2 Story 2.6; Location filtering has no story yet). `EventListView` renders Card View only.
+*   **And** the component is documented/exported from `packages/ui`'s public entry point (`packages/ui/src/features/events/index.ts`) for reuse across features.
+
+**Note:** This is a retroactive extraction, not the usual "split before the first unbuilt consumer" pattern — both consumers (Story 1.3, Story 2.2) are already implemented and in `review`. Surfaced by the user directly (not a `bmad-create-story` gate finding mid-draft of another story) after noticing `home-content.tsx` and `favorites-content.tsx` duplicate an identical presentational shell below their `SearchBar`/`FilterHub` row. Positioned as a lettered suffix off Story 1.3 (matching the `1.3a`/`1.3b`/`1.3c` family and Story 1.3's status as the component's true first chronological consumer) rather than off Story 2.2, per user decision. Gate 2 (UI Complexity & Reusability, run via `bmad-create-story` against `design-artifacts/D-Design-System/01-event-list-view.md` and the current duplicated implementation) confirmed the split and recommended the prop contract above; Gate 1/Gate 3 were not re-run fresh — `epic-1-readiness.md` (`swept: true`) already covers Epic 1 and found no new architecture/infra/foundational gap applicable to a pure frontend presentational extraction with no new data or infra surface.
+
+**Depends on:** Story 1.3b (`EventCard`), Story 1.3c (`useInfiniteScroll`). Touches (already-implemented) Story 1.3 and Story 2.2's page files as a refactor, not a functional change to either.
+
 ### Story 1.3: Display a list of events on the main page
 
 **As a** user,
