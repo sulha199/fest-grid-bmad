@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-05T13:00:00Z
+last_updated: 2026-08-05T20:06:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -61,7 +61,7 @@ development_status:
   # added 2026-08-05 via bmad-create-story Gate 2 finding while revising 0.7's nav
   # pattern against the new UX spec (design-artifacts/UX-festgrid-run-1) — see
   # 0.7's Architecture & UX Gate Findings for detail.
-  0-7a-nav-item-primitive: ready-for-dev
+  0-7a-nav-item-primitive: review
   0-8-set-up-graphql-server-scaffold-code-generator-pipeline-and-the-optimized-select-query-utility: review
   0-9-set-up-state-management-foundation: review
   0-10-set-up-testing-frameworks-foundation: review

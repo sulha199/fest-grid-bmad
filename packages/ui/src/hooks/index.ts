@@ -6,3 +6,6 @@ export * from './useContextAwareListNavigation';
 export * from './useContextAwareListNavigation.types';
 export * from './useSoftDeleteWithUndo';
 export * from './useSoftDeleteWithUndo.types';
+export * from './usePrefersReducedMotion';
+export * from './useNavRailItemInteraction';
+export * from './useNavRailItemInteraction.types';

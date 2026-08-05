@@ -47,6 +47,7 @@ const config = {
         },
         "wizard-primary": "hsl(var(--wizard-primary))",
         "wizard-secondary": "hsl(var(--wizard-secondary))",
+        "nav-active-indicator": "hsl(var(--nav-active-indicator))",
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",

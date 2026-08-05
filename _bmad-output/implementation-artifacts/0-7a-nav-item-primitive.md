@@ -7,7 +7,7 @@ baseline_commit: ec92a4a8d2a77ee55747ec017b25d5827832a889
 
 - Epic: 0
 - Story ID: 0.7a
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -29,36 +29,36 @@ so that Story 0.7's app shell composes one well-tested nav-item primitive across
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Register the `nav-active-indicator` design token in the Tailwind theme (AC: 4, 5)
-  - [ ] Add `--nav-active-indicator: 358 72% 57%; /* #E04347 — darker than base --accent, ~3.98:1 vs neutral per DESIGN.md's WCAG 1.4.11 note; verify exact HSL in devtools before committing */` to `apps/web/src/app/globals.css`'s `:root` block, alongside the existing `--accent`/`--success` custom properties.
-  - [ ] Add `"nav-active-indicator": "hsl(var(--nav-active-indicator))"` to the `colors` object in `apps/web/tailwind.config.ts`'s `theme.extend`, matching the existing `accent`/`success`/`wizard-primary` pattern — this is what makes `bg-nav-active-indicator`/`text-nav-active-indicator` (the literal token values in `DESIGN.md`'s `active_indicator`/`active_icon`) resolve to real Tailwind utilities. `packages/ui`'s content is already scanned by this same config (`../../packages/ui/src/**/*.{ts,tsx}` is already in `content`), so no `packages/ui`-side Tailwind config change is needed.
-  - [ ] This token has no dark-mode override specified in `DESIGN.md` — reuse the same `:root` value in `.dark` unless/until a future UX pass specifies otherwise (note this as a follow-up, don't block on it).
+- [x] Task 1: Register the `nav-active-indicator` design token in the Tailwind theme (AC: 4, 5)
+  - [x] Add `--nav-active-indicator: 358 72% 57%; /* #E04347 — darker than base --accent, ~3.98:1 vs neutral per DESIGN.md's WCAG 1.4.11 note; verify exact HSL in devtools before committing */` to `apps/web/src/app/globals.css`'s `:root` block, alongside the existing `--accent`/`--success` custom properties.
+  - [x] Add `"nav-active-indicator": "hsl(var(--nav-active-indicator))"` to the `colors` object in `apps/web/tailwind.config.ts`'s `theme.extend`, matching the existing `accent`/`success`/`wizard-primary` pattern — this is what makes `bg-nav-active-indicator`/`text-nav-active-indicator` (the literal token values in `DESIGN.md`'s `active_indicator`/`active_icon`) resolve to real Tailwind utilities. `packages/ui`'s content is already scanned by this same config (`../../packages/ui/src/**/*.{ts,tsx}` is already in `content`), so no `packages/ui`-side Tailwind config change is needed.
+  - [x] This token has no dark-mode override specified in `DESIGN.md` — reuse the same `:root` value in `.dark` unless/until a future UX pass specifies otherwise (note this as a follow-up, don't block on it).
 
-- [ ] Task 2: Build `useNavRailItemInteraction` and `usePrefersReducedMotion` hooks (AC: 1, 2, 4, 7, 8)
-  - [ ] Create `packages/ui/src/hooks/usePrefersReducedMotion.ts` — a small, generic hook wrapping `window.matchMedia('(prefers-reduced-motion: reduce)')` with a change-event listener and an SSR-safe `typeof window === 'undefined'` guard (defaults to `false` when unavailable). Exported from the hooks barrel since it is generic and trivially reusable by future animated primitives, not events/nav-specific — but built as part of this story's scope per Gate 2's fresh-run verdict (see Dev Notes), not split into its own story.
-  - [ ] Create `packages/ui/src/hooks/useNavRailItemInteraction.ts` + `.types.ts`, following the `useSoftDeleteWithUndo`/`useContextAwareListNavigation` file-pair convention (hook + types file, colocated `.test.ts`). Input: `{ variant: 'link' | 'trigger'; href?: string; currentPath?: string }`. Output: `{ isActive: boolean; tooltipVisible: boolean; isFlashing: boolean; handlers: { onPointerEnter, onPointerLeave, onFocus, onBlur, onKeyDown, onClick/onPointerUp } }` (exact handler set is an implementation detail; the state machine and its exposed booleans are the contract other code depends on).
-  - [ ] `isActive` computation: `variant === 'link' && href !== undefined && currentPath === href` (exact match only — see AC4).
-  - [ ] Tooltip visibility: shows on `pointerenter`(non-touch)/`focus`, hides on `pointerleave`/`blur`/`Escape` — dedupe so mouse-hover-then-focus (or vice versa) doesn't cause a visible flicker.
-  - [ ] Touch tap-flash timing: on a `touch`-type pointer activation, set `isFlashing = true` for a duration read from `usePrefersReducedMotion()` — ≥2000ms normally, extended (never shortened) when reduced-motion is preferred (e.g. a longer fixed duration, not zero — instant-hide only applies to the *tooltip* fade per AC7, not to the touch flash's minimum-visible-duration guarantee in AC2). Use a single `useRef`-held `setTimeout`, cleared on unmount and on re-trigger.
-  - [ ] `trigger` variant never sets `isFlashing` (AC8) — activation calls `onActivate` immediately regardless of pointer type.
+- [x] Task 2: Build `useNavRailItemInteraction` and `usePrefersReducedMotion` hooks (AC: 1, 2, 4, 7, 8)
+  - [x] Create `packages/ui/src/hooks/usePrefersReducedMotion.ts` — a small, generic hook wrapping `window.matchMedia('(prefers-reduced-motion: reduce)')` with a change-event listener and an SSR-safe `typeof window === 'undefined'` guard (defaults to `false` when unavailable). Exported from the hooks barrel since it is generic and trivially reusable by future animated primitives, not events/nav-specific — but built as part of this story's scope per Gate 2's fresh-run verdict (see Dev Notes), not split into its own story.
+  - [x] Create `packages/ui/src/hooks/useNavRailItemInteraction.ts` + `.types.ts`, following the `useSoftDeleteWithUndo`/`useContextAwareListNavigation` file-pair convention (hook + types file, colocated `.test.ts`). Input: `{ variant: 'link' | 'trigger'; href?: string; currentPath?: string }`. Output: `{ isActive: boolean; tooltipVisible: boolean; isFlashing: boolean; handlers: { onPointerEnter, onPointerLeave, onFocus, onBlur, onKeyDown, onClick/onPointerUp } }` (exact handler set is an implementation detail; the state machine and its exposed booleans are the contract other code depends on).
+  - [x] `isActive` computation: `variant === 'link' && href !== undefined && currentPath === href` (exact match only — see AC4).
+  - [x] Tooltip visibility: shows on `pointerenter`(non-touch)/`focus`, hides on `pointerleave`/`blur`/`Escape` — dedupe so mouse-hover-then-focus (or vice versa) doesn't cause a visible flicker.
+  - [x] Touch tap-flash timing: on a `touch`-type pointer activation, set `isFlashing = true` for a duration read from `usePrefersReducedMotion()` — ≥2000ms normally, extended (never shortened) when reduced-motion is preferred (e.g. a longer fixed duration, not zero — instant-hide only applies to the *tooltip* fade per AC7, not to the touch flash's minimum-visible-duration guarantee in AC2). Use a single `useRef`-held `setTimeout`, cleared on unmount and on re-trigger.
+  - [x] `trigger` variant never sets `isFlashing` (AC8) — activation calls `onActivate` immediately regardless of pointer type.
 
-- [ ] Task 3: Build the `NavRailItem` component (AC: 1, 3, 4, 5, 6, 8)
-  - [ ] Create `packages/ui/src/core/app-shell/NavRailItem.tsx` + `NavRailItem.types.ts`. Props (discriminated union on `variant`):
+- [x] Task 3: Build the `NavRailItem` component (AC: 1, 3, 4, 5, 6, 8)
+  - [x] Create `packages/ui/src/core/app-shell/NavRailItem.tsx` + `NavRailItem.types.ts`. Props (discriminated union on `variant`):
     - Common: `icon: ReactNode` (a fully-rendered element, e.g. `<Compass />` or an `<img>` avatar — mirrors the `action: ReactNode` pattern already used by `swipe-to-reveal.types.ts`; NavRailItem does **not** accept a bare `LucideIcon` component reference, since the Profile trigger needs to pass an avatar `<img>` too, which doesn't share `LucideIcon`'s prop signature), `label: string` (used as both visible text and `aria-label`), `className?: string`.
     - `link` variant: `href: string`, `currentPath?: string`, `renderLink: React.ComponentType<{ href: string; className?: string; children: React.ReactNode; 'aria-label'?: string; 'aria-current'?: 'page' }>` (threaded through from `AppShell`'s own `renderLink` prop per Story 0.7's Task 2 revised — `NavRailItem` renders through this instead of a bare `<a>`, so it never needs to know about `next-intl`'s `Link`).
     - `trigger` variant: `onActivate: () => void`, `ariaExpanded?: boolean` (defaults `false` — Story 2.8 controls this once it exists, per Story 0.7's AC8 "reserve the slot" pattern).
-  - [ ] Apply `components.nav.item_hit_area`, `item_label`, `item_tooltip`, `active_indicator`, `active_icon`, `focus_ring` token classes (exact strings from `DESIGN.md` lines 78–83) — conditionally applying `active_indicator`/`active_icon` only when `isActive` (link variant) is true, per AC4.
-  - [ ] Set `aria-current="page"` when `isActive`; `aria-haspopup="true"` + `aria-expanded={ariaExpanded}` on the `trigger` variant's root element (a real `<button>`, not an anchor).
-  - [ ] Wire `useNavRailItemInteraction`'s exposed handlers onto the rendered root element; render the tooltip (visible label text) conditionally on `tooltipVisible || isFlashing`.
+  - [x] Apply `components.nav.item_hit_area`, `item_label`, `item_tooltip`, `active_indicator`, `active_icon`, `focus_ring` token classes (exact strings from `DESIGN.md` lines 78–83) — conditionally applying `active_indicator`/`active_icon` only when `isActive` (link variant) is true, per AC4.
+  - [x] Set `aria-current="page"` when `isActive`; `aria-haspopup="true"` + `aria-expanded={ariaExpanded}` on the `trigger` variant's root element (a real `<button>`, not an anchor).
+  - [x] Wire `useNavRailItemInteraction`'s exposed handlers onto the rendered root element; render the tooltip (visible label text) conditionally on `tooltipVisible || isFlashing`.
 
-- [ ] Task 4: Wire barrel exports (AC: 6)
-  - [ ] Add `export * from './NavRailItem';` to `packages/ui/src/core/app-shell/index.ts`.
-  - [ ] Add exports for `useNavRailItemInteraction` (+ `.types`) and `usePrefersReducedMotion` to `packages/ui/src/hooks/index.ts`, matching the existing `useInfiniteScroll`/`useSoftDeleteWithUndo` export pairs.
+- [x] Task 4: Wire barrel exports (AC: 6)
+  - [x] Add `export * from './NavRailItem';` to `packages/ui/src/core/app-shell/index.ts`.
+  - [x] Add exports for `useNavRailItemInteraction` (+ `.types`) and `usePrefersReducedMotion` to `packages/ui/src/hooks/index.ts`, matching the existing `useInfiniteScroll`/`useSoftDeleteWithUndo` export pairs.
 
-- [ ] Task 5: Automated tests (AC: 9)
-  - [ ] `packages/ui/src/hooks/useNavRailItemInteraction.test.ts` — cover `isActive` exact-match logic (including the `/` special case), tooltip show/dismiss on hover-only and focus-only (`vi.useFakeTimers()` where timing matters), touch tap-flash duration (`fireEvent` with `pointerType: 'touch'`, fake timers, assert ≥2000ms), reduced-motion branch (mock `usePrefersReducedMotion`/`matchMedia`), and that the `trigger` variant path never sets `isFlashing`.
-  - [ ] `packages/ui/src/core/app-shell/NavRailItem.test.tsx` — render-level assertions: `aria-label`/`aria-current`/`aria-haspopup`/`aria-expanded` presence per variant; active-indicator/icon-swap classes present only when active; focus ring class always present; tooltip text appears on `fireEvent.focus`/`fireEvent.pointerEnter` and is removed on `Escape`/blur; clicking a `link` item invokes the `renderLink`-rendered element (not a bare `<a>`); activating a `trigger` item calls `onActivate` and never renders the flash label.
-  - [ ] Run `pnpm --filter @festgrid/ui test` and `pnpm --filter @festgrid/ui lint`/`tsc` to confirm the new files pass, following the same verification style as Stories 0.18/0.19.
+- [x] Task 5: Automated tests (AC: 9)
+  - [x] `packages/ui/src/hooks/useNavRailItemInteraction.test.ts` — cover `isActive` exact-match logic (including the `/` special case), tooltip show/dismiss on hover-only and focus-only (`vi.useFakeTimers()` where timing matters), touch tap-flash duration (`fireEvent` with `pointerType: 'touch'`, fake timers, assert ≥2000ms), reduced-motion branch (mock `usePrefersReducedMotion`/`matchMedia`), and that the `trigger` variant path never sets `isFlashing`.
+  - [x] `packages/ui/src/core/app-shell/NavRailItem.test.tsx` — render-level assertions: `aria-label`/`aria-current`/`aria-haspopup`/`aria-expanded` presence per variant; active-indicator/icon-swap classes present only when active; focus ring class always present; tooltip text appears on `fireEvent.focus`/`fireEvent.pointerEnter` and is removed on `Escape`/blur; clicking a `link` item invokes the `renderLink`-rendered element (not a bare `<a>`); activating a `trigger` item calls `onActivate` and never renders the flash label.
+  - [x] Run `pnpm --filter @festgrid/ui test` and `pnpm --filter @festgrid/ui lint`/`tsc` to confirm the new files pass, following the same verification style as Stories 0.18/0.19.
 
 ## Dev Notes
 
@@ -139,25 +139,25 @@ so that Story 0.7's app shell composes one well-tested nav-item primitive across
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: build `NavRailItem` (`link` + `trigger` variants) and its interaction hook only, in `packages/ui`, plus the supporting `nav-active-indicator` Tailwind token — no changes to `AppShell.tsx`/`nav-entries.ts` (Story 0.7's own scope) and no User Menu content (Story 2.8's scope).
-- [ ] Architecture and boundary confirmation: no `next-intl`/`next/navigation`/Supabase import in `packages/ui`; all locale/routing/auth data enters via props (AC6).
-- [ ] Testing plan confirmation: automated Vitest + Testing Library tests (Task 5/AC9) — confirmed with the user, superseding the original epics.md manual-only deferral.
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted: no prerequisite story required (`Depends on: None` in epics.md); Gate 1/3 lightweight guard and fresh Gate 2 run both returned no gap — see Architecture & UX Gate Findings above.
-- [ ] Explicit human approval state: **pending approval** (default).
+- [x] Scope confirmation: build `NavRailItem` (`link` + `trigger` variants) and its interaction hook only, in `packages/ui`, plus the supporting `nav-active-indicator` Tailwind token — no changes to `AppShell.tsx`/`nav-entries.ts` (Story 0.7's own scope) and no User Menu content (Story 2.8's scope).
+- [x] Architecture and boundary confirmation: no `next-intl`/`next/navigation`/Supabase import in `packages/ui`; all locale/routing/auth data enters via props (AC6).
+- [x] Testing plan confirmation: automated Vitest + Testing Library tests (Task 5/AC9) — confirmed with the user, superseding the original epics.md manual-only deferral.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted: no prerequisite story required (`Depends on: None` in epics.md); Gate 1/3 lightweight guard and fresh Gate 2 run both returned no gap — see Architecture & UX Gate Findings above.
+- [x] Explicit human approval state: **approved** by user on 2026-08-05.
 
 ## Testing Requirements
 
-- [ ] Integration/interaction tests (Vitest + Testing Library, `packages/ui`'s testing-trophy tier): `useNavRailItemInteraction.test.ts` and `NavRailItem.test.tsx`, per Task 5.
-- [ ] E2E tests: none for this story — `NavRailItem` has no standalone routed page to drive end-to-end; E2E coverage of the full nav (route changes, `aria-current` across pages) belongs to Story 0.7 once it composes `NavRailItem` into `AppShell`.
+- [x] Integration/interaction tests (Vitest + Testing Library, `packages/ui`'s testing-trophy tier): `useNavRailItemInteraction.test.ts` and `NavRailItem.test.tsx`, per Task 5.
+- [x] E2E tests: none for this story — `NavRailItem` has no standalone routed page to drive end-to-end; E2E coverage of the full nav (route changes, `aria-current` across pages) belongs to Story 0.7 once it composes `NavRailItem` into `AppShell`.
 
 ## Deliverables Checklist
 
-- [ ] `NavRailItem` component supporting `link` and `trigger` variants, rendering via a consumer-supplied `renderLink` (never a bare `<a>`) for the `link` variant.
-- [ ] `useNavRailItemInteraction` hook: active-route matching, tooltip hover/focus parity, touch tap-flash timing (≥2000ms, reduced-motion-extended), trigger-variant no-flash behavior.
-- [ ] `usePrefersReducedMotion` hook, SSR-safe, exported from the `packages/ui` hooks barrel.
-- [ ] `nav-active-indicator` Tailwind color token registered in `apps/web`'s theme (CSS variable + Tailwind config).
-- [ ] All new files exported from their respective barrels (`core/app-shell/index.ts`, `hooks/index.ts`) and reachable via `@festgrid/ui`'s root `src/index.ts`.
-- [ ] Automated Vitest test suites for both the hook and the component, passing.
+- [x] `NavRailItem` component supporting `link` and `trigger` variants, rendering via a consumer-supplied `renderLink` (never a bare `<a>`) for the `link` variant.
+- [x] `useNavRailItemInteraction` hook: active-route matching, tooltip hover/focus parity, touch tap-flash timing (≥2000ms, reduced-motion-extended), trigger-variant no-flash behavior.
+- [x] `usePrefersReducedMotion` hook, SSR-safe, exported from the `packages/ui` hooks barrel.
+- [x] `nav-active-indicator` Tailwind color token registered in `apps/web`'s theme (CSS variable + Tailwind config).
+- [x] All new files exported from their respective barrels (`core/app-shell/index.ts`, `hooks/index.ts`) and reachable via `@festgrid/ui`'s root `src/index.ts`.
+- [x] Automated Vitest test suites for both the hook and the component, passing.
 
 ## Out of Scope
 
@@ -169,21 +169,47 @@ so that Story 0.7's app shell composes one well-tested nav-item primitive across
 
 ## Definition of Done
 
-- [ ] All 9 Acceptance Criteria satisfied.
-- [ ] Task 5's automated Vitest test suites passing for both the hook and the component.
-- [ ] `pnpm --filter @festgrid/ui lint`/`tsc` and `pnpm --filter web build`/`tsc` clean.
-- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
+- [x] All 9 Acceptance Criteria satisfied.
+- [x] Task 5's automated Vitest test suites passing for both the hook and the component.
+- [x] `pnpm --filter @festgrid/ui lint`/`tsc` (runs `tsc --noEmit` cleanly) and `pnpm --filter web build`/`tsc` clean.
+- [x] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed and ready for review on 2026-08-05.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+- Cline (Claude 3.5 Sonnet)
+
 ### Debug Log References
+
+- `pnpm --filter @festgrid/ui test` -> All 112 tests passed successfully.
+- `pnpm --filter @festgrid/ui exec tsc --noEmit` -> Exited with exit code 0.
+- `pnpm --filter web build` -> Next.js build completed successfully in 12.8s.
 
 ### Completion Notes List
 
+- ✅ Created the `usePrefersReducedMotion` hook with SSR-safe checks and window media query listener.
+- ✅ Created the `useNavRailItemInteraction` hook to handle active state exact matching, hover/focus tooltip visibility with escape key dismissal, and touch tap-flash timing (≥2000ms, extended under prefers-reduced-motion to 4000ms).
+- ✅ Created `NavRailItem` supporting both `link` and `trigger` variants, rendering via custom `renderLink` callback for link variant and a `<button>` element for trigger variant.
+- ✅ Applied precise character-for-character Tailwind CSS class tokens from `DESIGN.md` for hit area, labels, active indicator, active icon, and focus ring.
+- ✅ Exported all primitives and hooks from packages/ui barrels.
+- ✅ Registered `--nav-active-indicator` HSL property in `globals.css` (both light/dark modes) and Tailwind theme color mapping in `apps/web`.
+- ✅ Created comprehensive Vitest + React Testing Library suites for both hooks and component, testing all AC specifications.
+
 ### File List
+
+- `apps/web/src/app/globals.css` (modified)
+- `apps/web/tailwind.config.ts` (modified)
+- `packages/ui/src/hooks/usePrefersReducedMotion.ts` (new)
+- `packages/ui/src/hooks/useNavRailItemInteraction.types.ts` (new)
+- `packages/ui/src/hooks/useNavRailItemInteraction.ts` (new)
+- `packages/ui/src/hooks/useNavRailItemInteraction.test.ts` (new)
+- `packages/ui/src/core/app-shell/NavRailItem.types.ts` (new)
+- `packages/ui/src/core/app-shell/NavRailItem.tsx` (new)
+- `packages/ui/src/core/app-shell/NavRailItem.test.tsx` (new)
+- `packages/ui/src/hooks/index.ts` (modified)
+- `packages/ui/src/core/app-shell/index.ts` (modified)
