@@ -1,9 +1,9 @@
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, Compass, Rss, Heart, CalendarDays } from 'lucide-react';
 
 export interface NavEntry {
-  label: string;
+  labelKey: string;
   href: string;
-  icon?: LucideIcon;
+  icon: LucideIcon;
 }
 
 /**
@@ -13,5 +13,24 @@ export interface NavEntry {
  * The AppShell dynamically renders these in both desktop and mobile navigation.
  */
 export const navEntries: NavEntry[] = [
-  // Placeholder for feature routes
+  {
+    labelKey: 'discover',
+    href: '/',
+    icon: Compass,
+  },
+  {
+    labelKey: 'feed',
+    href: '/feed',
+    icon: Rss,
+  },
+  {
+    labelKey: 'favorites',
+    href: '/favorites',
+    icon: Heart,
+  },
+  {
+    labelKey: 'calendar',
+    href: '/my-calendar',
+    icon: CalendarDays,
+  },
 ];

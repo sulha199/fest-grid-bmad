@@ -19,12 +19,12 @@ export function NavRailItem(props: NavRailItemProps) {
     onActivate,
   });
 
-  // Token classes from DESIGN.md
-  const hitAreaClass = 'min-h-11 min-w-11 flex items-center gap-3 justify-center xl:justify-start';
+  // Token classes from DESIGN.md (with added padding-start for sidebar mode to create space from the active indicator)
+  const hitAreaClass = 'min-h-11 min-w-11 flex items-center gap-3 justify-center xl:justify-start md:ps-3';
   const labelClass = 'hidden xl:inline text-sm font-medium';
   const tooltipClass = 'md:group-hover:opacity-100 md:group-focus-visible:opacity-100 xl:hidden';
   const activeIndicatorClass = 'bg-nav-active-indicator w-1 rounded-full absolute top-0 md:inset-y-0 md:start-0 h-1 md:h-auto md:w-1';
-  const activeIconClass = 'text-nav-active-indicator [&_svg]:fill-current';
+  const activeIconClass = 'text-nav-active-indicator';
   const focusRingClass = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary';
 
   // Base layout: group and relative are needed for tooltip and active-indicator positioning

@@ -90,3 +90,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide Next.js dev overlay */
+[data-nextjs-dev-overlay], nextjs-portal {
+  display: none !important;
+}

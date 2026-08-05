@@ -100,5 +100,12 @@
     "authFailedError": "Autentikasi gagal. Silakan coba masuk kembali.",
     "logoutSuccess": "Anda telah berhasil keluar.",
     "loading": "Memproses autentikasi..."
+  },
+  "Nav": {
+    "discover": "Temukan",
+    "feed": "Feed",
+    "favorites": "Favorit",
+    "calendar": "Kalender",
+    "login": "Masuk"
   }
 }

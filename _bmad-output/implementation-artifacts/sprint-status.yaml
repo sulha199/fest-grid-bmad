@@ -57,7 +57,7 @@ development_status:
   0-6-set-up-i18n-foundation-next-intl: review
   # reset from review to ready-for-dev 2026-08-05 — revised AC/Tasks against a new
   # UX spec supersede the original implementation; see the story file's Revision note.
-  0-7-build-the-global-app-shell-and-navigation-layout: ready-for-dev
+  0-7-build-the-global-app-shell-and-navigation-layout: review
   # added 2026-08-05 via bmad-create-story Gate 2 finding while revising 0.7's nav
   # pattern against the new UX spec (design-artifacts/UX-festgrid-run-1) — see
   # 0.7's Architecture & UX Gate Findings for detail.

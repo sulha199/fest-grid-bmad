@@ -100,5 +100,12 @@
     "authFailedError": "Authentication failed. Please try signing in again.",
     "logoutSuccess": "You have been logged out successfully.",
     "loading": "Processing authentication..."
+  },
+  "Nav": {
+    "discover": "Discover",
+    "feed": "Feed",
+    "favorites": "Favorites",
+    "calendar": "Calendar",
+    "login": "Log In"
   }
 }

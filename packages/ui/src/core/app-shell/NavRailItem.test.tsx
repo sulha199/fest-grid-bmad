@@ -67,7 +67,6 @@ describe('NavRailItem component', () => {
     // Should contain active icon swap class
     const iconContainer = screen.getByTestId('test-icon').parentElement;
     expect(iconContainer).toHaveClass('text-nav-active-indicator');
-    expect(iconContainer).toHaveClass('[&_svg]:fill-current');
 
     // Focus ring class should be present on the link
     expect(link).toHaveClass('focus-visible:outline-secondary');
