@@ -6,8 +6,7 @@ import { useInfiniteQuery, useQuery, InfiniteData } from "@tanstack/react-query"
 import {
   EventListView,
   useInfiniteScroll,
-  SearchBar,
-  FilterHub,
+  EventDiscoveryPanel,
 } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
@@ -290,124 +289,128 @@ export function FavoritesContent() {
         <h1 className="text-3xl font-bold">{t("title")}</h1>
       </div>
 
-      <div className="flex flex-col gap-6">
-        <SearchBar
-          query={q}
-          onChange={() => {}}
-          onSubmit={handleSearchSubmit}
-          placeholder={t("searchPlaceholder")}
-          clearLabel={t("searchClearLabel")}
-        />
-
-        <FilterHub labels={filterLabels} types={typesOptions} categories={categoriesOptions} />
-      </div>
-
-      <EventListView
-        status={listStatus}
-        events={events}
-        errorMessage={t("errorState")}
-        errorDetail={idSnapshotError?.message || error?.message || "Unknown error"}
-        emptyState={
-          <div className="text-center py-10 text-muted-foreground">
-            {q.trim() || types.length > 0 || categories.length > 0
-              ? t("searchEmptyState")
-              : t("emptyState")}
-          </div>
-        }
-        cardLabels={{
-          favoriteToggle: t("favoriteButtonLabel"),
-          priceFrom: t("priceFrom"),
-          categoryLabels,
-          typeLabels,
-        }}
-        getCardProps={(event) => {
-          const isOptimisticallyUnfavorited = unfavoritedIds.has(event.id)
-          const isCardFavorited = event.isFavorited && !isOptimisticallyUnfavorited
-          const isCardGreyedOut = !event.isFavorited || isOptimisticallyUnfavorited
-
-          const handleToggle = async (forceFavorited?: boolean) => {
-            const targetFavorited = forceFavorited !== undefined ? forceFavorited : isOptimisticallyUnfavorited
-
-            // Optimistic update
-            setUnfavoritedIds((prev) => {
-              const next = new Set(prev)
-              if (targetFavorited) {
-                next.delete(event.id)
-              } else {
-                next.add(event.id)
-              }
-              return next
-            })
-
-            try {
-              const mutation = await toggleFavoriteAsync({ eventId: event.id })
-              const isFavoritedOnServer = mutation.toggleFavorite.isFavorited
-              
-              posthog.capture(isFavoritedOnServer ? "event_favorited" : "event_unfavorited", {
-                eventId: event.id,
-                eventName: event.eventName,
-              })
-
-              // Align state with server
-              setUnfavoritedIds((prev) => {
-                const next = new Set(prev)
-                if (isFavoritedOnServer) {
-                  next.delete(event.id)
-                } else {
-                  next.add(event.id)
+      <EventDiscoveryPanel
+        query={q}
+        onSearchSubmit={handleSearchSubmit}
+        searchPlaceholder={t("searchPlaceholder")}
+        searchClearLabel={t("searchClearLabel")}
+        filterLabels={filterLabels}
+        types={typesOptions}
+        categories={categoriesOptions}
+        views={[
+          {
+            id: "card",
+            content: (
+              <EventListView
+                status={listStatus}
+                events={events}
+                errorMessage={t("errorState")}
+                errorDetail={idSnapshotError?.message || error?.message || "Unknown error"}
+                emptyState={
+                  <div className="text-center py-10 text-muted-foreground">
+                    {q.trim() || types.length > 0 || categories.length > 0
+                      ? t("searchEmptyState")
+                      : t("emptyState")}
+                  </div>
                 }
-                return next
-              })
+                cardLabels={{
+                  favoriteToggle: t("favoriteButtonLabel"),
+                  priceFrom: t("priceFrom"),
+                  categoryLabels,
+                  typeLabels,
+                }}
+                getCardProps={(event) => {
+                  const isOptimisticallyUnfavorited = unfavoritedIds.has(event.id)
+                  const isCardFavorited = event.isFavorited && !isOptimisticallyUnfavorited
+                  const isCardGreyedOut = !event.isFavorited || isOptimisticallyUnfavorited
 
-              if (!isFavoritedOnServer) {
-                toast(t("pendingRemovalToastMessage"), {
-                  action: {
-                    label: t("undoLabel"),
-                    onClick: () => {
-                      // Trigger re-favorite (force favorited)
-                      handleToggle(true)
+                  const handleToggle = async (forceFavorited?: boolean) => {
+                    const targetFavorited = forceFavorited !== undefined ? forceFavorited : isOptimisticallyUnfavorited
+
+                    // Optimistic update
+                    setUnfavoritedIds((prev) => {
+                      const next = new Set(prev)
+                      if (targetFavorited) {
+                        next.delete(event.id)
+                      } else {
+                        next.add(event.id)
+                      }
+                      return next
+                    })
+
+                    try {
+                      const mutation = await toggleFavoriteAsync({ eventId: event.id })
+                      const isFavoritedOnServer = mutation.toggleFavorite.isFavorited
+                      
+                      posthog.capture(isFavoritedOnServer ? "event_favorited" : "event_unfavorited", {
+                        eventId: event.id,
+                        eventName: event.eventName,
+                      })
+
+                      // Align state with server
+                      setUnfavoritedIds((prev) => {
+                        const next = new Set(prev)
+                        if (isFavoritedOnServer) {
+                          next.delete(event.id)
+                        } else {
+                          next.add(event.id)
+                        }
+                        return next
+                      })
+
+                      if (!isFavoritedOnServer) {
+                        toast(t("pendingRemovalToastMessage"), {
+                          action: {
+                            label: t("undoLabel"),
+                            onClick: () => {
+                              // Trigger re-favorite (force favorited)
+                              handleToggle(true)
+                            },
+                          },
+                        })
+                      }
+                    } catch (err) {
+                      console.error("handleToggle caught error:", err)
+                      // Rollback on error
+                      setUnfavoritedIds((prev) => {
+                        const next = new Set(prev)
+                        if (targetFavorited) {
+                          next.add(event.id)
+                        } else {
+                          next.delete(event.id)
+                        }
+                        return next
+                      })
+                      toast.error("Failed to update favorite status")
+                    }
+                  }
+
+                  return {
+                    isGreyedOut: isCardGreyedOut,
+                    isFavorited: isCardFavorited,
+                    pendingRemoval: isOptimisticallyUnfavorited,
+                    onFavoriteToggle: () => {
+                      if (isOptimisticallyUnfavorited) {
+                        handleToggle(true)
+                      } else {
+                        handleToggle()
+                      }
                     },
-                  },
-                })
-              }
-            } catch (err) {
-              console.error("handleToggle caught error:", err)
-              // Rollback on error
-              setUnfavoritedIds((prev) => {
-                const next = new Set(prev)
-                if (targetFavorited) {
-                  next.add(event.id)
-                } else {
-                  next.delete(event.id)
-                }
-                return next
-              })
-              toast.error("Failed to update favorite status")
-            }
+                    onClick: () => {
+                      const params = new URLSearchParams(searchParams.toString())
+                      params.set("fromList", "favorites")
+                      params.set("favoriteIds", frozenIds.join(","))
+                      router.push(`/events/${event.slug}?${params.toString()}`)
+                    },
+                  }
+                }}
+                sentinelRef={sentinelRef}
+                isFetchingNextPage={isFetchingNextPage}
+                loadingMoreLabel={t("loadingMore")}
+              />
+            )
           }
-
-          return {
-            isGreyedOut: isCardGreyedOut,
-            isFavorited: isCardFavorited,
-            pendingRemoval: isOptimisticallyUnfavorited,
-            onFavoriteToggle: () => {
-              if (isOptimisticallyUnfavorited) {
-                handleToggle(true)
-              } else {
-                handleToggle()
-              }
-            },
-            onClick: () => {
-              const params = new URLSearchParams(searchParams.toString())
-              params.set("fromList", "favorites")
-              params.set("favoriteIds", frozenIds.join(","))
-              router.push(`/events/${event.slug}?${params.toString()}`)
-            },
-          }
-        }}
-        sentinelRef={sentinelRef}
-        isFetchingNextPage={isFetchingNextPage}
-        loadingMoreLabel={t("loadingMore")}
+        ]}
       />
     </div>
   )

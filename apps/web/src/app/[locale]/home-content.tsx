@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query"
-import { EventListView, useInfiniteScroll, SearchBar, FilterHub } from "@festgrid/ui"
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
@@ -190,53 +190,53 @@ export function HomeContent() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-6">
-        <SearchBar
-          query={q}
-          onChange={() => {}} // Internal state only, URL updates on submit per AC1
-          onSubmit={handleSearchSubmit}
-          onEnter={handleSearchEnter}
-          placeholder={t('searchPlaceholder')}
-          clearLabel={t('searchClearLabel')}
-        />
-
-        <FilterHub
-          labels={filterLabels}
-          types={typesOptions}
-          categories={categoriesOptions}
-          onChange={handleFilterChange}
-        />
-      </div>
-
-      <EventListView
-        status={status === 'pending' ? 'loading' : status}
-        events={events}
-        errorMessage={t('errorState')}
-        errorDetail={error?.message || JSON.stringify(error)}
-        emptyState={
-          <div className="text-center py-10 text-muted-foreground">
-            {q.trim() ? t('searchEmptyState') : t('emptyState')}
-          </div>
-        }
-        cardLabels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
-        getCardProps={(event) => ({
-          isFavorited: event.isFavorited,
-          onFavoriteToggle: () => {
-            if (!session) {
-              setIsLoginModalOpen(true)
-              return
-            }
-            toggleFavorite({ eventId: event.id })
-          },
-          onClick: () => {
-            const paramsStr = searchParams.toString()
-            const url = `/events/${event.slug}?fromList=true${paramsStr ? `&${paramsStr}` : ''}`
-            router.push(url)
-          },
-        })}
-        sentinelRef={sentinelRef}
-        isFetchingNextPage={isFetchingNextPage}
-        loadingMoreLabel={t('loadingMore')}
+      <EventDiscoveryPanel
+        query={q}
+        onSearchSubmit={handleSearchSubmit}
+        onSearchEnter={handleSearchEnter}
+        searchPlaceholder={t('searchPlaceholder')}
+        searchClearLabel={t('searchClearLabel')}
+        filterLabels={filterLabels}
+        types={typesOptions}
+        categories={categoriesOptions}
+        onFilterChange={handleFilterChange}
+        views={[
+          {
+            id: 'card',
+            content: (
+              <EventListView
+                status={status === 'pending' ? 'loading' : status}
+                events={events}
+                errorMessage={t('errorState')}
+                errorDetail={error?.message || JSON.stringify(error)}
+                emptyState={
+                  <div className="text-center py-10 text-muted-foreground">
+                    {q.trim() ? t('searchEmptyState') : t('emptyState')}
+                  </div>
+                }
+                cardLabels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
+                getCardProps={(event) => ({
+                  isFavorited: event.isFavorited,
+                  onFavoriteToggle: () => {
+                    if (!session) {
+                      setIsLoginModalOpen(true)
+                      return
+                    }
+                    toggleFavorite({ eventId: event.id })
+                  },
+                  onClick: () => {
+                    const paramsStr = searchParams.toString()
+                    const url = `/events/${event.slug}?fromList=true${paramsStr ? `&${paramsStr}` : ''}`
+                    router.push(url)
+                  },
+                })}
+                sentinelRef={sentinelRef}
+                isFetchingNextPage={isFetchingNextPage}
+                loadingMoreLabel={t('loadingMore')}
+              />
+            )
+          }
+        ]}
       />
 
       <Dialog open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen}>

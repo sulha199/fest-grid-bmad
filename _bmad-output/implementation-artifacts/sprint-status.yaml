@@ -101,7 +101,7 @@ development_status:
   # home-content.tsx and favorites-content.tsx still duplicate the SearchBar/FilterHub
   # row above the shell Story 1.3d already extracted. Positioned as a 1.3-family
   # lettered suffix per the 1.3d precedent; see epics.md Story 1.3e note.
-  1-3e-build-the-reusable-eventdiscoverypanel-component: ready-for-dev
+  1-3e-build-the-reusable-eventdiscoverypanel-component: review
   # added 2026-08-05 via bmad-create-story Gate 2 finding while drafting Story 1.3f —
   # DESIGN.md's calendar tokens already encode a shared discovery_view/personal_view
   # component split, and Story 2.6 is a confirmed second consumer. See epics.md

@@ -7,7 +7,7 @@ baseline_commit: 198301f0757cfed0df2316ac947793691ff189e9
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.3e
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,22 +33,22 @@ so that the Discovery feed (`home-content.tsx`, Story 1.3) and Favorites page (`
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Build `EventDiscoveryPanel` in `packages/ui` (AC1-AC6, AC9)
-  - [ ] Create `packages/ui/src/features/events/EventDiscoveryPanel.types.ts`: `EventDiscoveryPanelView` (`id`, `content`), `EventDiscoveryPanelProps` (query, onSearchSubmit, onSearchEnter?, searchPlaceholder, searchClearLabel, filterLabels, types, categories, onFilterChange?, views, className?).
-  - [ ] Create `packages/ui/src/features/events/EventDiscoveryPanel.tsx`: renders `SearchBar`+`FilterHub` row per AC1/AC4/AC5; owns `useQueryState('view', ...)` with fallback-to-`views[0].id` per AC2-AC3; renders the active view's `content`.
-  - [ ] Add `EventDiscoveryPanel`/`EventDiscoveryPanel.types` exports to `packages/ui/src/features/events/index.ts` (AC9).
-  - [ ] `packages/ui/src/features/events/EventDiscoveryPanel.test.tsx`: cover single-view render, fallback behavior (missing/invalid `view` param), optional-callback omission, tab-order/DOM-order assertion (AC6, AC10).
-- [ ] Task 2: Migrate `home-content.tsx` to consume `EventDiscoveryPanel` (AC7)
-  - [ ] Replace the duplicated `<div className="flex flex-col gap-6"><SearchBar/><FilterHub/></div>` block with `<EventDiscoveryPanel ... views={[{ id: 'card', content: <EventListView ... /> }]} />`, moving the existing `EventListView` invocation into the single `views` entry.
-  - [ ] Keep `buildEnumLabels`/`typesOptions`/`categoriesOptions`/`filterLabels` construction in `home-content.tsx` unchanged.
-  - [ ] Preserve `onSearchEnter={handleSearchEnter}`/`onFilterChange={handleFilterChange}` wiring exactly as today.
-- [ ] Task 3: Migrate `favorites-content.tsx` to consume `EventDiscoveryPanel` (AC8)
-  - [ ] Replace its duplicated `SearchBar`/`FilterHub` block identically, wrapping its existing `EventListView` invocation in a single-entry `views` array with no `onSearchEnter`/`onFilterChange`.
-- [ ] Task 4: Regression-verify existing tests (AC10)
-  - [ ] Run `apps/web/src/app/[locale]/page.test.tsx` and `apps/web/src/app/[locale]/favorites/favorites-content.test.tsx` unmodified against the refactored pages — DOM/behavior assertions must still pass without edits to the assertions themselves (test setup/mocks may need updating for the new `EventDiscoveryPanel` import boundary, but expected rendered output must not change).
-  - [ ] If either test file breaks in a way that reveals an actual behavior drift (not a test-plumbing issue), treat that as a bug introduced by this refactor and fix `EventDiscoveryPanel`/the page — never adjust the test's expected behavior to match a drifted implementation.
-- [ ] Task 5: Final checks
-  - [ ] `pnpm build` / `pnpm lint` clean at the repo root.
+- [x] Task 1: Build `EventDiscoveryPanel` in `packages/ui` (AC1-AC6, AC9)
+  - [x] Create `packages/ui/src/features/events/EventDiscoveryPanel.types.ts`: `EventDiscoveryPanelView` (`id`, `content`), `EventDiscoveryPanelProps` (query, onSearchSubmit, onSearchEnter?, searchPlaceholder, searchClearLabel, filterLabels, types, categories, onFilterChange?, views, className?).
+  - [x] Create `packages/ui/src/features/events/EventDiscoveryPanel.tsx`: renders `SearchBar`+`FilterHub` row per AC1/AC4/AC5; owns `useQueryState('view', ...)` with fallback-to-`views[0].id` per AC2-AC3; renders the active view's `content`.
+  - [x] Add `EventDiscoveryPanel`/`EventDiscoveryPanel.types` exports to `packages/ui/src/features/events/index.ts` (AC9).
+  - [x] `packages/ui/src/features/events/EventDiscoveryPanel.test.tsx`: cover single-view render, fallback behavior (missing/invalid `view` param), optional-callback omission, tab-order/DOM-order assertion (AC6, AC10).
+- [x] Task 2: Migrate `home-content.tsx` to consume `EventDiscoveryPanel` (AC7)
+  - [x] Replace the duplicated `<div className="flex flex-col gap-6"><SearchBar/><FilterHub/></div>` block with `<EventDiscoveryPanel ... views={[{ id: 'card', content: <EventListView ... /> }]} />`, moving the existing `EventListView` invocation into the single `views` entry.
+  - [x] Keep `buildEnumLabels`/`typesOptions`/`categoriesOptions`/`filterLabels` construction in `home-content.tsx` unchanged.
+  - [x] Preserve `onSearchEnter={handleSearchEnter}`/`onFilterChange={handleFilterChange}` wiring exactly as today.
+- [x] Task 3: Migrate `favorites-content.tsx` to consume `EventDiscoveryPanel` (AC8)
+  - [x] Replace its duplicated `SearchBar`/`FilterHub` block identically, wrapping its existing `EventListView` invocation in a single-entry `views` array with no `onSearchEnter`/`onFilterChange`.
+- [x] Task 4: Regression-verify existing tests (AC10)
+  - [x] Run `apps/web/src/app/[locale]/page.test.tsx` and `apps/web/src/app/[locale]/favorites/favorites-content.test.tsx` unmodified against the refactored pages — DOM/behavior assertions must still pass without edits to the assertions themselves (test setup/mocks may need updating for the new `EventDiscoveryPanel` import boundary, but expected rendered output must not change).
+  - [x] If either test file breaks in a way that reveals an actual behavior drift (not a test-plumbing issue), treat that as a bug introduced by this refactor and fix `EventDiscoveryPanel`/the page — never adjust the test's expected behavior to match a drifted implementation.
+- [x] Task 5: Final checks
+  - [x] `pnpm build` / `pnpm lint` clean at the repo root.
 
 ## Dev Notes
 
@@ -243,13 +243,13 @@ No changes required. This story adds no database columns, no GraphQL schema/reso
 
 ## Completion Status
 
-- [ ] Ready for review
+- [x] Ready for review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled by the dev agent._
+Claude 3.5 Sonnet (Cline Developer Agent)
 
 ### Debug Log References
 
@@ -260,8 +260,17 @@ _To be filled by the dev agent._
 
 ### Completion Notes List
 
-_To be filled by the dev agent._
+- Implemented `EventDiscoveryPanel` component inside `packages/ui/src/features/events/` following strict pure presentational rules.
+- Defined robust type definitions for `EventDiscoveryPanelProps` and `EventDiscoveryPanelView`.
+- Set up state-management for `view` using self-contained `useQueryState('view')` from `nuqs`, default falling back to `views[0].id` safely.
+- Added comprehensive unit tests in `EventDiscoveryPanel.test.tsx` verifying composition, callback fallback, and DOM tab/flow order.
+- Refactored `apps/web`'s `home-content.tsx` and `favorites-content.tsx` to consume the new `EventDiscoveryPanel` component, ensuring zero regression and that existing integration/unit tests pass 100% cleanly without modification.
 
 ### File List
 
-_To be filled by the dev agent._
+- `packages/ui/src/features/events/EventDiscoveryPanel.types.ts` (New)
+- `packages/ui/src/features/events/EventDiscoveryPanel.tsx` (New)
+- `packages/ui/src/features/events/EventDiscoveryPanel.test.tsx` (New)
+- `packages/ui/src/features/events/index.ts` (Modified)
+- `apps/web/src/app/[locale]/home-content.tsx` (Modified)
+- `apps/web/src/app/[locale]/favorites/favorites-content.tsx` (Modified)
