@@ -1,0 +1,39 @@
+mutation createUserLocation($input: CreateUserLocationInput!) {
+  createUserLocation(input: $input) {
+    id
+    name
+    locationDetails {
+      formattedAddress
+      placeName
+      coordinates {
+        lat
+        lng
+      }
+    }
+    radius
+    createdAt
+    updatedAt
+  }
+}
+
+mutation updateUserLocation($id: ID!, $input: UpdateUserLocationInput!) {
+  updateUserLocation(id: $id, input: $input) {
+    id
+    name
+    locationDetails {
+      formattedAddress
+      placeName
+      coordinates {
+        lat
+        lng
+      }
+    }
+    radius
+    createdAt
+    updatedAt
+  }
+}
+
+mutation deleteUserLocation($id: ID!) {
+  deleteUserLocation(id: $id)
+}

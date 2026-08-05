@@ -9,7 +9,9 @@
     "loginTitle": "Masuk | FestDaily",
     "loginDescription": "Masuk ke akun FestDaily Anda untuk mengakses jadwal dan favorit.",
     "favoritesTitle": "Favorit Saya | FestDaily",
-    "favoritesDescription": "Lihat dan kelola acara favorit Anda di FestDaily."
+    "favoritesDescription": "Lihat dan kelola acara favorit Anda di FestDaily.",
+    "locationsTitle": "Lokasi Saya | FestDaily",
+    "locationsDescription": "Kelola lokasi tersimpan Anda di FestDaily."
   },
   "EventDetailsPage": {
     "next": "Acara Selanjutnya",
@@ -103,9 +105,31 @@
   },
   "Nav": {
     "discover": "Temukan",
-    "feed": "Feed",
+    "feed": "Umpan",
     "favorites": "Favorit",
     "calendar": "Kalender",
     "login": "Masuk"
+  },
+  "SavedLocationsPage": {
+    "title": "Lokasi Saya",
+    "emptyState": "Anda belum memiliki lokasi tersimpan.",
+    "errorState": "Gagal memuat lokasi. Silakan coba lagi nanti.",
+    "addButtonLabel": "Tambah Lokasi Baru",
+    "addModalTitle": "Tambah Lokasi Baru",
+    "editModalTitle": "Ubah Lokasi",
+    "nameLabel": "Nama",
+    "namePlaceholder": "misal, Rumah, Kantor",
+    "addressLabel": "Alamat",
+    "addressPlaceholder": "Cari alamat...",
+    "addressSearching": "Mencari...",
+    "addressNoResults": "Alamat tidak ditemukan.",
+    "radiusLabel": "Radius",
+    "radiusUnit": "{count} km",
+    "saveButtonLabel": "Simpan",
+    "cancelButtonLabel": "Batal",
+    "deleteButtonLabel": "Hapus",
+    "savingAnnouncement": "Menyimpan lokasi...",
+    "locationSavedAnnouncement": "Lokasi berhasil disimpan",
+    "locationSaveErrorAnnouncement": "Gagal menyimpan lokasi. Silakan coba lagi."
   }
 }

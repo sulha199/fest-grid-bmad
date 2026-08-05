@@ -143,7 +143,7 @@ development_status:
   # current codebase state (Story 2.3b now fully drafted with a matching contract minus a
   # dropped sessionToken arg; Story 0.16 progressed to review/implemented, narrowing the
   # dependency chain to 2.3a/2.3b only). Status unchanged (already ready-for-dev).
-  2-3-manage-saved-locations: ready-for-dev
+  2-3-manage-saved-locations: in-progress
   2-4-set-location-by-current-location-or-map: ready-for-dev
   # regenerated 2026-08-04 via bmad-create-story: raw maplibre-gl (not
   # @vis.gl/react-maplibre) and a pointer-only, documented a11y limitation for

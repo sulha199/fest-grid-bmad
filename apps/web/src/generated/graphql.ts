@@ -251,6 +251,8 @@ export type UserLocation = {
 
 
 
+
+
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -292,6 +294,40 @@ export type GetEventForIcsExportQueryVariables = Exact<{
 
 
 export type GetEventForIcsExportQuery = { event: { id: string, eventName: string, slug: string, description: string | null, location: string | null, schedules: Array<{ id: string, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, location: string | null, locationDetails: { formattedAddress: string | null } | null }> } | null };
+
+export type CreateUserLocationMutationVariables = Exact<{
+  input: CreateUserLocationInput;
+}>;
+
+
+export type CreateUserLocationMutation = { createUserLocation: { id: string, name: string, radius: number, createdAt: string, updatedAt: string, locationDetails: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } } };
+
+export type UpdateUserLocationMutationVariables = Exact<{
+  id: string | number;
+  input: UpdateUserLocationInput;
+}>;
+
+
+export type UpdateUserLocationMutation = { updateUserLocation: { id: string, name: string, radius: number, createdAt: string, updatedAt: string, locationDetails: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } } };
+
+export type DeleteUserLocationMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteUserLocationMutation = { deleteUserLocation: boolean };
+
+export type GetMyLocationsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetMyLocationsQuery = { myLocations: Array<{ id: string, name: string, radius: number, createdAt: string, updatedAt: string, locationDetails: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } }> };
+
+export type AddressAutocompleteQueryVariables = Exact<{
+  input: string;
+}>;
+
+
+export type AddressAutocompleteQuery = { addressAutocomplete: Array<{ placeId: string, description: string }> };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -536,6 +572,168 @@ export const useGetEventForIcsExportQuery = <
       {
     queryKey: ['getEventForIcsExport', variables],
     queryFn: fetcher<GetEventForIcsExportQuery, GetEventForIcsExportQueryVariables>(client, GetEventForIcsExportDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const CreateUserLocationDocument = new TypedDocumentString(`
+    mutation createUserLocation($input: CreateUserLocationInput!) {
+  createUserLocation(input: $input) {
+    id
+    name
+    locationDetails {
+      formattedAddress
+      placeName
+      coordinates {
+        lat
+        lng
+      }
+    }
+    radius
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useCreateUserLocationMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateUserLocationMutation, TError, CreateUserLocationMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateUserLocationMutation, TError, CreateUserLocationMutationVariables, TContext>(
+      {
+    mutationKey: ['createUserLocation'],
+    mutationFn: (variables?: CreateUserLocationMutationVariables) => fetcher<CreateUserLocationMutation, CreateUserLocationMutationVariables>(client, CreateUserLocationDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const UpdateUserLocationDocument = new TypedDocumentString(`
+    mutation updateUserLocation($id: ID!, $input: UpdateUserLocationInput!) {
+  updateUserLocation(id: $id, input: $input) {
+    id
+    name
+    locationDetails {
+      formattedAddress
+      placeName
+      coordinates {
+        lat
+        lng
+      }
+    }
+    radius
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useUpdateUserLocationMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateUserLocationMutation, TError, UpdateUserLocationMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateUserLocationMutation, TError, UpdateUserLocationMutationVariables, TContext>(
+      {
+    mutationKey: ['updateUserLocation'],
+    mutationFn: (variables?: UpdateUserLocationMutationVariables) => fetcher<UpdateUserLocationMutation, UpdateUserLocationMutationVariables>(client, UpdateUserLocationDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const DeleteUserLocationDocument = new TypedDocumentString(`
+    mutation deleteUserLocation($id: ID!) {
+  deleteUserLocation(id: $id)
+}
+    `);
+
+export const useDeleteUserLocationMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DeleteUserLocationMutation, TError, DeleteUserLocationMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DeleteUserLocationMutation, TError, DeleteUserLocationMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteUserLocation'],
+    mutationFn: (variables?: DeleteUserLocationMutationVariables) => fetcher<DeleteUserLocationMutation, DeleteUserLocationMutationVariables>(client, DeleteUserLocationDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const GetMyLocationsDocument = new TypedDocumentString(`
+    query getMyLocations {
+  myLocations {
+    id
+    name
+    locationDetails {
+      formattedAddress
+      placeName
+      coordinates {
+        lat
+        lng
+      }
+    }
+    radius
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useGetMyLocationsQuery = <
+      TData = GetMyLocationsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: GetMyLocationsQueryVariables,
+      options?: Omit<UseQueryOptions<GetMyLocationsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetMyLocationsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetMyLocationsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['getMyLocations'] : ['getMyLocations', variables],
+    queryFn: fetcher<GetMyLocationsQuery, GetMyLocationsQueryVariables>(client, GetMyLocationsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const AddressAutocompleteDocument = new TypedDocumentString(`
+    query addressAutocomplete($input: String!) {
+  addressAutocomplete(input: $input) {
+    placeId
+    description
+  }
+}
+    `);
+
+export const useAddressAutocompleteQuery = <
+      TData = AddressAutocompleteQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: AddressAutocompleteQueryVariables,
+      options?: Omit<UseQueryOptions<AddressAutocompleteQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AddressAutocompleteQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<AddressAutocompleteQuery, TError, TData>(
+      {
+    queryKey: ['addressAutocomplete', variables],
+    queryFn: fetcher<AddressAutocompleteQuery, AddressAutocompleteQueryVariables>(client, AddressAutocompleteDocument, variables, headers),
     ...options
   }
     )};

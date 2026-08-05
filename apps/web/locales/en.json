@@ -9,7 +9,9 @@
     "loginTitle": "Sign In | FestDaily",
     "loginDescription": "Log in to your FestDaily account to access schedules and favorites.",
     "favoritesTitle": "My Favorites | FestDaily",
-    "favoritesDescription": "View and manage your favorited events on FestDaily."
+    "favoritesDescription": "View and manage your favorited events on FestDaily.",
+    "locationsTitle": "My Locations | FestDaily",
+    "locationsDescription": "Manage your saved locations on FestDaily."
   },
   "EventDetailsPage": {
     "next": "Next Event",
@@ -107,5 +109,27 @@
     "favorites": "Favorites",
     "calendar": "Calendar",
     "login": "Log In"
+  },
+  "SavedLocationsPage": {
+    "title": "My Locations",
+    "emptyState": "You have no saved locations yet.",
+    "errorState": "Failed to load locations. Please try again later.",
+    "addButtonLabel": "Add a New Location",
+    "addModalTitle": "Add a New Location",
+    "editModalTitle": "Edit Location",
+    "nameLabel": "Name",
+    "namePlaceholder": "e.g., Home, Work",
+    "addressLabel": "Address",
+    "addressPlaceholder": "Search for an address...",
+    "addressSearching": "Searching...",
+    "addressNoResults": "No addresses found.",
+    "radiusLabel": "Radius",
+    "radiusUnit": "{count} km",
+    "saveButtonLabel": "Save",
+    "cancelButtonLabel": "Cancel",
+    "deleteButtonLabel": "Delete",
+    "savingAnnouncement": "Saving location...",
+    "locationSavedAnnouncement": "Location saved successfully",
+    "locationSaveErrorAnnouncement": "Failed to save location. Please try again."
   }
 }

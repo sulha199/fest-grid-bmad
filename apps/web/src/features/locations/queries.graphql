@@ -1,0 +1,24 @@
+query getMyLocations {
+  myLocations {
+    id
+    name
+    locationDetails {
+      formattedAddress
+      placeName
+      coordinates {
+        lat
+        lng
+      }
+    }
+    radius
+    createdAt
+    updatedAt
+  }
+}
+
+query addressAutocomplete($input: String!) {
+  addressAutocomplete(input: $input) {
+    placeId
+    description
+  }
+}

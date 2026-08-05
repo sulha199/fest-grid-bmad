@@ -24,4 +24,8 @@ content = content.replace(/export type EventType =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type EventQueryConditionInput = \{[\s\S]*?\};\r?\n/g, '');
 content = "export type EventQueryConditionInput = { conditions?: InputMaybe<Array<EventQueryConditionInput>>; field?: InputMaybe<Scalars['String']['input']>; operator?: InputMaybe<Scalars['String']['input']>; value?: InputMaybe<Scalars['JSON']['input']>; };\n" + content;
 
+// Replace duplicate CreateUserLocationInput and UpdateUserLocationInput
+content = content.replace(/export type CreateUserLocationInput = \{\r?\n\s+address\?\: string[\s\S]*?\};\r?\n/g, '');
+content = content.replace(/export type UpdateUserLocationInput = \{\r?\n\s+address\?\: string[\s\S]*?\};\r?\n/g, '');
+
 fs.writeFileSync(file, content);
