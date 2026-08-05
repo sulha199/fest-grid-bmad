@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SoftDeleteToaster } from '@festgrid/ui';
 import enMessages from '../../../../locales/en.json';
 import { FavoritesContent } from './favorites-content';
+import { graphqlClient } from '@/lib/graphql-client';
 
 const mockRouterPush = vi.fn();
 const mockPosthogCapture = vi.fn();
@@ -112,6 +113,7 @@ const eventsCalls: any[] = [];
 let toggleFavoriteCalls = 0;
 
 const FAVORITE_IDS = Array.from({ length: 11 }).map((_, i) => `evt-${i + 1}`);
+const mockFavoritesSet = new Set<string>(FAVORITE_IDS);
 
 const server = setupServer(
   graphql.query('getFavoritedEventIds', ({ variables }) => {
@@ -159,13 +161,22 @@ const server = setupServer(
       },
     });
   }),
-  graphql.mutation('toggleFavorite', () => {
+  graphql.mutation('toggleFavorite', ({ variables }) => {
     toggleFavoriteCalls += 1;
+    const eventId = String((variables as any).eventId);
+    let isFavorited = false;
+    if (mockFavoritesSet.has(eventId)) {
+      mockFavoritesSet.delete(eventId);
+      isFavorited = false;
+    } else {
+      mockFavoritesSet.add(eventId);
+      isFavorited = true;
+    }
     return HttpResponse.json({
       data: {
         toggleFavorite: {
-          eventId: 'evt-1',
-          isFavorited: false,
+          eventId,
+          isFavorited,
         },
       },
     });
@@ -176,6 +187,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
 afterAll(() => server.close());
 
 afterEach(() => {
+  vi.clearAllMocks();
   cleanup();
   server.resetHandlers();
   snapshotCalls.length = 0;
@@ -185,6 +197,8 @@ afterEach(() => {
   mockPosthogCapture.mockReset();
   mockSession = { user: { id: 'user-1', email: 'user@test.dev' } };
   mockAuthLoading = false;
+  mockFavoritesSet.clear();
+  FAVORITE_IDS.forEach(id => mockFavoritesSet.add(id));
   if ((global as any).__resetNuqsStore) {
     (global as any).__resetNuqsStore();
   }
@@ -266,7 +280,8 @@ describe('FavoritesContent', () => {
     expect(hasTypesFilter).toBe(true);
   });
 
-  it('marks item pending, supports undo, and avoids mutation when undone', async () => {
+  it('marks item pending, supports undo, and fires mutations immediately', async () => {
+    const requestSpy = vi.spyOn(graphqlClient, 'request');
     renderWithProviders();
 
     await waitFor(() => {
@@ -281,6 +296,14 @@ describe('FavoritesContent', () => {
       expect(article).toBeTruthy();
     });
 
+    // Under immediate mutation, clicking unfavorite fires mutation immediately (await async execution)
+    await waitFor(() => {
+      const toggleCalls = requestSpy.mock.calls.filter(([doc]) => 
+        JSON.stringify(doc).includes('toggleFavorite')
+      );
+      expect(toggleCalls.length).toBe(1);
+    });
+
     const undoButton = await screen.findByRole('button', { name: 'Undo' });
     fireEvent.click(undoButton);
 
@@ -289,10 +312,56 @@ describe('FavoritesContent', () => {
       expect(pendingArticles).toHaveLength(0);
     });
 
-    expect(toggleFavoriteCalls).toBe(0);
+    // Clicking Undo fires another mutation to re-favorite immediately
+    await waitFor(() => {
+      const toggleCalls = requestSpy.mock.calls.filter(([doc]) => 
+        JSON.stringify(doc).includes('toggleFavorite')
+      );
+      expect(toggleCalls.length).toBe(2);
+    });
   });
 
-  it('commits pending unfavorites exactly once on unmount', async () => {
+  it('supports re-favoriting by clicking the heart button again, firing mutation immediately', async () => {
+    const requestSpy = vi.spyOn(graphqlClient, 'request');
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event evt-1')).toBeInTheDocument();
+    });
+
+    const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
+    fireEvent.click(removeButton);
+
+    await waitFor(() => {
+      const article = screen.getAllByRole('article').find((el) => el.getAttribute('aria-disabled') === 'true');
+      expect(article).toBeTruthy();
+    });
+
+    await waitFor(() => {
+      const toggleCalls = requestSpy.mock.calls.filter(([doc]) => 
+        JSON.stringify(doc).includes('toggleFavorite')
+      );
+      expect(toggleCalls.length).toBe(1);
+    });
+
+    // Clicking the same toggle button (heart) again should trigger Undo/re-favorite
+    fireEvent.click(removeButton);
+
+    await waitFor(() => {
+      const pendingArticles = screen.getAllByRole('article').filter((el) => el.getAttribute('aria-disabled') === 'true');
+      expect(pendingArticles).toHaveLength(0);
+    });
+
+    await waitFor(() => {
+      const toggleCalls = requestSpy.mock.calls.filter(([doc]) => 
+        JSON.stringify(doc).includes('toggleFavorite')
+      );
+      expect(toggleCalls.length).toBe(2);
+    });
+  });
+
+  it('does not fire additional mutations on unmount', async () => {
+    const requestSpy = vi.spyOn(graphqlClient, 'request');
     const rendered = renderWithProviders();
 
     await waitFor(() => {
@@ -302,10 +371,20 @@ describe('FavoritesContent', () => {
     const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
     fireEvent.click(removeButton);
 
+    await waitFor(() => {
+      const toggleCalls = requestSpy.mock.calls.filter(([doc]) => 
+        JSON.stringify(doc).includes('toggleFavorite')
+      );
+      expect(toggleCalls.length).toBe(1);
+    });
+
     rendered.unmount();
 
-    await waitFor(() => {
-      expect(toggleFavoriteCalls).toBeGreaterThan(0);
-    });
+    // Ensure no additional unmount mutation calls were fired (since it was already committed)
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const toggleCalls = requestSpy.mock.calls.filter(([doc]) => 
+      JSON.stringify(doc).includes('toggleFavorite')
+    );
+    expect(toggleCalls.length).toBe(1);
   });
 });

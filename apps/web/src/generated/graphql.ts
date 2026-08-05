@@ -13,11 +13,15 @@ export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Mayb
 export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
 
 function fetcher<TData, TVariables extends { [key: string]: any }>(client: GraphQLClient, query: TypedDocumentString<unknown, unknown>, variables?: TVariables, requestHeaders?: RequestInit['headers']) {
-  return async (): Promise<TData> => client.request<TData>({
-    document: query,
-    variables,
-    requestHeaders
-  });
+  return async (): Promise<TData> => {
+    console.log("Fetcher called with query:", query.toString().substring(0, 100));
+    console.trace();
+    return client.request<TData>({
+      document: query,
+      variables,
+      requestHeaders
+    });
+  };
 }
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {

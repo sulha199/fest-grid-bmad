@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, useQuery, InfiniteData } from "@tanstack/react-query"
 import {
@@ -8,7 +8,6 @@ import {
   useInfiniteScroll,
   SearchBar,
   FilterHub,
-  useSoftDeleteWithUndo,
 } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
@@ -18,7 +17,10 @@ import {
   GetFavoritedEventIdsDocument,
   GetFavoritedEventIdsQuery,
   useToggleFavoriteMutation,
+  ToggleFavoriteDocument,
+  ToggleFavoriteMutation,
 } from "@/generated/graphql"
+import { toast } from "sonner"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs"
 import { usePostHog } from "@festgrid/analytics"
@@ -83,13 +85,8 @@ export function FavoritesContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { session, isLoading } = useAuthSession()
-  const committedPendingIdsRef = useRef<Set<string>>(new Set())
-  const softDelete = useSoftDeleteWithUndo<string>({
-    defaultLabels: {
-      message: t("pendingRemovalToastMessage"),
-      undoLabel: t("undoLabel"),
-    },
-  })
+  const [unfavoritedIds, setUnfavoritedIds] = useState<Set<string>>(new Set())
+  const { mutateAsync: toggleFavoriteAsync } = useToggleFavoriteMutation(graphqlClient)
 
   const categoryLabels = useMemo(
     () => buildEnumLabels(Object.values(EventCategory), tCategory),
@@ -148,10 +145,8 @@ export function FavoritesContent() {
     }
 
     previousSnapshotKeyRef.current = snapshotQueryKey
-    for (const pendingId of softDelete.pendingIds) {
-      softDelete.undo(pendingId)
-    }
-  }, [snapshotQueryKey, softDelete])
+    setUnfavoritedIds(new Set())
+  }, [snapshotQueryKey])
 
   const {
     data: idSnapshotData,
@@ -260,8 +255,6 @@ export function FavoritesContent() {
     enabled: !!session && !isLoading && idSnapshotStatus === "success" && frozenIds.length > 0,
   })
 
-  const { mutateAsync: toggleFavoriteAsync } = useToggleFavoriteMutation(graphqlClient)
-
   const { sentinelRef } = useInfiniteScroll({
     hasNextPage: !!hasNextPage,
     isFetchingNextPage,
@@ -327,43 +320,91 @@ export function FavoritesContent() {
           categoryLabels,
           typeLabels,
         }}
-        getCardProps={(event) => ({
-          isGreyedOut: !event.isFavorited || softDelete.isPending(event.id),
-          isFavorited: event.isFavorited && !softDelete.isPending(event.id),
-          pendingRemoval: softDelete.isPending(event.id),
-          onFavoriteToggle: () => {
-            if (softDelete.isPending(event.id)) {
-              return
-            }
+        getCardProps={(event) => {
+          const isOptimisticallyUnfavorited = unfavoritedIds.has(event.id)
+          const isCardFavorited = event.isFavorited && !isOptimisticallyUnfavorited
+          const isCardGreyedOut = !event.isFavorited || isOptimisticallyUnfavorited
 
-            softDelete.markPending(event.id, async () => {
-              if (committedPendingIdsRef.current.has(event.id)) {
-                return
+          const handleToggle = async (forceFavorited?: boolean) => {
+            const targetFavorited = forceFavorited !== undefined ? forceFavorited : isOptimisticallyUnfavorited
+
+            // Optimistic update
+            setUnfavoritedIds((prev) => {
+              const next = new Set(prev)
+              if (targetFavorited) {
+                next.delete(event.id)
+              } else {
+                next.add(event.id)
               }
-
-              committedPendingIdsRef.current.add(event.id)
-
-              try {
-                const mutation = await toggleFavoriteAsync({ eventId: event.id })
-                if (!mutation.toggleFavorite.isFavorited) {
-                  posthog.capture("event_unfavorited", {
-                    eventId: event.id,
-                    eventName: event.eventName,
-                  })
-                }
-              } catch (err) {
-                committedPendingIdsRef.current.delete(event.id)
-                throw err
-              }
+              return next
             })
-          },
-          onClick: () => {
-            const params = new URLSearchParams(searchParams.toString())
-            params.set("fromList", "favorites")
-            params.set("favoriteIds", frozenIds.join(","))
-            router.push(`/events/${event.slug}?${params.toString()}`)
-          },
-        })}
+
+            try {
+              const mutation = await toggleFavoriteAsync({ eventId: event.id })
+              const isFavoritedOnServer = mutation.toggleFavorite.isFavorited
+              
+              posthog.capture(isFavoritedOnServer ? "event_favorited" : "event_unfavorited", {
+                eventId: event.id,
+                eventName: event.eventName,
+              })
+
+              // Align state with server
+              setUnfavoritedIds((prev) => {
+                const next = new Set(prev)
+                if (isFavoritedOnServer) {
+                  next.delete(event.id)
+                } else {
+                  next.add(event.id)
+                }
+                return next
+              })
+
+              if (!isFavoritedOnServer) {
+                toast(t("pendingRemovalToastMessage"), {
+                  action: {
+                    label: t("undoLabel"),
+                    onClick: () => {
+                      // Trigger re-favorite (force favorited)
+                      handleToggle(true)
+                    },
+                  },
+                })
+              }
+            } catch (err) {
+              console.error("handleToggle caught error:", err)
+              // Rollback on error
+              setUnfavoritedIds((prev) => {
+                const next = new Set(prev)
+                if (targetFavorited) {
+                  next.add(event.id)
+                } else {
+                  next.delete(event.id)
+                }
+                return next
+              })
+              toast.error("Failed to update favorite status")
+            }
+          }
+
+          return {
+            isGreyedOut: isCardGreyedOut,
+            isFavorited: isCardFavorited,
+            pendingRemoval: isOptimisticallyUnfavorited,
+            onFavoriteToggle: () => {
+              if (isOptimisticallyUnfavorited) {
+                handleToggle(true)
+              } else {
+                handleToggle()
+              }
+            },
+            onClick: () => {
+              const params = new URLSearchParams(searchParams.toString())
+              params.set("fromList", "favorites")
+              params.set("favoriteIds", frozenIds.join(","))
+              router.push(`/events/${event.slug}?${params.toString()}`)
+            },
+          }
+        }}
         sentinelRef={sentinelRef}
         isFetchingNextPage={isFetchingNextPage}
         loadingMoreLabel={t("loadingMore")}

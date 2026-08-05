@@ -1,5 +1,7 @@
 import { Suspense } from 'react';
 import { getTranslations } from 'next-intl/server';
+
+export const dynamic = 'force-dynamic';
 import { buildPageMetadata } from '@/lib/metadata';
 import { FavoritesContent } from './favorites-content';
 

@@ -77,7 +77,7 @@ importers:
         version: 5.0.3(graphql@16.14.2)
       '@graphql-codegen/cli':
         specifier: ^5.0.2
-        version: 5.0.7(@parcel/watcher@2.6.0)(graphql@16.14.2)(typescript@5.9.3)
+        version: 5.0.7(@parcel/watcher@2.6.0)(@types/node@20.19.43)(graphql@16.14.2)(typescript@5.9.3)
       '@graphql-codegen/typescript':
         specifier: ^4.0.9
         version: 4.1.6(graphql@16.14.2)
@@ -143,7 +143,7 @@ importers:
         version: 15.5.20(@babel/core@7.29.7)(@playwright/test@1.62.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       next-intl:
         specifier: 4.13.4
-        version: 4.13.4(next@15.5.20(@babel/core@7.29.7)(@playwright/test@1.62.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)(typescript@6.0.3)
+        version: 4.13.4(next@15.5.20(@playwright/test@1.62.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)(typescript@6.0.3)
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -156,6 +156,9 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.7(react@19.2.7)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
@@ -5994,7 +5997,7 @@ snapshots:
       graphql: 16.14.2
       tslib: 2.6.3
 
-  '@graphql-codegen/cli@5.0.7(@parcel/watcher@2.6.0)(@types/node@20.19.43)(graphql@16.14.2)(typescript@6.0.3)':
+  '@graphql-codegen/cli@5.0.7(@parcel/watcher@2.6.0)(@types/node@20.19.43)(graphql@16.14.2)(typescript@5.9.3)':
     dependencies:
       '@babel/generator': 7.29.8
       '@babel/template': 7.29.7
@@ -6014,11 +6017,11 @@ snapshots:
       '@graphql-tools/utils': 10.11.0(graphql@16.14.2)
       '@whatwg-node/fetch': 0.10.13
       chalk: 4.1.2
-      cosmiconfig: 8.3.6(typescript@6.0.3)
+      cosmiconfig: 8.3.6(typescript@5.9.3)
       debounce: 1.2.1
       detect-indent: 6.1.0
       graphql: 16.14.2
-      graphql-config: 5.1.6(@types/node@20.19.43)(graphql@16.14.2)(typescript@6.0.3)
+      graphql-config: 5.1.6(@types/node@20.19.43)(graphql@16.14.2)(typescript@5.9.3)
       inquirer: 8.2.7(@types/node@20.19.43)
       is-glob: 4.0.3
       jiti: 1.21.7
@@ -6047,7 +6050,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@graphql-codegen/cli@5.0.7(@parcel/watcher@2.6.0)(graphql@16.14.2)(typescript@5.9.3)':
+  '@graphql-codegen/cli@5.0.7(@parcel/watcher@2.6.0)(@types/node@20.19.43)(graphql@16.14.2)(typescript@6.0.3)':
     dependencies:
       '@babel/generator': 7.29.8
       '@babel/template': 7.29.7
@@ -6067,11 +6070,11 @@ snapshots:
       '@graphql-tools/utils': 10.11.0(graphql@16.14.2)
       '@whatwg-node/fetch': 0.10.13
       chalk: 4.1.2
-      cosmiconfig: 8.3.6(typescript@5.9.3)
+      cosmiconfig: 8.3.6(typescript@6.0.3)
       debounce: 1.2.1
       detect-indent: 6.1.0
       graphql: 16.14.2
-      graphql-config: 5.1.6(graphql@16.14.2)(typescript@5.9.3)
+      graphql-config: 5.1.6(@types/node@20.19.43)(graphql@16.14.2)(typescript@6.0.3)
       inquirer: 8.2.7(@types/node@20.19.43)
       is-glob: 4.0.3
       jiti: 1.21.7
@@ -8661,7 +8664,7 @@ snapshots:
 
   gopd@1.2.0: {}
 
-  graphql-config@5.1.6(@types/node@20.19.43)(graphql@16.14.2)(typescript@6.0.3):
+  graphql-config@5.1.6(@types/node@20.19.43)(graphql@16.14.2)(typescript@5.9.3):
     dependencies:
       '@graphql-tools/graphql-file-loader': 8.1.18(graphql@16.14.2)
       '@graphql-tools/json-file-loader': 8.0.32(graphql@16.14.2)
@@ -8669,7 +8672,7 @@ snapshots:
       '@graphql-tools/merge': 9.2.2(graphql@16.14.2)
       '@graphql-tools/url-loader': 9.1.6(@types/node@20.19.43)(graphql@16.14.2)
       '@graphql-tools/utils': 11.2.2(graphql@16.14.2)
-      cosmiconfig: 8.3.6(typescript@6.0.3)
+      cosmiconfig: 8.3.6(typescript@5.9.3)
       graphql: 16.14.2
       jiti: 2.7.0
       minimatch: 10.2.5
@@ -8683,7 +8686,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  graphql-config@5.1.6(graphql@16.14.2)(typescript@5.9.3):
+  graphql-config@5.1.6(@types/node@20.19.43)(graphql@16.14.2)(typescript@6.0.3):
     dependencies:
       '@graphql-tools/graphql-file-loader': 8.1.18(graphql@16.14.2)
       '@graphql-tools/json-file-loader': 8.0.32(graphql@16.14.2)
@@ -8691,7 +8694,7 @@ snapshots:
       '@graphql-tools/merge': 9.2.2(graphql@16.14.2)
       '@graphql-tools/url-loader': 9.1.6(@types/node@20.19.43)(graphql@16.14.2)
       '@graphql-tools/utils': 11.2.2(graphql@16.14.2)
-      cosmiconfig: 8.3.6(typescript@5.9.3)
+      cosmiconfig: 8.3.6(typescript@6.0.3)
       graphql: 16.14.2
       jiti: 2.7.0
       minimatch: 10.2.5
@@ -9396,7 +9399,7 @@ snapshots:
 
   next-intl-swc-plugin-extractor@4.13.4: {}
 
-  next-intl@4.13.4(next@15.5.20(@babel/core@7.29.7)(@playwright/test@1.62.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)(typescript@6.0.3):
+  next-intl@4.13.4(next@15.5.20(@playwright/test@1.62.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)(typescript@6.0.3):
     dependencies:
       '@formatjs/intl-localematcher': 0.8.13
       '@parcel/watcher': 2.6.0
