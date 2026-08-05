@@ -53,6 +53,7 @@ This document defines the core architectural invariants for the FestDaily applic
     *   **string:** `contains`, `equals`, `notEquals`
     *   **enum (type, category):** `in`, `notIn`
     *   **ID (locationPreferenceId, socialMediaAccountProfileId):** `in`, `notIn`
+    *   **date range (scheduleDateRange):** `overlaps` (value: `{ from: string; to: string }` ISO dates)
 
 ---
 

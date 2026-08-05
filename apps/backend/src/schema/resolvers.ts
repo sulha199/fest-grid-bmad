@@ -270,6 +270,13 @@ export const resolvers: Resolvers = {
         postId: events.postId,
         performers: schedules.performers, // mapped to joined table
         scheduleLocation: schedules.location, // to support filtering by schedule location
+        scheduleDateRange: {
+          table: schedules,
+          eventIdCol: schedules.eventId,
+          correlateCol: events.id,
+          startCol: schedules.eventStartDate,
+          endCol: schedules.eventEndDate,
+        },
         isFavorited: userId ? exists(
           db.select({ id: favorites.id })
             .from(favorites)

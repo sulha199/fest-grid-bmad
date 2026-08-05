@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-05T23:00:00Z
+last_updated: 2026-08-06T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -111,7 +111,7 @@ development_status:
   # the events resolver's main-schedule-only join can't correctly date-range-filter
   # sub-schedules; needs its own EXISTS-subquery DSL field + GiST index migration.
   # See epics.md Story 1.3h note.
-  1-3h-extend-the-events-graphql-api-with-schedule-level-date-range-query-support: ready-for-dev
+  1-3h-extend-the-events-graphql-api-with-schedule-level-date-range-query-support: review
   # added 2026-08-05 via bmad-create-story: Gate 3-shaped gap surfaced while drafting
   # Story 1.3e — Story 1.3d's Out-of-Scope note incorrectly assumed "Calendar View is
   # Epic 2 Story 2.6"; 2.6 is actually the separate /my-calendar personal page. The

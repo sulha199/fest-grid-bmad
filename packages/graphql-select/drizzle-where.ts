@@ -1,5 +1,5 @@
 import { SQL, and, or, ilike, inArray, notInArray, eq, ne, sql, isNotNull, isNull } from "drizzle-orm";
-import { PgColumn } from "drizzle-orm/pg-core";
+import { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { QueryCondition, isGroupCondition } from "@festgrid/domain/query";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -77,6 +77,22 @@ export function buildDrizzleWhere(
         return sql`NOT (${column} && ARRAY[${sql.join(elements, sql`, `)}])`;
       }
       return notInArray(column, value);
+    case "overlaps": {
+      const { from, to } = value as { from: string; to: string };
+      const { table, eventIdCol, correlateCol, startCol, endCol } = column as {
+        table: PgTable;
+        eventIdCol: PgColumn;
+        correlateCol: PgColumn;
+        startCol: PgColumn;
+        endCol: PgColumn;
+      };
+      return sql`EXISTS (
+        SELECT 1 FROM ${table}
+        WHERE ${eventIdCol} = ${correlateCol}
+          AND daterange(${startCol}, COALESCE(${endCol}, ${startCol}), '[]')
+              && daterange(${from}::date, ${to}::date, '[]')
+      )`;
+    }
     default:
       return undefined;
   }

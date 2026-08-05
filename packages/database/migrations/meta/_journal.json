@@ -57,6 +57,13 @@
       "when": 1785931473958,
       "tag": "0007_exotic_dracula",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1785949963478,
+      "tag": "0008_schedule-date-range-gist-index",
+      "breakpoints": true
     }
   ]
 }

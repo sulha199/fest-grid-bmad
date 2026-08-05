@@ -7,7 +7,7 @@ baseline_commit: 66ebbf3116aab326745e06cf9c6023daae249492
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.3h
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,16 +33,16 @@ so that Story 1.3f's Discovery Calendar View (and any future date-bounded event 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `overlaps` to the DSL type (AC1) — `packages/domain`
-  - [ ] In `packages/domain/src/query/queryDsl.ts`, extend `TerminalOperator`:
+- [x] Task 1: Add `overlaps` to the DSL type (AC1) — `packages/domain`
+  - [x] In `packages/domain/src/query/queryDsl.ts`, extend `TerminalOperator`:
     ```ts
     export type TerminalOperator = "eq" | "ne" | "contains" | "in" | "notIn" | "overlaps";
     ```
     **Coordination note:** Story 2.5a (currently `ready-for-dev`, not yet implemented) independently extends this same union with `"withinRadius"` for an unrelated geo-distance feature. Whichever story lands in code first, the other must **merge into** the existing union (append its own member alongside the other's), not overwrite it — final state should read `"eq" | "ne" | "contains" | "in" | "notIn" | "withinRadius" | "overlaps"` regardless of implementation order.
-  - [ ] No other `packages/domain` changes needed — unlike Story 2.5a's `withinRadius` (which needed a DB-backed `locationPreferenceId` → coordinates lookup, split into a dedicated `resolveWithinRadiusConditions` pure tree-transform), `scheduleDateRange`'s `{ from, to }` value requires no server-side resolution step; it flows straight from the client-supplied DSL value into the SQL builder (Task 2).
+  - [x] No other `packages/domain` changes needed — unlike Story 2.5a's `withinRadius` (which needed a DB-backed `locationPreferenceId` → coordinates lookup, split into a dedicated `resolveWithinRadiusConditions` pure tree-transform), `scheduleDateRange`'s `{ from, to }` value requires no server-side resolution step; it flows straight from the client-supplied DSL value into the SQL builder (Task 2).
 
-- [ ] Task 2: Add `overlaps` handling to `buildDrizzleWhere` (AC1, AC2, AC4, AC6) — `packages/graphql-select`
-  - [ ] In `packages/graphql-select/drizzle-where.ts`, add `PgTable` to the existing `drizzle-orm/pg-core` import (alongside `PgColumn`), and add a case to the existing `switch (operator)` block:
+- [x] Task 2: Add `overlaps` handling to `buildDrizzleWhere` (AC1, AC2, AC4, AC6) — `packages/graphql-select`
+  - [x] In `packages/graphql-select/drizzle-where.ts`, add `PgTable` to the existing `drizzle-orm/pg-core` import (alongside `PgColumn`), and add a case to the existing `switch (operator)` block:
     ```ts
     case "overlaps": {
       const { from, to } = value as { from: string; to: string };
@@ -63,21 +63,21 @@ so that Story 1.3f's Discovery Calendar View (and any future date-bounded event 
     ```
     Design decision (confirmed with user, see Dev Notes → Design Decision: overlaps implementation placement): the EXISTS-subquery SQL is built generically here, inside `graphql-select`'s existing operator switch, from a `{ table, eventIdCol, correlateCol, startCol, endCol }` config object supplied via `fieldMap` (mirroring how `packages/graphql-select` already receives multi-column config objects for compound fields, e.g. Story 2.5a's `scheduleCoordinates: { latColumn, lngColumn }`) — not built ad hoc inside `apps/backend/resolvers.ts` the way `isFavorited`/`isAddedToCalendar`'s simpler single-purpose EXISTS checks are. This keeps all Drizzle/SQL-construction logic inside `packages/graphql-select` (already Drizzle-coupled by design per `project-context.md`'s Code Organization rule) and requires no query-tree pre-scan in the resolver — each `scheduleDateRange` terminal condition anywhere in the tree is resolved independently through the normal per-node switch dispatch, so AC4's multi-condition composition requirement is satisfied without special-casing.
     `NULL` `eventEndDate` is handled by the `COALESCE` inside the SQL expression itself (AC6's single-day fallback) — no separate `IS NULL` branch needed in TypeScript.
-  - [ ] Unit tests in `packages/graphql-select/drizzle-where.test.ts`: add a synthetic `scheduleTestTable` (`pgTable('schedule_test_table', { eventId: uuid('event_id'), eventStartDate: date('event_start_date'), eventEndDate: date('event_end_date') })`) alongside the existing `testTable`, and a `scheduleDateRange: { table: scheduleTestTable, eventIdCol: scheduleTestTable.eventId, correlateCol: testTable.id, startCol: scheduleTestTable.eventStartDate, endCol: scheduleTestTable.eventEndDate }` fieldMap entry (add an `id: uuid('id')` column to `testTable` if it doesn't already have one usable as a correlation target). Add a case asserting `buildDrizzleWhere` returns a defined `SQL` for `{ field: "scheduleDateRange", operator: "overlaps", value: { from: "2026-08-01", to: "2026-08-07" } }`, following this file's existing `assert.ok(res !== undefined)` no-real-DB style (no boundary-case execution here — those need a real DB, covered by Task 4's integration tests).
+  - [x] Unit tests in `packages/graphql-select/drizzle-where.test.ts`: add a synthetic `scheduleTestTable` (`pgTable('schedule_test_table', { eventId: uuid('event_id'), eventStartDate: date('event_start_date'), eventEndDate: date('event_end_date') })`) alongside the existing `testTable`, and a `scheduleDateRange: { table: scheduleTestTable, eventIdCol: scheduleTestTable.eventId, correlateCol: testTable.id, startCol: scheduleTestTable.eventStartDate, endCol: scheduleTestTable.eventEndDate }` fieldMap entry (add an `id: uuid('id')` column to `testTable` if it doesn't already have one usable as a correlation target). Add a case asserting `buildDrizzleWhere` returns a defined `SQL` for `{ field: "scheduleDateRange", operator: "overlaps", value: { from: "2026-08-01", to: "2026-08-07" } }`, following this file's existing `assert.ok(res !== undefined)` no-real-DB style (no boundary-case execution here — those need a real DB, covered by Task 4's integration tests).
 
-- [ ] Task 3: Add a GiST index migration (AC2, AC3) — `packages/database`
-  - [ ] **No `schema.ts` change is required** — `schedules.eventStartDate`/`schedules.eventEndDate` already exist as `date` columns (Dev Notes → Data Type Compatibility). Drizzle's schema-first `index()` builder (drizzle-kit `^0.21.2`, drizzle-orm `^0.30.10`) only accepts real `PgColumn` references in `.on(...)` — it cannot express a functional/expression index on `daterange(...)`, so this index cannot be declared in `schema.ts` and diffed by `drizzle-kit generate` the normal way (Dev Notes → Data Type Compatibility).
-  - [ ] Run `pnpm --filter @festgrid/database exec drizzle-kit generate --custom --name=schedule-date-range-gist-index` to produce an empty migration file (`packages/database/migrations/000N_schedule-date-range-gist-index.sql`, registered in `meta/_journal.json` automatically) with no schema diff.
-  - [ ] Hand-write the index into that generated (empty) file:
+- [x] Task 3: Add a GiST index migration (AC2, AC3) — `packages/database`
+  - [x] **No `schema.ts` change is required** — `schedules.eventStartDate`/`schedules.eventEndDate` already exist as `date` columns (Dev Notes → Data Type Compatibility). Drizzle's schema-first `index()` builder (drizzle-kit `^0.21.2`, drizzle-orm `^0.30.10`) only accepts real `PgColumn` references in `.on(...)` — it cannot express a functional/expression index on `daterange(...)`, so this index cannot be declared in `schema.ts` and diffed by `drizzle-kit generate` the normal way (Dev Notes → Data Type Compatibility).
+  - [x] Run `pnpm --filter @festgrid/database exec drizzle-kit generate --custom --name=schedule-date-range-gist-index` to produce an empty migration file (`packages/database/migrations/000N_schedule-date-range-gist-index.sql`, registered in `meta/_journal.json` automatically) with no schema diff.
+  - [x] Hand-write the index into that generated (empty) file:
     ```sql
     CREATE INDEX IF NOT EXISTS "schedule_date_range_idx" ON "schedules"
     USING gist (daterange(event_start_date, COALESCE(event_end_date, event_start_date), '[]'));
     ```
     No `btree_gist` extension is required — `daterange` has a native GiST operator class (`range_ops`) in core Postgres; `btree_gist` is only needed when mixing scalar-equality columns with a range in one composite GiST index, which this index does not do.
-  - [ ] Apply the migration locally (`pnpm --filter @festgrid/database run migrate`) and confirm it runs cleanly against the local dev Postgres.
+  - [x] Apply the migration locally (`pnpm --filter @festgrid/database run migrate`) and confirm it runs cleanly against the local dev Postgres.
 
-- [ ] Task 4: Wire `scheduleDateRange` into the `events` resolver's `fieldMap` (AC1, AC4) — `apps/backend`
-  - [ ] In `apps/backend/src/schema/resolvers.ts`, `Query.events`, add one new static entry to the existing `fieldMap` object literal (alongside `scheduleLocation: schedules.location`, following that entry's identical "already-joined-table column reference" style, just bundled into a config object per Task 2's design):
+- [x] Task 4: Wire `scheduleDateRange` into the `events` resolver's `fieldMap` (AC1, AC4) — `apps/backend`
+  - [x] In `apps/backend/src/schema/resolvers.ts`, `Query.events`, add one new static entry to the existing `fieldMap` object literal (alongside `scheduleLocation: schedules.location`, following that entry's identical "already-joined-table column reference" style, just bundled into a config object per Task 2's design):
     ```ts
     scheduleDateRange: {
       table: schedules,
@@ -88,14 +88,14 @@ so that Story 1.3f's Discovery Calendar View (and any future date-bounded event 
     },
     ```
     Unlike `isFavorited`/`isAddedToCalendar` (which are conditionally built as full SQL booleans depending on `userId`) or Story 2.5a's `withinRadius` (which needs an async DB lookup before the fieldMap can be built), this entry needs no auth check and no async lookup — it is a static, always-present config object, mirroring `scheduleLocation`'s simplicity. No new imports needed (`schedules`/`events` are already imported in this file).
-  - [ ] No auth/authorization change — `scheduleDateRange`/`overlaps` is usable by unauthenticated callers, same as every other non-personalization field (`eventName`, `types`, `scheduleLocation`, etc.); it filters on public schedule data, not per-user data.
-  - [ ] Integration tests in `apps/backend/src/schema/resolvers.test.ts` (extends the existing `events resolver integration via Yoga` block, real local test DB, matching the file's established pattern — no msw, this is backend-side): seed 5-6 `events`+`schedules` rows at known dates covering AC6's boundary cases (fully inside; fully spanning; overlapping only the start edge; overlapping only the end edge; entirely outside; single-day with `eventEndDate = null`), including at least one event whose **only** matching schedule is a sub-schedule (`isMainSchedule: false`) to prove the `EXISTS`-against-full-table approach (not `mainSchedulesOnly`) is actually exercised; assert `overlaps` filters correctly for each boundary case (AC6); assert an `and` of `scheduleDateRange` with an existing `types`/`categories` condition composes correctly (AC4); assert existing `eq`/`in`/`contains` tests and the `isFavorited`/`scheduleLocation`/`performers` fieldMap entries still pass unmodified (AC5, regression).
+  - [x] No auth/authorization change — `scheduleDateRange`/`overlaps` is usable by unauthenticated callers, same as every other non-personalization field (`eventName`, `types`, `scheduleLocation`, etc.); it filters on public schedule data, not per-user data.
+  - [x] Integration tests in `apps/backend/src/schema/resolvers.test.ts` (extends the existing `events resolver integration via Yoga` block, real local test DB, matching the file's established pattern — no msw, this is backend-side): seed 5-6 `events`+`schedules` rows at known dates covering AC6's boundary cases (fully inside; fully spanning; overlapping only the start edge; overlapping only the end edge; entirely outside; single-day with `eventEndDate = null`), including at least one event whose **only** matching schedule is a sub-schedule (`isMainSchedule: false`) to prove the `EXISTS`-against-full-table approach (not `mainSchedulesOnly`) is actually exercised; assert `overlaps` filters correctly for each boundary case (AC6); assert an `and` of `scheduleDateRange` with an existing `types`/`categories` condition composes correctly (AC4); assert existing `eq`/`in`/`contains` tests and the `isFavorited`/`scheduleLocation`/`performers` fieldMap entries still pass unmodified (AC5, regression).
 
-- [ ] Task 5: Update AD-1's field/operator documentation (repo hygiene, matches Story 2.5a's precedent)
-  - [ ] In `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, AD-1's "Fields and Operators" list, add a new bullet: `**date range (scheduleDateRange):** overlaps (value: { from: string; to: string } ISO dates)`.
+- [x] Task 5: Update AD-1's field/operator documentation (repo hygiene, matches Story 2.5a's precedent)
+  - [x] In `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, AD-1's "Fields and Operators" list, add a new bullet: `**date range (scheduleDateRange):** overlaps (value: { from: string; to: string } ISO dates)`.
 
-- [ ] Task 6: Manual verification
-  - [ ] Run the backend locally, exercise `events(query: { field: "scheduleDateRange", operator: "overlaps", value: { from: "2026-08-01", to: "2026-08-07" } })` via GraphiQL/`curl` against real seeded data; confirm results include an event whose only matching schedule is a sub-schedule; confirm combining with `types`/`categories` via `and` narrows correctly; confirm `pnpm build`/`pnpm lint` stay clean at the repo root (no codegen re-run needed — `EventQueryConditionInput` is unchanged, AC7).
+- [x] Task 6: Manual verification
+  - [x] Run the backend locally, exercise `events(query: { field: "scheduleDateRange", operator: "overlaps", value: { from: "2026-08-01", to: "2026-08-07" } })` via GraphiQL/`curl` against real seeded data; confirm results include an event whose only matching schedule is a sub-schedule; confirm combining with `types`/`categories` via `and` narrows correctly; confirm `pnpm build`/`pnpm lint` stay clean at the repo root (no codegen re-run needed — `EventQueryConditionInput` is unchanged, AC7).
 
 ## Dev Notes
 
@@ -238,7 +238,28 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 - One real design tradeoff — where the `overlaps` EXISTS-subquery SQL-building logic should live (generic `packages/graphql-select` switch case vs. ad hoc in `apps/backend/resolvers.ts` mirroring `isFavorited` literally) — was surfaced to and confirmed by the user via `AskUserQuestion` before finalizing Tasks, per this project's guidance to not silently pick a side on non-mechanical tradeoffs. Resolved toward the generic-switch-case option (see Dev Notes → Design Decision) for correctness (avoids a first-match-wins limitation on multiple `scheduleDateRange` conditions) and package-boundary consistency.
 - A pre-existing tooling limitation (Drizzle's schema-first `index()` builder cannot express expression/functional indexes in the pinned drizzle-kit/drizzle-orm versions) was found while planning AC3's GiST index; resolved via `drizzle-kit generate --custom` + a hand-written statement, mirroring Story 2.5a's established "generate via drizzle-kit, hand-append what it can't diff" convention. Judged mechanical (the only technically correct path given the tooling constraint) and not escalated via `AskUserQuestion`.
 - A concurrent-modification coordination risk was found: Story 2.5a (`ready-for-dev`, unimplemented) independently extends the same `TerminalOperator` union with `"withinRadius"`. Documented as a merge-not-overwrite note in Task 1 and the Pre-Coding Approval Gate rather than escalated, since it's a routine sequencing concern (whichever story's developer lands second simply merges), not a design tradeoff.
+- Pre-Coding Approval Gate was confirmed explicitly with the user via `AskUserQuestion` before any code was written (scope, design decisions, and coordination risk all summarized and approved).
+- `apps/backend`'s `tsx --test` process does not exit cleanly after tests finish (the shared `postgres.js` `db` client is never closed, keeping the event loop alive past the final TAP summary line) — confirmed this is pre-existing by stashing all story changes and re-running `resolvers.test.ts` against baseline `master`, which showed identical hang-after-pass behavior. Not fixed (out of scope for this story); noted here so future `dev-story`/CI runs on this repo know to treat "all subtests report `ok`" as the completion signal for this specific file rather than waiting on the process to exit or a final `# tests` summary line.
+- Two new commits landed on `master` from a concurrent session during implementation (`3d3722a`, `4baccd3`, both part of the in-progress Story 2.3/saved-locations work) — unrelated to this story's backend-only scope; caused `apps/web`'s build to fail on a pre-existing `BlockingLoader` prop-type mismatch in `location-form-dialog.tsx`, confirmed unrelated by checking `git status`/`git log` and the file's own diff history.
+- Given the per-file DB-connection hang above made a full `apps/backend` regression run very slow (background/foreground timeouts), the regression check was scoped to `resolvers.test.ts` (this story's directly modified resolver) plus `favorites-and-calendar.test.ts` and `user-locations.test.ts` (the only other backend test files that exercise the same `resolvers.ts` module) — all three fully pass. The remaining backend test files (`auth/*`, `geolocation/*`, `validation/*`) share no code with this story's changes and were not re-run.
 
 ### Completion Notes List
 
+- Implemented all 6 tasks: `TerminalOperator` gained `"overlaps"` (`packages/domain`); `buildDrizzleWhere` gained a generic `overlaps` case building a correlated `EXISTS`+`daterange`+`&&` SQL expression from a `{table, eventIdCol, correlateCol, startCol, endCol}` config object (`packages/graphql-select`); a hand-written GiST index migration (`0008_schedule-date-range-gist-index.sql`) was generated via `drizzle-kit generate --custom` and applied locally; the `events` resolver's `fieldMap` gained a static `scheduleDateRange` entry (`apps/backend`); AD-1 documentation was updated; manual verification was run against the live dev server and real seeded data.
+- All 7 ACs satisfied: AC1/AC2 (EXISTS + daterange/&& overlap semantics), AC3 (GiST index, confirmed present via `pg_indexes` query), AC4 (and/or composition, covered by both integration tests and a live curl smoke test), AC5 (full regression — see below), AC6 (all 6 boundary cases covered by integration tests: fully inside, spanning, start-edge-only, end-edge-only, entirely outside, single-day null-end-date), AC7 (no `.graphql`/codegen changes — confirmed no `events.graphql` diff).
+- Tests: `packages/domain` build/typecheck only (pure type addition, no new test per Dev Notes → Testing Rules); `packages/graphql-select/drizzle-where.test.ts` — 22/22 pass (1 new `overlaps` case, written RED-first and confirmed failing before implementation); `apps/backend/src/schema/resolvers.test.ts` — new `scheduleDateRange overlaps filtering` block (4 subtests: AC6 boundaries, sub-schedule-only match, `and`-composition, `or`-composition with a second independent condition) all pass, plus full regression of the file's existing tests. `favorites-and-calendar.test.ts` (8/8) and `user-locations.test.ts` (13/13) — both share `resolvers.ts` and re-verified with no regressions.
+- Manual verification (Task 6) ran against the already-running local dev server (`localhost:4001`) and real seeded data: confirmed an event (`...0003`, main schedule `2027-11-15`) matches a `[2027-11-16, 2027-11-16]` query only via its sub-schedule (`2027-11-16`), proving the EXISTS-against-full-table approach; confirmed `and`-composition with `types` narrows correctly; confirmed the pre-existing `types`-only filter is unaffected.
+- Build: `packages/domain`, `packages/database`, `packages/graphql-select`, `apps/backend` all build clean (`tsc`) individually. Root `pnpm build` fails only on `apps/web` (pre-existing, unrelated `BlockingLoader` prop-type error from concurrent Story 2.3 work — see Debug Log).
+- Lint: `--max-warnings 0` fails on `packages/domain`, `packages/graphql-select`, and `apps/backend` — but verified (by diffing against baseline `master` and checking exact line numbers) that every reported warning is pre-existing (`@typescript-eslint/no-explicit-any` on untouched lines, one pre-existing unused `eq` import in `resolvers.test.ts` that predates this story) and zero new warnings were introduced by this story's code. Flagging to the user per project policy rather than silently treating the DoD lint item as clean — the repo's lint baseline was already failing before this story started.
+
 ### File List
+
+- `packages/domain/src/query/queryDsl.ts` (modified)
+- `packages/graphql-select/drizzle-where.ts` (modified)
+- `packages/graphql-select/drizzle-where.test.ts` (modified)
+- `packages/database/migrations/0008_schedule-date-range-gist-index.sql` (new)
+- `packages/database/migrations/meta/_journal.json` (modified, drizzle-kit-generated)
+- `packages/database/migrations/meta/0008_snapshot.json` (new, drizzle-kit-generated)
+- `apps/backend/src/schema/resolvers.ts` (modified)
+- `apps/backend/src/schema/resolvers.test.ts` (modified)
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (modified)
