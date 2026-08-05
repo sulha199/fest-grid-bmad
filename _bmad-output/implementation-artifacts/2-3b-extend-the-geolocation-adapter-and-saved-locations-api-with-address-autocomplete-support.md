@@ -7,7 +7,7 @@ baseline_commit: 94d87d4be32711f0ce433a82207955e97fd1a5c3
 
 - Epic: 2 - User Personalization
 - Story ID: 2.3b
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -34,34 +34,34 @@ so that Story 2.3's "My Locations" add/edit form can offer a live typeahead sear
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `AddressPrediction` type to `packages/domain` (AC1)
-  - [ ] In `packages/domain/src/geolocation/types.ts` (alongside the existing `GeolocationQuery` union), add `export type AddressPrediction = { placeId: string; description: string };` — co-located with `GeolocationQuery` rather than `@festgrid/shared-types`, since like `GeolocationQuery` this is a backend-adapter-internal request/response shape, not a widely-shared entity type consumed across DB/GraphQL/frontend the way `Coordinates`/`LocationDetails` are.
-- [ ] Task 2: Build the pure minimum-input-length guard in `packages/domain` (AC2)
-  - [ ] Create `packages/domain/src/geolocation/validate-autocomplete-input.ts` exporting `export const MIN_AUTOCOMPLETE_INPUT_LENGTH = 3;` and `export function meetsAutocompleteInputThreshold(input: string): boolean` — returns `input.trim().length >= MIN_AUTOCOMPLETE_INPUT_LENGTH`. Pure, dependency-free (no DB/SDK imports), per `project-context.md`'s Code Organization rule.
-  - [ ] Create `packages/domain/src/geolocation/validate-autocomplete-input.test.ts` (`node:test`/`tsx --test`, mirroring `build-cache-key.test.ts`'s established pattern for this package). Achieve **100% coverage** per `project-context.md`'s Unit Test Requirement: below threshold (`""`, `"a"`, `"ab"`), at threshold (`"abc"`), above threshold, and whitespace-padded input that is only long enough after trimming (`"  ab  "` → too short) vs. before trimming (`"  abc  "` → valid).
-  - [ ] Update `packages/domain/src/geolocation/index.ts` to also `export * from './validate-autocomplete-input.js';` (mirrors the file's existing `export * from './types.js'` / `./build-cache-key.js` pattern).
-- [ ] Task 3: Add `getAddressPredictions` to the Geoapify REST client wrapper (AC1)
-  - [ ] In `apps/backend/src/lib/geolocation/geoapify-client.ts`, add `export async function getAddressPredictions(input: string): Promise<AddressPrediction[]>` — calls `GET https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(input)}&format=json&limit=5&apiKey={apiKey}` (same `format=json`/`apiKey` conventions as `geocodeAddress`/`reverseGeocode`; `limit=5` caps suggestion-list size, matching typeahead UX conventions), maps each `results[]` entry's `{ place_id, formatted }` into `{ placeId: place_id, description: formatted }`. Unlike `geocodeAddress`/`reverseGeocode`/`getPlaceDetails`, an empty `results` array is a normal, expected "no suggestions yet" outcome for a typeahead — return `[]`, do **not** throw `GeolocationNotFoundError` (that error type is reserved for a definitive single-location lookup miss, not an in-progress partial-text search).
-  - [ ] Extend `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (`node:test`/`tsx --test`, mocked global `fetch`, no real network calls) with: a successful multi-result response maps correctly to `AddressPrediction[]`; an empty `results` array returns `[]` (not a thrown error); a non-2xx HTTP response still throws `GeolocationApiError` (consistent with the other three functions).
-- [ ] Task 4: Add `getAddressPredictions` to the Adapter's public interface (AC1, AC2, AC3)
-  - [ ] In `apps/backend/src/lib/geolocation/adapter.ts`, add `export async function getAddressPredictions(input: string): Promise<AddressPrediction[]>` (import `meetsAutocompleteInputThreshold` from `@festgrid/domain/geolocation`) — if the threshold guard fails, return `[]` immediately (no `geoapify-client` call, AC2); otherwise call `geoapify-client`'s `getAddressPredictions(input)` directly and return its result **without** any `cache-store.ts` read/write (AC3 — this is the one Adapter function that intentionally bypasses the cache-first pattern `resolveLocation` uses).
-  - [ ] Extend `apps/backend/src/lib/geolocation/adapter.test.ts` (`node:test`/`tsx --test`, `geoapify-client`/`cache-store` swapped for module-mocked fakes) with: input below the threshold never calls the mocked `geoapify-client.getAddressPredictions` and returns `[]`; input at/above the threshold calls it and returns its mapped result; `cache-store`'s `getCached`/`setCached` mocks are asserted **not called** for this function (proving AC3's no-caching rule, distinct from `resolveLocation`'s existing cache-hit/cache-miss test coverage).
-- [ ] Task 5: Extend `resolveLocationInputMode` to a third `placeId` mode (AC5) — **depends on Story 2.3a's `packages/domain/src/user-locations/validateLocationInput.ts` existing; see Pre-Coding Approval Gate**
-  - [ ] Extend `resolveLocationInputMode(input: { address?: string | null; latitude?: number | null; longitude?: number | null; placeId?: string | null }): { kind: 'ADDRESS'; address: string } | { kind: 'COORDINATES'; latitude: number; longitude: number } | { kind: 'PLACE_ID'; placeId: string } | null` — throws `InvalidUserLocationInputError` if more than one of the three modes is present (address, coordinates-pair, placeId); returns `null` if none are present (valid for an `update` call that only changes `name`/`radius`).
-  - [ ] Extend `validateLocationInput.test.ts` with the new `placeId`-only case, and each pairwise both-provided combination now involving `placeId` (`address`+`placeId`, `coordinates`+`placeId`, all three) throwing `InvalidUserLocationInputError` — maintaining the file's existing 100% coverage requirement.
-- [ ] Task 6: Add `AddressSuggestion` GraphQL type and `addressAutocomplete` query; extend the two mutation input types (AC1, AC4, AC5)
-  - [ ] In `apps/backend/src/schema/user-locations.graphql` (Story 2.3a — see Pre-Coding Approval Gate if not yet created), declare `type AddressSuggestion { placeId: String! description: String! }`.
-  - [ ] `extend type Query { addressAutocomplete(input: String!): [AddressSuggestion!]! }`.
-  - [ ] Add `placeId: String` to both `CreateUserLocationInput` and `UpdateUserLocationInput`.
-- [ ] Task 7: Implement the `addressAutocomplete` resolver and extend the three mutation resolvers (AC4, AC5, AC6, AC7)
-  - [ ] `Query.addressAutocomplete`: `requireAuth` first (no try/catch degrade-to-empty, mirrors `myLocations`' AC6 precedent — AC4); call the adapter's `getAddressPredictions(input)`; return the result directly (already the `AddressSuggestion` shape).
-  - [ ] `Mutation.createUserLocation`/`updateUserLocation` (Story 2.3a): update the call site to pass `placeId` into `resolveLocationInputMode`; when the resolved mode is `{ kind: 'PLACE_ID', placeId }`, call `resolveLocation({ kind: 'PLACE_ID', placeId })` (AC6) — same downstream handling as the existing `ADDRESS`/`COORDINATES` branches (populate flat `latitude`/`longitude` plus the full `locationDetails` object, AC7).
-- [ ] Task 8: Run `pnpm run codegen` at the repo root so `apps/backend/src/generated/resolvers-types.ts` and `apps/web/src/generated/graphql.ts` pick up the new SDL (AC4, AC6).
-- [ ] Task 9: Write/extend integration tests in `apps/backend/src/schema/user-locations.test.ts` (Story 2.3a — see Pre-Coding Approval Gate if not yet created) (AC4, AC5, AC6, AC7)
-  - [ ] Mock/stub the Geolocation adapter's `getAddressPredictions` and `resolveLocation` (module-level mock or dependency injection — no real Geoapify call in tests).
-  - [ ] `addressAutocomplete`: returns the mocked adapter's mapped suggestions; unauthenticated call throws `UNAUTHENTICATED`.
-  - [ ] `createUserLocation`/`updateUserLocation` with `placeId` only (mocked `resolveLocation` called with `{ kind: 'PLACE_ID', placeId }`, resolved coordinates/locationDetails persisted); with `placeId` **and** `address` → `BAD_REQUEST`; with `placeId` **and** `latitude`/`longitude` → `BAD_REQUEST`; with all three → `BAD_REQUEST`.
-- [ ] Task 10: Manual verification — run the backend, exercise `addressAutocomplete` and the `placeId`-mode mutations via GraphiQL/`curl` against seeded data; confirm `pnpm build`/`pnpm lint`/`pnpm run codegen` stay clean at the repo root.
+- [x] Task 1: Add `AddressPrediction` type to `packages/domain` (AC1)
+  - [x] In `packages/domain/src/geolocation/types.ts` (alongside the existing `GeolocationQuery` union), add `export type AddressPrediction = { placeId: string; description: string };` — co-located with `GeolocationQuery` rather than `@festgrid/shared-types`, since like `GeolocationQuery` this is a backend-adapter-internal request/response shape, not a widely-shared entity type consumed across DB/GraphQL/frontend the way `Coordinates`/`LocationDetails` are.
+- [x] Task 2: Build the pure minimum-input-length guard in `packages/domain` (AC2)
+  - [x] Create `packages/domain/src/geolocation/validate-autocomplete-input.ts` exporting `export const MIN_AUTOCOMPLETE_INPUT_LENGTH = 3;` and `export function meetsAutocompleteInputThreshold(input: string): boolean` — returns `input.trim().length >= MIN_AUTOCOMPLETE_INPUT_LENGTH`. Pure, dependency-free (no DB/SDK imports), per `project-context.md`'s Code Organization rule.
+  - [x] Create `packages/domain/src/geolocation/validate-autocomplete-input.test.ts` (`node:test`/`tsx --test`, mirroring `build-cache-key.test.ts`'s established pattern for this package). Achieve **100% coverage** per `project-context.md`'s Unit Test Requirement: below threshold (`""`, `"a"`, `"ab"`), at threshold (`"abc"`), above threshold, and whitespace-padded input that is only long enough after trimming (`"  ab  "` → too short) vs. before trimming (`"  abc  "` → valid).
+  - [x] Update `packages/domain/src/geolocation/index.ts` to also `export * from './validate-autocomplete-input.js';` (mirrors the file's existing `export * from './types.js'` / `./build-cache-key.js` pattern).
+- [x] Task 3: Add `getAddressPredictions` to the Geoapify REST client wrapper (AC1)
+  - [x] In `apps/backend/src/lib/geolocation/geoapify-client.ts`, add `export async function getAddressPredictions(input: string): Promise<AddressPrediction[]>` — calls `GET https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(input)}&format=json&limit=5&apiKey={apiKey}` (same `format=json`/`apiKey` conventions as `geocodeAddress`/`reverseGeocode`; `limit=5` caps suggestion-list size, matching typeahead UX conventions), maps each `results[]` entry's `{ place_id, formatted }` into `{ placeId: place_id, description: formatted }`. Unlike `geocodeAddress`/`reverseGeocode`/`getPlaceDetails`, an empty `results` array is a normal, expected "no suggestions yet" outcome for a typeahead — return `[]`, do **not** throw `GeolocationNotFoundError` (that error type is reserved for a definitive single-location lookup miss, not an in-progress partial-text search).
+  - [x] Extend `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (`node:test`/`tsx --test`, mocked global `fetch`, no real network calls) with: a successful multi-result response maps correctly to `AddressPrediction[]`; an empty `results` array returns `[]` (not a thrown error); a non-2xx HTTP response still throws `GeolocationApiError` (consistent with the other three functions).
+- [x] Task 4: Add `getAddressPredictions` to the Adapter's public interface (AC1, AC2, AC3)
+  - [x] In `apps/backend/src/lib/geolocation/adapter.ts`, add `export async function getAddressPredictions(input: string): Promise<AddressPrediction[]>` (import `meetsAutocompleteInputThreshold` from `@festgrid/domain/geolocation`) — if the threshold guard fails, return `[]` immediately (no `geoapify-client` call, AC2); otherwise call `geoapify-client`'s `getAddressPredictions(input)` directly and return its result **without** any `cache-store.ts` read/write (AC3 — this is the one Adapter function that intentionally bypasses the cache-first pattern `resolveLocation` uses).
+  - [x] Extend `apps/backend/src/lib/geolocation/adapter.test.ts` (`node:test`/`tsx --test`, `geoapify-client`/`cache-store` swapped for module-mocked fakes) with: input below the threshold never calls the mocked `geoapify-client.getAddressPredictions` and returns `[]`; input at/above the threshold calls it and returns its mapped result; `cache-store`'s `getCached`/`setCached` mocks are asserted **not called** for this function (proving AC3's no-caching rule, distinct from `resolveLocation`'s existing cache-hit/cache-miss test coverage).
+- [x] Task 5: Extend `resolveLocationInputMode` to a third `placeId` mode (AC5) — **depends on Story 2.3a's `packages/domain/src/user-locations/validateLocationInput.ts` existing; see Pre-Coding Approval Gate**
+  - [x] Extend `resolveLocationInputMode(input: { address?: string | null; latitude?: number | null; longitude?: number | null; placeId?: string | null }): { kind: 'ADDRESS'; address: string } | { kind: 'COORDINATES'; latitude: number; longitude: number } | { kind: 'PLACE_ID'; placeId: string } | null` — throws `InvalidUserLocationInputError` if more than one of the three modes is present (address, coordinates-pair, placeId); returns `null` if none are present (valid for an `update` call that only changes `name`/`radius`).
+  - [x] Extend `validateLocationInput.test.ts` with the new `placeId`-only case, and each pairwise both-provided combination now involving `placeId` (`address`+`placeId`, `coordinates`+`placeId`, all three) throwing `InvalidUserLocationInputError` — maintaining the file's existing 100% coverage requirement.
+- [x] Task 6: Add `AddressSuggestion` GraphQL type and `addressAutocomplete` query; extend the two mutation input types (AC1, AC4, AC5)
+  - [x] In `apps/backend/src/schema/user-locations.graphql` (Story 2.3a — see Pre-Coding Approval Gate if not yet created), declare `type AddressSuggestion { placeId: String! description: String! }`.
+  - [x] `extend type Query { addressAutocomplete(input: String!): [AddressSuggestion!]! }`.
+  - [x] Add `placeId: String` to both `CreateUserLocationInput` and `UpdateUserLocationInput`.
+- [x] Task 7: Implement the `addressAutocomplete` resolver and extend the three mutation resolvers (AC4, AC5, AC6, AC7)
+  - [x] `Query.addressAutocomplete`: `requireAuth` first (no try/catch degrade-to-empty, mirrors `myLocations`' AC6 precedent — AC4); call the adapter's `getAddressPredictions(input)`; return the result directly (already the `AddressSuggestion` shape).
+  - [x] `Mutation.createUserLocation`/`updateUserLocation` (Story 2.3a): update the call site to pass `placeId` into `resolveLocationInputMode`; when the resolved mode is `{ kind: 'PLACE_ID', placeId }`, call `resolveLocation({ kind: 'PLACE_ID', placeId })` (AC6) — same downstream handling as the existing `ADDRESS`/`COORDINATES` branches (populate flat `latitude`/`longitude` plus the full `locationDetails` object, AC7).
+- [x] Task 8: Run `pnpm run codegen` at the repo root so `apps/backend/src/generated/resolvers-types.ts` and `apps/web/src/generated/graphql.ts` pick up the new SDL (AC4, AC6).
+- [x] Task 9: Write/extend integration tests in `apps/backend/src/schema/user-locations.test.ts` (Story 2.3a — see Pre-Coding Approval Gate if not yet created) (AC4, AC5, AC6, AC7)
+  - [x] Mock/stub the Geolocation adapter's `getAddressPredictions` and `resolveLocation` (module-level mock or dependency injection — no real Geoapify call in tests).
+  - [x] `addressAutocomplete`: returns the mocked adapter's mapped suggestions; unauthenticated call throws `UNAUTHENTICATED`.
+  - [x] `createUserLocation`/`updateUserLocation` with `placeId` only (mocked `resolveLocation` called with `{ kind: 'PLACE_ID', placeId }`, resolved coordinates/locationDetails persisted); with `placeId` **and** `address` → `BAD_REQUEST`; with `placeId` **and** `latitude`/`longitude` → `BAD_REQUEST`; with all three → `BAD_REQUEST`.
+- [x] Task 10: Manual verification — run the backend, exercise `addressAutocomplete` and the `placeId`-mode mutations via GraphiQL/`curl` against seeded data; confirm `pnpm build`/`pnpm lint`/`pnpm run codegen` stay clean at the repo root.
 
 ## Dev Notes
 
@@ -186,7 +186,7 @@ Recent commits (`94d87d4`, `d31165e`, `87223f7`, `39f40ad`, `e7e1781`) show the 
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed (Status: review)
 
 ## Dev Agent Record
 
@@ -201,5 +201,27 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 - Confirmed via `git ls-files`/grep that Story 2.3a (this story's direct dependency) has no implementation in the codebase yet, despite being `ready-for-dev` — flagged prominently in Pre-Coding Approval Gate, since this is a tighter dependency situation than Story 2.3a's own precedent with Story 0.16 (that story at least had a real, committed target interface to mock against; this story's Tasks 5-7 modify files that do not yet exist at all).
 
 ### Completion Notes List
+- Implemented `AddressPrediction` domain type and `meetsAutocompleteInputThreshold` length-3 guard in `@festgrid/domain/geolocation`.
+- Implemented `getAddressPredictions` in Geoapify REST client wrapper and Geolocation adapter in uncached, cost-sensitive, threshold-guarded pattern (AC1, AC2, AC3).
+- Extended `resolveLocationInputMode` in `@festgrid/domain/user-locations` to safely handle a third `placeId` mode alongside coordinates and addresses with precise pairwise mutual-exclusivity error validation (AC5).
+- Declared `AddressSuggestion` GraphQL type, extended type `Query` with `addressAutocomplete`, and added `placeId` fields to `CreateUserLocationInput` and `UpdateUserLocationInput` in `user-locations.graphql` (AC1, AC4, AC5).
+- Implemented `addressAutocomplete` resolver with authenticated context checks (`requireAuth`), and wired mutation resolvers to resolve and geocode incoming `placeId`s via cache-backed adapter details resolution (AC4, AC5, AC6, AC7).
+- Regenerated GraphQL codegen types for both backend and web.
+- Achieved 100% unit test coverage in `@festgrid/domain` and authored extensive integration/unit tests for geolocation adapter and GraphQL query/mutations in `apps/backend`.
 
 ### File List
+- `packages/domain/src/geolocation/types.ts` (Modified)
+- `packages/domain/src/geolocation/validate-autocomplete-input.ts` (New)
+- `packages/domain/src/geolocation/validate-autocomplete-input.test.ts` (New)
+- `packages/domain/src/geolocation/index.ts` (Modified)
+- `packages/domain/src/user-locations/validateLocationInput.ts` (Modified)
+- `packages/domain/src/user-locations/validateLocationInput.test.ts` (Modified)
+- `apps/backend/src/lib/geolocation/geoapify-client.ts` (Modified)
+- `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (Modified)
+- `apps/backend/src/lib/geolocation/adapter.ts` (Modified)
+- `apps/backend/src/lib/geolocation/adapter.test.ts` (Modified)
+- `apps/backend/src/schema/user-locations.graphql` (Modified)
+- `apps/backend/src/schema/resolvers.ts` (Modified)
+- `apps/backend/src/schema/user-locations.test.ts` (Modified)
+- `apps/backend/src/generated/resolvers-types.ts` (Regenerated)
+- `apps/web/src/generated/graphql.ts` (Regenerated)

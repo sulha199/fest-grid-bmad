@@ -7,11 +7,17 @@ type UserLocation {
   updatedAt: String!
 }
 
+type AddressSuggestion {
+  placeId: String!
+  description: String!
+}
+
 input CreateUserLocationInput {
   name: String!
   address: String
   latitude: Float
   longitude: Float
+  placeId: String
   radius: Int!
 }
 
@@ -20,11 +26,13 @@ input UpdateUserLocationInput {
   address: String
   latitude: Float
   longitude: Float
+  placeId: String
   radius: Int
 }
 
 extend type Query {
   myLocations: [UserLocation!]!
+  addressAutocomplete(input: String!): [AddressSuggestion!]!
 }
 
 extend type Mutation {

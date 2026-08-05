@@ -19,6 +19,12 @@ export type Scalars = {
   JSON: { input: any; output: any; }
 };
 
+export type AddressSuggestion = {
+  __typename?: 'AddressSuggestion';
+  description: Scalars['String']['output'];
+  placeId: Scalars['String']['output'];
+};
+
 export type Coordinates = {
   __typename?: 'Coordinates';
   lat: Scalars['Float']['output'];
@@ -30,6 +36,7 @@ export type CreateUserLocationInput = {
   latitude?: InputMaybe<Scalars['Float']['input']>;
   longitude?: InputMaybe<Scalars['Float']['input']>;
   name: Scalars['String']['input'];
+  placeId?: InputMaybe<Scalars['String']['input']>;
   radius: Scalars['Int']['input'];
 };
 
@@ -153,12 +160,18 @@ export type MutationUpdateUserLocationArgs = {
 
 export type Query = {
   __typename?: 'Query';
+  addressAutocomplete: Array<AddressSuggestion>;
   event?: Maybe<Event>;
   eventBySlug?: Maybe<Event>;
   events: EventConnection;
   health: Scalars['Boolean']['output'];
   me: Me;
   myLocations: Array<UserLocation>;
+};
+
+
+export type QueryAddressAutocompleteArgs = {
+  input: Scalars['String']['input'];
 };
 
 
@@ -217,6 +230,7 @@ export type UpdateUserLocationInput = {
   latitude?: InputMaybe<Scalars['Float']['input']>;
   longitude?: InputMaybe<Scalars['Float']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
+  placeId?: InputMaybe<Scalars['String']['input']>;
   radius?: InputMaybe<Scalars['Int']['input']>;
 };
 
@@ -302,6 +316,7 @@ export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
+  AddressSuggestion: ResolverTypeWrapper<AddressSuggestion>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   Coordinates: ResolverTypeWrapper<Coordinates>;
   CreateUserLocationInput: CreateUserLocationInput;
@@ -328,6 +343,7 @@ export type ResolversTypes = ResolversObject<{
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
+  AddressSuggestion: AddressSuggestion;
   Boolean: Scalars['Boolean']['output'];
   Coordinates: Coordinates;
   CreateUserLocationInput: CreateUserLocationInput;
@@ -348,6 +364,12 @@ export type ResolversParentTypes = ResolversObject<{
   ToggleFavoriteResult: ToggleFavoriteResult;
   UpdateUserLocationInput: UpdateUserLocationInput;
   UserLocation: UserLocation;
+}>;
+
+export type AddressSuggestionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AddressSuggestion'] = ResolversParentTypes['AddressSuggestion']> = ResolversObject<{
+  description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  placeId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type CoordinatesResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Coordinates'] = ResolversParentTypes['Coordinates']> = ResolversObject<{
@@ -413,6 +435,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
 }>;
 
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
+  addressAutocomplete?: Resolver<Array<ResolversTypes['AddressSuggestion']>, ParentType, ContextType, RequireFields<QueryAddressAutocompleteArgs, 'input'>>;
   event?: Resolver<Maybe<ResolversTypes['Event']>, ParentType, ContextType, RequireFields<QueryEventArgs, 'id'>>;
   eventBySlug?: Resolver<Maybe<ResolversTypes['Event']>, ParentType, ContextType, RequireFields<QueryEventBySlugArgs, 'slug'>>;
   events?: Resolver<ResolversTypes['EventConnection'], ParentType, ContextType, Partial<QueryEventsArgs>>;
@@ -466,6 +489,7 @@ export type UserLocationResolvers<ContextType = GraphQLContext, ParentType exten
 }>;
 
 export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
+  AddressSuggestion?: AddressSuggestionResolvers<ContextType>;
   Coordinates?: CoordinatesResolvers<ContextType>;
   Event?: EventResolvers<ContextType>;
   EventConnection?: EventConnectionResolvers<ContextType>;

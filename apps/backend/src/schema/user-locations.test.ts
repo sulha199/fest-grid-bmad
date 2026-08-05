@@ -37,18 +37,47 @@ const yoga = createYoga({
 });
 
 // Setup mock fetch for Geolocation adapter
-const fetchMock = mock.method(globalThis, 'fetch', async () => ({
-  ok: true,
-  json: async () => ({
-    results: [{
-      lat: -6.2088,
-      lon: 106.8456,
-      formatted: 'Jakarta, Indonesia',
-      place_id: 'place123',
-      timezone: { name: 'Asia/Jakarta' }
-    }]
-  })
-}));
+const fetchMock = mock.method(globalThis, 'fetch', async (url: any) => {
+  const urlStr = String(url);
+  if (urlStr.includes('/place-details')) {
+    return {
+      ok: true,
+      json: async () => ({
+        features: [{
+          properties: {
+            lat: -6.2088,
+            lon: 106.8456,
+            formatted: 'Jakarta, Indonesia (PlaceDetails)',
+            name: 'Jakarta Park',
+            timezone: { name: 'Asia/Jakarta' }
+          }
+        }]
+      })
+    };
+  }
+  if (urlStr.includes('/autocomplete')) {
+    return {
+      ok: true,
+      json: async () => ({
+        results: [
+          { place_id: 'place123', formatted: 'Jakarta Autocomplete Suggestion 1' }
+        ]
+      })
+    };
+  }
+  return {
+    ok: true,
+    json: async () => ({
+      results: [{
+        lat: -6.2088,
+        lon: 106.8456,
+        formatted: 'Jakarta, Indonesia',
+        place_id: 'place123',
+        timezone: { name: 'Asia/Jakarta' }
+      }]
+    })
+  };
+});
 
 test('user locations resolvers integration', async (t) => {
   let testUser: any;
@@ -100,6 +129,18 @@ test('user locations resolvers integration', async (t) => {
     const resultQuery = await resQuery.json();
     assert.ok(resultQuery.errors, 'should return error');
     assert.strictEqual(resultQuery.errors[0].extensions?.code, 'UNAUTHENTICATED');
+
+    // Autocomplete unauthenticated
+    const resAutocompleteUnauth = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `{ addressAutocomplete(input: "Jakarta") { placeId description } }`
+      })
+    });
+    const resultAutocompleteUnauth = await resAutocompleteUnauth.json();
+    assert.ok(resultAutocompleteUnauth.errors, 'should return error');
+    assert.strictEqual(resultAutocompleteUnauth.errors[0].extensions?.code, 'UNAUTHENTICATED');
   });
 
   await t.test('createUserLocation - validation of both address and coordinates', async () => {
@@ -156,6 +197,100 @@ test('user locations resolvers integration', async (t) => {
 
   let createdId: string;
 
+  await t.test('createUserLocation - validation of both address and placeId', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            createUserLocation(input: {
+              name: "Confused 2",
+              address: "Jakarta",
+              placeId: "p123",
+              radius: 5000
+            }) {
+              id
+            }
+          }
+        `
+      })
+    });
+    const result = await res.json();
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'BAD_REQUEST');
+  });
+
+  await t.test('createUserLocation - validation of both coordinates and placeId', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            createUserLocation(input: {
+              name: "Confused 3",
+              latitude: -6.2,
+              longitude: 106.8,
+              placeId: "p123",
+              radius: 5000
+            }) {
+              id
+            }
+          }
+        `
+      })
+    });
+    const result = await res.json();
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'BAD_REQUEST');
+  });
+
+  await t.test('createUserLocation - success (placeId mode)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            createUserLocation(input: {
+              name: "My Place",
+              placeId: "p123",
+              radius: 5000
+            }) {
+              id
+              name
+              radius
+              locationDetails {
+                formattedAddress
+                coordinates {
+                  lat
+                  lng
+                }
+              }
+            }
+          }
+        `
+      })
+    });
+    const result = await res.json();
+    assert.ok(!result.errors, 'should not have errors');
+    assert.ok(result.data.createUserLocation.id);
+    assert.strictEqual(result.data.createUserLocation.name, 'My Place');
+    assert.strictEqual(result.data.createUserLocation.locationDetails.formattedAddress, 'Jakarta, Indonesia (PlaceDetails)');
+    assert.strictEqual(result.data.createUserLocation.locationDetails.coordinates.lat, -6.2088);
+    assert.strictEqual(result.data.createUserLocation.locationDetails.coordinates.lng, 106.8456);
+
+    // Clean up created location to prevent noise in other tests
+    await db.delete(userLocations).where(eq(userLocations.id, result.data.createUserLocation.id));
+  });
+
   await t.test('createUserLocation - success (address mode)', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
 
@@ -197,6 +332,36 @@ test('user locations resolvers integration', async (t) => {
     assert.strictEqual(result.data.createUserLocation.locationDetails.formattedAddress, 'Jakarta, Indonesia');
     assert.strictEqual(result.data.createUserLocation.locationDetails.coordinates.lat, -6.2088);
     assert.strictEqual(result.data.createUserLocation.locationDetails.coordinates.lng, 106.8456);
+  });
+
+  await t.test('addressAutocomplete - success and input-length guard', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    // Valid query
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `{ addressAutocomplete(input: "Jakarta") { placeId description } }`
+      })
+    });
+    const result = await res.json();
+    assert.ok(!result.errors);
+    assert.strictEqual(result.data.addressAutocomplete.length, 1);
+    assert.strictEqual(result.data.addressAutocomplete[0].placeId, 'place123');
+    assert.strictEqual(result.data.addressAutocomplete[0].description, 'Jakarta Autocomplete Suggestion 1');
+
+    // Too short query
+    const resShort = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `{ addressAutocomplete(input: "Ja") { placeId description } }`
+      })
+    });
+    const resultShort = await resShort.json();
+    assert.ok(!resultShort.errors);
+    assert.strictEqual(resultShort.data.addressAutocomplete.length, 0); // Gracefully returns empty array (AC2)
   });
 
   await t.test('myLocations query returns sorted items', async () => {

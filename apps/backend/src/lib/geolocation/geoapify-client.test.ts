@@ -4,6 +4,7 @@ import {
   geocodeAddress, 
   reverseGeocode, 
   getPlaceDetails, 
+  getAddressPredictions,
   GeolocationNotFoundError, 
   GeolocationApiError 
 } from './geoapify-client.js';
@@ -136,5 +137,65 @@ test('geoapify-client non-2xx throws GeolocationApiError', async () => {
     (err: any) => err instanceof GeolocationApiError && err.status === 401
   );
   
+  fetchMock.mock.restore();
+});
+
+test('geoapify-client getAddressPredictions success with multi-result response', async () => {
+  const fetchMock = mock.method(globalThis, 'fetch', async () => {
+    return {
+      ok: true,
+      json: async () => ({
+        results: [
+          { place_id: 'p1', formatted: 'Location 1' },
+          { place_id: 'p2', formatted: 'Location 2' }
+        ]
+      })
+    };
+  });
+
+  const results = await getAddressPredictions('Test Input');
+  assert.equal(fetchMock.mock.calls.length, 1);
+  const url = fetchMock.mock.calls[0].arguments[0] as string;
+  assert.ok(url.includes('api.geoapify.com/v1/geocode/autocomplete'));
+  assert.ok(url.includes('text=Test%20Input'));
+  assert.ok(url.includes('limit=5'));
+
+  assert.deepEqual(results, [
+    { placeId: 'p1', description: 'Location 1' },
+    { placeId: 'p2', description: 'Location 2' }
+  ]);
+
+  fetchMock.mock.restore();
+});
+
+test('geoapify-client getAddressPredictions success with empty results', async () => {
+  const fetchMock = mock.method(globalThis, 'fetch', async () => {
+    return {
+      ok: true,
+      json: async () => ({
+        results: []
+      })
+    };
+  });
+
+  const results = await getAddressPredictions('Test Input');
+  assert.deepEqual(results, []);
+
+  fetchMock.mock.restore();
+});
+
+test('geoapify-client getAddressPredictions non-2xx throws GeolocationApiError', async () => {
+  const fetchMock = mock.method(globalThis, 'fetch', async () => {
+    return {
+      ok: false,
+      status: 500
+    };
+  });
+
+  await assert.rejects(
+    async () => await getAddressPredictions('Test Input'),
+    (err: any) => err instanceof GeolocationApiError && err.status === 500
+  );
+
   fetchMock.mock.restore();
 });

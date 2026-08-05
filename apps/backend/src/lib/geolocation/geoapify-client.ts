@@ -1,4 +1,5 @@
 import { Coordinates, LocationDetails } from '@festgrid/shared-types';
+import { AddressPrediction } from '@festgrid/domain/geolocation';
 import { loadBackendEnv } from '../../env.js';
 
 export class GeolocationNotFoundError extends Error {
@@ -103,4 +104,24 @@ export async function getPlaceDetails(placeId: string): Promise<LocationDetails>
     timezone: properties.timezone?.name,
     provider: 'GEOAPIFY',
   };
+}
+
+export async function getAddressPredictions(input: string): Promise<AddressPrediction[]> {
+  const apiKey = getApiKey();
+  const url = `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(input)}&format=json&limit=5&apiKey=${apiKey}`;
+  
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new GeolocationApiError(`Geoapify autocomplete API returned ${response.status}`, response.status);
+  }
+  
+  const data = await response.json();
+  if (!data.results || data.results.length === 0) {
+    return [];
+  }
+  
+  return data.results.map((result: any) => ({
+    placeId: result.place_id,
+    description: result.formatted,
+  }));
 }

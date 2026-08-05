@@ -1,7 +1,7 @@
-import { GeolocationQuery, buildLocationCacheKey } from '@festgrid/domain/geolocation';
+import { GeolocationQuery, buildLocationCacheKey, meetsAutocompleteInputThreshold, AddressPrediction } from '@festgrid/domain/geolocation';
 import { LocationDetails } from '@festgrid/shared-types';
 import { getCached, setCached, GeolocationQueryType } from './cache-store.js';
-import { geocodeAddress, reverseGeocode, getPlaceDetails } from './geoapify-client.js';
+import { geocodeAddress, reverseGeocode, getPlaceDetails, getAddressPredictions as getClientPredictions } from './geoapify-client.js';
 
 export async function resolveLocation(query: GeolocationQuery): Promise<LocationDetails> {
   const cacheKey = buildLocationCacheKey(query);
@@ -37,4 +37,11 @@ export async function resolveLocation(query: GeolocationQuery): Promise<Location
   await setCached(cacheKey, queryType, result);
   
   return result;
+}
+
+export async function getAddressPredictions(input: string): Promise<AddressPrediction[]> {
+  if (!meetsAutocompleteInputThreshold(input)) {
+    return [];
+  }
+  return getClientPredictions(input);
 }

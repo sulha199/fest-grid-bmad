@@ -11,7 +11,25 @@ test('validateLocationInput domain logic', async (t) => {
     // Both address and coordinates - throws error
     assert.throws(
       () => resolveLocationInputMode({ address: 'Jakarta', latitude: -6, longitude: 106 }),
-      (err: any) => err instanceof InvalidUserLocationInputError && err.message.includes('Cannot provide both address and coordinates')
+      (err: any) => err instanceof InvalidUserLocationInputError && err.message.includes('Cannot provide multiple location input modes')
+    );
+
+    // Address and placeId - throws error
+    assert.throws(
+      () => resolveLocationInputMode({ address: 'Jakarta', placeId: 'p123' }),
+      (err: any) => err instanceof InvalidUserLocationInputError && err.message.includes('Cannot provide multiple location input modes')
+    );
+
+    // Coordinates and placeId - throws error
+    assert.throws(
+      () => resolveLocationInputMode({ latitude: -6, longitude: 106, placeId: 'p123' }),
+      (err: any) => err instanceof InvalidUserLocationInputError && err.message.includes('Cannot provide multiple location input modes')
+    );
+
+    // All three - throws error
+    assert.throws(
+      () => resolveLocationInputMode({ address: 'Jakarta', latitude: -6, longitude: 106, placeId: 'p123' }),
+      (err: any) => err instanceof InvalidUserLocationInputError && err.message.includes('Cannot provide multiple location input modes')
     );
 
     // Only latitude (missing longitude) - throws error
@@ -33,6 +51,10 @@ test('validateLocationInput domain logic', async (t) => {
     // Coordinates only - valid
     const resCoords = resolveLocationInputMode({ latitude: -6.12, longitude: 106.34 });
     assert.deepEqual(resCoords, { kind: 'COORDINATES', latitude: -6.12, longitude: 106.34 });
+
+    // placeId only - valid
+    const resPlaceId = resolveLocationInputMode({ placeId: 'p123' });
+    assert.deepEqual(resPlaceId, { kind: 'PLACE_ID', placeId: 'p123' });
 
     // Neither provided - returns null (valid for update)
     const resNone = resolveLocationInputMode({});

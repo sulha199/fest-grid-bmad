@@ -6,7 +6,7 @@ import { requireAuth } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and, exists, isNull, desc } from 'drizzle-orm';
 import { QueryCondition } from '@festgrid/domain/query';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
-import { resolveLocation } from '../lib/geolocation/adapter.js';
+import { resolveLocation, getAddressPredictions } from '../lib/geolocation/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
 
@@ -36,6 +36,8 @@ export const resolvers: Resolvers = {
         let resolved;
         if (mode.kind === 'ADDRESS') {
           resolved = await resolveLocation({ kind: 'ADDRESS', address: mode.address });
+        } else if (mode.kind === 'PLACE_ID') {
+          resolved = await resolveLocation({ kind: 'PLACE_ID', placeId: mode.placeId });
         } else {
           resolved = await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude: mode.latitude, longitude: mode.longitude } });
         }
@@ -82,6 +84,8 @@ export const resolvers: Resolvers = {
           let resolved;
           if (mode.kind === 'ADDRESS') {
             resolved = await resolveLocation({ kind: 'ADDRESS', address: mode.address });
+          } else if (mode.kind === 'PLACE_ID') {
+            resolved = await resolveLocation({ kind: 'PLACE_ID', placeId: mode.placeId });
           } else {
             resolved = await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude: mode.latitude, longitude: mode.longitude } });
           }
@@ -203,6 +207,10 @@ export const resolvers: Resolvers = {
   },
   Query: {
     health: () => true,
+    addressAutocomplete: async (_: any, { input }: any, context: any) => {
+      requireAuth(context);
+      return await getAddressPredictions(input);
+    },
     myLocations: async (_: any, __: any, context: any) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(userLocations)

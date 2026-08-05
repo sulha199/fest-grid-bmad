@@ -29,6 +29,12 @@ export type Scalars = {
   JSON: { input: any; output: any; }
 };
 
+export type AddressSuggestion = {
+  __typename?: 'AddressSuggestion';
+  description: Scalars['String']['output'];
+  placeId: Scalars['String']['output'];
+};
+
 export type Coordinates = {
   __typename?: 'Coordinates';
   lat: Scalars['Float']['output'];
@@ -40,6 +46,7 @@ export type CreateUserLocationInput = {
   latitude?: InputMaybe<Scalars['Float']['input']>;
   longitude?: InputMaybe<Scalars['Float']['input']>;
   name: Scalars['String']['input'];
+  placeId?: InputMaybe<Scalars['String']['input']>;
   radius: Scalars['Int']['input'];
 };
 
@@ -157,12 +164,18 @@ export type MutationUpdateUserLocationArgs = {
 
 export type Query = {
   __typename?: 'Query';
+  addressAutocomplete: Array<AddressSuggestion>;
   event?: Maybe<Event>;
   eventBySlug?: Maybe<Event>;
   events: EventConnection;
   health: Scalars['Boolean']['output'];
   me: Me;
   myLocations: Array<UserLocation>;
+};
+
+
+export type QueryAddressAutocompleteArgs = {
+  input: Scalars['String']['input'];
 };
 
 
@@ -221,6 +234,7 @@ export type UpdateUserLocationInput = {
   latitude?: InputMaybe<Scalars['Float']['input']>;
   longitude?: InputMaybe<Scalars['Float']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
+  placeId?: InputMaybe<Scalars['String']['input']>;
   radius?: InputMaybe<Scalars['Int']['input']>;
 };
 

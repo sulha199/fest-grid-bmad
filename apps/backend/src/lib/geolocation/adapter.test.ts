@@ -1,6 +1,6 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveLocation } from './adapter.js';
+import { resolveLocation, getAddressPredictions } from './adapter.js';
 import { GeolocationNotFoundError } from './geoapify-client.js';
 import { LocationDetails } from '@festgrid/shared-types';
 import { db } from '../../db/client.js';
@@ -17,6 +17,9 @@ const locationDetails: LocationDetails = {
 process.env.GEOAPIFY_API_KEY = 'test-api-key';
 
 test('adapter resolveLocation integration', async (t) => {
+  // Clear any pre-existing cache entries before starting integration tests
+  await db.delete(geolocationCache);
+
   const fetchMock = mock.method(globalThis, 'fetch', async () => ({
     ok: true,
     json: async () => ({
@@ -80,6 +83,44 @@ test('adapter resolveLocation integration', async (t) => {
     );
     
     // Check DB is empty
+    const cachedRows = await db.select().from(geolocationCache);
+    assert.equal(cachedRows.length, 0);
+  });
+});
+
+test('adapter getAddressPredictions', async (t) => {
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({
+      results: [
+        { place_id: 'p1', formatted: 'Result 1' }
+      ]
+    })
+  }));
+
+  t.afterEach(async () => {
+    fetchMock.mock.resetCalls();
+    await db.delete(geolocationCache);
+  });
+
+  await t.test('input below threshold returns empty array immediately', async () => {
+    fetchMock.mock.resetCalls();
+    const result = await getAddressPredictions('ab');
+    assert.deepEqual(result, []);
+    assert.equal(fetchMock.mock.calls.length, 0);
+    
+    // Confirm no cache records
+    const cachedRows = await db.select().from(geolocationCache);
+    assert.equal(cachedRows.length, 0);
+  });
+
+  await t.test('input at/above threshold calls client predictions and is not cached', async () => {
+    fetchMock.mock.resetCalls();
+    const result = await getAddressPredictions('abc');
+    assert.deepEqual(result, [{ placeId: 'p1', description: 'Result 1' }]);
+    assert.equal(fetchMock.mock.calls.length, 1);
+    
+    // Assert cache table is NOT written to (AC3)
     const cachedRows = await db.select().from(geolocationCache);
     assert.equal(cachedRows.length, 0);
   });
