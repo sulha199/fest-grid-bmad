@@ -9,3 +9,5 @@ export * from './EventListView';
 export * from './EventListView.types';
 export * from './EventDiscoveryPanel';
 export * from './EventDiscoveryPanel.types';
+export * from './WeeklyCalendarView';
+export * from './WeeklyCalendarView.types';
