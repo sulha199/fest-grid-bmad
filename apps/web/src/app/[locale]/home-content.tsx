@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query"
-import { EventCard, useInfiniteScroll, SearchBar, FilterHub } from "@festgrid/ui"
+import { EventListView, useInfiniteScroll, SearchBar, FilterHub } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
@@ -208,78 +208,36 @@ export function HomeContent() {
         />
       </div>
 
-      {status === 'pending' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <EventCard
-              key={i}
-              eventName=""
-              startDate=""
-              loading={true}
-            />
-          ))}
-        </div>
-      )}
-
-      {status === 'error' && (
-        <div className="text-center py-10 text-destructive">
-          <p>{t('errorState')}</p>
-          <pre className="text-xs mt-4 text-left max-w-full overflow-auto bg-destructive/10 p-4 rounded text-destructive">
-            {error?.message || JSON.stringify(error)}
-          </pre>
-        </div>
-      )}
-
-      {status === 'success' && events.length === 0 && (
-        <div className="text-center py-10 text-muted-foreground">
-          {q.trim() ? t('searchEmptyState') : t('emptyState')}
-        </div>
-      )}
-
-      {status === 'success' && events.length > 0 && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events.map((event: EventItem) => {
-              const mainSchedule = event.schedules.find((s: any) => s.isMainSchedule) || event.schedules[0]
-              return (
-                <EventCard
-                  key={event.id}
-                  eventName={event.eventName}
-                  startDate={mainSchedule?.eventStartDate || ''}
-                  imageUrl={event.imageUrl ?? undefined}
-                  locationName={event.location ?? undefined}
-                  categories={event.categories ?? []}
-                  types={event.types ?? []}
-                  priceFrom={mainSchedule?.ticketPrice ?? undefined}
-                  labels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
-                  isFavorited={event.isFavorited}
-                  onFavoriteToggle={() => {
-                    if (!session) {
-                      setIsLoginModalOpen(true)
-                      return
-                    }
-                    toggleFavorite({ eventId: event.id })
-                  }}
-                  onClick={() => {
-                    const paramsStr = searchParams.toString();
-                    const url = `/events/${event.slug}?fromList=true${paramsStr ? `&${paramsStr}` : ""}`;
-                    router.push(url);
-                  }}
-                />
-              )
-            })}
+      <EventListView
+        status={status === 'pending' ? 'loading' : status}
+        events={events}
+        errorMessage={t('errorState')}
+        errorDetail={error?.message || JSON.stringify(error)}
+        emptyState={
+          <div className="text-center py-10 text-muted-foreground">
+            {q.trim() ? t('searchEmptyState') : t('emptyState')}
           </div>
-
-          <div ref={sentinelRef} className="py-4 flex justify-center">
-            {isFetchingNextPage && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-                <span>{t('loadingMore')}</span>
-              </div>
-            )}
-          </div>
-        </>
-      )}
+        }
+        cardLabels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
+        getCardProps={(event) => ({
+          isFavorited: event.isFavorited,
+          onFavoriteToggle: () => {
+            if (!session) {
+              setIsLoginModalOpen(true)
+              return
+            }
+            toggleFavorite({ eventId: event.id })
+          },
+          onClick: () => {
+            const paramsStr = searchParams.toString()
+            const url = `/events/${event.slug}?fromList=true${paramsStr ? `&${paramsStr}` : ''}`
+            router.push(url)
+          },
+        })}
+        sentinelRef={sentinelRef}
+        isFetchingNextPage={isFetchingNextPage}
+        loadingMoreLabel={t('loadingMore')}
+      />
 
       <Dialog open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen}>
         <DialogContent className="sm:max-w-md p-0 overflow-hidden">

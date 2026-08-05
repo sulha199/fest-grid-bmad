@@ -14,7 +14,7 @@ import { buildPageMetadata } from '@/lib/metadata';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
-export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }>; children?: ReactNode; modal?: ReactNode }) {
   const resolvedParams = await params;
   const t = await getTranslations({ locale: resolvedParams.locale, namespace: 'Metadata' });
 

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, useQuery, InfiniteData } from "@tanstack/react-query"
 import {
-  EventCard,
+  EventListView,
   useInfiniteScroll,
   SearchBar,
   FilterHub,
@@ -282,8 +282,12 @@ export function FavoritesContent() {
     return null
   }
 
-  const isInitialLoading =
+  const listStatus =
     isLoading || idSnapshotStatus === "pending" || (idSnapshotStatus === "success" && status === "pending")
+      ? "loading"
+      : idSnapshotStatus === "error" || status === "error"
+      ? "error"
+      : "success"
 
   return (
     <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
@@ -303,104 +307,65 @@ export function FavoritesContent() {
         <FilterHub labels={filterLabels} types={typesOptions} categories={categoriesOptions} />
       </div>
 
-      {isInitialLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <EventCard key={i} eventName="" startDate="" loading={true} />
-          ))}
-        </div>
-      )}
-
-      {(idSnapshotStatus === "error" || status === "error") && (
-        <div className="text-center py-10 text-destructive">
-          <p>{t("errorState")}</p>
-          <pre className="text-xs mt-4 text-left max-w-full overflow-auto bg-destructive/10 p-4 rounded text-destructive">
-            {idSnapshotError?.message || error?.message || "Unknown error"}
-          </pre>
-        </div>
-      )}
-
-      {idSnapshotStatus === "success" && frozenIds.length === 0 && (
-        <div className="text-center py-10 text-muted-foreground">
-          {q.trim() || types.length > 0 || categories.length > 0
-            ? t("searchEmptyState")
-            : t("emptyState")}
-        </div>
-      )}
-
-      {idSnapshotStatus === "success" && frozenIds.length > 0 && events.length > 0 && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events.map((event: EventItem) => {
-              const mainSchedule = event.schedules.find((s) => s.isMainSchedule) || event.schedules[0]
-
-              return (
-                <EventCard
-                  key={event.id}
-                  eventName={event.eventName}
-                  startDate={mainSchedule?.eventStartDate || ""}
-                  imageUrl={event.imageUrl ?? undefined}
-                  locationName={event.location ?? undefined}
-                  categories={event.categories ?? []}
-                  types={event.types ?? []}
-                  priceFrom={mainSchedule?.ticketPrice ?? undefined}
-                  labels={{
-                    favoriteToggle: t("favoriteButtonLabel"),
-                    priceFrom: t("priceFrom"),
-                    categoryLabels,
-                    typeLabels,
-                  }}
-                  isGreyedOut={!event.isFavorited || softDelete.isPending(event.id)}
-                  isFavorited={event.isFavorited && !softDelete.isPending(event.id)}
-                  pendingRemoval={softDelete.isPending(event.id)}
-                  onFavoriteToggle={() => {
-                    if (softDelete.isPending(event.id)) {
-                      softDelete.undo(event.id)
-                      return
-                    }
-
-                    softDelete.markPending(event.id, async () => {
-                      if (committedPendingIdsRef.current.has(event.id)) {
-                        return
-                      }
-
-                      committedPendingIdsRef.current.add(event.id)
-
-                      try {
-                        const mutation = await toggleFavoriteAsync({ eventId: event.id })
-                        if (!mutation.toggleFavorite.isFavorited) {
-                          posthog.capture("event_unfavorited", {
-                            eventId: event.id,
-                            eventName: event.eventName,
-                          })
-                        }
-                      } catch (err) {
-                        committedPendingIdsRef.current.delete(event.id)
-                        throw err
-                      }
-                    })
-                  }}
-                  onClick={() => {
-                    const params = new URLSearchParams(searchParams.toString())
-                    params.set("fromList", "favorites")
-                    params.set("favoriteIds", frozenIds.join(","))
-                    router.push(`/events/${event.slug}?${params.toString()}`)
-                  }}
-                />
-              )
-            })}
+      <EventListView
+        status={listStatus}
+        events={events}
+        errorMessage={t("errorState")}
+        errorDetail={idSnapshotError?.message || error?.message || "Unknown error"}
+        emptyState={
+          <div className="text-center py-10 text-muted-foreground">
+            {q.trim() || types.length > 0 || categories.length > 0
+              ? t("searchEmptyState")
+              : t("emptyState")}
           </div>
+        }
+        cardLabels={{
+          favoriteToggle: t("favoriteButtonLabel"),
+          priceFrom: t("priceFrom"),
+          categoryLabels,
+          typeLabels,
+        }}
+        getCardProps={(event) => ({
+          isGreyedOut: !event.isFavorited || softDelete.isPending(event.id),
+          isFavorited: event.isFavorited && !softDelete.isPending(event.id),
+          pendingRemoval: softDelete.isPending(event.id),
+          onFavoriteToggle: () => {
+            if (softDelete.isPending(event.id)) {
+              return
+            }
 
-          <div ref={sentinelRef} className="py-4 flex justify-center">
-            {isFetchingNextPage && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-                <span>{t("loadingMore")}</span>
-              </div>
-            )}
-          </div>
-        </>
-      )}
+            softDelete.markPending(event.id, async () => {
+              if (committedPendingIdsRef.current.has(event.id)) {
+                return
+              }
+
+              committedPendingIdsRef.current.add(event.id)
+
+              try {
+                const mutation = await toggleFavoriteAsync({ eventId: event.id })
+                if (!mutation.toggleFavorite.isFavorited) {
+                  posthog.capture("event_unfavorited", {
+                    eventId: event.id,
+                    eventName: event.eventName,
+                  })
+                }
+              } catch (err) {
+                committedPendingIdsRef.current.delete(event.id)
+                throw err
+              }
+            })
+          },
+          onClick: () => {
+            const params = new URLSearchParams(searchParams.toString())
+            params.set("fromList", "favorites")
+            params.set("favoriteIds", frozenIds.join(","))
+            router.push(`/events/${event.slug}?${params.toString()}`)
+          },
+        })}
+        sentinelRef={sentinelRef}
+        isFetchingNextPage={isFetchingNextPage}
+        loadingMoreLabel={t("loadingMore")}
+      />
     </div>
   )
 }

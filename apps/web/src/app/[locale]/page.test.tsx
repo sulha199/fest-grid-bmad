@@ -21,6 +21,28 @@ vi.mock('next-intl/server', () => ({
   setRequestLocale: vi.fn()
 }));
 
+// Mock next/navigation
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+// Mock navigation
+vi.mock('@/i18n/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+  }),
+}));
+
+// Mock Auth
+vi.mock('@/components/providers/auth-session-provider', () => ({
+  useAuthSession: () => ({
+    session: { user: { email: 'test@example.com' } },
+    signOut: vi.fn(),
+  }),
+}));
+
 // Mock PostHog
 const mockPostHog = { capture: vi.fn() };
 vi.mock('@festgrid/analytics', () => ({

@@ -7,7 +7,7 @@ baseline_commit: 704c86d15e26c66b94ea0695f36cba8f5e529955
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.3d
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

@@ -5,3 +5,5 @@ export * from './FilterHub';
 export * from './EventImage';
 export * from './EventDetailView';
 export * from './EventDetailView.types';
+export * from './EventListView';
+export * from './EventListView.types';
