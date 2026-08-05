@@ -283,9 +283,11 @@ export function FavoritesContent() {
   }
 
   const listStatus =
-    isLoading || idSnapshotStatus === "pending" || (idSnapshotStatus === "success" && status === "pending")
+    isLoading ||
+    idSnapshotStatus === "pending" ||
+    (idSnapshotStatus === "success" && frozenIds.length > 0 && status === "pending")
       ? "loading"
-      : idSnapshotStatus === "error" || status === "error"
+      : idSnapshotStatus === "error" || (frozenIds.length > 0 && status === "error")
       ? "error"
       : "success"
 
