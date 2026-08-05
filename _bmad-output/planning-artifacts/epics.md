@@ -323,6 +323,30 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Note:** This story exists because of Gate 3 (`story-split-gate.md`) — layout/navigation is shared across every future epic, and must not be defined incidentally while building the Story 1.3 main page.
 
+### Story 0.7a: Build the NavRailItem primitive and its interaction hook
+
+**As a** developer,
+**I want** a single `NavRailItem` component (icon/label variant swap, active-indicator, focus ring, 44px hit area) and a paired interaction hook covering hover/focus/touch label-reveal timing, active-route detection, and reduced-motion handling,
+**So that** Story 0.7's app shell composes one well-tested nav-item primitive across all three responsive tiers instead of hand-rolling this state machine inline inside the shell.
+
+**Acceptance Criteria:**
+
+*   **Given** the `nav_active_indicator` color token and `components.nav` tokens in `design-artifacts/UX-festgrid-run-1/DESIGN.md`,
+*   **When** `NavRailItem` renders at the icon-only tier (768–1279px),
+*   **Then** it shows the icon with an `aria-label` matching its full label text, a 44px-minimum hit area, and a tooltip that appears on both `:hover` and `:focus-visible`, stays visible while focused, and dismisses on `Escape` or focus-out.
+*   **And** on touch input, a single tap both navigates and flashes the label for at least 2000ms before it fades, never shortened (only extended) under `prefers-reduced-motion`.
+*   **And** at the expanded tier (≥1280px) and the mobile bottom-tab tier (<768px), the same component renders icon + visible label without needing the tooltip/flash behavior.
+*   **And** the active item (matched via the current route) is indicated by the `nav_active_indicator`-colored leading bar **and** a filled-vs-outline icon-style swap, plus `aria-current="page"`, independent of any visual styling.
+*   **And** every item exposes a visible focus ring in a color distinct from the active-indicator, satisfying WCAG 2.4.7.
+*   **And** the component and hook stay framework-agnostic per `packages/ui`'s Core Primitives rule — no direct `next-intl` import; the active label text and current-route match are passed in as props (consuming code in `apps/web` resolves them via `useTranslations`/`usePathname`), consistent with the existing `useScopedLocale`/`useScopedTimezone` decoupling pattern.
+*   **And** the fade/transition timing respects `prefers-reduced-motion` (instant show/hide fallback).
+*   **And** `NavRailItem` supports two variants sharing the same rail-tier chrome (icon sizing, 44px hit area, tooltip, focus ring): a **`link` variant** (`href` + active-route matching, described above — used by the 4 primary nav items) and a **`trigger` variant** (`onActivate` callback + `aria-haspopup`/`aria-expanded` instead of `href`, no active-route matching) — used by the Profile nav item (Story 0.7/2.8), which navigates to `/login` or opens Story 2.8's User Menu rather than being a plain link. The `trigger` variant is excluded from the icon-only rail tier's generic tap-navigates-and-flashes-label behavior — activating it opens/navigates immediately, no flash step (per `EXPERIENCE.md` § Profile item — authentication states).
+*   **And** unit/interaction tests cover: hover-only, focus-only, touch-tap-flash, active-state rendering, reduced-motion fallback, and the `trigger` variant's `onActivate`/`aria-haspopup`/`aria-expanded` behavior (testing-trophy approach; Vitest + Testing Library once Story 0.10 lands — see 0.10 sequencing note, same interim-manual-verification precedent as Story 0.7).
+
+**Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced while revising Story 0.7's nav pattern against the UX spec in `design-artifacts/UX-festgrid-run-1/EXPERIENCE.md`/`DESIGN.md` (2026-08-05). The nav-item's icon/label-variant + active-indicator + focus-ring + hit-area rendering, combined with a hover/focus/touch-flash timing hook with reduced-motion handling, is non-trivial complex-hook + multi-state-component work per Gate 2's trigger heuristics — not a subtask of 0.7's shell/container work. Story 0.7 depends on this story's output. **Amendment (2026-08-05):** added the `trigger` variant AC after discovering the Profile nav item is an auth-aware trigger (Story 2.8 "User Menu" / Story 1.7 "/login"), not a 5th plain link — it still needs the same rail-tier visual chrome as the other 4 items, just different activation semantics.
+
+**Depends on:** None (pure presentation component + hook, no backend dependency). Story 0.7 depends on this story.
+
 ### Story 0.8: Set up GraphQL server scaffold, Code Generator pipeline, and the optimized-select query utility
 
 **As a** developer,
@@ -704,6 +728,46 @@ Users can discover and browse events.
 **Note:** This is a retroactive extraction, not the usual "split before the first unbuilt consumer" pattern — both consumers (Story 1.3, Story 2.2) are already implemented and in `review`. Surfaced by the user directly (not a `bmad-create-story` gate finding mid-draft of another story) after noticing `home-content.tsx` and `favorites-content.tsx` duplicate an identical presentational shell below their `SearchBar`/`FilterHub` row. Positioned as a lettered suffix off Story 1.3 (matching the `1.3a`/`1.3b`/`1.3c` family and Story 1.3's status as the component's true first chronological consumer) rather than off Story 2.2, per user decision. Gate 2 (UI Complexity & Reusability, run via `bmad-create-story` against `design-artifacts/D-Design-System/01-event-list-view.md` and the current duplicated implementation) confirmed the split and recommended the prop contract above; Gate 1/Gate 3 were not re-run fresh — `epic-1-readiness.md` (`swept: true`) already covers Epic 1 and found no new architecture/infra/foundational gap applicable to a pure frontend presentational extraction with no new data or infra surface.
 
 **Depends on:** Story 1.3b (`EventCard`), Story 1.3c (`useInfiniteScroll`). Touches (already-implemented) Story 1.3 and Story 2.2's page files as a refactor, not a functional change to either.
+
+### Story 1.3e: Build the reusable EventDiscoveryPanel component
+
+**As a** developer,
+**I want** a reusable `EventDiscoveryPanel` presentational component in `packages/ui`,
+**So that** the Discovery feed (Story 1.3) and Favorites page (Story 2.2) render the same `SearchBar` + `FilterHub` + result-view row instead of each page independently duplicating it, and future long event lists (Story 5.1's manual post selection, etc.) can compose the same shell.
+
+**Acceptance Criteria:**
+
+*   **Given** a `views` prop of one or more `{ id, content }` entries, **when** `EventDiscoveryPanel` renders, **then** it renders `SearchBar` (wired to `query`/`onSearchSubmit`/`onSearchEnter`/`searchPlaceholder`/`searchClearLabel`) and `FilterHub` (wired to `filterLabels`/`types`/`categories`/`onFilterChange`) inside the identical `<div className="flex flex-col gap-6">` wrapper both pages use today, immediately followed by the active view's `content`.
+*   **And** it self-manages the active view via its own `useQueryState('view', ...)` — matching `FilterHub`'s existing internal pattern for `types`/`categories` — no `view` prop is required from the caller.
+*   **And** if the URL's `view` param is absent or does not match any `views[].id`, it falls back to `views[0].id` rather than reaching a dead/undefined state, regardless of URL tampering.
+*   **And** `SearchBar`'s `onChange` is wired to a no-op internally, matching both pages' existing "internal state only, URL updates on submit" behavior; `EventDiscoveryPanel` exposes no `onSearchChange` prop.
+*   **And** `onSearchEnter`/`onFilterChange` are optional — when omitted (as `favorites-content.tsx` does today), no runtime error occurs.
+*   **And** DOM tab order flows SearchBar → FilterHub → active view content, with no `tabIndex` override introduced by `EventDiscoveryPanel` itself (composition-level a11y check — each child previously only tested in isolation).
+*   **And** `home-content.tsx` is refactored to consume `EventDiscoveryPanel`, passing a single-entry `views` array wrapping its existing `EventListView` invocation, removing its duplicated `SearchBar`/`FilterHub` JSX. `buildEnumLabels`/`typesOptions`/`categoriesOptions`/`filterLabels` construction stays in `home-content.tsx` — `EventDiscoveryPanel` does not absorb label-building. **Zero visible behavior change**: `onSearchEnter`/`onFilterChange` analytics wiring stays intact.
+*   **And** `favorites-content.tsx` is refactored identically, passing a single-entry `views` array with no `onSearchEnter`/`onFilterChange` (unchanged). **Zero visible behavior change**.
+*   **And** the component is documented/exported from `packages/ui`'s public entry point (`packages/ui/src/features/events/index.ts`).
+*   **And** the ViewSwitcher control and any second (calendar) view are explicitly out of scope — no second view exists yet to switch to; see Story 1.3f.
+
+**Note:** Retroactive extraction, same pattern as Story 1.3d — both consumers (Story 1.3, Story 2.2) are already implemented and in `review`. Surfaced by the user directly after Story 1.3d's own dedup left the `SearchBar`/`FilterHub` row above it still duplicated. Positioned as a lettered suffix off Story 1.3d/1.3, keeping the component family grouped. Scope explicitly excludes absorbing `buildEnumLabels`/option-building into the component (per user decision: pure layout wrapper only) and excludes building a visible view-switcher (per user decision, see Story 1.3f). Gate 2 (`wds-agent-freya-ux` lens, run fresh) confirmed the split and recommended two additions folded into the ACs above: (1) explicit fallback-to-`views[0]` behavior so no invalid URL state is reachable, (2) a composition-level tab-order check. Gate 2 also flagged a `aria-live` result-count announcement as a genuine WCAG AA gap in the *composed* search+filter+list unit, but it requires new data flow between the opaque `views[].content` slot and the panel that this pure-layout-wrapper contract doesn't have — deferred rather than forcing a prop-shape compromise into this dedup story (see `## Out of Scope` in the story file). Gate 1/3 sourced from `epic-1-readiness.md` (`swept: true`) for the ordinary architecture/infra check; however, this story's own research surfaced a gap the Epic 1 sweep did not anticipate — see Story 1.3f's Note.
+
+**Depends on:** Story 1.3d (`EventListView`), Story 1.5a (`FilterHub`'s `MultiSelect`). Touches (already-implemented) Story 1.3 and Story 2.2's page files as a refactor, not a functional change to either.
+
+### Story 1.3f: Build the Discovery weekly-calendar view and view-switcher
+
+**As a** user,
+**I want** to toggle the Discovery feed between a card grid and a weekly calendar, both reflecting my active search/filter,
+**So that** I can browse events in whichever format suits me, per `design-artifacts/D-Design-System/01-event-list-view.md`'s "View Toggles" standard interaction.
+
+**Acceptance Criteria:**
+
+*   **Given** the Discovery page, **when** it renders, **then** a view-switcher control offers "Card View" (default) and "Calendar View", plugging into `EventDiscoveryPanel`'s (Story 1.3e) `views` registry as a second entry.
+*   **And** Calendar View renders the same active-filter-matched events as Card View, in a weekly calendar with previous/next-week navigation and a "Today" button (per `EXPERIENCE.md`'s Calendar View description), each schedule shown as a separate compact card distinguishing main/sub-schedules.
+*   **And** switching views preserves the active `q`/`types`/`categories` URL state — no refetch-from-scratch or lost filter context.
+*   **And** clicking a schedule in Calendar View opens the same event-detail modal as clicking a card in Card View, with the URL updated for deep-linking (matching `EXPERIENCE.md`'s Event Discovery interaction).
+
+**Note:** This story exists because of a Gate 3-shaped finding surfaced while creating Story 1.3e, not the epic-1-readiness sweep (which predates this discovery and does not mention it). Story 1.3d's own Out-of-Scope note (and this file's Story 1.3d section) assumed "Calendar View is Epic 2 Story 2.6" — that assumption is incorrect. Story 2.6 ("View and manage events on a calendar") is a dedicated `/my-calendar` page showing only the user's own favorited/added-to-calendar events; it does not build a card/calendar toggle for the Discovery feed's full filtered event list. The Discovery-page "View Toggles (Card/Calendar)" interaction named in `01-event-list-view.md` therefore has no owning story anywhere in this file. Classified as a single-story-origin UI split (mirroring the `1.3a`/`1.3b`/`1.3d` precedent) and positioned as a lettered suffix directly off Story 1.3e, since 1.3e is what establishes the `views` extensibility seam this story consumes. Confirmed with the user (2026-08-05) rather than absorbed into 1.3e, since building a view-switcher with only one working option would be speculative UI ahead of this story.
+
+**Depends on:** Story 1.3e (`EventDiscoveryPanel`'s `views` seam).
 
 ### Story 1.3: Display a list of events on the main page
 
@@ -1151,15 +1215,25 @@ Users can personalize their experience by saving favorite events and locations.
 
 **As a** logged-in user,
 **I want** to have a user menu,
-**So that** I can easily navigate to my personalized sections of the application.
+**So that** I can easily navigate to my personalized/account sections of the application without leaving the page I'm on.
 
 **Acceptance Criteria:**
 
+*   **Given** I am not logged in,
+*   **When** I look at the Profile slot in the global nav (Story 0.7),
+*   **Then** it renders as a "Log In" trigger (icon `LogIn`) that navigates to `/login` (Story 1.7) when activated — not a menu.
 *   **Given** I am logged in,
-*   **When** I click on my profile icon,
-*   **Then** a dropdown menu appears.
-*   **And** the menu contains links to "My Favorites", "My Calendar", "My Locations", and "Settings".
-*   **And** the menu also contains a "Logout" button.
+*   **When** I click/tap my avatar in the Profile slot,
+*   **Then** a menu opens **anchored to the nav item** — a dropdown at desktop/tablet rail widths (≥768px), a bottom sheet at mobile widths (<768px) — not a full-page navigation and not a blocking modal.
+*   **And** the menu is a *disclosure of navigation links*, not an application command menu: the trigger is `aria-haspopup="true"`/`aria-expanded`; contents are a plain list of links (no `role="menu"`/`"menuitem"`); it does **not** trap focus (Tab past the last item closes it and moves on); `Escape`/outside-click close it and return focus to the trigger; activating a link instead moves focus to the destination page per normal route-change behavior. The bottom sheet has an explicit always-reachable Close control, not just outside-tap/Escape.
+*   **And** the menu contains, top to bottom: a non-interactive avatar+display-name header; **Profile** (`/settings`); **Locations** (`/settings/locations`); **Subscribed Accounts** (`/settings/subscriptions`); **API Keys** (`/settings/api-keys`); **Notifications** (`/settings/notifications`); **Reports** (`/reports`); a divider; **Moderator Items** (`/moderator/items`), rendered (with its own leading and trailing divider) only when `role === MODERATOR` — otherwise fully absent, not disabled; **Log Out**.
+*   **And** the menu is built as a typed, declarative **registry** (mirroring Story 0.7's primary nav-registry pattern), not a hardcoded list — Locations/Subscribed Accounts/API Keys/Notifications are registered by Stories 2.3/3.2/3.9/2.9 respectively, Reports/Moderator Items by Stories 4.6/4.7, so this story does not itself need those destination pages to exist yet — it only needs to define the registry shape and seed it with Profile and Log Out (the two entries this story does own).
+*   **And** "Log Out" calls `useAuthSession().signOut()` (Story 1.7's `apps/web/src/components/providers/auth-session-provider.tsx`) and returns the user to the unauthenticated state (Profile slot reverts to the "Log In" trigger); focus returns to the trigger element (deliberate exception to the "focus follows destination" rule above, since the same DOM node persists, now relabeled).
+*   **And** the Moderator Items link's visibility check (`role === MODERATOR`) reads from the generated `useMeQuery` (Story 1.7/0.8's GraphQL codegen — `Query.me` already resolves `role`), not from `useAuthSession()`'s context value, which exposes only `session`/`user`/`isLoading`/`signOut` today and has no `role` field.
+
+**Note:** Original AC (pre-2026-08-05) listed "My Favorites", "My Calendar", "My Locations", "Settings" as the menu's links. "My Favorites"/"My Calendar" are removed here as redundant — both became first-class items in the primary 5-item nav via Story 0.7's UX formalization, so keeping them in this menu too would be duplicate navigation to the same destinations. "My Locations"/"Settings" are expanded into the full settings-registry set. This AC was formalized via a UX spec pass + accessibility review (`design-artifacts/UX-festgrid-run-1/EXPERIENCE.md` § Profile item — authentication states, `review-accessibility-profile-menu.md`) run while revising Story 0.7 — moved here on discovering this story already owns the feature (was initially, incorrectly, drafted as if Epic 0/0.7 owned it).
+
+**Depends on:** Story 0.7 (Profile trigger slot in the global nav), Story 1.7 (`/login` route).
 
 ### Story 2.9: Manage Push Notification Settings
 

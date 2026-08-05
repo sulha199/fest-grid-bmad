@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-05T10:00:00Z
+last_updated: 2026-08-05T13:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -55,7 +55,13 @@ development_status:
   0-4-set-up-drizzle-orm-for-schema-migrations: review
   0-5-set-up-ci-cd-pipeline-with-github-actions: review
   0-6-set-up-i18n-foundation-next-intl: review
-  0-7-build-the-global-app-shell-and-navigation-layout: review
+  # reset from review to ready-for-dev 2026-08-05 — revised AC/Tasks against a new
+  # UX spec supersede the original implementation; see the story file's Revision note.
+  0-7-build-the-global-app-shell-and-navigation-layout: ready-for-dev
+  # added 2026-08-05 via bmad-create-story Gate 2 finding while revising 0.7's nav
+  # pattern against the new UX spec (design-artifacts/UX-festgrid-run-1) — see
+  # 0.7's Architecture & UX Gate Findings for detail.
+  0-7a-nav-item-primitive: ready-for-dev
   0-8-set-up-graphql-server-scaffold-code-generator-pipeline-and-the-optimized-select-query-utility: review
   0-9-set-up-state-management-foundation: review
   0-10-set-up-testing-frameworks-foundation: review
@@ -91,6 +97,17 @@ development_status:
   # their SearchBar/FilterHub row. Positioned as a 1.3-family lettered suffix per user
   # decision (see story Dev Notes → Retroactive Extraction Rationale).
   1-3d-build-the-reusable-eventlistview-component: review
+  # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
+  # home-content.tsx and favorites-content.tsx still duplicate the SearchBar/FilterHub
+  # row above the shell Story 1.3d already extracted. Positioned as a 1.3-family
+  # lettered suffix per the 1.3d precedent; see epics.md Story 1.3e note.
+  1-3e-build-the-reusable-eventdiscoverypanel-component: ready-for-dev
+  # added 2026-08-05 via bmad-create-story: Gate 3-shaped gap surfaced while drafting
+  # Story 1.3e — Story 1.3d's Out-of-Scope note incorrectly assumed "Calendar View is
+  # Epic 2 Story 2.6"; 2.6 is actually the separate /my-calendar personal page. The
+  # Discovery-page Card/Calendar view-switcher named in 01-event-list-view.md has no
+  # owning story. See epics.md Story 1.3f note.
+  1-3f-build-the-discovery-weekly-calendar-view-and-view-switcher: backlog
   1-3-display-a-list-of-events-on-the-main-page: done
   1-4-search-for-events: done
   1-5a-build-the-reusable-multiselect-component: done

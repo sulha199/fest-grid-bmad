@@ -2,7 +2,7 @@
 title: "DESIGN.md: festgrid"
 status: "draft"
 created: "2026-07-13T22:33:00Z"
-updated: "2026-07-14T09:50:00Z"
+updated: "2026-08-05T00:00:00Z"
 sources:
   - "_bmad-output/planning-artifacts/prfaq-festgrid.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -13,6 +13,7 @@ colors:
   neutral: "#FAFAFC"
   success: "#10B981"
   error: "#EF4444"
+  nav_active_indicator: "#E04347" # darker than base accent; ~3.98:1 vs neutral, meets WCAG 1.4.11 non-text contrast (base accent measures ~2.93:1, fails)
 typography:
   font_family_base: "Inter, sans-serif"
   font_size_base: "16px"
@@ -69,6 +70,26 @@ components:
     info: "bg-violet-100 text-violet-800"
     success: "bg-green-100 text-green-800"
     error: "bg-red-100 text-red-800"
+  nav:
+    bottom_tab_bar: "fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t bg-background md:hidden"
+    sidenav_rail: "fixed inset-y-0 start-0 z-40 hidden md:flex md:flex-col md:items-center xl:items-stretch w-16 xl:w-56 border-e bg-background py-4"
+    sidenav_top_group: "flex flex-col items-center xl:items-stretch gap-1"
+    sidenav_bottom_slot: "mt-auto flex flex-col items-center xl:items-stretch"
+    item_hit_area: "min-h-11 min-w-11 flex items-center gap-3 justify-center xl:justify-start"
+    item_label: "hidden xl:inline text-sm font-medium"
+    item_tooltip: "md:group-hover:opacity-100 md:group-focus-visible:opacity-100 xl:hidden"
+    active_indicator: "bg-nav-active-indicator w-1 rounded-full absolute top-0 md:inset-y-0 md:start-0 h-1 md:h-auto md:w-1"
+    active_icon: "text-nav-active-indicator [&_svg]:fill-current"
+    focus_ring: "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+    # profile_* tokens back Story 2.8 "User Menu" (Epic 2), not Story 0.7 -- 0.7 only
+    # renders the trigger (profile_avatar) and invokes this menu.
+    profile_avatar: "h-8 w-8 rounded-full object-cover"
+    profile_menu: "absolute z-50 min-w-56 rounded-lg border bg-background p-1 shadow-lg" # dropdown, rail tiers (>=768px), anchored to the Profile nav item
+    profile_sheet: "fixed inset-x-0 bottom-0 z-50 rounded-t-lg border-t bg-background p-2 shadow-lg animate-in slide-in-from-bottom" # bottom sheet, mobile tab-bar tier (<768px)
+    profile_menu_header: "flex items-center gap-2 px-3 py-2 text-sm font-medium border-b"
+    profile_menu_item: "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted focus-visible:bg-muted min-h-11"
+    profile_menu_divider: "my-1 h-px bg-border"
+    profile_sheet_close: "flex items-center justify-center min-h-11 min-w-11 rounded-md hover:bg-muted focus-visible:bg-muted"
   spark:
     base: "text-accent"
   input_with_label:
