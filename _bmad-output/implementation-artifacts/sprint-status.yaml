@@ -142,7 +142,12 @@ development_status:
   # a standalone read; Story 2.4's address-preview flow needs one. No dependency on
   # Story 2.3a/2.3b (Story 0.16/0.17, this story's only real deps, are both `review`).
   2-4b-extend-the-geolocation-adapter-with-a-reverse-geocode-preview-query: ready-for-dev
-  2-5a-extend-the-events-graphql-api-with-geo-distance-query-support: backlog
+  # regenerated 2026-08-05 via bmad-create-story: full context engine pass with two
+  # user-confirmed design decisions (Haversine+scalar-column geo storage; full recursive
+  # multi-locationPreferenceId DSL support). Gate 1/3 cited from swept epic-2-readiness.md
+  # (this story is itself that report's identified gap-fill). Gate 2 found no in-scope UI
+  # gap; left a forward note for Story 2.5's own creation (Discovery radius-control design).
+  2-5a-extend-the-events-graphql-api-with-geo-distance-query-support: ready-for-dev
   2-5-find-nearby-events: backlog
   2-6-view-and-manage-events-on-a-calendar: backlog
   2-6a-create-user-settings-table-and-settings-query-mutation-resolvers: backlog
