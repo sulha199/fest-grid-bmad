@@ -56,6 +56,7 @@ function formatEventDate(locale: string, timezone: string | undefined, dateObj: 
  * ```
  */
 export function EventCard({
+  isGreyedOut = false,
   eventName,
   startDate,
   locale,
@@ -97,12 +98,12 @@ export function EventCard({
       <article
         aria-busy="true"
         aria-label={defaultLabels.loading}
-        className="w-full max-w-sm rounded-xl overflow-hidden shadow-sm border border-border bg-card animate-pulse"
+        className={`w-full max-w-sm rounded-xl overflow-hidden shadow-sm border border-border bg-card animate-pulse ${isGreyedOut ? 'opacity-50 grayscale' : ''}`}
       >
-        <div className="h-48 bg-muted w-full" />
-        <div className="p-4 space-y-4">
-          <div className="h-6 bg-muted rounded w-3/4" />
-          <div className="h-4 bg-muted rounded w-1/2" />
+        <div className="h-48 bg-gray-200 w-full" />
+        <div className="p-4 flex flex-col gap-4">
+          <div className="h-6 bg-gray-200 rounded w-3/4" />
+          <div className="h-4 bg-gray-200 rounded w-1/2" />
         </div>
       </article>
     );
@@ -139,8 +140,9 @@ export function EventCard({
           aria-label={defaultLabels.favoriteToggle}
           className="absolute top-3 right-3 z-10 p-2 rounded-full bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors"
         >
-          <Heart 
-            className={`w-5 h-5 ${isFavorited ? 'fill-destructive text-destructive' : 'text-muted-foreground'}`} 
+          <Heart
+            className={`w-5 h-5 ${isFavorited ? 'fill-red-600 text-red-600' : 'text-black'}`}
+            fill={isFavorited ? 'currentColor' : 'none'}
           />
         </button>
       )}

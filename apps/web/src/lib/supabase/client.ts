@@ -13,7 +13,7 @@ export function getSupabaseBrowserClient() {
 
     if (!url || !anonKey) {
       throw new Error(
-        'Supabase client environment variables (NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY) must be defined. Environment: ' + JSON.stringify(process.env)
+        'Supabase client environment variables (NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY) must be defined. '
       );
     }
 

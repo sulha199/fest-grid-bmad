@@ -350,10 +350,12 @@ export function FavoritesContent() {
                     categoryLabels,
                     typeLabels,
                   }}
-                  isFavorited={event.isFavorited}
+                  isGreyedOut={!event.isFavorited || softDelete.isPending(event.id)}
+                  isFavorited={event.isFavorited && !softDelete.isPending(event.id)}
                   pendingRemoval={softDelete.isPending(event.id)}
                   onFavoriteToggle={() => {
                     if (softDelete.isPending(event.id)) {
+                      softDelete.undo(event.id)
                       return
                     }
 

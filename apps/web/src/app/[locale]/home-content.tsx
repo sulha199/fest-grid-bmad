@@ -1,11 +1,11 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
-import { useInfiniteQuery, InfiniteData } from "@tanstack/react-query"
+import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query"
 import { EventCard, useInfiniteScroll, SearchBar, FilterHub } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
-import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput } from "@/generated/graphql"
+import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs"
 import { usePostHog } from "@festgrid/analytics"
@@ -13,6 +13,8 @@ import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
 import { buildEventsQueryCondition } from "@festgrid/domain/events"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { LoginContent } from "./login/login-content"
 
 // Falls back to the raw enum value if a translation key is missing, so a
 // locale file drifting out of sync with the enum degrades gracefully instead
@@ -36,6 +38,45 @@ export function HomeContent() {
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
   const [types] = useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))
   const [categories] = useQueryState('categories', parseAsArrayOf(parseAsString).withDefault([]))
+  const queryClient = useQueryClient()
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+
+  const { mutate: toggleFavorite } = useToggleFavoriteMutation(graphqlClient, {
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: ['events'] })
+      const previousData = queryClient.getQueryData(['events', { q, types, categories }])
+
+      queryClient.setQueriesData({ queryKey: ['events'] }, (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            events: {
+              ...page.events,
+              items: page.events.items.map((item: any) =>
+                item.id === variables.eventId
+                  ? { ...item, isFavorited: !item.isFavorited }
+                  : item
+              ),
+            },
+          })),
+        }
+      })
+
+      return { previousData }
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['events', { q, types, categories }], context.previousData)
+      }
+    },
+    onSuccess: (data, variables) => {
+      posthog.capture(data.toggleFavorite.isFavorited ? "event_favorited" : "event_unfavorited", {
+        eventId: variables.eventId,
+      })
+    }
+  })
   
   const tCategory = useTranslations('EventCategory')
   const tType = useTranslations('EventType')
@@ -211,6 +252,14 @@ export function HomeContent() {
                   types={event.types ?? []}
                   priceFrom={mainSchedule?.ticketPrice ?? undefined}
                   labels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
+                  isFavorited={event.isFavorited}
+                  onFavoriteToggle={() => {
+                    if (!session) {
+                      setIsLoginModalOpen(true)
+                      return
+                    }
+                    toggleFavorite({ eventId: event.id })
+                  }}
                   onClick={() => {
                     const paramsStr = searchParams.toString();
                     const url = `/events/${event.slug}?fromList=true${paramsStr ? `&${paramsStr}` : ""}`;
@@ -231,6 +280,12 @@ export function HomeContent() {
           </div>
         </>
       )}
+
+      <Dialog open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+          <LoginContent />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
