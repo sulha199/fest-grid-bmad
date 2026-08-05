@@ -1,16 +1,130 @@
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere } from '@festgrid/graphql-select';
 import { requireAuth } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and, exists, isNull, desc } from 'drizzle-orm';
 import { QueryCondition } from '@festgrid/domain/query';
+import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
+import { resolveLocation } from '../lib/geolocation/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
+
+function formatLocationDetails(details: any): any {
+  if (!details) return null;
+  return {
+    ...details,
+    coordinates: {
+      lat: details.coordinates.latitude ?? details.coordinates.lat,
+      lng: details.coordinates.longitude ?? details.coordinates.lng,
+    }
+  };
+}
 
 export const resolvers: Resolvers = {
   JSON: GraphQLJSON,
   Mutation: {
+    createUserLocation: async (_: any, { input }: any, context: any) => {
+      try {
+        const authUser = requireAuth(context);
+        const mode = resolveLocationInputMode(input);
+        if (!mode) {
+          throw new GraphQLError('Address or coordinates required', { extensions: { code: 'BAD_REQUEST' } });
+        }
+        validateRadiusMeters(input.radius);
+
+        let resolved;
+        if (mode.kind === 'ADDRESS') {
+          resolved = await resolveLocation({ kind: 'ADDRESS', address: mode.address });
+        } else {
+          resolved = await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude: mode.latitude, longitude: mode.longitude } });
+        }
+
+        const [created] = await db.insert(userLocations).values({
+          userId: authUser.userId,
+          name: input.name,
+          latitude: resolved.coordinates.latitude,
+          longitude: resolved.coordinates.longitude,
+          radius: input.radius,
+          locationDetails: resolved,
+        }).returning();
+
+        return {
+          ...created,
+          locationDetails: formatLocationDetails(created.locationDetails),
+          createdAt: created.createdAt.toISOString(),
+          updatedAt: created.updatedAt.toISOString(),
+        } as any;
+      } catch (err: any) {
+        if (err instanceof InvalidUserLocationInputError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
+        }
+        throw err;
+      }
+    },
+    updateUserLocation: async (_: any, { id, input }: any, context: any) => {
+      try {
+        const authUser = requireAuth(context);
+        const existingRows = await db.select().from(userLocations)
+          .where(and(eq(userLocations.id, id), eq(userLocations.userId, authUser.userId)));
+        
+        if (existingRows.length === 0) {
+          throw new GraphQLError('Location not found', { extensions: { code: 'NOT_FOUND' } });
+        }
+
+        const existing = existingRows[0];
+        const mode = resolveLocationInputMode(input);
+        let resolvedLatitude = existing.latitude;
+        let resolvedLongitude = existing.longitude;
+        let resolvedDetails = existing.locationDetails;
+
+        if (mode !== null) {
+          let resolved;
+          if (mode.kind === 'ADDRESS') {
+            resolved = await resolveLocation({ kind: 'ADDRESS', address: mode.address });
+          } else {
+            resolved = await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude: mode.latitude, longitude: mode.longitude } });
+          }
+          resolvedLatitude = resolved.coordinates.latitude;
+          resolvedLongitude = resolved.coordinates.longitude;
+          resolvedDetails = resolved;
+        }
+
+        if (typeof input.radius === 'number') {
+          validateRadiusMeters(input.radius);
+        }
+
+        const [updated] = await db.update(userLocations)
+          .set({
+            name: input.name ?? existing.name,
+            radius: input.radius ?? existing.radius,
+            latitude: resolvedLatitude,
+            longitude: resolvedLongitude,
+            locationDetails: resolvedDetails,
+            updatedAt: new Date(),
+          })
+          .where(eq(userLocations.id, id))
+          .returning();
+
+        return {
+          ...updated,
+          locationDetails: formatLocationDetails(updated.locationDetails),
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
+        } as any;
+      } catch (err: any) {
+        if (err instanceof InvalidUserLocationInputError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
+        }
+        throw err;
+      }
+    },
+    deleteUserLocation: async (_: any, { id }: any, context: any) => {
+      const authUser = requireAuth(context);
+      await db.delete(userLocations)
+        .where(and(eq(userLocations.id, id), eq(userLocations.userId, authUser.userId)));
+      return true;
+    },
     toggleFavorite: async (_: any, { eventId }: any, context: any) => {
       const authUser = requireAuth(context);
       
@@ -89,6 +203,19 @@ export const resolvers: Resolvers = {
   },
   Query: {
     health: () => true,
+    myLocations: async (_: any, __: any, context: any) => {
+      const authUser = requireAuth(context);
+      const rows = await db.select().from(userLocations)
+        .where(eq(userLocations.userId, authUser.userId))
+        .orderBy(asc(userLocations.createdAt));
+
+      return rows.map(row => ({
+        ...row,
+        locationDetails: formatLocationDetails(row.locationDetails),
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+      })) as any;
+    },
     me: async (_: any, __: any, context: any) => {
       const authUser = requireAuth(context);
       const rows = await db.select({

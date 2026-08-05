@@ -34,6 +34,12 @@ const FIXTURE_USER_LOCATIONS = [
     latitude: -6.2088,
     longitude: 106.8456,
     radius: 5000,
+    locationDetails: {
+      coordinates: { latitude: -6.2088, longitude: 106.8456 },
+      formattedAddress: 'Jakarta, Indonesia',
+      placeName: 'Jakarta',
+      provider: 'GEOAPIFY' as const
+    },
   },
   {
     id: '10000000-0000-0000-0000-000000000002',
@@ -42,6 +48,12 @@ const FIXTURE_USER_LOCATIONS = [
     latitude: -6.9175,
     longitude: 107.6191,
     radius: 8000,
+    locationDetails: {
+      coordinates: { latitude: -6.9175, longitude: 107.6191 },
+      formattedAddress: 'Bandung, West Java, Indonesia',
+      placeName: 'Bandung',
+      provider: 'GEOAPIFY' as const
+    },
   },
 ];
 

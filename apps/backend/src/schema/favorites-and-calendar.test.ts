@@ -9,15 +9,13 @@ import { users, events, schedules, favorites, calendarAdditions } from '@festgri
 import { eq } from 'drizzle-orm';
 
 // read the generated schema for the yoga server
-const typeDefs = fs.readFileSync(path.resolve(process.cwd(), 'src/schema/events.graphql'), 'utf-8');
-const authDefs = fs.readFileSync(path.resolve(process.cwd(), 'src/schema/auth.graphql'), 'utf-8');
-const favDefs = fs.readFileSync(path.resolve(process.cwd(), 'src/schema/favorites-and-calendar.graphql'), 'utf-8');
+const schemaDir = path.resolve(process.cwd(), 'src/schema');
+const files = fs.readdirSync(schemaDir).filter(f => f.endsWith('.graphql'));
+const typeDefs = files.map(f => fs.readFileSync(path.join(schemaDir, f), 'utf8')).join('\n');
 
 const schema = createSchema({
   typeDefs: `
     ${typeDefs}
-    ${authDefs}
-    ${favDefs}
     type Query {
       health: Boolean
     }

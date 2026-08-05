@@ -1,6 +1,7 @@
 import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, pgEnum, index, unique } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
+import { LocationDetails } from '@festgrid/shared-types';
 
 const generateSlug = () => randomBytes(6).toString('hex');
 
@@ -45,8 +46,11 @@ export const userLocations = pgTable('user_locations', {
   longitude: doublePrecision('longitude').notNull(),
   // Radius in meters
   radius: integer('radius').notNull(),
+  locationDetails: jsonb('location_details').$type<LocationDetails>().notNull(),
   ...timestamps,
-});
+}, (t) => ({
+  userIdIdx: index('idx_user_locations_user_id').on(t.userId),
+}));
 
 export const subscriptions = pgTable('subscriptions', {
   id: uuid('id').defaultRandom().primaryKey(),

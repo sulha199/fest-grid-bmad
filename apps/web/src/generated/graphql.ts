@@ -13,15 +13,11 @@ export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Mayb
 export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
 
 function fetcher<TData, TVariables extends { [key: string]: any }>(client: GraphQLClient, query: TypedDocumentString<unknown, unknown>, variables?: TVariables, requestHeaders?: RequestInit['headers']) {
-  return async (): Promise<TData> => {
-    console.log("Fetcher called with query:", query.toString().substring(0, 100));
-    console.trace();
-    return client.request<TData>({
-      document: query,
-      variables,
-      requestHeaders
-    });
-  };
+  return async (): Promise<TData> => client.request<TData>({
+    document: query,
+    variables,
+    requestHeaders
+  });
 }
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
@@ -37,6 +33,14 @@ export type Coordinates = {
   __typename?: 'Coordinates';
   lat: Scalars['Float']['output'];
   lng: Scalars['Float']['output'];
+};
+
+export type CreateUserLocationInput = {
+  address?: InputMaybe<Scalars['String']['input']>;
+  latitude?: InputMaybe<Scalars['Float']['input']>;
+  longitude?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+  radius: Scalars['Int']['input'];
 };
 
 export type Event = {
@@ -117,8 +121,21 @@ export type Me = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  createUserLocation: UserLocation;
+  deleteUserLocation: Scalars['Boolean']['output'];
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
+  updateUserLocation: UserLocation;
+};
+
+
+export type MutationCreateUserLocationArgs = {
+  input: CreateUserLocationInput;
+};
+
+
+export type MutationDeleteUserLocationArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -132,6 +149,12 @@ export type MutationToggleFavoriteArgs = {
   eventId: Scalars['ID']['input'];
 };
 
+
+export type MutationUpdateUserLocationArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateUserLocationInput;
+};
+
 export type Query = {
   __typename?: 'Query';
   event?: Maybe<Event>;
@@ -139,6 +162,7 @@ export type Query = {
   events: EventConnection;
   health: Scalars['Boolean']['output'];
   me: Me;
+  myLocations: Array<UserLocation>;
 };
 
 
@@ -190,6 +214,24 @@ export type ToggleFavoriteResult = {
   __typename?: 'ToggleFavoriteResult';
   eventId: Scalars['ID']['output'];
   isFavorited: Scalars['Boolean']['output'];
+};
+
+export type UpdateUserLocationInput = {
+  address?: InputMaybe<Scalars['String']['input']>;
+  latitude?: InputMaybe<Scalars['Float']['input']>;
+  longitude?: InputMaybe<Scalars['Float']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  radius?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type UserLocation = {
+  __typename?: 'UserLocation';
+  createdAt: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  locationDetails: LocationDetails;
+  name: Scalars['String']['output'];
+  radius: Scalars['Int']['output'];
+  updatedAt: Scalars['String']['output'];
 };
 
 

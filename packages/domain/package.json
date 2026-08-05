@@ -25,6 +25,10 @@
     "./calendar": {
       "types": "./dist/calendar/index.d.ts",
       "default": "./dist/calendar/index.js"
+    },
+    "./user-locations": {
+      "types": "./dist/user-locations/index.d.ts",
+      "default": "./dist/user-locations/index.js"
     }
   },
   "scripts": {

@@ -25,6 +25,14 @@ export type Coordinates = {
   lng: Scalars['Float']['output'];
 };
 
+export type CreateUserLocationInput = {
+  address?: InputMaybe<Scalars['String']['input']>;
+  latitude?: InputMaybe<Scalars['Float']['input']>;
+  longitude?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+  radius: Scalars['Int']['input'];
+};
+
 export type Event = {
   __typename?: 'Event';
   categories?: Maybe<Array<EventCategory>>;
@@ -109,8 +117,21 @@ export type Me = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  createUserLocation: UserLocation;
+  deleteUserLocation: Scalars['Boolean']['output'];
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
+  updateUserLocation: UserLocation;
+};
+
+
+export type MutationCreateUserLocationArgs = {
+  input: CreateUserLocationInput;
+};
+
+
+export type MutationDeleteUserLocationArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -124,6 +145,12 @@ export type MutationToggleFavoriteArgs = {
   eventId: Scalars['ID']['input'];
 };
 
+
+export type MutationUpdateUserLocationArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateUserLocationInput;
+};
+
 export type Query = {
   __typename?: 'Query';
   event?: Maybe<Event>;
@@ -131,6 +158,7 @@ export type Query = {
   events: EventConnection;
   health: Scalars['Boolean']['output'];
   me: Me;
+  myLocations: Array<UserLocation>;
 };
 
 
@@ -182,6 +210,24 @@ export type ToggleFavoriteResult = {
   __typename?: 'ToggleFavoriteResult';
   eventId: Scalars['ID']['output'];
   isFavorited: Scalars['Boolean']['output'];
+};
+
+export type UpdateUserLocationInput = {
+  address?: InputMaybe<Scalars['String']['input']>;
+  latitude?: InputMaybe<Scalars['Float']['input']>;
+  longitude?: InputMaybe<Scalars['Float']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  radius?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type UserLocation = {
+  __typename?: 'UserLocation';
+  createdAt: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  locationDetails: LocationDetails;
+  name: Scalars['String']['output'];
+  radius: Scalars['Int']['output'];
+  updatedAt: Scalars['String']['output'];
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -258,6 +304,7 @@ export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs
 export type ResolversTypes = ResolversObject<{
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   Coordinates: ResolverTypeWrapper<Coordinates>;
+  CreateUserLocationInput: CreateUserLocationInput;
   Event: ResolverTypeWrapper<Event>;
   EventCategory: EventCategory;
   EventConnection: ResolverTypeWrapper<EventConnection>;
@@ -275,12 +322,15 @@ export type ResolversTypes = ResolversObject<{
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   ToggleCalendarAdditionResult: ResolverTypeWrapper<ToggleCalendarAdditionResult>;
   ToggleFavoriteResult: ResolverTypeWrapper<ToggleFavoriteResult>;
+  UpdateUserLocationInput: UpdateUserLocationInput;
+  UserLocation: ResolverTypeWrapper<UserLocation>;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
   Boolean: Scalars['Boolean']['output'];
   Coordinates: Coordinates;
+  CreateUserLocationInput: CreateUserLocationInput;
   Event: Event;
   EventConnection: EventConnection;
   EventQueryConditionInput: EventQueryConditionInput;
@@ -296,6 +346,8 @@ export type ResolversParentTypes = ResolversObject<{
   String: Scalars['String']['output'];
   ToggleCalendarAdditionResult: ToggleCalendarAdditionResult;
   ToggleFavoriteResult: ToggleFavoriteResult;
+  UpdateUserLocationInput: UpdateUserLocationInput;
+  UserLocation: UserLocation;
 }>;
 
 export type CoordinatesResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Coordinates'] = ResolversParentTypes['Coordinates']> = ResolversObject<{
@@ -353,8 +405,11 @@ export type MeResolvers<ContextType = GraphQLContext, ParentType extends Resolve
 }>;
 
 export type MutationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
+  createUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationCreateUserLocationArgs, 'input'>>;
+  deleteUserLocation?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteUserLocationArgs, 'id'>>;
   toggleCalendarAddition?: Resolver<ResolversTypes['ToggleCalendarAdditionResult'], ParentType, ContextType, RequireFields<MutationToggleCalendarAdditionArgs, 'eventId' | 'scheduleId'>>;
   toggleFavorite?: Resolver<ResolversTypes['ToggleFavoriteResult'], ParentType, ContextType, RequireFields<MutationToggleFavoriteArgs, 'eventId'>>;
+  updateUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationUpdateUserLocationArgs, 'id' | 'input'>>;
 }>;
 
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
@@ -363,6 +418,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   events?: Resolver<ResolversTypes['EventConnection'], ParentType, ContextType, Partial<QueryEventsArgs>>;
   health?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   me?: Resolver<ResolversTypes['Me'], ParentType, ContextType>;
+  myLocations?: Resolver<Array<ResolversTypes['UserLocation']>, ParentType, ContextType>;
 }>;
 
 export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Schedule'] = ResolversParentTypes['Schedule']> = ResolversObject<{
@@ -399,6 +455,16 @@ export type ToggleFavoriteResultResolvers<ContextType = GraphQLContext, ParentTy
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type UserLocationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['UserLocation'] = ResolversParentTypes['UserLocation']> = ResolversObject<{
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  locationDetails?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  radius?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Coordinates?: CoordinatesResolvers<ContextType>;
   Event?: EventResolvers<ContextType>;
@@ -411,5 +477,6 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Schedule?: ScheduleResolvers<ContextType>;
   ToggleCalendarAdditionResult?: ToggleCalendarAdditionResultResolvers<ContextType>;
   ToggleFavoriteResult?: ToggleFavoriteResultResolvers<ContextType>;
+  UserLocation?: UserLocationResolvers<ContextType>;
 }>;
 

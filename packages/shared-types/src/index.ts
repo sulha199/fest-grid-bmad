@@ -122,6 +122,7 @@ export interface UserLocationPreference {
   coordinates: Coordinates;
   /** Radius in meters, Stored in meters for processing, displayed in km */
   radius: number;
+  locationDetails: LocationDetails;
 }
 
 export interface Post {

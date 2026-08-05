@@ -1,0 +1,34 @@
+type UserLocation {
+  id: ID!
+  name: String!
+  locationDetails: LocationDetails!
+  radius: Int!
+  createdAt: String!
+  updatedAt: String!
+}
+
+input CreateUserLocationInput {
+  name: String!
+  address: String
+  latitude: Float
+  longitude: Float
+  radius: Int!
+}
+
+input UpdateUserLocationInput {
+  name: String
+  address: String
+  latitude: Float
+  longitude: Float
+  radius: Int
+}
+
+extend type Query {
+  myLocations: [UserLocation!]!
+}
+
+extend type Mutation {
+  createUserLocation(input: CreateUserLocationInput!): UserLocation!
+  updateUserLocation(id: ID!, input: UpdateUserLocationInput!): UserLocation!
+  deleteUserLocation(id: ID!): Boolean!
+}

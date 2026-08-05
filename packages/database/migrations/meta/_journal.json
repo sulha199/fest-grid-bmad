@@ -50,6 +50,13 @@
       "when": 1785805297982,
       "tag": "0006_fuzzy_nitro",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1785931473958,
+      "tag": "0007_exotic_dracula",
+      "breakpoints": true
     }
   ]
 }

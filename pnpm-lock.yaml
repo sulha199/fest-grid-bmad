@@ -275,6 +275,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@festgrid/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1

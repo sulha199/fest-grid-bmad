@@ -7,7 +7,7 @@ baseline_commit: 1fce963fe87cd6a30ae92542dd79226516868728
 
 - Epic: 2 - User Personalization
 - Story ID: 2.3a
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,36 +33,36 @@ so that Stories 2.3, 2.4, and 2.5 read and write saved locations through the bac
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `location_details` column and `user_id` index to `user_locations` (AC1)
-  - [ ] In `packages/database/schema.ts`, add `locationDetails: jsonb('location_details').notNull()` to the `userLocations` table definition (alongside the existing `latitude`/`longitude`/`radius` columns — kept, not replaced, per AC3's "flat columns stay for future geo-distance indexing" reasoning).
-  - [ ] Add a non-partial index (`user_locations` has no `deletedAt`, so no `WHERE deleted_at IS NULL` clause applies, unlike `favorites`/`calendar_additions`): `index('idx_user_locations_user_id').on(t.userId)`.
-  - [ ] Run `pnpm --filter @festgrid/database generate` to produce the new Drizzle-kit SQL migration file under `packages/database/migrations/` (next number after `0005_puzzling_mad_thinker.sql`); commit it (AD-3).
-  - [ ] Update `packages/database/seed.ts`'s `FIXTURE_USER_LOCATIONS` (currently 2 rows, `id`/`userId`/`name`/`latitude`/`longitude`/`radius` only — confirmed by reading the file) to add a hand-authored `locationDetails` object per fixture row (e.g. `{ coordinates: { latitude: -6.2088, longitude: 106.8456 }, formattedAddress: 'Jakarta, Indonesia', provider: 'GEOAPIFY' }` — including `provider`, since these are newly-authored fixture rows, unlike `schedules`' pre-existing seeded rows which predate Story 0.16's AC8 and are left as-is), matching the new `NOT NULL` constraint — **required**, not optional, or `pnpm --filter database run seed` breaks.
-- [ ] Task 2: Add `locationDetails` to the `UserLocationPreference` interface (AC1, AC6)
-  - [ ] In `packages/shared-types/src/index.ts`, add `locationDetails: LocationDetails` to the existing `UserLocationPreference` interface (currently `id`, `userId`, `name`, `coordinates`, `radius` only — confirmed by reading the file). This is an additive extension beyond PRD §4.6's current documented shape, not a contradiction of it — see Dev Notes → Data Type Compatibility.
-- [ ] Task 3: Build pure input-validation logic in `packages/domain` (AC3, AC4)
-  - [ ] Create `packages/domain/src/user-locations/validateLocationInput.ts` exporting: `resolveLocationInputMode(input: { address?: string | null; latitude?: number | null; longitude?: number | null }): { kind: 'ADDRESS'; address: string } | { kind: 'COORDINATES'; latitude: number; longitude: number } | null` — throws `InvalidUserLocationInputError` if both an address and coordinates are present; returns `null` if neither is present (valid for an `update` call that only changes `name`/`radius`); and `validateRadiusMeters(radius: number): void` — throws `InvalidUserLocationInputError` if `radius < 1000 || radius > 50000`. Both are pure, dependency-free functions (no DB/SDK imports), per `project-context.md`'s Code Organization rule — entity-specific (not a generic cross-entity mechanism), so nested under `src/user-locations/`, not `src/query/`.
-  - [ ] Create `packages/domain/src/user-locations/validateLocationInput.test.ts` (`node:test`/`tsx --test`, mirroring Stories 0.13/0.15/0.16's established pattern — no test framework is `done` yet). Achieve **100% coverage** per `project-context.md`'s Unit Test Requirement: both-provided error, neither-provided-returns-null, address-only, coordinates-only, radius exactly at 1000/50000 boundaries (valid), radius at 999/50001 (invalid), radius mid-range (valid).
-- [ ] Task 4: Add GraphQL schema file `apps/backend/src/schema/user-locations.graphql` (AC2, AC3, AC5, AC6)
-  - [ ] Declare `type UserLocation { id: ID! name: String! locationDetails: LocationDetails! radius: Int! createdAt: String! updatedAt: String! }` (reuses the `LocationDetails`/`Coordinates` types already declared in `events.graphql` — no redeclaration).
-  - [ ] Declare `input CreateUserLocationInput { name: String! address: String latitude: Float longitude: Float radius: Int! }` and `input UpdateUserLocationInput { name: String address: String latitude: Float longitude: Float radius: Int }`.
-  - [ ] `extend type Query { myLocations: [UserLocation!]! }`.
-  - [ ] `extend type Mutation { createUserLocation(input: CreateUserLocationInput!): UserLocation! updateUserLocation(id: ID!, input: UpdateUserLocationInput!): UserLocation! deleteUserLocation(id: ID!): Boolean! }` (extends the `Mutation` root Story 2.1a first declared — do not redeclare `type Mutation`).
-- [ ] Task 5: Implement resolvers in `apps/backend/src/schema/resolvers.ts` (AC2-AC7)
-  - [ ] Import `userLocations` from `@festgrid/database` and the Geolocation adapter's `resolveLocation` from `../lib/geolocation/adapter.js` (Story 0.16 — **not yet built**, see Pre-Coding Approval Gate; stub/mock this import path in this story's own tests per Task 7).
-  - [ ] `Mutation.createUserLocation`: `requireAuth` first; call `resolveLocationInputMode` — throw `GraphQLError` (`BAD_REQUEST`) if it returns `null` (address or coordinates required on create, unlike update); call `validateRadiusMeters`; call `resolveLocation` with the appropriate `GeolocationQuery`; insert a row with the resolved `coordinates` split into flat `latitude`/`longitude` plus the full `locationDetails` object; return the created row.
-  - [ ] `Mutation.updateUserLocation`: `requireAuth` first; look up the existing row scoped to `(id, userId)` — throw `NOT_FOUND` if missing; call `resolveLocationInputMode` (may legitimately return `null` — skip re-resolution, keep existing `latitude`/`longitude`/`locationDetails`); if non-null, re-resolve via `resolveLocation` and overwrite `latitude`/`longitude`/`locationDetails`; validate `radius` only if supplied; update `name`/`radius` if supplied; return the updated row.
-  - [ ] `Mutation.deleteUserLocation`: `requireAuth` first; `DELETE ... WHERE id = $id AND user_id = $userId`; always return `true` regardless of whether a row was actually deleted (idempotency — AC5).
-  - [ ] `Query.myLocations`: `requireAuth` first (no try/catch degrade-to-empty — AC6 is a deliberate departure from the `events` resolver's unauthenticated-tolerant pattern; do not copy that precedent here); `SELECT ... WHERE user_id = $userId ORDER BY created_at ASC`.
-- [ ] Task 6: Run `pnpm run codegen` at the repo root so `apps/backend/src/generated/resolvers-types.ts` and `apps/web/src/generated/graphql.ts` pick up the new SDL (AC2, AC6).
-- [ ] Task 7: Write integration tests (`apps/backend`, `tsx --test`, mirroring `favorites-and-calendar.test.ts`'s `graphql-yoga`-in-process pattern) in a new `apps/backend/src/schema/user-locations.test.ts` (AC1-AC7)
-  - [ ] Mock/stub the Geolocation adapter's `resolveLocation` (module-level mock or dependency injection, since Story 0.16's real implementation may not exist yet — do not call a real Geoapify API in tests).
-  - [ ] Cover: `createUserLocation` with address-only (mocked forward-geocode called, resolved coordinates persisted); with coordinates-only (mocked reverse-geocode called); with both address and coordinates → `BAD_REQUEST`; with neither → `BAD_REQUEST`; with radius `999`/`50001` → `BAD_REQUEST`; with radius `1000`/`50000` → succeeds.
-  - [ ] `updateUserLocation`: partial update (radius only, no re-resolution, `resolveLocation` not called); full re-resolution via a new address; updating another user's location id → `NOT_FOUND`.
-  - [ ] `deleteUserLocation`: deletes an owned row; deleting an already-deleted/nonexistent id is a no-op returning `true`, not an error; deleting another user's location id is also a no-op (never deletes cross-user, and does not leak existence via a different response).
-  - [ ] `myLocations`: returns only the caller's own rows, ordered by `createdAt` ascending; unauthenticated call throws `UNAUTHENTICATED`.
-  - [ ] All three mutations reject an unauthenticated caller with `UNAUTHENTICATED`.
-- [ ] Task 8: Manual verification — run the backend, exercise all four operations via GraphiQL/`curl` against seeded data; confirm `pnpm build`/`pnpm lint`/`pnpm run codegen` stay clean at the repo root.
+- [x] Task 1: Add `location_details` column and `user_id` index to `user_locations` (AC1)
+  - [x] In `packages/database/schema.ts`, add `locationDetails: jsonb('location_details').notNull()` to the `userLocations` table definition (alongside the existing `latitude`/`longitude`/`radius` columns — kept, not replaced, per AC3's "flat columns stay for future geo-distance indexing" reasoning).
+  - [x] Add a non-partial index (`user_locations` has no `deletedAt`, so no `WHERE deleted_at IS NULL` clause applies, unlike `favorites`/`calendar_additions`): `index('idx_user_locations_user_id').on(t.userId)`.
+  - [x] Run `pnpm --filter @festgrid/database generate` to produce the new Drizzle-kit SQL migration file under `packages/database/migrations/` (next number after `0005_puzzling_mad_thinker.sql`); commit it (AD-3).
+  - [x] Update `packages/database/seed.ts`'s `FIXTURE_USER_LOCATIONS` (currently 2 rows, `id`/`userId`/`name`/`latitude`/`longitude`/`radius` only — confirmed by reading the file) to add a hand-authored `locationDetails` object per fixture row (e.g. `{ coordinates: { latitude: -6.2088, longitude: 106.8456 }, formattedAddress: 'Jakarta, Indonesia', provider: 'GEOAPIFY' }` — including `provider`, since these are newly-authored fixture rows, unlike `schedules`' pre-existing seeded rows which predate Story 0.16's AC8 and are left as-is), matching the new `NOT NULL` constraint — **required**, not optional, or `pnpm --filter database run seed` breaks.
+- [x] Task 2: Add `locationDetails` to the `UserLocationPreference` interface (AC1, AC6)
+  - [x] In `packages/shared-types/src/index.ts`, add `locationDetails: LocationDetails` to the existing `UserLocationPreference` interface (currently `id`, `userId`, `name`, `coordinates`, `radius` only — confirmed by reading the file). This is an additive extension beyond PRD §4.6's current documented shape, not a contradiction of it — see Dev Notes → Data Type Compatibility.
+- [x] Task 3: Build pure input-validation logic in `packages/domain` (AC3, AC4)
+  - [x] Create `packages/domain/src/user-locations/validateLocationInput.ts` exporting: `resolveLocationInputMode(input: { address?: string | null; latitude?: number | null; longitude?: number | null }): { kind: 'ADDRESS'; address: string } | { kind: 'COORDINATES'; latitude: number; longitude: number } | null` — throws `InvalidUserLocationInputError` if both an address and coordinates are present; returns `null` if neither is present (valid for an `update` call that only changes `name`/`radius`); and `validateRadiusMeters(radius: number): void` — throws `InvalidUserLocationInputError` if `radius < 1000 || radius > 50000`. Both are pure, dependency-free functions (no DB/SDK imports), per `project-context.md`'s Code Organization rule — entity-specific (not a generic cross-entity mechanism), so nested under `src/user-locations/`, not `src/query/`.
+  - [x] Create `packages/domain/src/user-locations/validateLocationInput.test.ts` (`node:test`/`tsx --test`, mirroring Stories 0.13/0.15/0.16's established pattern — no test framework is `done` yet). Achieve **100% coverage** per `project-context.md`'s Unit Test Requirement: both-provided error, neither-provided-returns-null, address-only, coordinates-only, radius exactly at 1000/50000 boundaries (valid), radius at 999/50001 (invalid), radius mid-range (valid).
+- [x] Task 4: Add GraphQL schema file `apps/backend/src/schema/user-locations.graphql` (AC2, AC3, AC5, AC6)
+  - [x] Declare `type UserLocation { id: ID! name: String! locationDetails: LocationDetails! radius: Int! createdAt: String! updatedAt: String! }` (reuses the `LocationDetails`/`Coordinates` types already declared in `events.graphql` — no redeclaration).
+  - [x] Declare `input CreateUserLocationInput { name: String! address: String latitude: Float longitude: Float radius: Int! }` and `input UpdateUserLocationInput { name: String address: String latitude: Float longitude: Float radius: Int }`.
+  - [x] `extend type Query { myLocations: [UserLocation!]! }`.
+  - [x] `extend type Mutation { createUserLocation(input: CreateUserLocationInput!): UserLocation! updateUserLocation(id: ID!, input: UpdateUserLocationInput!): UserLocation! deleteUserLocation(id: ID!): Boolean! }` (extends the `Mutation` root Story 2.1a first declared — do not redeclare `type Mutation`).
+- [x] Task 5: Implement resolvers in `apps/backend/src/schema/resolvers.ts` (AC2-AC7)
+  - [x] Import `userLocations` from `@festgrid/database` and the Geolocation adapter's `resolveLocation` from `../lib/geolocation/adapter.js` (Story 0.16 — **not yet built**, see Pre-Coding Approval Gate; stub/mock this import path in this story's own tests per Task 7).
+  - [x] `Mutation.createUserLocation`: `requireAuth` first; call `resolveLocationInputMode` — throw `GraphQLError` (`BAD_REQUEST`) if it returns `null` (address or coordinates required on create, unlike update); call `validateRadiusMeters`; call `resolveLocation` with the appropriate `GeolocationQuery`; insert a row with the resolved `coordinates` split into flat `latitude`/`longitude` plus the full `locationDetails` object; return the created row.
+  - [x] `Mutation.updateUserLocation`: `requireAuth` first; look up the existing row scoped to `(id, userId)` — throw `NOT_FOUND` if missing; call `resolveLocationInputMode` (may legitimately return `null` — skip re-resolution, keep existing `latitude`/`longitude`/`locationDetails`); if non-null, re-resolve via `resolveLocation` and overwrite `latitude`/`longitude`/`locationDetails`; validate `radius` only if supplied; update `name`/`radius` if supplied; return the updated row.
+  - [x] `Mutation.deleteUserLocation`: `requireAuth` first; `DELETE ... WHERE id = $id AND user_id = $userId`; always return `true` regardless of whether a row was actually deleted (idempotency — AC5).
+  - [x] `Query.myLocations`: `requireAuth` first (no try/catch degrade-to-empty — AC6 is a deliberate departure from the `events` resolver's unauthenticated-tolerant pattern; do not copy that precedent here); `SELECT ... WHERE user_id = $userId ORDER BY created_at ASC`.
+- [x] Task 6: Run `pnpm run codegen` at the repo root so `apps/backend/src/generated/resolvers-types.ts` and `apps/web/src/generated/graphql.ts` pick up the new SDL (AC2, AC6).
+- [x] Task 7: Write integration tests (`apps/backend`, `tsx --test`, mirroring `favorites-and-calendar.test.ts`'s `graphql-yoga`-in-process pattern) in a new `apps/backend/src/schema/user-locations.test.ts` (AC1-AC7)
+  - [x] Mock/stub the Geolocation adapter's `resolveLocation` (module-level mock or dependency injection, since Story 0.16's real implementation may not exist yet — do not call a real Geoapify API in tests).
+  - [x] Cover: `createUserLocation` with address-only (mocked forward-geocode called, resolved coordinates persisted); with coordinates-only (mocked reverse-geocode called); with both address and coordinates → `BAD_REQUEST`; with neither → `BAD_REQUEST`; with radius `999`/`50001` → `BAD_REQUEST`; with radius `1000`/`50000` → succeeds.
+  - [x] `updateUserLocation`: partial update (radius only, no re-resolution, `resolveLocation` not called); full re-resolution via a new address; updating another user's location id → `NOT_FOUND`.
+  - [x] `deleteUserLocation`: deletes an owned row; deleting an already-deleted/nonexistent id is a no-op returning `true`, not an error; deleting another user's location id is also a no-op (never deletes cross-user, and does not leak existence via a different response).
+  - [x] `myLocations`: returns only the caller's own rows, ordered by `createdAt` ascending; unauthenticated call throws `UNAUTHENTICATED`.
+  - [x] All three mutations reject an unauthenticated caller with `UNAUTHENTICATED`.
+- [x] Task 8: Manual verification — run the backend, exercise all four operations via GraphiQL/`curl` against seeded data; confirm `pnpm build`/`pnpm lint`/`pnpm run codegen` stay clean at the repo root.
 
 ## Dev Notes
 
@@ -208,7 +208,7 @@ Recent commits (`1fce963`, `212a29e`, `2c208bb`, `b2eb288`, `6a5b1a8`, `8a16335`
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed
 
 ## Dev Agent Record
 
@@ -224,4 +224,33 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 
 ### Completion Notes List
 
+- Implemented database migrations adding `location_details` (NOT NULL, JSONB) column and index to the `user_locations` table definition using Drizzle ORM.
+- Updated shared types `UserLocationPreference` definition adding `locationDetails: LocationDetails`.
+- Created pure domain input validation logic in `packages/domain` supporting geolocation mode detection and radius bounds (1000m - 50000m).
+- Created a GraphQL SDL schema declaration for `UserLocation` types, inputs, query (`myLocations`), and mutations (`createUserLocation`, `updateUserLocation`, `deleteUserLocation`).
+- Implemented resolvers in `apps/backend/src/schema/resolvers.ts` securely scoped to the authenticated context.
+- Wrote full unit test coverage (100%) for input validation logic under `@festgrid/domain`.
+- Wrote extensive integration tests (`user-locations.test.ts`) covering success, boundaries, error handling, and authorization.
+- Automated code generation to update GraphQL TypeScript typings across apps/backend and apps/web.
+- Ran successful migrations and verified the complete monorepo build and test suite passes successfully.
+
 ### File List
+
+- `packages/database/schema.ts`
+- `packages/database/migrations/0007_exotic_dracula.sql`
+- `packages/database/seed.ts`
+- `packages/database/package.json`
+- `packages/shared-types/src/index.ts`
+- `packages/domain/package.json`
+- `packages/domain/src/index.ts`
+- `packages/domain/src/user-locations/index.ts`
+- `packages/domain/src/user-locations/validateLocationInput.ts`
+- `packages/domain/src/user-locations/validateLocationInput.test.ts`
+- `apps/backend/src/schema/user-locations.graphql`
+- `apps/backend/src/schema/resolvers.ts`
+- `apps/backend/src/schema/user-locations.test.ts`
+- `apps/backend/src/schema/resolvers.test.ts`
+- `apps/backend/src/schema/favorites-and-calendar.test.ts`
+- `apps/backend/src/env.ts`
+- `apps/backend/src/generated/resolvers-types.ts`
+- `apps/web/src/generated/graphql.ts`

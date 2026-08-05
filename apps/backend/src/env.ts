@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 export interface BackendEnv {
   port: number;
@@ -9,8 +10,19 @@ export interface BackendEnv {
 }
 
 export function loadBackendEnv(): BackendEnv {
-  // Read relative to cwd assuming it is run from apps/backend
+  // Read relative to this file's position to ensure it finds root .env regardless of process.cwd()
+  let resolvedDir = '';
+  if (typeof __dirname !== 'undefined') {
+    resolvedDir = __dirname;
+  } else {
+    resolvedDir = resolve(process.cwd(), 'src');
+  }
+
+  dotenv.config({ path: resolve(resolvedDir, '../../../.env') });
+  dotenv.config({ path: resolve(resolvedDir, '../../.env') });
+  // Fallbacks for various cwd environments
   dotenv.config({ path: resolve(process.cwd(), '../../.env') });
+  dotenv.config({ path: resolve(process.cwd(), '.env') });
   
   // eslint-disable-next-line turbo/no-undeclared-env-vars
   const portStr = process.env.BACKEND_PORT;
