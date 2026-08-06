@@ -13,6 +13,7 @@ describe('EventDetailView', () => {
     location: 'Test Location',
     schedules: [
       {
+        id: 'sched-1',
         eventStartDate: '2026-08-10T10:00:00Z',
       },
     ],
@@ -30,6 +31,9 @@ describe('EventDetailView', () => {
       postedByLabel: 'Posted by:',
       viewOriginalPostLabel: 'View original post',
       viewSourceLabel: 'View source',
+      addToCalendarDialogTitle: 'Select Schedules',
+      addToCalendarConfirmLabel: 'Confirm',
+      addToCalendarCancelLabel: 'Cancel',
     },
   };
 
@@ -38,6 +42,7 @@ describe('EventDetailView', () => {
     description: 'A great event description.',
     schedules: [
       {
+        id: 'sched-1',
         eventStartDate: '2026-08-10T10:00:00Z',
         eventEndDate: '2026-08-10T12:00:00Z',
         eventStartTime: '10:00 AM',
@@ -49,6 +54,7 @@ describe('EventDetailView', () => {
         mapUrl: 'https://maps.example.com/stage1',
       },
       {
+        id: 'sched-2',
         eventStartDate: '2026-08-11T14:00:00Z',
         title: 'Afternoon Session',
         // omitting location to test fallback
@@ -164,9 +170,77 @@ describe('EventDetailView', () => {
 
     fireEvent.click(favBtn);
     expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
+  });
 
+  it('opens add to calendar dialog on click and handles confirm', () => {
+    const onAddToCalendar = vi.fn();
+    const testProps = {
+      ...fullProps,
+      schedules: [
+        {
+          id: 'sched-1',
+          eventStartDate: '2026-08-10T10:00:00Z',
+          title: 'Morning Session',
+          isAddedToCalendar: true,
+        },
+        {
+          id: 'sched-2',
+          eventStartDate: '2026-08-11T14:00:00Z',
+          title: 'Afternoon Session',
+          isAddedToCalendar: false,
+        },
+      ],
+    };
+    render(<EventDetailView {...testProps} onAddToCalendar={onAddToCalendar} isAddedToCalendar={true} />);
+
+    const calBtn = screen.getByRole('button', { name: 'Add to Calendar' });
+    expect(calBtn).toHaveAttribute('aria-pressed', 'true');
+
+    // Click to open dialog
     fireEvent.click(calBtn);
-    expect(onAddToCalendar).toHaveBeenCalledTimes(1);
+
+    // Verify dialog is open
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('Select Schedules')).toBeInTheDocument();
+
+    // Check pre-checked states
+    const checkbox1 = screen.getByLabelText(/Morning Session/) as HTMLInputElement;
+    const checkbox2 = screen.getByLabelText(/Afternoon Session/) as HTMLInputElement;
+    expect(checkbox1.checked).toBe(true);
+    expect(checkbox2.checked).toBe(false);
+
+    // Check afternoon session as well
+    fireEvent.click(checkbox2);
+    expect(checkbox2.checked).toBe(true);
+
+    // Click Confirm
+    const confirmBtn = screen.getByRole('button', { name: 'Confirm' });
+    fireEvent.click(confirmBtn);
+
+    // Dialog should close
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(onAddToCalendar).toHaveBeenCalledWith(['sched-1', 'sched-2']);
+  });
+
+  it('handles dialog cancel and outside click / escape with no callback', () => {
+    const onAddToCalendar = vi.fn();
+    render(<EventDetailView {...fullProps} onAddToCalendar={onAddToCalendar} />);
+
+    const calBtn = screen.getByRole('button', { name: 'Add to Calendar' });
+    
+    // Test Cancel button
+    fireEvent.click(calBtn);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(onAddToCalendar).not.toHaveBeenCalled();
+
+    // Test Escape key
+    fireEvent.click(calBtn);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('dialog').firstChild!, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(onAddToCalendar).not.toHaveBeenCalled();
   });
 
   // AC15 Tests

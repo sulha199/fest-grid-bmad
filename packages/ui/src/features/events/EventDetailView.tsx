@@ -32,9 +32,21 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   labels,
   isFavorited,
   onFavoriteToggle,
+  isAuthenticated = true,
   isAddedToCalendar,
   onAddToCalendar,
 }) => {
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+
+  const handleTriggerClick = () => {
+    if (!isAuthenticated && onAddToCalendar) {
+      onAddToCalendar([]);
+      return;
+    }
+    setIsDialogOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="animate-pulse flex flex-col gap-6" aria-busy="true" aria-label={labels.loadingText}>
@@ -117,12 +129,13 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
           )}
           {onAddToCalendar && (
             <button
-              onClick={onAddToCalendar}
+              ref={triggerRef}
+              onClick={handleTriggerClick}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               aria-label={labels.addToCalendarButtonLabel}
               aria-pressed={isAddedToCalendar}
             >
-              <CalendarPlus className={`w-6 h-6 ${isAddedToCalendar ? 'text-primary' : 'text-gray-500'}`} />
+              <CalendarPlus className={`w-6 h-6 ${isAddedToCalendar ? 'fill-primary text-primary' : 'text-gray-500'}`} />
             </button>
           )}
         </div>
@@ -255,6 +268,190 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
           )}
         </section>
       )}
+
+      {onAddToCalendar && (
+        <AddToCalendarDialog
+          isOpen={isDialogOpen}
+          onClose={() => setIsDialogOpen(false)}
+          schedules={schedules}
+          labels={labels}
+          onConfirm={onAddToCalendar}
+          locale={locale}
+          formatScheduleDate={formatScheduleDate}
+          triggerEl={triggerRef.current}
+        />
+      )}
     </article>
+  );
+};
+
+interface AddToCalendarDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  schedules: ScheduleDetail[];
+  labels: EventDetailViewLabels;
+  onConfirm: (selectedIds: string[]) => void;
+  locale?: string;
+  formatScheduleDate: (schedule: ScheduleDetail) => string;
+  triggerEl: HTMLButtonElement | null;
+}
+
+const AddToCalendarDialog: React.FC<AddToCalendarDialogProps> = ({
+  isOpen,
+  onClose,
+  schedules,
+  labels,
+  onConfirm,
+  locale,
+  formatScheduleDate,
+  triggerEl,
+}) => {
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  // Initialize selectedIds with schedules that already have isAddedToCalendar === true
+  React.useEffect(() => {
+    if (isOpen) {
+      const initialSelected = schedules
+        .filter((s) => s.isAddedToCalendar)
+        .map((s) => s.id);
+      setSelectedIds(initialSelected);
+    }
+  }, [isOpen, schedules]);
+
+  // Handle focus trap
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const container = containerRef.current;
+    if (container) {
+      container.focus();
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+
+      if (e.key === 'Tab' && container) {
+        const focusable = container.querySelectorAll<HTMLElement>(
+          'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex="0"], [contenteditable]'
+        );
+        const focusableElements = Array.from(focusable).filter((el) => el.tabIndex !== -1);
+
+        if (focusableElements.length === 0) {
+          e.preventDefault();
+          container.focus();
+          return;
+        }
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement || document.activeElement === container) {
+            e.preventDefault();
+            lastElement?.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement?.focus();
+          }
+        }
+      }
+    };
+
+    const handleOutsideClick = (e: PointerEvent) => {
+      if (container && !container.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('pointerdown', handleOutsideClick);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('pointerdown', handleOutsideClick);
+      if (triggerEl) {
+        setTimeout(() => triggerEl.focus(), 0);
+      }
+    };
+  }, [isOpen, onClose, triggerEl]);
+
+  if (!isOpen) return null;
+
+  const handleCheckboxChange = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds((prev) => [...prev, id]);
+    } else {
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
+    }
+  };
+
+  const handleConfirm = () => {
+    onConfirm(selectedIds);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+      <div
+        ref={containerRef}
+        tabIndex={-1}
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 flex flex-col gap-4 focus:outline-none"
+      >
+        <h2 id="dialog-title" className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          {labels.addToCalendarDialogTitle}
+        </h2>
+
+        <div className="flex flex-col gap-3 max-h-60 overflow-y-auto pr-1">
+          {schedules.map((schedule, idx) => {
+            const isChecked = selectedIds.includes(schedule.id);
+            const labelText = schedule.title || `${labels.defaultScheduleTitle} ${idx + 1}`;
+            const dateText = formatScheduleDate(schedule);
+
+            return (
+              <label
+                key={schedule.id}
+                className="flex items-start gap-3 p-3 border border-gray-100 dark:border-gray-800 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={(e) => handleCheckboxChange(schedule.id, e.target.checked)}
+                  className="mt-1 h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-offset-0"
+                />
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                    {labelText}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {dateText}
+                  </span>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-end gap-3 mt-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md text-sm font-medium transition-colors"
+          >
+            {labels.addToCalendarCancelLabel}
+          </button>
+          <button
+            onClick={handleConfirm}
+            className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md text-sm font-medium transition-colors"
+          >
+            {labels.addToCalendarConfirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };

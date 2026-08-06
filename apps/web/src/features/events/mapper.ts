@@ -18,6 +18,9 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
     postedByLabel: t('postedByLabel'),
     viewOriginalPostLabel: t('viewOriginalPostLabel'),
     viewSourceLabel: t('viewSourceLabel'),
+    addToCalendarDialogTitle: t('addToCalendarDialogTitle'),
+    addToCalendarConfirmLabel: t('addToCalendarConfirmLabel'),
+    addToCalendarCancelLabel: t('addToCalendarCancelLabel'),
   };
 }
 
@@ -38,6 +41,7 @@ export function mapGraphQLEventToDetailViewProps(
     }
 
     return {
+      id: s.id,
       eventStartDate: s.eventStartDate,
       eventEndDate: s.eventEndDate,
       eventStartTime: s.eventStartTime,
@@ -47,6 +51,7 @@ export function mapGraphQLEventToDetailViewProps(
       location: s.location?.trim() ? s.location : null,
       ticketPrice: s.ticketPrice,
       mapUrl,
+      isAddedToCalendar: !!s.isAddedToCalendar,
     };
   });
 
@@ -78,6 +83,7 @@ export function mapGraphQLEventToDetailViewProps(
     originalPostUrl: event.originalPostUrl,
     sourcePostUrl: event.sourcePostUrl,
     isFavorited: event.isFavorited,
+    isAddedToCalendar: mappedSchedules.some((s) => s.isAddedToCalendar),
     locale,
     labels,
   };

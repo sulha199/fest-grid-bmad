@@ -189,7 +189,7 @@ development_status:
   # Not yet implemented, so amended in place rather than splitting a new story.
   2-5a-extend-the-events-graphql-api-with-geo-distance-query-support: review
   2-5-find-nearby-events: review
-  2-6-view-and-manage-events-on-a-calendar: backlog
+  2-6-view-and-manage-events-on-a-calendar: ready-for-dev
   2-6a-create-user-settings-table-and-settings-query-mutation-resolvers: review
   # regenerated 2026-08-06 via bmad-create-story: user broadened scope from
   # personal-lists-only to a global default across every event view, requested a

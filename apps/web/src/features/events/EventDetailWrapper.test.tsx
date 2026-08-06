@@ -113,6 +113,18 @@ const handlers = [
       },
     })
   }),
+  graphql.mutation("toggleCalendarAddition", ({ variables }) => {
+    const { eventId, scheduleId } = variables as any
+    return HttpResponse.json({
+      data: {
+        toggleCalendarAddition: {
+          eventId,
+          scheduleId,
+          isAddedToCalendar: true,
+        },
+      },
+    })
+  }),
 ]
 
 const server = setupServer(...handlers)
@@ -141,10 +153,42 @@ describe("EventDetailWrapper", () => {
       sourcePostUrl: null,
       originalPostUrl: null,
       isFavorited: false,
-      schedules: [],
+      schedules: [
+        {
+          id: "sched_1",
+          isMainSchedule: true,
+          eventStartDate: "2026-08-10T10:00:00Z",
+          eventEndDate: null,
+          eventStartTime: null,
+          eventEndTime: null,
+          performers: [],
+          location: "Stage 1",
+          locationDetails: null,
+          ticketPrice: null,
+          ticketUrl: null,
+          registrationUrl: null,
+          isAddedToCalendar: false,
+        },
+        {
+          id: "sched_2",
+          isMainSchedule: false,
+          eventStartDate: "2026-08-11T14:00:00Z",
+          eventEndDate: null,
+          eventStartTime: null,
+          eventEndTime: null,
+          performers: [],
+          location: "Stage 2",
+          locationDetails: null,
+          ticketPrice: null,
+          ticketUrl: null,
+          registrationUrl: null,
+          isAddedToCalendar: true,
+        }
+      ] as any,
     }
     mockPosthogCapture.mockClear()
     mockRouterReplace.mockClear()
+    mockRouterPush.mockClear()
   })
 
   afterEach(() => {
@@ -243,5 +287,71 @@ describe("EventDetailWrapper", () => {
         '/events/second-event?fromList=favorites&favoriteIds=evt_1%2Cevt_2'
       );
     });
+  })
+
+  it("handles add to calendar flow: opens dialog, toggles only changed, triggers ICS download and analytics", async () => {
+    const assignMock = vi.fn()
+    vi.stubGlobal("location", { assign: assignMock })
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const calBtn = await screen.findByRole("button", { name: "EventDetailsPage.addToCalendarButtonLabel" })
+    
+    // Open dialog
+    fireEvent.click(calBtn)
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
+
+    // Sched 1 is currently not added (unchecked), Sched 2 is added (checked)
+    const checkbox1 = screen.getByLabelText(/EventDetailsPage.defaultScheduleTitle 1/) as HTMLInputElement
+    const checkbox2 = screen.getByLabelText(/EventDetailsPage.defaultScheduleTitle 2/) as HTMLInputElement
+    expect(checkbox1.checked).toBe(false)
+    expect(checkbox2.checked).toBe(true)
+
+    // Check Sched 1 (will transition false -> true)
+    fireEvent.click(checkbox1)
+    expect(checkbox1.checked).toBe(true)
+
+    // Click Confirm
+    const confirmBtn = screen.getByRole("button", { name: "EventDetailsPage.addToCalendarConfirmLabel" })
+    fireEvent.click(confirmBtn)
+
+    // Verify dialog closed
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    })
+
+    // Verify mutation called for sched_1 (changed), but NOT sched_2 (unchanged)
+    // Verify download triggered only for sched_1 (transitioned false -> true)
+    await waitFor(() => {
+      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining("/api/calendar/ics?eventId=evt_1&scheduleId=sched_1"))
+    })
+
+    // Analytics capture
+    await waitFor(() => {
+      expect(mockPosthogCapture).toHaveBeenCalledWith("event_added_to_calendar", {
+        eventId: "evt_1",
+        scheduleId: "sched_1",
+      })
+      expect(mockPosthogCapture).toHaveBeenCalledWith("calendar_ics_downloaded", {
+        eventId: "evt_1",
+        scheduleIds: ["sched_1"],
+      })
+    })
+  })
+
+  it("unauthenticated calendar click redirects to /login and does not open dialog", async () => {
+    mockSession = null
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const calBtn = await screen.findByRole("button", { name: "EventDetailsPage.addToCalendarButtonLabel" })
+    fireEvent.click(calBtn)
+
+    expect(mockRouterPush).toHaveBeenCalledWith("/login")
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   })
 })

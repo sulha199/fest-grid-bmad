@@ -36,7 +36,11 @@
     "postedByLabel": "Diposting oleh:",
     "viewOriginalPostLabel": "Lihat pos asli",
     "viewSourceLabel": "Lihat sumber",
-    "backToList": "Kembali ke Acara"
+    "backToList": "Kembali ke Acara",
+    "addToCalendarDialogTitle": "Tambahkan ke Kalender",
+    "addToCalendarConfirmLabel": "Konfirmasi",
+    "addToCalendarCancelLabel": "Batal",
+    "addToCalendarSuccessAnnouncement": "Acara telah ditambahkan ke kalender Anda"
   },
   "FilterHub": {
     "typeLabel": "Tipe",

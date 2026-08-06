@@ -36,7 +36,11 @@
     "postedByLabel": "Posted by:",
     "viewOriginalPostLabel": "View original post",
     "viewSourceLabel": "View source",
-    "backToList": "Back to Events"
+    "backToList": "Back to Events",
+    "addToCalendarDialogTitle": "Add to Calendar",
+    "addToCalendarConfirmLabel": "Confirm",
+    "addToCalendarCancelLabel": "Cancel",
+    "addToCalendarSuccessAnnouncement": "Event has been added to your calendar"
   },
   "FilterHub": {
     "typeLabel": "Type",

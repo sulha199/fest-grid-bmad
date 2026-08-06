@@ -319,6 +319,14 @@ export type ToggleFavoriteMutationVariables = Exact<{
 
 export type ToggleFavoriteMutation = { toggleFavorite: { eventId: string, isFavorited: boolean } };
 
+export type ToggleCalendarAdditionMutationVariables = Exact<{
+  eventId: string | number;
+  scheduleId: string | number;
+}>;
+
+
+export type ToggleCalendarAdditionMutation = { toggleCalendarAddition: { eventId: string, scheduleId: string, isAddedToCalendar: boolean } };
+
 export type GetEventsQueryVariables = Exact<{
   limit?: number | null | undefined;
   offset?: number | null | undefined;
@@ -340,7 +348,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, isFavorited: boolean, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, isFavorited: boolean, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetEventForIcsExportQueryVariables = Exact<{
   id: string | number;
@@ -476,6 +484,33 @@ export const useToggleFavoriteMutation = <
   }
     )};
 
+export const ToggleCalendarAdditionDocument = new TypedDocumentString(`
+    mutation toggleCalendarAddition($eventId: ID!, $scheduleId: ID!) {
+  toggleCalendarAddition(eventId: $eventId, scheduleId: $scheduleId) {
+    eventId
+    scheduleId
+    isAddedToCalendar
+  }
+}
+    `);
+
+export const useToggleCalendarAdditionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ToggleCalendarAdditionMutation, TError, ToggleCalendarAdditionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ToggleCalendarAdditionMutation, TError, ToggleCalendarAdditionMutationVariables, TContext>(
+      {
+    mutationKey: ['toggleCalendarAddition'],
+    mutationFn: (variables?: ToggleCalendarAdditionMutationVariables) => fetcher<ToggleCalendarAdditionMutation, ToggleCalendarAdditionMutationVariables>(client, ToggleCalendarAdditionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
 export const GetEventsDocument = new TypedDocumentString(`
     query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
   events(limit: $limit, offset: $offset, query: $query) {
@@ -566,6 +601,7 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
       id
       isMainSchedule
       eventStartDate
+      isAddedToCalendar
       eventEndDate
       eventStartTime
       eventEndTime

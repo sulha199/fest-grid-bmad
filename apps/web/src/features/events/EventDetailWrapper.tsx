@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { useGetEventBySlugQuery, useToggleFavoriteMutation } from "@/generated/graphql"
+import { useGetEventBySlugQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
@@ -12,6 +12,7 @@ import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
 import { useTranslations, useLocale } from "next-intl"
 import { usePostHog } from "@festgrid/analytics"
+import { toast } from "sonner"
 import { ChevronLeft, ChevronRight, Home } from "lucide-react"
 
 interface EventDetailWrapperProps {
@@ -86,6 +87,60 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     },
   })
 
+  const { mutateAsync: toggleCalendarAddition } = useToggleCalendarAdditionMutation(graphqlClient, {
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: ["getEventBySlug"] })
+      const previousData = queryClient.getQueriesData({ queryKey: ["getEventBySlug"] })[0]?.[1]
+
+      queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, (old: unknown) => {
+        const typedOld = old as any
+        if (!typedOld?.eventBySlug) return typedOld
+        return {
+          ...typedOld,
+          eventBySlug: {
+            ...typedOld.eventBySlug,
+            schedules: (typedOld.eventBySlug.schedules || []).map((s: any) => {
+              if (s.id === variables.scheduleId) {
+                return { ...s, isAddedToCalendar: !s.isAddedToCalendar }
+              }
+              return s
+            }),
+          },
+        }
+      })
+
+      return { previousData }
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, context.previousData)
+      }
+    },
+    onSuccess: (data, variables) => {
+      queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, (old: unknown) => {
+        const typedOld = old as any
+        if (!typedOld?.eventBySlug) return typedOld
+        return {
+          ...typedOld,
+          eventBySlug: {
+            ...typedOld.eventBySlug,
+            schedules: (typedOld.eventBySlug.schedules || []).map((s: any) => {
+              if (s.id === variables.scheduleId) {
+                return { ...s, isAddedToCalendar: data.toggleCalendarAddition.isAddedToCalendar }
+              }
+              return s
+            }),
+          },
+        }
+      })
+
+      posthog.capture(data.toggleCalendarAddition.isAddedToCalendar ? "event_added_to_calendar" : "event_removed_from_calendar", {
+        eventId: variables.eventId,
+        scheduleId: variables.scheduleId,
+      })
+    },
+  })
+
   const eventId = data?.eventBySlug?.id || ""
   const nav = useListNavigationForEvent(eventId, isModal)
 
@@ -131,9 +186,59 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     )
   }
 
+  const handleAddToCalendar = async (selectedIds: string[]) => {
+    if (!session) {
+      router.push("/login")
+      return
+    }
+
+    if (!eventId) return
+
+    const changedIds: string[] = []
+    const addedIds: string[] = []
+
+    ;(data?.eventBySlug?.schedules || []).forEach((s) => {
+      const isCurrentlyAdded = !!s.isAddedToCalendar
+      const isNewlySelected = selectedIds.includes(s.id)
+      if (isCurrentlyAdded !== isNewlySelected) {
+        changedIds.push(s.id)
+        if (isNewlySelected) {
+          addedIds.push(s.id)
+        }
+      }
+    })
+
+    if (changedIds.length === 0) return
+
+    try {
+      await Promise.all(
+        changedIds.map((scheduleId) => toggleCalendarAddition({ eventId, scheduleId }))
+      )
+
+      if (addedIds.length > 0) {
+        const queryParams = new URLSearchParams()
+        queryParams.set("eventId", eventId)
+        addedIds.forEach((id) => {
+          queryParams.append("scheduleId", id)
+        })
+        window.location.assign(`/api/calendar/ics?${queryParams.toString()}`)
+
+        posthog.capture("calendar_ics_downloaded", {
+          eventId,
+          scheduleIds: addedIds,
+        })
+      }
+
+      toast.success(t("addToCalendarSuccessAnnouncement"))
+    } catch (e) {
+      console.error("Failed to update calendar additions", e)
+    }
+  }
+
   const mappedProps = data?.eventBySlug
     ? {
         ...mapGraphQLEventToDetailViewProps(data.eventBySlug, labels, locale, tType, tCategory),
+        isAuthenticated: !!session,
         onFavoriteToggle: () => {
           if (!session) {
             router.push("/login")
@@ -142,7 +247,8 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
           if (eventId) {
             toggleFavorite({ eventId })
           }
-        }
+        },
+        onAddToCalendar: handleAddToCalendar
       }
     : null
 
