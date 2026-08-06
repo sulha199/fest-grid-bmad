@@ -65,5 +65,7 @@ graph TD
     L_API -- interacts with --> Supabase
     L_API -- sends to --> FCM
     L_API -- resolves location via --> Geoapify
+
+    U -- loads map tiles from --> Geoapify
 ```
 

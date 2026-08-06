@@ -169,16 +169,19 @@ PostHog is used for tracking user interactions, page views, and core events acro
 
 ## 6. Geolocation Adapter (Geoapify)
 
-Geoapify provides the backend-only address, place, and coordinate resolution.
+Geoapify provides both the backend-only address, place, and coordinate resolution, as well as the frontend interactive map tiles.
 
 ### Setup Steps
 
 1.  **Create a Geoapify project:**
     *   Sign up at [Geoapify MyProjects](https://myprojects.geoapify.com/) (no credit card required for the free tier) and create a project.
-2.  **Get API Key:**
-    *   Copy the auto-generated project API key (or generate a dedicated one for this backend).
-    *   *Note: While the PRD requires API key restriction via domain/IP referrer restrictions in the Geoapify dashboard, neither option meaningfully secures a server-to-server Lambda call today without a static outbound IP (NAT Gateway). For MVP, the key is used unrestricted, and this security-posture trade-off is accepted.*
-3.  **Configure Environment:**
-    *   Add the key to your `.env` file as `GEOAPIFY_API_KEY`. (It does not get a `NEXT_PUBLIC_` prefix since the key is strictly backend-only).
+2.  **Generate Backend API Key:**
+    *   Generate a dedicated API key for backend, server-to-server geocoding.
+    *   *Note: While the PRD requires API key restriction via domain/IP referrer restrictions in the Geoapify dashboard, neither option meaningfully secures a server-to-server Lambda call today without a static outbound IP (NAT Gateway). For MVP, this key is used unrestricted, and this security-posture trade-off is accepted.*
+    *   Add the key to your root `.env` file as `GEOAPIFY_API_KEY`. (It does not get a `NEXT_PUBLIC_` prefix since the key is strictly backend-only).
+3.  **Generate Frontend Maps API Key:**
+    *   Generate a second, separate API key within the same project for loading MapLibre interactive map tiles.
+    *   Under key restrictions in the Geoapify MyProjects dashboard, enable **HTTP Referrer Restrictions** and add your application's allowed domain names (e.g. `http://localhost:3000` for local development, and your production domains). This meaningfully secures the key since it is called directly from users' browsers.
+    *   Add this key to your root `.env` and `apps/web/.env` files as `NEXT_PUBLIC_GEOAPIFY_MAPS_API_KEY`.
 
 This walkthrough provides a high-level overview of the setup process. For detailed configuration and implementation, refer to the official documentation of each service.

@@ -1,0 +1,11 @@
+enum GeolocationProvider {
+  GEOAPIFY
+}
+
+extend type LocationDetails {
+  provider: GeolocationProvider
+}
+
+extend type Query {
+  previewLocation(latitude: Float!, longitude: Float!): LocationDetails!
+}

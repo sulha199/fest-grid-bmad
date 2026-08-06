@@ -106,12 +106,17 @@ export enum EventType {
   Workshop = 'WORKSHOP'
 }
 
+export enum GeolocationProvider {
+  Geoapify = 'GEOAPIFY'
+}
+
 export type LocationDetails = {
   __typename?: 'LocationDetails';
   coordinates: Coordinates;
   formattedAddress?: Maybe<Scalars['String']['output']>;
   placeId?: Maybe<Scalars['String']['output']>;
   placeName?: Maybe<Scalars['String']['output']>;
+  provider?: Maybe<GeolocationProvider>;
   timezone?: Maybe<Scalars['String']['output']>;
 };
 
@@ -167,6 +172,7 @@ export type Query = {
   health: Scalars['Boolean']['output'];
   me: Me;
   myLocations: Array<UserLocation>;
+  previewLocation: LocationDetails;
 };
 
 
@@ -189,6 +195,12 @@ export type QueryEventsArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
+};
+
+
+export type QueryPreviewLocationArgs = {
+  latitude: Scalars['Float']['input'];
+  longitude: Scalars['Float']['input'];
 };
 
 export type Schedule = {
@@ -326,6 +338,7 @@ export type ResolversTypes = ResolversObject<{
   EventQueryConditionInput: EventQueryConditionInput;
   EventType: EventType;
   Float: ResolverTypeWrapper<Scalars['Float']['output']>;
+  GeolocationProvider: GeolocationProvider;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   JSON: ResolverTypeWrapper<Scalars['JSON']['output']>;
@@ -415,6 +428,7 @@ export type LocationDetailsResolvers<ContextType = GraphQLContext, ParentType ex
   formattedAddress?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   placeId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   placeName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  provider?: Resolver<Maybe<ResolversTypes['GeolocationProvider']>, ParentType, ContextType>;
   timezone?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -442,6 +456,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   health?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   me?: Resolver<ResolversTypes['Me'], ParentType, ContextType>;
   myLocations?: Resolver<Array<ResolversTypes['UserLocation']>, ParentType, ContextType>;
+  previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, RequireFields<QueryPreviewLocationArgs, 'latitude' | 'longitude'>>;
 }>;
 
 export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Schedule'] = ResolversParentTypes['Schedule']> = ResolversObject<{
