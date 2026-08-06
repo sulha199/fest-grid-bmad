@@ -38,6 +38,14 @@ export const users = pgTable('users', {
   ...timestamps,
 });
 
+export const userSettings = pgTable('user_settings', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).unique().notNull(),
+  hidePastEventsAfterDays: integer('hide_past_events_after_days').default(7).notNull(),
+  pushNotificationsEnabled: boolean('push_notifications_enabled').default(true).notNull(),
+  ...timestamps,
+});
+
 export const userLocations = pgTable('user_locations', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
@@ -202,12 +210,13 @@ export const schedulesRelations = relations(schedules, ({ one, many }) => ({
   calendarAdditions: many(calendarAdditions),
 }));
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   userLocations: many(userLocations),
   subscriptions: many(subscriptions),
   apiKeys: many(apiKeys),
   favorites: many(favorites),
   calendarAdditions: many(calendarAdditions),
+  userSettings: one(userSettings, { fields: [users.id], references: [userSettings.userId] }),
 }));
 
 export const favoritesRelations = relations(favorites, ({ one }) => ({
@@ -239,6 +248,13 @@ export const calendarAdditionsRelations = relations(calendarAdditions, ({ one })
 export const userLocationsRelations = relations(userLocations, ({ one }) => ({
   user: one(users, {
     fields: [userLocations.userId],
+    references: [users.id],
+  }),
+}));
+
+export const userSettingsRelations = relations(userSettings, ({ one }) => ({
+  user: one(users, {
+    fields: [userSettings.userId],
     references: [users.id],
   }),
 }));

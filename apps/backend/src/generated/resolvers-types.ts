@@ -134,6 +134,7 @@ export type Mutation = {
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
   updateUserLocation: UserLocation;
+  updateUserSettings: UserSettings;
 };
 
 
@@ -164,6 +165,11 @@ export type MutationUpdateUserLocationArgs = {
   input: UpdateUserLocationInput;
 };
 
+
+export type MutationUpdateUserSettingsArgs = {
+  input: UpdateUserSettingsInput;
+};
+
 export type Query = {
   __typename?: 'Query';
   addressAutocomplete: Array<AddressSuggestion>;
@@ -173,6 +179,7 @@ export type Query = {
   health: Scalars['Boolean']['output'];
   me: Me;
   myLocations: Array<UserLocation>;
+  mySettings: UserSettings;
   previewLocation: LocationDetails;
 };
 
@@ -252,6 +259,11 @@ export type UpdateUserLocationInput = {
   radius?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type UpdateUserSettingsInput = {
+  hidePastEventsAfterDays?: InputMaybe<Scalars['Int']['input']>;
+  pushNotificationsEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
 export type UserLocation = {
   __typename?: 'UserLocation';
   createdAt: Scalars['String']['output'];
@@ -259,6 +271,15 @@ export type UserLocation = {
   locationDetails: LocationDetails;
   name: Scalars['String']['output'];
   radius: Scalars['Int']['output'];
+  updatedAt: Scalars['String']['output'];
+};
+
+export type UserSettings = {
+  __typename?: 'UserSettings';
+  createdAt: Scalars['String']['output'];
+  hidePastEventsAfterDays: Scalars['Int']['output'];
+  id: Scalars['ID']['output'];
+  pushNotificationsEnabled: Scalars['Boolean']['output'];
   updatedAt: Scalars['String']['output'];
 };
 
@@ -358,7 +379,9 @@ export type ResolversTypes = ResolversObject<{
   ToggleCalendarAdditionResult: ResolverTypeWrapper<ToggleCalendarAdditionResult>;
   ToggleFavoriteResult: ResolverTypeWrapper<ToggleFavoriteResult>;
   UpdateUserLocationInput: UpdateUserLocationInput;
+  UpdateUserSettingsInput: UpdateUserSettingsInput;
   UserLocation: ResolverTypeWrapper<UserLocation>;
+  UserSettings: ResolverTypeWrapper<UserSettings>;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
@@ -383,7 +406,9 @@ export type ResolversParentTypes = ResolversObject<{
   ToggleCalendarAdditionResult: ToggleCalendarAdditionResult;
   ToggleFavoriteResult: ToggleFavoriteResult;
   UpdateUserLocationInput: UpdateUserLocationInput;
+  UpdateUserSettingsInput: UpdateUserSettingsInput;
   UserLocation: UserLocation;
+  UserSettings: UserSettings;
 }>;
 
 export type AddressSuggestionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AddressSuggestion'] = ResolversParentTypes['AddressSuggestion']> = ResolversObject<{
@@ -453,6 +478,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   toggleCalendarAddition?: Resolver<ResolversTypes['ToggleCalendarAdditionResult'], ParentType, ContextType, RequireFields<MutationToggleCalendarAdditionArgs, 'eventId' | 'scheduleId'>>;
   toggleFavorite?: Resolver<ResolversTypes['ToggleFavoriteResult'], ParentType, ContextType, RequireFields<MutationToggleFavoriteArgs, 'eventId'>>;
   updateUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationUpdateUserLocationArgs, 'id' | 'input'>>;
+  updateUserSettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType, RequireFields<MutationUpdateUserSettingsArgs, 'input'>>;
 }>;
 
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
@@ -463,6 +489,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   health?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   me?: Resolver<ResolversTypes['Me'], ParentType, ContextType>;
   myLocations?: Resolver<Array<ResolversTypes['UserLocation']>, ParentType, ContextType>;
+  mySettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, RequireFields<QueryPreviewLocationArgs, 'latitude' | 'longitude'>>;
 }>;
 
@@ -510,6 +537,15 @@ export type UserLocationResolvers<ContextType = GraphQLContext, ParentType exten
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type UserSettingsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['UserSettings'] = ResolversParentTypes['UserSettings']> = ResolversObject<{
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  hidePastEventsAfterDays?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  pushNotificationsEnabled?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   AddressSuggestion?: AddressSuggestionResolvers<ContextType>;
   Coordinates?: CoordinatesResolvers<ContextType>;
@@ -524,5 +560,6 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ToggleCalendarAdditionResult?: ToggleCalendarAdditionResultResolvers<ContextType>;
   ToggleFavoriteResult?: ToggleFavoriteResultResolvers<ContextType>;
   UserLocation?: UserLocationResolvers<ContextType>;
+  UserSettings?: UserSettingsResolvers<ContextType>;
 }>;
 

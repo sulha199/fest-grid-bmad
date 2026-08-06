@@ -138,6 +138,7 @@ export type Mutation = {
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
   updateUserLocation: UserLocation;
+  updateUserSettings: UserSettings;
 };
 
 
@@ -168,6 +169,11 @@ export type MutationUpdateUserLocationArgs = {
   input: UpdateUserLocationInput;
 };
 
+
+export type MutationUpdateUserSettingsArgs = {
+  input: UpdateUserSettingsInput;
+};
+
 export type Query = {
   __typename?: 'Query';
   addressAutocomplete: Array<AddressSuggestion>;
@@ -177,6 +183,7 @@ export type Query = {
   health: Scalars['Boolean']['output'];
   me: Me;
   myLocations: Array<UserLocation>;
+  mySettings: UserSettings;
   previewLocation: LocationDetails;
 };
 
@@ -256,6 +263,11 @@ export type UpdateUserLocationInput = {
   radius?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type UpdateUserSettingsInput = {
+  hidePastEventsAfterDays?: InputMaybe<Scalars['Int']['input']>;
+  pushNotificationsEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
 export type UserLocation = {
   __typename?: 'UserLocation';
   createdAt: Scalars['String']['output'];
@@ -263,6 +275,15 @@ export type UserLocation = {
   locationDetails: LocationDetails;
   name: Scalars['String']['output'];
   radius: Scalars['Int']['output'];
+  updatedAt: Scalars['String']['output'];
+};
+
+export type UserSettings = {
+  __typename?: 'UserSettings';
+  createdAt: Scalars['String']['output'];
+  hidePastEventsAfterDays: Scalars['Int']['output'];
+  id: Scalars['ID']['output'];
+  pushNotificationsEnabled: Scalars['Boolean']['output'];
   updatedAt: Scalars['String']['output'];
 };
 

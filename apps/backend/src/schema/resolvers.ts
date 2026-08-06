@@ -1,11 +1,13 @@
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere } from '@festgrid/graphql-select';
 import { requireAuth } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and, exists, isNull, desc } from 'drizzle-orm';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
+import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
+import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user-settings.js';
 import { resolveLocation, getAddressPredictions } from '../lib/geolocation/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
@@ -200,6 +202,44 @@ export const resolvers: Resolvers = {
         }
       });
     },
+    updateUserSettings: async (_: any, { input }: any, context: any) => {
+      try {
+        const authUser = requireAuth(context);
+        if (input.hidePastEventsAfterDays !== undefined && input.hidePastEventsAfterDays !== null) {
+          validateHidePastEventsAfterDays(input.hidePastEventsAfterDays);
+        }
+
+        // Ensure settings row exists first
+        await getOrCreateUserSettings(authUser.userId);
+
+        // Update fields if provided
+        const updateData: any = {
+          updatedAt: new Date(),
+        };
+        if (input.hidePastEventsAfterDays !== undefined) {
+          updateData.hidePastEventsAfterDays = input.hidePastEventsAfterDays;
+        }
+        if (input.pushNotificationsEnabled !== undefined) {
+          updateData.pushNotificationsEnabled = input.pushNotificationsEnabled;
+        }
+
+        const [updated] = await db.update(userSettings)
+          .set(updateData)
+          .where(eq(userSettings.userId, authUser.userId))
+          .returning();
+
+        return {
+          ...updated,
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
+        } as any;
+      } catch (err: any) {
+        if (err instanceof InvalidUserSettingsInputError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
+        }
+        throw err;
+      }
+    },
     toggleCalendarAddition: async (_: any, { eventId, scheduleId }: any, context: any) => {
       const authUser = requireAuth(context);
       
@@ -246,6 +286,15 @@ export const resolvers: Resolvers = {
   },
   Query: {
     health: () => true,
+    mySettings: async (_: any, __: any, context: any) => {
+      const authUser = requireAuth(context);
+      const settings = await getOrCreateUserSettings(authUser.userId);
+      return {
+        ...settings,
+        createdAt: settings.createdAt.toISOString(),
+        updatedAt: settings.updatedAt.toISOString(),
+      } as any;
+    },
     previewLocation: async (_: any, { latitude, longitude }: any, context: any) => {
       requireAuth(context);
       const resolved = await resolveLocation({

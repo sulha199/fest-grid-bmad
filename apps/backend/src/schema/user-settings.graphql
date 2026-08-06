@@ -1,0 +1,20 @@
+type UserSettings {
+  id: ID!
+  hidePastEventsAfterDays: Int!
+  pushNotificationsEnabled: Boolean!
+  createdAt: String!
+  updatedAt: String!
+}
+
+input UpdateUserSettingsInput {
+  hidePastEventsAfterDays: Int
+  pushNotificationsEnabled: Boolean
+}
+
+extend type Query {
+  mySettings: UserSettings!
+}
+
+extend type Mutation {
+  updateUserSettings(input: UpdateUserSettingsInput!): UserSettings!
+}
