@@ -176,7 +176,7 @@ development_status:
   2-5a-extend-the-events-graphql-api-with-geo-distance-query-support: ready-for-dev
   2-5-find-nearby-events: backlog
   2-6-view-and-manage-events-on-a-calendar: backlog
-  2-6a-create-user-settings-table-and-settings-query-mutation-resolvers: backlog
+  2-6a-create-user-settings-table-and-settings-query-mutation-resolvers: ready-for-dev
   2-7-automatically-hide-past-events: backlog
   2-8-user-menu: backlog
   2-9-manage-push-notification-settings: backlog
