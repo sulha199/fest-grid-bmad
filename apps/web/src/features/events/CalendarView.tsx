@@ -26,13 +26,16 @@ const getSaturday = (sundayStr: string) => {
   return saturday.toISOString().split('T')[0];
 };
 
+import { NearbyFilterInput } from '@festgrid/domain/events';
+
 interface CalendarViewProps {
   q: string;
   types: string[];
   categories: string[];
+  nearby?: NearbyFilterInput;
 }
 
-export function CalendarView({ q, types, categories }: CalendarViewProps) {
+export function CalendarView({ q, types, categories, nearby }: CalendarViewProps) {
   const t = useTranslations('DiscoveryPage');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -54,8 +57,9 @@ export function CalendarView({ q, types, categories }: CalendarViewProps) {
       categories,
       weekStart,
       weekEnd,
+      nearby,
     });
-  }, [q, types, categories, weekStart, weekEnd]);
+  }, [q, types, categories, weekStart, weekEnd, nearby]);
 
   const { data, status, error } = useGetEventsForCalendarQuery(
     graphqlClient,

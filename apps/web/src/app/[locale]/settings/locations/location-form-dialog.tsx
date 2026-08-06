@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { BlockingLoader, useDebounce } from "@festgrid/ui"
+import { BlockingLoader, useDebounce, useCurrentLocationCapture, type GeolocationCaptureError } from "@festgrid/ui"
 import { graphqlClient } from "@/lib/graphql-client"
 import {
   useCreateUserLocationMutation,
@@ -15,7 +15,6 @@ import {
 import { toast } from "sonner"
 import { Search } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
-import { useCurrentLocationCapture, type GeolocationCaptureError } from "./use-current-location-capture"
 import { MapPickerSheet } from "./map-picker-sheet"
 import type { Coordinates } from "@festgrid/shared-types"
 

@@ -152,5 +152,17 @@
     "mapConfirmLabel": "Konfirmasi lokasi",
     "mapCancelLabel": "Batal",
     "mapErrorLabel": "Gagal memuat peta."
+  },
+  "NearbyFilter": {
+    "filterLabel": "Terdekat",
+    "offOptionLabel": "Semua lokasi",
+    "currentLocationOptionLabel": "Lokasi saat ini",
+    "radiusLabel": "Radius",
+    "radiusUnit": "{count} km",
+    "detectingLocationLabel": "Mendeteksi lokasi Anda...",
+    "permissionDeniedLabel": "Akses lokasi ditolak — menampilkan semua acara.",
+    "unavailableLabel": "Tidak dapat mendeteksi lokasi Anda — menampilkan semua acara.",
+    "locationsErrorLabel": "Gagal memuat lokasi tersimpan Anda.",
+    "noSavedLocationsHint": "Simpan lokasi di Lokasi Saya untuk memfilter berdasarkan tempat tertentu."
   }
 }

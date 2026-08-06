@@ -1,4 +1,6 @@
 import { ReactNode } from 'react';
+import { FilterHubProps } from './FilterHub.js';
+import { LocationRadiusFilterProps } from './LocationRadiusFilter.types.js';
 
 export interface EventDiscoveryPanelView {
   id: string;
@@ -7,7 +9,7 @@ export interface EventDiscoveryPanelView {
   content: ReactNode;
 }
 
-export interface EventDiscoveryPanelProps {
+export interface EventDiscoveryPanelProps extends Omit<FilterHubProps, 'labels' | 'types' | 'categories' | 'onChange'> {
   // Search (SearchBar pass-through)
   query: string;
   onSearchSubmit: (query: string) => void;
@@ -19,6 +21,7 @@ export interface EventDiscoveryPanelProps {
     typeLabel: string;
     categoryLabel: string;
     clearLabel: string;
+    locationFilterLabels: LocationRadiusFilterProps['labels'];
   };
   types: { value: string; label: string }[];
   categories: { value: string; label: string }[];

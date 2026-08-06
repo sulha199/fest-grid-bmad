@@ -152,5 +152,17 @@
     "mapConfirmLabel": "Confirm location",
     "mapCancelLabel": "Cancel",
     "mapErrorLabel": "Unable to load map."
+  },
+  "NearbyFilter": {
+    "filterLabel": "Nearby",
+    "offOptionLabel": "All locations",
+    "currentLocationOptionLabel": "Current location",
+    "radiusLabel": "Radius",
+    "radiusUnit": "{count} km",
+    "detectingLocationLabel": "Detecting your location...",
+    "permissionDeniedLabel": "Location access denied — showing all events.",
+    "unavailableLabel": "Couldn't detect your location — showing all events.",
+    "locationsErrorLabel": "Couldn't load your saved locations.",
+    "noSavedLocationsHint": "Save a location in My Locations to filter by a specific place."
   }
 }

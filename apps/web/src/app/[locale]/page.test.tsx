@@ -62,7 +62,7 @@ vi.mock('nuqs', () => {
 
   return {
     useQueryState: (key: string, options?: any) => {
-      const defaultValue = options?.defaultValue ?? '';
+      const defaultValue = options?.defaultValue ?? null;
       if (!(key in store)) {
         store[key] = defaultValue;
       }
@@ -89,6 +89,7 @@ vi.mock('nuqs', () => {
     },
     parseAsString: { withDefault: (val: any) => ({ defaultValue: val }) },
     parseAsArrayOf: () => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
+    parseAsInteger: { withDefault: (val: any) => ({ defaultValue: val }) },
   };
 });
 
@@ -115,6 +116,21 @@ vi.mock('@festgrid/ui', async (importOriginal) => {
       };
       return { sentinelRef: vi.fn() };
     }
+  };
+});
+
+// Mock getMyLocations react-query hook to avoid MSW/network issues
+vi.mock('@/generated/graphql', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/generated/graphql')>();
+  return {
+    ...actual,
+    useGetMyLocationsQuery: () => ({
+      data: {
+        myLocations: [],
+      },
+      isLoading: false,
+      isError: false,
+    }),
   };
 });
 

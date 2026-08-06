@@ -1,5 +1,5 @@
 import { QueryCondition, isGroupCondition } from '../query/queryDsl.js';
-import { buildEventsQueryCondition } from './buildEventsQueryCondition.js';
+import { buildEventsQueryCondition, NearbyFilterInput } from './buildEventsQueryCondition.js';
 
 export interface BuildWeeklyCalendarQueryConditionInput {
   search: string;
@@ -7,6 +7,7 @@ export interface BuildWeeklyCalendarQueryConditionInput {
   categories: string[];
   weekStart: string;
   weekEnd: string;
+  nearby?: NearbyFilterInput;
 }
 
 export function buildWeeklyCalendarQueryCondition({
@@ -15,8 +16,9 @@ export function buildWeeklyCalendarQueryCondition({
   categories,
   weekStart,
   weekEnd,
+  nearby,
 }: BuildWeeklyCalendarQueryConditionInput): QueryCondition {
-  const baseCondition = buildEventsQueryCondition({ search, types, categories });
+  const baseCondition = buildEventsQueryCondition({ search, types, categories, nearby });
 
   if (!weekStart || !weekEnd) {
     return baseCondition || {

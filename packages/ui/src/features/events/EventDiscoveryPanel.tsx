@@ -18,6 +18,16 @@ export function EventDiscoveryPanel({
   onFilterChange,
   views,
   className = '',
+  isAuthenticated,
+  isLoadingLocations,
+  locationsError,
+  savedLocations,
+  selectedValue,
+  radiusKm,
+  isCapturingCurrentLocation,
+  currentLocationError,
+  onSelectLocation,
+  onRadiusChange,
 }: EventDiscoveryPanelProps) {
   const [activeView, setActiveView] = useQueryState(
     'view',
@@ -46,6 +56,16 @@ export function EventDiscoveryPanel({
           types={types}
           categories={categories}
           onChange={onFilterChange}
+          isAuthenticated={isAuthenticated}
+          isLoadingLocations={isLoadingLocations}
+          locationsError={locationsError}
+          savedLocations={savedLocations}
+          selectedValue={selectedValue}
+          radiusKm={radiusKm}
+          isCapturingCurrentLocation={isCapturingCurrentLocation}
+          currentLocationError={currentLocationError}
+          onSelectLocation={onSelectLocation}
+          onRadiusChange={onRadiusChange}
         />
       </div>
 
