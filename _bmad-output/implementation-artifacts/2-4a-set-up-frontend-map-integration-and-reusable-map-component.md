@@ -74,12 +74,12 @@ so that Story 2.4 (and any future map-based location-picking UI) has the infrast
 
 **[NEW 2026-08-06 — Sprint Change Proposal, `sprint-change-proposal-2026-08-06-map-picker-continuity.md`]**
 
-- [ ] Task 11: Zoom control (AC12)
-  - [ ] In the mount effect, after `new maplibregl.Map(...)`, conditionally `map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')` when `showZoomControl` is not explicitly `false`.
-  - [ ] Component test: control's DOM node present by default; absent when `showZoomControl={false}` (assert against the mocked `Map.addControl` call, following this file's existing `vi.mock('maplibre-gl', ...)` pattern — extend the fake `Map` class with an `addControl` method).
-- [ ] Task 12: Camera-state change notifications (AC13)
-  - [ ] Register `map.on('moveend', report)` / `map.on('zoomend', report)` where `report` reads `map.getCenter()`/`map.getZoom()`, maps to `{ center: Coordinates; zoom: number }`, and calls `onViewStateChange` only if it was provided.
-  - [ ] Component test: simulated `moveend`/`zoomend` events (via the mocked `Map`'s `on` handler capture) call `onViewStateChange` with the mocked `getCenter()`/`getZoom()` return values, correctly mapped to `{ latitude, longitude }`; not called when the prop is omitted; not called for a `center`/`zoom` *prop*-driven `setCenter`/`setZoom` call (no feedback loop — the mocked `Map` never fires `moveend`/`zoomend` on its own from a programmatic `setCenter`/`setZoom`, matching real MapLibre behavior for camera changes not driven by user interaction... actually MapLibre *does* fire `moveend` for programmatic moves too by default; if the real library's behavior can't be cheaply distinguished, document this as a known, accepted limitation rather than adding `jumpTo`/interaction-source detection complexity).
+- [x] Task 11: Zoom control (AC12)
+  - [x] In the mount effect, after `new maplibregl.Map(...)`, conditionally `map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')` when `showZoomControl` is not explicitly `false`.
+  - [x] Component test: control's DOM node present by default; absent when `showZoomControl={false}` (assert against the mocked `Map.addControl` call, following this file's existing `vi.mock('maplibre-gl', ...)` pattern — extend the fake `Map` class with an `addControl` method).
+- [x] Task 12: Camera-state change notifications (AC13)
+  - [x] Register `map.on('moveend', report)` / `map.on('zoomend', report)` where `report` reads `map.getCenter()`/`map.getZoom()`, maps to `{ center: Coordinates; zoom: number }`, and calls `onViewStateChange` only if it was provided.
+  - [x] Component test: simulated `moveend`/`zoomend` events (via the mocked `Map`'s `on` handler capture) call `onViewStateChange` with the mocked `getCenter()`/`getZoom()` return values, correctly mapped to `{ latitude, longitude }`; not called when the prop is omitted; not called for a `center`/`zoom` *prop*-driven `setCenter`/`setZoom` call (no feedback loop — the mocked `Map` never fires `moveend`/`zoomend` on its own from a programmatic `setCenter`/`setZoom`, matching real MapLibre behavior for camera changes not driven by user interaction... actually MapLibre *does* fire `moveend` for programmatic moves too by default; if the real library's behavior can't be cheaply distinguished, document this as a known, accepted limitation rather than adding `jumpTo`/interaction-source detection complexity).
 
 ## Dev Notes
 
