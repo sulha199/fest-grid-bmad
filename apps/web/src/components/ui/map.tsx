@@ -45,6 +45,9 @@ export function MapView({
     const styleUrl = `https://maps.geoapify.com/v1/styles/${mapStyle}/style.json?apiKey=${apiKey}`;
 
     try {
+      // See scripts/copy-maplibre-worker.mjs for why this is required under webpack.
+      maplibregl.setWorkerUrl('/maplibre-gl-worker.mjs');
+
       const map = new maplibregl.Map({
         container: mapContainerRef.current,
         style: styleUrl,
