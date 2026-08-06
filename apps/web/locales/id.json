@@ -164,5 +164,16 @@
     "unavailableLabel": "Tidak dapat mendeteksi lokasi Anda — menampilkan semua acara.",
     "locationsErrorLabel": "Gagal memuat lokasi tersimpan Anda.",
     "noSavedLocationsHint": "Simpan lokasi di Lokasi Saya untuk memfilter berdasarkan tempat tertentu."
+  },
+  "UserMenu": {
+    "profile": "Profil",
+    "locations": "Lokasi",
+    "subscriptions": "Akun Berlangganan",
+    "apiKeys": "Kunci API",
+    "notifications": "Notifikasi",
+    "reports": "Laporan",
+    "moderatorItems": "Item Moderator",
+    "logout": "Keluar",
+    "close": "Tutup"
   }
 }

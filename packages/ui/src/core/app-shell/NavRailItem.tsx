@@ -17,6 +17,7 @@ export function NavRailItem(props: NavRailItemProps) {
     href,
     currentPath,
     onActivate,
+    menuOpen: props.variant === 'trigger' ? props.ariaExpanded : undefined,
   });
 
   // Token classes from DESIGN.md (with added padding-start for sidebar mode to create space from the active indicator)
@@ -76,7 +77,7 @@ export function NavRailItem(props: NavRailItemProps) {
   }
 
   // Trigger variant (button root)
-  const { ariaExpanded = false } = props;
+  const { ariaExpanded = false, buttonRef } = props;
 
   return (
     <button
@@ -85,6 +86,7 @@ export function NavRailItem(props: NavRailItemProps) {
       aria-label={label}
       aria-haspopup="true"
       aria-expanded={ariaExpanded}
+      ref={buttonRef}
       {...handlers}
     >
       {renderedIcon}

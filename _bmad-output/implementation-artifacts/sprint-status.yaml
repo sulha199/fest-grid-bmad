@@ -187,8 +187,7 @@ development_status:
   # with an open-ended to:null), and requested a new Archive page escape hatch
   # (Story 4.8, Epic 4). All confirmed via AskUserQuestion; epics.md AC revised.
   2-7-automatically-hide-past-events: ready-for-dev
-  2-7-automatically-hide-past-events: backlog
-  2-8-user-menu: ready-for-dev
+  2-8-user-menu: done
   2-9-manage-push-notification-settings: backlog
   epic-2-retrospective: optional
   epic-3: in-progress

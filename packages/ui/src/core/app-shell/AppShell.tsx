@@ -9,6 +9,8 @@ import { NavRailItem } from './NavRailItem';
 
 export type NavKey = 'discover' | 'feed' | 'favorites' | 'calendar' | 'login';
 
+import { UserMenu } from './UserMenu';
+
 export interface AppShellProps {
   children: ReactNode;
   isAuthenticated: boolean;
@@ -24,6 +26,9 @@ export interface AppShellProps {
     'aria-current'?: 'page';
   }>;
   labels: Record<NavKey, string>;
+  role?: string;
+  onSignOut?: () => void;
+  userMenuLabels?: Record<string, string>;
 }
 
 export function AppShell({
@@ -35,7 +40,22 @@ export function AppShell({
   currentPath,
   renderLink,
   labels,
+  role,
+  onSignOut,
+  userMenuLabels,
 }: AppShellProps) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [activeTrigger, setActiveTrigger] = React.useState<'mobile' | 'desktop' | null>(null);
+
+  const mobileTriggerRef = React.useRef<HTMLButtonElement>(null);
+  const desktopTriggerRef = React.useRef<HTMLButtonElement>(null);
+
+  const toggleMenu = (triggerType: 'mobile' | 'desktop') => {
+    setIsOpen((prev) => !prev);
+    setActiveTrigger(triggerType);
+    onProfileTriggerActivate?.();
+  };
+
   // Determine Profile icon
   const profileIcon = isAuthenticated && avatarUrl ? (
     <img src={avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
@@ -49,7 +69,7 @@ export function AppShell({
   const profileLabel = isAuthenticated ? (displayName || 'User') : labels.login;
 
   // Render the Profile NavRailItem
-  const renderProfileItem = (className?: string) => {
+  const renderProfileItem = (triggerType: 'mobile' | 'desktop', className?: string) => {
     if (!isAuthenticated) {
       return (
         <NavRailItem
@@ -69,7 +89,9 @@ export function AppShell({
         variant="trigger"
         icon={profileIcon}
         label={profileLabel}
-        onActivate={onProfileTriggerActivate || (() => {})}
+        onActivate={() => toggleMenu(triggerType)}
+        ariaExpanded={isOpen && activeTrigger === triggerType}
+        buttonRef={triggerType === 'mobile' ? mobileTriggerRef : desktopTriggerRef}
         className={className}
       />
     );
@@ -98,7 +120,7 @@ export function AppShell({
               />
             );
           })}
-          {renderProfileItem()}
+          {renderProfileItem('mobile')}
         </div>
 
         {/* Sidenav Rail (Tablet md:flex 768-1279px, Desktop xl:flex >= 1280px) */}
@@ -127,8 +149,19 @@ export function AppShell({
           </div>
 
           {/* Profile (Bottom pinned) */}
-          <div className="mt-auto flex flex-col items-center xl:items-stretch">
-            {renderProfileItem()}
+          <div className="mt-auto flex flex-col items-center xl:items-stretch relative">
+            {renderProfileItem('desktop')}
+            <UserMenu
+              isOpen={isOpen}
+              onClose={() => setIsOpen(false)}
+              triggerRef={activeTrigger === 'mobile' ? mobileTriggerRef : desktopTriggerRef}
+              avatarUrl={avatarUrl}
+              displayName={displayName}
+              role={role}
+              onSignOut={onSignOut || (() => {})}
+              renderLink={renderLink}
+              labels={userMenuLabels || {}}
+            />
           </div>
         </div>
       </nav>

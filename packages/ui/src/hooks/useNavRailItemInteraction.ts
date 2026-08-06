@@ -16,6 +16,7 @@ export function useNavRailItemInteraction({
   href,
   currentPath,
   onActivate,
+  menuOpen = false,
 }: UseNavRailItemInteractionProps): UseNavRailItemInteractionResult {
   const prefersReducedMotion = usePrefersReducedMotion();
 
@@ -40,9 +41,18 @@ export function useNavRailItemInteraction({
     };
   }, []);
 
+  // When menu becomes open, dismiss tooltip immediately
+  useEffect(() => {
+    if (menuOpen) {
+      setIsDismissed(true);
+      setIsHovered(false);
+      setIsFocused(false);
+    }
+  }, [menuOpen]);
+
   const flashDuration = prefersReducedMotion ? 4000 : 2000;
 
-  const tooltipVisible = (isHovered || isFocused) && !isDismissed;
+  const tooltipVisible = (isHovered || isFocused) && !isDismissed && !menuOpen;
 
   const handlers = {
     onPointerEnter: (event: PointerEvent<HTMLElement>) => {
@@ -85,6 +95,9 @@ export function useNavRailItemInteraction({
     onClick: () => {
       if (variant === 'trigger') {
         onActivate?.();
+        setIsDismissed(true);
+        setIsHovered(false);
+        setIsFocused(false);
       }
     },
   };

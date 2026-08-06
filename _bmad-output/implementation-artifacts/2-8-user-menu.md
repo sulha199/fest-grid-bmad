@@ -4,7 +4,7 @@
 
 - Epic: 2
 - Story ID: 2.8
-- Status: ready-for-dev
+- Status: done
 
 ## Story
 
