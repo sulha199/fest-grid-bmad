@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-08-06T20:15:56Z
+# last_updated: 2026-08-06T20:45:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-06T20:15:56Z
+last_updated: 2026-08-06T20:45:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -181,6 +181,12 @@ development_status:
   2-5-find-nearby-events: review
   2-6-view-and-manage-events-on-a-calendar: backlog
   2-6a-create-user-settings-table-and-settings-query-mutation-resolvers: review
+  # regenerated 2026-08-06 via bmad-create-story: user broadened scope from
+  # personal-lists-only to a global default across every event view, requested a
+  # reusable/extensible hiding mechanism (Story 1.3h's overlaps operator extended
+  # with an open-ended to:null), and requested a new Archive page escape hatch
+  # (Story 4.8, Epic 4). All confirmed via AskUserQuestion; epics.md AC revised.
+  2-7-automatically-hide-past-events: ready-for-dev
   2-7-automatically-hide-past-events: backlog
   2-8-user-menu: ready-for-dev
   2-9-manage-push-notification-settings: backlog
@@ -214,6 +220,11 @@ development_status:
   4-6-users-reports-page: backlog
   4-7-moderator-items-page: backlog
   # 4-7-moderator-items-page scope extended to include DefaultLocationChangeRequest review (see epics.md)
+  # added 2026-08-06 via bmad-create-story at user's request while drafting Story 2.7:
+  # 2.7 broadens past-event hiding to a global default and needs an escape hatch so users
+  # don't lose access to their own favorited/calendar/subscribed events. Depends on
+  # Story 2.7, Story 3.1a, Story 4.3a, Story 4.4a. See epics.md Story 4.8 note.
+  4-8-view-archived-hidden-personal-events: backlog
   epic-4-retrospective: optional
   epic-5: backlog
   5-1a-build-the-manual-post-selection-and-extraction-graphql-api-layer: backlog
