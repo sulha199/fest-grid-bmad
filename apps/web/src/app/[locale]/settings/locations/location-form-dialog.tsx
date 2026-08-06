@@ -84,15 +84,15 @@ export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDi
     }
   }, [isOpen, location])
 
-  // Open dropdown if we have predictions
+  // Open dropdown if we have predictions or are loading
   const suggestions = autocompleteData?.addressAutocomplete || []
   useEffect(() => {
-    if (isOpen && suggestions.length > 0 && addressSearch.length >= 3 && !selectedDescription) {
+    if (isOpen && (suggestions.length > 0 || isAutocompleteLoading) && addressSearch.length >= 3 && !selectedDescription) {
       setIsDropdownOpen(true)
     } else {
       setIsDropdownOpen(false)
     }
-  }, [suggestions, addressSearch, selectedDescription, isOpen])
+  }, [suggestions, addressSearch, selectedDescription, isOpen, isAutocompleteLoading])
 
   const handleAddressChange = (val: string) => {
     setAddressSearch(val)
@@ -216,7 +216,10 @@ export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDi
               {isDropdownOpen && (
                 <div className="absolute z-50 w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md max-h-60 overflow-y-auto py-1">
                   {isAutocompleteLoading && (
-                    <div className="px-4 py-2 text-sm text-muted-foreground">{t("addressSearching")}</div>
+                    <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+                      <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+                      {t("addressSearching")}
+                    </div>
                   )}
                   {!isAutocompleteLoading && suggestions.length === 0 && (
                     <div className="px-4 py-2 text-sm text-muted-foreground">{t("addressNoResults")}</div>
@@ -250,6 +253,9 @@ export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDi
                 onChange={(e) => setRadiusKm(Number(e.target.value))}
                 className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
               />
+              <p className="text-xs text-muted-foreground">
+                {t("radiusHelperText")}
+              </p>
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0 mt-6">

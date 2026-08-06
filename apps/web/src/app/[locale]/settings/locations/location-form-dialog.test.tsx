@@ -188,4 +188,32 @@ describe('LocationFormDialog', () => {
       },
     });
   });
+
+  it('renders a spinner and searching text when autocomplete is loading', async () => {
+    const handleClose = vi.fn();
+    // Intercept addressAutocomplete query to delay its response
+    server.use(
+      graphql.query('addressAutocomplete', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return HttpResponse.json({
+          data: {
+            addressAutocomplete: mockSuggestions,
+          },
+        });
+      })
+    );
+
+    renderWithProviders(<LocationFormDialog isOpen={true} onClose={handleClose} />);
+
+    // Type address search (requires >= 3 chars)
+    const addressInput = screen.getByLabelText('Address');
+    fireEvent.change(addressInput, { target: { value: 'Spring' } });
+
+    // While it is loading, check for the "Searching..." text and the spinner element
+    await waitFor(() => {
+      const searchingContainer = screen.getByText('Searching...');
+      expect(searchingContainer).toBeInTheDocument();
+      expect(searchingContainer.querySelector('.animate-spin')).toBeInTheDocument();
+    });
+  });
 });
