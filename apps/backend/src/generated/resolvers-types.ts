@@ -130,7 +130,7 @@ export type Me = {
 export type Mutation = {
   __typename?: 'Mutation';
   createUserLocation: UserLocation;
-  deleteUserLocation: Scalars['Boolean']['output'];
+  deleteUserLocation: UserLocation;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
   updateUserLocation: UserLocation;
@@ -143,6 +143,7 @@ export type MutationCreateUserLocationArgs = {
 
 
 export type MutationDeleteUserLocationArgs = {
+  action: SoftDeleteAction;
   id: Scalars['ID']['input'];
 };
 
@@ -223,6 +224,11 @@ export type Schedule = {
   timezone?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['String']['output'];
 };
+
+export enum SoftDeleteAction {
+  Delete = 'DELETE',
+  Restore = 'RESTORE'
+}
 
 export type ToggleCalendarAdditionResult = {
   __typename?: 'ToggleCalendarAdditionResult';
@@ -347,6 +353,7 @@ export type ResolversTypes = ResolversObject<{
   Mutation: ResolverTypeWrapper<{}>;
   Query: ResolverTypeWrapper<{}>;
   Schedule: ResolverTypeWrapper<Schedule>;
+  SoftDeleteAction: SoftDeleteAction;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   ToggleCalendarAdditionResult: ResolverTypeWrapper<ToggleCalendarAdditionResult>;
   ToggleFavoriteResult: ResolverTypeWrapper<ToggleFavoriteResult>;
@@ -442,7 +449,7 @@ export type MeResolvers<ContextType = GraphQLContext, ParentType extends Resolve
 
 export type MutationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
   createUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationCreateUserLocationArgs, 'input'>>;
-  deleteUserLocation?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteUserLocationArgs, 'id'>>;
+  deleteUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationDeleteUserLocationArgs, 'action' | 'id'>>;
   toggleCalendarAddition?: Resolver<ResolversTypes['ToggleCalendarAdditionResult'], ParentType, ContextType, RequireFields<MutationToggleCalendarAdditionArgs, 'eventId' | 'scheduleId'>>;
   toggleFavorite?: Resolver<ResolversTypes['ToggleFavoriteResult'], ParentType, ContextType, RequireFields<MutationToggleFavoriteArgs, 'eventId'>>;
   updateUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationUpdateUserLocationArgs, 'id' | 'input'>>;

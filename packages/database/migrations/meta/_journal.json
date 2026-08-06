@@ -64,6 +64,13 @@
       "when": 1785949963478,
       "tag": "0008_schedule-date-range-gist-index",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1785988462247,
+      "tag": "0009_lumpy_blizzard",
+      "breakpoints": true
     }
   ]
 }

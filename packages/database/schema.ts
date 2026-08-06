@@ -47,9 +47,10 @@ export const userLocations = pgTable('user_locations', {
   // Radius in meters
   radius: integer('radius').notNull(),
   locationDetails: jsonb('location_details').$type<LocationDetails>().notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete support
   ...timestamps,
 }, (t) => ({
-  userIdIdx: index('idx_user_locations_user_id').on(t.userId),
+  activeIdx: index('idx_user_locations_active').on(t.userId).where(sql`deleted_at IS NULL`),
 }));
 
 export const subscriptions = pgTable('subscriptions', {

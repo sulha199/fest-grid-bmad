@@ -127,11 +127,46 @@ export const resolvers: Resolvers = {
         throw err;
       }
     },
-    deleteUserLocation: async (_: any, { id }: any, context: any) => {
+    deleteUserLocation: async (_: any, { id, action }: any, context: any) => {
       const authUser = requireAuth(context);
-      await db.delete(userLocations)
+      const existingRows = await db.select().from(userLocations)
         .where(and(eq(userLocations.id, id), eq(userLocations.userId, authUser.userId)));
-      return true;
+      
+      if (existingRows.length === 0) {
+        throw new GraphQLError('Location not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const existing = existingRows[0];
+      if (action === 'DELETE') {
+        if (existing.deletedAt !== null) {
+          throw new GraphQLError('Location is already deleted', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(userLocations)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(eq(userLocations.id, id))
+          .returning();
+        return {
+          ...updated,
+          locationDetails: formatLocationDetails(updated.locationDetails),
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
+        } as any;
+      } else if (action === 'RESTORE') {
+        if (existing.deletedAt === null) {
+          throw new GraphQLError('Location is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(userLocations)
+          .set({ deletedAt: null, updatedAt: new Date() })
+          .where(eq(userLocations.id, id))
+          .returning();
+        return {
+          ...updated,
+          locationDetails: formatLocationDetails(updated.locationDetails),
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
+        } as any;
+      }
+      throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
     toggleFavorite: async (_: any, { eventId }: any, context: any) => {
       const authUser = requireAuth(context);
@@ -225,7 +260,7 @@ export const resolvers: Resolvers = {
     myLocations: async (_: any, __: any, context: any) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(userLocations)
-        .where(eq(userLocations.userId, authUser.userId))
+        .where(and(eq(userLocations.userId, authUser.userId), isNull(userLocations.deletedAt)))
         .orderBy(asc(userLocations.createdAt));
 
       return rows.map(row => ({

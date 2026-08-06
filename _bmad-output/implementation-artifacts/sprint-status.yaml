@@ -147,7 +147,7 @@ development_status:
   # Reopened 2026-08-06 via bmad-correct-course: AC5/AC6 revised (hard delete ->
   # AD-8 soft delete via new SoftDeleteAction-param mutation contract), Task 1b
   # (deletedAt migration) added. See sprint-change-proposal-2026-08-06.md.
-  2-3a-build-the-saved-locations-backend-graphql-api-layer: in-progress
+  2-3a-build-the-saved-locations-backend-graphql-api-layer: review
   2-3b-extend-the-geolocation-adapter-and-saved-locations-api-with-address-autocomplete-support: review
   # regenerated 2026-08-04 via bmad-create-story at user's request: re-verified against
   # current codebase state (Story 2.3b now fully drafted with a matching contract minus a

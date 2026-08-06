@@ -6,24 +6,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, userLocations } from '@festgrid/database';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
-// Read all required schema fragments
-const eventsDefs = fs.readFileSync(path.resolve(process.cwd(), 'src/schema/events.graphql'), 'utf-8');
-const authDefs = fs.readFileSync(path.resolve(process.cwd(), 'src/schema/auth.graphql'), 'utf-8');
-const favDefs = fs.readFileSync(path.resolve(process.cwd(), 'src/schema/favorites-and-calendar.graphql'), 'utf-8');
-const locDefs = fs.readFileSync(path.resolve(process.cwd(), 'src/schema/user-locations.graphql'), 'utf-8');
+// Read all required schema fragments dynamically from the schema directory
+const schemaDir = path.resolve(process.cwd(), 'src/schema');
+const files = fs.readdirSync(schemaDir).filter(f => f.endsWith('.graphql'));
+const typeDefs = files.map(f => fs.readFileSync(path.join(schemaDir, f), 'utf8')).join('\n');
 
 const schema = createSchema({
-  typeDefs: `
-    ${eventsDefs}
-    ${authDefs}
-    ${favDefs}
-    ${locDefs}
-    type Query {
-      health: Boolean
-    }
-  `,
+  typeDefs,
   resolvers: resolvers as any
 });
 
@@ -441,48 +432,82 @@ test('user locations resolvers integration', async (t) => {
     assert.strictEqual(result.errors[0].extensions?.code, 'NOT_FOUND');
   });
 
-  await t.test('deleteUserLocation - idempotent, cross-user deletes are safe no-ops', async () => {
-    // Try to delete testUser's location as anotherUser (should not delete)
+  await t.test('deleteUserLocation - soft delete and state transitions', async () => {
+    // Try to delete testUser's location as anotherUser (should return NOT_FOUND)
     mockUser = { userId: anotherUser.id, role: anotherUser.role };
     const resCross = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query: `mutation { deleteUserLocation(id: "${createdId}") }`
+        query: `mutation { deleteUserLocation(id: "${createdId}", action: DELETE) { id } }`
       })
     });
     const resultCross = await resCross.json();
-    assert.strictEqual(resultCross.data.deleteUserLocation, true);
+    assert.ok(resultCross.errors, 'should return error');
+    assert.strictEqual(resultCross.errors[0].extensions?.code, 'NOT_FOUND');
 
-    // Verify it still exists for testUser
+    // Verify it still exists and is active for testUser
     mockUser = { userId: testUser.id, role: testUser.role };
     const resVerify = await db.select().from(userLocations).where(eq(userLocations.id, createdId));
     assert.strictEqual(resVerify.length, 1);
+    assert.strictEqual(resVerify[0].deletedAt, null);
 
     // Delete as owner
     const resOwner = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query: `mutation { deleteUserLocation(id: "${createdId}") }`
+        query: `mutation { deleteUserLocation(id: "${createdId}", action: DELETE) { id } }`
       })
     });
     const resultOwner = await resOwner.json();
-    assert.strictEqual(resultOwner.data.deleteUserLocation, true);
+    assert.ok(!resultOwner.errors, 'should succeed without errors');
+    assert.strictEqual(resultOwner.data.deleteUserLocation.id, createdId);
 
-    // Verify it's gone
+    // Verify it is soft-deleted
     const resVerifyGone = await db.select().from(userLocations).where(eq(userLocations.id, createdId));
-    assert.strictEqual(resVerifyGone.length, 0);
+    assert.strictEqual(resVerifyGone.length, 1);
+    assert.ok(resVerifyGone[0].deletedAt !== null);
 
-    // Delete again (idempotency check)
+    // Try deleting again (should throw INVALID_STATE_TRANSITION)
     const resAgain = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query: `mutation { deleteUserLocation(id: "${createdId}") }`
+        query: `mutation { deleteUserLocation(id: "${createdId}", action: DELETE) { id } }`
       })
     });
     const resultAgain = await resAgain.json();
-    assert.strictEqual(resultAgain.data.deleteUserLocation, true);
+    assert.ok(resultAgain.errors, 'should return error');
+    assert.strictEqual(resultAgain.errors[0].extensions?.code, 'INVALID_STATE_TRANSITION');
+
+    // Restore as owner
+    const resRestore = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { deleteUserLocation(id: "${createdId}", action: RESTORE) { id } }`
+      })
+    });
+    const resultRestore = await resRestore.json();
+    assert.ok(!resultRestore.errors, 'should succeed without errors');
+    assert.strictEqual(resultRestore.data.deleteUserLocation.id, createdId);
+
+    // Verify restored
+    const resVerifyRestored = await db.select().from(userLocations).where(eq(userLocations.id, createdId));
+    assert.strictEqual(resVerifyRestored.length, 1);
+    assert.strictEqual(resVerifyRestored[0].deletedAt, null);
+
+    // Try restoring again (should throw INVALID_STATE_TRANSITION)
+    const resRestoreAgain = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { deleteUserLocation(id: "${createdId}", action: RESTORE) { id } }`
+      })
+    });
+    const resultRestoreAgain = await resRestoreAgain.json();
+    assert.ok(resultRestoreAgain.errors, 'should return error');
+    assert.strictEqual(resultRestoreAgain.errors[0].extensions?.code, 'INVALID_STATE_TRANSITION');
   });
 });
