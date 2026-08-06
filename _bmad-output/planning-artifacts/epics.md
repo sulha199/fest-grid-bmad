@@ -1267,15 +1267,21 @@ Users can personalize their experience by saving favorite events and locations.
 ### Story 2.7: Automatically hide past events
 
 **As a** user,
-**I want** past events in my personal lists to be automatically hidden after a configurable number of days,
-**So that** my lists stay clean and relevant.
+**I want** past events to be automatically hidden after a configurable number of days, everywhere I browse or manage events,
+**So that** the main event feed and my personal lists stay clean and relevant.
 
 **Acceptance Criteria:**
 
-*   **Given** I have events in my "Favorites" or "My Calendar" list that have passed,
-*   **When** `N` days have passed since the event ended,
-*   **Then** the event is no longer visible in the list.
-*   **And** the value of `N` is configurable in the user settings.
+*   **Given** an event's schedules have all ended more than `N` days ago (no schedule's end date — or start date, if it has no end date — falls on/after `now - N days`),
+*   **When** any event query resolves (Discovery/Feed, Favorites, My Calendar, search/filter results),
+*   **Then** the event is excluded by default from the results, via a resolver-level default visibility condition AND'd with the caller's query (reusing Story 1.3h's `scheduleDateRange`/`overlaps` EXISTS mechanism against ALL of the event's schedules, not just the main one) — never a client-side/post-fetch filter.
+*   **And** for authenticated users, `N` is read from `mySettings.hidePastEventsAfterDays` (Story 2.6a, default 7); for unauthenticated callers, `N` defaults to the same value (7), since no per-user setting exists.
+*   **And** the default visibility condition is structured as an extensible, ordered list of rule-conditions — this story contributes the first entry (the past-event rule) — so that future rules (moderator soft-delete, personal report-hide) can each be added as one more list entry later without restructuring the resolver.
+*   **And** past events remain reachable only via the dedicated future "Archive" page (Story 4.8, out of scope here) — this story introduces no bypass/opt-out of the default filter.
+
+**Note:** AC broadened 2026-08-06 during `bmad-create-story`, confirmed with the user via `AskUserQuestion`. The original AC (pre-2026-08-06) scoped hiding to "Favorites"/"My Calendar" only, matching PRD §3.4.2's original personal-lists-only wording. The user redirected scope to a global default (every event view, not just personal lists) with a new dedicated Archive page (Story 4.8) as the escape hatch, and requested the hiding rule be built as a reusable, extensible mechanism so Epic 4's soft-delete/personal-hide rules (Stories 4.3a/4.4a) can plug into the same seam later instead of each inventing separate filtering. Two further implementation tradeoffs were confirmed with the user: (1) the SQL condition reuses Story 1.3h's `overlaps` operator, extended to accept an open-ended `to: null` bound, rather than a new dedicated operator; (2) the default-conditions composition is built as an explicit extensible list now, not a single hardcoded condition.
+
+**Depends on:** Story 2.6a, Story 1.3a, Story 1.3h.
 
 ### Story 2.8: User Menu
 
@@ -1770,6 +1776,24 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **And** for each pending change, I can see the `accountId`, `previousLocation`, and `newLocation`, and either **accept** it (setting `status: ACCEPTED`, leaving `SocialMediaAccountProfile.defaultLocation` as `newLocation`) or **revert** it (setting `status: REVERTED` and writing `SocialMediaAccountProfile.defaultLocation` back to `previousLocation`), via a `resolveDefaultLocationChange(id, action)` mutation guarded by `requireModerator`.
 
 **Depends on:** Story 4.3a, Story 4.4a, Story 3.3b, Story 0.17.
+
+### Story 4.8: View archived (hidden) personal events
+
+**As a** user,
+**I want** a dedicated "Archive" page listing my favorited, calendar-added, and subscribed-account events that have been hidden by the platform's default visibility rules (expired past events, moderator soft-deletes, my own "Personal" report hides),
+**So that** I can still find and review events I have a personal connection to, even after they've dropped out of the main Feed, Discovery, Favorites, or My Calendar views.
+
+**Acceptance Criteria:**
+
+*   **Given** I am logged in and navigate to the "Archive" page from the user menu,
+*   **When** the page loads,
+*   **Then** I see events that are (a) excluded by at least one of the default visibility rules established by Story 2.7 (past-event auto-hide), Story 4.4a (moderator soft-delete), or Story 4.3a (my own personal report-hide) — retrieved via an explicit opt-in that bypasses the default visibility filter, scoped to authenticated owner-only access, never exposed to anonymous callers or usable to view other users' hidden events — **and** (b) are either favorited by me, added to my calendar, or sourced from a social media account I subscribe to (Epic 3).
+*   **And** each entry indicates *why* it is hidden (expired / removed by moderation / hidden by me), using data already exposed by the Story 2.7/4.3a/4.4a resolvers — no new hide-reason storage is introduced by this story.
+*   **And** the page reuses the existing list/infinite-scroll/card patterns (Stories 1.3b/1.3c/1.3d) rather than inventing new ones.
+
+**Note:** Added 2026-08-06 during Story 2.7's creation, at the user's explicit request. Story 2.7 introduces the platform's first default event-visibility-hiding mechanism (built extensible for Story 4.3a/4.4a's later rules) and broadens "hide past events" from personal-lists-only to a global default across every event view, which makes a dedicated escape hatch necessary so users don't lose access to their own favorited/calendar-added/subscribed events entirely. Positioned as Epic 4's final story — after 4.3a/4.4a, which supply two of this page's three hide-reasons, and after Epic 3 (subscription data) — rather than Epic 2, since it depends on hide-reasons and subscription data neither Epic 2 nor Epic 0 have. Full UX/interaction design (empty state, "why hidden" iconography/copy, whether any unhide/restore action exists) is intentionally left to this story's own future `bmad-create-story` pass, not specified here.
+
+**Depends on:** Story 2.7, Story 3.1a, Story 4.3a, Story 4.4a.
 
 ### Epic 5: Onboarding and Manual Event Extraction
 
