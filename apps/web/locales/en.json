@@ -140,6 +140,17 @@
     "deleteButtonLabel": "Delete",
     "savingAnnouncement": "Saving location...",
     "locationSavedAnnouncement": "Location saved successfully",
-    "locationSaveErrorAnnouncement": "Failed to save location. Please try again."
+    "locationSaveErrorAnnouncement": "Failed to save location. Please try again.",
+    "useCurrentLocationLabel": "Use my current location",
+    "pickOnMapLabel": "Pick on map",
+    "geolocationPermissionDeniedError": "Permission to access location was denied.",
+    "geolocationTimeoutError": "Location request timed out after 10 seconds.",
+    "geolocationUnavailableError": "Your browser does not support or cannot access geolocation.",
+    "resolvingAddressLabel": "resolving address...",
+    "addressPreviewErrorFallback": "Current location ({lat}, {lng})",
+    "mapSheetTitle": "Select location on map",
+    "mapConfirmLabel": "Confirm location",
+    "mapCancelLabel": "Cancel",
+    "mapErrorLabel": "Unable to load map."
   }
 }

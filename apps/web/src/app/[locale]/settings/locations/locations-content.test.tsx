@@ -10,6 +10,13 @@ import enMessages from '../../../../../locales/en.json';
 import { LocationsContent } from './locations-content';
 import { graphqlClient } from '@/lib/graphql-client';
 
+// Mock MapView to avoid WebGL/Canvas/CSS issues in JSDOM
+vi.mock('@/components/ui/map', () => {
+  return {
+    MapView: () => <div data-testid="mock-map" />,
+  };
+});
+
 const mockRouterPush = vi.fn();
 const mockPosthogCapture = vi.fn();
 
