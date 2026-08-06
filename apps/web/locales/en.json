@@ -11,7 +11,9 @@
     "favoritesTitle": "My Favorites | FestDaily",
     "favoritesDescription": "View and manage your favorited events on FestDaily.",
     "locationsTitle": "My Locations | FestDaily",
-    "locationsDescription": "Manage your saved locations on FestDaily."
+    "locationsDescription": "Manage your saved locations on FestDaily.",
+    "myCalendarTitle": "My Calendar | FestDaily",
+    "myCalendarDescription": "View and manage your custom calendar schedules on FestDaily."
   },
   "EventDetailsPage": {
     "next": "Next Event",
@@ -182,5 +184,18 @@
     "moderatorItems": "Moderator Items",
     "logout": "Log Out",
     "close": "Close"
+  },
+  "MyCalendarPage": {
+    "title": "My Calendar",
+    "calendarPrevWeekLabel": "Previous week",
+    "calendarNextWeekLabel": "Next week",
+    "calendarTodayLabel": "Today",
+    "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
+    "calendarErrorState": "Failed to load calendar events.",
+    "calendarClosePopoverLabel": "Close popover",
+    "showFavoritedLabel": "Show favorited",
+    "showAddedToCalendarLabel": "Show added to calendar",
+    "favoritedBadgeLabel": "Favorited",
+    "addedToCalendarBadgeLabel": "Added to calendar"
   }
 }

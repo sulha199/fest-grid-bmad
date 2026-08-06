@@ -366,6 +366,15 @@ export type GetEventsForCalendarQueryVariables = Exact<{
 
 export type GetEventsForCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null }> }> } };
 
+export type GetEventsForMyCalendarQueryVariables = Exact<{
+  limit?: number | null | undefined;
+  offset?: number | null | undefined;
+  query?: EventQueryConditionInput | null | undefined;
+}>;
+
+
+export type GetEventsForMyCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, isAddedToCalendar: boolean }> }> } };
+
 export type CreateUserLocationMutationVariables = Exact<{
   input: CreateUserLocationInput;
 }>;
@@ -726,6 +735,53 @@ export const useGetEventsForCalendarQuery = <
       {
     queryKey: variables === undefined ? ['getEventsForCalendar'] : ['getEventsForCalendar', variables],
     queryFn: fetcher<GetEventsForCalendarQuery, GetEventsForCalendarQueryVariables>(client, GetEventsForCalendarDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetEventsForMyCalendarDocument = new TypedDocumentString(`
+    query getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
+  events(limit: $limit, offset: $offset, query: $query) {
+    items {
+      id
+      eventName
+      slug
+      imageUrl
+      location
+      types
+      categories
+      isFavorited
+      schedules {
+        id
+        isMainSchedule
+        eventStartDate
+        eventEndDate
+        eventStartTime
+        eventEndTime
+        ticketPrice
+        isAddedToCalendar
+      }
+    }
+    hasMore
+    totalCount
+  }
+}
+    `);
+
+export const useGetEventsForMyCalendarQuery = <
+      TData = GetEventsForMyCalendarQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: GetEventsForMyCalendarQueryVariables,
+      options?: Omit<UseQueryOptions<GetEventsForMyCalendarQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetEventsForMyCalendarQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetEventsForMyCalendarQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['getEventsForMyCalendar'] : ['getEventsForMyCalendar', variables],
+    queryFn: fetcher<GetEventsForMyCalendarQuery, GetEventsForMyCalendarQueryVariables>(client, GetEventsForMyCalendarDocument, variables, headers),
     ...options
   }
     )};

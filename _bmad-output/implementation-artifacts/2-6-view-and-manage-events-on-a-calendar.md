@@ -7,7 +7,7 @@ baseline_commit: HEAD
 
 - Epic: 2 - User Personalization
 - Story ID: 2.6
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,49 +32,49 @@ so that I can visualize my upcoming event schedule at a glance, per `EXPERIENCE.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extend `WeeklyCalendarView`'s contract with per-schedule visual badges (AC4) — `packages/ui`
-  - [ ] Add optional `isFavorited?: boolean` and `isAddedToCalendar?: boolean` to `WeeklyCalendarViewScheduleShape` (`WeeklyCalendarView.types.ts`) — additive; Story 1.3f's Discovery `CalendarView` (this component's existing consumer) never sets these fields, so its rendering is byte-for-byte unchanged.
-  - [ ] Add optional `favoritedBadgeLabel?: string` / `addedToCalendarBadgeLabel?: string` to `WeeklyCalendarViewLabels`, defaulting to plain English fallbacks (matching the component's existing `defaultLabels` pattern) if omitted.
-  - [ ] In `WeeklyCalendarView.tsx`'s `CalendarCard` sub-component, import `Heart`/`CalendarPlus` from `lucide-react` (already used identically in `EventCard.tsx`/`EventDetailView.tsx` for the same two states) and render a small badge (icon only, `aria-label` from the new labels) inline before/beside the schedule title whenever `schedule.isFavorited`/`schedule.isAddedToCalendar` is true — both badges can render simultaneously.
-  - [ ] Extend `WeeklyCalendarView.test.tsx`: a schedule with `isFavorited: true` renders the `Heart` badge, one with `isAddedToCalendar: true` renders the `CalendarPlus` badge, one with both renders both, and one with neither renders no badge (regression: Discovery's existing usage, which passes neither field, must keep rendering exactly as before).
-  - [ ] Add a `favorited_badge`/`added_badge` note to `DESIGN.md`'s `calendar.event_rendering` tokens (repo hygiene, matching Story 1.3h's precedent of documenting new AD-1 tokens after implementation) — plain icon-only badges, no new color tokens (per the user's confirmed decision, see Dev Notes → Design Decisions Confirmed With User).
+- [x] Task 1: Extend `WeeklyCalendarView`'s contract with per-schedule visual badges (AC4) — `packages/ui`
+  - [x] Add optional `isFavorited?: boolean` and `isAddedToCalendar?: boolean` to `WeeklyCalendarViewScheduleShape` (`WeeklyCalendarView.types.ts`) — additive; Story 1.3f's Discovery `CalendarView` (this component's existing consumer) never sets these fields, so its rendering is byte-for-byte unchanged.
+  - [x] Add optional `favoritedBadgeLabel?: string` / `addedToCalendarBadgeLabel?: string` to `WeeklyCalendarViewLabels`, defaulting to plain English fallbacks (matching the component's existing `defaultLabels` pattern) if omitted.
+  - [x] In `WeeklyCalendarView.tsx`'s `CalendarCard` sub-component, import `Heart`/`CalendarPlus` from `lucide-react` (already used identically in `EventCard.tsx`/`EventDetailView.tsx` for the same two states) and render a small badge (icon only, `aria-label` from the new labels) inline before/beside the schedule title whenever `schedule.isFavorited`/`schedule.isAddedToCalendar` is true — both badges can render simultaneously.
+  - [x] Extend `WeeklyCalendarView.test.tsx`: a schedule with `isFavorited: true` renders the `Heart` badge, one with `isAddedToCalendar: true` renders the `CalendarPlus` badge, one with both renders both, and one with neither renders no badge (regression: Discovery's existing usage, which passes neither field, must keep rendering exactly as before).
+  - [x] Add a `favorited_badge`/`added_badge` note to `DESIGN.md`'s `calendar.event_rendering` tokens (repo hygiene, matching Story 1.3h's precedent of documenting new AD-1 tokens after implementation) — plain icon-only badges, no new color tokens (per the user's confirmed decision, see Dev Notes → Design Decisions Confirmed With User).
 
-- [ ] Task 2: Add the reusable visibility-toggle primitive (AC5) — `packages/ui`
-  - [ ] Add `packages/ui/src/core/checkbox.tsx` (+ `.types.ts`, `.test.tsx`): a minimal, accessible, hand-rolled toggle checkbox (label, `checked`, `onChange`, `aria-checked`/native `<input type="checkbox">` semantics) — following this codebase's established "hand-roll core primitives, no Radix/shadcn CLI dependency yet installed" precedent (`multi-select.tsx`, `blocking-loader.tsx`, `swipe-to-reveal.tsx` are all hand-rolled, not sourced from an actual Shadcn install — see Dev Notes → Architecture & UX Gate Findings). Export from `packages/ui/src/core/index.ts` (or the package's existing core barrel).
-  - [ ] `Checkbox.test.tsx`: renders with label, `onChange` fires with the new checked state, keyboard-operable (Space toggles), correct ARIA attributes.
+- [x] Task 2: Add the reusable visibility-toggle primitive (AC5) — `packages/ui`
+  - [x] Add `packages/ui/src/core/checkbox.tsx` (+ `.types.ts`, `.test.tsx`): a minimal, accessible, hand-rolled toggle checkbox (label, `checked`, `onChange`, `aria-checked`/native `<input type="checkbox">` semantics) — following this codebase's established "hand-roll core primitives, no Radix/shadcn CLI dependency yet installed" precedent (`multi-select.tsx`, `blocking-loader.tsx`, `swipe-to-reveal.tsx` are all hand-rolled, not sourced from an actual Shadcn install — see Dev Notes → Architecture & UX Gate Findings). Export from `packages/ui/src/core/index.ts` (or the package's existing core barrel).
+  - [x] `Checkbox.test.tsx`: renders with label, `onChange` fires with the new checked state, keyboard-operable (Space toggles), correct ARIA attributes.
 
-- [ ] Task 3: Add the week-scoped, favorites/calendar-additions-filtered GraphQL query (AC2, AC4) — `apps/web` + `packages/domain`
-  - [ ] Add `packages/domain/src/events/buildMyCalendarQueryCondition.ts`: `buildMyCalendarQueryCondition({ weekStart, weekEnd }): QueryCondition` — composes `{ operator: 'or', conditions: [{ field: 'isFavorited', operator: 'eq', value: true }, { field: 'isAddedToCalendar', operator: 'eq', value: true }] }` AND'd (via the existing `and`/`isGroupCondition` pattern from `buildWeeklyCalendarQueryCondition.ts`) with `{ field: 'scheduleDateRange', operator: 'overlaps', value: { from: weekStart, to: weekEnd } }`. 100% unit tested (project-context.md's `packages/domain` rule).
-  - [ ] Add a new `getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryConditionInput)` operation to `apps/web/src/features/events/queries.graphql` (a new operation, not a reuse of `getEventsForCalendar` — avoids Discovery's Calendar View over-fetching `isFavorited`/schedule-level `isAddedToCalendar` it never uses, per project-context.md's Optimized DB Queries rule), selecting: `id, eventName, slug, imageUrl, location, types, categories, isFavorited`, and `schedules { id isMainSchedule eventStartDate eventEndDate eventStartTime eventEndTime ticketPrice isAddedToCalendar }`. Run `pnpm run codegen`.
+- [x] Task 3: Add the week-scoped, favorites/calendar-additions-filtered GraphQL query (AC2, AC4) — `apps/web` + `packages/domain`
+  - [x] Add `packages/domain/src/events/buildMyCalendarQueryCondition.ts`: `buildMyCalendarQueryCondition({ weekStart, weekEnd }): QueryCondition` — composes `{ operator: 'or', conditions: [{ field: 'isFavorited', operator: 'eq', value: true }, { field: 'isAddedToCalendar', operator: 'eq', value: true }] }` AND'd (via the existing `and`/`isGroupCondition` pattern from `buildWeeklyCalendarQueryCondition.ts`) with `{ field: 'scheduleDateRange', operator: 'overlaps', value: { from: weekStart, to: weekEnd } }`. 100% unit tested (project-context.md's `packages/domain` rule).
+  - [x] Add a new `getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryConditionInput)` operation to `apps/web/src/features/events/queries.graphql` (a new operation, not a reuse of `getEventsForCalendar` — avoids Discovery's Calendar View over-fetching `isFavorited`/schedule-level `isAddedToCalendar` it never uses, per project-context.md's Optimized DB Queries rule), selecting: `id, eventName, slug, imageUrl, location, types, categories, isFavorited`, and `schedules { id isMainSchedule eventStartDate eventEndDate eventStartTime eventEndTime ticketPrice isAddedToCalendar }`. Run `pnpm run codegen`.
 
-- [ ] Task 4: Build the `/my-calendar` page and its data-fetching wrapper (AC1, AC2, AC3, AC5, AC6, AC7) — `apps/web`
-  - [ ] New `apps/web/src/app/[locale]/my-calendar/page.tsx` (Server Component, `generateMetadata` via the `Metadata` i18n namespace + `apps/web/src/lib/metadata.ts` helper, mirroring `apps/web/src/app/[locale]/favorites/page.tsx` exactly) rendering a new colocated `my-calendar-content.tsx` (Client Component).
-  - [ ] In `my-calendar-content.tsx`: auth gate via `useAuthSession()` (`router.push('/login')` if no session — AC1); `week` URL state via `useQueryState('week', parseAsString.withDefault(<today's ISO date>))` (mirroring `CalendarView.tsx`'s `getSunday`/`getSaturday` week-boundary helpers exactly); `showFavorited`/`showAdded` URL state via `useQueryState(..., parseAsBoolean.withDefault(true))` (AC5); call `useGetEventsForMyCalendarQuery` with `buildMyCalendarQueryCondition({ weekStart, weekEnd })`.
-  - [ ] Flatten the query's events into a flat `schedules` array (each schedule annotated with its parent event's `id`/`slug`/`eventName`/`isFavorited`, plus its own `isAddedToCalendar`) for `WeeklyCalendarView`'s `schedules` prop; client-side filter the array by the two toggle states before passing it in (`schedule.isFavorited && showFavorited` OR `schedule.isAddedToCalendar && showAdded` — AC5's "at least one toggle keeps it visible" rule).
-  - [ ] Render the two `Checkbox` toggles (Task 2) above the calendar grid, wired to `showFavorited`/`showAdded`.
-  - [ ] Wire `onScheduleClick` to `router.push('/events/${schedule.eventSlug}?fromList=true&${searchParams.toString()}')` — identical mechanism to Discovery Calendar View's `CalendarView.tsx` (AC6).
-  - [ ] Wire `onToday`/prev-week/next-week navigation to update the `week` URL param; `maxEventsPerDay={-1}`.
-  - [ ] Map the query's `status`/`error` to `WeeklyCalendarView`'s `status`/`errorMessage`/`errorDetail` props (AC7), matching `CalendarView.tsx`'s established mapping exactly.
-  - [ ] `my-calendar-content.test.tsx`: auth redirect, week navigation + refetch, toggle filtering (client-side, no refetch), schedule click navigates with the full query string preserved, loading/error/success rendering.
+- [x] Task 4: Build the `/my-calendar` page and its data-fetching wrapper (AC1, AC2, AC3, AC5, AC6, AC7) — `apps/web`
+  - [x] New `apps/web/src/app/[locale]/my-calendar/page.tsx` (Server Component, `generateMetadata` via the `Metadata` i18n namespace + `apps/web/src/lib/metadata.ts` helper, mirroring `apps/web/src/app/[locale]/favorites/page.tsx` exactly) rendering a new colocated `my-calendar-content.tsx` (Client Component).
+  - [x] In `my-calendar-content.tsx`: auth gate via `useAuthSession()` (`router.push('/login')` if no session — AC1); `week` URL state via `useQueryState('week', parseAsString.withDefault(<today's ISO date>))` (mirroring `CalendarView.tsx`'s `getSunday`/`getSaturday` week-boundary helpers exactly); `showFavorited`/`showAdded` URL state via `useQueryState(..., parseAsBoolean.withDefault(true))` (AC5); call `useGetEventsForMyCalendarQuery` with `buildMyCalendarQueryCondition({ weekStart, weekEnd })`.
+  - [x] Flatten the query's events into a flat `schedules` array (each schedule annotated with its parent event's `id`/`slug`/`eventName`/`isFavorited`, plus its own `isAddedToCalendar`) for `WeeklyCalendarView`'s `schedules` prop; client-side filter the array by the two toggle states before passing it in (`schedule.isFavorited && showFavorited` OR `schedule.isAddedToCalendar && showAdded` — AC5's "at least one toggle keeps it visible" rule).
+  - [x] Render the two `Checkbox` toggles (Task 2) above the calendar grid, wired to `showFavorited`/`showAdded`.
+  - [x] Wire `onScheduleClick` to `router.push('/events/${schedule.eventSlug}?fromList=true&${searchParams.toString()}')` — identical mechanism to Discovery Calendar View's `CalendarView.tsx` (AC6).
+  - [x] Wire `onToday`/prev-week/next-week navigation to update the `week` URL param; `maxEventsPerDay={-1}`.
+  - [x] Map the query's `status`/`error` to `WeeklyCalendarView`'s `status`/`errorMessage`/`errorDetail` props (AC7), matching `CalendarView.tsx`'s established mapping exactly.
+  - [x] `my-calendar-content.test.tsx`: auth redirect, week navigation + refetch, toggle filtering (client-side, no refetch), schedule click navigates with the full query string preserved, loading/error/success rendering.
 
-- [ ] Task 5: i18n (AD-6, AC8)
-  - [ ] Add a new `MyCalendarPage` namespace to `apps/web/locales/en.json`/`id.json`: `title`, `calendarPrevWeekLabel`, `calendarNextWeekLabel`, `calendarTodayLabel`, `calendarMoreLabel` (ICU plural), `calendarErrorState`, `calendarClosePopoverLabel`, `showFavoritedLabel`, `showAddedToCalendarLabel`, `favoritedBadgeLabel`, `addedToCalendarBadgeLabel`.
-  - [ ] Add `myCalendarTitle`/`myCalendarDescription` to the `Metadata` namespace (both files).
-  - [ ] Verify `apps/web/locales/locales.test.ts` (existing key-parity test) still passes.
+- [x] Task 5: i18n (AD-6, AC8)
+  - [x] Add a new `MyCalendarPage` namespace to `apps/web/locales/en.json`/`id.json`: `title`, `calendarPrevWeekLabel`, `calendarNextWeekLabel`, `calendarTodayLabel`, `calendarMoreLabel` (ICU plural), `calendarErrorState`, `calendarClosePopoverLabel`, `showFavoritedLabel`, `showAddedToCalendarLabel`, `favoritedBadgeLabel`, `addedToCalendarBadgeLabel`.
+  - [x] Add `myCalendarTitle`/`myCalendarDescription` to the `Metadata` namespace (both files).
+  - [x] Verify `apps/web/locales/locales.test.ts` (existing key-parity test) still passes.
 
-- [ ] Task 6: Analytics (AD-5)
-  - [ ] Fire `my_calendar_page_viewed` (`{ visibleScheduleCount: number }`) once per successful week-data load, mirroring Story 2.2's `favorites_page_viewed` shape.
-  - [ ] Reuse the existing `calendar_week_navigated` event (`{ direction, weekStart }`, already defined by Story 1.3f) for this page's own prev/next/Today controls — same event name, same payload shape, no new event needed.
-  - [ ] Fire `calendar_visibility_toggled` (`{ filter: 'favorited' | 'addedToCalendar', visible: boolean }`) once per toggle interaction.
+- [x] Task 6: Analytics (AD-5)
+  - [x] Fire `my_calendar_page_viewed` (`{ visibleScheduleCount: number }`) once per successful week-data load, mirroring Story 2.2's `favorites_page_viewed` shape.
+  - [x] Reuse the existing `calendar_week_navigated` event (`{ direction, weekStart }`, already defined by Story 1.3f) for this page's own prev/next/Today controls — same event name, same payload shape, no new event needed.
+  - [x] Fire `calendar_visibility_toggled` (`{ filter: 'favorited' | 'addedToCalendar', visible: boolean }`) once per toggle interaction.
 
-- [ ] Task 7: Testing (all ACs)
-  - [ ] Integration tests per Task 4/Task 1/Task 2's enumerated coverage above.
-  - [ ] One Playwright E2E happy-path test: log in → navigate to `/my-calendar` → see a favorited/added-to-calendar schedule with its badge → toggle "Show favorited" off → the favorited-only schedule disappears → click a still-visible schedule → modal opens with the correct event.
-  - [ ] Manual: `pnpm build` / `pnpm lint` / `pnpm run codegen` clean at the repo root.
+- [x] Task 7: Testing (all ACs)
+  - [x] Integration tests per Task 4/Task 1/Task 2's enumerated coverage above.
+  - [x] One Playwright E2E happy-path test: log in → navigate to `/my-calendar` → see a favorited/added-to-calendar schedule with its badge → toggle "Show favorited" off → the favorited-only schedule disappears → click a still-visible schedule → modal opens with the correct event.
+  - [x] Manual: `pnpm build` / `pnpm lint` / `pnpm run codegen` clean at the repo root.
 
-- [ ] Task 8: Final checks
-  - [ ] `pnpm build` / `pnpm lint` clean at the repo root.
-  - [ ] `pnpm codegen` output committed.
+- [x] Task 8: Final checks
+  - [x] `pnpm build` / `pnpm lint` clean at the repo root.
+  - [x] `pnpm codegen` output committed.
 
 ## Dev Notes
 
@@ -279,8 +279,32 @@ Matches `CalendarView.tsx`'s existing classification exactly: the initial week f
 
 ### Completion Notes List
 
-_To be filled by the dev agent._
+- Additive extension to `WeeklyCalendarView` with `isFavorited` and `isAddedToCalendar` visual badges (icon only, with `aria-label`).
+- Built custom `Checkbox` primitive under `packages/ui/src/core/` complying with core primitives guidelines.
+- Created week-scoped `buildMyCalendarQueryCondition` inside `packages/domain` with 100% unit test coverage.
+- Created `getEventsForMyCalendar` optimized query selection in `queries.graphql` and successfully executed `codegen`.
+- Built the `/my-calendar` page and `/my-calendar-content` wrapper with client-side filters, query parameter sync via `nuqs`, analytics tracking, and full Vitest unit/integration testing coverage.
+- Configured locale keys in English (`en.json`) and Indonesian (`id.json`) namespaces.
+- Handled global type errors on `EventDetailView.tsx`.
+- Ensured all tests and production Next.js compilation pass flawlessly.
 
 ### File List
 
-_To be filled by the dev agent._
+- `packages/ui/src/features/events/WeeklyCalendarView.tsx` (extended)
+- `packages/ui/src/features/events/WeeklyCalendarView.types.ts` (extended)
+- `packages/ui/src/features/events/WeeklyCalendarView.test.tsx` (extended)
+- `packages/ui/src/core/checkbox.tsx` (new primitive)
+- `packages/ui/src/core/checkbox.types.ts` (new type definition)
+- `packages/ui/src/core/checkbox.test.tsx` (new unit tests)
+- `packages/ui/src/index.ts` (modified exports)
+- `packages/domain/src/events/buildMyCalendarQueryCondition.ts` (new)
+- `packages/domain/src/events/buildMyCalendarQueryCondition.test.ts` (new tests)
+- `packages/domain/src/events/index.ts` (modified exports)
+- `apps/web/src/features/events/queries.graphql` (added operation)
+- `apps/web/src/generated/graphql.ts` (regenerated)
+- `apps/web/src/app/[locale]/my-calendar/page.tsx` (new page)
+- `apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx` (new component)
+- `apps/web/src/app/[locale]/my-calendar/my-calendar-content.test.tsx` (new integration tests)
+- `apps/web/locales/en.json` (modified)
+- `apps/web/locales/id.json` (modified)
+- `packages/ui/src/features/events/EventDetailView.tsx` (fixed import)

@@ -7,6 +7,8 @@ export interface WeeklyCalendarViewScheduleShape {
   eventEndDate?: string | null;
   eventStartTime?: string | null;
   eventEndTime?: string | null;
+  isFavorited?: boolean;
+  isAddedToCalendar?: boolean;
 }
 
 export interface WeeklyCalendarViewLabels {
@@ -16,6 +18,10 @@ export interface WeeklyCalendarViewLabels {
   nextWeekLabel?: string;
   /** "Today" button label */
   todayLabel?: string;
+  /** aria-label for the favorited badge */
+  favoritedBadgeLabel?: string;
+  /** aria-label for the added to calendar badge */
+  addedToCalendarBadgeLabel?: string;
   /**
    * "+N more" affordance text, invoked once per over-capacity day cell with
    * that day's own hidden-schedule count. A resolver FUNCTION, not a static

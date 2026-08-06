@@ -11,7 +11,9 @@
     "favoritesTitle": "Favorit Saya | FestDaily",
     "favoritesDescription": "Lihat dan kelola acara favorit Anda di FestDaily.",
     "locationsTitle": "Lokasi Saya | FestDaily",
-    "locationsDescription": "Kelola lokasi tersimpan Anda di FestDaily."
+    "locationsDescription": "Kelola lokasi tersimpan Anda di FestDaily.",
+    "myCalendarTitle": "Kalender Saya | FestDaily",
+    "myCalendarDescription": "Lihat dan kelola jadwal kalender kustom Anda di FestDaily."
   },
   "EventDetailsPage": {
     "next": "Acara Selanjutnya",
@@ -182,5 +184,18 @@
     "moderatorItems": "Item Moderator",
     "logout": "Keluar",
     "close": "Tutup"
+  },
+  "MyCalendarPage": {
+    "title": "Kalender Saya",
+    "calendarPrevWeekLabel": "Minggu sebelumnya",
+    "calendarNextWeekLabel": "Minggu berikutnya",
+    "calendarTodayLabel": "Hari Ini",
+    "calendarMoreLabel": "{count, plural, =1 {# acara lagi} other {# acara lagi}}",
+    "calendarErrorState": "Gagal memuat acara kalender.",
+    "calendarClosePopoverLabel": "Tutup popover",
+    "showFavoritedLabel": "Tampilkan favorit",
+    "showAddedToCalendarLabel": "Tampilkan ditambahkan ke kalender",
+    "favoritedBadgeLabel": "Difavoritkan",
+    "addedToCalendarBadgeLabel": "Ditambahkan ke kalender"
   }
 }
