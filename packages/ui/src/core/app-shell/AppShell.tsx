@@ -123,6 +123,18 @@ export function AppShell({
           {renderProfileItem('mobile')}
         </div>
 
+        <UserMenu
+          isOpen={isOpen && activeTrigger === 'mobile'}
+          onClose={() => setIsOpen(false)}
+          triggerRef={mobileTriggerRef}
+          avatarUrl={avatarUrl}
+          displayName={displayName}
+          role={role}
+          onSignOut={onSignOut || (() => {})}
+          renderLink={renderLink}
+          labels={userMenuLabels || {}}
+        />
+
         {/* Sidenav Rail (Tablet md:flex 768-1279px, Desktop xl:flex >= 1280px) */}
         <div className="fixed inset-y-0 start-0 z-40 hidden md:flex md:flex-col md:items-center xl:items-stretch w-16 xl:w-56 border-e bg-background py-4 gap-6">
           {/* Logo (Top pinned) */}
@@ -152,9 +164,9 @@ export function AppShell({
           <div className="mt-auto flex flex-col items-center xl:items-stretch relative">
             {renderProfileItem('desktop')}
             <UserMenu
-              isOpen={isOpen}
+              isOpen={isOpen && activeTrigger === 'desktop'}
               onClose={() => setIsOpen(false)}
-              triggerRef={activeTrigger === 'mobile' ? mobileTriggerRef : desktopTriggerRef}
+              triggerRef={desktopTriggerRef}
               avatarUrl={avatarUrl}
               displayName={displayName}
               role={role}

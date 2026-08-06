@@ -67,10 +67,10 @@ describe("LocationRadiusFilter", () => {
     expect(screen.getByRole("option", { name: "All locations" })).toBeDefined();
     expect(screen.getByRole("option", { name: "Home" })).toBeDefined();
     expect(screen.getByRole("option", { name: "Work" })).toBeDefined();
-    expect(screen.queryByRole("option", { name: "Current location" })).toBeNull();
+    expect(screen.getByRole("option", { name: "Current location" })).toBeDefined();
   });
 
-  it("renders Current location option and noSavedLocationsHint only when zero saved locations", () => {
+  it("renders Current location option and noSavedLocationsHint when zero saved locations", () => {
     render(
       <LocationRadiusFilter
         isAuthenticated={true}

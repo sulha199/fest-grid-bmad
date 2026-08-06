@@ -40,9 +40,7 @@ export function LocationRadiusFilter({
               {loc.name}
             </option>
           ))}
-          {savedLocations.length === 0 && (
-            <option value="current">{labels.currentLocationOptionLabel}</option>
-          )}
+          <option value="current">{labels.currentLocationOptionLabel}</option>
         </select>
         {isLoadingLocations && (
           <span className="text-xs text-muted-foreground animate-pulse">
