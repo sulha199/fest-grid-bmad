@@ -20,19 +20,22 @@ so that Story 2.5 ("Find nearby events") can filter events by proximity to a sav
 ## Acceptance Criteria
 
 1. **Given** Story 2.3a's saved locations (`user_locations`, exposed as `UserLocation` via `myLocations`) and Story 1.3a's `events` resolver exist, **when** a client sends a Unified Query DSL (AD-1) terminal condition `{ field: "scheduleCoordinates", operator: "withinRadius", value: { locationPreferenceId: "<uuid>", radiusKm: <number> } }`, **then** the backend resolves `locationPreferenceId` to that saved location's `latitude`/`longitude`, computes distance against each returned event's main-schedule coordinates using a Haversine formula, and returns only events within `radiusKm` — reusing the existing `schedules` left-join (`mainSchedulesOnly`) already used by `scheduleLocation`/`performers` filtering, not a new join.
-2. **And** the formal field/operator list in AD-1 (`_bmad-output/planning-artifacts/festgrid-architecture-spine.md`) is updated to document `scheduleCoordinates`/`withinRadius` and its `{ locationPreferenceId, radiusKm }` value shape — this is the only artifact in the repo serving the "formal API documentation" role AD-1's prose refers to; no separate `docs/api/*` file exists today (confirmed by search), so none is invented by this story.
+1a. **And** the same `withinRadius` operator also accepts an ad-hoc-coordinate value shape — `{ field: "scheduleCoordinates", operator: "withinRadius", value: { latitude: <number>, longitude: <number>, radiusKm: <number> } }` — that filters directly against the supplied `latitude`/`longitude` with no `locationPreferenceId` lookup and no ownership check (it isn't tied to any stored row), reusing the identical Haversine/bounding-box SQL as AC1. The two shapes are mutually exclusive within a single condition: a value must supply either `locationPreferenceId` XOR (`latitude` AND `longitude`), never both, never neither — an invalid combination throws `BAD_REQUEST`.
+2. **And** the formal field/operator list in AD-1 (`_bmad-output/planning-artifacts/festgrid-architecture-spine.md`) is updated to document `scheduleCoordinates`/`withinRadius` and both its value shapes (`{ locationPreferenceId, radiusKm }` and `{ latitude, longitude, radiusKm }`) — this is the only artifact in the repo serving the "formal API documentation" role AD-1's prose refers to; no separate `docs/api/*` file exists today (confirmed by search), so none is invented by this story.
 3. **And** a spatial-lookup-capable index is added to keep radius filtering performant: a composite btree index on `schedules(latitude, longitude)` supporting a bounding-box pre-filter, extending `project-context.md`'s Database Indexing rule (currently silent on geo lookups).
-4. **And** `withinRadius` is only usable by an authenticated caller who owns the referenced `locationPreferenceId` — an unauthenticated request containing a `withinRadius` condition throws `UNAUTHENTICATED` (via the existing `requireAuth`, AD-7), and a `locationPreferenceId` that doesn't exist or isn't owned by the caller throws `NOT_FOUND` (`'Location not found'`, mirroring `updateUserLocation`'s existing precedent) — the query is not silently degraded to "no filter" or "empty results" in either case.
+4. **And** any `withinRadius` condition (either value shape) is only usable by an authenticated caller — an unauthenticated request containing a `withinRadius` condition throws `UNAUTHENTICATED` (via the existing `requireAuth`, AD-7) regardless of which shape is used, and a `locationPreferenceId` that doesn't exist or isn't owned by the caller throws `NOT_FOUND` (`'Location not found'`, mirroring `updateUserLocation`'s existing precedent) — the query is not silently degraded to "no filter" or "empty results" in either case. (The ad-hoc `{ latitude, longitude }` shape has no ownership concept to check, but still requires the caller to be authenticated, same as the saved-location shape — see AC1a.)
 5. **And** the DSL's full recursive AND/OR nesting (AD-1) is honored for `withinRadius`: a query may reference **multiple different** `locationPreferenceId`s across nested conditions (e.g. "near home OR near work") and each is resolved independently and correctly — not just a single top-level occurrence — since AD-1/AD-2 bind this as one general, composable mechanism reusable by future features (e.g. Epic 3 push-notification proximity filtering), not a single-purpose one-shot filter.
 6. **And** an event whose main schedule has no resolvable coordinates (`schedules.latitude`/`longitude` still `NULL` — not yet backfilled/parsed) is excluded from `withinRadius`-filtered results, not treated as an error.
 
 **Note:** This story exists because of Gate 1 (`story-split-gate.md`) — AD-1's DSL as specified has no geo-distance operator, and Story 2.5 cannot be built against it as-is. Classified as a single-story architecture split (needed only by Story 2.5), positioned immediately before it. AC2, AC4-AC6 above were not in `epics.md`'s literal AC text — they were surfaced during this story's own creation by reading the real current DSL implementation (`packages/domain/src/query/queryDsl.ts`, `packages/graphql-select/drizzle-where.ts`, `apps/backend/src/schema/resolvers.ts`) rather than trusting the epic's abstract description alone; see Dev Notes → Architecture & UX Gate Findings and Data Type Compatibility & Migration Requirements. The storage/distance-computation approach (AC1/AC3) and the multi-location recursive-support requirement (AC5) were presented to and confirmed by the user as design decisions before this story was drafted (2026-08-05) — see Dev Notes → Design Decisions Confirmed With User.
 
+**Amendment (2026-08-06, via `bmad-create-story` while drafting Story 2.5):** AC1a added. Story 2.5's own creation confirmed with the user that when a user has no saved locations, the Discovery page should fall back to filtering by the browser's live geolocation coordinates rather than a saved location — a shape this story's original `withinRadius` design (saved-location-only) couldn't express. Since this story had not yet started implementation (`Completion Status: Not started`), the AC/value shape was broadened in place here rather than splitting a new prerequisite story, per the user's explicit choice among three options presented via `AskUserQuestion`. This is purely additive to AC1/AC4-AC6 — the existing `{ locationPreferenceId, radiusKm }` path, its ownership check, and its error semantics are unchanged.
+
 **Depends on:** Story 1.3a (`events` resolver, DSL wiring — `done`), Story 2.3a (`user_locations` table, `myLocations`/`createUserLocation`/`updateUserLocation`/`deleteUserLocation` — `review`, fully implemented in code per direct read of `apps/backend/src/schema/resolvers.ts` and `packages/database/schema.ts`). No blocking dependency.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `withinRadius` to the DSL type and radius validation (AC1, AC4, AC5) — `packages/domain`
+- [ ] Task 1: Add `withinRadius` to the DSL type and radius validation (AC1, AC1a, AC4, AC5) — `packages/domain`
   - [ ] In `packages/domain/src/query/queryDsl.ts`, extend `TerminalOperator` to `"eq" | "ne" | "contains" | "in" | "notIn" | "withinRadius"`.
   - [ ] In `packages/domain/src/user-locations/validateLocationInput.ts`, add:
     ```ts
@@ -43,10 +46,11 @@ so that Story 2.5 ("Find nearby events") can filter events by proximity to a sav
     }
     ```
     (Bound mirrors `validateRadiusMeters`'s existing 1000-50000m = 1-50km range, expressed in the right unit for this call site so the error message isn't confusingly stated in meters for a km input.)
-  - [ ] Create `packages/domain/src/query/resolveWithinRadiusConditions.ts` — a pure tree-transform, generalized over the whole recursive condition tree (AC5), not a single-node lookup:
+  - [ ] Create `packages/domain/src/query/resolveWithinRadiusConditions.ts` — a pure tree-transform, generalized over the whole recursive condition tree (AC5), not a single-node lookup. Handles both value shapes from AC1/AC1a: `{ locationPreferenceId, radiusKm }` (resolved via lookup) and `{ latitude, longitude, radiusKm }` (ad-hoc, passed through unchanged after validation, no lookup):
     ```ts
     import { QueryCondition, TerminalCondition, isGroupCondition } from "./queryDsl.js";
     import { validateRadiusKm } from "../user-locations/validateLocationInput.js";
+    import { InvalidUserLocationInputError } from "../user-locations/validateLocationInput.js";
 
     export class UnknownLocationPreferenceError extends Error {
       constructor(public readonly locationPreferenceId: string) {
@@ -62,7 +66,8 @@ so that Story 2.5 ("Find nearby events") can filter events by proximity to a sav
 
     // Resolves every `withinRadius` terminal condition anywhere in the (possibly nested AND/OR) tree,
     // replacing `value: { locationPreferenceId, radiusKm }` with `value: { latitude, longitude, radiusKm }`
-    // so buildDrizzleWhere never needs to perform a DB lookup itself.
+    // so buildDrizzleWhere never needs to perform a DB lookup itself. Ad-hoc `{ latitude, longitude, radiusKm }`
+    // conditions (AC1a) are validated and passed through as-is — they are already in the shape buildDrizzleWhere expects.
     export function resolveWithinRadiusConditions(
       condition: QueryCondition | null | undefined,
       locationsById: Map<string, LocationPoint>
@@ -80,19 +85,33 @@ so that Story 2.5 ("Find nearby events") can filter events by proximity to a sav
         return condition;
       }
 
-      const { locationPreferenceId, radiusKm } = (condition.value ?? {}) as {
+      const { locationPreferenceId, latitude, longitude, radiusKm } = (condition.value ?? {}) as {
         locationPreferenceId?: string;
+        latitude?: number;
+        longitude?: number;
         radiusKm?: number;
       };
 
-      if (typeof locationPreferenceId !== "string" || !locationPreferenceId) {
-        throw new UnknownLocationPreferenceError(String(locationPreferenceId));
+      const hasLocationPreferenceId = typeof locationPreferenceId === "string" && !!locationPreferenceId;
+      const hasCoordinates = typeof latitude === "number" && typeof longitude === "number";
+
+      if (hasLocationPreferenceId === hasCoordinates) {
+        // Either both present or neither present — AC1a requires exactly one of the two shapes.
+        throw new InvalidUserLocationInputError(
+          "withinRadius value must supply exactly one of locationPreferenceId or { latitude, longitude }"
+        );
       }
+
       validateRadiusKm(radiusKm as number);
 
-      const point = locationsById.get(locationPreferenceId);
+      if (hasCoordinates) {
+        // Ad-hoc shape (AC1a): no lookup, no ownership check — already in the resolved shape.
+        return condition;
+      }
+
+      const point = locationsById.get(locationPreferenceId as string);
       if (!point) {
-        throw new UnknownLocationPreferenceError(locationPreferenceId);
+        throw new UnknownLocationPreferenceError(locationPreferenceId as string);
       }
 
       return {
@@ -102,7 +121,7 @@ so that Story 2.5 ("Find nearby events") can filter events by proximity to a sav
     }
     ```
   - [ ] Export both from their folder barrels: add `export * from "./resolveWithinRadiusConditions.js";` to `packages/domain/src/query/index.ts` (already `export * from "./queryDsl.js";`); `validateRadiusKm` is picked up automatically by the existing `export * from './validateLocationInput.js';` in `packages/domain/src/user-locations/index.ts`.
-  - [ ] Unit tests (`packages/domain` requires 100% coverage on all exported logic — Testing Rules): `packages/domain/src/query/resolveWithinRadiusConditions.test.ts` covering — resolves a single top-level `withinRadius` condition; resolves **multiple different** `locationPreferenceId`s nested inside an `or`/`and` tree (AC5); passes through non-`withinRadius` terminal conditions and other group conditions unchanged; throws `UnknownLocationPreferenceError` for an id not present in `locationsById`; throws (via `validateRadiusKm`) for `radiusKm` outside 1-50; add corresponding new cases to the existing `packages/domain/src/user-locations/validateLocationInput.test.ts` for `validateRadiusKm`'s boundary values (0, 1, 50, 51, NaN, non-number).
+  - [ ] Unit tests (`packages/domain` requires 100% coverage on all exported logic — Testing Rules): `packages/domain/src/query/resolveWithinRadiusConditions.test.ts` covering — resolves a single top-level `withinRadius` condition; resolves **multiple different** `locationPreferenceId`s nested inside an `or`/`and` tree (AC5); passes through an ad-hoc `{ latitude, longitude, radiusKm }` condition unchanged after validation (AC1a); throws `InvalidUserLocationInputError` when a value supplies both `locationPreferenceId` and coordinates, and when it supplies neither (AC1a); passes through non-`withinRadius` terminal conditions and other group conditions unchanged; throws `UnknownLocationPreferenceError` for an id not present in `locationsById`; throws (via `validateRadiusKm`) for `radiusKm` outside 1-50 on both shapes; add corresponding new cases to the existing `packages/domain/src/user-locations/validateLocationInput.test.ts` for `validateRadiusKm`'s boundary values (0, 1, 50, 51, NaN, non-number).
 
 - [ ] Task 2: Add scalar coordinates to `schedules` + migration (AC1, AC3, AC6) — `packages/database`
   - [ ] In `packages/database/schema.ts`, extend the `schedules` table definition:
@@ -179,7 +198,7 @@ so that Story 2.5 ("Find nearby events") can filter events by proximity to a sav
   - [ ] Integration tests in `apps/backend/src/schema/resolvers.test.ts` (extends the existing `events resolver integration via Yoga` block, real local test DB — no msw, matches this file's established pattern): seed a `userLocations` row and 2-3 `events`+`schedules` rows at known coordinates (some inside, some outside the test radius, one with `NULL` lat/lng); assert `withinRadius` filters correctly (AC1, AC6); assert an unauthenticated `withinRadius` query throws `UNAUTHENTICATED` (AC4); assert an unowned/unknown `locationPreferenceId` throws `NOT_FOUND` (AC4); assert an `or` of two different owned `locationPreferenceId`s returns the union of both radii's events (AC5).
 
 - [ ] Task 5: Update AD-1's field/operator documentation (AC2)
-  - [ ] In `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, AD-1's "Fields and Operators" list, add a new bullet: `**Geo (scheduleCoordinates):** withinRadius (value: { locationPreferenceId: ID, radiusKm: number [1-50] })`.
+  - [ ] In `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, AD-1's "Fields and Operators" list, add a new bullet: `**Geo (scheduleCoordinates):** withinRadius (value: { locationPreferenceId: ID, radiusKm: number [1-50] } | { latitude: Float, longitude: Float, radiusKm: number [1-50] })`.
 
 - [ ] Task 6: Manual verification
   - [ ] Run the backend locally, exercise `events(query: { field: "scheduleCoordinates", operator: "withinRadius", value: { locationPreferenceId: "<real id>", radiusKm: 10 } })` via GraphiQL/`curl` against real seeded/backfilled data; confirm results are limited to the radius, confirm an `or` across two locations returns the union, confirm the `NOT_FOUND`/`UNAUTHENTICATED` error paths; confirm `pnpm build`/`pnpm lint` stay clean at the repo root (no codegen re-run needed — `EventQueryConditionInput` is unchanged, see Dev Notes → Data Type Compatibility).
@@ -190,6 +209,8 @@ so that Story 2.5 ("Find nearby events") can filter events by proximity to a sav
 
 - **Gate 1 & Gate 3 (Architecture/Infra + Foundational Dependency Completeness):** Sourced from `_bmad-output/planning-artifacts/epic-readiness/epic-2-readiness.md` (`swept: true`; Story 2.5a is listed in `stories_covered` and is itself the previously-identified resolution to the Gate 1 gap called out in that sweep's predecessor run — "AD-1's DSL as specified has no geo-distance operator"). No new Gate 1/3 gap surfaced for this story beyond that already-recorded one. Lightweight escape-hatch guard: this story's scope (extending an existing DSL operator + resolver + one new nullable column pair on an existing table) doesn't introduce a new external service, new data entity, or new infra dependency the epic-wide sweep couldn't have anticipated — no fresh Gate 1/3 subagent dispatch needed.
 - **Gate 2 (UI Complexity & Reusability):** Ran via a one-shot Freya-persona subagent dispatch (this story has zero UI surface — pure GraphQL schema/resolver/DB change — matching Stories 2.1a/2.3a/2.3b/2.4b/0.16's identical zero-UI precedent). **Verdict: no in-scope UI gap in this story** (nothing here needs splitting out of 2.5a). The check did surface a **forward-looking note for whoever drafts Story 2.5 next** (recorded here, not as a 2.5a Out-of-Scope prerequisite, since Story 2.5 already exists as a `backlog` sprint-status entry — no new story needs to be created): Story 2.3's saved-location edit form (`location-form-dialog.tsx`) already has a radius `Slider` (1-50km, persisted as `UserLocation.radius`), and Story 2.5's own AC ("I can specify a radius... to define nearby") implies a *second*, ad hoc, query-time radius control on the Discovery page — this story's `radiusKm` DSL parameter (independent of `UserLocation.radius`) is built to support exactly that, matching both stories' literal `epics.md` AC text as already written/approved. Whoever drafts Story 2.5 should explicitly decide (not silently default) whether the Discovery radius control reuses the existing `Slider` component/pattern from `location-form-dialog.tsx` and whether selecting a saved location pre-fills its configured default radius — this story's backend contract supports either choice unchanged (`radiusKm` is always caller-supplied per query).
+
+  **Resolved (2026-08-06, during Story 2.5's own creation):** the user confirmed via `AskUserQuestion` that selecting a saved location pre-fills the radius control from that location's own `radius` (not an independent default), and that Story 2.5 additionally needs an ad-hoc-coordinate fallback (current browser location) when the user has no saved locations at all — which is what AC1a above adds to this story's contract. See Story 2.5's own file for the full frontend design.
 
 ### Design Decisions Confirmed With User (2026-08-05)
 
@@ -280,6 +301,7 @@ Recent commits (`25ba9c7`, `0a1b245`, `ec92a4a`, `484943d`, `8b63e7d`) show `25b
 - [ ] Scope confirmed: backend-only (`packages/domain`, `packages/database`, `packages/graphql-select`, `apps/backend`) plus an architecture-spine documentation update — no `apps/web`/`packages/ui` changes (Story 2.5 consumes this later).
 - [ ] **No blocking dependency:** confirmed via direct reads that Story 1.3a (`done`) and Story 2.3a (`review`, fully implemented in code) are both real and complete.
 - [ ] **Design decisions accepted:** Haversine + scalar-column storage (not PostGIS/earthdistance), and full recursive multi-location support (not single-top-level-only) — both confirmed with the user via `AskUserQuestion` before drafting (see Dev Notes → Design Decisions Confirmed With User).
+- [ ] **Amendment accepted:** AC1a's ad-hoc `{ latitude, longitude, radiusKm }` value shape, added 2026-08-06 while drafting Story 2.5, so its "no saved location -> use current browser location" fallback has a backend contract to consume — confirmed with the user via `AskUserQuestion` as the chosen resolution over splitting a new prerequisite story or an implicit-save workaround.
 - [ ] **Data-type-compatibility fixes accepted:** new `schedules.latitude`/`longitude` columns + index + migration backfill, and incidentally annotating `schedules.locationDetails` with `.$type<LocationDetails>()` while touching the same table — per Dev Notes → Data Type Compatibility & Migration Requirements.
 - [ ] Architecture and data/API boundaries confirmed: pure logic in `packages/domain`; DB-coupled SQL building in `packages/graphql-select`; DB lookup + error remapping in `apps/backend`'s resolver; no new join (reuses `mainSchedulesOnly`); no `.graphql` schema change, no codegen re-run.
 - [ ] Gate 1/2/3 prerequisites confirmed: Gate 1/3 sourced from swept `epic-2-readiness.md` (this story is itself the identified gap-fill); Gate 2 run via one-shot subagent — no in-scope UI gap; one forward-looking note recorded for Story 2.5's own future creation (not a blocking prerequisite for 2.5a).
@@ -288,17 +310,17 @@ Recent commits (`25ba9c7`, `0a1b245`, `ec92a4a`, `484943d`, `8b63e7d`) show `25b
 
 ## Testing Requirements
 
-- `packages/domain`: `tsx --test` unit tests, 100% coverage, for `resolveWithinRadiusConditions` and `validateRadiusKm` (Testing Rules — the only place unit tests are required in this repo).
+- `packages/domain`: `tsx --test` unit tests, 100% coverage, for `resolveWithinRadiusConditions` (both value shapes, AC1/AC1a) and `validateRadiusKm` (Testing Rules — the only place unit tests are required in this repo).
 - `packages/graphql-select`: `tsx --test` unit test for the new `withinRadius` case in `buildDrizzleWhere`, matching this file's existing no-real-DB, `assert.ok(res !== undefined)` style.
 - `apps/backend`: integration tests (`tsx --test`, Yoga + real local test Postgres DB, matching `resolvers.test.ts`'s established pattern — no msw, this is backend-side) for radius-filtering correctness, `NULL`-coordinate exclusion, auth/ownership error paths, and multi-location `or` support.
 - No new E2E test in this story — no UI ships (Story 2.5 owns the E2E happy path for the user-facing nearby-events feature).
 
 ## Deliverables Checklist
 
-- [ ] `TerminalOperator` extended with `"withinRadius"`; `resolveWithinRadiusConditions` and `validateRadiusKm` implemented and 100%-covered.
+- [ ] `TerminalOperator` extended with `"withinRadius"`; `resolveWithinRadiusConditions` (both the saved-location and ad-hoc-coordinate value shapes) and `validateRadiusKm` implemented and 100%-covered.
 - [ ] `schedules.latitude`/`longitude` columns + `schedule_coordinates_idx` + `.$type<LocationDetails>()` annotation added; migration generated, backfill appended, applied locally.
 - [ ] `buildDrizzleWhere` handles `withinRadius` (bounding-box + Haversine SQL) with a passing unit test.
-- [ ] `Query.events` resolver wires `withinRadius` end-to-end: conditional auth, saved-location lookup, tree resolution, `scheduleCoordinates` fieldMap entry, error remapping — with passing integration tests covering AC1, AC4, AC5, AC6.
+- [ ] `Query.events` resolver wires `withinRadius` end-to-end: conditional auth, saved-location lookup, ad-hoc-coordinate pass-through, tree resolution, `scheduleCoordinates` fieldMap entry, error remapping — with passing integration tests covering AC1, AC1a, AC4, AC5, AC6.
 - [ ] AD-1's field/operator documentation updated with `scheduleCoordinates`/`withinRadius`.
 - [ ] `pnpm build`/`pnpm lint` clean at the repo root; no codegen re-run needed (confirmed, not assumed).
 
@@ -312,7 +334,7 @@ Recent commits (`25ba9c7`, `0a1b245`, `ec92a4a`, `484943d`, `8b63e7d`) show `25b
 
 ## Definition of Done
 
-- [ ] AC1-AC6 satisfied.
+- [ ] AC1-AC6 (incl. AC1a) satisfied.
 - [ ] Required tests passing: `packages/domain` (100% coverage), `packages/graphql-select` unit test, `apps/backend` integration tests.
 - [ ] Lint and type checks passing for `packages/domain`, `packages/database`, `packages/graphql-select`, `apps/backend`.
 - [ ] Migration applied cleanly against local dev Postgres; AD-1 documentation updated.
