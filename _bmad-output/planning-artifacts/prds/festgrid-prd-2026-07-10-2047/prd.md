@@ -506,7 +506,12 @@ interface UserLocationPreference {
    * The search radius, Stored in meters for processing, displayed in kilometers (e.g., between 1 and 50).
    */
    radius: number; // 
-
+  /**
+   * Timestamp of a soft-delete (AD-8). Deleting sets this instead of removing the
+   * row, so the Soft Delete with Undo pattern (EXPERIENCE.md) can reverse an
+   * already-committed delete within its undo window.
+   */
+  deletedAt?: string;
 }
 ```
 

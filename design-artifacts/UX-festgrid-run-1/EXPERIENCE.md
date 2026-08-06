@@ -2,7 +2,7 @@
 title: "EXPERIENCE.md: festgrid"
 status: "draft"
 created: "2026-07-20T10:59:00Z"
-updated: "2026-08-05T00:00:00Z"
+updated: "2026-08-06T00:00:00Z"
 sources:
   - "design-artifacts/UX-festgrid-run-1/DESIGN.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -124,17 +124,22 @@ The feeling of using FestDaily should be one of exciting discovery. Microcopy sh
 
 ### Soft Delete with Undo
 
-This pattern is used for any destructive action on a user-created item (e.g., deleting a saved location, an API key, a subscription, or unfavoriting an event from a list).
+This pattern is used for any destructive action on a user-created item (e.g., deleting a saved location, an API key, or a subscription).
 
-*   **Initial State:** The item is visible in a list.
-*   **Trigger:** User clicks a "Delete" or "Unfavorite" button.
-*   **Intermediate State:**
-    *   The item is not immediately removed from the list in the UI.
-    *   The item's appearance changes to indicate it is "marked for deletion" (e.g., it becomes greyed out or has a strikethrough).
-    *   An "Undo" button appears next to or within the item's row.
-    *   A temporary confirmation message (e.g., a toast notification) appears, saying "Item deleted" with an "Undo" action.
-*   **"Undo" Action:** If the user clicks "Undo", the item returns to its initial state. The deletion is cancelled.
-*   **Final State (Commit):** The deletion is committed (i.e., the backend call is made and the item is permanently removed from the user's view) when the user navigates away from the current page. The next time the user visits the page, the item will be gone.
+**Event-list exception:** unfavoriting an event from the Discover/Favorites list already follows an immediate-commit variant of this pattern today (the toggle call fires at Trigger, and "Undo" re-invokes the same toggle rather than a dedicated restore call) — that existing behavior is the precedent this pattern generalizes to every other surface, not a divergent case to reconcile.
+
+*   **Initial State:** The item is visible in a list, in its normal (not-pending) appearance.
+*   **Trigger:** User clicks a "Delete" button (or confirms one revealed via the Swipe-to-delete primitive). Focus is not force-moved anywhere by Trigger itself (see Accessibility Floor § Soft Delete with Undo below) — the triggering control either stays focusable in an updated (e.g., disabled/relabeled) state, or, if this pattern's consuming component removes it from the DOM as part of the pending-state change, focus deliberately moves to the item's own container rather than being left to fall through to the browser default.
+*   **Intermediate State (Pending):**
+    *   The delete commits to the backend immediately, at the moment of Trigger — a real backend delete, not a deferred/pending call. (Revised 2026-08-06 — see below.)
+    *   In that same moment, without waiting for the call's response, the item optimistically switches to its "marked for deletion" appearance — greyed out and/or struck through; at least one non-color cue is required (WCAG 1.4.1) — and stays visible in the list, not removed from view yet.
+    *   A toast notification appears with an "Undo" action (e.g., "Item deleted" / "Undo"), rendered per Accessibility Floor § Soft Delete with Undo (live-region announcement, timing, focus, and tab-order rules). The toast auto-dismisses after `{components.notification.undo_duration_ms}`.
+*   **"Undo" Action:** If the user clicks "Undo" before the toast dismisses, a restore call reverses the already-committed delete (the same record is restored, not recreated). On success the item returns to its Initial State appearance and the toast dismisses.
+*   **Final State (Commit confirmed — timeout path):** If the toast times out without "Undo" being clicked, the item is removed from the visible list by filtering it out of the client's already-loaded list data — no further network call is made, since the delete already committed at Trigger. It does not reappear on the next visit. No separate announcement is required for this removal beyond the toast's own dismissal (a deliberate decision, not an oversight).
+*   **Failure path (Trigger-time delete call fails):** If the delete call itself fails (network/server error), the item reverts from its greyed-out-and/or-struck-through appearance back to Initial State, the Undo toast/timer is cancelled, and a distinct error toast is shown instead (e.g., "Couldn't delete — try again"), auto-dismissing after `{components.notification.error_duration_ms}` with a visible close control, and given its own accessibility treatment per Accessibility Floor § Soft Delete with Undo — it is not a lesser-specified variant of the undo toast. Nothing was committed, so there is nothing to undo.
+*   **Concurrent deletes:** Each pending item gets its own independent toast (per `useSoftDeleteWithUndo`'s multi-id support). Stacked toasts' live-region announcements queue in trigger order rather than interrupting each other, and their Undo buttons are reachable via Tab in the same order the toasts appeared, so a user who fires several quick deletes can still identify and reach each Undo unambiguously.
+
+**Why revised (2026-08-06):** the prior version of this pattern deferred the backend commit until the user navigated away from the page (component unmount). That silently broke if the user closed the browser tab/window instead of navigating within the app — unmount never fired, so the delete was never committed even though the toast and greyed-out item had already told the user it was. Immediate-commit-at-Trigger removes that failure mode entirely; the trade-off is that "Undo" now must reverse a completed delete rather than simply cancel a pending one, which is why every surface using this pattern needs a real restore/undo delete path on its backend mutation (tracked separately as an architecture item, not specified here).
 
 ### Default Location Pending Review
 
@@ -171,3 +176,13 @@ At the rail tiers (≥768px), the app logo is pinned to the top of the rail; Pro
 - **Hover/focus parity:** the icon-only rail's label tooltip triggers on `:focus-visible` as well as `:hover`, persists while focused, and dismisses on `Escape` or focus-out (WCAG 1.4.13).
 - **Hit area:** minimum `{components.nav.item_hit_area}` per item, independent of the icon's visual size.
 - **Motion:** the touch tap-to-flash label and any rail/tab-bar transition respect `prefers-reduced-motion` (instant show/hide fallback, never a shorter animated fade).
+
+### Soft Delete with Undo (Notification Toast)
+
+*Scoped to the Soft Delete with Undo pattern (State Patterns above) — added 2026-08-06 alongside its immediate-commit revision, following an ad-hoc accessibility review (`review-accessibility-soft-delete-undo.md`).*
+
+- **Live region:** the undo toast renders inside a `role="status" aria-live="polite" aria-atomic="true"` region, so screen reader users hear its content (e.g., "Item deleted. Undo.") as it appears without needing focus to be on the deleted item. The failure-path toast instead uses `role="alert"` / `aria-live="assertive"`, since an error interrupting an in-progress action warrants immediate announcement rather than a polite queue.
+- **Timing (WCAG 2.2.1):** the toast's countdown pauses on mouse hover or keyboard focus (already stated in State Patterns), and additionally on assistive-technology virtual-cursor entry into the live region — an AT user "visiting" the toast via swipe navigation (mobile VoiceOver/TalkBack) counts as pausing it, the same as a sighted keyboard user tabbing to it. Regardless of input modality, the Undo button itself (see Hit area/tab order below) is always reachable and clickable/activatable for the toast's full open duration, giving touch-only and AT users a functional equivalent to "extend the timer" — they can always still act, even without a hover-pause gesture available to them.
+- **Focus:** the toast does not steal focus when it appears (non-modal — matches APG guidance for status messages); see Trigger's focus-management rule in State Patterns above for what happens to the item's own triggering control.
+- **Hit area / tab order:** the Undo action (and the failure toast's close control) is a real, tab-reachable `<button>` inside the live region, meeting `{components.notification.action_hit_area}`. It is reached by continuing to Tab forward from wherever focus currently is — not assumed to be the very next stop after the triggering item, since the toast is portal-rendered outside normal document flow.
+- **Non-color cue:** the pending item's "marked for deletion" appearance always includes a non-color signal (greyed out and/or struck through — WCAG 1.4.1), never opacity/color alone.
