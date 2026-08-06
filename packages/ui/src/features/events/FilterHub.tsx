@@ -4,8 +4,8 @@ import * as React from 'react';
 import { useQueryState, parseAsArrayOf, parseAsString } from 'nuqs';
 import { MultiSelect } from '../../core/multi-select';
 
-import { LocationRadiusFilter } from './LocationRadiusFilter.js';
-import { LocationRadiusFilterProps } from './LocationRadiusFilter.types.js';
+import { LocationRadiusFilter } from './LocationRadiusFilter';
+import { LocationRadiusFilterProps } from './LocationRadiusFilter.types';
 
 export interface FilterHubProps extends Omit<LocationRadiusFilterProps, 'labels'> {
   labels: {

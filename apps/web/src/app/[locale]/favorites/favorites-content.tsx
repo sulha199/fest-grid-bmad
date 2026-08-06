@@ -77,6 +77,7 @@ export function FavoritesContent() {
   const tCategory = useTranslations("EventCategory")
   const tType = useTranslations("EventType")
   const tFilterHub = useTranslations("FilterHub")
+  const tNearby = useTranslations("NearbyFilter")
   const [q, setQ] = useQueryState("q", parseAsString.withDefault(""))
   const [types] = useQueryState("types", parseAsArrayOf(parseAsString).withDefault([]))
   const [categories] = useQueryState("categories", parseAsArrayOf(parseAsString).withDefault([]))
@@ -98,8 +99,20 @@ export function FavoritesContent() {
       typeLabel: tFilterHub("typeLabel"),
       categoryLabel: tFilterHub("categoryLabel"),
       clearLabel: tFilterHub("clearLabel"),
+      locationFilterLabels: {
+        filterLabel: tNearby("filterLabel"),
+        offOptionLabel: tNearby("offOptionLabel"),
+        currentLocationOptionLabel: tNearby("currentLocationOptionLabel"),
+        radiusLabel: tNearby("radiusLabel"),
+        radiusUnit: (count: number) => tNearby("radiusUnit", { count }),
+        detectingLocationLabel: tNearby("detectingLocationLabel"),
+        permissionDeniedLabel: tNearby("permissionDeniedLabel"),
+        unavailableLabel: tNearby("unavailableLabel"),
+        locationsErrorLabel: tNearby("locationsErrorLabel"),
+        noSavedLocationsHint: tNearby("noSavedLocationsHint"),
+      },
     }),
-    [tFilterHub]
+    [tFilterHub, tNearby]
   )
 
   const typesOptions = useMemo(
@@ -297,6 +310,16 @@ export function FavoritesContent() {
         filterLabels={filterLabels}
         types={typesOptions}
         categories={categoriesOptions}
+        isAuthenticated={false}
+        isLoadingLocations={false}
+        locationsError={false}
+        savedLocations={[]}
+        selectedValue="off"
+        radiusKm={10}
+        isCapturingCurrentLocation={false}
+        currentLocationError={null}
+        onSelectLocation={() => {}}
+        onRadiusChange={() => {}}
         views={[
           {
             id: "card",
