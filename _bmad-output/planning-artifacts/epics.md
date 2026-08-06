@@ -1231,6 +1231,25 @@ Users can personalize their experience by saving favorite events and locations.
 *   **And** I can specify a radius (e.g., 1km, 5km, 10km) to define "nearby".
 *   **And** the list of events is filtered to show only events within the specified radius of the selected location.
 
+### Story 2.6b: Wire the Add-to-Calendar trigger — schedule-selection dialog, internal bookmark, and native export
+
+**As a** user,
+**I want** to tap "Add to Calendar" on an event's detail page, pick which of its schedules to add, and have those schedules bookmarked in the app and downloaded to my phone's calendar,
+**So that** they show up on my "My Calendar" page (Story 2.6) and in my native calendar app, per `01.2-event-detail.md`'s "Adding to Calendar" scenario and FR11/FR12's one-way app-to-calendar integration.
+
+**Acceptance Criteria:**
+
+*   **Given** I am viewing an event's detail page with one or more schedules,
+*   **When** I tap the existing "Add to Calendar" control,
+*   **Then** a dialog opens listing each of the event's schedules as an independently checkable row, pre-checked for any schedule already added.
+*   **And** tapping "Confirm" calls `toggleCalendarAddition` (Story 2.1a) once per schedule whose checked-state actually changed, and triggers Story 2.1b's ICS download for any schedule newly checked in this action.
+*   **And** a success announcement confirms the action, and the "Add to Calendar" icon reflects an "added" state whenever at least one schedule is currently added.
+*   **And** if I am not logged in, tapping "Add to Calendar" redirects me to `/login` instead of opening the dialog.
+
+**Note:** This story exists because of a Gate 2/escape-hatch finding surfaced while creating Story 2.6 (2026-08-06). Story 2.1's Out-of-Scope note, Story 2.1b's Out-of-Scope note, and `epic-2-readiness.md`'s "Anticipated Gate 2 note" all independently flagged that no story builds the actual "Add to Calendar" trigger UI — without it, Story 2.6's My Calendar page would have no non-favorited data to ever display. Classified as a single-story UI/architecture split, lettered `2.6b` (directly off Story 2.6, since `2.6a` is already used by the user-settings story) and positioned immediately before Story 2.6. The user confirmed via `AskUserQuestion` that this should be a separate prerequisite story, and that "Add to Calendar" should implement the full per-schedule dialog from `01.2-event-detail.md` — firing both the internal bookmark mutation (Story 2.1a) and the native ICS export (Story 2.1b) — rather than a simpler single-icon-instant-toggle mirroring the Favorite heart.
+
+**Depends on:** Story 1.6a, Story 2.1a, Story 2.1b.
+
 ### Story 2.6: View and manage events on a calendar
 
 **As a** user,
