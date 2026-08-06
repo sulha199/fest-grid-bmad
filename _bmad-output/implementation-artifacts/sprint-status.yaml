@@ -85,7 +85,7 @@ development_status:
   # which now creates this exact geolocation_cache table. Not built independently;
   # tracked to completion via 0-16 instead. See epics.md Story 0.20 note.
   0-20-create-geolocation-cache-database-table: superseded-by-0.16
-  0-21-set-up-fcm-device-token-registry: ready-for-dev
+  0-21-set-up-fcm-device-token-registry: review
   # New 2026-08-06 via bmad-correct-course: AD-8 rule 2 ("enforced once, never
   # per-resolver") reviewer-gate finding -- 6 hand-written isNull() call sites,
   # no shared enforcement point. See sprint-change-proposal-2026-08-06.md.

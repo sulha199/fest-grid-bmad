@@ -1,0 +1,4 @@
+extend type Mutation {
+  registerFcmToken(token: String!): Boolean!
+  unregisterFcmToken(token: String!): Boolean!
+}

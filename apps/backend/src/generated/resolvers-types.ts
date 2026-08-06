@@ -131,8 +131,10 @@ export type Mutation = {
   __typename?: 'Mutation';
   createUserLocation: UserLocation;
   deleteUserLocation: UserLocation;
+  registerFcmToken: Scalars['Boolean']['output'];
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
+  unregisterFcmToken: Scalars['Boolean']['output'];
   updateUserLocation: UserLocation;
   updateUserSettings: UserSettings;
 };
@@ -149,6 +151,11 @@ export type MutationDeleteUserLocationArgs = {
 };
 
 
+export type MutationRegisterFcmTokenArgs = {
+  token: Scalars['String']['input'];
+};
+
+
 export type MutationToggleCalendarAdditionArgs = {
   eventId: Scalars['ID']['input'];
   scheduleId: Scalars['ID']['input'];
@@ -157,6 +164,11 @@ export type MutationToggleCalendarAdditionArgs = {
 
 export type MutationToggleFavoriteArgs = {
   eventId: Scalars['ID']['input'];
+};
+
+
+export type MutationUnregisterFcmTokenArgs = {
+  token: Scalars['String']['input'];
 };
 
 
@@ -476,8 +488,10 @@ export type MeResolvers<ContextType = GraphQLContext, ParentType extends Resolve
 export type MutationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
   createUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationCreateUserLocationArgs, 'input'>>;
   deleteUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationDeleteUserLocationArgs, 'action' | 'id'>>;
+  registerFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRegisterFcmTokenArgs, 'token'>>;
   toggleCalendarAddition?: Resolver<ResolversTypes['ToggleCalendarAdditionResult'], ParentType, ContextType, RequireFields<MutationToggleCalendarAdditionArgs, 'eventId' | 'scheduleId'>>;
   toggleFavorite?: Resolver<ResolversTypes['ToggleFavoriteResult'], ParentType, ContextType, RequireFields<MutationToggleFavoriteArgs, 'eventId'>>;
+  unregisterFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationUnregisterFcmTokenArgs, 'token'>>;
   updateUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationUpdateUserLocationArgs, 'id' | 'input'>>;
   updateUserSettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType, RequireFields<MutationUpdateUserSettingsArgs, 'input'>>;
 }>;
