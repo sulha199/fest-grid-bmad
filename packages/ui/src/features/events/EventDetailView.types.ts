@@ -3,6 +3,7 @@
  * All fields are optional except for the start date.
  */
 export interface ScheduleDetail {
+  id: string;
   eventStartDate: string;
   eventEndDate?: string | null;
   eventStartTime?: string | null;
@@ -12,6 +13,7 @@ export interface ScheduleDetail {
   location?: string | null;
   ticketPrice?: string | null;
   mapUrl?: string | null;
+  isAddedToCalendar?: boolean;
 }
 
 /**
@@ -32,6 +34,10 @@ export interface EventDetailViewLabels {
   postedByLabel: string;
   viewOriginalPostLabel: string;
   viewSourceLabel: string;
+  addToCalendarDialogTitle: string;
+  addToCalendarConfirmLabel: string;
+  addToCalendarCancelLabel: string;
+  scheduleCheckboxLabel?: string;
 }
 
 /**
@@ -71,6 +77,7 @@ export interface EventDetailViewProps {
   isFavorited?: boolean;
   onFavoriteToggle?: () => void;
   
+  isAuthenticated?: boolean;
   isAddedToCalendar?: boolean;
-  onAddToCalendar?: () => void;
+  onAddToCalendar?: (selectedScheduleIds: string[]) => void;
 }

@@ -4,3 +4,11 @@ mutation toggleFavorite($eventId: ID!) {
     isFavorited
   }
 }
+
+mutation toggleCalendarAddition($eventId: ID!, $scheduleId: ID!) {
+  toggleCalendarAddition(eventId: $eventId, scheduleId: $scheduleId) {
+    eventId
+    scheduleId
+    isAddedToCalendar
+  }
+}
