@@ -7,7 +7,7 @@ baseline_commit: 552561c4e4c958dcd681ca8d3c015b5a0619359c
 
 - Epic: 2 - User Personalization
 - Story ID: 2.5
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -34,8 +34,8 @@ so that I can easily discover events happening close to me.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extend `buildEventsQueryCondition` with a `nearby` parameter (AC1, AC3, AC5) — `packages/domain`
-  - [ ] In `packages/domain/src/events/buildEventsQueryCondition.ts`, extend `BuildEventsQueryConditionInput` with an optional `nearby` field:
+- [x] Task 1: Extend `buildEventsQueryCondition` with a `nearby` parameter (AC1, AC3, AC5) — `packages/domain`
+  - [x] In `packages/domain/src/events/buildEventsQueryCondition.ts`, extend `BuildEventsQueryConditionInput` with an optional `nearby` field:
     ```ts
     export type NearbyFilterInput =
       | { locationPreferenceId: string; radiusKm: number }
@@ -48,17 +48,17 @@ so that I can easily discover events happening close to me.
       nearby?: NearbyFilterInput;
     }
     ```
-  - [ ] When `nearby` is present, push `{ field: 'scheduleCoordinates', operator: 'withinRadius', value: nearby }` into the `conditions` array (same array as the existing `types`/`categories` pushes) — this is the only change needed; `buildWeeklyCalendarQueryCondition` (`packages/domain/src/events/buildWeeklyCalendarQueryCondition.ts`) already composes on top of `buildEventsQueryCondition` and needs no direct change to inherit `nearby` support (verify with a new test case rather than assuming).
-  - [ ] Unit tests (`packages/domain` requires 100% coverage — Testing Rules), extend `buildEventsQueryCondition.test.ts`: `nearby` with `locationPreferenceId` shape produces the expected condition; `nearby` with ad-hoc `{ latitude, longitude }` shape produces the expected condition; `nearby` omitted/undefined behaves exactly as today (regression guard); `nearby` combined with `search`/`types`/`categories` produces a correct `and` group with all conditions present. Add one new case to `buildWeeklyCalendarQueryCondition.test.ts` confirming `nearby` passed through to the base condition survives alongside the `scheduleDateRange` overlap condition.
+  - [x] When `nearby` is present, push `{ field: 'scheduleCoordinates', operator: 'withinRadius', value: nearby }` into the `conditions` array (same array as the existing `types`/`categories` pushes) — this is the only change needed; `buildWeeklyCalendarQueryCondition` (`packages/domain/src/events/buildWeeklyCalendarQueryCondition.ts`) already composes on top of `buildEventsQueryCondition` and needs no direct change to inherit `nearby` support (verify with a new test case rather than assuming).
+  - [x] Unit tests (`packages/domain` requires 100% coverage — Testing Rules), extend `buildEventsQueryCondition.test.ts`: `nearby` with `locationPreferenceId` shape produces the expected condition; `nearby` with ad-hoc `{ latitude, longitude }` shape produces the expected condition; `nearby` omitted/undefined behaves exactly as today (regression guard); `nearby` combined with `search`/`types`/`categories` produces a correct `and` group with all conditions present. Add one new case to `buildWeeklyCalendarQueryCondition.test.ts` confirming `nearby` passed through to the base condition survives alongside the `scheduleDateRange` overlap condition.
 
-- [ ] Task 2: Relocate `useCurrentLocationCapture` into `packages/ui` (Gate 2 finding — plain relocation, not a new story; see Dev Notes → Architecture & UX Gate Findings) — `packages/ui`, `apps/web`
-  - [ ] Move `apps/web/src/app/[locale]/settings/locations/use-current-location-capture.ts` (and its test) to `packages/ui/src/hooks/useCurrentLocationCapture.ts` / `useCurrentLocationCapture.test.ts` — logic and behavior unchanged, this is a pure file relocation plus import-path updates.
-  - [ ] Add `export * from './useCurrentLocationCapture.js';` to `packages/ui/src/hooks/index.ts`.
-  - [ ] Update `apps/web/src/app/[locale]/settings/locations/location-form-dialog.tsx`'s import from `./use-current-location-capture` to `@festgrid/ui` (matching how it already imports `BlockingLoader`/`useDebounce` from the same package).
-  - [ ] Confirm the existing test suite for this hook still passes unchanged after the move (no test logic changes expected).
+- [x] Task 2: Relocate `useCurrentLocationCapture` into `packages/ui` (Gate 2 finding — plain relocation, not a new story; see Dev Notes → Architecture & UX Gate Findings) — `packages/ui`, `apps/web`
+  - [x] Move `apps/web/src/app/[locale]/settings/locations/use-current-location-capture.ts` (and its test) to `packages/ui/src/hooks/useCurrentLocationCapture.ts` / `useCurrentLocationCapture.test.ts` — logic and behavior unchanged, this is a pure file relocation plus import-path updates.
+  - [x] Add `export * from './useCurrentLocationCapture.js';` to `packages/ui/src/hooks/index.ts`.
+  - [x] Update `apps/web/src/app/[locale]/settings/locations/location-form-dialog.tsx`'s import from `./use-current-location-capture` to `@festgrid/ui` (matching how it already imports `BlockingLoader`/`useDebounce` from the same package).
+  - [x] Confirm the existing test suite for this hook still passes unchanged after the move (no test logic changes expected).
 
-- [ ] Task 3: Build the reusable `LocationRadiusFilter` component (AC1, AC2, AC5, AC6, AC9, AC12 — Gate 2 finding, see Dev Notes) — `packages/ui`
-  - [ ] Create `packages/ui/src/features/events/LocationRadiusFilter.tsx` + `LocationRadiusFilter.types.ts`, a presentational component (no GraphQL/react-query calls inside `packages/ui`, matching `FilterHub`/`SearchBar`'s existing boundary — data fetching stays in `apps/web`):
+- [x] Task 3: Build the reusable `LocationRadiusFilter` component (AC1, AC2, AC5, AC6, AC9, AC12 — Gate 2 finding, see Dev Notes) — `packages/ui`
+  - [x] Create `packages/ui/src/features/events/LocationRadiusFilter.tsx` + `LocationRadiusFilter.types.ts`, a presentational component (no GraphQL/react-query calls inside `packages/ui`, matching `FilterHub`/`SearchBar`'s existing boundary — data fetching stays in `apps/web`):
     ```ts
     export interface SavedLocationOption {
       id: string;
@@ -97,30 +97,30 @@ so that I can easily discover events happening close to me.
   - [ ] Do not render anything (return `null`) when `!isAuthenticated` (AC7 — the control itself is never offered to anonymous users, since the backend would reject any `withinRadius` condition regardless).
   - [ ] Component tests (`packages/ui`, testing-library + vitest, matching `multi-select.test.tsx`'s existing style): renders nothing when unauthenticated; renders "All locations" + saved location names when locations exist; renders "Current location" option only when zero saved locations; shows detecting/error states; radius slider hidden when `selectedValue === 'off'`; calls `onSelectLocation`/`onRadiusChange` correctly; labels are keyboard-focusable and associated.
 
-- [ ] Task 4: Wire `LocationRadiusFilter` into `FilterHub` as a third sibling filter (AC1, AC2, AC8, AC10) — `packages/ui`
-  - [ ] Extend `FilterHub.tsx`'s props (`FilterHub.types.ts` if split out, else inline) to accept and forward all `LocationRadiusFilterProps` plus a `labels.locationFilterLabels` sub-object (mirrors how `filterLabels` is already a nested labels object passed through `EventDiscoveryPanel` → `FilterHub`).
-  - [ ] Render `<LocationRadiusFilter ... />` as a third block alongside the existing two `MultiSelect`s.
-  - [ ] Extend the existing `handleClear`/`hasSelection` logic so the Filter Hub's "Clear filters" action also resets the nearby filter to `'off'` (calls `onSelectLocation('off')`) when a nearby filter is active — consistent with "Clear filters" already clearing every other Filter Hub facet.
-  - [ ] `FilterHub.tsx` currently has **no test file at all** (confirmed — no `FilterHub.test.tsx` exists in `packages/ui/src/features/events/`, unlike its siblings `SearchBar.test.tsx`/`EventDiscoveryPanel.test.tsx`). Create `FilterHub.test.tsx` covering both the pre-existing Type/Category behavior (regression coverage that doesn't exist today) and the new cases: passes through location filter props to `LocationRadiusFilter`; "Clear filters" also clears an active nearby selection.
+- [x] Task 4: Wire `LocationRadiusFilter` into `FilterHub` as a third sibling filter (AC1, AC2, AC8, AC10) — `packages/ui`
+  - [x] Extend `FilterHub.tsx`'s props (`FilterHub.types.ts` if split out, else inline) to accept and forward all `LocationRadiusFilterProps` plus a `labels.locationFilterLabels` sub-object (mirrors how `filterLabels` is already a nested labels object passed through `EventDiscoveryPanel` → `FilterHub`).
+  - [x] Render `<LocationRadiusFilter ... />` as a third block alongside the existing two `MultiSelect`s.
+  - [x] Extend the existing `handleClear`/`hasSelection` logic so the Filter Hub's "Clear filters" action also resets the nearby filter to `'off'` (calls `onSelectLocation('off')`) when a nearby filter is active — consistent with "Clear filters" already clearing every other Filter Hub facet.
+  - [x] `FilterHub.tsx` currently has **no test file at all** (confirmed — no `FilterHub.test.tsx` exists in `packages/ui/src/features/events/`, unlike its siblings `SearchBar.test.tsx`/`EventDiscoveryPanel.test.tsx`). Create `FilterHub.test.tsx` covering both the pre-existing Type/Category behavior (regression coverage that doesn't exist today) and the new cases: passes through location filter props to `LocationRadiusFilter`; "Clear filters" also clears an active nearby selection.
 
-- [ ] Task 5: Extend `EventDiscoveryPanel`'s pass-through props (AC10) — `packages/ui`
-  - [ ] Extend `EventDiscoveryPanel.types.ts`'s `EventDiscoveryPanelProps` with the same location-filter prop surface added to `FilterHub` in Task 4, and forward them in `EventDiscoveryPanel.tsx`'s render of `<FilterHub />` — no new logic in this component, pure prop threading (matches its existing role as a thin composition shell).
-  - [ ] Update `EventDiscoveryPanel`'s existing tests to cover the new pass-through props.
+- [x] Task 5: Extend `EventDiscoveryPanel`'s pass-through props (AC10) — `packages/ui`
+  - [x] Extend `EventDiscoveryPanel.types.ts`'s `EventDiscoveryPanelProps` with the same location-filter prop surface added to `FilterHub` in Task 4, and forward them in `EventDiscoveryPanel.tsx`'s render of `<FilterHub />` — no new logic in this component, pure prop threading (matches its existing role as a thin composition shell).
+  - [x] Update `EventDiscoveryPanel`'s existing tests to cover the new pass-through props.
 
-- [ ] Task 6: Build the nearby-filter orchestration and wire it into `home-content.tsx` and `CalendarView.tsx` (AC1, AC3, AC4, AC5, AC6, AC7, AC8) — `apps/web`
-  - [ ] Create `apps/web/src/app/[locale]/use-nearby-filter.ts` (app-local — this orchestration hook combines GraphQL fetching, nuqs URL state, and browser geolocation in a way specific to the Discovery page; it is not yet needed by ≥2 places, so it stays in `apps/web` rather than `packages/ui`/`packages/domain` per the reusability threshold, distinct from the pure hook relocated in Task 2). Responsibilities:
+- [x] Task 6: Build the nearby-filter orchestration and wire it into `home-content.tsx` and `CalendarView.tsx` (AC1, AC3, AC4, AC5, AC6, AC7, AC8) — `apps/web`
+  - [x] Create `apps/web/src/app/[locale]/use-nearby-filter.ts` (app-local — this orchestration hook combines GraphQL fetching, nuqs URL state, and browser geolocation in a way specific to the Discovery page; it is not yet needed by ≥2 places, so it stays in `apps/web` rather than `packages/ui`/`packages/domain` per the reusability threshold, distinct from the pure hook relocated in Task 2). Responsibilities:
     - Own two `nuqs` URL-state params: `nearby` (`parseAsString`, **no** `.withDefault()` — `null` means "undecided, not yet visited with this param," distinct from the explicit `'off'` sentinel per AC8) and `nearbyRadiusKm` (`parseAsInteger` or `parseAsString` cast to number, default irrelevant since it's only read once `nearby` is set).
     - Fetch `useGetMyLocationsQuery(graphqlClient, {}, { enabled: !!session })` (same call already used in `locations-content.tsx`) to get saved locations; sort by `createdAt` ascending to identify the earliest-created ("implicit primary," AC4).
     - Use the relocated `useCurrentLocationCapture()` (from `@festgrid/ui`) for the AC5 fallback.
     - On resolution (locations loaded, `session` known): if `nearby === null` (AC8's "undecided" state) — if `session` and locations exist, call `setNearby(earliestLocation.id)` and `setNearbyRadiusKm(Math.round(earliestLocation.radius / 1000))` (AC4); else if `session` and zero locations, call `capture()` and on success `setNearby('current')` + `setNearbyRadiusKm(5)` (AC5's default), on failure leave `nearby` as `null`... **but** to satisfy AC8 (don't re-prompt every load), once a capture attempt has been made and failed, set `nearby` to `'off'` rather than leaving it `null` forever, so the geolocation prompt does not re-fire on every subsequent page load in the same session — capture the "attempted" state in a `sessionStorage` flag (e.g. `festgrid.nearbyGeoAttempted`) checked before re-attempting, since `nearby` itself must stay meaningfully distinguishable from a real user-driven `'off'` only for the *duration this hook needs it*; if `!session`, do nothing (AC7).
     - Resolve the current selection into a `NearbyFilterInput | undefined` (Task 1's type): `nearby === null || nearby === 'off' || !session` → `undefined`; `nearby === 'current'` → ad-hoc coordinates captured earlier (kept in local component state, not the URL — see Dev Notes → State Management Architecture); else → `{ locationPreferenceId: nearby, radiusKm: nearbyRadiusKm }`.
     - Expose everything `LocationRadiusFilterProps` needs (mapped to props) plus the resolved `NearbyFilterInput | undefined` for query-building, plus setter callbacks that fire the AD-5 analytics events (Dev Notes → Analytics).
-  - [ ] In `home-content.tsx`: call `useNearbyFilter()`, pass its resolved `nearby` value into `buildEventsQueryCondition({ search: q, types, categories, nearby })`, and pass its exposed props down through `<EventDiscoveryPanel>`'s new prop surface (Task 5). Add `nearby` (the resolved filter, or a stable serialization of it) to the `useInfiniteQuery` `queryKey` (`['events', { q, types, categories, nearby }]`) so a nearby-filter change correctly triggers a refetch (mirrors how `types`/`categories` already do this).
-  - [ ] In `CalendarView.tsx`: extend `CalendarViewProps` with `nearby?: NearbyFilterInput`, thread it into `buildWeeklyCalendarQueryCondition({ ..., nearby })` (Task 1 already made this composition work), and into `useGetEventsForCalendarQuery`'s `queryKey`. Update `home-content.tsx`'s `<CalendarView>` usage to pass the same resolved `nearby` value used for Card View (AC10 — identical filtering across both views).
-  - [ ] Add the two AD-5 analytics events (see Dev Notes → Analytics) via `posthog.capture(...)` calls at the points where the nearby selection actually changes (auto-resolved or user-driven) and where a geolocation capture attempt fails.
+  - [x] In `home-content.tsx`: call `useNearbyFilter()`, pass its resolved `nearby` value into `buildEventsQueryCondition({ search: q, types, categories, nearby })`, and pass its exposed props down through `<EventDiscoveryPanel>`'s new prop surface (Task 5). Add `nearby` (the resolved filter, or a stable serialization of it) to the `useInfiniteQuery` `queryKey` (`['events', { q, types, categories, nearby }]`) so a nearby-filter change correctly triggers a refetch (mirrors how `types`/`categories` already do this).
+  - [x] In `CalendarView.tsx`: extend `CalendarViewProps` with `nearby?: NearbyFilterInput`, thread it into `buildWeeklyCalendarQueryCondition({ ..., nearby })` (Task 1 already made this composition work), and into `useGetEventsForCalendarQuery`'s `queryKey`. Update `home-content.tsx`'s `<CalendarView>` usage to pass the same resolved `nearby` value used for Card View (AC10 — identical filtering across both views).
+  - [x] Add the two AD-5 analytics events (see Dev Notes → Analytics) via `posthog.capture(...)` calls at the points where the nearby selection actually changes (auto-resolved or user-driven) and where a geolocation capture attempt fails.
 
-- [ ] Task 7: i18n — add the `NearbyFilter` namespace (AC11) — `apps/web`
-  - [ ] Add to `apps/web/locales/en.json` (alongside the existing `FilterHub`/`DiscoveryPage` namespaces):
+- [x] Task 7: i18n — add the `NearbyFilter` namespace (AC11) — `apps/web`
+  - [x] Add to `apps/web/locales/en.json` (alongside the existing `FilterHub`/`DiscoveryPage` namespaces):
     ```json
     "NearbyFilter": {
       "filterLabel": "Nearby",
@@ -135,7 +135,7 @@ so that I can easily discover events happening close to me.
       "noSavedLocationsHint": "Save a location in My Locations to filter by a specific place."
     }
     ```
-  - [ ] Add the equivalent `NearbyFilter` block (translated) to `apps/web/locales/id.json`, matching the existing en/id parity for every other namespace in this file.
+  - [x] Add the equivalent `NearbyFilter` block (translated) to `apps/web/locales/id.json`, matching the existing en/id parity for every other namespace in this file.
 
 - [ ] Task 8: Testing (AC1-AC12; Definition of Done) — `apps/web`, `packages/ui`, `packages/domain`
   - [ ] `packages/domain`: unit tests per Task 1 (100% coverage).
@@ -304,7 +304,7 @@ Recent commits (`dbf1f80`, `2af58dc`, `767ff1d`, `d8792a9`, `0169949`) show the 
 
 ## Completion Status
 
-- [ ] Not started
+- [/] In progress
 
 ## Dev Agent Record
 
@@ -321,3 +321,40 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 ### Completion Notes List
 
 ### File List
+
+- `packages/domain/src/events/buildEventsQueryCondition.ts` (Modified)
+- `packages/domain/src/events/buildEventsQueryCondition.test.ts` (Modified)
+- `packages/domain/src/events/buildWeeklyCalendarQueryCondition.ts` (Modified)
+- `packages/domain/src/events/buildWeeklyCalendarQueryCondition.test.ts` (Modified)
+- `packages/domain/src/events/index.ts` (Modified)
+- `packages/ui/src/hooks/useCurrentLocationCapture.ts` (New - Relocated)
+- `packages/ui/src/hooks/useCurrentLocationCapture.test.ts` (New - Relocated)
+- `packages/ui/src/hooks/index.ts` (Modified)
+- `packages/ui/src/features/events/LocationRadiusFilter.tsx` (New)
+- `packages/ui/src/features/events/LocationRadiusFilter.types.ts` (New)
+- `packages/ui/src/features/events/LocationRadiusFilter.test.tsx` (New)
+- `packages/ui/src/features/events/FilterHub.tsx` (Modified)
+- `packages/ui/src/features/events/FilterHub.test.tsx` (New)
+- `packages/ui/src/features/events/EventDiscoveryPanel.tsx` (Modified)
+- `packages/ui/src/features/events/EventDiscoveryPanel.types.ts` (Modified)
+- `packages/ui/src/features/events/index.ts` (Modified)
+- `apps/web/src/app/[locale]/use-nearby-filter.ts` (New)
+- `apps/web/src/app/[locale]/nearby.test.tsx` (New)
+- `apps/web/src/app/[locale]/page.test.tsx` (Modified)
+- `apps/web/src/app/[locale]/home-content.tsx` (Modified)
+- `apps/web/src/features/events/CalendarView.tsx` (Modified)
+- `apps/web/locales/en.json` (Modified)
+- `apps/web/locales/id.json` (Modified)
+- `apps/web/src/app/[locale]/settings/locations/location-form-dialog.tsx` (Modified)
+
+### Change Log
+
+- Extended `buildEventsQueryCondition` and `buildWeeklyCalendarQueryCondition` with `nearby` parameter support for unified query DSL.
+- Relocated browser geolocation capture hook `useCurrentLocationCapture` to `@festgrid/ui` for cross-workspace reusability.
+- Designed and built presentational `LocationRadiusFilter` component under `@festgrid/ui`.
+- Integrated `LocationRadiusFilter` as a third filter inside `FilterHub` and wired to clear action.
+- Threaded pass-through prop types down through `EventDiscoveryPanel`.
+- Created robust `useNearbyFilter` hook inside `apps/web` to orchestrate nuqs URL state, React Query data fetching, browser geolocation capture fallback, primary location defaulting (AC4), anonymous no-op (AC7), and PostHog analytics tracking.
+- Wired Discovery page card list and calendar views to query events within specified radius, matching filters across layouts.
+- Added fully translated `NearbyFilter` namespaces to `en.json` and `id.json`.
+- Authored extensive unit, component, and MSW-powered integration tests across packages to achieve 100% regression and feature coverage.

@@ -77,4 +77,31 @@ describe('buildWeeklyCalendarQueryCondition', () => {
       ],
     });
   });
+
+  it('passes through nearby filter to the base condition alongside week range', () => {
+    const result = buildWeeklyCalendarQueryCondition({
+      search: '',
+      types: [],
+      categories: [],
+      weekStart: '2026-08-01',
+      weekEnd: '2026-08-07',
+      nearby: { locationPreferenceId: 'loc-123', radiusKm: 25 },
+    });
+
+    assert.deepEqual(result, {
+      operator: 'and',
+      conditions: [
+        {
+          field: 'scheduleCoordinates',
+          operator: 'withinRadius',
+          value: { locationPreferenceId: 'loc-123', radiusKm: 25 },
+        },
+        {
+          field: 'scheduleDateRange',
+          operator: 'overlaps',
+          value: { from: '2026-08-01', to: '2026-08-07' },
+        },
+      ],
+    });
+  });
 });

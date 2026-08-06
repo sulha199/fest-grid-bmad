@@ -17,6 +17,7 @@ import { CalendarView } from "@/features/events/CalendarView"
 import { buildEventsQueryCondition } from "@festgrid/domain/events"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { LoginContent } from "./login/login-content"
+import { useNearbyFilter } from "./use-nearby-filter"
 
 // Falls back to the raw enum value if a translation key is missing, so a
 // locale file drifting out of sync with the enum degrades gracefully instead
@@ -37,7 +38,9 @@ export function HomeContent() {
   const t = useTranslations('DiscoveryPage')
   const posthog = usePostHog()
   const tAuth = useTranslations('Auth')
+  const tNearby = useTranslations('NearbyFilter')
   const { session, signOut } = useAuthSession()
+  const nearbyFilter = useNearbyFilter()
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
   const [types] = useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))
   const [categories] = useQueryState('categories', parseAsArrayOf(parseAsString).withDefault([]))
@@ -82,7 +85,7 @@ export function HomeContent() {
     },
     onError: (err, variables, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(['events', { q, types, categories }], context.previousData)
+        queryClient.setQueryData(['events', { q, types, categories, nearby: resolvedNearby }], context.previousData)
       }
     },
     onSuccess: (data, variables) => {
@@ -112,7 +115,19 @@ export function HomeContent() {
     typeLabel: tFilterHub('typeLabel'),
     categoryLabel: tFilterHub('categoryLabel'),
     clearLabel: tFilterHub('clearLabel'),
-  }), [tFilterHub])
+    locationFilterLabels: {
+      filterLabel: tNearby('filterLabel'),
+      offOptionLabel: tNearby('offOptionLabel'),
+      currentLocationOptionLabel: tNearby('currentLocationOptionLabel'),
+      radiusLabel: tNearby('radiusLabel'),
+      radiusUnit: (count: number) => tNearby('radiusUnit', { count }),
+      detectingLocationLabel: tNearby('detectingLocationLabel'),
+      permissionDeniedLabel: tNearby('permissionDeniedLabel'),
+      unavailableLabel: tNearby('unavailableLabel'),
+      locationsErrorLabel: tNearby('locationsErrorLabel'),
+      noSavedLocationsHint: tNearby('noSavedLocationsHint'),
+    }
+  }), [tFilterHub, tNearby])
 
   const typesOptions = useMemo(() => Object.values(EventType).map(value => ({
     value,
@@ -134,6 +149,8 @@ export function HomeContent() {
     router.push('/')
   }
 
+  const resolvedNearby = nearbyFilter.resolvedFilter;
+
   const {
     data,
     fetchNextPage,
@@ -142,12 +159,12 @@ export function HomeContent() {
     status,
     error
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ['events', { q, types, categories }],
+    queryKey: ['events', { q, types, categories, nearby: resolvedNearby }],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
         offset: pageParam as number,
-        query: buildEventsQueryCondition({ search: q, types, categories }) as EventQueryConditionInput | undefined
+        query: buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby }) as EventQueryConditionInput | undefined
       })
     },
     initialPageParam: 0,
@@ -213,6 +230,16 @@ export function HomeContent() {
         types={typesOptions}
         categories={categoriesOptions}
         onFilterChange={handleFilterChange}
+        isAuthenticated={nearbyFilter.isAuthenticated}
+        isLoadingLocations={nearbyFilter.isLoadingLocations}
+        locationsError={nearbyFilter.locationsError}
+        savedLocations={nearbyFilter.savedLocations}
+        selectedValue={nearbyFilter.selectedValue}
+        radiusKm={nearbyFilter.radiusKm}
+        isCapturingCurrentLocation={nearbyFilter.isCapturingCurrentLocation}
+        currentLocationError={nearbyFilter.currentLocationError}
+        onSelectLocation={nearbyFilter.onSelectLocation}
+        onRadiusChange={nearbyFilter.onRadiusChange}
         views={[
           {
             id: 'card',
@@ -255,7 +282,7 @@ export function HomeContent() {
             id: 'calendar',
             label: t('viewSwitcherCalendarLabel'),
             icon: <CalendarDays className="w-4 h-4" />,
-            content: <CalendarView q={q} types={types} categories={categories} />
+            content: <CalendarView q={q} types={types} categories={categories} nearby={resolvedNearby} />
           }
         ]}
       />

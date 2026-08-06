@@ -9,3 +9,4 @@ export * from './useSoftDeleteWithUndo.types';
 export * from './usePrefersReducedMotion';
 export * from './useNavRailItemInteraction';
 export * from './useNavRailItemInteraction.types';
+export * from './useCurrentLocationCapture';

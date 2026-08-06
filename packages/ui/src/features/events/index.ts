@@ -11,3 +11,5 @@ export * from './EventDiscoveryPanel';
 export * from './EventDiscoveryPanel.types';
 export * from './WeeklyCalendarView';
 export * from './WeeklyCalendarView.types';
+export * from './LocationRadiusFilter';
+export * from './LocationRadiusFilter.types';

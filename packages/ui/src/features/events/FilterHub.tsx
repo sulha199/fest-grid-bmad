@@ -4,11 +4,15 @@ import * as React from 'react';
 import { useQueryState, parseAsArrayOf, parseAsString } from 'nuqs';
 import { MultiSelect } from '../../core/multi-select';
 
-export interface FilterHubProps {
+import { LocationRadiusFilter } from './LocationRadiusFilter.js';
+import { LocationRadiusFilterProps } from './LocationRadiusFilter.types.js';
+
+export interface FilterHubProps extends Omit<LocationRadiusFilterProps, 'labels'> {
   labels: {
     typeLabel: string;
     categoryLabel: string;
     clearLabel: string;
+    locationFilterLabels: LocationRadiusFilterProps['labels'];
   };
   types: { value: string; label: string }[];
   categories: { value: string; label: string }[];
@@ -16,7 +20,23 @@ export interface FilterHubProps {
   className?: string;
 }
 
-export function FilterHub({ labels, types, categories, onChange, className = '' }: FilterHubProps) {
+export function FilterHub({
+  labels,
+  types,
+  categories,
+  onChange,
+  className = '',
+  isAuthenticated,
+  isLoadingLocations,
+  locationsError,
+  savedLocations,
+  selectedValue,
+  radiusKm,
+  isCapturingCurrentLocation,
+  currentLocationError,
+  onSelectLocation,
+  onRadiusChange,
+}: FilterHubProps) {
   const [selectedTypes, setSelectedTypes] = useQueryState(
     'types',
     parseAsArrayOf(parseAsString).withDefault([])
@@ -30,6 +50,7 @@ export function FilterHub({ labels, types, categories, onChange, className = '' 
   const handleClear = () => {
     setSelectedTypes(null);
     setSelectedCategories(null);
+    onSelectLocation('off');
     if (onChange) onChange([], []);
   };
 
@@ -45,7 +66,8 @@ export function FilterHub({ labels, types, categories, onChange, className = '' 
     if (onChange) onChange(selectedTypes, newCategories);
   };
 
-  const hasSelection = selectedTypes.length > 0 || selectedCategories.length > 0;
+  const isNearbyActive = selectedValue !== null && selectedValue !== 'off';
+  const hasSelection = selectedTypes.length > 0 || selectedCategories.length > 0 || isNearbyActive;
 
   return (
     <div className={`flex flex-col gap-6 ${className}`}>
@@ -75,6 +97,19 @@ export function FilterHub({ labels, types, categories, onChange, className = '' 
         onChange={handleCategoryChange}
         labels={{ clearLabel: labels.clearLabel }}
         hideClearAction
+      />
+      <LocationRadiusFilter
+        isAuthenticated={isAuthenticated}
+        isLoadingLocations={isLoadingLocations}
+        locationsError={locationsError}
+        savedLocations={savedLocations}
+        selectedValue={selectedValue}
+        radiusKm={radiusKm}
+        isCapturingCurrentLocation={isCapturingCurrentLocation}
+        currentLocationError={currentLocationError}
+        onSelectLocation={onSelectLocation}
+        onRadiusChange={onRadiusChange}
+        labels={labels.locationFilterLabels}
       />
     </div>
   );

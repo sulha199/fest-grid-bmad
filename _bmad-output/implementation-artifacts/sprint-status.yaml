@@ -178,7 +178,7 @@ development_status:
   # just a saved locationPreferenceId), needed by 2.5's no-saved-location fallback.
   # Not yet implemented, so amended in place rather than splitting a new story.
   2-5a-extend-the-events-graphql-api-with-geo-distance-query-support: review
-  2-5-find-nearby-events: ready-for-dev
+  2-5-find-nearby-events: review
   2-6-view-and-manage-events-on-a-calendar: backlog
   2-6a-create-user-settings-table-and-settings-query-mutation-resolvers: ready-for-dev
   2-7-automatically-hide-past-events: backlog
