@@ -1209,10 +1209,11 @@ Users can personalize their experience by saving favorite events and locations.
 *   **Given** Story 2.3a's saved locations and Story 1.3a's events resolver exist,
 *   **When** a client sends a Unified Query DSL request (AD-1) containing a new `withinRadius` condition referencing a `locationPreferenceId` and a `radiusKm` value,
 *   **Then** the backend resolves it by computing distance from that saved location's coordinates against each event's coordinates (e.g. `ST_DWithin`/haversine) and returns only events within the specified radius.
-*   **And** the formal field/operator list maintained in the API docs (AD-1) is updated to document the `withinRadius` operator and its shape.
+*   **And** the same `withinRadius` operator also accepts an ad-hoc `{ latitude, longitude, radiusKm }` value shape (no `locationPreferenceId`, no ownership check) for filtering directly against supplied coordinates, needed by Story 2.5's "no saved location -> use current browser location" fallback.
+*   **And** the formal field/operator list maintained in the API docs (AD-1) is updated to document the `withinRadius` operator and both its value shapes.
 *   **And** any indexing needed to keep radius filtering performant (e.g. a spatial index on event coordinates) is added, extending project-context.md's Database Indexing rule (currently silent on geo lookups).
 
-**Note:** This story exists because of Gate 1 (`story-split-gate.md`) — AD-1's DSL as specified has no geo-distance operator, and Story 2.5 cannot be built against it as-is. Classified as a single-story architecture split (needed only by Story 2.5), positioned immediately before it.
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`) — AD-1's DSL as specified has no geo-distance operator, and Story 2.5 cannot be built against it as-is. Classified as a single-story architecture split (needed only by Story 2.5), positioned immediately before it. **Amended 2026-08-06** while drafting Story 2.5: added the ad-hoc-coordinate value shape (AC1a in the story file) since 2.5a had not yet started implementation — the user chose to broaden this story's contract in place rather than split a new prerequisite story or work around it client-side.
 
 **Depends on:** Story 1.3a, Story 2.3a.
 
