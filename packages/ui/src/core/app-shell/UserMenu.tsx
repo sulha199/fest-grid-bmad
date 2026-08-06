@@ -104,11 +104,11 @@ export function UserMenu({
       >
         {/* Mobile Header (with Close Button) */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border md:hidden">
-          <div className="flex items-center gap-3">
+          <div className="flex-1 min-w-0 flex items-center gap-3">
             {avatarUrl ? (
-              <img src={avatarUrl} alt="" referrerPolicy="no-referrer" className="h-8 w-8 rounded-full object-cover" />
+              <img src={avatarUrl} alt="" referrerPolicy="no-referrer" className="h-8 w-8 rounded-full object-cover flex-shrink-0" />
             ) : (
-              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground font-medium">
+              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground font-medium flex-shrink-0">
                 {(displayName || 'U')[0].toUpperCase()}
               </div>
             )}
@@ -118,7 +118,7 @@ export function UserMenu({
             type="button"
             onClick={onClose}
             aria-label={labels.close || 'Close menu'}
-            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground transition-colors"
+            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground transition-colors flex-shrink-0"
           >
             <X className="h-5 w-5" />
           </button>
