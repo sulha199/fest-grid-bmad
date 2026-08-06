@@ -22,6 +22,7 @@
     "@supabase/supabase-js": "^2.111.0",
     "@tanstack/react-query": "^5.101.4",
     "class-variance-authority": "^0.7.1",
+    "firebase": "^12.16.0",
     "clsx": "^2.1.1",
     "graphql": "^16.8.0",
     "graphql-request": "^7.4.0",
