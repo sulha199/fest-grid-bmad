@@ -211,8 +211,9 @@ export type QueryEventsArgs = {
 
 
 export type QueryPreviewLocationArgs = {
-  latitude: Scalars['Float']['input'];
-  longitude: Scalars['Float']['input'];
+  latitude?: InputMaybe<Scalars['Float']['input']>;
+  longitude?: InputMaybe<Scalars['Float']['input']>;
+  placeId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Schedule = {

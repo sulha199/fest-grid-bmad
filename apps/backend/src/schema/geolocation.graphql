@@ -7,5 +7,5 @@ extend type LocationDetails {
 }
 
 extend type Query {
-  previewLocation(latitude: Float!, longitude: Float!): LocationDetails!
+  previewLocation(latitude: Float, longitude: Float, placeId: String): LocationDetails!
 }
