@@ -5,21 +5,66 @@ import { toast } from 'sonner';
 import { UseSoftDeleteWithUndoOptions, UseSoftDeleteWithUndoResult, SoftDeleteToastLabels } from './useSoftDeleteWithUndo.types';
 
 export function useSoftDeleteWithUndo<TId extends string = string>(
-  options?: UseSoftDeleteWithUndoOptions,
+  options?: UseSoftDeleteWithUndoOptions<TId>,
 ): UseSoftDeleteWithUndoResult<TId> {
   const [pendingMap, setPendingMap] = useState<Map<TId, () => Promise<void>>>(new Map());
   const pendingMapRef = useRef(pendingMap);
   const activeToastIdsRef = useRef<Map<TId, string | number>>(new Map());
+  
+  // Use options ref to prevent stale closures when calling callbacks
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
-  // Keep ref in sync with state for unmount cleanup
+  // Keep ref in sync with state
   useEffect(() => {
     pendingMapRef.current = pendingMap;
   }, [pendingMap]);
 
-  const markPending = (id: TId, commit: () => Promise<void>, labels?: SoftDeleteToastLabels) => {
+  const undo = async (id: TId): Promise<void> => {
+    const undoCallback = pendingMapRef.current.get(id);
+    if (!undoCallback) return;
+
+    try {
+      await undoCallback();
+      
+      setPendingMap((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
+
+      const toastId = activeToastIdsRef.current.get(id);
+      if (toastId !== undefined) {
+        toast.dismiss(toastId);
+        activeToastIdsRef.current.delete(id);
+      }
+    } catch (err) {
+      console.error('Error during soft-delete undo:', err);
+      throw err;
+    }
+  };
+
+  const handleExpire = (id: TId) => {
+    setPendingMap((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      next.delete(id);
+      
+      // Invoke the consumer-supplied onExpire exactly once
+      optionsRef.current?.onExpire?.(id);
+      
+      return next;
+    });
+    activeToastIdsRef.current.delete(id);
+  };
+
+  const markPending = (id: TId, undoFn: () => Promise<void>, labels?: SoftDeleteToastLabels) => {
     setPendingMap((prev) => {
       const next = new Map(prev);
-      next.set(id, commit);
+      next.set(id, undoFn);
       return next;
     });
 
@@ -27,48 +72,22 @@ export function useSoftDeleteWithUndo<TId extends string = string>(
     const undoLabel = labels?.undoLabel ?? options?.defaultLabels?.undoLabel ?? 'Undo';
 
     const toastId = toast(message, {
+      duration: 6000,
       action: {
         label: undoLabel,
-        onClick: () => undo(id),
+        onClick: () => {
+          undo(id).catch(() => {
+            // Error logged inside undo
+          });
+        },
+      },
+      onAutoClose: () => {
+        handleExpire(id);
       },
     });
     
     activeToastIdsRef.current.set(id, toastId);
   };
-
-  const undo = (id: TId) => {
-    setPendingMap((prev) => {
-      if (!prev.has(id)) return prev;
-      const next = new Map(prev);
-      next.delete(id);
-      return next;
-    });
-
-    const toastId = activeToastIdsRef.current.get(id);
-    if (toastId !== undefined) {
-      toast.dismiss(toastId);
-      activeToastIdsRef.current.delete(id);
-    }
-  };
-
-  // Unmount cleanup: iterate the ref's current entries and call each stored commit() exactly once
-  useEffect(() => {
-    return () => {
-      const remainingPending = pendingMapRef.current;
-      const commits = Array.from(remainingPending.values());
-      remainingPending.clear();
-
-      for (const commit of commits) {
-        // We invoke exactly once. We don't await or swallow errors, 
-        // allowing rejections to propagate as unhandled.
-        commit().catch((err) => {
-          // Typically we let the consumer handle the rejection in their commit function
-          // but we log it to console here so it's not totally invisible if they don't.
-          console.error('Error during soft-delete unmount commit:', err);
-        });
-      }
-    };
-  }, []); // Run only on unmount
 
   const isPending = (id: TId) => pendingMap.has(id);
   
