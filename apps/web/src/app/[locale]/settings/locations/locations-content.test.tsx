@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import enMessages from '../../../../../locales/en.json';
 import { LocationsContent } from './locations-content';
 import { graphqlClient } from '@/lib/graphql-client';
+import { Toaster } from 'sonner';
 
 // Mock MapView to avoid WebGL/Canvas/CSS issues in JSDOM
 vi.mock('@/components/ui/map', () => {
@@ -71,7 +72,7 @@ const mockLocations = [
   },
 ];
 
-let deleteCalls: string[] = [];
+let deleteCalls: { id: string; action: string }[] = [];
 
 const server = setupServer(
   graphql.query('getMyLocations', () => {
@@ -82,10 +83,10 @@ const server = setupServer(
     });
   }),
   graphql.mutation('deleteUserLocation', ({ variables }) => {
-    deleteCalls.push(variables.id);
+    deleteCalls.push({ id: variables.id, action: variables.action });
     return HttpResponse.json({
       data: {
-        deleteUserLocation: true,
+        deleteUserLocation: { id: variables.id },
       },
     });
   })
@@ -112,6 +113,7 @@ function renderWithProviders(ui: React.ReactElement) {
   return render(
     <QueryClientProvider client={queryClient}>
       <NextIntlClientProvider locale="en" messages={enMessages}>
+        <Toaster />
         {ui}
       </NextIntlClientProvider>
     </QueryClientProvider>
@@ -139,9 +141,9 @@ describe('LocationsContent', () => {
     expect(screen.getByText('456 Business Rd, Metropolis')).toBeInTheDocument();
   });
 
-  it('triggers soft delete when clicking Delete button', async () => {
+  it('triggers soft delete immediately when clicking Delete button and RESTORE on Undo', async () => {
     mockSession = { user: { id: 'user-1' } };
-    const { unmount } = renderWithProviders(<LocationsContent />);
+    renderWithProviders(<LocationsContent />);
 
     await waitFor(() => {
       expect(screen.getByText('Home')).toBeInTheDocument();
@@ -151,15 +153,17 @@ describe('LocationsContent', () => {
     const deleteButtons = screen.getAllByLabelText('Delete');
     fireEvent.click(deleteButtons[0]);
 
-    // Check row visual is marked (or element opacity/parent opacity is updated)
-    // Deletion call is deferred, so deleteCalls should still be empty
-    expect(deleteCalls).toHaveLength(0);
+    // Deletion call is fired immediately with DELETE (AC9)
+    await waitFor(() => {
+      expect(deleteCalls).toContainEqual({ id: 'loc-1', action: 'DELETE' });
+    });
 
-    // Unmount page to commit deletion
-    unmount();
+    // Find and click Undo in the toast to fire RESTORE mutation (AC10)
+    const undoButton = await screen.findByText('Undo');
+    fireEvent.click(undoButton);
 
     await waitFor(() => {
-      expect(deleteCalls).toContain('loc-1');
+      expect(deleteCalls).toContainEqual({ id: 'loc-1', action: 'RESTORE' });
     });
   });
 });

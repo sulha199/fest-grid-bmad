@@ -157,7 +157,7 @@ development_status:
   # immediately (DELETE action) instead of on unmount; Undo now calls a real
   # RESTORE mutation; timeout splices from local list, no unmount trigger.
   # New AC11a (delete-call failure path). See sprint-change-proposal-2026-08-06.md.
-  2-3-manage-saved-locations: in-progress
+  2-3-manage-saved-locations: review
   2-4-set-location-by-current-location-or-map: review
   # regenerated 2026-08-04 via bmad-create-story: raw maplibre-gl (not
   # @vis.gl/react-maplibre) and a pointer-only, documented a11y limitation for
