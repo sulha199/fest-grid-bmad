@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-08-04T00:00:00Z
+# last_updated: 2026-08-06T00:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -75,7 +75,10 @@ development_status:
   # restriction MVP limitation were confirmed with the user during story creation.
   0-16-set-up-geolocation-adapter-with-caching-layer: review
   0-17-set-up-graphql-authenticated-context-layer: review
-  0-18-build-the-reusable-soft-delete-with-undo-ui-primitive: review
+  # Reopened 2026-08-06 via bmad-correct-course: AC2-4/hook contract revised
+  # (commit-on-unmount -> commit-at-trigger/undo-reverses/onExpire-on-timeout).
+  # See sprint-change-proposal-2026-08-06.md.
+  0-18-build-the-reusable-soft-delete-with-undo-ui-primitive: in-progress
   0-19-build-the-reusable-swipe-to-reveal-action-ui-primitive: review
   # SUPERSEDED 2026-08-04 via bmad-create-story: fully absorbed by Story 0.16's
   # regenerated Task 3 (Geoapify provider swap, Sprint Change Proposal 2026-08-03),
@@ -83,6 +86,10 @@ development_status:
   # tracked to completion via 0-16 instead. See epics.md Story 0.20 note.
   0-20-create-geolocation-cache-database-table: superseded-by-0.16
   0-21-set-up-fcm-device-token-registry: ready-for-dev
+  # New 2026-08-06 via bmad-correct-course: AD-8 rule 2 ("enforced once, never
+  # per-resolver") reviewer-gate finding -- 6 hand-written isNull() call sites,
+  # no shared enforcement point. See sprint-change-proposal-2026-08-06.md.
+  0-22-build-the-shared-active-rows-query-filter-helper-for-ad-8: backlog
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
@@ -137,12 +144,19 @@ development_status:
   2-1-favorite-an-event: review
   2-1b-build-the-ics-route-handler-and-generator-utility: review
   2-2-view-favorited-events: review
-  2-3a-build-the-saved-locations-backend-graphql-api-layer: review
+  # Reopened 2026-08-06 via bmad-correct-course: AC5/AC6 revised (hard delete ->
+  # AD-8 soft delete via new SoftDeleteAction-param mutation contract), Task 1b
+  # (deletedAt migration) added. See sprint-change-proposal-2026-08-06.md.
+  2-3a-build-the-saved-locations-backend-graphql-api-layer: in-progress
   2-3b-extend-the-geolocation-adapter-and-saved-locations-api-with-address-autocomplete-support: review
   # regenerated 2026-08-04 via bmad-create-story at user's request: re-verified against
   # current codebase state (Story 2.3b now fully drafted with a matching contract minus a
   # dropped sessionToken arg; Story 0.16 progressed to review/implemented, narrowing the
   # dependency chain to 2.3a/2.3b only). Status unchanged (already ready-for-dev).
+  # AC9-11 revised 2026-08-06 via bmad-correct-course: delete now commits
+  # immediately (DELETE action) instead of on unmount; Undo now calls a real
+  # RESTORE mutation; timeout splices from local list, no unmount trigger.
+  # New AC11a (delete-call failure path). See sprint-change-proposal-2026-08-06.md.
   2-3-manage-saved-locations: in-progress
   2-4-set-location-by-current-location-or-map: review
   # regenerated 2026-08-04 via bmad-create-story: raw maplibre-gl (not

@@ -2,7 +2,7 @@
 title: "DESIGN.md: festgrid"
 status: "draft"
 created: "2026-07-13T22:33:00Z"
-updated: "2026-08-05T00:00:00Z"
+updated: "2026-08-06T00:00:00Z"
 sources:
   - "_bmad-output/planning-artifacts/prfaq-festgrid.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -70,6 +70,9 @@ components:
     info: "bg-violet-100 text-violet-800"
     success: "bg-green-100 text-green-800"
     error: "bg-red-100 text-red-800"
+    undo_duration_ms: 6000 # Soft Delete with Undo toast open window; pauses on hover/focus (EXPERIENCE.md State Patterns > Soft Delete with Undo)
+    error_duration_ms: 8000 # Soft Delete failure-path toast; longer than the undo toast and does not auto-retry -- persists long enough to read plus act on its close control (EXPERIENCE.md Accessibility Floor > Soft Delete with Undo)
+    action_hit_area: "min-h-11 min-w-11" # Undo / close button minimum touch target inside the toast, mirrors components.nav.item_hit_area (EXPERIENCE.md Accessibility Floor > Soft Delete with Undo)
   nav:
     bottom_tab_bar: "fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t bg-background md:hidden"
     sidenav_rail: "fixed inset-y-0 start-0 z-40 hidden md:flex md:flex-col md:items-center xl:items-stretch w-16 xl:w-56 border-e bg-background py-4"

@@ -596,6 +596,25 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Depends on:** Story 0.8, Story 0.12, Story 0.17.
 
+### Story 0.22: Build the shared active-rows query-filter helper for AD-8
+
+**As a** developer,
+**I want** a single shared `activeOnly(table)` Drizzle where-fragment helper (`packages/graphql-select`) that every resolver imports instead of hand-writing `isNull(table.deletedAt)`,
+**So that** AD-8 rule 2's "enforced once, never per-resolver" requirement is actually true, rather than the six independent hand-written call sites it is today.
+
+**Acceptance Criteria:**
+
+*   **Given** AD-8 rule 2 (Architecture Spine),
+*   **When** a resolver needs to exclude soft-deleted rows,
+*   **Then** it imports `activeOnly(table)` from `@festgrid/graphql-select` rather than writing `isNull(table.deletedAt)` inline.
+*   **And** the six existing hand-written sites in `apps/backend/src/schema/resolvers.ts` (favorites/calendarAdditions filtering) are retrofitted to use the helper — behavior-preserving, no functional change, pure refactor.
+*   **And** `myLocations` (Story 2-3a) uses the helper rather than a one-off inline filter, once sequenced against this story.
+*   **And** the helper works both for resolvers going through the Unified Query DSL (`buildDrizzleWhere`/`buildOptimizedDrizzleSelect`, AD-1/AD-2) and hand-written Drizzle queries like `myLocations` that don't — a plain composable where-fragment, not DSL-coupled.
+
+**Note:** This story exists because of the AD-8 extension recorded in `sprint-change-proposal-2026-08-06.md` (soft-delete-with-undo browser-tab-close bug fix) — the Reviewer Gate that vetted that AD-8 extension found rule 2's "enforced once" claim was never actually true in shipped code (six hand-written `isNull()` call sites, no shared enforcement point). Added to Epic 0 as cross-cutting query-layer infrastructure, not specific to any one feature.
+
+**Depends on:** none (self-contained refactor + new helper). Story 2-3a benefits from sequencing after this story lands, but is not blocked by it (can ship its own inline filter now and be retrofitted later if sequencing runs the other way).
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
