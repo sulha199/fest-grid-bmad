@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-08-06T16:30:30Z
+# last_updated: 2026-08-06T20:15:56Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-06T16:30:30Z
+last_updated: 2026-08-06T20:15:56Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -182,7 +182,7 @@ development_status:
   2-6-view-and-manage-events-on-a-calendar: backlog
   2-6a-create-user-settings-table-and-settings-query-mutation-resolvers: review
   2-7-automatically-hide-past-events: backlog
-  2-8-user-menu: backlog
+  2-8-user-menu: ready-for-dev
   2-9-manage-push-notification-settings: backlog
   epic-2-retrospective: optional
   epic-3: in-progress
