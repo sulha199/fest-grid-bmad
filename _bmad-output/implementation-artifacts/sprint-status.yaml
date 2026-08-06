@@ -162,7 +162,7 @@ development_status:
   # (shared map-picker continuity state across search/current-location/map-pick, an
   # embedded search inside the map sheet, zoom control + contextual initial zoom).
   # See sprint-change-proposal-2026-08-06-map-picker-continuity.md.
-  2-4-set-location-by-current-location-or-map: in-progress
+  2-4-set-location-by-current-location-or-map: review
   # regenerated 2026-08-04 via bmad-create-story: raw maplibre-gl (not
   # @vis.gl/react-maplibre) and a pointer-only, documented a11y limitation for
   # marker placement were confirmed with the user during story creation.

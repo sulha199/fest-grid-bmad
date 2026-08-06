@@ -39,6 +39,11 @@ interface LocationFormDialogProps {
   location?: UserLocation // undefined -> Add mode, present -> Edit mode
 }
 
+const DEFAULT_CENTER: Coordinates = {
+  latitude: -6.2088,
+  longitude: 106.8456,
+}
+
 export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDialogProps) {
   const t = useTranslations("SavedLocationsPage")
   const queryClient = useQueryClient()
@@ -54,6 +59,13 @@ export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDi
   const [pendingCoords, setPendingCoords] = useState<Coordinates | null>(null)
   const [isMapOpen, setIsMapOpen] = useState(false)
   const [geoErrorMsg, setGeoErrorMsg] = useState<string | null>(null)
+
+  // Shared map-picker continuity state (AC18-AC20)
+  const [mapViewState, setMapViewState] = useState<{
+    center: Coordinates
+    zoom: number
+    marker: Coordinates | null
+  } | null>(null)
 
   const debouncedSearch = useDebounce(addressSearch, 300)
 
@@ -108,9 +120,17 @@ export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDi
         setSelectedDescription(location.locationDetails.formattedAddress)
         setSelectedPlaceId(null) // no placeId needed if unchanged
         setRadiusKm(Math.round(location.radius / 1000))
-        setPendingCoords({
+        const coords = {
           latitude: location.locationDetails.coordinates.lat,
           longitude: location.locationDetails.coordinates.lng,
+        }
+        setPendingCoords(coords)
+
+        // Seed continuity state on Edit mode
+        setMapViewState({
+          center: coords,
+          zoom: 15,
+          marker: coords,
         })
       } else {
         setName("")
@@ -119,6 +139,9 @@ export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDi
         setSelectedDescription(null)
         setPendingCoords(null)
         setRadiusKm(5)
+
+        // Reset continuity state on Add mode
+        setMapViewState(null)
       }
       setIsDropdownOpen(false)
     }
@@ -179,6 +202,33 @@ export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDi
     setSelectedDescription(description)
     setAddressSearch(description)
     setIsDropdownOpen(false)
+
+    // Kick off AC18b background previewLocation(placeId) continuity update (fire-and-forget)
+    graphqlClient
+      .request(
+        `query previewLocation($placeId: String) {
+          previewLocation(placeId: $placeId) {
+            coordinates {
+              lat
+              lng
+            }
+          }
+        }`,
+        { placeId }
+      )
+      .then((res: any) => {
+        if (res?.previewLocation?.coordinates) {
+          const { lat, lng } = res.previewLocation.coordinates
+          setMapViewState({
+            center: { latitude: lat, longitude: lng },
+            zoom: 15,
+            marker: { latitude: lat, longitude: lng },
+          })
+        }
+      })
+      .catch((err) => {
+        console.warn("Background previewLocation resolution failed:", err)
+      })
   }
 
   const handleUseCurrentLocation = async () => {
@@ -189,6 +239,13 @@ export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDi
       setSelectedDescription(null)
       setPendingCoords(coords)
       setAddressSearch(t("resolvingAddressLabel"))
+
+      // Update continuity state (AC2 / AC18)
+      setMapViewState({
+        center: coords,
+        zoom: 15,
+        marker: coords,
+      })
     } catch (err: any) {
       console.error("Geolocation capture failed:", err)
       const errType = err.message as GeolocationCaptureError
@@ -210,6 +267,13 @@ export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDi
     setSelectedDescription(null)
     setPendingCoords(coords)
     setAddressSearch(t("resolvingAddressLabel"))
+
+    // Confirm updates/synchronizes the shared continuity state
+    setMapViewState((prev) => ({
+      center: coords,
+      zoom: prev?.zoom ?? 15,
+      marker: coords,
+    }))
   }
 
   const isCurrentLocationDisabled = !isGeoAvailable || isGeoCapturing || isMapOpen || isPreviewLoading || isSaving
@@ -429,7 +493,23 @@ export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDi
         isOpen={isMapOpen}
         onClose={() => setIsMapOpen(false)}
         onConfirm={handleMapConfirm}
-        initialCenter={pendingCoords || undefined}
+        center={mapViewState?.center || DEFAULT_CENTER}
+        zoom={mapViewState?.zoom ?? 12}
+        marker={mapViewState?.marker ?? null}
+        onViewStateChange={(state) =>
+          setMapViewState((prev) => ({
+            ...prev,
+            ...state,
+            marker: prev?.marker ?? null,
+          }))
+        }
+        onMarkerChange={(coords) =>
+          setMapViewState((prev) => ({
+            center: prev?.center || coords,
+            zoom: prev?.zoom ?? 15,
+            marker: coords,
+          }))
+        }
       />
     </>
   )

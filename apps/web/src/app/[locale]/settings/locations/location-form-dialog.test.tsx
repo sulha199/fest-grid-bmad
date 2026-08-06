@@ -20,9 +20,14 @@ vi.mock('@/lib/graphql-client', async () => {
 // Mock MapView to avoid WebGL/Canvas issues in JSDOM
 vi.mock('@/components/ui/map', () => {
   return {
-    MapView: ({ onCoordinatesChange }: any) => {
+    MapView: ({ onCoordinatesChange, center, zoom, marker }: any) => {
       return (
-        <div data-testid="mock-map">
+        <div
+          data-testid="mock-map"
+          data-center={JSON.stringify(center)}
+          data-zoom={zoom}
+          data-marker={JSON.stringify(marker)}
+        >
           <button
             type="button"
             data-testid="mock-map-click"
@@ -53,12 +58,14 @@ const server = setupServer(
     });
   }),
   graphql.query('previewLocation', ({ variables }) => {
+    const lat = variables.latitude !== undefined && variables.latitude !== null ? variables.latitude : -6.2088;
+    const lng = variables.longitude !== undefined && variables.longitude !== null ? variables.longitude : 106.8456;
     return HttpResponse.json({
       data: {
         previewLocation: {
-          formattedAddress: `Resolved Address at ${variables.latitude}, ${variables.longitude}`,
+          formattedAddress: `Resolved Address at ${lat}, ${lng}`,
           placeName: 'Resolved Location',
-          coordinates: { lat: variables.latitude, lng: variables.longitude },
+          coordinates: { lat, lng },
           provider: 'GEOAPIFY',
         },
       },
@@ -467,6 +474,109 @@ describe('LocationFormDialog', () => {
       latitude: -6.2088,
       longitude: 106.8456,
       radius: 5000,
+    });
+  });
+
+  // Story 2.4 correct-course continuity & in-sheet search tests (AC18-AC20)
+  it('updates mapViewState continuity on outside-field search suggestion selection (AC18b)', async () => {
+    const handleClose = vi.fn();
+    renderWithProviders(<LocationFormDialog isOpen={true} onClose={handleClose} />);
+
+    // Type in Address field
+    const addressInput = screen.getByLabelText('Address');
+    fireEvent.change(addressInput, { target: { value: 'Springfield' } });
+
+    // Wait for suggestion to render
+    await waitFor(() => {
+      expect(screen.getByText('123 Main St, Springfield')).toBeInTheDocument();
+    });
+
+    // Select the suggestion
+    fireEvent.click(screen.getByText('123 Main St, Springfield'));
+
+    // The Address input immediately updates
+    expect(addressInput).toHaveValue('123 Main St, Springfield');
+
+    // Wait for background previewLocation resolution to finish updating mapViewState
+    await waitFor(() => {
+      // Click "Pick on map"
+      fireEvent.click(screen.getByRole('button', { name: 'Pick on map' }));
+      expect(screen.getByText('Select location on map')).toBeInTheDocument();
+    });
+
+    // Verify map is initialized with zoom 15 and is centered on the background-resolved coords
+    await waitFor(() => {
+      const mockMap = screen.getByTestId('mock-map');
+      expect(mockMap).toHaveAttribute('data-zoom', '15');
+      const center = JSON.parse(mockMap.getAttribute('data-center') || '{}');
+      expect(center.latitude).toBe(-6.2088);
+      expect(center.longitude).toBe(106.8456);
+    });
+  });
+
+  it('preserves mapViewState continuity on cancel and reopen (AC18a)', async () => {
+    const handleClose = vi.fn();
+    renderWithProviders(<LocationFormDialog isOpen={true} onClose={handleClose} />);
+
+    // Open map sheet
+    fireEvent.click(screen.getByRole('button', { name: 'Pick on map' }));
+
+    // Click/interact with map to set marker to -6.2000, 106.8000
+    fireEvent.click(screen.getByTestId('mock-map-click'));
+
+    // Cancel map sheet
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    // Reopen map sheet
+    fireEvent.click(screen.getByRole('button', { name: 'Pick on map' }));
+
+    // Verify mapViewState survived cancel and the sheet reopened at that exact same marker
+    await waitFor(() => {
+      const mockMap = screen.getByTestId('mock-map');
+      const marker = JSON.parse(mockMap.getAttribute('data-marker') || '{}');
+      expect(marker.latitude).toBe(-6.2000);
+      expect(marker.longitude).toBe(106.8000);
+    });
+  });
+
+  it('supports in-sheet search input and dropdown selection without closing the sheet (AC19)', async () => {
+    const handleClose = vi.fn();
+    renderWithProviders(<LocationFormDialog isOpen={true} onClose={handleClose} />);
+
+    // Open map sheet
+    fireEvent.click(screen.getByRole('button', { name: 'Pick on map' }));
+
+    // Verify in-sheet search input is rendered
+    const mapSearchInput = screen.getByPlaceholderText('Search address inside map...');
+    expect(mapSearchInput).toBeInTheDocument();
+
+    // Type inside map search
+    fireEvent.change(mapSearchInput, { target: { value: 'Spring' } });
+
+    // Wait for in-sheet autocomplete suggestions
+    await waitFor(() => {
+      expect(screen.getByText('123 Main St, Springfield')).toBeInTheDocument();
+    });
+
+    // Selecting suggestion updates map marker/center and does NOT close the sheet
+    fireEvent.click(screen.getByText('123 Main St, Springfield'));
+
+    // Sheet is still open
+    expect(screen.getByText('Select location on map')).toBeInTheDocument();
+
+    // Wait for async previewLocation query inside sheet to resolve and enable confirm button
+    const confirmBtn = screen.getByRole('button', { name: 'Confirm location' });
+    await waitFor(() => {
+      expect(confirmBtn).toBeEnabled();
+    });
+
+    fireEvent.click(confirmBtn);
+
+    // Form now resolves the address for the selected coordinates
+    const addressInput = screen.getByLabelText('Address');
+    await waitFor(() => {
+      expect(addressInput).not.toHaveValue('resolving address...');
+      expect(addressInput.value).toContain('Resolved Address at');
     });
   });
 });

@@ -151,7 +151,10 @@
     "mapSheetTitle": "Select location on map",
     "mapConfirmLabel": "Confirm location",
     "mapCancelLabel": "Cancel",
-    "mapErrorLabel": "Unable to load map."
+    "mapErrorLabel": "Unable to load map.",
+    "mapSearchPlaceholder": "Search address inside map...",
+    "mapSearchSearching": "Searching...",
+    "mapSearchNoResults": "No addresses found."
   },
   "NearbyFilter": {
     "filterLabel": "Nearby",

@@ -23,8 +23,8 @@ query addressAutocomplete($input: String!) {
   }
 }
 
-query previewLocation($latitude: Float!, $longitude: Float!) {
-  previewLocation(latitude: $latitude, longitude: $longitude) {
+query previewLocation($latitude: Float, $longitude: Float, $placeId: String) {
+  previewLocation(latitude: $latitude, longitude: $longitude, placeId: $placeId) {
     formattedAddress
     placeName
     coordinates {
