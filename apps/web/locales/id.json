@@ -151,7 +151,10 @@
     "mapSheetTitle": "Pilih lokasi di peta",
     "mapConfirmLabel": "Konfirmasi lokasi",
     "mapCancelLabel": "Batal",
-    "mapErrorLabel": "Gagal memuat peta."
+    "mapErrorLabel": "Gagal memuat peta.",
+    "mapSearchPlaceholder": "Cari alamat di dalam peta...",
+    "mapSearchSearching": "Mencari...",
+    "mapSearchNoResults": "Alamat tidak ditemukan."
   },
   "NearbyFilter": {
     "filterLabel": "Terdekat",
