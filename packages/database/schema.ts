@@ -217,6 +217,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   favorites: many(favorites),
   calendarAdditions: many(calendarAdditions),
   userSettings: one(userSettings, { fields: [users.id], references: [userSettings.userId] }),
+  fcmTokens: many(fcmTokens),
 }));
 
 export const favoritesRelations = relations(favorites, ({ one }) => ({
@@ -270,6 +271,21 @@ export const subscriptionsRelations = relations(subscriptions, ({ one, many }) =
 export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
   user: one(users, {
     fields: [apiKeys.userId],
+    references: [users.id],
+  }),
+}));
+
+export const fcmTokens = pgTable('fcm_tokens', {
+  token: text('token').primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  ...timestamps,
+}, (t) => ({
+  userIdIdx: index('idx_fcm_tokens_user_id').on(t.userId),
+}));
+
+export const fcmTokensRelations = relations(fcmTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [fcmTokens.userId],
     references: [users.id],
   }),
 }));

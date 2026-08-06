@@ -1,6 +1,6 @@
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere } from '@festgrid/graphql-select';
 import { requireAuth } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and, exists, isNull, desc } from 'drizzle-orm';
@@ -282,6 +282,30 @@ export const resolvers: Resolvers = {
           return { eventId, scheduleId, isAddedToCalendar: true };
         }
       });
+    },
+    registerFcmToken: async (_: any, { token }: any, context: any) => {
+      const authUser = requireAuth(context);
+      await db.insert(fcmTokens).values({
+        token,
+        userId: authUser.userId,
+      }).onConflictDoUpdate({
+        target: fcmTokens.token,
+        set: {
+          userId: authUser.userId,
+          updatedAt: new Date(),
+        },
+      });
+      return true;
+    },
+    unregisterFcmToken: async (_: any, { token }: any, context: any) => {
+      const authUser = requireAuth(context);
+      await db.delete(fcmTokens).where(
+        and(
+          eq(fcmTokens.token, token),
+          eq(fcmTokens.userId, authUser.userId)
+        )
+      );
+      return true;
     }
   },
   Query: {

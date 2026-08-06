@@ -8,7 +8,7 @@ baseline_commit: 3b506cdaeb473b829432d81ab69368828f0e5127
 
 - Epic: 0
 - Story ID: 0.21
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

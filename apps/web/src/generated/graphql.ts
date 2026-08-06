@@ -135,8 +135,10 @@ export type Mutation = {
   __typename?: 'Mutation';
   createUserLocation: UserLocation;
   deleteUserLocation: UserLocation;
+  registerFcmToken: Scalars['Boolean']['output'];
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
+  unregisterFcmToken: Scalars['Boolean']['output'];
   updateUserLocation: UserLocation;
   updateUserSettings: UserSettings;
 };
@@ -153,6 +155,11 @@ export type MutationDeleteUserLocationArgs = {
 };
 
 
+export type MutationRegisterFcmTokenArgs = {
+  token: Scalars['String']['input'];
+};
+
+
 export type MutationToggleCalendarAdditionArgs = {
   eventId: Scalars['ID']['input'];
   scheduleId: Scalars['ID']['input'];
@@ -161,6 +168,11 @@ export type MutationToggleCalendarAdditionArgs = {
 
 export type MutationToggleFavoriteArgs = {
   eventId: Scalars['ID']['input'];
+};
+
+
+export type MutationUnregisterFcmTokenArgs = {
+  token: Scalars['String']['input'];
 };
 
 
