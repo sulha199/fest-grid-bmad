@@ -78,7 +78,7 @@ development_status:
   # Reopened 2026-08-06 via bmad-correct-course: AC2-4/hook contract revised
   # (commit-on-unmount -> commit-at-trigger/undo-reverses/onExpire-on-timeout).
   # See sprint-change-proposal-2026-08-06.md.
-  0-18-build-the-reusable-soft-delete-with-undo-ui-primitive: in-progress
+  0-18-build-the-reusable-soft-delete-with-undo-ui-primitive: review
   0-19-build-the-reusable-swipe-to-reveal-action-ui-primitive: review
   # SUPERSEDED 2026-08-04 via bmad-create-story: fully absorbed by Story 0.16's
   # regenerated Task 3 (Geoapify provider swap, Sprint Change Proposal 2026-08-03),

@@ -8,7 +8,7 @@ baseline_commit: 8a1633510f3837c52563b52234aff754a11c6238
 
 - Epic: 0
 - Story ID: 0.18
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -199,20 +199,20 @@ so that any feature that lets a user reversibly remove/unfavorite/delete an item
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude 3.5 Sonnet
 
 ### Debug Log References
 
 ### Completion Notes List
 
-- Implemented `useSoftDeleteWithUndo` hook exactly per ACs with internal `Map` state for tracking pending items and their commit callbacks.
-- Hook properly triggers unmount-commits using a `useRef` mirror approach to avoid stale closures.
-- Created `SoftDeleteToaster` wrapping `sonner`'s `<Toaster>` with explicit design-system tokens (`rounded-lg shadow-lg` etc.).
+- Implemented `useSoftDeleteWithUndo` hook with immediate-commit/undo/timeout logic per revised ACs.
+- Hook accepts `onExpire` callback option.
+- Toast triggers auto-dismiss after 6000ms, executing `onExpire` and removing item from pending state exactly once.
+- Clicking "Undo" executes the supplied `undo()` async callback and removes the item from the pending map on success.
+- Created `SoftDeleteToaster` wrapping `sonner`'s `<Toaster>` with design-system tokens (`rounded-lg shadow-lg` etc.).
 - Wired up export barrels in `packages/ui/src/hooks/index.ts` and `packages/ui/src/index.ts`.
 - Integrated `<SoftDeleteToaster/>` once into `apps/web/src/app/[locale]/layout.tsx`.
-- Wrote full unit test for the hook and a wrapper component test. Both `soft-delete-toaster.test.tsx` and `useSoftDeleteWithUndo.test.ts` run clean.
-- `pnpm --filter ui run test`, `pnpm build` and `pnpm lint` executed directly and passed without errors caused by these changes.
-- Conducted manual smoke check via throw-away harness `apps/web/src/app/[locale]/test-soft-delete/page.tsx` that visually verified the toast, the 'undo' functionality, and the delayed commit execution on routing away (component unmount). Harness was removed after successful test.
+- Wrote unit tests for the hook and a wrapper component test covering immediate-commit, undo-mutation-reversal, and timeout onExpire. All tests passed.
 
 ### File List
 

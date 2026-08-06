@@ -3,8 +3,9 @@ export type SoftDeleteToastLabels = {
   undoLabel?: string;
 };
 
-export type UseSoftDeleteWithUndoOptions = {
+export type UseSoftDeleteWithUndoOptions<TId extends string = string> = {
   defaultLabels?: SoftDeleteToastLabels;
+  onExpire?: (id: TId) => void;
 };
 
 export type UseSoftDeleteWithUndoResult<TId extends string = string> = {
@@ -12,7 +13,7 @@ export type UseSoftDeleteWithUndoResult<TId extends string = string> = {
   pendingIds: ReadonlySet<TId>;
   markPending: (
     id: TId,
-    commit: () => Promise<void>,
+    undo: () => Promise<void>,
     labels?: SoftDeleteToastLabels,
   ) => void;
   undo: (id: TId) => void;
