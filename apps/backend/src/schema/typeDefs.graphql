@@ -1,3 +1,8 @@
 type Query {
   health: Boolean!
 }
+
+enum SoftDeleteAction {
+  DELETE
+  RESTORE
+}

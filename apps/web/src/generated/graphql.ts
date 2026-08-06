@@ -134,7 +134,7 @@ export type Me = {
 export type Mutation = {
   __typename?: 'Mutation';
   createUserLocation: UserLocation;
-  deleteUserLocation: Scalars['Boolean']['output'];
+  deleteUserLocation: UserLocation;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
   updateUserLocation: UserLocation;
@@ -147,6 +147,7 @@ export type MutationCreateUserLocationArgs = {
 
 
 export type MutationDeleteUserLocationArgs = {
+  action: SoftDeleteAction;
   id: Scalars['ID']['input'];
 };
 
@@ -228,6 +229,11 @@ export type Schedule = {
   updatedAt: Scalars['String']['output'];
 };
 
+export enum SoftDeleteAction {
+  Delete = 'DELETE',
+  Restore = 'RESTORE'
+}
+
 export type ToggleCalendarAdditionResult = {
   __typename?: 'ToggleCalendarAdditionResult';
   eventId: Scalars['ID']['output'];
@@ -264,6 +270,10 @@ export type UserLocation = {
 
 
 
+
+export type SoftDeleteAction =
+  | 'DELETE'
+  | 'RESTORE';
 
 
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
@@ -334,10 +344,11 @@ export type UpdateUserLocationMutation = { updateUserLocation: { id: string, nam
 
 export type DeleteUserLocationMutationVariables = Exact<{
   id: string | number;
+  action: SoftDeleteAction;
 }>;
 
 
-export type DeleteUserLocationMutation = { deleteUserLocation: boolean };
+export type DeleteUserLocationMutation = { deleteUserLocation: { id: string } };
 
 export type GetMyLocationsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -726,8 +737,10 @@ export const useUpdateUserLocationMutation = <
     )};
 
 export const DeleteUserLocationDocument = new TypedDocumentString(`
-    mutation deleteUserLocation($id: ID!) {
-  deleteUserLocation(id: $id)
+    mutation deleteUserLocation($id: ID!, $action: SoftDeleteAction!) {
+  deleteUserLocation(id: $id, action: $action) {
+    id
+  }
 }
     `);
 

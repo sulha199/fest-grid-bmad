@@ -34,6 +34,8 @@ mutation updateUserLocation($id: ID!, $input: UpdateUserLocationInput!) {
   }
 }
 
-mutation deleteUserLocation($id: ID!) {
-  deleteUserLocation(id: $id)
+mutation deleteUserLocation($id: ID!, $action: SoftDeleteAction!) {
+  deleteUserLocation(id: $id, action: $action) {
+    id
+  }
 }

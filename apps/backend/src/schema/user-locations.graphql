@@ -38,5 +38,5 @@ extend type Query {
 extend type Mutation {
   createUserLocation(input: CreateUserLocationInput!): UserLocation!
   updateUserLocation(id: ID!, input: UpdateUserLocationInput!): UserLocation!
-  deleteUserLocation(id: ID!): Boolean!
+  deleteUserLocation(id: ID!, action: SoftDeleteAction!): UserLocation!
 }
