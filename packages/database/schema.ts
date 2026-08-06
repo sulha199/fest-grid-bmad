@@ -143,11 +143,14 @@ export const schedules = pgTable('schedules', {
   location: text('location'),
   // Kept as text to support free-form extracted data from posters (e.g., "$10-$20" or "Free before 9 PM")
   ticketPrice: text('ticket_price'),
-  locationDetails: jsonb('location_details'),
+  locationDetails: jsonb('location_details').$type<LocationDetails>(),
+  latitude: doublePrecision('latitude'),
+  longitude: doublePrecision('longitude'),
   ...timestamps,
 }, (t) => ({
   performersIdx: index('schedule_performers_idx').on(t.performers),
   locationIdx: index('schedule_location_idx').on(t.location),
+  coordinatesIdx: index('schedule_coordinates_idx').on(t.latitude, t.longitude),
 }));
 
 export const favorites = pgTable('favorites', {

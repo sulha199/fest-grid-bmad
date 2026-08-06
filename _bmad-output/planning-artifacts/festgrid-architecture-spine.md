@@ -54,6 +54,7 @@ This document defines the core architectural invariants for the FestDaily applic
     *   **enum (type, category):** `in`, `notIn`
     *   **ID (locationPreferenceId, socialMediaAccountProfileId):** `in`, `notIn`
     *   **date range (scheduleDateRange):** `overlaps` (value: `{ from: string; to: string }` ISO dates)
+    *   **Geo (scheduleCoordinates):** `withinRadius` (value: `{ locationPreferenceId: ID, radiusKm: number [1-50] }` | `{ latitude: Float, longitude: Float, radiusKm: number [1-50] }`)
 
 ---
 

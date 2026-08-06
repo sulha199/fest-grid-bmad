@@ -93,6 +93,27 @@ export function buildDrizzleWhere(
               && daterange(${from}::date, ${to}::date, '[]')
       )`;
     }
+    case "withinRadius": {
+      const { latitude, longitude, radiusKm } = value as { latitude: number; longitude: number; radiusKm: number };
+      const { latColumn, lngColumn } = column as { latColumn: PgColumn; lngColumn: PgColumn };
+      // Bounding-box pre-filter (uses the schedule_coordinates_idx btree index) + exact Haversine trim.
+      // 1 degree of latitude ≈ 111.32 km; longitude degree length shrinks with cos(latitude).
+      const latDelta = radiusKm / 111.32;
+      const lngDelta = radiusKm / (111.32 * Math.cos((latitude * Math.PI) / 180));
+      return and(
+        sql`${latColumn} BETWEEN ${latitude - latDelta} AND ${latitude + latDelta}`,
+        sql`${lngColumn} BETWEEN ${longitude - lngDelta} AND ${longitude + lngDelta}`,
+        sql`(
+          6371 * acos(
+            LEAST(1, GREATEST(-1,
+              cos(radians(${latitude})) * cos(radians(${latColumn})) *
+              cos(radians(${lngColumn}) - radians(${longitude})) +
+              sin(radians(${latitude})) * sin(radians(${latColumn}))
+            ))
+          )
+        ) <= ${radiusKm}`
+      );
+    }
     default:
       return undefined;
   }

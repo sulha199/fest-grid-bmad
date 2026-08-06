@@ -55,3 +55,9 @@ export function validateRadiusMeters(radius: number): void {
     throw new InvalidUserLocationInputError('Radius must be between 1000 and 50000 meters inclusive');
   }
 }
+
+export function validateRadiusKm(radiusKm: number): void {
+  if (typeof radiusKm !== 'number' || isNaN(radiusKm) || radiusKm < 1 || radiusKm > 50) {
+    throw new InvalidUserLocationInputError('radiusKm must be between 1 and 50 kilometers inclusive');
+  }
+}

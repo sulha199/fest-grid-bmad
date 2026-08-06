@@ -4,7 +4,7 @@ import { events, schedules, posts, users, favorites, calendarAdditions, userLoca
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere } from '@festgrid/graphql-select';
 import { requireAuth } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and, exists, isNull, desc } from 'drizzle-orm';
-import { QueryCondition } from '@festgrid/domain/query';
+import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { resolveLocation, getAddressPredictions } from '../lib/geolocation/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
@@ -248,10 +248,11 @@ export const resolvers: Resolvers = {
     health: () => true,
     previewLocation: async (_: any, { latitude, longitude }: any, context: any) => {
       requireAuth(context);
-      return await resolveLocation({
+      const resolved = await resolveLocation({
         kind: 'COORDINATES',
         coordinates: { latitude, longitude },
       });
+      return formatLocationDetails(resolved) as any;
     },
     addressAutocomplete: async (_: any, { input }: any, context: any) => {
       requireAuth(context);
@@ -294,6 +295,12 @@ export const resolvers: Resolvers = {
         return condition.field === 'isFavorited' && condition.operator === 'eq' && condition.value === true;
       };
 
+      const hasWithinRadiusCondition = (condition: QueryCondition | undefined): boolean => {
+        if (!condition) return false;
+        if ('conditions' in condition) return condition.conditions.some(hasWithinRadiusCondition);
+        return condition.operator === 'withinRadius';
+      };
+
       // Create field map for DSL
       // Check auth silently for filter correlations
       let userId: string | null = null;
@@ -302,6 +309,32 @@ export const resolvers: Resolvers = {
         userId = authUser.userId;
       } catch {
         // Not authenticated
+      }
+
+      if (hasWithinRadiusCondition(query as QueryCondition | undefined) && userId === null) {
+        requireAuth(context);
+      }
+
+      let resolvedQuery = query;
+      if (userId && hasWithinRadiusCondition(query as QueryCondition | undefined)) {
+        const locationRows = await db.select({
+          id: userLocations.id,
+          latitude: userLocations.latitude,
+          longitude: userLocations.longitude,
+        }).from(userLocations).where(eq(userLocations.userId, userId));
+        
+        const locationsById = new Map(locationRows.map(r => [r.id, { latitude: r.latitude, longitude: r.longitude }]));
+        try {
+          resolvedQuery = resolveWithinRadiusConditions(query as QueryCondition, locationsById) as any;
+        } catch (err) {
+          if (err instanceof UnknownLocationPreferenceError) {
+            throw new GraphQLError('Location not found', { extensions: { code: 'NOT_FOUND' } });
+          }
+          if (err instanceof InvalidUserLocationInputError) {
+            throw new GraphQLError((err as Error).message, { extensions: { code: 'BAD_REQUEST' } });
+          }
+          throw err;
+        }
       }
 
       // Create field map for DSL
@@ -316,6 +349,7 @@ export const resolvers: Resolvers = {
         postId: events.postId,
         performers: schedules.performers, // mapped to joined table
         scheduleLocation: schedules.location, // to support filtering by schedule location
+        scheduleCoordinates: { latColumn: schedules.latitude, lngColumn: schedules.longitude },
         scheduleDateRange: {
           table: schedules,
           eventIdCol: schedules.eventId,
@@ -343,7 +377,7 @@ export const resolvers: Resolvers = {
         ) : sql`false`
       };
 
-      const whereClause = buildDrizzleWhere(query as QueryCondition, fieldMap);
+      const whereClause = buildDrizzleWhere(resolvedQuery as QueryCondition, fieldMap);
       
       const qLimit = Math.min(limit ?? 1000, 1000);
       const qOffset = offset ?? 0;
