@@ -6,7 +6,7 @@ import { SwipeToReveal, useSoftDeleteWithUndo } from "@festgrid/ui"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
 import { useRouter } from "@/i18n/navigation"
 import { graphqlClient } from "@/lib/graphql-client"
-import { useGetMyLocationsQuery, useDeleteUserLocationMutation } from "@/generated/graphql"
+import { useGetMyLocationsQuery, useDeleteUserLocationMutation, SoftDeleteAction } from "@/generated/graphql"
 import { LocationFormDialog, UserLocation } from "./location-form-dialog"
 import { Plus, Edit2, Trash2 } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
@@ -37,7 +37,18 @@ export function LocationsContent() {
   )
 
   const { mutateAsync: deleteUserLocation } = useDeleteUserLocationMutation(graphqlClient)
-  const { isPending, markPending } = useSoftDeleteWithUndo()
+  const { isPending, markPending } = useSoftDeleteWithUndo<string>({
+    onExpire: (id) => {
+      // Splice from React Query cache immediately without refetch (AC11)
+      queryClient.setQueryData(["getMyLocations"], (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          myLocations: (old.myLocations || []).filter((loc: any) => loc.id !== id),
+        }
+      })
+    },
+  })
 
   const locations = (data?.myLocations || []) as UserLocation[]
 
@@ -51,32 +62,47 @@ export function LocationsContent() {
     setIsDropdownOpen(true)
   }
 
-  const handleDelete = (location: UserLocation) => {
-    markPending(
-      location.id,
-      async () => {
-        try {
-          await deleteUserLocation({ id: location.id })
-          
-          // Fire analytics event on actual deletion commit
-          const posthog = (window as any).posthog
-          if (posthog) {
-            posthog.capture("saved_location_deleted", {
-              locationId: location.id,
-            })
-          }
-          
-          // Invalidate cache
-          queryClient.invalidateQueries({ queryKey: ["getMyLocations"] })
-        } catch (err) {
-          console.error("Failed to commit deletion", err)
-        }
-      },
-      {
-        message: t("deleteButtonLabel") === "Hapus" ? "Lokasi dihapus" : "Location removed",
-        undoLabel: t("cancelButtonLabel") === "Batal" ? "Urungkan" : "Undo",
+  const handleDelete = async (location: UserLocation) => {
+    try {
+      // Call deleteUserLocation(DELETE) immediately (AC9)
+      await deleteUserLocation({
+        id: location.id,
+        action: SoftDeleteAction.Delete,
+      })
+
+      // Fire analytics event saved_location_deleted on immediate commit (AC9 / Task 6 revised)
+      const posthog = (window as any).posthog
+      if (posthog) {
+        posthog.capture("saved_location_deleted", {
+          locationId: location.id,
+        })
       }
-    )
+
+      // Then enter pending state with RESTORE callback (AC9, AC10)
+      markPending(
+        location.id,
+        async () => {
+          try {
+            await deleteUserLocation({
+              id: location.id,
+              action: SoftDeleteAction.Restore,
+            })
+          } catch (err) {
+            console.error("Failed to restore location", err)
+            throw err
+          }
+        },
+        {
+          message: t("deleteButtonLabel") === "Hapus" ? "Lokasi dihapus" : "Location removed",
+          undoLabel: t("cancelButtonLabel") === "Batal" ? "Urungkan" : "Undo",
+        }
+      )
+    } catch (err) {
+      console.error("Failed to delete location", err)
+      // AC11a: Failed DELETE call reverts optimistic grey-out and shows error toast
+      const { toast } = await import("sonner")
+      toast.error(t("locationSaveErrorAnnouncement") || "Failed to delete location")
+    }
   }
 
   if (authLoading || isLoading) {

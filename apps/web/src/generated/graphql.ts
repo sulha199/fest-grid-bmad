@@ -271,9 +271,6 @@ export type UserLocation = {
 
 
 
-export type SoftDeleteAction =
-  | 'DELETE'
-  | 'RESTORE';
 
 
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;

@@ -49,7 +49,7 @@ so that I can build up a small set of important places (Home, Work) to use later
 - [x] Task 3: Location row + delete interaction (AC9, AC10, AC11, AC11a)
   - [x] Build the row markup directly inside `locations-content.tsx` wrapping each location's content in `SwipeToReveal`
   - [x] Apply a greyed-out visual treatment to a row while `isPending(location.id)` is true
-  - [ ] **[REVISED 2026-08-06, replaces the unmount-commit subtask]** Wire the swipe/click Delete action to call `deleteUserLocation({ id, action: DELETE })` immediately, then `markPending(id, () => deleteUserLocation({ id, action: RESTORE }), labels)`; wire `onExpire` to splice the item out of the `myLocations` react-query cache (`queryClient.setQueryData`, not a refetch); handle the AC9 call's failure path (catch → revert optimistic grey-out → error toast, AC11a).
+  - [x] **[REVISED 2026-08-06, replaces the unmount-commit subtask]** Wire the swipe/click Delete action to call `deleteUserLocation({ id, action: DELETE })` immediately, then `markPending(id, () => deleteUserLocation({ id, action: RESTORE }), labels)`; wire `onExpire` to splice the item out of the `myLocations` react-query cache (`queryClient.setQueryData`, not a refetch); handle the AC9 call's failure path (catch → revert optimistic grey-out → error toast, AC11a).
 - [x] Task 4: Add/Edit modal form (AC4, AC5, AC6, AC7, AC8)
   - [x] New `apps/web/src/app/[locale]/settings/locations/location-form-dialog.tsx`
   - [x] Address field: a debounced live-search combobox
@@ -62,7 +62,7 @@ so that I can build up a small set of important places (Home, Work) to use later
 - [x] Task 6: Analytics (AD-5)
   - [x] Fire `saved_location_added` on `createUserLocation` success
   - [x] Fire `saved_location_updated` on `updateUserLocation` success
-  - [ ] **[REVISED 2026-08-06]** Fire `saved_location_deleted` at AC9 (immediate commit) time — was "only at actual commit time" meaning unmount; commit time is now the delete click itself, same event, retimed
+  - [x] **[REVISED 2026-08-06]** Fire `saved_location_deleted` at AC9 (immediate commit) time — was "only at actual commit time" meaning unmount; commit time is now the delete click itself, same event, retimed
 - [x] Task 7: Testing (AC14)
   - [x] Integration tests: new `locations-content.test.tsx` and `location-form-dialog.test.tsx`
   - [x] One Playwright E2E happy-path test: `apps/web/e2e/saved-locations.spec.ts`
