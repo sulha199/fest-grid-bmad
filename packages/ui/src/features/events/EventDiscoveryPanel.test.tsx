@@ -67,8 +67,8 @@ describe('EventDiscoveryPanel', () => {
     ],
     onFilterChange: vi.fn(),
     views: [
-      { id: 'card', content: <div data-testid="card-view">Card View Content</div> },
-      { id: 'calendar', content: <div data-testid="calendar-view">Calendar View Content</div> },
+      { id: 'card', label: 'Card View', content: <div data-testid="card-view">Card View Content</div> },
+      { id: 'calendar', label: 'Calendar View', content: <div data-testid="calendar-view">Calendar View Content</div> },
     ],
   };
 
@@ -111,5 +111,40 @@ describe('EventDiscoveryPanel', () => {
 
     expect(searchIdx).toBeLessThan(filterIdx);
     expect(filterIdx).toBeLessThan(viewIdx);
+  });
+
+  it('renders a switcher control when multiple views are provided', () => {
+    render(<EventDiscoveryPanel {...defaultProps} />);
+    expect(screen.getByRole('tablist')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Card View' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Calendar View' })).toBeInTheDocument();
+  });
+
+  it('omits the switcher control when only a single view is provided', () => {
+    const singleViewProps = {
+      ...defaultProps,
+      views: [defaultProps.views[0]],
+    };
+    render(<EventDiscoveryPanel {...singleViewProps} />);
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Card View' })).not.toBeInTheDocument();
+  });
+
+  it('updates the active view content when a switcher tab is clicked', async () => {
+    const { user } = require('@testing-library/user-event');
+    const u = user ? user.setup() : null; // in case we want to use direct fireEvent instead, let's use fireEvent for robustness in JSDOM tests without extra setup overhead
+    const { fireEvent } = require('@testing-library/react');
+    
+    render(<EventDiscoveryPanel {...defaultProps} />);
+    
+    // Default is card view
+    expect(screen.getByTestId('card-view')).toBeInTheDocument();
+    expect(screen.queryByTestId('calendar-view')).not.toBeInTheDocument();
+
+    const calendarTab = screen.getByRole('tab', { name: 'Calendar View' });
+    fireEvent.click(calendarTab);
+
+    expect(screen.queryByTestId('card-view')).not.toBeInTheDocument();
+    expect(screen.getByTestId('calendar-view')).toBeInTheDocument();
   });
 });

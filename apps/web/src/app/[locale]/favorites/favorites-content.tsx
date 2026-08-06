@@ -300,6 +300,7 @@ export function FavoritesContent() {
         views={[
           {
             id: "card",
+            label: "Card View",
             content: (
               <EventListView
                 status={listStatus}

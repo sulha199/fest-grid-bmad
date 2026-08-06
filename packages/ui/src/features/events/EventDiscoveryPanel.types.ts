@@ -2,6 +2,8 @@ import { ReactNode } from 'react';
 
 export interface EventDiscoveryPanelView {
   id: string;
+  label: string;       // new — switcher button text, pre-translated
+  icon?: ReactNode;     // new — optional switcher button icon
   content: ReactNode;
 }
 

@@ -46,12 +46,21 @@
   "DiscoveryPage": {
     "title": "Temukan Acara",
     "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",
-    "emptyState": "Tidak ada acara yang ditemukan.",
+    "emptyState": "Acara tidak ditemukan.",
     "searchEmptyState": "Tidak ada acara yang cocok dengan pencarian Anda.",
-    "priceFrom": "Mulai dari",
+    "priceFrom": "Mulai Dari",
     "loadingMore": "Memuat lebih banyak acara...",
     "searchPlaceholder": "Cari berdasarkan nama, pengisi acara, atau lokasi...",
-    "searchClearLabel": "Hapus pencarian"
+    "searchClearLabel": "Hapus pencarian",
+    "viewSwitcherCardLabel": "Tampilan Kartu",
+    "viewSwitcherCalendarLabel": "Tampilan Kalender",
+    "viewSwitcherAnnouncement": "Beralih ke {view}",
+    "calendarPrevWeekLabel": "Minggu sebelumnya",
+    "calendarNextWeekLabel": "Minggu berikutnya",
+    "calendarTodayLabel": "Hari Ini",
+    "calendarMoreLabel": "{count, plural, =1 {# acara lainnya} other {# acara lainnya}}",
+    "calendarErrorState": "Gagal memuat acara kalender.",
+    "calendarClosePopoverLabel": "Tutup popover"
   },
   "FavoritesPage": {
     "title": "Favorit Saya",

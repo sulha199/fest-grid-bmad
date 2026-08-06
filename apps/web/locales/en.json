@@ -51,7 +51,16 @@
     "priceFrom": "From",
     "loadingMore": "Loading more events...",
     "searchPlaceholder": "Search by name, performer, or location...",
-    "searchClearLabel": "Clear search"
+    "searchClearLabel": "Clear search",
+    "viewSwitcherCardLabel": "Card View",
+    "viewSwitcherCalendarLabel": "Calendar View",
+    "viewSwitcherAnnouncement": "Switched to {view}",
+    "calendarPrevWeekLabel": "Previous week",
+    "calendarNextWeekLabel": "Next week",
+    "calendarTodayLabel": "Today",
+    "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
+    "calendarErrorState": "Failed to load calendar events.",
+    "calendarClosePopoverLabel": "Close popover"
   },
   "FavoritesPage": {
     "title": "My Favorites",

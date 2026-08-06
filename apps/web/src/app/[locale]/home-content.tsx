@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query"
 import { EventListView, useInfiniteScroll, EventDiscoveryPanel } from "@festgrid/ui"
@@ -12,6 +12,8 @@ import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
+import { CalendarDays, LayoutGrid } from "lucide-react"
+import { CalendarView } from "@/features/events/CalendarView"
 import { buildEventsQueryCondition } from "@festgrid/domain/events"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { LoginContent } from "./login/login-content"
@@ -33,6 +35,7 @@ function buildEnumLabels(values: string[], translate: (key: string) => string) {
 
 export function HomeContent() {
   const t = useTranslations('DiscoveryPage')
+  const posthog = usePostHog()
   const tAuth = useTranslations('Auth')
   const { session, signOut } = useAuthSession()
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
@@ -40,6 +43,17 @@ export function HomeContent() {
   const [categories] = useQueryState('categories', parseAsArrayOf(parseAsString).withDefault([]))
   const queryClient = useQueryClient()
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+
+  const [view] = useQueryState('view', parseAsString.withDefault('card'))
+  const [liveMessage, setLiveMessage] = useState("")
+
+  useEffect(() => {
+    if (view) {
+      const viewLabel = view === 'calendar' ? t('viewSwitcherCalendarLabel') : t('viewSwitcherCardLabel')
+      setLiveMessage(t('viewSwitcherAnnouncement', { view: viewLabel }))
+      posthog.capture('view_switched', { view })
+    }
+  }, [view, t, posthog])
 
   const { mutate: toggleFavorite } = useToggleFavoriteMutation(graphqlClient, {
     onMutate: async (variables) => {
@@ -93,7 +107,6 @@ export function HomeContent() {
 
   const router = useRouter()
   const searchParams = useSearchParams()
-  const posthog = usePostHog()
 
   const filterLabels = useMemo(() => ({
     typeLabel: tFilterHub('typeLabel'),
@@ -203,6 +216,8 @@ export function HomeContent() {
         views={[
           {
             id: 'card',
+            label: t('viewSwitcherCardLabel'),
+            icon: <LayoutGrid className="w-4 h-4" />,
             content: (
               <EventListView
                 status={status === 'pending' ? 'loading' : status}
@@ -235,9 +250,19 @@ export function HomeContent() {
                 loadingMoreLabel={t('loadingMore')}
               />
             )
+          },
+          {
+            id: 'calendar',
+            label: t('viewSwitcherCalendarLabel'),
+            icon: <CalendarDays className="w-4 h-4" />,
+            content: <CalendarView q={q} types={types} categories={categories} />
           }
         ]}
       />
+
+      <div aria-live="polite" className="sr-only">
+        {liveMessage}
+      </div>
 
       <Dialog open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen}>
         <DialogContent className="sm:max-w-md p-0 overflow-hidden">
