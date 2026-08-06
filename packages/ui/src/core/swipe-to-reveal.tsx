@@ -46,6 +46,13 @@ export function SwipeToReveal({
   // Pointer event handlers
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (disabled) return;
+    
+    // Do not initiate swipe/drag if the pointer client is clicking an interactive child element (button, link, etc.)
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('[role="button"]')) {
+      return;
+    }
+
     // Only handle primary pointer (usually touch or left click)
     if (e.isPrimary) {
       measure(); // re-measure direction just in case
