@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Heart, CalendarPlus } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type {
   WeeklyCalendarViewProps,
@@ -174,6 +174,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     todayLabel: 'Today',
     closePopoverLabel: 'Close details',
     loadingText: 'Loading calendar view...',
+    favoritedBadgeLabel: 'Favorited',
+    addedToCalendarBadgeLabel: 'Added to calendar',
     ...labels,
   };
 
@@ -531,6 +533,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                   onScheduleClick={onScheduleClick}
                   onKeyDown={(e) => handleGridKeyDown(e, dayIdx, cardIdx)}
                   onFocus={() => setActiveCardCoords({ dayIdx, cardIdx })}
+                  favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
+                  addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
                 />
               ))}
 
@@ -585,6 +589,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                           handleClosePopover();
                           onScheduleClick(s);
                         }}
+                        favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
+                        addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
                       />
                     ))}
                   </div>
@@ -608,6 +614,8 @@ interface CalendarCardProps<TSchedule> {
   onScheduleClick: (schedule: TSchedule) => void;
   onKeyDown?: (e: React.KeyboardEvent) => void;
   onFocus?: () => void;
+  favoritedBadgeLabel?: string;
+  addedToCalendarBadgeLabel?: string;
 }
 
 /**
@@ -623,6 +631,8 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   onScheduleClick,
   onKeyDown,
   onFocus,
+  favoritedBadgeLabel,
+  addedToCalendarBadgeLabel,
 }: CalendarCardProps<TSchedule>) {
   const { schedule, isFirstSegment, isLastSegment } = segment;
 
@@ -713,7 +723,15 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
         onKeyDown={handleKeyDownLocal}
         aria-describedby={tooltipVisible ? `tooltip-${dayIdx}-${schedule.id}` : undefined}
       >
-        <span className={`${weightClass} truncate block`}>{schedule.eventName}</span>
+        <span className="flex items-center gap-1 w-full truncate text-left">
+          {schedule.isFavorited && (
+            <Heart className="w-3 h-3 text-rose-500 fill-rose-500 shrink-0 inline" aria-label={favoritedBadgeLabel || 'Favorited'} data-testid="heart-icon" />
+          )}
+          {schedule.isAddedToCalendar && (
+            <CalendarPlus className="w-3 h-3 text-emerald-600 shrink-0 inline" aria-label={addedToCalendarBadgeLabel || 'Added to calendar'} data-testid="calendar-plus-icon" />
+          )}
+          <span className={`${weightClass} truncate block`}>{schedule.eventName}</span>
+        </span>
       </button>
 
       {/* Hover+Focus accessible tooltip (AC7) */}

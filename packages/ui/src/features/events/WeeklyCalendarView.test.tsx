@@ -308,4 +308,69 @@ describe('WeeklyCalendarView', () => {
     expect(screen.getByText('Database disconnected')).toBeInTheDocument();
     expect(screen.getByText(/TCP connection timeout/)).toBeInTheDocument();
   });
+
+  it('renders badges for favorited and added-to-calendar states when set', () => {
+    const customizedSchedules = [
+      {
+        id: 'sched-fav',
+        eventSlug: 'music-fest',
+        eventName: 'Fav Event',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        isFavorited: true,
+      },
+      {
+        id: 'sched-added',
+        eventSlug: 'music-fest',
+        eventName: 'Added Event',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        isAddedToCalendar: true,
+      },
+      {
+        id: 'sched-both',
+        eventSlug: 'music-fest',
+        eventName: 'Both Event',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        isFavorited: true,
+        isAddedToCalendar: true,
+      },
+      {
+        id: 'sched-none',
+        eventSlug: 'music-fest',
+        eventName: 'None Event',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+      },
+    ];
+
+    render(
+      <WeeklyCalendarView
+        {...defaultProps}
+        schedules={customizedSchedules}
+        locale="en-US"
+      />
+    );
+
+    // Fav Event should have heart badge
+    const favCard = screen.getByText('Fav Event').closest('button');
+    expect(favCard?.querySelector('[data-testid="heart-icon"]')).toBeInTheDocument();
+    expect(favCard?.querySelector('[data-testid="calendar-plus-icon"]')).not.toBeInTheDocument();
+
+    // Added Event should have calendar plus badge
+    const addedCard = screen.getByText('Added Event').closest('button');
+    expect(addedCard?.querySelector('[data-testid="heart-icon"]')).not.toBeInTheDocument();
+    expect(addedCard?.querySelector('[data-testid="calendar-plus-icon"]')).toBeInTheDocument();
+
+    // Both Event should have both badges
+    const bothCard = screen.getByText('Both Event').closest('button');
+    expect(bothCard?.querySelector('[data-testid="heart-icon"]')).toBeInTheDocument();
+    expect(bothCard?.querySelector('[data-testid="calendar-plus-icon"]')).toBeInTheDocument();
+
+    // None Event should have neither badge
+    const noneCard = screen.getByText('None Event').closest('button');
+    expect(noneCard?.querySelector('[data-testid="heart-icon"]')).not.toBeInTheDocument();
+    expect(noneCard?.querySelector('[data-testid="calendar-plus-icon"]')).not.toBeInTheDocument();
+  });
 });

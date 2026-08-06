@@ -1,6 +1,6 @@
 import React from 'react';
 import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus } from 'lucide-react';
-import { EventDetailViewProps, ScheduleDetail } from './EventDetailView.types';
+import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from './EventDetailView.types';
 import { EventImage } from './EventImage';
 
 /**

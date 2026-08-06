@@ -1,5 +1,7 @@
 export * from './core/app-shell';
 export * from './core/multi-select';
+export * from './core/checkbox';
+export * from './core/checkbox.types';
 export * from './core/blocking-loader';
 export * from './core/soft-delete-toaster';
 export * from './core/swipe-to-reveal';

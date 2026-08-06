@@ -194,7 +194,7 @@ development_status:
   # by epic-2-readiness.md's "Anticipated Gate 2 note" and Stories 2.1/2.1b's own
   # Out-of-Scope notes). See 2.6's Architecture & UX Gate Findings for detail.
   2-6b-wire-the-add-to-calendar-trigger-dialog-and-ics-export: review
-  2-6-view-and-manage-events-on-a-calendar: ready-for-dev
+  2-6-view-and-manage-events-on-a-calendar: review
   2-6a-create-user-settings-table-and-settings-query-mutation-resolvers: review
   # regenerated 2026-08-06 via bmad-create-story: user broadened scope from
   # personal-lists-only to a global default across every event view, requested a

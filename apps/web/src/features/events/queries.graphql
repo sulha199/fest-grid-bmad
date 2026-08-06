@@ -116,3 +116,30 @@ query getEventsForCalendar($limit: Int, $offset: Int, $query: EventQueryConditio
     totalCount
   }
 }
+
+query getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
+  events(limit: $limit, offset: $offset, query: $query) {
+    items {
+      id
+      eventName
+      slug
+      imageUrl
+      location
+      types
+      categories
+      isFavorited
+      schedules {
+        id
+        isMainSchedule
+        eventStartDate
+        eventEndDate
+        eventStartTime
+        eventEndTime
+        ticketPrice
+        isAddedToCalendar
+      }
+    }
+    hasMore
+    totalCount
+  }
+}
