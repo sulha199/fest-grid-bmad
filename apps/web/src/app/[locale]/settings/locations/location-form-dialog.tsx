@@ -284,7 +284,7 @@ export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDi
 
   return (
     <>
-      <BlockingLoader isOpen={isSaving} label={t("savingAnnouncement")} />
+      <BlockingLoader active={isSaving} label={t("savingAnnouncement")} />
 
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="sm:max-w-md">

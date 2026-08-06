@@ -97,4 +97,4 @@ export function LocationRadiusFilter({
     </div>
   );
 }
-export * from "./LocationRadiusFilter.types.js";
+export * from "./LocationRadiusFilter.types";
