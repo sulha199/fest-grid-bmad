@@ -23,6 +23,10 @@ function formatLocationDetails(details: any): any {
 
 export const resolvers: Resolvers = {
   JSON: GraphQLJSON,
+  Coordinates: {
+    lat: (parent: any) => parent.lat ?? parent.latitude,
+    lng: (parent: any) => parent.lng ?? parent.longitude,
+  },
   Mutation: {
     createUserLocation: async (_: any, { input }: any, context: any) => {
       try {
@@ -207,6 +211,13 @@ export const resolvers: Resolvers = {
   },
   Query: {
     health: () => true,
+    previewLocation: async (_: any, { latitude, longitude }: any, context: any) => {
+      requireAuth(context);
+      return await resolveLocation({
+        kind: 'COORDINATES',
+        coordinates: { latitude, longitude },
+      });
+    },
     addressAutocomplete: async (_: any, { input }: any, context: any) => {
       requireAuth(context);
       return await getAddressPredictions(input);

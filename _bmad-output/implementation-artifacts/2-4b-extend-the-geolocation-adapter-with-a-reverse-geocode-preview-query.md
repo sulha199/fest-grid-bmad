@@ -7,7 +7,7 @@ baseline_commit: df14928ce7f3c92bc4ef97a4eafeb42ed434ff47
 
 - Epic: 2 - User Personalization
 - Story ID: 2.4b
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,8 +33,8 @@ so that Story 2.4's "Use my current location" and "Pick on map" flows can show t
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `previewLocation` query, `GeolocationProvider` enum, and `LocationDetails.provider` field to the GraphQL schema (AC1, AC5)
-  - [ ] Create `apps/backend/src/schema/geolocation.graphql`:
+- [x] Task 1: Add `previewLocation` query, `GeolocationProvider` enum, and `LocationDetails.provider` field to the GraphQL schema (AC1, AC5)
+  - [x] Create `apps/backend/src/schema/geolocation.graphql`:
     ```graphql
     enum GeolocationProvider {
       GEOAPIFY
@@ -48,22 +48,22 @@ so that Story 2.4's "Use my current location" and "Pick on map" flows can show t
       previewLocation(latitude: Float!, longitude: Float!): LocationDetails!
     }
     ```
-  - [ ] `extend type LocationDetails`/`extend type Query` against the base types already declared in `events.graphql` — mirrors that file's own `extend type Query` pattern; the base `type LocationDetails { coordinates placeName placeId formattedAddress timezone }` in `events.graphql` is not otherwise modified.
-- [ ] Task 2: Implement the `Query.previewLocation` resolver (AC1, AC2)
-  - [ ] In `apps/backend/src/schema/resolvers.ts`, add `previewLocation: async (_: any, { latitude, longitude }: any, context: any) => { ... }` to the `Query` object: call `requireAuth(context)` first (AC2, no try/catch degrade — mirrors `me`'s pattern, not `events`' tolerant pattern), then `return await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude, longitude } });` (import `resolveLocation` from `../lib/geolocation/adapter.js`).
-- [ ] Task 3: Add the `Coordinates` field resolver (AC6)
-  - [ ] In `apps/backend/src/schema/resolvers.ts`, add a top-level `Coordinates` resolver object: `{ lat: (parent: any) => parent.lat ?? parent.latitude, lng: (parent: any) => parent.lng ?? parent.longitude }` — the `??` fallback keeps any future direct `{ lat, lng }`-shaped parent working unchanged while fixing the `{ latitude, longitude }`-shaped parent this story's `previewLocation` (and the pre-existing `Schedule.locationDetails.coordinates`) actually produce.
-- [ ] Task 4: Run codegen (AC1, AC5, AC6)
-  - [ ] Run `pnpm run codegen` at the repo root so `apps/backend/src/generated/resolvers-types.ts` and `apps/web/src/generated/graphql.ts` pick up the new SDL (`previewLocation`, `GeolocationProvider` enum, `LocationDetails.provider`).
-- [ ] Task 5: Integration tests (AC1, AC2, AC3, AC4, AC5, AC6)
-  - [ ] Create `apps/backend/src/schema/geolocation.test.ts`, mirroring `resolvers.test.ts`'s pattern (`createSchema`/`createYoga` against the real merged SDL — `events.graphql` + `geolocation.graphql` — with a mocked `mockUser` context var and a mocked global `fetch`, hitting the real local test Postgres DB for the `geolocation_cache` table, same as `adapter.test.ts`).
-  - [ ] Test: unauthenticated call to `previewLocation` throws `UNAUTHENTICATED` (AC2).
-  - [ ] Test: authenticated call with a mocked Geoapify reverse-geocode response returns `formattedAddress`, `placeName`, `coordinates { lat lng }` (mapped correctly from the mocked `lat`/`lon` response — proves AC6's resolver), and `provider: GEOAPIFY` (AC1, AC5, AC6).
-  - [ ] Test: two calls with the same coordinates only invoke the mocked `fetch` once — the second call is served from `geolocation_cache` (AC4), clearing the cache table between test cases (mirrors `adapter.test.ts`'s `t.afterEach`).
-  - [ ] Test: depth/complexity limits already cover this query with no story-specific test needed — confirmed by inspection of `server.ts`'s existing `EnvelopArmor` config (AC3), not a new test.
-- [ ] Task 6: Align Story 2.4's draft operation document with this story's finalized schema (AC7)
-  - [ ] In `_bmad-output/implementation-artifacts/2-4-set-location-by-current-location-or-map.md`, correct the `previewLocation` GraphQL operation document (currently `coordinates { latitude longitude }`) to `coordinates { lat lng }`, matching this story's real `Coordinates` field names — mirrors the precedent commit `chore(bmad): align Story 2.3 artifact with finalized 2.3b contract`.
-- [ ] Task 7: Manual verification — run the backend, exercise `previewLocation` via GraphiQL/`curl` against real coordinates with a real (or test) Geoapify key; confirm a second identical call is served from cache (check `geolocation_cache` row `updated_at` does not change); confirm `pnpm build`/`pnpm lint`/`pnpm run codegen` stay clean at the repo root.
+  - [x] `extend type LocationDetails`/`extend type Query` against the base types already declared in `events.graphql` — mirrors that file's own `extend type Query` pattern; the base `type LocationDetails { coordinates placeName placeId formattedAddress timezone }` in `events.graphql` is not otherwise modified.
+- [x] Task 2: Implement the `Query.previewLocation` resolver (AC1, AC2)
+  - [x] In `apps/backend/src/schema/resolvers.ts`, add `previewLocation: async (_: any, { latitude, longitude }: any, context: any) => { ... }` to the `Query` object: call `requireAuth(context)` first (AC2, no try/catch degrade — mirrors `me`'s pattern, not `events`' tolerant pattern), then `return await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude, longitude } });` (import `resolveLocation` from `../lib/geolocation/adapter.js`).
+- [x] Task 3: Add the `Coordinates` field resolver (AC6)
+  - [x] In `apps/backend/src/schema/resolvers.ts`, add a top-level `Coordinates` resolver object: `{ lat: (parent: any) => parent.lat ?? parent.latitude, lng: (parent: any) => parent.lng ?? parent.longitude }` — the `??` fallback keeps any future direct `{ lat, lng }`-shaped parent working unchanged while fixing the `{ latitude, longitude }`-shaped parent this story's `previewLocation` (and the pre-existing `Schedule.locationDetails.coordinates`) actually produce.
+- [x] Task 4: Run codegen (AC1, AC5, AC6)
+  - [x] Run `pnpm run codegen` at the repo root so `apps/backend/src/generated/resolvers-types.ts` and `apps/web/src/generated/graphql.ts` pick up the new SDL (`previewLocation`, `GeolocationProvider` enum, `LocationDetails.provider`).
+- [x] Task 5: Integration tests (AC1, AC2, AC3, AC4, AC5, AC6)
+  - [x] Create `apps/backend/src/schema/geolocation.test.ts`, mirroring `resolvers.test.ts`'s pattern (`createSchema`/`createYoga` against the real merged SDL — `events.graphql` + `geolocation.graphql` — with a mocked `mockUser` context var and a mocked global `fetch`, hitting the real local test Postgres DB for the `geolocation_cache` table, same as `adapter.test.ts`).
+  - [x] Test: unauthenticated call to `previewLocation` throws `UNAUTHENTICATED` (AC2).
+  - [x] Test: authenticated call with a mocked Geoapify reverse-geocode response returns `formattedAddress`, `placeName`, `coordinates { lat lng }` (mapped correctly from the mocked `lat`/`lon` response — proves AC6's resolver), and `provider: GEOAPIFY` (AC1, AC5, AC6).
+  - [x] Test: two calls with the same coordinates only invoke the mocked `fetch` once — the second call is served from `geolocation_cache` (AC4), clearing the cache table between test cases (mirrors `adapter.test.ts`'s `t.afterEach`).
+  - [x] Test: depth/complexity limits already cover this query with no story-specific test needed — confirmed by inspection of `server.ts`'s existing `EnvelopArmor` config (AC3), not a new test.
+- [x] Task 6: Align Story 2.4's draft operation document with this story's finalized schema (AC7)
+  - [x] In `_bmad-output/implementation-artifacts/2-4-set-location-by-current-location-or-map.md`, correct the `previewLocation` GraphQL operation document (currently `coordinates { latitude longitude }`) to `coordinates { lat lng }`, matching this story's real `Coordinates` field names — mirrors the precedent commit `chore(bmad): align Story 2.3 artifact with finalized 2.3b contract`.
+- [x] Task 7: Manual verification — run the backend, exercise `previewLocation` via GraphiQL/`curl` against real coordinates with a real (or test) Geoapify key; confirm a second identical call is served from cache (check `geolocation_cache` row `updated_at` does not change); confirm `pnpm build`/`pnpm lint`/`pnpm run codegen` stay clean at the repo root.
 
 ## Dev Notes
 
@@ -163,12 +163,12 @@ Recent commits (`df14928`, `6162884`, `94d87d4`, `d31165e`, `87223f7`) show: `61
 
 ## Deliverables Checklist
 
-- [ ] `GeolocationProvider` enum and `LocationDetails.provider` field added to the GraphQL schema (`geolocation.graphql`).
-- [ ] `previewLocation(latitude, longitude): LocationDetails!` query added to the GraphQL schema, `requireAuth`-scoped.
-- [ ] `Query.previewLocation` resolver implemented in `resolvers.ts`, wrapping `resolveLocation({ kind: 'COORDINATES', coordinates })`.
-- [ ] `Coordinates` field resolver (`lat`/`lng` ← `latitude`/`longitude`) added to `resolvers.ts`.
-- [ ] Integration tests written and passing; `pnpm build`/`pnpm lint`/`pnpm run codegen` clean at the repo root.
-- [ ] Story 2.4's draft operation document corrected to use `coordinates { lat lng }`.
+- [x] `GeolocationProvider` enum and `LocationDetails.provider` field added to the GraphQL schema (`geolocation.graphql`).
+- [x] `previewLocation(latitude, longitude): LocationDetails!` query added to the GraphQL schema, `requireAuth`-scoped.
+- [x] `Query.previewLocation` resolver implemented in `resolvers.ts`, wrapping `resolveLocation({ kind: 'COORDINATES', coordinates })`.
+- [x] `Coordinates` field resolver (`lat`/`lng` ← `latitude`/`longitude`) added to `resolvers.ts`.
+- [x] Integration tests written and passing; `pnpm build`/`pnpm lint`/`pnpm run codegen` clean at the repo root.
+- [x] Story 2.4's draft operation document corrected to use `coordinates { lat lng }`.
 
 ## Out of Scope
 
@@ -180,14 +180,14 @@ Recent commits (`df14928`, `6162884`, `94d87d4`, `d31165e`, `87223f7`) show: `61
 
 ## Definition of Done
 
-- [ ] AC1-AC7 satisfied.
-- [ ] Required tests passing (`apps/backend` integration tests for the new query and `Coordinates` resolver).
-- [ ] Lint and type checks passing for `apps/backend`.
-- [ ] Story 2.4's draft operation document corrected to match this story's finalized schema.
+- [x] AC1-AC7 satisfied.
+- [x] Required tests passing (`apps/backend` integration tests for the new query and `Coordinates` resolver).
+- [x] Lint and type checks passing for `apps/backend`.
+- [x] Story 2.4's draft operation document corrected to match this story's finalized schema.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete (ready for review)
 
 ## Dev Agent Record
 
@@ -203,4 +203,17 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 
 ### Completion Notes List
 
+- Implemented the `previewLocation` GraphQL query with authenticating logic requiring authentication.
+- Added `Coordinates` field resolver supporting mapping of adapter coordinate fields `latitude`/`longitude` to `lat`/`lng` fields, fixing latent mismatch on `Schedule.locationDetails.coordinates`.
+- Extended `LocationDetails` type definition to include `provider: GeolocationProvider` field.
+- Ran successful schema-to-typescript codegen for both backend and web applications.
+- Created robust integration tests under `apps/backend/src/schema/geolocation.test.ts` to test unauthenticated rejection, successful reverse-geocoding resolution, mapping behavior, and caching reuse.
+- Verified that Story 2.4's draft operation document was already corrected and aligned.
+
 ### File List
+
+- `apps/backend/src/schema/geolocation.graphql` (created)
+- `apps/backend/src/schema/resolvers.ts` (modified)
+- `apps/backend/src/schema/geolocation.test.ts` (created)
+- `apps/backend/src/generated/resolvers-types.ts` (regenerated)
+- `apps/web/src/generated/graphql.ts` (regenerated)

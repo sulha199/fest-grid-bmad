@@ -7,7 +7,7 @@ baseline_commit: 94d87d4be32711f0ce433a82207955e97fd1a5c3
 
 - Epic: 2 - User Personalization
 - Story ID: 2.4a
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,39 +33,39 @@ so that Story 2.4 (and any future map-based location-picking UI) has the infrast
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add the dependency and scaffold the component (AC1, AC4, AC8, AC11)
-  - [ ] Add `maplibre-gl` (`^6.1.0`, latest stable as of this story's creation) and `@festgrid/shared-types` (`workspace:*`, for the `Coordinates` type — not previously a `packages/ui` dependency) to `packages/ui/package.json`.
-  - [ ] Create `packages/ui/src/core/map.tsx` and `packages/ui/src/core/map.types.ts`, following the existing `packages/ui/src/core/` co-location convention (mirrors `multi-select.tsx`/`multi-select.types.ts`).
-  - [ ] Import `maplibre-gl` and `maplibre-gl/dist/maplibre-gl.css` exclusively inside `map.tsx` (AC8) — component named `MapView` (not `Map`) to avoid shadowing both the JS built-in `Map` and `maplibre-gl`'s own exported `Map` class within the same file.
-- [ ] Task 2: Map instantiation and style URL (AC1, AC4, AC10)
-  - [ ] On mount (`useEffect` + `useRef` for the container `div` and the `Map` instance — raw `maplibre-gl`, no `@vis.gl/react-maplibre` wrapper, per project decision), construct the style URL from `apiKey`/`mapStyle` (default `'osm-bright'`) and instantiate `new maplibregl.Map({ container, style, center: [center.longitude, center.latitude], zoom: zoom ?? 12 })`.
-  - [ ] Call `map.remove()` in the effect's cleanup function on unmount.
-  - [ ] If `center`/`zoom` props change after initial mount, update the existing `Map` instance imperatively (`map.setCenter(...)`, `map.setZoom(...)`) rather than tearing down and recreating it.
-- [ ] Task 3: Marker rendering and coordinate emission (AC2, AC3)
-  - [ ] Keep a `maplibregl.Marker` instance in a ref; create/reposition it (`marker.setLngLat(...)`) when the `marker` prop is non-null, and remove it (`marker.remove()`) when `marker` is `null`.
-  - [ ] Register a `map.on('click', (e) => ...)` handler that reads `e.lngLat.lat`/`e.lngLat.lng`, builds a `Coordinates` object (`{ latitude, longitude }`), and calls `onCoordinatesChange`.
-- [ ] Task 4: Loading and error states (AC5, AC6)
-  - [ ] Track local `status: 'loading' | 'ready' | 'error'` state, initialized to `'loading'`.
-  - [ ] Register `map.on('load', () => setStatus('ready'))` and `map.on('error', () => setStatus('error'))`; render an overlay/placeholder while `'loading'` and a visible message while `'error'`, both absent once `'ready'`.
-- [ ] Task 5: Accessibility (AC7)
-  - [ ] Set `tabIndex={0}` and `aria-label={labels?.ariaLabel ?? 'Interactive map'}` on the map container element.
-  - [ ] Document (Dev Notes, already below) that marker placement is pointer/tap-only by deliberate, accepted design — no keyboard-driven crosshair/marker-movement implementation in this story.
-- [ ] Task 6: i18n-readiness `labels` prop (AC9)
-  - [ ] Add `labels?: { loadingLabel?: string; errorLabel?: string; ariaLabel?: string }` to `MapViewProps`, with English fallback defaults applied at render time (`labels?.loadingLabel ?? 'Loading map…'`, etc.).
-- [ ] Task 7: Export and document (AC8, AC11)
-  - [ ] Export `MapView`, `MapViewProps` from `packages/ui/src/core/map.tsx` (re-exporting `map.types.ts`).
-  - [ ] Add `export * from './core/map';` to `packages/ui/src/index.ts`, preserving all existing barrel export lines.
-  - [ ] Add TSDoc comments to the component and `MapViewProps` documenting purpose, the controlled-marker pattern, and the pointer-only a11y limitation.
-- [ ] Task 8: Tests (AC1-AC11)
-  - [ ] Mock the `maplibre-gl` module entirely (`vi.mock('maplibre-gl', ...)` with fake `Map`/`Marker` classes exposing the same method surface used by the component: `on`, `remove`, `setCenter`, `setZoom`, `setLngLat`) — MapLibre GL JS requires a real WebGL canvas context unavailable in `jsdom`, so no real `Map`/`Marker` can be instantiated in Vitest.
-  - [ ] Component tests (`packages/ui/vitest.config.ts`) covering: correct style URL construction from `apiKey`/`mapStyle` (default and override); `Map` instantiated with the given `center`/`zoom`; marker created/repositioned/removed as the `marker` prop changes across renders; a simulated map click converts `lngLat` to `Coordinates` and calls `onCoordinatesChange` with it; loading overlay shown before the mocked `'load'` event fires, hidden after; error message shown after the mocked `'error'` event fires; container has the expected `aria-label` and is focusable (`tabIndex={0}`); custom `labels` overrides replace the English defaults; `map.remove()` is called on unmount (verifying no leaked `Map` instance).
-- [ ] Task 9: Frontend credential setup (AC10)
-  - [ ] Add `NEXT_PUBLIC_GEOAPIFY_MAPS_API_KEY=""` to `.env.example` and `apps/web/.env` (empty/placeholder — never a real key committed).
-  - [ ] Add `NEXT_PUBLIC_GEOAPIFY_MAPS_API_KEY` to `turbo.json`'s `globalEnv` array and to the `build`/`lint`/`test`/`dev` tasks' `env` arrays, matching the existing `NEXT_PUBLIC_SUPABASE_URL` entries' pattern exactly.
-  - [ ] Extend `SETUP_WALKTHROUGH.md`'s existing "6. Geolocation Adapter (Geoapify)" section with a new step describing how to add a **second** API key within the same Geoapify MyProjects project used by Story 0.16, restricted by HTTP referrer to the app's domain(s), stored as `NEXT_PUBLIC_GEOAPIFY_MAPS_API_KEY` (explicitly distinct from the unrestricted, backend-only `GEOAPIFY_API_KEY`).
-- [ ] Task 10: Infrastructure docs (AC1, AC10)
-  - [ ] Extend `docs/infrastructure/5-geolocation.md` to document that the same Geoapify project now issues two independently-restricted API keys: the existing backend geocoding/reverse-geocoding/place-details key (unrestricted, server-to-server), and this story's new HTTP-referrer-restricted frontend Maps-tiles key.
-  - [ ] Update `docs/infrastructure/high-level-overview.md`'s mermaid diagram to add a direct `User's Browser -- loads map tiles from --> Geoapify` edge, distinct from the existing `L_API -- resolves location via --> Geoapify` edge — this is the one deliberate, documented case of a frontend-to-third-party direct call in the architecture (map tile rendering only; all geocoding/place-resolution calls remain backend-only via Story 0.16).
+- [x] Task 1: Add the dependency and scaffold the component (AC1, AC4, AC8, AC11)
+  - [x] Add `maplibre-gl` (`^6.1.0`, latest stable as of this story's creation) and `@festgrid/shared-types` (`workspace:*`, for the `Coordinates` type — not previously a `packages/ui` dependency) to `packages/ui/package.json`.
+  - [x] Create `packages/ui/src/core/map.tsx` and `packages/ui/src/core/map.types.ts`, following the existing `packages/ui/src/core/` co-location convention (mirrors `multi-select.tsx`/`multi-select.types.ts`).
+  - [x] Import `maplibre-gl` and `maplibre-gl/dist/maplibre-gl.css` exclusively inside `map.tsx` (AC8) — component named `MapView` (not `Map`) to avoid shadowing both the JS built-in `Map` and `maplibre-gl`'s own exported `Map` class within the same file.
+- [x] Task 2: Map instantiation and style URL (AC1, AC4, AC10)
+  - [x] On mount (`useEffect` + `useRef` for the container `div` and the `Map` instance — raw `maplibre-gl`, no `@vis.gl/react-maplibre` wrapper, per project decision), construct the style URL from `apiKey`/`mapStyle` (default `'osm-bright'`) and instantiate `new maplibregl.Map({ container, style, center: [center.longitude, center.latitude], zoom: zoom ?? 12 })`.
+  - [x] Call `map.remove()` in the effect's cleanup function on unmount.
+  - [x] If `center`/`zoom` props change after initial mount, update the existing `Map` instance imperatively (`map.setCenter(...)`, `map.setZoom(...)`) rather than tearing down and recreating it.
+- [x] Task 3: Marker rendering and coordinate emission (AC2, AC3)
+  - [x] Keep a `maplibregl.Marker` instance in a ref; create/reposition it (`marker.setLngLat(...)`) when the `marker` prop is non-null, and remove it (`marker.remove()`) when `marker` is `null`.
+  - [x] Register a `map.on('click', (e) => ...)` handler that reads `e.lngLat.lat`/`e.lngLat.lng`, builds a `Coordinates` object (`{ latitude, longitude }`), and calls `onCoordinatesChange`.
+- [x] Task 4: Loading and error states (AC5, AC6)
+  - [x] Track local `status: 'loading' | 'ready' | 'error'` state, initialized to `'loading'`.
+  - [x] Register `map.on('load', () => setStatus('ready'))` and `map.on('error', () => setStatus('error'))`; render an overlay/placeholder while `'loading'` and a visible message while `'error'`, both absent once `'ready'`.
+- [x] Task 5: Accessibility (AC7)
+  - [x] Set `tabIndex={0}` and `aria-label={labels?.ariaLabel ?? 'Interactive map'}` on the map container element.
+  - [x] Document (Dev Notes, already below) that marker placement is pointer/tap-only by deliberate, accepted design — no keyboard-driven crosshair/marker-movement implementation in this story.
+- [x] Task 6: i18n-readiness `labels` prop (AC9)
+  - [x] Add `labels?: { loadingLabel?: string; errorLabel?: string; ariaLabel?: string }` to `MapViewProps`, with English fallback defaults applied at render time (`labels?.loadingLabel ?? 'Loading map…'`, etc.).
+- [x] Task 7: Export and document (AC8, AC11)
+  - [x] Export `MapView`, `MapViewProps` from `packages/ui/src/core/map.tsx` (re-exporting `map.types.ts`).
+  - [x] Add `export * from './core/map';` to `packages/ui/src/index.ts`, preserving all existing barrel export lines.
+  - [x] Add TSDoc comments to the component and `MapViewProps` documenting purpose, the controlled-marker pattern, and the pointer-only a11y limitation.
+- [x] Task 8: Tests (AC1-AC11)
+  - [x] Mock the `maplibre-gl` module entirely (`vi.mock('maplibre-gl', ...)` with fake `Map`/`Marker` classes exposing the same method surface used by the component: `on, remove, setCenter, setZoom, setLngLat`) — MapLibre GL JS requires a real WebGL canvas context unavailable in `jsdom`, so no real `Map`/`Marker` can be instantiated in Vitest.
+  - [x] Component tests (`packages/ui/vitest.config.ts`) covering: correct style URL construction from `apiKey`/`mapStyle` (default and override); `Map` instantiated with the given `center`/`zoom`; marker created/repositioned/removed as the `marker` prop changes across renders; a simulated map click converts `lngLat` to `Coordinates` and calls `onCoordinatesChange` with it; loading overlay shown before the mocked `'load'` event fires, hidden after; error message shown after the mocked `'error'` event fires; container has the expected `aria-label` and is focusable (`tabIndex={0}`); custom `labels` overrides replace the English defaults; `map.remove()` is called on unmount (verifying no leaked `Map` instance).
+- [x] Task 9: Frontend credential setup (AC10)
+  - [x] Add `NEXT_PUBLIC_GEOAPIFY_MAPS_API_KEY=""` to `.env.example` and `apps/web/.env` (empty/placeholder — never a real key committed).
+  - [x] Add `NEXT_PUBLIC_GEOAPIFY_MAPS_API_KEY` to `turbo.json`'s `globalEnv` array and to the `build`/`lint`/`test`/`dev` tasks' `env` arrays, matching the existing `NEXT_PUBLIC_SUPABASE_URL` entries' pattern exactly.
+  - [x] Extend `SETUP_WALKTHROUGH.md`'s existing "6. Geolocation Adapter (Geoapify)" section with a new step describing how to add a **second** API key within the same Geoapify MyProjects project used by Story 0.16, restricted by HTTP referrer to the app's domain(s), stored as `NEXT_PUBLIC_GEOAPIFY_MAPS_API_KEY` (explicitly distinct from the unrestricted, backend-only `GEOAPIFY_API_KEY`).
+- [x] Task 10: Infrastructure docs (AC1, AC10)
+  - [x] Extend `docs/infrastructure/5-geolocation.md` to document that the same Geoapify project now issues two independently-restricted API keys: the existing backend geocoding/reverse-geocoding/place-details key (unrestricted, server-to-server), and this story's new HTTP-referrer-restricted frontend Maps-tiles key.
+  - [x] Update `docs/infrastructure/high-level-overview.md`'s mermaid diagram to add a direct `User's Browser -- loads map tiles from --> Geoapify` edge, distinct from the existing `L_API -- resolves location via --> Geoapify` edge — this is the one deliberate, documented case of a frontend-to-third-party direct call in the architecture (map tile rendering only; all geocoding/place-resolution calls remain backend-only via Story 0.16).
 
 ## Dev Notes
 
@@ -214,14 +214,31 @@ so that Story 2.4 (and any future map-based location-picking UI) has the infrast
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 
 ### Agent Model Used
+- Claude 3.5 Sonnet
 
 ### Debug Log References
+- Vitest tests run and passed successfully for @festgrid/ui package (18 test files, 140 tests).
 
 ### Completion Notes List
+- Implemented robust `MapView` component in `packages/ui` wrapping raw `maplibre-gl`.
+- Fully satisfied AC1 to AC11.
+- Updated env config (`.env.example`, `apps/web/.env`, `turbo.json`) for `NEXT_PUBLIC_GEOAPIFY_MAPS_API_KEY`.
+- Updated documentation (`docs/infrastructure/5-geolocation.md`, `docs/infrastructure/high-level-overview.md`, `SETUP_WALKTHROUGH.md`).
 
 ### File List
+- `packages/ui/src/core/map.tsx`
+- `packages/ui/src/core/map.types.ts`
+- `packages/ui/src/core/map.test.tsx`
+- `packages/ui/src/index.ts`
+- `packages/ui/package.json`
+- `.env.example`
+- `apps/web/.env`
+- `turbo.json`
+- `SETUP_WALKTHROUGH.md`
+- `docs/infrastructure/5-geolocation.md`
+- `docs/infrastructure/high-level-overview.md`

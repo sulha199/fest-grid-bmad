@@ -110,12 +110,17 @@ export enum EventType {
   Workshop = 'WORKSHOP'
 }
 
+export enum GeolocationProvider {
+  Geoapify = 'GEOAPIFY'
+}
+
 export type LocationDetails = {
   __typename?: 'LocationDetails';
   coordinates: Coordinates;
   formattedAddress?: Maybe<Scalars['String']['output']>;
   placeId?: Maybe<Scalars['String']['output']>;
   placeName?: Maybe<Scalars['String']['output']>;
+  provider?: Maybe<GeolocationProvider>;
   timezone?: Maybe<Scalars['String']['output']>;
 };
 
@@ -171,6 +176,7 @@ export type Query = {
   health: Scalars['Boolean']['output'];
   me: Me;
   myLocations: Array<UserLocation>;
+  previewLocation: LocationDetails;
 };
 
 
@@ -193,6 +199,12 @@ export type QueryEventsArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
+};
+
+
+export type QueryPreviewLocationArgs = {
+  latitude: Scalars['Float']['input'];
+  longitude: Scalars['Float']['input'];
 };
 
 export type Schedule = {
