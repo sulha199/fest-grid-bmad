@@ -5,7 +5,7 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, events, schedules, userLocations } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 
 // read the generated schema for the yoga server
@@ -644,6 +644,201 @@ test('events resolver integration via Yoga', async (t) => {
       assert.ok(ids.has(eventA.id), 'should find event A (near loc 1)');
       assert.ok(ids.has(eventB.id), 'should find event B (near loc 2)');
       assert.ok(!ids.has(eventC.id), 'should not find event C (far)');
+    });
+  });
+
+  await t.test('userSettings integration tests (Story 2.6a)', async (t) => {
+    let settingsTestUser: any;
+
+    t.beforeEach(async () => {
+      const email = `settings-user-${Math.random()}@example.com`;
+      const [u] = await db.insert(users).values({
+        email,
+        name: 'Settings Test User',
+        role: 'user'
+      }).returning();
+      settingsTestUser = u;
+    });
+
+    await t.test('mySettings - throws UNAUTHENTICATED error when not authenticated (AC4)', async () => {
+      mockUser = null;
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              mySettings {
+                id
+                hidePastEventsAfterDays
+                pushNotificationsEnabled
+              }
+            }
+          `
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(result.errors, 'Expected unauthenticated error');
+      assert.strictEqual(result.errors[0].extensions?.code, 'UNAUTHENTICATED');
+    });
+
+    await t.test('mySettings - transparently creates default settings row on first call (AC1, AC2)', async () => {
+      mockUser = { userId: settingsTestUser.id, role: settingsTestUser.role };
+
+      // Ensure no row exists beforehand
+      const preCount = await db.select().from(userSettings).where(eq(userSettings.userId, settingsTestUser.id));
+      assert.strictEqual(preCount.length, 0);
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              mySettings {
+                hidePastEventsAfterDays
+                pushNotificationsEnabled
+              }
+            }
+          `
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, 'GraphQL errors returned: ' + JSON.stringify(result.errors));
+      assert.strictEqual(result.data.mySettings.hidePastEventsAfterDays, 7);
+      assert.strictEqual(result.data.mySettings.pushNotificationsEnabled, true);
+
+      // Verify row exists in DB
+      const postCount = await db.select().from(userSettings).where(eq(userSettings.userId, settingsTestUser.id));
+      assert.strictEqual(postCount.length, 1);
+    });
+
+    await t.test('mySettings - is race-safe and does not duplicate insert (AC2)', async () => {
+      mockUser = { userId: settingsTestUser.id, role: settingsTestUser.role };
+
+      // Fire concurrent requests
+      const promises = Array.from({ length: 3 }).map(async () => {
+        const res = await yoga.fetch('http://yoga/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `
+              query {
+                mySettings {
+                  id
+                }
+              }
+            `
+          })
+        });
+        return (res as Response).json();
+      });
+
+      const results = await Promise.all(promises);
+      for (const res of results) {
+        assert.ok(!res.errors, 'Expected no error in concurrent calls');
+      }
+
+      // Assert only a single row exists in the database
+      const rows = await db.select().from(userSettings).where(eq(userSettings.userId, settingsTestUser.id));
+      assert.strictEqual(rows.length, 1);
+    });
+
+    await t.test('updateUserSettings - partially updates only provided fields (AC3)', async () => {
+      mockUser = { userId: settingsTestUser.id, role: settingsTestUser.role };
+
+      // 1. Update only pushNotificationsEnabled to false
+      const res1 = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation {
+              updateUserSettings(input: { pushNotificationsEnabled: false }) {
+                hidePastEventsAfterDays
+                pushNotificationsEnabled
+              }
+            }
+          `
+        })
+      });
+      const result1 = await res1.json();
+      assert.ok(!result1.errors, 'Mutation 1 failed');
+      assert.strictEqual(result1.data.updateUserSettings.pushNotificationsEnabled, false);
+      // hidePastEventsAfterDays should remain default (7)
+      assert.strictEqual(result1.data.updateUserSettings.hidePastEventsAfterDays, 7);
+
+      // 2. Update only hidePastEventsAfterDays to 14
+      const res2 = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation {
+              updateUserSettings(input: { hidePastEventsAfterDays: 14 }) {
+                hidePastEventsAfterDays
+                pushNotificationsEnabled
+              }
+            }
+          `
+        })
+      });
+      const result2 = await res2.json();
+      assert.ok(!result2.errors, 'Mutation 2 failed');
+      assert.strictEqual(result2.data.updateUserSettings.hidePastEventsAfterDays, 14);
+      // pushNotificationsEnabled should remain false from the previous mutation
+      assert.strictEqual(result2.data.updateUserSettings.pushNotificationsEnabled, false);
+    });
+
+    await t.test('updateUserSettings - returns BAD_REQUEST on out-of-bounds hidePastEventsAfterDays (AC5)', async () => {
+      mockUser = { userId: settingsTestUser.id, role: settingsTestUser.role };
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation {
+              updateUserSettings(input: { hidePastEventsAfterDays: 400 }) {
+                hidePastEventsAfterDays
+              }
+            }
+          `
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(result.errors, 'Expected validation error');
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_REQUEST');
+
+      // Verify DB row remains unchanged (or default/unset)
+      const rows = await db.select().from(userSettings).where(eq(userSettings.userId, settingsTestUser.id));
+      if (rows.length > 0) {
+        assert.notStrictEqual(rows[0].hidePastEventsAfterDays, 400);
+      }
+    });
+
+    await t.test('updateUserSettings - throws UNAUTHENTICATED error when not authenticated (AC4)', async () => {
+      mockUser = null;
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation {
+              updateUserSettings(input: { pushNotificationsEnabled: false }) {
+                id
+              }
+            }
+          `
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(result.errors, 'Expected unauthenticated error');
+      assert.strictEqual(result.errors[0].extensions?.code, 'UNAUTHENTICATED');
     });
   });
 });

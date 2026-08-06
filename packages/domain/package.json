@@ -29,6 +29,10 @@
     "./user-locations": {
       "types": "./dist/user-locations/index.d.ts",
       "default": "./dist/user-locations/index.js"
+    },
+    "./user-settings": {
+      "types": "./dist/user-settings/index.d.ts",
+      "default": "./dist/user-settings/index.js"
     }
   },
   "scripts": {
