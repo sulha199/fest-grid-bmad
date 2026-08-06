@@ -169,7 +169,7 @@ development_status:
   # AC12/AC13 added 2026-08-06 via bmad-correct-course: showZoomControl and
   # onViewStateChange props, needed by Story 2.4's map-picker-continuity amendment.
   # See sprint-change-proposal-2026-08-06-map-picker-continuity.md.
-  2-4a-set-up-frontend-map-integration-and-reusable-map-component: in-progress
+  2-4a-set-up-frontend-map-integration-and-reusable-map-component: review
   # drafted 2026-08-04 via bmad-create-story: Gate 1 gap surfaced during Story 2.4's
   # creation (see epics.md Story 2.4b note) — no query exposes reverse-geocoding as
   # a standalone read; Story 2.4's address-preview flow needs one. No dependency on

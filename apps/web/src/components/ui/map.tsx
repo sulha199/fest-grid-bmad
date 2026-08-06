@@ -26,6 +26,8 @@ export function MapView({
   mapStyle = 'osm-bright',
   labels,
   className = '',
+  showZoomControl = true,
+  onViewStateChange,
 }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -37,6 +39,11 @@ export function MapView({
   const loadingText = labels?.loadingLabel ?? 'Loading map…';
   const errorText = labels?.errorLabel ?? 'Unable to load the map.';
   const ariaText = labels?.ariaLabel ?? 'Interactive map';
+
+  const onViewStateChangeRef = useRef(onViewStateChange);
+  useEffect(() => {
+    onViewStateChangeRef.current = onViewStateChange;
+  }, [onViewStateChange]);
 
   // 1. Initialize map on mount or when API key/style changes
   useEffect(() => {
@@ -57,6 +64,10 @@ export function MapView({
 
       mapRef.current = map;
 
+      if (showZoomControl) {
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+      }
+
       map.on('load', () => {
         setStatus('ready');
         setMapLoaded(true);
@@ -74,6 +85,23 @@ export function MapView({
         });
       });
 
+      const report = (e: any) => {
+        if (e && e.programmatic) return;
+        if (onViewStateChangeRef.current) {
+          const mapCenter = map.getCenter();
+          onViewStateChangeRef.current({
+            center: {
+              latitude: mapCenter.lat,
+              longitude: mapCenter.lng,
+            },
+            zoom: map.getZoom(),
+          });
+        }
+      };
+
+      map.on('moveend', report);
+      map.on('zoomend', report);
+
       return () => {
         map.remove();
         mapRef.current = null;
@@ -87,21 +115,21 @@ export function MapView({
       console.error('Failed to initialize map:', err);
       setStatus('error');
     }
-  }, [apiKey, mapStyle]);
+  }, [apiKey, mapStyle, showZoomControl]);
 
   // 2. React to center and zoom changes imperatively
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    map.setCenter([center.longitude, center.latitude]);
+    map.setCenter([center.longitude, center.latitude], { programmatic: true });
   }, [center.latitude, center.longitude]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    map.setZoom(zoom);
+    map.setZoom(zoom, { programmatic: true });
   }, [zoom]);
 
   // 3. React to marker changes

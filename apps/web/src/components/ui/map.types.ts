@@ -23,4 +23,8 @@ export interface MapViewProps {
   labels?: MapViewLabels;
   /** Optional custom CSS classes for the map container */
   className?: string;
+  /** Whether to render zoom control buttons (default: true) */
+  showZoomControl?: boolean;
+  /** Callback called when the camera finishes moving or zooming */
+  onViewStateChange?: (state: { center: Coordinates; zoom: number }) => void;
 }
