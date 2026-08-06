@@ -1,5 +1,5 @@
 export type DSLOperator = "and" | "or";
-export type TerminalOperator = "eq" | "ne" | "contains" | "in" | "notIn" | "overlaps";
+export type TerminalOperator = "eq" | "ne" | "contains" | "in" | "notIn" | "overlaps" | "withinRadius";
 
 export interface TerminalCondition {
   field: string;

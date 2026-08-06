@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   resolveLocationInputMode,
   validateRadiusMeters,
+  validateRadiusKm,
   InvalidUserLocationInputError,
 } from './validateLocationInput.js';
 
@@ -82,6 +84,39 @@ test('validateLocationInput domain logic', async (t) => {
     // NaN or non-number values
     assert.throws(
       () => validateRadiusMeters(NaN),
+      (err: any) => err instanceof InvalidUserLocationInputError
+    );
+  });
+
+  await t.test('validateRadiusKm validation', () => {
+    // Valid boundaries
+    assert.doesNotThrow(() => validateRadiusKm(1));
+    assert.doesNotThrow(() => validateRadiusKm(50));
+    assert.doesNotThrow(() => validateRadiusKm(25));
+
+    // Invalid below 1
+    assert.throws(
+      () => validateRadiusKm(0),
+      (err: any) => err instanceof InvalidUserLocationInputError && err.message.includes('radiusKm must be between 1 and 50 kilometers')
+    );
+    assert.throws(
+      () => validateRadiusKm(-5),
+      (err: any) => err instanceof InvalidUserLocationInputError
+    );
+
+    // Invalid above 50
+    assert.throws(
+      () => validateRadiusKm(51),
+      (err: any) => err instanceof InvalidUserLocationInputError && err.message.includes('radiusKm must be between 1 and 50 kilometers')
+    );
+
+    // NaN or non-number values
+    assert.throws(
+      () => validateRadiusKm(NaN),
+      (err: any) => err instanceof InvalidUserLocationInputError
+    );
+    assert.throws(
+      () => validateRadiusKm('25' as any),
       (err: any) => err instanceof InvalidUserLocationInputError
     );
   });

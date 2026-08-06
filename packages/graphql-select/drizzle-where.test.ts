@@ -2,7 +2,7 @@ import test from 'node:test';
 import * as assert from 'node:assert';
 import { buildDrizzleWhere } from './drizzle-where.js';
 import { QueryCondition } from '@festgrid/domain/query';
-import { pgTable, text, uuid, date } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, date, doublePrecision } from 'drizzle-orm/pg-core';
 
 const testTable = pgTable('test_table', {
   id: uuid('id'),
@@ -14,6 +14,8 @@ const scheduleTestTable = pgTable('schedule_test_table', {
   eventId: uuid('event_id'),
   eventStartDate: date('event_start_date'),
   eventEndDate: date('event_end_date'),
+  latitude: doublePrecision('latitude'),
+  longitude: doublePrecision('longitude'),
 });
 
 const fieldMap = {
@@ -26,6 +28,10 @@ const fieldMap = {
     correlateCol: testTable.id,
     startCol: scheduleTestTable.eventStartDate,
     endCol: scheduleTestTable.eventEndDate,
+  },
+  scheduleCoordinates: {
+    latColumn: scheduleTestTable.latitude,
+    lngColumn: scheduleTestTable.longitude,
   },
 };
 
@@ -214,6 +220,16 @@ test('buildDrizzleWhere', async (t) => {
       field: 'scheduleDateRange',
       operator: 'overlaps',
       value: { from: '2026-08-01', to: '2026-08-07' }
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.ok(res !== undefined);
+  });
+
+  await t.test('handles withinRadius operator on scheduleCoordinates field', () => {
+    const condition: QueryCondition = {
+      field: 'scheduleCoordinates',
+      operator: 'withinRadius',
+      value: { latitude: -6.2088, longitude: 106.8456, radiusKm: 10 }
     };
     const res = buildDrizzleWhere(condition, fieldMap);
     assert.ok(res !== undefined);
