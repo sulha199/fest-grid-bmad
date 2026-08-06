@@ -127,21 +127,39 @@ The database schemas are managed code-first using Drizzle ORM in the `packages/d
 
 ## 4. Push Notifications (Firebase Cloud Messaging)
 
-FCM is used for sending push notifications.
+FCM is used for sending and receiving push notifications securely. It integrates the Firebase Admin SDK on the backend and the Firebase JS client SDK on the web app.
 
 ### Setup Steps
 
-1.  **Create a Firebase project:**
+1. **Create a Firebase project:**
+   * Go to the [Firebase Console](https://console.firebase.google.com/) and create a new project.
 
-    *   Go to the [Firebase Console](https://console.firebase.google.com/) and create a new project.
+2. **Generate Backend Service Account Credentials (Firebase Admin):**
+   * Go to **Project Settings** -> **Service Accounts**.
+   * Click **Generate new private key**. This downloads a JSON file containing your service account credentials.
+   * Map these values to your backend environment variables in `.env`:
+     * `FIREBASE_PROJECT_ID`: The `project_id` from the downloaded JSON.
+     * `FIREBASE_CLIENT_EMAIL`: The `client_email` from the downloaded JSON.
+     * `FIREBASE_PRIVATE_KEY`: The `private_key` from the downloaded JSON. (Make sure newlines are formatted or escaped correctly; the backend code handles unescaping single-line PEM keys).
 
-2.  **Get API Key:**
+3. **Get Frontend Client Configuration (Firebase JS SDK):**
+   * Go to **Project Settings** -> **General**.
+   * Under **Your apps**, click the web icon (`</>`) to register a new Web App.
+   * Copy the configuration object and map the values to these variables in `.env`:
+     * `NEXT_PUBLIC_FIREBASE_API_KEY`
+     * `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+     * `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+     * `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+     * `NEXT_PUBLIC_FIREBASE_APP_ID`
 
-    *   In your Firebase project settings, find your Server key.
+4. **Generate Web Push Certificate Key (VAPID Key):**
+   * Go to **Project Settings** -> **Cloud Messaging**.
+   * Under the **Web configuration** tab, find **Web Push certificates** and click **Generate key pair**.
+   * Copy the generated key pair string and set it as:
+     * `NEXT_PUBLIC_FIREBASE_VAPID_KEY`
 
-3.  **Integrate with Backend:**
-
-    *   Use an FCM library for Node.js (e.g., `fcm-node`) in your AWS Lambda functions to send notifications using the API key.
+5. **Client Registration and Permission:**
+   * The client registers a service worker (`/firebase-messaging-sw.js`) and requests user permission to receive notifications. Upon permission approval, the client SDK retrieves a unique registration token that can be mapped and saved for push delivery.
 
 ## 5. Analytics (PostHog)
 
