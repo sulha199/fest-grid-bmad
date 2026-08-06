@@ -1,4 +1,9 @@
 import { expect, test, vi } from 'vitest';
+
+// Define dummy Supabase env vars for the test environment to prevent getSupabaseBrowserClient crash
+process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://dummy.supabase.co';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'dummy-key';
+
 import { generateMetadata } from './layout';
 
 vi.mock('next/font/google', () => ({

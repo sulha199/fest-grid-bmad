@@ -265,6 +265,7 @@ export type UserLocation = {
 
 
 
+
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -349,6 +350,14 @@ export type AddressAutocompleteQueryVariables = Exact<{
 
 
 export type AddressAutocompleteQuery = { addressAutocomplete: Array<{ placeId: string, description: string }> };
+
+export type PreviewLocationQueryVariables = Exact<{
+  latitude: number;
+  longitude: number;
+}>;
+
+
+export type PreviewLocationQuery = { previewLocation: { formattedAddress: string | null, placeName: string | null, provider: GeolocationProvider | null, coordinates: { lat: number, lng: number } } };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -800,6 +809,38 @@ export const useAddressAutocompleteQuery = <
       {
     queryKey: ['addressAutocomplete', variables],
     queryFn: fetcher<AddressAutocompleteQuery, AddressAutocompleteQueryVariables>(client, AddressAutocompleteDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const PreviewLocationDocument = new TypedDocumentString(`
+    query previewLocation($latitude: Float!, $longitude: Float!) {
+  previewLocation(latitude: $latitude, longitude: $longitude) {
+    formattedAddress
+    placeName
+    coordinates {
+      lat
+      lng
+    }
+    provider
+  }
+}
+    `);
+
+export const usePreviewLocationQuery = <
+      TData = PreviewLocationQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: PreviewLocationQueryVariables,
+      options?: Omit<UseQueryOptions<PreviewLocationQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<PreviewLocationQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<PreviewLocationQuery, TError, TData>(
+      {
+    queryKey: ['previewLocation', variables],
+    queryFn: fetcher<PreviewLocationQuery, PreviewLocationQueryVariables>(client, PreviewLocationDocument, variables, headers),
     ...options
   }
     )};

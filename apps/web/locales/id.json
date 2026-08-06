@@ -140,6 +140,17 @@
     "deleteButtonLabel": "Hapus",
     "savingAnnouncement": "Menyimpan lokasi...",
     "locationSavedAnnouncement": "Lokasi berhasil disimpan",
-    "locationSaveErrorAnnouncement": "Gagal menyimpan lokasi. Silakan coba lagi."
+    "locationSaveErrorAnnouncement": "Gagal menyimpan lokasi. Silakan coba lagi.",
+    "useCurrentLocationLabel": "Gunakan lokasi saya saat ini",
+    "pickOnMapLabel": "Pilih di peta",
+    "geolocationPermissionDeniedError": "Izin untuk mengakses lokasi ditolak.",
+    "geolocationTimeoutError": "Permintaan lokasi melampaui batas waktu setelah 10 detik.",
+    "geolocationUnavailableError": "Browser Anda tidak mendukung atau tidak dapat mengakses geolokasi.",
+    "resolvingAddressLabel": "mencari alamat...",
+    "addressPreviewErrorFallback": "Lokasi saat ini ({lat}, {lng})",
+    "mapSheetTitle": "Pilih lokasi di peta",
+    "mapConfirmLabel": "Konfirmasi lokasi",
+    "mapCancelLabel": "Batal",
+    "mapErrorLabel": "Gagal memuat peta."
   }
 }

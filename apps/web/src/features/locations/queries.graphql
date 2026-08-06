@@ -22,3 +22,15 @@ query addressAutocomplete($input: String!) {
     description
   }
 }
+
+query previewLocation($latitude: Float!, $longitude: Float!) {
+  previewLocation(latitude: $latitude, longitude: $longitude) {
+    formattedAddress
+    placeName
+    coordinates {
+      lat
+      lng
+    }
+    provider
+  }
+}

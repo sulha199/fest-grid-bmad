@@ -138,6 +138,9 @@ importers:
       lucide-react:
         specifier: ^1.25.0
         version: 1.25.0(react@19.2.7)
+      maplibre-gl:
+        specifier: ^6.1.0
+        version: 6.1.0
       next:
         specifier: ^15.1.3
         version: 15.5.20(@babel/core@7.29.7)(@playwright/test@1.62.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
