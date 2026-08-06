@@ -177,7 +177,7 @@ development_status:
   # AC8/AC9 added 2026-08-06 via bmad-correct-course: previewLocation now also accepts
   # a placeId as an alternative to latitude/longitude. See
   # sprint-change-proposal-2026-08-06-map-picker-continuity.md.
-  2-4b-extend-the-geolocation-adapter-with-a-reverse-geocode-preview-query: in-progress
+  2-4b-extend-the-geolocation-adapter-with-a-reverse-geocode-preview-query: review
   # regenerated 2026-08-05 via bmad-create-story: full context engine pass with two
   # user-confirmed design decisions (Haversine+scalar-column geo storage; full recursive
   # multi-locationPreferenceId DSL support). Gate 1/3 cited from swept epic-2-readiness.md

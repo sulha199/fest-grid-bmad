@@ -72,17 +72,17 @@ so that Story 2.4's "Use my current location" and "Pick on map" flows can show t
 
 **[NEW 2026-08-06 — Sprint Change Proposal, `sprint-change-proposal-2026-08-06-map-picker-continuity.md`]**
 
-- [ ] Task 8: Loosen `previewLocation`'s SDL to accept `placeId` as an alternative to `latitude`/`longitude` (AC8)
-  - [ ] In `apps/backend/src/schema/geolocation.graphql`, change `previewLocation(latitude: Float!, longitude: Float!): LocationDetails!` to `previewLocation(latitude: Float, longitude: Float, placeId: String): LocationDetails!`.
-- [ ] Task 9: Add mutual-exclusion validation and the `placeId` branch to the resolver (AC8, AC9)
-  - [ ] In `resolvers.ts`'s `previewLocation` resolver, after `requireAuth(context)`: if `placeId` is present together with `latitude`/`longitude`, or if none of `placeId`/`latitude`+`longitude` are present, throw `new GraphQLError('Exactly one of coordinates or placeId is required', { extensions: { code: 'BAD_REQUEST' } })` (mirrors `resolveLocationInputMode`'s error-shape precedent, kept as a small inline check local to this resolver rather than a `packages/domain` extraction — this two-branch check is resolver-specific wiring, not a portable business rule, the same reasoning already applied to Task 3's `Coordinates` field resolver and 2.4a's `LngLat`→`Coordinates` conversion).
-  - [ ] If `placeId` is present, call `resolveLocation({ kind: 'PLACE_ID', placeId })` instead of the existing `COORDINATES` branch.
-- [ ] Task 10: Run `pnpm run codegen` again so both `latitude`/`longitude` become optional and `placeId` appears in the generated `PreviewLocationQueryVariables` type on both `apps/backend` and `apps/web`.
-- [ ] Task 11: Extend integration tests (AC8, AC9)
-  - [ ] `placeId`-only call returns the mocked adapter's `LocationDetails` (asserting `resolveLocation` was called with `{ kind: 'PLACE_ID', placeId }`).
-  - [ ] `placeId` + `latitude`/`longitude` together → `BAD_REQUEST`.
-  - [ ] Neither `placeId` nor `latitude`/`longitude` → `BAD_REQUEST`.
-  - [ ] Existing `latitude`/`longitude`-only tests (Task 5) continue to pass unmodified — proving the loosened SDL is backward-compatible.
+- [x] Task 8: Loosen `previewLocation`'s SDL to accept `placeId` as an alternative to `latitude`/`longitude` (AC8)
+  - [x] In `apps/backend/src/schema/geolocation.graphql`, change `previewLocation(latitude: Float!, longitude: Float!): LocationDetails!` to `previewLocation(latitude: Float, longitude: Float, placeId: String): LocationDetails!`.
+- [x] Task 9: Add mutual-exclusion validation and the `placeId` branch to the resolver (AC8, AC9)
+  - [x] In `resolvers.ts`'s `previewLocation` resolver, after `requireAuth(context)`: if `placeId` is present together with `latitude`/`longitude`, or if none of `placeId`/`latitude`+`longitude` are present, throw `new GraphQLError('Exactly one of coordinates or placeId is required', { extensions: { code: 'BAD_REQUEST' } })` (mirrors `resolveLocationInputMode`'s error-shape precedent, kept as a small inline check local to this resolver rather than a `packages/domain` extraction — this two-branch check is resolver-specific wiring, not a portable business rule, the same reasoning already applied to Task 3's `Coordinates` field resolver and 2.4a's `LngLat`→`Coordinates` conversion).
+  - [x] If `placeId` is present, call `resolveLocation({ kind: 'PLACE_ID', placeId })` instead of the existing `COORDINATES` branch.
+- [x] Task 10: Run `pnpm run codegen` again so both `latitude`/`longitude` become optional and `placeId` appears in the generated `PreviewLocationQueryVariables` type on both `apps/backend` and `apps/web`.
+- [x] Task 11: Extend integration tests (AC8, AC9)
+  - [x] `placeId`-only call returns the mocked adapter's `LocationDetails` (asserting `resolveLocation` was called with `{ kind: 'PLACE_ID', placeId }`).
+  - [x] `placeId` + `latitude`/`longitude` together → `BAD_REQUEST`.
+  - [x] Neither `placeId` nor `latitude`/`longitude` → `BAD_REQUEST`.
+  - [x] Existing `latitude`/`longitude`-only tests (Task 5) continue to pass unmodified — proving the loosened SDL is backward-compatible.
 
 ## Dev Notes
 

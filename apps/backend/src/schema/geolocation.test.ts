@@ -29,6 +29,23 @@ const yoga = createYoga({
 
 // Setup mock fetch for Geolocation adapter
 const fetchMock = mock.method(globalThis, 'fetch', async (url: any) => {
+  const isPlaceDetails = String(url).includes('place-details');
+  if (isPlaceDetails) {
+    return {
+      ok: true,
+      json: async () => ({
+        features: [{
+          properties: {
+            lat: -6.2088,
+            lon: 106.8456,
+            formatted: 'Jakarta, Indonesia',
+            name: 'Jakarta',
+            timezone: { name: 'Asia/Jakarta' }
+          }
+        }]
+      })
+    };
+  }
   return {
     ok: true,
     json: async () => ({
@@ -73,8 +90,8 @@ test('geolocation resolvers integration', async (t) => {
     mockUser = { userId: 'user-123', role: 'USER' };
 
     // Let's clear any cache for these coordinates first
-    // cache key coordinates rounded to 5 decimal places: COORDINATES:-6.2088,106.8456
-    const testCacheKey = 'COORDINATES:-6.2088,106.8456';
+    // cache key coordinates rounded to 5 decimal places: reverse:-6.20880,106.84560
+    const testCacheKey = 'reverse:-6.20880,106.84560';
     await db.delete(geolocationCache).where(eq(geolocationCache.cacheKey, testCacheKey));
 
     const res = await yoga.fetch('http://yoga/graphql', {
@@ -131,5 +148,88 @@ test('geolocation resolvers integration', async (t) => {
     assert.ok(!result.errors, 'should not have errors');
     assert.strictEqual(result.data.previewLocation.formattedAddress, 'Jakarta, Indonesia');
     assert.strictEqual(fetchMock.mock.calls.length, 0, 'Should reuse cache and make 0 fetch calls');
+  });
+
+  await t.test('authenticated call with placeId only returns successfully', async () => {
+    mockUser = { userId: 'user-123', role: 'USER' };
+
+    // Let's clear cache first for the placeId
+    const testCacheKey = 'place:place-456';
+    await db.delete(geolocationCache).where(eq(geolocationCache.cacheKey, testCacheKey));
+
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            previewLocation(placeId: "place-456") {
+              formattedAddress
+              placeName
+              provider
+              coordinates {
+                lat
+                lng
+              }
+            }
+          }
+        `
+      })
+    });
+    const result = await res.json();
+    if (result.errors) {
+      console.error('PREVIEW PLACE_ID ERRORS:', JSON.stringify(result.errors, null, 2));
+    }
+    assert.ok(!result.errors, 'should not have errors');
+    const data = result.data.previewLocation;
+    assert.strictEqual(data.formattedAddress, 'Jakarta, Indonesia');
+    assert.strictEqual(data.provider, 'GEOAPIFY');
+    assert.strictEqual(data.coordinates.lat, -6.2088);
+    assert.strictEqual(data.coordinates.lng, 106.8456);
+    assert.strictEqual(fetchMock.mock.calls.length, 1, 'Should call Geoapify API once');
+  });
+
+  await t.test('call with coordinates AND placeId returns BAD_REQUEST', async () => {
+    mockUser = { userId: 'user-123', role: 'USER' };
+
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            previewLocation(latitude: -6.2088, longitude: 106.8456, placeId: "place-456") {
+              formattedAddress
+            }
+          }
+        `
+      })
+    });
+    const result = await res.json();
+    assert.ok(result.errors, 'should return error');
+    assert.strictEqual(result.errors[0].extensions?.code, 'BAD_REQUEST');
+    assert.strictEqual(result.errors[0].message, 'Exactly one of coordinates or placeId is required');
+  });
+
+  await t.test('call with neither coordinates nor placeId returns BAD_REQUEST', async () => {
+    mockUser = { userId: 'user-123', role: 'USER' };
+
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            previewLocation {
+              formattedAddress
+            }
+          }
+        `
+      })
+    });
+    const result = await res.json();
+    assert.ok(result.errors, 'should return error');
+    assert.strictEqual(result.errors[0].extensions?.code, 'BAD_REQUEST');
+    assert.strictEqual(result.errors[0].message, 'Exactly one of coordinates or placeId is required');
   });
 });

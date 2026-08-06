@@ -207,8 +207,9 @@ export type QueryEventsArgs = {
 
 
 export type QueryPreviewLocationArgs = {
-  latitude: Scalars['Float']['input'];
-  longitude: Scalars['Float']['input'];
+  latitude?: InputMaybe<Scalars['Float']['input']>;
+  longitude?: InputMaybe<Scalars['Float']['input']>;
+  placeId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Schedule = {
@@ -490,7 +491,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   me?: Resolver<ResolversTypes['Me'], ParentType, ContextType>;
   myLocations?: Resolver<Array<ResolversTypes['UserLocation']>, ParentType, ContextType>;
   mySettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType>;
-  previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, RequireFields<QueryPreviewLocationArgs, 'latitude' | 'longitude'>>;
+  previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
 }>;
 
 export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Schedule'] = ResolversParentTypes['Schedule']> = ResolversObject<{

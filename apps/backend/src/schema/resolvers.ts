@@ -295,12 +295,24 @@ export const resolvers: Resolvers = {
         updatedAt: settings.updatedAt.toISOString(),
       } as any;
     },
-    previewLocation: async (_: any, { latitude, longitude }: any, context: any) => {
+    previewLocation: async (_: any, { latitude, longitude, placeId }: any, context: any) => {
       requireAuth(context);
-      const resolved = await resolveLocation({
-        kind: 'COORDINATES',
-        coordinates: { latitude, longitude },
-      });
+
+      const hasCoords = (latitude !== undefined && latitude !== null) && (longitude !== undefined && longitude !== null);
+      const hasPlaceId = placeId !== undefined && placeId !== null;
+      const hasPartialCoords = (latitude !== undefined && latitude !== null) || (longitude !== undefined && longitude !== null);
+
+      if (hasPlaceId && hasPartialCoords) {
+        throw new GraphQLError('Exactly one of coordinates or placeId is required', { extensions: { code: 'BAD_REQUEST' } });
+      }
+      if (!hasPlaceId && !hasCoords) {
+        throw new GraphQLError('Exactly one of coordinates or placeId is required', { extensions: { code: 'BAD_REQUEST' } });
+      }
+
+      const resolved = hasPlaceId
+        ? await resolveLocation({ kind: 'PLACE_ID', placeId })
+        : await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude, longitude } });
+
       return formatLocationDetails(resolved) as any;
     },
     addressAutocomplete: async (_: any, { input }: any, context: any) => {
