@@ -164,5 +164,16 @@
     "unavailableLabel": "Couldn't detect your location — showing all events.",
     "locationsErrorLabel": "Couldn't load your saved locations.",
     "noSavedLocationsHint": "Save a location in My Locations to filter by a specific place."
+  },
+  "UserMenu": {
+    "profile": "Profile",
+    "locations": "Locations",
+    "subscriptions": "Subscribed Accounts",
+    "apiKeys": "API Keys",
+    "notifications": "Notifications",
+    "reports": "Reports",
+    "moderatorItems": "Moderator Items",
+    "logout": "Log Out",
+    "close": "Close"
   }
 }

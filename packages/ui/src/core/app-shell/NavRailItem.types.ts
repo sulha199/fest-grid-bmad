@@ -23,4 +23,5 @@ export type NavRailItemProps =
       className?: string;
       onActivate: () => void;
       ariaExpanded?: boolean;
+      buttonRef?: React.RefObject<HTMLButtonElement | null>;
     };

@@ -5,6 +5,7 @@ export interface UseNavRailItemInteractionProps {
   href?: string;
   currentPath?: string;
   onActivate?: () => void;
+  menuOpen?: boolean;
 }
 
 export interface UseNavRailItemInteractionResult {
