@@ -212,3 +212,5 @@ so that navigating to any route (or opening the event-detail modal) shows a cons
 - `apps/web/src/app/[locale]/settings/notifications/page.tsx`
 - `apps/web/src/app/[locale]/events/[slug]/page.tsx`
 - `apps/web/src/app/[locale]/@modal/(.)events/[slug]/page.tsx`
+- `apps/web/src/app/[locale]/loading.tsx`
+- `apps/web/src/app/[locale]/@modal/loading.tsx`
