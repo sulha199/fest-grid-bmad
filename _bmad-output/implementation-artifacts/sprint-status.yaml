@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-07T08:30:00Z
+last_updated: 2026-08-07T09:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -95,7 +95,7 @@ development_status:
   # system/developer-error template, and the reportSystemError mechanism itself
   # is cross-cutting (future stories will also want to alert on client failures).
   # See epics.md Story 0.23 note.
-  0-23-build-the-system-error-reporting-and-alerting-foundation: backlog
+  0-23-build-the-system-error-reporting-and-alerting-foundation: ready-for-dev
   # added 2026-08-07 via bmad-create-story Gate 3 (lightweight guard) finding while
   # drafting Story 3.1: design-artifacts/UX-wizard-page-run-1 specs a generic /wizard
   # page (EXPERIENCE.md status: final) with a confirmed second, cross-epic consumer
@@ -104,6 +104,13 @@ development_status:
   # to a code-defined wizard registry per user decision, for i18n/generateMetadata
   # compatibility. See epics.md Story 0.24 note.
   0-24-build-the-reusable-wizard-page-primitive: backlog
+  # added 2026-08-07 via bmad-create-story Gate 1 finding while drafting Story 0.23:
+  # no backend env var (not just 0.23's new SYSTEM_ERROR_ALERT_EMAIL) is wired into a
+  # deployed Lambda's environment config, since Story 0.14's L_API Lambda resource
+  # doesn't exist in IaC yet. User confirmed via AskUserQuestion to split this off
+  # rather than accept it as an implicit Story 0.14 forward dependency. See epics.md
+  # Story 0.25 note and Story 0.23's Architecture & UX Gate Findings.
+  0-25-wire-backend-environment-variables-into-the-deployed-api-lambda-s-iac-configuration: backlog
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
