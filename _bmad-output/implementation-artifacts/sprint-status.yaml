@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-07T13:30:00Z
+last_updated: 2026-08-07T14:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -110,7 +110,7 @@ development_status:
   # doesn't exist in IaC yet. User confirmed via AskUserQuestion to split this off
   # rather than accept it as an implicit Story 0.14 forward dependency. See epics.md
   # Story 0.25 note and Story 0.23's Architecture & UX Gate Findings.
-  0-25-wire-backend-environment-variables-into-the-deployed-api-lambda-s-iac-configuration: backlog
+  0-25-wire-backend-environment-variables-into-the-deployed-api-lambda-s-iac-configuration: ready-for-dev
   # added 2026-08-07 via bmad-correct-course: every route-page's Suspense boundary
   # (fallback-less since Story 1.9) needs a shared, on-brand loading fallback instead
   # of a blank flash, including the event-detail modal's bounded dialog content.
