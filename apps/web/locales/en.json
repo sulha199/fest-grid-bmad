@@ -13,7 +13,9 @@
     "locationsTitle": "My Locations | FestDaily",
     "locationsDescription": "Manage your saved locations on FestDaily.",
     "myCalendarTitle": "My Calendar | FestDaily",
-    "myCalendarDescription": "View and manage your custom calendar schedules on FestDaily."
+    "myCalendarDescription": "View and manage your custom calendar schedules on FestDaily.",
+    "notificationsTitle": "Notification Settings | FestDaily",
+    "notificationsDescription": "Manage your push notification settings on FestDaily."
   },
   "EventDetailsPage": {
     "next": "Next Event",
@@ -197,5 +199,15 @@
     "showAddedToCalendarLabel": "Show added to calendar",
     "favoritedBadgeLabel": "Favorited",
     "addedToCalendarBadgeLabel": "Added to calendar"
+  },
+  "NotificationsSettingsPage": {
+    "title": "Notification Settings",
+    "toggleLabel": "Enable push notifications",
+    "toggleDescription": "Receive notifications for new music festival events and announcements.",
+    "loadingText": "Loading notification settings...",
+    "errorState": "Failed to load notification settings. Please try again later.",
+    "retryButtonLabel": "Retry",
+    "permissionDeniedToast": "Please enable notification permissions in your browser settings to receive notifications on this device.",
+    "saveErrorToast": "Failed to update notification settings. Please try again."
   }
 }

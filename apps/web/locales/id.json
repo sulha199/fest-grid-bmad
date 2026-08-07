@@ -13,7 +13,9 @@
     "locationsTitle": "Lokasi Saya | FestDaily",
     "locationsDescription": "Kelola lokasi tersimpan Anda di FestDaily.",
     "myCalendarTitle": "Kalender Saya | FestDaily",
-    "myCalendarDescription": "Lihat dan kelola jadwal kalender kustom Anda di FestDaily."
+    "myCalendarDescription": "Lihat dan kelola jadwal kalender kustom Anda di FestDaily.",
+    "notificationsTitle": "Pengaturan Notifikasi | FestDaily",
+    "notificationsDescription": "Kelola pengaturan notifikasi push Anda di FestDaily."
   },
   "EventDetailsPage": {
     "next": "Acara Selanjutnya",
@@ -197,5 +199,15 @@
     "showAddedToCalendarLabel": "Tampilkan ditambahkan ke kalender",
     "favoritedBadgeLabel": "Difavoritkan",
     "addedToCalendarBadgeLabel": "Ditambahkan ke kalender"
+  },
+  "NotificationsSettingsPage": {
+    "title": "Pengaturan Notifikasi",
+    "toggleLabel": "Aktifkan notifikasi push",
+    "toggleDescription": "Terima notifikasi untuk acara festival musik dan pengumuman baru.",
+    "loadingText": "Memuat pengaturan notifikasi...",
+    "errorState": "Gagal memuat pengaturan notifikasi. Silakan coba lagi nanti.",
+    "retryButtonLabel": "Coba Lagi",
+    "permissionDeniedToast": "Silakan aktifkan izin notifikasi di pengaturan browser Anda untuk menerima notifikasi di perangkat ini.",
+    "saveErrorToast": "Gagal memperbarui pengaturan notifikasi. Silakan coba lagi."
   }
 }

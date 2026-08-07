@@ -30,4 +30,7 @@ content = "export type EventQueryConditionInput = { conditions?: InputMaybe<Arra
 content = content.replace(/export type CreateUserLocationInput = \{\r?\n\s+address\?\: string[\s\S]*?\};\r?\n/g, '');
 content = content.replace(/export type UpdateUserLocationInput = \{\r?\n\s+address\?\: string[\s\S]*?\};\r?\n/g, '');
 
+// Replace duplicate UpdateUserSettingsInput
+content = content.replace(/export type UpdateUserSettingsInput = \{\r?\n\s+hidePastEventsAfterDays\?\: number[\s\S]*?\};\r?\n/g, '');
+
 fs.writeFileSync(file, content);

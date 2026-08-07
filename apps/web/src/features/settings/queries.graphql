@@ -1,0 +1,9 @@
+query getMySettings {
+  mySettings {
+    id
+    hidePastEventsAfterDays
+    pushNotificationsEnabled
+    createdAt
+    updatedAt
+  }
+}
