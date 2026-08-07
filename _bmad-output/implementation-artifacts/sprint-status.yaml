@@ -228,7 +228,7 @@ development_status:
   2-10-service-worker-lifecycle-updates-and-database-self-healing: ready-for-dev
   epic-2-retrospective: optional
   epic-3: in-progress
-  3-1a-create-social-media-account-profiles-table: ready-for-dev
+  3-1a-create-social-media-account-profiles-table: done
   # regenerated 2026-08-07 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md; lightweight guard surfaced two real gaps the
   # sweep couldn't anticipate (both UI/design-artifact-shaped) -- split new Story 0.24

@@ -8,6 +8,7 @@ import {
   subscriptions,
   userLocations,
   users,
+  socialMediaAccountProfiles,
 } from './schema';
 import { loadDatabaseEnv } from './env';
 
@@ -57,10 +58,9 @@ const FIXTURE_USER_LOCATIONS = [
   },
 ];
 
-const FIXTURE_SUBSCRIPTIONS = [
+const FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES = [
   {
-    id: '20000000-0000-0000-0000-000000000001',
-    userId: FIXTURE_USERS[0].id,
+    id: '70000000-0000-0000-0000-000000000001',
     accountId: 'ig_jkt_events',
     platform: 'instagram',
     displayName: 'Jakarta City Events',
@@ -69,14 +69,28 @@ const FIXTURE_SUBSCRIPTIONS = [
     description: 'Curated arts and music events around Jakarta.',
   },
   {
-    id: '20000000-0000-0000-0000-000000000002',
-    userId: FIXTURE_USERS[1].id,
+    id: '70000000-0000-0000-0000-000000000002',
     accountId: 'ig_bdg_family',
     platform: 'instagram',
     displayName: 'Bandung Family Weekend',
     username: 'bdg.family.weekend',
     profileImageUrl: 'https://images.example.com/profiles/bdg-family-weekend.png',
     description: 'Family-friendly community activities and workshops.',
+  },
+];
+
+const FIXTURE_SUBSCRIPTIONS = [
+  {
+    id: '20000000-0000-0000-0000-000000000001',
+    userId: FIXTURE_USERS[0].id,
+    accountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[0].id,
+    isNewlyAdded: true,
+  },
+  {
+    id: '20000000-0000-0000-0000-000000000002',
+    userId: FIXTURE_USERS[1].id,
+    accountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[1].id,
+    isNewlyAdded: true,
   },
 ];
 
@@ -102,7 +116,7 @@ const FIXTURE_API_KEYS = [
 const FIXTURE_POSTS = [
   {
     id: '60000000-0000-0000-0000-000000000001',
-    subscriptionId: FIXTURE_SUBSCRIPTIONS[0].id,
+    accountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[0].id,
     postUrl: 'https://instagram.com/jktcity.events/p/C1PASTJAZZ',
     imageUrl: 'https://images.example.com/events/past-jazz-night.jpg',
     isExtracted: true,
@@ -111,7 +125,7 @@ const FIXTURE_POSTS = [
   },
   {
     id: '60000000-0000-0000-0000-000000000002',
-    subscriptionId: FIXTURE_SUBSCRIPTIONS[0].id,
+    accountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[0].id,
     postUrl: 'https://instagram.com/jktcity.events/p/C2ONGOING',
     imageUrl: 'https://images.example.com/events/ongoing-culture-fest.jpg',
     isExtracted: true,
@@ -120,7 +134,7 @@ const FIXTURE_POSTS = [
   },
   {
     id: '60000000-0000-0000-0000-000000000003',
-    subscriptionId: FIXTURE_SUBSCRIPTIONS[1].id,
+    accountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[1].id,
     postUrl: 'https://instagram.com/bdg.family.weekend/p/C3UPCOMING',
     imageUrl: 'https://images.example.com/events/upcoming-family-workshop.jpg',
     isExtracted: true,
@@ -140,7 +154,7 @@ const FIXTURE_EVENTS = [
     organizerName: 'Nusantara Sound Collective',
     contactInfo: 'https://instagram.com/jktcity.events/p/C1PASTJAZZ',
     confidenceScore: 0.96,
-    sourceSocialMediaAccountId: FIXTURE_SUBSCRIPTIONS[0].accountId,
+    sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[0].accountId,
     postId: FIXTURE_POSTS[0].id,
   },
   {
@@ -153,7 +167,7 @@ const FIXTURE_EVENTS = [
     organizerName: 'City Culture Office',
     contactInfo: 'https://instagram.com/jktcity.events/p/C2ONGOING',
     confidenceScore: 0.91,
-    sourceSocialMediaAccountId: FIXTURE_SUBSCRIPTIONS[0].accountId,
+    sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[0].accountId,
     postId: FIXTURE_POSTS[1].id,
   },
   {
@@ -166,7 +180,7 @@ const FIXTURE_EVENTS = [
     organizerName: 'Bandung Family Weekend',
     contactInfo: 'https://instagram.com/bdg.family.weekend/p/C3UPCOMING',
     confidenceScore: 0.93,
-    sourceSocialMediaAccountId: FIXTURE_SUBSCRIPTIONS[1].accountId,
+    sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[1].accountId,
     postId: FIXTURE_POSTS[2].id,
   },
 ];
@@ -237,6 +251,7 @@ const FIXTURE_SCHEDULES = [
 export const FIXTURE_COUNTS = {
   users: FIXTURE_USERS.length,
   userLocations: FIXTURE_USER_LOCATIONS.length,
+  socialMediaAccountProfiles: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES.length,
   subscriptions: FIXTURE_SUBSCRIPTIONS.length,
   apiKeys: FIXTURE_API_KEYS.length,
   posts: FIXTURE_POSTS.length,
@@ -246,6 +261,7 @@ export const FIXTURE_COUNTS = {
 
 export const FIXTURE_USER_IDS = FIXTURE_USERS.map((user) => user.id).sort();
 export const FIXTURE_USER_LOCATION_IDS = FIXTURE_USER_LOCATIONS.map((location) => location.id).sort();
+export const FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILE_IDS = FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES.map((profile) => profile.id).sort();
 export const FIXTURE_SUBSCRIPTION_IDS = FIXTURE_SUBSCRIPTIONS.map((subscription) => subscription.id).sort();
 export const FIXTURE_API_KEY_IDS = FIXTURE_API_KEYS.map((apiKey) => apiKey.id).sort();
 export const FIXTURE_POST_IDS = FIXTURE_POSTS.map((post) => post.id).sort();
@@ -298,11 +314,13 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
       await tx.delete(posts);
       await tx.delete(apiKeys);
       await tx.delete(subscriptions);
+      await tx.delete(socialMediaAccountProfiles);
       await tx.delete(userLocations);
       await tx.delete(users);
 
       await tx.insert(users).values([...FIXTURE_USERS]);
       await tx.insert(userLocations).values([...FIXTURE_USER_LOCATIONS]);
+      await tx.insert(socialMediaAccountProfiles).values([...FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES]);
       await tx.insert(subscriptions).values([...FIXTURE_SUBSCRIPTIONS]);
       await tx.insert(apiKeys).values([...FIXTURE_API_KEYS]);
       await tx.insert(posts).values([...FIXTURE_POSTS]);

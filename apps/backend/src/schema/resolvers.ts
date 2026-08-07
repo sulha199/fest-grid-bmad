@@ -1,6 +1,6 @@
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and, exists, desc } from 'drizzle-orm';
@@ -311,6 +311,28 @@ export const resolvers: Resolvers = {
   },
   Query: {
     health: () => true,
+    socialMediaAccountProfileByAccountId: async (_: any, { platform, accountId }: any, context: any, info: any) => {
+      const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: socialMediaAccountProfiles.id,
+      }).from(socialMediaAccountProfiles)
+        .where(
+          and(
+            eq(socialMediaAccountProfiles.platform, platform),
+            eq(socialMediaAccountProfiles.accountId, accountId)
+          )
+        );
+
+      const profile = rows[0];
+      if (!profile) return null;
+
+      if (profile.defaultLocation) {
+        profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
+      }
+
+      return profile as any;
+    },
     mySettings: async (_: any, __: any, context: any) => {
       const authUser = requireAuth(context);
       const settings = await getOrCreateUserSettings(authUser.userId);

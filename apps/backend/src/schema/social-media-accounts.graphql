@@ -1,0 +1,18 @@
+type SocialMediaAccountProfile {
+  id: ID!
+  accountId: String!
+  platform: String!
+  displayName: String!
+  username: String!
+  profileImageUrl: String
+  description: String
+  lastPostDate: String
+  defaultLocation: LocationDetails
+}
+
+extend type Query {
+  socialMediaAccountProfileByAccountId(
+    platform: String!
+    accountId: String!
+  ): SocialMediaAccountProfile
+}
