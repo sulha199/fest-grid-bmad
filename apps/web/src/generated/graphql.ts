@@ -197,6 +197,7 @@ export type Query = {
   myLocations: Array<UserLocation>;
   mySettings: UserSettings;
   previewLocation: LocationDetails;
+  socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
 };
 
 
@@ -228,6 +229,12 @@ export type QueryPreviewLocationArgs = {
   placeId?: InputMaybe<Scalars['String']['input']>;
 };
 
+
+export type QuerySocialMediaAccountProfileByAccountIdArgs = {
+  accountId: Scalars['String']['input'];
+  platform: Scalars['String']['input'];
+};
+
 export type Schedule = {
   __typename?: 'Schedule';
   createdAt: Scalars['String']['output'];
@@ -247,6 +254,19 @@ export type Schedule = {
   ticketUrl?: Maybe<Scalars['String']['output']>;
   timezone?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['String']['output'];
+};
+
+export type SocialMediaAccountProfile = {
+  __typename?: 'SocialMediaAccountProfile';
+  accountId: Scalars['String']['output'];
+  defaultLocation?: Maybe<LocationDetails>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayName: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  lastPostDate?: Maybe<Scalars['String']['output']>;
+  platform: Scalars['String']['output'];
+  profileImageUrl?: Maybe<Scalars['String']['output']>;
+  username: Scalars['String']['output'];
 };
 
 export enum SoftDeleteAction {

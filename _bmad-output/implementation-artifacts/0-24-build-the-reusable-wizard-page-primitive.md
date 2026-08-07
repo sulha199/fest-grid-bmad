@@ -1,3 +1,6 @@
+---
+baseline_commit: bc6c044b26689041a8ec7c6c9fba4dd36cda01db
+---
 # Story 0.24: Build the reusable Wizard page primitive
 
 ## Story Details
@@ -5,7 +8,7 @@
 - Epic: 0
 - Story ID: 0.24
 - Story Key: 0-24-build-the-reusable-wizard-page-primitive
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,37 +34,37 @@ so that any current or future multi-step flow (Story 3.1's onboarding wizard now
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: `packages/ui` — `useWizardStep()` hook + `WizardStepProvider`** (AC: 5)
-  - [ ] Create `packages/ui/src/hooks/useWizardStep.tsx` (`'use client'`): a `WizardStepContext` (React Context) holding `{ isStepCompleted: boolean; setStepCompleted: (completed: boolean) => void }`; `WizardStepProvider({ children })` owns `useState(false)` and provides it; `useWizardStep()` reads the context and throws `Error('useWizardStep must be used within a WizardStepProvider')` if `undefined`. Mirror `packages/ui/src/hooks/useScopedLocale.tsx`'s Provider+hook-in-one-file structure and doc-comment style.
-  - [ ] Create `useWizardStep.test.tsx` (Vitest + Testing Library `renderHook`/`render`): `useWizardStep()` throws outside a provider; returns `isStepCompleted: false` initially inside a provider; `setStepCompleted(true)` updates the value seen by consumers; a fresh `WizardStepProvider` instance (i.e. remount) starts at `false` again regardless of a previous instance's state (proves no cross-instance leakage).
-  - [ ] Export from `packages/ui/src/hooks/index.ts` (`export * from './useWizardStep';`).
-- [ ] **Task 2: `packages/ui` — `WizardStepSummary` component** (AC: 3)
-  - [ ] Create `packages/ui/src/core/wizard/WizardStepSummary.types.ts`: `export interface WizardStepSummaryItem { slug: string; title: string }` and `export interface WizardStepSummaryProps { steps: WizardStepSummaryItem[]; currentStepSlug: string }`.
-  - [ ] Create `packages/ui/src/core/wizard/WizardStepSummary.tsx`: derives `currentIndex = steps.findIndex((s) => s.slug === currentStepSlug)`; renders a horizontal list (`role="list"`), each item's state (`completed`/`current`/`upcoming`) derived by index comparison per AC3; completed items render a checkmark (`lucide-react`, mirroring `blocking-loader.tsx`'s icon-import convention) + solid blue background; current item gets a blue border (`aria-current="step"`); upcoming items are grayed/disabled-styled; a connecting-line `<span>` between each adjacent pair, styled per AC3's fill rule. No click handlers — purely presentational (`role="list"`/`role="listitem"`, no `role="button"`/`tabIndex`).
-  - [ ] Create `WizardStepSummary.test.tsx`: renders 3 steps with the 2nd as current — asserts step 1 shows completed styling/checkmark, step 2 shows current styling/`aria-current="step"`, step 3 shows upcoming/disabled styling; asserts the two connecting segments render the correct filled/gray state; asserts no item is a clickable element.
-- [ ] **Task 3: `packages/ui` — `WizardNavigation` component** (AC: 4)
-  - [ ] Create `packages/ui/src/core/wizard/WizardNavigation.types.ts`: `export interface WizardNavigationLabels { previous: string; next: string; skip: string; complete: string }` and `export interface WizardNavigationProps { isFirstStep: boolean; isLastStep: boolean; isStepCompleted: boolean; canSkipStep: boolean; labels: WizardNavigationLabels; onPrevious: () => void; onNext: () => void; onSkip: () => void; onComplete: () => void }`.
-  - [ ] Create `packages/ui/src/core/wizard/WizardNavigation.tsx`: renders raw `<button>` elements styled with Tailwind per DESIGN.md's primary/secondary/disabled token classes (mirroring `NavRailItem.tsx`'s raw-`<button>`-with-Tailwind convention — this repo has no shared `Button` primitive inside `packages/ui` yet, only a local `apps/web/src/components/ui/button.tsx`, which `packages/ui` must not import per the monorepo's app→package dependency direction). `Previous Step`: secondary style, `disabled={isFirstStep}`, calls `onPrevious`. `Next Step`: primary style, rendered only when `!isLastStep`, `disabled={!isStepCompleted}`, calls `onNext`. `Skip Step`: rendered only when `canSkipStep && !isLastStep`, calls `onSkip`. `Complete`: primary style, rendered only when `isLastStep`, `disabled={!isStepCompleted}`, calls `onComplete`. Disabled buttons get reduced opacity + `cursor-not-allowed` classes per DESIGN.md.
-  - [ ] Create `WizardNavigation.test.tsx`: first-step case hides/disables Previous appropriately; last-step case shows Complete instead of Next and hides Skip even if `canSkipStep` is true; middle-step case with `canSkipStep: true` shows all of Previous/Next/Skip; `isStepCompleted: false` disables Next/Complete; each button's `onClick` calls its respective callback exactly once.
-  - [ ] Create `packages/ui/src/core/wizard/index.ts` exporting `WizardStepSummary`(+types) and `WizardNavigation`(+types); add `export * from './core/wizard';` to `packages/ui/src/index.ts`.
-- [ ] **Task 4: `apps/web` — wizard registry + metadata-key helper + redirect-safety helper** (AC: 1, 8, 10)
-  - [ ] Create `apps/web/src/features/wizard/wizard-registry.types.ts`: `export interface WizardStepDefinition { slug: string; canSkipStep?: boolean; Component: React.ComponentType }` and `export interface WizardDefinition { key: string; defaultExitPath: string; steps: WizardStepDefinition[] }`.
-  - [ ] Create `apps/web/src/features/wizard/wizard-registry.ts`: `export const wizardRegistry: Record<string, WizardDefinition> = {};` — intentionally empty; a code comment states the reserved-slot rationale and points to this story's epics.md entry so the first consumer (Story 3.1) understands the expected shape (matching the exact literal object shape in Story 3.1's Task 4).
-  - [ ] Create `apps/web/src/features/wizard/metadata-key.ts`: `export function buildWizardMetadataKeys(wizardKey: string, stepSlug: string): { titleKey: string; descriptionKey: string }` — converts each kebab-case segment to PascalCase (e.g. `'api-key'` → `'ApiKey'`) and returns `{ titleKey: `wizard${Pascal(wizardKey)}${Pascal(stepSlug)}Title`, descriptionKey: ...Description }`, centralizing the naming convention from AC8 so consumer stories don't hand-derive it inconsistently.
-  - [ ] Create `metadata-key.test.ts`: covers a single-word key (`'onboarding'`/`'subscribe'` → `wizardOnboardingSubscribeTitle`) and a hyphenated key (`'api-key'` → `...ApiKey...`).
-  - [ ] Create `apps/web/src/features/wizard/is-safe-redirect-path.ts`: `export function isSafeRedirectPath(path: string | null): path is string` — `true` only if `path` starts with `/`, does not start with `//`, and does not contain `://`.
-  - [ ] Create `is-safe-redirect-path.test.ts`: covers a valid relative path, `null`, an empty string, a protocol-relative `//evil.com` path, and an absolute `https://evil.com` URL.
-- [ ] **Task 5: `apps/web` — wizard route (`page.tsx` + client content)** (AC: 2, 6, 7, 8, 9, 10)
-  - [ ] Create `apps/web/src/app/[locale]/wizard/[wizardKey]/[stepSlug]/page.tsx` (Server Component, mirrors `events/[slug]/page.tsx`'s split): `generateMetadata({ params })` resolves `{ locale, wizardKey, stepSlug }`, looks up `wizardRegistry[wizardKey]`, finds the matching step; if either lookup fails, call `notFound()`; otherwise call `buildWizardMetadataKeys(wizardKey, stepSlug)` and `getTranslations({ locale, namespace: 'Metadata' })` to build `buildPageMetadata({ title, description })`. Default export does the same registry/step lookup, calls `notFound()` defensively if invalid, then renders `<Suspense fallback={<RouteLoader />}><WizardPageContent wizardKey={wizardKey} stepSlug={stepSlug} /></Suspense>`.
-  - [ ] Create `apps/web/src/app/[locale]/wizard/[wizardKey]/[stepSlug]/wizard-page-content.tsx` (`'use client'`, mirrors the `*-content.tsx` pattern of `favorites-content.tsx`/`notifications-content.tsx`): looks up `wizardRegistry[wizardKey]` and the current step by `stepSlug` (calls `notFound()` if invalid — defense in depth alongside the Server Component's own check); reads `redirect` via `useSearchParams()`, validated with `isSafeRedirectPath`; uses `useRouter()` (`next/navigation`) to build each Previous/Next/Skip target URL as `/wizard/${wizardKey}/${targetSlug}${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}` (AC6 — redirect propagated across every step transition); `onComplete` navigates to the validated `redirect` value or `wizardDef.defaultExitPath`. Renders `<WizardStepProvider>` wrapping `<WizardStepSummary steps={...} currentStepSlug={stepSlug} />`, the current step's `<Component />`, and `<WizardNavigation ... />`, with all step titles and the 4 chrome labels resolved via `useTranslations()` (no-namespace form) + interpolated key paths per AC7.
-  - [ ] Create `wizard-page-content.test.tsx` (Vitest + Testing Library, `NextIntlClientProvider` wrapper per `favorites-content.test.tsx`'s convention, a `next/navigation` mock for `useRouter`/`useSearchParams`, and a temporary in-test 2-entry fake registry — this story's real registry is empty, so tests must inject their own fixture entries rather than relying on `wizardRegistry`'s shipped content): renders Step Summary + Navigation + the current step's `Component`; clicking Next when `isStepCompleted` is true navigates to the next step's URL with `redirect` preserved; clicking Complete on the last step navigates to a validated `redirect` value, or to `defaultExitPath` when `redirect` is absent/unsafe; an unknown `wizardKey`/`stepSlug` triggers `notFound()`.
-- [ ] **Task 6: i18n — `WizardChrome` namespace** (AC: 7)
-  - [ ] Add a `WizardChrome` object to `apps/web/locales/en.json`: `{ "previousStepLabel": "Previous Step", "nextStepLabel": "Next Step", "skipStepLabel": "Skip Step", "completeLabel": "Complete" }`.
-  - [ ] Mirror into `apps/web/locales/id.json` with real Indonesian translations: `{ "previousStepLabel": "Langkah Sebelumnya", "nextStepLabel": "Langkah Berikutnya", "skipStepLabel": "Lewati Langkah", "completeLabel": "Selesai" }` — required by `project-context.md`'s i18n rule and enforced by `apps/web/locales/locales.test.ts`'s key-parity test.
-- [ ] **Task 7: Verification** (AC: all)
-  - [ ] `pnpm --filter ui test`, `pnpm --filter web test` pass, including all new test files, with no regression in existing suites (including `locales.test.ts`'s key-parity check).
-  - [ ] `pnpm build` and `pnpm lint` clean at the repo root.
-  - [ ] Manual smoke check (Completion Notes): with a temporary 2-step test entry added locally to `wizardRegistry` (removed before commit, or added via a throwaway dev-only registration), navigate `/wizard/<key>/<step1>` → confirm Step Summary/Navigation render correctly, `RouteLoader` flashes briefly on first paint, Next is disabled until the step's content calls `setStepCompleted(true)`, Previous/Next preserve an appended `?redirect=` param, and an unknown `wizardKey` 404s.
+- [x] **Task 1: `packages/ui` — `useWizardStep()` hook + `WizardStepProvider`** (AC: 5)
+  - [x] Create `packages/ui/src/hooks/useWizardStep.tsx` (`'use client'`): a `WizardStepContext` (React Context) holding `{ isStepCompleted: boolean; setStepCompleted: (completed: boolean) => void }`; `WizardStepProvider({ children })` owns `useState(false)` and provides it; `useWizardStep()` reads the context and throws `Error('useWizardStep must be used within a WizardStepProvider')` if `undefined`. Mirror `packages/ui/src/hooks/useScopedLocale.tsx`'s Provider+hook-in-one-file structure and doc-comment style.
+  - [x] Create `useWizardStep.test.tsx` (Vitest + Testing Library `renderHook`/`render`): `useWizardStep()` throws outside a provider; returns `isStepCompleted: false` initially inside a provider; `setStepCompleted(true)` updates the value seen by consumers; a fresh `WizardStepProvider` instance (i.e. remount) starts at `false` again regardless of a previous instance's state (proves no cross-instance leakage).
+  - [x] Export from `packages/ui/src/hooks/index.ts` (`export * from './useWizardStep';`).
+- [x] **Task 2: `packages/ui` — `WizardStepSummary` component** (AC: 3)
+  - [x] Create `packages/ui/src/core/wizard/WizardStepSummary.types.ts`: `export interface WizardStepSummaryItem { slug: string; title: string }` and `export interface WizardStepSummaryProps { steps: WizardStepSummaryItem[]; currentStepSlug: string }`.
+  - [x] Create `packages/ui/src/core/wizard/WizardStepSummary.tsx`: derives `currentIndex = steps.findIndex((s) => s.slug === currentStepSlug)`; renders a horizontal list (`role="list"`), each item's state (`completed`/`current`/`upcoming`) derived by index comparison per AC3; completed items render a checkmark (`lucide-react`, mirroring `blocking-loader.tsx`'s icon-import convention) + solid blue background; current item gets a blue border (`aria-current="step"`); upcoming items are grayed/disabled-styled; a connecting-line `<span>` between each adjacent pair, styled per AC3's fill rule. No click handlers — purely presentational (`role="list"`/`role="listitem"`, no `role="button"`/`tabIndex`).
+  - [x] Create `WizardStepSummary.test.tsx`: renders 3 steps with the 2nd as current — asserts step 1 shows completed styling/checkmark, step 2 shows current styling/`aria-current="step"`, step 3 shows upcoming/disabled styling; asserts the two connecting segments render the correct filled/gray state; asserts no item is a clickable element.
+- [x] **Task 3: `packages/ui` — `WizardNavigation` component** (AC: 4)
+  - [x] Create `packages/ui/src/core/wizard/WizardNavigation.types.ts`: `export interface WizardNavigationLabels { previous: string; next: string; skip: string; complete: string }` and `export interface WizardNavigationProps { isFirstStep: boolean; isLastStep: boolean; isStepCompleted: boolean; canSkipStep: boolean; labels: WizardNavigationLabels; onPrevious: () => void; onNext: () => void; onSkip: () => void; onComplete: () => void }`.
+  - [x] Create `packages/ui/src/core/wizard/WizardNavigation.tsx`: renders raw `<button>` elements styled with Tailwind per DESIGN.md's primary/secondary/disabled token classes (mirroring `NavRailItem.tsx`'s raw-`<button>`-with-Tailwind convention — this repo has no shared `Button` primitive inside `packages/ui` yet, only a local `apps/web/src/components/ui/button.tsx`, which `packages/ui` must not import per the monorepo's app→package dependency direction). `Previous Step`: secondary style, `disabled={isFirstStep}`, calls `onPrevious`. `Next Step`: primary style, rendered only when `!isLastStep`, `disabled={!isStepCompleted}`, calls `onNext`. `Skip Step`: rendered only when `canSkipStep && !isLastStep`, calls `onSkip`. `Complete`: primary style, rendered only when `isLastStep`, `disabled={!isStepCompleted}`, calls `onComplete`. Disabled buttons get reduced opacity + `cursor-not-allowed` classes per DESIGN.md.
+  - [x] Create `WizardNavigation.test.tsx`: first-step case hides/disables Previous appropriately; last-step case shows Complete instead of Next and hides Skip even if `canSkipStep` is true; middle-step case with `canSkipStep: true` shows all of Previous/Next/Skip; `isStepCompleted: false` disables Next/Complete; each button's `onClick` calls its respective callback exactly once.
+  - [x] Create `packages/ui/src/core/wizard/index.ts` exporting `WizardStepSummary`(+types) and `WizardNavigation`(+types); add `export * from './core/wizard';` to `packages/ui/src/index.ts`.
+- [x] **Task 4: `apps/web` — wizard registry + metadata-key helper + redirect-safety helper** (AC: 1, 8, 10)
+  - [x] Create `apps/web/src/features/wizard/wizard-registry.types.ts`: `export interface WizardStepDefinition { slug: string; canSkipStep?: boolean; Component: React.ComponentType }` and `export interface WizardDefinition { key: string; defaultExitPath: string; steps: WizardStepDefinition[] }`.
+  - [x] Create `apps/web/src/features/wizard/wizard-registry.ts`: `export const wizardRegistry: Record<string, WizardDefinition> = {};` — intentionally empty; a code comment states the reserved-slot rationale and points to this story's epics.md entry so the first consumer (Story 3.1) understands the expected shape (matching the exact literal object shape in Story 3.1's Task 4).
+  - [x] Create `apps/web/src/features/wizard/metadata-key.ts`: `export function buildWizardMetadataKeys(wizardKey: string, stepSlug: string): { titleKey: string; descriptionKey: string }` — converts each kebab-case segment to PascalCase (e.g. `'api-key'` → `'ApiKey'`) and returns `{ titleKey: `wizard${Pascal(wizardKey)}${Pascal(stepSlug)}Title`, descriptionKey: ...Description }`, centralizing the naming convention from AC8 so consumer stories don't hand-derive it inconsistently.
+  - [x] Create `metadata-key.test.ts`: covers a single-word key (`'onboarding'`/`'subscribe'` → `wizardOnboardingSubscribeTitle`) and a hyphenated key (`'api-key'` → `...ApiKey...`).
+  - [x] Create `apps/web/src/features/wizard/is-safe-redirect-path.ts`: `export function isSafeRedirectPath(path: string | null): path is string` — `true` only if `path` starts with `/`, does not start with `//`, and does not contain `://`.
+  - [x] Create `is-safe-redirect-path.test.ts`: covers a valid relative path, `null`, an empty string, a protocol-relative `//evil.com` path, and an absolute `https://evil.com` URL.
+- [x] **Task 5: `apps/web` — wizard route (`page.tsx` + client content)** (AC: 2, 6, 7, 8, 9, 10)
+  - [x] Create `apps/web/src/app/[locale]/wizard/[wizardKey]/[stepSlug]/page.tsx` (Server Component, mirrors `events/[slug]/page.tsx`'s split): `generateMetadata({ params })` resolves `{ locale, wizardKey, stepSlug }`, looks up `wizardRegistry[wizardKey]`, finds the matching step; if either lookup fails, call `notFound()`; otherwise call `buildWizardMetadataKeys(wizardKey, stepSlug)` and `getTranslations({ locale, namespace: 'Metadata' })` to build `buildPageMetadata({ title, description })`. Default export does the same registry/step lookup, calls `notFound()` defensively if invalid, then renders `<Suspense fallback={<RouteLoader />}><WizardPageContent wizardKey={wizardKey} stepSlug={stepSlug} /></Suspense>`.
+  - [x] Create `apps/web/src/app/[locale]/wizard/[wizardKey]/[stepSlug]/wizard-page-content.tsx` (`'use client'`, mirrors the `*-content.tsx` pattern of `favorites-content.tsx`/`notifications-content.tsx`): looks up `wizardRegistry[wizardKey]` and the current step by `stepSlug` (calls `notFound()` if invalid — defense in depth alongside the Server Component's own check); reads `redirect` via `useSearchParams()`, validated with `isSafeRedirectPath`; uses `useRouter()` (`next/navigation`) to build each Previous/Next/Skip target URL as `/wizard/${wizardKey}/${targetSlug}${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}` (AC6 — redirect propagated across every step transition); `onComplete` navigates to the validated `redirect` value or `wizardDef.defaultExitPath`. Renders `<WizardStepProvider>` wrapping `<WizardStepSummary steps={...} currentStepSlug={stepSlug} />`, the current step's `<Component />`, and `<WizardNavigation ... />`, with all step titles and the 4 chrome labels resolved via `useTranslations()` (no-namespace form) + interpolated key paths per AC7.
+  - [x] Create `wizard-page-content.test.tsx` (Vitest + Testing Library, `NextIntlClientProvider` wrapper per `favorites-content.test.tsx`'s convention, a `next/navigation` mock for `useRouter`/`useSearchParams`, and a temporary in-test 2-entry fake registry — this story's real registry is empty, so tests must inject their own fixture entries rather than relying on `wizardRegistry`'s shipped content): renders Step Summary + Navigation + the current step's `Component`; clicking Next when `isStepCompleted` is true navigates to the next step's URL with `redirect` preserved; clicking Complete on the last step navigates to a validated `redirect` value, or to `defaultExitPath` when `redirect` is absent/unsafe; an unknown `wizardKey`/`stepSlug` triggers `notFound()`.
+- [x] **Task 6: i18n — `WizardChrome` namespace** (AC: 7)
+  - [x] Add a `WizardChrome` object to `apps/web/locales/en.json`: `{ "previousStepLabel": "Previous Step", "nextStepLabel": "Next Step", "skipStepLabel": "Skip Step", "completeLabel": "Complete" }`.
+  - [x] Mirror into `apps/web/locales/id.json` with real Indonesian translations: `{ "previousStepLabel": "Langkah Sebelumnya", "nextStepLabel": "Langkah Berikutnya", "skipStepLabel": "Lewati Langkah", "completeLabel": "Selesai" }` — required by `project-context.md`'s i18n rule and enforced by `apps/web/locales/locales.test.ts`'s key-parity test.
+- [x] **Task 7: Verification** (AC: all)
+  - [x] `pnpm --filter ui test`, `pnpm --filter web test` pass, including all new test files, with no regression in existing suites (including `locales.test.ts`'s key-parity check).
+  - [x] `pnpm build` and `pnpm lint` clean at the repo root.
+  - [x] Manual smoke check (Completion Notes): with a temporary 2-step test entry added locally to `wizardRegistry` (removed before commit, or added via a throwaway dev-only registration), navigate `/wizard/<key>/<step1>` → confirm Step Summary/Navigation render correctly, `RouteLoader` flashes briefly on first paint, Next is disabled until the step's content calls `setStepCompleted(true)`, Previous/Next preserve an appended `?redirect=` param, and an unknown `wizardKey` 404s.
 
 ## Dev Notes
 
@@ -190,14 +193,45 @@ so that any current or future multi-step flow (Story 3.1's onboarding wizard now
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed and ready for review
 
 ## Dev Agent Record
 
 ### Agent Model Used
+- Claude 3.5 Sonnet
 
 ### Debug Log References
+- Vitest UI and Web tests passed completely.
+- Web production build compiled and verified successfully.
 
 ### Completion Notes List
+- Built the entire wizard routing mechanism, wizard-registry, and helper utilities.
+- Implemented `useWizardStep()` and `WizardStepProvider` to manage and share client-side step completion states.
+- Implemented presentational components `WizardStepSummary` and `WizardNavigation` to render standard styled Wizard chrome.
+- Implemented kebab-to-PascalCase metadata key generator helper and same-origin safe relative redirect path safety guard helper.
+- Implemented the Next.js `/wizard/[wizardKey]/[stepSlug]` Sever page route and client router content wrapper to coordinate step navigation and redirect preservation.
+- Sourced and populated translations for both English and Indonesian locales.
 
 ### File List
+- `packages/ui/src/hooks/useWizardStep.tsx`
+- `packages/ui/src/hooks/useWizardStep.test.tsx`
+- `packages/ui/src/hooks/index.ts`
+- `packages/ui/src/core/wizard/WizardStepSummary.types.ts`
+- `packages/ui/src/core/wizard/WizardStepSummary.tsx`
+- `packages/ui/src/core/wizard/WizardStepSummary.test.tsx`
+- `packages/ui/src/core/wizard/WizardNavigation.types.ts`
+- `packages/ui/src/core/wizard/WizardNavigation.tsx`
+- `packages/ui/src/core/wizard/WizardNavigation.test.tsx`
+- `packages/ui/src/core/wizard/index.ts`
+- `packages/ui/src/index.ts`
+- `apps/web/src/features/wizard/wizard-registry.types.ts`
+- `apps/web/src/features/wizard/wizard-registry.ts`
+- `apps/web/src/features/wizard/metadata-key.ts`
+- `apps/web/src/features/wizard/metadata-key.test.ts`
+- `apps/web/src/features/wizard/is-safe-redirect-path.ts`
+- `apps/web/src/features/wizard/is-safe-redirect-path.test.ts`
+- `apps/web/src/app/[locale]/wizard/[wizardKey]/[stepSlug]/page.tsx`
+- `apps/web/src/app/[locale]/wizard/[wizardKey]/[stepSlug]/wizard-page-content.tsx`
+- `apps/web/src/app/[locale]/wizard/[wizardKey]/[stepSlug]/wizard-page-content.test.tsx`
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`

@@ -17,6 +17,12 @@
     "notificationsTitle": "Notification Settings | FestDaily",
     "notificationsDescription": "Manage your push notification settings on FestDaily."
   },
+  "WizardChrome": {
+    "previousStepLabel": "Previous Step",
+    "nextStepLabel": "Next Step",
+    "skipStepLabel": "Skip Step",
+    "completeLabel": "Complete"
+  },
   "EventDetailsPage": {
     "next": "Next Event",
     "previous": "Previous Event",

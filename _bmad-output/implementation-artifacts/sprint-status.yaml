@@ -103,7 +103,7 @@ development_status:
   # evaluate this UI-shaped gap. Registry design revised from URL-query-param steps
   # to a code-defined wizard registry per user decision, for i18n/generateMetadata
   # compatibility. See epics.md Story 0.24 note.
-  0-24-build-the-reusable-wizard-page-primitive: ready-for-dev
+  0-24-build-the-reusable-wizard-page-primitive: review
   # added 2026-08-07 via bmad-create-story Gate 1 finding while drafting Story 0.23:
   # no backend env var (not just 0.23's new SYSTEM_ERROR_ALERT_EMAIL) is wired into a
   # deployed Lambda's environment config, since Story 0.14's L_API Lambda resource

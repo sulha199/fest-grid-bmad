@@ -10,3 +10,4 @@ export * from './usePrefersReducedMotion';
 export * from './useNavRailItemInteraction';
 export * from './useNavRailItemInteraction.types';
 export * from './useCurrentLocationCapture';
+export * from './useWizardStep';

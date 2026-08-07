@@ -17,6 +17,12 @@
     "notificationsTitle": "Pengaturan Notifikasi | FestDaily",
     "notificationsDescription": "Kelola pengaturan notifikasi push Anda di FestDaily."
   },
+  "WizardChrome": {
+    "previousStepLabel": "Langkah Sebelumnya",
+    "nextStepLabel": "Langkah Berikutnya",
+    "skipStepLabel": "Lewati Langkah",
+    "completeLabel": "Selesai"
+  },
   "EventDetailsPage": {
     "next": "Acara Selanjutnya",
     "previous": "Acara Sebelumnya",

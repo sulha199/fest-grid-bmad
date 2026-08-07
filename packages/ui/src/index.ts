@@ -6,6 +6,7 @@ export * from './core/blocking-loader';
 export * from './core/route-loader';
 export * from './core/soft-delete-toaster';
 export * from './core/swipe-to-reveal';
+export * from './core/wizard';
 export * from './features/events';
 export * from './features/auth';
 export * from './hooks';
