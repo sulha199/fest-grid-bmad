@@ -675,6 +675,26 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Depends on:** Story 0.14 (the `L_API` Lambda resource must exist before its environment configuration can be wired). Story 0.15 (reconciles its fallback `FestgridEmailStack`).
 
+### Story 0.26: Build the reusable RouteLoader component and wire it into every route Suspense boundary
+
+**As a** developer,
+**I want** a shared, generic loading component used as the fallback for every route-page's top-level Suspense boundary,
+**So that** navigating to any route (or opening the event-detail modal) shows a consistent, on-brand loading state instead of a blank flash, without each route building its own fallback (project-context.md's "Route-Level Suspense Fallback" rule, PRD §3.12 "Global UI & Navigation Patterns").
+
+**Acceptance Criteria:**
+
+*   **Given** the existing `Logo` component (`packages/ui/src/core/app-shell/Logo.tsx`), **when** this story is implemented, **then** its icon-only 2x2 grid logomark is extracted into a new `LogoMark` component (same package/folder) with no behavior change to `Logo`, which now composes `LogoMark` instead of duplicating its markup.
+*   **And** a new `RouteLoader` component is added to `packages/ui/src/core/` that centers a `LogoMark` and fills its containing element (`w-full h-full flex items-center justify-center` sizing, driven by the parent — never `fixed`/viewport-locked), with a "beating" (pulse/scale) CSS animation applied to the mark — implemented as a new Tailwind keyframe (there is currently no custom pulse/heartbeat keyframe in `apps/web/tailwind.config.ts`, only Tailwind's default opacity `animate-pulse`).
+*   **And** container-relative sizing is verified in both real usage contexts: (a) full-page routes, where it fills the content area beneath the persistent `AppShellWrapper` nav rail (the shell wraps `{children}` in the root `layout.tsx`, outside each page's own Suspense, so it never unmounts during route loads); and (b) the intercepted modal route (`@modal/(.)events/[slug]/page.tsx`), where the `Dialog`/`DialogContent` (`max-w-3xl max-h-[85vh]`) opens immediately and independent of data — `RouteLoader` must render within that bounded box, not break out to the full viewport.
+*   **And** `RouteLoader` respects `prefers-reduced-motion` (renders the static `LogoMark` with no animation when the user's OS/browser signals reduced motion), consistent with the accessibility bar set by `BlockingLoader` (Story 1.7a).
+*   **And** it is documented and exported from `packages/ui`'s public entry point for reuse across features.
+*   **And** every existing route-page's top-level `<Suspense>` (currently fallback-less) is updated to pass `fallback={<RouteLoader />}`: `apps/web/src/app/[locale]/page.tsx`, `favorites/page.tsx`, `login/page.tsx`, `my-calendar/page.tsx`, `settings/locations/page.tsx`, `settings/notifications/page.tsx`, `events/[slug]/page.tsx`, and the modal-intercepted `@modal/(.)events/[slug]/page.tsx`. (`test-swipe/page.tsx` is a dev-only test harness, not a real route, and is out of scope.)
+*   **And** any route-page created by a future story (Epics 3-5) follows the same rule per project-context.md — no further tracking needed here, enforced going forward by the rule itself.
+
+**Note:** Added 2026-08-07 via `bmad-correct-course` (see `sprint-change-proposal-2026-08-07.md`). Positioned in Epic 0 alongside the project's other reusable-UI-primitive stories (0.7, 0.7a, 0.18, 0.19, 1.7a), but — unlike those — this story's own tasks also retrofit 8 already-built/in-review route files across Epics 1 and 2, since the Suspense boundaries it fills already exist in shipped code (Story 1.9). User confirmed via AskUserQuestion: Story 0.26 owns the full retrofit directly rather than reopening each of the 8 consuming stories individually. The container-relative (not viewport-fixed) sizing requirement was surfaced by the user specifically for the modal case and confirmed before finalizing this proposal.
+
+**Depends on:** None (pure presentation component + mechanical wiring; no backend dependency).
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
