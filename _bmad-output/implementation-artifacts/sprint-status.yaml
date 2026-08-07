@@ -90,6 +90,12 @@ development_status:
   # per-resolver") reviewer-gate finding -- 6 hand-written isNull() call sites,
   # no shared enforcement point. See sprint-change-proposal-2026-08-06.md.
   0-22-build-the-shared-active-rows-query-filter-helper-for-ad-8: review
+  # added 2026-08-07 via bmad-create-story Gate 1/Gate 3 finding while drafting
+  # Story 2.10: Story 0.15 (email adapter) is unimplemented and has no generic
+  # system/developer-error template, and the reportSystemError mechanism itself
+  # is cross-cutting (future stories will also want to alert on client failures).
+  # See epics.md Story 0.23 note.
+  0-23-build-the-system-error-reporting-and-alerting-foundation: backlog
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
