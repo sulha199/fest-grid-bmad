@@ -841,4 +841,207 @@ test('events resolver integration via Yoga', async (t) => {
       assert.strictEqual(result.errors[0].extensions?.code, 'UNAUTHENTICATED');
     });
   });
+
+  await t.test('events - default past-event visibility filter (Story 2.7)', async (t) => {
+    const createdEventIds: string[] = [];
+    const createdScheduleIds: string[] = [];
+    
+    const daysAgo = (n: number) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() - n);
+      return d.toISOString().split('T')[0];
+    };
+    const daysAhead = (n: number) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + n);
+      return d.toISOString().split('T')[0];
+    };
+
+    const email = `visibility-test-${Math.random()}@example.com`;
+    const [testUser] = await db.insert(users).values({
+      email,
+      name: 'Visibility Test User',
+      role: 'user'
+    }).returning();
+
+    async function createTestEvent(opts: {
+      eventName: string;
+      startDate: string;
+      endDate?: string | null;
+      types?: string[];
+      subSchedules?: { startDate: string; endDate?: string | null }[];
+    }) {
+      const [event] = await db.insert(events).values({
+        eventName: opts.eventName,
+        location: 'Test City',
+        types: opts.types ?? null,
+      }).returning();
+      createdEventIds.push(event.id);
+
+      const [sched] = await db.insert(schedules).values({
+        eventId: event.id,
+        eventStartDate: opts.startDate,
+        eventEndDate: opts.endDate ?? null,
+        isMainSchedule: true,
+      }).returning();
+      createdScheduleIds.push(sched.id);
+
+      if (opts.subSchedules) {
+        for (const sub of opts.subSchedules) {
+          const [subSched] = await db.insert(schedules).values({
+            eventId: event.id,
+            eventStartDate: sub.startDate,
+            eventEndDate: sub.endDate ?? null,
+            isMainSchedule: false,
+          }).returning();
+          createdScheduleIds.push(subSched.id);
+        }
+      }
+      return event;
+    }
+
+    const eventA = await createTestEvent({
+      eventName: 'Past Event A (Ended 10 Days Ago)',
+      startDate: daysAgo(12),
+      endDate: daysAgo(10),
+    });
+
+    const eventB = await createTestEvent({
+      eventName: 'Recent Event B (Ended 3 Days Ago)',
+      startDate: daysAgo(4),
+      endDate: daysAgo(3),
+      types: ['FESTIVAL'],
+    });
+
+    const eventC = await createTestEvent({
+      eventName: 'Active Event C (Main ended, sub-schedule active)',
+      startDate: daysAgo(12),
+      endDate: daysAgo(10),
+      subSchedules: [
+        { startDate: daysAhead(1), endDate: daysAhead(2) }
+      ]
+    });
+
+    t.after(async () => {
+      if (createdScheduleIds.length > 0) {
+        await db.delete(schedules).where(inArray(schedules.id, createdScheduleIds));
+      }
+      if (createdEventIds.length > 0) {
+        await db.delete(events).where(inArray(events.id, createdEventIds));
+      }
+      await db.delete(userSettings).where(eq(userSettings.userId, testUser.id));
+      await db.delete(users).where(eq(users.id, testUser.id));
+    });
+
+    await t.test('anonymous caller uses fixed default N=7 (AC1, AC3, AC4)', async () => {
+      mockUser = null;
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              events(query: null, limit: 1000) {
+                items { id eventName }
+              }
+            }
+          `
+        })
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, 'GraphQL errors returned');
+      const items = result.data.events.items;
+      const ids = new Set(items.map((i: any) => i.id));
+
+      assert.ok(!ids.has(eventA.id), 'Event A (ended 10 days ago) should be hidden');
+      assert.ok(ids.has(eventB.id), 'Event B (ended 3 days ago) should be visible');
+      assert.ok(ids.has(eventC.id), 'Event C with active sub-schedule should be visible');
+    });
+
+    await t.test('authenticated caller uses custom settings N (AC1, AC2, AC4)', async () => {
+      mockUser = { userId: testUser.id, role: testUser.role };
+
+      await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation {
+              updateUserSettings(input: { hidePastEventsAfterDays: 1 }) {
+                hidePastEventsAfterDays
+              }
+            }
+          `
+        })
+      });
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              events(query: null, limit: 1000) {
+                items { id eventName }
+              }
+            }
+          `
+        })
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, 'GraphQL errors returned');
+      const items = result.data.events.items;
+      const ids = new Set(items.map((i: any) => i.id));
+
+      assert.ok(!ids.has(eventA.id), 'Event A should be hidden');
+      assert.ok(!ids.has(eventB.id), 'Event B (ended 3 days ago) should now be hidden under custom N=1 setting');
+      assert.ok(ids.has(eventC.id), 'Event C should still be visible due to active sub-schedule');
+    });
+
+    await t.test('past-event filter combines correctly with existing caller query (AC5)', async () => {
+      mockUser = null;
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              events(query: { field: "types", operator: "contains", value: "FESTIVAL" }, limit: 1000) {
+                items { id eventName }
+              }
+            }
+          `
+        })
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, 'GraphQL errors returned');
+      const items = result.data.events.items;
+      const ids = new Set(items.map((i: any) => i.id));
+
+      assert.ok(ids.has(eventB.id), 'Event B should match (type is FESTIVAL and ended 3 days ago)');
+      assert.ok(!ids.has(eventC.id), 'Event C should not match (type is not FESTIVAL)');
+    });
+
+    await t.test('Query.event lookup by ID bypasses visibility filter (AC8)', async () => {
+      mockUser = null;
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEvent($id: ID!) {
+              event(id: $id) {
+                id
+                eventName
+              }
+            }
+          `,
+          variables: { id: eventA.id }
+        })
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, 'GraphQL errors returned');
+      assert.strictEqual(result.data.event.id, eventA.id, 'Query.event should retrieve past event A directly');
+    });
+  });
 });

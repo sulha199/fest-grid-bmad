@@ -53,7 +53,7 @@ This document defines the core architectural invariants for the FestDaily applic
     *   **string:** `contains`, `equals`, `notEquals`
     *   **enum (type, category):** `in`, `notIn`
     *   **ID (locationPreferenceId, socialMediaAccountProfileId):** `in`, `notIn`
-    *   **date range (scheduleDateRange):** `overlaps` (value: `{ from: string; to: string }` ISO dates)
+    *   **date range (scheduleDateRange):** `overlaps` (value: `{ from: string; to: string | null }` ISO dates — a null `to` means an open/unbounded upper range, added by Story 2.7)
     *   **Geo (scheduleCoordinates):** `withinRadius` (value: `{ locationPreferenceId: ID, radiusKm: number [1-50] }` | `{ latitude: Float, longitude: Float, radiusKm: number [1-50] }`)
 
 ---

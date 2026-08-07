@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-06T23:13:00Z
+last_updated: 2026-08-07T05:25:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -89,7 +89,7 @@ development_status:
   # New 2026-08-06 via bmad-correct-course: AD-8 rule 2 ("enforced once, never
   # per-resolver") reviewer-gate finding -- 6 hand-written isNull() call sites,
   # no shared enforcement point. See sprint-change-proposal-2026-08-06.md.
-  0-22-build-the-shared-active-rows-query-filter-helper-for-ad-8: ready-for-dev
+  0-22-build-the-shared-active-rows-query-filter-helper-for-ad-8: review
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
@@ -201,7 +201,7 @@ development_status:
   # reusable/extensible hiding mechanism (Story 1.3h's overlaps operator extended
   # with an open-ended to:null), and requested a new Archive page escape hatch
   # (Story 4.8, Epic 4). All confirmed via AskUserQuestion; epics.md AC revised.
-  2-7-automatically-hide-past-events: ready-for-dev
+  2-7-automatically-hide-past-events: review
   2-8-user-menu: done
   2-9-manage-push-notification-settings: ready-for-dev
   epic-2-retrospective: optional

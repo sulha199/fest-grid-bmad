@@ -1,9 +1,9 @@
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
 import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens } from '@festgrid/database';
-import { buildOptimizedDrizzleSelect, buildDrizzleWhere } from '@festgrid/graphql-select';
+import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth } from '../lib/auth/context.js';
-import { eq, count, sql, asc, and, exists, isNull, desc } from 'drizzle-orm';
+import { eq, count, sql, asc, and, exists, desc } from 'drizzle-orm';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
@@ -11,6 +11,7 @@ import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user
 import { resolveLocation, getAddressPredictions } from '../lib/geolocation/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
+import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS } from '@festgrid/domain/events';
 
 function formatLocationDetails(details: any): any {
   if (!details) return null;
@@ -346,7 +347,7 @@ export const resolvers: Resolvers = {
     myLocations: async (_: any, __: any, context: any) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(userLocations)
-        .where(and(eq(userLocations.userId, authUser.userId), isNull(userLocations.deletedAt)))
+        .where(and(eq(userLocations.userId, authUser.userId), activeOnly(userLocations)))
         .orderBy(asc(userLocations.createdAt));
 
       return rows.map(row => ({
@@ -395,6 +396,14 @@ export const resolvers: Resolvers = {
       } catch {
         // Not authenticated
       }
+
+      let hidePastEventsAfterDays = DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS;
+      if (userId) {
+        const settings = await getOrCreateUserSettings(userId);
+        hidePastEventsAfterDays = settings.hidePastEventsAfterDays;
+      }
+
+      const defaultVisibilityConditions = buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays });
 
       if (hasWithinRadiusCondition(query as QueryCondition | undefined) && userId === null) {
         requireAuth(context);
@@ -448,7 +457,7 @@ export const resolvers: Resolvers = {
             .where(and(
               eq(favorites.userId, userId),
               eq(favorites.eventId, events.id),
-              isNull(favorites.deletedAt)
+              activeOnly(favorites)
             ))
         ) : sql`false`,
         isAddedToCalendar: userId ? exists(
@@ -457,12 +466,19 @@ export const resolvers: Resolvers = {
             .where(and(
               eq(calendarAdditions.userId, userId),
               eq(calendarAdditions.eventId, events.id),
-              isNull(calendarAdditions.deletedAt)
+              activeOnly(calendarAdditions)
             ))
         ) : sql`false`
       };
 
-      const whereClause = buildDrizzleWhere(resolvedQuery as QueryCondition, fieldMap);
+      const finalCondition: QueryCondition = {
+        operator: 'and',
+        conditions: [
+          ...(resolvedQuery ? [resolvedQuery as QueryCondition] : []),
+          ...defaultVisibilityConditions,
+        ],
+      };
+      const whereClause = buildDrizzleWhere(finalCondition, fieldMap);
       
       const qLimit = Math.min(limit ?? 1000, 1000);
       const qOffset = offset ?? 0;
@@ -500,7 +516,7 @@ export const resolvers: Resolvers = {
           and(
             eq(favorites.userId, userId),
             eq(favorites.eventId, events.id),
-            isNull(favorites.deletedAt)
+            activeOnly(favorites)
           )
         );
       }
@@ -587,7 +603,7 @@ export const resolvers: Resolvers = {
           .where(and(
             eq(favorites.userId, authUser.userId),
             eq(favorites.eventId, parent.id),
-            isNull(favorites.deletedAt)
+            activeOnly(favorites)
           ));
         return rows.length > 0;
       } catch {
@@ -602,7 +618,7 @@ export const resolvers: Resolvers = {
           .where(and(
             eq(calendarAdditions.userId, authUser.userId),
             eq(calendarAdditions.eventId, parent.id),
-            isNull(calendarAdditions.deletedAt)
+            activeOnly(calendarAdditions)
           ));
         return rows.length > 0;
       } catch {
@@ -619,7 +635,7 @@ export const resolvers: Resolvers = {
           .where(and(
             eq(calendarAdditions.userId, authUser.userId),
             eq(calendarAdditions.scheduleId, parent.id),
-            isNull(calendarAdditions.deletedAt)
+            activeOnly(calendarAdditions)
           ));
         return rows.length > 0;
       } catch {

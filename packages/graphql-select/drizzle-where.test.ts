@@ -225,6 +225,16 @@ test('buildDrizzleWhere', async (t) => {
     assert.ok(res !== undefined);
   });
 
+  await t.test('handles overlaps operator on scheduleDateRange field with to: null', () => {
+    const condition: QueryCondition = {
+      field: 'scheduleDateRange',
+      operator: 'overlaps',
+      value: { from: '2026-08-01', to: null }
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.ok(res !== undefined);
+  });
+
   await t.test('handles withinRadius operator on scheduleCoordinates field', () => {
     const condition: QueryCondition = {
       field: 'scheduleCoordinates',
