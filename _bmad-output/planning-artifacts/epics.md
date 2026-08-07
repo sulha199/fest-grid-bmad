@@ -1359,12 +1359,13 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** `packages/shared-types`'s `Subscription` and new `SocialMediaAccountProfile` interfaces are added/updated to match (PRD §4.5, §4.9).
 *   **And** the `posts` table (Story 1.2a, Epic 1 — already exists by the time this story runs) is migrated: add `account_id` (uuid, FK to `social_media_account_profiles.id`), backfill it from each post's `subscription_id` via `subscriptions.accountId`, then drop `subscription_id` and make `account_id` not null, with an index on `account_id` replacing the old `subscription_id` index. Story 1.2a itself is intentionally left creating `posts.subscription_id` — Epic 1 must stay buildable without this story existing yet, the same reasoning that pulled `posts`'s creation into Epic 1 ahead of Epic 3 in the first place; this story evolves the column once it runs, rather than 1.2a depending forward on it.
 *   **And** a new, unauthenticated `socialMediaAccountProfileByAccountId(platform, accountId)` query is exposed, returning the profile (including its internal `id`) — this is the lookup Story 3.11's public account page uses to resolve a URL's `platform`/`accountId` to the profile row, and it is deliberately not behind `requireAuth` (Story 0.17), since the account page itself is public.
+*   **And** the lookup-or-create logic's check for an existing subscription join row (to decide "already subscribed" vs. "create new") excludes soft-deleted rows via `activeOnly(table)` (Story 0.22), not a hand-written `isNull(...)` clause.
 
 **Note:** Classified as a shared data-ownership gap by the Epic 3 readiness re-sweep (`bmad-epic-readiness-check`, re-run 2026-08-01 following FR66/FR67 and Story 3.3b) — Gate 3 found `SocialMediaAccountProfile` (PRD §4.5, amended by the 2026-08-01 `defaultLocation` PRD change) has no owning story anywhere, while Story 1.1's `subscriptions` table (done) still duplicates account-profile fields per-subscriber, the exact ambiguity the `defaultLocation` amendment says it's moving away from. Needed by Epic 3 (Stories 3.1-3.3b) and read by Epic 4 (Story 4.7's `DefaultLocationChangeRequest.accountId`) — clears Gate 3's cross-epic reuse bar. Following the precedent of Story 1.1 scoping core tables to their originating epic, this is placed here, before Story 3.1, rather than in Epic 0. The `posts.account_id` migration AC above was added specifically to avoid making Epic 1's already-`ready-for-dev` Story 1.2a depend forward on this Epic 3 story — see that AC's own note.
 
 **Amendment (2026-08-02, added via bmad-correct-course):** Added the `account_id` column, its uniqueness per `platform`, and the `socialMediaAccountProfileByAccountId` query. The PRD's `SocialMediaAccountProfile.accountId` (§4.5) — the platform-native identifier — was documented from the start but never actually persisted by this story's original AC, and the lookup-or-create match key incorrectly used `username` (which can be renamed) instead. Surfaced while adding new Story 3.11 (public per-account event page, FR68), which needs a stable, public-facing identifier to resolve URLs like `/{platformSlug}/{accountId}` to a profile row — `username` doesn't satisfy that, and the internal `id` (uuid) is deliberately kept out of URLs.
 
-**Depends on:** Story 1.1, Story 1.2a (for the `posts` table this story migrates).
+**Depends on:** Story 1.1, Story 1.2a (for the `posts` table this story migrates), Story 0.22.
 
 ### Story 3.1: Onboarding wizard for API key and subscriptions
 
@@ -1385,6 +1386,26 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.1a.
 
+### Story 3.1b: Manage and revoke API keys
+
+**As a** user,
+**I want** a dedicated page to view my saved Gemini API keys (masked) and revoke ones I no longer want to use,
+**So that** I can control which of my BYOK keys the system is allowed to use for event extraction.
+
+**Acceptance Criteria:**
+
+*   **Given** I am logged in and navigate to the `/settings/api-keys` page (UX-DR9),
+*   **When** the page loads,
+*   **Then** I see my saved API keys, each shown masked (e.g. last 4 characters only, never the decrypted value) — fetched via a `myApiKeys` query, scoped to `context.user` via `requireAuth` (Story 0.17) and filtered to active rows via `activeOnly(table)` (Story 0.22), not a hand-written `isNull(...)` clause.
+*   **And** I can revoke a key, which calls a `deleteApiKey(id: ID!, action: SoftDeleteAction!)` mutation (AD-8 rule 4 — the `SoftDeleteAction` enum is reused from `apps/backend/src/schema/typeDefs.graphql`, never redeclared) that soft-deletes the key (never a hard delete) and returns the updated `ApiKey!`.
+*   **And** attempting to revoke an already-revoked key (an invalid state transition) throws a `GraphQLError` with `extensions.code = 'INVALID_STATE_TRANSITION'` rather than silently no-op'ing.
+*   **And** a revoked key is immediately excluded from the AI Gateway Adapter's (Story 0.13) key-selection pool for future extraction calls.
+*   **And** the page is a `/settings/api-keys` route composed inside the app shell (Story 0.7), matching the pattern of the other `/settings/*` pages.
+
+**Note:** Classified as a Gate 3 gap by the Epic 3 readiness re-sweep (`bmad-epic-readiness-check`, re-run 2026-08-07) — `/settings/api-keys` is a named route in UX-DR9, and Architecture Spine AD-8 explicitly anticipates an `ApiKey` delete mutation ("`ApiKey`/`Subscription` delete mutations (Epic 3/4) once built" must use the rule-4 soft-delete shape), but no story anywhere built the list/revoke surface — Story 3.1 only ever creates a key during onboarding, and Story 1.1 only creates the table. A prior sweep (2026-07-31/08-01) had flagged this as an FR-completeness note for the PM rather than an architecture gap; this re-sweep upgrades it because the gap is now also named directly in the Architecture Spine, not just implied by an unbuilt UX-DR9 route. Positioned directly after Story 3.1 (the only existing story that writes to `api_keys`), scoped to Epic 3 rather than Epic 0 since API-key management is a single-epic, user-facing feature with no cross-epic reuse — unlike the Gemini/email/geolocation adapters (Stories 0.13/0.15/0.16), which are genuinely consumed by multiple epics.
+
+**Depends on:** Story 1.1, Story 0.17, Story 0.22, Story 3.1.
+
 ### Story 3.2: Subscribe to a social media account
 
 **As a** user,
@@ -1400,8 +1421,9 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** I see the new subscription in my list of subscriptions.
 *   **And** the subscription is saved via a backend GraphQL mutation (Story 0.8 scaffold, Story 0.17 authenticated context) — not a direct database write from `apps/web`.
 *   **And** the subscription is created with `isNewlyAdded: true` (PRD §3.10) — consumed by Story 5.1a's `mySubscriptions` query/`markSubscriptionViewed` mutation to auto-activate and then clear the corresponding tab in Epic 5's Manual Post Selection screen.
+*   **And** checking whether the user is already subscribed to this account filters via `activeOnly(table)` (Story 0.22), not a hand-written `isNull(...)` clause.
 
-**Depends on:** Story 3.1a.
+**Depends on:** Story 3.1a, Story 0.22.
 
 ### Story 3.3: Set a default location for a subscription
 
@@ -1457,8 +1479,27 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** the mutation records a `DefaultLocationChangeRequest` row (PRD §4.14) capturing `accountId`, `changedByUserId`, `previousLocation`, `newLocation`, and `status: PENDING_REVIEW`.
 *   **And** saving the change triggers an email notification to moderators, per FR67 — reusing this project's existing email notification infrastructure (Story 3.x quota-notification emails) rather than introducing a new email pathway.
 *   **And** every subscriber of this account will see the new `defaultLocation` applied to subsequent extractions, since the field is account-level, not per-subscriber (Story 3.3's amendment).
+*   **And** confirming the caller is an active subscriber of this account (to authorize the edit) uses `activeOnly(table)` (Story 0.22), not a hand-written `isNull(...)` clause.
 
-**Depends on:** Story 3.3, Story 0.17.
+**Depends on:** Story 3.3, Story 0.17, Story 0.22.
+
+### Story 3.3c: Define the scraper adapter interface and platform-slug registry
+
+**As a** developer,
+**I want** a generic `ScraperAdapter` interface (given a subscribed account, returns its newest posts with platform-specific `post_url`/`original_post_url` derivation) and a single platform-enum-to-URL-slug registry,
+**So that** Story 3.4's per-platform scraping implementations and Story 3.11's public account-page routing both consume one shared abstraction instead of each independently inventing platform identification and slug logic.
+
+**Acceptance Criteria:**
+
+*   **Given** the PRD's requirement (§3.7) that scraping go through "a platform-specific scraper adapter... never a hardcoded, single-platform scraping implementation,"
+*   **When** a new platform's scraper is added,
+*   **Then** it implements one shared `ScraperAdapter` interface (input: subscribed account identifier; output: scraped posts, each with `post_url` set to whatever URL was actually scraped — which may be a proxy/mirror, e.g. `imginn.com` for Instagram — and `original_post_url` populated when that platform's own derivation rule can determine the canonical original-platform URL).
+*   **And** a platform-enum-to-URL-slug registry (e.g. Instagram -> `ig`) is defined exactly once, in the same shared location as the `ScraperAdapter` interface, and is the single source Story 3.11's `/{platformSlug}/{accountId}` routing resolves against — not hardcoded per-component.
+*   **And** this story builds the interface/registry scaffold only — the first concrete per-platform scraper implementation(s) remain Story 3.4's scope.
+
+**Note:** Classified as a Gate 3 gap by the Epic 3 readiness re-sweep (`bmad-epic-readiness-check`, re-run 2026-08-07) — Story 3.4 requires a "platform-specific scraper adapter" and Story 3.11 requires a "platform-to-slug mapping...defined once in a shared location alongside the platform-specific scraper adapters," but no story built either the adapter interface or the registry; left alone, Story 3.4 would build both ad hoc as a byproduct of its own scraping work — the exact failure mode this gate exists to catch. Kept inside Epic 3 (not promoted to Epic 0) since no other epic currently calls a social-media scraper or consumes the slug registry. Positioned after Story 3.3b and before Story 3.4, the first consumer.
+
+**Depends on:** None.
 
 ### Story 3.4: Scrape new posts from subscribed accounts
 
@@ -1474,6 +1515,8 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** the scraped posts are stored temporarily for the next step in the processing pipeline, with `post_url` set to whatever URL the adapter actually scraped from (which may be a proxy/mirror site, e.g. `imginn.com` for Instagram) and `original_post_url` (Story 1.2a's amendment) populated whenever that adapter's own derivation rule can determine the canonical original-platform URL for that post.
 
 **Note (2026-08-01, added via `bmad-correct-course`):** This story's AC is still high-level/placeholder (Epic 3 has not had its own readiness/create-story pass yet) — the `original_post_url` line above records the requirement so it isn't lost, but the actual per-adapter derivation logic (e.g. imginn.com's shared post-ID pattern) should be specified when this story is properly detailed.
+
+**Depends on:** Story 3.3c.
 
 ### Story 3.5: Add new posts to a processing queue
 
@@ -1614,7 +1657,7 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Note:** This story exists because of new user-driven scope (`bmad-correct-course`, 2026-08-02) — the PRD previously only described a logged-in user's personalized feed across their subscriptions (§3.7 "Display Subscribed Events"), not a public per-account page. Architecturally unblocked: AD-1 already names "subscribed account page" as a bound use case and already defines the `socialMediaAccountProfileId` DSL field this story's events query needs; the new `socialMediaAccountProfileByAccountId` query (Story 3.1a amendment) is the only new read path, needed because the DSL field takes the profile's internal `id`, not the public-facing `accountId` this story's URL exposes. Cross-referenced by an amendment to Story 1.6a, which links the event detail view's account attribution to this page. New FR68 covers this capability. Positioned at the end of Epic 3 rather than near Story 3.1a — it has no dependency on the scraping/quota pipeline stories (3.4-3.10) and only needs Story 3.1a's table/query plus already-built Epic 1 components.
 
-**Depends on:** Story 3.1a, Story 1.3a, Story 1.3b, Story 1.3c, Story 1.5a, Story 2.6.
+**Depends on:** Story 3.1a, Story 1.3a, Story 1.3b, Story 1.3c, Story 1.5a, Story 2.6, Story 3.3c.
 
 ### Epic 4: Data Quality and Moderation
 
@@ -1857,7 +1900,7 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **When** I navigate to the "Manual Post Selection" screen from the user menu,
 *   **Then** if I have not provided an API key or subscribed to any accounts, I am guided through the process of doing so.
 *   **And** if I have at least one subscribed account, I see a tab for each of my subscribed accounts, fetched via the `mySubscriptions` query (Story 5.1a) — not directly from the database.
-*   **And** each tab displays the 20 most recent posts from that account, fetched via the `postsBySubscription` query (Story 5.1a).
+*   **And** each tab displays the 20 most recent posts from that account, fetched via the `postsByAccount(accountId, cursor, limit)` query (Story 5.1a).
 *   **And** posts are loaded lazily to improve performance.
 
 **Depends on:** Story 5.1a.
@@ -1892,7 +1935,7 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **When** I select posts for extraction,
 *   **Then** a summary bar displays the number of selected posts against my remaining API quota, read from the `myExtractionQuota` query (Story 5.1a).
 *   **And** I am prevented from selecting more posts than my quota allows, enforced both client-side (UX) and authoritatively server-side by the `selectPostsForExtraction` mutation (Story 5.1a) — the client-side check is a convenience only.
-*   **And** posts that have already been processed are visually disabled and cannot be selected, using each post's `isExtracted` field from the `postsBySubscription` query (Story 5.1a).
+*   **And** posts that have already been processed are visually disabled and cannot be selected, using each post's `isExtracted` field from the `postsByAccount` query (Story 5.1a).
 
 **Depends on:** Story 5.1a.
 
