@@ -202,4 +202,29 @@ Geoapify provides both the backend-only address, place, and coordinate resolutio
     *   Under key restrictions in the Geoapify MyProjects dashboard, enable **HTTP Referrer Restrictions** and add your application's allowed domain names (e.g. `http://localhost:3000` for local development, and your production domains). This meaningfully secures the key since it is called directly from users' browsers.
     *   Add this key to your root `.env` and `apps/web/.env` files as `NEXT_PUBLIC_GEOAPIFY_MAPS_API_KEY`.
 
+## 7. Outbound Email Adapter (Amazon SES)
+
+Amazon SES is used for transactional email delivery (quota warnings, moderator alerts, invalid key notifications).
+
+### Setup Steps
+
+1.  **Verify your Sending Domain:**
+    *   Log in to the [AWS Management Console](https://console.aws.amazon.com/) and navigate to the **Amazon SES** console.
+    *   Under **Verified identities**, click **Create identity** and select **Domain**.
+    *   Enter your sending domain (e.g., `festdaily.app` or your sub-domain).
+    *   Choose **Easy DKIM** and set the DKIM signing key length to **1024-bit** or **2048-bit** (CDK is configured for SHA256 1024-bit).
+    *   Click **Create identity**.
+2.  **Add DNS Records:**
+    *   Copy the generated DKIM CNAME records shown in the SES console (also outputted by the CDK stack's `EmailIdentityDkimTokens` output).
+    *   Log in to your DNS provider (e.g., Route 53, Cloudflare, Namecheap) and add these CNAME records to your domain's DNS settings.
+    *   Wait for AWS SES to verify the domain (usually takes a few minutes but can take up to 72 hours).
+3.  **Request Production Access (Move out of Sandbox):**
+    *   By default, all new SES accounts are in a "sandbox" mode, which restricts sending to only pre-verified recipient addresses.
+    *   To send emails to arbitrary users, navigate to the SES dashboard, click **Request production access**, fill out the application detailing your transactional send case, and submit the AWS Support request.
+4.  **Configure Environment Variables:**
+    *   Add your verified sending email address to your root `.env`:
+        ```env
+        SES_FROM_EMAIL_ADDRESS="notifications@festdaily.app"
+        ```
+
 This walkthrough provides a high-level overview of the setup process. For detailed configuration and implementation, refer to the official documentation of each service.

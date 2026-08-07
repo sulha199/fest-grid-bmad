@@ -43,6 +43,7 @@ graph TD
         FCM[Firebase Cloud Messaging]
         Gemini[Google Gemini API]
         Geoapify[Geoapify]
+        SES[Amazon SES]
     end
 
     U --> V
@@ -53,8 +54,9 @@ graph TD
     EventBridge -- triggers --> L_Scrape
     L_Scrape -- enqueues --> SQS_Scrape
     SQS_Scrape -- triggers --> L_Scrape
-    L_Scrape -- enqueues --> SQS_AI
+    L_Scrape -- persists scraped posts to --> Supabase
 
+    L_API -- selectPostsForExtraction --> SQS_AI
     SQS_AI -- triggers --> L_AI
     L_AI -- uses --> Gemini
     L_AI -- enqueues --> SQS_Ingest
@@ -64,6 +66,7 @@ graph TD
 
     L_API -- interacts with --> Supabase
     L_API -- sends to --> FCM
+    L_API -- sends to --> SES
     L_API -- resolves location via --> Geoapify
 
     U -- loads map tiles from --> Geoapify

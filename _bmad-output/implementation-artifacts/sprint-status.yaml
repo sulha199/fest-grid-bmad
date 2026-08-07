@@ -69,7 +69,7 @@ development_status:
   0-12-set-up-firebase-cloud-messaging-foundation: review
   0-13-set-up-ai-gateway-adapter-layer-for-gemini: ready-for-dev
   0-14-set-up-aws-iac-for-lambda-sqs-eventbridge-and-kms: ready-for-dev
-  0-15-set-up-outbound-email-adapter: ready-for-dev
+  0-15-set-up-outbound-email-adapter: done
   # regenerated 2026-08-03 via bmad-create-story against Geoapify-based epics.md text
   # (Sprint Change Proposal 2026-08-03); Postgres-backed no-TTL cache and the API-key
   # restriction MVP limitation were confirmed with the user during story creation.
