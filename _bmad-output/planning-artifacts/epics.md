@@ -1339,6 +1339,31 @@ Users can personalize their experience by saving favorite events and locations.
 *   **Then** I see a toggle to enable or disable push notifications for new events.
 *   **And** my choice is saved and respected by the system.
 
+### Story 2.10: Service Worker Lifecycle Updates and Database Self-Healing
+
+**As a** developer,
+**I want** the push notification service worker and storage layers to automatically update and self-heal from database conflicts, and proactively report failures to me via email and analytics,
+**So that** the notification system remains functional and monitored without manual intervention.
+
+**Acceptance Criteria:**
+
+*   **Given** a new version of `firebase-messaging-sw.js` is deployed,
+*   **When** the app registers it,
+*   **Then** `skipWaiting` and `clients.claim` are triggered so the new SW takes active control immediately.
+*   **Given** any background IndexedDB `VersionError` occurs during FCM registration/token request,
+*   **When** caught,
+*   **Then** the application programmatically deletes `firebase-messaging-database` to self-heal, triggers a retry, and captures a `push_notifications_sw_error` analytics event in PostHog.
+*   **Given** the service worker registers successfully,
+*   **When** a registration object is returned,
+*   **Then** `.update()` is invoked programmatically to fetch any updated scripts.
+*   **Given** a critical client-side Service Worker or IndexedDB error is caught,
+*   **When** the self-healing occurs,
+*   **Then** the application dispatches the backend `reportSystemError` GraphQL mutation (Story 0.23), which sends an alert email to the configured developer/administrator address via the Outbound Email Adapter (Story 0.15).
+
+**Note:** Backfilled into epics.md on 2026-08-07 via `bmad-create-story` — this story's file and its `ready-for-dev` sprint-status entry already existed, but no corresponding epics.md section did, discovered while running `bmad-create-story 2-10`. Original AC4 ("dispatches a backend `reportSystemError` mutation... using the backend's Outbound Email Adapter (Story 0.15)") is revised here to point at Story 0.23 instead of Story 0.15 directly, reflecting that Gate 1/Gate 3 findings during this same run split the generic `reportSystemError` mutation and its email template into its own foundation story rather than having 2.10 build it ad hoc.
+
+**Depends on:** Story 0.12 (FCM foundation), Story 0.23 (system error reporting foundation).
+
 ### Epic 3: Social Media Event Integration
 
 Users can subscribe to social media accounts to import events into their feed.
