@@ -10,6 +10,7 @@ import {
   subscriptions,
   userLocations,
   users,
+  socialMediaAccountProfiles,
 } from './schema';
 import {
   FIXTURE_API_KEY_IDS,
@@ -22,6 +23,7 @@ import {
   FIXTURE_SUBSCRIPTION_IDS,
   FIXTURE_USER_IDS,
   FIXTURE_USER_LOCATION_IDS,
+  FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILE_IDS,
   createSqlClient,
   seedDatabase,
 } from './seed';
@@ -51,6 +53,7 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
     try {
       const [userCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users);
       const [userLocationCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(userLocations);
+      const [profileCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(socialMediaAccountProfiles);
       const [subscriptionCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(subscriptions);
       const [apiKeyCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(apiKeys);
       const [postCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(posts);
@@ -59,6 +62,7 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
 
       assert.equal(userCount.count, FIXTURE_COUNTS.users);
       assert.equal(userLocationCount.count, FIXTURE_COUNTS.userLocations);
+      assert.equal(profileCount.count, FIXTURE_COUNTS.socialMediaAccountProfiles);
       assert.equal(subscriptionCount.count, FIXTURE_COUNTS.subscriptions);
       assert.equal(apiKeyCount.count, FIXTURE_COUNTS.apiKeys);
       assert.equal(postCount.count, FIXTURE_COUNTS.posts);
@@ -99,15 +103,30 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
         .leftJoin(users, eq(apiKeys.userId, users.id))
         .where(isNull(users.id));
 
+      const orphanPostsToProfiles = await db
+        .select({ postId: posts.id })
+        .from(posts)
+        .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
+        .where(isNull(socialMediaAccountProfiles.id));
+
+      const orphanSubscriptionsToProfiles = await db
+        .select({ subscriptionId: subscriptions.id })
+        .from(subscriptions)
+        .leftJoin(socialMediaAccountProfiles, eq(subscriptions.accountId, socialMediaAccountProfiles.id))
+        .where(isNull(socialMediaAccountProfiles.id));
+
       assert.equal(orphanSchedules.length, 0);
       assert.equal(orphanUserLocations.length, 0);
       assert.equal(orphanSubscriptions.length, 0);
       assert.equal(orphanApiKeys.length, 0);
+      assert.equal(orphanPostsToProfiles.length, 0);
+      assert.equal(orphanSubscriptionsToProfiles.length, 0);
 
       const eventSlugRows = await db.select({ slug: events.slug }).from(events);
       const scheduleSlugRows = await db.select({ slug: schedules.slug }).from(schedules);
       const userIdRows = await db.select({ id: users.id }).from(users);
       const userLocationIdRows = await db.select({ id: userLocations.id }).from(userLocations);
+      const profileIdRows = await db.select({ id: socialMediaAccountProfiles.id }).from(socialMediaAccountProfiles);
       const subscriptionIdRows = await db.select({ id: subscriptions.id }).from(subscriptions);
       const apiKeyIdRows = await db.select({ id: apiKeys.id }).from(apiKeys);
       const postIdRows = await db.select({ id: posts.id }).from(posts);
@@ -121,6 +140,10 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.deepEqual(
         userLocationIdRows.map((row) => row.id).sort(),
         FIXTURE_USER_LOCATION_IDS,
+      );
+      assert.deepEqual(
+        profileIdRows.map((row) => row.id).sort(),
+        FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILE_IDS,
       );
       assert.deepEqual(
         subscriptionIdRows.map((row) => row.id).sort(),
@@ -195,6 +218,9 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const [userLocationCountSecondRun] = await dbAfterSecondRun
         .select({ count: sql<number>`cast(count(*) as int)` })
         .from(userLocations);
+      const [profileCountSecondRun] = await dbAfterSecondRun
+        .select({ count: sql<number>`cast(count(*) as int)` })
+        .from(socialMediaAccountProfiles);
       const [subscriptionCountSecondRun] = await dbAfterSecondRun
         .select({ count: sql<number>`cast(count(*) as int)` })
         .from(subscriptions);
@@ -213,6 +239,7 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
 
       assert.equal(userCountSecondRun.count, FIXTURE_COUNTS.users);
       assert.equal(userLocationCountSecondRun.count, FIXTURE_COUNTS.userLocations);
+      assert.equal(profileCountSecondRun.count, FIXTURE_COUNTS.socialMediaAccountProfiles);
       assert.equal(subscriptionCountSecondRun.count, FIXTURE_COUNTS.subscriptions);
       assert.equal(apiKeyCountSecondRun.count, FIXTURE_COUNTS.apiKeys);
       assert.equal(postCountSecondRun.count, FIXTURE_COUNTS.posts);
@@ -233,6 +260,9 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const userLocationIdRowsSecondRun = await dbAfterSecondRun
         .select({ id: userLocations.id })
         .from(userLocations);
+      const profileIdRowsSecondRun = await dbAfterSecondRun
+        .select({ id: socialMediaAccountProfiles.id })
+        .from(socialMediaAccountProfiles);
       const subscriptionIdRowsSecondRun = await dbAfterSecondRun
         .select({ id: subscriptions.id })
         .from(subscriptions);
@@ -258,6 +288,10 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.deepEqual(
         userLocationIdRowsSecondRun.map((row) => row.id).sort(),
         FIXTURE_USER_LOCATION_IDS,
+      );
+      assert.deepEqual(
+        profileIdRowsSecondRun.map((row) => row.id).sort(),
+        FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILE_IDS,
       );
       assert.deepEqual(
         subscriptionIdRowsSecondRun.map((row) => row.id).sort(),

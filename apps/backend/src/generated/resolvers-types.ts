@@ -193,6 +193,7 @@ export type Query = {
   myLocations: Array<UserLocation>;
   mySettings: UserSettings;
   previewLocation: LocationDetails;
+  socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
 };
 
 
@@ -224,6 +225,12 @@ export type QueryPreviewLocationArgs = {
   placeId?: InputMaybe<Scalars['String']['input']>;
 };
 
+
+export type QuerySocialMediaAccountProfileByAccountIdArgs = {
+  accountId: Scalars['String']['input'];
+  platform: Scalars['String']['input'];
+};
+
 export type Schedule = {
   __typename?: 'Schedule';
   createdAt: Scalars['String']['output'];
@@ -243,6 +250,19 @@ export type Schedule = {
   ticketUrl?: Maybe<Scalars['String']['output']>;
   timezone?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['String']['output'];
+};
+
+export type SocialMediaAccountProfile = {
+  __typename?: 'SocialMediaAccountProfile';
+  accountId: Scalars['String']['output'];
+  defaultLocation?: Maybe<LocationDetails>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayName: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  lastPostDate?: Maybe<Scalars['String']['output']>;
+  platform: Scalars['String']['output'];
+  profileImageUrl?: Maybe<Scalars['String']['output']>;
+  username: Scalars['String']['output'];
 };
 
 export enum SoftDeleteAction {
@@ -387,6 +407,7 @@ export type ResolversTypes = ResolversObject<{
   Mutation: ResolverTypeWrapper<{}>;
   Query: ResolverTypeWrapper<{}>;
   Schedule: ResolverTypeWrapper<Schedule>;
+  SocialMediaAccountProfile: ResolverTypeWrapper<SocialMediaAccountProfile>;
   SoftDeleteAction: SoftDeleteAction;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   ToggleCalendarAdditionResult: ResolverTypeWrapper<ToggleCalendarAdditionResult>;
@@ -415,6 +436,7 @@ export type ResolversParentTypes = ResolversObject<{
   Mutation: {};
   Query: {};
   Schedule: Schedule;
+  SocialMediaAccountProfile: SocialMediaAccountProfile;
   String: Scalars['String']['output'];
   ToggleCalendarAdditionResult: ToggleCalendarAdditionResult;
   ToggleFavoriteResult: ToggleFavoriteResult;
@@ -506,6 +528,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   myLocations?: Resolver<Array<ResolversTypes['UserLocation']>, ParentType, ContextType>;
   mySettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
+  socialMediaAccountProfileByAccountId?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType, RequireFields<QuerySocialMediaAccountProfileByAccountIdArgs, 'accountId' | 'platform'>>;
 }>;
 
 export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Schedule'] = ResolversParentTypes['Schedule']> = ResolversObject<{
@@ -526,6 +549,19 @@ export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends R
   ticketUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   timezone?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type SocialMediaAccountProfileResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SocialMediaAccountProfile'] = ResolversParentTypes['SocialMediaAccountProfile']> = ResolversObject<{
+  accountId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  defaultLocation?: Resolver<Maybe<ResolversTypes['LocationDetails']>, ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  lastPostDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  platform?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  profileImageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  username?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -572,6 +608,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Mutation?: MutationResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Schedule?: ScheduleResolvers<ContextType>;
+  SocialMediaAccountProfile?: SocialMediaAccountProfileResolvers<ContextType>;
   ToggleCalendarAdditionResult?: ToggleCalendarAdditionResultResolvers<ContextType>;
   ToggleFavoriteResult?: ToggleFavoriteResultResolvers<ContextType>;
   UserLocation?: UserLocationResolvers<ContextType>;

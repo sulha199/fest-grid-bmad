@@ -61,19 +61,31 @@ export const userLocations = pgTable('user_locations', {
   activeIdx: index('idx_user_locations_active').on(t.userId).where(sql`deleted_at IS NULL`),
 }));
 
-export const subscriptions = pgTable('subscriptions', {
+export const socialMediaAccountProfiles = pgTable('social_media_account_profiles', {
   id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   accountId: text('account_id').notNull(),
   platform: text('platform').notNull(),
-  displayName: text('display_name').notNull(),
   username: text('username').notNull(),
+  displayName: text('display_name').notNull(),
   profileImageUrl: text('profile_image_url'),
   description: text('description'),
   lastPostDate: timestamp('last_post_date', { withTimezone: true }),
+  defaultLocation: jsonb('default_location').$type<LocationDetails>(),
+  ...timestamps,
+}, (t) => ({
+  platformAccountIdUnq: unique().on(t.platform, t.accountId),
+}));
+
+export const subscriptions = pgTable('subscriptions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  accountId: uuid('account_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  isNewlyAdded: boolean('is_newly_added').default(true).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
   ...timestamps,
-});
+}, (t) => ({
+  activeIdx: index('idx_subscriptions_active').on(t.userId).where(sql`deleted_at IS NULL`),
+}));
 
 export const geolocationCache = pgTable('geolocation_cache', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -97,7 +109,7 @@ export const apiKeys = pgTable('api_keys', {
 
 export const posts = pgTable('posts', {
   id: uuid('id').defaultRandom().primaryKey(),
-  subscriptionId: uuid('subscription_id').references(() => subscriptions.id),
+  accountId: uuid('account_id').references(() => socialMediaAccountProfiles.id).notNull(),
   content: text('content').notNull(),
   imageUrl: text('image_url'),
   postUrl: text('post_url'),
@@ -106,7 +118,7 @@ export const posts = pgTable('posts', {
   publishedAt: timestamp('published_at', { withTimezone: true }).notNull(),
   ...timestamps,
 }, (t) => ({
-  subscriptionIdIdx: index('subscription_id_idx').on(t.subscriptionId),
+  accountIdIdx: index('account_id_idx').on(t.accountId),
   publishedAtIdx: index('published_at_idx').on(t.publishedAt),
 }));
 
@@ -195,9 +207,9 @@ export const eventsRelations = relations(events, ({ one, many }) => ({
 }));
 
 export const postsRelations = relations(posts, ({ one, many }) => ({
-  subscription: one(subscriptions, {
-    fields: [posts.subscriptionId],
-    references: [subscriptions.id],
+  accountProfile: one(socialMediaAccountProfiles, {
+    fields: [posts.accountId],
+    references: [socialMediaAccountProfiles.id],
   }),
   events: many(events),
 }));
@@ -260,12 +272,20 @@ export const userSettingsRelations = relations(userSettings, ({ one }) => ({
   }),
 }));
 
-export const subscriptionsRelations = relations(subscriptions, ({ one, many }) => ({
+export const socialMediaAccountProfilesRelations = relations(socialMediaAccountProfiles, ({ many }) => ({
+  subscriptions: many(subscriptions),
+  posts: many(posts),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
   user: one(users, {
     fields: [subscriptions.userId],
     references: [users.id],
   }),
-  posts: many(posts),
+  accountProfile: one(socialMediaAccountProfiles, {
+    fields: [subscriptions.accountId],
+    references: [socialMediaAccountProfiles.id],
+  }),
 }));
 
 export const apiKeysRelations = relations(apiKeys, ({ one }) => ({

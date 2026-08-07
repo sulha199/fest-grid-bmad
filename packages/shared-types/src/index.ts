@@ -105,14 +105,24 @@ export interface EventInfo {
 }
 
 export interface SocialMediaAccountProfile {
+  id: string;
   accountId: string;
   platform: string;
   displayName: string;
   username: string;
   profileImageUrl?: string;
   description?: string;
-  isNewlyAdded?: boolean;
   lastPostDate?: string;
+  defaultLocation?: LocationDetails;
+}
+
+export interface Subscription {
+  id: string;
+  userId: string;
+  accountId: string;
+  isNewlyAdded: boolean;
+  createdAt: DateTimeIso;
+  deletedAt?: DateTimeIso;
 }
 
 export interface UserLocationPreference {

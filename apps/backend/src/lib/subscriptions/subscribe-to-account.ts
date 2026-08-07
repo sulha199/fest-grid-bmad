@@ -1,0 +1,105 @@
+import { db } from '../../db/client.js';
+import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
+import { and, eq } from 'drizzle-orm';
+import { activeOnly } from '@festgrid/graphql-select';
+
+interface ProfileInput {
+  displayName: string;
+  username: string;
+  profileImageUrl?: string | null;
+  description?: string | null;
+}
+
+interface SubscribeToAccountParams {
+  userId: string;
+  platform: string;
+  accountId: string;
+  profile: ProfileInput;
+}
+
+export async function subscribeToAccount({
+  userId,
+  platform,
+  accountId,
+  profile,
+}: SubscribeToAccountParams) {
+  // 1. Try to find the existing social media account profile
+  let accountProfile = await db
+    .select()
+    .from(socialMediaAccountProfiles)
+    .where(
+      and(
+        eq(socialMediaAccountProfiles.platform, platform),
+        eq(socialMediaAccountProfiles.accountId, accountId)
+      )
+    )
+    .limit(1)
+    .then((rows) => rows[0]);
+
+  // If absent, insert one and re-select safely (handling concurrent insertions)
+  if (!accountProfile) {
+    await db
+      .insert(socialMediaAccountProfiles)
+      .values({
+        accountId,
+        platform,
+        displayName: profile.displayName,
+        username: profile.username,
+        profileImageUrl: profile.profileImageUrl,
+        description: profile.description,
+      })
+      .onConflictDoNothing({
+        target: [socialMediaAccountProfiles.platform, socialMediaAccountProfiles.accountId],
+      });
+
+    accountProfile = await db
+      .select()
+      .from(socialMediaAccountProfiles)
+      .where(
+        and(
+          eq(socialMediaAccountProfiles.platform, platform),
+          eq(socialMediaAccountProfiles.accountId, accountId)
+        )
+      )
+      .limit(1)
+      .then((rows) => rows[0]);
+  }
+
+  // 2. Check for an existing subscription row for (userId, profile.id) filtered through activeOnly
+  const existingSubscription = await db
+    .select()
+    .from(subscriptions)
+    .where(
+      and(
+        eq(subscriptions.userId, userId),
+        eq(subscriptions.accountId, accountProfile.id),
+        activeOnly(subscriptions)
+      )
+    )
+    .limit(1)
+    .then((rows) => rows[0]);
+
+  if (existingSubscription) {
+    return {
+      profile: accountProfile,
+      subscription: existingSubscription,
+      alreadySubscribed: true,
+    };
+  }
+
+  // 3. Insert a new subscription row with isNewlyAdded: true
+  const [newSubscription] = await db
+    .insert(subscriptions)
+    .values({
+      userId,
+      accountId: accountProfile.id,
+      isNewlyAdded: true,
+    })
+    .returning();
+
+  return {
+    profile: accountProfile,
+    subscription: newSubscription,
+    alreadySubscribed: false,
+  };
+}
