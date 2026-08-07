@@ -90,6 +90,9 @@ importers:
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
+      eslint:
+        specifier: ^9.9.0
+        version: 9.39.5(jiti@2.7.0)
       tsx:
         specifier: ^4.16.2
         version: 4.23.1

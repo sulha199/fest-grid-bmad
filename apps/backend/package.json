@@ -28,6 +28,7 @@
     "postgres": "^3.4.4"
   },
   "devDependencies": {
+    "eslint": "^9.9.0",
     "@festgrid/eslint-config": "workspace:*",
     "@festgrid/typescript-config": "workspace:*",
     "@graphql-codegen/add": "^5.0.3",

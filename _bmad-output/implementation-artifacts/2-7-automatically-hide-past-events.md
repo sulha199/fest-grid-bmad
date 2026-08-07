@@ -1,10 +1,14 @@
+---
+baseline_commit: 46388b1f23346000cb8760e8d664a9bdfbf09c55
+---
+
 # Story 2.7: Automatically hide past events
 
 ## Story Details
 
 - Epic: 2
 - Story ID: 2.7
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -28,43 +32,43 @@ so that the main event feed and my personal lists stay clean and relevant.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Extend `overlaps` to accept an open-ended `to: null` bound** (AC: 7) — `packages/graphql-select`
-  - [ ] In `packages/graphql-select/drizzle-where.ts`'s `overlaps` case, change the value cast from `{ from: string; to: string }` to `{ from: string; to: string | null }`.
-  - [ ] Build the upper-bound SQL fragment conditionally: when `to === null`, pass a literal `NULL` into `daterange(...)` (Postgres treats a `NULL` bound as unbounded, ignoring the `'[]'` inclusivity flag for that side); when `to` is a string, keep the existing `${to}::date` behavior unchanged.
-  - [ ] Add a unit test in `drizzle-where.test.ts`: an `overlaps` condition with `value: { from: '2026-08-01', to: null }` returns a defined `SQL` (mirroring the existing bounded-`overlaps` test's `assert.ok(res !== undefined)` style). Do not remove or modify the existing bounded-`overlaps` test — it must keep passing unchanged (regression check for Story 1.3h/1.3f's usage).
+- [x] **Task 1: Extend `overlaps` to accept an open-ended `to: null` bound** (AC: 7) — `packages/graphql-select`
+  - [x] In `packages/graphql-select/drizzle-where.ts`'s `overlaps` case, change the value cast from `{ from: string; to: string }` to `{ from: string; to: string | null }`.
+  - [x] Build the upper-bound SQL fragment conditionally: when `to === null`, pass a literal `NULL` into `daterange(...)` (Postgres treats a `NULL` bound as unbounded, ignoring the `'[]'` inclusivity flag for that side); when `to` is a string, keep the existing `${to}::date` behavior unchanged.
+  - [x] Add a unit test in `drizzle-where.test.ts`: an `overlaps` condition with `value: { from: '2026-08-01', to: null }` returns a defined `SQL` (mirroring the existing bounded-`overlaps` test's `assert.ok(res !== undefined)` style). Do not remove or modify the existing bounded-`overlaps` test — it must keep passing unchanged (regression check for Story 1.3h/1.3f's usage).
 
-- [ ] **Task 2: Build the default event-visibility condition (domain, pure)** (AC: 1, 4, 6) — `packages/domain`
-  - [ ] Create `packages/domain/src/events/buildDefaultEventVisibilityConditions.ts`:
+- [x] **Task 2: Build the default event-visibility condition (domain, pure)** (AC: 1, 4, 6) — `packages/domain`
+  - [x] Create `packages/domain/src/events/buildDefaultEventVisibilityConditions.ts`:
     - Export `DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS = 7` (must be kept in sync with `user_settings.hide_past_events_after_days`'s column default, Story 2.6a — documented via a comment, not re-derived from the DB for the anonymous-caller path).
     - Export `buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays, now = new Date() }): QueryCondition[]`: computes `threshold = UTC-midnight(now) - hidePastEventsAfterDays days`, formats it as an ISO date string (`YYYY-MM-DD`, matching `schedules.eventStartDate`/`eventEndDate`'s `date` column type and the existing `weekStart`/`weekEnd` string convention in `buildWeeklyCalendarQueryCondition.ts`), and returns a single-element array: `[{ field: 'scheduleDateRange', operator: 'overlaps', value: { from: threshold, to: null } }]`. Use UTC date methods explicitly (`Date.UTC`, `setUTCDate`) to avoid local-timezone drift in a server process.
     - Return type is an array (not a single `QueryCondition`) precisely so the resolver can `and`-compose it with future entries (AC6) without restructuring — this story returns exactly one entry.
-  - [ ] Add `export * from './buildDefaultEventVisibilityConditions.js';` to `packages/domain/src/events/index.ts` (the `./events` subpath export already exists in `packages/domain/package.json` — no `package.json` change needed).
-  - [ ] Unit tests (`buildDefaultEventVisibilityConditions.test.ts`), 100% coverage per Testing Rules: default `N=7` threshold date math against an injected fixed `now`; a custom `N` (e.g. 14); the `N=0` boundary (threshold === today); confirms the returned array has exactly one entry with `to: null`.
+  - [x] Add `export * from './buildDefaultEventVisibilityConditions.js';` to `packages/domain/src/events/index.ts` (the `./events` subpath export already exists in `packages/domain/package.json` — no `package.json` change needed).
+  - [x] Unit tests (`buildDefaultEventVisibilityConditions.test.ts`), 100% coverage per Testing Rules: default `N=7` threshold date math against an injected fixed `now`; a custom `N` (e.g. 14); the `N=0` boundary (threshold === today); confirms the returned array has exactly one entry with `to: null`.
 
-- [ ] **Task 3: Wire the default visibility condition into `Query.events`** (AC: 1, 2, 3, 4, 5, 8) — `apps/backend`
-  - [ ] In `apps/backend/src/schema/resolvers.ts`'s `Query.events` resolver (~line 336), after the existing `userId` resolution block: if `userId` is truthy, call the already-imported `getOrCreateUserSettings(userId)` and read `.hidePastEventsAfterDays`; otherwise use `DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS` (imported from `@festgrid/domain/events`) with no DB call.
-  - [ ] Call `buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays })` to get the default-conditions list.
-  - [ ] Compose the final query condition passed to `buildDrizzleWhere` as `{ operator: 'and', conditions: [...(resolvedQuery ? [resolvedQuery] : []), ...defaultVisibilityConditions] }` — replacing the current `buildDrizzleWhere(resolvedQuery as QueryCondition, fieldMap)` call. The existing `totalCount` query already reuses the same `whereClause` variable — no separate change needed there, just confirm it still does after this edit.
-  - [ ] Explicitly confirm (do not silently skip) that `Query.event` (single-event-by-id lookup, ~line 502) is **not** modified — AC8 requires deep-link/detail-view access to bypass this filter, matching the PRD's existing exemption for direct deep-links.
-  - [ ] Explicitly confirm no other resolver needs a matching change — `buildWeeklyCalendarQueryCondition` (used by the future Story 1.3f discovery calendar view) composes its own DSL query client-side and sends it through the same `Query.events` resolver, so it inherits this default automatically with no resolver-specific work.
+- [x] **Task 3: Wire the default visibility condition into `Query.events`** (AC: 1, 2, 3, 4, 5, 8) — `apps/backend`
+  - [x] In `apps/backend/src/schema/resolvers.ts`'s `Query.events` resolver (~line 336), after the existing `userId` resolution block: if `userId` is truthy, call the already-imported `getOrCreateUserSettings(userId)` and read `.hidePastEventsAfterDays`; otherwise use `DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS` (imported from `@festgrid/domain/events`) with no DB call.
+  - [x] Call `buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays })` to get the default-conditions list.
+  - [x] Compose the final query condition passed to `buildDrizzleWhere` as `{ operator: 'and', conditions: [...(resolvedQuery ? [resolvedQuery] : []), ...defaultVisibilityConditions] }` — replacing the current `buildDrizzleWhere(resolvedQuery as QueryCondition, fieldMap)` call. The existing `totalCount` query already reuses the same `whereClause` variable — no separate change needed there, just confirm it still does after this edit.
+  - [x] Explicitly confirm (do not silently skip) that `Query.event` (single-event-by-id lookup, ~line 502) is **not** modified — AC8 requires deep-link/detail-view access to bypass this filter, matching the PRD's existing exemption for direct deep-links.
+  - [x] Explicitly confirm no other resolver needs a matching change — `buildWeeklyCalendarQueryCondition` (used by the future Story 1.3f discovery calendar view) composes its own DSL query client-side and sends it through the same `Query.events` resolver, so it inherits this default automatically with no resolver-specific work.
 
-- [ ] **Task 4: Integration tests** (AC: 1, 2, 3, 4, 5, 8) — `apps/backend`
-  - [ ] In `resolvers.test.ts`, new test block `'events - default past-event visibility filter (Story 2.7)'` (Yoga + real local test DB, matching the existing `'events - scheduleDateRange overlaps filtering (Story 1.3h)'` block's `createEventWithSchedule` helper pattern):
+- [x] **Task 4: Integration tests** (AC: 1, 2, 3, 4, 5, 8) — `apps/backend`
+  - [x] In `resolvers.test.ts`, new test block `'events - default past-event visibility filter (Story 2.7)'` (Yoga + real local test DB, matching the existing `'events - scheduleDateRange overlaps filtering (Story 1.3h)'` block's `createEventWithSchedule` helper pattern):
     - Anonymous caller: an event whose only schedule ended more than 7 days ago is excluded from `events(query: null)`; an event whose schedule ended within the last 7 days remains included.
     - Authenticated caller with a custom `hidePastEventsAfterDays` (set via `updateUserSettings`, Story 2.6a): confirms the threshold actually changes per-user (e.g., set to `1`, confirm an event 3 days past is now hidden where it wasn't at the default `7`).
     - Multi-schedule event: main schedule ended long ago, a sub-schedule is still within the threshold window — event remains visible (proves the EXISTS-across-all-schedules approach, not main-schedule-only — mirrors Story 1.3h's `subScheduleOnlyEvent` precedent).
     - Composition: the past-event filter combines correctly (via `and`) with an existing `types`/search condition supplied by the caller.
     - The `isFavorited`-sort path (`sortByFavoritedAt`) still applies the default visibility filter — a favorited-but-expired event is excluded even when querying `isFavorited: true`.
     - `Query.event` (single lookup by id) still returns a past/expired event directly by ID — confirms AC8's deep-link exemption is not accidentally broken by this story's resolver change.
-  - [ ] Full regression pass: existing `'events - scheduleDateRange overlaps filtering (Story 1.3h)'` tests must still pass unchanged (the bounded-`overlaps` code path is untouched by Task 1's addition).
+  - [x] Full regression pass: existing `'events - scheduleDateRange overlaps filtering (Story 1.3h)'` tests must still pass unchanged (the bounded-`overlaps` code path is untouched by Task 1's addition).
 
-- [ ] **Task 5: Documentation** (AC: 9)
-  - [ ] In `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, AD-1's "Fields and Operators" list, update the `scheduleDateRange` bullet from `overlaps (value: { from: string; to: string } ISO dates)` to `overlaps (value: { from: string; to: string | null } ISO dates — a null to means an open/unbounded upper range, added by Story 2.7)`.
+- [x] **Task 5: Documentation** (AC: 9)
+  - [x] In `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, AD-1's "Fields and Operators" list, update the `scheduleDateRange` bullet from `overlaps (value: { from: string; to: string } ISO dates)` to `overlaps (value: { from: string; to: string | null } ISO dates — a null to means an open/unbounded upper range, added by Story 2.7)`.
 
-- [ ] **Task 6: Manual verification**
-  - [ ] `pnpm build` / `pnpm lint` clean at the repo root for touched packages (`packages/domain`, `packages/graphql-select`, `apps/backend`).
-  - [ ] GraphiQL/`curl` smoke test: query `events` as both an anonymous and an authenticated caller against real seeded data (including at least one clearly past event), confirm the past event is excluded by default and confirm `updateUserSettings(hidePastEventsAfterDays: ...)` changes the authenticated caller's cutoff.
-  - [ ] Confirm no codegen re-run is needed in either `apps/backend` or `apps/web` — `EventQueryConditionInput.value` is already untyped `JSON` (`apps/backend/src/schema/events.graphql:97`), so the `to: null` shape change requires no `.graphql`/SDL change (AC7 does not touch generated types).
+- [x] **Task 6: Manual verification**
+  - [x] `pnpm build` / `pnpm lint` clean at the repo root for touched packages (`packages/domain`, `packages/graphql-select`, `apps/backend`).
+  - [x] GraphiQL/`curl` smoke test: query `events` as both an anonymous and an authenticated caller against real seeded data (including at least one clearly past event), confirm the past event is excluded by default and confirm `updateUserSettings(hidePastEventsAfterDays: ...)` changes the authenticated caller's cutoff.
+  - [x] Confirm no codegen re-run is needed in either `apps/backend` or `apps/web` — `EventQueryConditionInput.value` is already untyped `JSON` (`apps/backend/src/schema/events.graphql:97`), so the `to: null` shape change requires no `.graphql`/SDL change (AC7 does not touch generated types).
 
 ## Dev Notes
 
@@ -184,14 +188,14 @@ Recent commits (`26b0fca` "add user menu story", `6cdcab0`, `5702673` "add user 
 
 ## Definition of Done
 
-- [ ] AC1-AC9 satisfied.
-- [ ] Required tests passing: `packages/graphql-select` (new + regression), `packages/domain` (100% coverage), `apps/backend` integration tests (new + full 1.3h regression).
-- [ ] Lint and type checks passing for `packages/graphql-select`, `packages/domain`, `apps/backend`.
-- [ ] AD-1 documentation updated; `pnpm build`/`pnpm lint` clean at the repo root.
+- [x] AC1-AC9 satisfied.
+- [x] Required tests passing: `packages/graphql-select` (new + regression), `packages/domain` (100% coverage), `apps/backend` integration tests (new + full 1.3h regression).
+- [x] Lint and type checks passing for `packages/graphql-select`, `packages/domain`, `apps/backend`.
+- [x] AD-1 documentation updated; `pnpm build`/`pnpm lint` clean at the repo root.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] In Review
 
 ## Dev Agent Record
 
@@ -207,4 +211,22 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 
 ### Completion Notes List
 
+- Extended the `overlaps` DSL query operator in `@festgrid/graphql-select` to accept a nullable `to` parameter (`to: string | null`), treating `null` as an open-ended upper bound.
+- Implemented pure default event-visibility condition builder in `@festgrid/domain` that calculates threshold math for `N` days past using deterministic UTC midnight computations.
+- Wired default event-visibility condition seamlessly in `Query.events` resolver to filter past events for both anonymous and authenticated callers without changing `Query.event` lookup-by-ID or other detail endpoints.
+- Wrote and passed comprehensive unit tests with 100% coverage in `@festgrid/domain` and `@festgrid/graphql-select`.
+- Wrote and passed robust backend integration tests validating visibility filtering across anonymous/authenticated thresholds, query composition, multi-schedule date range coverage, and detail view exemptions.
+- Updated AD-1 "Fields and Operators" query DSL documentation in `festgrid-architecture-spine.md`.
+- Verified that all workspace packages build perfectly and cleanly.
+
 ### File List
+
+- `packages/graphql-select/drizzle-where.ts` (Modified overlaps operator)
+- `packages/graphql-select/drizzle-where.test.ts` (Added test for overlaps with `to: null`)
+- `packages/domain/src/events/buildDefaultEventVisibilityConditions.ts` (New pure default condition builder)
+- `packages/domain/src/events/buildDefaultEventVisibilityConditions.test.ts` (New unit tests with 100% coverage)
+- `packages/domain/src/events/index.ts` (Exported buildDefaultEventVisibilityConditions)
+- `apps/backend/src/schema/resolvers.ts` (Wired past-event default visibility condition)
+- `apps/backend/src/schema/resolvers.test.ts` (Added past-event filtering integration tests)
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (Updated DSL query specs)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (Updated story status to review)

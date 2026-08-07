@@ -78,7 +78,7 @@ export function buildDrizzleWhere(
       }
       return notInArray(column, value);
     case "overlaps": {
-      const { from, to } = value as { from: string; to: string };
+      const { from, to } = value as { from: string; to: string | null };
       const { table, eventIdCol, correlateCol, startCol, endCol } = column as {
         table: PgTable;
         eventIdCol: PgColumn;
@@ -86,11 +86,12 @@ export function buildDrizzleWhere(
         startCol: PgColumn;
         endCol: PgColumn;
       };
+      const toSql = to === null ? sql`NULL` : sql`${to}::date`;
       return sql`EXISTS (
         SELECT 1 FROM ${table}
         WHERE ${eventIdCol} = ${correlateCol}
           AND daterange(${startCol}, COALESCE(${endCol}, ${startCol}), '[]')
-              && daterange(${from}::date, ${to}::date, '[]')
+              && daterange(${from}::date, ${toSql}, '[]')
       )`;
     }
     case "withinRadius": {
