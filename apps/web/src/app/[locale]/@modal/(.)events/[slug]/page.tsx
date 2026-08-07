@@ -4,6 +4,7 @@ import { graphqlClient } from "@/lib/graphql-client"
 import { GetEventBySlugDocument, GetEventBySlugQuery } from "@/generated/graphql"
 import { EventDetailWrapper } from "@/features/events/EventDetailWrapper"
 import { Suspense } from "react"
+import { RouteLoader } from "@festgrid/ui"
 
 interface PageProps {
   params: Promise<{ slug: string; locale: string }>
@@ -39,7 +40,7 @@ export default async function EventModalPage({ params }: PageProps) {
   const { slug } = resolvedParams
 
   return (
-    <Suspense>
+    <Suspense fallback={<RouteLoader />}>
       <EventDetailWrapper slug={slug} isModal={true} />
     </Suspense>
   )

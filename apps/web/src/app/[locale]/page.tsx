@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import { RouteLoader } from "@festgrid/ui"
 import { HomeContent } from "./home-content"
 import { getTranslations } from "next-intl/server"
 import { buildPageMetadata } from "@/lib/metadata"
@@ -15,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 
 export default function Home() {
   return (
-    <Suspense>
+    <Suspense fallback={<RouteLoader />}>
       <HomeContent />
     </Suspense>
   )
