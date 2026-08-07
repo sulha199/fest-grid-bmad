@@ -307,6 +307,7 @@ export type UserSettings = {
 
 
 
+
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -418,6 +419,25 @@ export type PreviewLocationQueryVariables = Exact<{
 
 
 export type PreviewLocationQuery = { previewLocation: { formattedAddress: string | null, placeName: string | null, provider: GeolocationProvider | null, coordinates: { lat: number, lng: number } } };
+
+export type UpdateUserSettingsMutationVariables = Exact<{
+  input: UpdateUserSettingsInput;
+}>;
+
+
+export type UpdateUserSettingsMutation = { updateUserSettings: { id: string, hidePastEventsAfterDays: number, pushNotificationsEnabled: boolean, updatedAt: string } };
+
+export type RegisterFcmTokenMutationVariables = Exact<{
+  token: string;
+}>;
+
+
+export type RegisterFcmTokenMutation = { registerFcmToken: boolean };
+
+export type GetMySettingsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetMySettingsQuery = { mySettings: { id: string, hidePastEventsAfterDays: number, pushNotificationsEnabled: boolean, createdAt: string, updatedAt: string } };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -978,6 +998,87 @@ export const usePreviewLocationQuery = <
       {
     queryKey: variables === undefined ? ['previewLocation'] : ['previewLocation', variables],
     queryFn: fetcher<PreviewLocationQuery, PreviewLocationQueryVariables>(client, PreviewLocationDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const UpdateUserSettingsDocument = new TypedDocumentString(`
+    mutation updateUserSettings($input: UpdateUserSettingsInput!) {
+  updateUserSettings(input: $input) {
+    id
+    hidePastEventsAfterDays
+    pushNotificationsEnabled
+    updatedAt
+  }
+}
+    `);
+
+export const useUpdateUserSettingsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateUserSettingsMutation, TError, UpdateUserSettingsMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateUserSettingsMutation, TError, UpdateUserSettingsMutationVariables, TContext>(
+      {
+    mutationKey: ['updateUserSettings'],
+    mutationFn: (variables?: UpdateUserSettingsMutationVariables) => fetcher<UpdateUserSettingsMutation, UpdateUserSettingsMutationVariables>(client, UpdateUserSettingsDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const RegisterFcmTokenDocument = new TypedDocumentString(`
+    mutation registerFcmToken($token: String!) {
+  registerFcmToken(token: $token)
+}
+    `);
+
+export const useRegisterFcmTokenMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RegisterFcmTokenMutation, TError, RegisterFcmTokenMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RegisterFcmTokenMutation, TError, RegisterFcmTokenMutationVariables, TContext>(
+      {
+    mutationKey: ['registerFcmToken'],
+    mutationFn: (variables?: RegisterFcmTokenMutationVariables) => fetcher<RegisterFcmTokenMutation, RegisterFcmTokenMutationVariables>(client, RegisterFcmTokenDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const GetMySettingsDocument = new TypedDocumentString(`
+    query getMySettings {
+  mySettings {
+    id
+    hidePastEventsAfterDays
+    pushNotificationsEnabled
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useGetMySettingsQuery = <
+      TData = GetMySettingsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: GetMySettingsQueryVariables,
+      options?: Omit<UseQueryOptions<GetMySettingsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetMySettingsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetMySettingsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['getMySettings'] : ['getMySettings', variables],
+    queryFn: fetcher<GetMySettingsQuery, GetMySettingsQueryVariables>(client, GetMySettingsDocument, variables, headers),
     ...options
   }
     )};

@@ -1,0 +1,12 @@
+mutation updateUserSettings($input: UpdateUserSettingsInput!) {
+  updateUserSettings(input: $input) {
+    id
+    hidePastEventsAfterDays
+    pushNotificationsEnabled
+    updatedAt
+  }
+}
+
+mutation registerFcmToken($token: String!) {
+  registerFcmToken(token: $token)
+}

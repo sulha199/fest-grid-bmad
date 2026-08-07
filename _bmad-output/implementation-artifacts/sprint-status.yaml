@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-07T05:25:00Z
+last_updated: 2026-08-07T07:30:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -203,7 +203,8 @@ development_status:
   # (Story 4.8, Epic 4). All confirmed via AskUserQuestion; epics.md AC revised.
   2-7-automatically-hide-past-events: review
   2-8-user-menu: done
-  2-9-manage-push-notification-settings: ready-for-dev
+  2-9-manage-push-notification-settings: review
+  2-10-service-worker-lifecycle-updates-and-database-self-healing: ready-for-dev
   epic-2-retrospective: optional
   epic-3: in-progress
   3-1a-create-social-media-account-profiles-table: ready-for-dev

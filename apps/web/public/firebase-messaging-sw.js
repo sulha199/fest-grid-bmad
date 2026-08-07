@@ -1,6 +1,6 @@
 // Firebase Cloud Messaging Service Worker (compat version)
-importScripts('https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/12.17.1/firebase-messaging-compat.js');
 
 // Extract config from service worker script URL query parameters (passed during registration if dynamic config is needed),
 // or fall back to standard inlined values.
