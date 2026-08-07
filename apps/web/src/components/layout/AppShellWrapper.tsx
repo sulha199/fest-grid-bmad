@@ -2,15 +2,22 @@
 
 import * as React from 'react';
 import { ReactNode } from 'react';
-import { usePathname, Link } from '@/i18n/navigation';
+import { usePathname, useRouter, Link } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuthSession } from '@/components/providers/auth-session-provider';
 import { AppShell, NavKey } from '@festgrid/ui';
 import { useMeQuery } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 
+// Any slug works here — the goal is only to warm the shared @modal
+// layout/loading JS chunks once per session (identical for every real event
+// slug); the target page's own data fetch is skipped during prefetch since
+// it's inside a Suspense boundary bounded by loading.tsx.
+const MODAL_PREFETCH_WARMUP_SLUG = '__prefetch-warmup__';
+
 export function AppShellWrapper({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const t = useTranslations('Nav');
   const tUserMenu = useTranslations('UserMenu');
   const { user, isLoading, signOut } = useAuthSession();
@@ -23,6 +30,10 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
     enabled: isAuthenticated,
   });
   const role = meData?.me?.role || undefined;
+
+  React.useEffect(() => {
+    router.prefetch(`/events/${MODAL_PREFETCH_WARMUP_SLUG}`);
+  }, [router]);
 
   const labels: Record<NavKey, string> = {
     discover: t('discover'),
