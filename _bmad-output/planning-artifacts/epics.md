@@ -1381,30 +1381,37 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** the first step of the wizard prompts me to add my Gemini API key.
 *   **And** the second step prompts me to subscribe to my first social media account.
 *   **And** after completing the wizard, I am redirected back to the page I was trying to access.
-*   **And** submitting the Gemini API key persists it via a backend GraphQL mutation (Story 0.8 scaffold, Story 0.17 authenticated context) that encrypts the key using the KMS key (Story 0.14) before storage — never stored in plaintext and never encrypted client-side.
+*   **And** submitting the Gemini API key persists it by calling the same `createApiKey` mutation Story 3.1b builds and owns (Story 0.8 scaffold, Story 0.17 authenticated context) that encrypts the key using the KMS key (Story 0.14, via Story 0.13's `kms.ts`) before storage — never stored in plaintext and never encrypted client-side. **This wizard step does not reimplement key creation** — see Story 3.1b's Amendment note.
 *   **And** subscribing to the first social media account persists the subscription via the same backend GraphQL mutation layer — not a direct database write from `apps/web` — using Story 3.1a's account-profile lookup-or-create logic.
 
-**Depends on:** Story 3.1a.
+**Depends on:** Story 3.1a, Story 3.1b.
 
-### Story 3.1b: Manage and revoke API keys
+**Amendment (2026-08-07, added via `bmad-create-story` while creating Story 3.1b):** Story 3.1b (originally scoped as view+revoke only) had its scope expanded, at user's request during its own story creation, to also own key *creation* — since the UX scenario doc (`design-artifacts/C-UX-Scenarios/04-alex-manages-keys/04.1-manage-api-keys.md`) shows an "Add New Key" row on the same `/settings/api-keys` page. Story 3.1b is now the sole owner of the `createApiKey` mutation; this wizard step must call that exact mutation rather than building its own. `Depends on` updated accordingly (previously only Story 3.1a).
+
+### Story 3.1b: Manage, add, and revoke API keys
 
 **As a** user,
-**I want** a dedicated page to view my saved Gemini API keys (masked) and revoke ones I no longer want to use,
-**So that** I can control which of my BYOK keys the system is allowed to use for event extraction.
+**I want** a dedicated page to view my saved Gemini API keys (masked), add a new one, and revoke ones I no longer want to use,
+**So that** I can control which of my BYOK keys the system is allowed to use for event extraction, both during and after onboarding.
 
 **Acceptance Criteria:**
 
 *   **Given** I am logged in and navigate to the `/settings/api-keys` page (UX-DR9),
 *   **When** the page loads,
-*   **Then** I see my saved API keys, each shown masked (e.g. last 4 characters only, never the decrypted value) — fetched via a `myApiKeys` query, scoped to `context.user` via `requireAuth` (Story 0.17) and filtered to active rows via `activeOnly(table)` (Story 0.22), not a hand-written `isNull(...)` clause.
+*   **Then** I see my saved API keys, each shown masked (last 4 characters only, e.g. `••••1234` — never the decrypted value, never a key prefix), fetched via a `myApiKeys` query, scoped to `context.user` via `requireAuth` (Story 0.17) and filtered to active rows via `activeOnly(table)` (Story 0.22), not a hand-written `isNull(...)` clause.
+*   **And** I can click an "Add API Key" action to open a modal (matching this app's established `/settings/*` add-item modal pattern, e.g. `LocationFormDialog`, rather than an inline editable table row) prompting for a provider (a single-option "Gemini" selector at MVP — no other provider is supported) and the raw key value, with a "How to get a Gemini API key?" help link.
+*   **And** submitting the add-key form calls a `createApiKey(input: CreateApiKeyInput!): ApiKey!` mutation (Story 0.8 scaffold, Story 0.17 authenticated context) that encrypts the key server-side via AWS KMS (Story 0.13's `kms.ts`, Story 0.14's provisioned `BYOK_KMS_KEY_ID`) before persisting — never stored in plaintext, never encrypted client-side — and returns the new key already masked; a success toast confirms and the new key is prepended to the list. This is the **same** `createApiKey` mutation Story 3.1's onboarding wizard step 1 calls — not a separate/duplicate mutation (see Story 3.1's Amendment note).
 *   **And** I can revoke a key, which calls a `deleteApiKey(id: ID!, action: SoftDeleteAction!)` mutation (AD-8 rule 4 — the `SoftDeleteAction` enum is reused from `apps/backend/src/schema/typeDefs.graphql`, never redeclared) that soft-deletes the key (never a hard delete) and returns the updated `ApiKey!`.
 *   **And** attempting to revoke an already-revoked key (an invalid state transition) throws a `GraphQLError` with `extensions.code = 'INVALID_STATE_TRANSITION'` rather than silently no-op'ing.
-*   **And** a revoked key is immediately excluded from the AI Gateway Adapter's (Story 0.13) key-selection pool for future extraction calls.
+*   **And** a revoked key is immediately excluded from the AI Gateway Adapter's (Story 0.13) key-selection pool for future extraction calls — `fetchCandidateKeys` must filter via `activeOnly(apiKeys)` (Story 0.22), a requirement added to Story 0.13's task list by this story's creation (see Story 0.13's Amendment note).
+*   **And** the revoke interaction uses the reusable Soft-Delete-with-Undo primitive (`useSoftDeleteWithUndo`/`SoftDeleteToaster`, Story 0.18 — which explicitly named API Keys as an intended consumer): the `DELETE` mutation commits immediately, the row greys out with an "Undo" toast, clicking Undo calls `deleteApiKey(RESTORE)`, and letting the toast expire leaves the key revoked and splices it from the local list — matching `locations-content.tsx`'s reference implementation.
 *   **And** the page is a `/settings/api-keys` route composed inside the app shell (Story 0.7), matching the pattern of the other `/settings/*` pages.
 
 **Note:** Classified as a Gate 3 gap by the Epic 3 readiness re-sweep (`bmad-epic-readiness-check`, re-run 2026-08-07) — `/settings/api-keys` is a named route in UX-DR9, and Architecture Spine AD-8 explicitly anticipates an `ApiKey` delete mutation ("`ApiKey`/`Subscription` delete mutations (Epic 3/4) once built" must use the rule-4 soft-delete shape), but no story anywhere built the list/revoke surface — Story 3.1 only ever creates a key during onboarding, and Story 1.1 only creates the table. A prior sweep (2026-07-31/08-01) had flagged this as an FR-completeness note for the PM rather than an architecture gap; this re-sweep upgrades it because the gap is now also named directly in the Architecture Spine, not just implied by an unbuilt UX-DR9 route. Positioned directly after Story 3.1 (the only existing story that writes to `api_keys`), scoped to Epic 3 rather than Epic 0 since API-key management is a single-epic, user-facing feature with no cross-epic reuse — unlike the Gemini/email/geolocation adapters (Stories 0.13/0.15/0.16), which are genuinely consumed by multiple epics.
 
-**Depends on:** Story 1.1, Story 0.17, Story 0.22, Story 3.1.
+**Amendment (2026-08-07, added via `bmad-create-story`):** During this story's own creation, a UX scenario doc (`design-artifacts/C-UX-Scenarios/04-alex-manages-keys/04.1-manage-api-keys.md`, not previously cross-checked against this story's AC) was found to describe an "Add New Key" row on this same page — out of this story's original view+revoke-only scope. A Gate 2 (UI Complexity & Reusability) pass confirmed no new component split was needed either way (the add-flow reuses the existing modal pattern, not a novel primitive). Per user decision (AskUserQuestion during story creation), the add-flow was folded into this story rather than left as a documented gap, since it is the same page and the mutation it needs did not otherwise have an owning story. The UX doc's alternative masking convention ("first 5 characters, key-prefix style") was explicitly **not** adopted — this story keeps the AC's original "last 4 characters" convention as the more conservative, less-leaky default. Story title/User Story updated from "Manage and revoke" to "Manage, add, and revoke" to reflect the expanded scope.
+
+**Depends on:** Story 1.1, Story 0.13, Story 0.14, Story 0.17, Story 0.22.
 
 ### Story 3.2: Subscribe to a social media account
 

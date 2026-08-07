@@ -206,9 +206,17 @@ development_status:
   2-9-manage-push-notification-settings: ready-for-dev
   epic-2-retrospective: optional
   epic-3: in-progress
-  3-1a-create-social-media-account-profiles-table: backlog
+  3-1a-create-social-media-account-profiles-table: ready-for-dev
   3-1-onboarding-wizard-for-api-key-and-subscriptions: backlog
-  3-1b-manage-and-revoke-api-keys: backlog
+  # regenerated 2026-08-07 via bmad-create-story: scope expanded from view+revoke-only
+  # to also own key creation (createApiKey), folded in at user's request after the UX
+  # scenario doc (04.1-manage-api-keys.md) showed an add-flow on this same page. Story
+  # 3.1's onboarding wizard now reuses this story's createApiKey mutation instead of
+  # building its own. Depends-on updated: adds Story 0.13/0.14, drops Story 3.1 (no
+  # longer needed — this story is now self-sufficient for create+revoke). Cross-amended
+  # Story 0.13's fetchCandidateKeys task with an activeOnly(apiKeys) filter requirement.
+  # See epics.md Story 3.1b's Amendment note.
+  3-1b-manage-and-revoke-api-keys: ready-for-dev
   3-2-subscribe-to-a-social-media-account: backlog
   3-3-set-a-default-location-for-a-subscription: backlog
   3-3a-create-posts-table-and-persist-scraped-posts: backlog
