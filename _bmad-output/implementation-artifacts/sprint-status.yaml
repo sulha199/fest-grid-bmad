@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-07T12:54:19Z
+last_updated: 2026-08-07T13:30:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -103,7 +103,7 @@ development_status:
   # evaluate this UI-shaped gap. Registry design revised from URL-query-param steps
   # to a code-defined wizard registry per user decision, for i18n/generateMetadata
   # compatibility. See epics.md Story 0.24 note.
-  0-24-build-the-reusable-wizard-page-primitive: backlog
+  0-24-build-the-reusable-wizard-page-primitive: ready-for-dev
   # added 2026-08-07 via bmad-create-story Gate 1 finding while drafting Story 0.23:
   # no backend env var (not just 0.23's new SYSTEM_ERROR_ALERT_EMAIL) is wired into a
   # deployed Lambda's environment config, since Story 0.14's L_API Lambda resource
