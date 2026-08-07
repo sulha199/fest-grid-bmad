@@ -10,6 +10,10 @@ export interface BackendEnv {
   firebaseClientEmail?: string;
   firebasePrivateKey?: string;
   sesFromEmailAddress?: string;
+  byokKmsKeyId?: string;
+  geminiModel: string;
+  apiKeyInvalidAttemptsThreshold: number;
+  apiKeyUsageCycleDays: number;
 }
 
 export function loadBackendEnv(): BackendEnv {
@@ -53,5 +57,13 @@ export function loadBackendEnv(): BackendEnv {
     firebasePrivateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     sesFromEmailAddress: process.env.SES_FROM_EMAIL_ADDRESS,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    byokKmsKeyId: process.env.BYOK_KMS_KEY_ID,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    apiKeyInvalidAttemptsThreshold: parseInt(process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD || '5', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    apiKeyUsageCycleDays: parseInt(process.env.API_KEY_USAGE_CYCLE_DAYS || '30', 10),
   };
 }

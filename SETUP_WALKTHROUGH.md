@@ -227,4 +227,22 @@ Amazon SES is used for transactional email delivery (quota warnings, moderator a
         SES_FROM_EMAIL_ADDRESS="notifications@festdaily.app"
         ```
 
+## 8. AI Gateway (Google Gemini API)
+
+The AI Gateway wraps all outbound Google Gemini API calls behind a single Adapter interface with rate-limiting, key-management (BYOK), and decryption guarantees.
+
+### Setup Steps
+
+1.  **Obtain a Gemini API Key:**
+    *   Sign up at [Google AI Studio](https://aistudio.google.com/) and create a free-tier Gemini API key. This personal test key is used for local testing of the Adapter.
+2.  **Configure Environment Variables:**
+    *   Set the relevant environment variables in your root `.env`:
+        ```env
+        BYOK_KMS_KEY_ID="" # Provisioned automatically by Story 0.14's AWS IaC stack
+        GEMINI_MODEL="gemini-2.5-flash"
+        API_KEY_INVALID_ATTEMPTS_THRESHOLD="5"
+        API_KEY_USAGE_CYCLE_DAYS="30"
+        ```
+    *   *Note: Decryption in `kms.ts` is lazily initialized and mocked locally/in test environments if `BYOK_KMS_KEY_ID` is omitted or when `NODE_ENV === 'test'`.*
+
 This walkthrough provides a high-level overview of the setup process. For detailed configuration and implementation, refer to the official documentation of each service.

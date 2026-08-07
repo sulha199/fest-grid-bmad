@@ -67,7 +67,7 @@ development_status:
   0-10-set-up-testing-frameworks-foundation: review
   0-11-set-up-runtime-schema-validation: review
   0-12-set-up-firebase-cloud-messaging-foundation: review
-  0-13-set-up-ai-gateway-adapter-layer-for-gemini: ready-for-dev
+  0-13-set-up-ai-gateway-adapter-layer-for-gemini: review
   0-14-set-up-aws-iac-for-lambda-sqs-eventbridge-and-kms: ready-for-dev
   0-15-set-up-outbound-email-adapter: done
   # regenerated 2026-08-03 via bmad-create-story against Geoapify-based epics.md text
@@ -111,6 +111,11 @@ development_status:
   # rather than accept it as an implicit Story 0.14 forward dependency. See epics.md
   # Story 0.25 note and Story 0.23's Architecture & UX Gate Findings.
   0-25-wire-backend-environment-variables-into-the-deployed-api-lambda-s-iac-configuration: backlog
+  # added 2026-08-07 via bmad-correct-course: every route-page's Suspense boundary
+  # (fallback-less since Story 1.9) needs a shared, on-brand loading fallback instead
+  # of a blank flash, including the event-detail modal's bounded dialog content.
+  # See sprint-change-proposal-2026-08-07.md.
+  0-26-build-the-reusable-routeloader-component: backlog
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done

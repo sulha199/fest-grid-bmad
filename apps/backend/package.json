@@ -12,8 +12,10 @@
     "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "^3.1058.0",
     "@aws-sdk/client-sesv2": "^3.1100.0",
     "@escape.tech/graphql-armor": "^3.2.0",
+    "@google/genai": "^2.14.0",
     "@festgrid/database": "workspace:*",
     "@festgrid/domain": "workspace:*",
     "@festgrid/graphql-select": "workspace:*",
