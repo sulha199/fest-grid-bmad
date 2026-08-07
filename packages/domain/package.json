@@ -33,6 +33,10 @@
     "./user-settings": {
       "types": "./dist/user-settings/index.d.ts",
       "default": "./dist/user-settings/index.js"
+    },
+    "./email": {
+      "types": "./dist/email/index.d.ts",
+      "default": "./dist/email/index.js"
     }
   },
   "scripts": {

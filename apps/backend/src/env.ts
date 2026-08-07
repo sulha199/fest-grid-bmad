@@ -9,6 +9,7 @@ export interface BackendEnv {
   firebaseProjectId?: string;
   firebaseClientEmail?: string;
   firebasePrivateKey?: string;
+  sesFromEmailAddress?: string;
 }
 
 export function loadBackendEnv(): BackendEnv {
@@ -50,5 +51,7 @@ export function loadBackendEnv(): BackendEnv {
     firebaseClientEmail: process.env.FIREBASE_CLIENT_EMAIL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     firebasePrivateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    sesFromEmailAddress: process.env.SES_FROM_EMAIL_ADDRESS,
   };
 }
