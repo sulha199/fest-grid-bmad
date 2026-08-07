@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-07T07:30:00Z
+last_updated: 2026-08-07T08:30:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -96,6 +96,14 @@ development_status:
   # is cross-cutting (future stories will also want to alert on client failures).
   # See epics.md Story 0.23 note.
   0-23-build-the-system-error-reporting-and-alerting-foundation: backlog
+  # added 2026-08-07 via bmad-create-story Gate 3 (lightweight guard) finding while
+  # drafting Story 3.1: design-artifacts/UX-wizard-page-run-1 specs a generic /wizard
+  # page (EXPERIENCE.md status: final) with a confirmed second, cross-epic consumer
+  # (Story 5.5), but no story owns building it; the epic-3-readiness.md sweep didn't
+  # evaluate this UI-shaped gap. Registry design revised from URL-query-param steps
+  # to a code-defined wizard registry per user decision, for i18n/generateMetadata
+  # compatibility. See epics.md Story 0.24 note.
+  0-24-build-the-reusable-wizard-page-primitive: backlog
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
@@ -214,7 +222,18 @@ development_status:
   epic-2-retrospective: optional
   epic-3: in-progress
   3-1a-create-social-media-account-profiles-table: ready-for-dev
-  3-1-onboarding-wizard-for-api-key-and-subscriptions: backlog
+  # regenerated 2026-08-07 via bmad-create-story: full context engine pass. Gate 1/3
+  # cited from swept epic-3-readiness.md; lightweight guard surfaced two real gaps the
+  # sweep couldn't anticipate (both UI/design-artifact-shaped) -- split new Story 0.24
+  # (generic /wizard primitive, confirmed cross-epic reuse via Story 5.5) and added a
+  # forward-note to Story 3.2 (/settings/subscriptions page gap). User confirmed via
+  # AskUserQuestion: this story owns the subscribeToAccount mutation (3.2 will reuse
+  # it), the subscribe step is manual-entry only (no live scrape validation -- Story
+  # 3.4 forward-noted), and the wizard registry is code-defined (not URL-query-param)
+  # for i18n/generateMetadata compatibility. Depends on: 3.1a, 3.1b, 0.24 (none done
+  # yet -- sequencing confirmation required before implementation, see story's
+  # Pre-Coding Approval Gate).
+  3-1-onboarding-wizard-for-api-key-and-subscriptions: ready-for-dev
   # regenerated 2026-08-07 via bmad-create-story: scope expanded from view+revoke-only
   # to also own key creation (createApiKey), folded in at user's request after the UX
   # scenario doc (04.1-manage-api-keys.md) showed an add-flow on this same page. Story
