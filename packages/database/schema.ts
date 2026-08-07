@@ -103,6 +103,8 @@ export const apiKeys = pgTable('api_keys', {
   provider: text('provider').notNull(),
   isValid: boolean('is_valid').default(true).notNull(),
   invalidAttempts: integer('invalid_attempts').default(0).notNull(),
+  usageCount: integer('usage_count').default(0).notNull(),
+  usageCycleResetAt: timestamp('usage_cycle_reset_at', { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete support
   ...timestamps,
 });
