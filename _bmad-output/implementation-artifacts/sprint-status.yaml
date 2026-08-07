@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-08-06T20:45:00Z
+# last_updated: 2026-08-07T00:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -115,7 +115,7 @@ development_status:
   # (fallback-less since Story 1.9) needs a shared, on-brand loading fallback instead
   # of a blank flash, including the event-detail modal's bounded dialog content.
   # See sprint-change-proposal-2026-08-07.md.
-  0-26-build-the-reusable-routeloader-component: backlog
+  0-26-build-the-reusable-routeloader-component: ready-for-dev
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
