@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { RouteLoader } from '@festgrid/ui';
 import { getTranslations } from 'next-intl/server';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 
 export default function NotificationsPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<RouteLoader />}>
       <NotificationsContent />
     </Suspense>
   );
