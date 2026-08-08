@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-08-07T00:00:00Z
+# last_updated: 2026-08-08T00:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-08T10:29:00Z
+last_updated: 2026-08-08T12:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -70,6 +70,10 @@ development_status:
   0-13-set-up-ai-gateway-adapter-layer-for-gemini: review
   0-14-set-up-aws-iac-for-lambda-sqs-eventbridge-and-kms: ready-for-dev
   0-15-set-up-outbound-email-adapter: done
+  # added 2026-08-08 via bmad-create-story: user-requested dev-experience addendum
+  # to already-done Story 0.15 (not a Gate 1/2/3 finding) — single-story split per
+  # story-split-gate.md's numbering rule. See epics.md Story 0.15a.
+  0-15a-local-dev-email-adapter-stub: ready-for-dev
   # regenerated 2026-08-03 via bmad-create-story against Geoapify-based epics.md text
   # (Sprint Change Proposal 2026-08-03); Postgres-backed no-TTL cache and the API-key
   # restriction MVP limitation were confirmed with the user during story creation.
@@ -273,7 +277,15 @@ development_status:
   # location-form-dialog.tsx (Stories 2.3/2.4). See epics.md Story 3.3d note.
   3-3d-build-the-reusable-locationpickerfield-component: review
   3-3-set-a-default-location-for-a-subscription: ready-for-dev
-  3-3a-create-posts-table-and-persist-scraped-posts: backlog
+  # regenerated 2026-08-08 via bmad-create-story: full context engine pass. Gate 1/3
+  # cited from swept epic-3-readiness.md (no gap); Gate 2 determined directly (zero UI
+  # scope). Data Type Compatibility audit found posts.post_url was nullable/non-unique
+  # despite the PRD/shared-types Post interface requiring it, and packages/shared-types'
+  # Post interface was missing accountId/publishedAt -- both fixed in this story. A
+  # dedup design decision (unique constraint + select-or-insert vs. blind insert
+  # accepting duplicates) was confirmed with the user via AskUserQuestion: dedupe on
+  # post_url, mirroring Story 3.1a's subscribeToAccount() precedent.
+  3-3a-create-posts-table-and-persist-scraped-posts: ready-for-dev
   3-3b-edit-an-accounts-default-location: backlog
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: backlog
   3-4-scrape-new-posts-from-subscribed-accounts: backlog
