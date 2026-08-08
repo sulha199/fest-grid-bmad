@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-07T14:00:00Z
+last_updated: 2026-08-07T16:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -255,7 +255,17 @@ development_status:
   # Story 0.13's fetchCandidateKeys task with an activeOnly(apiKeys) filter requirement.
   # See epics.md Story 3.1b's Amendment note.
   3-1b-manage-and-revoke-api-keys: ready-for-dev
-  3-2-subscribe-to-a-social-media-account: backlog
+  # regenerated 2026-08-07 via bmad-create-story: full context engine pass. Scope
+  # expanded from add-only to also own the full /settings/subscriptions list+remove
+  # view (mySubscriptions query, removeSubscription mutation), resolving this
+  # story's own Forward note (added while drafting Story 3.1) that flagged Story
+  # 5.1a's original ownership of those two as a backward Epic-3-on-Epic-5 dependency.
+  # Confirmed via AskUserQuestion. Story 5.1a's epics.md entry amended to extend
+  # this story's mySubscriptions with isInactive instead of rebuilding it, and to
+  # reuse removeSubscription as-is. Verified subscriptions.is_newly_added already
+  # exists in the DB (Story 3.1a's actual migration 0013) despite epics.md's AC
+  # text for 3.1a never listing it -- a doc-only gap, not a schema gap.
+  3-2-subscribe-to-a-social-media-account: ready-for-dev
   3-3-set-a-default-location-for-a-subscription: backlog
   3-3a-create-posts-table-and-persist-scraped-posts: backlog
   3-3b-edit-an-accounts-default-location: backlog
