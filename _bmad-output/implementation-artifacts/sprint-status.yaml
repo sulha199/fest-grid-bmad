@@ -271,7 +271,7 @@ development_status:
   # address-autocomplete/current-location/map-pick experience for the default-
   # location field, which is currently embedded, unextracted, inside
   # location-form-dialog.tsx (Stories 2.3/2.4). See epics.md Story 3.3d note.
-  3-3d-build-the-reusable-locationpickerfield-component: backlog
+  3-3d-build-the-reusable-locationpickerfield-component: ready-for-dev
   3-3-set-a-default-location-for-a-subscription: ready-for-dev
   3-3a-create-posts-table-and-persist-scraped-posts: backlog
   3-3b-edit-an-accounts-default-location: backlog
