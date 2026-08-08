@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-08T17:48:00Z
+last_updated: 2026-08-09T03:41:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -316,6 +316,19 @@ development_status:
   # stale-job fallback sweep -- a genuinely new architectural layer, not an
   # incremental adapter addition. See epics.md Story 3.4a note.
   3-4a-add-brightdata-as-the-priority-scraping-vendor-for-the-scheduled-batch: backlog
+  # added 2026-08-08 via bmad-create-story while drafting Story 3.4: BYOK-pooled
+  # scraper-vendor keys, researched and found legally ambiguous for both Apify
+  # (anti-sublicensing clause) and Bright Data (KYC/declared-use-case vetting).
+  # LEGALLY GATED -- do not move to ready-for-dev until written vendor
+  # confirmation is obtained (see the story file's outreach email drafts).
+  3-4b-byok-pooled-scraper-vendor-keys: backlog
+  # added 2026-08-09 via bmad-create-story: exploratory outreach to Instagram-
+  # viewer sites (storiesig.info explicitly invites API-access contact; imginn.com
+  # is the right shape but has no advertised partnership channel, cold outreach
+  # only; mollygram has no scraping/API prohibition but is likely the wrong
+  # shape). EXPLORATORY -- outreach only, no adapter code until a concrete offer
+  # exists.
+  3-4c-explore-whitelisted-access-with-instagram-viewer-sites: backlog
   3-5-add-new-posts-to-a-processing-queue: backlog
   3-6-process-posts-from-the-queue-and-extract-event-information: backlog
   3-6b-ingest-processed-events-into-the-database: backlog

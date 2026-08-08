@@ -1774,6 +1774,36 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.4.
 
+---
+
+### Story 3.4b: BYOK-pooled scraper-vendor keys (legally gated, optional)
+
+**As a** system,
+**I want** individual users to optionally contribute their own Apify/Bright Data account's API key — pooled and round-robined the same way Gemini BYOK keys already are (Story 0.13) — as an alternative or supplement to the single app-funded Apify account (Story 3.4),
+**So that** total scraping headroom can scale with community contribution instead of being capped by one centrally-funded account's free tier.
+
+**Status: legally gated — not implementation-ready.** This story must not be picked up by `bmad-create-story`/`dev-story` until written confirmation is received from both vendors per the outreach step below. See the full story file (`_bmad-output/implementation-artifacts/3-4b-byok-pooled-scraper-vendor-keys.md`) for the vendor-outreach email drafts and the conditional (post-confirmation) acceptance criteria.
+
+**Note (2026-08-08, added via `bmad-create-story` while drafting Story 3.4):** Raised mid-session as a way to raise scraping capacity beyond a single app-funded account. Direct ToS research during Story 3.4's creation found genuine, unresolved ambiguity for both vendors: Apify's Section 5.2 prohibits sublicensing "to third parties," which plausibly (not explicitly) covers a pattern where one user's licensed access is used to serve data to other app users; Bright Data mandates KYC vetting against each account's individually *declared* use case and states it actively monitors for use-case mismatches, which a multi-tenant pooling pattern may not cleanly satisfy. Neither vendor's terms explicitly permit or explicitly forbid this specific pattern. This is a legal/business risk question, not an engineering one, and was not resolved by automated ToS-page research — the user must obtain explicit written confirmation from each vendor before this story can move to `ready-for-dev`. Positioned as a lettered suffix off Story 3.4 (this feature area's originating story) rather than Epic 0, since it is not yet a confirmed, buildable requirement.
+
+**Depends on:** Story 3.4 (and, if pursued for Bright Data too, Story 3.4a).
+
+---
+
+### Story 3.4c: Explore sanctioned/whitelisted access with Instagram-viewer sites (exploratory, optional)
+
+**As a** system,
+**I want** to explore whether any of the Instagram-viewer/proxy sites identified during Story 3.4's research (storiesig.info, mollygram.com, imginn.com) would grant sanctioned API/whitelisted access — offering attribution/backlink exposure in exchange — as a possible lower-cost or higher-quality alternative or supplement to the app-funded Apify adapter (Story 3.4),
+**So that** the scraping pipeline has another option evaluated, without committing engineering effort until a concrete offer is on the table.
+
+**Status: exploratory outreach only — not implementation-ready.** Like Story 3.4b, this story's only in-scope deliverable today is sending outreach and recording what comes back; no adapter code should be written under this story until a concrete, workable offer exists. See the full story file (`_bmad-output/implementation-artifacts/3-4c-explore-whitelisted-access-with-instagram-viewer-sites.md`) for the outreach email drafts and the idea-protection guidance for what *not* to disclose.
+
+**Note (2026-08-09, added via `bmad-create-story` while drafting Story 3.4b):** During Story 3.4's research, `storiesig.info`'s own API FAQ was found to explicitly invite contact for official API access ("To get access or get more information contact us at [email]") — a materially different, lower-risk path than the CAPTCHA-gated unauthorized access already rejected during Story 3.4's creation, since sanctioned access sidesteps that site's own anti-automation Terms of Use rather than violating them. `mollygram.com`'s Terms of Service were also found to contain no explicit scraping/API/commercial-use prohibition, but the site is a single-item story/post downloader, not a persistent per-account post feed — even fully sanctioned access likely doesn't fit this pipeline's actual need (confirmed during Story 3.4's own research). Positioned as a lettered suffix off Story 3.4 (this feature area's originating story), matching Story 3.4b's precedent, since it is exploratory and not yet a confirmed, buildable requirement — and specifically because pursuing it risks revealing the product's AI-extraction concept to a vendor who already sits on the raw data source, a competitive consideration the outreach draft is written to account for (see the story file's "What Not to Disclose" section).
+
+**Amendment (2026-08-09, added via `bmad-create-story` at the user's request):** Added `imginn.com` as a third outreach candidate. A direct fetch during Story 3.4's creation returned `403 Forbidden`, but the user separately retrieved the site's public FAQ/About/Privacy Policy content directly. Findings: `imginn.com` is the correct shape (a per-username profile/post viewer, unlike `mollygram.com`), but has **no advertised developer/partnership channel** (unlike `storiesig.info`) — only a generic Privacy Policy contact address (`imginn.com@gmail.com`) scoped to privacy/content-removal requests. Their own "About" text states they operate by calling "the instagram public API" (Instagram's own unofficial/undocumented API), meaning even sanctioned access from them sits one layer removed from a fully clean source. Outreach to them is accordingly framed as a cold business inquiry with lower expected reply odds than `storiesig.info`'s explicit invitation, not an equally-likely-to-succeed third option.
+
+**Depends on:** Story 3.4.
+
 ### Story 3.5: Add new posts to a processing queue
 
 **As a** system,
