@@ -16,6 +16,8 @@
     "myCalendarDescription": "Lihat dan kelola jadwal kalender kustom Anda di FestDaily.",
     "notificationsTitle": "Pengaturan Notifikasi | FestDaily",
     "notificationsDescription": "Atur pengaturan notifikasi push Anda di FestDaily.",
+    "apiKeysTitle": "Kunci API Saya | FestDaily",
+    "apiKeysDescription": "Atur kunci API Gemini Anda di FestDaily.",
     "wizardOnboardingApiKeyTitle": "Tambah Kunci API",
     "wizardOnboardingApiKeyDescription": "Tambahkan kunci API Gemini Anda untuk memulai.",
     "wizardOnboardingSubscribeTitle": "Berlangganan",
@@ -252,5 +254,27 @@
     "alreadySubscribedToast": "Anda sudah berlangganan akun ini.",
     "subscribeErrorToast": "Gagal berlangganan akun. Silakan coba lagi.",
     "invalidHandleError": "Silakan masukkan handle atau tautan profil yang valid."
+  },
+  "ApiKeysSettingsPage": {
+    "title": "Kunci API Saya",
+    "emptyState": "Anda belum mengonfigurasi Kunci API.",
+    "errorState": "Gagal memuat kunci API. Silakan coba lagi nanti.",
+    "retryButtonLabel": "Coba Lagi",
+    "providerColumnLabel": "Penyedia",
+    "keyColumnLabel": "Kunci Tersensor",
+    "actionsColumnLabel": "Tindakan",
+    "addButtonLabel": "Tambah Kunci API",
+    "addModalTitle": "Tambah Kunci API Gemini",
+    "providerLabel": "Penyedia",
+    "keyLabel": "Kunci API",
+    "keyPlaceholder": "Masukkan kunci API Gemini mentah...",
+    "howToGetKeyLinkLabel": "Bagaimana cara mendapatkan kunci API Gemini?",
+    "submitButtonLabel": "Tambah Kunci",
+    "addSuccessToast": "Kunci API berhasil ditambahkan",
+    "addErrorToast": "Gagal menambahkan kunci API. Silakan coba lagi.",
+    "revokeButtonLabel": "Cabut",
+    "revokedToast": "Kunci API ditandai untuk dicabut",
+    "undoLabel": "Urungkan",
+    "restoreErrorToast": "Gagal mengembalikan kunci API."
   }
 }

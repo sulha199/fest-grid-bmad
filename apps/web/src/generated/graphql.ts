@@ -517,6 +517,14 @@ export type GetMyApiKeysQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type GetMyApiKeysQuery = { myApiKeys: Array<{ id: string, provider: string, maskedKey: string, isValid: boolean, createdAt: string, updatedAt: string }> };
 
+export type DeleteApiKeyMutationVariables = Exact<{
+  id: string | number;
+  action: SoftDeleteAction;
+}>;
+
+
+export type DeleteApiKeyMutation = { deleteApiKey: { id: string, provider: string, maskedKey: string, isValid: boolean, createdAt: string, updatedAt: string } };
+
 export type UpdateUserSettingsMutationVariables = Exact<{
   input: UpdateUserSettingsInput;
 }>;
@@ -1187,6 +1195,36 @@ export const useGetMyApiKeysQuery = <
       {
     queryKey: variables === undefined ? ['GetMyApiKeys'] : ['GetMyApiKeys', variables],
     queryFn: fetcher<GetMyApiKeysQuery, GetMyApiKeysQueryVariables>(client, GetMyApiKeysDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const DeleteApiKeyDocument = new TypedDocumentString(`
+    mutation deleteApiKey($id: ID!, $action: SoftDeleteAction!) {
+  deleteApiKey(id: $id, action: $action) {
+    id
+    provider
+    maskedKey
+    isValid
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useDeleteApiKeyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DeleteApiKeyMutation, TError, DeleteApiKeyMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DeleteApiKeyMutation, TError, DeleteApiKeyMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteApiKey'],
+    mutationFn: (variables?: DeleteApiKeyMutationVariables) => fetcher<DeleteApiKeyMutation, DeleteApiKeyMutationVariables>(client, DeleteApiKeyDocument, variables, headers)(),
     ...options
   }
     )};

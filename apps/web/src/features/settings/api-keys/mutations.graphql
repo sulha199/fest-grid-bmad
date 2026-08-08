@@ -1,0 +1,10 @@
+mutation deleteApiKey($id: ID!, $action: SoftDeleteAction!) {
+  deleteApiKey(id: $id, action: $action) {
+    id
+    provider
+    maskedKey
+    isValid
+    createdAt
+    updatedAt
+  }
+}

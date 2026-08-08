@@ -254,7 +254,7 @@ development_status:
   # longer needed — this story is now self-sufficient for create+revoke). Cross-amended
   # Story 0.13's fetchCandidateKeys task with an activeOnly(apiKeys) filter requirement.
   # See epics.md Story 3.1b's Amendment note.
-  3-1b-manage-and-revoke-api-keys: ready-for-dev
+  3-1b-manage-and-revoke-api-keys: review
   # regenerated 2026-08-07 via bmad-create-story: full context engine pass. Scope
   # expanded from add-only to also own the full /settings/subscriptions list+remove
   # view (mySubscriptions query, removeSubscription mutation), resolving this

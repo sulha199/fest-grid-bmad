@@ -17,6 +17,7 @@
     "@festgrid/shared-types": "workspace:*",
     "@festgrid/ui": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.21",
+    "@radix-ui/react-select": "^2.3.7",
     "@radix-ui/react-slot": "^1.3.1",
     "@radix-ui/react-switch": "^1.3.7",
     "@supabase/ssr": "^0.12.3",

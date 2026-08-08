@@ -4,7 +4,7 @@
 
 - Epic: 3
 - Story ID: 3.1b
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -211,7 +211,7 @@ so that I can control which of my BYOK keys the system is allowed to use for eve
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 

@@ -16,6 +16,8 @@
     "myCalendarDescription": "View and manage your custom calendar schedules on FestDaily.",
     "notificationsTitle": "Notification Settings | FestDaily",
     "notificationsDescription": "Manage your push notification settings on FestDaily.",
+    "apiKeysTitle": "My API Keys | FestDaily",
+    "apiKeysDescription": "Manage your Gemini API keys on FestDaily.",
     "wizardOnboardingApiKeyTitle": "Add API Key",
     "wizardOnboardingApiKeyDescription": "Add your Gemini API key to get started.",
     "wizardOnboardingSubscribeTitle": "Subscribe",
@@ -252,5 +254,27 @@
     "alreadySubscribedToast": "You are already subscribed to this account.",
     "subscribeErrorToast": "Failed to subscribe to the account. Please try again.",
     "invalidHandleError": "Please enter a valid handle or profile link."
+  },
+  "ApiKeysSettingsPage": {
+    "title": "My API Keys",
+    "emptyState": "You have no API keys configured yet.",
+    "errorState": "Failed to load API keys. Please try again later.",
+    "retryButtonLabel": "Retry",
+    "providerColumnLabel": "Provider",
+    "keyColumnLabel": "Masked Key",
+    "actionsColumnLabel": "Actions",
+    "addButtonLabel": "Add API Key",
+    "addModalTitle": "Add Gemini API Key",
+    "providerLabel": "Provider",
+    "keyLabel": "API Key",
+    "keyPlaceholder": "Enter raw Gemini key...",
+    "howToGetKeyLinkLabel": "How to get a Gemini API key?",
+    "submitButtonLabel": "Add Key",
+    "addSuccessToast": "API key added successfully",
+    "addErrorToast": "Failed to add API key. Please try again.",
+    "revokeButtonLabel": "Revoke",
+    "revokedToast": "API key marked for revocation",
+    "undoLabel": "Undo",
+    "restoreErrorToast": "Failed to restore API key."
   }
 }
