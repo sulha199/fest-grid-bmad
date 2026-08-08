@@ -234,7 +234,7 @@ development_status:
   2-7-automatically-hide-past-events: review
   2-8-user-menu: done
   2-9-manage-push-notification-settings: review
-  2-10-service-worker-lifecycle-updates-and-database-self-healing: ready-for-dev
+  2-10-service-worker-lifecycle-updates-and-database-self-healing: review
   epic-2-retrospective: optional
   epic-3: in-progress
   3-1a-create-social-media-account-profiles-table: done

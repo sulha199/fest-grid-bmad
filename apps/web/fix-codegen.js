@@ -40,4 +40,7 @@ content = content.replace(/export type SubscribeToAccountInput = \{\r?\n\s+accou
 // Replace duplicate SetAccountDefaultLocationInput
 content = content.replace(/export type SetAccountDefaultLocationInput = \{\r?\n\s+latitude\?\: number[\s\S]*?\};\r?\n/g, '');
 
+// Replace duplicate ReportSystemErrorInput
+content = content.replace(/export type ReportSystemErrorInput = \{\r?\n\s+context\?\: string[\s\S]*?\};\r?\n/g, '');
+
 fs.writeFileSync(file, content);

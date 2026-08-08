@@ -2,6 +2,15 @@
 importScripts('https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/12.17.1/firebase-messaging-compat.js');
 
+// Unconditional lifecycle control
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 // Extract config from service worker script URL query parameters (passed during registration if dynamic config is needed),
 // or fall back to standard inlined values.
 const urlParams = new URL(location).searchParams;

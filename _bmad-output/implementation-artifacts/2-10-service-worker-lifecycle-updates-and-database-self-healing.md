@@ -4,7 +4,7 @@
 
 - Epic: 2
 - Story ID: 2.10
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

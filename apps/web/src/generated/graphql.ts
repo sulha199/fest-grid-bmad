@@ -421,6 +421,7 @@ export type UserSettings = {
 
 
 
+
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -599,6 +600,13 @@ export type GetMySubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, createdAt: string, account: { id: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
+
+export type ReportSystemErrorMutationVariables = Exact<{
+  input: ReportSystemErrorInput;
+}>;
+
+
+export type ReportSystemErrorMutation = { reportSystemError: boolean };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -1464,6 +1472,29 @@ export const useGetMySubscriptionsQuery = <
       {
     queryKey: variables === undefined ? ['getMySubscriptions'] : ['getMySubscriptions', variables],
     queryFn: fetcher<GetMySubscriptionsQuery, GetMySubscriptionsQueryVariables>(client, GetMySubscriptionsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const ReportSystemErrorDocument = new TypedDocumentString(`
+    mutation ReportSystemError($input: ReportSystemErrorInput!) {
+  reportSystemError(input: $input)
+}
+    `);
+
+export const useReportSystemErrorMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ReportSystemErrorMutation, TError, ReportSystemErrorMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ReportSystemErrorMutation, TError, ReportSystemErrorMutationVariables, TContext>(
+      {
+    mutationKey: ['ReportSystemError'],
+    mutationFn: (variables?: ReportSystemErrorMutationVariables) => fetcher<ReportSystemErrorMutation, ReportSystemErrorMutationVariables>(client, ReportSystemErrorDocument, variables, headers)(),
     ...options
   }
     )};
