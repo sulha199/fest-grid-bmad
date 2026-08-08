@@ -45,6 +45,10 @@
     "./subscriptions": {
       "types": "./dist/subscriptions/index.d.ts",
       "default": "./dist/subscriptions/index.js"
+    },
+    "./scraper": {
+      "types": "./dist/scraper/index.d.ts",
+      "default": "./dist/scraper/index.js"
     }
   },
   "scripts": {

@@ -7,6 +7,7 @@ import { useAuthSession } from "@/components/providers/auth-session-provider"
 import { useRouter, Link } from "@/i18n/navigation"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useGetMySubscriptionsQuery, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
+import { getPlatformDisplayName } from "@festgrid/domain/scraper"
 import { useHasApiKey } from "@/features/onboarding/use-has-api-key"
 import { SubscribeAccountDialog } from "./subscribe-account-dialog"
 import { SetDefaultLocationDialog } from "./set-default-location-dialog"
@@ -58,6 +59,16 @@ export function SubscriptionsContent() {
   const subscriptions = (data?.mySubscriptions || [])
   const editingSub = subscriptions.find(sub => sub.account.id === editingAccountId)
   const editingInitialLocation = editingSub?.account.defaultLocation
+    ? {
+        formattedAddress: (editingSub.account.defaultLocation as any).formattedAddress ?? undefined,
+        placeName: (editingSub.account.defaultLocation as any).placeName ?? undefined,
+        placeId: (editingSub.account.defaultLocation as any).placeId ?? undefined,
+        coordinates: {
+          latitude: (editingSub.account.defaultLocation as any).coordinates.lat,
+          longitude: (editingSub.account.defaultLocation as any).coordinates.lng,
+        },
+      }
+    : undefined
 
   const handleOpenAddDialog = () => {
     setIsDialogOpen(true)
@@ -202,7 +213,7 @@ export function SubscriptionsContent() {
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold truncate">{sub.account.displayName || sub.account.username}</h3>
                         <span className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full shrink-0">
-                          {sub.account.platform === "twitter" ? "Twitter/X" : sub.account.platform.charAt(0).toUpperCase() + sub.account.platform.slice(1)}
+                          {getPlatformDisplayName(sub.account.platform as any)}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">

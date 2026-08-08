@@ -48,7 +48,7 @@ export function buildIcsCalendar(event: IcsEventInput, schedules: IcsScheduleInp
           if (!isNaN(tzTest.getTime())) {
             useTimezone = true;
           }
-        } catch (e) {
+        } catch {
           useTimezone = false;
         }
       }

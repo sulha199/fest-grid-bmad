@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BlockingLoader } from "@festgrid/ui"
 import { usePostHog } from "@festgrid/analytics"
 import { SUPPORTED_PLATFORMS, parseSocialMediaAccountHandle } from "@festgrid/domain/subscriptions"
+import { getPlatformDisplayName } from "@festgrid/domain/scraper"
 import { useSubscribeToAccountMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
@@ -84,7 +85,7 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
                   <SelectContent className="bg-background border">
                     {SUPPORTED_PLATFORMS.map((plat) => (
                       <SelectItem key={plat} value={plat}>
-                        {plat === "twitter" ? "Twitter/X" : plat.charAt(0).toUpperCase() + plat.slice(1)}
+                        {getPlatformDisplayName(plat)}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -98,8 +98,8 @@ export function SetDefaultLocationDialog({ accountId, isOpen, onClose, mode = "s
         setAddressSearch(initialLocation.formattedAddress || initialLocation.placeName || "")
         setSelectedPlaceId(initialLocation.placeId || null)
         const coords = {
-          latitude: initialLocation.coordinates.lat,
-          longitude: initialLocation.coordinates.lng,
+          latitude: initialLocation.coordinates.latitude,
+          longitude: initialLocation.coordinates.longitude,
         }
         setPendingCoords(coords)
         setMapViewState({

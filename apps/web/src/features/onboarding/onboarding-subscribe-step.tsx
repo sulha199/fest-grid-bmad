@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { BlockingLoader, useWizardStep } from '@festgrid/ui';
 import { usePostHog } from '@festgrid/analytics';
 import { SUPPORTED_PLATFORMS, parseSocialMediaAccountHandle } from '@festgrid/domain/subscriptions';
+import { getPlatformDisplayName } from '@festgrid/domain/scraper';
 import { useSubscribeToAccountMutation } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 
@@ -67,7 +68,7 @@ export function OnboardingSubscribeStep() {
           >
             {SUPPORTED_PLATFORMS.map((plat) => (
               <option key={plat} value={plat}>
-                {plat === 'twitter' ? 'Twitter/X' : plat.charAt(0).toUpperCase() + plat.slice(1)}
+                {getPlatformDisplayName(plat)}
               </option>
             ))}
           </select>
