@@ -3,11 +3,11 @@
 
 title: "Product Requirements Document: FestDaily"
 
-status: "draft"
+status: "final"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-08-03T00:00:00Z"
+updated: "2026-08-08T00:00:00Z"
 
 ---
 
@@ -196,6 +196,34 @@ To ensure a high-quality, app-like experience, the following global UI patterns 
     *   This navigation operates within the exact context of the list the user originated from, respecting active search queries, filters, and sort orders.
     *   If a user clicks "Next" and reaches the end of the currently fetched page of data, the system will automatically fetch the next page of results in the background, ensuring uninterrupted navigation.
     *   *Exception:* This context-aware navigation is not required if the detail view is accessed via a direct deep-link URL (i.e., without prior list context).
+
+### 3.13 Vote for Social Media Accounts
+
+For users who do not have (or do not wish to provide) a BYOK Gemini API key, FestDaily offers a lightweight way to register demand for a social media account before anyone commits an API key to it.
+
+*   **Casting a Vote:** Any authenticated user can vote for a social media account, whether by selecting an existing entry from the ranked vote list or by entering a new account (platform + handle/URL) that isn't yet in the system. Entering a new account validates it against the scraper adapter registry (Section 3.7) — only platforms FestDaily can actually scrape are votable — and performs a lightweight profile lookup (existence check + public profile metadata, not a post scrape or AI extraction) to populate `SocialMediaAccountProfile.accountId`/`displayName`/`username` (Section 4.5) directly from the platform, so the new record never depends on a placeholder or the entered handle text — the result is the same `SocialMediaAccountProfile` record subscriptions use, fully populated immediately.
+*   **Ranked Vote List:** A single global list ranks voted accounts by vote count. A voter may withdraw their own vote at any time (soft-deleted per `AccountVote.deletedAt`, Section 4.15) — this decrements the account's rank the same way casting a vote increments it.
+*   **"Near Me" View:** The vote list can optionally be re-sorted to favor accounts popular among voters near the viewer. This reuses the viewer's own already-saved location preference (Section 4.6) purely as a per-viewer ranking weight at query time — it is never stored against the account and never displayed as a property of the account. To avoid indirectly exposing a single voter's location, any region-level breakdown is bucketed at city/province granularity (never raw coordinates) and suppressed for any region with fewer than 5 distinct voters, falling back to the global rank for that region.
+*   **No Category, By Design:** A newly-voted account has no scraped posts yet, so it cannot be assigned an event `type`/`category` (Section 4.1) — those only exist on extracted events. Voted accounts remain uncategorized until a subscription actually scrapes them; FestDaily does not guess or infer a category in the meantime.
+*   **Feeding Subscriptions:** When a user sets up a BYOK subscription (Section 3.7), voted accounts appear as ranked autocomplete suggestions — the vote list is a way of telling contributing users what's in demand.
+*   **Leaving the Vote List:** Once any contributing user actually subscribes to a voted account (Section 3.7, Tier 1 or Tier 2), it drops out of the vote ranks — it's no longer just a request, it's live. If that subscriber later unsubscribes (a soft-delete, Section 4.9), the account reappears in the vote ranks with its prior vote count intact, not reset to zero.
+
+> **Deferred to implementation:** deduplication of near-identical account submissions (e.g. `@handle` vs. URL vs. casing for the same account), whether new-account submissions need rate-limiting or a moderation gate (Section 3.9 already owns comparable unmoderated-public-write concerns), and whether voters are notified once an account they voted for gets subscribed.
+
+### 3.14 Embeddable Discovery Widget
+
+FestDaily's event discovery can be embedded as a public, unauthenticated iframe widget on third-party sites — a distribution channel that puts FestDaily events wherever a partner site's audience already is, serving the User Acquisition goal (Section 2). It is free and ungated for MVP: a growth channel, not a monetized surface.
+
+*   **Widget as a Persisted Entity:** Unlike a stateless, filters-in-the-URL page, a widget is a saved `Widget` record (Section 4.16) with its own stable `id`, owned by the user who created it. Any registered user, `contributing_user` or `free_user` alike (Section 4.8), can create any number of widgets through an in-app generator, each configured independently with its own filter combination — social media account, event type, category, keyword, and location/coordinates + radius (Sections 3.1, 3.5, 3.7) — display mode (card or calendar, reusing Section 3.7's components as-is), and theme (dark or light, chosen explicitly at generation time, never auto-detected from the host page). The widget always renders with a fully transparent background so the embedding site can style around it. Editing a widget's configuration later updates every embed of it automatically — the embedder never has to re-paste anything.
+*   **Interaction Scope:** Unlike the full app, clicking an event inside the widget does not open a detail view or navigate away — the only interaction available is adding the event to the viewer's own calendar via one-way `.ics` export (Section 3.3.1, same one-way behavior as the rest of the app). A small "Powered by FestDaily" button is always present and opens the main FestDaily app — not optional branding, but the widget's path back to the product.
+*   **Embedding Mechanism:** The generator produces two ways to embed a widget, both ultimately rendering the same public iframe route so the domain-whitelist enforcement below applies identically either way:
+    *   **Script + placeholder (recommended):** a small `data-festdaily-widget-id`-tagged `<div>` plus one shared `<script>` tag. The script locates every such `<div>` on the page (supporting multiple different widgets on one page from a single script include), waits for the DOM to be ready, and inserts an iframe into each, wiring up the `postMessage` auto-resize handshake below automatically. This is the primary recommended snippet — shorter to paste, and the only form that gets automatic config updates without re-pasting.
+    *   **Raw iframe URL (fallback):** the direct widget iframe URL, for embedding contexts that strip `<script>` tags but allow iframes (some CMS/site-builder content areas).
+*   **Dynamic Domain Whitelist, Scoped Per Widget:** Each widget has its own whitelist of permitted embedding domain patterns (`EmbedDomain`, Section 4.17), not a whitelist shared across everything a user creates — one widget can be wide open, another restricted to a single staging subdomain, without either affecting the other. A pattern is either an exact hostname (`app.acmecorp.com`) or an explicit wildcard the registrant typed on purpose (`*.acmecorp.com`); registering the bare domain never implicitly covers its subdomains. Wildcard patterns are validated against a Public Suffix List at registration time and rejected when they'd cover a shared-hosting domain (e.g. `*.vercel.app`, `*.github.io`) — those platforms host unrelated tenants under one domain, so a naive wildcard would whitelist every other tenant's site, not just the registrant's own. `localhost`/local-dev origins are not special-cased — a developer registers `localhost:3000` (port included, since it's part of the origin) as an ordinary pattern like any other. The whitelist is checked per-request (not per-deploy) against the widget route only; it does not relax framing protection anywhere else in the app. A pattern can be deregistered by the widget's owner at any time (soft-deleted per `EmbedDomain.deletedAt`, Section 4.17), immediately revoking that pattern's embedding access for that widget.
+*   **Responsive Sizing:** The widget reports its rendered content height to the host page via `postMessage`, so the script (or a manually-wired listener, for the raw-iframe fallback) can auto-size the iframe rather than guessing a fixed height.
+*   **MVP Traffic Posture:** No rate limiting is applied to widget traffic for MVP; usage is monitored via PostHog (Section 5, Analytics), and rate limiting/caching is revisited if abuse or cost impact is observed.
+
+> **Deferred to implementation:** whether domain *ownership* verification (proving the registrant actually controls a given domain, e.g. via DNS TXT record) is required in addition to the Public Suffix List check above — the PSL check prevents the shared-hosting whitelisting failure mode, but does not by itself confirm the registrant owns the specific domain they typed.
 
 ## 4. Event Data Schema
 
@@ -801,6 +829,120 @@ interface DefaultLocationChangeRequest {
 }
 ```
 
+### 4.15. AccountVote Interface
+
+```typescript
+/**
+ * Join entity representing one user's vote for a `SocialMediaAccountProfile`
+ * (Section 4.5) they'd like to see subscribed (Section 3.13). Unique per
+ * (userId, accountId). A vote is not evidence of extraction — accounts remain
+ * unscraped, and therefore uncategorized, until an actual `Subscription`
+ * (Section 4.9) exists for them.
+ */
+interface AccountVote {
+  id: string;
+  /**
+   * The ID of the voting `User` (Section 4.8).
+   */
+  userId: string;
+  /**
+   * The ID of the voted `SocialMediaAccountProfile` (Section 4.5).
+   */
+  accountId: string;
+  createdAt: string;
+  /**
+   * Timestamp of a soft-delete. Withdrawing a vote sets this instead of
+   * removing the row, consistent with the project's soft-delete convention
+   * (AD-8); re-voting clears it rather than inserting a new row.
+   */
+  deletedAt?: string;
+}
+```
+
+### 4.16. Widget Interface
+
+```typescript
+enum WidgetDisplayMode {
+  CARD,
+  CALENDAR,
+}
+
+enum WidgetTheme {
+  DARK,
+  LIGHT,
+}
+
+/**
+ * Represents a saved, embeddable widget configuration (Section 3.14). A widget
+ * is a persisted entity with a stable `id` — not filters serialized into a URL —
+ * so an embedder's snippet keeps working, and picks up config changes
+ * automatically, without ever being re-pasted. `EmbedDomain` (Section 4.17)
+ * whitelists are scoped per-widget, not per-owner, so one user's widgets can
+ * carry independent embedding restrictions.
+ */
+interface Widget {
+  id: string;
+  /**
+   * The ID of the `User` (Section 4.8) who owns this widget.
+   */
+  ownerUserId: string;
+  /**
+   * The filter combination this widget renders — any combination of the main
+   * discovery experience's filters (Sections 3.1, 3.5, 3.7): social media
+   * account, event type, category, keyword, and location/coordinates + radius.
+   * Structurally the same filter shape the main discovery page's URL query
+   * params already express, persisted here instead of re-encoded per embed.
+   */
+  filters: Record<string, unknown>;
+  displayMode: WidgetDisplayMode;
+  theme: WidgetTheme;
+  createdAt: string;
+  /**
+   * Timestamp of a soft-delete (AD-8). A soft-deleted widget's public route
+   * stops rendering (existing embeds show an empty/removed state) rather than
+   * the row being removed outright, so a moderation/audit trail survives.
+   */
+  deletedAt?: string;
+}
+```
+
+### 4.17. EmbedDomain Interface
+
+```typescript
+/**
+ * A domain pattern registered as permitted to embed a specific `Widget`
+ * (Section 3.14, 4.16). Checked per-request against the requesting origin to
+ * set `frame-ancestors` dynamically, scoped to the widget route only.
+ */
+interface EmbedDomain {
+  id: string;
+  /**
+   * The ID of the `Widget` (Section 4.16) this pattern applies to. Ownership
+   * for management purposes flows through `Widget.ownerUserId` — this
+   * interface does not separately track who registered the pattern.
+   */
+  widgetId: string;
+  /**
+   * Either an exact hostname (e.g. "app.acmecorp.com") or an explicit
+   * wildcard pattern (e.g. "*.acmecorp.com") the registrant typed on
+   * purpose — registering a bare domain never implicitly covers its
+   * subdomains. Wildcard patterns are validated against a Public Suffix List
+   * at registration time and rejected when they'd cover a shared-hosting
+   * domain (e.g. "*.vercel.app"), since that would whitelist every unrelated
+   * tenant on that platform, not just the registrant's own site. Matched
+   * against the embedding page's Origin (falling back to Referer).
+   */
+  pattern: string;
+  createdAt: string;
+  /**
+   * Timestamp of a soft-delete. Deregistering a pattern sets this instead of
+   * removing the row, consistent with the project's soft-delete convention
+   * (AD-8); the widget route's domain check excludes soft-deleted rows.
+   */
+  deletedAt?: string;
+}
+```
+
 ## 5. Non-Functional Requirements
 
 ### Performance
@@ -832,6 +974,8 @@ interface DefaultLocationChangeRequest {
 
 ### Security
 *   User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal data and event preferences are used solely to personalize your experience within the app; we do not spam your calendar, sell your data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
+*   **Widget Embedding:** The embeddable widget (Section 3.14) is served from a dedicated route with a dynamically-scoped `frame-ancestors` policy limited to registered domain patterns (Section 4.17), validated against a Public Suffix List at registration time to prevent whitelisting a shared-hosting domain — the rest of the application's framing protection is unaffected.
+*   **Location Data Reuse Boundary:** A user's saved/current location (Section 4.6) must never be used to label or infer a social media account's location (Section 3.13), even in aggregate — doing so would repurpose location data collected for a different, already-consented purpose (finding nearby events) and risks re-identifying an individual voter when few people have voted for an account. Location may only be used as a per-viewer, non-persisted ranking weight.
 
 ### Analytics
 *   The platform will use **PostHog** to collect product analytics, track user interaction events, and optionally record session replays. This provides a modern alternative to Google Analytics, tailored for deep product usage insights, while allowing anonymization of user data to measure key performance indicators and improve the service.
@@ -852,6 +996,8 @@ FestDaily will launch with a two-phase rollout to manage costs and build a valua
 *   **Phase 1: Invitation-Only Beta (`contributing_user` Tier):** The initial release will be for `contributing_user`s who operate on a Bring-Your-Own-Key (BYOK) model. These early adopters provide their own API key to subscribe to any public social media account. This strategy allows us to test the core technology while these users help seed the platform with a diverse range of `Shared Public Accounts` at no AI-processing cost to the platform.
 
 *   **Phase 2: Public Launch (`free_user` Tier):** Once a critical mass of shared accounts is established, a `free_user` tier will be introduced. These users can subscribe to a limited number (e.g., 2) of popular `Shared Public Accounts`. The platform will use a managed pool of API keys to handle processing for these shared accounts, ensuring reliability.
+
+*   **Demand Signal (Both Phases):** The account vote list (Section 3.13) is available to any authenticated user starting in Phase 1, independent of `contributing_user`/`free_user` tier — it lets users without a BYOK key register demand for an account, and gives Phase 1 `contributing_user`s and future Phase 2 tooling a shared, ranked view of which `Shared Public Accounts` are most wanted.
 
 *   **Core Feature Access:** The core event discovery (for non-subscription events) and management features will remain free for all users.
 
@@ -875,6 +1021,8 @@ FestDaily will launch with a two-phase rollout to manage costs and build a valua
     *   **Moderation Response Time (Dangerous Events):** Average time taken for moderators to review and act on reports of dangerous events.
     *   **Deletion Effectiveness (Cancelled Events):** Percentage of events soft-deleted after receiving 3 unique user reports for cancellation.
 *   **Moderator Override Rate:** Frequency with which moderators override automated decisions or user reports (e.g., restoring a soft-deleted event, marking a dangerous event as safe).
+*   **Vote-to-Subscription Conversion (Section 3.13):** Votes cast, distinct accounts voted for, and the share of voted accounts that go on to be subscribed — the vote list's core value is as a demand signal, so this measures whether it actually predicts what gets subscribed.
+*   **Widget Reach (Section 3.14):** Active registered embed domains, widget impressions, and "Powered by FestDaily" click-through rate — the widget's stated purpose is acquisition, so click-through back to the main app is the metric that validates it.
 
 ## 8. Post-MVP Features
 

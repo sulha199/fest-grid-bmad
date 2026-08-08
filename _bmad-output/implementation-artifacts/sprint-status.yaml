@@ -312,3 +312,28 @@ development_status:
   5-4-inactive-account-warning: backlog
   5-5-integrate-manual-post-selection-into-the-getting-started-wizard: backlog
   epic-5-retrospective: optional
+  # Epic 6 added 2026-08-08 via bmad-prd (Sections 3.13/3.14, FR69-FR86) + direct
+  # epics.md append (bmad-create-epics-and-stories skipped -- its Step 1 overwrites
+  # the whole file from template, unsuitable for appending one epic to an
+  # already-detailed backlog; same reasoning as the 2026-08-02 3.3b amendment).
+  # Story ordering and the 6.1a/6.6a/6.7a backend/middleware prerequisites came from
+  # an epic-readiness sweep (Gate 1 + Gate 3, epic-readiness/epic-6-readiness.md),
+  # which also amended Story 3.3c to add ScraperAdapter.lookupAccountProfile --
+  # a capability Story 3.4's 2026-08-07 Forward note had already flagged as needed
+  # by Story 3.1/3.2 but left unbuilt; Story 6.1 is its second consumer.
+  epic-6: backlog
+  6-1a-build-the-account-vote-backend-graphql-api-layer: backlog
+  6-1-vote-for-a-social-media-account: backlog
+  6-2-view-the-ranked-vote-list: backlog
+  6-3-withdraw-a-vote: backlog
+  6-4-autocomplete-voted-accounts-when-subscribing: backlog
+  # added 2026-08-08 during PRD/epics.md revision: widget model changed from
+  # stateless URL query params to a persisted entity (own id, editable post-
+  # creation, embeds auto-update). See epics.md Story 6.5a note.
+  6-5a-build-the-widget-config-backend-graphql-api-layer: backlog
+  6-5-configure-and-generate-a-widget-embed: backlog
+  6-6a-build-the-embed-domain-backend-graphql-api-layer: backlog
+  6-6-register-and-manage-embed-domains: backlog
+  6-7a-build-the-widgets-dynamic-frame-ancestors-csp-middleware: backlog
+  6-7-public-widget-rendering-page: backlog
+  epic-6-retrospective: optional

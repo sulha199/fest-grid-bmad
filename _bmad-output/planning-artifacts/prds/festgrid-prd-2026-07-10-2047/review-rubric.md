@@ -1,49 +1,59 @@
-# PRD Quality Review - FestGrid
+# PRD Quality Review — FestDaily (formerly FestGrid)
 
 ## Overall verdict
-The PRD is well-structured and detailed, providing a solid foundation for development. It excels in its detailed data schema and clear scope definition. The main area for improvement is in explicitly stating trade-offs to make the decision-making process more transparent.
+The core, pre-existing product (scraping/quota/moderation machinery in §3.1–3.12) remains well-specified and internally consistent. The two new sections added for Epic 6 — §3.13 Vote for Social Media Accounts and §3.14 Embeddable Discovery Widget — are written in the same disciplined style (concrete thresholds, honest "Deferred to implementation" callouts) but leave one implementation-blocking gap (how a voted-for account gets its required `displayName`/`accountId` without a scrape) and are not wired into the PRD's own success metrics, so neither new feature area is measurable by anything in §7. Two previous review cycles rated every dimension "strong" with little supporting evidence; this pass found real, citable gaps in four of seven dimensions.
 
-## Decision-readiness - adequate
-The PRD now specifies a structured-input approach for manual corrections, which is a more robust solution. However, it could still benefit from a more explicit discussion of why this approach was chosen over others.
-
-### Findings
-- **[low]** Lack of explicit trade-offs (§ 3.9.1) - While the new approach is better, the PRD doesn't explicitly state why typed-input was chosen over other potential solutions. *Fix:* Add a brief "Alternatives Considered" section that outlines the trade-offs.
-
-## Substance over theater - strong
-The PRD has a good substance-to-theater ratio. The features are well-defined and serve the product's purpose. I don't see any obvious signs of "theater".
+## Decision-readiness — adequate
+Where the new sections name a trade-off, they name it well: §3.13's "Near Me" view states the privacy risk explicitly (re-identifying a voter from a small regional bucket) and resolves it with a concrete rule (bucket at city/province, suppress under 5 distinct voters, fall back to global rank). §3.13's deferred moderation question is anchored to a real precedent ("Section 3.9 already owns comparable unmoderated-public-write concerns") rather than left floating. But two adjacent decisions are smoothed to silence rather than surfaced:
 
 ### Findings
-- No findings.
+- **[medium]** Widget rate-limiting deferred with no MVP-safe default (§3.14) — "rate limiting/caching strategy for widget traffic from arbitrary third-party origins" is listed under "Deferred to implementation" with nothing else said. This is a public, unauthenticated, embeddable route with no login gate — unlike every other deferred item in the doc (e.g. §3.7's quota thresholds, §3.9's report thresholds), it ships with no interim/default safeguard at all. *Fix:* State the MVP posture explicitly even if minimal — e.g. "no rate limiting for MVP; monitored via [X], revisited if abused" — so the decision to ship without one reads as a decision, not an oversight.
+- **[low]** Widget's monetization stance is unstated (§3.14, §6) — §6 gained a new bullet tying §3.13 (voting) to the Phase 1/Phase 2 monetization thesis, but §3.14 (the widget) — arguably the more monetizable of the two, since §6 already floats organizer-facing premium/advertising features — gets no mention in §6 at all. Whether "free distribution channel to drive acquisition" was a deliberate choice or simply not considered isn't stated either way. *Fix:* One sentence in §6 confirming the widget is intentionally free/ungated for MVP (or noting it as a candidate premium feature) would close this.
 
-## Strategic coherence - strong
-The PRD has a clear thesis: helping users discover and manage local events. The features generally align with this thesis. The KPIs also seem to support the strategic goals.
-
-### Findings
-- No findings.
-
-## Done-ness clarity - strong
-The PRD does a good job of defining "done" for many features.
+## Substance over theater — adequate
+The two new Security NFR bullets (§5, "Widget Embedding" and "Location Data Reuse Boundary") are genuinely product-specific and testable — not boilerplate. They're a good example of what the rest of the Security subsection should look like.
 
 ### Findings
-- No findings.
+- **[low]** Boilerplate opening clause survives in Security (§5) — the Security subsection's lead sentence, "User data and privacy must be protected with industry-standard security measures... we do not spam your calendar, sell your data to third parties," reads as privacy-policy marketing copy dropped into an NFR list, in contrast to the two new bullets right below it which state concrete, checkable rules. Pre-existing, not part of this revision, but still present. *Fix:* Either delete the generic clause (the specific bullets that follow already carry the real content) or replace it with a testable claim.
+- **[low]** Goals (§2) read as swappable Vision theater — "Attract and retain a significant user base of city residents and families," "Increase user interaction with the platform" — no numbers, no differentiation from a generic local-events app. Pre-existing. *Fix:* Not blocking, but if §2 is meant to anchor prioritization (per the Strategic coherence gap below), it needs at least directional targets.
 
-## Scope honesty - strong
-The PRD is upfront about MVP limitations, such as the one-way calendar integration and the finite capacity for social media account subscriptions. It also has a "Post-MVP Features" section.
-
-### Findings
-- No findings.
-
-## Downstream usability - strong
-The PRD includes a detailed data schema with TypeScript interfaces, which is excellent for downstream development. The use of enums and clear descriptions will be very helpful.
+## Strategic coherence — thin
+§3.13's tie to the monetization thesis is well done — the new §6 "Demand Signal" bullet explains why voting exists in terms of bridging Phase 1 (BYOK contributors) and Phase 2 (managed-pool free users), which is exactly the kind of "why this feature, why now" reasoning the rubric rewards. §3.14's thesis ("a distribution channel that puts FestDaily events wherever a partner site's audience already is") is asserted in its own intro line but never connected to anything else in the document.
 
 ### Findings
-- No findings.
+- **[high]** No KPI tracks either new feature area (§7, cf. §3.13, §3.14) — §7's KPI list was not touched by this update. There is no vote-count, vote-to-subscription conversion, or "demand signal accuracy" metric for §3.13, and no embed-count, widget-view, or "Powered by FestDaily" click-through metric for §3.14 — despite the widget's whole stated purpose being an acquisition channel. As written, neither feature's success or failure is measurable by the PRD's own instrumentation. *Fix:* Add at minimum one KPI per new feature — e.g. "votes cast / accounts reaching subscription via vote signal" and "active embeds / widget-to-app click-through rate."
+- **[medium]** §3.14 absent from Goals (§2) — §2's four goals (acquisition, engagement, event coverage, event management) have no goal corresponding to distribution/reach, which is the entire premise of §3.14. Without it, an engineer or future PM has no basis in §2 to prioritize widget work against the other three goals. *Fix:* Either add a fifth goal ("Distribution: extend FestDaily's reach via partner embeds") or explain in §3.14 why it serves an existing goal.
 
-## Shape fit - strong
-The PRD's shape fits the product well. It's a consumer-facing web application, and the PRD is structured accordingly, with a focus on user-facing features and a detailed data schema.
+## Done-ness clarity — thin
+Most of §3.13 and §3.14 pass the "testable consequence" bar well — the vote-suppression threshold, the drop-out/reappear-with-vote-count-intact rule, the transparent-background/theme-at-generation-time widget behavior, and the `postMessage` height-reporting mechanism are all concretely specified. One gap in §3.13 is implementation-blocking, and two entities depart from the document's own established schema pattern without explanation.
+
+### Findings
+- **[high]** Voted-for account creation doesn't explain how required schema fields get populated (§3.13, §4.5, §4.15) — §3.13 says entering a new account "creates a real `SocialMediaAccountProfile` record immediately," and validation is only against "the scraper adapter registry" (i.e., is the *platform* supported) — not a per-account profile fetch. But `SocialMediaAccountProfile.displayName` and `.username` (§4.5) are both non-optional (`string`, not `string?`), and `accountId` is documented as "the account's platform-native identifier (e.g., Twitter User ID)" — none of which a voter typing "platform + handle/URL" can supply directly, and none of which the doc says gets derived at vote time. As written, an engineer cannot tell whether `displayName` defaults to the raw handle text until the account is later scraped, whether vote-casting triggers a lightweight profile-info fetch, or whether `accountId` is a placeholder until first subscription. *Fix:* State explicitly what populates `displayName`/`username`/`accountId` at vote-creation time (e.g., "handle text seeds both `username` and `displayName` until the account's first scrape overwrites `displayName` with the platform's actual name").
+- **[medium]** `AccountVote` and `EmbedDomain` have no removal/undo semantics (§4.15, §4.16, §3.13, §3.14) — every other join/preference entity in the schema (`Favorite` §4.10, `Subscription` §4.9, `CalendarEntry` §4.11, `UserLocationPreference` §4.6) documents a `deletedAt` soft-delete field with an explicit un-favorite/unsubscribe/remove rationale, consistent with the project's AD-8 soft-delete-with-undo convention. `AccountVote` and `EmbedDomain` have neither a `deletedAt` field nor any described "un-vote" or "unregister domain" flow in prose. It's unclear whether this is a deliberate immutability decision or simply not addressed. *Fix:* State whether votes/domain registrations can be removed, and if so, add `deletedAt` per the established pattern (or state explicitly why these two are exempt, as AD-8 already does for `Schedule`/`Post`/`GeolocationCache`/`users`).
+- **[low]** Widget-generator access not scoped to a tier (§3.14) — "Registered users configure a widget" doesn't specify whether this is available to `free_user` as well as `contributing_user` (§4.8 `UserTier`), unlike §6's new Demand Signal bullet, which explicitly states voting is tier-independent. *Fix:* One clause clarifying tier scope, mirroring how §6 handles it for voting.
+
+## Scope honesty — strong
+Both new sections use the document's honest-deferral convention well. §3.13's "Deferred to implementation" callout names three real open questions (dedup of near-identical submissions, whether new-account entry needs rate-limiting/moderation, whether voters get notified) and grounds the moderation question in an existing precedent rather than leaving it abstract. §3.14's callout similarly names rate-limiting/caching and domain-ownership verification as open. This is some of the most honest de-scoping in the document.
 
 ### Findings
 - No findings.
+
+## Downstream usability — thin
+The schema section (§4) remains this PRD's strongest downstream-facing asset — the new §4.15/§4.16 interfaces follow the same doc-comment-with-cross-reference convention as the rest of §4, and IDs are contiguous (§4.1–§4.16, no gaps). The weakness is structural and pre-existing, but it surfaces concretely in the new material.
+
+### Findings
+- **[medium]** §3.14 cross-reference resolves to the wrong section due to pre-existing numbering drift (§3.14, §3.3, §3.4) — §3.14 cites "(Section 3.3, same one-way behavior as the rest of the app)" for the one-way `.ics` calendar export. Section 3.3's header is "Saved Location Preferences" — the one-way calendar rule actually lives at subsection "3.3.1 Calendar Integration," nested under header "### 3.4 Event Management." This is a pre-existing off-by-one drift affecting all of §3.4–§3.6 (their bolded subsection numbers — 3.3.x, 3.4.x, 3.5.x — trail their `###` header numbers by one), but §3.14 is the first place a *new* section's cross-reference lands squarely on the wrong top-level section number rather than a matching subsection. A reader without the full document open would resolve this to the wrong place. §3.14's adjacent citation of "(Section 3.6)" for reused calendar-view/card-view components is a softer instance of the same ambiguity — those components are established in §3.7 (and reused again via §3.1), not in §3.6's favorited/added visual-distinction rules. *Fix:* Either renumber §3.4–§3.6's subsections to match their headers (cleanest), or have §3.14 cite the subsection number it actually means (3.3.1) rather than the ambiguous top-level 3.3.
+- **[low]** No Glossary or ID scheme exists anywhere in the document (pre-existing, not part of this revision) — the PRD has no FR/UJ/SM IDs and no Glossary; section numbers and TypeScript interface names serve as the de facto cross-reference vocabulary instead, which mostly works because §4's interfaces are precise. One drift example: "`Shared Public Accounts`" is used twice in §6 as if it were a defined term but is never introduced or tied back to `SocialMediaAccountProfile`/Tier-2-subscribed-accounts anywhere in §3.7 or §4.5. Not a new issue, but worth flagging since this dimension weighs heavily on a PRD (like this one) that feeds downstream Epic/UX/architecture work per project-context.md.
+
+## Shape fit — thin
+FestDaily is squarely a consumer product with multiple distinct protagonists — casual discoverers, BYOK contributing users, moderators, and now, newly introduced by this revision, voters (§3.13) and widget-embedding partner-site registrants (§3.14). The rubric treats named-protagonist UJs as load-bearing for this shape. This PRD has none — not one UJ or persona appears anywhere in the document, for old or new features alike.
+
+### Findings
+- **[medium]** Two new protagonist types added with no UJ treatment (§3.13, §3.14) — the "voter" (someone without a BYOK key who wants to register demand) and the "widget embedder" (a partner site operator, generally not a FestDaily end-user in the discovery sense) are functionally new user types this revision introduces, and neither gets a walk-through. A UJ for "voter casts a vote for a not-yet-tracked account" would very plausibly have surfaced the `displayName`/`accountId` gap flagged under Done-ness clarity above — that's exactly the kind of gap a concrete walk-through catches and a capability list doesn't. This is a pre-existing structural choice for the whole document (not unique to this revision), but the two new sections are where its cost is most visible. *Fix:* Not necessarily a full persona system — even one short UJ per new protagonist ("Voter registers demand for an unlisted account," "Partner site embeds the discovery widget") would pressure-test the new mechanics the way the rest of the review found gaps in.
 
 ## Mechanical notes
-- No findings.
+- ID continuity: §4 schema IDs (4.1–4.16) are contiguous with no gaps or duplicates. §3 section numbers (3.1–3.14) are contiguous at the top level; the 3.4–3.6 subsection/header off-by-one drift is described above under Downstream usability.
+- Assumptions Index roundtrip: not applicable — the document does not use `[ASSUMPTION]` tags anywhere, so there is no index to check for roundtrip. The new sections instead use a "> **Deferred to implementation:**" blockquote convention (see Scope honesty), which is new to this revision but not used inconsistently within it.
+- UJ protagonist naming: not applicable — no UJs exist in the document (see Shape fit).
+- Glossary drift: "`Shared Public Accounts`" (§6) used but never formally introduced; see Downstream usability.
+- Cross-doc consistency (not a PRD defect per se, flagged for awareness): `_bmad-output/project-context.md`'s Soft-Delete Convention table enumerates the tables requiring `deletedAt` (`EventInfo, Favorite, CalendarEntry, Subscription, ApiKey, UserLocation`) and was last updated 2026-08-06, before `AccountVote`/`EmbedDomain` existed. Once the Done-ness clarity finding above is resolved, that table will also need updating to stay authoritative for Epic 6 implementation.

@@ -86,6 +86,27 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **FR65:** Provide guides for setting up BYOK.
 - **FR66:** Users can edit an already-subscribed account's "Default Location"; the change applies immediately, with no pre-approval gate.
 - **FR67:** Moderators are notified by email when an account's "Default Location" is changed, and can accept or revert the change from Moderator Tools.
+- **FR68:** Each social media account has a public, unauthenticated page (`/{platform-slug}/{accountId}`) showing all events sourced from that account, with the same search/filter/view capabilities as the main discovery page.
+- **FR69:** Any authenticated user can vote for a social media account, either by selecting an existing entry from the ranked list or submitting a new one.
+- **FR70:** A submitted new account is validated against the scraper adapter registry and creates a real `SocialMediaAccountProfile` record.
+- **FR71:** A global ranked list displays voted accounts by vote count.
+- **FR72:** The vote list can be re-sorted to favor accounts popular among voters near the viewer, using the viewer's saved location as a query-time weight only, never stored on the account.
+- **FR73:** Region-level vote breakdowns are bucketed at city/province granularity and suppressed below a 5-distinct-voter threshold.
+- **FR74:** Voted accounts remain uncategorized until an actual subscription causes them to be scraped.
+- **FR75:** Voted accounts appear as ranked autocomplete suggestions when a user adds a BYOK subscription.
+- **FR76:** An account is removed from vote ranks once any user subscribes to it, and reappears with its prior vote count intact if that subscription is later removed.
+- **FR77:** A widget is a persisted, independently-editable entity (not filters serialized into a URL) that can be configured with any combination of account, type, category, keyword, and location/radius filters; editing it later updates every existing embed automatically.
+- **FR78:** The widget supports calendar and card display modes, reusing existing view components.
+- **FR79:** The widget supports an explicit dark/light theme choice and renders with a transparent background.
+- **FR80:** Clicking an event in the widget only allows adding it to the viewer's calendar via `.ics` export; no detail view or navigation occurs.
+- **FR81:** The widget displays a "Powered by FestDaily" button that opens the main app.
+- **FR82:** Users can generate a widget's embed snippet by configuring filters, mode, and theme, and registering permitted embedding domain pattern(s) for that specific widget.
+- **FR83:** Embedding is restricted to a dynamically-checked, backend-maintained domain whitelist scoped per-widget and to the widget route only.
+- **FR84:** The widget reports its content height to the host page via `postMessage` for auto-sizing.
+- **FR85:** Users can withdraw their own vote for an account, decrementing its rank.
+- **FR86:** Users can deregister an embed domain pattern they registered, immediately revoking its embedding access for that widget.
+- **FR87:** A widget's domain whitelist entries are exact hostnames or explicit wildcard patterns (never implicit subdomain inclusion); wildcard patterns are validated against a Public Suffix List and rejected if they'd cover a shared-hosting domain.
+- **FR88:** The embed snippet is a script tag plus a placeholder element (supporting multiple different widgets on one page from a single script include); a raw iframe URL is offered as a fallback for embedding contexts that strip script tags.
 
 ### NonFunctional Requirements
 - **NFR1:** Event discovery page should load in under 2 seconds on a standard 4G connection.
@@ -112,6 +133,8 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **NFR22:** Advise users to independently verify event status.
 - **NFR23:** Support Indonesian and English for MVP.
 - **NFR24:** The layout must support both LTR and RTL languages.
+- **NFR25:** The widget's `frame-ancestors` CSP is dynamically scoped to registered domains only, isolated to its own route.
+- **NFR26:** A user's saved/current location must never be used to label or infer a social media account's location, even in aggregate; it may only be used as a non-persisted, per-viewer ranking weight.
 
 ### Additional Requirements
 - **AR1:** All event queries sent from a client to the backend will conform to a unified JSON-based Domain Specific Language (DSL).
@@ -213,6 +236,26 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR66: Epic 3 - Social Media Event Integration
 - FR67: Epic 4 - Data Quality and Moderation
 - FR68: Epic 3 - Social Media Event Integration
+- FR69: Epic 6 - Community Voting and Embeddable Distribution
+- FR70: Epic 6 - Community Voting and Embeddable Distribution
+- FR71: Epic 6 - Community Voting and Embeddable Distribution
+- FR72: Epic 6 - Community Voting and Embeddable Distribution
+- FR73: Epic 6 - Community Voting and Embeddable Distribution
+- FR74: Epic 6 - Community Voting and Embeddable Distribution
+- FR75: Epic 6 - Community Voting and Embeddable Distribution
+- FR76: Epic 6 - Community Voting and Embeddable Distribution
+- FR77: Epic 6 - Community Voting and Embeddable Distribution
+- FR78: Epic 6 - Community Voting and Embeddable Distribution
+- FR79: Epic 6 - Community Voting and Embeddable Distribution
+- FR80: Epic 6 - Community Voting and Embeddable Distribution
+- FR81: Epic 6 - Community Voting and Embeddable Distribution
+- FR82: Epic 6 - Community Voting and Embeddable Distribution
+- FR83: Epic 6 - Community Voting and Embeddable Distribution
+- FR84: Epic 6 - Community Voting and Embeddable Distribution
+- FR85: Epic 6 - Community Voting and Embeddable Distribution
+- FR86: Epic 6 - Community Voting and Embeddable Distribution
+- FR87: Epic 6 - Community Voting and Embeddable Distribution
+- FR88: Epic 6 - Community Voting and Embeddable Distribution
 
 ## Epic List
 
@@ -477,6 +520,25 @@ The project is set up with a solid foundation and CI/CD pipeline.
 **Note:** This story exists because of Gate 1/Gate 3 (`story-split-gate.md`), surfaced by the Epic 0 readiness sweep (`bmad-epic-readiness-check`) — Story 3.10 (Epic 3, quota-exhaustion emails) and Story 4.5 (Epic 4, dangerous-event moderator emails) both require outbound email, and FR35's invalid-API-key-attempt email is a third consumer, but no story anywhere provisioned an email-sending service or adapter.
 
 **Depends on:** Story 0.14.
+
+### Story 0.15a: Add a local-dev stub to the outbound email adapter
+
+**As a** developer,
+**I want** `sendTemplatedEmail` (Story 0.15's outbound email adapter) to bypass the real Amazon SES call and instead log the rendered email to the console when SES is unconfigured or the code is running under tests,
+**So that** I can develop and test any feature that sends email (quota warnings, invalid-key alerts, moderator alerts) fully AWS-free, without provisioning real SES credentials — mirroring the local/test bypass already established for the BYOK KMS adapter (`kms.ts`).
+
+**Acceptance Criteria:**
+
+*   **Given** Story 0.15's `sendTemplatedEmail(templateKey, to, variables)` adapter exists and normally dispatches a `SendEmailCommand` via `getSesClient()`,
+*   **When** `SES_FROM_EMAIL_ADDRESS` is unset, **or** `NODE_ENV === 'test'`,
+*   **Then** `sendTemplatedEmail` still renders the requested template but does not call `getSesClient()`/SES at all — it logs the recipient, template key, subject, and rendered body to the console and resolves with a locally-generated stub message ID (e.g. `local-dev-<uuid>`), never throwing.
+*   **And** when `SES_FROM_EMAIL_ADDRESS` is set and `NODE_ENV !== 'test'`, behavior is unchanged from Story 0.15 — the real `SendEmailCommand` is dispatched via `SESv2Client`.
+*   **And** `sendTemplatedEmail`'s exported signature and every existing call site are unchanged — only its internal local/no-credential branch changes.
+*   **And** no local SMTP catcher (Mailpit/Maildev) or `nodemailer` dependency is introduced — this is a console/dev-log stub only, per the explicit scope decision recorded in this story's Dev Notes.
+
+**Note:** This story is a developer-experience addendum to the already-`done` Story 0.15, requested directly by the user (not surfaced by a Gate 1/2/3 finding during another story's creation) — Story 0.15's adapter currently has no local bypass, unlike the BYOK KMS adapter (Story 0.13's `kms.ts`), which already no-ops (mocked encrypt/decrypt) when `BYOK_KMS_KEY_ID` is unset or `NODE_ENV === 'test'`. Classified as a single-story split off Story 0.15 (not a new Epic 0 tooling story) since it only touches that one adapter's internals and has exactly one consumer story.
+
+**Depends on:** Story 0.15.
 
 ### Story 0.16: Set up Geolocation adapter with caching layer
 
@@ -1554,13 +1616,15 @@ Users can subscribe to social media accounts to import events into their feed.
 
 *   **Given** `location-form-dialog.tsx`'s existing address-search/current-location/map-pick logic (excluding the Saved-Locations-specific `name`/`radius` fields),
 *   **When** this story extracts it,
-*   **Then** a new `LocationPickerField` component exists in `packages/ui` (e.g. `packages/ui/src/features/locations/`): a controlled, presentational component that owns its own local UI state (typed search text, dropdown open/closed) but accepts suggestions/loading/preview data and all async behavior as props/callbacks (`suggestions`, `isSuggestionsLoading`, `onSearchInputChange`, `onSelectSuggestion`, `onUseCurrentLocation`, `onPickOnMap`, `resolvedPreview`, `error`) — it must not import `react-query` or any generated GraphQL hook directly, per `project-context.md`'s rule restricting Server State (React Query) to `apps/web` only; the consuming page owns all data-fetching and passes results in as props.
-*   **And** a reusable map-picker-sheet equivalent (the bottom sheet combining an in-sheet search box with the map) is likewise extracted into `packages/ui`, following the same controlled-props pattern.
+*   **Then** a new `LocationPickerField` component exists in `packages/ui` (e.g. `packages/ui/src/features/locations/`): a controlled, presentational component that owns its own local UI state (typed search text, dropdown open/closed) but accepts suggestions/loading/preview data and all async behavior as props/callbacks (`suggestions`, `isSuggestionsLoading`, `onSearchInputChange`, `onSelectSuggestion`, `onUseCurrentLocation`, `onPickOnMap`, `resolvedPreview`, `error`, `labels` — see this story's 2026-08-08 Amendment) — it must not import `react-query` or any generated GraphQL hook directly, per `project-context.md`'s rule restricting Server State (React Query) to `apps/web` only; the consuming page owns all data-fetching and passes results in as props.
+*   **And** a reusable map-picker-sheet equivalent (the bottom sheet combining an in-sheet search box with the map) is likewise extracted into `packages/ui`, following the same controlled-props pattern, also taking a `labels` prop (2026-08-08 Amendment).
 *   **And** `MapView` (the raw MapLibre primitive, currently at `apps/web/src/components/ui/map.tsx`) is relocated into `packages/ui` — this closes a pre-existing gap in Story 2.4a's own AC ("it is encapsulated in `packages/ui` so the raw mapping library is not leaked into feature pages"), discovered during this story's creation, not new scope invented by this story. It is a forced consequence of extraction: a `packages/ui` component cannot import from `apps/web`.
 *   **And** `location-form-dialog.tsx` and `map-picker-sheet.tsx` (Stories 2.3/2.4) are refactored to consume the new `packages/ui` components instead of their inline implementations, with no behavior change — their existing test suites continue to pass (only import/mock paths may need updating).
 *   **And** the new components are exported from `packages/ui`'s public entry point, ready for Story 3.3 to consume.
 
 **Note:** Classified as a Gate 2 gap (UI Complexity & Reusability) surfaced by `bmad-create-story` while drafting Story 3.3 — the user confirmed via `AskUserQuestion` that the default-location field should reuse the full autocomplete/current-location/map-pick experience (for consistency with Saved Locations) rather than a simpler plain-text/blind-geocode field, which would have avoided this split. Classified as a single-story architecture/UI split (needed by exactly Story 3.3 today), positioned immediately before it, matching the `1.3a`/`2.4a` precedent.
+
+**Amendment (2026-08-08, added via `bmad-create-story` during this story's own creation):** A fresh Gate 2 pass (Freya) found the AC1/AC2 prop lists as originally written omitted a `labels` prop — every other extracted `packages/ui` component that renders its own copy (`MapView` itself, `EventCard`, `WizardNavigation`, `LocationRadiusFilter`, etc.) takes a `labels`/`labels?` object precisely because `packages/ui` cannot import `next-intl`. Without it, `LocationPickerField`/the map-picker-sheet equivalent would either hardcode English strings or leak `next-intl` into `packages/ui`, silently dropping existing localization for the address-search spinner/empty-state text, the current-location/pick-on-map button labels, and the map sheet's own title/search/footer copy. AC1 and AC2 below are corrected to require a `labels` prop, sourced by the `apps/web` consumer from its existing `SavedLocationsPage` i18n namespace — no new locale keys are introduced by this correction, since all the strings already exist.
 
 **Depends on:** Story 2.3b, Story 2.4, Story 2.4a, Story 2.4b.
 
@@ -1643,8 +1707,11 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** it implements one shared `ScraperAdapter` interface (input: subscribed account identifier; output: scraped posts, each with `post_url` set to whatever URL was actually scraped — which may be a proxy/mirror, e.g. `imginn.com` for Instagram — and `original_post_url` populated when that platform's own derivation rule can determine the canonical original-platform URL).
 *   **And** a platform-enum-to-URL-slug registry (e.g. Instagram -> `ig`) is defined exactly once, in the same shared location as the `ScraperAdapter` interface, and is the single source Story 3.11's `/{platformSlug}/{accountId}` routing resolves against — not hardcoded per-component.
 *   **And** this story builds the interface/registry scaffold only — the first concrete per-platform scraper implementation(s) remain Story 3.4's scope.
+*   **And** the shared interface also exposes `lookupAccountProfile(platform, handleOrUrl): Promise<{ accountId: string; displayName: string; username: string; profileImageUrl?: string } | null>` — a lightweight, on-demand existence-check + public-profile-metadata fetch, distinct from `getNewestPosts` (no posts are scraped, no AI extraction runs). Returns `null` when the platform reports no such account. This story defines the interface method's signature and registry wiring only — the first concrete per-platform implementation(s) remain Story 3.4's scope, consistent with how `getNewestPosts`'s first concrete implementation is also Story 3.4's, not this story's.
 
 **Note:** Classified as a Gate 3 gap by the Epic 3 readiness re-sweep (`bmad-epic-readiness-check`, re-run 2026-08-07) — Story 3.4 requires a "platform-specific scraper adapter" and Story 3.11 requires a "platform-to-slug mapping...defined once in a shared location alongside the platform-specific scraper adapters," but no story built either the adapter interface or the registry; left alone, Story 3.4 would build both ad hoc as a byproduct of its own scraping work — the exact failure mode this gate exists to catch. Kept inside Epic 3 (not promoted to Epic 0) since no other epic currently calls a social-media scraper or consumes the slug registry. Positioned after Story 3.3b and before Story 3.4, the first consumer.
+
+**Amendment (Epic 6 readiness sweep, `bmad-epic-readiness-check`, 2026-08-08):** Added `lookupAccountProfile` to the shared interface. Story 3.4's 2026-08-07 Forward note flagged that Story 3.1/3.2's subscribe forms need a lightweight account-validation capability distinct from the scheduled bulk-scrape, but left open whether it belongs on the interface (this story) or the bulk-scrape story (3.4) itself. The Epic 6 sweep found a second, independent consumer — Story 6.1's vote-for-a-new-account path (PRD §3.13, FR70) needs the identical capability, at the same layer, before Story 6.1 can ship as specified. Two independent consumers across two epics clears Gate 3's cross-epic reuse bar. Placed on the interface (this story) rather than Story 3.4, since it is a synchronous, on-demand, single-account lookup with a different call shape than 3.4's scheduled, bulk, multi-account scrape job. Story 3.1/3.2's own subscribe-form retrofit remains out of scope/deferred as before (their "no live scrape-based validation... accepted gap" language is unchanged) — this amendment only unblocks Story 6.1, which does depend on this interface method plus at least one concrete per-platform implementation from Story 3.4.
 
 **Depends on:** None.
 
@@ -2118,3 +2185,215 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **And** the tab for the newly added subscription is automatically activated, using the `isNewlyAdded` flag surfaced by the `mySubscriptions` query (Story 3.2, extended by Story 5.1a); the flag is cleared via `markSubscriptionViewed` (Story 5.1a) once the tab is opened.
 
 **Depends on:** Story 3.2, Story 5.1a.
+
+### Epic 6: Community Voting and Embeddable Distribution
+
+Users who can't or don't want to provide a BYOK API key can still register demand for a social media account, and any site can embed FestDaily's event discovery as a public widget.
+**FRs covered:** FR69, FR70, FR71, FR72, FR73, FR74, FR75, FR76, FR77, FR78, FR79, FR80, FR81, FR82, FR83, FR84, FR85, FR86, FR87, FR88
+
+### Story 6.1a: Build the account-vote backend GraphQL API layer
+
+**As a** developer,
+**I want** an `account_votes` table plus GraphQL mutations/queries for casting, withdrawing, ranking, and autocomplete-suggesting voted social media accounts — including the account-creation path for a not-yet-profiled account,
+**So that** Stories 6.1-6.4 read and write vote data through the backend API instead of the frontend querying the database or scraper adapters directly.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 0.17's auth context, Story 3.1a's `social_media_account_profiles`/`subscriptions` tables, and Story 3.3c's `ScraperAdapter` interface (amended below to add `lookupAccountProfile`) exist, **when** the migration script runs, **then** an `account_votes` table (PRD §4.15) is created: `id` (uuid pk), `user_id` (FK to users), `account_id` (FK to `social_media_account_profiles`), `created_at`, `deleted_at` (nullable, AD-8), unique on (`user_id`, `account_id`) — re-voting after a withdrawal clears `deleted_at` on the existing row rather than inserting a new one, per PRD §4.15.
+*   **And** a `castVote(input: CastVoteInput!): AccountVote!` mutation is exposed, scoped to `context.user` via `requireAuth` (Story 0.17). `CastVoteInput` accepts either an existing `accountId` (uuid) or a `{ platform, handleOrUrl }` pair for a not-yet-profiled account. For the latter path, the resolver: (a) confirms `platform` is scrapeable via Story 3.3c's registry — a local membership check, no adapter call; (b) calls Story 3.3c's (amended) `ScraperAdapter.lookupAccountProfile(platform, handleOrUrl)` to fetch the platform-native `accountId`/`displayName`/`username` (existence-check + public metadata only — never a post scrape or AI extraction, PRD §3.13); (c) passes the result through Story 3.1a's existing lookup-or-create logic to get-or-create the `social_media_account_profiles` row (matched by `platform`+`accountId`, never by handle text); (d) inserts/reactivates the caller's `account_votes` row against that profile's internal `id`. An unscrapeable platform or a failed lookup (account doesn't exist on the platform) returns a `GraphQLError` (`BAD_REQUEST`) rather than creating a placeholder profile.
+*   **And** re-casting a vote for an account the caller already actively voted for is a no-op returning the existing `AccountVote` (idempotent), not a duplicate-key error.
+*   **And** a `withdrawVote(id: ID!, action: SoftDeleteAction!): AccountVote!` mutation (AD-8 rule 4 shape) soft-deletes the caller's own vote — ownership is verified against `context.user`, never a client-supplied user ID — and an attempt to withdraw an already-withdrawn vote throws `INVALID_STATE_TRANSITION`, matching `removeSubscription`/`deleteApiKey` precedent.
+*   **And** a `rankedVoteAccounts(nearMe: Boolean, locationPreferenceId: ID): [RankedAccountVote!]!` query returns every voted account ordered by active (non-soft-deleted) vote count descending, each entry carrying the account's `SocialMediaAccountProfile` fields and its vote count; accounts with at least one active `Subscription` (any tier, `activeOnly(subscriptions)`, Story 0.22) are excluded from the ranking (PRD §3.13 "Leaving the Vote List" / FR76) — this is a **read-time filter** joining `subscriptions`, not a write-time side effect on Story 3.1/3.2's `subscribeToAccount`/`removeSubscription` mutations, which remain unchanged.
+*   **And** when `nearMe: true` and `locationPreferenceId` references one of the caller's own active `UserLocationPreference` rows (Story 2.3a, ownership-checked), the ranking is re-weighted to favor accounts with more votes from users whose own saved location is geographically close to the caller's, using the same `ST_DWithin`/haversine distance technique already established for AD-1's `withinRadius` operator (Story 2.5a) — reused directly in this hand-written query, not via the Unified Query DSL, since `AccountVote` is not an event-query resource. No voter's location is ever returned or attributable to a specific account in the response — only the resulting weighted order.
+*   **And** a `voteRegionBreakdown(accountId: ID!): [RegionVoteBucket!]!` query returns that account's active voters bucketed by city/province (never raw coordinates), each bucket carrying a `label` and `voterCount`; any bucket with fewer than 5 distinct voters is **omitted from the response entirely** (never returned with a suppressed/zeroed count) rather than filtered client-side, so a small bucket's near-identifiable count never leaves the backend, per NFR26. Bucketing a voter's `UserLocationPreference` into a city/province label is resolved via a new `resolveAdminRegion(coordinates): { city, province }` export added to Story 0.16's Geolocation adapter, which extracts the city/state fields already present in Geoapify's cached geocode response (`geolocation_cache.result`, Story 0.16) rather than issuing a new external API call for a location already resolved once — scoped as an AC here rather than its own story since this story is its only consumer and the change is small/additive on an already-`review`-status adapter, mirroring the size/precedent of Story 2.4b's single-AC extension of the same adapter.
+*   **And** a `votedAccountSuggestions(query: String): [RankedAccountVote!]!` query returns active, not-yet-subscribed voted accounts (same exclusion rule as `rankedVoteAccounts`) matching a partial `platform`/`username`/`displayName` search, ordered by vote count — this is the query Story 6.4's subscribe-form autocomplete consumes, `requireAuth`-scoped since it's only reachable from within the authenticated subscribe flow.
+*   **And** no package outside `apps/backend` writes to `account_votes` or calls `ScraperAdapter.lookupAccountProfile` directly.
+
+**Note:** Classified as a shared data-ownership gap by the Epic 6 readiness sweep (`bmad-epic-readiness-check`) — Gate 1 found none of Stories 6.1-6.4 had a backend API layer, mirroring the Story 2.1a/3.1a/4.1a/5.1a precedent of splitting a consolidated backend-layer story ahead of an epic's first feature area. Positioned as the first story in Epic 6, before Story 6.1 (first consumer). The `lookupAccountProfile` adapter method it depends on is a Gate 3 cross-epic-reuse finding — see the accompanying Amendment to Story 3.3c and `epic-readiness/epic-6-readiness.md` for the full analysis (the same capability was already flagged as needed-but-unbuilt by Story 3.4's 2026-08-07 Forward note, for Story 3.1/3.2's subscribe forms).
+
+**Depends on:** Story 0.8, Story 0.16, Story 0.17, Story 0.22, Story 2.3a, Story 2.5a, Story 3.1a, Story 3.3c (amended), Story 3.4 (≥1 concrete `lookupAccountProfile` implementation).
+
+### Story 6.1: Vote for a social media account
+
+**As a** user,
+**I want** to cast a vote for a social media account I'd like to see subscribed — either an existing entry or one I add myself,
+**So that** I can register demand for it even without a BYOK Gemini API key.
+
+**Acceptance Criteria:**
+
+*   **Given** I am authenticated and viewing the ranked vote list (Story 6.2),
+*   **When** I vote for an existing account,
+*   **Then** my vote is recorded via the `castVote` mutation (Story 6.1a) and the account's rank updates to reflect the new count.
+*   **And** when I instead enter a new account not yet in the system (selecting its platform and providing its handle/URL),
+*   **Then** `castVote` (Story 6.1a) validates the platform against the scraper adapter registry (Story 3.3c), resolves the account's `accountId`/`displayName`/`username` via the registry's `lookupAccountProfile` method (Story 3.3c amendment, Story 3.4's concrete implementation) — never from placeholder handle text — and creates the `SocialMediaAccountProfile` record my vote is recorded against.
+*   **And** if the platform is unsupported or the account can't be found on the platform, I see an error and no vote/profile is created.
+*   **And** re-voting for an account I've already actively voted for does not create a duplicate vote or error — it's a no-op.
+*   **And** casting a vote does not require or consume any BYOK API key quota.
+
+**Depends on:** Story 6.1a.
+
+### Story 6.2: View the ranked vote list
+
+**As a** user,
+**I want** to see social media accounts ranked by vote count, optionally weighted toward accounts popular near me,
+**So that** I can see what's currently in demand.
+
+**Acceptance Criteria:**
+
+*   **Given** I navigate to the vote list,
+*   **When** the page loads,
+*   **Then** I see every voted, not-yet-subscribed account ranked by vote count descending, fetched via `rankedVoteAccounts` (Story 6.1a).
+*   **And** I can toggle a "Near Me" view, which re-weights the ranking using one of my saved locations (Story 2.3a), without ever displaying or persisting any voter's individual location (PRD §3.13, NFR26).
+*   **And** a per-account region breakdown, when I open it, shows vote counts bucketed by city/province (`voteRegionBreakdown`, Story 6.1a); any region with fewer than 5 distinct voters is simply absent from the results, not shown as a small/zeroed count.
+*   **And** an account is not shown in this list once any user has an active subscription to it (Story 3.1/3.2) — it becomes visible again if that subscription is later removed, with its prior vote count intact.
+
+**Depends on:** Story 6.1a.
+
+### Story 6.3: Withdraw a vote
+
+**As a** user,
+**I want** to withdraw a vote I previously cast,
+**So that** I can change my mind about which accounts I'm registering demand for.
+
+**Acceptance Criteria:**
+
+*   **Given** I have an active vote for an account,
+*   **When** I choose to withdraw it,
+*   **Then** `withdrawVote` (Story 6.1a) soft-deletes my vote (AD-8) and the account's rank decrements accordingly.
+*   **And** attempting to withdraw an already-withdrawn vote returns an `INVALID_STATE_TRANSITION` error rather than silently no-op'ing.
+*   **And** I can re-vote for the same account afterward (Story 6.1), which reactivates my existing vote row rather than creating a new one.
+
+**Depends on:** Story 6.1a.
+
+### Story 6.4: Autocomplete voted accounts when subscribing
+
+**As a** user,
+**I want** voted accounts to appear as suggestions when I'm adding a BYOK subscription,
+**So that** I can easily subscribe to an account that's already in demand.
+
+**Acceptance Criteria:**
+
+*   **Given** I have at least one Gemini API key and am on the subscribe form (Story 3.1/3.2),
+*   **When** I start typing a platform/handle/display name,
+*   **Then** I see matching, not-yet-subscribed voted accounts as ranked suggestions, fetched via `votedAccountSuggestions` (Story 6.1a).
+*   **And** selecting a suggestion pre-fills the subscribe form with that account's known details rather than requiring me to re-enter them.
+*   **And** subscribing to a suggested account still goes through the existing `subscribeToAccount` mutation (Story 3.1/3.2) unchanged — this story only adds a suggestion source to an existing form, it does not alter how a subscription is created.
+
+**Note:** This story reopens Story 3.1/3.2's subscribe form UI, which is already `review`/`ready-for-dev` — flagged by the Epic 6 readiness sweep as a real sequencing risk. Confirm Story 3.1/3.2's current status before starting this story.
+
+**Depends on:** Story 6.1a, Story 3.1, Story 3.2.
+
+### Story 6.5a: Build the widget-config backend GraphQL API layer
+
+**As a** developer,
+**I want** a `widgets` table plus GraphQL mutations to create/update/delete a widget configuration and a public query to read one for rendering,
+**So that** a widget is a persisted, independently-editable entity with a stable id — not filters serialized into a URL — and Story 6.6a's `embed_domains` table has a table to reference instead of hanging a whitelist off the owning user directly.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 0.17's auth context exists, **when** the migration script runs, **then** a `widgets` table (PRD §4.16) is created: `id` (uuid pk), `owner_user_id` (FK to users), `filters` (jsonb — the same filter shape the main discovery page's query params already express, Sections 3.1/3.5/3.7), `display_mode` (enum: `CARD`/`CALENDAR`), `theme` (enum: `DARK`/`LIGHT`), `created_at`, `deleted_at` (nullable, AD-8).
+*   **And** a `createWidget(input: CreateWidgetInput!): Widget!` mutation is exposed, scoped to `context.user` via `requireAuth` — `filters` is validated (AJV) against the same filter shape the main discovery Unified Query DSL (AD-1) accepts, rejecting anything that wouldn't also be a valid discovery-page query.
+*   **And** an `updateWidget(id: ID!, input: UpdateWidgetInput!): Widget!` mutation lets the owner change `filters`/`displayMode`/`theme` on an existing widget — ownership verified against `context.user` — and the change is reflected the next time the widget route (Story 6.7) is requested, with no action required from any site that already embedded it (PRD §3.14 "Editing a widget's configuration later updates every embed of it automatically").
+*   **And** a `deleteWidget(id: ID!, action: SoftDeleteAction!): Widget!` mutation (AD-8 rule 4 shape) soft-deletes a widget the caller owns, with the same `INVALID_STATE_TRANSITION` handling as `removeSubscription`/`deleteApiKey` for an already-deleted widget.
+*   **And** a `myWidgets` query returns the caller's active widgets for the generator screen (Story 6.5) and domain-management screen (Story 6.6).
+*   **And** a **public, unauthenticated** `widgetById(id: ID!): Widget!` query returns an active widget's `filters`/`displayMode`/`theme` for the widget route (Story 6.7) to render — returns a "not found"-shaped result (not an error leaking existence/ownership details) for a soft-deleted or unknown id.
+*   **And** no package outside `apps/backend` writes to `widgets` or reads it to decide what to render — Story 6.7's page reaches this data exclusively through `widgetById`.
+
+**Note:** Added during PRD review (post-Epic-6-readiness-sweep) when the widget model changed from stateless query-param filters to a persisted entity — this is the shared data-ownership gap that decision creates: both Story 6.5 (the generator, writes) and Story 6.6a's `embed_domains` (which now FKs `widgetId` instead of `ownerUserId`) and Story 6.7 (reads for rendering) need a `widgets` table that no story built. Positioned before Story 6.5, the first consumer, mirroring the Story 2.1a/3.1a/4.1a/5.1a/6.1a/6.6a precedent.
+
+**Depends on:** Story 0.8, Story 0.17, Story 0.22.
+
+### Story 6.5: Configure and generate a widget embed
+
+**As a** registered user,
+**I want** to create and edit a widget by filters, display mode, and theme, and get a ready-to-use embed snippet,
+**So that** I can embed FestDaily's event discovery on another site and update it later without re-embedding anywhere.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the embed generator screen,
+*   **When** I choose any combination of filters (social media account, event type, category, keyword, location/coordinates + radius — Sections 3.1/3.5/3.7 filters), a display mode (card or calendar), and a theme (dark or light), and save,
+*   **Then** a `Widget` is created via `createWidget` (Story 6.5a) and I see a live preview of the resulting widget.
+*   **And** I can return later and edit any of my widgets (`myWidgets`/`updateWidget`, Story 6.5a) — the change takes effect on every existing embed of it without me having to re-paste anything anywhere.
+*   **And** I receive two embed forms for a saved widget: (1) a **script + placeholder snippet** — `<div data-festdaily-widget-id="{id}"></div>` plus one shared `<script async src=".../embed.js"></script>` — presented as the recommended option; and (2) a **raw iframe URL** (`.../widget/{id}`) as a fallback for embedding contexts that strip `<script>` tags but allow iframes.
+*   **And** `embed.js` (served as a static asset) waits for the DOM to be ready, then finds every element on the page carrying `data-festdaily-widget-id` (`querySelectorAll`, not a single lookup — supporting multiple different widgets embedded on one page from a single script include) and inserts an iframe pointing at `.../widget/{id}` into each, wiring up the `postMessage` height-reporting handshake (Story 6.7) so the iframe auto-resizes without the embedder writing any listener code themselves.
+*   **And** generating a widget and its snippet does not require me to have already registered an embedding domain pattern (Story 6.6) for it — domain registration is enforced at render time (Story 6.7a), not at generation time, so I can build and preview a widget before deciding where to allow it.
+
+**Depends on:** Story 6.5a.
+
+### Story 6.6a: Build the embed-domain backend GraphQL API layer
+
+**As a** developer,
+**I want** an `embed_domains` table, scoped per-widget rather than per-owner, plus GraphQL mutations to register/deregister a domain pattern (validated against a Public Suffix List) and a public query to check whether a given widget may be embedded from a given origin,
+**So that** Story 6.6's domain-management screen and Story 6.7a's widget CSP middleware both read/write embed-domain data through the backend API instead of the frontend (or Next.js Middleware) touching the database directly, and each widget carries independent embedding restrictions rather than sharing one whitelist across everything an owner creates.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 6.5a's `widgets` table exists, **when** the migration script runs, **then** an `embed_domains` table (PRD §4.17) is created: `id` (uuid pk), `widget_id` (FK to `widgets`), `pattern` (text, not null), `created_at`, `deleted_at` (nullable, AD-8) — no `owner_user_id` column; ownership for management purposes flows through `widgets.owner_user_id` via the `widget_id` FK, matching PRD §4.17.
+*   **And** a `registerEmbedDomain(widgetId: ID!, pattern: String!): EmbedDomain!` mutation is exposed, scoped to `context.user` via `requireAuth` — ownership of `widgetId` is verified against `context.user` before any write. `pattern` must be either an exact hostname or a wildcard of the exact shape `*.<hostname>` (rejected otherwise); both forms are normalized (lowercased, scheme/path/trailing-slash stripped) server-side before storage. When `pattern` is a wildcard, its suffix (everything after `*.`) is checked against a Public Suffix List (the `tldts` package — actively maintained, ships PSL data, no external API call per check) and the mutation throws a `GraphQLError` (`BAD_REQUEST`, with a message naming the offending suffix) if the suffix is itself a public suffix or one level above it (e.g. rejects `*.vercel.app`, `*.github.io`, `*.co.uk`) — this is the check that prevents whitelisting every unrelated tenant on a shared-hosting platform. Exact-hostname patterns (including `localhost:<port>` style dev entries) are never subject to the PSL check, since they don't expand to cover anything beyond themselves.
+*   **And** a `deregisterEmbedDomain(id: ID!, action: SoftDeleteAction!): EmbedDomain!` mutation (AD-8 rule 4 shape) soft-deletes a pattern belonging to a widget the caller owns — ownership verified against `context.user` via the pattern's `widget_id`, never a client-supplied user ID — with the same `INVALID_STATE_TRANSITION` handling as `removeSubscription`/`deleteApiKey` for an already-deregistered pattern.
+*   **And** an `embedDomainsForWidget(widgetId: ID!)` query returns a caller-owned widget's active (`activeOnly(table)`, Story 0.22) registered patterns for Story 6.6's management screen — ownership-scoped, not a global list.
+*   **And** a **public, unauthenticated** `isOriginAllowedForWidget(widgetId: ID!, origin: String!): Boolean!` query normalizes `origin` to a bare hostname the same way `registerEmbedDomain` does, then returns whether that hostname matches any of the given widget's active patterns — an exact match against an exact-hostname pattern, or a suffix match (`origin` ends with the pattern's hostname, on a label boundary — i.e. `sub.acmecorp.com` matches `*.acmecorp.com` but `evilacmecorp.com` does not) against a wildcard pattern. This is the sole read Story 6.7a's widget CSP middleware calls; it never returns which patterns are registered or who registered them, only a boolean, since it is reachable by any unauthenticated request.
+*   **And** `isOriginAllowedForWidget` carries negligible additional query-cost risk under the project-wide GraphQL depth/complexity limits (Story 0.8) despite being public, since it takes no nested selection.
+*   **And** no package outside `apps/backend` writes to `embed_domains`, imports the PSL library, or reads this data to make a framing/security decision — Story 6.7a's middleware reaches it exclusively through `isOriginAllowedForWidget`, never a direct database query from `apps/web`.
+
+**Note:** Classified as a shared data-ownership gap by the Epic 6 readiness sweep — Gate 1 found Story 6.6 (register/manage domains) and Story 6.7 (public widget page, via its CSP enforcement) both need `EmbedDomain` data, but no story builds the table or its API surface. Positioned before Story 6.6, the first consumer, mirroring the Story 2.1a/3.1a/4.1a/5.1a/6.1a precedent — split from Story 6.1a rather than combined with it, since `AccountVote` and `EmbedDomain` are unrelated data domains with disjoint consumer story sets (6.1-6.4 vs. 6.6-6.7) and disjoint technical shapes (authenticated CRUD+ranking vs. a public boolean check consumed from Next.js Middleware, not a React data-fetching hook) — bundling them would repeat the exact "two unrelated concerns forced into one story" failure this gate exists to prevent. Mirrors Epic 4's precedent of splitting backend-layer stories by data domain (4.1a/4.3a/4.4a) rather than one-per-epic.
+
+**Amendment (PRD review, post-sweep):** Rescoped from per-owner (`ownerUserId` on `EmbedDomain` directly) to per-widget (`widgetId` FK into the new Story 6.5a `widgets` table), and domain matching changed from implicit subdomain inclusion to explicit wildcard patterns with Public Suffix List validation — see PRD §3.14/§4.17 for the full rationale (prevents one widget's whitelist bleeding into another's, and prevents whitelisting shared-hosting domains like `*.vercel.app`). `isEmbedDomainAllowed(domain)` renamed `isOriginAllowedForWidget(widgetId, origin)` accordingly — the check is now "may *this* widget render on this origin," not a global per-owner check.
+
+**Depends on:** Story 0.8, Story 0.17, Story 0.22, Story 6.5a.
+
+### Story 6.6: Register and manage embed domains
+
+**As a** registered user,
+**I want** to register the domain pattern(s) a specific widget of mine is allowed to be embedded on, and deregister ones I no longer use,
+**So that** I control where each of my widgets is allowed to render, independently of any other widget I own.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on a widget's domain management screen (reached from that widget in Story 6.5's generator — this is per-widget, not a single account-wide list),
+*   **When** I register a new pattern — either an exact hostname or an explicit `*.hostname` wildcard,
+*   **Then** it's saved via `registerEmbedDomain` (Story 6.6a) and appears in this widget's pattern list, normalized to a canonical form.
+*   **And** if I submit a wildcard pattern that the backend rejects as covering a shared-hosting/public-suffix domain, I see a clear error naming the problem rather than a generic failure.
+*   **And** I can deregister a pattern on this widget, which calls `deregisterEmbedDomain` (Story 6.6a, soft-delete, AD-8) and immediately revokes that pattern's embedding access for this widget only (Story 6.7a reads this on every widget request) — it has no effect on any other widget I own.
+*   **And** I only ever see and manage patterns on widgets I own myself (`embedDomainsForWidget`, Story 6.6a, ownership-checked) — never another user's widget.
+
+**Depends on:** Story 6.6a, Story 6.5a.
+
+### Story 6.7a: Build the widget's dynamic frame-ancestors CSP middleware
+
+**As a** developer,
+**I want** `apps/web`'s existing Next.js Middleware extended to detect requests to the widget route and set a per-request `Content-Security-Policy: frame-ancestors` header scoped to that request's registered embedding domain, composed alongside (not replacing) the existing next-intl locale-routing middleware,
+**So that** Story 6.7's public widget page can actually be embedded only by domains registered via Story 6.6, without any other route in the app inheriting a relaxed or dynamic framing policy.
+
+**Acceptance Criteria:**
+
+*   **Given** `apps/web/middleware.ts` currently runs only `next-intl`'s `createMiddleware(routing)` against a matcher excluding `api`/`_next`/`_vercel`/static-asset paths, **when** this story ships, **then** the matcher/handler is extended (not replaced) so that requests matching the widget route (`/[locale]/widget/[widgetId]`) run an additional, widget-specific step before or after the existing next-intl step, and all other routes' behavior is provably unchanged (existing locale-routing tests continue passing unmodified).
+*   **And** for a widget-route request, the middleware extracts `widgetId` from the request path, reads the requesting page's `Origin` header (falling back to parsing `Referer` when `Origin` is absent), and calls the backend's `isOriginAllowedForWidget(widgetId, origin)` query (Story 6.6a) via an edge-compatible `fetch` to the GraphQL endpoint — this is the one sanctioned way this middleware learns which patterns are registered for *this specific widget*; it never queries the database directly (Gate 1) and never bundles/imports `apps/backend`'s Drizzle layer into `apps/web`.
+*   **And** when the calling domain is registered and active, the response sets `Content-Security-Policy: frame-ancestors https://<domain>` (or omits/uses `'none'` when no `Origin`/`Referer` is present, e.g. a direct navigation to the widget URL, which is allowed to render standalone but not to be framed by an unlisted origin) — scoped via the response object this middleware step returns, never mutating global response headers applied to non-widget routes.
+*   **And** when the calling domain is not registered (or the backend call fails/times out), the response sets `Content-Security-Policy: frame-ancestors 'none'` — a fail-closed default, so a backend outage narrows embedding access rather than silently widening it.
+*   **And** every non-widget route's response is verified (integration test) to carry no `frame-ancestors` header from this mechanism at all — this story's change is provably isolated to the widget route, per the PRD's Security NFR ("the rest of the application's framing protection is unaffected").
+*   **And** the backend call's failure characteristics are covered by a test asserting the fail-closed behavior under a simulated backend timeout/error.
+
+**Note:** Classified as a Gate 1 finding by the Epic 6 readiness sweep, scoped as a single-story architecture split rather than an Epic 0 foundation — no other route or epic in this codebase has, or is expected to have, a per-request, DB-state-driven dynamic security-header requirement (the rest of the app's framing/CSP posture is static, per PRD §5 Security), so this does not clear Gate 3's ≥2-independent-consumers reuse bar the way Stories 0.13/0.15/0.16/0.17 did — it stays Epic-6-scoped. Still split into its own story (rather than folded into Story 6.7's page-building AC) because it is genuinely new infrastructure for this codebase (`apps/web/middleware.ts` today is a pure, local, zero-network-call locale router) and because Next.js supports exactly one middleware file per app, meaning this change necessarily touches and must compose cleanly with already-shipped next-intl routing logic. Positioned immediately before Story 6.7, its sole consumer.
+
+**Depends on:** Story 6.6a, Story 6.5a.
+
+### Story 6.7: Public widget rendering page
+
+**As a** site visitor,
+**I want** to see FestDaily events rendered inside an embedded widget on the site I'm visiting,
+**So that** I can discover events without leaving that site.
+
+**Acceptance Criteria:**
+
+*   **Given** a widget embedded via Story 6.5's script+placeholder snippet (or its raw-iframe fallback) is loaded on a domain registered for that widget (Story 6.6, enforced by Story 6.7a's middleware),
+*   **When** the `/widget/{widgetId}` route loads,
+*   **Then** it fetches the widget's persisted configuration via the public `widgetById` query (Story 6.5a) and renders that filter combination using the existing `EventListView` (card mode, Story 1.3d) or `WeeklyCalendarView` (calendar mode, Story 1.3g) components as-is, in the widget's configured dark/light theme, with a fully transparent background — the page reads its config from `widgetId`, not from its own URL query parameters.
+*   **And** an unknown or soft-deleted `widgetId` renders an empty/removed state, not an error page or a leak of whether the id ever existed.
+*   **And** clicking an event does not open a detail view or navigate away — the only interaction available is adding it to my own calendar via one-way `.ics` export (Story 2.1b).
+*   **And** a small "Powered by FestDaily" button is always visible and opens the main FestDaily app.
+*   **And** the page posts its rendered content height to the parent frame via `postMessage` on load and on any subsequent height change — this is the message Story 6.5's `embed.js` listens for to auto-size the iframe it created; a visitor using the raw-iframe fallback snippet must wire this listener themselves.
+*   **And** when loaded from a domain not registered for this `widgetId` (or not currently active), the request is refused per Story 6.7a's fail-closed CSP middleware — this page itself performs no separate domain check, since enforcement happens at the HTTP layer before this page's content is ever requested cross-origin.
+
+**Depends on:** Story 6.5a, Story 6.6a, Story 6.7a, Story 1.3d, Story 1.3g, Story 2.1b.
