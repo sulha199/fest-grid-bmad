@@ -1,0 +1,5 @@
+mutation removeSubscription($id: ID!, $action: SoftDeleteAction!) {
+  removeSubscription(id: $id, action: $action) {
+    id
+  }
+}

@@ -149,6 +149,7 @@ export type Mutation = {
   deleteApiKey: ApiKey;
   deleteUserLocation: UserLocation;
   registerFcmToken: Scalars['Boolean']['output'];
+  removeSubscription: Subscription;
   subscribeToAccount: SubscribeToAccountResult;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
@@ -182,6 +183,12 @@ export type MutationDeleteUserLocationArgs = {
 
 export type MutationRegisterFcmTokenArgs = {
   token: Scalars['String']['input'];
+};
+
+
+export type MutationRemoveSubscriptionArgs = {
+  action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
 };
 
 
@@ -227,6 +234,7 @@ export type Query = {
   myApiKeys: Array<ApiKey>;
   myLocations: Array<UserLocation>;
   mySettings: UserSettings;
+  mySubscriptions: Array<Subscription>;
   previewLocation: LocationDetails;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
 };
@@ -320,6 +328,7 @@ export type SubscribeToAccountResult = {
 
 export type Subscription = {
   __typename?: 'Subscription';
+  account: SocialMediaAccountProfile;
   accountId: Scalars['ID']['output'];
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
@@ -589,6 +598,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   deleteApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationDeleteApiKeyArgs, 'action' | 'id'>>;
   deleteUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationDeleteUserLocationArgs, 'action' | 'id'>>;
   registerFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRegisterFcmTokenArgs, 'token'>>;
+  removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
   subscribeToAccount?: Resolver<ResolversTypes['SubscribeToAccountResult'], ParentType, ContextType, RequireFields<MutationSubscribeToAccountArgs, 'input'>>;
   toggleCalendarAddition?: Resolver<ResolversTypes['ToggleCalendarAdditionResult'], ParentType, ContextType, RequireFields<MutationToggleCalendarAdditionArgs, 'eventId' | 'scheduleId'>>;
   toggleFavorite?: Resolver<ResolversTypes['ToggleFavoriteResult'], ParentType, ContextType, RequireFields<MutationToggleFavoriteArgs, 'eventId'>>;
@@ -607,6 +617,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   myApiKeys?: Resolver<Array<ResolversTypes['ApiKey']>, ParentType, ContextType>;
   myLocations?: Resolver<Array<ResolversTypes['UserLocation']>, ParentType, ContextType>;
   mySettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType>;
+  mySubscriptions?: Resolver<Array<ResolversTypes['Subscription']>, ParentType, ContextType>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
   socialMediaAccountProfileByAccountId?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType, RequireFields<QuerySocialMediaAccountProfileByAccountIdArgs, 'accountId' | 'platform'>>;
 }>;
@@ -652,6 +663,7 @@ export type SubscribeToAccountResultResolvers<ContextType = GraphQLContext, Pare
 }>;
 
 export type SubscriptionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Subscription'] = ResolversParentTypes['Subscription']> = ResolversObject<{
+  account?: SubscriptionResolver<ResolversTypes['SocialMediaAccountProfile'], "account", ParentType, ContextType>;
   accountId?: SubscriptionResolver<ResolversTypes['ID'], "accountId", ParentType, ContextType>;
   createdAt?: SubscriptionResolver<ResolversTypes['String'], "createdAt", ParentType, ContextType>;
   id?: SubscriptionResolver<ResolversTypes['ID'], "id", ParentType, ContextType>;

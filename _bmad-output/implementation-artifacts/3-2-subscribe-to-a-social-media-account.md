@@ -1,3 +1,6 @@
+---
+baseline_commit: 92ab892459c9f2e595cc8a8e5215d16b78e1f9cc
+---
 # Story 3.2: Subscribe to, view, and remove social media account subscriptions
 
 ## Story Details
@@ -5,7 +8,7 @@
 - Epic: 3
 - Story ID: 3.2
 - Story Key: 3-2-subscribe-to-a-social-media-account
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

@@ -153,6 +153,7 @@ export type Mutation = {
   deleteApiKey: ApiKey;
   deleteUserLocation: UserLocation;
   registerFcmToken: Scalars['Boolean']['output'];
+  removeSubscription: Subscription;
   subscribeToAccount: SubscribeToAccountResult;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
@@ -186,6 +187,12 @@ export type MutationDeleteUserLocationArgs = {
 
 export type MutationRegisterFcmTokenArgs = {
   token: Scalars['String']['input'];
+};
+
+
+export type MutationRemoveSubscriptionArgs = {
+  action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
 };
 
 
@@ -231,6 +238,7 @@ export type Query = {
   myApiKeys: Array<ApiKey>;
   myLocations: Array<UserLocation>;
   mySettings: UserSettings;
+  mySubscriptions: Array<Subscription>;
   previewLocation: LocationDetails;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
 };
@@ -324,6 +332,7 @@ export type SubscribeToAccountResult = {
 
 export type Subscription = {
   __typename?: 'Subscription';
+  account: SocialMediaAccountProfile;
   accountId: Scalars['ID']['output'];
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
@@ -543,6 +552,19 @@ export type GetMySettingsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type GetMySettingsQuery = { mySettings: { id: string, hidePastEventsAfterDays: number, pushNotificationsEnabled: boolean, createdAt: string, updatedAt: string } };
+
+export type RemoveSubscriptionMutationVariables = Exact<{
+  id: string | number;
+  action: SoftDeleteAction;
+}>;
+
+
+export type RemoveSubscriptionMutation = { removeSubscription: { id: string } };
+
+export type GetMySubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, createdAt: string, account: { platform: string, displayName: string, username: string, profileImageUrl: string | null } }> };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -1306,6 +1328,66 @@ export const useGetMySettingsQuery = <
       {
     queryKey: variables === undefined ? ['getMySettings'] : ['getMySettings', variables],
     queryFn: fetcher<GetMySettingsQuery, GetMySettingsQueryVariables>(client, GetMySettingsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const RemoveSubscriptionDocument = new TypedDocumentString(`
+    mutation removeSubscription($id: ID!, $action: SoftDeleteAction!) {
+  removeSubscription(id: $id, action: $action) {
+    id
+  }
+}
+    `);
+
+export const useRemoveSubscriptionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RemoveSubscriptionMutation, TError, RemoveSubscriptionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RemoveSubscriptionMutation, TError, RemoveSubscriptionMutationVariables, TContext>(
+      {
+    mutationKey: ['removeSubscription'],
+    mutationFn: (variables?: RemoveSubscriptionMutationVariables) => fetcher<RemoveSubscriptionMutation, RemoveSubscriptionMutationVariables>(client, RemoveSubscriptionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const GetMySubscriptionsDocument = new TypedDocumentString(`
+    query getMySubscriptions {
+  mySubscriptions {
+    id
+    accountId
+    isNewlyAdded
+    createdAt
+    account {
+      platform
+      displayName
+      username
+      profileImageUrl
+    }
+  }
+}
+    `);
+
+export const useGetMySubscriptionsQuery = <
+      TData = GetMySubscriptionsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: GetMySubscriptionsQueryVariables,
+      options?: Omit<UseQueryOptions<GetMySubscriptionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetMySubscriptionsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetMySubscriptionsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['getMySubscriptions'] : ['getMySubscriptions', variables],
+    queryFn: fetcher<GetMySubscriptionsQuery, GetMySubscriptionsQueryVariables>(client, GetMySubscriptionsDocument, variables, headers),
     ...options
   }
     )};

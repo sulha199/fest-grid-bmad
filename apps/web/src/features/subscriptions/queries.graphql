@@ -1,0 +1,14 @@
+query getMySubscriptions {
+  mySubscriptions {
+    id
+    accountId
+    isNewlyAdded
+    createdAt
+    account {
+      platform
+      displayName
+      username
+      profileImageUrl
+    }
+  }
+}

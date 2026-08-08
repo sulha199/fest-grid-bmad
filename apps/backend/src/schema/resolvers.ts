@@ -53,6 +53,27 @@ export const resolvers: Resolvers = {
     lat: (parent: any) => parent.lat ?? parent.latitude,
     lng: (parent: any) => parent.lng ?? parent.longitude,
   },
+  Subscription: {
+    account: async (parent: any, _: any, context: any, info: any) => {
+      const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: socialMediaAccountProfiles.id,
+      }).from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, parent.accountId));
+
+      const profile = rows[0] as any;
+      if (!profile) {
+        throw new GraphQLError('Profile not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      if (profile.defaultLocation) {
+        profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
+      }
+
+      return profile as any;
+    }
+  } as any,
   Mutation: {
     createApiKey: async (_: any, { input }: any, context: any) => {
       const authUser = requireAuth(context);
@@ -120,6 +141,37 @@ export const resolvers: Resolvers = {
         subscription: formatSubscription(result.subscription),
         alreadySubscribed: result.alreadySubscribed,
       };
+    },
+    removeSubscription: async (_: any, { id, action }: any, context: any) => {
+      const authUser = requireAuth(context);
+      const existingRows = await db.select().from(subscriptions)
+        .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, authUser.userId)));
+      
+      if (existingRows.length === 0) {
+        throw new GraphQLError('Subscription not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const existing = existingRows[0];
+      if (action === 'DELETE') {
+        if (existing.deletedAt !== null) {
+          throw new GraphQLError('Subscription is already deleted', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(subscriptions)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(eq(subscriptions.id, id))
+          .returning();
+        return formatSubscription(updated);
+      } else if (action === 'RESTORE') {
+        if (existing.deletedAt === null) {
+          throw new GraphQLError('Subscription is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(subscriptions)
+          .set({ deletedAt: null, updatedAt: new Date() })
+          .where(eq(subscriptions.id, id))
+          .returning();
+        return formatSubscription(updated);
+      }
+      throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
     createUserLocation: async (_: any, { input }: any, context: any) => {
       try {
@@ -407,6 +459,13 @@ export const resolvers: Resolvers = {
         .where(and(eq(apiKeys.userId, authUser.userId), activeOnly(apiKeys)))
         .orderBy(desc(apiKeys.createdAt));
       return rows.map(row => formatApiKey(row));
+    },
+    mySubscriptions: async (_: any, __: any, context: any) => {
+      const authUser = requireAuth(context);
+      const rows = await db.select().from(subscriptions)
+        .where(and(eq(subscriptions.userId, authUser.userId), activeOnly(subscriptions)))
+        .orderBy(desc(subscriptions.createdAt));
+      return rows.map(row => formatSubscription(row));
     },
     socialMediaAccountProfileByAccountId: async (_: any, { platform, accountId }: any, context: any, info: any) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);

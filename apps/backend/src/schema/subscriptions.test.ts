@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, apiKeys, subscriptions, socialMediaAccountProfiles } from '@festgrid/database';
-import { eq, inArray, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 // Read all required schema fragments dynamically from the schema directory
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -320,6 +320,185 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     assert.equal(body.data.subscribeToAccount.alreadySubscribed, false);
     assert.equal(body.data.subscribeToAccount.subscription.isNewlyAdded, true);
     assert.ok(body.data.subscribeToAccount.subscription.id);
+  });
+
+  await t.test('8. mySubscriptions query returns subscriptions with account profile', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            mySubscriptions {
+              id
+              accountId
+              isNewlyAdded
+              account {
+                platform
+                displayName
+                username
+              }
+            }
+          }
+        `
+      })
+    });
+
+    const body = await response.json();
+    assert.ok(!body.errors, JSON.stringify(body.errors));
+    assert.equal(body.data.mySubscriptions.length, 1);
+    assert.equal(body.data.mySubscriptions[0].account.platform, 'instagram');
+    assert.equal(body.data.mySubscriptions[0].account.username, 'jkt_festivals_31');
+  });
+
+  await t.test('9. removeSubscription soft-deletes and is idempotency-guarded', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    // Get the subscription ID first
+    const getList = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ mySubscriptions { id } }` })
+    });
+    const listBody = await getList.json();
+    const subId = listBody.data.mySubscriptions[0].id;
+
+    // 1st DELETE: soft delete
+    const responseDelete = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation RemoveSubscription($id: ID!, $action: SoftDeleteAction!) {
+            removeSubscription(id: $id, action: $action) {
+              id
+            }
+          }
+        `,
+        variables: { id: subId, action: 'DELETE' }
+      })
+    });
+    const deleteBody = await responseDelete.json();
+    assert.ok(!deleteBody.errors, JSON.stringify(deleteBody.errors));
+
+    // mySubscriptions should be empty now
+    const checkEmpty = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ mySubscriptions { id } }` })
+    });
+    const emptyBody = await checkEmpty.json();
+    assert.equal(emptyBody.data.mySubscriptions.length, 0);
+
+    // 2nd DELETE: throws INVALID_STATE_TRANSITION
+    const responseDelete2 = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation RemoveSubscription($id: ID!, $action: SoftDeleteAction!) {
+            removeSubscription(id: $id, action: $action) {
+              id
+            }
+          }
+        `,
+        variables: { id: subId, action: 'DELETE' }
+      })
+    });
+    const deleteBody2 = await responseDelete2.json();
+    assert.equal(deleteBody2.errors[0].extensions?.code, 'INVALID_STATE_TRANSITION');
+
+    // RESTORE brings it back
+    const responseRestore = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation RemoveSubscription($id: ID!, $action: SoftDeleteAction!) {
+            removeSubscription(id: $id, action: $action) {
+              id
+            }
+          }
+        `,
+        variables: { id: subId, action: 'RESTORE' }
+      })
+    });
+    const restoreBody = await responseRestore.json();
+    assert.ok(!restoreBody.errors);
+
+    // mySubscriptions should have 1 item again
+    const checkRestored = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ mySubscriptions { id } }` })
+    });
+    const restoredBody = await checkRestored.json();
+    assert.equal(restoredBody.data.mySubscriptions.length, 1);
+  });
+
+  await t.test('10. removeSubscription on another user\'s subscription throws NOT_FOUND', async () => {
+    // Authenticated as anotherUser
+    mockUser = { userId: anotherUser.id, role: anotherUser.role };
+
+    // Get testUser's subscription ID
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const getList = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ mySubscriptions { id } }` })
+    });
+    const listBody = await getList.json();
+    const subId = listBody.data.mySubscriptions[0].id;
+
+    // Try to remove it as anotherUser
+    mockUser = { userId: anotherUser.id, role: anotherUser.role };
+    const responseDelete = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation RemoveSubscription($id: ID!, $action: SoftDeleteAction!) {
+            removeSubscription(id: $id, action: $action) {
+              id
+            }
+          }
+        `,
+        variables: { id: subId, action: 'DELETE' }
+      })
+    });
+    const deleteBody = await responseDelete.json();
+    assert.equal(deleteBody.errors[0].extensions?.code, 'NOT_FOUND');
+  });
+
+  await t.test('11. unauthenticated query/mutation throws unauthenticated error', async () => {
+    mockUser = null;
+
+    const responseQuery = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ mySubscriptions { id } }` })
+    });
+    const queryBody = await responseQuery.json();
+    assert.equal(queryBody.errors[0].message, 'You must be logged in to perform this action.');
+
+    const responseMutation = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation RemoveSubscription($id: ID!, $action: SoftDeleteAction!) {
+            removeSubscription(id: $id, action: $action) {
+              id
+            }
+          }
+        `,
+        variables: { id: 'some-id', action: 'DELETE' }
+      })
+    });
+    const mutationBody = await responseMutation.json();
+    assert.equal(mutationBody.errors[0].message, 'You must be logged in to perform this action.');
   });
 
   await t.test('cleanup - delete all created test data', async () => {

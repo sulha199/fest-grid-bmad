@@ -80,7 +80,7 @@ export function ApiKeyFormDialog({ isOpen, onClose }: ApiKeyFormDialogProps) {
 
   return (
     <>
-      {isSubmitting && <BlockingLoader />}
+      <BlockingLoader active={isSubmitting} />
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

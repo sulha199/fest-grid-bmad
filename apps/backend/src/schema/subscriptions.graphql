@@ -3,6 +3,11 @@ type Subscription {
   accountId: ID!
   isNewlyAdded: Boolean!
   createdAt: String!
+  account: SocialMediaAccountProfile!
+}
+
+extend type Query {
+  mySubscriptions: [Subscription!]!
 }
 
 input SubscribeToAccountInput {
@@ -19,4 +24,5 @@ type SubscribeToAccountResult {
 
 extend type Mutation {
   subscribeToAccount(input: SubscribeToAccountInput!): SubscribeToAccountResult!
+  removeSubscription(id: ID!, action: SoftDeleteAction!): Subscription!
 }
