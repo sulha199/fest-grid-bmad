@@ -49,46 +49,44 @@ Since Vercel natively integrates with GitHub for Continuous Deployment (CD), you
 
 ## 2. Backend (AWS Serverless)
 
-The backend is built with TypeScript on a serverless architecture using AWS.
+The backend is built with TypeScript on a serverless architecture using AWS and is provisioned via the AWS Cloud Development Kit (CDK).
 
 ### Prerequisites
 
-*   An AWS account.
-*   AWS CLI installed and configured.
-*   Serverless Framework installed: `npm install -g serverless`
+* An AWS account.
+* AWS CLI installed and configured with appropriate IAM permissions.
+* The AWS CDK CLI installed globally: `npm install -g aws-cdk`
 
 ### Setup Steps
 
-1.  **Create a new Serverless project:**
+1. **One-Time AWS CDK Bootstrapping:**
 
-    ```bash
-    serverless create --template aws-nodejs-typescript --path backend
-    cd backend
-    ```
+   Before you can deploy any CDK stacks to your AWS account/region, you must bootstrap the environment. Run the following command from the repository root:
 
-2.  **Project Structure:**
+   ```bash
+   pnpm --filter infrastructure exec cdk bootstrap
+   ```
 
-    Your `serverless.yml` file will define the AWS resources (API Gateway, Lambda, SQS, EventBridge). You will need to create separate Lambda functions for:
+2. **Stack Environments:**
 
-    *   API Logic
-    *   Scraper
-    *   AI Processor
-    *   Ingestor
+   The infrastructure is parameterized by environment stages: `dev`, `staging`, and `prod`. Each stack instance uses the same configuration template, with resource names suffixed to avoid collisions (e.g., `FestgridBackendStack-dev`, `FestgridBackendStack-staging`, `FestgridBackendStack-prod`).
 
-3.  **Install dependencies:**
+3. **Deploying a Local Development Stack:**
 
-    ```bash
-    npm install
-    npm install aws-sdk
-    ```
+   To deploy your personal development stack for testing, run:
 
-4.  **Implement the Unified Query DSL:**
+   ```bash
+   pnpm --filter infrastructure exec cdk deploy FestgridBackendStack-dev
+   ```
 
-    In your API Logic Lambda, you will need to implement the logic to parse and handle the Unified Query DSL defined in the architecture spine.
+4. **CI/CD Configuration (GitHub Actions):**
 
-5.  **Deployment:**
+   On merge/push to the `main` branch, the `deploy-infrastructure` job automatically deploys the `prod` stack (`FestgridBackendStack-prod`).
 
-    *   Deploy the service to AWS: `serverless deploy`
+   To enable this, make sure the following repository secrets are configured in GitHub Actions:
+   * `AWS_ACCESS_KEY_ID`: Your AWS access key with deployment permissions.
+   * `AWS_SECRET_ACCESS_KEY`: Your AWS secret access key.
+   * `DATABASE_URL`: The production Supabase database connection string (injected into `L_API` and `L_Ingest` at deployment time).
 
 ## 3. Database (Drizzle ORM, Local Postgres & Supabase)
 

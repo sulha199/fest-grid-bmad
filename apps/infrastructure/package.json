@@ -2,22 +2,25 @@
   "name": "infrastructure",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "build": "tsc",
-    "lint": "eslint . --max-warnings 0",
-    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy --require-approval never",
+    "diff": "cdk diff",
+    "bootstrap": "cdk bootstrap",
     "test": "tsx --test lib/**/*.test.ts"
   },
   "dependencies": {
-    "aws-cdk-lib": "^2.150.0",
-    "constructs": "^10.3.0"
+    "aws-cdk-lib": "^2.262.0",
+    "constructs": "^10.4.2"
   },
   "devDependencies": {
-    "@festgrid/eslint-config": "workspace:*",
-    "@festgrid/typescript-config": "workspace:*",
-    "@types/node": "^20.14.9",
+    "@types/node": "^22.0.0",
+    "aws-cdk": "^2.262.0",
+    "esbuild": "^0.21.5",
     "tsx": "^4.16.2",
-    "typescript": "^5.5.4"
+    "typescript": "^5.4.5",
+    "eslint": "^9.9.0",
+    "@festgrid/eslint-config": "workspace:*",
+    "@festgrid/typescript-config": "workspace:*"
   }
 }

@@ -88,24 +88,49 @@ jobs:
           cd packages/database
           pnpm run migrate
 
-  aws-backend-deploy-stub:
-    name: Deploy Backend to AWS (Stub)
+  deploy-infrastructure:
+    name: Deploy Infrastructure to AWS
     needs: ci
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    concurrency:
+      group: deploy-infrastructure
+      cancel-in-progress: false
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-      
-      - name: AWS Deployment Placeholder
-        run: |
-          echo "This is a placeholder for deploying the serverless backend to AWS."
-          echo "Will require AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets."
-          # AWS configuration and serverless deploy step will be added here
-          # Example:
-          # uses: aws-actions/configure-aws-credentials@v4
-          # with:
-          #   aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          #   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          #   aws-region: us-east-1
-          # run: cd apps/api && pnpm exec serverless deploy
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - name: Turbo Cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy CDK Stack (Prod)
+        env:
+          DEPLOY_STAGE: prod
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm --filter infrastructure exec cdk deploy FestgridBackendStack-prod --require-approval never

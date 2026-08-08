@@ -1,0 +1,1182 @@
+{
+ "Resources": {
+  "KmsKeystaging0C0573F0": {
+   "Type": "AWS::KMS::Key",
+   "Properties": {
+    "EnableKeyRotation": true,
+    "KeyPolicy": {
+     "Statement": [
+      {
+       "Action": "kms:*",
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::Join": [
+          "",
+          [
+           "arn:aws:iam::",
+           {
+            "Ref": "AWS::AccountId"
+           },
+           ":root"
+          ]
+         ]
+        }
+       },
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/KmsKey-staging/Resource"
+   }
+  },
+  "KmsKeystagingAlias19ED57B2": {
+   "Type": "AWS::KMS::Alias",
+   "Properties": {
+    "AliasName": "alias/festgrid-byok-staging",
+    "TargetKeyId": {
+     "Fn::GetAtt": [
+      "KmsKeystaging0C0573F0",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/KmsKey-staging/Alias/Resource"
+   }
+  },
+  "ScrapingQueueDlqstaging8C210E34": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+    "QueueName": "festgrid-scraping-queue-dlq-staging"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ScrapingQueueDlq-staging/Resource"
+   }
+  },
+  "ScrapingQueuestaging32D3E6CB": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+    "QueueName": "festgrid-scraping-queue-staging",
+    "RedrivePolicy": {
+     "deadLetterTargetArn": {
+      "Fn::GetAtt": [
+       "ScrapingQueueDlqstaging8C210E34",
+       "Arn"
+      ]
+     },
+     "maxReceiveCount": 3
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ScrapingQueue-staging/Resource"
+   }
+  },
+  "AIProcessingQueueDlqstaging9AA40A14": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+    "QueueName": "festgrid-ai-processing-queue-dlq-staging"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/AIProcessingQueueDlq-staging/Resource"
+   }
+  },
+  "AIProcessingQueuestaging9DE39A58": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+    "QueueName": "festgrid-ai-processing-queue-staging",
+    "RedrivePolicy": {
+     "deadLetterTargetArn": {
+      "Fn::GetAtt": [
+       "AIProcessingQueueDlqstaging9AA40A14",
+       "Arn"
+      ]
+     },
+     "maxReceiveCount": 3
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/AIProcessingQueue-staging/Resource"
+   }
+  },
+  "DataIngestionQueueDlqstaging7EFE3851": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+    "QueueName": "festgrid-data-ingestion-queue-dlq-staging"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/DataIngestionQueueDlq-staging/Resource"
+   }
+  },
+  "DataIngestionQueuestagingC59D6420": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+    "QueueName": "festgrid-data-ingestion-queue-staging",
+    "RedrivePolicy": {
+     "deadLetterTargetArn": {
+      "Fn::GetAtt": [
+       "DataIngestionQueueDlqstaging7EFE3851",
+       "Arn"
+      ]
+     },
+     "maxReceiveCount": 3
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/DataIngestionQueue-staging/Resource"
+   }
+  },
+  "ApiLambdastagingServiceRoleF3932138": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiLambda-staging/ServiceRole/Resource"
+   }
+  },
+  "ApiLambdastagingServiceRoleDefaultPolicyCDFA7E30": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:Encrypt",
+        "kms:GenerateDataKey*",
+        "kms:ReEncrypt*"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "KmsKeystaging0C0573F0",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ApiLambdastagingServiceRoleDefaultPolicyCDFA7E30",
+    "Roles": [
+     {
+      "Ref": "ApiLambdastagingServiceRoleF3932138"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiLambda-staging/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ApiLambdastagingF56DC28B": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
+     },
+     "S3Key": "cc12d5dae98a822ad162d43c7a33e9489a6baa8c99f02e862b7ba8b8d866a6c1.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "STAGE": "staging",
+      "BYOK_KMS_KEY_ID": {
+       "Ref": "KmsKeystaging0C0573F0"
+      },
+      "DATABASE_URL": ""
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "ApiLambdastagingServiceRoleF3932138",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x"
+   },
+   "DependsOn": [
+    "ApiLambdastagingServiceRoleDefaultPolicyCDFA7E30",
+    "ApiLambdastagingServiceRoleF3932138"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiLambda-staging/Resource",
+    "aws:asset:path": "asset.cc12d5dae98a822ad162d43c7a33e9489a6baa8c99f02e862b7ba8b8d866a6c1",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ScraperLambdastagingServiceRoleBD27CC5D": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ScraperLambda-staging/ServiceRole/Resource"
+   }
+  },
+  "ScraperLambdastagingServiceRoleDefaultPolicy66DB7EE1": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sqs:ChangeMessageVisibility",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ReceiveMessage",
+        "sqs:SendMessage"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "ScrapingQueuestaging32D3E6CB",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:SendMessage"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "AIProcessingQueuestaging9DE39A58",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ScraperLambdastagingServiceRoleDefaultPolicy66DB7EE1",
+    "Roles": [
+     {
+      "Ref": "ScraperLambdastagingServiceRoleBD27CC5D"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ScraperLambda-staging/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ScraperLambdastaging3B8405F2": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
+     },
+     "S3Key": "57f86f7bdbc63cf45b2072c8a9bec5798a1b174a8e8844718f5ea1d130f75826.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "STAGE": "staging"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "ScraperLambdastagingServiceRoleBD27CC5D",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x"
+   },
+   "DependsOn": [
+    "ScraperLambdastagingServiceRoleDefaultPolicy66DB7EE1",
+    "ScraperLambdastagingServiceRoleBD27CC5D"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ScraperLambda-staging/Resource",
+    "aws:asset:path": "asset.57f86f7bdbc63cf45b2072c8a9bec5798a1b174a8e8844718f5ea1d130f75826",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ScraperLambdastagingSqsEventSourceFestgridBackendStackstagingScrapingQueuestaging567A91524753E00C": {
+   "Type": "AWS::Lambda::EventSourceMapping",
+   "Properties": {
+    "EventSourceArn": {
+     "Fn::GetAtt": [
+      "ScrapingQueuestaging32D3E6CB",
+      "Arn"
+     ]
+    },
+    "FunctionName": {
+     "Ref": "ScraperLambdastaging3B8405F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ScraperLambda-staging/SqsEventSource:FestgridBackendStackstagingScrapingQueuestaging567A9152/Resource"
+   }
+  },
+  "AIProcessorLambdastagingServiceRole129C9AA6": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/AIProcessorLambda-staging/ServiceRole/Resource"
+   }
+  },
+  "AIProcessorLambdastagingServiceRoleDefaultPolicy35115838": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sqs:ChangeMessageVisibility",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ReceiveMessage"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "AIProcessingQueuestaging9DE39A58",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:SendMessage"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "DataIngestionQueuestagingC59D6420",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:Encrypt",
+        "kms:GenerateDataKey*",
+        "kms:ReEncrypt*"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "KmsKeystaging0C0573F0",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AIProcessorLambdastagingServiceRoleDefaultPolicy35115838",
+    "Roles": [
+     {
+      "Ref": "AIProcessorLambdastagingServiceRole129C9AA6"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/AIProcessorLambda-staging/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AIProcessorLambdastaging1BEA27AF": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
+     },
+     "S3Key": "cd59c6be609155f64cb97fb8ec1678e3543e4de0978e4ee6b2577b84efa876d6.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "STAGE": "staging",
+      "BYOK_KMS_KEY_ID": {
+       "Ref": "KmsKeystaging0C0573F0"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "AIProcessorLambdastagingServiceRole129C9AA6",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x"
+   },
+   "DependsOn": [
+    "AIProcessorLambdastagingServiceRoleDefaultPolicy35115838",
+    "AIProcessorLambdastagingServiceRole129C9AA6"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/AIProcessorLambda-staging/Resource",
+    "aws:asset:path": "asset.cd59c6be609155f64cb97fb8ec1678e3543e4de0978e4ee6b2577b84efa876d6",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "AIProcessorLambdastagingSqsEventSourceFestgridBackendStackstagingAIProcessingQueuestagingF8499D699EB405D9": {
+   "Type": "AWS::Lambda::EventSourceMapping",
+   "Properties": {
+    "EventSourceArn": {
+     "Fn::GetAtt": [
+      "AIProcessingQueuestaging9DE39A58",
+      "Arn"
+     ]
+    },
+    "FunctionName": {
+     "Ref": "AIProcessorLambdastaging1BEA27AF"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/AIProcessorLambda-staging/SqsEventSource:FestgridBackendStackstagingAIProcessingQueuestagingF8499D69/Resource"
+   }
+  },
+  "IngestorLambdastagingServiceRole0D24C6DD": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/IngestorLambda-staging/ServiceRole/Resource"
+   }
+  },
+  "IngestorLambdastagingServiceRoleDefaultPolicyCDD2D466": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sqs:ChangeMessageVisibility",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ReceiveMessage"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "DataIngestionQueuestagingC59D6420",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "IngestorLambdastagingServiceRoleDefaultPolicyCDD2D466",
+    "Roles": [
+     {
+      "Ref": "IngestorLambdastagingServiceRole0D24C6DD"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/IngestorLambda-staging/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "IngestorLambdastagingA01914B5": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
+     },
+     "S3Key": "b534ae0ddff3776f58084f11d650f144276dcfa23f7c1126dd53eb93b15b4ba6.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "STAGE": "staging",
+      "DATABASE_URL": ""
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "IngestorLambdastagingServiceRole0D24C6DD",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x"
+   },
+   "DependsOn": [
+    "IngestorLambdastagingServiceRoleDefaultPolicyCDD2D466",
+    "IngestorLambdastagingServiceRole0D24C6DD"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/IngestorLambda-staging/Resource",
+    "aws:asset:path": "asset.b534ae0ddff3776f58084f11d650f144276dcfa23f7c1126dd53eb93b15b4ba6",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "IngestorLambdastagingSqsEventSourceFestgridBackendStackstagingDataIngestionQueuestaging2898411DC28BB2CD": {
+   "Type": "AWS::Lambda::EventSourceMapping",
+   "Properties": {
+    "EventSourceArn": {
+     "Fn::GetAtt": [
+      "DataIngestionQueuestagingC59D6420",
+      "Arn"
+     ]
+    },
+    "FunctionName": {
+     "Ref": "IngestorLambdastagingA01914B5"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/IngestorLambda-staging/SqsEventSource:FestgridBackendStackstagingDataIngestionQueuestaging2898411D/Resource"
+   }
+  },
+  "ScraperScheduleRulestaging2377A749": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "ScheduleExpression": "rate(6 hours)",
+    "State": "ENABLED",
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "ScraperLambdastaging3B8405F2",
+        "Arn"
+       ]
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ScraperScheduleRule-staging/Resource"
+   }
+  },
+  "ScraperScheduleRulestagingAllowEventRuleFestgridBackendStackstagingScraperLambdastaging9ADD5F2103624D20": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ScraperLambdastaging3B8405F2",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "ScraperScheduleRulestaging2377A749",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ScraperScheduleRule-staging/AllowEventRuleFestgridBackendStackstagingScraperLambdastaging9ADD5F21"
+   }
+  },
+  "ApiGatewaystaging6A395A9C": {
+   "Type": "AWS::ApiGateway::RestApi",
+   "Properties": {
+    "Description": "API Gateway for FestGrid (FestDaily) backend resolvers",
+    "Name": "festgrid-api-staging"
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Resource"
+   }
+  },
+  "ApiGatewaystagingDeploymentEBA323A27be213b5057047511357870280542423": {
+   "Type": "AWS::ApiGateway::Deployment",
+   "Properties": {
+    "Description": "API Gateway for FestGrid (FestDaily) backend resolvers",
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "DependsOn": [
+    "ApiGatewaystagingproxyANY39606F45",
+    "ApiGatewaystagingproxyOPTIONS6B7C9402",
+    "ApiGatewaystagingproxyB2D49298",
+    "ApiGatewaystagingANY74D2093E",
+    "ApiGatewaystagingOPTIONS7C83C9F3"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Deployment/Resource",
+    "aws:cdk:do-not-refactor": true
+   }
+  },
+  "ApiGatewaystagingDeploymentStageprod18A73CE3": {
+   "Type": "AWS::ApiGateway::Stage",
+   "Properties": {
+    "DeploymentId": {
+     "Ref": "ApiGatewaystagingDeploymentEBA323A27be213b5057047511357870280542423"
+    },
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    },
+    "StageName": "prod"
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/DeploymentStage.prod/Resource"
+   }
+  },
+  "ApiGatewaystagingOPTIONS7C83C9F3": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Fn::GetAtt": [
+      "ApiGatewaystaging6A395A9C",
+      "RootResourceId"
+     ]
+    },
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/OPTIONS/Resource"
+   }
+  },
+  "ApiGatewaystagingproxyB2D49298": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "ApiGatewaystaging6A395A9C",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "{proxy+}",
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/{proxy+}/Resource"
+   }
+  },
+  "ApiGatewaystagingproxyOPTIONS6B7C9402": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "ApiGatewaystagingproxyB2D49298"
+    },
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/{proxy+}/OPTIONS/Resource"
+   }
+  },
+  "ApiGatewaystagingproxyANYApiPermissionFestgridBackendStackstagingApiGatewaystaging513F30E7ANYproxy50DF5BA1": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ApiLambdastagingF56DC28B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "ApiGatewaystaging6A395A9C"
+       },
+       "/",
+       {
+        "Ref": "ApiGatewaystagingDeploymentStageprod18A73CE3"
+       },
+       "/*/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/{proxy+}/ANY/ApiPermission.FestgridBackendStackstagingApiGatewaystaging513F30E7.ANY..{proxy+}"
+   }
+  },
+  "ApiGatewaystagingproxyANYApiPermissionTestFestgridBackendStackstagingApiGatewaystaging513F30E7ANYproxy81C1615E": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ApiLambdastagingF56DC28B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "ApiGatewaystaging6A395A9C"
+       },
+       "/test-invoke-stage/*/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/{proxy+}/ANY/ApiPermission.Test.FestgridBackendStackstagingApiGatewaystaging513F30E7.ANY..{proxy+}"
+   }
+  },
+  "ApiGatewaystagingproxyANY39606F45": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "ANY",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "ApiLambdastagingF56DC28B",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "ApiGatewaystagingproxyB2D49298"
+    },
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/{proxy+}/ANY/Resource"
+   }
+  },
+  "ApiGatewaystagingANYApiPermissionFestgridBackendStackstagingApiGatewaystaging513F30E7ANY12293C14": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ApiLambdastagingF56DC28B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "ApiGatewaystaging6A395A9C"
+       },
+       "/",
+       {
+        "Ref": "ApiGatewaystagingDeploymentStageprod18A73CE3"
+       },
+       "/*/"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/ANY/ApiPermission.FestgridBackendStackstagingApiGatewaystaging513F30E7.ANY.."
+   }
+  },
+  "ApiGatewaystagingANYApiPermissionTestFestgridBackendStackstagingApiGatewaystaging513F30E7ANYF6FD6E31": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ApiLambdastagingF56DC28B",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "ApiGatewaystaging6A395A9C"
+       },
+       "/test-invoke-stage/*/"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/ANY/ApiPermission.Test.FestgridBackendStackstagingApiGatewaystaging513F30E7.ANY.."
+   }
+  },
+  "ApiGatewaystagingANY74D2093E": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "ANY",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "ApiLambdastagingF56DC28B",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Fn::GetAtt": [
+      "ApiGatewaystaging6A395A9C",
+      "RootResourceId"
+     ]
+    },
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/ANY/Resource"
+   }
+  },
+  "ApiGatewaystagingUsagePlanstagingD3DBE458": {
+   "Type": "AWS::ApiGateway::UsagePlan",
+   "Properties": {
+    "ApiStages": [
+     {
+      "ApiId": {
+       "Ref": "ApiGatewaystaging6A395A9C"
+      },
+      "Stage": {
+       "Ref": "ApiGatewaystagingDeploymentStageprod18A73CE3"
+      },
+      "Throttle": {}
+     }
+    ],
+    "Throttle": {
+     "BurstLimit": 100,
+     "RateLimit": 50
+    },
+    "UsagePlanName": "festgrid-usage-plan-staging"
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/UsagePlan-staging/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/22QQU/DMAyFfwv3zLBW4r4NuKDB6MR58lqveE2TMiebpij/HSUtEwdO7/Nz8uykgOKxhIc7vMisbrqZ5j2ErcO6U3iRXeh6gfBKV7U6mCQLzSipyBCVfAuED0+ekpkhKo39vsGdsQ0dBd6yvHhTO7ZGMfYQKqvzhawbq7nOE0aKSsodipATWCRRUsLS1x25JQpN8RBWB3NLfT6TcVvrTzWtcRjYtCnvf3dDp55F2JqoKJ0QCJWfFvKaosKBW3R0wSuEisQtBs7NCZ9o0Pbak3HJ/VNtHbY5ZoSKJM/OW6/JfdkmNSf67U7JI38KtrTRaJJ7K2JU+SNS7PSId+8G76JKnwxHuT8XBcxLmN8dhXl28sZxT1CN+gOCRtYs5gEAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ApiGatewaystagingEndpoint24D87153": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "ApiGatewaystaging6A395A9C"
+      },
+      ".execute-api.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "ApiGatewaystagingDeploymentStageprod18A73CE3"
+      },
+      "/"
+     ]
+    ]
+   }
+  },
+  "apiGatewayUrl": {
+   "Description": "The API Gateway invoke URL",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "ApiGatewaystaging6A395A9C"
+      },
+      ".execute-api.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "ApiGatewaystagingDeploymentStageprod18A73CE3"
+      },
+      "/"
+     ]
+    ]
+   },
+   "Export": {
+    "Name": "festgrid-api-url-staging"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

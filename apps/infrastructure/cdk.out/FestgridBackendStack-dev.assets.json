@@ -1,0 +1,81 @@
+{
+  "version": "54.0.0",
+  "files": {
+    "cc12d5dae98a822ad162d43c7a33e9489a6baa8c99f02e862b7ba8b8d866a6c1": {
+      "displayName": "ApiLambda-dev/Code",
+      "source": {
+        "path": "asset.cc12d5dae98a822ad162d43c7a33e9489a6baa8c99f02e862b7ba8b8d866a6c1",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-us-east-1-48e855e4": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "cc12d5dae98a822ad162d43c7a33e9489a6baa8c99f02e862b7ba8b8d866a6c1.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    },
+    "57f86f7bdbc63cf45b2072c8a9bec5798a1b174a8e8844718f5ea1d130f75826": {
+      "displayName": "ScraperLambda-dev/Code",
+      "source": {
+        "path": "asset.57f86f7bdbc63cf45b2072c8a9bec5798a1b174a8e8844718f5ea1d130f75826",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-us-east-1-354c9d0d": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "57f86f7bdbc63cf45b2072c8a9bec5798a1b174a8e8844718f5ea1d130f75826.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    },
+    "cd59c6be609155f64cb97fb8ec1678e3543e4de0978e4ee6b2577b84efa876d6": {
+      "displayName": "AIProcessorLambda-dev/Code",
+      "source": {
+        "path": "asset.cd59c6be609155f64cb97fb8ec1678e3543e4de0978e4ee6b2577b84efa876d6",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-us-east-1-8d5acce9": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "cd59c6be609155f64cb97fb8ec1678e3543e4de0978e4ee6b2577b84efa876d6.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    },
+    "b534ae0ddff3776f58084f11d650f144276dcfa23f7c1126dd53eb93b15b4ba6": {
+      "displayName": "IngestorLambda-dev/Code",
+      "source": {
+        "path": "asset.b534ae0ddff3776f58084f11d650f144276dcfa23f7c1126dd53eb93b15b4ba6",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-us-east-1-eca7d079": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "b534ae0ddff3776f58084f11d650f144276dcfa23f7c1126dd53eb93b15b4ba6.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    },
+    "1c259fe1f91b8aebd35e412100a7e23475ce0250f69300eff1818a21afea8f05": {
+      "displayName": "FestgridBackendStack-dev Template",
+      "source": {
+        "path": "FestgridBackendStack-dev.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-us-east-1-c41c9f45": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "1c259fe1f91b8aebd35e412100a7e23475ce0250f69300eff1818a21afea8f05.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

@@ -68,7 +68,7 @@ development_status:
   0-11-set-up-runtime-schema-validation: review
   0-12-set-up-firebase-cloud-messaging-foundation: review
   0-13-set-up-ai-gateway-adapter-layer-for-gemini: review
-  0-14-set-up-aws-iac-for-lambda-sqs-eventbridge-and-kms: ready-for-dev
+  0-14-set-up-aws-iac-for-lambda-sqs-eventbridge-and-kms: review
   0-15-set-up-outbound-email-adapter: done
   # added 2026-08-08 via bmad-create-story: user-requested dev-experience addendum
   # to already-done Story 0.15 (not a Gate 1/2/3 finding) — single-story split per

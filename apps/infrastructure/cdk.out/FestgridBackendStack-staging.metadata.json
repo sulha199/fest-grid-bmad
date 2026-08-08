@@ -1,0 +1,673 @@
+{
+  "/FestgridBackendStack-staging": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/apiGatewayUrl": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "apiGatewayUrl"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:191:5)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/KmsKey-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "KmsKeystaging0C0573F0"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Key2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:29:20)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ScrapingQueueDlq-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ScrapingQueueDlqstaging8C210E34"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Queue2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:36:25)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ScrapingQueue-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ScrapingQueuestaging32D3E6CB"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Queue2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:40:27)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/AIProcessingQueueDlq-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AIProcessingQueueDlqstaging9AA40A14"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Queue2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:49:29)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/AIProcessingQueue-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AIProcessingQueuestaging9DE39A58"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Queue2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:53:31)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/DataIngestionQueueDlq-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DataIngestionQueueDlqstaging7EFE3851"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Queue2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:62:30)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/DataIngestionQueue-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DataIngestionQueuestagingC59D6420"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Queue2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:66:32)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiLambda-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiLambdastagingF56DC28B"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:85:23)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ScraperLambda-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ScraperLambdastaging3B8405F2"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:97:27)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/AIProcessorLambda-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AIProcessorLambdastaging1BEA27AF"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:107:31)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/IngestorLambda-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "IngestorLambdastagingA01914B5"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:118:28)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ScraperScheduleRule-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ScraperScheduleRulestaging2377A749"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Rule2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:133:33)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ScraperScheduleRule-staging/AllowEventRuleFestgridBackendStackstagingScraperLambdastaging9ADD5F21": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ScraperScheduleRulestagingAllowEventRuleFestgridBackendStackstagingScraperLambdastaging9ADD5F2103624D20"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:136:25)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystaging6A395A9C"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new RestApi2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:157:17)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/Endpoint": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingEndpoint24D87153"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new RestApi2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:157:17)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/KmsKey-staging/Alias/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "KmsKeystagingAlias19ED57B2"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Key2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:29:20)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiLambda-staging/ServiceRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiLambdastagingServiceRoleF3932138"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:85:23)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ScraperLambda-staging/ServiceRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ScraperLambdastagingServiceRoleBD27CC5D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:97:27)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ScraperLambda-staging/SqsEventSource:FestgridBackendStackstagingScrapingQueuestaging567A9152/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ScraperLambdastagingSqsEventSourceFestgridBackendStackstagingScrapingQueuestaging567A91524753E00C"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...NodejsFunction.addEventSource in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:130:19)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/AIProcessorLambda-staging/ServiceRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AIProcessorLambdastagingServiceRole129C9AA6"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:107:31)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/AIProcessorLambda-staging/SqsEventSource:FestgridBackendStackstagingAIProcessingQueuestagingF8499D69/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AIProcessorLambdastagingSqsEventSourceFestgridBackendStackstagingAIProcessingQueuestagingF8499D699EB405D9"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...NodejsFunction.addEventSource in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:139:23)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/IngestorLambda-staging/ServiceRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "IngestorLambdastagingServiceRole0D24C6DD"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:118:28)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/IngestorLambda-staging/SqsEventSource:FestgridBackendStackstagingDataIngestionQueuestaging2898411D/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "IngestorLambdastagingSqsEventSourceFestgridBackendStackstagingDataIngestionQueuestaging2898411DC28BB2CD"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...NodejsFunction.addEventSource in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:142:20)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/Deployment/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingDeploymentEBA323A27be213b5057047511357870280542423"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new RestApi2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:157:17)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/DeploymentStage.prod/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingDeploymentStageprod18A73CE3"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new RestApi2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:157:17)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/UsagePlan-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingUsagePlanstagingD3DBE458"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addUsagePlan in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:178:27)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiLambda-staging/ServiceRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiLambdastagingServiceRoleDefaultPolicyCDFA7E30"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ScraperLambda-staging/ServiceRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ScraperLambdastagingServiceRoleDefaultPolicy66DB7EE1"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/AIProcessorLambda-staging/ServiceRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AIProcessorLambdastagingServiceRoleDefaultPolicy35115838"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/IngestorLambda-staging/ServiceRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "IngestorLambdastagingServiceRoleDefaultPolicyCDD2D466"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/Default/OPTIONS/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingOPTIONS7C83C9F3"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new RestApi2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:157:17)"
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/Default/{proxy+}/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingproxyB2D49298"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...RootResource.addResource in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:171:36)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/Default/ANY/ApiPermission.FestgridBackendStackstagingApiGatewaystaging513F30E7.ANY..": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingANYApiPermissionFestgridBackendStackstagingApiGatewaystaging513F30E7ANY12293C14"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...RootResource.addMethod in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:175:14)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/Default/ANY/ApiPermission.Test.FestgridBackendStackstagingApiGatewaystaging513F30E7.ANY..": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingANYApiPermissionTestFestgridBackendStackstagingApiGatewaystaging513F30E7ANYF6FD6E31"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...RootResource.addMethod in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:175:14)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/Default/ANY/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingANY74D2093E"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...RootResource.addMethod in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:175:14)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/Default/{proxy+}/OPTIONS/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingproxyOPTIONS6B7C9402"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...RootResource.addResource in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:171:36)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)"
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/Default/{proxy+}/ANY/ApiPermission.FestgridBackendStackstagingApiGatewaystaging513F30E7.ANY..{proxy+}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingproxyANYApiPermissionFestgridBackendStackstagingApiGatewaystaging513F30E7ANYproxy50DF5BA1"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addMethod in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:172:19)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/Default/{proxy+}/ANY/ApiPermission.Test.FestgridBackendStackstagingApiGatewaystaging513F30E7.ANY..{proxy+}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingproxyANYApiPermissionTestFestgridBackendStackstagingApiGatewaystaging513F30E7ANYproxy81C1615E"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addMethod in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:172:19)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApiGateway-staging/Default/{proxy+}/ANY/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiGatewaystagingproxyANY39606F45"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addMethod in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:172:19)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:21:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:32:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ]
+}
