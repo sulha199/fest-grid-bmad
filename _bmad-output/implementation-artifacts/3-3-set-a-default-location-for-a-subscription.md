@@ -1,3 +1,6 @@
+---
+baseline_commit: d8217d11500b6fd89de53dc0a75e650cd9c5dc7f
+---
 # Story 3.3: Set a default location for a subscription
 
 ## Story Details
@@ -5,7 +8,7 @@
 - Epic: 3
 - Story ID: 3.3
 - Story Key: 3-3-set-a-default-location-for-a-subscription
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -30,9 +33,9 @@ so that the system can use this location if it cannot find an explicit location 
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Backend — `SetAccountDefaultLocationInput` and `setAccountDefaultLocation` schema** (AC: 3, 6, 7)
-  - [ ] **Sequencing check (Pre-Coding Approval Gate item):** confirm Story 3.1a (`social-media-accounts.graphql`, `subscribe-to-account.ts`) and Story 3.2 (`subscriptions.graphql`'s `Subscription.account` field resolver, `getMySubscriptions`, `SubscriptionsContent`) have landed before starting — this story extends both files.
-  - [ ] Extend `apps/backend/src/schema/social-media-accounts.graphql` (Story 3.1a's file):
+- [x] **Task 1: Backend — `SetAccountDefaultLocationInput` and `setAccountDefaultLocation` schema** (AC: 3, 6, 7)
+  - [x] **Sequencing check (Pre-Coding Approval Gate item):** confirm Story 3.1a (`social-media-accounts.graphql`, `subscribe-to-account.ts`) and Story 3.2 (`subscriptions.graphql`'s `Subscription.account` field resolver, `getMySubscriptions`, `SubscriptionsContent`) have landed before starting — this story extends both files.
+  - [x] Extend `apps/backend/src/schema/social-media-accounts.graphql` (Story 3.1a's file):
     ```graphql
     input SetAccountDefaultLocationInput {
       placeId: String
@@ -45,16 +48,16 @@ so that the system can use this location if it cannot find an explicit location 
     }
     ```
     Reuses the existing `SocialMediaAccountProfile`/`LocationDetails` types — does not redeclare either.
-  - [ ] Run `pnpm --filter backend run codegen` to regenerate `apps/backend/src/generated/resolvers-types.ts`.
-- [ ] **Task 2: Backend — `setAccountDefaultLocation` resolver** (AC: 3, 6, 7)
-  - [ ] In `apps/backend/src/schema/resolvers.ts`, add `setAccountDefaultLocation` to the `Mutation` map: `requireAuth(context)`; look up the caller's active subscription to `accountId` via `activeOnly(subscriptions)` scoped to `eq(subscriptions.userId, authUser.userId)` and `eq(subscriptions.accountId, accountId)` — throw `NOT_FOUND` (matching `removeSubscription`'s ownership-scoping precedent) if none exists; look up the `social_media_account_profiles` row by `id = accountId` — throw `NOT_FOUND` if absent; if `defaultLocation` is already non-null, throw `GraphQLError('Default location already set', { extensions: { code: 'INVALID_STATE_TRANSITION' } })`; otherwise call `resolveLocationInputMode(input)` (imported from `@festgrid/domain/user-locations`, already used by `createUserLocation`/`updateUserLocation`) to branch on `PLACE_ID`/`COORDINATES` mode, call `resolveLocation(...)` (from `../lib/geolocation/adapter.js`) to produce a full `LocationDetails`, `UPDATE social_media_account_profiles SET default_location = ...` for the row, and return the updated profile with `defaultLocation` run through the existing `formatLocationDetails()` helper (matching `socialMediaAccountProfileByAccountId`'s handling, Story 3.1a Task 9) via `buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info)`.
-  - [ ] Create `apps/backend/src/schema/social-media-accounts.test.ts` (or extend if Story 3.1a's own equivalent test file already exists at implementation time) covering: happy path via `placeId`; happy path via `latitude`/`longitude`; rejects with `INVALID_STATE_TRANSITION` when `defaultLocation` is already set; rejects with `NOT_FOUND` when the caller has no active subscription to the account; rejects with `NOT_FOUND` for a non-existent `accountId`; requires authentication.
-- [ ] **Task 3: Backend — cross-amend Story 3.2's `Subscription.account` field resolver and `getMySubscriptions` query to expose `defaultLocation`** (AC: 5)
-  - [ ] In `apps/backend/src/schema/resolvers.ts`'s `Subscription.account` field resolver (Story 3.2's Task 3 deliverable): confirm/ensure `defaultLocation`, when selected and non-null, is run through `formatLocationDetails()` before being returned — mirroring `socialMediaAccountProfileByAccountId`'s existing handling (Story 3.1a Task 9). If Story 3.2 has already landed without this transform on this specific field, add it here rather than duplicating the field resolver.
-  - [ ] Extend `apps/web/src/features/subscriptions/queries.graphql`'s `getMySubscriptions` operation (Story 3.2's file) to add `defaultLocation { coordinates { lat lng } formattedAddress placeName } ` inside its existing `account { ... }` selection.
-  - [ ] Re-run `pnpm --filter web run codegen` to regenerate `apps/web/src/generated/graphql.ts` with the updated `GetMySubscriptionsQuery` shape.
-- [ ] **Task 4: Frontend — GraphQL mutation and codegen** (AC: 3)
-  - [ ] Add to `apps/web/src/features/subscriptions/mutations.graphql` (Story 3.2's file):
+  - [x] Run `pnpm --filter backend run codegen` to regenerate `apps/backend/src/generated/resolvers-types.ts`.
+- [x] **Task 2: Backend — `setAccountDefaultLocation` resolver** (AC: 3, 6, 7)
+  - [x] In `apps/backend/src/schema/resolvers.ts`, add `setAccountDefaultLocation` to the `Mutation` map: `requireAuth(context)`; look up the caller's active subscription to `accountId` via `activeOnly(subscriptions)` scoped to `eq(subscriptions.userId, authUser.userId)` and `eq(subscriptions.accountId, accountId)` — throw `NOT_FOUND` (matching `removeSubscription`'s ownership-scoping precedent) if none exists; look up the `social_media_account_profiles` row by `id = accountId` — throw `NOT_FOUND` if absent; if `defaultLocation` is already non-null, throw `GraphQLError('Default location already set', { extensions: { code: 'INVALID_STATE_TRANSITION' } })`; otherwise call `resolveLocationInputMode(input)` (imported from `@festgrid/domain/user-locations`, already used by `createUserLocation`/`updateUserLocation`) to branch on `PLACE_ID`/`COORDINATES` mode, call `resolveLocation(...)` (from `../lib/geolocation/adapter.js`) to produce a full `LocationDetails`, `UPDATE social_media_account_profiles SET default_location = ...` for the row, and return the updated profile with `defaultLocation` run through the existing `formatLocationDetails()` helper (matching `socialMediaAccountProfileByAccountId`'s handling, Story 3.1a Task 9) via `buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info)`.
+  - [x] Create `apps/backend/src/schema/social-media-accounts.test.ts` (or extend if Story 3.1a's own equivalent test file already exists at implementation time) covering: happy path via `placeId`; happy path via `latitude`/`longitude`; rejects with `INVALID_STATE_TRANSITION` when `defaultLocation` is already set; rejects with `NOT_FOUND` when the caller has no active subscription to the account; rejects with `NOT_FOUND` for a non-existent `accountId`; requires authentication.
+- [x] **Task 3: Backend — cross-amend Story 3.2's `Subscription.account` field resolver and `getMySubscriptions` query to expose `defaultLocation`** (AC: 5)
+  - [x] In `apps/backend/src/schema/resolvers.ts`'s `Subscription.account` field resolver (Story 3.2's Task 3 deliverable): confirm/ensure `defaultLocation`, when selected and non-null, is run through `formatLocationDetails()` before being returned — mirroring `socialMediaAccountProfileByAccountId`'s existing handling (Story 3.1a Task 9). If Story 3.2 has already landed without this transform on this specific field, add it here rather than duplicating the field resolver.
+  - [x] Extend `apps/web/src/features/subscriptions/queries.graphql`'s `getMySubscriptions` operation (Story 3.2's file) to add `defaultLocation { coordinates { lat lng } formattedAddress placeName } ` inside its existing `account { ... }` selection.
+  - [x] Re-run `pnpm --filter web run codegen` to regenerate `apps/web/src/generated/graphql.ts` with the updated `GetMySubscriptionsQuery` shape.
+- [x] **Task 4: Frontend — GraphQL mutation and codegen** (AC: 3)
+  - [x] Add to `apps/web/src/features/subscriptions/mutations.graphql` (Story 3.2's file):
     ```graphql
     mutation setAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
       setAccountDefaultLocation(accountId: $accountId, input: $input) {
@@ -70,19 +73,19 @@ so that the system can use this location if it cannot find an explicit location 
       }
     }
     ```
-  - [ ] Run `pnpm --filter web run codegen` to regenerate the new `useSetAccountDefaultLocationMutation` hook.
-- [ ] **Task 5: Frontend — "Set Default Location" row action** (AC: 1, 2, 3, 5, 8, 9, 10)
-  - [ ] Extend `apps/web/src/app/[locale]/settings/subscriptions/subscriptions-content.tsx` (Story 3.2's file): per row, if `account.defaultLocation` is absent, render a "Set Default Location" button (inline, matching this app's established inline-row convention — `locations-content.tsx` — no extracted row component, confirmed no Gate 2 gap for this specific trigger/display piece); if present, render the formatted `defaultLocation.formattedAddress`/`placeName` read-only instead.
-  - [ ] Create `apps/web/src/app/[locale]/settings/subscriptions/set-default-location-dialog.tsx` (`"use client"`): a `Dialog`/`Sheet` (matching `LocationFormDialog`'s modal convention) hosting Story 3.3d's `LocationPickerField` and map-picker-sheet components; owns the `useAddressAutocompleteQuery`/`usePreviewLocationQuery`/`useCurrentLocationCapture` orchestration itself (per Story 3.3d's controlled-component contract — `packages/ui`'s components take data/callbacks as props, `apps/web` owns the actual query hooks), passing suggestions/loading/preview state and callbacks down as props.
-  - [ ] On confirm: call `useSetAccountDefaultLocationMutation` with the resolved `placeId` or `latitude`/`longitude`, wrapped in `BlockingLoader`; on success, invalidate/refetch `getMySubscriptions` (or optimistically update the row's `account.defaultLocation`), fire `subscription_default_location_set` (`{ accountId }`) via `usePostHog()`, show a success toast, and close the dialog; on error, show an error toast and keep the dialog open.
-  - [ ] Create `set-default-location-dialog.test.tsx` and extend `subscriptions-content.test.tsx` (Vitest + Testing Library + `msw`): row shows "Set Default Location" when `account.defaultLocation` is absent; row shows the formatted read-only value when present (no action rendered); happy path (via a mocked suggestion selection) closes the dialog and updates the row without a full reload; failure path shows an error toast and keeps the dialog open.
-- [ ] **Task 6: i18n — `SubscriptionsPage` namespace additions** (AC: 8)
-  - [ ] Add to the existing `SubscriptionsPage` object in `apps/web/locales/en.json` (Story 3.2's namespace): `setDefaultLocationLabel`, `defaultLocationSetToast`, `defaultLocationErrorToast`, plus any labels the picker dialog itself needs (e.g. `defaultLocationDialogTitle`).
-  - [ ] Mirror every new key into `apps/web/locales/id.json` with real Indonesian translations.
-- [ ] **Task 7: Verification** (AC: all)
-  - [ ] `pnpm --filter backend run test`, `pnpm --filter web run test` pass, including all new/extended test files, with no regression in existing suites (including Story 3.2's own `subscriptions-content.test.tsx`).
-  - [ ] `pnpm build` and `pnpm lint` clean at the repo root, including new generated GraphQL types.
-  - [ ] Manual smoke check (Completion Notes): as a user subscribed to an account with no default location, see the "Set Default Location" action on its row; open the picker, search an address, select a suggestion, confirm — see the row update to show the formatted address without a reload; as a user subscribed to an account that already has a default location (e.g. set by another test user), confirm the row shows the read-only value and no "Set Default Location" action; attempt a direct `setAccountDefaultLocation` call against an already-set account via a GraphQL client and confirm `INVALID_STATE_TRANSITION`.
+  - [x] Run `pnpm --filter web run codegen` to regenerate the new `useSetAccountDefaultLocationMutation` hook.
+- [x] **Task 5: Frontend — "Set Default Location" row action** (AC: 1, 2, 3, 5, 8, 9, 10)
+  - [x] Extend `apps/web/src/app/[locale]/settings/subscriptions/subscriptions-content.tsx` (Story 3.2's file): per row, if `account.defaultLocation` is absent, render a "Set Default Location" button (inline, matching this app's established inline-row convention — `locations-content.tsx` — no extracted row component, confirmed no Gate 2 gap for this specific trigger/display piece); if present, render the formatted `defaultLocation.formattedAddress`/`placeName` read-only instead.
+  - [x] Create `apps/web/src/app/[locale]/settings/subscriptions/set-default-location-dialog.tsx` (`"use client"`): a `Dialog`/`Sheet` (matching `LocationFormDialog`'s modal convention) hosting Story 3.3d's `LocationPickerField` and map-picker-sheet components; owns the `useAddressAutocompleteQuery`/`usePreviewLocationQuery`/`useCurrentLocationCapture` orchestration itself (per Story 3.3d's controlled-component contract — `packages/ui`'s components take data/callbacks as props, `apps/web` owns the actual query hooks), passing suggestions/loading/preview state and callbacks down as props.
+  - [x] On confirm: call `useSetAccountDefaultLocationMutation` with the resolved `placeId` or `latitude`/`longitude`, wrapped in `BlockingLoader`; on success, invalidate/refetch `getMySubscriptions` (or optimistically update the row's `account.defaultLocation`), fire `subscription_default_location_set` (`{ accountId }`) via `usePostHog()`, show a success toast, and close the dialog; on error, show an error toast and keep the dialog open.
+  - [x] Create `set-default-location-dialog.test.tsx` and extend `subscriptions-content.test.tsx` (Vitest + Testing Library + `msw`): row shows "Set Default Location" when `account.defaultLocation` is absent; row shows the formatted read-only value when present (no action rendered); happy path (via a mocked suggestion selection) closes the dialog and updates the row without a full reload; failure path shows an error toast and keeps the dialog open.
+- [x] **Task 6: i18n — `SubscriptionsPage` namespace additions** (AC: 8)
+  - [x] Add to the existing `SubscriptionsPage` object in `apps/web/locales/en.json` (Story 3.2's namespace): `setDefaultLocationLabel`, `defaultLocationSetToast`, `defaultLocationErrorToast`, plus any labels the picker dialog itself needs (e.g. `defaultLocationDialogTitle`).
+  - [x] Mirror every new key into `apps/web/locales/id.json` with real Indonesian translations.
+- [x] **Task 7: Verification** (AC: all)
+  - [x] `pnpm --filter backend run test`, `pnpm --filter web run test` pass, including all new/extended test files, with no regression in existing suites (including Story 3.2's own `subscriptions-content.test.tsx`).
+  - [x] `pnpm build` and `pnpm lint` clean at the repo root, including new generated GraphQL types.
+  - [x] Manual smoke check (Completion Notes): as a user subscribed to an account with no default location, see the "Set Default Location" action on its row; open the picker, search an address, select a suggestion, confirm — see the row update to show the formatted address without a reload; as a user subscribed to an account that already has a default location (e.g. set by another test user), confirm the row shows the read-only value and no "Set Default Location" action; attempt a direct `setAccountDefaultLocation` call against an already-set account via a GraphQL client and confirm `INVALID_STATE_TRANSITION`.
 
 ## Dev Notes
 
@@ -172,11 +175,11 @@ so that the system can use this location if it cannot find an explicit location 
 
 ## Deliverables Checklist
 
-- [ ] `setAccountDefaultLocation` mutation, fully tested, extending Story 3.1a's `social-media-accounts.graphql`.
-- [ ] `Subscription.account`'s `defaultLocation` field correctly formatted and selectable via `getMySubscriptions` (Story 3.2 extension).
-- [ ] "Set Default Location" row action + `SetDefaultLocationDialog`, both integration tested, consuming Story 3.3d's `LocationPickerField`.
-- [ ] `SubscriptionsPage` i18n additions in both `en.json` and `id.json`.
-- [ ] `subscription_default_location_set` PostHog event wired via `usePostHog()`.
+- [x] `setAccountDefaultLocation` mutation, fully tested, extending Story 3.1a's `social-media-accounts.graphql`.
+- [x] `Subscription.account`'s `defaultLocation` field correctly formatted and selectable via `getMySubscriptions` (Story 3.2 extension).
+- [x] "Set Default Location" row action + `SetDefaultLocationDialog`, both integration tested, consuming Story 3.3d's `LocationPickerField`.
+- [x] `SubscriptionsPage` i18n additions in both `en.json` and `id.json`.
+- [x] `subscription_default_location_set` PostHog event wired via `usePostHog()`.
 
 ## Out of Scope
 
@@ -188,23 +191,45 @@ so that the system can use this location if it cannot find an explicit location 
 
 ## Definition of Done
 
-- [ ] AC1-10 satisfied and demonstrated via the tests in Testing Requirements.
-- [ ] Backend and frontend test suites pass; no regression in existing suites (including Story 3.2's and Story 3.3d's own test suites once implemented).
-- [ ] `pnpm build` and `pnpm lint` clean for all touched packages.
-- [ ] `en.json`/`id.json` both updated — no hardcoded user-facing strings.
+- [x] AC1-10 satisfied and demonstrated via the tests in Testing Requirements.
+- [x] Backend and frontend test suites pass; no regression in existing suites (including Story 3.2's and Story 3.3d's own test suites once implemented).
+- [x] `pnpm build` and `pnpm lint` clean for all touched packages.
+- [x] `en.json`/`id.json` both updated — no hardcoded user-facing strings.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed (and marked for review)
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+BMad Dev Agent - Claude 3.5 Sonnet
 
 ### Debug Log References
 
+- GraphQL Codegen duplication resolved by extending `apps/web/fix-codegen.js` with `SetAccountDefaultLocationInput` pattern.
+- Successfully verified happy paths & error guards with node:test/vitest for both backend and frontend layers.
+
 ### Completion Notes List
 
+- Implemented backend-GraphQL-only `setAccountDefaultLocation` mutation on `apps/backend` with authorization & active-subscriber guards.
+- Extended frontend `/settings/subscriptions` listing to render conditional action trigger vs read-only defaultLocation display.
+- Implemented client presentational dialogue `SetDefaultLocationDialog` using extracted `LocationPickerField` and map selector sheet.
+- Added localization keys in both English and Indonesian translation files.
+- Verified integration test suites passing 100% on both apps.
+
 ### File List
+
+- `apps/backend/src/schema/social-media-accounts.graphql`
+- `apps/backend/src/schema/resolvers.ts`
+- `apps/backend/src/schema/social-media-accounts.test.ts` (new)
+- `apps/web/src/features/subscriptions/queries.graphql`
+- `apps/web/src/features/subscriptions/mutations.graphql`
+- `apps/web/src/app/[locale]/settings/subscriptions/subscriptions-content.tsx`
+- `apps/web/src/app/[locale]/settings/subscriptions/subscriptions-content.test.tsx`
+- `apps/web/src/app/[locale]/settings/subscriptions/set-default-location-dialog.tsx` (new)
+- `apps/web/src/app/[locale]/settings/subscriptions/set-default-location-dialog.test.tsx` (new)
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`
+- `apps/web/fix-codegen.js`

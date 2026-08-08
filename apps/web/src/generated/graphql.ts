@@ -154,6 +154,7 @@ export type Mutation = {
   deleteUserLocation: UserLocation;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
+  setAccountDefaultLocation: SocialMediaAccountProfile;
   subscribeToAccount: SubscribeToAccountResult;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
@@ -193,6 +194,12 @@ export type MutationRegisterFcmTokenArgs = {
 export type MutationRemoveSubscriptionArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationSetAccountDefaultLocationArgs = {
+  accountId: Scalars['ID']['input'];
+  input: SetAccountDefaultLocationInput;
 };
 
 
@@ -299,6 +306,12 @@ export type Schedule = {
   updatedAt: Scalars['String']['output'];
 };
 
+export type SetAccountDefaultLocationInput = {
+  latitude?: InputMaybe<Scalars['Float']['input']>;
+  longitude?: InputMaybe<Scalars['Float']['input']>;
+  placeId?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type SocialMediaAccountProfile = {
   __typename?: 'SocialMediaAccountProfile';
   accountId: Scalars['String']['output'];
@@ -384,6 +397,7 @@ export type UserSettings = {
   pushNotificationsEnabled: Scalars['Boolean']['output'];
   updatedAt: Scalars['String']['output'];
 };
+
 
 
 
@@ -561,10 +575,18 @@ export type RemoveSubscriptionMutationVariables = Exact<{
 
 export type RemoveSubscriptionMutation = { removeSubscription: { id: string } };
 
+export type SetAccountDefaultLocationMutationVariables = Exact<{
+  accountId: string | number;
+  input: SetAccountDefaultLocationInput;
+}>;
+
+
+export type SetAccountDefaultLocationMutation = { setAccountDefaultLocation: { id: string, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } };
+
 export type GetMySubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, createdAt: string, account: { platform: string, displayName: string, username: string, profileImageUrl: string | null } }> };
+export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, createdAt: string, account: { id: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -1357,6 +1379,39 @@ export const useRemoveSubscriptionMutation = <
   }
     )};
 
+export const SetAccountDefaultLocationDocument = new TypedDocumentString(`
+    mutation setAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
+  setAccountDefaultLocation(accountId: $accountId, input: $input) {
+    id
+    defaultLocation {
+      coordinates {
+        lat
+        lng
+      }
+      formattedAddress
+      placeName
+    }
+  }
+}
+    `);
+
+export const useSetAccountDefaultLocationMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetAccountDefaultLocationMutation, TError, SetAccountDefaultLocationMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetAccountDefaultLocationMutation, TError, SetAccountDefaultLocationMutationVariables, TContext>(
+      {
+    mutationKey: ['setAccountDefaultLocation'],
+    mutationFn: (variables?: SetAccountDefaultLocationMutationVariables) => fetcher<SetAccountDefaultLocationMutation, SetAccountDefaultLocationMutationVariables>(client, SetAccountDefaultLocationDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
 export const GetMySubscriptionsDocument = new TypedDocumentString(`
     query getMySubscriptions {
   mySubscriptions {
@@ -1365,10 +1420,19 @@ export const GetMySubscriptionsDocument = new TypedDocumentString(`
     isNewlyAdded
     createdAt
     account {
+      id
       platform
       displayName
       username
       profileImageUrl
+      defaultLocation {
+        coordinates {
+          lat
+          lng
+        }
+        formattedAddress
+        placeName
+      }
     }
   }
 }

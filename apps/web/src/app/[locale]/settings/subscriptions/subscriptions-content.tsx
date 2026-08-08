@@ -9,6 +9,7 @@ import { graphqlClient } from "@/lib/graphql-client"
 import { useGetMySubscriptionsQuery, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
 import { useHasApiKey } from "@/features/onboarding/use-has-api-key"
 import { SubscribeAccountDialog } from "./subscribe-account-dialog"
+import { SetDefaultLocationDialog } from "./set-default-location-dialog"
 import { Plus, Trash2 } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { usePostHog } from "@festgrid/analytics"
@@ -22,6 +23,7 @@ export function SubscriptionsContent() {
   const hasApiKey = useHasApiKey()
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
 
   // Redirect if unauthenticated
   useEffect(() => {
@@ -203,6 +205,20 @@ export function SubscriptionsContent() {
                       <p className="text-sm text-muted-foreground truncate">
                         @{sub.account.username}
                       </p>
+                      <div className="mt-1 text-xs">
+                        {sub.account.defaultLocation ? (
+                          <span className="text-muted-foreground">
+                            {sub.account.defaultLocation.formattedAddress || sub.account.defaultLocation.placeName}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setSelectedAccountId(sub.account.id)}
+                            className="text-primary hover:underline font-medium"
+                          >
+                            {t("setDefaultLocationLabel") || "Set Default Location"}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -229,6 +245,12 @@ export function SubscriptionsContent() {
           onClose={() => setIsDialogOpen(false)}
         />
       )}
+
+      <SetDefaultLocationDialog
+        accountId={selectedAccountId}
+        isOpen={selectedAccountId !== null}
+        onClose={() => setSelectedAccountId(null)}
+      />
     </div>
   )
 }

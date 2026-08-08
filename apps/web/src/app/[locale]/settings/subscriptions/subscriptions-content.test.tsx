@@ -57,10 +57,12 @@ const mockSubscriptions = [
     isNewlyAdded: true,
     createdAt: '2026-08-01',
     account: {
+      id: 'acc-1',
       platform: 'instagram',
       displayName: 'Jakarta Festivals',
       username: 'jkt_festivals',
       profileImageUrl: null,
+      defaultLocation: null,
     },
   },
   {
@@ -69,10 +71,16 @@ const mockSubscriptions = [
     isNewlyAdded: false,
     createdAt: '2026-08-02',
     account: {
+      id: 'acc-2',
       platform: 'twitter',
       displayName: 'Jakarta Culinary',
       username: 'jkt_culinary',
       profileImageUrl: 'http://example.com/profile.png',
+      defaultLocation: {
+        coordinates: { lat: -6.2, lng: 106.8 },
+        formattedAddress: 'Jakarta, Indonesia',
+        placeName: 'Jakarta Culinary Center',
+      },
     },
   },
 ];
@@ -132,7 +140,7 @@ describe('SubscriptionsContent', () => {
     expect(mockRouterPush).toHaveBeenCalledWith('/login');
   });
 
-  it('renders loading states and then displays subscriptions', async () => {
+  it('renders loading states and then displays subscriptions with default location states', async () => {
     mockSession = { user: { id: 'user-1' } };
     mockHasApiKey = true;
     renderWithProviders(<SubscriptionsContent />);
@@ -144,6 +152,10 @@ describe('SubscriptionsContent', () => {
 
     expect(screen.getByText('@jkt_festivals')).toBeInTheDocument();
     expect(screen.getByText('@jkt_culinary')).toBeInTheDocument();
+
+    // Verify defaultLocation rendering states
+    expect(screen.getByText('Set Default Location')).toBeInTheDocument(); // sub-1: absent
+    expect(screen.getByText('Jakarta, Indonesia')).toBeInTheDocument(); // sub-2: present (read-only)
   });
 
   it('renders no-API-key prompt when user does not have an API key', async () => {

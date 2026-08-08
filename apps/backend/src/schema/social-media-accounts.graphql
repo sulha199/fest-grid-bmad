@@ -16,3 +16,13 @@ extend type Query {
     accountId: String!
   ): SocialMediaAccountProfile
 }
+
+input SetAccountDefaultLocationInput {
+  placeId: String
+  latitude: Float
+  longitude: Float
+}
+
+extend type Mutation {
+  setAccountDefaultLocation(accountId: ID!, input: SetAccountDefaultLocationInput!): SocialMediaAccountProfile!
+}

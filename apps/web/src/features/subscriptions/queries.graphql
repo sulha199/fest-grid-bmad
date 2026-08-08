@@ -5,10 +5,19 @@ query getMySubscriptions {
     isNewlyAdded
     createdAt
     account {
+      id
       platform
       displayName
       username
       profileImageUrl
+      defaultLocation {
+        coordinates {
+          lat
+          lng
+        }
+        formattedAddress
+        placeName
+      }
     }
   }
 }

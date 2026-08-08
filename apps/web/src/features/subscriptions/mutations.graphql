@@ -3,3 +3,17 @@ mutation removeSubscription($id: ID!, $action: SoftDeleteAction!) {
     id
   }
 }
+
+mutation setAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
+  setAccountDefaultLocation(accountId: $accountId, input: $input) {
+    id
+    defaultLocation {
+      coordinates {
+        lat
+        lng
+      }
+      formattedAddress
+      placeName
+    }
+  }
+}

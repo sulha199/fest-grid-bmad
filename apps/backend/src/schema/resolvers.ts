@@ -173,6 +173,86 @@ export const resolvers: Resolvers = {
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
+    setAccountDefaultLocation: async (_: any, { accountId, input }: any, context: any, info: any) => {
+      try {
+        const authUser = requireAuth(context);
+
+        // 1. Look up caller's active subscription to accountId
+        const activeSubRows = await db.select()
+          .from(subscriptions)
+          .where(
+            and(
+              eq(subscriptions.userId, authUser.userId),
+              eq(subscriptions.accountId, accountId),
+              activeOnly(subscriptions)
+            )
+          );
+
+        if (activeSubRows.length === 0) {
+          throw new GraphQLError('Subscription not found', { extensions: { code: 'NOT_FOUND' } });
+        }
+
+        // 2. Look up the social_media_account_profiles row by id = accountId
+        const profileRows = await db.select()
+          .from(socialMediaAccountProfiles)
+          .where(eq(socialMediaAccountProfiles.id, accountId));
+
+        if (profileRows.length === 0) {
+          throw new GraphQLError('Account profile not found', { extensions: { code: 'NOT_FOUND' } });
+        }
+
+        const profile = profileRows[0];
+
+        // 3. If defaultLocation is already non-null, throw INVALID_STATE_TRANSITION
+        if (profile.defaultLocation !== null) {
+          throw new GraphQLError('Default location already set', {
+            extensions: { code: 'INVALID_STATE_TRANSITION' },
+          });
+        }
+
+        // 4. Call resolveLocationInputMode(input)
+        const mode = resolveLocationInputMode(input);
+        if (!mode) {
+          throw new GraphQLError('Address or coordinates required', { extensions: { code: 'BAD_REQUEST' } });
+        }
+
+        let resolved;
+        if (mode.kind === 'ADDRESS') {
+          resolved = await resolveLocation({ kind: 'ADDRESS', address: mode.address });
+        } else if (mode.kind === 'PLACE_ID') {
+          resolved = await resolveLocation({ kind: 'PLACE_ID', placeId: mode.placeId });
+        } else {
+          resolved = await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude: mode.latitude, longitude: mode.longitude } });
+        }
+
+        // 5. Update social_media_account_profiles set default_location = resolved
+        await db.update(socialMediaAccountProfiles)
+          .set({
+            defaultLocation: resolved,
+          })
+          .where(eq(socialMediaAccountProfiles.id, accountId));
+
+        // 6. Return the updated profile with defaultLocation formatted via formatLocationDetails
+        const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+        const rows = await db.select({
+          ...requestedFields,
+          id: socialMediaAccountProfiles.id,
+        }).from(socialMediaAccountProfiles)
+          .where(eq(socialMediaAccountProfiles.id, accountId));
+
+        const updatedProfile = rows[0] as any;
+        if (updatedProfile && updatedProfile.defaultLocation) {
+          updatedProfile.defaultLocation = formatLocationDetails(updatedProfile.defaultLocation);
+        }
+
+        return updatedProfile;
+      } catch (err: any) {
+        if (err instanceof InvalidUserLocationInputError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
+        }
+        throw err;
+      }
+    },
     createUserLocation: async (_: any, { input }: any, context: any) => {
       try {
         const authUser = requireAuth(context);
