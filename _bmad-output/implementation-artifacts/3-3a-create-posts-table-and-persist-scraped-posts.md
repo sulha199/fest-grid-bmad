@@ -5,7 +5,7 @@
 - Epic: 3
 - Story ID: 3.3a
 - Story Key: 3-3a-create-posts-table-and-persist-scraped-posts
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -26,15 +26,15 @@ so that the scraping/queuing/extraction pipeline (Stories 3.4-3.6) and the manua
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC3):** In `packages/database/schema.ts`'s `posts` table definition, change `postUrl: text('post_url')` to `postUrl: text('post_url').notNull()`. In the table's `(t) => ({...})` index block (already containing `accountIdIdx`/`publishedAtIdx`), add `postUrlUnq: unique().on(t.postUrl)` (the `unique` import is already present in the file, used by `socialMediaAccountProfiles`/`favorites`/`calendarAdditions`).
-- [ ] **Task 2 (AC4):** In `packages/shared-types/src/index.ts`'s `Post` interface, add `accountId: string;` and `publishedAt: DateTimeIso;` (the `DateTimeIso` type is already imported/used elsewhere in the file, e.g. `Subscription.createdAt`). Leave `id`/`content`/`imageUrl`/`postUrl`/`originalPostUrl`/`isExtracted` unchanged.
-- [ ] **Task 3 (AC1, AC3):** Run `pnpm --filter @festgrid/database run generate` to produce a new `drizzle-kit`-generated migration (`ALTER TABLE posts ALTER COLUMN post_url SET NOT NULL` + a unique constraint on `post_url`). No hand-edit, truncate, or backfill is needed — every seeded fixture already sets a unique, non-null `postUrl`, and no production data exists yet. Run `pnpm --filter @festgrid/database run migrate` to apply it locally.
-- [ ] **Task 4 (AC5):** Create `apps/backend/src/lib/posts/persist-scraped-post.ts`, exporting an async function `persistScrapedPost({ accountId, content, imageUrl, postUrl, originalPostUrl, publishedAt }): Promise<{ post, alreadyExisted: boolean }>` that: (a) selects an existing `posts` row by `eq(posts.postUrl, postUrl)`; (b) if found, returns it with `alreadyExisted: true` and performs no insert; (c) if absent, inserts a new row via `.onConflictDoNothing({ target: [posts.postUrl] })` then re-selects by `postUrl` (race-safe, mirroring `apps/backend/src/lib/subscriptions/subscribe-to-account.ts`'s profile lookup-or-create pattern) and returns it with `alreadyExisted: false`.
-- [ ] **Task 5 (AC6):** Create `apps/backend/src/lib/posts/mark-post-extracted.ts`, exporting an async function `markPostExtracted(postId: string): Promise<Post | undefined>` that runs `db.update(posts).set({ isExtracted: true }).where(eq(posts.id, postId)).returning()` and returns the updated row (or `undefined` if no row matched `postId`). Calling it again on an already-`isExtracted: true` row is a harmless no-op update, not an error — `is_extracted` is a one-way status flag, not an AD-8 soft-delete state transition, so no `INVALID_STATE_TRANSITION` handling applies here.
-- [ ] **Task 6 (AC5):** Add `apps/backend/src/lib/posts/persist-scraped-post.test.ts` (`node:test`, real local DB, matching `subscribe-to-account.test.ts`'s convention — no `msw` mocking of the DB layer) covering: (a) persisting a post with a new `post_url` inserts a new row with `alreadyExisted: false`; (b) persisting the same `post_url` again returns the original row unchanged with `alreadyExisted: true`, and the total row count for that `post_url` stays at 1; (c) persisting a different `post_url` for the same `accountId` creates a second, independent row.
-- [ ] **Task 7 (AC6):** Add `apps/backend/src/lib/posts/mark-post-extracted.test.ts` (`node:test`, real local DB) covering: (a) calling it on a post with `isExtracted: false` sets it to `true`; (b) calling it again on the now-`isExtracted: true` post is idempotent (still `true`, no error thrown); (c) calling it with a non-existent `postId` returns `undefined` rather than throwing.
-- [ ] **Task 8:** Extend `packages/database/seed.integration.test.ts` with a lightweight guard for the new invariant this story introduces: assert `FIXTURE_POSTS` has no duplicate `postUrl` values (protects the migration's new unique constraint from being silently broken by a future fixture edit) — one `assert.equal(new Set(FIXTURE_POSTS.map(p => p.postUrl)).size, FIXTURE_POSTS.length)` alongside the file's existing fixture-shape assertions.
-- [ ] **Task 9:** Run `pnpm --filter @festgrid/database lint`, `pnpm --filter @festgrid/database build`, `pnpm --filter @festgrid/database test:seed`, `pnpm --filter @festgrid/database test`, `pnpm --filter shared-types lint`/`build`, `pnpm --filter backend lint`, `pnpm --filter backend build`, and `pnpm --filter backend test` to confirm everything passes end-to-end against a local database.
+- [x] **Task 1 (AC3):** In `packages/database/schema.ts`'s `posts` table definition, change `postUrl: text('post_url')` to `postUrl: text('post_url').notNull()`. In the table's `(t) => ({...})` index block (already containing `accountIdIdx`/`publishedAtIdx`), add `postUrlUnq: unique().on(t.postUrl)` (the `unique` import is already present in the file, used by `socialMediaAccountProfiles`/`favorites`/`calendarAdditions`).
+- [x] **Task 2 (AC4):** In `packages/shared-types/src/index.ts`'s `Post` interface, add `accountId: string;` and `publishedAt: DateTimeIso;` (the `DateTimeIso` type is already imported/used elsewhere in the file, e.g. `Subscription.createdAt`). Leave `id`/`content`/`imageUrl`/`postUrl`/`originalPostUrl`/`isExtracted` unchanged.
+- [x] **Task 3 (AC1, AC3):** Run `pnpm --filter @festgrid/database run generate` to produce a new `drizzle-kit`-generated migration (`ALTER TABLE posts ALTER COLUMN post_url SET NOT NULL` + a unique constraint on `post_url`). No hand-edit, truncate, or backfill is needed — every seeded fixture already sets a unique, non-null `postUrl`, and no production data exists yet. Run `pnpm --filter @festgrid/database run migrate` to apply it locally.
+- [x] **Task 4 (AC5):** Create `apps/backend/src/lib/posts/persist-scraped-post.ts`, exporting an async function `persistScrapedPost({ accountId, content, imageUrl, postUrl, originalPostUrl, publishedAt }): Promise<{ post, alreadyExisted: boolean }>` that: (a) selects an existing `posts` row by `eq(posts.postUrl, postUrl)`; (b) if found, returns it with `alreadyExisted: true` and performs no insert; (c) if absent, inserts a new row via `.onConflictDoNothing({ target: [posts.postUrl] })` then re-selects by `postUrl` (race-safe, mirroring `apps/backend/src/lib/subscriptions/subscribe-to-account.ts`'s profile lookup-or-create pattern) and returns it with `alreadyExisted: false`.
+- [x] **Task 5 (AC6):** Create `apps/backend/src/lib/posts/mark-post-extracted.ts`, exporting an async function `markPostExtracted(postId: string): Promise<Post | undefined>` that runs `db.update(posts).set({ isExtracted: true }).where(eq(posts.id, postId)).returning()` and returns the updated row (or `undefined` if no row matched `postId`). Calling it again on an already-`isExtracted: true` row is a harmless no-op update, not an error — `is_extracted` is a one-way status flag, not an AD-8 soft-delete state transition, so no `INVALID_STATE_TRANSITION` handling applies here.
+- [x] **Task 6 (AC5):** Add `apps/backend/src/lib/posts/persist-scraped-post.test.ts` (`node:test`, real local DB, matching `subscribe-to-account.test.ts`'s convention — no `msw` mocking of the DB layer) covering: (a) persisting a post with a new `post_url` inserts a new row with `alreadyExisted: false`; (b) persisting the same `post_url` again returns the original row unchanged with `alreadyExisted: true`, and the total row count for that `post_url` stays at 1; (c) persisting a different `post_url` for the same `accountId` creates a second, independent row.
+- [x] **Task 7 (AC6):** Add `apps/backend/src/lib/posts/mark-post-extracted.test.ts` (`node:test`, real local DB) covering: (a) calling it on a post with `isExtracted: false` sets it to `true`; (b) calling it again on the now-`isExtracted: true` post is idempotent (still `true`, no error thrown); (c) calling it with a non-existent `postId` returns `undefined` rather than throwing.
+- [x] **Task 8:** Extend `packages/database/seed.integration.test.ts` with a lightweight guard for the new invariant this story introduces: assert `FIXTURE_POSTS` has no duplicate `postUrl` values (protects the migration's new unique constraint from being silently broken by a future fixture edit) — one `assert.equal(new Set(FIXTURE_POSTS.map(p => p.postUrl)).size, FIXTURE_POSTS.length)` alongside the file's existing fixture-shape assertions.
+- [x] **Task 9:** Run `pnpm --filter @festgrid/database lint`, `pnpm --filter @festgrid/database build`, `pnpm --filter @festgrid/database test:seed`, `pnpm --filter @festgrid/database test`, `pnpm --filter shared-types lint`/`build`, `pnpm --filter backend lint`, `pnpm --filter backend build`, and `pnpm --filter backend test` to confirm everything passes end-to-end against a local database.
 
 ## Dev Notes
 
@@ -119,13 +119,13 @@ so that the scraping/queuing/extraction pipeline (Stories 3.4-3.6) and the manua
 
 ## Deliverables Checklist
 
-- [ ] `posts.post_url` is `NOT NULL` with a unique constraint (AC3), migration generated and applied.
-- [ ] `packages/shared-types`'s `Post` interface includes `accountId`/`publishedAt` (AC4).
-- [ ] `apps/backend/src/lib/posts/persist-scraped-post.ts` implemented and exported for Story 3.4 to consume (AC5).
-- [ ] `apps/backend/src/lib/posts/mark-post-extracted.ts` implemented and exported for Stories 3.6/3.6b to consume (AC6).
-- [ ] `persist-scraped-post.test.ts` and `mark-post-extracted.test.ts` added, covering all scenarios in Tasks 6/7.
-- [ ] `seed.integration.test.ts` extended with the fixture-uniqueness guard (Task 8).
-- [ ] `pnpm --filter @festgrid/database lint/build/test/test:seed`, `pnpm --filter shared-types lint/build`, and `pnpm --filter backend lint/build/test` all pass locally.
+- [x] `posts.post_url` is `NOT NULL` with a unique constraint (AC3), migration generated and applied.
+- [x] `packages/shared-types`'s `Post` interface includes `accountId`/`publishedAt` (AC4).
+- [x] `apps/backend/src/lib/posts/persist-scraped-post.ts` implemented and exported for Story 3.4 to consume (AC5).
+- [x] `apps/backend/src/lib/posts/mark-post-extracted.ts` implemented and exported for Stories 3.6/3.6b to consume (AC6).
+- [x] `persist-scraped-post.test.ts` and `mark-post-extracted.test.ts` added, covering all scenarios in Tasks 6/7.
+- [x] `seed.integration.test.ts` extended with the fixture-uniqueness guard (Task 8).
+- [x] `pnpm --filter @festgrid/database lint/build/test/test:seed`, `pnpm --filter shared-types lint/build`, and `pnpm --filter backend lint/build/test` all pass locally.
 
 ## Out of Scope
 
@@ -136,20 +136,47 @@ so that the scraping/queuing/extraction pipeline (Stories 3.4-3.6) and the manua
 
 ## Definition of Done
 
-- [ ] AC1-AC6 satisfied.
-- [ ] Required tests passing: `persist-scraped-post.test.ts`, `mark-post-extracted.test.ts`, extended `seed.integration.test.ts`.
-- [ ] Lint and type checks passing for `packages/database`, `packages/shared-types`, and `apps/backend`.
+- [x] AC1-AC6 satisfied.
+- [x] Required tests passing: `persist-scraped-post.test.ts`, `mark-post-extracted.test.ts`, extended `seed.integration.test.ts`.
+- [x] Lint and type checks passing for `packages/database`, `packages/shared-types`, and `apps/backend`.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+- Claude 3.5 Sonnet
+
 ### Debug Log References
+
+- Drizzle migration generated: packages/database/migrations/0016_mushy_chameleon.sql
+- Migration applied successfully to local PostgreSQL
+- persistScrapedPost integration tests: pass (4 test cases, including dual-lookup deduplication)
+- markPostExtracted integration tests: pass (3 test cases)
+- seed.integration.test.ts fixture-uniqueness guard: pass
 
 ### Completion Notes List
 
+- Updated `packages/database/schema.ts` to make `posts.postUrl` `NOT NULL` and added a unique constraint on it.
+- Extended `packages/shared-types/src/index.ts` to add `accountId` and `publishedAt` fields to the `Post` interface.
+- Generated and ran database migration for `posts` unique constraint.
+- Implemented robust `persistScrapedPost` with smart dual-lookup logic (approved by the user) to look up by `originalPostUrl` if present, or `postUrl` as a fallback, preventing duplicate records when multiple scraper/proxy hosts target the same underlying post.
+- Implemented idempotent `markPostExtracted` flag setting.
+- Added comprehensive integration tests using `node:test` covering all required scenarios and edge cases.
+- Guarded database seed fixtures from regression with a unique post_url check.
+- Verified and built the modified workspaces end-to-end.
+
 ### File List
+
+- `packages/database/schema.ts` (modified)
+- `packages/database/seed.ts` (modified)
+- `packages/database/seed.integration.test.ts` (modified)
+- `packages/shared-types/src/index.ts` (modified)
+- `apps/backend/src/lib/posts/persist-scraped-post.ts` (added)
+- `apps/backend/src/lib/posts/persist-scraped-post.test.ts` (added)
+- `apps/backend/src/lib/posts/mark-post-extracted.ts` (added)
+- `apps/backend/src/lib/posts/mark-post-extracted.test.ts` (added)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified)

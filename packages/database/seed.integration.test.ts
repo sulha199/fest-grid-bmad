@@ -24,6 +24,7 @@ import {
   FIXTURE_USER_IDS,
   FIXTURE_USER_LOCATION_IDS,
   FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILE_IDS,
+  FIXTURE_POSTS,
   createSqlClient,
   seedDatabase,
 } from './seed';
@@ -68,6 +69,9 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.equal(postCount.count, FIXTURE_COUNTS.posts);
       assert.equal(eventCount.count, FIXTURE_COUNTS.events);
       assert.equal(scheduleCount.count, FIXTURE_COUNTS.schedules);
+
+      // Guard new unique constraint on postUrl from being broken by duplicate seed data
+      assert.equal(new Set(FIXTURE_POSTS.map(p => p.postUrl)).size, FIXTURE_POSTS.length);
 
       const eventPostJoins = await db
         .select({ eventId: events.id, imageUrl: posts.imageUrl })

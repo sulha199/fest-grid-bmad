@@ -115,7 +115,7 @@ const FIXTURE_API_KEYS = [
   },
 ];
 
-const FIXTURE_POSTS = [
+export const FIXTURE_POSTS = [
   {
     id: '60000000-0000-0000-0000-000000000001',
     accountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[0].id,

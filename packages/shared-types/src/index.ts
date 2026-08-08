@@ -137,11 +137,13 @@ export interface UserLocationPreference {
 
 export interface Post {
   id: string;
+  accountId: string;
   content: string;
   imageUrl?: string;
   postUrl: string;
   originalPostUrl?: string;
   isExtracted?: boolean;
+  publishedAt: DateTimeIso;
 }
 
 export interface Favorite {

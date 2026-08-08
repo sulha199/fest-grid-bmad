@@ -285,7 +285,7 @@ development_status:
   # dedup design decision (unique constraint + select-or-insert vs. blind insert
   # accepting duplicates) was confirmed with the user via AskUserQuestion: dedupe on
   # post_url, mirroring Story 3.1a's subscribeToAccount() precedent.
-  3-3a-create-posts-table-and-persist-scraped-posts: ready-for-dev
+  3-3a-create-posts-table-and-persist-scraped-posts: review
   3-3b-edit-an-accounts-default-location: backlog
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: backlog
   3-4-scrape-new-posts-from-subscribed-accounts: backlog

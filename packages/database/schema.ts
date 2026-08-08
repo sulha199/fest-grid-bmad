@@ -117,7 +117,7 @@ export const posts = pgTable('posts', {
   accountId: uuid('account_id').references(() => socialMediaAccountProfiles.id).notNull(),
   content: text('content').notNull(),
   imageUrl: text('image_url'),
-  postUrl: text('post_url'),
+  postUrl: text('post_url').notNull(),
   originalPostUrl: text('original_post_url'),
   isExtracted: boolean('is_extracted').default(false).notNull(),
   publishedAt: timestamp('published_at', { withTimezone: true }).notNull(),
@@ -125,6 +125,7 @@ export const posts = pgTable('posts', {
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),
   publishedAtIdx: index('published_at_idx').on(t.publishedAt),
+  postUrlUnq: unique().on(t.postUrl),
 }));
 
 export const events = pgTable('events', {
