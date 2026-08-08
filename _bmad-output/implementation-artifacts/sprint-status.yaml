@@ -73,7 +73,7 @@ development_status:
   # added 2026-08-08 via bmad-create-story: user-requested dev-experience addendum
   # to already-done Story 0.15 (not a Gate 1/2/3 finding) — single-story split per
   # story-split-gate.md's numbering rule. See epics.md Story 0.15a.
-  0-15a-local-dev-email-adapter-stub: ready-for-dev
+  0-15a-local-dev-email-adapter-stub: review
   # regenerated 2026-08-03 via bmad-create-story against Geoapify-based epics.md text
   # (Sprint Change Proposal 2026-08-03); Postgres-backed no-TTL cache and the API-key
   # restriction MVP limitation were confirmed with the user during story creation.

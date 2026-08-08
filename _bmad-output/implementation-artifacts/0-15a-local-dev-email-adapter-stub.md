@@ -1,10 +1,13 @@
+---
+baseline_commit: bc6dfa48df07ac6e4a54c284c37859a67e90aba8
+---
 # Story 0.15a: Add a local-dev stub to the outbound email adapter
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.15a
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -27,21 +30,21 @@ so that I can develop and test any feature that sends email (quota-exhaustion wa
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add the local/test stub bypass to `sendTemplatedEmail` (AC: 1, 2, 3, 4)
-  - [ ] In `apps/backend/src/lib/email/adapter.ts`, after rendering the template (`renderEmailTemplate`) but before calling `getSesClient()`, add: `if (!fromEmail || process.env.NODE_ENV === 'test') { ... }`.
-  - [ ] Inside the branch: generate a stub ID via `randomUUID()` from `node:crypto`, prefixed `local-dev-`; `console.info` (or `console.log`) a clearly-labeled block containing the trigger reason, `to`, `templateKey`, rendered `subject`, and rendered `text` body; `return` the stub ID. Do not call `getSesClient()` anywhere in this branch.
-  - [ ] Remove the existing early `throw new Error('Outbound email sending failed: SES_FROM_EMAIL_ADDRESS environment variable is not defined.')` guard — the "unset config" case is now handled entirely by the new bypass branch, not by throwing.
-  - [ ] Leave the real-send path (SES client construction, `SendEmailCommand`, `response.MessageId` throw-if-missing) completely unchanged below the bypass branch.
-- [ ] Task 2: Update `apps/backend/src/lib/email/adapter.test.ts` (AC: 5, 6, 7)
-  - [ ] In the first test ("sends QUOTA_EXHAUSTION_WARNING email via SESv2Client successfully") and the second test ("propagates SES send errors unmodified"), wrap the body in `try`/`finally`: save `process.env.NODE_ENV` before the test, set it to `'development'`, restore the saved value in `finally` — matching the existing save/restore pattern already used by the third test for `SES_FROM_EMAIL_ADDRESS`.
-  - [ ] Rewrite the third test ("throws error if SES_FROM_EMAIL_ADDRESS is missing") to also force `NODE_ENV` to `'development'` (isolating the "unset config" trigger arm from the "test env" trigger arm), delete `SES_FROM_EMAIL_ADDRESS`, inject a mock `SESv2Client` whose `send` sets a `sendCalled` flag, call `sendTemplatedEmail`, and assert: the returned message ID matches `/^local-dev-/`, and `sendCalled` is `false`. Restore both `SES_FROM_EMAIL_ADDRESS` and `NODE_ENV` in `finally`.
-  - [ ] Add a fourth test: set `SES_FROM_EMAIL_ADDRESS` to a valid value, force `NODE_ENV = 'test'` explicitly, inject a mock `SESv2Client` with a `sendCalled` flag, call `sendTemplatedEmail`, and assert the same two things (stub ID pattern, `sendCalled === false`) — proving the `NODE_ENV === 'test'` arm triggers the bypass independently of config presence.
-- [ ] Task 3: Update `SETUP_WALKTHROUGH.md` (AC: 8) (persistent fact: cloud/external service setup)
-  - [ ] Under `## 7. Outbound Email Adapter (Amazon SES)`, after the existing "Configure Environment Variables" step, add an italic note mirroring §8's KMS note verbatim in style: *"Note: Sending in `adapter.ts` is skipped in favor of a console log when `SES_FROM_EMAIL_ADDRESS` is omitted or when `NODE_ENV === 'test'` — this entire section's setup steps are optional for local development."*
-- [ ] Task 4: Verification (AC: 1-8)
-  - [ ] `pnpm --filter backend exec tsx --test src/lib/email/adapter.test.ts` passes, including the two rewritten/added stub-path tests.
-  - [ ] `pnpm --filter backend test` (full backend suite) passes — confirms no other test relies on the removed throw-on-missing-config behavior.
-  - [ ] `pnpm build` and `pnpm lint` clean at the repo root for `apps/backend`.
+- [x] Task 1: Add the local/test stub bypass to `sendTemplatedEmail` (AC: 1, 2, 3, 4)
+  - [x] In `apps/backend/src/lib/email/adapter.ts`, after rendering the template (`renderEmailTemplate`) but before calling `getSesClient()`, add: `if (!fromEmail || process.env.NODE_ENV === 'test') { ... }`.
+  - [x] Inside the branch: generate a stub ID via `randomUUID()` from `node:crypto`, prefixed `local-dev-`; `console.info` (or `console.log`) a clearly-labeled block containing the trigger reason, `to`, `templateKey`, rendered `subject`, and rendered `text` body; `return` the stub ID. Do not call `getSesClient()` anywhere in this branch.
+  - [x] Remove the existing early `throw new Error('Outbound email sending failed: SES_FROM_EMAIL_ADDRESS environment variable is not defined.')` guard — the "unset config" case is now handled entirely by the new bypass branch, not by throwing.
+  - [x] Leave the real-send path (SES client construction, `SendEmailCommand`, `response.MessageId` throw-if-missing) completely unchanged below the bypass branch.
+- [x] Task 2: Update `apps/backend/src/lib/email/adapter.test.ts` (AC: 5, 6, 7)
+  - [x] In the first test ("sends QUOTA_EXHAUSTION_WARNING email via SESv2Client successfully") and the second test ("propagates SES send errors unmodified"), wrap the body in `try`/`finally`: save `process.env.NODE_ENV` before the test, set it to `'development'`, restore the saved value in `finally` — matching the existing save/restore pattern already used by the third test for `SES_FROM_EMAIL_ADDRESS`.
+  - [x] Rewrite the third test ("throws error if SES_FROM_EMAIL_ADDRESS is missing") to also force `NODE_ENV` to `'development'` (isolating the "unset config" trigger arm from the "test env" trigger arm), delete `SES_FROM_EMAIL_ADDRESS`, inject a mock `SESv2Client` whose `send` sets a `sendCalled` flag, call `sendTemplatedEmail`, and assert: the returned message ID matches `/^local-dev-/`, and `sendCalled` is `false`. Restore both `SES_FROM_EMAIL_ADDRESS` and `NODE_ENV` in `finally`.
+  - [x] Add a fourth test: set `SES_FROM_EMAIL_ADDRESS` to a valid value, force `NODE_ENV = 'test'` explicitly, inject a mock `SESv2Client` with a `sendCalled` flag, call `sendTemplatedEmail`, and assert the same two things (stub ID pattern, `sendCalled === false`) — proving the `NODE_ENV === 'test'` arm triggers the bypass independently of config presence.
+- [x] Task 3: Update `SETUP_WALKTHROUGH.md` (AC: 8) (persistent fact: cloud/external service setup)
+  - [x] Under `## 7. Outbound Email Adapter (Amazon SES)`, after the existing "Configure Environment Variables" step, add an italic note mirroring §8's KMS note verbatim in style: *"Note: Sending in `adapter.ts` is skipped in favor of a console log when `SES_FROM_EMAIL_ADDRESS` is omitted or when `NODE_ENV === 'test'` — this entire section's setup steps are optional for local development."*
+- [x] Task 4: Verification (AC: 1-8)
+  - [x] `pnpm --filter backend exec tsx --test src/lib/email/adapter.test.ts` passes, including the two rewritten/added stub-path tests.
+  - [x] `pnpm --filter backend test` (full backend suite) passes — confirms no other test relies on the removed throw-on-missing-config behavior.
+  - [x] `pnpm build` and `pnpm lint` clean at the repo root for `apps/backend`.
 
 ## Dev Notes
 
@@ -121,28 +124,28 @@ Two independent design questions were resolved directly with the user before dra
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: add a local/test console-log stub bypass to `sendTemplatedEmail`, triggered when `SES_FROM_EMAIL_ADDRESS` is unset **or** `NODE_ENV === 'test'`; remove the existing throw-on-missing-config guard; no SMTP catcher, no `nodemailer`, no new dependency.
-- [ ] Architecture and boundary confirmation: the bypass lives entirely inside `apps/backend/src/lib/email/adapter.ts` — `sendTemplatedEmail`'s signature and all call sites stay unchanged; `ses-client.ts` is untouched.
-- [ ] Testing plan confirmation: `adapter.test.ts`'s two existing SES-mock tests get `NODE_ENV` forced to `'development'` for their duration; the "throws if missing" test is rewritten to assert stub behavior; a new fourth test proves the `NODE_ENV === 'test'` trigger arm in isolation.
-- [ ] Explicit human approval state (Default: **pending approval**).
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 — sourced from `epic-0-readiness.md` (`swept: true`), no fresh gap; Gate 2 — no gap (zero UI scope, confirmed directly, no subagent dispatched).
-- [ ] **Behavior-change acceptance:** confirm that changing "missing `SES_FROM_EMAIL_ADDRESS` throws" to "missing `SES_FROM_EMAIL_ADDRESS` stubs" is the intended outcome (user already confirmed this during story creation — recorded in Dev Notes "Bypass Trigger Condition").
-- [ ] **`NODE_ENV === 'test'` inclusion accepted:** confirm the two existing mock-client tests being modified to force a non-`'test'` `NODE_ENV` is acceptable (user already confirmed this during story creation).
+- [x] Scope confirmation: add a local/test console-log stub bypass to `sendTemplatedEmail`, triggered when `SES_FROM_EMAIL_ADDRESS` is unset **or** `NODE_ENV === 'test'`; remove the existing throw-on-missing-config guard; no SMTP catcher, no `nodemailer`, no new dependency.
+- [x] Architecture and boundary confirmation: the bypass lives entirely inside `apps/backend/src/lib/email/adapter.ts` — `sendTemplatedEmail`'s signature and all call sites stay unchanged; `ses-client.ts` is untouched.
+- [x] Testing plan confirmation: `adapter.test.ts`'s two existing SES-mock tests get `NODE_ENV` forced to `'development'` for their duration; the "throws if missing" test is rewritten to assert stub behavior; a new fourth test proves the `NODE_ENV === 'test'` trigger arm in isolation.
+- [x] Explicit human approval state (Default: **pending approval**).
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 — sourced from `epic-0-readiness.md` (`swept: true`), no fresh gap; Gate 2 — no gap (zero UI scope, confirmed directly, no subagent dispatched).
+- [x] **Behavior-change acceptance:** confirm that changing "missing `SES_FROM_EMAIL_ADDRESS` throws" to "missing `SES_FROM_EMAIL_ADDRESS` stubs" is the intended outcome (user already confirmed this during story creation — recorded in Dev Notes "Bypass Trigger Condition").
+- [x] **`NODE_ENV === 'test'` inclusion accepted:** confirm the two existing mock-client tests being modified to force a non-`'test'` `NODE_ENV` is acceptable (user already confirmed this during story creation).
 
 ## Testing Requirements
 
-- [ ] Unit/integration tests (required): `apps/backend/src/lib/email/adapter.test.ts` via `node:test`/`tsx --test` — real-send path (2 tests, NODE_ENV-forced), missing-config stub path (1 rewritten test), `NODE_ENV==='test'` stub path (1 new test) (Task 2/4).
-- [ ] Full backend suite (required): `pnpm --filter backend test` green, proving no regression elsewhere from the removed throw (Task 4).
+- [x] Unit/integration tests (required): `apps/backend/src/lib/email/adapter.test.ts` via `node:test`/`tsx --test` — real-send path (2 tests, NODE_ENV-forced), missing-config stub path (1 rewritten test), `NODE_ENV==='test'` stub path (1 new test) (Task 2/4).
+- [x] Full backend suite (required): `pnpm --filter backend test` green, proving no regression elsewhere from the removed throw (Task 4).
 - [ ] E2E tests: Not applicable — no UI in this story.
-- [ ] Manual verification (optional, not blocking): running any backend flow that calls `sendTemplatedEmail` locally with no `SES_FROM_EMAIL_ADDRESS` configured and observing the console-logged stub output.
+- [x] Manual verification (optional, not blocking): running any backend flow that calls `sendTemplatedEmail` locally with no `SES_FROM_EMAIL_ADDRESS` configured and observing the console-logged stub output.
 
 ## Deliverables Checklist
 
-- [ ] `sendTemplatedEmail` bypasses SES and logs to console + returns a `local-dev-*` stub ID when `SES_FROM_EMAIL_ADDRESS` is unset or `NODE_ENV === 'test'`.
-- [ ] Real-send path (SES configured, non-test env) behaves identically to Story 0.15's original implementation.
-- [ ] `adapter.test.ts` updated per Task 2 (4 passing cases covering both paths and both bypass trigger arms).
-- [ ] `SETUP_WALKTHROUGH.md` §7 updated with the local-dev-optional note.
-- [ ] `pnpm build`/`pnpm lint` pass at the repo root for `apps/backend`.
+- [x] `sendTemplatedEmail` bypasses SES and logs to console + returns a `local-dev-*` stub ID when `SES_FROM_EMAIL_ADDRESS` is unset or `NODE_ENV === 'test'`.
+- [x] Real-send path (SES configured, non-test env) behaves identically to Story 0.15's original implementation.
+- [x] `adapter.test.ts` updated per Task 2 (4 passing cases covering both paths and both bypass trigger arms).
+- [x] `SETUP_WALKTHROUGH.md` §7 updated with the local-dev-optional note.
+- [x] `pnpm build`/`pnpm lint` pass at the repo root for `apps/backend`.
 
 ## Out of Scope
 
@@ -155,23 +158,33 @@ Two independent design questions were resolved directly with the user before dra
 
 ## Definition of Done
 
-- [ ] AC 1-8 satisfied.
-- [ ] `apps/backend/src/lib/email/adapter.test.ts` passing with all four cases (Task 2/4).
-- [ ] `pnpm --filter backend test` passing (full suite, no regressions).
-- [ ] `pnpm lint` and `pnpm build` passing for `apps/backend`.
-- [ ] `SETUP_WALKTHROUGH.md` §7 updated (Task 3).
-- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins, including the behavior-change and `NODE_ENV==='test'`-inclusion acceptance items.
+- [x] AC 1-8 satisfied.
+- [x] `apps/backend/src/lib/email/adapter.test.ts` passing with all four cases (Task 2/4).
+- [x] `pnpm --filter backend test` passing (full suite, no regressions).
+- [x] `pnpm lint` and `pnpm build` passing for `apps/backend`.
+- [x] `SETUP_WALKTHROUGH.md` §7 updated (Task 3).
+- [x] Pre-Coding Approval Gate explicitly approved by the user before implementation begins, including the behavior-change and `NODE_ENV==='test'`-inclusion acceptance items.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 
 ### Agent Model Used
+BMad Dev Agent with Cline
 
 ### Debug Log References
+None. All implementations and tests completed cleanly on first attempt.
 
 ### Completion Notes List
+- Added a local-dev / test environment stub to `sendTemplatedEmail` inside `apps/backend/src/lib/email/adapter.ts`.
+- Removed old error-throwing behavior on missing `SES_FROM_EMAIL_ADDRESS` and replaced it with clean local stub log and returning a random UUID prefixed with `local-dev-`.
+- Maintained production behavior without modifications.
+- Modified tests in `adapter.test.ts` to correctly handle `NODE_ENV` switches during standard SES tests and implemented missing-config + test environment stub validations.
+- Documented local development bypass under Outbound Email setup step of `SETUP_WALKTHROUGH.md`.
 
 ### File List
+- `apps/backend/src/lib/email/adapter.ts`
+- `apps/backend/src/lib/email/adapter.test.ts`
+- `SETUP_WALKTHROUGH.md`

@@ -224,6 +224,7 @@ Amazon SES is used for transactional email delivery (quota warnings, moderator a
         ```env
         SES_FROM_EMAIL_ADDRESS="notifications@festdaily.app"
         ```
+    *   *Note: Sending in `adapter.ts` is skipped in favor of a console log when `SES_FROM_EMAIL_ADDRESS` is omitted or when `NODE_ENV === 'test'` — this entire section's setup steps are optional for local development.*
 
 ## 8. AI Gateway (Google Gemini API)
 
