@@ -150,6 +150,7 @@ export type Mutation = {
   deleteUserLocation: UserLocation;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
+  reportSystemError: Scalars['Boolean']['output'];
   setAccountDefaultLocation: SocialMediaAccountProfile;
   subscribeToAccount: SubscribeToAccountResult;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
@@ -190,6 +191,11 @@ export type MutationRegisterFcmTokenArgs = {
 export type MutationRemoveSubscriptionArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationReportSystemErrorArgs = {
+  input: ReportSystemErrorInput;
 };
 
 
@@ -279,6 +285,12 @@ export type QueryPreviewLocationArgs = {
 export type QuerySocialMediaAccountProfileByAccountIdArgs = {
   accountId: Scalars['String']['input'];
   platform: Scalars['String']['input'];
+};
+
+export type ReportSystemErrorInput = {
+  context?: InputMaybe<Scalars['String']['input']>;
+  message: Scalars['String']['input'];
+  source: Scalars['String']['input'];
 };
 
 export type Schedule = {
@@ -486,6 +498,7 @@ export type ResolversTypes = ResolversObject<{
   Me: ResolverTypeWrapper<Me>;
   Mutation: ResolverTypeWrapper<{}>;
   Query: ResolverTypeWrapper<{}>;
+  ReportSystemErrorInput: ReportSystemErrorInput;
   Schedule: ResolverTypeWrapper<Schedule>;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
   SocialMediaAccountProfile: ResolverTypeWrapper<SocialMediaAccountProfile>;
@@ -521,6 +534,7 @@ export type ResolversParentTypes = ResolversObject<{
   Me: Me;
   Mutation: {};
   Query: {};
+  ReportSystemErrorInput: ReportSystemErrorInput;
   Schedule: Schedule;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
   SocialMediaAccountProfile: SocialMediaAccountProfile;
@@ -614,6 +628,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   deleteUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationDeleteUserLocationArgs, 'action' | 'id'>>;
   registerFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRegisterFcmTokenArgs, 'token'>>;
   removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
+  reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   subscribeToAccount?: Resolver<ResolversTypes['SubscribeToAccountResult'], ParentType, ContextType, RequireFields<MutationSubscribeToAccountArgs, 'input'>>;
   toggleCalendarAddition?: Resolver<ResolversTypes['ToggleCalendarAdditionResult'], ParentType, ContextType, RequireFields<MutationToggleCalendarAdditionArgs, 'eventId' | 'scheduleId'>>;

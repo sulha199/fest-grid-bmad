@@ -15,6 +15,12 @@ import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_D
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { encryptApiKey } from '../lib/ai-gateway/kms.js';
+import { compileValidator } from '../validation/validate.js';
+import { reportSystemErrorSchema } from '../validation/report-system-error.schema.js';
+import { sendTemplatedEmail } from '../lib/email/adapter.js';
+import { loadBackendEnv } from '../env.js';
+
+const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema);
 
 function formatLocationDetails(details: any): any {
   if (!details) return null;
@@ -528,6 +534,32 @@ export const resolvers: Resolvers = {
           eq(fcmTokens.userId, authUser.userId)
         )
       );
+      return true;
+    },
+    reportSystemError: async (_: any, { input }: any) => {
+      const valid = validateReportSystemError(input);
+      if (!valid) {
+        throw new GraphQLError('Invalid reportSystemError input', {
+          extensions: { code: 'BAD_REQUEST' }
+        });
+      }
+
+      const env = loadBackendEnv();
+      if (env.systemErrorAlertEmail) {
+        try {
+          await sendTemplatedEmail('SYSTEM_ERROR_ALERT', env.systemErrorAlertEmail, {
+            source: input.source,
+            message: input.message,
+            context: input.context ?? 'None provided',
+            timestamp: new Date().toISOString()
+          });
+        } catch (err) {
+          console.error('[reportSystemError] failed to send alert email', err);
+        }
+      } else {
+        console.error('[reportSystemError] SYSTEM_ERROR_ALERT_EMAIL not configured; error not alerted', input);
+      }
+
       return true;
     }
   },

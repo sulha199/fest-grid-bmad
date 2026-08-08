@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-08-08T00:00:00Z
+# last_updated: 2026-08-08T15:20:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-08T13:00:00Z
+last_updated: 2026-08-08T15:20:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -99,7 +99,7 @@ development_status:
   # system/developer-error template, and the reportSystemError mechanism itself
   # is cross-cutting (future stories will also want to alert on client failures).
   # See epics.md Story 0.23 note.
-  0-23-build-the-system-error-reporting-and-alerting-foundation: ready-for-dev
+  0-23-build-the-system-error-reporting-and-alerting-foundation: review
   # added 2026-08-07 via bmad-create-story Gate 3 (lightweight guard) finding while
   # drafting Story 3.1: design-artifacts/UX-wizard-page-run-1 specs a generic /wizard
   # page (EXPERIENCE.md status: final) with a confirmed second, cross-epic consumer

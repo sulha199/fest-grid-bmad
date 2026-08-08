@@ -51,6 +51,26 @@ test('renderEmailTemplate tests', async (t) => {
     assert.ok(result.text.includes('https://festdaily.app/moderation'));
   });
 
+  await t.test('renders SYSTEM_ERROR_ALERT correctly', () => {
+    const result = renderEmailTemplate('SYSTEM_ERROR_ALERT', {
+      source: 'service-worker',
+      message: 'Failed to register SW',
+      context: 'Some detailed stack trace',
+      timestamp: '2026-08-08T15:10:00Z',
+    });
+
+    assert.ok(result.subject.includes('[FestDaily System Alert]'));
+    assert.ok(result.subject.includes('service-worker'));
+    assert.ok(result.html.includes('service-worker'));
+    assert.ok(result.html.includes('Failed to register SW'));
+    assert.ok(result.html.includes('Some detailed stack trace'));
+    assert.ok(result.html.includes('2026-08-08T15:10:00Z'));
+    assert.ok(result.text.includes('service-worker'));
+    assert.ok(result.text.includes('Failed to register SW'));
+    assert.ok(result.text.includes('Some detailed stack trace'));
+    assert.ok(result.text.includes('2026-08-08T15:10:00Z'));
+  });
+
   await t.test('throws descriptive error if template is called with missing variable', () => {
     assert.throws(() => {
       // @ts-expect-error - testing missing variables runtime checks
@@ -61,6 +81,16 @@ test('renderEmailTemplate tests', async (t) => {
         apiKeyManagementUrl: 'https://festdaily.app/api-keys',
       });
     }, /Missing required template variables for "QUOTA_EXHAUSTION_WARNING": queuedDays/);
+
+    assert.throws(() => {
+      // @ts-expect-error - testing missing variables runtime checks
+      renderEmailTemplate('SYSTEM_ERROR_ALERT', {
+        source: 'service-worker',
+        message: 'Failed to register SW',
+        context: 'Some detailed stack trace',
+        // timestamp is missing
+      });
+    }, /Missing required template variables for "SYSTEM_ERROR_ALERT": timestamp/);
   });
 
   await t.test('handles multiple occurrences of same placeholder (if any)', () => {

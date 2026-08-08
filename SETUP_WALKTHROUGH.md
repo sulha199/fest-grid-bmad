@@ -223,7 +223,9 @@ Amazon SES is used for transactional email delivery (quota warnings, moderator a
     *   Add your verified sending email address to your root `.env`:
         ```env
         SES_FROM_EMAIL_ADDRESS="notifications@festdaily.app"
+        SYSTEM_ERROR_ALERT_EMAIL="admin@festdaily.app"
         ```
+    *   *Note: `SYSTEM_ERROR_ALERT_EMAIL` is the developer/administrator inbox that receives `reportSystemError` alerts. While the SES account remains in sandbox mode, this address must be verified as a recipient in the AWS SES console.*
     *   *Note: Sending in `adapter.ts` is skipped in favor of a console log when `SES_FROM_EMAIL_ADDRESS` is omitted or when `NODE_ENV === 'test'` — this entire section's setup steps are optional for local development.*
 
 ## 8. AI Gateway (Google Gemini API)

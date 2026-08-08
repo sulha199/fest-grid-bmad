@@ -10,6 +10,7 @@ export interface BackendEnv {
   firebaseClientEmail?: string;
   firebasePrivateKey?: string;
   sesFromEmailAddress?: string;
+  systemErrorAlertEmail?: string;
   byokKmsKeyId?: string;
   geminiModel: string;
   apiKeyInvalidAttemptsThreshold: number;
@@ -57,6 +58,8 @@ export function loadBackendEnv(): BackendEnv {
     firebasePrivateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     sesFromEmailAddress: process.env.SES_FROM_EMAIL_ADDRESS,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    systemErrorAlertEmail: process.env.SYSTEM_ERROR_ALERT_EMAIL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     byokKmsKeyId: process.env.BYOK_KMS_KEY_ID,
     // eslint-disable-next-line turbo/no-undeclared-env-vars

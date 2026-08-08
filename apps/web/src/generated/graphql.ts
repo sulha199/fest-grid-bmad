@@ -154,6 +154,7 @@ export type Mutation = {
   deleteUserLocation: UserLocation;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
+  reportSystemError: Scalars['Boolean']['output'];
   setAccountDefaultLocation: SocialMediaAccountProfile;
   subscribeToAccount: SubscribeToAccountResult;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
@@ -194,6 +195,11 @@ export type MutationRegisterFcmTokenArgs = {
 export type MutationRemoveSubscriptionArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationReportSystemErrorArgs = {
+  input: ReportSystemErrorInput;
 };
 
 
@@ -283,6 +289,12 @@ export type QueryPreviewLocationArgs = {
 export type QuerySocialMediaAccountProfileByAccountIdArgs = {
   accountId: Scalars['String']['input'];
   platform: Scalars['String']['input'];
+};
+
+export type ReportSystemErrorInput = {
+  context?: InputMaybe<Scalars['String']['input']>;
+  message: Scalars['String']['input'];
+  source: Scalars['String']['input'];
 };
 
 export type Schedule = {

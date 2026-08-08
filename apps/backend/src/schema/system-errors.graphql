@@ -1,0 +1,9 @@
+input ReportSystemErrorInput {
+  source: String!
+  message: String!
+  context: String
+}
+
+extend type Mutation {
+  reportSystemError(input: ReportSystemErrorInput!): Boolean!
+}

@@ -31,4 +31,15 @@ Please review or replace your API key via: {{apiKeyManagementUrl}}`,
 
 Please review this item and take appropriate action on the Moderator Items page: {{moderatorReviewUrl}}`,
   },
+  SYSTEM_ERROR_ALERT: {
+    subject: '[FestDaily System Alert] {{source}}',
+    html: `<p><strong>Source:</strong> {{source}}</p>
+<p><strong>Message:</strong> {{message}}</p>
+<p><strong>Context:</strong> {{context}}</p>
+<p><strong>Timestamp:</strong> {{timestamp}}</p>`,
+    text: `Source: {{source}}
+Message: {{message}}
+Context: {{context}}
+Timestamp: {{timestamp}}`,
+  },
 };

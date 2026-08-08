@@ -1,7 +1,8 @@
 export type EmailTemplateKey =
   | 'QUOTA_EXHAUSTION_WARNING'
   | 'INVALID_API_KEY_ALERT'
-  | 'DANGEROUS_EVENT_MODERATOR_ALERT';
+  | 'DANGEROUS_EVENT_MODERATOR_ALERT'
+  | 'SYSTEM_ERROR_ALERT';
 
 export interface EmailTemplateVariables {
   QUOTA_EXHAUSTION_WARNING: {
@@ -18,6 +19,12 @@ export interface EmailTemplateVariables {
   DANGEROUS_EVENT_MODERATOR_ALERT: {
     eventName: string;
     moderatorReviewUrl: string;
+  };
+  SYSTEM_ERROR_ALERT: {
+    source: string;
+    message: string;
+    context: string;
+    timestamp: string;
   };
 }
 
