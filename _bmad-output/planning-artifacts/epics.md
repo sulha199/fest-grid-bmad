@@ -1544,22 +1544,50 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.1a, Story 3.1, Story 0.22.
 
+### Story 3.3d: Build the reusable LocationPickerField component
+
+**As a** developer,
+**I want** the address-autocomplete-search, "use my current location", and "pick on map" location-acquisition flow — today implemented once, inline, inside `location-form-dialog.tsx` (Stories 2.3/2.3b/2.4/2.4a/2.4b) — extracted into reusable, presentational `packages/ui` components,
+**So that** Story 3.3's "Set Default Location" action can offer the same location-acquisition experience as Saved Locations without duplicating ~250 lines of non-trivial async/stateful UI logic a second time.
+
+**Acceptance Criteria:**
+
+*   **Given** `location-form-dialog.tsx`'s existing address-search/current-location/map-pick logic (excluding the Saved-Locations-specific `name`/`radius` fields),
+*   **When** this story extracts it,
+*   **Then** a new `LocationPickerField` component exists in `packages/ui` (e.g. `packages/ui/src/features/locations/`): a controlled, presentational component that owns its own local UI state (typed search text, dropdown open/closed) but accepts suggestions/loading/preview data and all async behavior as props/callbacks (`suggestions`, `isSuggestionsLoading`, `onSearchInputChange`, `onSelectSuggestion`, `onUseCurrentLocation`, `onPickOnMap`, `resolvedPreview`, `error`) — it must not import `react-query` or any generated GraphQL hook directly, per `project-context.md`'s rule restricting Server State (React Query) to `apps/web` only; the consuming page owns all data-fetching and passes results in as props.
+*   **And** a reusable map-picker-sheet equivalent (the bottom sheet combining an in-sheet search box with the map) is likewise extracted into `packages/ui`, following the same controlled-props pattern.
+*   **And** `MapView` (the raw MapLibre primitive, currently at `apps/web/src/components/ui/map.tsx`) is relocated into `packages/ui` — this closes a pre-existing gap in Story 2.4a's own AC ("it is encapsulated in `packages/ui` so the raw mapping library is not leaked into feature pages"), discovered during this story's creation, not new scope invented by this story. It is a forced consequence of extraction: a `packages/ui` component cannot import from `apps/web`.
+*   **And** `location-form-dialog.tsx` and `map-picker-sheet.tsx` (Stories 2.3/2.4) are refactored to consume the new `packages/ui` components instead of their inline implementations, with no behavior change — their existing test suites continue to pass (only import/mock paths may need updating).
+*   **And** the new components are exported from `packages/ui`'s public entry point, ready for Story 3.3 to consume.
+
+**Note:** Classified as a Gate 2 gap (UI Complexity & Reusability) surfaced by `bmad-create-story` while drafting Story 3.3 — the user confirmed via `AskUserQuestion` that the default-location field should reuse the full autocomplete/current-location/map-pick experience (for consistency with Saved Locations) rather than a simpler plain-text/blind-geocode field, which would have avoided this split. Classified as a single-story architecture/UI split (needed by exactly Story 3.3 today), positioned immediately before it, matching the `1.3a`/`2.4a` precedent.
+
+**Depends on:** Story 2.3b, Story 2.4, Story 2.4a, Story 2.4b.
+
 ### Story 3.3: Set a default location for a subscription
 
 **As a** user,
-**I want** to be able to set a default location when I subscribe to a social media account that doesn't have one yet,
+**I want** to be able to set a default location on an account I'm subscribed to, if it doesn't have one yet,
 **So that** the system can use this location if it cannot find an explicit location in a post.
 
 **Acceptance Criteria:**
 
-*   **Given** I am subscribing to a social media account whose `SocialMediaAccountProfile.defaultLocation` is not yet set,
-*   **When** I am filling out the subscription form,
-*   **Then** I have an optional field to set a default location for that account.
-*   **And** if a default location is set, the AI agent will use it when it cannot find an explicit location in a post.
-*   **And** the default location, when set, is persisted on the `SocialMediaAccountProfile` (not the subscription) via the same backend GraphQL mutation used by Story 3.2 — not a direct database write from `apps/web`.
-*   **And** if the account already has a `defaultLocation` set (by any previous subscriber), this field is read-only here, showing the existing value — editing an already-set default location is Story 3.3b, not this story.
+1.  **Given** I am on `/settings/subscriptions` (Story 3.2) and one of my active subscriptions' account has no `SocialMediaAccountProfile.defaultLocation` set yet, **when** the row renders, **then** I see a "Set Default Location" action in place of a location value.
+2.  **And** clicking it opens Story 3.3d's `LocationPickerField`/map-sheet (address-autocomplete search, "use my current location", "pick on map" — matching the Saved Locations experience for consistency), prefilled with nothing.
+3.  **And** confirming a location persists it onto that account's `SocialMediaAccountProfile.defaultLocation` (never onto the `Subscription` row) via a new `setAccountDefaultLocation(accountId: ID!, input: SetAccountDefaultLocationInput!): SocialMediaAccountProfile!` mutation — **built and owned by this story**, backend-GraphQL-only (never a direct DB write from `apps/web`), reusing `packages/domain`'s `resolveLocationInputMode`/Story 0.16's Geolocation adapter exactly as `createUserLocation`/`updateUserLocation` already do (`SetAccountDefaultLocationInput` omits the blind-geocode `address` mode those mutations support, since this story's UI — Story 3.3d — always resolves through a selected `placeId` or explicit coordinates, never a raw typed address string).
+4.  **And** once set, the AI extraction pipeline (Story 3.6, already implemented as an AC there) uses it as a fallback when a post has no explicit location — no change needed in this story.
+5.  **And** if the account's `defaultLocation` is already set (by any previous subscriber, including this story's own prior write), the row shows the existing formatted value read-only instead of the "Set Default Location" action — surfaced via a small extension to Story 3.2's `getMySubscriptions` query, adding `defaultLocation` to its `account { ... }` selection; editing an already-set value is Story 3.3b, not this story.
+6.  **And** calling `setAccountDefaultLocation` for an account whose `defaultLocation` is already set is rejected server-side with a `GraphQLError` (`extensions.code = 'INVALID_STATE_TRANSITION'`) — defense in depth, since the UI already hides the action once set; a real edit must go through Story 3.3b's moderation-gated path, not this mutation reused uncontrolled.
+7.  **And** `setAccountDefaultLocation` requires the caller to be an active subscriber of the target account (`requireAuth`, Story 0.17, plus an `activeOnly(subscriptions)` check, Story 0.22) — an authenticated user cannot set another account's default location without being subscribed to it.
+8.  **And** all user-facing strings (action label, picker labels, success/error toasts) are sourced through next-intl from Story 3.2's existing `SubscriptionsPage` namespace, with new entries added to both `apps/web/locales/en.json` and `apps/web/locales/id.json`.
+9.  **And** the save action is wrapped in `BlockingLoader` (a critical, persisted mutation), per `project-context.md`'s Loaders rule.
+10. **And** a `subscription_default_location_set` (`{ accountId }`) PostHog analytics event fires on successful save.
 
 **Amendment (2026-08-01):** This story originally scoped `defaultLocation` as per-subscription, set once at signup. Architecture review found that AI extraction runs once per post for accounts with multiple subscribers (PRD §3.7 Tier 2 round-robin), so a per-subscriber default would be ambiguous about which value applies to the shared extracted event. `defaultLocation` moved to `SocialMediaAccountProfile` (PRD §4.5) — account-level, shared across all subscribers. This story is narrowed to the "no default exists yet" path (first subscriber sets it, no moderation needed since there's no prior value to protect); editing an existing default location is out of scope here and covered by the new Story 3.3b, which also adds moderator oversight since that path can silently change what every other subscriber sees.
+
+**Amendment 2 (2026-08-08, added via `bmad-create-story` during this story's own creation):** The original AC's "an optional field... filling out the subscription form" was found to be technically unsatisfiable as written — its own last bullet ("if the account already has a `defaultLocation` set... this field is read-only, showing the existing value") requires knowing the account's pre-existing state *before* the field renders, but Story 3.1's wizard step and Story 3.2's subscribe dialog are both blind add-forms (platform + handle, submit) with no pre-submit account lookup; the account may not even exist as a row yet at that point. Cross-checked against `design-artifacts/UX-festgrid-run-1/EXPERIENCE.md`'s "Default Location for a Subscribed Account" user flow, which independently (and specifically) describes this exact feature as a separate "Set/Edit Default Location" action on each row of the already-subscribed accounts list (`/settings/subscriptions`) — a design that *can* satisfy the read-only-if-set condition, since the row already has the account's current data loaded. Presented to the user as a two-option tradeoff via `AskUserQuestion`; user confirmed relocating the field to the subscriptions-list row action (this rewrite) over extending Story 3.1/3.2's blind forms with a new pre-submission lookup step. A second `AskUserQuestion` confirmed reusing the full Saved-Locations-style autocomplete/current-location/map-pick experience (triggering the Story 3.3d Gate 2 split above) over a simpler plain-text/blind-geocode field. The AC's "via the same backend GraphQL mutation used by Story 3.2" line is superseded — Story 3.2 doesn't own a location-setting mutation; this story now builds and owns `setAccountDefaultLocation` itself, living on Story 3.2's page the same way Story 3.2's own `removeSubscription` lives alongside Story 3.1's reused `subscribeToAccount`.
+
+**Depends on:** Story 3.1a, Story 3.2, Story 3.3d, Story 0.22.
 
 ### Story 3.3a: Create posts table and persist scraped posts
 

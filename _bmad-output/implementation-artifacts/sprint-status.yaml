@@ -266,7 +266,13 @@ development_status:
   # exists in the DB (Story 3.1a's actual migration 0013) despite epics.md's AC
   # text for 3.1a never listing it -- a doc-only gap, not a schema gap.
   3-2-subscribe-to-a-social-media-account: ready-for-dev
-  3-3-set-a-default-location-for-a-subscription: backlog
+  # added 2026-08-08 via bmad-create-story Gate 2 finding while drafting Story 3.3:
+  # the user confirmed (AskUserQuestion) reusing the full Saved-Locations-style
+  # address-autocomplete/current-location/map-pick experience for the default-
+  # location field, which is currently embedded, unextracted, inside
+  # location-form-dialog.tsx (Stories 2.3/2.4). See epics.md Story 3.3d note.
+  3-3d-build-the-reusable-locationpickerfield-component: backlog
+  3-3-set-a-default-location-for-a-subscription: ready-for-dev
   3-3a-create-posts-table-and-persist-scraped-posts: backlog
   3-3b-edit-an-accounts-default-location: backlog
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: backlog
