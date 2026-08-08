@@ -33,4 +33,8 @@ content = content.replace(/export type UpdateUserLocationInput = \{\r?\n\s+addre
 // Replace duplicate UpdateUserSettingsInput
 content = content.replace(/export type UpdateUserSettingsInput = \{\r?\n\s+hidePastEventsAfterDays\?\: number[\s\S]*?\};\r?\n/g, '');
 
+// Replace duplicate CreateApiKeyInput and SubscribeToAccountInput
+content = content.replace(/export type CreateApiKeyInput = \{\r?\n\s+key\:\s+string[\s\S]*?\};\r?\n/g, '');
+content = content.replace(/export type SubscribeToAccountInput = \{\r?\n\s+accountId\:\s+string[\s\S]*?\};\r?\n/g, '');
+
 fs.writeFileSync(file, content);

@@ -1,6 +1,6 @@
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and, exists, desc } from 'drizzle-orm';
@@ -12,6 +12,9 @@ import { resolveLocation, getAddressPredictions } from '../lib/geolocation/adapt
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
 import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS } from '@festgrid/domain/events';
+import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
+import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
+import { encryptApiKey } from '../lib/ai-gateway/kms.js';
 
 function formatLocationDetails(details: any): any {
   if (!details) return null;
@@ -24,6 +27,26 @@ function formatLocationDetails(details: any): any {
   };
 }
 
+function formatApiKey(row: any): any {
+  if (!row) return null;
+  return {
+    ...row,
+    maskedKey: '••••' + row.keyLast4,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function formatSubscription(row: any): any {
+  if (!row) return null;
+  return {
+    id: row.id,
+    accountId: row.accountId,
+    isNewlyAdded: row.isNewlyAdded,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
 export const resolvers: Resolvers = {
   JSON: GraphQLJSON,
   Coordinates: {
@@ -31,6 +54,73 @@ export const resolvers: Resolvers = {
     lng: (parent: any) => parent.lng ?? parent.longitude,
   },
   Mutation: {
+    createApiKey: async (_: any, { input }: any, context: any) => {
+      const authUser = requireAuth(context);
+      if (input.provider.toLowerCase() !== 'gemini') {
+        throw new GraphQLError('Unsupported provider', { extensions: { code: 'BAD_REQUEST' } });
+      }
+      const keyEncrypted = await encryptApiKey(input.key);
+      const keyLast4 = input.key.slice(-4);
+      const [inserted] = await db.insert(apiKeys).values({
+        userId: authUser.userId,
+        provider: input.provider.toLowerCase(),
+        keyEncrypted,
+        keyLast4,
+        isValid: true,
+        invalidAttempts: 0,
+      }).returning();
+      return formatApiKey(inserted);
+    },
+    deleteApiKey: async (_: any, { id, action }: any, context: any) => {
+      const authUser = requireAuth(context);
+      const existingRows = await db.select().from(apiKeys)
+        .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, authUser.userId)));
+      
+      if (existingRows.length === 0) {
+        throw new GraphQLError('ApiKey not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const existing = existingRows[0];
+      if (action === 'DELETE') {
+        if (existing.deletedAt !== null) {
+          throw new GraphQLError('ApiKey is already deleted', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(apiKeys)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(eq(apiKeys.id, id))
+          .returning();
+        return formatApiKey(updated);
+      } else if (action === 'RESTORE') {
+        if (existing.deletedAt === null) {
+          throw new GraphQLError('ApiKey is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(apiKeys)
+          .set({ deletedAt: null, updatedAt: new Date() })
+          .where(eq(apiKeys.id, id))
+          .returning();
+        return formatApiKey(updated);
+      }
+      throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
+    },
+    subscribeToAccount: async (_: any, { input }: any, context: any) => {
+      const authUser = requireAuth(context);
+      if (!SUPPORTED_PLATFORMS.includes(input.platform.toLowerCase() as any)) {
+        throw new GraphQLError('Unsupported platform', { extensions: { code: 'BAD_REQUEST' } });
+      }
+      const result = await subscribeToAccountFn({
+        userId: authUser.userId,
+        platform: input.platform.toLowerCase(),
+        accountId: input.accountId,
+        profile: {
+          username: input.username,
+          displayName: input.displayName,
+        },
+      });
+      return {
+        subscription: formatSubscription(result.subscription),
+        alreadySubscribed: result.alreadySubscribed,
+      };
+    },
     createUserLocation: async (_: any, { input }: any, context: any) => {
       try {
         const authUser = requireAuth(context);
@@ -311,6 +401,13 @@ export const resolvers: Resolvers = {
   },
   Query: {
     health: () => true,
+    myApiKeys: async (_: any, __: any, context: any) => {
+      const authUser = requireAuth(context);
+      const rows = await db.select().from(apiKeys)
+        .where(and(eq(apiKeys.userId, authUser.userId), activeOnly(apiKeys)))
+        .orderBy(desc(apiKeys.createdAt));
+      return rows.map(row => formatApiKey(row));
+    },
     socialMediaAccountProfileByAccountId: async (_: any, { platform, accountId }: any, context: any, info: any) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
       const rows = await db.select({
@@ -324,7 +421,7 @@ export const resolvers: Resolvers = {
           )
         );
 
-      const profile = rows[0];
+      const profile = rows[0] as any;
       if (!profile) return null;
 
       if (profile.defaultLocation) {

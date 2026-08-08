@@ -6,6 +6,7 @@ export interface ProfileMenuEntry {
   href?: string;     // Nullable for buttons like 'Log Out'
   icon: LucideIcon;
   requiresModerator?: boolean;
+  requiresApiKey?: boolean;
 }
 
 export const profileMenuEntries: ProfileMenuEntry[] = [
@@ -26,6 +27,7 @@ export const profileMenuEntries: ProfileMenuEntry[] = [
     labelKey: 'subscriptions',
     href: '/settings/subscriptions',
     icon: Radio,
+    requiresApiKey: true,
   },
   {
     id: 'api-keys',

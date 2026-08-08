@@ -1,0 +1,22 @@
+type Subscription {
+  id: ID!
+  accountId: ID!
+  isNewlyAdded: Boolean!
+  createdAt: String!
+}
+
+input SubscribeToAccountInput {
+  platform: String!
+  accountId: String!
+  username: String!
+  displayName: String!
+}
+
+type SubscribeToAccountResult {
+  subscription: Subscription!
+  alreadySubscribed: Boolean!
+}
+
+extend type Mutation {
+  subscribeToAccount(input: SubscribeToAccountInput!): SubscribeToAccountResult!
+}

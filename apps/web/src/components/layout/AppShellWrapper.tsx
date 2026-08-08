@@ -8,6 +8,7 @@ import { useAuthSession } from '@/components/providers/auth-session-provider';
 import { AppShell, NavKey } from '@festgrid/ui';
 import { useMeQuery } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
+import { useHasApiKey } from '@/features/onboarding/use-has-api-key';
 
 // Any slug works here — the goal is only to warm the shared @modal
 // layout/loading JS chunks once per session (identical for every real event
@@ -21,6 +22,7 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
   const t = useTranslations('Nav');
   const tUserMenu = useTranslations('UserMenu');
   const { user, isLoading, signOut } = useAuthSession();
+  const hasApiKey = useHasApiKey();
 
   const isAuthenticated = !!user && !isLoading;
   const avatarUrl = user?.user_metadata?.avatar_url || undefined;
@@ -66,6 +68,7 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
       role={role}
       onSignOut={signOut}
       userMenuLabels={userMenuLabels}
+      resolveHref={(entry) => (entry.requiresApiKey && !hasApiKey ? `/wizard/onboarding/api-key?redirect=${encodeURIComponent(entry.href || '/')}` : entry.href || '/')}
     >
       {children}
     </AppShell>

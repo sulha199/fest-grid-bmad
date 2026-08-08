@@ -1,0 +1,33 @@
+mutation CreateApiKey($input: CreateApiKeyInput!) {
+  createApiKey(input: $input) {
+    id
+    provider
+    maskedKey
+    isValid
+    createdAt
+    updatedAt
+  }
+}
+
+mutation SubscribeToAccount($input: SubscribeToAccountInput!) {
+  subscribeToAccount(input: $input) {
+    subscription {
+      id
+      accountId
+      isNewlyAdded
+      createdAt
+    }
+    alreadySubscribed
+  }
+}
+
+query GetMyApiKeys {
+  myApiKeys {
+    id
+    provider
+    maskedKey
+    isValid
+    createdAt
+    updatedAt
+  }
+}

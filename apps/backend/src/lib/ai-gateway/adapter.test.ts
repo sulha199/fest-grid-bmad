@@ -17,6 +17,7 @@ test('AI Gateway Adapter - callGemini orchestration', async (t) => {
   const key1Data = {
     userId: testUser.id,
     keyEncrypted: Buffer.from('key-1-secret').toString('base64'),
+    keyLast4: 'cret',
     provider: 'gemini',
     isValid: true,
     invalidAttempts: 0,
@@ -26,6 +27,7 @@ test('AI Gateway Adapter - callGemini orchestration', async (t) => {
   const key2Data = {
     userId: testUser.id,
     keyEncrypted: Buffer.from('key-2-secret').toString('base64'),
+    keyLast4: 'cret',
     provider: 'gemini',
     isValid: true,
     invalidAttempts: 0,

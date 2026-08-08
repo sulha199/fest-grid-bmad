@@ -1,0 +1,22 @@
+type ApiKey {
+  id: ID!
+  provider: String!
+  maskedKey: String!
+  isValid: Boolean!
+  createdAt: String!
+  updatedAt: String!
+}
+
+input CreateApiKeyInput {
+  provider: String!
+  key: String!
+}
+
+extend type Query {
+  myApiKeys: [ApiKey!]!
+}
+
+extend type Mutation {
+  createApiKey(input: CreateApiKeyInput!): ApiKey!
+  deleteApiKey(id: ID!, action: SoftDeleteAction!): ApiKey!
+}

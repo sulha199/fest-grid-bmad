@@ -15,7 +15,11 @@
     "myCalendarTitle": "My Calendar | FestDaily",
     "myCalendarDescription": "View and manage your custom calendar schedules on FestDaily.",
     "notificationsTitle": "Notification Settings | FestDaily",
-    "notificationsDescription": "Manage your push notification settings on FestDaily."
+    "notificationsDescription": "Manage your push notification settings on FestDaily.",
+    "wizardOnboardingApiKeyTitle": "Add API Key",
+    "wizardOnboardingApiKeyDescription": "Add your Gemini API key to get started.",
+    "wizardOnboardingSubscribeTitle": "Subscribe",
+    "wizardOnboardingSubscribeDescription": "Subscribe to your first social media account."
   },
   "WizardChrome": {
     "previousStepLabel": "Previous Step",
@@ -215,5 +219,38 @@
     "retryButtonLabel": "Retry",
     "permissionDeniedToast": "Please enable notification permissions in your browser settings to receive notifications on this device.",
     "saveErrorToast": "Failed to update notification settings. Please try again."
+  },
+  "Wizards": {
+    "onboarding": {
+      "steps": {
+        "api-key": {
+          "title": "Add API Key",
+          "description": "Add your Gemini API key to get started."
+        },
+        "subscribe": {
+          "title": "Subscribe",
+          "description": "Subscribe to your first social media account."
+        }
+      }
+    }
+  },
+  "OnboardingWizard": {
+    "loading": "Loading...",
+    "savingLabel": "Saving...",
+    "apiKeyLabel": "Gemini API Key",
+    "apiKeyPlaceholder": "Enter your Gemini API key...",
+    "howToGetKeyLinkLabel": "How to get a Gemini API key?",
+    "apiKeySubmitLabel": "Add API Key",
+    "apiKeyAlreadyHaveOne": "You already have a configured API key. You can safely go to the next step, or enter a new one to overwrite it.",
+    "apiKeySuccessToast": "API key successfully configured!",
+    "apiKeyErrorToast": "Failed to configure API key. Please check your key and try again.",
+    "platformLabel": "Platform",
+    "accountLabel": "Account Handle or URL",
+    "accountPlaceholder": "Enter username or profile link...",
+    "subscribeSubmitLabel": "Subscribe",
+    "subscribeSuccessToast": "Successfully subscribed to the account!",
+    "alreadySubscribedToast": "You are already subscribed to this account.",
+    "subscribeErrorToast": "Failed to subscribe to the account. Please try again.",
+    "invalidHandleError": "Please enter a valid handle or profile link."
   }
 }

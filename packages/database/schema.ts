@@ -100,6 +100,7 @@ export const apiKeys = pgTable('api_keys', {
   // Soft delete enabled: no cascade delete to preserve audit trails
   userId: uuid('user_id').references(() => users.id).notNull(),
   keyEncrypted: text('key_encrypted').notNull(),
+  keyLast4: text('key_last4').notNull(),
   provider: text('provider').notNull(),
   isValid: boolean('is_valid').default(true).notNull(),
   invalidAttempts: integer('invalid_attempts').default(0).notNull(),
@@ -107,7 +108,9 @@ export const apiKeys = pgTable('api_keys', {
   usageCycleResetAt: timestamp('usage_cycle_reset_at', { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete support
   ...timestamps,
-});
+}, (t) => ({
+  activeIdx: index('idx_api_keys_active').on(t.userId).where(sql`deleted_at IS NULL`),
+}));
 
 export const posts = pgTable('posts', {
   id: uuid('id').defaultRandom().primaryKey(),

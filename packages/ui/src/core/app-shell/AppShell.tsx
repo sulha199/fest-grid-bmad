@@ -29,6 +29,7 @@ export interface AppShellProps {
   role?: string;
   onSignOut?: () => void;
   userMenuLabels?: Record<string, string>;
+  resolveHref?: (entry: import('./profile-menu-entries').ProfileMenuEntry) => string;
 }
 
 export function AppShell({
@@ -43,6 +44,7 @@ export function AppShell({
   role,
   onSignOut,
   userMenuLabels,
+  resolveHref,
 }: AppShellProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [activeTrigger, setActiveTrigger] = React.useState<'mobile' | 'desktop' | null>(null);
@@ -133,6 +135,7 @@ export function AppShell({
           onSignOut={onSignOut || (() => {})}
           renderLink={renderLink}
           labels={userMenuLabels || {}}
+          resolveHref={resolveHref}
         />
 
         {/* Sidenav Rail (Tablet md:flex 768-1279px, Desktop xl:flex >= 1280px) */}
@@ -173,6 +176,7 @@ export function AppShell({
               onSignOut={onSignOut || (() => {})}
               renderLink={renderLink}
               labels={userMenuLabels || {}}
+              resolveHref={resolveHref}
             />
           </div>
         </div>

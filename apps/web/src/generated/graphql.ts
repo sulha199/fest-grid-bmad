@@ -35,10 +35,25 @@ export type AddressSuggestion = {
   placeId: Scalars['String']['output'];
 };
 
+export type ApiKey = {
+  __typename?: 'ApiKey';
+  createdAt: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  isValid: Scalars['Boolean']['output'];
+  maskedKey: Scalars['String']['output'];
+  provider: Scalars['String']['output'];
+  updatedAt: Scalars['String']['output'];
+};
+
 export type Coordinates = {
   __typename?: 'Coordinates';
   lat: Scalars['Float']['output'];
   lng: Scalars['Float']['output'];
+};
+
+export type CreateApiKeyInput = {
+  key: Scalars['String']['input'];
+  provider: Scalars['String']['input'];
 };
 
 export type CreateUserLocationInput = {
@@ -133,9 +148,12 @@ export type Me = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  createApiKey: ApiKey;
   createUserLocation: UserLocation;
+  deleteApiKey: ApiKey;
   deleteUserLocation: UserLocation;
   registerFcmToken: Scalars['Boolean']['output'];
+  subscribeToAccount: SubscribeToAccountResult;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
   unregisterFcmToken: Scalars['Boolean']['output'];
@@ -144,8 +162,19 @@ export type Mutation = {
 };
 
 
+export type MutationCreateApiKeyArgs = {
+  input: CreateApiKeyInput;
+};
+
+
 export type MutationCreateUserLocationArgs = {
   input: CreateUserLocationInput;
+};
+
+
+export type MutationDeleteApiKeyArgs = {
+  action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
 };
 
 
@@ -157,6 +186,11 @@ export type MutationDeleteUserLocationArgs = {
 
 export type MutationRegisterFcmTokenArgs = {
   token: Scalars['String']['input'];
+};
+
+
+export type MutationSubscribeToAccountArgs = {
+  input: SubscribeToAccountInput;
 };
 
 
@@ -194,6 +228,7 @@ export type Query = {
   events: EventConnection;
   health: Scalars['Boolean']['output'];
   me: Me;
+  myApiKeys: Array<ApiKey>;
   myLocations: Array<UserLocation>;
   mySettings: UserSettings;
   previewLocation: LocationDetails;
@@ -274,6 +309,27 @@ export enum SoftDeleteAction {
   Restore = 'RESTORE'
 }
 
+export type SubscribeToAccountInput = {
+  accountId: Scalars['String']['input'];
+  displayName: Scalars['String']['input'];
+  platform: Scalars['String']['input'];
+  username: Scalars['String']['input'];
+};
+
+export type SubscribeToAccountResult = {
+  __typename?: 'SubscribeToAccountResult';
+  alreadySubscribed: Scalars['Boolean']['output'];
+  subscription: Subscription;
+};
+
+export type Subscription = {
+  __typename?: 'Subscription';
+  accountId: Scalars['ID']['output'];
+  createdAt: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  isNewlyAdded: Scalars['Boolean']['output'];
+};
+
 export type ToggleCalendarAdditionResult = {
   __typename?: 'ToggleCalendarAdditionResult';
   eventId: Scalars['ID']['output'];
@@ -319,6 +375,8 @@ export type UserSettings = {
   pushNotificationsEnabled: Scalars['Boolean']['output'];
   updatedAt: Scalars['String']['output'];
 };
+
+
 
 
 
@@ -439,6 +497,25 @@ export type PreviewLocationQueryVariables = Exact<{
 
 
 export type PreviewLocationQuery = { previewLocation: { formattedAddress: string | null, placeName: string | null, provider: GeolocationProvider | null, coordinates: { lat: number, lng: number } } };
+
+export type CreateApiKeyMutationVariables = Exact<{
+  input: CreateApiKeyInput;
+}>;
+
+
+export type CreateApiKeyMutation = { createApiKey: { id: string, provider: string, maskedKey: string, isValid: boolean, createdAt: string, updatedAt: string } };
+
+export type SubscribeToAccountMutationVariables = Exact<{
+  input: SubscribeToAccountInput;
+}>;
+
+
+export type SubscribeToAccountMutation = { subscribeToAccount: { alreadySubscribed: boolean, subscription: { id: string, accountId: string, isNewlyAdded: boolean, createdAt: string } } };
+
+export type GetMyApiKeysQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetMyApiKeysQuery = { myApiKeys: Array<{ id: string, provider: string, maskedKey: string, isValid: boolean, createdAt: string, updatedAt: string }> };
 
 export type UpdateUserSettingsMutationVariables = Exact<{
   input: UpdateUserSettingsInput;
@@ -1018,6 +1095,98 @@ export const usePreviewLocationQuery = <
       {
     queryKey: variables === undefined ? ['previewLocation'] : ['previewLocation', variables],
     queryFn: fetcher<PreviewLocationQuery, PreviewLocationQueryVariables>(client, PreviewLocationDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const CreateApiKeyDocument = new TypedDocumentString(`
+    mutation CreateApiKey($input: CreateApiKeyInput!) {
+  createApiKey(input: $input) {
+    id
+    provider
+    maskedKey
+    isValid
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useCreateApiKeyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateApiKeyMutation, TError, CreateApiKeyMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateApiKeyMutation, TError, CreateApiKeyMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateApiKey'],
+    mutationFn: (variables?: CreateApiKeyMutationVariables) => fetcher<CreateApiKeyMutation, CreateApiKeyMutationVariables>(client, CreateApiKeyDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const SubscribeToAccountDocument = new TypedDocumentString(`
+    mutation SubscribeToAccount($input: SubscribeToAccountInput!) {
+  subscribeToAccount(input: $input) {
+    subscription {
+      id
+      accountId
+      isNewlyAdded
+      createdAt
+    }
+    alreadySubscribed
+  }
+}
+    `);
+
+export const useSubscribeToAccountMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SubscribeToAccountMutation, TError, SubscribeToAccountMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SubscribeToAccountMutation, TError, SubscribeToAccountMutationVariables, TContext>(
+      {
+    mutationKey: ['SubscribeToAccount'],
+    mutationFn: (variables?: SubscribeToAccountMutationVariables) => fetcher<SubscribeToAccountMutation, SubscribeToAccountMutationVariables>(client, SubscribeToAccountDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const GetMyApiKeysDocument = new TypedDocumentString(`
+    query GetMyApiKeys {
+  myApiKeys {
+    id
+    provider
+    maskedKey
+    isValid
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useGetMyApiKeysQuery = <
+      TData = GetMyApiKeysQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: GetMyApiKeysQueryVariables,
+      options?: Omit<UseQueryOptions<GetMyApiKeysQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetMyApiKeysQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetMyApiKeysQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['GetMyApiKeys'] : ['GetMyApiKeys', variables],
+    queryFn: fetcher<GetMyApiKeysQuery, GetMyApiKeysQueryVariables>(client, GetMyApiKeysDocument, variables, headers),
     ...options
   }
     )};

@@ -41,6 +41,10 @@
     "./ai-gateway": {
       "types": "./dist/ai-gateway/index.d.ts",
       "default": "./dist/ai-gateway/index.js"
+    },
+    "./subscriptions": {
+      "types": "./dist/subscriptions/index.d.ts",
+      "default": "./dist/subscriptions/index.js"
     }
   },
   "scripts": {

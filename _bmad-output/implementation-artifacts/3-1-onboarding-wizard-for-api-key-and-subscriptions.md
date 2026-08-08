@@ -5,7 +5,7 @@
 - Epic: 3
 - Story ID: 3.1
 - Story Key: 3-1-onboarding-wizard-for-api-key-and-subscriptions
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -244,7 +244,7 @@ so that I can get started with the application easily.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed
 
 ## Dev Agent Record
 

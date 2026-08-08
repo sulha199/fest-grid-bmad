@@ -15,7 +15,11 @@
     "myCalendarTitle": "Kalender Saya | FestDaily",
     "myCalendarDescription": "Lihat dan kelola jadwal kalender kustom Anda di FestDaily.",
     "notificationsTitle": "Pengaturan Notifikasi | FestDaily",
-    "notificationsDescription": "Kelola pengaturan notifikasi push Anda di FestDaily."
+    "notificationsDescription": "Atur pengaturan notifikasi push Anda di FestDaily.",
+    "wizardOnboardingApiKeyTitle": "Tambah Kunci API",
+    "wizardOnboardingApiKeyDescription": "Tambahkan kunci API Gemini Anda untuk memulai.",
+    "wizardOnboardingSubscribeTitle": "Berlangganan",
+    "wizardOnboardingSubscribeDescription": "Berlangganan akun media sosial pertama Anda."
   },
   "WizardChrome": {
     "previousStepLabel": "Langkah Sebelumnya",
@@ -215,5 +219,38 @@
     "retryButtonLabel": "Coba Lagi",
     "permissionDeniedToast": "Silakan aktifkan izin notifikasi di pengaturan browser Anda untuk menerima notifikasi di perangkat ini.",
     "saveErrorToast": "Gagal memperbarui pengaturan notifikasi. Silakan coba lagi."
+  },
+  "Wizards": {
+    "onboarding": {
+      "steps": {
+        "api-key": {
+          "title": "Tambah Kunci API",
+          "description": "Tambahkan kunci API Gemini Anda untuk memulai."
+        },
+        "subscribe": {
+          "title": "Berlangganan",
+          "description": "Berlangganan akun media sosial pertama Anda."
+        }
+      }
+    }
+  },
+  "OnboardingWizard": {
+    "loading": "Memuat...",
+    "savingLabel": "Menyimpan...",
+    "apiKeyLabel": "Kunci API Gemini",
+    "apiKeyPlaceholder": "Masukkan kunci API Gemini Anda...",
+    "howToGetKeyLinkLabel": "Bagaimana cara mendapatkan kunci API Gemini?",
+    "apiKeySubmitLabel": "Tambah Kunci API",
+    "apiKeyAlreadyHaveOne": "Anda sudah memiliki kunci API yang dikonfigurasi. Anda dapat melanjutkan ke langkah berikutnya dengan aman, atau memasukkan kunci baru untuk menimpa yang lama.",
+    "apiKeySuccessToast": "Kunci API berhasil dikonfigurasi!",
+    "apiKeyErrorToast": "Gagal mengonfigurasi kunci API. Silakan periksa kunci Anda dan coba lagi.",
+    "platformLabel": "Platform",
+    "accountLabel": "Handle atau URL Akun",
+    "accountPlaceholder": "Masukkan username atau tautan profil...",
+    "subscribeSubmitLabel": "Berlangganan",
+    "subscribeSuccessToast": "Berhasil berlangganan akun!",
+    "alreadySubscribedToast": "Anda sudah berlangganan akun ini.",
+    "subscribeErrorToast": "Gagal berlangganan akun. Silakan coba lagi.",
+    "invalidHandleError": "Silakan masukkan handle atau tautan profil yang valid."
   }
 }

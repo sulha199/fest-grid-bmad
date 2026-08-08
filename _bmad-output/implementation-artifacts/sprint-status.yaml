@@ -245,7 +245,7 @@ development_status:
   # for i18n/generateMetadata compatibility. Depends on: 3.1a, 3.1b, 0.24 (none done
   # yet -- sequencing confirmation required before implementation, see story's
   # Pre-Coding Approval Gate).
-  3-1-onboarding-wizard-for-api-key-and-subscriptions: ready-for-dev
+  3-1-onboarding-wizard-for-api-key-and-subscriptions: review
   # regenerated 2026-08-07 via bmad-create-story: scope expanded from view+revoke-only
   # to also own key creation (createApiKey), folded in at user's request after the UX
   # scenario doc (04.1-manage-api-keys.md) showed an add-flow on this same page. Story
