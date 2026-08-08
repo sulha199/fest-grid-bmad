@@ -11,10 +11,31 @@ import { LocationsContent } from './locations-content';
 import { graphqlClient } from '@/lib/graphql-client';
 import { Toaster } from 'sonner';
 
-// Mock MapView to avoid WebGL/Canvas/CSS issues in JSDOM
-vi.mock('@/components/ui/map', () => {
+// Mock LocationPickerMapPanel to avoid WebGL/Canvas/CSS issues in JSDOM
+vi.mock('@festgrid/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@festgrid/ui')>();
   return {
-    MapView: () => <div data-testid="mock-map" />,
+    ...actual,
+    LocationPickerMapPanel: (props: any) => {
+      return (
+        <div
+          data-testid="mock-map"
+          data-center={JSON.stringify(props.center)}
+          data-zoom={props.zoom}
+          data-marker={JSON.stringify(props.marker)}
+        >
+          <button
+            type="button"
+            data-testid="mock-map-click"
+            onClick={() => props.onMarkerChange({ latitude: -6.2000, longitude: 106.8000 })}
+          >
+            Click Map
+          </button>
+          <button type="button" onClick={props.onCancel}>Cancel</button>
+          <button type="button" disabled={props.isConfirmDisabled} onClick={props.onConfirm}>Confirm location</button>
+        </div>
+      );
+    },
   };
 });
 

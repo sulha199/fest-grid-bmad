@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { MapView } from "@/components/ui/map"
-import { Search } from "lucide-react"
-import { useDebounce } from "@festgrid/ui"
+import { LocationPickerMapPanel, useDebounce } from "@festgrid/ui"
 import { useAddressAutocompleteQuery, usePreviewLocationQuery } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import type { Coordinates } from "@festgrid/shared-types"
@@ -106,85 +104,36 @@ export function MapPickerSheet({
           <SheetTitle>{t("mapSheetTitle")}</SheetTitle>
         </SheetHeader>
 
-        {/* Map area */}
-        <div className="flex-grow relative bg-muted" data-testid="map-picker-container">
-          {/* Search Overlay */}
-          <div className="absolute top-4 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] space-y-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={mapSearch}
-                onChange={(e) => setMapSearch(e.target.value)}
-                placeholder={t("mapSearchPlaceholder")}
-                className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 shadow-md"
-              />
-            </div>
-
-            {isMapDropdownOpen && (
-              <div className="absolute z-50 w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-lg max-h-60 overflow-y-auto py-1">
-                {isAutocompleteLoading && (
-                  <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
-                    <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-                    {t("mapSearchSearching")}
-                  </div>
-                )}
-                {!isAutocompleteLoading && suggestions.length === 0 && (
-                  <div className="px-4 py-2 text-sm text-muted-foreground">{t("mapSearchNoResults")}</div>
-                )}
-                {suggestions.map((suggestion) => (
-                  <button
-                    key={suggestion.placeId}
-                    type="button"
-                    onClick={() => {
-                      setSearchPlaceId(suggestion.placeId)
-                      setIsMapDropdownOpen(false)
-                      setMapSearch("")
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
-                  >
-                    {suggestion.description}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {isOpen && (
-            <MapView
-              apiKey={apiKey}
-              center={center}
-              zoom={zoom}
-              marker={marker}
-              onCoordinatesChange={onMarkerChange}
-              onViewStateChange={onViewStateChange}
-              showZoomControl={true}
-              labels={{
-                loadingLabel: t("resolvingAddressLabel"),
-                errorLabel: t("mapErrorLabel"),
-              }}
-            />
-          )}
-        </div>
-
-        {/* Footer actions */}
-        <div className="p-4 border-t flex gap-3 justify-end items-center bg-background flex-shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
-          >
-            {t("mapCancelLabel")}
-          </button>
-          <button
-            type="button"
-            disabled={!marker}
-            onClick={handleConfirm}
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-          >
-            {t("mapConfirmLabel")}
-          </button>
-        </div>
+        {isOpen && (
+          <LocationPickerMapPanel
+            apiKey={apiKey}
+            center={center}
+            zoom={zoom}
+            marker={marker}
+            onMarkerChange={onMarkerChange}
+            onViewStateChange={onViewStateChange}
+            searchValue={mapSearch}
+            onSearchInputChange={setMapSearch}
+            suggestions={suggestions}
+            isSuggestionsLoading={isAutocompleteLoading}
+            onSelectSuggestion={(placeId) => {
+              setSearchPlaceId(placeId);
+              setMapSearch("");
+            }}
+            onConfirm={handleConfirm}
+            onCancel={onClose}
+            isConfirmDisabled={!marker}
+            labels={{
+              mapSearchPlaceholder: t("mapSearchPlaceholder"),
+              mapSearchSearching: t("mapSearchSearching"),
+              mapSearchNoResults: t("mapSearchNoResults"),
+              resolvingAddressLabel: t("resolvingAddressLabel"),
+              mapErrorLabel: t("mapErrorLabel"),
+              mapCancelLabel: t("mapCancelLabel"),
+              mapConfirmLabel: t("mapConfirmLabel"),
+            }}
+          />
+        )}
       </SheetContent>
     </Sheet>
   )

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { BlockingLoader, useDebounce, useCurrentLocationCapture, type GeolocationCaptureError } from "@festgrid/ui"
+import { BlockingLoader, useDebounce, useCurrentLocationCapture, type GeolocationCaptureError, LocationPickerField } from "@festgrid/ui"
 import { graphqlClient } from "@/lib/graphql-client"
 import {
   useCreateUserLocationMutation,
@@ -375,79 +375,40 @@ export function LocationFormDialog({ isOpen, onClose, location }: LocationFormDi
             </div>
 
             {/* Address Field */}
-            <div className="space-y-2 relative">
-              <label htmlFor="location-address" className="text-sm font-medium leading-none">
-                {t("addressLabel")}
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <input
-                  id="location-address"
-                  type="text"
-                  value={addressSearch}
-                  onChange={(e) => handleAddressChange(e.target.value)}
-                  placeholder={t("addressPlaceholder")}
-                  className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  required
-                />
-              </div>
-
-              {/* Geo/Map Trigger Buttons */}
-              <div className="flex gap-2 pt-1">
-                <button
-                  type="button"
-                  id="use-current-location"
-                  disabled={isCurrentLocationDisabled}
-                  onClick={handleUseCurrentLocation}
-                  className="inline-flex items-center gap-1.5 rounded border border-input bg-background px-2.5 py-1.5 text-xs font-semibold hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isGeoCapturing ? (
-                    <span className="animate-spin inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full" />
-                  ) : null}
-                  {t("useCurrentLocationLabel")}
-                </button>
-                <button
-                  type="button"
-                  id="pick-on-map"
-                  disabled={isPickOnMapDisabled}
-                  onClick={() => setIsMapOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded border border-input bg-background px-2.5 py-1.5 text-xs font-semibold hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {t("pickOnMapLabel")}
-                </button>
-              </div>
-
-              {geoErrorMsg && (
-                <p className="text-xs text-destructive pt-1" data-testid="geolocation-error">
-                  {geoErrorMsg}
-                </p>
-              )}
-
-              {/* Suggestions Dropdown */}
-              {isDropdownOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md max-h-60 overflow-y-auto py-1">
-                  {isAutocompleteLoading && (
-                    <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
-                      <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-                      {t("addressSearching")}
-                    </div>
-                  )}
-                  {!isAutocompleteLoading && suggestions.length === 0 && (
-                    <div className="px-4 py-2 text-sm text-muted-foreground">{t("addressNoResults")}</div>
-                  )}
-                  {suggestions.map((suggestion) => (
-                    <button
-                      key={suggestion.placeId}
-                      type="button"
-                      onClick={() => handleSelectSuggestion(suggestion.placeId, suggestion.description)}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
-                    >
-                      {suggestion.description}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <LocationPickerField
+              value={addressSearch}
+              suggestions={suggestions}
+              isSuggestionsLoading={isAutocompleteLoading}
+              onSearchInputChange={handleAddressChange}
+              onSelectSuggestion={handleSelectSuggestion}
+              onUseCurrentLocation={handleUseCurrentLocation}
+              onPickOnMap={() => setIsMapOpen(true)}
+              resolvedPreview={
+                pendingCoords &&
+                !(
+                  location &&
+                  pendingCoords.latitude === location.locationDetails.coordinates.lat &&
+                  pendingCoords.longitude === location.locationDetails.coordinates.lng
+                )
+                  ? {
+                      status: isPreviewLoading ? "loading" : isPreviewError ? "error" : "resolved",
+                      text: addressSearch,
+                    }
+                  : null
+              }
+              error={geoErrorMsg}
+              isCurrentLocationDisabled={isCurrentLocationDisabled}
+              isPickOnMapDisabled={isPickOnMapDisabled}
+              isGeoCapturing={isGeoCapturing}
+              labels={{
+                addressLabel: t("addressLabel"),
+                addressPlaceholder: t("addressPlaceholder"),
+                addressSearching: t("addressSearching"),
+                addressNoResults: t("addressNoResults"),
+                useCurrentLocationLabel: t("useCurrentLocationLabel"),
+                pickOnMapLabel: t("pickOnMapLabel"),
+              }}
+            />
 
             {/* Radius Field */}
             <div className="space-y-3">

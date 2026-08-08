@@ -17,24 +17,43 @@ vi.mock('@/lib/graphql-client', async () => {
   };
 });
 
-// Mock MapView to avoid WebGL/Canvas issues in JSDOM
-vi.mock('@/components/ui/map', () => {
+// Mock LocationPickerMapPanel to avoid WebGL/Canvas issues in JSDOM
+vi.mock('@festgrid/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@festgrid/ui')>();
   return {
-    MapView: ({ onCoordinatesChange, center, zoom, marker }: any) => {
+    ...actual,
+    LocationPickerMapPanel: (props: any) => {
       return (
         <div
           data-testid="mock-map"
-          data-center={JSON.stringify(center)}
-          data-zoom={zoom}
-          data-marker={JSON.stringify(marker)}
+          data-center={JSON.stringify(props.center)}
+          data-zoom={props.zoom}
+          data-marker={JSON.stringify(props.marker)}
         >
+          <input
+            type="text"
+            placeholder={props.labels?.mapSearchPlaceholder ?? "Search address inside map..."}
+            value={props.searchValue}
+            onChange={(e) => props.onSearchInputChange(e.target.value)}
+          />
+          {props.suggestions.map((s: any) => (
+            <button
+              key={s.placeId}
+              type="button"
+              onClick={() => props.onSelectSuggestion(s.placeId, s.description)}
+            >
+              {s.description}
+            </button>
+          ))}
           <button
             type="button"
             data-testid="mock-map-click"
-            onClick={() => onCoordinatesChange({ latitude: -6.2000, longitude: 106.8000 })}
+            onClick={() => props.onMarkerChange({ latitude: -6.2000, longitude: 106.8000 })}
           >
             Click Map
           </button>
+          <button type="button" onClick={props.onCancel}>Cancel</button>
+          <button type="button" disabled={props.isConfirmDisabled} onClick={props.onConfirm}>Confirm location</button>
         </div>
       );
     },
