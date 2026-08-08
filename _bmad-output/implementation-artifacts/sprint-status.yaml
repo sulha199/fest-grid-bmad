@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-08-08T15:30:00Z
+# last_updated: 2026-08-08T16:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -309,7 +309,7 @@ development_status:
   # a "Twitter\X" escape-sequence bug, corrected after a direct Read confirmed no bug,
   # only duplication. No new prerequisite stories split off.
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: ready-for-dev
-  3-4-scrape-new-posts-from-subscribed-accounts: backlog
+  3-4-scrape-new-posts-from-subscribed-accounts: ready-for-dev
   3-5-add-new-posts-to-a-processing-queue: backlog
   3-6-process-posts-from-the-queue-and-extract-event-information: backlog
   3-6b-ingest-processed-events-into-the-database: backlog
