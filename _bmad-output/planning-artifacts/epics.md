@@ -1459,7 +1459,7 @@ Users can subscribe to social media accounts to import events into their feed.
 
 *   **Given** Story 1.1's tables exist, **when** the migration script runs, **then** a `social_media_account_profiles` table is created with `id` (uuid pk), `account_id` (text, not null — the platform-native identifier, PRD §4.5's `accountId`, e.g. a Twitter User ID or Instagram account ID, unique per `platform`), `platform`, `username`, `displayName`, `profileImageUrl`, `description`, `lastPostDate`, and `defaultLocation` (jsonb, nullable, PRD §4.5) — the fields currently duplicated on `subscriptions` — plus standard timestamps.
 *   **And** the `subscriptions` table is migrated to drop `accountId` (text), `platform`, `displayName`, `username`, `profileImageUrl`, `description`, `lastPostDate`, replacing them with a single `accountId` (uuid, FK to `social_media_account_profiles.id`, not null); `subscriptions` becomes the pure per-user join row described by the amended PRD §4.9. No production user data exists yet (Story 1.2's fixtures are dev/test-only per Story 1.2a's precedent), so this is a destructive schema change, not a backfill migration.
-*   **And** `subscriptions.deletedAt` (timestamp, nullable) is added per AD-8 (Soft-Delete Convention) — the first consumer is Story 5.1a's `removeSubscription` mutation.
+*   **And** `subscriptions.deletedAt` (timestamp, nullable) is added per AD-8 (Soft-Delete Convention) — the first consumer is Story 3.2's `removeSubscription` mutation.
 *   **And** subscribing to an account that has no existing `social_media_account_profiles` row (matched by `platform` + `account_id`) creates one; subscribing to an already-profiled account only creates a new `subscriptions` join row — this lookup-or-create logic is exposed for Story 3.1/3.2's mutation to call, not reimplemented per-story.
 *   **And** `packages/shared-types`'s `Subscription` and new `SocialMediaAccountProfile` interfaces are added/updated to match (PRD §4.5, §4.9).
 *   **And** the `posts` table (Story 1.2a, Epic 1 — already exists by the time this story runs) is migrated: add `account_id` (uuid, FK to `social_media_account_profiles.id`), backfill it from each post's `subscription_id` via `subscriptions.accountId`, then drop `subscription_id` and make `account_id` not null, with an index on `account_id` replacing the old `subscription_id` index. Story 1.2a itself is intentionally left creating `posts.subscription_id` — Epic 1 must stay buildable without this story existing yet, the same reasoning that pulled `posts`'s creation into Epic 1 ahead of Epic 3 in the first place; this story evolves the column once it runs, rather than 1.2a depending forward on it.
@@ -1522,24 +1522,25 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 1.1, Story 0.13, Story 0.14, Story 0.17, Story 0.22.
 
-### Story 3.2: Subscribe to a social media account
+### Story 3.2: Subscribe to, view, and remove social media account subscriptions
 
 **As a** user,
-**I want** to be able to subscribe to a social media account from the "My Subscriptions" page,
-**So that** I can add new accounts to monitor for events.
+**I want** to view my list of subscribed accounts on the "My Subscriptions" page, subscribe to a new account, and remove ones I no longer want to monitor,
+**So that** I can fully manage which accounts I'm monitoring for events, not just add to them.
 
 **Acceptance Criteria:**
 
-*   **Given** I am on the "My Subscriptions" page,
-*   **And** I have at least one API key,
-*   **When** I enter a social media account URL and click "Subscribe",
-*   **Then** the subscription is saved to my account.
-*   **And** I see the new subscription in my list of subscriptions.
-*   **And** the subscription is saved via a backend GraphQL mutation (Story 0.8 scaffold, Story 0.17 authenticated context) — not a direct database write from `apps/web`.
-*   **And** the subscription is created with `isNewlyAdded: true` (PRD §3.10) — consumed by Story 5.1a's `mySubscriptions` query/`markSubscriptionViewed` mutation to auto-activate and then clear the corresponding tab in Epic 5's Manual Post Selection screen.
+*   **Given** I am on the "My Subscriptions" page (`/settings/subscriptions`),
+*   **When** the page loads,
+*   **Then** I see a list of my active (non-removed) subscribed accounts, fetched via a `mySubscriptions` query (Story 0.8 scaffold, Story 0.17 authenticated context, `activeOnly(table)` per Story 0.22) — **built and owned by this story** (moved here from Story 5.1a's original scope; see this story's Ownership Note below).
+*   **And**, given I have at least one API key, when I enter a social media account URL and click "Subscribe", then the subscription is saved to my account by calling the **same** `subscribeToAccount(input: SubscribeToAccountInput!): SubscribeToAccountResult!` mutation Story 3.1's onboarding wizard already builds and owns (wrapping Story 3.1a's `subscribeToAccount()` lib function) — this story does not add a duplicate mutation.
+*   **And** I see the new subscription in my list of subscriptions without a full page reload (optimistic append or refetch).
+*   **And** the subscription is created with `isNewlyAdded: true` (PRD §3.10) — consumed by Story 5.1a's extended `mySubscriptions` query/`markSubscriptionViewed` mutation to auto-activate and then clear the corresponding tab in Epic 5's Manual Post Selection screen. `subscriptions.is_newly_added` (`boolean`, default `true`) already exists in the DB (Story 3.1a's actual migration `0013_bizarre_midnight.sql`), even though Story 3.1a's own epics.md AC text never enumerated it — a documentation gap only, not a code gap; no migration is needed from this story.
 *   **And** checking whether the user is already subscribed to this account filters via `activeOnly(table)` (Story 0.22), not a hand-written `isNull(...)` clause.
+*   **And** I can remove a subscription I no longer want, which calls a `removeSubscription(id: ID!, action: SoftDeleteAction!): Subscription!` mutation — **built and owned by this story** — that soft-deletes the subscription (sets `deletedAt`, AD-8, never a hard delete, preserving history for quota/fairness accounting per PRD §4.9), matching the `deleteApiKey`/`deleteUserLocation` argument shape (AD-8 rule 4) so the existing Soft-Delete-with-Undo primitive (`useSoftDeleteWithUndo`/`SwipeToReveal`, Story 0.18) can drive it the same way `locations-content.tsx` does.
+*   **And** attempting to remove an already-removed subscription (an invalid state transition) throws a `GraphQLError` with `extensions.code = 'INVALID_STATE_TRANSITION'` rather than silently no-op'ing, matching Story 3.1b's `deleteApiKey` precedent.
 
-**Forward note (2026-08-07, added via `bmad-create-story` while drafting Story 3.1):** UX-DR9 names `/settings/subscriptions` as a page/route (list/add/remove), and Story 2.8's user-menu registry already expects a "Subscribed Accounts" entry pointing at it, registered by this story — but no story's AC actually builds the list/remove view, only the add action above. This mirrors the exact gap that expanded Story 3.1b's scope from view+revoke-only to also own creation. When this story is drafted, consider expanding its scope to own the full `/settings/subscriptions` page (list via Story 5.1a's `mySubscriptions`, remove via `removeSubscription`), not just the add form. Also note: Story 3.1's onboarding wizard already owns and builds the canonical `subscribeToAccount(input: SubscribeToAccountInput!): SubscribeToAccountResult!` mutation (wrapping Story 3.1a's `subscribeToAccount()` lib function) — this story's own "Subscribe" action should call that same mutation, not add a duplicate one (per user decision, `AskUserQuestion`, mirroring how Story 3.1 itself reuses Story 3.1b's `createApiKey`).
+**Ownership Note (2026-08-07, resolved via `bmad-create-story`, `AskUserQuestion`):** The original Forward note left by Story 3.1's creation flagged that no story built `/settings/subscriptions`'s list/remove view, and that Story 5.1a (Epic 5) was slated to own `mySubscriptions`/`removeSubscription` — which would make Epic 3's own subscriptions page depend on Epic 5 existing first, a backward dependency. Confirmed with the user: this story now owns the base `mySubscriptions` query and `removeSubscription` mutation (the `Subscription`/`SocialMediaAccountProfile` tables both originate in this epic, Story 3.1a), matching the established `/settings/*` list+add+remove-in-one-story pattern (`locations-content.tsx`, Story 3.1b). Story 5.1a is narrowed to **extend** this story's `mySubscriptions` query with the `isInactive` field (which needs Story 3.3a's `posts` table, not available yet when this story ships) rather than rebuilding the query from scratch, and reuses this story's `removeSubscription` mutation as-is for Story 5.4's inactive-account removal flow. See Story 5.1a's own Amendment note for the corresponding change on that side.
 
 **Depends on:** Story 3.1a, Story 3.1, Story 0.22.
 
@@ -1985,28 +1986,28 @@ Users are guided through the initial setup and can manually select posts for eve
 ### Story 5.1a: Build the manual post selection & extraction GraphQL API layer
 
 **As a** developer,
-**I want** GraphQL queries and mutations exposing a user's subscriptions (with new/inactive status), their subscribed accounts' posts, their remaining extraction quota, and the ability to submit selected posts for processing or remove a subscription,
+**I want** GraphQL queries and mutations exposing a user's subscriptions (with inactive status), their subscribed accounts' posts, their remaining extraction quota, and the ability to submit selected posts for processing,
 **So that** Stories 5.1-5.5 read and write manual-post-selection data through the backend API instead of the frontend querying the database or the AI Gateway adapter directly.
 
 **Acceptance Criteria:**
 
-*   **Given** Story 0.8's GraphQL scaffold, Story 0.17's auth context, Story 0.13's AI Gateway adapter, Story 3.1a's `social_media_account_profiles`/`subscriptions` tables, and Story 3.3a's `posts` table exist,
+*   **Given** Story 0.8's GraphQL scaffold, Story 0.17's auth context, Story 0.13's AI Gateway adapter, Story 3.1a's `social_media_account_profiles`/`subscriptions` tables, Story 3.2's `mySubscriptions` query/`removeSubscription` mutation, and Story 3.3a's `posts` table exist,
 *   **When** a client requests `mySubscriptions`,
-*   **Then** it returns the authenticated caller's active (`deletedAt IS NULL`, AD-8) subscriptions (scoped via `requireAuth`, Story 0.17), each including the `isNewlyAdded` flag (Story 3.2) and a computed `isInactive` flag (true when no posts have been published within a configurable period, default 30 days, derived from the `posts` table's `published_at` column, Story 3.3a).
+*   **Then** it returns Story 3.2's already-built active (`deletedAt IS NULL`, AD-8) subscriptions list (each including the `isNewlyAdded` flag, Story 3.2), **extended by this story** with a computed `isInactive` flag (true when no posts have been published within a configurable period, default 30 days, derived from the `posts` table's `published_at` column, Story 3.3a) — this story adds the field to Story 3.2's existing query/resolver, it does not redeclare `mySubscriptions` from scratch.
 *   **And** a `postsByAccount(accountId, cursor, limit)` query returns that account's posts ordered by `publishedAt` descending (20 most recent, lazily paginated per FR52/FR53) with each post's `isExtracted` status (Story 3.3a), scoped so a caller can only query accounts they hold an active subscription to (Story 3.1a).
 *   **And** a `myExtractionQuota` query returns the authenticated user's remaining extraction quota for the current billing cycle, read from the AI Gateway adapter's per-key usage tracking (Story 0.13) — this story does not reimplement usage tracking.
 *   **And** a `selectPostsForExtraction(postIds: [ID!])` mutation validates server-side that the selection does not exceed `myExtractionQuota` (never trusting client-side enforcement alone, FR58), then enqueues the selected posts onto the `AIProcessingQueue` via Story 3.5's queue-producer logic — this mutation is the entry point Story 3.5 expects for manually-selected posts (PRD §3.10).
 *   **And** a `markSubscriptionViewed(subscriptionId)` mutation clears that subscription's `isNewlyAdded` flag once its tab has been opened in the Manual Post Selection screen.
-*   **And** a `removeSubscription(subscriptionId)` mutation soft-deletes the caller's subscription (sets `deletedAt`, AD-8 — never a hard delete, preserving history for quota/fairness accounting per PRD §4.9), scoped via `requireAuth` — no story anywhere previously exposed subscription removal, which Story 5.4's inactive-account warning requires.
+*   **And** Story 5.4's "remove this inactive subscription" action calls Story 3.2's already-built `removeSubscription(id, action: SoftDeleteAction!)` mutation directly — this story does not add a second/duplicate removal mutation.
 *   **And** no package outside `apps/backend` writes to `subscriptions`, `social_media_account_profiles`, or `posts`, or reads AI Gateway usage-tracking state, directly.
 
-**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced by the Epic 5 readiness sweep (`bmad-epic-readiness-check`) — none of Stories 5.1-5.5 had any backend API layer; each read as a pure frontend screen manipulating subscriptions/posts/quota data directly, and no mutation anywhere exposed subscription removal or a manual extraction-trigger endpoint. Classified as a shared data-ownership gap (consumed by Stories 5.1, 5.2, 5.3, 5.4, and 5.5), positioned immediately before Story 5.1, the first consumer — mirroring the Story 2.1a/2.3a precedent.
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced by the Epic 5 readiness sweep (`bmad-epic-readiness-check`) — none of Stories 5.1-5.5 had any backend API layer; each read as a pure frontend screen manipulating subscriptions/posts/quota data directly, and no mutation anywhere exposed a manual extraction-trigger endpoint. Classified as a shared data-ownership gap (consumed by Stories 5.1, 5.2, 5.3, 5.4, and 5.5), positioned immediately before Story 5.1, the first consumer — mirroring the Story 2.1a/2.3a precedent.
 
-**Amendment (2026-08-01, Epic 3 readiness re-sweep):** `postsBySubscription(subscriptionId, ...)` renamed to `postsByAccount(accountId, ...)` and `removeSubscription` corrected from a hard delete to a soft delete. Both follow from Story 3.1a: posts now belong to the shared `social_media_account_profiles` row (an account can have multiple subscribers), not to any one subscription, and `Subscription` is one of AD-8's newly-declared soft-delete-bound tables.
+**Amendment (2026-08-01, Epic 3 readiness re-sweep):** `postsBySubscription(subscriptionId, ...)` renamed to `postsByAccount(accountId, ...)`. Follows from Story 3.1a: posts now belong to the shared `social_media_account_profiles` row (an account can have multiple subscribers), not to any one subscription.
 
-**Depends on:** Story 3.1a.
+**Amendment (2026-08-07, added via `bmad-create-story` while drafting Story 3.2):** `mySubscriptions` and `removeSubscription` ownership moved to Story 3.2 (resolved via `AskUserQuestion` during that story's creation) — building `/settings/subscriptions`'s list+remove view made Epic 3 need these regardless, and having Epic 5 own them would have made Epic 3's own page depend on Epic 5 existing first. This story now **extends** Story 3.2's `mySubscriptions` with `isInactive` (needs Story 3.3a's `posts` table, unavailable when Story 3.2 ships) instead of rebuilding the query, and reuses Story 3.2's `removeSubscription` mutation as-is rather than redeclaring it. Previously this story built both from scratch; the `postsBySubscription`→`postsByAccount` rename above and this ownership move are independent amendments from different sweeps.
 
-**Depends on:** Story 0.8, Story 0.13, Story 0.17, Story 3.2, Story 3.3a, Story 3.5.
+**Depends on:** Story 0.8, Story 0.13, Story 0.17, Story 3.1a, Story 3.2, Story 3.3a, Story 3.5.
 
 ### Story 5.1: Manual post selection screen
 
@@ -2068,9 +2069,9 @@ Users are guided through the initial setup and can manually select posts for eve
 **Acceptance Criteria:**
 
 *   **Given** I am on the "Manual Post Selection" screen,
-*   **When** a subscribed account has not published any posts within a configurable period (e.g., 30 days), read via the `isInactive` field on `mySubscriptions` (Story 5.1a),
+*   **When** a subscribed account has not published any posts within a configurable period (e.g., 30 days), read via the `isInactive` field on `mySubscriptions` (Story 3.2, extended by Story 5.1a),
 *   **Then** a warning icon is displayed on the account's tab.
-*   **And** the tab's content shows a warning message and a button to remove the inactive subscription, which calls the `removeSubscription` mutation (Story 5.1a) — not a direct database write from `apps/web`.
+*   **And** the tab's content shows a warning message and a button to remove the inactive subscription, which calls the `removeSubscription` mutation (Story 3.2) — not a direct database write from `apps/web`.
 
 **Depends on:** Story 5.1a.
 
@@ -2086,6 +2087,6 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **And** I have just added a new subscription,
 *   **When** I complete the subscription step,
 *   **Then** I am taken to the "Manual Post Selection" screen.
-*   **And** the tab for the newly added subscription is automatically activated, using the `isNewlyAdded` flag (Story 3.2) surfaced by the `mySubscriptions` query (Story 5.1a); the flag is cleared via `markSubscriptionViewed` (Story 5.1a) once the tab is opened.
+*   **And** the tab for the newly added subscription is automatically activated, using the `isNewlyAdded` flag surfaced by the `mySubscriptions` query (Story 3.2, extended by Story 5.1a); the flag is cleared via `markSubscriptionViewed` (Story 5.1a) once the tab is opened.
 
 **Depends on:** Story 3.2, Story 5.1a.
