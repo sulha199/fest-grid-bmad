@@ -72,11 +72,20 @@ export const socialMediaAccountProfiles = pgTable('social_media_account_profiles
   profileImageUrl: text('profile_image_url'),
   description: text('description'),
   lastPostDate: timestamp('last_post_date', { withTimezone: true }),
+  lastScrapedAt: timestamp('last_scraped_at', { withTimezone: true }),
   defaultLocation: jsonb('default_location').$type<LocationDetails>(),
   ...timestamps,
 }, (t) => ({
   platformAccountIdUnq: unique().on(t.platform, t.accountId),
 }));
+
+export const scraperProviderUsage = pgTable('scraper_provider_usage', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  provider: text('provider').notNull().unique(),
+  itemsUsedThisCycle: integer('items_used_this_cycle').default(0).notNull(),
+  usageCycleResetAt: timestamp('usage_cycle_reset_at', { withTimezone: true }).defaultNow().notNull(),
+  ...timestamps,
+});
 
 export const subscriptions = pgTable('subscriptions', {
   id: uuid('id').defaultRandom().primaryKey(),

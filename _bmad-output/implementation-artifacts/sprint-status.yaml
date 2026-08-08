@@ -309,7 +309,7 @@ development_status:
   # a "Twitter\X" escape-sequence bug, corrected after a direct Read confirmed no bug,
   # only duplication. No new prerequisite stories split off.
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: review
-  3-4-scrape-new-posts-from-subscribed-accounts: ready-for-dev
+  3-4-scrape-new-posts-from-subscribed-accounts: review
   # added 2026-08-08 via bmad-create-story Gate 1 split while drafting Story 3.4:
   # making Bright Data the scheduled-batch's priority vendor (cheaper at scale,
   # async-only) needs a new job-tracking table, a public webhook endpoint, and a

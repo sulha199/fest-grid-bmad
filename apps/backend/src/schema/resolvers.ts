@@ -13,6 +13,7 @@ import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
 import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS } from '@festgrid/domain/events';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
+import { ScraperCapacityExceededError } from '@festgrid/domain';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { encryptApiKey } from '../lib/ai-gateway/kms.js';
 import { compileValidator } from '../validation/validate.js';
@@ -148,19 +149,28 @@ export const resolvers: Resolvers = {
       if (!SUPPORTED_PLATFORMS.includes(input.platform.toLowerCase() as any)) {
         throw new GraphQLError('Unsupported platform', { extensions: { code: 'BAD_REQUEST' } });
       }
-      const result = await subscribeToAccountFn({
-        userId: authUser.userId,
-        platform: input.platform.toLowerCase(),
-        accountId: input.accountId,
-        profile: {
-          username: input.username,
-          displayName: input.displayName,
-        },
-      });
-      return {
-        subscription: formatSubscription(result.subscription),
-        alreadySubscribed: result.alreadySubscribed,
-      };
+      try {
+        const result = await subscribeToAccountFn({
+          userId: authUser.userId,
+          platform: input.platform.toLowerCase(),
+          accountId: input.accountId,
+          profile: {
+            username: input.username,
+            displayName: input.displayName,
+          },
+        });
+        return {
+          subscription: formatSubscription(result.subscription),
+          alreadySubscribed: result.alreadySubscribed,
+        };
+      } catch (err) {
+        if (err instanceof ScraperCapacityExceededError) {
+          throw new GraphQLError(err.message, {
+            extensions: { code: 'SCRAPER_CAPACITY_EXCEEDED' },
+          });
+        }
+        throw err;
+      }
     },
     removeSubscription: async (_: any, { id, action }: any, context: any) => {
       const authUser = requireAuth(context);

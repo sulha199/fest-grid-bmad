@@ -18,7 +18,14 @@ export interface AccountProfileLookupResult {
   profileImageUrl?: string;
 }
 
+export class ScraperCapacityExceededError extends Error {
+  constructor(message?: string) {
+    super(message);
+    this.name = 'ScraperCapacityExceededError';
+  }
+}
+
 export interface ScraperAdapter {
-  getNewestPosts(account: ScraperAccountRef): Promise<ScrapedPost[]>;
+  getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]>;
   lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null>;
 }

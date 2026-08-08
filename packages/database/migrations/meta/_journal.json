@@ -127,6 +127,13 @@
       "when": 1786178525428,
       "tag": "0017_wakeful_talisman",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1786192990877,
+      "tag": "0018_ordinary_molten_man",
+      "breakpoints": true
     }
   ]
 }

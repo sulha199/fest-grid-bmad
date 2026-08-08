@@ -16,6 +16,15 @@ export interface BackendEnv {
   apiKeyInvalidAttemptsThreshold: number;
   apiKeyUsageCycleDays: number;
   webAppBaseUrl: string;
+  scrapingQueueUrl?: string;
+  apifyApiToken?: string;
+  scrapeResultsLimit: number;
+  scrapeInitialLookbackDays: number;
+  scrapeSkipRecentHours: number;
+  scraperMonthlyBudgetUsd: number;
+  scraperPricePerThousandItemsUsd: number;
+  scraperCapacityThresholdRatio: number;
+  scraperUsageCycleDays: number;
 }
 
 export function loadBackendEnv(): BackendEnv {
@@ -71,5 +80,23 @@ export function loadBackendEnv(): BackendEnv {
     apiKeyUsageCycleDays: parseInt(process.env.API_KEY_USAGE_CYCLE_DAYS || '30', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     webAppBaseUrl: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapingQueueUrl: process.env.SCRAPING_QUEUE_URL,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    apifyApiToken: process.env.APIFY_API_TOKEN,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeResultsLimit: parseInt(process.env.SCRAPE_RESULTS_LIMIT || '10', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeInitialLookbackDays: parseInt(process.env.SCRAPE_INITIAL_LOOKBACK_DAYS || '7', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeSkipRecentHours: parseInt(process.env.SCRAPE_SKIP_RECENT_HOURS || '20', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scraperMonthlyBudgetUsd: parseFloat(process.env.SCRAPER_MONTHLY_BUDGET_USD || '5.00'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scraperPricePerThousandItemsUsd: parseFloat(process.env.SCRAPER_PRICE_PER_1000_ITEMS_USD || '2.70'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scraperCapacityThresholdRatio: parseFloat(process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO || '0.9'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scraperUsageCycleDays: parseInt(process.env.SCRAPER_USAGE_CYCLE_DAYS || '30', 10),
   };
 }

@@ -29,7 +29,7 @@ test('FestgridBackendStack provisions correct resources', () => {
   // 5. Assert an EventBridge scheduled rule exists with the correct rate
   template.resourceCountIs('AWS::Events::Rule', 1);
   template.hasResourceProperties('AWS::Events::Rule', {
-    ScheduleExpression: 'rate(6 hours)',
+    ScheduleExpression: 'rate(1 day)',
   });
 
   // 6. Assert Key Policy exists

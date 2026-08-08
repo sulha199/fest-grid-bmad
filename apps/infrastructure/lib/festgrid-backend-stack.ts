@@ -91,6 +91,7 @@ export class FestgridBackendStack extends cdk.Stack {
         STAGE: stageName,
         BYOK_KMS_KEY_ID: kmsKey.keyId,
         DATABASE_URL: process.env.DATABASE_URL || '',
+        SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
       },
     });
 
@@ -101,6 +102,9 @@ export class FestgridBackendStack extends cdk.Stack {
       ...sharedLambdaProps,
       environment: {
         STAGE: stageName,
+        DATABASE_URL: process.env.DATABASE_URL || '',
+        SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
+        APIFY_API_TOKEN: process.env.APIFY_API_TOKEN || '',
       },
     });
 
@@ -132,7 +136,7 @@ export class FestgridBackendStack extends cdk.Stack {
 
     // EventBridge Schedule -> L_Scrape (seed run)
     const scraperScheduleRule = new events.Rule(this, `ScraperScheduleRule-${stageName}`, {
-      schedule: events.Schedule.rate(cdk.Duration.hours(6)),
+      schedule: events.Schedule.rate(cdk.Duration.days(1)),
     });
     scraperScheduleRule.addTarget(new targets.LambdaFunction(scraperLambda));
 
@@ -143,9 +147,9 @@ export class FestgridBackendStack extends cdk.Stack {
     ingestorLambda.addEventSource(new eventSources.SqsEventSource(dataIngestionQueue));
 
     // 5. IAM Permissions
-    // Scraper needs to enqueue onto ScrapingQueue (self-enqueue) & AIProcessingQueue
+    // Scraper needs to enqueue onto ScrapingQueue (self-enqueue) & API needs to enqueue for on-demand scrape
     scrapingQueue.grantSendMessages(scraperLambda);
-    aiProcessingQueue.grantSendMessages(scraperLambda);
+    scrapingQueue.grantSendMessages(apiLambda);
 
     // AI Processor needs to enqueue onto DataIngestionQueue
     dataIngestionQueue.grantSendMessages(aiProcessorLambda);

@@ -2,6 +2,9 @@ import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
 import { and, eq } from 'drizzle-orm';
 import { activeOnly } from '@festgrid/graphql-select';
+import { ScraperCapacityExceededError, SupportedPlatform } from '@festgrid/domain';
+import { isProviderCapacityAvailable } from '../scraper/usage-store.js';
+import { enqueueScrapeJob } from '../scraper/enqueue-scrape-job.js';
 
 interface ProfileInput {
   displayName: string;
@@ -38,6 +41,11 @@ export async function subscribeToAccount({
 
   // If absent, insert one and re-select safely (handling concurrent insertions)
   if (!accountProfile) {
+    const isAvailable = await isProviderCapacityAvailable('apify');
+    if (!isAvailable) {
+      throw new ScraperCapacityExceededError('Scraper capacity temporarily exceeded — new subscriptions are paused until next cycle.');
+    }
+
     await db
       .insert(socialMediaAccountProfiles)
       .values({
@@ -63,6 +71,19 @@ export async function subscribeToAccount({
       )
       .limit(1)
       .then((rows) => rows[0]);
+
+    if (accountProfile) {
+      try {
+        await enqueueScrapeJob({
+          profileId: accountProfile.id,
+          platform: accountProfile.platform as SupportedPlatform,
+          accountId: accountProfile.accountId,
+          username: accountProfile.username,
+        });
+      } catch (err) {
+        console.error(`Failed to enqueue on-demand scrape job for brand-new profile ${accountProfile.id}:`, err);
+      }
+    }
   }
 
   // 2. Check for an existing subscription row for (userId, profile.id) filtered through activeOnly

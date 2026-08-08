@@ -53,6 +53,7 @@ graph TD
 
     EventBridge -- triggers --> L_Scrape
     L_Scrape -- enqueues --> SQS_Scrape
+    L_API -- enqueues (on-demand, new account) --> SQS_Scrape
     SQS_Scrape -- triggers --> L_Scrape
     L_Scrape -- persists scraped posts to --> Supabase
 
