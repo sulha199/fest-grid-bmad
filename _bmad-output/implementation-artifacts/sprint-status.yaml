@@ -297,7 +297,7 @@ development_status:
   # PENDING_REVIEW row per edit, no server-side block) with a Forward Note binding
   # Story 4.7 to dedupe by accountId to the latest row when it's built. No new
   # prerequisite stories split off.
-  3-3b-edit-an-accounts-default-location: ready-for-dev
+  3-3b-edit-an-accounts-default-location: review
   # regenerated 2026-08-08 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (this story is itself that sweep's own Gate 3
   # finding); Gate 2 run fresh, no gap (zero UI surface). User confirmed via

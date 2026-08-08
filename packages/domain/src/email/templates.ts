@@ -42,4 +42,17 @@ Message: {{message}}
 Context: {{context}}
 Timestamp: {{timestamp}}`,
   },
+  DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT: {
+    subject: '[FestDaily Moderation] Default location changed for account: {{accountDisplayName}}',
+    html: `<p>A subscriber has edited the default location set for the social media account "<strong>{{accountDisplayName}}</strong>".</p>
+<p><strong>Previous Location:</strong> {{previousLocationText}}</p>
+<p><strong>New Location:</strong> {{newLocationText}}</p>
+<p>Please review this change and take appropriate action on the Moderator Items page: <a href="{{moderatorReviewUrl}}">{{moderatorReviewUrl}}</a></p>`,
+    text: `A subscriber has edited the default location set for the social media account "{{accountDisplayName}}".
+
+Previous Location: {{previousLocationText}}
+New Location: {{newLocationText}}
+
+Please review this change and take appropriate action on the Moderator Items page: {{moderatorReviewUrl}}`,
+  },
 };

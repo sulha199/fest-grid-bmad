@@ -17,3 +17,18 @@ mutation setAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLoc
     }
   }
 }
+
+mutation editAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
+  editAccountDefaultLocation(accountId: $accountId, input: $input) {
+    id
+    defaultLocation {
+      coordinates {
+        lat
+        lng
+      }
+      formattedAddress
+      placeName
+    }
+    hasPendingDefaultLocationReview
+  }
+}

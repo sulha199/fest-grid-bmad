@@ -8,6 +8,7 @@ type SocialMediaAccountProfile {
   description: String
   lastPostDate: String
   defaultLocation: LocationDetails
+  hasPendingDefaultLocationReview: Boolean!
 }
 
 extend type Query {
@@ -25,4 +26,5 @@ input SetAccountDefaultLocationInput {
 
 extend type Mutation {
   setAccountDefaultLocation(accountId: ID!, input: SetAccountDefaultLocationInput!): SocialMediaAccountProfile!
+  editAccountDefaultLocation(accountId: ID!, input: SetAccountDefaultLocationInput!): SocialMediaAccountProfile!
 }

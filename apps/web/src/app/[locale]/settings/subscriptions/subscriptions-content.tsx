@@ -10,7 +10,7 @@ import { useGetMySubscriptionsQuery, useRemoveSubscriptionMutation, SoftDeleteAc
 import { useHasApiKey } from "@/features/onboarding/use-has-api-key"
 import { SubscribeAccountDialog } from "./subscribe-account-dialog"
 import { SetDefaultLocationDialog } from "./set-default-location-dialog"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, Pencil } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { usePostHog } from "@festgrid/analytics"
 
@@ -24,6 +24,7 @@ export function SubscriptionsContent() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null)
 
   // Redirect if unauthenticated
   useEffect(() => {
@@ -55,6 +56,8 @@ export function SubscriptionsContent() {
   })
 
   const subscriptions = (data?.mySubscriptions || [])
+  const editingSub = subscriptions.find(sub => sub.account.id === editingAccountId)
+  const editingInitialLocation = editingSub?.account.defaultLocation
 
   const handleOpenAddDialog = () => {
     setIsDialogOpen(true)
@@ -207,9 +210,23 @@ export function SubscriptionsContent() {
                       </p>
                       <div className="mt-1 text-xs">
                         {sub.account.defaultLocation ? (
-                          <span className="text-muted-foreground">
-                            {sub.account.defaultLocation.formattedAddress || sub.account.defaultLocation.placeName}
-                          </span>
+                          <div className="flex items-center gap-2 flex-wrap text-muted-foreground">
+                            <span>
+                              {sub.account.defaultLocation.formattedAddress || sub.account.defaultLocation.placeName}
+                            </span>
+                            {sub.account.hasPendingDefaultLocationReview && (
+                              <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 px-2 py-0.5 rounded font-medium shrink-0">
+                                {t("pendingReviewBadgeLabel") || "Pending Review"}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => setEditingAccountId(sub.account.id)}
+                              className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                              aria-label={t("editDefaultLocationLabel") || "Edit Default Location"}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         ) : (
                           <button
                             onClick={() => setSelectedAccountId(sub.account.id)}
@@ -250,6 +267,15 @@ export function SubscriptionsContent() {
         accountId={selectedAccountId}
         isOpen={selectedAccountId !== null}
         onClose={() => setSelectedAccountId(null)}
+        mode="set"
+      />
+
+      <SetDefaultLocationDialog
+        accountId={editingAccountId}
+        isOpen={editingAccountId !== null}
+        onClose={() => setEditingAccountId(null)}
+        mode="edit"
+        initialLocation={editingInitialLocation}
       />
     </div>
   )

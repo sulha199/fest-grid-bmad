@@ -28,6 +28,8 @@ export const userRoleEnum = pgEnum('user_role', ['user', 'moderator']);
 
 export const geolocationQueryTypeEnum = pgEnum('geolocation_query_type', ['GEOCODE', 'REVERSE_GEOCODE', 'PLACE_DETAILS']);
 
+export const defaultLocationChangeStatusEnum = pgEnum('default_location_change_status', ['PENDING_REVIEW', 'ACCEPTED', 'REVERTED']);
+
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: text('email').unique().notNull(),
@@ -312,6 +314,35 @@ export const fcmTokens = pgTable('fcm_tokens', {
 export const fcmTokensRelations = relations(fcmTokens, ({ one }) => ({
   user: one(users, {
     fields: [fcmTokens.userId],
+    references: [users.id],
+  }),
+}));
+
+export const defaultLocationChangeRequests = pgTable('default_location_change_requests', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  accountId: uuid('account_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  changedByUserId: uuid('changed_by_user_id').references(() => users.id).notNull(),
+  previousLocation: jsonb('previous_location').$type<LocationDetails>(),
+  newLocation: jsonb('new_location').$type<LocationDetails>().notNull(),
+  status: defaultLocationChangeStatusEnum('status').default('PENDING_REVIEW').notNull(),
+  reviewedByModeratorId: uuid('reviewed_by_moderator_id').references(() => users.id),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  accountStatusIdx: index('idx_default_location_change_requests_account_status').on(t.accountId, t.status),
+}));
+
+export const defaultLocationChangeRequestsRelations = relations(defaultLocationChangeRequests, ({ one }) => ({
+  accountProfile: one(socialMediaAccountProfiles, {
+    fields: [defaultLocationChangeRequests.accountId],
+    references: [socialMediaAccountProfiles.id],
+  }),
+  changedByUser: one(users, {
+    fields: [defaultLocationChangeRequests.changedByUserId],
+    references: [users.id],
+  }),
+  reviewedByModerator: one(users, {
+    fields: [defaultLocationChangeRequests.reviewedByModeratorId],
     references: [users.id],
   }),
 }));

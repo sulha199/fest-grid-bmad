@@ -15,6 +15,7 @@ export interface BackendEnv {
   geminiModel: string;
   apiKeyInvalidAttemptsThreshold: number;
   apiKeyUsageCycleDays: number;
+  webAppBaseUrl: string;
 }
 
 export function loadBackendEnv(): BackendEnv {
@@ -68,5 +69,7 @@ export function loadBackendEnv(): BackendEnv {
     apiKeyInvalidAttemptsThreshold: parseInt(process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD || '5', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     apiKeyUsageCycleDays: parseInt(process.env.API_KEY_USAGE_CYCLE_DAYS || '30', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    webAppBaseUrl: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
   };
 }

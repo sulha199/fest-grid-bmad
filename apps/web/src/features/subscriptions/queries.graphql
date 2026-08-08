@@ -18,6 +18,7 @@ query getMySubscriptions {
         formattedAddress
         placeName
       }
+      hasPendingDefaultLocationReview
     }
   }
 }

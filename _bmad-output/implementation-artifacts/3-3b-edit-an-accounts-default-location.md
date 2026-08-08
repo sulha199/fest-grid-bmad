@@ -8,7 +8,7 @@ baseline_commit: d2afee54b15b519cb78db05f7ac93fdf31d3829f
 - Epic: 3
 - Story ID: 3.3b
 - Story Key: 3-3b-edit-an-accounts-default-location
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

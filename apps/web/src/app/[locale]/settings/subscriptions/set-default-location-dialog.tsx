@@ -7,19 +7,22 @@ import { BlockingLoader, useDebounce, useCurrentLocationCapture, type Geolocatio
 import { graphqlClient } from "@/lib/graphql-client"
 import {
   useSetAccountDefaultLocationMutation,
+  useEditAccountDefaultLocationMutation,
   useAddressAutocompleteQuery,
   usePreviewLocationQuery,
 } from "@/generated/graphql"
 import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
 import { MapPickerSheet } from "../locations/map-picker-sheet"
-import type { Coordinates } from "@festgrid/shared-types"
+import type { Coordinates, LocationDetails } from "@festgrid/shared-types"
 import { usePostHog } from "@festgrid/analytics"
 
 interface SetDefaultLocationDialogProps {
   accountId: string | null
   isOpen: boolean
   onClose: () => void
+  mode?: "set" | "edit"
+  initialLocation?: LocationDetails
 }
 
 const DEFAULT_CENTER: Coordinates = {
@@ -27,7 +30,7 @@ const DEFAULT_CENTER: Coordinates = {
   longitude: 106.8456,
 }
 
-export function SetDefaultLocationDialog({ accountId, isOpen, onClose }: SetDefaultLocationDialogProps) {
+export function SetDefaultLocationDialog({ accountId, isOpen, onClose, mode = "set", initialLocation }: SetDefaultLocationDialogProps) {
   const t = useTranslations("SubscriptionsPage")
   const queryClient = useQueryClient()
   const posthog = usePostHog()
@@ -41,6 +44,7 @@ export function SetDefaultLocationDialog({ accountId, isOpen, onClose }: SetDefa
   const [pendingCoords, setPendingCoords] = useState<Coordinates | null>(null)
   const [isMapOpen, setIsMapOpen] = useState(false)
   const [geoErrorMsg, setGeoErrorMsg] = useState<string | null>(null)
+  const [isInitializing, setIsInitializing] = useState(true)
 
   // Shared map-picker continuity state
   const [mapViewState, setMapViewState] = useState<{
@@ -76,25 +80,43 @@ export function SetDefaultLocationDialog({ accountId, isOpen, onClose }: SetDefa
     graphqlClient,
     pendingCoords ?? { latitude: 0, longitude: 0 },
     {
-      enabled: isOpen && !!pendingCoords,
+      enabled: isOpen && !!pendingCoords && !isInitializing,
       retry: false,
     }
   )
 
-  const { mutateAsync: setAccountDefaultLocation, isPending: isSaving } = useSetAccountDefaultLocationMutation(graphqlClient)
+  const { mutateAsync: setAccountDefaultLocation, isPending: isSetPending } = useSetAccountDefaultLocationMutation(graphqlClient)
+  const { mutateAsync: editAccountDefaultLocation, isPending: isEditPending } = useEditAccountDefaultLocationMutation(graphqlClient)
+  const isSaving = isSetPending || isEditPending
 
   // Reset state when opening
   useEffect(() => {
     if (isOpen) {
       setGeoErrorMsg(null)
-      setAddressSearch("")
-      setSelectedPlaceId(null)
+      setIsInitializing(true)
+      if (mode === "edit" && initialLocation) {
+        setAddressSearch(initialLocation.formattedAddress || initialLocation.placeName || "")
+        setSelectedPlaceId(initialLocation.placeId || null)
+        const coords = {
+          latitude: initialLocation.coordinates.lat,
+          longitude: initialLocation.coordinates.lng,
+        }
+        setPendingCoords(coords)
+        setMapViewState({
+          center: coords,
+          zoom: 15,
+          marker: coords,
+        })
+      } else {
+        setAddressSearch("")
+        setSelectedPlaceId(null)
+        setPendingCoords(null)
+        setMapViewState(null)
+      }
       setSelectedDescription(null)
-      setPendingCoords(null)
-      setMapViewState(null)
       setIsDropdownOpen(false)
     }
-  }, [isOpen])
+  }, [isOpen, mode, initialLocation])
 
   // Handle preview query results
   useEffect(() => {
@@ -203,6 +225,7 @@ export function SetDefaultLocationDialog({ accountId, isOpen, onClose }: SetDefa
     setGeoErrorMsg(null)
     setSelectedPlaceId(null)
     setSelectedDescription(null)
+    setIsInitializing(false)
     setPendingCoords(coords)
     setAddressSearch(t("resolvingAddressLabel") || "Resolving address...")
 
@@ -229,28 +252,39 @@ export function SetDefaultLocationDialog({ accountId, isOpen, onClose }: SetDefa
     if (isSaveDisabled || !accountId) return
 
     try {
-      await setAccountDefaultLocation({
-        accountId,
-        input: {
-          placeId: selectedPlaceId || undefined,
-          latitude: selectedPlaceId ? undefined : pendingCoords?.latitude,
-          longitude: selectedPlaceId ? undefined : pendingCoords?.longitude,
-        },
-      })
+      const input = {
+        placeId: selectedPlaceId || undefined,
+        latitude: selectedPlaceId ? undefined : pendingCoords?.latitude,
+        longitude: selectedPlaceId ? undefined : pendingCoords?.longitude,
+      }
+
+      if (mode === "edit") {
+        await editAccountDefaultLocation({ accountId, input })
+        
+        // Fire PostHog analytics event
+        posthog.capture("subscription_default_location_edited", {
+          accountId,
+        })
+
+        toast.success(t("defaultLocationEditedToast") || "Default location edited successfully, pending moderator review")
+      } else {
+        await setAccountDefaultLocation({ accountId, input })
+
+        // Fire PostHog analytics event
+        posthog.capture("subscription_default_location_set", {
+          accountId,
+        })
+
+        toast.success(t("defaultLocationSetToast") || "Default location set successfully")
+      }
 
       // Invalidate the getMySubscriptions cache
       queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
 
-      // Fire PostHog analytics event
-      posthog.capture("subscription_default_location_set", {
-        accountId,
-      })
-
-      toast.success(t("defaultLocationSetToast") || "Default location set successfully")
       onClose()
     } catch (err) {
-      console.error("Failed to set default location:", err)
-      toast.error(t("defaultLocationErrorToast") || "Failed to set default location")
+      console.error("Failed to save default location:", err)
+      toast.error(t("defaultLocationErrorToast") || "Failed to save default location")
     }
   }
 
@@ -261,7 +295,11 @@ export function SetDefaultLocationDialog({ accountId, isOpen, onClose }: SetDefa
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t("defaultLocationDialogTitle") || "Set Default Location"}</DialogTitle>
+            <DialogTitle>
+              {mode === "edit"
+                ? t("defaultLocationEditDialogTitle") || "Edit Default Location"
+                : t("defaultLocationDialogTitle") || "Set Default Location"}
+            </DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-6 py-4">

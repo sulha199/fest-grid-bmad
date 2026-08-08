@@ -71,6 +71,25 @@ test('renderEmailTemplate tests', async (t) => {
     assert.ok(result.text.includes('2026-08-08T15:10:00Z'));
   });
 
+  await t.test('renders DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT correctly', () => {
+    const result = renderEmailTemplate('DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT', {
+      accountDisplayName: 'Some Influencer',
+      previousLocationText: 'Jakarta, Indonesia',
+      newLocationText: 'Denpasar, Indonesia',
+      moderatorReviewUrl: 'https://festdaily.app/moderator/items',
+    });
+
+    assert.ok(result.subject.includes('Some Influencer'));
+    assert.ok(result.html.includes('Some Influencer'));
+    assert.ok(result.html.includes('Jakarta, Indonesia'));
+    assert.ok(result.html.includes('Denpasar, Indonesia'));
+    assert.ok(result.html.includes('https://festdaily.app/moderator/items'));
+    assert.ok(result.text.includes('Some Influencer'));
+    assert.ok(result.text.includes('Jakarta, Indonesia'));
+    assert.ok(result.text.includes('Denpasar, Indonesia'));
+    assert.ok(result.text.includes('https://festdaily.app/moderator/items'));
+  });
+
   await t.test('throws descriptive error if template is called with missing variable', () => {
     assert.throws(() => {
       // @ts-expect-error - testing missing variables runtime checks

@@ -1,13 +1,26 @@
+vi.mock('@/lib/graphql-client', async () => {
+  const { GraphQLClient } = await import('graphql-request');
+  return {
+    graphqlClient: new GraphQLClient('http://localhost:4000/graphql'),
+  };
+});
+
+vi.mock('../../../../lib/graphql-client', async () => {
+  const { GraphQLClient } = await import('graphql-request');
+  return {
+    graphqlClient: new GraphQLClient('http://localhost:4000/graphql'),
+  };
+});
+
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
-import { describe, it, expect, vi, beforeAll, afterEach, afterAll, beforeEach } from 'vitest';
-import { graphql, HttpResponse } from 'msw';
+import { describe, it, expect, vi, beforeAll, afterEach, afterAll } from 'vitest';
+import { http, graphql, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import enMessages from '../../../../../locales/en.json';
-import { SetDefaultLocationDialog } from './set-default-location-dialog';
 import { Toaster } from 'sonner';
 
 const mockPosthogCapture = vi.fn();
@@ -31,11 +44,16 @@ vi.mock('@festgrid/ui', async () => {
   };
 });
 
+import { SetDefaultLocationDialog } from './set-default-location-dialog';
+import { server as globalServer } from '../../../../../../../packages/testing-config/vitest.setup';
+
 let mutationVariables: any = null;
 let mutationShouldFail = false;
 
-const server = setupServer(
-  graphql.query('addressAutocomplete', () => {
+const handleRequest = async ({ request }: { request: any }) => {
+  const { query, variables, operationName } = await request.json() as any;
+
+  if (operationName === 'addressAutocomplete' || query?.includes('addressAutocomplete')) {
     return HttpResponse.json({
       data: {
         addressAutocomplete: [
@@ -43,8 +61,9 @@ const server = setupServer(
         ],
       },
     });
-  }),
-  graphql.query('previewLocation', () => {
+  }
+
+  if (operationName === 'previewLocation' || query?.includes('previewLocation')) {
     return HttpResponse.json({
       data: {
         previewLocation: {
@@ -54,8 +73,9 @@ const server = setupServer(
         },
       },
     });
-  }),
-  graphql.mutation('setAccountDefaultLocation', ({ variables }) => {
+  }
+
+  if (operationName === 'setAccountDefaultLocation' || query?.includes('setAccountDefaultLocation')) {
     mutationVariables = variables;
     if (mutationShouldFail) {
       return HttpResponse.json({
@@ -74,10 +94,43 @@ const server = setupServer(
         },
       },
     });
-  })
+  }
+
+  if (operationName === 'editAccountDefaultLocation' || query?.includes('editAccountDefaultLocation')) {
+    mutationVariables = variables;
+    if (mutationShouldFail) {
+      return HttpResponse.json({
+        errors: [{ message: 'Failed to edit default location' }],
+      });
+    }
+    return HttpResponse.json({
+      data: {
+        editAccountDefaultLocation: {
+          id: variables.accountId,
+          defaultLocation: {
+            coordinates: { lat: -6.2, lng: 106.8 },
+            formattedAddress: 'Jakarta, Indonesia (Preview)',
+            placeName: 'Jakarta Park',
+          },
+          hasPendingDefaultLocationReview: true,
+        },
+      },
+    });
+  }
+
+  return new HttpResponse('Not found', { status: 404 });
+};
+
+const server = setupServer(
+  http.post('http://localhost:4000/graphql', handleRequest),
+  http.post('http://localhost:3000/api/graphql', handleRequest),
+  http.post('/api/graphql', handleRequest)
 );
 
-beforeAll(() => server.listen());
+beforeAll(() => {
+  globalServer.close();
+  server.listen({ onUnhandledRequest: 'bypass' });
+});
 afterEach(() => {
   server.resetHandlers();
   cleanup();
@@ -85,7 +138,10 @@ afterEach(() => {
   mutationVariables = null;
   mutationShouldFail = false;
 });
-afterAll(() => server.close());
+afterAll(() => {
+  server.close();
+  globalServer.listen({ onUnhandledRequest: 'error' });
+});
 
 function renderWithProviders(ui: React.ReactElement) {
   const queryClient = new QueryClient({
@@ -164,5 +220,50 @@ describe('SetDefaultLocationDialog', () => {
     });
 
     expect(handleClose).not.toHaveBeenCalled();
+  });
+
+  it('edit mode: pre-populates coordinates and formattedAddress from initialLocation, and saves via edit mutation', async () => {
+    const handleClose = vi.fn();
+    const initialLocation = {
+      coordinates: { lat: -6.1, lng: 106.7 },
+      formattedAddress: 'Bali, Indonesia',
+      placeName: 'Bali Temple',
+      placeId: 'bali-place-id',
+    };
+
+    renderWithProviders(
+      <SetDefaultLocationDialog
+        accountId="acc-1"
+        isOpen={true}
+        onClose={handleClose}
+        mode="edit"
+        initialLocation={initialLocation as any}
+      />
+    );
+
+    expect(screen.getByText('Edit Default Location')).toBeInTheDocument();
+
+    // Verify input prefill
+    const input = screen.getByPlaceholderText('Search for an address...');
+    expect(input).toHaveValue('Bali, Indonesia');
+
+    // Click save
+    const saveButton = screen.getByRole('button', { name: 'Save' });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mutationVariables).toEqual({
+        accountId: 'acc-1',
+        input: {
+          placeId: 'bali-place-id',
+        },
+      });
+    });
+
+    expect(mockPosthogCapture).toHaveBeenCalledWith('subscription_default_location_edited', {
+      accountId: 'acc-1',
+    });
+
+    expect(handleClose).toHaveBeenCalled();
   });
 });

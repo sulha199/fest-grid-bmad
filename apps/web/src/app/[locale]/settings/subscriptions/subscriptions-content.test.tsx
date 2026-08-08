@@ -1,14 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
-import { describe, it, expect, vi, beforeAll, afterEach, afterAll, beforeEach } from 'vitest';
-import { graphql, HttpResponse } from 'msw';
+import { describe, it, expect, vi, beforeAll, afterEach, afterAll } from 'vitest';
+import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import enMessages from '../../../../../locales/en.json';
-import { SubscriptionsContent } from './subscriptions-content';
-import { graphqlClient } from '@/lib/graphql-client';
 import { Toaster } from 'sonner';
 
 const mockRouterPush = vi.fn();
@@ -39,6 +37,16 @@ vi.mock('@/lib/graphql-client', async () => {
   };
 });
 
+vi.mock('../../../../lib/graphql-client', async () => {
+  const { GraphQLClient } = await import('graphql-request');
+  return {
+    graphqlClient: new GraphQLClient('http://localhost:4000/graphql'),
+  };
+});
+
+import { SubscriptionsContent } from './subscriptions-content';
+import { server as globalServer } from '../../../../../../../packages/testing-config/vitest.setup';
+
 let mockHasApiKey = true;
 vi.mock('@/features/onboarding/use-has-api-key', () => ({
   useHasApiKey: () => mockHasApiKey,
@@ -63,6 +71,7 @@ const mockSubscriptions = [
       username: 'jkt_festivals',
       profileImageUrl: null,
       defaultLocation: null,
+      hasPendingDefaultLocationReview: false,
     },
   },
   {
@@ -81,38 +90,56 @@ const mockSubscriptions = [
         formattedAddress: 'Jakarta, Indonesia',
         placeName: 'Jakarta Culinary Center',
       },
+      hasPendingDefaultLocationReview: true,
     },
   },
 ];
 
 let removeCalls: { id: string; action: string }[] = [];
 
-const server = setupServer(
-  graphql.query('getMySubscriptions', () => {
+const handleRequest = async ({ request }: { request: any }) => {
+  const { query, variables, operationName } = await request.json() as any;
+
+  if (operationName === 'getMySubscriptions' || query?.includes('getMySubscriptions')) {
     return HttpResponse.json({
       data: {
         mySubscriptions: mockSubscriptions,
       },
     });
-  }),
-  graphql.mutation('removeSubscription', ({ variables }) => {
+  }
+
+  if (operationName === 'removeSubscription' || query?.includes('removeSubscription')) {
     removeCalls.push({ id: variables.id, action: variables.action });
     return HttpResponse.json({
       data: {
         removeSubscription: { id: variables.id },
       },
     });
-  })
+  }
+
+  return new HttpResponse('Not found', { status: 404 });
+};
+
+const server = setupServer(
+  http.post('http://localhost:4000/graphql', handleRequest),
+  http.post('http://localhost:3000/api/graphql', handleRequest),
+  http.post('/api/graphql', handleRequest)
 );
 
-beforeAll(() => server.listen());
+beforeAll(() => {
+  globalServer.close();
+  server.listen({ onUnhandledRequest: 'bypass' });
+});
 afterEach(() => {
   server.resetHandlers();
   cleanup();
   vi.clearAllMocks();
   removeCalls = [];
 });
-afterAll(() => server.close());
+afterAll(() => {
+  server.close();
+  globalServer.listen({ onUnhandledRequest: 'error' });
+});
 
 function renderWithProviders(ui: React.ReactElement) {
   const queryClient = new QueryClient({
@@ -156,6 +183,10 @@ describe('SubscriptionsContent', () => {
     // Verify defaultLocation rendering states
     expect(screen.getByText('Set Default Location')).toBeInTheDocument(); // sub-1: absent
     expect(screen.getByText('Jakarta, Indonesia')).toBeInTheDocument(); // sub-2: present (read-only)
+    
+    // Verify edit Pencil action button is visible and Pending Review badge renders
+    expect(screen.getByLabelText('Edit Default Location')).toBeInTheDocument();
+    expect(screen.getByText('Pending Review')).toBeInTheDocument();
   });
 
   it('renders no-API-key prompt when user does not have an API key', async () => {

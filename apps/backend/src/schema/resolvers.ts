@@ -1,6 +1,6 @@
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and, exists, desc } from 'drizzle-orm';
@@ -79,6 +79,20 @@ export const resolvers: Resolvers = {
 
       return profile as any;
     }
+  } as any,
+  SocialMediaAccountProfile: {
+    hasPendingDefaultLocationReview: async (parent: any) => {
+      const rows = await db.select({ id: defaultLocationChangeRequests.id })
+        .from(defaultLocationChangeRequests)
+        .where(
+          and(
+            eq(defaultLocationChangeRequests.accountId, parent.id),
+            eq(defaultLocationChangeRequests.status, "PENDING_REVIEW")
+          )
+        )
+        .limit(1);
+      return rows.length > 0;
+    },
   } as any,
   Mutation: {
     createApiKey: async (_: any, { input }: any, context: any) => {
@@ -239,6 +253,129 @@ export const resolvers: Resolvers = {
           .where(eq(socialMediaAccountProfiles.id, accountId));
 
         // 6. Return the updated profile with defaultLocation formatted via formatLocationDetails
+        const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+        const rows = await db.select({
+          ...requestedFields,
+          id: socialMediaAccountProfiles.id,
+        }).from(socialMediaAccountProfiles)
+          .where(eq(socialMediaAccountProfiles.id, accountId));
+
+        const updatedProfile = rows[0] as any;
+        if (updatedProfile && updatedProfile.defaultLocation) {
+          updatedProfile.defaultLocation = formatLocationDetails(updatedProfile.defaultLocation);
+        }
+
+        return updatedProfile;
+      } catch (err: any) {
+        if (err instanceof InvalidUserLocationInputError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
+        }
+        throw err;
+      }
+    },
+    editAccountDefaultLocation: async (_: any, { accountId, input }: any, context: any, info: any) => {
+      try {
+        const authUser = requireAuth(context);
+
+        // 1. Look up caller's active subscription to accountId
+        const activeSubRows = await db.select()
+          .from(subscriptions)
+          .where(
+            and(
+              eq(subscriptions.userId, authUser.userId),
+              eq(subscriptions.accountId, accountId),
+              activeOnly(subscriptions)
+            )
+          );
+
+        if (activeSubRows.length === 0) {
+          throw new GraphQLError('Subscription not found', { extensions: { code: 'NOT_FOUND' } });
+        }
+
+        // 2. Look up the social_media_account_profiles row by id = accountId
+        const profileRows = await db.select()
+          .from(socialMediaAccountProfiles)
+          .where(eq(socialMediaAccountProfiles.id, accountId));
+
+        if (profileRows.length === 0) {
+          throw new GraphQLError('Account profile not found', { extensions: { code: 'NOT_FOUND' } });
+        }
+
+        const profile = profileRows[0];
+
+        // 3. If defaultLocation is null, throw INVALID_STATE_TRANSITION
+        if (profile.defaultLocation === null || profile.defaultLocation === undefined) {
+          throw new GraphQLError('No default location set yet', {
+            extensions: { code: 'INVALID_STATE_TRANSITION' },
+          });
+        }
+
+        const previousLocation = profile.defaultLocation;
+
+        // 4. Call resolveLocationInputMode(input)
+        const mode = resolveLocationInputMode(input);
+        if (!mode) {
+          throw new GraphQLError('Address or coordinates required', { extensions: { code: 'BAD_REQUEST' } });
+        }
+
+        let resolved;
+        if (mode.kind === 'ADDRESS') {
+          resolved = await resolveLocation({ kind: 'ADDRESS', address: mode.address });
+        } else if (mode.kind === 'PLACE_ID') {
+          resolved = await resolveLocation({ kind: 'PLACE_ID', placeId: mode.placeId });
+        } else {
+          resolved = await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude: mode.latitude, longitude: mode.longitude } });
+        }
+
+        const newLocation = resolved;
+
+        // 5. Update social_media_account_profiles set default_location = resolved
+        await db.update(socialMediaAccountProfiles)
+          .set({
+            defaultLocation: newLocation,
+          })
+          .where(eq(socialMediaAccountProfiles.id, accountId));
+
+        // 6. Insert into default_location_change_requests
+        await db.insert(defaultLocationChangeRequests).values({
+          accountId,
+          changedByUserId: authUser.userId,
+          previousLocation,
+          newLocation,
+          status: 'PENDING_REVIEW' as any,
+        });
+
+        // 7. Get moderators and send notification emails (best effort, async, non-blocking)
+        try {
+          const moderators = await db.select().from(users).where(eq(users.role, 'moderator'));
+          if (moderators.length > 0) {
+            const previousLocationText = previousLocation.formattedAddress || previousLocation.placeName || 'Unknown';
+            const newLocationText = newLocation.formattedAddress || newLocation.placeName || 'Unknown';
+            const moderatorReviewUrl = `${loadBackendEnv().webAppBaseUrl}/moderator/items`;
+            
+            // Trigger best-effort email dispatch for each moderator in parallel
+            Promise.allSettled(
+              moderators.map((mod) => 
+                sendTemplatedEmail(
+                  'DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT',
+                  mod.email,
+                  {
+                    accountDisplayName: profile.displayName,
+                    previousLocationText,
+                    newLocationText,
+                    moderatorReviewUrl,
+                  }
+                )
+              )
+            ).catch((err) => {
+              console.error('Failed sending moderator emails:', err);
+            });
+          }
+        } catch (emailErr) {
+          console.error('Failed loading moderators or triggering email send:', emailErr);
+        }
+
+        // 8. Return the updated profile with defaultLocation formatted via formatLocationDetails
         const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
         const rows = await db.select({
           ...requestedFields,

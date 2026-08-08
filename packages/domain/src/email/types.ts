@@ -2,6 +2,7 @@ export type EmailTemplateKey =
   | 'QUOTA_EXHAUSTION_WARNING'
   | 'INVALID_API_KEY_ALERT'
   | 'DANGEROUS_EVENT_MODERATOR_ALERT'
+  | 'DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT'
   | 'SYSTEM_ERROR_ALERT';
 
 export interface EmailTemplateVariables {
@@ -25,6 +26,12 @@ export interface EmailTemplateVariables {
     message: string;
     context: string;
     timestamp: string;
+  };
+  DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT: {
+    accountDisplayName: string;
+    previousLocationText: string;
+    newLocationText: string;
+    moderatorReviewUrl: string;
   };
 }
 

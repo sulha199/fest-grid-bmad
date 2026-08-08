@@ -148,6 +148,7 @@ export type Mutation = {
   createUserLocation: UserLocation;
   deleteApiKey: ApiKey;
   deleteUserLocation: UserLocation;
+  editAccountDefaultLocation: SocialMediaAccountProfile;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
@@ -180,6 +181,12 @@ export type MutationDeleteApiKeyArgs = {
 export type MutationDeleteUserLocationArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationEditAccountDefaultLocationArgs = {
+  accountId: Scalars['ID']['input'];
+  input: SetAccountDefaultLocationInput;
 };
 
 
@@ -326,6 +333,7 @@ export type SocialMediaAccountProfile = {
   defaultLocation?: Maybe<LocationDetails>;
   description?: Maybe<Scalars['String']['output']>;
   displayName: Scalars['String']['output'];
+  hasPendingDefaultLocationReview: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   lastPostDate?: Maybe<Scalars['String']['output']>;
   platform: Scalars['String']['output'];
@@ -626,6 +634,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   createUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationCreateUserLocationArgs, 'input'>>;
   deleteApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationDeleteApiKeyArgs, 'action' | 'id'>>;
   deleteUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationDeleteUserLocationArgs, 'action' | 'id'>>;
+  editAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationEditAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   registerFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRegisterFcmTokenArgs, 'token'>>;
   removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
   reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
@@ -679,6 +688,7 @@ export type SocialMediaAccountProfileResolvers<ContextType = GraphQLContext, Par
   defaultLocation?: Resolver<Maybe<ResolversTypes['LocationDetails']>, ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  hasPendingDefaultLocationReview?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   lastPostDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   platform?: Resolver<ResolversTypes['String'], ParentType, ContextType>;

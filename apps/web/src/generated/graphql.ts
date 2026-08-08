@@ -152,6 +152,7 @@ export type Mutation = {
   createUserLocation: UserLocation;
   deleteApiKey: ApiKey;
   deleteUserLocation: UserLocation;
+  editAccountDefaultLocation: SocialMediaAccountProfile;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
@@ -184,6 +185,12 @@ export type MutationDeleteApiKeyArgs = {
 export type MutationDeleteUserLocationArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationEditAccountDefaultLocationArgs = {
+  accountId: Scalars['ID']['input'];
+  input: SetAccountDefaultLocationInput;
 };
 
 
@@ -330,6 +337,7 @@ export type SocialMediaAccountProfile = {
   defaultLocation?: Maybe<LocationDetails>;
   description?: Maybe<Scalars['String']['output']>;
   displayName: Scalars['String']['output'];
+  hasPendingDefaultLocationReview: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   lastPostDate?: Maybe<Scalars['String']['output']>;
   platform: Scalars['String']['output'];
@@ -596,10 +604,18 @@ export type SetAccountDefaultLocationMutationVariables = Exact<{
 
 export type SetAccountDefaultLocationMutation = { setAccountDefaultLocation: { id: string, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } };
 
+export type EditAccountDefaultLocationMutationVariables = Exact<{
+  accountId: string | number;
+  input: SetAccountDefaultLocationInput;
+}>;
+
+
+export type EditAccountDefaultLocationMutation = { editAccountDefaultLocation: { id: string, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } };
+
 export type GetMySubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, createdAt: string, account: { id: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
+export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, createdAt: string, account: { id: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
 
 export type ReportSystemErrorMutationVariables = Exact<{
   input: ReportSystemErrorInput;
@@ -1432,6 +1448,40 @@ export const useSetAccountDefaultLocationMutation = <
   }
     )};
 
+export const EditAccountDefaultLocationDocument = new TypedDocumentString(`
+    mutation editAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
+  editAccountDefaultLocation(accountId: $accountId, input: $input) {
+    id
+    defaultLocation {
+      coordinates {
+        lat
+        lng
+      }
+      formattedAddress
+      placeName
+    }
+    hasPendingDefaultLocationReview
+  }
+}
+    `);
+
+export const useEditAccountDefaultLocationMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<EditAccountDefaultLocationMutation, TError, EditAccountDefaultLocationMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<EditAccountDefaultLocationMutation, TError, EditAccountDefaultLocationMutationVariables, TContext>(
+      {
+    mutationKey: ['editAccountDefaultLocation'],
+    mutationFn: (variables?: EditAccountDefaultLocationMutationVariables) => fetcher<EditAccountDefaultLocationMutation, EditAccountDefaultLocationMutationVariables>(client, EditAccountDefaultLocationDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
 export const GetMySubscriptionsDocument = new TypedDocumentString(`
     query getMySubscriptions {
   mySubscriptions {
@@ -1453,6 +1503,7 @@ export const GetMySubscriptionsDocument = new TypedDocumentString(`
         formattedAddress
         placeName
       }
+      hasPendingDefaultLocationReview
     }
   }
 }
