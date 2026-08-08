@@ -246,4 +246,29 @@ The AI Gateway wraps all outbound Google Gemini API calls behind a single Adapte
         ```
     *   *Note: Decryption in `kms.ts` is lazily initialized and mocked locally/in test environments if `BYOK_KMS_KEY_ID` is omitted or when `NODE_ENV === 'test'`.*
 
+## 9. Scraper Adapter (Apify)
+
+Apify's `apify/instagram-scraper` actor is the concrete Instagram `ScraperAdapter` implementation (Story 3.4). This is a single, **app-funded** credential the application itself owns and pays for — never a per-user BYOK key, unlike the Gemini setup above.
+
+### Setup Steps
+
+1.  **Obtain an Apify API Token:**
+    *   Sign up at [Apify Console](https://console.apify.com/) (no credit card required for the free plan — $5.00/month in prepaid usage credit, resets monthly, does not roll over).
+    *   Generate a personal API token under **Settings → Integrations**.
+    *   Add it to your root `.env` as `APIFY_API_TOKEN`.
+2.  **Configure Environment Variables:**
+    *   Set the relevant environment variables in your root `.env`:
+        ```env
+        APIFY_API_TOKEN=""
+        SCRAPE_RESULTS_LIMIT="10"
+        SCRAPE_INITIAL_LOOKBACK_DAYS="7"
+        SCRAPE_SKIP_RECENT_HOURS="20"
+        SCRAPER_MONTHLY_BUDGET_USD="5.00"
+        SCRAPER_PRICE_PER_1000_ITEMS_USD="2.70"
+        SCRAPER_CAPACITY_THRESHOLD_RATIO="0.9"
+        SCRAPER_USAGE_CYCLE_DAYS="30"
+        ```
+    *   *Note: `SCRAPER_MONTHLY_BUDGET_USD`/`SCRAPER_PRICE_PER_1000_ITEMS_USD` reflect Apify's free-plan pricing as confirmed on 2026-08-08 — revisit these values if Apify changes its pricing. `SCRAPER_CAPACITY_THRESHOLD_RATIO` (default 90%) is the fraction of the free-tier budget the app will actually use before pausing new subscriptions/scrapes (Story 3.4's capacity gate) — intentionally leaves headroom rather than running right up to the vendor's hard limit.*
+    *   *Note: If `APIFY_API_TOKEN` is omitted, the adapter's real calls will fail — there is currently no local-dev stub for this adapter (unlike the outbound email adapter, Story 0.15a); local development against real scraping requires a real token.*
+
 This walkthrough provides a high-level overview of the setup process. For detailed configuration and implementation, refer to the official documentation of each service.

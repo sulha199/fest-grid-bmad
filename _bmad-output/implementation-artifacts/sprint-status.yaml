@@ -310,6 +310,12 @@ development_status:
   # only duplication. No new prerequisite stories split off.
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: review
   3-4-scrape-new-posts-from-subscribed-accounts: ready-for-dev
+  # added 2026-08-08 via bmad-create-story Gate 1 split while drafting Story 3.4:
+  # making Bright Data the scheduled-batch's priority vendor (cheaper at scale,
+  # async-only) needs a new job-tracking table, a public webhook endpoint, and a
+  # stale-job fallback sweep -- a genuinely new architectural layer, not an
+  # incremental adapter addition. See epics.md Story 3.4a note.
+  3-4a-add-brightdata-as-the-priority-scraping-vendor-for-the-scheduled-batch: backlog
   3-5-add-new-posts-to-a-processing-queue: backlog
   3-6-process-posts-from-the-queue-and-extract-event-information: backlog
   3-6b-ingest-processed-events-into-the-database: backlog
