@@ -1,0 +1,106 @@
+"use client";
+
+import React, { useMemo } from 'react';
+import { useQueryState, parseAsString } from 'nuqs';
+import { useTranslations } from 'next-intl';
+import { useGetEventsForCalendarQuery } from '@/generated/graphql';
+import { graphqlClient } from '@/lib/graphql-client';
+import { buildFeedCalendarQueryCondition } from '@festgrid/domain/events';
+import { WeeklyCalendarView, useWeeklyCalendarController, getSunday, getSaturday } from '@festgrid/ui';
+import { useRouter } from '@/i18n/navigation';
+import { useSearchParams } from 'next/navigation';
+import { usePostHog } from '@festgrid/analytics';
+
+interface FeedCalendarViewProps {
+  q: string;
+  types: string[];
+  categories: string[];
+}
+
+export function FeedCalendarView({ q, types, categories }: FeedCalendarViewProps) {
+  const t = useTranslations('FeedPage');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const posthog = usePostHog();
+
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const [week, setWeek] = useQueryState(
+    'week',
+    parseAsString.withDefault(todayStr)
+  );
+
+  const weekStart = useMemo(() => getSunday(week), [week]);
+  const weekEnd = useMemo(() => getSaturday(weekStart), [weekStart]);
+
+  const queryCondition = useMemo(() => {
+    return buildFeedCalendarQueryCondition({
+      search: q,
+      types,
+      categories,
+      weekStart,
+      weekEnd,
+    });
+  }, [q, types, categories, weekStart, weekEnd]);
+
+  const { data, status: queryStatus, error: queryError } = useGetEventsForCalendarQuery(
+    graphqlClient,
+    {
+      limit: 1000,
+      query: queryCondition,
+    },
+    {
+      queryKey: ['events', 'feed-calendar', queryCondition],
+    }
+  );
+
+  const {
+    schedules,
+    status,
+    errorMessage,
+    errorDetail,
+    handlePrevWeek,
+    handleNextWeek,
+    handleToday,
+  } = useWeeklyCalendarController({
+    week,
+    setWeek,
+    todayStr,
+    rawEvents: data?.events?.items,
+    queryStatus,
+    queryError,
+    errorStateLabel: t('calendarErrorState'),
+    onNavigate: (direction, newWeek) => {
+      posthog.capture('calendar_week_navigated', { direction, weekStart: newWeek });
+    },
+  });
+
+  const handleScheduleClick = (schedule: { eventSlug: string }) => {
+    const paramsStr = searchParams.toString();
+    const url = `/events/${schedule.eventSlug}?fromList=feed${paramsStr ? `&${paramsStr}` : ''}`;
+    router.push(url);
+  };
+
+  const labels = {
+    prevWeekLabel: t('calendarPrevWeekLabel'),
+    nextWeekLabel: t('calendarNextWeekLabel'),
+    todayLabel: t('calendarTodayLabel'),
+    moreLabel: (count: number) => t('calendarMoreLabel', { count }),
+    closePopoverLabel: t('calendarClosePopoverLabel'),
+  };
+
+  return (
+    <WeeklyCalendarView
+      weekStart={weekStart}
+      schedules={schedules}
+      maxEventsPerDay={5}
+      onToday={handleToday}
+      onPrevWeek={handlePrevWeek}
+      onNextWeek={handleNextWeek}
+      onScheduleClick={handleScheduleClick}
+      status={status}
+      errorMessage={errorMessage}
+      errorDetail={errorDetail}
+      labels={labels}
+    />
+  );
+}

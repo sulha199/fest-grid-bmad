@@ -1,4 +1,6 @@
 export * from './buildEventsQueryCondition.js';
+export * from './buildFeedQueryCondition.js';
+export * from './buildFeedCalendarQueryCondition.js';
 export * from './buildWeeklyCalendarQueryCondition.js';
 export * from './buildMyCalendarQueryCondition.js';
 export * from './buildDefaultEventVisibilityConditions.js';

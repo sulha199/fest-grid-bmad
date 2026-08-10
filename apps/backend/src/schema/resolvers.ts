@@ -905,6 +905,16 @@ export const resolvers: Resolvers = {
               eq(calendarAdditions.eventId, events.id),
               activeOnly(calendarAdditions)
             ))
+        ) : sql`false`,
+        isFromSubscribedAccount: userId ? exists(
+          db.select({ id: subscriptions.id })
+            .from(subscriptions)
+            .innerJoin(posts, eq(subscriptions.accountId, posts.accountId))
+            .where(and(
+              eq(posts.id, events.postId),
+              eq(subscriptions.userId, userId),
+              activeOnly(subscriptions)
+            ))
         ) : sql`false`
       };
 

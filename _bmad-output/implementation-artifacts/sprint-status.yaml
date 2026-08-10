@@ -418,7 +418,7 @@ development_status:
   # events.postId -> posts.accountId -> subscriptions (not the fragile
   # sourceSocialMediaAccountId text-match path initially considered). See epics.md
   # Story 3.7 Amendment.
-  3-7-display-extracted-events-to-the-user: ready-for-dev
+  3-7-display-extracted-events-to-the-user: review
   # added 2026-08-10 via bmad-create-story while drafting Story 3.7: the UX scenario
   # doc (design-artifacts/C-UX-Scenarios/03-alex-discovers-his-feed/03.4-viewing-the-feed.md)
   # softly describes an optional per-subscription filter on the Feed page, but

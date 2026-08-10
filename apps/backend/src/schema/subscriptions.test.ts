@@ -5,7 +5,7 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, apiKeys, subscriptions, socialMediaAccountProfiles } from '@festgrid/database';
+import { users, apiKeys, subscriptions, socialMediaAccountProfiles, posts, events, schedules } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 
 // Read all required schema fragments dynamically from the schema directory
@@ -499,6 +499,134 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     });
     const mutationBody = await responseMutation.json();
     assert.equal(mutationBody.errors[0].message, 'You must be logged in to perform this action.');
+  });
+
+  await t.test('12. isFromSubscribedAccount query filters events based on subscriptions', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    // Clean up in case of previous failed test run (respect FK order)
+    const existingProfiles = await db.select({ id: socialMediaAccountProfiles.id })
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.accountId, 'test_sub_account_1'));
+    if (existingProfiles.length > 0) {
+      const profileId = existingProfiles[0].id;
+      const existingPosts = await db.select({ id: posts.id })
+        .from(posts)
+        .where(eq(posts.accountId, profileId));
+      if (existingPosts.length > 0) {
+        const postIds = existingPosts.map(p => p.id);
+        for (const pid of postIds) {
+          await db.delete(events).where(eq(events.postId, pid));
+        }
+      }
+      await db.delete(posts).where(eq(posts.accountId, profileId));
+      await db.delete(subscriptions).where(eq(subscriptions.accountId, profileId));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profileId));
+    }
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      platform: 'instagram',
+      accountId: 'test_sub_account_1',
+      username: 'test_sub_account_1',
+      displayName: 'Test Account 1'
+    }).returning();
+
+    const [sub] = await db.insert(subscriptions).values({
+      userId: testUser.id,
+      accountId: profile.id,
+    }).returning();
+
+    const [post] = await db.insert(posts).values({
+      accountId: profile.id,
+      platform: 'instagram',
+      postUrl: 'https://instagram.com/p/test_post_1',
+      content: 'Test Event 1 Content',
+      rawContent: 'Test Event 1 Content',
+      publishedAt: new Date(),
+    }).returning();
+
+    const [event] = await db.insert(events).values({
+      postId: post.id,
+      eventName: 'Subscribed Event 1',
+      slug: 'subscribed-event-1',
+      description: 'Test Event from Subscribed Account',
+      location: 'Test Location 1',
+      types: ['FESTIVAL'],
+      categories: ['MUSIC'],
+    }).returning();
+
+    const [schedule] = await db.insert(schedules).values({
+      eventId: event.id,
+      eventStartDate: '2026-08-11',
+      eventEndDate: '2026-08-12',
+      isMainSchedule: true,
+      performers: ['Test Performer'],
+    }).returning();
+
+    const responseQuery = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query GetSubscribedEvents($query: EventQueryConditionInput) {
+            events(query: $query) {
+              items {
+                id
+                eventName
+              }
+              totalCount
+            }
+          }
+        `,
+        variables: {
+          query: {
+            field: 'isFromSubscribedAccount',
+            operator: 'eq',
+            value: true
+          }
+        }
+      })
+    });
+
+    const bodyQuery = await responseQuery.json();
+    assert.ok(!bodyQuery.errors, JSON.stringify(bodyQuery.errors));
+    assert.strictEqual(bodyQuery.data.events.items.length, 1);
+    assert.strictEqual(bodyQuery.data.events.items[0].id, event.id);
+
+    mockUser = null;
+    const responseUnauth = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query GetSubscribedEvents($query: EventQueryConditionInput) {
+            events(query: $query) {
+              items {
+                id
+              }
+              totalCount
+            }
+          }
+        `,
+        variables: {
+          query: {
+            field: 'isFromSubscribedAccount',
+            operator: 'eq',
+            value: true
+          }
+        }
+      })
+    });
+
+    const bodyUnauth = await responseUnauth.json();
+    assert.ok(!bodyUnauth.errors, JSON.stringify(bodyUnauth.errors));
+    assert.strictEqual(bodyUnauth.data.events.items.length, 0);
+
+    await db.delete(schedules).where(eq(schedules.id, schedule.id));
+    await db.delete(events).where(eq(events.id, event.id));
+    await db.delete(posts).where(eq(posts.id, post.id));
+    await db.delete(subscriptions).where(eq(subscriptions.id, sub.id));
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
   });
 
   await t.test('cleanup - delete all created test data', async () => {
