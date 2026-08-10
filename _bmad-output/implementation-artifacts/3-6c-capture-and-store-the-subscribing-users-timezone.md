@@ -33,13 +33,8 @@ baseline_commit: c7b60442dc7946373e536a48f4df121cdac9c9ad
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC3) — IANA timezone validator (`packages/domain`):**
-  - Create `packages/domain/src/users/validateTimezone.ts` exporting `isValidIanaTimezone(timezone: string): boolean` — returns `true` only if `new Intl.DateTimeFormat(undefined, { timeZone: timezone })` does not throw and `timezone` is a non-empty string; `false` otherwise (catches the `RangeError` `Intl.DateTimeFormat` throws for an invalid zone).
-  - Create `packages/domain/src/users/index.ts` exporting `export * from './validateTimezone.js';`, mirroring `packages/domain/src/user-settings/index.ts`'s exact shape.
-  - Add a new `"./users"` entry to `packages/domain/package.json`'s `exports` map (`types`/`default` pointing at `./dist/users/index.d.ts` / `./dist/users/index.js`), mirroring the existing `"./user-settings"` entry exactly.
-  - **No React, no `drizzle-orm`, no Node-runtime-only import** — pure `Intl` usage only, satisfying `packages/domain`'s frontend-safety constraint (this function is intentionally also safe to call from `apps/web` if ever needed, though this story only calls it from `apps/backend`).
-- [ ] **Task 2 (AC3) — Test the validator (`packages/domain`, 100% coverage):**
-  - Create `packages/domain/src/users/validateTimezone.test.ts` (`node:test`, no DB): valid zones (`'America/New_York'`, `'Asia/Jakarta'`, `'UTC'`, `'Etc/UTC'`) return `true`; invalid strings (`'Not/AZone'`, `''`, `'garbage'`, `'America/NotACity'`) return `false`.
+- [x] ~~**Task 1 (AC3) — IANA timezone validator (`packages/domain`):**~~ **Superseded — already built by Story 3.6d.** Story 3.6d (created 2026-08-10, after this story's own creation) also needed `isValidIanaTimezone` for its `resolveScheduleTimezone` resolver, discovered the identical spec already sitting in this story's plan, and — per an `AskUserQuestion` decision made during 3.6d's creation (see 3.6d's Dev Notes "Validator Ownership Decision") — built `packages/domain/src/users/{validateTimezone.ts, index.ts}` + the `"./users"` `package.json` export itself, exactly as specced below, rather than let the module be built twice. **This story's dev pass must import and reuse `isValidIanaTimezone` from `@festgrid/domain/users` — do not recreate this file.** Original spec (for reference, already implemented): create `packages/domain/src/users/validateTimezone.ts` exporting `isValidIanaTimezone(timezone: string): boolean` — returns `true` only if `new Intl.DateTimeFormat(undefined, { timeZone: timezone })` does not throw and `timezone` is a non-empty string; `false` otherwise (catches the `RangeError` `Intl.DateTimeFormat` throws for an invalid zone); `packages/domain/src/users/index.ts` exporting `export * from './validateTimezone.js';`; `"./users"` entry in `packages/domain/package.json`'s `exports` map. Pure `Intl` usage only, no React/`drizzle-orm`/Node-runtime-only import.
+- [x] ~~**Task 2 (AC3) — Test the validator (`packages/domain`, 100% coverage):**~~ **Superseded — already built by Story 3.6d.** `packages/domain/src/users/validateTimezone.test.ts` already exists with 100% coverage (valid zones `'America/New_York'`, `'Asia/Jakarta'`, `'UTC'`, `'Etc/UTC'` return `true`; invalid strings return `false`). Nothing for this story's dev pass to add here — verify the existing tests still pass, do not duplicate them.
 - [ ] **Task 3 (AC2, AC3, AC4) — GraphQL mutation schema (`apps/backend`):**
   - Create `apps/backend/src/schema/user-timezone.graphql`:
     ```graphql
@@ -73,6 +68,10 @@ baseline_commit: c7b60442dc7946373e536a48f4df121cdac9c9ad
   - `pnpm build`, `pnpm lint`, `pnpm test` (root) — full suite, no regressions.
 
 ## Dev Notes
+
+### Cross-Story Amendment (2026-08-10, added via `bmad-create-story` while drafting Story 3.6d)
+
+Story 3.6d ("Surface schedules flagged as needing timezone clarification") independently needed `isValidIanaTimezone` for its own `resolveScheduleTimezone` resolver and, during its own creation, found this story already specced the identical function at the identical location (`packages/domain/src/users/validateTimezone.ts`). Rather than let two near-identical `Intl`-try/catch implementations exist, the user was asked via `AskUserQuestion` (during 3.6d's creation) whether 3.6d should build it, this story should build it, or 3.6d should hard-depend on this story shipping first — **the user chose to have Story 3.6d build it now** (see 3.6d's Dev Notes "Validator Ownership Decision" for the full tradeoff writeup). Tasks 1 and 2 above are marked superseded as a result. This story's `Depends on` is unaffected (still only Story 3.6a) since the validator dependency now flows from an already-`ready-for-dev`/soon-to-exist sibling rather than blocking this story on anything new.
 
 ### Architecture & UX Gate Findings
 
