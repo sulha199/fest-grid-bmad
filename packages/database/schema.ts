@@ -166,6 +166,7 @@ export const events = pgTable('events', {
   categoriesIdx: index('event_categories_idx').on(t.categories),
   locationIdx: index('event_location_idx').on(t.location),
   postIdIdx: index('event_post_id_idx').on(t.postId),
+  postIdUnq: unique().on(t.postId),
 }));
 
 export const schedules = pgTable('schedules', {

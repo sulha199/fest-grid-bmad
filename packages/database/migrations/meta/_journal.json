@@ -141,6 +141,13 @@
       "when": 1786365101596,
       "tag": "0019_wet_leper_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1786367053629,
+      "tag": "0020_boring_longshot",
+      "breakpoints": true
     }
   ]
 }

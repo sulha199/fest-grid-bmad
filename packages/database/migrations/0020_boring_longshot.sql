@@ -1,0 +1,1 @@
+ALTER TABLE "events" ADD CONSTRAINT "events_post_id_unique" UNIQUE("post_id");

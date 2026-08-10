@@ -383,7 +383,7 @@ development_status:
   # onConflictDoNothing (not a select-then-insert check), and
   # reportBatchItemFailures: true on ingestorLambda's SqsEventSource, mirroring
   # aiProcessorLambda's own precedent. See epics.md Story 3.6b Dev Notes.
-  3-6b-ingest-processed-events-into-the-database: in-progress
+  3-6b-ingest-processed-events-into-the-database: review
   # added 2026-08-10 via bmad-create-story Gate 3 finding while drafting Story 3.6a:
   # users.timezone (added by 3.6a to match PRD 4.8's User.timezone) has no capture
   # mechanism anywhere in the codebase -- without this story FR33 Tier 2 can never

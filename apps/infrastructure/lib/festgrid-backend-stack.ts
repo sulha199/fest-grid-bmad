@@ -150,7 +150,9 @@ export class FestgridBackendStack extends cdk.Stack {
     }));
 
     // DataIngestionQueue -> L_Ingest
-    ingestorLambda.addEventSource(new eventSources.SqsEventSource(dataIngestionQueue));
+    ingestorLambda.addEventSource(new eventSources.SqsEventSource(dataIngestionQueue, {
+      reportBatchItemFailures: true,
+    }));
 
     // 5. IAM Permissions
     // Scraper needs to enqueue onto ScrapingQueue (self-enqueue) & API needs to enqueue for on-demand scrape
