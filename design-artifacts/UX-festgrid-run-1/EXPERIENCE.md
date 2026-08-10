@@ -73,12 +73,13 @@ The Profile item is the only nav entry with two distinct states:
   3. **Locations** → `/settings/locations`
   4. **Subscribed Accounts** → `/settings/subscriptions`
   5. **API Keys** → `/settings/api-keys`
-  6. **Notifications** → `/settings/notifications`
-  7. **Reports** → `/reports`
-  8. **Moderator Items** → `/moderator/items`, *preceded and followed by a divider* — rendered only when the authenticated user's `role === MODERATOR` (PRD 3.9.3, AD-7.4's role model); the item **and both of its surrounding dividers** are absent entirely (not disabled/greyed) for regular users, so a non-moderator sees exactly one divider directly before Log Out, never two adjacent dividers.
-  9. **Log Out** — action, not a navigation.
+  6. **Queue Status** → `/settings/queue-status` — per-subscription pending-extraction counts and API key health (Active/Invalid), with a warning link to API Keys if any key is Invalid.
+  7. **Notifications** → `/settings/notifications`
+  8. **Reports** → `/reports`
+  9. **Moderator Items** → `/moderator/items`, *preceded and followed by a divider* — rendered only when the authenticated user's `role === MODERATOR` (PRD 3.9.3, AD-7.4's role model); the item **and both of its surrounding dividers** are absent entirely (not disabled/greyed) for regular users, so a non-moderator sees exactly one divider directly before Log Out, never two adjacent dividers.
+  10. **Log Out** — action, not a navigation.
 
-  This formalizes Story 2.8's existing (loose) AC plus PRD 3.9.3's intent ("a dedicated 'Reports' page under their user menu"; "a 'Moderator Items' page will be available under the user menu") into a concrete interaction spec. It **supersedes** Story 2.8's original item list (`epics.md`, pre-2026-08-05: "My Favorites", "My Calendar", "My Locations", "Settings", "Logout") — "My Favorites"/"My Calendar" are dropped as redundant now that both are first-class items in the primary 5-item nav (Story 0.7); "My Locations"/"Settings" are expanded into the full settings-registry set above. Reports and Moderator Items are registered by Stories 4.6 and 4.7 respectively (Epic 4, which already reference "the user menu" generically); Locations/Subscribed Accounts/API Keys/Notifications are registered by Stories 2.3/3.2/3.9/2.9 respectively — Story 2.8 owns the menu *mechanism* and its registry, not the content of every entry.
+  This formalizes Story 2.8's existing (loose) AC plus PRD 3.9.3's intent ("a dedicated 'Reports' page under their user menu"; "a 'Moderator Items' page will be available under the user menu") into a concrete interaction spec. It **supersedes** Story 2.8's original item list (`epics.md`, pre-2026-08-05: "My Favorites", "My Calendar", "My Locations", "Settings", "Logout") — "My Favorites"/"My Calendar" are dropped as redundant now that both are first-class items in the primary 5-item nav (Story 0.7); "My Locations"/"Settings" are expanded into the full settings-registry set above. Reports and Moderator Items are registered by Stories 4.6 and 4.7 respectively (Epic 4, which already reference "the user menu" generically); Locations/Subscribed Accounts/API Keys/Notifications are registered by Stories 2.3/3.2/3.9/2.9 respectively — Story 2.8 owns the menu *mechanism* and its registry, not the content of every entry. **Queue Status is registered by Story 3.9a** (added 2026-08-11, resolving FR23's previously-orphaned in-app queue-status requirement — see `_bmad-output/implementation-artifacts/3-9a-display-in-app-queue-status-and-api-key-health.md`).
 
 The main view is centered around a filterable, dynamic grid of events that can be viewed as either a card-grid or a weekly calendar. This provides flexibility for users to discover events in their preferred format.
 
