@@ -315,10 +315,15 @@ development_status:
   # async-only) needs a new job-tracking table, a public webhook endpoint, and a
   # stale-job fallback sweep -- a genuinely new architectural layer, not an
   # incremental adapter addition. See epics.md Story 3.4a note.
-  # WARNING 2026-08-10: Bright Data outreach (via Story 3.4b) says they "no
-  # longer provide IPs for Social media account management usecase" -- may
-  # invalidate this story's whole premise, not just BYOK. Clarifying follow-up
-  # sent (see 3-4b file). DO NOT run bmad-create-story 3-4a until resolved.
+  # WARNING 2026-08-10 (RESOLVED same day): initial Bright Data reply said they
+  # "no longer provide IPs for Social media account management usecase" --
+  # risked invalidating this story's premise. Follow-up clarified this meant
+  # their Proxy/IP product, not the Web Scraper/Dataset API -- Bright Data
+  # confirmed "we can support you collecting Social media data from our
+  # Webscraper APIs and Filter APIs... post URL or Profile URL as input."
+  # Story is UNBLOCKED for bmad-create-story 3-4a. Remaining open question
+  # (capability, not policy): confirm profile-URL input returns recent POSTS
+  # (discovery) vs only profile metadata/single-post lookup -- verify with a
   3-4a-add-brightdata-as-the-priority-scraping-vendor-for-the-scheduled-batch: backlog
   # added 2026-08-08 via bmad-create-story while drafting Story 3.4: BYOK-pooled
   # scraper-vendor keys, researched and found legally ambiguous for both Apify
