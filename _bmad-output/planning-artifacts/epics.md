@@ -2012,6 +2012,23 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 0.13.
 
+### Story 3.9a: Display in-app queue status and API key health
+
+**As a** user who has subscribed to social media accounts,
+**I want** a dedicated "Queue Status" section in my user menu showing how many of my subscribed posts are still pending extraction and whether my own API keys are healthy,
+**So that** I understand extraction progress and can react if one of my keys needs attention.
+
+**Acceptance Criteria:**
+
+*   **Given** I have one or more active subscriptions, **when** I open "Queue Status" from my user menu, **then** I see, for each active subscription, the social media account's display name and the count of that account's posts still pending extraction (`posts.isExtracted = false`, scoped to that `accountId`).
+*   **And** I see the status of each of my own API keys (`api_keys.isValid`) as "Active" or "Invalid" — a live "Rate-limited" state is explicitly out of scope for this story, since Story 0.13's adapter treats rate-limiting as a transient, in-request-only condition and persists nothing to `api_keys` for it (only `isValid`/`invalidAttempts` are durable); a future story may add a persisted rate-limit signal if needed.
+*   **And** if any of my keys is `Invalid`, a warning is shown with a link to `/settings/api-keys` (Story 3.1b) to resolve it.
+*   **And** this page requires authentication and shows only the signed-in user's own subscriptions/keys.
+
+**Note (2026-08-11, added via `bmad-create-story` while drafting Story 3.9):** Surfaced by Gate 2 (`story-split-gate.md`), run fresh via the Freya persona since Story 3.9's own scope (backend verification tests only, per its Gate-1-corrected AC) has no UI. FR23 ("A dedicated section within the user menu will display the real-time queue status of posts pending extraction") is mapped to Epic 3 in the PRD's FR-to-epic table, and Story 0.13's own `Out of Scope` section explicitly anticipated "Story 3.9 (UI-facing aspects)" would own it — but Story 3.9's AC was later narrowed by the Epic 3 readiness sweep's Gate 1 correction to drop all UI, leaving FR23 mapped to Epic 3 with no story anywhere implementing it. Draft (non-authoritative) UX content already exists at `design-artifacts/C-UX-Scenarios/04-alex-extracts-events/04.8-in-app-queue-status.md`, describing this exact screen, but was never promoted into the authoritative `DESIGN.md`/`EXPERIENCE.md`. User confirmed via `AskUserQuestion` during Story 3.9's creation to split this off as its own prerequisite story rather than silently re-absorb it into 3.9 or leave FR23 permanently orphaned. Positioned as a lettered suffix directly off Story 3.9 per `story-split-gate.md`'s "single-story split" numbering rule. (A related but distinct draft page, `04.6-quota-management-display.md` — a quota progress bar on the *manual post selection* screen — belongs to Epic 5's manual-extraction flow, not this story; not in scope here.)
+
+**Depends on:** Story 0.13, Story 3.1a, Story 3.1b, Story 3.3a.
+
 ### Story 3.10: Email notifications for queued posts
 
 **As a** user,
