@@ -1,4 +1,4 @@
-import { LucideIcon, User, MapPin, Radio, Key, Bell, FileText, ShieldAlert } from 'lucide-react';
+import { LucideIcon, User, MapPin, Radio, Key, ListChecks, Bell, FileText, ShieldAlert } from 'lucide-react';
 
 export interface ProfileMenuEntry {
   id: string;
@@ -34,6 +34,12 @@ export const profileMenuEntries: ProfileMenuEntry[] = [
     labelKey: 'api-keys',
     href: '/settings/api-keys',
     icon: Key,
+  },
+  {
+    id: 'queue-status',
+    labelKey: 'queueStatus',
+    href: '/settings/queue-status',
+    icon: ListChecks,
   },
   {
     id: 'notifications',

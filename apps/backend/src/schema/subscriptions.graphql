@@ -4,6 +4,7 @@ type Subscription {
   isNewlyAdded: Boolean!
   createdAt: String!
   account: SocialMediaAccountProfile!
+  pendingExtractionCount: Int!
 }
 
 extend type Query {

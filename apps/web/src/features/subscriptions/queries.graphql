@@ -4,6 +4,7 @@ query getMySubscriptions {
     accountId
     isNewlyAdded
     createdAt
+    pendingExtractionCount
     account {
       id
       platform

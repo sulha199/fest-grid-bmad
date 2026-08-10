@@ -180,23 +180,48 @@
 
 ## Definition of Done
 
-- [ ] AC 1-7 satisfied.
-- [ ] All new/extended tests (`subscriptions.test.ts`, `queue-status-content.test.tsx`) passing.
-- [ ] No regressions in any existing `apps/backend` or `apps/web` test suite.
-- [ ] `pnpm lint` and `pnpm build` passing for `apps/backend`, `apps/web`, and `packages/ui`.
-- [ ] `EXPERIENCE.md` amendment present and accurate.
-- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
+- [x] AC 1-7 satisfied.
+- [x] All new/extended tests (`subscriptions.test.ts`, `queue-status-content.test.tsx`) passing.
+- [x] No regressions in any existing `apps/backend` or `apps/web` test suite.
+- [x] `pnpm lint` and `pnpm build` passing for `apps/backend`, `apps/web`, and `packages/ui`.
+- [x] `EXPERIENCE.md` amendment present and accurate.
+- [x] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed (2026-08-11)
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+- Claude 3.5 Sonnet (Cline)
+
 ### Debug Log References
+
+- Frontend test run log: Successful passing of all tests in `apps/web/src/app/[locale]/settings/queue-status/queue-status-content.test.tsx`.
+- Backend test run log: Integration assertions passing successfully in `apps/backend/src/schema/subscriptions.test.ts`.
 
 ### Completion Notes List
 
+- Implemented `pendingExtractionCount` resolver and type.
+- Built reusable status badge primitive and settings/queue-status route content.
+- Handled i18n support, User Menu placement, warning notifications, and docs.
+
 ### File List
+
+- `apps/backend/src/schema/subscriptions.graphql`
+- `apps/backend/src/schema/resolvers.ts`
+- `apps/backend/src/schema/subscriptions.test.ts`
+- `packages/ui/src/core/status-badge.tsx`
+- `packages/ui/src/index.ts`
+- `apps/web/src/features/subscriptions/queries.graphql`
+- `apps/web/src/generated/graphql.ts`
+- `apps/web/src/app/[locale]/settings/queue-status/page.tsx`
+- `apps/web/src/app/[locale]/settings/queue-status/queue-status-content.tsx`
+- `apps/web/src/app/[locale]/settings/queue-status/queue-status-content.test.tsx`
+- `packages/ui/src/core/app-shell/profile-menu-entries.ts`
+- `apps/web/src/components/layout/AppShellWrapper.tsx`
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`
+- `design-artifacts/UX-festgrid-run-1/EXPERIENCE.md`

@@ -50,6 +50,7 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
     locations: tUserMenu('locations'),
     subscriptions: tUserMenu('subscriptions'),
     apiKeys: tUserMenu('apiKeys'),
+    queueStatus: tUserMenu('queueStatus'),
     notifications: tUserMenu('notifications'),
     reports: tUserMenu('reports'),
     moderatorItems: tUserMenu('moderatorItems'),

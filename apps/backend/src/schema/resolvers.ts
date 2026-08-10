@@ -79,6 +79,17 @@ export const resolvers: Resolvers = {
       }
 
       return profile as any;
+    },
+    pendingExtractionCount: async (parent: any) => {
+      const rows = await db.select({ count: count() })
+        .from(posts)
+        .where(
+          and(
+            eq(posts.accountId, parent.accountId),
+            eq(posts.isExtracted, false)
+          )
+        );
+      return rows[0]?.count ?? 0;
     }
   } as any,
   SocialMediaAccountProfile: {

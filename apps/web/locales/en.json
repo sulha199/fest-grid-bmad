@@ -22,6 +22,8 @@
     "notificationsDescription": "Manage your push notification settings on FestDaily.",
     "apiKeysTitle": "My API Keys | FestDaily",
     "apiKeysDescription": "Manage your Gemini API keys on FestDaily.",
+    "queueStatusTitle": "Queue Status | FestDaily",
+    "queueStatusDescription": "View the queue status of pending extractions and API key health on FestDaily.",
     "wizardOnboardingApiKeyTitle": "Add API Key",
     "wizardOnboardingApiKeyDescription": "Add your Gemini API key to get started.",
     "wizardOnboardingSubscribeTitle": "Subscribe",
@@ -260,6 +262,7 @@
     "locations": "Locations",
     "subscriptions": "Subscribed Accounts",
     "apiKeys": "API Keys",
+    "queueStatus": "Queue Status",
     "notifications": "Notifications",
     "reports": "Reports",
     "moderatorItems": "Moderator Items",
@@ -343,5 +346,20 @@
     "revokedToast": "API key marked for revocation",
     "undoLabel": "Undo",
     "restoreErrorToast": "Failed to restore API key."
+  },
+  "QueueStatusPage": {
+    "title": "Queue Status",
+    "description": "Monitor extraction status of posts from your subscribed accounts and check your API key health.",
+    "pendingCountLabel": "{count, plural, =1 {# post pending} other {# posts pending}}",
+    "activeStatusLabel": "Active",
+    "invalidStatusLabel": "Invalid",
+    "invalidKeyWarningPrompt": "One or more of your API keys are invalid. Active subscriptions may not scrape correctly.",
+    "invalidKeyWarningLinkLabel": "Configure API Keys",
+    "emptyState": "You are not subscribed to any accounts yet.",
+    "errorState": "Failed to load queue status. Please try again later.",
+    "retryButtonLabel": "Retry",
+    "subscriptionsSectionTitle": "Subscription Queue",
+    "apiKeysSectionTitle": "API Key Health",
+    "noApiKeysConfigured": "No API keys configured."
   }
 }

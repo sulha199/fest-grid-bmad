@@ -370,6 +370,7 @@ export type Subscription = {
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   isNewlyAdded: Scalars['Boolean']['output'];
+  pendingExtractionCount: Scalars['Int']['output'];
 };
 
 export type ToggleCalendarAdditionResult = {
@@ -615,7 +616,7 @@ export type EditAccountDefaultLocationMutation = { editAccountDefaultLocation: {
 export type GetMySubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, createdAt: string, account: { id: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
+export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, createdAt: string, pendingExtractionCount: number, account: { id: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
 
 export type ReportSystemErrorMutationVariables = Exact<{
   input: ReportSystemErrorInput;
@@ -1489,6 +1490,7 @@ export const GetMySubscriptionsDocument = new TypedDocumentString(`
     accountId
     isNewlyAdded
     createdAt
+    pendingExtractionCount
     account {
       id
       platform

@@ -21,7 +21,9 @@
     "notificationsTitle": "Pengaturan Notifikasi | FestDaily",
     "notificationsDescription": "Atur pengaturan notifikasi push Anda di FestDaily.",
     "apiKeysTitle": "Kunci API Saya | FestDaily",
-    "apiKeysDescription": "Atur kunci API Gemini Anda di FestDaily.",
+    "apiKeysDescription": "Kelola kunci API Gemini Anda di FestDaily.",
+    "queueStatusTitle": "Status Antrean | FestDaily",
+    "queueStatusDescription": "Lihat status antrean ekstraksi yang tertunda dan kesehatan kunci API di FestDaily.",
     "wizardOnboardingApiKeyTitle": "Tambah Kunci API",
     "wizardOnboardingApiKeyDescription": "Tambahkan kunci API Gemini Anda untuk memulai.",
     "wizardOnboardingSubscribeTitle": "Berlangganan",
@@ -260,6 +262,7 @@
     "locations": "Lokasi",
     "subscriptions": "Akun Berlangganan",
     "apiKeys": "Kunci API",
+    "queueStatus": "Status Antrean",
     "notifications": "Notifikasi",
     "reports": "Laporan",
     "moderatorItems": "Item Moderator",
@@ -343,5 +346,20 @@
     "revokedToast": "Kunci API ditandai untuk dicabut",
     "undoLabel": "Urungkan",
     "restoreErrorToast": "Gagal mengembalikan kunci API."
+  },
+  "QueueStatusPage": {
+    "title": "Status Antrean",
+    "description": "Pantau status ekstraksi postingan dari akun berlangganan Anda dan periksa kesehatan kunci API Anda.",
+    "pendingCountLabel": "{count, plural, =1 {# postingan tertunda} other {# postingan tertunda}}",
+    "activeStatusLabel": "Aktif",
+    "invalidStatusLabel": "Tidak Valid",
+    "invalidKeyWarningPrompt": "Satu atau beberapa kunci API Anda tidak valid. Langganan aktif mungkin tidak dapat mengambil data dengan benar.",
+    "invalidKeyWarningLinkLabel": "Konfigurasi Kunci API",
+    "emptyState": "Anda belum berlangganan akun apa pun.",
+    "errorState": "Gagal memuat status antrean. Silakan coba lagi nanti.",
+    "retryButtonLabel": "Coba Lagi",
+    "subscriptionsSectionTitle": "Antrean Berlangganan",
+    "apiKeysSectionTitle": "Kesehatan Kunci API",
+    "noApiKeysConfigured": "Kunci API belum dikonfigurasi."
   }
 }

@@ -760,6 +760,87 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
   });
 
+  await t.test('14. mySubscriptions pendingExtractionCount', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    // Create a new social media profile
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      platform: 'instagram',
+      accountId: 'test_queue_status_acc',
+      username: 'test_queue_status_acc',
+      displayName: 'Test Queue Status Acc'
+    }).returning();
+
+    // Create active subscription
+    const [sub] = await db.insert(subscriptions).values({
+      userId: testUser.id,
+      accountId: profile.id,
+    }).returning();
+
+    // Create 3 posts under this profile (2 unextracted, 1 extracted)
+    const [post1] = await db.insert(posts).values({
+      accountId: profile.id,
+      platform: 'instagram',
+      postUrl: 'https://instagram.com/p/q_test_post_1',
+      content: 'Post 1 Content',
+      rawContent: 'Post 1 Content',
+      isExtracted: false,
+      publishedAt: new Date(),
+    }).returning();
+
+    const [post2] = await db.insert(posts).values({
+      accountId: profile.id,
+      platform: 'instagram',
+      postUrl: 'https://instagram.com/p/q_test_post_2',
+      content: 'Post 2 Content',
+      rawContent: 'Post 2 Content',
+      isExtracted: false,
+      publishedAt: new Date(),
+    }).returning();
+
+    const [post3] = await db.insert(posts).values({
+      accountId: profile.id,
+      platform: 'instagram',
+      postUrl: 'https://instagram.com/p/q_test_post_3',
+      content: 'Post 3 Content',
+      rawContent: 'Post 3 Content',
+      isExtracted: true,
+      publishedAt: new Date(),
+    }).returning();
+
+    // Query pendingExtractionCount
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            mySubscriptions {
+              id
+              pendingExtractionCount
+              account {
+                displayName
+              }
+            }
+          }
+        `
+      })
+    });
+
+    const body = await response.json();
+    assert.ok(!body.errors, JSON.stringify(body.errors));
+    
+    // Find our specific subscription
+    const foundSub = body.data.mySubscriptions.find((s: any) => s.id === sub.id);
+    assert.ok(foundSub, 'Should find subscription we just created');
+    assert.strictEqual(foundSub.pendingExtractionCount, 2, 'Pending extraction count should be 2');
+
+    // Clean up
+    await db.delete(posts).where(eq(posts.accountId, profile.id));
+    await db.delete(subscriptions).where(eq(subscriptions.id, sub.id));
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+  });
+
   await t.test('cleanup - delete all created test data', async () => {
     await db.delete(subscriptions).where(eq(subscriptions.userId, testUser.id));
     await db.delete(apiKeys).where(eq(apiKeys.userId, testUser.id));
