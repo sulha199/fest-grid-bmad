@@ -157,3 +157,175 @@ test('AI Gateway Adapter - callGemini orchestration', async (t) => {
     );
   });
 });
+
+test('AI Gateway Adapter - Tier 2 and Billing Cycle Reset', async (t) => {
+  // Setup users A and B
+  const [userA] = await db.insert(users).values({
+    email: `gateway-tier2-a-${Date.now()}@example.com`,
+    name: 'Tier 2 User A',
+  }).returning();
+
+  const [userB] = await db.insert(users).values({
+    email: `gateway-tier2-b-${Date.now()}@example.com`,
+    name: 'Tier 2 User B',
+  }).returning();
+
+  const [dbKeyA] = await db.insert(apiKeys).values({
+    userId: userA.id,
+    keyEncrypted: Buffer.from('key-a-secret').toString('base64'),
+    keyLast4: 'cret',
+    provider: 'gemini',
+    isValid: true,
+    invalidAttempts: 0,
+    usageCount: 2,
+  }).returning();
+
+  const [dbKeyB] = await db.insert(apiKeys).values({
+    userId: userB.id,
+    keyEncrypted: Buffer.from('key-b-secret').toString('base64'),
+    keyLast4: 'cret',
+    provider: 'gemini',
+    isValid: true,
+    invalidAttempts: 0,
+    usageCount: 5,
+  }).returning();
+
+  t.after(async () => {
+    await db.delete(apiKeys).where(inArray(apiKeys.id, [dbKeyA.id, dbKeyB.id]));
+    await db.delete(users).where(inArray(users.id, [userA.id, userB.id]));
+  });
+
+  await t.test('Task 1.1: Subscriber A key fails with GeminiInvalidKeyError, fallback to Subscriber B', async () => {
+    setDecryptApiKey(async (ciphertextBase64) => {
+      return Buffer.from(ciphertextBase64, 'base64').toString('utf-8');
+    });
+
+    setCallGeminiGenerateContent(async (apiKey) => {
+      if (apiKey === 'key-a-secret') {
+        throw new GeminiInvalidKeyError('Invalid API Key');
+      }
+      if (apiKey === 'key-b-secret') {
+        return { text: 'Key B success response' };
+      }
+      throw new Error('Unknown key: ' + apiKey);
+    });
+
+    // Reset before running
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 2 }).where(eq(apiKeys.id, dbKeyA.id));
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 5 }).where(eq(apiKeys.id, dbKeyB.id));
+
+    const result = await callGemini({
+      provider: 'gemini',
+      subscriberUserIds: [userA.id, userB.id],
+      contents: 'Hello Multi',
+    });
+
+    assert.equal(result.text, 'Key B success response');
+
+    const [updatedKeyA] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKeyA.id));
+    const [updatedKeyB] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKeyB.id));
+
+    assert.equal(updatedKeyA.invalidAttempts, 1);
+    assert.equal(updatedKeyA.isValid, true);
+    assert.equal(updatedKeyA.usageCount, 2);
+
+    assert.equal(updatedKeyB.invalidAttempts, 0);
+    assert.equal(updatedKeyB.isValid, true);
+    assert.equal(updatedKeyB.usageCount, 6); // Increment of 1
+  });
+
+  await t.test('Task 1.2: Subscriber A key rate-limited with GeminiRateLimitedError, fallback to B without touching A invalidAttempts/isValid', async () => {
+    let callCount = 0;
+    setCallGeminiGenerateContent(async (apiKey) => {
+      callCount++;
+      if (apiKey === 'key-a-secret') {
+        throw new GeminiRateLimitedError('Too many requests', 0.01);
+      }
+      if (apiKey === 'key-b-secret') {
+        return { text: 'Key B success response' };
+      }
+      throw new Error('Unknown key: ' + apiKey);
+    });
+
+    // Reset before running
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 2 }).where(eq(apiKeys.id, dbKeyA.id));
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 5 }).where(eq(apiKeys.id, dbKeyB.id));
+
+    const result = await callGemini({
+      provider: 'gemini',
+      subscriberUserIds: [userA.id, userB.id],
+      contents: 'Hello Multi Rate Limit',
+    });
+
+    assert.equal(result.text, 'Key B success response');
+    assert.equal(callCount, 2);
+
+    const [updatedKeyA] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKeyA.id));
+    const [updatedKeyB] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKeyB.id));
+
+    assert.equal(updatedKeyA.invalidAttempts, 0);
+    assert.equal(updatedKeyA.usageCount, 2);
+
+    assert.equal(updatedKeyB.invalidAttempts, 0);
+    assert.equal(updatedKeyB.usageCount, 6);
+  });
+
+  await t.test('Task 1.3: Tier 2 fairness ordering - lower-usageCount key is used first', async () => {
+    let invokedKeys: string[] = [];
+    setCallGeminiGenerateContent(async (apiKey) => {
+      invokedKeys.push(apiKey);
+      return { text: 'Success' };
+    });
+
+    // Seed Key A usageCount = 8, Key B usageCount = 2. Key B should be invoked because 2 < 8.
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 8 }).where(eq(apiKeys.id, dbKeyA.id));
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 2 }).where(eq(apiKeys.id, dbKeyB.id));
+
+    const result = await callGemini({
+      provider: 'gemini',
+      subscriberUserIds: [userA.id, userB.id],
+      contents: 'Hello Fairness',
+    });
+
+    assert.equal(result.text, 'Success');
+    assert.deepEqual(invokedKeys, ['key-b-secret']);
+
+    const [updatedKeyA] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKeyA.id));
+    const [updatedKeyB] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKeyB.id));
+
+    assert.equal(updatedKeyA.usageCount, 8);
+    assert.equal(updatedKeyB.usageCount, 3);
+  });
+
+  await t.test('Task 2: Billing cycle reset - elapsed usageCycleResetAt resets usageCount', async () => {
+    setCallGeminiGenerateContent(async (apiKey) => {
+      assert.equal(apiKey, 'key-a-secret');
+      return { text: 'Success cycle reset' };
+    });
+
+    // Set usageCycleResetAt far in the past (e.g., 40 days ago) and non-zero usageCount
+    const pastDate = new Date();
+    pastDate.setDate(pastDate.getDate() - 40);
+
+    await db.update(apiKeys).set({
+      invalidAttempts: 0,
+      isValid: true,
+      usageCount: 40,
+      usageCycleResetAt: pastDate,
+    }).where(eq(apiKeys.id, dbKeyA.id));
+
+    const result = await callGemini({
+      provider: 'gemini',
+      subscriberUserIds: [userA.id],
+      contents: 'Hello reset cycle',
+    });
+
+    assert.equal(result.text, 'Success cycle reset');
+
+    const [updatedKeyA] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKeyA.id));
+    assert.equal(updatedKeyA.usageCount, 1);
+    
+    // Asserts usageCycleResetAt has been bumped to a future date
+    assert.ok(updatedKeyA.usageCycleResetAt.getTime() > Date.now());
+  });
+});

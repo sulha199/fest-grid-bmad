@@ -8,7 +8,7 @@ baseline_commit: 6f0256417732c9cb585b9df8177e46e43783ad21
 
 - **Epic:** 3
 - **Story ID:** 3.9
-- **Status:** ready-for-dev
+- **Status:** done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,19 +33,19 @@ baseline_commit: 6f0256417732c9cb585b9df8177e46e43783ad21
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1, AC2, AC3) — Real-DB Tier 2 multi-subscriber round-robin/fallback tests in `apps/backend/src/lib/ai-gateway/adapter.test.ts`:** Extend the existing suite (which today only ever calls `callGemini` with a single-user `subscriberUserIds` array, i.e. Tier 1) with a new `t.test(...)` block seeding **two distinct real `users` rows**, each with their **own real `apiKeys` row** (`provider: 'gemini'`, distinct `keyEncrypted` values), and calling `callGemini({ subscriberUserIds: [userA.id, userB.id], ... })` (Tier 2, since `subscriberUserIds.length > 1`) via `setDecryptApiKey`/`setCallGeminiGenerateContent` (existing DI seams — no new mocking mechanism needed):
-  - [ ] Sub-case: Subscriber A's key returns `GeminiInvalidKeyError` (mocked in `setCallGeminiGenerateContent`, keyed off which plaintext key is passed) → assert the call still succeeds using Subscriber B's key, assert A's `apiKeys.invalidAttempts` incremented in the DB, and assert B's `apiKeys.usageCount` incremented in the DB (AC2's "exhausted/invalid ... continues using Subscriber B's key").
-  - [ ] Sub-case: Subscriber A's key returns `GeminiRateLimitedError` (`retryAfterSeconds` near-zero, matching the existing rate-limit sub-case's `0.01` pattern to keep the test fast) → assert fallback to B succeeds the same way, without touching A's `invalidAttempts`/`isValid` (rate-limiting is transient, per Story 0.13's Dev Notes "Invalid-key vs. rate-limited distinction").
-  - [ ] Sub-case (Tier 2 fairness ordering): both A and B have valid keys with different `usageCount` seed values (e.g. A=8, B=2) and both succeed on first try → assert the **lower-`usageCount` key (B)** is the one actually invoked first (per `selectApiKey`'s existing Tier 2 "sorted by `usageCount` ascending" fairness rule, already unit-tested in `packages/domain` but never exercised here against two real, distinct-user DB rows).
-  - [ ] `t.after` cleanup deletes both new `apiKeys` rows and both new `users` rows (mirrors the existing suite's cleanup pattern).
-- [ ] **Task 2 (AC2, AC4) — Real-DB billing-cycle-reset test, same file:** Add a `t.test(...)` case that seeds a key with `usageCycleResetAt` set far enough in the past to have elapsed under the default 30-day cycle (`API_KEY_USAGE_CYCLE_DAYS`, `apps/backend/src/env.ts`) and a non-zero `usageCount` (e.g. `usageCount: 40`), calls `callGemini` (Tier 1, single subscriber, success path — reuses the existing mocked success seam) and asserts the **persisted row** now has `usageCount === 1` (reset, not incremented from 40) and `usageCycleResetAt` bumped forward to a new future date — proving `usage-store.ts`'s `recordSuccessfulUsage` reset branch (`isCycleElapsed` → `nextCycleReset`) round-trips correctly through the real DB, not just `packages/domain`'s pure-function unit tests.
-- [ ] **Task 3 (AC1, AC3) — Real-subscriber-derivation-to-adapter integration test, new file `apps/backend/src/lib/ai-processor/process-ai-job.multi-subscriber-quota.test.ts`:** Seed a real `socialMediaAccountProfiles` row, two real `subscriptions` rows (one per subscriber user from Task 1's pattern, both `isNewlyAdded: true`, no `deletedAt`) linking both users to that account, and each user's own real `apiKeys` row. Call `getActiveSubscriberUserIds(profile.id)` (Story 3.6's real function, not mocked) to derive `subscriberUserIds`, then call `callGemini` directly with that real, derived array (Story 0.13's real adapter, not mocked) — **not** through `processAiJob`'s `setCallGeminiSeam` (which every existing `process-ai-job.test.ts` case uses to mock `callGemini` away entirely, and which already separately proves — in `process-ai-job.test.ts`'s Case A — that `processAiJob` correctly derives and forwards `subscriberUserIds` to whatever `callGemini` seam is installed). Mock only `setCallGeminiGenerateContent` to simulate Subscriber A's key failing and Subscriber B's succeeding, then assert the result succeeds and the correct DB-level usage/invalid-attempt changes land on the correct user's key. This is the story's most literal reading of epics.md's "Given multiple users subscribed to the same account, When the system needs to process a post from that account" framing, without re-testing `processAiJob`'s own AJV/transform/SQS-enqueue logic (already covered by Story 3.6's own test suite) or re-testing `callGemini`'s Tier 2 mechanics a second time (Task 1 already covers those in isolation) — this test's unique value is proving the **real subscriber lookup → real adapter** hand-off specifically.
-  - [ ] `t.after` cleanup deletes the new `subscriptions`, `socialMediaAccountProfiles`, `apiKeys`, and `users` rows.
-- [ ] **Task 4 — Verification (AC1-AC4):**
-  - [ ] `pnpm --filter backend test` (or the wired `tsx --test src/**/*.test.ts` script) — all new and existing `apps/backend` suites pass, including the untouched pre-existing Tier 1 cases in `adapter.test.ts` and all of `process-ai-job.test.ts`.
-  - [ ] Confirm the new tests actually fail if `selectApiKey`'s Tier 2 branch or `usage-store.ts`'s reset branch is deliberately broken (a quick local sanity check before finalizing — not a committed step, just a correctness gate on the test-writing itself).
-  - [ ] `pnpm build`, `pnpm lint`, `pnpm test` (root): full suite, no regressions.
-  - [ ] Record in Completion Notes that this story adds no new product code — `packages/domain`, `apps/backend/src/lib/ai-gateway/*`, and `apps/backend/src/lib/ai-processor/*` source files are unmodified; only test files are added/extended.
+- [x] **Task 1 (AC1, AC2, AC3) — Real-DB Tier 2 multi-subscriber round-robin/fallback tests in `apps/backend/src/lib/ai-gateway/adapter.test.ts`:** Extend the existing suite (which today only ever calls `callGemini` with a single-user `subscriberUserIds` array, i.e. Tier 1) with a new `t.test(...)` block seeding **two distinct real `users` rows**, each with their **own real `apiKeys` row** (`provider: 'gemini'`, distinct `keyEncrypted` values), and calling `callGemini({ subscriberUserIds: [userA.id, userB.id], ... })` (Tier 2, since `subscriberUserIds.length > 1`) via `setDecryptApiKey`/`setCallGeminiGenerateContent` (existing DI seams — no new mocking mechanism needed):
+  - [x] Sub-case: Subscriber A's key returns `GeminiInvalidKeyError` (mocked in `setCallGeminiGenerateContent`, keyed off which plaintext key is passed) → assert the call still succeeds using Subscriber B's key, assert A's `apiKeys.invalidAttempts` incremented in the DB, and assert B's `apiKeys.usageCount` incremented in the DB (AC2's "exhausted/invalid ... continues using Subscriber B's key").
+  - [x] Sub-case: Subscriber A's key returns `GeminiRateLimitedError` (`retryAfterSeconds` near-zero, matching the existing rate-limit sub-case's `0.01` pattern to keep the test fast) → assert fallback to B succeeds the same way, without touching A's `invalidAttempts`/`isValid` (rate-limiting is transient, per Story 0.13's Dev Notes "Invalid-key vs. rate-limited distinction").
+  - [x] Sub-case (Tier 2 fairness ordering): both A and B have valid keys with different `usageCount` seed values (e.g. A=8, B=2) and both succeed on first try → assert the **lower-`usageCount` key (B)** is the one actually invoked first (per `selectApiKey`s existing Tier 2 "sorted by `usageCount` ascending" fairness rule, already unit-tested in `packages/domain` but never exercised here against two real, distinct-user DB rows).
+  - [x] `t.after` cleanup deletes both new `apiKeys` rows and both new `users` rows (mirrors the existing suite's cleanup pattern).
+- [x] **Task 2 (AC2, AC4) — Real-DB billing-cycle-reset test, same file:** Add a `t.test(...)` case that seeds a key with `usageCycleResetAt` set far enough in the past to have elapsed under the default 30-day cycle (`API_KEY_USAGE_CYCLE_DAYS`, `apps/backend/src/env.ts`) and a non-zero `usageCount` (e.g. `usageCount: 40`), calls `callGemini` (Tier 1, single subscriber, success path — reuses the existing mocked success seam) and asserts the **persisted row** now has `usageCount === 1` (reset, not incremented from 40) and `usageCycleResetAt` bumped forward to a new future date — proving `usage-store.ts`'s `recordSuccessfulUsage` reset branch (`isCycleElapsed` → `nextCycleReset`) round-trips correctly through the real DB, not just `packages/domain`'s pure-function unit tests.
+- [x] **Task 3 (AC1, AC3) — Real-subscriber-derivation-to-adapter integration test, new file `apps/backend/src/lib/ai-processor/process-ai-job.multi-subscriber-quota.test.ts`:** Seed a real `socialMediaAccountProfiles` row, two real `subscriptions` rows (one per subscriber user from Task 1's pattern, both `isNewlyAdded: true`, no `deletedAt`) linking both users to that account, and each user's own real `apiKeys` row. Call `getActiveSubscriberUserIds(profile.id)` (Story 3.6's real function, not mocked) to derive `subscriberUserIds`, then call `callGemini` directly with that real, derived array (Story 0.13's real adapter, not mocked) — **not** through `processAiJob`'s `setCallGeminiSeam` (which every existing `process-ai-job.test.ts` case uses to mock `callGemini` away entirely, and which already separately proves — in `process-ai-job.test.ts`'s Case A — that `processAiJob` correctly derives and forwards `subscriberUserIds` to whatever `callGemini` seam is installed). Mock only `setCallGeminiGenerateContent` to simulate Subscriber A's key failing and Subscriber B's succeeding, then assert the result succeeds and the correct DB-level usage/invalid-attempt changes land on the correct user's key. This is the story's most literal reading of epics.md's "Given multiple users subscribed to the same account, When the system needs to process a post from that account" framing, without re-testing `processAiJob`'s own AJV-validation/transform/SQS-enqueue logic (already covered by Story 3.6's own test suite) or re-testing `callGemini`'s Tier 2 mechanics a second time (Task 1 already covers those in isolation) — this test's unique value is proving the **real subscriber lookup → real adapter** hand-off specifically.
+  - [x] `t.after` cleanup deletes the new `subscriptions`, `socialMediaAccountProfiles`, `apiKeys`, and `users` rows.
+- [x] **Task 4 — Verification (AC1-AC4):**
+  - [x] `pnpm --filter backend test` (or the wired `tsx --test src/**/*.test.ts` script) — all new and existing `apps/backend` suites pass, including the untouched pre-existing Tier 1 cases in `adapter.test.ts` and all of `process-ai-job.test.ts`.
+  - [x] Confirm the new tests actually fail if `selectApiKey`'s Tier 2 branch or `usage-store.ts`'s reset branch is deliberately broken (a quick local sanity check before finalizing — not a committed step, just a correctness gate on the test-writing itself).
+  - [x] `pnpm build`, `pnpm lint`, `pnpm test` (root): full suite, no regressions.
+  - [x] Record in Completion Notes that this story adds no new product code — `packages/domain`, `apps/backend/src/lib/ai-gateway/*`, and `apps/backend/src/lib/ai-processor/*` source files are unmodified; only test files are added/extended.
 
 ## Dev Notes
 
@@ -105,10 +105,10 @@ baseline_commit: 6f0256417732c9cb585b9df8177e46e43783ad21
 
 ## Global Rules References
 
-- [ ] `_bmad-output/project-context.md` — Testing Rules ("testing trophy" approach for `apps/*`; `packages/domain` 100%-coverage rule does not apply here since this story adds no `packages/domain` code), Security (credential handling — this story's tests never log/persist decrypted key material, matching the existing `adapter.test.ts` pattern).
-- [ ] `_bmad-output/planning-artifacts/story-content-structure.md` — canonical section order/status vocabulary followed in this file.
-- [ ] `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — no dedicated AD exists for the AI Gateway/quota algorithm (confirmed by Story 0.13, re-confirmed here); governed by `project-context.md` and PRD §3.4/§3.8.
-- [ ] `docs/infrastructure/2-backend.md`, `docs/infrastructure/high-level-overview.md` — confirms the AI Processor Lambda's role as the adapter's real caller, unchanged by this story.
+- [x] `_bmad-output/project-context.md` — Testing Rules ("testing trophy" approach for `apps/*`; `packages/domain` 100%-coverage rule does not apply here since this story adds no `packages/domain` code), Security (credential handling — this story's tests never log/persist decrypted key material, matching the existing `adapter.test.ts` pattern).
+- [x] `_bmad-output/planning-artifacts/story-content-structure.md` — canonical section order/status vocabulary followed in this file.
+- [x] `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — no dedicated AD exists for the AI Gateway/quota algorithm (confirmed by Story 0.13, re-confirmed here); governed by `project-context.md` and PRD §3.4/§3.8.
+- [x] `docs/infrastructure/2-backend.md`, `docs/infrastructure/high-level-overview.md` — confirms the AI Processor Lambda's role as the adapter's real caller, unchanged by this story.
 
 ## Implementation Plan (Rule-Compliant)
 
@@ -129,28 +129,28 @@ baseline_commit: 6f0256417732c9cb585b9df8177e46e43783ad21
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: add real-DB integration tests proving Story 0.13's Tier 1/Tier 2 quota algorithm and Story 3.6's subscriber-derivation logic behave correctly together across ≥2 real subscribers, and that per-key usage counters reset at a billing-cycle boundary — zero product code changes.
-- [ ] Architecture and boundary confirmation: tests stay within `apps/backend`'s existing `node:test` + DI-seam pattern (`setDecryptApiKey`, `setCallGeminiGenerateContent`); no Vitest/MSW introduced into `apps/backend` (see Dev Notes "Testing framework" decision).
-- [ ] Testing plan confirmation: Task 1 (Tier 2 fallback + fairness, `adapter.test.ts`), Task 2 (cycle-reset, `adapter.test.ts`), Task 3 (real subscriber-derivation → real adapter, new file) as specified above.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 cited from swept `epic-3-readiness.md` (no gap, `3.9` explicitly covered); Gate 2 run fresh via Freya persona (no gap for this story's own scope) — the FR23 UI gap it surfaced is split off to new **Story 3.9a**, added to `epics.md` and `sprint-status.yaml` as `backlog`, and explicitly accepted by the user (via `AskUserQuestion`) as deferred rather than blocking this story.
-- [ ] **Test-architecture decision accepted:** confirm testing at the `getActiveSubscriberUserIds` → `callGemini` boundary (Task 3) — rather than a full `processAiJob` pipeline test — is sufficient to satisfy AC1/AC2's "process a post from that account" framing, given `processAiJob`'s own AJV/transform/SQS logic is already covered by Story 3.6's suite (see Dev Notes rationale).
-- [ ] **Story 3.9a acceptance:** confirm the in-app queue-status UI (FR23) remaining unbuilt until Story 3.9a is separately picked up is acceptable, and is not silently expected to ship alongside this story.
+- [x] Scope confirmation: add real-DB integration tests proving Story 0.13's Tier 1/Tier 2 quota algorithm and Story 3.6's subscriber-derivation logic behave correctly together across ≥2 real subscribers, and that per-key usage counters reset at a billing-cycle boundary — zero product code changes.
+- [x] Architecture and boundary confirmation: tests stay within `apps/backend`'s existing `node:test` + DI-seam pattern (`setDecryptApiKey`, `setCallGeminiGenerateContent`); no Vitest/MSW introduced into `apps/backend` (see Dev Notes "Testing framework" decision).
+- [x] Testing plan confirmation: Task 1 (Tier 2 fallback + fairness, `adapter.test.ts`), Task 2 (cycle-reset, `adapter.test.ts`), Task 3 (real subscriber-derivation → real adapter, new file) as specified above.
+- [x] Explicit human approval state (Default: pending approval)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 cited from swept `epic-3-readiness.md` (no gap, `3.9` explicitly covered); Gate 2 run fresh via Freya persona (no gap for this story's own scope) — the FR23 UI gap it surfaced is split off to new **Story 3.9a**, added to `epics.md` and `sprint-status.yaml` as `backlog`, and explicitly accepted by the user (via `AskUserQuestion`) as deferred rather than blocking this story.
+- [x] **Test-architecture decision accepted:** confirm testing at the `getActiveSubscriberUserIds` → `callGemini` boundary (Task 3) — rather than a full `processAiJob` pipeline test — is sufficient to satisfy AC1/AC2's "process a post from that account" framing, given `processAiJob`s own AJV/transform/SQS logic is already covered by Story 3.6's suite (see Dev Notes rationale).
+- [x] **Story 3.9a acceptance:** confirm the in-app queue-status UI (FR23) remaining unbuilt until Story 3.9a is separately picked up is acceptable, and is not silently expected to ship alongside this story.
 
 ## Testing Requirements
 
-- [ ] Integration tests (required, real local Postgres DB — no mocks below the KMS-decrypt/Gemini-SDK-call boundary): `apps/backend/src/lib/ai-gateway/adapter.test.ts`'s new Tier 2 multi-user cases (Task 1) and cycle-reset case (Task 2); `apps/backend/src/lib/ai-processor/process-ai-job.multi-subscriber-quota.test.ts` (Task 3).
-- [ ] Unit tests: None new — this story adds no `packages/domain` code (the 100%-coverage rule does not apply; `select-api-key.test.ts`/`usage-cycle.test.ts` already cover the pure logic in isolation and are unmodified).
-- [ ] E2E tests: Not applicable — no UI in this story.
-- [ ] Manual verification: Not applicable — no external Gemini/KMS credentials needed (all boundaries mocked via existing DI seams, matching Story 0.13's own established pattern).
+- [x] Integration tests (required, real local Postgres DB — no mocks below the KMS-decrypt/Gemini-SDK-call boundary): `apps/backend/src/lib/ai-gateway/adapter.test.ts`'s new Tier 2 multi-user cases (Task 1) and cycle-reset case (Task 2); `apps/backend/src/lib/ai-processor/process-ai-job.multi-subscriber-quota.test.ts` (Task 3).
+- [x] Unit tests: None new — this story adds no `packages/domain` code (the 100%-coverage rule does not apply; `select-api-key.test.ts`/`usage-cycle.test.ts` already cover the pure logic in isolation and are unmodified).
+- [x] E2E tests: Not applicable — no UI in this story.
+- [x] Manual verification: Not applicable — no external Gemini/KMS credentials needed (all boundaries mocked via existing DI seams, matching Story 0.13's own established pattern).
 
 ## Deliverables Checklist
 
-- [ ] `apps/backend/src/lib/ai-gateway/adapter.test.ts` extended with real-DB Tier 2 (two distinct subscriber users) round-robin-on-invalid-key, round-robin-on-rate-limit, and fairness-ordering cases, all passing.
-- [ ] `apps/backend/src/lib/ai-gateway/adapter.test.ts` extended with a real-DB billing-cycle-reset case, passing.
-- [ ] New `apps/backend/src/lib/ai-processor/process-ai-job.multi-subscriber-quota.test.ts` proving real `getActiveSubscriberUserIds` → real `callGemini` Tier 2 fallback, passing.
-- [ ] `pnpm build`/`pnpm lint`/`pnpm test` clean at the repo root.
-- [ ] New Story 3.9a (`3-9a-display-in-app-queue-status-and-api-key-health`) present in `epics.md` and `sprint-status.yaml` as `backlog`.
+- [x] `apps/backend/src/lib/ai-gateway/adapter.test.ts` extended with real-DB Tier 2 (two distinct subscriber users) round-robin-on-invalid-key, round-robin-on-rate-limit, and fairness-ordering cases, all passing.
+- [x] `apps/backend/src/lib/ai-gateway/adapter.test.ts` extended with a real-DB billing-cycle-reset case, passing.
+- [x] New `apps/backend/src/lib/ai-processor/process-ai-job.multi-subscriber-quota.test.ts` proving real `getActiveSubscriberUserIds` → real `callGemini` Tier 2 fallback, passing.
+- [x] `pnpm build`/`pnpm lint`/`pnpm test` clean at the repo root.
+- [x] New Story 3.9a (`3-9a-display-in-app-queue-status-and-api-key-health`) present in `epics.md` and `sprint-status.yaml` as `backlog`.
 
 ## Out of Scope
 
@@ -163,16 +163,16 @@ baseline_commit: 6f0256417732c9cb585b9df8177e46e43783ad21
 
 ## Definition of Done
 
-- [ ] AC 1-4 satisfied.
-- [ ] All new/extended tests in `adapter.test.ts` and the new `process-ai-job.multi-subscriber-quota.test.ts` passing.
-- [ ] No regressions in any existing `apps/backend` test suite.
-- [ ] `pnpm lint` and `pnpm build` passing for `apps/backend`.
-- [ ] Story 3.9a present in `epics.md` and `sprint-status.yaml`.
-- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins, including the test-architecture decision and the Story 3.9a deferral.
+- [x] AC 1-4 satisfied.
+- [x] All new/extended tests in `adapter.test.ts` and the new `process-ai-job.multi-subscriber-quota.test.ts` passing.
+- [x] No regressions in any existing `apps/backend` test suite.
+- [x] `pnpm lint` and `pnpm build` passing for `apps/backend`.
+- [x] Story 3.9a present in `epics.md` and `sprint-status.yaml`.
+- [x] Pre-Coding Approval Gate explicitly approved by the user before implementation begins, including the test-architecture decision and the Story 3.9a deferral.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed
 
 ## Dev Agent Record
 

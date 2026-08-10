@@ -428,7 +428,7 @@ development_status:
   # epics.md Story 3.7b note.
   3-7b-filter-the-feed-page-by-specific-subscribed-account: review
   3-8-push-notifications-for-extracted-events: review
-  3-9-implement-api-key-quota-management: ready-for-dev
+  3-9-implement-api-key-quota-management: done
   # added 2026-08-11 via bmad-create-story Gate 2 finding while drafting Story 3.9:
   # FR23 (in-app queue status) maps to Epic 3 in the PRD but no story implements it --
   # Story 0.13's Out of Scope anticipated "Story 3.9 (UI-facing aspects)" would own it,
