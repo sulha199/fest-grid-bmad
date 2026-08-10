@@ -324,6 +324,7 @@ development_status:
   # Story is UNBLOCKED for bmad-create-story 3-4a. Remaining open question
   # (capability, not policy): confirm profile-URL input returns recent POSTS
   # (discovery) vs only profile metadata/single-post lookup -- verify with a
+  # real test call before committing to the async job-tracking/webhook design.
   3-4a-add-brightdata-as-the-priority-scraping-vendor-for-the-scheduled-batch: backlog
   # added 2026-08-08 via bmad-create-story while drafting Story 3.4: BYOK-pooled
   # scraper-vendor keys, researched and found legally ambiguous for both Apify
@@ -382,7 +383,7 @@ development_status:
   # onConflictDoNothing (not a select-then-insert check), and
   # reportBatchItemFailures: true on ingestorLambda's SqsEventSource, mirroring
   # aiProcessorLambda's own precedent. See epics.md Story 3.6b Dev Notes.
-  3-6b-ingest-processed-events-into-the-database: ready-for-dev
+  3-6b-ingest-processed-events-into-the-database: in-progress
   # added 2026-08-10 via bmad-create-story Gate 3 finding while drafting Story 3.6a:
   # users.timezone (added by 3.6a to match PRD 4.8's User.timezone) has no capture
   # mechanism anywhere in the codebase -- without this story FR33 Tier 2 can never
