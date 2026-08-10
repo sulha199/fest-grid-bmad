@@ -436,9 +436,7 @@ development_status:
   # readiness sweep's Gate 1 correction, orphaning FR23. User confirmed via
   # AskUserQuestion to split it off rather than re-absorb or silently drop. See
   # epics.md Story 3.9a note.
-  3-9a-display-in-app-queue-status-and-api-key-health: backlog
-  3-10-email-notifications-for-queued-posts: backlog
-  3-11-view-events-for-a-social-media-account: backlog
+  3-9a-display-in-app-queue-status-and-api-key-health: ready-for-dev
   epic-3-retrospective: optional
   epic-4: backlog
   4-1a-build-the-corrections-backend-graphql-api-layer: backlog
