@@ -437,6 +437,20 @@ development_status:
   # AskUserQuestion to split it off rather than re-absorb or silently drop. See
   # epics.md Story 3.9a note.
   3-9a-display-in-app-queue-status-and-api-key-health: ready-for-dev
+  # created 2026-08-11 via bmad-create-story: full context engine pass. Gate 1
+  # (fresh, since epic-3-readiness.md predates this story) found a real gap --
+  # this story needs a new scheduled Lambda with a real SES send grant, but no
+  # story provisions one (Story 0.14 predates the need; Story 0.25's SES
+  # reconciliation is scoped only to L_API). User confirmed via AskUserQuestion
+  # to split it off narrowly as new Story 0.27 rather than build the Lambda/
+  # EventBridge/IAM wiring ad hoc inside this story. Gate 2 run fresh via Freya
+  # subagent (no gap -- zero UI surface, email copy already shipped by Story
+  # 0.15's QUOTA_EXHAUSTION_WARNING template). Gate 3: no gap (Story 0.15 is
+  # this story's reserved first caller). De-dup design (new
+  # users.lastQuotaWarningEmailSentAt cooldown column) and no-opt-out scope
+  # also confirmed via AskUserQuestion. See epics.md Story 3.10 Amendment and
+  # Story 0.27 note.
+  3-10-email-notifications-for-queued-posts: ready-for-dev
   epic-3-retrospective: optional
   epic-4: backlog
   4-1a-build-the-corrections-backend-graphql-api-layer: backlog

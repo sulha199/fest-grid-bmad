@@ -757,6 +757,27 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Depends on:** None (pure presentation component + mechanical wiring; no backend dependency).
 
+### Story 0.27: Provision the notifier Lambda's infrastructure and SES send permission
+
+**As a** developer,
+**I want** a new `L_Notifier` Lambda function (a reserved slot, no business logic yet) wired to a daily EventBridge schedule rule, with `DATABASE_URL` environment access and `ses:SendEmail`/`ses:SendRawEmail` IAM permission scoped to the single SES `EmailIdentity` construct Story 0.25 establishes,
+**So that** any future scheduled/batch notification story — starting with Story 3.10's quota-exhaustion warning emails — has a ready-to-consume, correctly-permissioned Lambda to implement its logic in, instead of each such story inventing its own IaC wiring or discovering mid-implementation that SES access was never actually granted to it.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 0.14's `FestgridBackendStack` (existing `L_API`/`L_Scrape`/`L_AI`/`L_Ingest` Lambdas, SQS queues, and the `ScraperScheduleRule` EventBridge pattern) and Story 0.25's reconciled single SES `EmailIdentity` + IAM-grant construct,
+*   **When** the stack is synthesized,
+*   **Then** a new `L_Notifier` Lambda (`apps/backend/src/lambdas/notifier.ts`, a minimal reserved-slot handler that returns successfully with no real logic yet) is provisioned in `festgrid-backend-stack.ts`, mirroring the existing `sharedLambdaProps`/`NodejsFunction` pattern used by `L_Scrape`/`L_AI`/`L_Ingest`.
+*   **And** a new EventBridge `events.Rule` (`NotifierScheduleRule-${stageName}`) triggers `L_Notifier` on a daily `events.Schedule.rate(cdk.Duration.days(1))` cadence, mirroring `ScraperScheduleRule`'s exact construct shape.
+*   **And** `L_Notifier`'s environment includes `DATABASE_URL`, sourced the same way as the other Lambdas.
+*   **And** `L_Notifier`'s execution role is granted `ses:SendEmail`/`ses:SendRawEmail`, scoped to Story 0.25's single `EmailIdentity` construct — not a second, independently-created SES identity.
+*   **And** a CDK assertion test (`aws-cdk-lib/assertions`) proves: exactly one `L_Notifier` function exists, its EventBridge rule target is correctly wired to it, and its execution role's IAM policy includes the scoped SES send actions.
+*   **And** this story ships zero real notification logic — `notifier.ts`'s handler is a reserved slot; Story 3.10 is its first and only consumer.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced while drafting Story 3.10 (Epic 3, quota-exhaustion emails) — that story needs a new scheduled Lambda with real SES send permission, but no story anywhere provisions one: Story 0.14 only provisioned the four Lambdas known at its own authoring time (API, Scraper, AI Processor, Ingestor), and Story 0.25's SES reconciliation is scoped only to `L_API`'s own execution role. Rather than let Story 3.10 silently invent its own ad hoc IaC changes, this is split into its own Epic 0 "reserved slot" foundation story, following the Story 0.13/0.15/0.23 precedent. User confirmed via `AskUserQuestion` during Story 3.10's creation to split this off narrowly (scoped only to the new Lambda's own resource/grant) rather than fold it into Story 3.10's own scope or rely solely on Story 0.25, since 0.25 already independently tracks the broader `L_API`-only SES reconciliation and doesn't anticipate a Lambda that doesn't exist yet.
+
+**Depends on:** Story 0.14, Story 0.25.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
@@ -2043,7 +2064,9 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **Then** an email notification is sent to the user.
 *   **And** the email suggests contributing an additional API key.
 
-**Depends on:** Story 0.15.
+**Amendment (2026-08-11, added via `bmad-create-story` during this story's own creation):** `Depends on` updated to add Story 0.27. Full context-engine analysis found this story needs a new scheduled Lambda with a real SES send grant; the swept `epic-3-readiness.md` didn't anticipate this (its Gate 1/3 sweep predates this story's own creation and only covers already-drafted stories), and neither Story 0.14 (predates this story, only provisioned the Lambdas known at the time) nor Story 0.25 (scoped only to reconciling `L_API`'s own SES grant) covers a brand-new Lambda's grant. Split into new Story 0.27 per `AskUserQuestion` confirmation rather than built ad hoc inside this story. See Story 0.27's Note and this story's own implementation-artifact Dev Notes for the full analysis.
+
+**Depends on:** Story 0.15, Story 0.27, Story 3.1a, Story 3.3a.
 
 ### Story 3.11: View events for a social media account
 
