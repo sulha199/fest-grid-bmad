@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-10T01:00:00Z
+last_updated: 2026-08-10T20:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -362,7 +362,22 @@ development_status:
   # and Tier 3 (flag for manual clarification) have no owning story or data-model
   # concept anywhere in the codebase. See epics.md Story 3.6a note.
   3-6a-infer-event-timezone-from-subscriber-context-and-flag-ambiguous-cases-for-clarification: review
-  3-6b-ingest-processed-events-into-the-database: backlog
+  # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
+  # cited from swept epic-3-readiness.md (3.6b explicitly in stories_covered, no gap);
+  # lightweight guard confirmed Story 3.6a's post-sweep schedules.timezone/timezoneStatus
+  # dependency raises no new Gate 1/3 gap. Gate 2 run fresh via subagent (no gap, zero UI
+  # surface). Two real tradeoffs resolved with the user via AskUserQuestion: (1) the
+  # absent-location conflict Story 3.6 forward-noted here -- resolved by inserting a
+  # fixed "Location not specified" placeholder into events.location rather than
+  # migrating the column to nullable or skipping the event; (2) Story 3.6a was still
+  # ready-for-dev/not-started when this story's creation began -- user initially chose
+  # to hold off, then confirmed 3.6a's real implementation had landed (commit 3cf81df,
+  # now review) mid-session, so creation proceeded against verified real code. Also
+  # decided: idempotent insert via a new events.postId unique constraint +
+  # onConflictDoNothing (not a select-then-insert check), and
+  # reportBatchItemFailures: true on ingestorLambda's SqsEventSource, mirroring
+  # aiProcessorLambda's own precedent. See epics.md Story 3.6b Dev Notes.
+  3-6b-ingest-processed-events-into-the-database: ready-for-dev
   # added 2026-08-10 via bmad-create-story Gate 3 finding while drafting Story 3.6a:
   # users.timezone (added by 3.6a to match PRD 4.8's User.timezone) has no capture
   # mechanism anywhere in the codebase -- without this story FR33 Tier 2 can never
