@@ -6,26 +6,11 @@ import { useTranslations } from 'next-intl';
 import { useGetEventsForMyCalendarQuery } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { buildMyCalendarQueryCondition } from '@festgrid/domain/events';
-import { WeeklyCalendarView, Checkbox } from '@festgrid/ui';
+import { WeeklyCalendarView, Checkbox, useWeeklyCalendarController, getSunday, getSaturday } from '@festgrid/ui';
 import { useRouter } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import { usePostHog } from '@festgrid/analytics';
 import { useAuthSession } from '@/components/providers/auth-session-provider';
-
-const getSunday = (dateStr: string) => {
-  const d = new Date(dateStr);
-  const day = d.getDay();
-  const sunday = new Date(d);
-  sunday.setDate(d.getDate() - day);
-  return sunday.toISOString().split('T')[0];
-};
-
-const getSaturday = (sundayStr: string) => {
-  const d = new Date(sundayStr);
-  const saturday = new Date(d);
-  saturday.setDate(d.getDate() + 6);
-  return saturday.toISOString().split('T')[0];
-};
 
 export function MyCalendarContent() {
   const t = useTranslations('MyCalendarPage');
@@ -67,7 +52,7 @@ export function MyCalendarContent() {
     });
   }, [weekStart, weekEnd]);
 
-  const { data, status, error } = useGetEventsForMyCalendarQuery(
+  const { data, status: queryStatus, error: queryError } = useGetEventsForMyCalendarQuery(
     graphqlClient,
     {
       limit: 1000,
@@ -79,32 +64,35 @@ export function MyCalendarContent() {
     }
   );
 
-  // Flatten and filter schedules client-side
-  const schedules = useMemo(() => {
-    const rawEvents = data?.events?.items ?? [];
-    const flatSchedules = rawEvents.flatMap((event) => {
-      return (event.schedules || []).map((schedule) => ({
-        id: schedule.id,
-        eventSlug: event.slug,
-        eventName: event.eventName,
-        isMainSchedule: schedule.isMainSchedule,
-        eventStartDate: schedule.eventStartDate,
-        eventEndDate: schedule.eventEndDate,
-        eventStartTime: schedule.eventStartTime,
-        eventEndTime: schedule.eventEndTime,
-        isFavorited: !!event.isFavorited,
-        isAddedToCalendar: !!schedule.isAddedToCalendar,
-      }));
-    });
+  const {
+    schedules: rawSchedules,
+    status,
+    errorMessage,
+    errorDetail,
+    handlePrevWeek,
+    handleNextWeek,
+    handleToday,
+  } = useWeeklyCalendarController({
+    week,
+    setWeek,
+    todayStr,
+    rawEvents: data?.events?.items,
+    queryStatus,
+    queryError,
+    errorStateLabel: t('calendarErrorState'),
+    onNavigate: (direction, newWeek) => {
+      posthog.capture('calendar_week_navigated', { direction, weekStart: newWeek });
+    },
+  });
 
-    // Client-side filter: schedule.isFavorited && showFavorited OR schedule.isAddedToCalendar && showAdded
-    // AC5: "A schedule matching both categories remains visible as long as at least one toggle is on."
-    return flatSchedules.filter((schedule) => {
+  // Apply customized post-flattening client-side filters
+  const schedules = useMemo(() => {
+    return rawSchedules.filter((schedule) => {
       const passesFavorited = schedule.isFavorited && showFavorited;
       const passesAdded = schedule.isAddedToCalendar && showAdded;
       return passesFavorited || passesAdded;
     });
-  }, [data, showFavorited, showAdded]);
+  }, [rawSchedules, showFavorited, showAdded]);
 
   // Analytics: my_calendar_page_viewed
   useEffect(() => {
@@ -114,27 +102,6 @@ export function MyCalendarContent() {
       });
     }
   }, [status, schedules.length, session, weekStart, posthog]); // trigger on week changes too
-
-  const handlePrevWeek = () => {
-    const current = new Date(weekStart);
-    current.setDate(current.getDate() - 7);
-    const newWeek = current.toISOString().split('T')[0];
-    setWeek(newWeek);
-    posthog.capture('calendar_week_navigated', { direction: 'previous', weekStart: newWeek });
-  };
-
-  const handleNextWeek = () => {
-    const current = new Date(weekStart);
-    current.setDate(current.getDate() + 7);
-    const newWeek = current.toISOString().split('T')[0];
-    setWeek(newWeek);
-    posthog.capture('calendar_week_navigated', { direction: 'next', weekStart: newWeek });
-  };
-
-  const handleToday = () => {
-    setWeek(todayStr);
-    posthog.capture('calendar_week_navigated', { direction: 'today', weekStart: todayStr });
-  };
 
   const handleScheduleClick = (schedule: { eventSlug: string }) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -196,9 +163,9 @@ export function MyCalendarContent() {
         onPrevWeek={handlePrevWeek}
         onNextWeek={handleNextWeek}
         onScheduleClick={handleScheduleClick}
-        status={status === 'pending' ? 'loading' : status}
-        errorMessage={t('calendarErrorState')}
-        errorDetail={error ? (error as Error).message || JSON.stringify(error) : undefined}
+        status={status}
+        errorMessage={errorMessage}
+        errorDetail={errorDetail}
         labels={labels}
       />
     </div>

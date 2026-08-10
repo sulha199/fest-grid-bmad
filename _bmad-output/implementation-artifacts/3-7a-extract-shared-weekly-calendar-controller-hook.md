@@ -8,7 +8,7 @@ baseline_commit: 7111612b0fe0847ae9a372bc2bcbb441ee235ff4
 
 - **Epic:** 3
 - **Story ID:** 3.7a
-- **Status:** ready-for-dev
+- **Status:** review
 
 ## Story
 
@@ -30,7 +30,7 @@ baseline_commit: 7111612b0fe0847ae9a372bc2bcbb441ee235ff4
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC2, AC3) — Types Definition (`packages/ui`):**
+- [x] **Task 1 (AC2, AC3) — Types Definition (`packages/ui`):**
   - Create `packages/ui/src/hooks/useWeeklyCalendarController.types.ts` defining options and return types:
     ```typescript
     export interface WeeklyCalendarControllerOptions<TEvent = any> {
@@ -56,7 +56,7 @@ baseline_commit: 7111612b0fe0847ae9a372bc2bcbb441ee235ff4
       handleToday: () => void;
     }
     ```
-- [ ] **Task 2 (AC2, AC3) — Hook Implementation (`packages/ui`):**
+- [x] **Task 2 (AC2, AC3) — Hook Implementation (`packages/ui`):**
   - Create `packages/ui/src/hooks/useWeeklyCalendarController.ts` implementing `useWeeklyCalendarController` that encapsulates:
     - Boundary math (`getSunday`, `getSaturday`) using existing date logic.
     - Navigation event triggers calling `setWeek` and the optional custom tracker `onNavigate`.
@@ -82,22 +82,22 @@ baseline_commit: 7111612b0fe0847ae9a372bc2bcbb441ee235ff4
       ```
     - Error detail extraction and status mapping (`status === 'pending' ? 'loading' : status`).
   - Export the hook from `packages/ui/src/hooks/index.ts` and ensure it is exposed.
-- [ ] **Task 3 (AC5) — Test the hook (`packages/ui`, 100% coverage):**
+- [x] **Task 3 (AC5) — Test the hook (`packages/ui`, 100% coverage):**
   - Create `packages/ui/src/hooks/useWeeklyCalendarController.test.tsx` using `@testing-library/react` (specifically `renderHook` and `act` from `vitest`) to verify:
     - Boundary calculation for Sunday-to-Saturday.
     - Previous, Next, and Today navigation math and action dispatch.
     - Callback triggers for telemetry (`onNavigate`).
     - Multi-schedule flattening with nested items.
-- [ ] **Task 4 (AC4) — Refactor Discovery Calendar View (`apps/web`):**
+- [x] **Task 4 (AC4) — Refactor Discovery Calendar View (`apps/web`):**
   - In `apps/web/src/features/events/CalendarView.tsx`, import `useWeeklyCalendarController` from `@festgrid/ui`.
   - Refactor components to replace localized date math, state derivations, flat-mapping, and event handlers with a clean, single-hook call.
   - Maintain the exact PostHog telemetry: `calendar_week_navigated`.
-- [ ] **Task 5 (AC4) — Refactor My Calendar Content (`apps/web`):**
+- [x] **Task 5 (AC4) — Refactor My Calendar Content (`apps/web`):**
   - In `apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx`, import `useWeeklyCalendarController` from `@festgrid/ui`.
   - Refactor to consume `useWeeklyCalendarController`.
   - Retain customized post-flattening client-side filters (favorited vs added toggles) on top of the shared schedules array.
   - Maintain identical telemetry events (`calendar_week_navigated`, `my_calendar_page_viewed`).
-- [ ] **Task 6 (Global) — Full verification:**
+- [x] **Task 6 (Global) — Full verification:**
   - Build UI package and run tests: `pnpm --filter @festgrid/ui build && pnpm --filter @festgrid/ui test`.
   - Run web package calendar tests: `pnpm --filter web test features/events/CalendarView` and `pnpm --filter web test my-calendar-content`.
   - Verify complete app builds successfully with zero TypeScript, ESLint, or runtime regressions.
@@ -133,3 +133,28 @@ baseline_commit: 7111612b0fe0847ae9a372bc2bcbb441ee235ff4
 - [Source: apps/web/src/features/events/CalendarView.tsx] — Discovery page reference implementation.
 - [Source: apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx] — My Calendar page reference implementation.
 - [Source: packages/ui/src/hooks/index.ts] — Core exports.
+
+## Dev Agent Record
+
+### Implementation Plan
+- Define typescript interfaces for `useWeeklyCalendarController` options and result.
+- Implement hook capturing week-navigation, status mapping, and schedule flattening from GraphQL types.
+- Export hook and types from `@festgrid/ui` hooks workspace package.
+- Write 100% unit tests covering navigation, callback triggers, date boundaries, and flattening.
+- Refactor `CalendarView.tsx` on Discovery and `my-calendar-content.tsx` on My Calendar to consume the shared hook with zero behavior change.
+
+### Completion Notes
+- Extracting shared calendar week navigation logic successfully removes duplication of date math, nuqs state logic, and PostHog capture.
+- Hook has 100% test coverage with 4 comprehensive vitest test cases.
+- Successfully refactored `CalendarView` and `MyCalendarContent` to leverage the new hook.
+
+### File List
+- `packages/ui/src/hooks/useWeeklyCalendarController.types.ts`
+- `packages/ui/src/hooks/useWeeklyCalendarController.ts`
+- `packages/ui/src/hooks/useWeeklyCalendarController.test.tsx`
+- `packages/ui/src/hooks/index.ts`
+- `apps/web/src/features/events/CalendarView.tsx`
+- `apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx`
+
+### Change Log
+- **2026-08-10**: Extracted shared hook `useWeeklyCalendarController` for weekly calendar state and flattening. Refactored web-app calendar consumers to reduce code duplication.

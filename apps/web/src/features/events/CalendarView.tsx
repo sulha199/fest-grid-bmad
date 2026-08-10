@@ -6,26 +6,10 @@ import { useTranslations } from 'next-intl';
 import { useGetEventsForCalendarQuery } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { buildWeeklyCalendarQueryCondition } from '@festgrid/domain/events';
-import { WeeklyCalendarView } from '@festgrid/ui';
+import { WeeklyCalendarView, useWeeklyCalendarController, getSunday, getSaturday } from '@festgrid/ui';
 import { useRouter } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import { usePostHog } from '@festgrid/analytics';
-
-const getSunday = (dateStr: string) => {
-  const d = new Date(dateStr);
-  const day = d.getDay();
-  const sunday = new Date(d);
-  sunday.setDate(d.getDate() - day);
-  return sunday.toISOString().split('T')[0];
-};
-
-const getSaturday = (sundayStr: string) => {
-  const d = new Date(sundayStr);
-  const saturday = new Date(d);
-  saturday.setDate(d.getDate() + 6);
-  return saturday.toISOString().split('T')[0];
-};
-
 import { NearbyFilterInput } from '@festgrid/domain/events';
 
 interface CalendarViewProps {
@@ -61,7 +45,7 @@ export function CalendarView({ q, types, categories, nearby }: CalendarViewProps
     });
   }, [q, types, categories, weekStart, weekEnd, nearby]);
 
-  const { data, status, error } = useGetEventsForCalendarQuery(
+  const { data, status: queryStatus, error: queryError } = useGetEventsForCalendarQuery(
     graphqlClient,
     {
       limit: 1000, // Large limit for calendar entries
@@ -73,42 +57,26 @@ export function CalendarView({ q, types, categories, nearby }: CalendarViewProps
     }
   );
 
-  const schedules = useMemo(() => {
-    const rawEvents = data?.events?.items ?? [];
-    return rawEvents.flatMap((event) => {
-      return (event.schedules || []).map((schedule) => ({
-        id: schedule.id,
-        eventSlug: event.slug,
-        eventName: event.eventName,
-        isMainSchedule: schedule.isMainSchedule,
-        eventStartDate: schedule.eventStartDate,
-        eventEndDate: schedule.eventEndDate,
-        eventStartTime: schedule.eventStartTime,
-        eventEndTime: schedule.eventEndTime,
-      }));
-    });
-  }, [data]);
-
-  const handlePrevWeek = () => {
-    const current = new Date(weekStart);
-    current.setDate(current.getDate() - 7);
-    const newWeek = current.toISOString().split('T')[0];
-    setWeek(newWeek);
-    posthog.capture('calendar_week_navigated', { direction: 'previous', weekStart: newWeek });
-  };
-
-  const handleNextWeek = () => {
-    const current = new Date(weekStart);
-    current.setDate(current.getDate() + 7);
-    const newWeek = current.toISOString().split('T')[0];
-    setWeek(newWeek);
-    posthog.capture('calendar_week_navigated', { direction: 'next', weekStart: newWeek });
-  };
-
-  const handleToday = () => {
-    setWeek(todayStr);
-    posthog.capture('calendar_week_navigated', { direction: 'today', weekStart: todayStr });
-  };
+  const {
+    schedules,
+    status,
+    errorMessage,
+    errorDetail,
+    handlePrevWeek,
+    handleNextWeek,
+    handleToday,
+  } = useWeeklyCalendarController({
+    week,
+    setWeek,
+    todayStr,
+    rawEvents: data?.events?.items,
+    queryStatus,
+    queryError,
+    errorStateLabel: t('calendarErrorState'),
+    onNavigate: (direction, newWeek) => {
+      posthog.capture('calendar_week_navigated', { direction, weekStart: newWeek });
+    },
+  });
 
   const handleScheduleClick = (schedule: { eventSlug: string }) => {
     const paramsStr = searchParams.toString();
@@ -133,9 +101,9 @@ export function CalendarView({ q, types, categories, nearby }: CalendarViewProps
       onPrevWeek={handlePrevWeek}
       onNextWeek={handleNextWeek}
       onScheduleClick={handleScheduleClick}
-      status={status === 'pending' ? 'loading' : status}
-      errorMessage={t('calendarErrorState')}
-      errorDetail={error ? (error as Error).message || JSON.stringify(error) : undefined}
+      status={status}
+      errorMessage={errorMessage}
+      errorDetail={errorDetail}
       labels={labels}
     />
   );

@@ -11,3 +11,5 @@ export * from './useNavRailItemInteraction';
 export * from './useNavRailItemInteraction.types';
 export * from './useCurrentLocationCapture';
 export * from './useWizardStep';
+export * from './useWeeklyCalendarController';
+export * from './useWeeklyCalendarController.types';
