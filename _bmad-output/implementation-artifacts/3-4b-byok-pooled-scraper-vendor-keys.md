@@ -116,10 +116,24 @@ Send both (they are independent; one vendor confirming does not imply the other 
 
 ---
 
+**Follow-up to Bright Data (send once — clarifies the response received 2026-08-10, see Vendor Responses below).** Note: this clarification is pursued for **Story 3.4a's** benefit (is the Dataset/Scraper API product still usable via our own business-entity account?) — it does **not** reopen this story's (3.4b's) BYOK question, which is independently closed for Bright Data regardless of the answer (see Vendor Responses below). Kept here since it was drafted alongside this story's own outreach thread.
+**Subject: Re: Clarification on declared use case — one follow-up on scope**
+
+> Hi Akhilesh,
+>
+> Thank you for the quick reply. I want to make sure I'm asking about the right product before ruling this out.
+>
+> To clarify what we're after: we're not looking for raw proxy/IP access to build our own scraper or to automate/operate any social media account on anyone's behalf (no login, no posting, no following, no account actions at all). We're specifically interested in your **Instagram Scraper / Dataset API product** (the structured-data offering, e.g. "Instagram Scraper - 5K records/Month for Free") — where Bright Data runs the collection and returns structured JSON (post caption, media, timestamp) for a public profile, rather than us using Bright Data IPs directly.
+>
+> Does the "social media account management" exclusion you mentioned apply to that Dataset/Scraper API product as well, or is it specific to the Proxy Network/IP product (which I can see would be a sensible thing to restrict, given that's what account-automation/bot activity typically relies on)? Want to make sure I'm not ruling out the right product based on an answer about a different one.
+>
+> Thanks again,
+> [Name]
+
 ### Vendor Responses (fill in once received)
 
 - **Apify:** *(not yet contacted / awaiting response / response received — record date, respondent, and summary here)*
-- **Bright Data:** *(not yet contacted / awaiting response / response received — record date, respondent, and summary here)*
+- **Bright Data: closed for this story (3.4b) specifically, 2026-08-10.** Response received from Akhilesh (support/sales contact): *"Bright Data no longer provides the IPs for Social media account management usecase or accessing payment gateways like PayPal & Stripe. We do the KYC only for the Registered business entities not Freelancer individuals."* The KYC restriction to registered business entities rules out individual end-users of a free consumer app contributing their own Bright Data key — this closes Bright Data as a BYOK-pooling vendor for **this story**, independent of how the proxy-vs-Dataset-API question (follow-up above) resolves. That follow-up is still being sent, but only for Story 3.4a's sake (the app-funded, business-account model), not to reopen BYOK here. Apify's BYOK viability is unaffected by this finding and remains open pending its own response.
 
 ### References
 
@@ -157,7 +171,7 @@ Send both (they are independent; one vendor confirming does not imply the other 
 - [ ] Architecture and boundary confirmation: N/A until gated — deferred to a future detailed pass.
 - [ ] Testing plan confirmation: N/A until gated.
 - [ ] Explicit human approval state (Default: **pending approval** — approval here means "send the outreach emails," not "start coding").
-- [ ] **Legal Gate is the prerequisite** — this story must not be marked `ready-for-dev` until both vendor responses are on file (or the user explicitly decides to proceed with only one vendor's confirmed permission, dropping the other).
+- [ ] **Legal Gate is the prerequisite** — this story must not be marked `ready-for-dev` until Apify's response is on file. Bright Data is closed (2026-08-10, KYC restricted to registered business entities — see Vendor Responses); this story now proceeds on Apify alone, if at all.
 
 ## Testing Requirements
 
@@ -166,20 +180,21 @@ Send both (they are independent; one vendor confirming does not imply the other 
 ## Deliverables Checklist
 
 - [ ] Apify outreach email sent.
-- [ ] Bright Data outreach email sent.
-- [ ] Both responses recorded in this file's "Vendor Responses" section (or a documented decision to proceed with only one, or neither).
+- [x] Bright Data outreach email sent — response received 2026-08-10, closed (KYC restricted to registered business entities).
+- [ ] Apify's response recorded in this file's "Vendor Responses" section (or a documented decision to abandon this story entirely if Apify also declines).
 
 ## Out of Scope
 
 - Any actual code implementation — deferred to a future, fully-detailed `bmad-create-story 3-4b` run once the Legal Gate clears.
-- Extending Story 3.4a (Bright Data batch-priority adapter) with BYOK pooling — that adapter doesn't exist yet either; this story's scope is the legal question first, for either/both vendors.
+- Extending Story 3.4a (Bright Data batch-priority adapter) with BYOK pooling — moot, since Bright Data BYOK is closed for individual users regardless of Story 3.4a's own outcome.
 - Proceeding on the basis of this story's own ToS-page research alone — that research is exactly what motivated the Legal Gate, not a substitute for it.
+- A "provision multiple sub-keys/partition usage under our own single business account" idea (considered, dropped 2026-08-10) — this is not BYOK (no individual end-user contributes anything), and was found to mainly offer request-parallelism/organization rather than more free-tier budget; not pursued further. Does not affect the Bright Data follow-up in Dev Notes above, which remains active for Story 3.4a's separate purposes.
 
 ## Definition of Done
 
-- [ ] Both outreach emails sent.
-- [ ] Both vendor responses (or explicit non-response after a reasonable follow-up window) recorded in this file.
-- [ ] A clear go/no-go/partial (one vendor only) decision recorded, with the reasoning, before this story is ever moved to `ready-for-dev`.
+- [x] Bright Data outreach sent and response recorded (closed).
+- [ ] Apify outreach sent and response recorded.
+- [ ] A clear go/no-go decision for Apify recorded, with reasoning, before this story is ever moved to `ready-for-dev`.
 
 ## Completion Status
 
