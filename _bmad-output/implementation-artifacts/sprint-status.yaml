@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-10T20:00:00Z
+last_updated: 2026-08-10T22:24:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -426,7 +426,7 @@ development_status:
   # AskUserQuestion to defer rather than build now or silently drop -- a new
   # reusable subscription-picker component with no second consumer yet. See
   # epics.md Story 3.7b note.
-  3-7b-filter-the-feed-page-by-specific-subscribed-account: backlog
+  3-7b-filter-the-feed-page-by-specific-subscribed-account: review
   3-8-push-notifications-for-extracted-events: backlog
   3-9-implement-api-key-quota-management: backlog
   3-10-email-notifications-for-queued-posts: backlog

@@ -5,37 +5,49 @@ export interface BuildFeedQueryConditionInput {
   search: string;
   types: string[];
   categories: string[];
+  subscriptions?: string[];
 }
 
 export function buildFeedQueryCondition({
   search,
   types,
   categories,
+  subscriptions,
 }: BuildFeedQueryConditionInput): QueryCondition {
-  const baseSubscribedCondition: QueryCondition = {
-    field: 'isFromSubscribedAccount',
-    operator: 'eq',
-    value: true,
-  };
+  const baseConditions: QueryCondition[] = [
+    {
+      field: 'isFromSubscribedAccount',
+      operator: 'eq',
+      value: true,
+    },
+  ];
+
+  if (subscriptions && subscriptions.length > 0) {
+    baseConditions.push({
+      field: 'socialMediaAccountProfileId',
+      operator: 'in',
+      value: subscriptions,
+    });
+  }
 
   const filterCondition = buildEventsQueryCondition({ search, types, categories });
 
   if (!filterCondition) {
     return {
       operator: 'and',
-      conditions: [baseSubscribedCondition],
+      conditions: baseConditions,
     };
   }
 
   if (isGroupCondition(filterCondition)) {
     return {
       ...filterCondition,
-      conditions: [baseSubscribedCondition, ...filterCondition.conditions],
+      conditions: [...baseConditions, ...filterCondition.conditions],
     };
   }
 
   return {
     operator: 'and',
-    conditions: [baseSubscribedCondition, filterCondition],
+    conditions: [...baseConditions, filterCondition],
   };
 }

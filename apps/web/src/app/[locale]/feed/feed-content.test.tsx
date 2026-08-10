@@ -105,7 +105,16 @@ let mockEventsItems: any[] = [
   },
 ];
 
+let mockSubscriptions: any[] = [];
+
 let mockRequestSpy = vi.fn().mockImplementation(async (document: any, variables: any) => {
+  const queryStr = JSON.stringify(document);
+  if (queryStr.includes('mySubscriptions') || queryStr.includes('GetMySubscriptions')) {
+    return {
+      mySubscriptions: mockSubscriptions,
+    };
+  }
+
   return {
     events: {
       items: mockEventsItems,
@@ -166,6 +175,7 @@ afterEach(() => {
     },
   ];
   mockRequestSpy.mockClear();
+  mockSubscriptions = [];
   if ((global as any).__resetNuqsStore) {
     (global as any).__resetNuqsStore();
   }
@@ -229,5 +239,68 @@ describe('FeedContent', () => {
     const ctaButton = screen.getByRole('link', { name: 'Manage Subscriptions' });
     expect(ctaButton).toBeInTheDocument();
     expect(ctaButton).toHaveAttribute('href', '/settings/subscriptions');
+  });
+
+  it('renders SubscriptionPicker when there are multiple active subscriptions and filters feed on selection', async () => {
+    mockSubscriptions = [
+      {
+        id: 'sub-1',
+        accountId: 'acc-1',
+        isNewlyAdded: false,
+        createdAt: new Date().toISOString(),
+        account: {
+          id: 'acc-1',
+          platform: 'instagram',
+          displayName: 'Jakarta Festivals',
+          username: 'jkt_festivals',
+          profileImageUrl: null,
+          hasPendingDefaultLocationReview: false,
+          defaultLocation: null,
+        },
+      },
+      {
+        id: 'sub-2',
+        accountId: 'acc-2',
+        isNewlyAdded: false,
+        createdAt: new Date().toISOString(),
+        account: {
+          id: 'acc-2',
+          platform: 'instagram',
+          displayName: 'Jakarta Exhibition',
+          username: 'jkt_exhibitions',
+          profileImageUrl: null,
+          hasPendingDefaultLocationReview: false,
+          defaultLocation: null,
+        },
+      },
+    ];
+
+    renderWithProviders();
+
+    // Verify Subscription Picker renders
+    await waitFor(() => {
+      expect(screen.getByText('Subscriptions')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Jakarta Festivals')).toBeInTheDocument();
+    expect(screen.getByText('Jakarta Exhibition')).toBeInTheDocument();
+
+    // Clear previous calls to focus on interaction-triggered calls
+    mockRequestSpy.mockClear();
+
+    // Toggle Jakarta Festivals
+    const filterBtn = screen.getByRole('button', { name: /Jakarta Festivals/ });
+    filterBtn.click();
+
+    // Verify events query is sent with socialMediaAccountProfileId in condition
+    await waitFor(() => {
+      mockRequestSpy.mock.calls.forEach((c: any) => {
+        console.log('CALL QUERY COND:', JSON.stringify(c[1]?.query, null, 2));
+      });
+      const call = mockRequestSpy.mock.calls.find((args: any) => {
+        return args[1]?.query?.conditions?.some((c: any) => c.field === 'socialMediaAccountProfileId');
+      });
+      expect(call).toBeDefined();
+    });
   });
 });

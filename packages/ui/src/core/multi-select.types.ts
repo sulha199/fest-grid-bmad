@@ -1,6 +1,8 @@
+import { ReactNode } from 'react';
+
 export interface MultiSelectOption {
   value: string;
-  label: string;
+  label: ReactNode;
 }
 
 /**

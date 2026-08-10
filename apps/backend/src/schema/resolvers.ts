@@ -878,6 +878,7 @@ export const resolvers: Resolvers = {
         categories: events.categories,
         sourceSocialMediaAccountId: events.sourceSocialMediaAccountId,
         postId: events.postId,
+        socialMediaAccountProfileId: posts.accountId,
         performers: schedules.performers, // mapped to joined table
         scheduleLocation: schedules.location, // to support filtering by schedule location
         scheduleCoordinates: { latColumn: schedules.latitude, lngColumn: schedules.longitude },
@@ -989,6 +990,7 @@ export const resolvers: Resolvers = {
       const totalCountRes = await db.select({ count: count() as any })
         .from(events)
         .leftJoin(schedules, mainSchedulesOnly)
+        .leftJoin(posts, eq(events.postId, posts.id))
         .where(whereClause as any);
       const totalCount = totalCountRes[0]?.count ?? 0;
 

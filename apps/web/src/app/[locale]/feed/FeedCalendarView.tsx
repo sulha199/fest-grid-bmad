@@ -15,9 +15,10 @@ interface FeedCalendarViewProps {
   q: string;
   types: string[];
   categories: string[];
+  subscriptions: string[];
 }
 
-export function FeedCalendarView({ q, types, categories }: FeedCalendarViewProps) {
+export function FeedCalendarView({ q, types, categories, subscriptions }: FeedCalendarViewProps) {
   const t = useTranslations('FeedPage');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,8 +40,9 @@ export function FeedCalendarView({ q, types, categories }: FeedCalendarViewProps
       categories,
       weekStart,
       weekEnd,
+      subscriptions,
     });
-  }, [q, types, categories, weekStart, weekEnd]);
+  }, [q, types, categories, weekStart, weekEnd, subscriptions]);
 
   const { data, status: queryStatus, error: queryError } = useGetEventsForCalendarQuery(
     graphqlClient,

@@ -88,6 +88,8 @@
   },
   "FeedPage": {
     "title": "My Feed",
+    "subscriptionFilterLabel": "Subscriptions",
+    "subscriptionFilterPlaceholder": "Select accounts...",
     "errorState": "Failed to load feed events. Please try again later.",
     "emptyState": "Your feed is empty! Subscribe to social media accounts to see their events here.",
     "emptyStateCta": "Manage Subscriptions",

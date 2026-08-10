@@ -57,4 +57,65 @@ describe('buildFeedQueryCondition', () => {
       ],
     });
   });
+
+  it('combines base condition with subscriptions when no other filters are provided', () => {
+    const result = buildFeedQueryCondition({
+      search: ' ',
+      types: [],
+      categories: [],
+      subscriptions: ['sub-uuid-1', 'sub-uuid-2'],
+    });
+
+    assert.deepEqual(result, {
+      operator: 'and',
+      conditions: [
+        { field: 'isFromSubscribedAccount', operator: 'eq', value: true },
+        { field: 'socialMediaAccountProfileId', operator: 'in', value: ['sub-uuid-1', 'sub-uuid-2'] },
+      ],
+    });
+  });
+
+  it('combines base condition with subscriptions and search', () => {
+    const result = buildFeedQueryCondition({
+      search: 'jazz',
+      types: [],
+      categories: [],
+      subscriptions: ['sub-uuid-1'],
+    });
+
+    assert.deepEqual(result, {
+      operator: 'and',
+      conditions: [
+        { field: 'isFromSubscribedAccount', operator: 'eq', value: true },
+        { field: 'socialMediaAccountProfileId', operator: 'in', value: ['sub-uuid-1'] },
+        {
+          operator: 'or',
+          conditions: [
+            { field: 'eventName', operator: 'contains', value: 'jazz' },
+            { field: 'performers', operator: 'contains', value: 'jazz' },
+            { field: 'location', operator: 'contains', value: 'jazz' },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('combines base condition with subscriptions, types and categories', () => {
+    const result = buildFeedQueryCondition({
+      search: '',
+      types: ['FESTIVAL'],
+      categories: ['MUSIC'],
+      subscriptions: ['sub-uuid-1'],
+    });
+
+    assert.deepEqual(result, {
+      operator: 'and',
+      conditions: [
+        { field: 'isFromSubscribedAccount', operator: 'eq', value: true },
+        { field: 'socialMediaAccountProfileId', operator: 'in', value: ['sub-uuid-1'] },
+        { field: 'types', operator: 'in', value: ['FESTIVAL'] },
+        { field: 'categories', operator: 'in', value: ['MUSIC'] },
+      ],
+    });
+  });
 });

@@ -88,6 +88,8 @@
   },
   "FeedPage": {
     "title": "Feed Saya",
+    "subscriptionFilterLabel": "Langganan",
+    "subscriptionFilterPlaceholder": "Pilih akun...",
     "errorState": "Gagal memuat acara feed. Silakan coba lagi nanti.",
     "emptyState": "Feed Anda kosong! Ikuti akun media sosial untuk melihat acara mereka di sini.",
     "emptyStateCta": "Kelola Langganan",

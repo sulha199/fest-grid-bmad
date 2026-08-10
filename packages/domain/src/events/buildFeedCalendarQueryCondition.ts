@@ -7,6 +7,7 @@ export interface BuildFeedCalendarQueryConditionInput {
   categories: string[];
   weekStart: string;
   weekEnd: string;
+  subscriptions?: string[];
 }
 
 export function buildFeedCalendarQueryCondition({
@@ -15,12 +16,23 @@ export function buildFeedCalendarQueryCondition({
   categories,
   weekStart,
   weekEnd,
+  subscriptions,
 }: BuildFeedCalendarQueryConditionInput): QueryCondition {
-  const baseSubscribedCondition: QueryCondition = {
-    field: 'isFromSubscribedAccount',
-    operator: 'eq',
-    value: true,
-  };
+  const baseConditions: QueryCondition[] = [
+    {
+      field: 'isFromSubscribedAccount',
+      operator: 'eq',
+      value: true,
+    },
+  ];
+
+  if (subscriptions && subscriptions.length > 0) {
+    baseConditions.push({
+      field: 'socialMediaAccountProfileId',
+      operator: 'in',
+      value: subscriptions,
+    });
+  }
 
   const filterCondition = buildEventsQueryCondition({ search, types, categories });
 
@@ -28,17 +40,17 @@ export function buildFeedCalendarQueryCondition({
   if (!filterCondition) {
     combinedCondition = {
       operator: 'and',
-      conditions: [baseSubscribedCondition],
+      conditions: baseConditions,
     };
   } else if (isGroupCondition(filterCondition)) {
     combinedCondition = {
       ...filterCondition,
-      conditions: [baseSubscribedCondition, ...filterCondition.conditions],
+      conditions: [...baseConditions, ...filterCondition.conditions],
     };
   } else {
     combinedCondition = {
       operator: 'and',
-      conditions: [baseSubscribedCondition, filterCondition],
+      conditions: [...baseConditions, filterCondition],
     };
   }
 

@@ -629,6 +629,137 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
   });
 
+  await t.test('13. socialMediaAccountProfileId query filters events based on profile id', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    // Clean up test_sub_account_2 in case of previous failed test run
+    const existingProfiles = await db.select({ id: socialMediaAccountProfiles.id })
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.accountId, 'test_sub_account_2'));
+    if (existingProfiles.length > 0) {
+      const profileId = existingProfiles[0].id;
+      const existingPosts = await db.select({ id: posts.id })
+        .from(posts)
+        .where(eq(posts.accountId, profileId));
+      if (existingPosts.length > 0) {
+        const postIds = existingPosts.map(p => p.id);
+        for (const pid of postIds) {
+          await db.delete(events).where(eq(events.postId, pid));
+        }
+      }
+      await db.delete(posts).where(eq(posts.accountId, profileId));
+      await db.delete(subscriptions).where(eq(subscriptions.accountId, profileId));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profileId));
+    }
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      platform: 'instagram',
+      accountId: 'test_sub_account_2',
+      username: 'test_sub_account_2',
+      displayName: 'Test Account 2'
+    }).returning();
+
+    const [sub] = await db.insert(subscriptions).values({
+      userId: testUser.id,
+      accountId: profile.id,
+    }).returning();
+
+    const [post] = await db.insert(posts).values({
+      accountId: profile.id,
+      platform: 'instagram',
+      postUrl: 'https://instagram.com/p/test_post_2',
+      content: 'Test Event 2 Content',
+      rawContent: 'Test Event 2 Content',
+      publishedAt: new Date(),
+    }).returning();
+
+    const [event] = await db.insert(events).values({
+      postId: post.id,
+      eventName: 'Subscribed Event 2',
+      slug: 'subscribed-event-2',
+      description: 'Test Event from Subscribed Account 2',
+      location: 'Test Location 2',
+      types: ['FESTIVAL'],
+      categories: ['MUSIC'],
+    }).returning();
+
+    const [schedule] = await db.insert(schedules).values({
+      eventId: event.id,
+      eventStartDate: '2026-08-11',
+      eventEndDate: '2026-08-12',
+      isMainSchedule: true,
+      performers: ['Test Performer 2'],
+    }).returning();
+
+    // Query using operator 'eq'
+    const responseQueryEq = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query GetEventsByProfile($query: EventQueryConditionInput) {
+            events(query: $query) {
+              items {
+                id
+                eventName
+              }
+              totalCount
+            }
+          }
+        `,
+        variables: {
+          query: {
+            field: 'socialMediaAccountProfileId',
+            operator: 'eq',
+            value: profile.id
+          }
+        }
+      })
+    });
+
+    const bodyQueryEq = await responseQueryEq.json();
+    assert.ok(!bodyQueryEq.errors, JSON.stringify(bodyQueryEq.errors));
+    assert.strictEqual(bodyQueryEq.data.events.items.length, 1);
+    assert.strictEqual(bodyQueryEq.data.events.items[0].id, event.id);
+
+    // Query using operator 'in'
+    const responseQueryIn = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query GetEventsByProfiles($query: EventQueryConditionInput) {
+            events(query: $query) {
+              items {
+                id
+                eventName
+              }
+              totalCount
+            }
+          }
+        `,
+        variables: {
+          query: {
+            field: 'socialMediaAccountProfileId',
+            operator: 'in',
+            value: [profile.id]
+          }
+        }
+      })
+    });
+
+    const bodyQueryIn = await responseQueryIn.json();
+    assert.ok(!bodyQueryIn.errors, JSON.stringify(bodyQueryIn.errors));
+    assert.strictEqual(bodyQueryIn.data.events.items.length, 1);
+    assert.strictEqual(bodyQueryIn.data.events.items[0].id, event.id);
+
+    await db.delete(schedules).where(eq(schedules.id, schedule.id));
+    await db.delete(events).where(eq(events.id, event.id));
+    await db.delete(posts).where(eq(posts.id, post.id));
+    await db.delete(subscriptions).where(eq(subscriptions.id, sub.id));
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+  });
+
   await t.test('cleanup - delete all created test data', async () => {
     await db.delete(subscriptions).where(eq(subscriptions.userId, testUser.id));
     await db.delete(apiKeys).where(eq(apiKeys.userId, testUser.id));

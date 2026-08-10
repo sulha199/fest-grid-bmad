@@ -12,4 +12,5 @@ export * from './core/map.types';
 export * from './features/locations';
 export * from './features/events';
 export * from './features/auth';
+export * from './features/subscriptions';
 export * from './hooks';

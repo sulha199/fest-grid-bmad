@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query";
 import { EventListView, useInfiniteScroll, EventDiscoveryPanel } from "@festgrid/ui";
 import { EventCategory, EventType } from "@festgrid/shared-types";
-import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation } from "@/generated/graphql";
+import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation, useGetMySubscriptionsQuery } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
 import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs";
 import { usePostHog } from "@festgrid/analytics";
@@ -14,6 +14,7 @@ import { useSearchParams } from "next/navigation";
 import { useAuthSession } from "@/components/providers/auth-session-provider";
 import { buildFeedQueryCondition } from "@festgrid/domain/events";
 import { FeedCalendarView } from "./FeedCalendarView";
+import { SubscriptionPicker } from "@festgrid/ui";
 
 function buildEnumLabels(values: string[], translate: (key: string) => string) {
   return Object.fromEntries(
@@ -42,6 +43,20 @@ export function FeedContent() {
   const [types] = useQueryState("types", parseAsArrayOf(parseAsString).withDefault([]));
   const [categories] = useQueryState("categories", parseAsArrayOf(parseAsString).withDefault([]));
   const [view] = useQueryState("view", parseAsString.withDefault("card"));
+  const [subscriptionsQuery, setSubscriptionsQuery] = useQueryState(
+    "subscriptions",
+    parseAsArrayOf(parseAsString, ",").withDefault([])
+  );
+
+  const { data: subData } = useGetMySubscriptionsQuery(
+    graphqlClient,
+    undefined,
+    {
+      enabled: !!session && !isLoading,
+    }
+  );
+
+  const showSubscriptionPicker = (subData?.mySubscriptions?.length ?? 0) > 1;
 
   // AC1: Redirect to login if unauthenticated
   useEffect(() => {
@@ -84,8 +99,8 @@ export function FeedContent() {
   );
 
   const queryCondition = useMemo(() => {
-    return buildFeedQueryCondition({ search: q, types, categories });
-  }, [q, types, categories]);
+    return buildFeedQueryCondition({ search: q, types, categories, subscriptions: subscriptionsQuery });
+  }, [q, types, categories, subscriptionsQuery]);
 
   const {
     data,
@@ -95,7 +110,7 @@ export function FeedContent() {
     status: listStatus,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["events", "feed", { q, types, categories }],
+    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery }],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
@@ -119,7 +134,7 @@ export function FeedContent() {
   const { mutate: toggleFavorite } = useToggleFavoriteMutation(graphqlClient, {
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: ["events", "feed"] });
-      const previousData = queryClient.getQueryData(["events", "feed", { q, types, categories }]);
+      const previousData = queryClient.getQueryData(["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery }]);
 
       queryClient.setQueriesData({ queryKey: ["events", "feed"] }, (old: any) => {
         if (!old) return old;
@@ -143,7 +158,7 @@ export function FeedContent() {
     },
     onError: (err, variables, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(["events", "feed", { q, types, categories }], context.previousData);
+        queryClient.setQueryData(["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery }], context.previousData);
       }
     },
     onSuccess: (data, variables) => {
@@ -174,6 +189,18 @@ export function FeedContent() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{t("title")}</h1>
       </div>
+
+      {showSubscriptionPicker && subData?.mySubscriptions && (
+        <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800">
+          <SubscriptionPicker
+            facetLabel={t("subscriptionFilterLabel")}
+            subscriptions={subData.mySubscriptions as any}
+            value={subscriptionsQuery}
+            onChange={setSubscriptionsQuery}
+            labels={{ clearLabel: tFilterHub("clearLabel") }}
+          />
+        </div>
+      )}
 
       <EventDiscoveryPanel
         query={q}
@@ -245,7 +272,7 @@ export function FeedContent() {
             id: "calendar",
             label: "Calendar View",
             content: (
-              <FeedCalendarView q={q} types={types} categories={categories} />
+              <FeedCalendarView q={q} types={types} categories={categories} subscriptions={subscriptionsQuery} />
             ),
           },
         ]}
