@@ -1,11 +1,14 @@
 import { db } from '../../db/client.js';
 import { events, schedules } from '@festgrid/database';
 import { ExtractedEventMessage, buildEventInsertValues } from '@festgrid/domain';
+import { sendEventNotificationsSeam } from '../notifications/send-event-notifications.js';
 
 export async function processIngestionJob(message: ExtractedEventMessage): Promise<{ inserted: boolean }> {
   const { event, schedules: scheduleValues } = buildEventInsertValues(message);
 
-  return await db.transaction(async (tx) => {
+  let insertedEvent: any = null;
+
+  const result = await db.transaction(async (tx) => {
     const insertedEvents = await tx
       .insert(events)
       .values(event)
@@ -17,7 +20,7 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
       return { inserted: false };
     }
 
-    const insertedEvent = insertedEvents[0];
+    insertedEvent = insertedEvents[0];
 
     if (scheduleValues.length > 0) {
       const schedulesToInsert = scheduleValues.map((s) => ({
@@ -30,4 +33,21 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
 
     return { inserted: true };
   });
+
+  if (result.inserted && insertedEvent && message.sourceSocialMediaAccountId) {
+    // Non-blocking trigger of sendEventNotifications after transaction commits
+    sendEventNotificationsSeam(
+      {
+        id: insertedEvent.id,
+        slug: insertedEvent.slug,
+        name: insertedEvent.eventName,
+        description: insertedEvent.description || '',
+      },
+      message.sourceSocialMediaAccountId
+    ).catch((err) => {
+      console.error('[processIngestionJob] Notification background dispatch failed:', err);
+    });
+  }
+
+  return { inserted: result.inserted };
 }

@@ -6,6 +6,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { processIngestionJob } from './process-ingestion-job.js';
 import { ExtractedEventMessage } from '@festgrid/domain';
 import { EventType, EventCategory } from '@festgrid/shared-types';
+import { setSendEventNotificationsSeam } from '../notifications/send-event-notifications.js';
 
 test('processIngestionJob integration tests', async (t) => {
   const accountId = 'acc-ingest-' + Date.now();
@@ -71,7 +72,19 @@ test('processIngestionJob integration tests', async (t) => {
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
   });
 
-  await t.test('Happy path: inserts event and schedules correctly', async () => {
+  await t.test('Happy path: inserts event and schedules correctly', async (t) => {
+    let sentEvent: any = null;
+    let sentAccountId: any = null;
+
+    setSendEventNotificationsSeam(async (evt: any, accId: string) => {
+      sentEvent = evt;
+      sentAccountId = accId;
+    });
+
+    t.after(() => {
+      setSendEventNotificationsSeam(async () => {});
+    });
+
     const message: ExtractedEventMessage = {
       postId: seededPost1.id,
       sourceSocialMediaAccountId: accountId,
@@ -134,6 +147,16 @@ test('processIngestionJob integration tests', async (t) => {
     assert.strictEqual(sched.longitude, -87.6246);
     assert.strictEqual(sched.timezone, 'America/Chicago');
     assert.strictEqual(sched.timezoneStatus, 'RESOLVED');
+
+    // Wait a brief tick for the asynchronous non-blocking promise to execute
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // Verify notifications was called with correct arguments
+    assert.ok(sentEvent, 'Notification seam should have been invoked');
+    assert.strictEqual(sentAccountId, message.sourceSocialMediaAccountId);
+    assert.strictEqual(sentEvent.slug, insertedEvent.slug);
+    assert.strictEqual(sentEvent.name, message.eventName);
+    assert.strictEqual(sentEvent.description, message.description);
   });
 
   await t.test('Idempotency check: duplicate postId results in false and logs duplicate', async () => {

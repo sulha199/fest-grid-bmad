@@ -8,7 +8,7 @@ baseline_commit: 103bdb8bb87c64e4e5cfa8644c678734ee112bfc
 
 - **Epic:** 3
 - **Story ID:** 3.8
-- **Status:** ready-for-dev
+- **Status:** review
 
 ## Story
 
@@ -30,33 +30,33 @@ baseline_commit: 103bdb8bb87c64e4e5cfa8644c678734ee112bfc
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Query Subscribers and Settings Helper:** Create `apps/backend/src/lib/notifications/get-subscribers-for-notification.ts` exporting `getSubscribersForNotification(sourceAccountId: string): Promise<string[]>`:
-  - [ ] Query the database to find all user IDs subscribed to the given `sourceSocialMediaAccountId` via the `subscriptions` table.
-  - [ ] Join with `user_settings` and filter to only include users where `push_notifications_enabled === true` (from Story 2.7/2.9's schema).
-  - [ ] Join with `fcm_tokens` (from Story 0.21's schema) to retrieve all active device registration tokens (`token` column) belonging to these eligible users.
-  - [ ] Return a flat array of unique registration tokens.
-  - [ ] Write unit tests for this query helper using a real local Postgres instance, covering: subscriber with notifications enabled (returns token), subscriber with notifications disabled (excludes token), unsubscribed user (excludes token), and multiple tokens for a single subscriber (returns all of them).
-- [ ] **Task 2 — Build Notification Payload Utility:** Create `packages/domain/src/notifications/build-fcm-payload.ts` exporting `buildFcmPayload(event: { id: string; slug: string; name: string; description: string }, tokens: string[]): any`:
-  - [ ] Format a multicast FCM message payload compatible with the Firebase Admin SDK (e.g., using `sendEachForMulticast` or `sendMulticast` depending on the exact version initialized in Story 0.12).
-  - [ ] Truncate description safely (e.g., max 150 characters with trailing `...`) for the notification body.
-  - [ ] Embed `eventId`, `slug`, and `type: 'NEW_EVENT'` inside the FCM data payload.
-  - [ ] Ensure no direct ORM/DB or Node-only Admin SDK imports exist in `packages/domain` to comply with the Code Organization boundary guidelines.
-  - [ ] Add `build-fcm-payload.test.ts` (`node:test`, pure logic, no DB, 100% coverage): verify safe truncation of long descriptions, correct mapping of fields, and expected structure of the output payload.
-- [ ] **Task 3 — Send Notifications and Cleanup Service:** Create `apps/backend/src/lib/notifications/send-event-notifications.ts` exporting `sendEventNotifications(event: { id: string; slug: string; name: string; description: string }, sourceAccountId: string): Promise<void>`:
-  - [ ] Call `getSubscribersForNotification(sourceAccountId)` to fetch active device tokens. If empty, log and exit.
-  - [ ] Batch the tokens into groups of up to 500 (FCM's maximum limit per multicast call).
-  - [ ] For each batch, invoke the Firebase Admin SDK's multicast messaging API (e.g. `admin.messaging().sendEachForMulticast(...)` or equivalent).
-  - [ ] Inspect the returned responses array. For any individual token delivery failure, check the error code. If the error code matches `messaging/invalid-registration-token` or `messaging/registration-token-not-registered` (or equivalent invalid token status), delete the corresponding token from the `fcm_tokens` table.
-  - [ ] Catch and handle all errors internally: if the FCM service is completely down or credential validation fails, log the error using the system error reporting foundation (Story 0.23) but do NOT let the error propagate up (satisfies AC9).
-  - [ ] Write integration tests for this service with mocked FCM Admin SDK responses to verify: successful multicast dispatch, correct handling and deletion of invalid tokens, and full exception safety.
-- [ ] **Task 4 — Ingestion Pipeline Integration:** Update `apps/backend/src/lib/ingestor/process-ingestion-job.ts` (from Story 3.6b):
-  - [ ] After the database transaction successfully commits and the event is written, trigger `sendEventNotifications` as an asynchronous, non-blocking side-effect.
-  - [ ] Do NOT block the primary ingestion response or await it inside the transaction block itself, ensuring fast queue consumption.
-  - [ ] Add tests to `process-ingestion-job.test.ts` verifying that `sendEventNotifications` is called with correct arguments when an event is successfully ingested.
-- [ ] **Task 5 — Verification & Linting:**
-  - [ ] Run `pnpm --filter @festgrid/domain test` and ensure 100% coverage is maintained.
-  - [ ] Run `pnpm --filter backend test` and verify all notification query and service tests pass.
-  - [ ] Run `pnpm build && pnpm lint && pnpm test` at the workspace root to confirm no compilation or regression errors exist across the monorepo.
+- [x] **Task 1 — Query Subscribers and Settings Helper:** Create `apps/backend/src/lib/notifications/get-subscribers-for-notification.ts` exporting `getSubscribersForNotification(sourceAccountId: string): Promise<string[]>`:
+  - [x] Query the database to find all user IDs subscribed to the given `sourceSocialMediaAccountId` via the `subscriptions` table.
+  - [x] Join with `user_settings` and filter to only include users where `push_notifications_enabled === true` (from Story 2.7/2.9's schema).
+  - [x] Join with `fcm_tokens` (from Story 0.21's schema) to retrieve all active device registration tokens (`token` column) belonging to these eligible users.
+  - [x] Return a flat array of unique registration tokens.
+  - [x] Write unit tests for this query helper using a real local Postgres instance, covering: subscriber with notifications enabled (returns token), subscriber with notifications disabled (excludes token), unsubscribed user (excludes token), and multiple tokens for a single subscriber (returns all of them).
+- [x] **Task 2 — Build Notification Payload Utility:** Create `packages/domain/src/notifications/build-fcm-payload.ts` exporting `buildFcmPayload(event: { id: string; slug: string; name: string; description: string }, tokens: string[]): any`:
+  - [x] Format a multicast FCM message payload compatible with the Firebase Admin SDK (e.g., using `sendEachForMulticast` or `sendMulticast` depending on the exact version initialized in Story 0.12).
+  - [x] Truncate description safely (e.g., max 150 characters with trailing `...`) for the notification body.
+  - [x] Embed `eventId`, `slug`, and `type: 'NEW_EVENT'` inside the FCM data payload.
+  - [x] Ensure no direct ORM/DB or Node-only Admin SDK imports exist in `packages/domain` to comply with the Code Organization boundary guidelines.
+  - [x] Add `build-fcm-payload.test.ts` (`node:test`, pure logic, no DB, 100% coverage): verify safe truncation of long descriptions, correct mapping of fields, and expected structure of the output payload.
+- [x] **Task 3 — Send Notifications and Cleanup Service:** Create `apps/backend/src/lib/notifications/send-event-notifications.ts` exporting `sendEventNotifications(event: { id: string; slug: string; name: string; description: string }, sourceAccountId: string): Promise<void>`:
+  - [x] Call `getSubscribersForNotification(sourceAccountId)` to fetch active device tokens. If empty, log and exit.
+  - [x] Batch the tokens into groups of up to 500 (FCM's maximum limit per multicast call).
+  - [x] For each batch, invoke the Firebase Admin SDK's multicast messaging API (e.g. `admin.messaging().sendEachForMulticast(...)` or equivalent).
+  - [x] Inspect the returned responses array. For any individual token delivery failure, check the error code. If the error code matches `messaging/invalid-registration-token` or `messaging/registration-token-not-registered` (or equivalent invalid token status), delete the corresponding token from the `fcm_tokens` table.
+  - [x] Catch and handle all errors internally: if the FCM service is completely down or credential validation fails, log the error using the system error reporting foundation (Story 0.23) but do NOT let the error propagate up (satisfies AC9).
+  - [x] Write integration tests for this service with mocked FCM Admin SDK responses to verify: successful multicast dispatch, correct handling and deletion of invalid tokens, and full exception safety.
+- [x] **Task 4 — Ingestion Pipeline Integration:** Update `apps/backend/src/lib/ingestor/process-ingestion-job.ts` (from Story 3.6b):
+  - [x] After the database transaction successfully commits and the event is written, trigger `sendEventNotifications` as an asynchronous, non-blocking side-effect.
+  - [x] Do NOT block the primary ingestion response or await it inside the transaction block itself, ensuring fast queue consumption.
+  - [x] Add tests to `process-ingestion-job.test.ts` verifying that `sendEventNotifications` is called with correct arguments when an event is successfully ingested.
+- [x] **Task 5 — Verification & Linting:**
+  - [x] Run `pnpm --filter @festgrid/domain test` and ensure 100% coverage is maintained.
+  - [x] Run `pnpm --filter backend test` and verify all notification query and service tests pass.
+  - [x] Run `pnpm build && pnpm lint && pnpm test` at the workspace root to confirm no compilation or regression errors exist across the monorepo.
 
 ## Dev Notes
 
