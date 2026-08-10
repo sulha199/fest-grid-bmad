@@ -1772,6 +1772,8 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Note (2026-08-08, added via `bmad-create-story` while drafting Story 3.4):** Classified as a Gate 1 (Architecture/Infrastructure Completeness) split — making Bright Data the scheduled-batch's *priority* vendor (not just a documented future option) requires a genuinely new architectural layer (an async job-tracking table, a new public webhook endpoint, and a stale-job fallback sweep), not an incremental addition to Story 3.4's adapter code. Per `story-split-gate.md`'s numbering rule, this is a single-story split off Story 3.4 (needed by exactly this scraping pipeline, not reused elsewhere), positioned directly after it. Only this epics.md section and a `sprint-status.yaml` backlog entry are created now; the full `bmad-create-story`-authored story file (Tasks/Dev Notes/Implementation Plan) is deferred to when `bmad-create-story 3-4a` is actually run, per this project's established pattern for gate-split prerequisite stories (e.g. Story 3.3c's own creation history).
 
+**Warning (2026-08-10, added via `bmad-create-story` while updating Story 3.4b):** Direct outreach to Bright Data (pursued for Story 3.4b's BYOK question) received a reply stating *"Bright Data no longer provides the IPs for Social media account management usecase or accessing payment gateways like PayPal & Stripe."* This may invalidate this story's entire premise, not just the BYOK angle. However, the reply's specific wording — "no longer provides the **IPs**" — more plausibly points at Bright Data's Proxy Network/raw-IP product (the one account-automation/bot activity typically relies on) rather than their separate, purpose-built Instagram Scraper/Dataset API product this story actually researched and priced (structured JSON, no raw network access given to the customer). A sharper clarifying follow-up asking specifically about the Dataset/Scraper API product (not the proxy product) has been sent — see Story 3.4b's file for the exact question and any reply. **Do not run `bmad-create-story 3-4a` until this is resolved** — if Bright Data confirms the exclusion covers the Dataset/Scraper API product too, this story should likely be abandoned or re-scoped around a different vendor; if it's confirmed to be proxy-specific, this story's original premise (using the Dataset/Scraper API, not raw proxy IPs) remains viable.
+
 **Depends on:** Story 3.4.
 
 ---
@@ -1846,6 +1848,25 @@ Users can subscribe to social media accounts to import events into their feed.
 **Amendment (2026-08-01, PM pass following Epic 3 readiness re-sweep):** Added the `defaultLocation` fallback AC. PRD §3.7 has required this behavior since before Story 3.3 existed ("If the AI agent does not find an explicit location in a post, it will use this default location for the event"), but no AC in this story ever implemented it — a requirements-coverage gap, not an architecture gap, surfaced while reviewing the 2026-08-01 `defaultLocation`/`SocialMediaAccountProfile` PRD amendment.
 
 **Depends on:** Story 0.13, Story 3.1a, Story 3.3a, Story 3.5.
+
+### Story 3.6a: Infer event timezone from subscriber context and flag ambiguous cases for clarification
+
+**As a** system,
+**I want** to complete PRD FR33's timezone-inference strategy beyond location-based inference — falling back to the subscribing user's own timezone when a resolved location has no timezone, and flagging an event for manual clarification when neither is available with high confidence,
+**So that** an extracted event's schedule always has the best available timezone information, and ambiguous cases are surfaced rather than silently defaulted.
+
+**Acceptance Criteria:**
+
+*   **Given** an event has been extracted and its schedule's location did not yield a resolvable timezone via Story 3.6's Tier-1 (location-based) inference,
+*   **When** the account the event was extracted from has exactly one active subscriber,
+*   **Then** that subscriber's own timezone (a concept not yet captured anywhere in the data model — this story must define where a user's timezone is sourced from, e.g. captured at signup/in settings, or inferred from their own location) is used as the schedule's timezone (PRD §3.7 Tier 2).
+*   **And**, **given** the account has more than one active subscriber (Tier 2/shared subscription, ambiguous whose timezone should apply) or no user-timezone signal is available either,
+*   **When** no timezone can be determined with high confidence,
+*   **Then** the event/schedule is flagged for manual clarification — this story must define what that flagged state looks like (a new schema column, a moderator/user-facing surface, or reuse of an existing mechanism) and where it is surfaced, since no such state exists anywhere in the schema or any other story today.
+
+**Note (2026-08-10, added via `bmad-create-story` while drafting Story 3.6):** Story 3.6's own creation found that PRD FR33's full three-tier timezone-inference strategy had no owning story anywhere in Epic 3 — Story 0.16 (Geolocation adapter) explicitly named "timezone inference for extracted events" as an anticipated consumer, but no story ever built the consumption side, and `epic-3-readiness.md`'s Gate 1/3 sweep did not flag the gap either (it evaluated architecture/foundation completeness, not FR-level requirements coverage). User confirmed via `AskUserQuestion`: Story 3.6 absorbs Tier 1 (location-based inference, low incremental cost via the already-built Geolocation adapter) directly into its own AC6; this story absorbs the two genuinely ambiguous, product-decision-requiring tiers (2 and 3) that Story 3.6's own scope should not silently decide. Positioned as a lettered suffix directly off Story 3.6 (the story whose own creation surfaced the gap), per `story-split-gate.md`'s "single-story split" numbering rule.
+
+**Depends on:** Story 3.6.
 
 ### Story 3.6b: Ingest processed events into the database
 
