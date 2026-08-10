@@ -49,6 +49,10 @@
     "./scraper": {
       "types": "./dist/scraper/index.d.ts",
       "default": "./dist/scraper/index.js"
+    },
+    "./posts": {
+      "types": "./dist/posts/index.d.ts",
+      "default": "./dist/posts/index.js"
     }
   },
   "scripts": {

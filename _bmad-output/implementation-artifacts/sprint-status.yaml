@@ -329,7 +329,7 @@ development_status:
   # shape). EXPLORATORY -- outreach only, no adapter code until a concrete offer
   # exists.
   3-4c-explore-whitelisted-access-with-instagram-viewer-sites: backlog
-  3-5-add-new-posts-to-a-processing-queue: ready-for-dev
+  3-5-add-new-posts-to-a-processing-queue: review
   3-6-process-posts-from-the-queue-and-extract-event-information: backlog
   3-6b-ingest-processed-events-into-the-database: backlog
   3-7-display-extracted-events-to-the-user: backlog

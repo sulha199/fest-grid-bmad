@@ -1,10 +1,14 @@
+---
+baseline_commit: ab038deaa487d8aab07c1a8b9d7496546625c1be
+---
+
 # Story 3.5: Add new posts to a processing queue
 
 ## Story Details
 
 - **Epic:** 3
 - **Story ID:** 3.5
-- **Status:** ready-for-dev
+- **Status:** review
 
 ## Story
 
@@ -27,12 +31,12 @@
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC4) — Shared cross-boundary types in `packages/domain`:** Create `packages/domain/src/posts/types.ts` exporting:
+- [x] **Task 1 (AC4) — Shared cross-boundary types in `packages/domain`:** Create `packages/domain/src/posts/types.ts` exporting:
   - `ProcessingJobMessage` interface: `{ postId: string; accountId: string; content: string; imageUrl?: string; postUrl: string; publishedAt: string }` — the exact `AIProcessingQueue` message contract this story's producer sends and Story 3.6's AI Processor Lambda will later consume.
   - `PostNotFoundError extends Error` and `PostAlreadyExtractedError extends Error` (pure, dependency-free custom error classes — mirrors `ScraperCapacityExceededError`'s placement in `packages/domain/src/scraper/types.ts`).
   - Add `packages/domain/src/posts/index.ts` (`export * from './types.js';`) and a new `"./posts"` subpath entry in `packages/domain/package.json`'s `exports` map, mirroring the existing `"./scraper"` entry exactly.
-- [ ] **Task 2 (AC3) — Extract shared SQS-send helper (reuse over reinvention):** Create `apps/backend/src/lib/aws/send-sqs-message.ts`, moving the generic `sendSqsMessage`/`setSendSqsMessage` test-seam pair currently declared inline inside `apps/backend/src/lib/scraper/enqueue-scrape-job.ts` (lines 1-15) into this new, queue-agnostic file — it was only ever scraper-specific by accident of being written first, not by design; Story 3.6/3.6b will need the identical AWS SDK call again for `DataIngestionQueue`. Update `enqueue-scrape-job.ts` to `export { sendSqsMessage, setSendSqsMessage } from '../aws/send-sqs-message.js';` instead of declaring its own, so `enqueue-scrape-job.test.ts`'s existing `import { enqueueScrapeJob, setSendSqsMessage } from './enqueue-scrape-job.js';` keeps working unmodified — zero test churn on an already-`review`-status story.
-- [ ] **Task 3 (AC1, AC2, AC3, AC4, AC6) — `enqueuePostForProcessing`:** Create `apps/backend/src/lib/posts/enqueue-post-for-processing.ts`:
+- [x] **Task 2 (AC3) — Extract shared SQS-send helper (reuse over reinvention):** Create `apps/backend/src/lib/aws/send-sqs-message.ts`, moving the generic `sendSqsMessage`/`setSendSqsMessage` test-seam pair currently declared inline inside `apps/backend/src/lib/scraper/enqueue-scrape-job.ts` (lines 1-15) into this new, queue-agnostic file — it was only ever scraper-specific by accident of being written first, not by design; Story 3.6/3.6b will need the identical AWS SDK call again for `DataIngestionQueue`. Update `enqueue-scrape-job.ts` to `export { sendSqsMessage, setSendSqsMessage } from '../aws/send-sqs-message.js';` instead of declaring its own, so `enqueue-scrape-job.test.ts`'s existing `import { enqueueScrapeJob, setSendSqsMessage } from './enqueue-scrape-job.js';` keeps working unmodified — zero test churn on an already-`review`-status story.
+- [x] **Task 3 (AC1, AC2, AC3, AC4, AC6) — `enqueuePostForProcessing`:** Create `apps/backend/src/lib/posts/enqueue-post-for-processing.ts`:
   - Fetch the post row by `id` from `packages/database`'s `posts` table (`db.select().from(posts).where(eq(posts.id, postId)).limit(1)`, mirroring `persist-scraped-post.ts`'s lookup style). `posts` is one of the tables explicitly excluded from AD-8 soft-delete (`project-context.md`), so no `activeOnly`/`deletedAt` filter applies here.
   - If no row found, throw `PostNotFoundError` (from `@festgrid/domain/posts`).
   - If `post.isExtracted` is `true`, throw `PostAlreadyExtractedError` (from `@festgrid/domain/posts`) — per the user's explicit decision (AC6), this guard lives in the producer itself, not deferred to Story 5.1a's future mutation/UI.
@@ -40,9 +44,9 @@
   - Read `env.aiProcessingQueueUrl` (Task 4); throw a plain `Error('AI_PROCESSING_QUEUE_URL is not configured')` if unset (mirrors `enqueueScrapeJob`'s existing `SCRAPING_QUEUE_URL` guard).
   - Send via Task 2's shared `sendSqsMessage(queueUrl, JSON.stringify(message))`.
   - Exported signature: `enqueuePostForProcessing(postId: string): Promise<void>` — single-postId, per the user's explicit decision; Story 5.1a will loop over its selected `postIds` array when it is built, exactly as `getBatchScrapeTargets`/`enqueueScrapeJob` already keep "get many" and "enqueue one" as separate concerns in this codebase.
-- [ ] **Task 4 — Env config:** Add `aiProcessingQueueUrl?: string` to `BackendEnv` in `apps/backend/src/env.ts`, sourced from `process.env.AI_PROCESSING_QUEUE_URL` (with the same `// eslint-disable-next-line turbo/no-undeclared-env-vars` pattern as `scrapingQueueUrl`).
-- [ ] **Task 5 — `.env.example`:** Add `AI_PROCESSING_QUEUE_URL=` under a `# AI processing pipeline (Story 3.5)` heading, with a comment noting it is provisioned by Story 0.14's IaC but — unlike `SCRAPING_QUEUE_URL` — is **not yet** wired into any Lambda's CDK `environment` block, since no caller exists inside a Lambda until Story 5.1a adds the real `selectPostsForExtraction` resolver (see Dev Notes).
-- [ ] **Task 6 (AC1, AC3, AC4, AC6) — Tests:** Create `apps/backend/src/lib/posts/enqueue-post-for-processing.test.ts` (`node:test`, real local DB + SQS test seam, no live AWS calls), covering:
+- [x] **Task 4 — Env config:** Add `aiProcessingQueueUrl?: string` to `BackendEnv` in `apps/backend/src/env.ts`, sourced from `process.env.AI_PROCESSING_QUEUE_URL` (with the same `// eslint-disable-next-line turbo/no-undeclared-env-vars` pattern as `scrapingQueueUrl`).
+- [x] **Task 5 — `.env.example`:** Add `AI_PROCESSING_QUEUE_URL=` under a `# AI processing pipeline (Story 3.5)` heading, with a comment noting it is provisioned by Story 0.14's IaC but — unlike `SCRAPING_QUEUE_URL` — is **not yet** wired into any Lambda's CDK `environment` block, since no caller exists inside a Lambda until Story 5.1a adds the real `selectPostsForExtraction` resolver (see Dev Notes).
+- [x] **Task 6 (AC1, AC3, AC4, AC6) — Tests:** Create `apps/backend/src/lib/posts/enqueue-post-for-processing.test.ts` (`node:test`, real local DB + SQS test seam, no live AWS calls), covering:
   - (a) Happy path: insert a real `socialMediaAccountProfiles` row and a real `posts` row (`isExtracted: false`), call `enqueuePostForProcessing(post.id)`, assert `setSendSqsMessage`'s captured queue URL equals `env.aiProcessingQueueUrl` and the captured, parsed body deep-equals the expected `ProcessingJobMessage` built from that exact row.
   - (b) Not-found: call with a random UUID that doesn't exist in `posts`; assert it rejects with `PostNotFoundError` and the SQS seam was never invoked.
   - (c) Already-extracted: insert a post with `isExtracted: true`; assert it rejects with `PostAlreadyExtractedError` and the SQS seam was never invoked.
@@ -171,18 +175,38 @@ Two real tradeoffs, not resolvable from epics.md's AC text alone, were raised wi
 
 ## Completion Status
 
-- [ ] Complete
+- [x] Complete
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+- Claude 3.5 Sonnet
 
 ### Debug Log References
 
+- All tests compiled and passed successfully on first local execution. No errors or manual debugging logs needed.
 
 ### Completion Notes List
 
+- Created `packages/domain/src/posts/types.ts` defining `ProcessingJobMessage` and two custom pure exceptions (`PostNotFoundError`, `PostAlreadyExtractedError`).
+- Exposed the new module via `packages/domain/package.json` with a `"./posts"` subpath export mapping.
+- Extracted shared, generic SQS message sender `sendSqsMessage` and mock seam setter `setSendSqsMessage` to `apps/backend/src/lib/aws/send-sqs-message.ts`.
+- Refactored `apps/backend/src/lib/scraper/enqueue-scrape-job.ts` to cleanly import and re-export the SQS sender to maintain zero-churn backwards compatibility for existing tests.
+- Implemented `enqueuePostForProcessing(postId: string)` inside `apps/backend/src/lib/posts/enqueue-post-for-processing.ts` querying the database and validating post state before enqueuing as a message to `AIProcessingQueue`.
+- Added corresponding optional configuration variables `aiProcessingQueueUrl` to `apps/backend/src/env.ts` and updated `.env.example`.
+- Added comprehensive unit/integration test suite `enqueue-post-for-processing.test.ts` testing happy path SQS structure mapping, PostNotFoundError, and PostAlreadyExtractedError guards.
 
 ### File List
+
+- `packages/domain/src/posts/types.ts`
+- `packages/domain/src/posts/index.ts`
+- `packages/domain/src/index.ts`
+- `packages/domain/package.json`
+- `apps/backend/src/lib/aws/send-sqs-message.ts`
+- `apps/backend/src/lib/scraper/enqueue-scrape-job.ts`
+- `apps/backend/src/lib/posts/enqueue-post-for-processing.ts`
+- `apps/backend/src/lib/posts/enqueue-post-for-processing.test.ts`
+- `apps/backend/src/env.ts`
+- `.env.example`
 
