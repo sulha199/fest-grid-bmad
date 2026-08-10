@@ -30,6 +30,8 @@ export const geolocationQueryTypeEnum = pgEnum('geolocation_query_type', ['GEOCO
 
 export const defaultLocationChangeStatusEnum = pgEnum('default_location_change_status', ['PENDING_REVIEW', 'ACCEPTED', 'REVERTED']);
 
+export const scheduleTimezoneStatusEnum = pgEnum('schedule_timezone_status', ['RESOLVED', 'NEEDS_CLARIFICATION']);
+
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: text('email').unique().notNull(),
@@ -37,6 +39,7 @@ export const users = pgTable('users', {
   avatarUrl: text('avatar_url'),
   role: userRoleEnum('role').default('user').notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete support
+  timezone: text('timezone'),
   ...timestamps,
 });
 
@@ -183,6 +186,8 @@ export const schedules = pgTable('schedules', {
   locationDetails: jsonb('location_details').$type<LocationDetails>(),
   latitude: doublePrecision('latitude'),
   longitude: doublePrecision('longitude'),
+  timezone: text('timezone'),
+  timezoneStatus: scheduleTimezoneStatusEnum('timezone_status'),
   ...timestamps,
 }, (t) => ({
   performersIdx: index('schedule_performers_idx').on(t.performers),

@@ -111,6 +111,112 @@ test('processAiJob orchestrator tests', async (t) => {
     assert.ok(markPostExtractedCalled, 'markPostExtracted should be called');
     assert.strictEqual(sqsBody.eventName, 'Epic Concert');
     assert.strictEqual(sqsBody.postId, 'post-process-1');
+    assert.strictEqual(sqsBody.schedules[0].timezoneStatus, 'NEEDS_CLARIFICATION');
+    assert.strictEqual(sqsBody.schedules[0].timezone, undefined);
+  });
+
+  await t.test('Case A-2: Tier 2 resolved (single subscriber with timezone set)', async () => {
+    // Seed user's timezone
+    const originalTimezone = user.timezone;
+    await db.update(users).set({ timezone: 'America/Denver' }).where(eq(users.id, user.id));
+
+    const message: ProcessingJobMessage = {
+      postId: 'post-process-1a',
+      accountId: profile.id,
+      content: 'Epic Concert Tonight!',
+      postUrl: 'https://test.com/p1a',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let sqsBody: any = null;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          eventName: 'Epic Concert',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: '2026-08-15'
+            }
+          ],
+          confidenceScore: 0.95
+        })
+      };
+    });
+
+    setSendSqsMessage(async (queueUrl, body) => {
+      sqsBody = JSON.parse(body);
+    });
+
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    try {
+      await processAiJob(message);
+      assert.strictEqual(sqsBody.schedules[0].timezoneStatus, 'RESOLVED');
+      assert.strictEqual(sqsBody.schedules[0].timezone, 'America/Denver');
+    } finally {
+      // Restore
+      await db.update(users).set({ timezone: originalTimezone ?? null }).where(eq(users.id, user.id));
+    }
+  });
+
+  await t.test('Case A-3: Zero-subscriber account, Tier 3 fires without users lookup', async () => {
+    // Create an account profile with zero subscribers
+    const [zeroSubProfile] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({
+        accountId: 'platform-acc-zero-' + Date.now(),
+        platform: 'instagram',
+        displayName: 'Zero Sub Profile',
+        username: 'zero_sub_' + Date.now()
+      })
+      .returning();
+
+    const message: ProcessingJobMessage = {
+      postId: 'post-process-1b',
+      accountId: zeroSubProfile.id,
+      content: 'Epic Concert Tonight!',
+      postUrl: 'https://test.com/p1b',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let sqsBody: any = null;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          eventName: 'Epic Concert',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: '2026-08-15'
+            }
+          ],
+          confidenceScore: 0.95
+        })
+      };
+    });
+
+    setSendSqsMessage(async (queueUrl, body) => {
+      sqsBody = JSON.parse(body);
+    });
+
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    try {
+      await processAiJob(message);
+      assert.strictEqual(sqsBody.schedules[0].timezoneStatus, 'NEEDS_CLARIFICATION');
+      assert.strictEqual(sqsBody.schedules[0].timezone, undefined);
+    } finally {
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, zeroSubProfile.id));
+    }
   });
 
   await t.test('Case B: isEvent: false path (marked, not enqueued)', async () => {

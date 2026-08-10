@@ -6,6 +6,7 @@ import { compileValidator } from '../../validation/validate.js';
 import { extractedEventSchema } from '../../validation/extracted-event.schema.js';
 import { type GeminiExtractionPayload, transformGeminiResponseToEventInfo } from '@festgrid/domain';
 import { resolveAccountAndLocations } from './resolve-account-and-locations.js';
+import { resolveScheduleTimezones } from './resolve-schedule-timezones.js';
 import { markPostExtracted as defaultMarkPostExtracted } from '../posts/mark-post-extracted.js';
 import { sendSqsMessage } from '../aws/send-sqs-message.js';
 import { loadBackendEnv } from '../../env.js';
@@ -67,12 +68,19 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     resolvedScheduleLocations
   } = await resolveAccountAndLocations(message.accountId, payload.schedules, payload.location);
 
+  const scheduleTimezoneResolutions = await resolveScheduleTimezones(
+    payload.schedules,
+    resolvedScheduleLocations,
+    subscriberUserIds
+  );
+
   // 7. Transform Gemini response to ExtractedEventMessage
   const eventMessage = transformGeminiResponseToEventInfo(payload, {
     postId: message.postId,
     sourceSocialMediaAccountId,
     defaultLocation,
-    resolvedScheduleLocations
+    resolvedScheduleLocations,
+    scheduleTimezoneResolutions
   });
 
   // 8. Enqueue to DataIngestionQueue

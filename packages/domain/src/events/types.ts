@@ -25,6 +25,13 @@ export interface GeminiExtractionPayload {
   confidenceScore: number;
 }
 
+export type ScheduleTimezoneStatus = 'RESOLVED' | 'NEEDS_CLARIFICATION';
+
+export interface ScheduleTimezoneResolution {
+  timezone?: string;
+  timezoneStatus: ScheduleTimezoneStatus;
+}
+
 export interface ExtractedScheduleMessage {
   isMainSchedule: boolean;
   eventStartDate: string;
@@ -36,6 +43,8 @@ export interface ExtractedScheduleMessage {
   location?: string;
   ticketPrice?: string;
   locationDetails?: LocationDetails;
+  timezone?: string;
+  timezoneStatus?: ScheduleTimezoneStatus;
 }
 
 export interface ExtractedEventMessage {

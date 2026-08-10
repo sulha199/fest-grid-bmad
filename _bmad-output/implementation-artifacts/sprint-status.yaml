@@ -361,7 +361,7 @@ development_status:
   # while drafting Story 3.6: PRD FR33's Tier 2 (subscribing user's own timezone)
   # and Tier 3 (flag for manual clarification) have no owning story or data-model
   # concept anywhere in the codebase. See epics.md Story 3.6a note.
-  3-6a-infer-event-timezone-from-subscriber-context-and-flag-ambiguous-cases-for-clarification: ready-for-dev
+  3-6a-infer-event-timezone-from-subscriber-context-and-flag-ambiguous-cases-for-clarification: review
   3-6b-ingest-processed-events-into-the-database: backlog
   # added 2026-08-10 via bmad-create-story Gate 3 finding while drafting Story 3.6a:
   # users.timezone (added by 3.6a to match PRD 4.8's User.timezone) has no capture

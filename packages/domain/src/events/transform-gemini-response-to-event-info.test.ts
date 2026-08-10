@@ -176,4 +176,59 @@ describe('transformGeminiResponseToEventInfo', () => {
     assert.strictEqual(result.schedules[0].locationDetails, undefined);
     assert.deepStrictEqual(result.schedules[1].locationDetails, annexLocationDetails);
   });
+
+  it('should attach timezone and timezoneStatus when scheduleTimezoneResolutions map is present', () => {
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      eventName: 'Timezone Event',
+      types: ['OTHER'],
+      categories: ['OTHER'],
+      schedules: [
+        {
+          isMainSchedule: true,
+          eventStartDate: '2026-08-25'
+        },
+        {
+          isMainSchedule: false,
+          eventStartDate: '2026-08-26'
+        }
+      ],
+      confidenceScore: 0.9
+    };
+
+    const scheduleTimezoneResolutions = new Map();
+    scheduleTimezoneResolutions.set(0, { timezone: 'America/Chicago', timezoneStatus: 'RESOLVED' });
+    scheduleTimezoneResolutions.set(1, { timezone: undefined, timezoneStatus: 'NEEDS_CLARIFICATION' });
+
+    const result = transformGeminiResponseToEventInfo(payload, {
+      ...dummyContext,
+      scheduleTimezoneResolutions
+    });
+
+    assert.strictEqual(result.schedules[0].timezone, 'America/Chicago');
+    assert.strictEqual(result.schedules[0].timezoneStatus, 'RESOLVED');
+    assert.strictEqual(result.schedules[1].timezone, undefined);
+    assert.strictEqual(result.schedules[1].timezoneStatus, 'NEEDS_CLARIFICATION');
+  });
+
+  it('should leave timezone and timezoneStatus undefined when scheduleTimezoneResolutions map is omitted', () => {
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      eventName: 'Timezone Omitted Event',
+      types: ['OTHER'],
+      categories: ['OTHER'],
+      schedules: [
+        {
+          isMainSchedule: true,
+          eventStartDate: '2026-08-25'
+        }
+      ],
+      confidenceScore: 0.9
+    };
+
+    const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+
+    assert.strictEqual(result.schedules[0].timezone, undefined);
+    assert.strictEqual(result.schedules[0].timezoneStatus, undefined);
+  });
 });

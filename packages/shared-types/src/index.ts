@@ -10,6 +10,8 @@ export interface User {
   email: string;
   name?: string;
   deletedAt?: DateTimeIso; // Soft delete support
+  /** Fallback timezone used for event timezone inference when location-based lookup is unavailable or ambiguous */
+  timezone?: string;
 }
 
 export enum EventType {

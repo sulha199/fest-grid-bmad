@@ -1,5 +1,5 @@
 import { EventType, EventCategory, LocationDetails } from '@festgrid/shared-types';
-import { GeminiExtractionPayload, ExtractedEventMessage, ExtractedScheduleMessage } from './types.js';
+import { GeminiExtractionPayload, ExtractedEventMessage, ExtractedScheduleMessage, ScheduleTimezoneResolution } from './types.js';
 
 export function transformGeminiResponseToEventInfo(
   payload: GeminiExtractionPayload,
@@ -8,6 +8,7 @@ export function transformGeminiResponseToEventInfo(
     sourceSocialMediaAccountId: string;
     defaultLocation?: LocationDetails;
     resolvedScheduleLocations: Map<number, LocationDetails>;
+    scheduleTimezoneResolutions?: Map<number, ScheduleTimezoneResolution>;
   }
 ): ExtractedEventMessage {
   // 1. Filter valid types and categories, fallback to OTHER if empty
@@ -26,9 +27,10 @@ export function transformGeminiResponseToEventInfo(
     ? (context.defaultLocation.formattedAddress ?? context.defaultLocation.placeName)
     : undefined);
 
-  // 3. Map schedules, attaching resolved schedule locations
+  // 3. Map schedules, attaching resolved schedule locations and timezone resolutions
   const schedules: ExtractedScheduleMessage[] = payload.schedules.map((sch, i) => {
     const locationDetails = context.resolvedScheduleLocations.get(i);
+    const timezoneResolution = context.scheduleTimezoneResolutions?.get(i);
     return {
       isMainSchedule: sch.isMainSchedule,
       eventStartDate: sch.eventStartDate,
@@ -39,7 +41,9 @@ export function transformGeminiResponseToEventInfo(
       performers: sch.performers,
       location: sch.location,
       ticketPrice: sch.ticketPrice,
-      locationDetails
+      locationDetails,
+      timezone: timezoneResolution?.timezone,
+      timezoneStatus: timezoneResolution?.timezoneStatus
     };
   });
 
