@@ -92,6 +92,7 @@ export class FestgridBackendStack extends cdk.Stack {
         BYOK_KMS_KEY_ID: kmsKey.keyId,
         DATABASE_URL: process.env.DATABASE_URL || '',
         SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
+        GEOAPIFY_API_KEY: process.env.GEOAPIFY_API_KEY || '',
       },
     });
 
@@ -116,6 +117,9 @@ export class FestgridBackendStack extends cdk.Stack {
       environment: {
         STAGE: stageName,
         BYOK_KMS_KEY_ID: kmsKey.keyId,
+        DATABASE_URL: process.env.DATABASE_URL || '',
+        DATA_INGESTION_QUEUE_URL: dataIngestionQueue.queueUrl,
+        GEOAPIFY_API_KEY: process.env.GEOAPIFY_API_KEY || '',
       },
     });
 
@@ -141,7 +145,9 @@ export class FestgridBackendStack extends cdk.Stack {
     scraperScheduleRule.addTarget(new targets.LambdaFunction(scraperLambda));
 
     // AIProcessingQueue -> L_AI
-    aiProcessorLambda.addEventSource(new eventSources.SqsEventSource(aiProcessingQueue));
+    aiProcessorLambda.addEventSource(new eventSources.SqsEventSource(aiProcessingQueue, {
+      reportBatchItemFailures: true,
+    }));
 
     // DataIngestionQueue -> L_Ingest
     ingestorLambda.addEventSource(new eventSources.SqsEventSource(dataIngestionQueue));

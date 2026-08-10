@@ -8,7 +8,7 @@ baseline_commit: 41baa93a55d3d1a5f5c8dbcb1f5e5c15c47ff2ee
 
 - **Epic:** 3
 - **Story ID:** 3.6
-- **Status:** ready-for-dev
+- **Status:** review
 
 ## Story
 

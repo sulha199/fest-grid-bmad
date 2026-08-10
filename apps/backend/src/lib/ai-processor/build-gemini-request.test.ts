@@ -1,0 +1,81 @@
+import test from 'node:test';
+import * as assert from 'node:assert';
+import { buildGeminiExtractionRequest } from './build-gemini-request.js';
+import { type ProcessingJobMessage } from '@festgrid/domain/posts';
+
+test('buildGeminiExtractionRequest unit tests', async (t) => {
+  const originalFetch = globalThis.fetch;
+
+  t.afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  await t.test('Case A: image-absent path uses text-only contents', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-1',
+      accountId: 'account-1',
+      content: 'This is an awesome concert on August 15th!',
+      postUrl: 'https://test.com/post1',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    const request = await buildGeminiExtractionRequest(message);
+
+    assert.strictEqual(request.contents, message.content);
+    assert.strictEqual(request.responseMimeType, 'application/json');
+    assert.ok(request.systemInstruction?.includes('PERFORMANCE')); // verify systemInstruction exists and lists types
+  });
+
+  await t.test('Case B: image-present success path uses multi-part contents with base64 data', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-2',
+      accountId: 'account-2',
+      content: 'Multi-part event caption!',
+      imageUrl: 'https://test.com/poster.png',
+      postUrl: 'https://test.com/post2',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    // Mock fetch
+    globalThis.fetch = async (url: string | URL | Request, init?: RequestInit) => {
+      return {
+        ok: true,
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null)
+        },
+        arrayBuffer: async () => Buffer.from('fake-image-bytes')
+      } as any;
+    };
+
+    const request = await buildGeminiExtractionRequest(message);
+
+    assert.ok(Array.isArray(request.contents));
+    assert.strictEqual(request.contents.length, 2);
+    assert.strictEqual(request.contents[0].text, message.content);
+    assert.strictEqual(request.contents[1].inlineData.mimeType, 'image/png');
+    assert.strictEqual(request.contents[1].inlineData.data, Buffer.from('fake-image-bytes').toString('base64'));
+  });
+
+  await t.test('Case C: image-fetch-failure path falls back to text-only contents', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-3',
+      accountId: 'account-3',
+      content: 'Failed fetch image caption!',
+      imageUrl: 'https://test.com/broken.png',
+      postUrl: 'https://test.com/post3',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    // Mock fetch to return a failure status
+    globalThis.fetch = async (url: string | URL | Request, init?: RequestInit) => {
+      return {
+        ok: false,
+        status: 404
+      } as any;
+    };
+
+    const request = await buildGeminiExtractionRequest(message);
+
+    assert.strictEqual(request.contents, message.content);
+  });
+});

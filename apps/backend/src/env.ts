@@ -18,6 +18,7 @@ export interface BackendEnv {
   webAppBaseUrl: string;
   scrapingQueueUrl?: string;
   aiProcessingQueueUrl?: string;
+  dataIngestionQueueUrl?: string;
   apifyApiToken?: string;
   scrapeResultsLimit: number;
   scrapeInitialLookbackDays: number;
@@ -85,6 +86,8 @@ export function loadBackendEnv(): BackendEnv {
     scrapingQueueUrl: process.env.SCRAPING_QUEUE_URL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     aiProcessingQueueUrl: process.env.AI_PROCESSING_QUEUE_URL,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    dataIngestionQueueUrl: process.env.DATA_INGESTION_QUEUE_URL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     apifyApiToken: process.env.APIFY_API_TOKEN,
     // eslint-disable-next-line turbo/no-undeclared-env-vars

@@ -356,13 +356,23 @@ development_status:
   # and the EventInfo.location-required vs. AC5's "left absent" conflict is kept
   # decoupled (ExtractedEventMessage.location stays optional) and forward-noted to
   # Story 3.6b rather than resolved now. See epics.md Story 3.6a note.
-  3-6-process-posts-from-the-queue-and-extract-event-information: ready-for-dev
+  3-6-process-posts-from-the-queue-and-extract-event-information: review
   # added 2026-08-10 via bmad-create-story Gate 3-shaped lightweight-guard finding
   # while drafting Story 3.6: PRD FR33's Tier 2 (subscribing user's own timezone)
   # and Tier 3 (flag for manual clarification) have no owning story or data-model
   # concept anywhere in the codebase. See epics.md Story 3.6a note.
   3-6a-infer-event-timezone-from-subscriber-context-and-flag-ambiguous-cases-for-clarification: backlog
   3-6b-ingest-processed-events-into-the-database: backlog
+  # added 2026-08-10 via bmad-create-story Gate 3 finding while drafting Story 3.6a:
+  # users.timezone (added by 3.6a to match PRD 4.8's User.timezone) has no capture
+  # mechanism anywhere in the codebase -- without this story FR33 Tier 2 can never
+  # fire in practice. See epics.md Story 3.6c note.
+  3-6c-capture-and-store-the-subscribing-users-timezone: backlog
+  # added 2026-08-10 via bmad-create-story Gate 3 finding while drafting Story 3.6a:
+  # schedules.timezoneStatus = 'NEEDS_CLARIFICATION' (3.6a) is written but nothing
+  # displays/resolves it yet. Depends on 3.6b and 3.7 both existing first. See
+  # epics.md Story 3.6d note.
+  3-6d-surface-schedules-flagged-as-needing-timezone-clarification: backlog
   3-7-display-extracted-events-to-the-user: backlog
   3-8-push-notifications-for-extracted-events: backlog
   3-9-implement-api-key-quota-management: backlog

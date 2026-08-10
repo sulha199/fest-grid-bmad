@@ -1883,7 +1883,43 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Note:** This story exists because of Gate 1 (`story-split-gate.md`) — Story 3.6's original draft had the AI Processor Lambda both call Gemini and write to the database, bypassing the separate Ingestor Lambda (`L_Ingest`) shown in `docs/infrastructure/high-level-overview.md`. This story is that Ingestor Lambda.
 
-**Depends on:** Story 3.6.
+**Amendment (2026-08-10, added via `bmad-create-story` while drafting Story 3.6a):** This story's DB write must also persist the two new `schedules` columns Story 3.6a adds (`timezone: text`, `timezoneStatus: 'RESOLVED' | 'NEEDS_CLARIFICATION'`), sourced from `ExtractedScheduleMessage`'s corresponding new fields — not just the fields already listed above. Flagged via Gate 1's traceability recommendation during Story 3.6a's creation, so this dependency doesn't stay implicit.
+
+**Depends on:** Story 3.6, Story 3.6a.
+
+### Story 3.6c: Capture and store the subscribing user's timezone
+
+**As a** system,
+**I want** to capture and persist each user's IANA timezone,
+**So that** PRD FR33 Tier 2 (subscriber-timezone fallback, Story 3.6a) has real data to resolve ambiguous event timezones instead of every case falling through to manual clarification.
+
+**Acceptance Criteria:**
+
+*   **Given** a user is authenticated and using the app,
+*   **When** the client resolves the browser's IANA timezone (e.g. via `Intl.DateTimeFormat().resolvedOptions().timeZone`) at an appropriate point in the session (e.g. login, or settings page load),
+*   **Then** the resolved timezone string is persisted to `users.timezone` (column added by Story 3.6a, matching PRD §4.8's `User.timezone` field) via a dedicated mutation, only writing when it differs from the currently stored value to avoid needless writes.
+*   **And** existing users who have not yet had a session capture their timezone continue to have `users.timezone = NULL` until their next authenticated session captures one — this story does not backfill.
+
+**Note (2026-08-10, added via `bmad-create-story` while drafting Story 3.6a):** Story 3.6a's own creation found that `users.timezone` (needed for PRD FR33 Tier 2) has no capture mechanism anywhere in the codebase — without this story, Tier 2 can structurally never fire (every schedule falls through to Tier 3/flagged). Surfaced by Gate 3 (`story-split-gate.md`); user confirmed via `AskUserQuestion` to split this out as its own story rather than have 3.6a build the capture UI/mutation itself, keeping 3.6a's zero-`apps/web`-surface shape consistent with Story 3.5/3.6's own precedent. Positioned as a lettered suffix directly off Story 3.6, matching the existing 3.6a/3.6b sibling family.
+
+**Depends on:** Story 3.6a.
+
+### Story 3.6d: Surface schedules flagged as needing timezone clarification
+
+**As a** user,
+**I want** to see when one of my extracted events has an ambiguous, unresolved schedule timezone and be able to provide the correct one,
+**So that** the event's displayed time is trustworthy rather than silently wrong or perpetually unresolved.
+
+**Acceptance Criteria:**
+
+*   **Given** a schedule has `timezoneStatus = 'NEEDS_CLARIFICATION'` (Story 3.6a's schema, written via Story 3.6b's DB ingestion),
+*   **When** the user views that event's detail (Story 3.7),
+*   **Then** the user sees an indicator that the schedule's timezone could not be automatically determined, with a way to select/provide the correct one.
+*   **And** once the user provides a timezone, the schedule's `timezone` column is updated and `timezoneStatus` is set to `RESOLVED`.
+
+**Note (2026-08-10, added via `bmad-create-story` while drafting Story 3.6a):** Story 3.6a's own creation found that `schedules.timezoneStatus = 'NEEDS_CLARIFICATION'` is written by the pipeline but nothing in epics.md today displays or resolves it — flagged rows would otherwise accumulate with no path out. Surfaced by Gate 3 (`story-split-gate.md`); user confirmed via `AskUserQuestion` to defer this rather than have 3.6a build UI against a display layer (Story 3.6b/3.7) that doesn't exist yet. Positioned as a lettered suffix directly off Story 3.6, matching the existing 3.6a/3.6b/3.6c sibling family. Depends on Story 3.6b (DB write) and Story 3.7 (event display) both existing first.
+
+**Depends on:** Story 3.6a, Story 3.6b, Story 3.7.
 
 ### Story 3.7: Display extracted events to the user
 
