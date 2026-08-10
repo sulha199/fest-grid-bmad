@@ -1940,6 +1940,45 @@ Users can subscribe to social media accounts to import events into their feed.
 *   **And** I can view the events in a calendar view or a card view.
 *   **And** the events are fetched via the backend GraphQL API using the Unified Query DSL (Story 1.3a), scoped to events sourced from the current user's subscribed accounts — not directly from the database.
 
+**Amendment (2026-08-10, added via bmad-create-story during this story's own creation):** The single AC list above is expanded in the full story file with an explicit auth requirement (the /feed page requires a logged-in user, matching the /favorites and /my-calendar precedent - unauthenticated visitors are redirected to /login) and the UX scenario doc's (design-artifacts/C-UX-Scenarios/03-alex-discovers-his-feed/03.1-alex-discovers-his-feed.md) exact zero-events empty-state copy and CTA ("Your feed is empty! Subscribe to social media accounts to see their events here." plus a "Manage Subscriptions" button). Two real design decisions were resolved with the user via AskUserQuestion: (1) the same UX scenario doc's softly-optional "Feed-Specific Filters: filter by specific subscriptions" (03.4-viewing-the-feed.md) is explicitly deferred out of this story's scope - epics.md's AC never required it, and it implies a new reusable subscription-picker component with no second consumer yet; (2) "events from my subscribed accounts" is expressed as a new server-side, auth-scoped Unified Query DSL field, isFromSubscribedAccount, added to the events resolver's fieldMap (apps/backend/src/schema/resolvers.ts:872-909) as an EXISTS subquery correlated on the server-known userId - mirroring the existing isFavorited/isAddedToCalendar pattern exactly - rather than a client-composed sourceSocialMediaAccountId in [...] list. The join is events.postId -> posts.id -> posts.accountId (uuid) -> socialMediaAccountProfiles.id -> subscriptions.accountId / subscriptions.userId (the user-suggested correction during this story's creation), not the fragile events.sourceSocialMediaAccountId (text, platform-native ID) path the initial analysis considered. Gate 2 (story-split-gate.md), run fresh during this story's creation (Epic 3's swept epic-3-readiness.md only covers Gate 1/3), additionally found that this story's planned calendar view would be a third near-duplicate of week-navigation/status-mapping/schedule-flattening logic already copy-pasted between Discovery's CalendarView.tsx and My Calendar's my-calendar-content.tsx - split into prerequisite **Story 3.7a** (see below) rather than landing a third copy.
+
+**Depends on:** Story 3.2, Story 3.6b, Story 1.3a, Story 1.3b, Story 1.3c, Story 1.5, Story 1.5a, Story 2.6, Story 3.7a.
+
+### Story 3.7a: Extract shared weekly-calendar-controller hook
+
+**As a** developer,
+**I want** the week-navigation, loading/error status mapping, and schedule-flattening logic that Discovery's calendar view and My Calendar already duplicate to live in a single shared hook,
+**So that** Story 3.7's Feed calendar view doesn't become a third copy of the same ~60-80 lines, and future calendar-view consumers have one implementation to depend on.
+
+**Acceptance Criteria:**
+
+*   **Given** apps/web/src/features/events/CalendarView.tsx (Discovery) and apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx (My Calendar) each independently implement getSunday/getSaturday week-boundary math, weekStart/weekEnd derivation, handlePrevWeek/handleNextWeek/handleToday navigation (including their calendar_week_navigated PostHog events), a status === 'pending' ? 'loading' : status mapping, and schedule-flattening from GetEventsQuery-shaped data into WeeklyCalendarView's schedules prop,
+*   **When** this story extracts that shared logic into a single hook (useWeeklyCalendarController) in packages/ui/src/hooks/,
+*   **Then** the hook accepts whatever varies per caller (the query-condition builder/fetch function, translation label strings) as parameters, and returns { weekStart, weekEnd, schedules, status, errorMessage/errorDetail, handlePrevWeek, handleNextWeek, handleToday } for the consuming component to pass straight into WeeklyCalendarView.
+*   **And** CalendarView.tsx and my-calendar-content.tsx are refactored to use the new hook, with no behavior change (same PostHog events fire, same week math, same rendered output) - verified by their existing tests continuing to pass unmodified in assertions (only setup/mocking may change).
+*   **And** the hook itself has unit test coverage for week-boundary math, navigation, and schedule-flattening.
+
+**Note (2026-08-10, added via bmad-create-story while drafting Story 3.7):** Story 3.7's own creation found that its planned calendar view (Feed) would be a third near-byte-for-byte duplicate of week-navigation/status-mapping/schedule-flattening logic already copied between Discovery's CalendarView.tsx and My Calendar's my-calendar-content.tsx (the latter currently in review status). Surfaced by Gate 2 (story-split-gate.md), run fresh via the Freya persona since Epic 3's swept epic-3-readiness.md only covers Gate 1/3. User confirmed via AskUserQuestion to split this out as its own prerequisite story rather than accept a third duplication or fold the two-file refactor into Story 3.7's own scope. Positioned as a lettered suffix directly off Story 3.7, per story-split-gate.md's "single-story split" numbering rule, since the trigger is specifically Story 3.7's addition of a third consumer.
+
+**Depends on:** Story 1.5 (Discovery calendar view), Story 2.6 (My Calendar).
+
+### Story 3.7b: Filter the Feed page by specific subscribed account
+
+**As a** user with multiple social media account subscriptions,
+**I want** to narrow my Feed to events from one or a few specific subscribed accounts,
+**So that** I can focus on a subset of my subscriptions instead of always seeing everything at once.
+
+**Acceptance Criteria:**
+
+*   **Given** I have more than one active subscription,
+*   **When** I open a subscription filter on the Feed page,
+*   **Then** I can select one or more of my subscribed accounts to narrow the Feed's card/calendar results to just those accounts' events, combined with the existing search/type/category filters and the base subscribed-accounts-only scope.
+*   **And** this uses a new reusable subscription-picker filter component (multi-select), since none exists yet.
+
+**Note (2026-08-10, added via bmad-create-story while drafting Story 3.7):** design-artifacts/C-UX-Scenarios/03-alex-discovers-his-feed/03.4-viewing-the-feed.md softly describes this as a possible "Feed-Specific Filter" ("there may be an option to filter by specific subscriptions"), but epics.md's original Story 3.7 AC never required it. User confirmed via AskUserQuestion during Story 3.7's creation to defer it as its own follow-up story rather than build it now or silently drop it, since it implies a new reusable filter component with no second consumer yet. Positioned as a lettered suffix directly off Story 3.7, matching the 3.7a sibling.
+
+**Depends on:** Story 3.7.
+
 ### Story 3.8: Push notifications for extracted events
 
 **As a** user,
