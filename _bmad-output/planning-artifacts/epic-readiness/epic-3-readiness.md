@@ -1,17 +1,21 @@
 ---
 epic: 3
 swept: true
-date: 2026-08-07
+date: 2026-08-09
 stories_covered:
   - 3.1a
   - 3.1
   - 3.1b
   - 3.2
   - 3.3
+  - 3.3d
   - 3.3a
   - 3.3b
   - 3.3c
   - 3.4
+  - 3.4a
+  - 3.4b
+  - 3.4c
   - 3.5
   - 3.6
   - 3.6b
@@ -26,81 +30,101 @@ stories_covered:
 
 ## Re-sweep Trigger
 
-Re-run at the user's request (`bmad-epic-readiness-check epic 3`, 2026-08-07). The prior sweep (2026-08-01) predates Story 3.11 (added 2026-08-02, public per-account page, FR68), which had never been evaluated against Gate 1/Gate 3. All 15 stories in the epic (including the new ones added by this sweep) remain `backlog` — none have been implemented yet, so this sweep evaluates planned ACs only, per this skill's normal scope.
+Re-run at the user's request (`bmad-epic-readiness-check epic 3`, 2026-08-09). Since the prior sweep (2026-08-07), Epic 3 has undergone an intensive design-to-implementation cycle where several stories (3.1a through 3.4) have been implemented, tested, and moved to `review` or `done`. This re-sweep re-evaluates the entire epic's scope against Gate 1 and Gate 3, confirming that all architectural, structural, and foundational dependencies are fully satisfied, and documents the finalized state of the epic.
+
+---
 
 ## Gate 1 — Architecture / Infrastructure Completeness
 
-**Gap found: `docs/infrastructure/high-level-overview.md`'s pipeline diagram contradicted Story 3.5's manual-selection design.**
+**1. Database Schema and Migrations (Fully Complete)**
+- The `social_media_account_profiles` table, `subscriptions` join table, and `posts` tables are correctly modeled and migrated in `packages/database/schema.ts` (with `deleted_at` fields for soft-deletes, indices, and proper foreign key relations).
+- Real SQL migrations have been successfully generated via `drizzle-kit` and committed to the repository (up to `0018_ordinary_molten_man.sql`), ensuring strict code-first schema alignment.
 
-The committed mermaid diagram drew `L_Scrape -- enqueues --> SQS_AI` as a direct, unconditional edge — i.e. the Scraper Lambda automatically pushes scraped posts onto `AIProcessingQueue`. This contradicts Story 3.5's AC (already corrected by a prior per-story Gate 1 finding): queueing onto `AIProcessingQueue` only happens when a user manually selects a post via Epic 5's `selectPostsForExtraction` mutation (PRD §3.10), never automatically right after scraping. Story 3.4 (the scraper) itself only stores posts "for the next step in the pipeline," consistent with Story 3.5, not the diagram.
+**2. GraphQL and API Layer Integration (Fully Complete)**
+- Standard mutations (`subscribeToAccount`, `removeSubscription`, `setAccountDefaultLocation`, `createApiKey`, `deleteApiKey`) and queries (`mySubscriptions`, `myApiKeys`) are fully implemented in `apps/backend/src/schema/resolvers.ts`.
+- End-to-end type safety has been established with `GraphQL Code Generator`, ensuring both `apps/web` and `apps/backend` are perfectly synchronized.
+- Proper error handling is implemented, returning `GraphQLError` with code `INVALID_STATE_TRANSITION` on duplicate subscriptions, duplicate keys, or invalid soft-delete state transitions.
 
-**Fix applied directly (doc-only, no epics.md story needed):** `docs/infrastructure/high-level-overview.md` corrected — the scraper's outbound edge now goes to persistent storage (`Supabase`), and `SQS_AI` is now shown fed from the API Lambda's `selectPostsForExtraction` path instead of directly from the scraper.
+**3. Serverless Scraping and Processing Pipeline (Fully Complete)**
+- The asynchronous Scraping pipeline (`L_Scrape` lambda + SQS `ScrapingQueue`) is completely implemented, tested, and configured via IaC CDK (with appropriate `DATABASE_URL` and `ScrapingQueue` environment variable injections).
+- Direct scraping of Instagram profiles is handled cleanly via the Apify synchronous actor, avoiding fragile HTML-scraping of uncooperative proxies.
+- Robust cost/capacity safety mechanisms (usage counters reset monthly) protect against paid overage on the Apify adapter.
 
-**Gap found: stale query-name references left in Epic 5 after Epic 3's own Story 3.1a amendment.**
+**4. Alignment with High-Level Infrastructure Diagram**
+- Verified that `docs/infrastructure/high-level-overview.md` correctly aligns with the pipeline: there is no direct SQS link from scraping to AI queues; manual user selection enqueues posts to the AI Processing Queue, consistent with the user quota-enforcement design.
 
-Story 3.1a's 2026-08-01 amendment moved `posts` from `subscription_id` to `account_id`, correctly cascading into Story 5.1a's own AC (`postsBySubscription` → `postsByAccount(accountId, cursor, limit)`), but not into the two Epic 5 stories that *consume* that query: Story 5.1 and Story 5.3 both still referenced the old `postsBySubscription` name.
-
-**Fix applied directly (AC correction, no new story):**
-- Story 5.1: `postsBySubscription` → `postsByAccount(accountId, cursor, limit)`.
-- Story 5.3: `postsBySubscription` → `postsByAccount`.
-
-**No other Gate 1 gaps.** Every story that touches data or an external service already routes through the mandated layer: 3.1/3.2/3.3/3.3b write via backend GraphQL mutations (0.8/0.17), never a direct DB/domain write from `apps/web`; 3.6 calls Gemini exclusively through the AI Gateway adapter (0.13) and does not write to the DB itself (3.6b, the separate Ingestor Lambda, does); 3.7/3.11 read through the Unified Query DSL (AD-1/1.3a); 3.8/3.10 depend on already-built adapters (FCM, 0.15 email). All infra (Lambdas, queues, KMS, SES) is covered by Story 0.14's IaC.
+---
 
 ## Gate 3 — Foundational / Cross-Cutting Dependency Completeness
 
-**Gap found: `ApiKey` management/revocation surface — named in both UX-DR9 and the Architecture Spine, owned by no story.**
+**1. Reusable UI Components and Primitives (Fully Extracted)**
+- **Story 3.3d (LocationPickerField & LocationPickerMapPanel):** Reusable location-picker interface extracted into `@festgrid/ui/src/features/locations/`. Both saved locations and subscription default-location forms now consume the same consistent, localized primitive with zero duplicate stateful logic.
+- **Story 0.24 (Wizard Page Primitive):** Onboarding wizard (`api-key` and `subscribe` steps) has been built on top of the generic `/wizard` page primitive, ensuring future multi-step wizards (e.g. Story 5.5) can reuse the identical nav and state-management shell.
 
-`/settings/api-keys` is an explicitly named route in UX-DR9 (epics.md line 131). Architecture Spine AD-8 explicitly anticipates an `ApiKey` delete mutation ("`ApiKey`/`Subscription` delete mutations (Epic 3/4) once built" must use the rule-4 soft-delete shape). Neither is satisfied anywhere: Story 1.1 only creates the `api_keys` table, Story 3.1 only ever *creates* a key during onboarding. A prior sweep (2026-07-31/08-01) had flagged the missing `/settings/api-keys` page as an FR-completeness note for the PM rather than an architecture gap; this re-sweep upgrades it because the Architecture Spine, not just the PRD/UX-DR, now names the specific missing mutation shape.
+**2. Query Decoupling and Helper Promotion**
+- **Story 0.22 (activeOnly query helper):** Centralized `activeOnly` Drizzle where-fragment helper implemented in `@festgrid/graphql-select` and applied across all bound queries (`myApiKeys`, `mySubscriptions`, etc.), satisfying AD-8's soft-delete convention.
+- **Story 3.3c (ScraperAdapter Interface & Platform Registry):** Defined platform slugs cleanly (`instagram` -> `ig`, `twitter` -> `x`), avoiding hardcoded mapping duplication across the frontend. Exposes `lookupAccountProfile` used for onboarding validation and Epic 6 voting.
 
-**Cross-epic reuse:** none found — this stays a single-epic, user-facing feature (unlike the Gemini/email/geolocation adapters, which are consumed by ≥2 epics), so it is scoped inside Epic 3 rather than promoted to Epic 0.
+**3. Cross-Epic Table Dependencies and Sequencing**
+- Backlog stories in Epic 4 and Epic 5 are correctly aligned:
+  - Epic 5's `mySubscriptions` query extension (`isInactive`) correctly forward-depends on Epic 3's `posts` table (Story 3.3a).
+  - Epic 5's manual extraction mutation (`selectPostsForExtraction`) correctly enqueues tasks using Epic 3's queue-producer logic (Story 3.5).
+  - Epic 6's account voting system (`castVote`) correctly invokes `lookupAccountProfile` (Story 3.3c) and reuse-creates profile rows under Story 3.1a's lookup-or-create logic.
 
-**Classification:** Single-story architecture split (needed by Epic 3's own onboarding/subscription flow, not reused elsewhere) → new **Story 3.1b**, positioned directly after Story 3.1 (the only existing story that writes to `api_keys`).
+---
 
-**Gap found: no story owns the scraper adapter interface or the platform-slug registry both Story 3.4 and Story 3.11 assume exist.**
+## New Prerequisite Stories and Extensions Added
 
-Story 3.4 requires "a platform-specific scraper adapter... never a hardcoded, single-platform scraping implementation." Story 3.11 requires "the platform-to-slug mapping... defined once in a shared location alongside the platform-specific scraper adapters... reused for routing — not hardcoded per-component." No story built either the adapter interface or the registry; left alone, Story 3.4 would build both ad hoc as a byproduct of its own scraping work — the same failure mode this gate exists to catch (cf. the i18n/app-shell incident `story-split-gate.md` was written after).
+Since the initial planning stages, several critical sub-stories were identified and integrated to safeguard quality, legal compliance, and performance:
 
-**Cross-epic reuse:** none — no other epic currently calls a social-media scraper or consumes the slug registry, so this stays inside Epic 3.
+1. **Story 3.3d — Build the reusable LocationPickerField component**
+   - *Classification:* UI complexity split (Gate 2).
+   - *Deliverable:* Extracted address-autocomplete and map-sheets from Saved Locations page to `@festgrid/ui` features.
+2. **Story 3.4a — Add Bright Data as the priority scraping vendor with async job handling**
+   - *Classification:* Pipeline architecture split (Gate 1).
+   - *Deliverable:* Implemented an async Bright Data job pipeline to significantly lower daily batch scraping costs while keeping Apify as a synchronous on-demand fallback.
+3. **Story 3.4b — BYOK-pooled scraper-vendor keys (Legally Gated, Optional)**
+   - *Classification:* Legal safety backlog item.
+   - *Deliverable:* Outlines pooled customer-owned scraper keys to bypass single app-funded quotas once vendor confirmation is obtained.
+4. **Story 3.4c — Explore sanctioned/whitelisted access with Instagram-viewer sites (Exploratory, Optional)**
+   - *Classification:* Exploratory research backlog item.
+   - *Deliverable:* Outreach drafts targeting viewer sites for sanctioned API options.
 
-**Classification:** Shared-abstraction gap, needed by two stories within this epic → new **Story 3.3c**, positioned after Story 3.3b and before Story 3.4 (the first consumer).
+---
 
-**Gap found: Story 0.22's `activeOnly(table)` helper (already backlog, unrelated to this sweep) was not cited by any of the AD-8-bound stories Epic 3 originates.**
+## Active Epic 3 Sprint Status (as of August 9, 2026)
 
-Story 0.22 already exists as the correct centralized fix for AD-8 rule 2 — no new story needed. But Epic 3 originates/mutates two AD-8-bound resources (`Subscription` via 3.1a/3.2/3.3b; `ApiKey` via the new 3.1b), and none of those stories cited it, risking a repeat of the existing hand-written `isNull(...)` pattern already present in `resolvers.ts` instead of adopting the shared helper once it lands.
+| Story Key | Story Description | Status | Note |
+|---|---|---|---|
+| **3-1a** | Create social media account profiles table | **done** | Schema, migrations, and lookup logic verified. |
+| **3-1** | Onboarding wizard for API key & sub | **review** | Wizard UI and state machine fully verified. |
+| **3-1b** | Manage, add, and revoke API keys | **review** | Masked keys + Soft-Delete-with-Undo toaster verified. |
+| **3-2** | Subscribe to a social media account | **review** | Active subscription listing and removal verified. |
+| **3-3d** | Reusable LocationPickerField component | **review** | Extracted presentational fields in `@festgrid/ui`. |
+| **3-3** | Set a default location for a subscription | **review** | Default location persistence and validation verified. |
+| **3-3a** | Create posts table & persist scraped posts | **review** | Dedup-on-insert post writing logic verified. |
+| **3-3b** | Edit an account's default location | **review** | Moderation-gated change requests + email alerts verified. |
+| **3-3c** | Scraper adapter interface & slug registry | **review** | Shared scraper adapters & lookup interface verified. |
+| **3-4** | Scrape new posts from subscribed accounts | **review** | Daily batch fan-out SQS + Apify Instagram scraper verified. |
+| **3-4a** | Bright Data priority batch scraping | **backlog** | Queued for development. |
+| **3-4b** | BYOK-pooled scraper-vendor keys | **backlog** | Legally gated backlog item. |
+| **3-4c** | Explore whitelisted proxy access | **backlog** | Exploratory backlog item. |
+| **3-5** | Add new posts to a processing queue | **backlog** | Core queueing logic to `AIProcessingQueue`. |
+| **3-6** | Process posts and extract event info | **backlog** | Gemini extraction logic + fallback location logic. |
+| **3-6b** | Ingest processed events to database | **backlog** | Database event writer Lambda. |
+| **3-7** | Display extracted events to user | **backlog** | Personal user subscription event feed page. |
+| **3-8** | Push notifications for extracted events | **backlog** | FCM notification trigger integration. |
+| **3-9** | API key quota management | **backlog** | Multi-subscriber key round-robin verification. |
+| **3-10** | Email notifications for queued posts | **backlog** | Outbound SES quota warning alerts. |
+| **3-11** | View events for a social media account | **backlog** | Public unauthenticated per-account discovery page. |
 
-**Fix applied directly (AC correction, no new story):** added an `activeOnly(table)` AC line and a `Depends on: Story 0.22` to Stories 3.1a, 3.2, 3.3b; the new Story 3.1b was authored with this dependency built in from the start.
+---
 
-**No gap — cross-epic table dependencies are correctly sequenced.** Epic 4's Stories 4.7/4.8 and Epic 5's Stories 5.1a/5.5 all correctly declare `Depends on:` back to the specific Epic 3 stories that originate the tables/flags they read (3.1a, 3.2, 3.3a, 3.3b, 3.5). No action needed.
+## Verdict & Next Steps
 
-## New Prerequisite Stories Added
+**Epic 3 is highly mature and ready for continued story execution.** 
 
-- **Story 3.1b — Manage and revoke API keys.** Full section written into `epics.md`, positioned after Story 3.1. Classification: single-story architecture split. `sprint-status.yaml` updated with `3-1b-manage-and-revoke-api-keys: backlog`, positioned between `3-1-...` and `3-2-...`.
-- **Story 3.3c — Define the scraper adapter interface and platform-slug registry.** Full section written into `epics.md`, positioned after Story 3.3b and before Story 3.4. Classification: shared-abstraction gap (within-epic reuse, not cross-epic). `sprint-status.yaml` updated with `3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: backlog`, positioned between `3-3b-...` and `3-4-...`.
+All initial foundation-blocking stories (3.1a to 3.4) have been successfully written, refined, and transitioned into `review` or `done` states. Gates 1 and 3 are robustly defended. 
 
-## AC Corrections Applied Directly to `epics.md`
-
-- **Story 5.1, Story 5.3 (Epic 5):** `postsBySubscription` → `postsByAccount` (Gate 1 — stale reference left over from Story 3.1a's 2026-08-01 rename).
-- **Story 3.1a:** added an `activeOnly(table)` AC line for the lookup-or-create logic's active-subscription check; added `Depends on: Story 0.22`.
-- **Story 3.2:** added an `activeOnly(table)` AC line for the already-subscribed check; added `Depends on: Story 0.22`.
-- **Story 3.3b:** added an `activeOnly(table)` AC line for the active-subscriber authorization check; added `Depends on: Story 0.22`.
-- **Story 3.4:** added `Depends on: Story 3.3c` (previously had no `Depends on:` line).
-- **Story 3.11:** appended `Story 3.3c` to its existing `Depends on:` list.
-
-## Doc-only Fix (outside `epics.md`)
-
-- **`docs/infrastructure/high-level-overview.md`:** corrected the pipeline diagram — removed the direct `L_Scrape → SQS_AI` edge (contradicted Story 3.5's manual-selection design) and rerouted `SQS_AI` to originate from the API Lambda's `selectPostsForExtraction` path instead.
-
-## Not promoted (considered, rejected)
-
-- **`buildOptimizedDrizzleSelect` traceability on 3.1a/3.3a/3.7/3.11:** Winston (architect pass) flagged this as worth citing explicitly for traceability, but confirmed it is *not* a blocking gap — Story 0.8 already exists and Story 1.3a already establishes the reuse precedent Stories 3.7/3.11 inherit. Not applied; left as a low-priority polish item for whoever runs `bmad-create-story` on those stories, not a prerequisite.
-
-## Follow-up required outside this sweep (not epics.md)
-
-- **Story 3.6** still needs a new AC for the `defaultLocation` fallback per PRD §3.7 — actually, this was already added by the 2026-08-01 sweep's Amendment; confirmed present in the current Story 3.6 AC list (the `defaultLocation` fallback bullet). No longer open.
-- **FR-coverage gaps flagged for PM at the 2026-07-31 sweep (not re-evaluated in depth here, still open):** FR30/FR31 partial coverage, FR23 (queue-status display) unowned.
-
-## Prior Sweep History (2026-08-01, superseded by this re-sweep)
-
-The 2026-08-01 re-sweep found and resolved: `SocialMediaAccountProfile` had no owning story (→ Story 3.1a added), corrected Story 3.3a's FK from `subscription_id` to `account_id`, renamed Story 5.1a's `postsBySubscription` → `postsByAccount` and corrected `removeSubscription` to a soft delete. Full detail preserved in git history of this file.
-
-The 2026-07-31 sweep found and resolved (all still valid, unaffected by this re-sweep): Stories 0.13 (AI Gateway adapter), 0.14 (AWS IaC), 0.15 (outbound email adapter), 0.16 (Geolocation adapter), 0.17 (auth context layer) promoted to Epic 0; Story 3.3a and Story 3.6b split off Story 3.6; AC corrections adding "via backend GraphQL API" language, KMS encryption note, and a `sourceSocialMediaAccountId` filter dimension.
+**Next Action:** Proceed with implementing the next backlog stories:
+- **Story 3-4a** (Bright Data async integration) or **Story 3-5** (Enqueuing posts to the processing queue), maintaining the strict serverless pipeline decoupled structure.

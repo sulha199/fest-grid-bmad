@@ -53,6 +53,7 @@ These sites already have direct access to the raw Instagram post data we'd be re
 - **Do not** mention AI/Gemini-based event extraction, "event discovery," or describe the product's actual end-user value proposition in detail — there's no reason to hand a potential future competitor (one who already sits on the data source) the idea of what to build on top of it.
 - **Do not** share the app's name, domain, or marketing materials in the initial inquiry unless/until terms are far enough along that a real partnership is being negotiated — a generic project description is sufficient to get a pricing/terms conversation started.
 - If asked directly what the data is used for, a truthful-but-generic answer such as "content aggregation and organization for an application's users" is sufficient at this stage.
+- **"The app is free for its users" is safe to disclose, and worth disclosing** — it doesn't reveal the mechanism (AI extraction) or the brand, and it directly supports the free/discounted-terms ask below (both email drafts now state this and explicitly ask about a free tier or reduced-cost/free cooperation, given the project isn't reselling the vendor's data as a paid product).
 - **Send from a dedicated, non-personal email address — not a project-branded one either.** An address like `festdailyapps@gmail.com` fixes the *personal-identity* leak (not traceable to a real name or a public GitHub commit-email trail) but reopens the *brand* leak this section otherwise avoids — a recipient doesn't need to link the email to a person at all if the address itself names the product; they can just search the brand name directly. Use a fully generic address unrelated to the project name (e.g. an address built from unrelated words, not "festdaily"/"festgrid" or any variant). Before using any address for this outreach, confirm it is not the email listed on a public GitHub profile and has never been used as `git config user.email` on a commit pushed to a public repo — both are common, well-known ways an email gets linked back to a specific GitHub account and, from there, to whatever that account has made public.
 - **Reality check, since the project's GitHub repo (`festgrid`) is confirmed public (2026-08-09):** the outreach-email hygiene above raises the bar against a recipient *easily and directly* connecting an inbound email to this specific project, but it does not achieve real secrecy — a public repo named `festgrid`/referencing "FestDaily" is independently discoverable by anyone who searches GitHub for either name, entirely separately from any email sent. If genuine confidentiality of the AI-extraction concept matters more than the portfolio value of a public repo, that is a repo-visibility decision to make deliberately (e.g. keeping planning/strategy docs out of the public repo even if code stays public) — it is not something outreach-email wording alone can solve, and this story does not recommend a specific choice on it either way.
 
@@ -73,12 +74,13 @@ The larger realistic risk here is not legal (sanctioned access resolves that for
 
 > Hello,
 >
-> I'm building an application that helps users track and organize content from public social media accounts they follow, and I'm interested in your API for periodic, structured access to recent posts (caption, media URL, and timestamp) for accounts our users specify.
+> I'm building an application that helps users track and organize content from public social media accounts they follow, and I'm interested in your API for periodic, structured access to recent posts (caption, media URL, and timestamp) for accounts our users specify. The application itself is free for its users — this isn't a resale of your data as a paid product on our end.
 >
 > Could you share:
 > 1. Pricing and rate limits for API access at a small/early-stage scale (a modest number of accounts, checked roughly once per day)?
 > 2. Whether the API supports fetching an account's most recent posts by username, and whether it supports a "posts newer than X date" filter to avoid re-fetching already-seen content?
 > 3. Any requirements or restrictions on how the data may be used or displayed?
+> 4. Given this is a free, early-stage/non-commercial project, whether a free or reduced-cost tier, or some form of free cooperation, might be available — happy to discuss what would make that work for both sides.
 >
 > As a smaller/early-stage project, I'd also be glad to provide attribution or a backlink to your service from any public pages we build that surface data sourced through your API, if that's of interest as part of the arrangement.
 >
@@ -90,12 +92,13 @@ The larger realistic risk here is not legal (sanctioned access resolves that for
 
 > Hello,
 >
-> I'm reaching out about a possible business/API partnership rather than a content-removal or privacy question. I'm building an application that helps users track and organize content from public social media accounts they follow, and I'm interested in whether imginn.com offers (or would consider) sanctioned, programmatic access to public profile/post data — specifically, periodic structured access to an account's recent posts (caption text, media URL, and timestamp) for accounts our users specify.
+> I'm reaching out about a possible business/API partnership rather than a content-removal or privacy question. I'm building an application that helps users track and organize content from public social media accounts they follow, and I'm interested in whether imginn.com offers (or would consider) sanctioned, programmatic access to public profile/post data — specifically, periodic structured access to an account's recent posts (caption text, media URL, and timestamp) for accounts our users specify. The application itself is free for its users, not a paid product built on reselling your data.
 >
 > If this is something you're open to, could you share:
 > 1. Whether any form of API or bulk/programmatic access is available, and if so, pricing and rate limits at a small/early-stage scale.
 > 2. Whether such access would support fetching an account's most recent posts by username, and a "posts newer than X date" filter.
 > 3. Any requirements or restrictions on how the data may be used or displayed.
+> 4. Given this is a free, early-stage/non-commercial project, whether a free or reduced-cost tier, or some form of free cooperation, might be possible — happy to discuss what would make that work for both sides.
 >
 > As a smaller/early-stage project, I'd also be glad to provide attribution or a backlink to imginn.com from any public pages we build that surface data sourced this way, if that's of interest.
 >

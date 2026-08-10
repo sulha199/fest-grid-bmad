@@ -25,7 +25,7 @@ so that total scraping headroom can scale with community contribution instead of
 1. **Given** written confirmation has been obtained that this pattern is permitted by a vendor (Apify and/or Bright Data, independently — one vendor confirming does not imply the other has), **when** a user opts to contribute their own key for that vendor, **then** the existing `api_keys` table/UI (Story 3.1b's `/settings/api-keys` page, `createApiKey`/`deleteApiKey` mutations) is extended to accept that vendor as a new `provider` value, rather than building a parallel key-management surface.
 2. **And** the scraper adapter's key-selection logic reuses Story 0.13's existing `selectApiKey`/tier-based fairness algorithm (Tier 1 single-contributor, Tier 2 shared round-robin) generalized to a pooled-key resource, rather than reinventing selection/fairness logic specific to scraping.
 3. **And** the app-funded key (Story 3.4/3.4a) remains available as a baseline/fallback for accounts with zero contributing users, rather than scraping simply not running for those accounts.
-4. **And** whatever usage-consent/disclosure language the confirming vendor(s) required (per the Legal Gate outreach) is surfaced to the contributing user at the point they add their key — e.g. if a vendor requires the user to acknowledge their data may be used to serve other app users, that acknowledgment is captured, not assumed.
+4. **And**, regardless of what the vendor(s) themselves require, the contributing user is shown explicit, plain-language disclosure at the point they add their key — stating that the key will only ever be used to scrape accounts *they* have personally subscribed to (never on behalf of other users' unrelated interests), but that the *resulting data* may also be shown to other app users who independently subscribe to that same public account — and the user must affirmatively consent (not a pre-checked box) before the key is accepted. This is a baseline product requirement, not conditional on the vendor mandating it. Any *additional* vendor-required consent/disclosure language (per the Legal Gate outreach) is layered on top of this baseline, not a substitute for it.
 5. **And** the per-vendor capacity-gating mechanism from Story 3.4 (`scraper_provider_usage`) is extended to track pooled/contributed keys' usage distinctly from the app-funded key's usage, so a contributing user's own key exhausting its quota doesn't incorrectly block the app-funded fallback (or vice versa).
 
 *Full task breakdown, Dev Notes, and Implementation Plan detail intentionally left light here — the concrete design (which vendor(s) actually permit this, what consent/disclosure they require, whether a partner account type is needed instead of individual accounts) depends entirely on the vendor responses this story is gated on. Re-run `bmad-create-story 3-4b` for a fully detailed story once the Legal Gate clears, rather than treating this file's current level of detail as sufficient for `dev-story`.*
@@ -43,6 +43,25 @@ so that total scraping headroom can scale with community contribution instead of
 - **Bright Data:** No explicit sublicensing clause found, but every new account undergoes mandatory **KYC (Know Your Customer)** vetting, and Bright Data states it actively monitors for "any activity that doesn't align with the customer's declared use case." A contributing user's individually-declared use case (presumably personal/individual) may not match how their key would actually be used (serving data to other app users too) — a real use-case-mismatch risk with a vendor that explicitly says it watches for this.
 - Neither vendor's publicly available terms/docs explicitly permit **or** explicitly forbid this specific pattern. This is why direct outreach is required rather than proceeding on inferred-from-terms-pages judgment.
 
+### Key Scope vs. Data-Sharing Scope (important distinction, added 2026-08-10)
+
+There are two different things that could be shared here, and conflating them was making the ambiguity look worse than it precisely is:
+
+- **The key/token itself** would only ever be used to scrape accounts the *contributing user* has personally subscribed to within the app — never invoked on another user's behalf for accounts unrelated to the contributor's own subscriptions. This is a narrower, more defensible scope than "the key is used generally for whatever the app needs."
+- **The resulting scraped data**, once fetched, may still be shown to *other* users — because a public Instagram/social account can have multiple independent subscribers in this app, and Story 3.1a's data model already treats the scraped posts as belonging to the account (`social_media_account_profiles`/`posts`), not to whichever subscriber's key happened to fetch them. So User A's key fetches account X's posts because A follows X, but if User B also follows X, B sees the same posts too — B's own key (if B has one) was never used for X at all in that case.
+
+This distinction is worth putting to both vendors directly rather than assumed away, because their answer likely differs depending on which part they're actually restricted about: sharing derived data with unrelated third parties (their bigger concern, probably) vs. narrowly scoping what the key itself is invoked for (which this app already does). The revised email drafts below ask this as an explicit either/or, and also ask whether an even-stricter "exclusive use, data never shown to anyone but the key's owner" model would be unambiguously fine — useful to know as a fallback design even if the shared-data model isn't approved.
+
+### Why This Story Names the App, Unlike Story 3.4c (added 2026-08-10)
+
+Story 3.4c's outreach (to Instagram-viewer/proxy sites) deliberately withholds the app's name and its AI-extraction concept, because those sites' entire business is already Instagram-content-adjacent — a plausible, close competitive risk if they saw the exact product being built on top of their data. That reasoning does not transfer cleanly to Apify/Bright Data:
+
+- They are horizontal scraping-infrastructure vendors serving many unrelated verticals (e-commerce, real estate, market research, travel, etc.) — there is little realistic risk of either deciding to build a consumer event-discovery app off the back of one inbound inquiry, unlike a site whose whole product already sits one step away from ours.
+- This outreach is a **compliance/legal question**, not a sales feeler — Apify/Bright Data's support or legal team is more likely to give a precise, useful answer when they understand the real use case, whereas an anonymous, vague inquiry risks a generic non-answer to a question that specifically needs their judgment applied to real facts.
+- If a real BYOK arrangement is ever approved, real identity is needed anyway (same eventual reality noted in Story 3.4c) — sooner here, since this is explicitly a "can we legally build this" question, not an early exploratory pitch.
+
+Accordingly, both drafts below name the app (FestDaily) and describe its general purpose. What they still deliberately withhold: the actual AI/Gemini-based event-extraction mechanism (kept to the light "checked for event information" phrasing) — that detail isn't needed to answer the actual legal question asked, which is about key-usage/data-sharing scope, not about what happens to the data afterward.
+
 ### Vendor Outreach — Email Drafts
 
 Send both (they are independent; one vendor confirming does not imply the other has). Replace `[Name]`/`[FestDaily]` placeholders as appropriate. Keep a copy of the response (screenshot, forwarded email, or support-ticket link) for this story's record.
@@ -54,14 +73,17 @@ Send both (they are independent; one vendor confirming does not imply the other 
 
 > Hi Apify team,
 >
-> I'm building FestDaily, an event-discovery app where users subscribe to public social media accounts to have new posts checked for event information. I'd like to let individual users optionally contribute their own Apify account's API token (in addition to a token our application itself pays for) so scraping calls for accounts they're interested in can run under their own account rather than solely under ours.
+> I'm building FestDaily, an event-discovery app where users subscribe to public social media accounts to have new posts checked for event information. I'd like to let individual users optionally contribute their own Apify account's API token (in addition to a token our application itself pays for). A contributed token would only ever be used to run scrape calls for accounts that specific user has personally subscribed to within our app — never on another user's behalf, and never for accounts unrelated to that contributor's own subscriptions.
 >
-> The part I want to confirm before building this: the data returned by a call made using User A's token may be shown to other users of our app who are also "subscribed" to the same public account — not exclusively to User A. Section 5.2 of your Terms and Conditions prohibits sublicensing, transferring, or assigning rights under the license to third parties, and I want to make sure this pattern doesn't fall under that restriction before we build around it.
+> The part I want to confirm before building this: because a public account can have multiple independent subscribers in our app, the *data* returned by a call made using User A's token may also end up shown to other users who separately subscribe to that same public account — not exclusively to A, even though the token itself is only ever invoked for accounts A personally chose to follow. Section 5.2 of your Terms and Conditions prohibits sublicensing, transferring, or assigning rights under the license to third parties, and I want to understand whether this specific pattern falls under that restriction before building around it.
 >
 > Could you confirm:
-> 1. Does using an individual customer's API token, within a third-party application, to fetch data that may also be displayed to other end-users of that application (not just the token owner), constitute prohibited sublicensing under Section 5.2?
-> 2. If so, is there an approved partner/reseller program or account type that would permit this pattern?
-> 3. Are there any restrictions, requirements, or best practices (e.g. required disclosures to the contributing user, usage caps) you'd want in place if this pattern is acceptable?
+> 1. Does using an individual customer's API token — scoped only to accounts that customer has personally chosen to follow — to fetch data that may also be displayed to other end-users of our app who independently follow the same public account, constitute prohibited sublicensing under Section 5.2?
+> 2. In contrast, would a stricter model — where a token's resulting data is used exclusively for that token's owner and never shown to any other user — be clearly permitted? I'd like to understand whether exclusive use is the deciding factor, or whether the concern goes beyond that.
+> 3. Do you have an existing account or partner model designed for applications where individual end-users each bring their own API token, rather than one application account serving everyone? If so, is that the right model for us to use instead of individual Personal Accounts.
+> 4. Any restrictions, requirements, or best practices (e.g. required disclosures to the contributing user, usage caps) you'd want in place if some version of this pattern is acceptable?
+>
+> Worth noting: this model means every contributing user creates and maintains their own individual Apify account, so beyond whatever usage we'd generate, this would also be bringing you new individual signups rather than just routing more calls through one existing account. The application itself is free for its users, not a paid resale of your data.
 >
 > We'd be using the `apify/instagram-scraper` actor specifically. Happy to share more detail about our exact use case if useful.
 >
@@ -75,14 +97,17 @@ Send both (they are independent; one vendor confirming does not imply the other 
 
 > Hi Bright Data team,
 >
-> I'm building FestDaily, an event-discovery app where users subscribe to public social media accounts to have new posts checked for event information. I'm considering letting individual users optionally sign up for their own free Bright Data account and contribute their API key so our application can use it to scrape data related to accounts that specific user is interested in.
+> I'm building FestDaily, an event-discovery app where users subscribe to public social media accounts to have new posts checked for event information. I'm considering letting individual users optionally sign up for their own free Bright Data account and contribute their API key. A contributed key would only ever be used to scrape accounts that specific user has personally subscribed to within our app — never on another user's behalf, and never for accounts unrelated to that contributor's own subscriptions.
 >
-> I understand new accounts go through a KYC process where the customer declares an intended use case, and that Bright Data monitors for activity that doesn't align with the declared use case. The scenario I want to confirm before building around it: the contributing user's own declared use case would presumably be personal/individual, but their key would be used within a shared, multi-tenant application, and the resulting data could be shown to other users of that application (not exclusively the key's owner) who are also interested in the same public account.
+> I understand new accounts go through a KYC process where the customer declares an intended use case, and that Bright Data monitors for activity that doesn't align with the declared use case. The part I want to confirm before building around it: because a public account can have multiple independent subscribers in our app, the *data* a call returns using User A's key may also end up shown to other users who separately subscribe to that same public account — not exclusively to A, even though the key itself is only ever invoked for accounts A personally chose to follow.
 >
 > Could you confirm:
-> 1. Does this pattern — an individually-KYC'd account's key used within a third-party multi-tenant application, where scraped data may be shown to other users of that application — require a different declared use case, a different account type, or a partner/reseller agreement?
-> 2. What use-case description should an individual contributing user provide during KYC for this to be compliant?
-> 3. Is there a business/partner account type intended for an application that pools multiple individually-owned accounts' usage this way?
+> 1. Does this pattern — an individually-KYC'd account's key scoped only to accounts its owner follows, where the resulting data may also be shown to other users who independently follow those same accounts — require a different declared use case, account type, or partner/reseller agreement?
+> 2. In contrast, would a stricter model — where a key's resulting data is used exclusively for that key's owner and never shown to any other user — be clearly compliant under an individual declared use case? I'd like to understand whether exclusive use is the deciding factor, or whether the concern goes beyond that.
+> 3. Do you have an existing business/partner account type intended for an application where individual end-users each bring their own account, rather than one application account serving everyone?
+> 4. What use-case description should an individual contributing user provide during KYC for whichever model turns out to be compliant?
+>
+> Worth noting: this model means every contributing user creates and maintains their own individual Bright Data account, so beyond whatever usage we'd generate, this would also be bringing you new individual signups rather than just more usage on one existing account. The application itself is free for its users, not a paid resale of your data.
 >
 > We're specifically looking at the Instagram posts-discovery capability. Happy to provide more detail about our exact use case if useful.
 >
