@@ -2112,7 +2112,30 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced by the Epic 4 readiness sweep (`bmad-epic-readiness-check`) — Stories 4.1 and 4.2 both submit event corrections but no table or backend mutation exists for them anywhere in `epics.md`. Classified as a shared data-ownership gap (consumed by both 4.1 and 4.2), positioned immediately before Story 4.1, the first consumer.
 
+**Correction (2026-08-11, amended via `bmad-create-story` while drafting Story 4.1):** `Correction.validationErrors` is changed from a flat `[String!]` to a structured `[ValidationError!]` (`{ field: String!, message: String! }`), and the resolver's AC3-AC5 error collection is extended to attach a `field` key to every AJV/consistency/ownership error (AJV errors derive it from `error.instancePath`; `validateCorrectionConsistency`'s errors already carry a `field`; the schedule-ownership check attaches `schedules[<index>].id`). Reason: UX scenario 06.5 requires an inline error rendered next to the specific invalid field, which an unstructured string array cannot support without fragile substring-matching on message text. Confirmed via `AskUserQuestion` during Story 4.1's creation — Story 4.1a had not yet been implemented (`ready-for-dev`), so this is a shape correction, not a breaking change to shipped code. See Story 4.1a's Dev Notes for the full amendment detail.
+
 **Depends on:** Story 0.8, Story 0.11, Story 0.17, Story 1.1.
+
+### Story 4.1b: Build the reusable event correction form component
+
+**As a** developer,
+**I want** a presentation-only, reusable `CorrectionForm` component in `packages/ui`,
+**So that** Stories 4.1 (manual entry) and 4.2 (AI-assisted pre-fill) both render and submit corrections through the same typed-input form instead of duplicating it.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 4.1a's `ProposedEventCorrection`/`ProposedScheduleCorrection` shapes (event-level fields plus a `schedules` array, though this component edits only one schedule at a time — see the MVP scope note below),
+*   **When** the component is rendered with an `initialValues` prop,
+*   **Then** it displays typed inputs mirroring `EventInfo`'s correctable fields (`eventName`, `types`, `categories`, `location`, `organizerName`, `contactInfo`, `description`) pre-filled from `initialValues`, reusing the existing `MultiSelect` component (Story 1.5a) for `types`/`categories`.
+*   **And** it displays typed inputs for exactly one editable `Schedule` (`eventStartDate`, `eventEndDate`, `eventStartTime`, `eventEndTime`, `title`, `performers`, `location`, `ticketPrice`), pre-filled from `initialValues.schedules`' `isMainSchedule: true` entry — full multi-schedule add/remove editing is explicitly out of scope for this story (no UX artifact depicts it; see Story 4.1's own MVP-scope note).
+*   **And** it accepts a `validationErrors?: { field: string; message: string }[]` prop (Story 4.1a's amended shape) and renders each error inline next to its matching field, per UX scenario 06.5 — not a generic banner.
+*   **And** it exposes an `onSubmit(data: ProposedEventCorrection)` callback (no GraphQL/network code inside the component — the caller owns the mutation, matching `EventDetailView`'s own presentation-only precedent) and an `onCancel` callback, plus an `isSubmitting` prop that disables the form's inputs/submit button (the caller owns any `BlockingLoader`, matching `SetDefaultLocationDialog`'s precedent of the loader living in the page-level wrapper, not the presentational form).
+*   **And** it exposes an extension point (`headerActions?: React.ReactNode`, rendered above the form fields) that Story 4.2 will use to inject its "AI-Assisted Correction" URL-extraction trigger (per UX scenario 06.6) without forking this component — Story 4.1b itself implements no AI-assisted logic, only the slot.
+*   **And** all microcopy (field labels, button labels, error fallback text) is supplied via a `labels` prop object (no embedded strings), matching `EventDetailViewLabels`/`LocationPickerField`'s i18n-decoupling precedent — the consuming `apps/web` code resolves `labels` via `next-intl`.
+
+**Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced while drafting Story 4.1 — the correction form is confirmed-reused by two stories (Story 4.1's manual entry, Story 4.2's AI-assisted pre-fill extending the same form instance per UX scenario 06.6), with non-trivial states (pre-fill, per-field validation-error display, submit/loading, an extension slot for 4.2). Classified as a single-story-shape reusable-component split per `story-split-gate.md`'s numbering rule (needed by exactly Story 4.1/4.2, both within Epic 4), positioned as a lettered suffix immediately after Story 4.1a (which it depends on for the `ProposedEventCorrection` shape) and before Story 4.1, its first consumer. Confirmed via `AskUserQuestion` during Story 4.1's creation.
+
+**Depends on:** Story 4.1a, Story 1.5a.
 
 ### Story 4.1: Manually correct event data
 
@@ -2123,13 +2146,15 @@ Users can contribute to data quality by correcting event details and reporting i
 **Acceptance Criteria:**
 
 *   **Given** I am viewing the details of an event,
-*   **When** I click the "Correct Data" button,
-*   **Then** a form is displayed with the current event data pre-filled.
+*   **When** I click the "Correct Data" action,
+*   **Then** a form (Story 4.1b's `CorrectionForm`) is displayed in a dialog with the current event data pre-filled — including `organizerName`/`contactInfo`, which requires extending the `Event` GraphQL type/`eventBySlug` query to expose these two already-existing `events` table columns (see Dev Notes "Data Type Compatibility").
 *   **And** I can edit the fields and submit the corrections.
-*   **And** the system performs data inconsistency checks before accepting the correction.
-*   **And** the correction is submitted via the backend `submitCorrection` mutation (Story 4.1a) — not a direct database write from `apps/web`.
+*   **And** the system performs data inconsistency checks before accepting the correction, displayed inline next to the specific invalid field (Story 4.1a's amended structured `validationErrors`).
+*   **And** the correction is submitted via the backend `submitCorrection` mutation (Story 4.1a) — not a direct database write from `apps/web` — with `source: manual`.
+*   **And** the "Correct Data" trigger is added to `EventDetailView`'s (Story 1.6a) header as an entry in a new "more actions" overflow menu, not a fourth bare icon button alongside Favorite/Add-to-Calendar — introduced now in anticipation of Story 4.3's "Report" action joining the same menu shortly after, per `story-split-gate.md`'s Gate 2 finding and the user's `AskUserQuestion` decision (see Dev Notes "Action Menu Decision").
+*   **And**, when the event being corrected has more than one `Schedule`, the form edits only the schedule with `isMainSchedule: true` — matching PRD 3.9.1's singular "Schedule" framing and the only UX scenario (06.5) that depicts the form, which shows exactly one schedule. Editing/adding non-main schedules is out of scope for this story.
 
-**Depends on:** Story 4.1a.
+**Depends on:** Story 4.1a, Story 4.1b.
 
 ### Story 4.2: AI-assisted event data correction
 
@@ -2146,7 +2171,7 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **And** the correction form is pre-filled with the extracted information for my review.
 *   **And** approving the pre-filled form submits it via the same `submitCorrection` mutation (Story 4.1a) used by Story 4.1, with `source='ai_assisted'` — it is not written directly to the database.
 
-**Depends on:** Story 0.13, Story 4.1, Story 4.1a.
+**Depends on:** Story 0.13, Story 4.1, Story 4.1a, Story 4.1b.
 
 ### Story 4.3a: Build the reports backend GraphQL API layer and personal-visibility filtering
 

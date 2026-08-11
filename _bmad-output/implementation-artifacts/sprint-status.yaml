@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-08-11T08:04:00Z
+# last_updated: 2026-08-11T09:30:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-11T08:04:00Z
+last_updated: 2026-08-11T09:30:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -490,7 +490,14 @@ development_status:
   # off (validationErrors is a request-time-computed GraphQL field, not a persisted
   # column, per AC1's exhaustive column list).
   4-1a-build-the-corrections-backend-graphql-api-layer: ready-for-dev
-  4-1-manually-correct-event-data: backlog
+  # added 2026-08-11 via bmad-create-story Gate 2 finding while drafting Story 4.1:
+  # the correction form is a confirmed 2-consumer reusable component (Story 4.1's
+  # manual entry, Story 4.2's AI-assisted pre-fill extending the same form instance
+  # per UX scenario 06.6) with non-trivial states (pre-fill, per-field validation
+  # errors, an extension slot for 4.2). User confirmed via AskUserQuestion to split
+  # it off rather than build inline in 4.1. See epics.md Story 4.1b note.
+  4-1b-build-the-reusable-event-correction-form-component: backlog
+  4-1-manually-correct-event-data: ready-for-dev
   4-2-ai-assisted-event-data-correction: backlog
   4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering: backlog
   4-3-report-an-event: backlog
