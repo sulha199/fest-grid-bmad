@@ -82,7 +82,28 @@
     "addToCalendarCancelLabel": "Batal",
     "addToCalendarSuccessAnnouncement": "Acara telah ditambahkan ke kalender Anda",
     "moreActionsButtonLabel": "Tindakan lainnya",
-    "correctDataMenuItemLabel": "Koreksi Data"
+    "correctDataMenuItemLabel": "Koreksi Data",
+    "reportMenuItemLabel": "Laporkan",
+    "hiddenAfterReportTitle": "Acara ini tidak lagi tersedia untuk Anda",
+    "hiddenAfterReportBody": "Anda telah melaporkan acara ini dan telah disembunyikan dari tampilan Anda."
+  },
+  "EventReportForm": {
+    "dialogTitle": "Laporkan Acara",
+    "reasonLabel": "Alasan pelaporan",
+    "reasonCancelledLabel": "Acara Dibatalkan",
+    "reasonCancelledDescription": "Acara ini dibatalkan, tanggal salah, atau tidak ada.",
+    "reasonDangerousLabel": "Acara Berbahaya atau Ilegal",
+    "reasonDangerousDescription": "Situasi ekstrem, berbahaya, atau aktivitas yang melanggar hukum.",
+    "reasonPersonalLabel": "Pribadi",
+    "reasonPersonalDescription": "Sembunyikan acara ini untuk saya tanpa memengaruhi pengguna lain.",
+    "detailsLabel": "Detail tambahan (opsional)",
+    "detailsPlaceholder": "Berikan detail...",
+    "submitButtonLabel": "Kirim Laporan",
+    "cancelButtonLabel": "Batal",
+    "submittingAnnouncement": "Mengirimkan laporan...",
+    "successToast": "Laporan berhasil dikirimkan",
+    "errorToast": "Terjadi kesalahan yang tidak terduga. Silakan coba lagi.",
+    "reportIgnoredError": "Laporan ini telah ditinjau sebelumnya."
   },
   "EventCorrectionForm": {
     "dialogTitle": "Koreksi Data Acara",

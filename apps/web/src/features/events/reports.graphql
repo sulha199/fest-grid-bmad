@@ -1,0 +1,8 @@
+mutation submitReport($eventId: ID!, $reason: ReportReason!, $details: String) {
+  submitReport(eventId: $eventId, reason: $reason, details: $details) {
+    id
+    reason
+    status
+    createdAt
+  }
+}

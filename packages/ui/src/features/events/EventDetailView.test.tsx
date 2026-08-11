@@ -356,4 +356,62 @@ describe('EventDetailView', () => {
     render(<EventDetailView {...minimalProps} />);
     expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
   });
+
+  it('renders both menu items and calls correct handlers when both are provided', () => {
+    const onCorrectData = vi.fn();
+    const onReport = vi.fn();
+    const props = {
+      ...minimalProps,
+      onCorrectData,
+      onReport,
+      labels: {
+        ...minimalProps.labels,
+        moreActionsButtonLabel: 'More actions',
+        correctDataMenuItemLabel: 'Correct Data',
+        reportMenuItemLabel: 'Report Event',
+      },
+    };
+
+    render(<EventDetailView {...props} />);
+
+    const moreBtn = screen.getByRole('button', { name: 'More actions' });
+    fireEvent.click(moreBtn);
+
+    const correctItem = screen.getByRole('menuitem', { name: 'Correct Data' });
+    const reportItem = screen.getByRole('menuitem', { name: 'Report Event' });
+    expect(correctItem).toBeInTheDocument();
+    expect(reportItem).toBeInTheDocument();
+
+    // Click report item
+    fireEvent.click(reportItem);
+    expect(onReport).toHaveBeenCalledTimes(1);
+    expect(onCorrectData).not.toHaveBeenCalled();
+    expect(moreBtn).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('renders more actions button and functions when only onReport is provided', () => {
+    const onReport = vi.fn();
+    const props = {
+      ...minimalProps,
+      onReport,
+      labels: {
+        ...minimalProps.labels,
+        moreActionsButtonLabel: 'More actions',
+        reportMenuItemLabel: 'Report Event',
+      },
+    };
+
+    render(<EventDetailView {...props} />);
+
+    const moreBtn = screen.getByRole('button', { name: 'More actions' });
+    expect(moreBtn).toBeInTheDocument();
+    fireEvent.click(moreBtn);
+
+    const reportItem = screen.getByRole('menuitem', { name: 'Report Event' });
+    expect(reportItem).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Correct Data' })).not.toBeInTheDocument();
+
+    fireEvent.click(reportItem);
+    expect(onReport).toHaveBeenCalledTimes(1);
+  });
 });

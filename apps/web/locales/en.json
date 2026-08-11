@@ -82,7 +82,28 @@
     "addToCalendarCancelLabel": "Cancel",
     "addToCalendarSuccessAnnouncement": "Event has been added to your calendar",
     "moreActionsButtonLabel": "More actions",
-    "correctDataMenuItemLabel": "Correct Data"
+    "correctDataMenuItemLabel": "Correct Data",
+    "reportMenuItemLabel": "Report",
+    "hiddenAfterReportTitle": "This event is no longer available to you",
+    "hiddenAfterReportBody": "You have reported this event and it has been hidden from your view."
+  },
+  "EventReportForm": {
+    "dialogTitle": "Report Event",
+    "reasonLabel": "Reason for reporting",
+    "reasonCancelledLabel": "Event Cancelled",
+    "reasonCancelledDescription": "This event is cancelled, has wrong date, or does not exist.",
+    "reasonDangerousLabel": "Dangerous or Illegal Event",
+    "reasonDangerousDescription": "Extreme situation, hazardous, or unlawful activities.",
+    "reasonPersonalLabel": "Personal",
+    "reasonPersonalDescription": "Hide this event for me without affecting other users.",
+    "detailsLabel": "Additional details (optional)",
+    "detailsPlaceholder": "Provide details...",
+    "submitButtonLabel": "Submit Report",
+    "cancelButtonLabel": "Cancel",
+    "submittingAnnouncement": "Submitting report...",
+    "successToast": "Report submitted successfully",
+    "errorToast": "An unexpected error occurred. Please try again.",
+    "reportIgnoredError": "This report has already been reviewed."
   },
   "EventCorrectionForm": {
     "dialogTitle": "Correct Event Data",

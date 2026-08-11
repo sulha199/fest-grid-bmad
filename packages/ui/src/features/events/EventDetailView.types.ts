@@ -40,6 +40,7 @@ export interface EventDetailViewLabels {
   scheduleCheckboxLabel?: string;
   moreActionsButtonLabel: string;
   correctDataMenuItemLabel: string;
+  reportMenuItemLabel?: string;
 }
 
 /**
@@ -83,4 +84,5 @@ export interface EventDetailViewProps {
   isAddedToCalendar?: boolean;
   onAddToCalendar?: (selectedScheduleIds: string[]) => void;
   onCorrectData?: () => void;
+  onReport?: () => void;
 }

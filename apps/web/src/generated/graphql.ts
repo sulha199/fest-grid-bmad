@@ -100,6 +100,7 @@ export type Event = {
   imageUrl?: Maybe<Scalars['String']['output']>;
   isAddedToCalendar: Scalars['Boolean']['output'];
   isFavorited: Scalars['Boolean']['output'];
+  isHiddenForCurrentUser: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
   organizerName?: Maybe<Scalars['String']['output']>;
   originalPostUrl?: Maybe<Scalars['String']['output']>;
@@ -197,11 +198,14 @@ export type Mutation = {
   deleteUserLocation: UserLocation;
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
+  ignoreSubsequentReports: Report;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
+  resolveReport: Report;
   setAccountDefaultLocation: SocialMediaAccountProfile;
   submitCorrection: Correction;
+  submitReport: Report;
   subscribeToAccount: SubscribeToAccountResult;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
@@ -244,6 +248,11 @@ export type MutationExtractEventDataFromUrlArgs = {
 };
 
 
+export type MutationIgnoreSubsequentReportsArgs = {
+  reportId: Scalars['ID']['input'];
+};
+
+
 export type MutationRegisterFcmTokenArgs = {
   token: Scalars['String']['input'];
 };
@@ -260,6 +269,12 @@ export type MutationReportSystemErrorArgs = {
 };
 
 
+export type MutationResolveReportArgs = {
+  id: Scalars['ID']['input'];
+  outcome: ReportOutcome;
+};
+
+
 export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   input: SetAccountDefaultLocationInput;
@@ -270,6 +285,13 @@ export type MutationSubmitCorrectionArgs = {
   eventId: Scalars['ID']['input'];
   proposedData: ProposedEventCorrectionInput;
   source: CorrectionSource;
+};
+
+
+export type MutationSubmitReportArgs = {
+  details?: InputMaybe<Scalars['String']['input']>;
+  eventId: Scalars['ID']['input'];
+  reason: ReportReason;
 };
 
 
@@ -364,9 +386,11 @@ export type Query = {
   me: Me;
   myApiKeys: Array<ApiKey>;
   myLocations: Array<UserLocation>;
+  myReports: Array<Report>;
   mySettings: UserSettings;
   mySubscriptions: Array<Subscription>;
   previewLocation: LocationDetails;
+  reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
 };
 
@@ -400,10 +424,48 @@ export type QueryPreviewLocationArgs = {
 };
 
 
+export type QueryReportedEventsArgs = {
+  reason?: InputMaybe<ReportReason>;
+  status?: InputMaybe<ReportStatus>;
+};
+
+
 export type QuerySocialMediaAccountProfileByAccountIdArgs = {
   accountId: Scalars['String']['input'];
   platform: Scalars['String']['input'];
 };
+
+export type Report = {
+  __typename?: 'Report';
+  createdAt: Scalars['String']['output'];
+  details?: Maybe<Scalars['String']['output']>;
+  event: Event;
+  eventId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  moderatorIgnored: Scalars['Boolean']['output'];
+  reason: ReportReason;
+  reporterUserId: Scalars['ID']['output'];
+  resolvedAt?: Maybe<Scalars['String']['output']>;
+  resolvedByModeratorId?: Maybe<Scalars['ID']['output']>;
+  status: ReportStatus;
+};
+
+export enum ReportOutcome {
+  Dismissed = 'dismissed',
+  Upheld = 'upheld'
+}
+
+export enum ReportReason {
+  Cancelled = 'cancelled',
+  Dangerous = 'dangerous',
+  Personal = 'personal'
+}
+
+export enum ReportStatus {
+  Dismissed = 'dismissed',
+  Pending = 'pending',
+  Upheld = 'upheld'
+}
 
 export type ReportSystemErrorInput = {
   context?: InputMaybe<Scalars['String']['input']>;
@@ -549,6 +611,8 @@ export type ValidationError = {
 
 
 
+
+
 export type GetSocialMediaAccountProfileByAccountIdQueryVariables = Exact<{
   platform: string;
   accountId: string;
@@ -614,7 +678,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, isFavorited: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, displayName: string, profileImageUrl: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, isFavorited: boolean, isHiddenForCurrentUser: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, displayName: string, profileImageUrl: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetEventForIcsExportQueryVariables = Exact<{
   id: string | number;
@@ -640,6 +704,15 @@ export type GetEventsForMyCalendarQueryVariables = Exact<{
 
 
 export type GetEventsForMyCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, isAddedToCalendar: boolean }> }> } };
+
+export type SubmitReportMutationVariables = Exact<{
+  eventId: string | number;
+  reason: ReportReason;
+  details?: string | null | undefined;
+}>;
+
+
+export type SubmitReportMutation = { submitReport: { id: string, reason: ReportReason, status: ReportStatus, createdAt: string } };
 
 export type CreateUserLocationMutationVariables = Exact<{
   input: CreateUserLocationInput;
@@ -1068,6 +1141,7 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
     organizerName
     contactInfo
     isFavorited
+    isHiddenForCurrentUser
     sourceSocialMediaAccountProfile {
       accountId
       platform
@@ -1250,6 +1324,34 @@ export const useGetEventsForMyCalendarQuery = <
       {
     queryKey: variables === undefined ? ['getEventsForMyCalendar'] : ['getEventsForMyCalendar', variables],
     queryFn: fetcher<GetEventsForMyCalendarQuery, GetEventsForMyCalendarQueryVariables>(client, GetEventsForMyCalendarDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const SubmitReportDocument = new TypedDocumentString(`
+    mutation submitReport($eventId: ID!, $reason: ReportReason!, $details: String) {
+  submitReport(eventId: $eventId, reason: $reason, details: $details) {
+    id
+    reason
+    status
+    createdAt
+  }
+}
+    `);
+
+export const useSubmitReportMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SubmitReportMutation, TError, SubmitReportMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SubmitReportMutation, TError, SubmitReportMutationVariables, TContext>(
+      {
+    mutationKey: ['submitReport'],
+    mutationFn: (variables?: SubmitReportMutationVariables) => fetcher<SubmitReportMutation, SubmitReportMutationVariables>(client, SubmitReportDocument, variables, headers)(),
     ...options
   }
     )};

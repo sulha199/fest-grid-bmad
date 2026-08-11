@@ -15,6 +15,7 @@ import { usePostHog } from "@festgrid/analytics"
 import { toast } from "sonner"
 import { ChevronLeft, ChevronRight, Home } from "lucide-react"
 import { CorrectionDialog } from "./correction-dialog"
+import { ReportDialog } from "./report-dialog"
 
 interface EventDetailWrapperProps {
   slug: string
@@ -28,6 +29,8 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   const { session } = useAuthSession()
   const [liveMessage, setLiveMessage] = useState("")
   const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = useState(false)
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false)
+  const [isHiddenAfterReport, setIsHiddenAfterReport] = useState(false)
   const posthog = usePostHog()
   const t = useTranslations("EventDetailsPage")
   const labels = useEventDetailViewLabels()
@@ -171,6 +174,24 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     }
   }
 
+  // Hidden After Report / Hidden For Current User view
+  const isHidden = data?.eventBySlug?.isHiddenForCurrentUser === true || isHiddenAfterReport
+  if (!isPending && !error && data?.eventBySlug && isHidden) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center bg-background rounded-lg border border-gray-200 dark:border-gray-800 max-w-md mx-auto my-8 space-y-4">
+        <h2 className="text-2xl font-bold text-foreground">{t("hiddenAfterReportTitle")}</h2>
+        <p className="text-muted-foreground">{t("hiddenAfterReportBody")}</p>
+        <button
+          onClick={() => router.push("/")}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/95 transition-colors text-sm"
+        >
+          <Home className="w-4 h-4" />
+          {t("backToHome")}
+        </button>
+      </div>
+    )
+  }
+
   // Not Found view
   if (!isPending && !error && !data?.eventBySlug) {
     return (
@@ -257,6 +278,13 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
             return
           }
           setIsCorrectionDialogOpen(true)
+        },
+        onReport: () => {
+          if (!session) {
+            router.push("/login")
+            return
+          }
+          setIsReportDialogOpen(true)
         }
       }
     : null
@@ -338,6 +366,14 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
             event={data.eventBySlug as any}
           />
         )}
+        {isReportDialogOpen && eventId && (
+          <ReportDialog
+            isOpen={isReportDialogOpen}
+            onClose={() => setIsReportDialogOpen(false)}
+            eventId={eventId}
+            onReported={() => setIsHiddenAfterReport(true)}
+          />
+        )}
       </>
     )
   }
@@ -350,6 +386,14 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
           isOpen={isCorrectionDialogOpen}
           onClose={() => setIsCorrectionDialogOpen(false)}
           event={data.eventBySlug as any}
+        />
+      )}
+      {isReportDialogOpen && eventId && (
+        <ReportDialog
+          isOpen={isReportDialogOpen}
+          onClose={() => setIsReportDialogOpen(false)}
+          eventId={eventId}
+          onReported={() => setIsHiddenAfterReport(true)}
         />
       )}
     </div>

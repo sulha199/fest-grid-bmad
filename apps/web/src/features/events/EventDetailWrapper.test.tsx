@@ -2,6 +2,13 @@ import React from "react"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest"
 import { EventDetailWrapper } from "./EventDetailWrapper"
+
+class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+global.ResizeObserver = MockResizeObserver;
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { graphql, HttpResponse } from "msw"
 import { server as globalServer } from "../../../../../packages/testing-config/vitest.setup"
@@ -123,6 +130,19 @@ const handlers = [
           eventId,
           scheduleId,
           isAddedToCalendar: true,
+        },
+      },
+    })
+  }),
+  api.mutation("submitReport", ({ variables }) => {
+    const { eventId, reason } = variables as any
+    return HttpResponse.json({
+      data: {
+        submitReport: {
+          id: "rep_123",
+          reason,
+          status: "pending",
+          createdAt: "2026-08-11T12:00:00Z",
         },
       },
     })
@@ -366,5 +386,58 @@ describe("EventDetailWrapper", () => {
 
     expect(mockRouterPush).toHaveBeenCalledWith("/login")
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("unauthenticated report click redirects to /login and does not open dialog", async () => {
+    mockSession = null
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const moreBtn = await screen.findByRole("button", { name: "EventDetailsPage.moreActionsButtonLabel" })
+    fireEvent.click(moreBtn)
+
+    const reportBtn = await screen.findByRole("menuitem", { name: "EventDetailsPage.reportMenuItemLabel" })
+    fireEvent.click(reportBtn)
+
+    expect(mockRouterPush).toHaveBeenCalledWith("/login")
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("renders the hidden empty state if isHiddenForCurrentUser is true", async () => {
+    currentMockEvent.isHiddenForCurrentUser = true as any
+    renderComponent()
+
+    // Wait for empty state title
+    expect(await screen.findByRole("heading", { name: "EventDetailsPage.hiddenAfterReportTitle" })).toBeInTheDocument()
+    expect(screen.getByText("EventDetailsPage.hiddenAfterReportBody")).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "Test Event" })).not.toBeInTheDocument()
+  })
+
+  it("renders the hidden empty state immediately after successful report submission without full page reload", async () => {
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const moreBtn = await screen.findByRole("button", { name: "EventDetailsPage.moreActionsButtonLabel" })
+    fireEvent.click(moreBtn)
+
+    const reportBtn = await screen.findByRole("menuitem", { name: "EventDetailsPage.reportMenuItemLabel" })
+    fireEvent.click(reportBtn)
+
+    // Verify dialog opened
+    expect(await screen.findByRole("heading", { name: "EventReportForm.dialogTitle" })).toBeInTheDocument()
+
+    // Select personal
+    const personalRadio = document.getElementById("reason-personal") as HTMLButtonElement
+    fireEvent.click(personalRadio)
+
+    const form = document.querySelector("form")
+    expect(form).toBeInTheDocument()
+    fireEvent.submit(form!)
+
+    // Verify it transitions to hidden empty state
+    expect(await screen.findByRole("heading", { name: "EventDetailsPage.hiddenAfterReportTitle" })).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "Test Event" })).not.toBeInTheDocument()
   })
 })

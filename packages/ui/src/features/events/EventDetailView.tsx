@@ -36,6 +36,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   isAddedToCalendar,
   onAddToCalendar,
   onCorrectData,
+  onReport,
 }) => {
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -52,8 +53,14 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
         onClick: onCorrectData,
       });
     }
+    if (onReport) {
+      list.push({
+        label: labels.reportMenuItemLabel || 'Report',
+        onClick: onReport,
+      });
+    }
     return list;
-  }, [onCorrectData, labels.correctDataMenuItemLabel]);
+  }, [onCorrectData, onReport, labels.correctDataMenuItemLabel, labels.reportMenuItemLabel]);
 
   React.useEffect(() => {
     if (!isMenuOpen) return;
