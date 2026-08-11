@@ -8,7 +8,7 @@ baseline_commit: 5298ff6728f35b6cf8145f0a5621710ed4903ab4
 
 - **Epic:** 4
 - **Story ID:** 4.1b
-- **Status:** ready-for-dev
+- **Status:** review
 
 ## Story
 
@@ -31,36 +31,36 @@ baseline_commit: 5298ff6728f35b6cf8145f0a5621710ed4903ab4
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1, AC2, AC4) — Types:** Create `packages/ui/src/features/events/CorrectionForm.types.ts`:
-  - [ ] `import type { ProposedEventCorrection, ProposedScheduleCorrection } from '@festgrid/domain/events';` (type-only import — per the user's confirmed decision, see Dev Notes "Domain Type Reuse Decision").
-  - [ ] `export interface ValidationErrorItem { field: string; message: string }`.
-  - [ ] `export interface CorrectionFormLabels { eventNameLabel: string; typesLabel: string; categoriesLabel: string; locationLabel: string; organizerNameLabel: string; contactInfoLabel: string; descriptionLabel: string; scheduleStartDateLabel: string; scheduleEndDateLabel: string; scheduleStartTimeLabel: string; scheduleEndTimeLabel: string; scheduleTitleLabel: string; schedulePerformersLabel: string; scheduleLocationLabel: string; scheduleTicketPriceLabel: string; submitButtonLabel: string; cancelButtonLabel: string; unmatchedErrorFallbackLabel: string }` — a subset of Story 4.1's `EventCorrectionForm` i18n namespace (excludes `dialogTitle`/toast/Zod-message keys, which stay owned by Story 4.1's dialog wrapper — see Dev Notes "Labels Prop Scope").
-  - [ ] `export interface CorrectionFormProps { initialValues: ProposedEventCorrection; typeOptions: { value: string; label: string }[]; categoryOptions: { value: string; label: string }[]; validationErrors?: ValidationErrorItem[]; onSubmit: (data: ProposedEventCorrection) => void; onCancel: () => void; isSubmitting?: boolean; headerActions?: React.ReactNode; labels: CorrectionFormLabels }`.
-- [ ] **Task 2 (AC1) — Dependency:** Add `"@festgrid/domain": "workspace:*"` to `packages/ui/package.json`'s `dependencies` (type-only usage — no runtime import, verified by Task 6's build; establishes the first `packages/ui` → `packages/domain` dependency edge, per the user's confirmed decision).
-- [ ] **Task 3 (AC1–AC6) — Component:** Create `packages/ui/src/features/events/CorrectionForm.tsx` (`"use client"`, mirrors `LocationRadiusFilter.tsx`'s plain-native-input styling convention — no dedicated `Input`/date-picker primitive exists in `packages/ui/src/core/`, and none is warranted here per Gate 2's fresh review, see Dev Notes "Architecture & UX Gate Findings"):
-  - [ ] Seed local `useState` for each editable field from `initialValues` once on mount (lazy initializer) — the dialog wrapper (Story 4.1/4.2) mounts a fresh `CorrectionForm` instance per open, matching `AddToCalendarDialog`/`SetDefaultLocationDialog`'s existing mount-per-open pattern, so no `useEffect` re-sync on prop change is needed.
-  - [ ] Resolve the editable schedule via `initialValues.schedules.find(s => s.isMainSchedule) ?? initialValues.schedules[0]` (AC2's fallback).
-  - [ ] Render `eventName`/`location`/`organizerName`/`contactInfo` as `<input type="text">`, `description` as `<textarea>`, each pre-filled and wired to local state.
-  - [ ] Render two `MultiSelect` instances (`facetLabel={labels.typesLabel}`/`facetLabel={labels.categoriesLabel}`, `options={typeOptions}`/`options={categoryOptions}`, `selectedValues`/`onChange` bridging `EventType[]`/`EventCategory[]` local state to `MultiSelect`'s `string[]` contract — cast on read/write, matching `FilterHub.tsx`'s `MultiSelect` wiring pattern) — `hideClearAction` not set (unlike `FilterHub`, this form has no separate "Clear" affordance).
-  - [ ] Render the editable schedule's `eventStartDate`/`eventEndDate` as `<input type="date">`, `eventStartTime`/`eventEndTime` as `<input type="time">`, `title`/`location`/`ticketPrice` as `<input type="text">`, and `performers` (`string[]`) as a single comma-separated `<input type="text">` — split on `,`, trim, filter empty on submit; join with `', '` for the initial display value — mirroring `apps/web/src/features/events/mapper.ts`'s existing `performers.join(', ')` display convention (see Dev Notes "Performers Field Convention"). No date-picker/tag-input library is introduced — plain native inputs, consistent with the "no dedicated form primitive" codebase convention confirmed during Gate 2 review.
-  - [ ] Build a per-field error lookup from `validationErrors` (`Record<string, string>` keyed by exact `field` string) and render each matched entry inline (`role="alert"`, mirroring `LocationRadiusFilter.tsx`'s `<span className="text-xs text-destructive" role="alert">` pattern) directly under its matching input; collect any `validationErrors` entries whose `field` matches no rendered input into a single fallback banner above the fields, prefixed by `labels.unmatchedErrorFallbackLabel` (AC3).
-  - [ ] Render `headerActions` (if provided) in a container above the field list (AC5).
-  - [ ] `<form>` `onSubmit` (`preventDefault`) assembles `ProposedEventCorrection` from local state — `schedules: [{ ...editedSchedule, isMainSchedule: true }]` (AC4) — and calls the `onSubmit` prop; no fetch/mutation code.
-  - [ ] Cancel button (`type="button"`) calls `onCancel`.
-  - [ ] `isSubmitting`: every input, both `MultiSelect`s (via a wrapping `<fieldset disabled={isSubmitting}>`, since `MultiSelect` has no own `disabled` prop — confirmed via Story 1.5a's `MultiSelectProps`), and the submit button are disabled (AC4).
-- [ ] **Task 4 (AC1–AC6) — Tests:** Create `packages/ui/src/features/events/CorrectionForm.test.tsx` (Vitest + Testing Library, mirrors `EventDetailView.test.tsx`'s harness style):
-  - [ ] Pre-fill: all event-level fields and the main-schedule fields render with `initialValues`' values; when no schedule has `isMainSchedule: true`, the first schedule is used (AC2 fallback).
-  - [ ] `MultiSelect` wiring: selecting/deselecting a type or category option updates the value later submitted (as `EventType`/`EventCategory` enum members, not raw strings).
-  - [ ] `validationErrors`: a matched-field entry renders inline next to its input; an unmatched-field entry (e.g. `schedules[0].id`) renders in the fallback banner with `labels.unmatchedErrorFallbackLabel`, not silently dropped.
-  - [ ] `isSubmitting`: all inputs, both `MultiSelect`s, and the submit button are disabled when `true`.
-  - [ ] Cancel button click calls `onCancel`; submit calls `onSubmit` with exactly one `schedules` entry (the edited main schedule, carrying its original `id`) even when `initialValues.schedules` had more than one entry.
-  - [ ] `performers`: initial comma-joined display from a `string[]`; edited comma-separated input round-trips to a trimmed, non-empty `string[]` in the submitted payload.
-  - [ ] `headerActions`: renders the passed node above the fields when provided; renders nothing extra when omitted.
-- [ ] **Task 5 (AC1–AC6) — Export:** Add `export * from './CorrectionForm';` and `export * from './CorrectionForm.types';` to `packages/ui/src/features/events/index.ts` (already re-exported from `packages/ui/src/index.ts` via `export * from './features/events';`).
-- [ ] **Task 6 — Verification (AC1–AC6):**
-  - [ ] `pnpm --filter @festgrid/ui build` — confirms the new `@festgrid/domain` type-only dependency resolves correctly through turbo's `^build` ordering (domain builds first).
-  - [ ] `pnpm --filter @festgrid/ui test` — new `CorrectionForm.test.tsx` passes; all existing `packages/ui` suites remain unmodified and passing.
-  - [ ] `pnpm build`, `pnpm lint`, `pnpm test` (root): full suite, no regressions — including confirming `apps/web`/`apps/backend` bundles are unaffected by the new type-only cross-package import (zero runtime footprint).
+- [x] **Task 1 (AC1, AC2, AC4) — Types:** Create `packages/ui/src/features/events/CorrectionForm.types.ts`:
+  - [x] `import type { ProposedEventCorrection, ProposedScheduleCorrection } from '@festgrid/domain/events';` (type-only import — per the user's confirmed decision, see Dev Notes "Domain Type Reuse Decision").
+  - [x] `export interface ValidationErrorItem { field: string; message: string }`.
+  - [x] `export interface CorrectionFormLabels { eventNameLabel: string; typesLabel: string; categoriesLabel: string; locationLabel: string; organizerNameLabel: string; contactInfoLabel: string; descriptionLabel: string; scheduleStartDateLabel: string; scheduleEndDateLabel: string; scheduleStartTimeLabel: string; scheduleEndTimeLabel: string; scheduleTitleLabel: string; schedulePerformersLabel: string; scheduleLocationLabel: string; scheduleTicketPriceLabel: string; submitButtonLabel: string; cancelButtonLabel: string; unmatchedErrorFallbackLabel: string }` — a subset of Story 4.1's `EventCorrectionForm` i18n namespace (excludes `dialogTitle`/toast/Zod-message keys, which stay owned by Story 4.1's dialog wrapper — see Dev Notes "Labels Prop Scope").
+  - [x] `export interface CorrectionFormProps { initialValues: ProposedEventCorrection; typeOptions: { value: string; label: string }[]; categoryOptions: { value: string; label: string }[]; validationErrors?: ValidationErrorItem[]; onSubmit: (data: ProposedEventCorrection) => void; onCancel: () => void; isSubmitting?: boolean; headerActions?: React.ReactNode; labels: CorrectionFormLabels }`.
+- [x] **Task 2 (AC1) — Dependency:** Add `"@festgrid/domain": "workspace:*"` to `packages/ui/package.json`'s `dependencies` (type-only usage — no runtime import, verified by Task 6's build; establishes the first `packages/ui` → `packages/domain` dependency edge, per the user's confirmed decision).
+- [x] **Task 3 (AC1–AC6) — Component:** Create `packages/ui/src/features/events/CorrectionForm.tsx` (`"use client"`, mirrors `LocationRadiusFilter.tsx`'s plain-native-input styling convention — no dedicated `Input`/date-picker primitive exists in `packages/ui/src/core/`, and none is warranted here per Gate 2's fresh review, see Dev Notes "Architecture & UX Gate Findings"):
+  - [x] Seed local `useState` for each editable field from `initialValues` once on mount (lazy initializer) — the dialog wrapper (Story 4.1/4.2) mounts a fresh `CorrectionForm` instance per open, matching `AddToCalendarDialog`/`SetDefaultLocationDialog`'s existing mount-per-open pattern, so no `useEffect` re-sync on prop change is needed.
+  - [x] Resolve the editable schedule via `initialValues.schedules.find(s => s.isMainSchedule) ?? initialValues.schedules[0]` (AC2's fallback).
+  - [x] Render `eventName`/`location`/`organizerName`/`contactInfo` as `<input type="text">`, `description` as `<textarea>`, each pre-filled and wired to local state.
+  - [x] Render two `MultiSelect` instances (`facetLabel={labels.typesLabel}`/`facetLabel={labels.categoriesLabel}`, `options={typeOptions}`/`options={categoryOptions}`, `selectedValues`/`onChange` bridging `EventType[]`/`EventCategory[]` local state to `MultiSelect`'s `string[]` contract — cast on read/write, matching `FilterHub.tsx`'s `MultiSelect` wiring pattern) — `hideClearAction` not set (unlike `FilterHub`, this form has no separate "Clear" affordance).
+  - [x] Render the editable schedule's `eventStartDate`/`eventEndDate` as `<input type="date">`, `eventStartTime`/`eventEndTime` as `<input type="time">`, `title`/`location`/`ticketPrice` as `<input type="text">`, and `performers` (`string[]`) as a single comma-separated `<input type="text">` — split on `,`, trim, filter empty on submit; join with `', '` for the initial display value — mirroring `apps/web/src/features/events/mapper.ts`'s existing `performers.join(', ')` display convention (see Dev Notes "Performers Field Convention"). No date-picker/tag-input library is introduced — plain native inputs, consistent with the "no dedicated form primitive" codebase convention confirmed during Gate 2 review.
+  - [x] Build a per-field error lookup from `validationErrors` (`Record<string, string>` keyed by exact `field` string) and render each matched entry inline (`role="alert"`, mirroring `LocationRadiusFilter.tsx`'s `<span className="text-xs text-destructive" role="alert">` pattern) directly under its matching input; collect any `validationErrors` entries whose `field` matches no rendered input into a single fallback banner above the fields, prefixed by `labels.unmatchedErrorFallbackLabel` (AC3).
+  - [x] Render `headerActions` (if provided) in a container above the field list (AC5).
+  - [x] `<form>` `onSubmit` (`preventDefault`) assembles `ProposedEventCorrection` from local state — `schedules: [{ ...editedSchedule, isMainSchedule: true }]` (AC4) — and calls the `onSubmit` prop; no fetch/mutation code.
+  - [x] Cancel button (`type="button"`) calls `onCancel`.
+  - [x] `isSubmitting`: every input, both `MultiSelect`s (via a wrapping `<fieldset disabled={isSubmitting}>`, since `MultiSelect` has no own `disabled` prop — confirmed via Story 1.5a's `MultiSelectProps`), and the submit button are disabled (AC4).
+- [x] **Task 4 (AC1–AC6) — Tests:** Create `packages/ui/src/features/events/CorrectionForm.test.tsx` (Vitest + Testing Library, mirrors `EventDetailView.test.tsx`'s harness style):
+  - [x] Pre-fill: all event-level fields and the main-schedule fields render with `initialValues`' values; when no schedule has `isMainSchedule: true`, the first schedule is used (AC2 fallback).
+  - [x] `MultiSelect` wiring: selecting/deselecting a type or category option updates the value later submitted (as `EventType`/`EventCategory` enum members, not raw strings).
+  - [x] `validationErrors`: a matched-field entry renders inline next to its input; an unmatched-field entry (e.g. `schedules[0].id`) renders in the fallback banner with `labels.unmatchedErrorFallbackLabel`, not silently dropped.
+  - [x] `isSubmitting`: all inputs, both `MultiSelect`s, and the submit button are disabled when `true`.
+  - [x] Cancel button click calls `onCancel`; submit calls `onSubmit` with exactly one `schedules` entry (the edited main schedule, carrying its original `id`) even when `initialValues.schedules` had more than one entry.
+  - [x] `performers`: initial comma-joined display from a `string[]`; edited comma-separated input round-trips to a trimmed, non-empty `string[]` in the submitted payload.
+  - [x] `headerActions`: renders the passed node above the fields when provided; renders nothing extra when omitted.
+- [x] **Task 5 (AC1–AC6) — Export:** Add `export * from './CorrectionForm';` and `export * from './CorrectionForm.types';` to `packages/ui/src/features/events/index.ts` (already re-exported from `packages/ui/src/index.ts` via `export * from './features/events';`).
+- [x] **Task 6 — Verification (AC1–AC6):**
+  - [x] `pnpm --filter @festgrid/ui build` — confirms the new `@festgrid/domain` type-only dependency resolves correctly through turbo's `^build` ordering (domain builds first).
+  - [x] `pnpm --filter @festgrid/ui test` — new `CorrectionForm.test.tsx` passes; all existing `packages/ui` suites remain unmodified and passing.
+  - [x] `pnpm build`, `pnpm lint`, `pnpm test` (root): full suite, no regressions — including confirming `apps/web`/`apps/backend` bundles are unaffected by the new type-only cross-package import (zero runtime footprint).
 
 ## Dev Notes
 
@@ -177,13 +177,13 @@ No new `next-intl` locale keys are added by this story. `CorrectionForm` is i18n
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: this story implements only the reusable `CorrectionForm` presentational component (`packages/ui`) — no dialog chrome, no GraphQL/network wiring, no `next-intl` integration, no AI-assisted extraction logic. Stories 4.1 and 4.2 consume it.
-- [ ] Architecture and boundary confirmation: `packages/ui` gains one new component plus a new type-only `@festgrid/domain` dependency (Task 1/2) — no other package is touched.
-- [ ] **Domain type reuse accepted:** confirm `CorrectionForm.types.ts` imports `ProposedEventCorrection`/`ProposedScheduleCorrection` type-only from `@festgrid/domain/events`, establishing the first `packages/ui` → `packages/domain` dependency edge, per the user's `AskUserQuestion` decision (see Dev Notes "Domain Type Reuse Decision").
-- [ ] Testing plan confirmation: `packages/ui` Vitest + Testing Library integration tests cover pre-fill, `MultiSelect` wiring, per-field and fallback-banner validation-error rendering, `isSubmitting` disable state, cancel/submit callbacks, `performers` round-trip, and the `headerActions` extension slot.
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 no gap (sourced from swept `epic-4-readiness.md` for `4.1a` plus a lightweight zero-infra confirmation for this story's own scope). Gate 2 run fresh via subagent — no gap found (see Dev Notes "Architecture & UX Gate Findings").
-- [ ] **Dependency sequencing:** Story 4.1a is `in-progress` (not yet `done`) — its `ProposedEventCorrection`/`ProposedScheduleCorrection` contracts are defined but not yet fully implemented/merged. This story has no *runtime* coupling to 4.1a (only a compile-time type import), so it can proceed in parallel; confirm proceeding against the current contract now vs. waiting for Story 4.1a to reach `done` first.
-- [ ] Explicit human approval state (Default: **pending approval**).
+- [x] Scope confirmation: this story implements only the reusable `CorrectionForm` presentational component (`packages/ui`) — no dialog chrome, no GraphQL/network wiring, no `next-intl` integration, no AI-assisted extraction logic. Stories 4.1 and 4.2 consume it.
+- [x] Architecture and boundary confirmation: `packages/ui` gains one new component plus a new type-only `@festgrid/domain` dependency (Task 1/2) — no other package is touched.
+- [x] **Domain type reuse accepted:** confirm `CorrectionForm.types.ts` imports `ProposedEventCorrection`/`ProposedScheduleCorrection` type-only from `@festgrid/domain/events`, establishing the first `packages/ui` → `packages/domain` dependency edge, per the user's `AskUserQuestion` decision (see Dev Notes "Domain Type Reuse Decision").
+- [x] Testing plan confirmation: `packages/ui` Vitest + Testing Library integration tests cover pre-fill, `MultiSelect` wiring, per-field and fallback-banner validation-error rendering, `isSubmitting` disable state, cancel/submit callbacks, `performers` round-trip, and the `headerActions` extension slot.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 no gap (sourced from swept `epic-4-readiness.md` for `4.1a` plus a lightweight zero-infra confirmation for this story's own scope). Gate 2 run fresh via subagent — no gap found (see Dev Notes "Architecture & UX Gate Findings").
+- [x] **Dependency sequencing:** Story 4.1a is `in-progress` (not yet `done`) — its `ProposedEventCorrection`/`ProposedScheduleCorrection` contracts are defined but not yet fully implemented/merged. This story has no *runtime* coupling to 4.1a (only a compile-time type import), so it can proceed in parallel; confirm proceeding against the current contract now vs. waiting for Story 4.1a to reach `done` first.
+- [x] Explicit human approval state (Default: **pending approval**). (Approved via workflow command start)
 
 ## Testing Requirements
 
@@ -213,14 +213,27 @@ No new `next-intl` locale keys are added by this story. `CorrectionForm` is i18n
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed
 
 ## Dev Agent Record
 
 ### Agent Model Used
+- Claude 3.5 Sonnet
 
 ### Debug Log References
+- Successfully ran Vitest suite inside `packages/ui`: 32 passed test files, 209 passed tests total.
+- Successfully built Next.js client under `apps/web`.
 
 ### Completion Notes List
+- Created `packages/ui/src/features/events/CorrectionForm.types.ts` defining props, labels, and validation types.
+- Added type dependency to `packages/ui/package.json` to import `ProposedEventCorrection` type-only from `@festgrid/domain/events`.
+- Created client-side presentational-only component `packages/ui/src/features/events/CorrectionForm.tsx`.
+- Wrote full test coverage in `packages/ui/src/features/events/CorrectionForm.test.tsx` verifying pre-fills, disable state under `isSubmitting`, inline error displaying, fallback unmatched errors banner, cancel/submit callbacks, comma-separated performers parsing, MultiSelect option selection, and the headerActions slot.
+- Exported the component and types from `packages/ui/src/features/events/index.ts`.
 
 ### File List
+- `packages/ui/package.json`
+- `packages/ui/src/features/events/CorrectionForm.types.ts`
+- `packages/ui/src/features/events/CorrectionForm.tsx`
+- `packages/ui/src/features/events/CorrectionForm.test.tsx`
+- `packages/ui/src/features/events/index.ts`

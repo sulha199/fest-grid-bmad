@@ -5,6 +5,7 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "dependencies": {
+    "@festgrid/domain": "workspace:*",
     "@festgrid/shared-types": "workspace:*",
     "lucide-react": "^0.473.0",
     "maplibre-gl": "^6.1.0",

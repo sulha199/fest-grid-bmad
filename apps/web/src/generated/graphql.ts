@@ -51,6 +51,30 @@ export type Coordinates = {
   lng: Scalars['Float']['output'];
 };
 
+export type Correction = {
+  __typename?: 'Correction';
+  createdAt: Scalars['String']['output'];
+  eventId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  proposedData: Scalars['JSON']['output'];
+  resolvedAt?: Maybe<Scalars['String']['output']>;
+  source: CorrectionSource;
+  status: CorrectionStatus;
+  submittedByUserId: Scalars['ID']['output'];
+  validationErrors?: Maybe<Array<ValidationError>>;
+};
+
+export enum CorrectionSource {
+  AiAssisted = 'ai_assisted',
+  Manual = 'manual'
+}
+
+export enum CorrectionStatus {
+  Applied = 'applied',
+  Pending = 'pending',
+  Rejected = 'rejected'
+}
+
 export type CreateApiKeyInput = {
   key: Scalars['String']['input'];
   provider: Scalars['String']['input'];
@@ -158,6 +182,7 @@ export type Mutation = {
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
   setAccountDefaultLocation: SocialMediaAccountProfile;
+  submitCorrection: Correction;
   subscribeToAccount: SubscribeToAccountResult;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
@@ -217,6 +242,13 @@ export type MutationSetAccountDefaultLocationArgs = {
 };
 
 
+export type MutationSubmitCorrectionArgs = {
+  eventId: Scalars['ID']['input'];
+  proposedData: ProposedEventCorrectionInput;
+  source: CorrectionSource;
+};
+
+
 export type MutationSubscribeToAccountArgs = {
   input: SubscribeToAccountInput;
 };
@@ -246,6 +278,30 @@ export type MutationUpdateUserLocationArgs = {
 
 export type MutationUpdateUserSettingsArgs = {
   input: UpdateUserSettingsInput;
+};
+
+export type ProposedEventCorrectionInput = {
+  categories: Array<EventCategory>;
+  contactInfo?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  eventName: Scalars['String']['input'];
+  location: Scalars['String']['input'];
+  organizerName?: InputMaybe<Scalars['String']['input']>;
+  schedules: Array<ProposedScheduleCorrectionInput>;
+  types: Array<EventType>;
+};
+
+export type ProposedScheduleCorrectionInput = {
+  eventEndDate?: InputMaybe<Scalars['String']['input']>;
+  eventEndTime?: InputMaybe<Scalars['String']['input']>;
+  eventStartDate: Scalars['String']['input'];
+  eventStartTime?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['ID']['input']>;
+  isMainSchedule: Scalars['Boolean']['input'];
+  location?: InputMaybe<Scalars['String']['input']>;
+  performers?: InputMaybe<Array<Scalars['String']['input']>>;
+  ticketPrice?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Query = {
@@ -418,6 +474,12 @@ export type UserSettings = {
   id: Scalars['ID']['output'];
   pushNotificationsEnabled: Scalars['Boolean']['output'];
   updatedAt: Scalars['String']['output'];
+};
+
+export type ValidationError = {
+  __typename?: 'ValidationError';
+  field: Scalars['String']['output'];
+  message: Scalars['String']['output'];
 };
 
 

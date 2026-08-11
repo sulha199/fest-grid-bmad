@@ -345,6 +345,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@festgrid/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@festgrid/shared-types':
         specifier: workspace:*
         version: link:../shared-types
@@ -512,6 +515,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@festgrid/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@festgrid/shared-types':
         specifier: workspace:*
         version: link:../shared-types

@@ -13,3 +13,5 @@ export * from './WeeklyCalendarView';
 export * from './WeeklyCalendarView.types';
 export * from './LocationRadiusFilter';
 export * from './LocationRadiusFilter.types';
+export * from './CorrectionForm';
+export * from './CorrectionForm.types';
