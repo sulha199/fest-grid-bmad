@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-11T09:47:00Z
+last_updated: 2026-08-11T10:13:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -507,7 +507,7 @@ development_status:
   # edge) rather than locally mirroring the shape, per the AC's literal type naming
   # and zero-runtime-cost of type-only imports. No new prerequisite stories split off.
   4-1b-build-the-reusable-event-correction-form-component: review
-  4-1-manually-correct-event-data: ready-for-dev
+  4-1-manually-correct-event-data: in-progress
   # added 2026-08-11 via bmad-create-story Gate 1 finding (run fresh, since the
   # implementation-detail-level gap postdates epic-4-readiness.md) while drafting
   # Story 4.2: no synchronous, single-URL, correction-shaped extraction capability
@@ -519,7 +519,17 @@ development_status:
   # attempting a live scrape), auto-detect platform from the URL domain, and run
   # synchronously with a hard timeout rather than async job+polling. See epics.md
   # Story 4.2a note.
-  4-2a-build-the-on-demand-ai-assisted-correction-extraction-api-layer: backlog
+  # regenerated 2026-08-11 via bmad-create-story: full context engine pass. Gate 1
+  # cited from Story 4.2's own creation (real gap already found and resolved via
+  # four AskUserQuestion rounds there); Gate 2 run fresh via Freya subagent (no gap
+  # -- zero UI surface, the adjacent trigger UI is fully owned by Story 4.2); Gate 3
+  # cited from swept epic-4-readiness.md (4.2 in stories_covered, no gap). Confirmed
+  # by direct code read that every reused piece (persistScrapedPost's dedup query,
+  # callGemini/AiGatewayExhaustedError, ScraperAdapter/platform-registry, Story
+  # 4.1a's ProposedEventCorrection domain interfaces, Story 4.2's own frozen
+  # ExtractEventDataFromUrlResult/ExtractionErrorCode contract) exists with a
+  # compatible signature. No new prerequisite stories split off.
+  4-2a-build-the-on-demand-ai-assisted-correction-extraction-api-layer: ready-for-dev
   4-2-ai-assisted-event-data-correction: ready-for-dev
   4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering: backlog
   4-3-report-an-event: backlog
