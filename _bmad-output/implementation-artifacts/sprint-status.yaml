@@ -508,7 +508,19 @@ development_status:
   # and zero-runtime-cost of type-only imports. No new prerequisite stories split off.
   4-1b-build-the-reusable-event-correction-form-component: review
   4-1-manually-correct-event-data: ready-for-dev
-  4-2-ai-assisted-event-data-correction: backlog
+  # added 2026-08-11 via bmad-create-story Gate 1 finding (run fresh, since the
+  # implementation-detail-level gap postdates epic-4-readiness.md) while drafting
+  # Story 4.2: no synchronous, single-URL, correction-shaped extraction capability
+  # exists anywhere -- the AI Gateway adapter (0.13) and ScraperAdapter (3.3c) are
+  # always invoked today only from the async, queue-driven Story 3.6 pipeline. User
+  # confirmed via AskUserQuestion (four rounds) to split this off rather than build
+  # inline in 4.2: reuse-first design (dual postUrl/originalPostUrl lookup against
+  # posts, mirroring persistScrapedPost's existing dedup logic, before ever
+  # attempting a live scrape), auto-detect platform from the URL domain, and run
+  # synchronously with a hard timeout rather than async job+polling. See epics.md
+  # Story 4.2a note.
+  4-2a-build-the-on-demand-ai-assisted-correction-extraction-api-layer: backlog
+  4-2-ai-assisted-event-data-correction: ready-for-dev
   4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering: backlog
   4-3-report-an-event: backlog
   4-4a-add-soft-delete-to-the-events-table-and-extend-the-events-resolver-and-moderator-mutations: backlog

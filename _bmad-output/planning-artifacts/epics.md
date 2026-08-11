@@ -2156,6 +2156,28 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Depends on:** Story 4.1a, Story 4.1b.
 
+### Story 4.2a: Build the on-demand AI-assisted correction extraction API layer
+
+**As a** developer,
+**I want** a synchronous `extractEventDataFromUrl` mutation that reuses the existing scraper/AI Gateway pipeline instead of the async, queue-driven one,
+**So that** Story 4.2 can pre-fill a correction form from a pasted post URL in direct response to the user's own click.
+
+**Acceptance Criteria:**
+
+1.  **Given** an authenticated user (`requireAuth`, Story 0.17) calls `extractEventDataFromUrl(url: String!): ExtractEventDataFromUrlResult!`, **when** the resolver runs, **then** it first looks up `posts` via the same dual-lookup `persistScrapedPost` (Story 3.3a) already uses for dedup — `where(or(eq(posts.postUrl, url), eq(posts.originalPostUrl, url)))` — to decide between the "existing post" and "new post" paths below.
+2.  **Given** a matching `posts` row is found (**existing post**), **when** selecting which Gemini API key to use, **then** the resolver first attempts `callGemini` (Story 0.13's AI Gateway adapter) with `subscriberUserIds: [context.user.id]` (`TIER_1_USER_SPECIFIC` — the caller's own key); **and** if that throws `AiGatewayExhaustedError` (caller has no valid key), it retries with `subscriberUserIds` set to every active subscriber of the post's `accountId` (via `getActiveSubscriberUserIds`, Story 3.5's existing helper — `TIER_2_SHARED_ROUND_ROBIN`, fair fallback across the account's subscriber pool); **and** if that also throws `AiGatewayExhaustedError`, the mutation returns `errorCode: QUOTA_EXHAUSTED`.
+3.  **And**, for the existing-post path, the request sent to Gemini reuses `buildGeminiExtractionRequest` (Story 3.6, `apps/backend/src/lib/ai-processor/build-gemini-request.ts`) built from the stored `posts.content`/`posts.imageUrl` — no new prompt/response-schema is authored; the response is parsed and AJV-validated with the same `extractedEventSchema` (Story 3.6) already used by the async pipeline.
+4.  **Given** no matching `posts` row is found (**new post**), **when** the resolver determines which platform to scrape, **then** it detects the platform from the URL's domain (new `detectPlatformFromUrl` utility, `packages/domain/src/scraper/platform-registry.ts` — e.g. `instagram.com`/`instagr.am` → `instagram`, `twitter.com`/`x.com` → `twitter`); **and** if the domain matches no known platform, the mutation returns `errorCode: UNSUPPORTED_PLATFORM` without attempting extraction.
+5.  **And**, for the new-post path, **when** the caller has no valid Gemini API key of their own, **then** the mutation returns `errorCode: NO_API_KEY` (message instructing the user to contribute their own key) **without** falling back to any other subscriber's key — unlike the existing-post path, a brand-new, never-scraped post has no associated account/subscriber pool to fall back to.
+6.  **And**, for the new-post path, **when** the caller does have a valid key, **then** the resolver calls a new `ScraperAdapter.getPostByUrl(url: string): Promise<ScrapedPost | null>` method (extending Story 3.3c's interface; implemented for `instagramScraperAdapter` by reusing the existing `callApifyActor` pattern with `directUrls: [url]`, mirroring `lookupAccountProfile`'s exact structure; `twitterScraperAdapter` throws `'Twitter/X scraping is not yet implemented'`, matching its existing stub for `getNewestPosts`/`lookupAccountProfile`) under a hard timeout (20s, leaving headroom under API Gateway's 29s limit alongside the Gemini call itself); **and** if the scrape returns `null`/times out/throws, the mutation returns `errorCode: SCRAPE_FAILED`; **and** if the scrape succeeds, its `content`/`imageUrl` feed the same `buildGeminiExtractionRequest`/`extractedEventSchema` pipeline as AC3, called via `callGemini` with `subscriberUserIds: [context.user.id]` only (`TIER_1_USER_SPECIFIC`, no round-robin fallback per AC5's reasoning).
+7.  **And**, once a validated `GeminiExtractionPayload` is obtained (either path), **when** `payload.isEvent === false`, **then** the mutation returns `errorCode: EXTRACTION_FAILED` (message indicating the linked post doesn't appear to describe an event); **and** when `payload.isEvent === true`, the payload is mapped 1:1 by a new pure `packages/domain/src/events/map-extraction-payload-to-proposed-correction.ts` function (`eventName`, `types`, `categories`, `location`, `organizerName`, `contactInfo`, `description`, `schedules` — each schedule carrying no `id`, since this is freshly extracted data with no existing DB row) into `ProposedEventCorrectionData` (a new GraphQL output type mirroring Story 4.1a's `ProposedEventCorrectionInput` shape field-for-field — GraphQL forbids reusing an `input` type as an output type) and returned as `data`.
+8.  **And** the newly-scraped "new post" content is **not** persisted into `posts` (no `accountId`/account-profile resolution is attempted here) — a one-off extraction only; see Out of Scope.
+9.  **And** no package outside `apps/backend` calls the scraper adapter or the AI Gateway adapter directly.
+
+**Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced fresh during Story 4.2's own creation — the swept `epic-readiness/epic-4-readiness.md` confirmed the AI Gateway adapter (Story 0.13) exists but predates the implementation-detail-level discovery (made while drafting Story 4.2 itself) that no synchronous, single-arbitrary-URL, correction-shaped extraction capability exists anywhere: the AI Gateway adapter and `ScraperAdapter` (Story 3.3c) are real, reusable building blocks, but always invoked today only from the async, queue-driven Story 3.6 pipeline (account-centric batch scraping, `accountId`-scoped location/timezone resolution) — a fundamentally different shape than "extract from one pasted URL, synchronously, in response to a click." Confirmed via a Gate 1 subagent review (Winston persona) and four rounds of `AskUserQuestion` with the user during this story's creation: (1) split into this prerequisite story rather than build inline in 4.2, since the new capability spans a new `ScraperAdapter` method + platform detection + a new resolver + a new domain mapping — not the small, mechanical, single-consumer shape Story 4.1's Task 1 precedent covers; (2) detect platform from the URL's domain rather than require explicit user platform selection; (3) run synchronously with a hard timeout rather than build async job+polling infrastructure for a single bounded action; (4) reuse-first design — check `posts` (dual `postUrl`/`originalPostUrl` lookup, mirroring `persistScrapedPost`'s exact existing dedup logic) before ever attempting a live scrape, and only build the new live-scrape capability (AC6) for the not-found path, with the user's own key prioritized first and a round-robin fallback across the post's account subscribers only when a stored post's account is actually known (AC2) — a brand-new post has no such pool (AC5).
+
+**Depends on:** Story 0.13, Story 0.17, Story 3.3a, Story 3.3c, Story 3.5, Story 3.6.
+
 ### Story 4.2: AI-assisted event data correction
 
 **As a** user with a BYOK key,
@@ -2164,14 +2186,16 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Acceptance Criteria:**
 
-*   **Given** I am correcting the data for an event,
+*   **Given** I am correcting the data for an event (Story 4.1's dialog, Story 4.1b's `CorrectionForm`),
+*   **When** the dialog opens, **then** an "AI-Assisted Correction" button renders in `CorrectionForm`'s `headerActions` slot (Story 4.1b) — clicking it reveals a URL text input and an "Extract" button, matching UX scenario 06.6's on-page interaction sequence exactly.
 *   **And** I have provided my own Gemini API Key (BYOK),
-*   **When** I provide a URL to a social media post and click "Extract",
-*   **Then** the system uses the Gemini API to extract event information from the post, calling it exclusively through the AI Gateway adapter (Story 0.13) — never a raw Gemini SDK/HTTP call from `apps/web`.
-*   **And** the correction form is pre-filled with the extracted information for my review.
-*   **And** approving the pre-filled form submits it via the same `submitCorrection` mutation (Story 4.1a) used by Story 4.1, with `source='ai_assisted'` — it is not written directly to the database.
+*   **When** I paste a URL to a social media post and click "Extract",
+*   **Then** the system calls the `extractEventDataFromUrl` mutation (Story 4.2a) — never a raw Gemini SDK/HTTP call, and never a direct scraper call, from `apps/web` — while a non-blocking, localized loading indicator shows within this panel (mirroring Story 2.4's `previewLocation` "resolving address…" precedent, not a full-screen `BlockingLoader` — this call does not write any data, matching `project-context.md`'s Blocking-loader rule scoping that pattern to critical *mutations*).
+*   **And**, on success, the correction form's current field values are overwritten with the extracted `ProposedEventCorrectionData`, **except** the main schedule's `id` (and any other schedule fields absent from the AI response) is preserved from the form's pre-extraction values — so approving the pre-fill still updates the event's existing main schedule row rather than inserting a duplicate one (Story 4.1a's `id`-present-means-update reconciliation).
+*   **And**, on failure (`NOT_FOUND`/`UNSUPPORTED_PLATFORM`/`NO_API_KEY`/`SCRAPE_FAILED`/`EXTRACTION_FAILED`/`QUOTA_EXHAUSTED`), an inline error message specific to that `errorCode` is shown within this same panel (not a toast, not blocking the rest of the form) — the user may still edit the form manually and submit without a successful extraction.
+*   **And** I review the pre-filled data, make any necessary adjustments, and submit — approving calls the same `submitCorrection` mutation (Story 4.1a) used by Story 4.1, with `source: 'ai_assisted'` — it is not written directly to the database.
 
-**Depends on:** Story 0.13, Story 4.1, Story 4.1a, Story 4.1b.
+**Depends on:** Story 0.13, Story 4.1, Story 4.1a, Story 4.1b, Story 4.2a.
 
 ### Story 4.3a: Build the reports backend GraphQL API layer and personal-visibility filtering
 
