@@ -2238,6 +2238,25 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Depends on:** Story 4.3a.
 
+### Story 4.3b: Add a Report trigger to EventCard (list-view)
+
+**As a** user,
+**I want** to report an event directly from a list/grid card (Discovery, Favorites, Feed, My Calendar, etc.),
+**So that** I don't have to open an event's full detail view just to report it, matching PRD 3.9.2's literal "list-view or detailed view" requirement.
+
+**Acceptance Criteria:**
+
+*   **Given** `EventCard.tsx` (`packages/ui`) currently exposes only a Favorite toggle and no "more actions" affordance,
+*   **When** this story is implemented,
+*   **Then** `EventCard` gains a "more actions" trigger (mirroring `EventDetailView`'s existing hand-rolled `MoreVertical` overflow-menu pattern from Story 4.1 Task 3 — same keyboard/focus-trap/outside-click behavior, no new Radix dependency) containing a "Report" item, rendered only when an `onReport` prop is passed.
+*   **And** clicking "Report" opens the same reporting flow Story 4.3 built for the detail view (reason selection + optional details, `submitReport` mutation via Story 4.3a) — reusing that dialog/form logic rather than re-implementing it, which likely requires extracting Story 4.3's report-dialog content into a shared component at this point, since it will now have two real consumers (`EventDetailView` and `EventCard`), unlike Story 4.3's own single-consumer scope. Actual extraction shape is this story's own Gate 2 decision to make when created.
+*   **And** unauthenticated users clicking "Report" are redirected to `/login`, mirroring Story 4.3/4.1's existing unauthenticated-redirect pattern.
+*   **And**, since compact list/grid cards have limited horizontal space, the design must decide overflow-menu placement/sizing appropriate to `EventCard`'s existing layout (distinct from `EventDetailView`'s header-row placement) — a real, story-specific UI design decision, not a copy-paste of the detail-view menu.
+
+**Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced while drafting Story 4.3. PRD 3.9.2 explicitly requires the Report trigger in both list-view and detail-view, but `EventCard.tsx` has no existing overflow-menu pattern (unlike `EventDetailView`, which Story 4.1 already built one into) and no UX artifact specifies the card-level design. The user confirmed via `AskUserQuestion` to scope Story 4.3 to detail-view only (mirroring Story 4.1's Correct-Data precedent) and split the list-view trigger off as its own focused design/implementation pass rather than absorb it into Story 4.3. Single-story UI split, lettered suffix directly off Story 4.3, matching the `1.3a`/`1.3b`/`1.6a` numbering precedent.
+
+**Depends on:** Story 4.3, Story 4.3a.
+
 ### Story 4.4a: Add soft-delete to the events table and extend the events resolver and moderator mutations
 
 **As a** developer,
