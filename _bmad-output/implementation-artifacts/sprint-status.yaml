@@ -531,7 +531,22 @@ development_status:
   # compatible signature. No new prerequisite stories split off.
   4-2a-build-the-on-demand-ai-assisted-correction-extraction-api-layer: ready-for-dev
   4-2-ai-assisted-event-data-correction: ready-for-dev
-  4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering: backlog
+  # regenerated 2026-08-11 via bmad-create-story: full context engine pass. Gate 1/3
+  # cited from swept epic-4-readiness.md (4.3a explicitly in stories_covered, no gap);
+  # Gate 2 run fresh via Freya subagent (no gap, zero UI surface -- reportedEvents given
+  # optional status/reason filter args per a UX-doc forward-signal, informing Story 4.7's
+  # future filterable Moderator Items list). Two real schema/behavior tradeoffs resolved
+  # with the user via AskUserQuestion: (1) reports.status expanded from epics.md's literal
+  # 2-value [pending, resolved] to PRD 4.12-aligned [pending, upheld, dismissed] plus a new
+  # resolvedByModeratorId FK, mirroring defaultLocationChangeRequests' reviewedByModeratorId
+  # audit-trail precedent; (2) isHiddenForCurrentUser broadened from personal-reason-only to
+  # any report (any reason), matching PRD 3.9.2's literal per-reason "immediately no longer
+  # see the event" text and the dangerous-reason's "remains hidden even after dismissal"
+  # clause -- Story 4.8's epics.md note corrected to match. Also corrected epics.md's
+  # "joined via buildOptimizedDrizzleSelect" AC text (that utility only selects real table
+  # columns, no joins/subqueries possible) to the codebase's actual Event.isFavorited-style
+  # field-resolver pattern. No new prerequisite stories split off.
+  4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering: ready-for-dev
   4-3-report-an-event: backlog
   4-4a-add-soft-delete-to-the-events-table-and-extend-the-events-resolver-and-moderator-mutations: backlog
   4-4-handle-event-cancelled-reports: backlog
