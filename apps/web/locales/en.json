@@ -408,5 +408,18 @@
     "subscriptionsSectionTitle": "Subscription Queue",
     "apiKeysSectionTitle": "API Key Health",
     "noApiKeysConfigured": "No API keys configured."
+  },
+  "AiAssistedCorrection": {
+    "triggerButtonLabel": "AI-Assisted Correction",
+    "urlInputLabel": "Social media post URL",
+    "urlInputPlaceholder": "Paste link here...",
+    "extractButtonLabel": "Extract",
+    "extractingAnnouncement": "Extracting...",
+    "errorNotFound": "The post could not be found.",
+    "errorUnsupportedPlatform": "This social media platform is not supported.",
+    "errorNoApiKey": "No API key configured. Please set one in <link>API Keys settings</link>.",
+    "errorScrapeFailed": "Failed to scrape the social media post. Please try again.",
+    "errorExtractionFailed": "AI failed to extract any events from this post.",
+    "errorQuotaExhausted": "Your API key quota has been exhausted."
   }
 }

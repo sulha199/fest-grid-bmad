@@ -8,3 +8,30 @@ mutation submitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionI
     }
   }
 }
+
+mutation extractEventDataFromUrl($url: String!) {
+  extractEventDataFromUrl(url: $url) {
+    data {
+      eventName
+      types
+      categories
+      location
+      organizerName
+      contactInfo
+      description
+      schedules {
+        isMainSchedule
+        eventStartDate
+        eventEndDate
+        eventStartTime
+        eventEndTime
+        title
+        performers
+        location
+        ticketPrice
+      }
+    }
+    errorCode
+    errorMessage
+  }
+}

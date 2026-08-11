@@ -408,5 +408,18 @@
     "subscriptionsSectionTitle": "Antrean Berlangganan",
     "apiKeysSectionTitle": "Kesehatan Kunci API",
     "noApiKeysConfigured": "Kunci API belum dikonfigurasi."
+  },
+  "AiAssistedCorrection": {
+    "triggerButtonLabel": "Koreksi Berbantuan AI",
+    "urlInputLabel": "URL postingan media sosial",
+    "urlInputPlaceholder": "Tempel tautan di sini...",
+    "extractButtonLabel": "Ekstrak",
+    "extractingAnnouncement": "Mengekstrak...",
+    "errorNotFound": "Postingan tidak dapat ditemukan.",
+    "errorUnsupportedPlatform": "Platform media sosial ini tidak didukung.",
+    "errorNoApiKey": "Kunci API tidak dikonfigurasi. Silakan atur di <link>Pengaturan Kunci API</link>.",
+    "errorScrapeFailed": "Gagal mengambil data dari postingan media sosial. Silakan coba lagi.",
+    "errorExtractionFailed": "AI gagal mengekstrak acara dari postingan ini.",
+    "errorQuotaExhausted": "Kuota kunci API Anda telah habis."
   }
 }

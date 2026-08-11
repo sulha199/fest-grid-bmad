@@ -8,7 +8,7 @@ baseline_commit: 95347c68995121d35cf913d2e00a3e1997045fd9
 
 - **Epic:** 4
 - **Story ID:** 4.2
-- **Status:** ready-for-dev
+- **Status:** review
 
 ## Story
 
@@ -30,7 +30,7 @@ baseline_commit: 95347c68995121d35cf913d2e00a3e1997045fd9
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC3) — GraphQL operation for the mutation:** Extend `apps/web/src/features/events/corrections.graphql` (created by Story 4.1) with:
+- [x] **Task 1 (AC3) — GraphQL operation for the mutation:** Extend `apps/web/src/features/events/corrections.graphql` (created by Story 4.1) with:
   ```graphql
   mutation extractEventDataFromUrl($url: String!) {
     extractEventDataFromUrl(url: $url) {
@@ -60,9 +60,9 @@ baseline_commit: 95347c68995121d35cf913d2e00a3e1997045fd9
   }
   ```
   Run frontend codegen to generate `useExtractEventDataFromUrlMutation` (depends on Story 4.2a's schema — see Pre-Coding Approval Gate).
-- [ ] **Task 2 (AC1, AC2, AC3, AC5) — `ai-assisted-correction-trigger.tsx`:** Create `apps/web/src/features/events/ai-assisted-correction-trigger.tsx` (`"use client"`, `apps/web` — GraphQL hook + i18n, not a `packages/ui` primitive, single consumer): renders the "AI-Assisted Correction" button; on click, reveals a URL `Input` (shadcn) + "Extract" button; on Extract, calls `useExtractEventDataFromUrlMutation` (Task 1); while pending, shows a small inline spinner + "Extracting…" text next to the Extract button (Dev Notes "Loader Categorization") and disables the input/button; on a response with `data`, calls the `onExtracted(data: ExtractEventDataFromUrlMutation['extractEventDataFromUrl']['data'])` prop; on a response with `errorCode`, renders the matching inline error string (Dev Notes "i18n Keys") beneath the input; all strings via a `labels` prop object, matching `CorrectionForm`'s own i18n-decoupling precedent (Story 4.1b).
-- [ ] **Task 3 (AC1) — Wire into `correction-dialog.tsx`:** In `apps/web/src/features/events/correction-dialog.tsx` (Story 4.1), pass `headerActions={<AiAssistedCorrectionTrigger labels={...} onExtracted={handleExtracted} />}` to `<CorrectionForm>` (Story 4.1b's slot).
-- [ ] **Task 4 (AC4, AC7) — Extraction merge + source attribution:** In `correction-dialog.tsx`, implement `handleExtracted(data)`:
+- [x] **Task 2 (AC1, AC2, AC3, AC5) — `ai-assisted-correction-trigger.tsx`:** Create `apps/web/src/features/events/ai-assisted-correction-trigger.tsx` (`"use client"`, `apps/web` — GraphQL hook + i18n, not a `packages/ui` primitive, single consumer): renders the "AI-Assisted Correction" button; on click, reveals a URL `Input` (shadcn) + "Extract" button; on Extract, calls `useExtractEventDataFromUrlMutation` (Task 1); while pending, shows a small inline spinner + "Extracting…" text next to the Extract button (Dev Notes "Loader Categorization") and disables the input/button; on a response with `data`, calls the `onExtracted(data: ExtractEventDataFromUrlMutation['extractEventDataFromUrl']['data'])` prop; on a response with `errorCode`, renders the matching inline error string (Dev Notes "i18n Keys") beneath the input; all strings via a `labels` prop object, matching `CorrectionForm`'s own i18n-decoupling precedent (Story 4.1b).
+- [x] **Task 3 (AC1) — Wire into `correction-dialog.tsx`:** In `apps/web/src/features/events/correction-dialog.tsx` (Story 4.1), pass `headerActions={<AiAssistedCorrectionTrigger labels={...} onExtracted={handleExtracted} />}` to `<CorrectionForm>` (Story 4.1b's slot).
+- [x] **Task 4 (AC4, AC7) — Extraction merge + source attribution:** In `correction-dialog.tsx`, implement `handleExtracted(data)`:
   ```ts
   setFormValues((prev) => ({
     ...data,
@@ -71,14 +71,14 @@ baseline_commit: 95347c68995121d35cf913d2e00a3e1997045fd9
   setHasExtracted(true);
   setFormKey((k) => k + 1); // forces CorrectionForm to remount and re-initialize from the new initialValues
   ```
-  Pass `key={formKey}` and `initialValues={formValues}` to `<CorrectionForm>`. `CorrectionForm`'s actual implementation (`packages/ui/src/features/events/CorrectionForm.tsx`, confirmed by direct read — now `review`) seeds every field's local state via `useState(initialValues.<field>)` **once, on mount only**, with no effect syncing later `initialValues` prop changes — so a post-mount pre-fill genuinely requires a remount, confirming the `key`-increment approach is necessary, not just defensive. The component's own `handleSubmit` already copies `mainSchedule.id` from `initialValues.schedules[0].id` onto the submitted payload whenever it's present (`CorrectionForm.tsx:100-102`) — so as long as Task 4's merge preserves that `id` in the `initialValues` passed to the remounted instance, `onSubmit`'s payload automatically carries it forward with no further action needed at submit time.
-- [ ] **Task 5 (AC8) — Analytics:** In `handleExtracted` (Task 4), call `posthog.capture("event_correction_ai_extraction_succeeded", { eventId })`.
-- [ ] **Task 6 (AC9) — i18n:** Add locale keys to `apps/web/locales/en.json`/`id.json` — see Dev Notes "i18n Keys" for the exact key list (new `AiAssistedCorrection` namespace).
-- [ ] **Task 7 — Tests:**
-  - [ ] `apps/web/src/features/events/ai-assisted-correction-trigger.test.tsx` (new, Vitest + Testing Library + `msw`): button reveals the URL input on click; Extract calls the mutation with the pasted URL; pending state disables input/button and shows the loading indicator; a mocked `data` response calls `onExtracted` with the returned fields; each `errorCode` (`NOT_FOUND`, `UNSUPPORTED_PLATFORM`, `NO_API_KEY`, `SCRAPE_FAILED`, `EXTRACTION_FAILED`, `QUOTA_EXHAUSTED`) renders its distinct inline message; `NO_API_KEY`'s message includes a working link to `/settings/api-keys`.
-  - [ ] `apps/web/src/features/events/correction-dialog.test.tsx` (extend, Story 4.1): a mocked extraction success overwrites form fields except the main schedule's `id`; submitting after a successful extraction calls `submitCorrection` with `source: 'ai_assisted'` (regardless of any further manual edits made after extraction — see Dev Notes "Source Attribution"); submitting without ever extracting calls it with `source: 'manual'` (unchanged from Story 4.1's existing behavior).
-  - [ ] E2E: extend `apps/web/e2e/event-correction.spec.ts` (Story 4.1) with an AI-assisted happy path — open the correction dialog, click "AI-Assisted Correction", paste a (mocked) URL, click Extract, assert the form fields are pre-filled, submit, assert the success toast.
-- [ ] **Task 8 — Verification:** Frontend codegen regenerates cleanly against Story 4.2a's schema; `pnpm build`, `pnpm lint`, `pnpm test` (root) pass with no regressions.
+  Pass `key={formKey}` and `initialValues={formValues}` to `<CorrectionForm>`. `CorrectionForm`'s actual implementation (`packages/ui/src/features/events/CorrectionForm.tsx`, confirmed by direct read — now `review`) seeds every field's local state via `useState(initialValues.<field>)` **once, on mount only**, with no effect syncing later `initialValues` prop changes — so a post-mount pre-fill genuinely requires a remount, confirming the `key`-increment approach is necessary, not just defensive. The component's own `handleSubmit` already copies `mainSchedule.id` to `initialValues.schedules[0].id` onto the submitted payload whenever it's present (`CorrectionForm.tsx:100-102`) — so as long as Task 4's merge preserves that `id` in the `initialValues` passed to the remounted instance, `onSubmit`'s payload automatically carries it forward with no further action needed at submit time.
+- [x] **Task 5 (AC8) — Analytics:** In `handleExtracted` (Task 4), call `posthog.capture("event_correction_ai_extraction_succeeded", { eventId })`.
+- [x] **Task 6 (AC9) — i18n:** Add locale keys to `apps/web/locales/en.json`/`id.json` — see Dev Notes "i18n Keys" for the exact key list (new `AiAssistedCorrection` namespace).
+- [x] **Task 7 — Tests:**
+  - [x] `apps/web/src/features/events/ai-assisted-correction-trigger.test.tsx` (new, Vitest + Testing Library + `msw`): button reveals the URL input on click; Extract calls the mutation with the pasted URL; pending state disables input/button and shows the loading indicator; a mocked `data` response calls `onExtracted` with the returned fields; each `errorCode` (`NOT_FOUND`, `UNSUPPORTED_PLATFORM`, `NO_API_KEY`, `SCRAPE_FAILED`, `EXTRACTION_FAILED`, `QUOTA_EXHAUSTED`) renders its distinct inline message; `NO_API_KEY`'s message includes a working link to `/settings/api-keys`.
+  - [x] `apps/web/src/features/events/correction-dialog.test.tsx` (extend, Story 4.1): a mocked extraction success overwrites form fields except the main schedule's `id`; submitting after a successful extraction calls `submitCorrection` with `source: 'ai_assisted'` (regardless of any further manual edits made after extraction — see Dev Notes "Source Attribution"); submitting without ever extracting calls it with `source: 'manual'` (unchanged from Story 4.1's existing behavior).
+  - [x] E2E: extend `apps/web/e2e/event-correction.spec.ts` (Story 4.1) with an AI-assisted happy path — open the correction dialog, click "AI-Assisted Correction", paste a (mocked) URL, click Extract, assert the form fields are pre-filled, submit, assert the success toast.
+- [x] **Task 8 — Verification:** Frontend codegen regenerates cleanly against Story 4.2a's schema; `pnpm build`, `pnpm lint`, `pnpm test` (root) pass with no regressions.
 
 ## Dev Notes
 
@@ -232,14 +232,35 @@ New keys required in `apps/web/locales/en.json` and `id.json`, under a new `AiAs
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Done
 
 ## Dev Agent Record
 
 ### Agent Model Used
+BMad Dev Agent (Cline)
 
 ### Debug Log References
+- Fixed codegen duplicate `ExtractionErrorCode` declaration by adding support in `apps/web/fix-codegen.js`.
+- Fixed next-intl `useTranslations` mock in `correction-dialog.test.tsx` to support `.rich` nested method.
 
 ### Completion Notes List
+- Created `ai-assisted-correction-trigger.tsx` with non-blocking, localized loader and error handling matching `ExtractionErrorCode` values.
+- Integrated trigger component inside `CorrectionForm`'s `headerActions` slot of `correction-dialog.tsx`.
+- Implemented state update in `correction-dialog.tsx` that triggers a remount by incrementing the form key while preserving the main schedule's ID to prevent duplicate inserts on correction submission.
+- Updated form submit mutation payload to send `source: "ai_assisted"` when extraction is used, otherwise `source: "manual"`.
+- Implemented success analytic logging to PostHog under event `event_correction_ai_extraction_succeeded`.
+- Configured translation keys in `en.json` and `id.json` for the new `AiAssistedCorrection` namespace.
+- Authored integration tests for the trigger component and extended the dialog's existing test file.
+- Extended the Playwright E2E correction spec to cover the AI-assisted extraction and submission flow.
 
 ### File List
+- `apps/web/src/features/events/ai-assisted-correction-trigger.tsx`
+- `apps/web/src/features/events/ai-assisted-correction-trigger.test.tsx`
+- `apps/web/src/features/events/corrections.graphql`
+- `apps/web/src/features/events/correction-dialog.tsx`
+- `apps/web/src/features/events/correction-dialog.test.tsx`
+- `apps/web/e2e/event-correction.spec.ts`
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`
+- `apps/web/fix-codegen.js`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BlockingLoader, CorrectionForm, type CorrectionFormLabels, type ValidationErrorItem } from "@festgrid/ui";
@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePostHog } from "@festgrid/analytics";
 import { validateProposedEventCorrection } from "@/lib/validation/proposed-event-correction.schema";
+import Link from "next/link";
+import { AiAssistedCorrectionTrigger } from "./ai-assisted-correction-trigger";
 
 interface CorrectionDialogProps {
   isOpen: boolean;
@@ -43,6 +45,7 @@ interface CorrectionDialogProps {
 
 export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogProps) {
   const t = useTranslations("EventCorrectionForm");
+  const tAi = useTranslations("AiAssistedCorrection");
   const tType = useTranslations("EventType");
   const tCategory = useTranslations("EventCategory");
   const queryClient = useQueryClient();
@@ -65,7 +68,7 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
 
   // Build initial values from event
   const mainSchedule = event.schedules.find((s) => s.isMainSchedule);
-  const initialValues = {
+  const eventInitialValues = {
     eventName: event.eventName,
     types: (event.types || []) as any,
     categories: (event.categories || []) as any,
@@ -89,6 +92,49 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
           },
         ]
       : [],
+  };
+
+  const [formKey, setFormKey] = useState(0);
+  const [formValues, setFormValues] = useState(eventInitialValues);
+  const [hasExtracted, setHasExtracted] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormValues(eventInitialValues);
+      setHasExtracted(false);
+      setFormKey((k) => k + 1);
+    }
+  }, [isOpen, event]);
+
+  const handleExtracted = (data: any) => {
+    setFormValues((prev) => ({
+      ...data,
+      schedules: [
+        {
+          ...data.schedules[0],
+          id: prev.schedules[0]?.id,
+        },
+      ],
+    }));
+    setHasExtracted(true);
+    setFormKey((k) => k + 1);
+    posthog.capture("event_correction_ai_extraction_succeeded", { eventId: event.id });
+  };
+
+  const aiAssistedLabels = {
+    triggerButtonLabel: tAi("triggerButtonLabel") || "AI-Assisted Correction",
+    urlInputLabel: tAi("urlInputLabel") || "Social media post URL",
+    urlInputPlaceholder: tAi("urlInputPlaceholder") || "Paste link here...",
+    extractButtonLabel: tAi("extractButtonLabel") || "Extract",
+    extractingAnnouncement: tAi("extractingAnnouncement") || "Extracting...",
+    errorNotFound: tAi("errorNotFound") || "Not found",
+    errorUnsupportedPlatform: tAi("errorUnsupportedPlatform") || "Unsupported platform",
+    errorNoApiKey: tAi.rich("errorNoApiKey", {
+      link: (chunks) => <Link href="/settings/api-keys" className="underline font-semibold">{chunks}</Link>
+    }) || "No API key",
+    errorScrapeFailed: tAi("errorScrapeFailed") || "Scrape failed",
+    errorExtractionFailed: tAi("errorExtractionFailed") || "Extraction failed",
+    errorQuotaExhausted: tAi("errorQuotaExhausted") || "Quota exhausted",
   };
 
   const labels: CorrectionFormLabels = {
@@ -149,7 +195,7 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
       const response = await submitCorrection({
         eventId: event.id,
         proposedData,
-        source: CorrectionSource.Manual,
+        source: hasExtracted ? CorrectionSource.AiAssisted : CorrectionSource.Manual,
       });
 
       if (response.submitCorrection.status === "applied") {
@@ -198,7 +244,7 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
         posthog.capture("event_correction_submitted", {
           eventId: event.id,
           correctionId: response.submitCorrection.id,
-          source: "manual",
+          source: hasExtracted ? "ai_assisted" : "manual",
         });
 
         toast.success(t("successToast") || "Correction submitted successfully");
@@ -226,7 +272,8 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
             </DialogTitle>
           </DialogHeader>
           <CorrectionForm
-            initialValues={initialValues}
+            key={formKey}
+            initialValues={formValues}
             typeOptions={typeOptions}
             categoryOptions={categoryOptions}
             validationErrors={validationErrors}
@@ -234,6 +281,12 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
             onCancel={onClose}
             isSubmitting={isPending}
             labels={labels}
+            headerActions={
+              <AiAssistedCorrectionTrigger
+                labels={aiAssistedLabels}
+                onExtracted={handleExtracted}
+              />
+            }
           />
         </DialogContent>
       </Dialog>

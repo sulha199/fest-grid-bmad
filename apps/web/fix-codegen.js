@@ -46,6 +46,7 @@ content = content.replace(/export type ReportSystemErrorInput = \{\r?\n\s+contex
 // Replace duplicate CorrectionSource and CorrectionStatus
 content = content.replace(/export type CorrectionSource =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type CorrectionStatus =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type ExtractionErrorCode =[\s\S]*?;\r?\n/g, '');
 
 // Replace duplicate ProposedEventCorrectionInput and ProposedScheduleCorrectionInput
 content = content.replace(/export type ProposedEventCorrectionInput = \{\r?\n\s+categories\:\s+Array<EventCategory>;\r?\n\s+contactInfo\?\:\s+string[\s\S]*?\};\r?\n/g, '');

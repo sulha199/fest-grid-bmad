@@ -152,6 +152,22 @@ export enum EventType {
   Workshop = 'WORKSHOP'
 }
 
+export type ExtractEventDataFromUrlResult = {
+  __typename?: 'ExtractEventDataFromUrlResult';
+  data?: Maybe<ProposedEventCorrectionData>;
+  errorCode?: Maybe<ExtractionErrorCode>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+};
+
+export enum ExtractionErrorCode {
+  ExtractionFailed = 'EXTRACTION_FAILED',
+  NotFound = 'NOT_FOUND',
+  NoApiKey = 'NO_API_KEY',
+  QuotaExhausted = 'QUOTA_EXHAUSTED',
+  ScrapeFailed = 'SCRAPE_FAILED',
+  UnsupportedPlatform = 'UNSUPPORTED_PLATFORM'
+}
+
 export enum GeolocationProvider {
   Geoapify = 'GEOAPIFY'
 }
@@ -180,6 +196,7 @@ export type Mutation = {
   deleteApiKey: ApiKey;
   deleteUserLocation: UserLocation;
   editAccountDefaultLocation: SocialMediaAccountProfile;
+  extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
@@ -219,6 +236,11 @@ export type MutationDeleteUserLocationArgs = {
 export type MutationEditAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   input: SetAccountDefaultLocationInput;
+};
+
+
+export type MutationExtractEventDataFromUrlArgs = {
+  url: Scalars['String']['input'];
 };
 
 
@@ -282,6 +304,18 @@ export type MutationUpdateUserSettingsArgs = {
   input: UpdateUserSettingsInput;
 };
 
+export type ProposedEventCorrectionData = {
+  __typename?: 'ProposedEventCorrectionData';
+  categories: Array<EventCategory>;
+  contactInfo?: Maybe<Scalars['String']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  eventName: Scalars['String']['output'];
+  location: Scalars['String']['output'];
+  organizerName?: Maybe<Scalars['String']['output']>;
+  schedules: Array<ProposedScheduleCorrectionData>;
+  types: Array<EventType>;
+};
+
 export type ProposedEventCorrectionInput = {
   categories: Array<EventCategory>;
   contactInfo?: InputMaybe<Scalars['String']['input']>;
@@ -291,6 +325,20 @@ export type ProposedEventCorrectionInput = {
   organizerName?: InputMaybe<Scalars['String']['input']>;
   schedules: Array<ProposedScheduleCorrectionInput>;
   types: Array<EventType>;
+};
+
+export type ProposedScheduleCorrectionData = {
+  __typename?: 'ProposedScheduleCorrectionData';
+  eventEndDate?: Maybe<Scalars['String']['output']>;
+  eventEndTime?: Maybe<Scalars['String']['output']>;
+  eventStartDate: Scalars['String']['output'];
+  eventStartTime?: Maybe<Scalars['String']['output']>;
+  id?: Maybe<Scalars['ID']['output']>;
+  isMainSchedule: Scalars['Boolean']['output'];
+  location?: Maybe<Scalars['String']['output']>;
+  performers?: Maybe<Array<Scalars['String']['output']>>;
+  ticketPrice?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
 };
 
 export type ProposedScheduleCorrectionInput = {
@@ -500,6 +548,7 @@ export type ValidationError = {
 
 
 
+
 export type GetSocialMediaAccountProfileByAccountIdQueryVariables = Exact<{
   platform: string;
   accountId: string;
@@ -521,6 +570,13 @@ export type SubmitCorrectionMutationVariables = Exact<{
 
 
 export type SubmitCorrectionMutation = { submitCorrection: { id: string, status: CorrectionStatus, validationErrors: Array<{ field: string, message: string }> | null } };
+
+export type ExtractEventDataFromUrlMutationVariables = Exact<{
+  url: string;
+}>;
+
+
+export type ExtractEventDataFromUrlMutation = { extractEventDataFromUrl: { errorCode: ExtractionErrorCode | null, errorMessage: string | null, data: { eventName: string, types: Array<EventType>, categories: Array<EventCategory>, location: string, organizerName: string | null, contactInfo: string | null, description: string | null, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, title: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null }> } | null } };
 
 export type ToggleFavoriteMutationVariables = Exact<{
   eventId: string | number;
@@ -821,6 +877,52 @@ export const useSubmitCorrectionMutation = <
       {
     mutationKey: ['submitCorrection'],
     mutationFn: (variables?: SubmitCorrectionMutationVariables) => fetcher<SubmitCorrectionMutation, SubmitCorrectionMutationVariables>(client, SubmitCorrectionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const ExtractEventDataFromUrlDocument = new TypedDocumentString(`
+    mutation extractEventDataFromUrl($url: String!) {
+  extractEventDataFromUrl(url: $url) {
+    data {
+      eventName
+      types
+      categories
+      location
+      organizerName
+      contactInfo
+      description
+      schedules {
+        isMainSchedule
+        eventStartDate
+        eventEndDate
+        eventStartTime
+        eventEndTime
+        title
+        performers
+        location
+        ticketPrice
+      }
+    }
+    errorCode
+    errorMessage
+  }
+}
+    `);
+
+export const useExtractEventDataFromUrlMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ExtractEventDataFromUrlMutation, TError, ExtractEventDataFromUrlMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ExtractEventDataFromUrlMutation, TError, ExtractEventDataFromUrlMutationVariables, TContext>(
+      {
+    mutationKey: ['extractEventDataFromUrl'],
+    mutationFn: (variables?: ExtractEventDataFromUrlMutationVariables) => fetcher<ExtractEventDataFromUrlMutation, ExtractEventDataFromUrlMutationVariables>(client, ExtractEventDataFromUrlDocument, variables, headers)(),
     ...options
   }
     )};

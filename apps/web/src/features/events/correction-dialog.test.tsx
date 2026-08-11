@@ -15,10 +15,22 @@ vi.mock("@festgrid/analytics", () => ({
   }),
 }));
 
-vi.mock("next-intl", () => ({
-  useTranslations: (namespace: string) => (key: string) => `${namespace}.${key}`,
-  useLocale: () => "en",
-}));
+vi.mock("next-intl", () => {
+  const useTranslations = (namespace: string) => {
+    const t = (key: string) => `${namespace}.${key}`;
+    t.rich = (key: string, values?: any) => {
+      if (values && values.link) {
+        return values.link(`${namespace}.${key}`);
+      }
+      return `${namespace}.${key}`;
+    };
+    return t;
+  };
+  return {
+    useTranslations,
+    useLocale: () => "en",
+  };
+});
 
 const mockEvent = {
   id: "evt_1",
@@ -209,5 +221,79 @@ describe("CorrectionDialog", () => {
     expect(await screen.findByText("Rejected Event Name")).toBeInTheDocument();
     expect(handleClose).not.toHaveBeenCalled();
     expect(mockPosthogCapture).not.toHaveBeenCalled();
+  });
+
+  it("handles successful AI extraction, overwrites fields except main schedule id, and submits with source: 'ai_assisted'", async () => {
+    const mockExtractionData = {
+      extractEventDataFromUrl: {
+        data: {
+          eventName: "Extracted Event Name",
+          types: ["CONCERT"],
+          categories: ["MUSIC"],
+          location: "Extracted Location",
+          organizerName: "Extracted Org",
+          contactInfo: "extracted@org.com",
+          description: "Extracted Desc",
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: "2026-11-20",
+              eventEndDate: "2026-11-22",
+              eventStartTime: "12:00",
+              eventEndTime: "21:00",
+              title: "Extracted Stage",
+              performers: ["Extracted Artist"],
+              location: "Extracted Sched Loc",
+              ticketPrice: "$99",
+            },
+          ],
+        },
+        errorCode: null,
+        errorMessage: null,
+      },
+    };
+
+    server.use(
+      api.mutation("extractEventDataFromUrl", () => {
+        return HttpResponse.json({
+          data: mockExtractionData,
+        });
+      })
+    );
+
+    renderComponent();
+
+    // Find trigger button and click it
+    const triggerBtn = await screen.findByRole("button", { name: "AiAssistedCorrection.triggerButtonLabel" });
+    fireEvent.click(triggerBtn);
+
+    // Paste URL and extract
+    const input = await screen.findByLabelText("AiAssistedCorrection.urlInputLabel");
+    fireEvent.change(input, { target: { value: "https://instagram.com/p/123" } });
+
+    const extractBtn = screen.getByRole("button", { name: "AiAssistedCorrection.extractButtonLabel" });
+    fireEvent.click(extractBtn);
+
+    // Wait for form fields to be updated
+    await waitFor(() => {
+      expect(document.getElementById("eventName")).toHaveValue("Extracted Event Name");
+      expect(document.getElementById("location")).toHaveValue("Extracted Location");
+    });
+
+    // Now submit the form
+    const form = document.querySelector("form") as HTMLFormElement;
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(handleClose).toHaveBeenCalled();
+      expect(mockPosthogCapture).toHaveBeenCalledWith("event_correction_ai_extraction_succeeded", {
+        eventId: "evt_1",
+      });
+      expect(mockPosthogCapture).toHaveBeenCalledWith("event_correction_submitted", {
+        eventId: "evt_1",
+        correctionId: "corr_123",
+        source: "ai_assisted",
+      });
+    });
   });
 });
