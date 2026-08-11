@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-11T21:10:00Z
+last_updated: 2026-08-11T22:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -584,7 +584,20 @@ development_status:
   # code. Blocked on Stories 4.3/4.3a/4.4a reaching a testable implementation state
   # (Pre-Coding Approval Gate item). No new prerequisite stories split off.
   4-4-handle-event-cancelled-reports: ready-for-dev
-  4-5-handle-dangerous-event-reports: backlog
+  # created 2026-08-11 via bmad-create-story: full context engine pass. Gate 1/3
+  # cited from swept epic-4-readiness.md (4.5 explicitly in stories_covered, no gap).
+  # Gate 2 run fresh via Freya subagent (no gap -- zero UI surface; the "ignore
+  # subsequent reports" moderator action UI is Story 4.7's scope per the sole UX
+  # artifact 06.7 and Story 4.3a's own Out of Scope note). One real reliability
+  # tradeoff resolved with the user via AskUserQuestion: the moderator-alert email
+  # dispatch is awaited inside submitReport (errors swallowed internally by a new
+  # extracted, deps-injectable send-dangerous-report-moderator-alerts.ts function)
+  # rather than matching editAccountDefaultLocation's existing fire-and-forget
+  # pattern, to avoid AWS Lambda's execution-context-freeze drop risk on unawaited
+  # promises -- editAccountDefaultLocation's own existing fire-and-forget code has
+  # the same latent gap, flagged for awareness only, not fixed by this story. No new
+  # prerequisite stories split off.
+  4-5-handle-dangerous-event-reports: ready-for-dev
   4-6-users-reports-page: backlog
   4-7-moderator-items-page: backlog
   # 4-7-moderator-items-page scope extended to include DefaultLocationChangeRequest review (see epics.md)
