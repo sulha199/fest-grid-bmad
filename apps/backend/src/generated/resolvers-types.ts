@@ -41,6 +41,30 @@ export type Coordinates = {
   lng: Scalars['Float']['output'];
 };
 
+export type Correction = {
+  __typename?: 'Correction';
+  createdAt: Scalars['String']['output'];
+  eventId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  proposedData: Scalars['JSON']['output'];
+  resolvedAt?: Maybe<Scalars['String']['output']>;
+  source: CorrectionSource;
+  status: CorrectionStatus;
+  submittedByUserId: Scalars['ID']['output'];
+  validationErrors?: Maybe<Array<ValidationError>>;
+};
+
+export enum CorrectionSource {
+  AiAssisted = 'ai_assisted',
+  Manual = 'manual'
+}
+
+export enum CorrectionStatus {
+  Applied = 'applied',
+  Pending = 'pending',
+  Rejected = 'rejected'
+}
+
 export type CreateApiKeyInput = {
   key: Scalars['String']['input'];
   provider: Scalars['String']['input'];
@@ -154,6 +178,7 @@ export type Mutation = {
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
   setAccountDefaultLocation: SocialMediaAccountProfile;
+  submitCorrection: Correction;
   subscribeToAccount: SubscribeToAccountResult;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
@@ -213,6 +238,13 @@ export type MutationSetAccountDefaultLocationArgs = {
 };
 
 
+export type MutationSubmitCorrectionArgs = {
+  eventId: Scalars['ID']['input'];
+  proposedData: ProposedEventCorrectionInput;
+  source: CorrectionSource;
+};
+
+
 export type MutationSubscribeToAccountArgs = {
   input: SubscribeToAccountInput;
 };
@@ -242,6 +274,30 @@ export type MutationUpdateUserLocationArgs = {
 
 export type MutationUpdateUserSettingsArgs = {
   input: UpdateUserSettingsInput;
+};
+
+export type ProposedEventCorrectionInput = {
+  categories: Array<EventCategory>;
+  contactInfo?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  eventName: Scalars['String']['input'];
+  location: Scalars['String']['input'];
+  organizerName?: InputMaybe<Scalars['String']['input']>;
+  schedules: Array<ProposedScheduleCorrectionInput>;
+  types: Array<EventType>;
+};
+
+export type ProposedScheduleCorrectionInput = {
+  eventEndDate?: InputMaybe<Scalars['String']['input']>;
+  eventEndTime?: InputMaybe<Scalars['String']['input']>;
+  eventStartDate: Scalars['String']['input'];
+  eventStartTime?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['ID']['input']>;
+  isMainSchedule: Scalars['Boolean']['input'];
+  location?: InputMaybe<Scalars['String']['input']>;
+  performers?: InputMaybe<Array<Scalars['String']['input']>>;
+  ticketPrice?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Query = {
@@ -416,6 +472,12 @@ export type UserSettings = {
   updatedAt: Scalars['String']['output'];
 };
 
+export type ValidationError = {
+  __typename?: 'ValidationError';
+  field: Scalars['String']['output'];
+  message: Scalars['String']['output'];
+};
+
 export type WithIndex<TObject> = TObject & Record<string, any>;
 export type ResolversObject<TObject> = WithIndex<TObject>;
 
@@ -492,6 +554,9 @@ export type ResolversTypes = ResolversObject<{
   ApiKey: ResolverTypeWrapper<ApiKey>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   Coordinates: ResolverTypeWrapper<Coordinates>;
+  Correction: ResolverTypeWrapper<Correction>;
+  CorrectionSource: CorrectionSource;
+  CorrectionStatus: CorrectionStatus;
   CreateApiKeyInput: CreateApiKeyInput;
   CreateUserLocationInput: CreateUserLocationInput;
   Event: ResolverTypeWrapper<Event>;
@@ -507,6 +572,8 @@ export type ResolversTypes = ResolversObject<{
   LocationDetails: ResolverTypeWrapper<LocationDetails>;
   Me: ResolverTypeWrapper<Me>;
   Mutation: ResolverTypeWrapper<{}>;
+  ProposedEventCorrectionInput: ProposedEventCorrectionInput;
+  ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
   Query: ResolverTypeWrapper<{}>;
   ReportSystemErrorInput: ReportSystemErrorInput;
   Schedule: ResolverTypeWrapper<Schedule>;
@@ -523,6 +590,7 @@ export type ResolversTypes = ResolversObject<{
   UpdateUserSettingsInput: UpdateUserSettingsInput;
   UserLocation: ResolverTypeWrapper<UserLocation>;
   UserSettings: ResolverTypeWrapper<UserSettings>;
+  ValidationError: ResolverTypeWrapper<ValidationError>;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
@@ -531,6 +599,7 @@ export type ResolversParentTypes = ResolversObject<{
   ApiKey: ApiKey;
   Boolean: Scalars['Boolean']['output'];
   Coordinates: Coordinates;
+  Correction: Correction;
   CreateApiKeyInput: CreateApiKeyInput;
   CreateUserLocationInput: CreateUserLocationInput;
   Event: Event;
@@ -543,6 +612,8 @@ export type ResolversParentTypes = ResolversObject<{
   LocationDetails: LocationDetails;
   Me: Me;
   Mutation: {};
+  ProposedEventCorrectionInput: ProposedEventCorrectionInput;
+  ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
   Query: {};
   ReportSystemErrorInput: ReportSystemErrorInput;
   Schedule: Schedule;
@@ -558,6 +629,7 @@ export type ResolversParentTypes = ResolversObject<{
   UpdateUserSettingsInput: UpdateUserSettingsInput;
   UserLocation: UserLocation;
   UserSettings: UserSettings;
+  ValidationError: ValidationError;
 }>;
 
 export type AddressSuggestionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AddressSuggestion'] = ResolversParentTypes['AddressSuggestion']> = ResolversObject<{
@@ -579,6 +651,19 @@ export type ApiKeyResolvers<ContextType = GraphQLContext, ParentType extends Res
 export type CoordinatesResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Coordinates'] = ResolversParentTypes['Coordinates']> = ResolversObject<{
   lat?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   lng?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type CorrectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Correction'] = ResolversParentTypes['Correction']> = ResolversObject<{
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  eventId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  proposedData?: Resolver<ResolversTypes['JSON'], ParentType, ContextType>;
+  resolvedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  source?: Resolver<ResolversTypes['CorrectionSource'], ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['CorrectionStatus'], ParentType, ContextType>;
+  submittedByUserId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  validationErrors?: Resolver<Maybe<Array<ResolversTypes['ValidationError']>>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -642,6 +727,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
   reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
+  submitCorrection?: Resolver<ResolversTypes['Correction'], ParentType, ContextType, RequireFields<MutationSubmitCorrectionArgs, 'eventId' | 'proposedData' | 'source'>>;
   subscribeToAccount?: Resolver<ResolversTypes['SubscribeToAccountResult'], ParentType, ContextType, RequireFields<MutationSubscribeToAccountArgs, 'input'>>;
   toggleCalendarAddition?: Resolver<ResolversTypes['ToggleCalendarAdditionResult'], ParentType, ContextType, RequireFields<MutationToggleCalendarAdditionArgs, 'eventId' | 'scheduleId'>>;
   toggleFavorite?: Resolver<ResolversTypes['ToggleFavoriteResult'], ParentType, ContextType, RequireFields<MutationToggleFavoriteArgs, 'eventId'>>;
@@ -747,10 +833,17 @@ export type UserSettingsResolvers<ContextType = GraphQLContext, ParentType exten
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type ValidationErrorResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ValidationError'] = ResolversParentTypes['ValidationError']> = ResolversObject<{
+  field?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   AddressSuggestion?: AddressSuggestionResolvers<ContextType>;
   ApiKey?: ApiKeyResolvers<ContextType>;
   Coordinates?: CoordinatesResolvers<ContextType>;
+  Correction?: CorrectionResolvers<ContextType>;
   Event?: EventResolvers<ContextType>;
   EventConnection?: EventConnectionResolvers<ContextType>;
   JSON?: GraphQLScalarType;
@@ -766,5 +859,6 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ToggleFavoriteResult?: ToggleFavoriteResultResolvers<ContextType>;
   UserLocation?: UserLocationResolvers<ContextType>;
   UserSettings?: UserSettingsResolvers<ContextType>;
+  ValidationError?: ValidationErrorResolvers<ContextType>;
 }>;
 

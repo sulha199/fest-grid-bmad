@@ -22,6 +22,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@festgrid/domain": "workspace:*",
     "@festgrid/shared-types": "workspace:*",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.30.10",

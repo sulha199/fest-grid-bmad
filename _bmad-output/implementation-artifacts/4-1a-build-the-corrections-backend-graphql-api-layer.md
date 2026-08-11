@@ -33,12 +33,12 @@ baseline_commit: 83ff4c13fdf07987a8341922c4c2c184c3fa4f24
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1) — Migration:** In `packages/database/schema.ts`, add `correctionSourceEnum = pgEnum('correction_source', ['manual', 'ai_assisted'])`, `correctionStatusEnum = pgEnum('correction_status', ['pending', 'applied', 'rejected'])`, and the `corrections` table (`id`, `eventId` FK `onDelete: 'cascade'`, `submittedByUserId` FK to `users.id` — no cascade, matching `apiKeys`'/`defaultLocationChangeRequests`' "preserve audit trail" precedent — `proposedData: jsonb('proposed_data').$type<ProposedEventCorrection>().notNull()`, `source: correctionSourceEnum('source').notNull()`, `status: correctionStatusEnum('status').default('pending').notNull()`, `createdAt`, `resolvedAt: timestamp(..., { withTimezone: true })` nullable), with an index on `eventId` (`idx_corrections_event_id`, matching `posts.accountIdIdx`'s plain-FK-index convention — `corrections` is not AD-8-bound, no partial-index/`deletedAt` handling needed). Run `pnpm --filter @festgrid/database generate` to produce `0022_*.sql` (next after `0021_new_sunset_bain.sql`) and commit it (AD-3). Purely additive — no existing rows, no backfill.
-- [ ] **Task 2 (AC2, AC3) — Domain types + AJV schema:**
-  - [ ] Add `ProposedScheduleCorrection` and `ProposedEventCorrection` interfaces to `packages/domain/src/events/types.ts` (plain shapes, no `drizzle-orm` import — mirrors `ExtractedEventMessage`'s decoupling precedent): `ProposedScheduleCorrection { id?: string; isMainSchedule: boolean; eventStartDate: string; eventEndDate?: string; eventStartTime?: string; eventEndTime?: string; title?: string; performers?: string[]; location?: string; ticketPrice?: string }`; `ProposedEventCorrection { eventName: string; types: EventType[]; categories: EventCategory[]; location: string; organizerName?: string; contactInfo?: string; description?: string; schedules: ProposedScheduleCorrection[] }`. Export both from `packages/domain/src/events/index.ts`.
-  - [ ] Create `apps/backend/src/validation/proposed-event-correction.schema.ts` exporting `proposedEventCorrectionSchema: JSONSchemaType<ProposedEventCorrection>`, mirroring `extracted-event.schema.ts`'s style, with `eventName`/`location` `minLength: 1` and `schedules` `minItems: 1` (the residual constraints GraphQL's SDL can't express — see Dev Notes "AJV + Domain Split Rationale").
-- [ ] **Task 3 (AC4) — Pure consistency-check function:** Create `packages/domain/src/events/validate-correction-consistency.ts` exporting `CorrectionConsistencyError { field: string; message: string }`, `isScheduleLocationConsistent(eventLocation: string, scheduleLocation: string): boolean` (case-insensitive substring containment), and `validateCorrectionConsistency(data: ProposedEventCorrection): CorrectionConsistencyError[]` implementing AC4(a)-(d). Add `validate-correction-consistency.test.ts` (`node:test`, no DB, 100% coverage): end-date-before-start-date flagged/not-flagged; end-time-before-start-time flagged only when dates match (or end date absent) and not flagged across different dates; zero/two-or-more main schedules flagged, exactly one passes; consistent/inconsistent schedule locations (substring match, case-insensitivity, absent `schedule.location` skips the check); multiple simultaneous errors across multiple schedules all collected (not short-circuited). Export both from `packages/domain/src/events/index.ts`.
-- [ ] **Task 4 (AC1, AC2) — GraphQL schema:** Create `apps/backend/src/schema/corrections.graphql`:
+- [x] **Task 1 (AC1) — Migration:** In `packages/database/schema.ts`, add `correctionSourceEnum = pgEnum('correction_source', ['manual', 'ai_assisted'])`, `correctionStatusEnum = pgEnum('correction_status', ['pending', 'applied', 'rejected'])`, and the `corrections` table (`id`, `eventId` FK `onDelete: 'cascade'`, `submittedByUserId` FK to `users.id` — no cascade, matching `apiKeys`'/`defaultLocationChangeRequests`' "preserve audit trail" precedent — `proposedData: jsonb('proposed_data').$type<ProposedEventCorrection>().notNull()`, `source: correctionSourceEnum('source').notNull()`, `status: correctionStatusEnum('status').default('pending').notNull()`, `createdAt`, `resolvedAt: timestamp(..., { withTimezone: true })` nullable), with an index on `eventId` (`idx_corrections_event_id`, matching `posts.accountIdIdx`'s plain-FK-index convention — `corrections` is not AD-8-bound, no partial-index/`deletedAt` handling needed). Run `pnpm --filter @festgrid/database generate` to produce `0022_*.sql` (next after `0021_new_sunset_bain.sql`) and commit it (AD-3). Purely additive — no existing rows, no backfill.
+- [x] **Task 2 (AC2, AC3) — Domain types + AJV schema:**
+  - [x] Add `ProposedScheduleCorrection` and `ProposedEventCorrection` interfaces to `packages/domain/src/events/types.ts` (plain shapes, no `drizzle-orm` import — mirrors `ExtractedEventMessage`'s decoupling precedent): `ProposedScheduleCorrection { id?: string; isMainSchedule: boolean; eventStartDate: string; eventEndDate?: string; eventStartTime?: string; eventEndTime?: string; title?: string; performers?: string[]; location?: string; ticketPrice?: string }`; `ProposedEventCorrection { eventName: string; types: EventType[]; categories: EventCategory[]; location: string; organizerName?: string; contactInfo?: string; description?: string; schedules: ProposedScheduleCorrection[] }`. Export both from `packages/domain/src/events/index.ts`.
+  - [x] Create `apps/backend/src/validation/proposed-event-correction.schema.ts` exporting `proposedEventCorrectionSchema: JSONSchemaType<ProposedEventCorrection>`, mirroring `extracted-event.schema.ts`'s style, with `eventName`/`location` `minLength: 1` and `schedules` `minItems: 1` (the residual constraints GraphQL's SDL can't express — see Dev Notes "AJV + Domain Split Rationale").
+- [x] **Task 3 (AC4) — Pure consistency-check function:** Create `packages/domain/src/events/validate-correction-consistency.ts` exporting `CorrectionConsistencyError { field: string; message: string }`, `isScheduleLocationConsistent(eventLocation: string, scheduleLocation: string): boolean` (case-insensitive substring containment), and `validateCorrectionConsistency(data: ProposedEventCorrection): CorrectionConsistencyError[]` implementing AC4(a)-(d). Add `validate-correction-consistency.test.ts` (`node:test`, no DB, 100% coverage): end-date-before-start-date flagged/not-flagged; end-time-before-start-time flagged only when dates match (or end date absent) and not flagged across different dates; zero/two-or-more main schedules flagged, exactly one passes; consistent/inconsistent schedule locations (substring match, case-insensitivity, absent `schedule.location` skips the check); multiple simultaneous errors across multiple schedules all collected (not short-circuited). Export both from `packages/domain/src/events/index.ts`.
+- [x] **Task 4 (AC1, AC2) — GraphQL schema:** Create `apps/backend/src/schema/corrections.graphql`:
   ```graphql
   enum CorrectionSource {
     manual
@@ -97,10 +97,10 @@ baseline_commit: 83ff4c13fdf07987a8341922c4c2c184c3fa4f24
   }
   ```
   `Correction.proposedData` stays a `JSON!` output field (echoing back what was stored) rather than a duplicated output type mirroring the input — GraphQL forbids reusing `input` types as output field types, and this field's only purpose is confirmation/debugging, not a typed form re-render.
-- [ ] **Task 5 (AC2, AC5, AC6, AC7) — Resolver:** In `apps/backend/src/schema/resolvers.ts`:
-  - [ ] Import `corrections` from `@festgrid/database`, `inArray` from `drizzle-orm` (add to the existing `eq, count, sql, asc, and, exists, desc` import), `compileValidator` (already imported), `proposedEventCorrectionSchema`, and `validateCorrectionConsistency`/`ProposedEventCorrection`/`ProposedScheduleCorrection` from `@festgrid/domain/events`.
-  - [ ] `const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);` at module scope (matches `validateReportSystemError`'s precedent).
-  - [ ] Add `submitCorrection: async (_: any, { eventId, proposedData, source }: any, context: any) => { ... }` to the `Mutation` resolver map:
+- [x] **Task 5 (AC2, AC5, AC6, AC7) — Resolver:** In `apps/backend/src/schema/resolvers.ts`:
+  - [x] Import `corrections` from `@festgrid/database`, `inArray` from `drizzle-orm` (add to the existing `eq, count, sql, asc, and, exists, desc` import), `compileValidator` (already imported), `proposedEventCorrectionSchema`, and `validateCorrectionConsistency`/`ProposedEventCorrection`/`ProposedScheduleCorrection` from `@festgrid/domain/events`.
+  - [x] `const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);` at module scope (matches `validateReportSystemError`'s precedent).
+  - [x] Add `submitCorrection: async (_: any, { eventId, proposedData, source }: any, context: any) => { ... }` to the `Mutation` resolver map:
     1. `requireAuth(context)`.
     2. Look up `events` by `eventId`; if not found, throw `GraphQLError('Event not found', { extensions: { code: 'NOT_FOUND' } })` (AC2).
     3. Run `validateProposedEventCorrection(proposedData)`; collect any AJV errors (`validateProposedEventCorrection.errors`) into a `validationErrors: { field: string; message: string }[]` array (AC3), mapping each AJV error's `instancePath` (e.g. `/eventName`, `/schedules/0/eventStartDate`) to a `field` value by stripping the leading `/` and converting remaining `/` to `.`/`[]` array-index notation (e.g. `schedules[0].eventStartDate`); an empty `instancePath` (a top-level `required` error) falls back to `error.params.missingProperty` as the field.
@@ -108,14 +108,14 @@ baseline_commit: 83ff4c13fdf07987a8341922c4c2c184c3fa4f24
     5. If AJV passed, check every `proposedData.schedules[].id` (where present) belongs to a `schedules` row with `eventId` matching the argument (via `inArray` + `and(eq(...))`); append `{ field: 'schedules[<index>].id', message: '...' }` for any that don't (AC5), where `<index>` is that entry's position in `proposedData.schedules`.
     6. If `validationErrors.length > 0`: insert a `corrections` row with `status: 'rejected'`, `resolvedAt: new Date()`, and return it with the computed `validationErrors` (AC7) — do not touch `events`/`schedules`.
     7. Else, inside `db.transaction(async (tx) => { ... })`: update `events` (`eventName`, `types`, `categories`, `location`, `organizerName`, `contactInfo`, `description`); for each `proposedData.schedules` entry, `tx.update(schedules)...where(and(eq(schedules.id, id), eq(schedules.eventId, eventId)))` if it has an `id`, else `tx.insert(schedules).values({ ...fields, eventId })`; insert a `corrections` row with `status: 'applied'`, `resolvedAt: new Date()`; return it with `validationErrors: []` (AC6).
-  - [ ] Serialize `createdAt`/`resolvedAt` to ISO strings on the returned object, matching `updateUserSettings`'s existing `.toISOString()` precedent.
-- [ ] **Task 6 (AC1–AC8) — Tests:** Create `apps/backend/src/schema/corrections.test.ts` (real local DB, `graphql-yoga` `createSchema`/`createYoga`, mirroring `system-errors.test.ts`'s harness and `favorites-and-calendar.test.ts`'s real-DB seed/cleanup pattern): unauthenticated call rejected `UNAUTHENTICATED`; unknown `eventId` rejected `NOT_FOUND`, no `corrections` row inserted; a structurally-invalid `proposedData` (e.g. empty `eventName`) returns `status: 'rejected'` with a `validationErrors` entry whose `field` is `'eventName'`, `events` unchanged; a structurally-valid but inconsistent `proposedData` (end date before start date; two main schedules; mismatched schedule location) each independently return `status: 'rejected'` with the specific expected `{ field, message }`, `events`/`schedules` unchanged; a schedule `id` from a different event is rejected with a `field: 'schedules[0].id'` ownership error; a fully valid `proposedData` returns `status: 'applied'`, `validationErrors: []`, and `events`/`schedules` rows are verified actually updated (including a new schedule inserted for an entry with no `id`, and an existing schedule preserved when omitted from the array).
-- [ ] **Task 7 — Codegen + Verification (AC1–AC8):**
-  - [ ] `pnpm --filter backend codegen` to regenerate `apps/backend/src/generated/resolvers-types.ts` against the new `corrections.graphql` schema.
-  - [ ] `pnpm --filter @festgrid/database generate` output reviewed: one additive migration, no drops/renames.
-  - [ ] `pnpm --filter @festgrid/domain build && pnpm --filter @festgrid/domain test` — 100% coverage maintained, including `validate-correction-consistency.ts`.
-  - [ ] `pnpm --filter backend test` — new `corrections.test.ts` passes; all existing `apps/backend` suites remain unmodified and passing.
-  - [ ] `pnpm build`, `pnpm lint`, `pnpm test` (root): full suite, no regressions.
+  - [x] Serialize `createdAt`/`resolvedAt` to ISO strings on the returned object, matching `updateUserSettings`'s existing `.toISOString()` precedent.
+- [x] **Task 6 (AC1–AC8) — Tests:** Create `apps/backend/src/schema/corrections.test.ts` (real local DB, `graphql-yoga` `createSchema`/`createYoga`, mirroring `system-errors.test.ts`'s harness and `favorites-and-calendar.test.ts`'s real-DB seed/cleanup pattern): unauthenticated call rejected `UNAUTHENTICATED`; unknown `eventId` rejected `NOT_FOUND`, no `corrections` row inserted; a structurally-invalid `proposedData` (e.g. empty `eventName`) returns `status: 'rejected'` with a `validationErrors` entry whose `field` is `'eventName'`, `events` unchanged; a structurally-valid but inconsistent `proposedData` (end date before start date; two main schedules; mismatched schedule location) each independently return `status: 'rejected'` with the specific expected `{ field, message }`, `events`/`schedules` unchanged; a schedule `id` from a different event is rejected with a `field: 'schedules[0].id'` ownership error; a fully valid `proposedData` returns `status: 'applied'`, `validationErrors: []`, and `events`/`schedules` rows are verified actually updated (including a new schedule inserted for an entry with no `id`, and an existing schedule preserved when omitted from the array).
+- [x] **Task 7 — Codegen + Verification (AC1–AC8):**
+  - [x] `pnpm --filter backend codegen` to regenerate `apps/backend/src/generated/resolvers-types.ts` against the new `corrections.graphql` schema.
+  - [x] `pnpm --filter @festgrid/database generate` output reviewed: one additive migration, no drops/renames.
+  - [x] `pnpm --filter @festgrid/domain build && pnpm --filter @festgrid/domain test` — 100% coverage maintained, including `validate-correction-consistency.ts`.
+  - [x] `pnpm --filter backend test` — new `corrections.test.ts` passes; all existing `apps/backend` suites remain unmodified and passing.
+  - [x] `pnpm build`, `pnpm lint`, `pnpm test` (root): full suite, no regressions.
 
 ## Dev Notes
 
@@ -260,23 +260,43 @@ AC1's `status` enum includes `pending` (matching the `reports`/`defaultLocationC
 
 ## Definition of Done
 
-- [ ] All 8 Acceptance Criteria satisfied.
-- [ ] `validate-correction-consistency.test.ts` (new) passing with 100% coverage.
-- [ ] `corrections.test.ts` (new) passing, covering every AC3–AC7 branch.
-- [ ] `pnpm build`, `pnpm lint`, `pnpm test` pass at the repo root with no regressions.
-- [ ] New Drizzle migration generated, reviewed, and committed (confirmed additive-only — see Data Type Compatibility).
-- [ ] `apps/backend` codegen regenerated and committed.
+- [x] All 8 Acceptance Criteria satisfied.
+- [x] `validate-correction-consistency.test.ts` (new) passing with 100% coverage.
+- [x] `corrections.test.ts` (new) passing, covering every AC3–AC7 branch.
+- [x] `pnpm build`, `pnpm lint`, `pnpm test` pass at the repo root with no regressions.
+- [x] New Drizzle migration generated, reviewed, and committed (confirmed additive-only — see Data Type Compatibility).
+- [x] `apps/backend` codegen regenerated and committed.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed
 
 ## Dev Agent Record
 
 ### Agent Model Used
+BMad AI Developer
 
 ### Debug Log References
+- Generated DB migration '0022_sad_warbound.sql'
+- Completed Task 1, 2, 3, 4, 5, 6, 7
 
 ### Completion Notes List
+- Successfully added 'corrections' table and associated enums 'correction_source', 'correction_status' to schema.ts and generated local Drizzle migration
+- Created ProposedEventCorrection and ProposedScheduleCorrection TypeScript interfaces, compiled AJV validation schema proposed-event-correction.schema.ts
+- Implemented robust, pure consistency checker function validateCorrectionConsistency in domain package
+- Exposed submitCorrection mutation via GraphQL and implemented its resolver including required auth guards, AJV schema validations, domain consistency checks, ID-ownership checks, transaction-bound DB persistence, and structured validation error lists
+- Verified and fully validated through 100%-covered domain test suite and real-DB integration test suites in apps/backend/src/schema/corrections.test.ts
 
 ### File List
+- `packages/database/schema.ts` (modified)
+- `packages/database/migrations/0022_sad_warbound.sql` (new)
+- `packages/domain/src/events/types.ts` (modified)
+- `packages/domain/src/events/index.ts` (modified)
+- `packages/domain/src/events/validate-correction-consistency.ts` (new)
+- `packages/domain/src/events/validate-correction-consistency.test.ts` (new)
+- `apps/backend/src/validation/proposed-event-correction.schema.ts` (new)
+- `apps/backend/src/schema/corrections.graphql` (new)
+- `apps/backend/src/schema/resolvers.ts` (modified)
+- `apps/backend/src/generated/resolvers-types.ts` (regenerated via codegen)
+- `apps/backend/src/schema/corrections.test.ts` (new)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified)

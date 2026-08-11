@@ -2,6 +2,7 @@ import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePreci
 import { relations, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { LocationDetails } from '@festgrid/shared-types';
+import type { ProposedEventCorrection } from '@festgrid/domain/events';
 
 const generateSlug = () => randomBytes(6).toString('hex');
 
@@ -31,6 +32,9 @@ export const geolocationQueryTypeEnum = pgEnum('geolocation_query_type', ['GEOCO
 export const defaultLocationChangeStatusEnum = pgEnum('default_location_change_status', ['PENDING_REVIEW', 'ACCEPTED', 'REVERTED']);
 
 export const scheduleTimezoneStatusEnum = pgEnum('schedule_timezone_status', ['RESOLVED', 'NEEDS_CLARIFICATION']);
+
+export const correctionSourceEnum = pgEnum('correction_source', ['manual', 'ai_assisted']);
+export const correctionStatusEnum = pgEnum('correction_status', ['pending', 'applied', 'rejected']);
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -359,6 +363,30 @@ export const defaultLocationChangeRequestsRelations = relations(defaultLocationC
   }),
   reviewedByModerator: one(users, {
     fields: [defaultLocationChangeRequests.reviewedByModeratorId],
+    references: [users.id],
+  }),
+}));
+
+export const corrections = pgTable('corrections', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  submittedByUserId: uuid('submitted_by_user_id').references(() => users.id).notNull(),
+  proposedData: jsonb('proposed_data').$type<ProposedEventCorrection>().notNull(),
+  source: correctionSourceEnum('source').notNull(),
+  status: correctionStatusEnum('status').default('pending').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+}, (t) => ({
+  eventIdIdx: index('idx_corrections_event_id').on(t.eventId),
+}));
+
+export const correctionsRelations = relations(corrections, ({ one }) => ({
+  event: one(events, {
+    fields: [corrections.eventId],
+    references: [events.id],
+  }),
+  submittedByUser: one(users, {
+    fields: [corrections.submittedByUserId],
     references: [users.id],
   }),
 }));

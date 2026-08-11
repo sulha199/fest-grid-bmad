@@ -489,7 +489,7 @@ development_status:
   # a pure, 100%-covered packages/domain function. No new prerequisite stories split
   # off (validationErrors is a request-time-computed GraphQL field, not a persisted
   # column, per AC1's exhaustive column list).
-  4-1a-build-the-corrections-backend-graphql-api-layer: in-progress
+  4-1a-build-the-corrections-backend-graphql-api-layer: review
   # added 2026-08-11 via bmad-create-story Gate 2 finding while drafting Story 4.1:
   # the correction form is a confirmed 2-consumer reusable component (Story 4.1's
   # manual entry, Story 4.2's AI-assisted pre-fill extending the same form instance

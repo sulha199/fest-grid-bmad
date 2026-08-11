@@ -1,9 +1,9 @@
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth } from '../lib/auth/context.js';
-import { eq, count, sql, asc, and, exists, desc } from 'drizzle-orm';
+import { eq, count, sql, asc, and, exists, desc, inArray } from 'drizzle-orm';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
@@ -11,17 +11,29 @@ import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user
 import { resolveLocation, getAddressPredictions } from '../lib/geolocation/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
-import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS } from '@festgrid/domain/events';
+import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection } from '@festgrid/domain/events';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError } from '@festgrid/domain';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { encryptApiKey } from '../lib/ai-gateway/kms.js';
 import { compileValidator } from '../validation/validate.js';
 import { reportSystemErrorSchema } from '../validation/report-system-error.schema.js';
+import { proposedEventCorrectionSchema } from '../validation/proposed-event-correction.schema.js';
 import { sendTemplatedEmail } from '../lib/email/adapter.js';
 import { loadBackendEnv } from '../env.js';
 
 const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema);
+const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);
+
+function formatAjvInstancePath(instancePath: string, missingProperty?: string): string {
+  if (!instancePath) {
+    return missingProperty || '';
+  }
+  let path = instancePath.startsWith('/') ? instancePath.slice(1) : instancePath;
+  path = path.replace(/\/(\d+)/g, '[$1]');
+  path = path.replace(/\//g, '.');
+  return path;
+}
 
 function formatLocationDetails(details: any): any {
   if (!details) return null;
@@ -719,6 +731,142 @@ export const resolvers: Resolvers = {
       }
 
       return true;
+    },
+    submitCorrection: async (_: any, { eventId, proposedData, source }: any, context: any) => {
+      const authUser = requireAuth(context);
+
+      // 1. Look up event
+      const eventRows = await db.select().from(events).where(eq(events.id, eventId));
+      if (eventRows.length === 0) {
+        throw new GraphQLError('Event not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const validationErrors: { field: string; message: string }[] = [];
+
+      // 2. AJV pass
+      const valid = validateProposedEventCorrection(proposedData);
+      if (!valid && validateProposedEventCorrection.errors) {
+        for (const error of validateProposedEventCorrection.errors) {
+          const field = formatAjvInstancePath(error.instancePath, error.params?.missingProperty as string);
+          validationErrors.push({
+            field,
+            message: error.message || 'Validation error'
+          });
+        }
+      }
+
+      // 3. Consistency pass (only if AJV passed)
+      if (validationErrors.length === 0) {
+        const consistencyErrors = validateCorrectionConsistency(proposedData);
+        validationErrors.push(...consistencyErrors);
+      }
+
+      // 4. Schedule ownership check (only if AJV passed)
+      if (validationErrors.length === 0) {
+        const ids = proposedData.schedules.map((s: any) => s.id).filter((id: any): id is string => !!id);
+        if (ids.length > 0) {
+          const existingSchedules = await db.select()
+            .from(schedules)
+            .where(and(eq(schedules.eventId, eventId), inArray(schedules.id, ids)));
+          const existingIds = new Set(existingSchedules.map((s) => s.id));
+
+          proposedData.schedules.forEach((s: any, index: number) => {
+            if (s.id && !existingIds.has(s.id)) {
+              validationErrors.push({
+                field: `schedules[${index}].id`,
+                message: `Schedule ID "${s.id}" does not belong to this event`,
+              });
+            }
+          });
+        }
+      }
+
+      // 5. If rejected
+      if (validationErrors.length > 0) {
+        const [inserted] = await db.insert(corrections)
+          .values({
+            eventId,
+            submittedByUserId: authUser.userId,
+            proposedData,
+            source,
+            status: 'rejected',
+            resolvedAt: new Date(),
+          })
+          .returning();
+
+        return {
+          ...inserted,
+          createdAt: inserted.createdAt.toISOString(),
+          resolvedAt: inserted.resolvedAt ? inserted.resolvedAt.toISOString() : null,
+          validationErrors,
+        } as any;
+      }
+
+      // 6. If applied (inside transaction)
+      const correction = await db.transaction(async (tx) => {
+        // Update event
+        await tx.update(events)
+          .set({
+            eventName: proposedData.eventName,
+            types: proposedData.types,
+            categories: proposedData.categories,
+            location: proposedData.location,
+            organizerName: proposedData.organizerName || null,
+            contactInfo: proposedData.contactInfo || null,
+            description: proposedData.description || null,
+            updatedAt: new Date(),
+          })
+          .where(eq(events.id, eventId));
+
+        // Update/insert schedules
+        for (const s of proposedData.schedules) {
+          const fields = {
+            isMainSchedule: s.isMainSchedule,
+            eventStartDate: s.eventStartDate,
+            eventEndDate: s.eventEndDate || null,
+            eventStartTime: s.eventStartTime || null,
+            eventEndTime: s.eventEndTime || null,
+            title: s.title || null,
+            performers: s.performers || null,
+            location: s.location || null,
+            ticketPrice: s.ticketPrice || null,
+            updatedAt: new Date(),
+          };
+
+          if (s.id) {
+            await tx.update(schedules)
+              .set(fields)
+              .where(and(eq(schedules.id, s.id), eq(schedules.eventId, eventId)));
+          } else {
+            await tx.insert(schedules)
+              .values({
+                ...fields,
+                eventId,
+              });
+          }
+        }
+
+        // Insert applied correction row
+        const [inserted] = await tx.insert(corrections)
+          .values({
+            eventId,
+            submittedByUserId: authUser.userId,
+            proposedData,
+            source,
+            status: 'applied',
+            resolvedAt: new Date(),
+          })
+          .returning();
+
+        return inserted;
+      });
+
+      return {
+        ...correction,
+        createdAt: correction.createdAt.toISOString(),
+        resolvedAt: correction.resolvedAt ? correction.resolvedAt.toISOString() : null,
+        validationErrors: [],
+      } as any;
     }
   },
   Query: {

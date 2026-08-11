@@ -1,0 +1,55 @@
+enum CorrectionSource {
+  manual
+  ai_assisted
+}
+
+enum CorrectionStatus {
+  pending
+  applied
+  rejected
+}
+
+input ProposedScheduleCorrectionInput {
+  id: ID
+  isMainSchedule: Boolean!
+  eventStartDate: String!
+  eventEndDate: String
+  eventStartTime: String
+  eventEndTime: String
+  title: String
+  performers: [String!]
+  location: String
+  ticketPrice: String
+}
+
+input ProposedEventCorrectionInput {
+  eventName: String!
+  types: [EventType!]!
+  categories: [EventCategory!]!
+  location: String!
+  organizerName: String
+  contactInfo: String
+  description: String
+  schedules: [ProposedScheduleCorrectionInput!]!
+}
+
+type ValidationError {
+  field: String!
+  message: String!
+}
+
+type Correction {
+  id: ID!
+  eventId: ID!
+  submittedByUserId: ID!
+  proposedData: JSON!
+  source: CorrectionSource!
+  status: CorrectionStatus!
+  validationErrors: [ValidationError!]
+  createdAt: String!
+  resolvedAt: String
+}
+
+extend type Mutation {
+  submitCorrection(eventId: ID!, proposedData: ProposedEventCorrectionInput!, source: CorrectionSource!): Correction!
+}

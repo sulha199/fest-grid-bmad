@@ -91,3 +91,27 @@ export interface ScheduleInsertValues {
   timezone?: string | null;
   timezoneStatus?: ScheduleTimezoneStatus | null;
 }
+
+export interface ProposedScheduleCorrection {
+  id?: string;
+  isMainSchedule: boolean;
+  eventStartDate: string;
+  eventEndDate?: string;
+  eventStartTime?: string;
+  eventEndTime?: string;
+  title?: string;
+  performers?: string[];
+  location?: string;
+  ticketPrice?: string;
+}
+
+export interface ProposedEventCorrection {
+  eventName: string;
+  types: EventType[];
+  categories: EventCategory[];
+  location: string;
+  organizerName?: string;
+  contactInfo?: string;
+  description?: string;
+  schedules: ProposedScheduleCorrection[];
+}
