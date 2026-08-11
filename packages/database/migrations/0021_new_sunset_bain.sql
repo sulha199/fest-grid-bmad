@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "last_quota_warning_email_sent_at" timestamp with time zone;

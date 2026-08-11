@@ -366,6 +366,7 @@ export type Subscription = {
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   isNewlyAdded: Scalars['Boolean']['output'];
+  pendingExtractionCount: Scalars['Int']['output'];
 };
 
 export type ToggleCalendarAdditionResult = {
@@ -709,6 +710,7 @@ export type SubscriptionResolvers<ContextType = GraphQLContext, ParentType exten
   createdAt?: SubscriptionResolver<ResolversTypes['String'], "createdAt", ParentType, ContextType>;
   id?: SubscriptionResolver<ResolversTypes['ID'], "id", ParentType, ContextType>;
   isNewlyAdded?: SubscriptionResolver<ResolversTypes['Boolean'], "isNewlyAdded", ParentType, ContextType>;
+  pendingExtractionCount?: SubscriptionResolver<ResolversTypes['Int'], "pendingExtractionCount", ParentType, ContextType>;
 }>;
 
 export type ToggleCalendarAdditionResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ToggleCalendarAdditionResult'] = ResolversParentTypes['ToggleCalendarAdditionResult']> = ResolversObject<{

@@ -40,6 +40,7 @@ export const users = pgTable('users', {
   role: userRoleEnum('role').default('user').notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete support
   timezone: text('timezone'),
+  lastQuotaWarningEmailSentAt: timestamp('last_quota_warning_email_sent_at', { withTimezone: true }),
   ...timestamps,
 });
 

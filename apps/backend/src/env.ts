@@ -27,6 +27,9 @@ export interface BackendEnv {
   scraperPricePerThousandItemsUsd: number;
   scraperCapacityThresholdRatio: number;
   scraperUsageCycleDays: number;
+  queueNotificationThresholdDays: number;
+  queueNotificationThresholdCount: number;
+  queueNotificationCooldownDays: number;
 }
 
 export function loadBackendEnv(): BackendEnv {
@@ -104,5 +107,11 @@ export function loadBackendEnv(): BackendEnv {
     scraperCapacityThresholdRatio: parseFloat(process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO || '0.9'),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scraperUsageCycleDays: parseInt(process.env.SCRAPER_USAGE_CYCLE_DAYS || '30', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    queueNotificationThresholdDays: parseInt(process.env.QUEUE_NOTIFICATION_THRESHOLD_DAYS || '3', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    queueNotificationThresholdCount: parseInt(process.env.QUEUE_NOTIFICATION_THRESHOLD_COUNT || '3', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    queueNotificationCooldownDays: parseInt(process.env.QUEUE_NOTIFICATION_COOLDOWN_DAYS || '7', 10),
   };
 }

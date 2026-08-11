@@ -456,7 +456,7 @@ development_status:
   # users.lastQuotaWarningEmailSentAt cooldown column) and no-opt-out scope
   # also confirmed via AskUserQuestion. See epics.md Story 3.10 Amendment and
   # Story 0.27 note.
-  3-10-email-notifications-for-queued-posts: ready-for-dev
+  3-10-email-notifications-for-queued-posts: review
   # regenerated 2026-08-11 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap, 3.11 explicitly covered); Gate 2 run
   # fresh via Freya subagent (no gap -- all reusable UI, e.g. EventDiscoveryPanel,
