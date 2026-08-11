@@ -28,4 +28,5 @@ export class ScraperCapacityExceededError extends Error {
 export interface ScraperAdapter {
   getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]>;
   lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null>;
+  getPostByUrl(url: string): Promise<ScrapedPost | null>;
 }

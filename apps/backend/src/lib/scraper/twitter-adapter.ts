@@ -8,4 +8,8 @@ export const twitterScraperAdapter: ScraperAdapter = {
   async lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null> {
     throw new Error('Twitter/X scraping is not yet implemented');
   },
+
+  async getPostByUrl(url: string): Promise<ScrapedPost | null> {
+    throw new Error('Twitter/X scraping is not yet implemented');
+  },
 };

@@ -148,6 +148,22 @@ export enum EventType {
   Workshop = 'WORKSHOP'
 }
 
+export type ExtractEventDataFromUrlResult = {
+  __typename?: 'ExtractEventDataFromUrlResult';
+  data?: Maybe<ProposedEventCorrectionData>;
+  errorCode?: Maybe<ExtractionErrorCode>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+};
+
+export enum ExtractionErrorCode {
+  ExtractionFailed = 'EXTRACTION_FAILED',
+  NotFound = 'NOT_FOUND',
+  NoApiKey = 'NO_API_KEY',
+  QuotaExhausted = 'QUOTA_EXHAUSTED',
+  ScrapeFailed = 'SCRAPE_FAILED',
+  UnsupportedPlatform = 'UNSUPPORTED_PLATFORM'
+}
+
 export enum GeolocationProvider {
   Geoapify = 'GEOAPIFY'
 }
@@ -176,6 +192,7 @@ export type Mutation = {
   deleteApiKey: ApiKey;
   deleteUserLocation: UserLocation;
   editAccountDefaultLocation: SocialMediaAccountProfile;
+  extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
@@ -215,6 +232,11 @@ export type MutationDeleteUserLocationArgs = {
 export type MutationEditAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   input: SetAccountDefaultLocationInput;
+};
+
+
+export type MutationExtractEventDataFromUrlArgs = {
+  url: Scalars['String']['input'];
 };
 
 
@@ -278,6 +300,18 @@ export type MutationUpdateUserSettingsArgs = {
   input: UpdateUserSettingsInput;
 };
 
+export type ProposedEventCorrectionData = {
+  __typename?: 'ProposedEventCorrectionData';
+  categories: Array<EventCategory>;
+  contactInfo?: Maybe<Scalars['String']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  eventName: Scalars['String']['output'];
+  location: Scalars['String']['output'];
+  organizerName?: Maybe<Scalars['String']['output']>;
+  schedules: Array<ProposedScheduleCorrectionData>;
+  types: Array<EventType>;
+};
+
 export type ProposedEventCorrectionInput = {
   categories: Array<EventCategory>;
   contactInfo?: InputMaybe<Scalars['String']['input']>;
@@ -287,6 +321,20 @@ export type ProposedEventCorrectionInput = {
   organizerName?: InputMaybe<Scalars['String']['input']>;
   schedules: Array<ProposedScheduleCorrectionInput>;
   types: Array<EventType>;
+};
+
+export type ProposedScheduleCorrectionData = {
+  __typename?: 'ProposedScheduleCorrectionData';
+  eventEndDate?: Maybe<Scalars['String']['output']>;
+  eventEndTime?: Maybe<Scalars['String']['output']>;
+  eventStartDate: Scalars['String']['output'];
+  eventStartTime?: Maybe<Scalars['String']['output']>;
+  id?: Maybe<Scalars['ID']['output']>;
+  isMainSchedule: Scalars['Boolean']['output'];
+  location?: Maybe<Scalars['String']['output']>;
+  performers?: Maybe<Array<Scalars['String']['output']>>;
+  ticketPrice?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
 };
 
 export type ProposedScheduleCorrectionInput = {
@@ -566,6 +614,8 @@ export type ResolversTypes = ResolversObject<{
   EventConnection: ResolverTypeWrapper<EventConnection>;
   EventQueryConditionInput: EventQueryConditionInput;
   EventType: EventType;
+  ExtractEventDataFromUrlResult: ResolverTypeWrapper<ExtractEventDataFromUrlResult>;
+  ExtractionErrorCode: ExtractionErrorCode;
   Float: ResolverTypeWrapper<Scalars['Float']['output']>;
   GeolocationProvider: GeolocationProvider;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
@@ -574,7 +624,9 @@ export type ResolversTypes = ResolversObject<{
   LocationDetails: ResolverTypeWrapper<LocationDetails>;
   Me: ResolverTypeWrapper<Me>;
   Mutation: ResolverTypeWrapper<{}>;
+  ProposedEventCorrectionData: ResolverTypeWrapper<ProposedEventCorrectionData>;
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
+  ProposedScheduleCorrectionData: ResolverTypeWrapper<ProposedScheduleCorrectionData>;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
   Query: ResolverTypeWrapper<{}>;
   ReportSystemErrorInput: ReportSystemErrorInput;
@@ -607,6 +659,7 @@ export type ResolversParentTypes = ResolversObject<{
   Event: Event;
   EventConnection: EventConnection;
   EventQueryConditionInput: EventQueryConditionInput;
+  ExtractEventDataFromUrlResult: ExtractEventDataFromUrlResult;
   Float: Scalars['Float']['output'];
   ID: Scalars['ID']['output'];
   Int: Scalars['Int']['output'];
@@ -614,7 +667,9 @@ export type ResolversParentTypes = ResolversObject<{
   LocationDetails: LocationDetails;
   Me: Me;
   Mutation: {};
+  ProposedEventCorrectionData: ProposedEventCorrectionData;
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
+  ProposedScheduleCorrectionData: ProposedScheduleCorrectionData;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
   Query: {};
   ReportSystemErrorInput: ReportSystemErrorInput;
@@ -700,6 +755,13 @@ export type EventConnectionResolvers<ContextType = GraphQLContext, ParentType ex
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type ExtractEventDataFromUrlResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ExtractEventDataFromUrlResult'] = ResolversParentTypes['ExtractEventDataFromUrlResult']> = ResolversObject<{
+  data?: Resolver<Maybe<ResolversTypes['ProposedEventCorrectionData']>, ParentType, ContextType>;
+  errorCode?: Resolver<Maybe<ResolversTypes['ExtractionErrorCode']>, ParentType, ContextType>;
+  errorMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export interface JsonScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['JSON'], any> {
   name: 'JSON';
 }
@@ -727,6 +789,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   deleteApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationDeleteApiKeyArgs, 'action' | 'id'>>;
   deleteUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationDeleteUserLocationArgs, 'action' | 'id'>>;
   editAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationEditAccountDefaultLocationArgs, 'accountId' | 'input'>>;
+  extractEventDataFromUrl?: Resolver<ResolversTypes['ExtractEventDataFromUrlResult'], ParentType, ContextType, RequireFields<MutationExtractEventDataFromUrlArgs, 'url'>>;
   registerFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRegisterFcmTokenArgs, 'token'>>;
   removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
   reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
@@ -738,6 +801,32 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   unregisterFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationUnregisterFcmTokenArgs, 'token'>>;
   updateUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationUpdateUserLocationArgs, 'id' | 'input'>>;
   updateUserSettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType, RequireFields<MutationUpdateUserSettingsArgs, 'input'>>;
+}>;
+
+export type ProposedEventCorrectionDataResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ProposedEventCorrectionData'] = ResolversParentTypes['ProposedEventCorrectionData']> = ResolversObject<{
+  categories?: Resolver<Array<ResolversTypes['EventCategory']>, ParentType, ContextType>;
+  contactInfo?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  location?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  organizerName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  schedules?: Resolver<Array<ResolversTypes['ProposedScheduleCorrectionData']>, ParentType, ContextType>;
+  types?: Resolver<Array<ResolversTypes['EventType']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ProposedScheduleCorrectionDataResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ProposedScheduleCorrectionData'] = ResolversParentTypes['ProposedScheduleCorrectionData']> = ResolversObject<{
+  eventEndDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  eventEndTime?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  eventStartDate?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  eventStartTime?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  isMainSchedule?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  location?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  performers?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  ticketPrice?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
@@ -850,10 +939,13 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Correction?: CorrectionResolvers<ContextType>;
   Event?: EventResolvers<ContextType>;
   EventConnection?: EventConnectionResolvers<ContextType>;
+  ExtractEventDataFromUrlResult?: ExtractEventDataFromUrlResultResolvers<ContextType>;
   JSON?: GraphQLScalarType;
   LocationDetails?: LocationDetailsResolvers<ContextType>;
   Me?: MeResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
+  ProposedEventCorrectionData?: ProposedEventCorrectionDataResolvers<ContextType>;
+  ProposedScheduleCorrectionData?: ProposedScheduleCorrectionDataResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Schedule?: ScheduleResolvers<ContextType>;
   SocialMediaAccountProfile?: SocialMediaAccountProfileResolvers<ContextType>;

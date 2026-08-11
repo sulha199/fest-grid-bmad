@@ -1,0 +1,42 @@
+enum ExtractionErrorCode {
+  NOT_FOUND
+  UNSUPPORTED_PLATFORM
+  NO_API_KEY
+  SCRAPE_FAILED
+  EXTRACTION_FAILED
+  QUOTA_EXHAUSTED
+}
+
+type ProposedScheduleCorrectionData {
+  id: ID
+  isMainSchedule: Boolean!
+  eventStartDate: String!
+  eventEndDate: String
+  eventStartTime: String
+  eventEndTime: String
+  title: String
+  performers: [String!]
+  location: String
+  ticketPrice: String
+}
+
+type ProposedEventCorrectionData {
+  eventName: String!
+  types: [EventType!]!
+  categories: [EventCategory!]!
+  location: String!
+  organizerName: String
+  contactInfo: String
+  description: String
+  schedules: [ProposedScheduleCorrectionData!]!
+}
+
+type ExtractEventDataFromUrlResult {
+  data: ProposedEventCorrectionData
+  errorCode: ExtractionErrorCode
+  errorMessage: String
+}
+
+extend type Mutation {
+  extractEventDataFromUrl(url: String!): ExtractEventDataFromUrlResult!
+}

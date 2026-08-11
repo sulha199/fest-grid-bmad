@@ -22,3 +22,22 @@ export function getPlatformByCode(slug: string): SupportedPlatform | undefined {
 export function getPlatformDisplayName(platform: SupportedPlatform): string {
   return PLATFORM_DISPLAY_NAMES[platform];
 }
+
+export function detectPlatformFromUrl(url: string): SupportedPlatform | null {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    
+    if (hostname === 'instagram.com' || hostname.endsWith('.instagram.com') || hostname === 'instagr.am' || hostname.endsWith('.instagr.am')) {
+      return 'instagram';
+    }
+    
+    if (hostname === 'twitter.com' || hostname.endsWith('.twitter.com') || hostname === 'x.com' || hostname.endsWith('.x.com')) {
+      return 'twitter';
+    }
+    
+    return null;
+  } catch {
+    return null;
+  }
+}

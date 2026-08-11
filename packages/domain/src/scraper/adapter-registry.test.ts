@@ -23,6 +23,11 @@ class FakeScraperAdapter implements ScraperAdapter {
   async lookupAccountProfile(_handleOrUrl: string): Promise<AccountProfileLookupResult | null> {
     return this.profileResult;
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async getPostByUrl(_url: string): Promise<ScrapedPost | null> {
+    return this.postsResult[0] || null;
+  }
 }
 
 test("getScraperAdapter throws for an unregistered platform", () => {

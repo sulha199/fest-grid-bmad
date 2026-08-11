@@ -1,10 +1,19 @@
+import { randomUUID } from 'node:crypto';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
 import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth } from '../lib/auth/context.js';
-import { eq, count, sql, asc, and, exists, desc, inArray } from 'drizzle-orm';
+import { eq, count, sql, asc, and, exists, desc, inArray, or } from 'drizzle-orm';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
+import { getScraperAdapter, detectPlatformFromUrl } from '@festgrid/domain/scraper';
+import { selectApiKey } from '@festgrid/domain/ai-gateway';
+import { mapExtractionPayloadToProposedCorrection } from '@festgrid/domain/events';
+import { callGemini, AiGatewayExhaustedError } from '../lib/ai-gateway/adapter.js';
+import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
+import { buildGeminiExtractionRequest } from '../lib/ai-processor/build-gemini-request.js';
+import { extractedEventSchema } from '../validation/extracted-event.schema.js';
+import { getActiveSubscriberUserIds } from '../lib/subscriptions/get-active-subscriber-user-ids.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
 import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user-settings.js';
@@ -24,6 +33,7 @@ import { loadBackendEnv } from '../env.js';
 
 const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema);
 const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);
+const validateExtractedEvent = compileValidator<any>(extractedEventSchema);
 
 function formatAjvInstancePath(instancePath: string, missingProperty?: string): string {
   if (!instancePath) {
@@ -867,7 +877,159 @@ export const resolvers: Resolvers = {
         resolvedAt: correction.resolvedAt ? correction.resolvedAt.toISOString() : null,
         validationErrors: [],
       } as any;
-    }
+    },
+    extractEventDataFromUrl: async (_: any, { url }: any, context: any) => {
+      const authUser = requireAuth(context);
+
+      // 1. Dual-lookup posts table
+      const existingPostRows = await db
+        .select()
+        .from(posts)
+        .where(or(eq(posts.postUrl, url), eq(posts.originalPostUrl, url)))
+        .limit(1);
+
+      let resultText: string;
+
+      if (existingPostRows.length > 0) {
+        // Existing-post path
+        const post = existingPostRows[0];
+        const message = {
+          postId: post.id,
+          accountId: post.accountId,
+          content: post.content,
+          imageUrl: post.imageUrl ?? undefined,
+          postUrl: post.postUrl,
+          publishedAt: post.publishedAt.toISOString(),
+        };
+
+        const request = await buildGeminiExtractionRequest(message);
+
+        try {
+          const result = await callGemini({
+            ...request,
+            provider: 'gemini',
+            subscriberUserIds: [authUser.userId],
+          });
+          resultText = result.text;
+        } catch (err: any) {
+          if (err instanceof AiGatewayExhaustedError) {
+            // TIER_2 Shared Round Robin Fallback
+            const subscriberUserIds = await getActiveSubscriberUserIds(post.accountId);
+            try {
+              const result = await callGemini({
+                ...request,
+                provider: 'gemini',
+                subscriberUserIds,
+              });
+              resultText = result.text;
+            } catch (fallbackErr: any) {
+              if (fallbackErr instanceof AiGatewayExhaustedError) {
+                return {
+                  errorCode: 'QUOTA_EXHAUSTED',
+                  errorMessage: 'No available Gemini API key to perform this extraction.',
+                };
+              }
+              throw fallbackErr;
+            }
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        // New-post path
+        const platform = detectPlatformFromUrl(url);
+        if (!platform) {
+          return {
+            errorCode: 'UNSUPPORTED_PLATFORM',
+            errorMessage: 'This URL is not from a supported platform.',
+          };
+        }
+
+        // NO_API_KEY Pre-Check
+        const candidates = await fetchCandidateKeys('gemini', [authUser.userId]);
+        const chosenKey = selectApiKey(candidates, 'TIER_1_USER_SPECIFIC');
+        if (!chosenKey) {
+          return {
+            errorCode: 'NO_API_KEY',
+            errorMessage: 'Contribute your own Gemini API key to use this feature.',
+          };
+        }
+
+        const adapter = getScraperAdapter(platform);
+        let scrapedPost;
+        try {
+          scrapedPost = await adapter.getPostByUrl(url);
+          if (!scrapedPost) {
+            return {
+              errorCode: 'SCRAPE_FAILED',
+              errorMessage: 'Could not retrieve content from the provided URL.',
+            };
+          }
+        } catch (err) {
+          return {
+            errorCode: 'SCRAPE_FAILED',
+            errorMessage: 'Could not retrieve content from the provided URL.',
+          };
+        }
+
+        const message = {
+          postId: randomUUID(),
+          accountId: '',
+          content: scrapedPost.content,
+          imageUrl: scrapedPost.imageUrl ?? undefined,
+          postUrl: scrapedPost.postUrl,
+          publishedAt: scrapedPost.publishedAt,
+        };
+
+        const request = await buildGeminiExtractionRequest(message);
+
+        try {
+          const result = await callGemini({
+            ...request,
+            provider: 'gemini',
+            subscriberUserIds: [authUser.userId],
+          });
+          resultText = result.text;
+        } catch (err: any) {
+          if (err instanceof AiGatewayExhaustedError) {
+            return {
+              errorCode: 'QUOTA_EXHAUSTED',
+              errorMessage: 'No available Gemini API key to perform this extraction.',
+            };
+          }
+          throw err;
+        }
+      }
+
+      // Shared response handling
+      let payload: any;
+      try {
+        payload = JSON.parse(resultText);
+      } catch {
+        return {
+          errorCode: 'EXTRACTION_FAILED',
+          errorMessage: 'The extracted content could not be validated.',
+        };
+      }
+
+      const valid = validateExtractedEvent(payload);
+      if (!valid) {
+        return {
+          errorCode: 'EXTRACTION_FAILED',
+          errorMessage: 'The extracted content could not be validated.',
+        };
+      }
+
+      if (payload.isEvent === false) {
+        return {
+          errorCode: 'EXTRACTION_FAILED',
+          errorMessage: 'The linked post does not appear to describe an event.',
+        };
+      }
+
+      const data = mapExtractionPayloadToProposedCorrection(payload);
+      return { data };
+    },
   },
   Query: {
     health: () => true,

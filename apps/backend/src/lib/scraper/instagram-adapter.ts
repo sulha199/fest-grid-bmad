@@ -30,7 +30,62 @@ export function setCallApifyActor(fn: typeof callApifyActor) {
   callApifyActor = fn;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise<T | null>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      resolve(null);
+    }, ms);
+
+    promise
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 export const instagramScraperAdapter: ScraperAdapter = {
+  async getPostByUrl(url: string): Promise<ScrapedPost | null> {
+    const isAvailable = await isProviderCapacityAvailable('apify');
+    if (!isAvailable) {
+      console.warn(`Apify capacity threshold ratio reached. Skipping scrape for URL: ${url}`);
+      return null;
+    }
+
+    const runCall = async (): Promise<ScrapedPost | null> => {
+      const items = await callApifyActor({
+        directUrls: [url],
+        resultsType: 'posts',
+        resultsLimit: 1,
+      });
+
+      if (!items || items.length === 0) {
+        return null;
+      }
+
+      const item = items[0];
+      const publishedAt = item.timestamp || item.pubDate || item.publishedAt || new Date().toISOString();
+      const postUrl = item.url || item.postUrl || `https://www.instagram.com/p/${item.shortCode || item.id || ''}/`;
+
+      const mapped: ScrapedPost = {
+        content: item.caption || item.text || item.description || '',
+        imageUrl: item.displayUrl || item.imageUrl || undefined,
+        postUrl,
+        originalPostUrl: item.url || item.postUrl || undefined,
+        publishedAt,
+      };
+
+      await recordProviderUsage('apify', 1);
+      return mapped;
+    };
+
+    return withTimeout(runCall(), 20000);
+  },
+
   async getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]> {
     const env = loadBackendEnv();
     const isAvailable = await isProviderCapacityAvailable('apify');
