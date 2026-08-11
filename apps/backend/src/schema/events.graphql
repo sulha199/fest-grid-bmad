@@ -77,6 +77,8 @@ type Event {
   imageUrl: String
   sourcePostUrl: String
   originalPostUrl: String
+  organizerName: String
+  contactInfo: String
   updatedAt: String!
   createdAt: String!
   schedules: [Schedule!]!

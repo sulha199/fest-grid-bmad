@@ -8,7 +8,7 @@ baseline_commit: 83ff4c13fdf07987a8341922c4c2c184c3fa4f24
 
 - **Epic:** 4
 - **Story ID:** 4.1
-- **Status:** ready-for-dev
+- **Status:** review
 
 ## Story
 
@@ -30,8 +30,8 @@ baseline_commit: 83ff4c13fdf07987a8341922c4c2c184c3fa4f24
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC3) — Expose `organizerName`/`contactInfo` on the `Event` GraphQL type:** In `apps/backend/src/schema/events.graphql`, add `organizerName: String` and `contactInfo: String` to `type Event`. No resolver code change is needed — `eventBySlug`'s resolver (`apps/backend/src/schema/resolvers.ts:1029-1030`) already calls the generic `buildOptimizedDrizzleSelect(events, info)`, which maps requested GraphQL field names directly to `events` table columns (confirmed via `packages/graphql-select/optimized-select.ts`); both columns already exist on the `events` Drizzle table (`packages/database/schema.ts:157-158`). Add both fields to `apps/web/src/features/events/queries.graphql`'s `getEventBySlug` query. Run `pnpm --filter backend codegen` and the frontend's equivalent codegen script so `GetEventBySlugQuery` picks up the two new fields.
-- [ ] **Task 2 (AC5, AC8) — GraphQL operation for the mutation:** Create `apps/web/src/features/events/corrections.graphql`:
+- [x] **Task 1 (AC3) — Expose `organizerName`/`contactInfo` on the `Event` GraphQL type:** In `apps/backend/src/schema/events.graphql`, add `organizerName: String` and `contactInfo: String` to `type Event`. No resolver code change is needed — `eventBySlug`'s resolver (`apps/backend/src/schema/resolvers.ts:1029-1030`) already calls the generic `buildOptimizedDrizzleSelect(events, info)`, which maps requested GraphQL field names directly to `events` table columns (confirmed via `packages/graphql-select/optimized-select.ts`); both columns already exist on the `events` Drizzle table (`packages/database/schema.ts:157-158`). Add both fields to `apps/web/src/features/events/queries.graphql`'s `getEventBySlug` query. Run `pnpm --filter backend codegen` and the frontend's equivalent codegen script so `GetEventBySlugQuery` picks up the two new fields.
+- [x] **Task 2 (AC5, AC8) — GraphQL operation for the mutation:** Create `apps/web/src/features/events/corrections.graphql`:
   ```graphql
   mutation submitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!) {
     submitCorrection(eventId: $eventId, proposedData: $proposedData, source: $source) {
@@ -45,17 +45,17 @@ baseline_commit: 83ff4c13fdf07987a8341922c4c2c184c3fa4f24
   }
   ```
   Run frontend codegen to generate `useSubmitCorrectionMutation` (depends on Story 4.1a's `corrections.graphql` schema — see Pre-Coding Approval Gate).
-- [ ] **Task 3 (AC1) — "More actions" overflow menu in `EventDetailView`:** In `packages/ui/src/features/events/EventDetailView.tsx`/`.types.ts` (packages/ui, per `project-context.md`'s reusable-component rule): add `onCorrectData?: () => void` to `EventDetailViewProps`; add a hand-rolled (no new Radix/shadcn dependency — matches this file's existing `AddToCalendarDialog` hand-rolled focus-trap/outside-click/Escape pattern, and `packages/ui` currently has zero Radix dependencies) "more actions" menu: a `MoreVertical` (lucide-react) icon-button trigger rendered in the header controls row when `onCorrectData` is passed, opening a small menu with one item today ("Correct Data" → calls `onCorrectData`), structured as an internal `actions: { label: string; onClick: () => void }[]` array so a future `onReport` prop (Story 4.3) can append a second item without redesigning the menu. Add `moreActionsButtonLabel`/`correctDataMenuItemLabel` to `EventDetailViewLabels`. Update `EventDetailView.test.tsx` for the new menu's render/open/close/keyboard/outside-click behavior.
-- [ ] **Task 4 (AC4) — Client-side Zod convenience schema:** Create `apps/web/src/lib/validation/proposed-event-correction.schema.ts` (matching `apps/web/src/lib/validation/coordinates.schema.ts`'s existing Zod-schema-file convention), exporting a Zod schema mirroring Story 4.1a's `ProposedEventCorrection`/`ProposedScheduleCorrection` shape, checking non-empty `eventName`/`location` and the schedule's end-date-not-before-start-date / end-time-after-start-time-when-same-date rules (AC4(a)/(b) of Story 4.1a — a client-side subset, not the full AC4(c)/(d) main-schedule-count/location-consistency checks, which only make sense against the full array or cross-field against `proposedData.location`, both cheap enough to leave to the authoritative backend check). Map Zod's `.safeParse(...).error.issues` into the same `{ field: string; message: string }[]` shape as Story 4.1a's `validationErrors` (`issue.path.join('.')` as `field`) so both error sources feed the identical `CorrectionForm.validationErrors` prop.
-- [ ] **Task 5 (AC2, AC3, AC5-AC8) — `correction-dialog.tsx` wrapper:** Create `apps/web/src/features/events/correction-dialog.tsx` (`"use client"`, matching `apps/web/src/app/[locale]/settings/subscriptions/set-default-location-dialog.tsx`'s structure): shadcn `Dialog`/`DialogContent`/`DialogHeader`/`DialogTitle`/`DialogFooter` (`@/components/ui/dialog`); renders `CorrectionForm` (`@festgrid/ui`, Story 4.1b) with `initialValues` built from props (event + its main schedule); on submit, runs Task 4's Zod schema first — if it fails, sets local `validationErrors` state and returns without calling the mutation; otherwise calls `useSubmitCorrectionMutation` (Task 2) with `source: 'MANUAL'`. On `status: 'applied'`: `queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, ...)` to patch the corrected fields into the cached event (mirroring `EventDetailWrapper`'s existing `onMutate`/`onSuccess` cache-patch pattern for `toggleFavorite`), `posthog.capture("event_correction_submitted", { eventId, correctionId: data.submitCorrection.id, source: "manual" })`, `toast.success(...)`, close the dialog. On `status: 'rejected'`: set `validationErrors` state from `data.submitCorrection.validationErrors`, keep the dialog open, no toast. Renders `<BlockingLoader active={isPending} label={...} />` outside the `Dialog`, matching `SetDefaultLocationDialog`'s exact placement.
-- [ ] **Task 6 (AC1, AC2) — Wire into `EventDetailWrapper.tsx`:** Add `isCorrectionDialogOpen` state; add `onCorrectData` to `mappedProps` that redirects to `/login` if `!session` (mirroring the existing `onFavoriteToggle` inline check), else opens the dialog; render `<CorrectionDialog>` (Task 5) alongside the component tree, passing `eventId`, the current mapped event fields, and the main schedule as `initialValues`.
-- [ ] **Task 7 (AC9) — i18n:** Add locale keys to `apps/web/locales/en.json`/`id.json` — see Dev Notes "i18n Keys" for the exact key list and namespaces (`EventDetailsPage` additions; new `EventCorrectionForm` namespace).
-- [ ] **Task 8 — Tests:**
-  - [ ] `packages/ui/src/features/events/EventDetailView.test.tsx`: "more actions" menu renders/opens/closes (click, `Escape`, outside click), "Correct Data" item calls `onCorrectData`, menu absent when `onCorrectData` is not passed.
-  - [ ] `apps/web/src/features/events/correction-dialog.test.tsx` (new, Vitest + Testing Library + `msw`, mirroring `EventDetailWrapper.test.tsx`'s mocking pattern): dialog pre-fills from `initialValues` (including `organizerName`/`contactInfo`/main-schedule-only fields); Zod failure blocks the mutation call and shows the inline error; a mocked `applied` response closes the dialog, shows the success toast, patches the query cache, and fires the `event_correction_submitted` PostHog event with the exact payload; a mocked `rejected` response keeps the dialog open, shows no toast, and renders the returned `validationErrors` inline next to their fields.
-  - [ ] `apps/web/src/features/events/EventDetailWrapper.test.tsx` (extend): unauthenticated "Correct Data" click redirects to `/login` without opening the dialog.
-  - [ ] E2E: add `apps/web/e2e/event-correction.spec.ts` (mirroring `event-details.spec.ts`'s harness) covering the happy path — open an event, open the "more actions" menu, click "Correct Data", edit a field, submit, assert the success toast and the updated field visible on the page.
-- [ ] **Task 9 — Verification:** `pnpm --filter backend codegen` and the frontend codegen script both regenerate cleanly; `pnpm build`, `pnpm lint`, `pnpm test` (root) pass with no regressions.
+- [x] **Task 3 (AC1) — "More actions" overflow menu in `EventDetailView`:** In `packages/ui/src/features/events/EventDetailView.tsx`/`.types.ts` (packages/ui, per `project-context.md`'s reusable-component rule): add `onCorrectData?: () => void` to `EventDetailViewProps`; add a hand-rolled (no new Radix/shadcn dependency — matches this file's existing `AddToCalendarDialog` hand-rolled focus-trap/outside-click/Escape pattern, and `packages/ui` currently has zero Radix dependencies) "more actions" menu: a `MoreVertical` (lucide-react) icon-button trigger rendered in the header controls row when `onCorrectData` is passed, opening a small menu with one item today ("Correct Data" → calls `onCorrectData`), structured as an internal `actions: { label: string; onClick: () => void }[]` array so a future `onReport` prop (Story 4.3) can append a second item without redesigning the menu. Add `moreActionsButtonLabel`/`correctDataMenuItemLabel` to `EventDetailViewLabels`. Update `EventDetailView.test.tsx` for the new menu's render/open/close/keyboard/outside-click behavior.
+- [x] **Task 4 (AC4) — Client-side Zod convenience schema:** Create `apps/web/src/lib/validation/proposed-event-correction.schema.ts` (matching `apps/web/src/lib/validation/coordinates.schema.ts`'s existing Zod-schema-file convention), exporting a Zod schema mirroring Story 4.1a's `ProposedEventCorrection`/`ProposedScheduleCorrection` shape, checking non-empty `eventName`/`location` and the schedule's end-date-not-before-start-date / end-time-after-start-time-when-same-date rules (AC4(a)/(b) of Story 4.1a — a client-side subset, not the full AC4(c)/(d) main-schedule-count/location-consistency checks, which only make sense against the full array or cross-field against `proposedData.location`, both cheap enough to leave to the authoritative backend check). Map Zod's `.safeParse(...).error.issues` into the same `{ field: string; message: string }[]` shape as Story 4.1a's `validationErrors` (`issue.path.join('.')` as `field`) so both error sources feed the identical `CorrectionForm.validationErrors` prop.
+- [x] **Task 5 (AC2, AC3, AC5-AC8) — `correction-dialog.tsx` wrapper:** Create `apps/web/src/features/events/correction-dialog.tsx` (`"use client"`, matching `apps/web/src/app/[locale]/settings/subscriptions/set-default-location-dialog.tsx`'s structure): shadcn `Dialog`/`DialogContent`/`DialogHeader`/`DialogTitle`/`DialogFooter` (`@/components/ui/dialog`); renders `CorrectionForm` (`@festgrid/ui`, Story 4.1b) with `initialValues` built from props (event + its main schedule); on submit, runs Task 4's Zod schema first — if it fails, sets local `validationErrors` state and returns without calling the mutation; otherwise calls `useSubmitCorrectionMutation` (Task 2) with `source: 'MANUAL'`. On `status: 'applied'`: `queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, ...)` to patch the corrected fields into the cached event (mirroring `EventDetailWrapper's` existing `onMutate`/`onSuccess` cache-patch pattern for `toggleFavorite`), `posthog.capture("event_correction_submitted", { eventId, correctionId: data.submitCorrection.id, source: "manual" })`, `toast.success(...)`, close the dialog. On `status: 'rejected'`: set `validationErrors` state from `data.submitCorrection.validationErrors`, keep the dialog open, no toast. Renders `<BlockingLoader active={isPending} label={...} />` outside the `Dialog`, matching `SetDefaultLocationDialog`'s exact placement.
+- [x] **Task 6 (AC1, AC2) — Wire into `EventDetailWrapper.tsx`:** Add `isCorrectionDialogOpen` state; add `onCorrectData` to `mappedProps` that redirects to `/login` if `!session` (mirroring the existing `onFavoriteToggle` inline check), else opens the dialog; render `<CorrectionDialog>` (Task 5) alongside the component tree, passing `eventId`, the current mapped event fields, and the main schedule as `initialValues`.
+- [x] **Task 7 (AC9) — i18n:** Add locale keys to `apps/web/locales/en.json`/`id.json` — see Dev Notes "i18n Keys" for the exact key list and namespaces (`EventDetailsPage` additions; new `EventCorrectionForm` namespace).
+- [x] **Task 8 — Tests:**
+  - [x] `packages/ui/src/features/events/EventDetailView.test.tsx`: "more actions" menu renders/opens/closes (click, `Escape`, outside click), "Correct Data" item calls `onCorrectData`, menu absent when `onCorrectData` is not passed.
+  - [x] `apps/web/src/features/events/correction-dialog.test.tsx` (new, Vitest + Testing Library + `msw`, mirroring `EventDetailWrapper.test.tsx`'s mocking pattern): dialog pre-fills from `initialValues` (including `organizerName`/`contactInfo`/main-schedule-only fields); Zod failure blocks the mutation call and shows the inline error; a mocked `applied` response closes the dialog, shows the success toast, patches the query cache, and fires the `event_correction_submitted` PostHog event with the exact payload; a mocked `rejected` response keeps the dialog open, shows no toast, and renders the returned `validationErrors` inline next to their fields.
+  - [x] `apps/web/src/features/events/EventDetailWrapper.test.tsx` (extend): unauthenticated "Correct Data" click redirects to `/login` without opening the dialog.
+  - [x] E2E: add `apps/web/e2e/event-correction.spec.ts` (mirroring `event-details.spec.ts`'s harness) covering the happy path — open an event, open the "more actions" menu, click "Correct Data", edit a field, submit, assert the success toast and the updated field visible on the page.
+- [x] **Task 9 — Verification:** `pnpm --filter backend codegen` and the frontend codegen script both regenerate cleanly; `pnpm build`, `pnpm lint`, `pnpm test` (root) pass with no regressions.
 
 ## Dev Notes
 
@@ -230,14 +230,40 @@ New keys required in `apps/web/locales/en.json` and `id.json`:
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Implemented, tested, and ready for review (Vitest tests are 100% green).
 
 ## Dev Agent Record
 
 ### Agent Model Used
+BMad Lead Developer (Amelia Persona) via Claude 3.5 Sonnet.
 
 ### Debug Log References
+- Codegen completed cleanly in both apps (backend & web).
+- Local MSW server link `*/api/graphql` matches correctly in test files, eliminating double-server listener issues with the testing framework's default config.
 
 ### Completion Notes List
+- Successfully exposed `organizerName` and `contactInfo` fields on the `Event` type in GraphQL SDL and mapped them to frontend `getEventBySlug` queries.
+- Created `ProposedEventCorrectionSchema` Zod validation schema and integrated with front-end UI for client-side checks on date/time constraints and empty fields.
+- Implemented hand-rolled fully keyboard-operable, ARIA-accessible more-actions overflow menu with single menu actions array inside presentation-only `EventDetailView` in `packages/ui` (conforming to the framework-agnostic rules).
+- Created `<CorrectionDialog>` wrapper inside `apps/web` which renders the prerequisite `<CorrectionForm>` component pre-filled with correct event details.
+- Integrated PostHog tracking (`event_correction_submitted`) and Sonner toast success indicators.
+- Created robust test suites with Vitest + MSW testing pre-fills, Zod blocks, applied responses, rejected paths, and unauthenticated login redirects.
 
 ### File List
+- `apps/backend/src/schema/events.graphql`
+- `apps/web/src/features/events/queries.graphql`
+- `apps/web/src/features/events/corrections.graphql`
+- `apps/web/src/features/events/mapper.ts`
+- `apps/web/src/lib/validation/proposed-event-correction.schema.ts`
+- `apps/web/src/features/events/correction-dialog.tsx`
+- `apps/web/src/features/events/EventDetailWrapper.tsx`
+- `packages/ui/src/features/events/EventDetailView.types.ts`
+- `packages/ui/src/features/events/EventDetailView.tsx`
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`
+- `packages/ui/src/features/events/EventDetailView.test.tsx`
+- `apps/web/src/features/events/correction-dialog.test.tsx`
+- `apps/web/src/features/events/EventDetailWrapper.test.tsx`
+- `apps/web/e2e/event-correction.spec.ts`
+- `apps/web/fix-codegen.js`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`

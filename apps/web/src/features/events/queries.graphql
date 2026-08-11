@@ -42,6 +42,8 @@ query getEventBySlug($slug: String!) {
     imageUrl
     sourcePostUrl
     originalPostUrl
+    organizerName
+    contactInfo
     isFavorited
     sourceSocialMediaAccountProfile {
       accountId

@@ -22,6 +22,8 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
     addToCalendarDialogTitle: t('addToCalendarDialogTitle'),
     addToCalendarConfirmLabel: t('addToCalendarConfirmLabel'),
     addToCalendarCancelLabel: t('addToCalendarCancelLabel'),
+    moreActionsButtonLabel: t('moreActionsButtonLabel'),
+    correctDataMenuItemLabel: t('correctDataMenuItemLabel'),
   };
 }
 

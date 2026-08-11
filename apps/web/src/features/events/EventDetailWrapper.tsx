@@ -14,6 +14,7 @@ import { useTranslations, useLocale } from "next-intl"
 import { usePostHog } from "@festgrid/analytics"
 import { toast } from "sonner"
 import { ChevronLeft, ChevronRight, Home } from "lucide-react"
+import { CorrectionDialog } from "./correction-dialog"
 
 interface EventDetailWrapperProps {
   slug: string
@@ -26,6 +27,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   const queryClient = useQueryClient()
   const { session } = useAuthSession()
   const [liveMessage, setLiveMessage] = useState("")
+  const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = useState(false)
   const posthog = usePostHog()
   const t = useTranslations("EventDetailsPage")
   const labels = useEventDetailViewLabels()
@@ -248,7 +250,14 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
             toggleFavorite({ eventId })
           }
         },
-        onAddToCalendar: handleAddToCalendar
+        onAddToCalendar: handleAddToCalendar,
+        onCorrectData: () => {
+          if (!session) {
+            router.push("/login")
+            return
+          }
+          setIsCorrectionDialogOpen(true)
+        }
       }
     : null
 
@@ -319,12 +328,30 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   )
 
   if (isModal) {
-    return detailViewContent
+    return (
+      <>
+        {detailViewContent}
+        {isCorrectionDialogOpen && data?.eventBySlug && (
+          <CorrectionDialog
+            isOpen={isCorrectionDialogOpen}
+            onClose={() => setIsCorrectionDialogOpen(false)}
+            event={data.eventBySlug as any}
+          />
+        )}
+      </>
+    )
   }
 
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-8 bg-background border border-gray-100 dark:border-gray-800 rounded-xl my-6 shadow-sm">
       {detailViewContent}
+      {isCorrectionDialogOpen && data?.eventBySlug && (
+        <CorrectionDialog
+          isOpen={isCorrectionDialogOpen}
+          onClose={() => setIsCorrectionDialogOpen(false)}
+          event={data.eventBySlug as any}
+        />
+      )}
     </div>
   )
 }

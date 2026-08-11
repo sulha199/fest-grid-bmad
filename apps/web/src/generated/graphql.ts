@@ -92,6 +92,7 @@ export type CreateUserLocationInput = {
 export type Event = {
   __typename?: 'Event';
   categories?: Maybe<Array<EventCategory>>;
+  contactInfo?: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['String']['output'];
   description?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
@@ -100,6 +101,7 @@ export type Event = {
   isAddedToCalendar: Scalars['Boolean']['output'];
   isFavorited: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
+  organizerName?: Maybe<Scalars['String']['output']>;
   originalPostUrl?: Maybe<Scalars['String']['output']>;
   postId?: Maybe<Scalars['ID']['output']>;
   schedules: Array<Schedule>;
@@ -494,6 +496,10 @@ export type ValidationError = {
 
 
 
+
+
+
+
 export type GetSocialMediaAccountProfileByAccountIdQueryVariables = Exact<{
   platform: string;
   accountId: string;
@@ -506,6 +512,15 @@ export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type MeQuery = { me: { id: string, email: string, role: string } };
+
+export type SubmitCorrectionMutationVariables = Exact<{
+  eventId: string | number;
+  proposedData: ProposedEventCorrectionInput;
+  source: CorrectionSource;
+}>;
+
+
+export type SubmitCorrectionMutation = { submitCorrection: { id: string, status: CorrectionStatus, validationErrors: Array<{ field: string, message: string }> | null } };
 
 export type ToggleFavoriteMutationVariables = Exact<{
   eventId: string | number;
@@ -543,7 +558,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, isFavorited: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, displayName: string, profileImageUrl: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, isFavorited: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, displayName: string, profileImageUrl: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetEventForIcsExportQueryVariables = Exact<{
   id: string | number;
@@ -776,6 +791,40 @@ export const useMeQuery = <
   }
     )};
 
+export const SubmitCorrectionDocument = new TypedDocumentString(`
+    mutation submitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!) {
+  submitCorrection(
+    eventId: $eventId
+    proposedData: $proposedData
+    source: $source
+  ) {
+    id
+    status
+    validationErrors {
+      field
+      message
+    }
+  }
+}
+    `);
+
+export const useSubmitCorrectionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SubmitCorrectionMutation, TError, SubmitCorrectionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SubmitCorrectionMutation, TError, SubmitCorrectionMutationVariables, TContext>(
+      {
+    mutationKey: ['submitCorrection'],
+    mutationFn: (variables?: SubmitCorrectionMutationVariables) => fetcher<SubmitCorrectionMutation, SubmitCorrectionMutationVariables>(client, SubmitCorrectionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
 export const ToggleFavoriteDocument = new TypedDocumentString(`
     mutation toggleFavorite($eventId: ID!) {
   toggleFavorite(eventId: $eventId) {
@@ -914,6 +963,8 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
     imageUrl
     sourcePostUrl
     originalPostUrl
+    organizerName
+    contactInfo
     isFavorited
     sourceSocialMediaAccountProfile {
       accountId

@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } 
 import { EventDetailWrapper } from "./EventDetailWrapper"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { graphql, HttpResponse } from "msw"
-import { setupServer } from "msw/node"
+import { server as globalServer } from "../../../../../packages/testing-config/vitest.setup"
 import { NuqsTestingAdapter } from "nuqs/adapters/testing"
 
 // Mock router and auth session
@@ -58,15 +58,17 @@ let currentMockEvent = {
   schedules: [],
 }
 
+const api = graphql.link("*/api/graphql")
+
 const handlers = [
-  graphql.query("getEventBySlug", ({ query, variables }) => {
+  api.query("getEventBySlug", ({ query, variables }) => {
     return HttpResponse.json({
       data: {
         eventBySlug: { ...currentMockEvent },
       },
     })
   }),
-  graphql.query("getEvents", ({ variables }) => {
+  api.query("getEvents", ({ variables }) => {
     const idCondition = (variables as any)?.query?.conditions?.find((c: any) => c?.field === "id")
     const ids = (idCondition?.value ?? []) as string[]
 
@@ -99,7 +101,7 @@ const handlers = [
       },
     })
   }),
-  graphql.mutation("toggleFavorite", ({ variables }) => {
+  api.mutation("toggleFavorite", ({ variables }) => {
     const { eventId } = variables as any
     if (eventId === "evt_fail") {
       return HttpResponse.json({ errors: [{ message: "Mutation failed" }] })
@@ -113,7 +115,7 @@ const handlers = [
       },
     })
   }),
-  graphql.mutation("toggleCalendarAddition", ({ variables }) => {
+  api.mutation("toggleCalendarAddition", ({ variables }) => {
     const { eventId, scheduleId } = variables as any
     return HttpResponse.json({
       data: {
@@ -127,15 +129,11 @@ const handlers = [
   }),
 ]
 
-const server = setupServer(...handlers)
-
 describe("EventDetailWrapper", () => {
   let queryClient: QueryClient
 
-  beforeAll(() => server.listen({ onUnhandledRequest: "warn" }))
-  afterAll(() => server.close())
-
   beforeEach(() => {
+    globalServer.use(...handlers)
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
@@ -192,7 +190,6 @@ describe("EventDetailWrapper", () => {
   })
 
   afterEach(() => {
-    server.resetHandlers()
     queryClient.clear()
     vi.clearAllMocks()
     document.body.innerHTML = ""
@@ -350,6 +347,22 @@ describe("EventDetailWrapper", () => {
 
     const calBtn = await screen.findByRole("button", { name: "EventDetailsPage.addToCalendarButtonLabel" })
     fireEvent.click(calBtn)
+
+    expect(mockRouterPush).toHaveBeenCalledWith("/login")
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("unauthenticated correct data click redirects to /login and does not open dialog", async () => {
+    mockSession = null
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const moreBtn = await screen.findByRole("button", { name: "EventDetailsPage.moreActionsButtonLabel" })
+    fireEvent.click(moreBtn)
+
+    const correctBtn = await screen.findByRole("menuitem", { name: "EventDetailsPage.correctDataMenuItemLabel" })
+    fireEvent.click(correctBtn)
 
     expect(mockRouterPush).toHaveBeenCalledWith("/login")
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()

@@ -1,0 +1,10 @@
+mutation submitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!) {
+  submitCorrection(eventId: $eventId, proposedData: $proposedData, source: $source) {
+    id
+    status
+    validationErrors {
+      field
+      message
+    }
+  }
+}

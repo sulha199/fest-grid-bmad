@@ -297,4 +297,63 @@ describe('EventDetailView', () => {
     expect(screen.getByRole('link', { name: /View original post/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /View source/i })).toBeInTheDocument();
   });
+
+  // More Actions Menu Tests (Story 4.1, Task 3)
+  it('renders more actions menu and calls onCorrectData on click', () => {
+    const onCorrectData = vi.fn();
+    const props = {
+      ...minimalProps,
+      onCorrectData,
+      labels: {
+        ...minimalProps.labels,
+        moreActionsButtonLabel: 'More actions',
+        correctDataMenuItemLabel: 'Correct Data',
+      },
+    };
+
+    render(<EventDetailView {...props} />);
+
+    const moreBtn = screen.getByRole('button', { name: 'More actions' });
+    expect(moreBtn).toBeInTheDocument();
+    expect(moreBtn).toHaveAttribute('aria-expanded', 'false');
+
+    // Click to open menu
+    fireEvent.click(moreBtn);
+    expect(moreBtn).toHaveAttribute('aria-expanded', 'true');
+
+    const correctItem = screen.getByRole('menuitem', { name: 'Correct Data' });
+    expect(correctItem).toBeInTheDocument();
+
+    // Click menu item
+    fireEvent.click(correctItem);
+    expect(onCorrectData).toHaveBeenCalledTimes(1);
+    expect(moreBtn).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('closes more actions menu on Escape key press', () => {
+    const onCorrectData = vi.fn();
+    const props = {
+      ...minimalProps,
+      onCorrectData,
+      labels: {
+        ...minimalProps.labels,
+        moreActionsButtonLabel: 'More actions',
+        correctDataMenuItemLabel: 'Correct Data',
+      },
+    };
+
+    render(<EventDetailView {...props} />);
+
+    const moreBtn = screen.getByRole('button', { name: 'More actions' });
+    fireEvent.click(moreBtn);
+    
+    // Press Escape
+    fireEvent.keyDown(moreBtn, { key: 'Escape' });
+    expect(moreBtn).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('does not render more actions button if onCorrectData is not passed', () => {
+    render(<EventDetailView {...minimalProps} />);
+    expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
+  });
 });

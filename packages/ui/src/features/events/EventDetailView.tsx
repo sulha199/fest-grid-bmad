@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus } from 'lucide-react';
+import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus, MoreVertical } from 'lucide-react';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from './EventDetailView.types';
 import { EventImage } from './EventImage';
 
@@ -35,9 +35,73 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   isAuthenticated = true,
   isAddedToCalendar,
   onAddToCalendar,
+  onCorrectData,
 }) => {
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
+
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const menuContainerRef = React.useRef<HTMLDivElement>(null);
+  const menuTriggerRef = React.useRef<HTMLButtonElement>(null);
+
+  const menuActions = React.useMemo(() => {
+    const list: { label: string; onClick: () => void }[] = [];
+    if (onCorrectData) {
+      list.push({
+        label: labels.correctDataMenuItemLabel,
+        onClick: onCorrectData,
+      });
+    }
+    return list;
+  }, [onCorrectData, labels.correctDataMenuItemLabel]);
+
+  React.useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMenuOpen(false);
+        menuTriggerRef.current?.focus();
+        return;
+      }
+      
+      if (e.key === 'Tab' && menuContainerRef.current) {
+        const focusable = menuContainerRef.current.querySelectorAll<HTMLElement>(
+          'button, [tabindex="0"]'
+        );
+        const focusableElements = Array.from(focusable).filter((el) => el.tabIndex !== -1);
+        if (focusableElements.length > 0) {
+          const first = focusableElements[0];
+          const last = focusableElements[focusableElements.length - 1];
+          if (e.shiftKey) {
+            if (document.activeElement === first) {
+              e.preventDefault();
+              last?.focus();
+            }
+          } else {
+            if (document.activeElement === last) {
+              e.preventDefault();
+              first?.focus();
+            }
+          }
+        }
+      }
+    };
+
+    const handleOutsideClick = (e: PointerEvent) => {
+      if (menuContainerRef.current && !menuContainerRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('pointerdown', handleOutsideClick);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('pointerdown', handleOutsideClick);
+    };
+  }, [isMenuOpen]);
 
   const handleTriggerClick = () => {
     if (!isAuthenticated && onAddToCalendar) {
@@ -115,7 +179,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   return (
     <article className="flex flex-col gap-6">
       {/* Header controls */}
-      {(onFavoriteToggle || onAddToCalendar) && (
+      {(onFavoriteToggle || onAddToCalendar || menuActions.length > 0) && (
         <div className="flex justify-end gap-3 mb-2">
           {onFavoriteToggle && (
             <button
@@ -137,6 +201,41 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
             >
               <CalendarPlus className={`w-6 h-6 ${isAddedToCalendar ? 'fill-primary text-primary' : 'text-gray-500'}`} />
             </button>
+          )}
+          {menuActions.length > 0 && (
+            <div className="relative" ref={menuContainerRef}>
+              <button
+                ref={menuTriggerRef}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                aria-label={labels.moreActionsButtonLabel}
+                aria-haspopup="menu"
+                aria-expanded={isMenuOpen}
+              >
+                <MoreVertical className="w-6 h-6 text-gray-500" />
+              </button>
+              {isMenuOpen && (
+                <div
+                  className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md shadow-lg py-1 z-50 focus:outline-none"
+                  role="menu"
+                  aria-orientation="vertical"
+                >
+                  {menuActions.map((action, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        action.onClick();
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      role="menuitem"
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

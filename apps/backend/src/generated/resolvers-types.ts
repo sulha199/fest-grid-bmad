@@ -82,6 +82,7 @@ export type CreateUserLocationInput = {
 export type Event = {
   __typename?: 'Event';
   categories?: Maybe<Array<EventCategory>>;
+  contactInfo?: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['String']['output'];
   description?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
@@ -90,6 +91,7 @@ export type Event = {
   isAddedToCalendar: Scalars['Boolean']['output'];
   isFavorited: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
+  organizerName?: Maybe<Scalars['String']['output']>;
   originalPostUrl?: Maybe<Scalars['String']['output']>;
   postId?: Maybe<Scalars['ID']['output']>;
   schedules: Array<Schedule>;
@@ -669,6 +671,7 @@ export type CorrectionResolvers<ContextType = GraphQLContext, ParentType extends
 
 export type EventResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Event'] = ResolversParentTypes['Event']> = ResolversObject<{
   categories?: Resolver<Maybe<Array<ResolversTypes['EventCategory']>>, ParentType, ContextType>;
+  contactInfo?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -677,6 +680,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   isAddedToCalendar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isFavorited?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   location?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  organizerName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   originalPostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   postId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   schedules?: Resolver<Array<ResolversTypes['Schedule']>, ParentType, ContextType>;
