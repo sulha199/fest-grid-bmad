@@ -5,21 +5,26 @@ import { useQueryState, parseAsString } from 'nuqs';
 import { useTranslations } from 'next-intl';
 import { useGetEventsForCalendarQuery } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
-import { buildFeedCalendarQueryCondition } from '@festgrid/domain/events';
+import { buildAccountCalendarQueryCondition } from '@festgrid/domain/events';
 import { WeeklyCalendarView, useWeeklyCalendarController, getSunday, getSaturday } from '@festgrid/ui';
 import { useRouter } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import { usePostHog } from '@festgrid/analytics';
 
-interface FeedCalendarViewProps {
+interface AccountCalendarViewProps {
   q: string;
   types: string[];
   categories: string[];
-  subscriptions: string[];
+  profile: {
+    id: string;
+    accountId: string;
+    platform: string;
+    displayName: string;
+  };
 }
 
-export function FeedCalendarView({ q, types, categories, subscriptions }: FeedCalendarViewProps) {
-  const t = useTranslations('FeedPage');
+export default function AccountCalendarView({ q, types, categories, profile }: AccountCalendarViewProps) {
+  const t = useTranslations('AccountPage');
   const router = useRouter();
   const searchParams = useSearchParams();
   const posthog = usePostHog();
@@ -34,15 +39,15 @@ export function FeedCalendarView({ q, types, categories, subscriptions }: FeedCa
   const weekEnd = useMemo(() => getSaturday(weekStart), [weekStart]);
 
   const queryCondition = useMemo(() => {
-    return buildFeedCalendarQueryCondition({
+    return buildAccountCalendarQueryCondition({
       search: q,
       types,
       categories,
       weekStart,
       weekEnd,
-      subscriptions,
+      profileId: profile.id,
     });
-  }, [q, types, categories, weekStart, weekEnd, subscriptions]);
+  }, [q, types, categories, weekStart, weekEnd, profile.id]);
 
   const { data, status: queryStatus, error: queryError } = useGetEventsForCalendarQuery(
     graphqlClient,
@@ -51,7 +56,7 @@ export function FeedCalendarView({ q, types, categories, subscriptions }: FeedCa
       query: queryCondition,
     },
     {
-      queryKey: ['events', 'feed-calendar', queryCondition],
+      queryKey: ['events', 'account-calendar', queryCondition],
     }
   );
 
@@ -80,7 +85,7 @@ export function FeedCalendarView({ q, types, categories, subscriptions }: FeedCa
 
   const handleScheduleClick = (schedule: { eventSlug: string }) => {
     const paramsStr = searchParams.toString();
-    const url = `/events/${schedule.eventSlug}?fromList=feed${paramsStr ? `&${paramsStr}` : ''}`;
+    const url = `/events/${schedule.eventSlug}?fromList=account${paramsStr ? `&${paramsStr}` : ''}`;
     router.push(url);
   };
 

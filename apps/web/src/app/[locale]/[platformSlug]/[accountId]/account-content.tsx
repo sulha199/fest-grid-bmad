@@ -1,20 +1,35 @@
 "use client";
 
-import { useMemo, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query";
 import { EventListView, useInfiniteScroll, EventDiscoveryPanel } from "@festgrid/ui";
 import { EventCategory, EventType } from "@festgrid/shared-types";
-import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation, useGetMySubscriptionsQuery } from "@/generated/graphql";
+import { GetEventsDocument, GetEventsQuery, useToggleFavoriteMutation } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
 import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs";
 import { usePostHog } from "@festgrid/analytics";
-import { useRouter, Link } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { useAuthSession } from "@/components/providers/auth-session-provider";
-import { buildFeedQueryCondition } from "@festgrid/domain/events";
-import { FeedCalendarView } from "./FeedCalendarView";
-import { SubscriptionPicker } from "@festgrid/ui";
+import { buildAccountEventsQueryCondition } from "@festgrid/domain/events";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { LoginContent } from "../../login/login-content";
+import AccountCalendarView from "./AccountCalendarView";
+
+interface AccountContentProps {
+  platformSlug: string;
+  accountId: string;
+  profile: {
+    id: string;
+    accountId: string;
+    platform: string;
+    displayName: string;
+    username: string | null | undefined;
+    profileImageUrl: string | null | undefined;
+    description: string | null | undefined;
+  };
+}
 
 function buildEnumLabels(values: string[], translate: (key: string) => string) {
   return Object.fromEntries(
@@ -28,8 +43,8 @@ function buildEnumLabels(values: string[], translate: (key: string) => string) {
   );
 }
 
-export function FeedContent() {
-  const t = useTranslations("FeedPage");
+export default function AccountContent({ platformSlug, accountId, profile }: AccountContentProps) {
+  const t = useTranslations("AccountPage");
   const tCategory = useTranslations("EventCategory");
   const tType = useTranslations("EventType");
   const tFilterHub = useTranslations("FilterHub");
@@ -37,34 +52,20 @@ export function FeedContent() {
   const posthog = usePostHog();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { session, isLoading } = useAuthSession();
+  const { session } = useAuthSession();
   const queryClient = useQueryClient();
 
   const [q, setQ] = useQueryState("q", parseAsString.withDefault(""));
   const [types] = useQueryState("types", parseAsArrayOf(parseAsString).withDefault([]));
   const [categories] = useQueryState("categories", parseAsArrayOf(parseAsString).withDefault([]));
   const [view] = useQueryState("view", parseAsString.withDefault("card"));
-  const [subscriptionsQuery, setSubscriptionsQuery] = useQueryState(
-    "subscriptions",
-    parseAsArrayOf(parseAsString, ",").withDefault([])
-  );
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
-  const { data: subData } = useGetMySubscriptionsQuery(
-    graphqlClient,
-    undefined,
-    {
-      enabled: !!session && !isLoading,
-    }
-  );
-
-  const showSubscriptionPicker = (subData?.mySubscriptions?.length ?? 0) > 1;
-
-  // AC1: Redirect to login if unauthenticated
   useEffect(() => {
-    if (!isLoading && !session) {
-      router.push("/login");
+    if (view) {
+      posthog.capture("view_switched", { view });
     }
-  }, [isLoading, session, router]);
+  }, [view, posthog]);
 
   const categoryLabels = useMemo(
     () => buildEnumLabels(Object.values(EventCategory), tCategory),
@@ -112,8 +113,13 @@ export function FeedContent() {
   );
 
   const queryCondition = useMemo(() => {
-    return buildFeedQueryCondition({ search: q, types, categories, subscriptions: subscriptionsQuery });
-  }, [q, types, categories, subscriptionsQuery]);
+    return buildAccountEventsQueryCondition({
+      search: q,
+      types,
+      categories,
+      profileId: profile.id,
+    });
+  }, [q, types, categories, profile.id]);
 
   const {
     data,
@@ -123,7 +129,7 @@ export function FeedContent() {
     status: listStatus,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery }],
+    queryKey: ["events", "account", { q, types, categories, profileId: profile.id }],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
@@ -135,7 +141,7 @@ export function FeedContent() {
     getNextPageParam: (lastPage, allPages) => {
       return lastPage.events.hasMore ? allPages.length * 10 : undefined;
     },
-    enabled: !!session && !isLoading,
+    enabled: true,
   });
 
   const { sentinelRef } = useInfiniteScroll({
@@ -146,10 +152,14 @@ export function FeedContent() {
 
   const { mutate: toggleFavorite } = useToggleFavoriteMutation(graphqlClient, {
     onMutate: async (variables) => {
-      await queryClient.cancelQueries({ queryKey: ["events", "feed"] });
-      const previousData = queryClient.getQueryData(["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery }]);
+      await queryClient.cancelQueries({ queryKey: ["events", "account"] });
+      const previousData = queryClient.getQueryData([
+        "events",
+        "account",
+        { q, types, categories, profileId: profile.id },
+      ]);
 
-      queryClient.setQueriesData({ queryKey: ["events", "feed"] }, (old: any) => {
+      queryClient.setQueriesData({ queryKey: ["events", "account"] }, (old: any) => {
         if (!old) return old;
         return {
           ...old,
@@ -171,7 +181,10 @@ export function FeedContent() {
     },
     onError: (err, variables, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery }], context.previousData);
+        queryClient.setQueryData(
+          ["events", "account", { q, types, categories, profileId: profile.id }],
+          context.previousData
+        );
       }
     },
     onSuccess: (data, variables) => {
@@ -192,28 +205,24 @@ export function FeedContent() {
     [setQ]
   );
 
-  // Return empty list if unauthenticated or loading session
-  if (isLoading || !session) {
-    return null;
-  }
-
   return (
     <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">{t("title")}</h1>
-      </div>
-
-      {showSubscriptionPicker && subData?.mySubscriptions && (
-        <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800">
-          <SubscriptionPicker
-            facetLabel={t("subscriptionFilterLabel")}
-            subscriptions={subData.mySubscriptions as any}
-            value={subscriptionsQuery}
-            onChange={setSubscriptionsQuery}
-            labels={{ clearLabel: tFilterHub("clearLabel") }}
+      {/* Account Profile Header */}
+      <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 bg-slate-50 dark:bg-slate-900/50 p-6 rounded-2xl border border-slate-200/60 dark:border-slate-800">
+        {profile.profileImageUrl && (
+          <img
+            src={profile.profileImageUrl}
+            alt={profile.displayName}
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border border-slate-200 dark:border-slate-800 shrink-0"
           />
+        )}
+        <div className="text-center sm:text-left space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{profile.displayName}</h1>
+          {profile.description && (
+            <p className="text-muted-foreground text-sm sm:text-base max-w-2xl">{profile.description}</p>
+          )}
         </div>
-      )}
+      </div>
 
       <EventDiscoveryPanel
         query={q}
@@ -250,14 +259,6 @@ export function FeedContent() {
                         ? t("searchEmptyState")
                         : t("emptyState")}
                     </p>
-                    {!(q.trim() || types.length > 0 || categories.length > 0) && (
-                      <Link
-                        href="/settings/subscriptions"
-                        className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-                      >
-                        {t("emptyStateCta")}
-                      </Link>
-                    )}
                   </div>
                 }
                 cardLabels={{
@@ -268,10 +269,16 @@ export function FeedContent() {
                 }}
                 getCardProps={(event) => ({
                   isFavorited: event.isFavorited,
-                  onFavoriteToggle: () => toggleFavorite({ eventId: event.id }),
+                  onFavoriteToggle: () => {
+                    if (!session) {
+                      setIsLoginModalOpen(true);
+                    } else {
+                      toggleFavorite({ eventId: event.id });
+                    }
+                  },
                   onClick: () => {
                     const params = new URLSearchParams(searchParams.toString());
-                    params.set("fromList", "feed");
+                    params.set("fromList", "account");
                     router.push(`/events/${event.slug}?${params.toString()}`);
                   },
                 })}
@@ -285,11 +292,22 @@ export function FeedContent() {
             id: "calendar",
             label: "Calendar View",
             content: (
-              <FeedCalendarView q={q} types={types} categories={categories} subscriptions={subscriptionsQuery} />
+              <AccountCalendarView
+                q={q}
+                types={types}
+                categories={categories}
+                profile={profile}
+              />
             ),
           },
         ]}
       />
+
+      <Dialog open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+          <LoginContent />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

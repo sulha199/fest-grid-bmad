@@ -1,0 +1,11 @@
+query getSocialMediaAccountProfileByAccountId($platform: String!, $accountId: String!) {
+  socialMediaAccountProfileByAccountId(platform: $platform, accountId: $accountId) {
+    id
+    accountId
+    platform
+    displayName
+    username
+    profileImageUrl
+    description
+  }
+}

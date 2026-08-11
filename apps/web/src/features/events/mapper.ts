@@ -1,6 +1,7 @@
 import { GetEventBySlugQuery } from '@/generated/graphql';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from '@festgrid/ui';
 import { useTranslations } from 'next-intl';
+import { getPlatformSlug } from '@festgrid/domain/scraper';
 
 export function useEventDetailViewLabels(): EventDetailViewLabels {
   const t = useTranslations('EventDetailsPage');
@@ -84,6 +85,11 @@ export function mapGraphQLEventToDetailViewProps(
     sourcePostUrl: event.sourcePostUrl,
     isFavorited: event.isFavorited,
     isAddedToCalendar: mappedSchedules.some((s) => s.isAddedToCalendar),
+    accountName: event.sourceSocialMediaAccountProfile?.displayName ?? null,
+    accountPlatformIconUrl: event.sourceSocialMediaAccountProfile?.profileImageUrl ?? null,
+    accountHref: event.sourceSocialMediaAccountProfile
+      ? `/${getPlatformSlug(event.sourceSocialMediaAccountProfile.platform as any)}/${event.sourceSocialMediaAccountProfile.accountId}`
+      : null,
     locale,
     labels,
   };

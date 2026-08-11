@@ -82,6 +82,7 @@ export type Event = {
   slug: Scalars['String']['output'];
   sourcePostUrl?: Maybe<Scalars['String']['output']>;
   sourceSocialMediaAccountId?: Maybe<Scalars['ID']['output']>;
+  sourceSocialMediaAccountProfile?: Maybe<SocialMediaAccountProfile>;
   types?: Maybe<Array<EventType>>;
   updatedAt: Scalars['String']['output'];
 };
@@ -431,6 +432,14 @@ export type UserSettings = {
 
 
 
+export type GetSocialMediaAccountProfileByAccountIdQueryVariables = Exact<{
+  platform: string;
+  accountId: string;
+}>;
+
+
+export type GetSocialMediaAccountProfileByAccountIdQuery = { socialMediaAccountProfileByAccountId: { id: string, accountId: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, description: string | null } | null };
+
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -472,7 +481,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, isFavorited: boolean, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, isFavorited: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, displayName: string, profileImageUrl: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetEventForIcsExportQueryVariables = Exact<{
   id: string | number;
@@ -645,6 +654,38 @@ export class TypedDocumentString<TResult, TVariables>
   }
 }
 
+export const GetSocialMediaAccountProfileByAccountIdDocument = new TypedDocumentString(`
+    query getSocialMediaAccountProfileByAccountId($platform: String!, $accountId: String!) {
+  socialMediaAccountProfileByAccountId(platform: $platform, accountId: $accountId) {
+    id
+    accountId
+    platform
+    displayName
+    username
+    profileImageUrl
+    description
+  }
+}
+    `);
+
+export const useGetSocialMediaAccountProfileByAccountIdQuery = <
+      TData = GetSocialMediaAccountProfileByAccountIdQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: GetSocialMediaAccountProfileByAccountIdQueryVariables,
+      options?: Omit<UseQueryOptions<GetSocialMediaAccountProfileByAccountIdQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetSocialMediaAccountProfileByAccountIdQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetSocialMediaAccountProfileByAccountIdQuery, TError, TData>(
+      {
+    queryKey: ['getSocialMediaAccountProfileByAccountId', variables],
+    queryFn: fetcher<GetSocialMediaAccountProfileByAccountIdQuery, GetSocialMediaAccountProfileByAccountIdQueryVariables>(client, GetSocialMediaAccountProfileByAccountIdDocument, variables, headers),
+    ...options
+  }
+    )};
+
 export const MeDocument = new TypedDocumentString(`
     query me {
   me {
@@ -812,6 +853,12 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
     sourcePostUrl
     originalPostUrl
     isFavorited
+    sourceSocialMediaAccountProfile {
+      accountId
+      platform
+      displayName
+      profileImageUrl
+    }
     schedules {
       id
       isMainSchedule

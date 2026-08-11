@@ -82,6 +82,7 @@ type Event {
   schedules: [Schedule!]!
   isFavorited: Boolean!
   isAddedToCalendar: Boolean!
+  sourceSocialMediaAccountProfile: SocialMediaAccountProfile
 }
 
 type EventConnection {

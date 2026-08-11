@@ -1044,6 +1044,20 @@ export const resolvers: Resolvers = {
     }
   },
   Event: {
+    sourceSocialMediaAccountProfile: async (parent: any, args: any, context: any, info: any) => {
+      if (!parent.postId) {
+        return null;
+      }
+      const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: socialMediaAccountProfiles.id
+      }).from(socialMediaAccountProfiles)
+        .innerJoin(posts, eq(posts.accountId, socialMediaAccountProfiles.id))
+        .where(eq(posts.id, parent.postId));
+
+      return (rows[0] as any) || null;
+    },
     schedules: async (parent: any, args: any, context: any, info: any) => {
       const requestedFields = buildOptimizedDrizzleSelect(schedules, info);
       const rows = await db.select({

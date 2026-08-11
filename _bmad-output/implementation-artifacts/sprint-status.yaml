@@ -469,7 +469,7 @@ development_status:
   # sourceSocialMediaAccountProfile field resolver, mirroring the existing Event.
   # schedules resolver pattern) rather than split into a new story or leave deferred.
   # No new prerequisite stories split off.
-  3-11-view-events-for-a-social-media-account: ready-for-dev
+  3-11-view-events-for-a-social-media-account: review
   epic-3-retrospective: optional
   epic-4: backlog
   4-1a-build-the-corrections-backend-graphql-api-layer: backlog

@@ -72,6 +72,7 @@ export type Event = {
   slug: Scalars['String']['output'];
   sourcePostUrl?: Maybe<Scalars['String']['output']>;
   sourceSocialMediaAccountId?: Maybe<Scalars['ID']['output']>;
+  sourceSocialMediaAccountProfile?: Maybe<SocialMediaAccountProfile>;
   types?: Maybe<Array<EventType>>;
   updatedAt: Scalars['String']['output'];
 };
@@ -597,6 +598,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   slug?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   sourcePostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   sourceSocialMediaAccountId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  sourceSocialMediaAccountProfile?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType>;
   types?: Resolver<Maybe<Array<ResolversTypes['EventType']>>, ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;

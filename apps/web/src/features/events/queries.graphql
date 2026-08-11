@@ -43,6 +43,12 @@ query getEventBySlug($slug: String!) {
     sourcePostUrl
     originalPostUrl
     isFavorited
+    sourceSocialMediaAccountProfile {
+      accountId
+      platform
+      displayName
+      profileImageUrl
+    }
     schedules {
       id
       isMainSchedule

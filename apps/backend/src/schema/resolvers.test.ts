@@ -5,7 +5,7 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 
 // read the generated schema for the yoga server
@@ -1042,6 +1042,111 @@ test('events resolver integration via Yoga', async (t) => {
       const result = await response.json();
       assert.ok(!result.errors, 'GraphQL errors returned');
       assert.strictEqual(result.data.event.id, eventA.id, 'Query.event should retrieve past event A directly');
+    });
+  });
+
+  await t.test('Event.sourceSocialMediaAccountProfile resolver', async (t) => {
+    let testProfile: any;
+    let testPost: any;
+    let testEvent: any;
+
+    t.before(async () => {
+      // Create a test profile
+      const [p] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_profile_1',
+        platform: 'instagram',
+        displayName: 'Resolver Test Profile',
+        username: 'resolver_test_profile_1',
+      }).returning();
+      testProfile = p;
+
+      // Create a test post
+      const [post] = await db.insert(posts).values({
+        accountId: testProfile.id,
+        platformPostId: 'resolver_test_post_1',
+        postUrl: 'https://instagram.com/p/resolver_test_post_1',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_post_1',
+        content: 'This is a test post',
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      testPost = post;
+
+      // Create a test event linked to post
+      const [ev] = await db.insert(events).values({
+        eventName: 'Resolver Test Event',
+        postId: testPost.id,
+        location: 'Test location',
+      }).returning();
+      testEvent = ev;
+    });
+
+    t.after(async () => {
+      if (testEvent) await db.delete(events).where(eq(events.id, testEvent.id));
+      if (testPost) await db.delete(posts).where(eq(posts.id, testPost.id));
+      if (testProfile) await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfile.id));
+    });
+
+    await t.test('resolves profile successfully via parent postId -> posts -> socialMediaAccountProfiles', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventWithProfile($id: ID!) {
+              event(id: $id) {
+                id
+                eventName
+                sourceSocialMediaAccountProfile {
+                  id
+                  accountId
+                  platform
+                  displayName
+                }
+              }
+            }
+          `,
+          variables: { id: testEvent.id }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.event.sourceSocialMediaAccountProfile.id, testProfile.id);
+      assert.strictEqual(result.data.event.sourceSocialMediaAccountProfile.displayName, testProfile.displayName);
+    });
+
+    await t.test('returns null if event has no linked postId', async () => {
+      const [noPostEvent] = await db.insert(events).values({
+        eventName: 'No Post Event',
+        location: 'Test location',
+      }).returning();
+
+      try {
+        const response = await yoga.fetch('http://yoga/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `
+              query GetEventWithProfile($id: ID!) {
+                event(id: $id) {
+                  id
+                  sourceSocialMediaAccountProfile {
+                    id
+                  }
+                }
+              }
+            `,
+            variables: { id: noPostEvent.id }
+          })
+        });
+
+        const result = await response.json();
+        assert.ok(!result.errors, JSON.stringify(result.errors));
+        assert.strictEqual(result.data.event.sourceSocialMediaAccountProfile, null);
+      } finally {
+        await db.delete(events).where(eq(events.id, noPostEvent.id));
+      }
     });
   });
 });

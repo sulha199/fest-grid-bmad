@@ -27,7 +27,25 @@
     "wizardOnboardingApiKeyTitle": "Tambah Kunci API",
     "wizardOnboardingApiKeyDescription": "Tambahkan kunci API Gemini Anda untuk memulai.",
     "wizardOnboardingSubscribeTitle": "Berlangganan",
-    "wizardOnboardingSubscribeDescription": "Berlangganan akun media sosial pertama Anda."
+    "wizardOnboardingSubscribeDescription": "Berlangganan akun media sosial pertama Anda.",
+    "accountPageTitle": "{displayName} | FestDaily",
+    "accountPageDescription": "Jelajahi acara dari {displayName} di FestDaily."
+  },
+  "AccountPage": {
+    "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",
+    "emptyState": "Akun ini belum memiliki acara apa pun.",
+    "searchEmptyState": "Tidak ada acara yang cocok dengan pencarian Anda.",
+    "priceFrom": "Mulai",
+    "loadingMore": "Memuat lebih banyak acara...",
+    "searchPlaceholder": "Cari berdasarkan nama, pengisi acara, atau lokasi...",
+    "searchClearLabel": "Hapus pencarian",
+    "favoriteButtonLabel": "Alihkan Favorit",
+    "calendarPrevWeekLabel": "Minggu sebelumnya",
+    "calendarNextWeekLabel": "Minggu berikutnya",
+    "calendarTodayLabel": "Hari Ini",
+    "calendarMoreLabel": "{count, plural, =1 {# acara lainnya} other {# acara lainnya}}",
+    "calendarErrorState": "Gagal memuat acara kalender.",
+    "calendarClosePopoverLabel": "Tutup popover"
   },
   "WizardChrome": {
     "previousStepLabel": "Langkah Sebelumnya",

@@ -67,7 +67,9 @@ export function CalendarView({ q, types, categories, nearby }: CalendarViewProps
     handleToday,
   } = useWeeklyCalendarController({
     week,
-    setWeek,
+    setWeek: (newWeek: string) => {
+      setWeek(newWeek);
+    },
     todayStr,
     rawEvents: data?.events?.items,
     queryStatus,
@@ -101,7 +103,7 @@ export function CalendarView({ q, types, categories, nearby }: CalendarViewProps
       onPrevWeek={handlePrevWeek}
       onNextWeek={handleNextWeek}
       onScheduleClick={handleScheduleClick}
-      status={status}
+      status={status === 'pending' ? 'loading' : (status as any)}
       errorMessage={errorMessage}
       errorDetail={errorDetail}
       labels={labels}

@@ -27,7 +27,25 @@
     "wizardOnboardingApiKeyTitle": "Add API Key",
     "wizardOnboardingApiKeyDescription": "Add your Gemini API key to get started.",
     "wizardOnboardingSubscribeTitle": "Subscribe",
-    "wizardOnboardingSubscribeDescription": "Subscribe to your first social media account."
+    "wizardOnboardingSubscribeDescription": "Subscribe to your first social media account.",
+    "accountPageTitle": "{displayName} | FestDaily",
+    "accountPageDescription": "Browse events from {displayName} on FestDaily."
+  },
+  "AccountPage": {
+    "errorState": "Failed to load events. Please try again later.",
+    "emptyState": "This account hasn't sourced any events yet.",
+    "searchEmptyState": "No events match your search.",
+    "priceFrom": "From",
+    "loadingMore": "Loading more events...",
+    "searchPlaceholder": "Search by name, performer, or location...",
+    "searchClearLabel": "Clear search",
+    "favoriteButtonLabel": "Toggle Favorite",
+    "calendarPrevWeekLabel": "Previous week",
+    "calendarNextWeekLabel": "Next week",
+    "calendarTodayLabel": "Today",
+    "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
+    "calendarErrorState": "Failed to load calendar events.",
+    "calendarClosePopoverLabel": "Close popover"
   },
   "WizardChrome": {
     "previousStepLabel": "Previous Step",
