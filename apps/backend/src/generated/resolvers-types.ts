@@ -90,6 +90,7 @@ export type Event = {
   imageUrl?: Maybe<Scalars['String']['output']>;
   isAddedToCalendar: Scalars['Boolean']['output'];
   isFavorited: Scalars['Boolean']['output'];
+  isHiddenForCurrentUser: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
   organizerName?: Maybe<Scalars['String']['output']>;
   originalPostUrl?: Maybe<Scalars['String']['output']>;
@@ -193,11 +194,14 @@ export type Mutation = {
   deleteUserLocation: UserLocation;
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
+  ignoreSubsequentReports: Report;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
+  resolveReport: Report;
   setAccountDefaultLocation: SocialMediaAccountProfile;
   submitCorrection: Correction;
+  submitReport: Report;
   subscribeToAccount: SubscribeToAccountResult;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
@@ -240,6 +244,11 @@ export type MutationExtractEventDataFromUrlArgs = {
 };
 
 
+export type MutationIgnoreSubsequentReportsArgs = {
+  reportId: Scalars['ID']['input'];
+};
+
+
 export type MutationRegisterFcmTokenArgs = {
   token: Scalars['String']['input'];
 };
@@ -256,6 +265,12 @@ export type MutationReportSystemErrorArgs = {
 };
 
 
+export type MutationResolveReportArgs = {
+  id: Scalars['ID']['input'];
+  outcome: ReportOutcome;
+};
+
+
 export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   input: SetAccountDefaultLocationInput;
@@ -266,6 +281,13 @@ export type MutationSubmitCorrectionArgs = {
   eventId: Scalars['ID']['input'];
   proposedData: ProposedEventCorrectionInput;
   source: CorrectionSource;
+};
+
+
+export type MutationSubmitReportArgs = {
+  details?: InputMaybe<Scalars['String']['input']>;
+  eventId: Scalars['ID']['input'];
+  reason: ReportReason;
 };
 
 
@@ -360,9 +382,11 @@ export type Query = {
   me: Me;
   myApiKeys: Array<ApiKey>;
   myLocations: Array<UserLocation>;
+  myReports: Array<Report>;
   mySettings: UserSettings;
   mySubscriptions: Array<Subscription>;
   previewLocation: LocationDetails;
+  reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
 };
 
@@ -396,10 +420,48 @@ export type QueryPreviewLocationArgs = {
 };
 
 
+export type QueryReportedEventsArgs = {
+  reason?: InputMaybe<ReportReason>;
+  status?: InputMaybe<ReportStatus>;
+};
+
+
 export type QuerySocialMediaAccountProfileByAccountIdArgs = {
   accountId: Scalars['String']['input'];
   platform: Scalars['String']['input'];
 };
+
+export type Report = {
+  __typename?: 'Report';
+  createdAt: Scalars['String']['output'];
+  details?: Maybe<Scalars['String']['output']>;
+  event: Event;
+  eventId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  moderatorIgnored: Scalars['Boolean']['output'];
+  reason: ReportReason;
+  reporterUserId: Scalars['ID']['output'];
+  resolvedAt?: Maybe<Scalars['String']['output']>;
+  resolvedByModeratorId?: Maybe<Scalars['ID']['output']>;
+  status: ReportStatus;
+};
+
+export enum ReportOutcome {
+  Dismissed = 'dismissed',
+  Upheld = 'upheld'
+}
+
+export enum ReportReason {
+  Cancelled = 'cancelled',
+  Dangerous = 'dangerous',
+  Personal = 'personal'
+}
+
+export enum ReportStatus {
+  Dismissed = 'dismissed',
+  Pending = 'pending',
+  Upheld = 'upheld'
+}
 
 export type ReportSystemErrorInput = {
   context?: InputMaybe<Scalars['String']['input']>;
@@ -629,6 +691,10 @@ export type ResolversTypes = ResolversObject<{
   ProposedScheduleCorrectionData: ResolverTypeWrapper<ProposedScheduleCorrectionData>;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
   Query: ResolverTypeWrapper<{}>;
+  Report: ResolverTypeWrapper<Report>;
+  ReportOutcome: ReportOutcome;
+  ReportReason: ReportReason;
+  ReportStatus: ReportStatus;
   ReportSystemErrorInput: ReportSystemErrorInput;
   Schedule: ResolverTypeWrapper<Schedule>;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
@@ -672,6 +738,7 @@ export type ResolversParentTypes = ResolversObject<{
   ProposedScheduleCorrectionData: ProposedScheduleCorrectionData;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
   Query: {};
+  Report: Report;
   ReportSystemErrorInput: ReportSystemErrorInput;
   Schedule: Schedule;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
@@ -734,6 +801,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   isAddedToCalendar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isFavorited?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  isHiddenForCurrentUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   location?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   organizerName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   originalPostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -790,11 +858,14 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   deleteUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationDeleteUserLocationArgs, 'action' | 'id'>>;
   editAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationEditAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   extractEventDataFromUrl?: Resolver<ResolversTypes['ExtractEventDataFromUrlResult'], ParentType, ContextType, RequireFields<MutationExtractEventDataFromUrlArgs, 'url'>>;
+  ignoreSubsequentReports?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationIgnoreSubsequentReportsArgs, 'reportId'>>;
   registerFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRegisterFcmTokenArgs, 'token'>>;
   removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
   reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
+  resolveReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationResolveReportArgs, 'id' | 'outcome'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   submitCorrection?: Resolver<ResolversTypes['Correction'], ParentType, ContextType, RequireFields<MutationSubmitCorrectionArgs, 'eventId' | 'proposedData' | 'source'>>;
+  submitReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationSubmitReportArgs, 'eventId' | 'reason'>>;
   subscribeToAccount?: Resolver<ResolversTypes['SubscribeToAccountResult'], ParentType, ContextType, RequireFields<MutationSubscribeToAccountArgs, 'input'>>;
   toggleCalendarAddition?: Resolver<ResolversTypes['ToggleCalendarAdditionResult'], ParentType, ContextType, RequireFields<MutationToggleCalendarAdditionArgs, 'eventId' | 'scheduleId'>>;
   toggleFavorite?: Resolver<ResolversTypes['ToggleFavoriteResult'], ParentType, ContextType, RequireFields<MutationToggleFavoriteArgs, 'eventId'>>;
@@ -838,10 +909,27 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   me?: Resolver<ResolversTypes['Me'], ParentType, ContextType>;
   myApiKeys?: Resolver<Array<ResolversTypes['ApiKey']>, ParentType, ContextType>;
   myLocations?: Resolver<Array<ResolversTypes['UserLocation']>, ParentType, ContextType>;
+  myReports?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType>;
   mySettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType>;
   mySubscriptions?: Resolver<Array<ResolversTypes['Subscription']>, ParentType, ContextType>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
+  reportedEvents?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, Partial<QueryReportedEventsArgs>>;
   socialMediaAccountProfileByAccountId?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType, RequireFields<QuerySocialMediaAccountProfileByAccountIdArgs, 'accountId' | 'platform'>>;
+}>;
+
+export type ReportResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Report'] = ResolversParentTypes['Report']> = ResolversObject<{
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  details?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  event?: Resolver<ResolversTypes['Event'], ParentType, ContextType>;
+  eventId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  moderatorIgnored?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  reason?: Resolver<ResolversTypes['ReportReason'], ParentType, ContextType>;
+  reporterUserId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  resolvedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  resolvedByModeratorId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['ReportStatus'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Schedule'] = ResolversParentTypes['Schedule']> = ResolversObject<{
@@ -947,6 +1035,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ProposedEventCorrectionData?: ProposedEventCorrectionDataResolvers<ContextType>;
   ProposedScheduleCorrectionData?: ProposedScheduleCorrectionDataResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
+  Report?: ReportResolvers<ContextType>;
   Schedule?: ScheduleResolvers<ContextType>;
   SocialMediaAccountProfile?: SocialMediaAccountProfileResolvers<ContextType>;
   SubscribeToAccountResult?: SubscribeToAccountResultResolvers<ContextType>;

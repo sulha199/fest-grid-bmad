@@ -36,6 +36,9 @@ export const scheduleTimezoneStatusEnum = pgEnum('schedule_timezone_status', ['R
 export const correctionSourceEnum = pgEnum('correction_source', ['manual', 'ai_assisted']);
 export const correctionStatusEnum = pgEnum('correction_status', ['pending', 'applied', 'rejected']);
 
+export const reportReasonEnum = pgEnum('report_reason', ['cancelled', 'dangerous', 'personal']);
+export const reportStatusEnum = pgEnum('report_status', ['pending', 'upheld', 'dismissed']);
+
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: text('email').unique().notNull(),
@@ -387,6 +390,37 @@ export const correctionsRelations = relations(corrections, ({ one }) => ({
   }),
   submittedByUser: one(users, {
     fields: [corrections.submittedByUserId],
+    references: [users.id],
+  }),
+}));
+
+export const reports = pgTable('reports', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  reporterUserId: uuid('reporter_user_id').references(() => users.id).notNull(),
+  reason: reportReasonEnum('reason').notNull(),
+  details: text('details'),
+  status: reportStatusEnum('status').default('pending').notNull(),
+  moderatorIgnored: boolean('moderator_ignored').default(false).notNull(),
+  resolvedByModeratorId: uuid('resolved_by_moderator_id').references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+}, (t) => ({
+  reportsEventIdx: index('idx_reports_event_id').on(t.eventId),
+  reportsEventReasonIdx: index('idx_reports_event_reason').on(t.eventId, t.reason),
+}));
+
+export const reportsRelations = relations(reports, ({ one }) => ({
+  event: one(events, {
+    fields: [reports.eventId],
+    references: [events.id],
+  }),
+  reporterUser: one(users, {
+    fields: [reports.reporterUserId],
+    references: [users.id],
+  }),
+  resolvedByModerator: one(users, {
+    fields: [reports.resolvedByModeratorId],
     references: [users.id],
   }),
 }));

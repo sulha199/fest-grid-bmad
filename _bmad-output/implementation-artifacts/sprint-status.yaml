@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-08-11T09:47:00Z
+# last_updated: 2026-08-11T21:10:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-11T13:00:00Z
+last_updated: 2026-08-11T21:10:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -546,7 +546,7 @@ development_status:
   # "joined via buildOptimizedDrizzleSelect" AC text (that utility only selects real table
   # columns, no joins/subqueries possible) to the codebase's actual Event.isFavorited-style
   # field-resolver pattern. No new prerequisite stories split off.
-  4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering: ready-for-dev
+  4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering: review
   4-3-report-an-event: ready-for-dev
   # added 2026-08-11 via bmad-create-story Gate 2 finding while drafting Story 4.3:
   # PRD 3.9.2 requires the Report trigger in both list-view and detail-view, but

@@ -162,6 +162,13 @@
       "when": 1786414631477,
       "tag": "0022_sad_warbound",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1786454900980,
+      "tag": "0023_light_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

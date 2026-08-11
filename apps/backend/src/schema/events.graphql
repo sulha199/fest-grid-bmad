@@ -84,6 +84,7 @@ type Event {
   schedules: [Schedule!]!
   isFavorited: Boolean!
   isAddedToCalendar: Boolean!
+  isHiddenForCurrentUser: Boolean!
   sourceSocialMediaAccountProfile: SocialMediaAccountProfile
 }
 

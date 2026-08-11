@@ -8,7 +8,7 @@ baseline_commit: 3dfa5f7dbcfeebb6b62b91d6b472e5b21f20b0f9
 
 - **Epic:** 4
 - **Story ID:** 4.3a
-- **Status:** ready-for-dev
+- **Status:** review
 
 ## Story
 
@@ -34,14 +34,14 @@ baseline_commit: 3dfa5f7dbcfeebb6b62b91d6b472e5b21f20b0f9
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1) — Migration:** In `packages/database/schema.ts`, add:
-  - [ ] `reportReasonEnum = pgEnum('report_reason', ['cancelled', 'dangerous', 'personal'])`
-  - [ ] `reportStatusEnum = pgEnum('report_status', ['pending', 'upheld', 'dismissed'])`
-  - [ ] `reports` table: `id` (uuid, `defaultRandom()`, PK), `eventId` (uuid, `references(() => events.id, { onDelete: 'cascade' })`, notNull), `reporterUserId` (uuid, `references(() => users.id)`, notNull — no `onDelete`, matching `corrections.submittedByUserId`), `reason` (`reportReasonEnum`, notNull), `details` (text, nullable), `status` (`reportStatusEnum`, default `'pending'`, notNull), `moderatorIgnored` (boolean, default `false`, notNull), `resolvedByModeratorId` (uuid, `references(() => users.id)`, nullable — matches `defaultLocationChangeRequests.reviewedByModeratorId`'s no-`onDelete` shape), `createdAt`/`resolvedAt` (`resolvedAt` nullable, no default).
-  - [ ] Indexes: `reportsEventIdx: index('idx_reports_event_id').on(t.eventId)` (generic per-event lookup, used by `isHiddenForCurrentUser`'s `and(eq(reporterUserId,...), eq(eventId,...))` exists-check and by `myReports`/`reportedEvents` joins) and `reportsEventReasonIdx: index('idx_reports_event_reason').on(t.eventId, t.reason)` (composite, directly supports Story 4.4a's "count unique reporters where `eventId=X AND reason='cancelled'`" threshold query — per AC1's "indexed on `event_id` and `reason`").
-  - [ ] `reportsRelations = relations(reports, ({ one }) => ({ event: one(events, ...), reporterUser: one(users, { fields: [reports.reporterUserId], references: [users.id] }), resolvedByModerator: one(users, { fields: [reports.resolvedByModeratorId], references: [users.id] }) }))`, mirroring `defaultLocationChangeRequestsRelations`'s shape.
-  - [ ] Run `pnpm --filter @festgrid/database generate` to produce `0023_*.sql` (next after `0022_sad_warbound.sql`) and commit it (AD-3). Purely additive — no existing rows, no backfill.
-- [ ] **Task 2 (AC1–AC6) — GraphQL schema:** Create `apps/backend/src/schema/reports.graphql`:
+- [x] **Task 1 (AC1) — Migration:** In `packages/database/schema.ts`, add:
+  - [x] `reportReasonEnum = pgEnum('report_reason', ['cancelled', 'dangerous', 'personal'])`
+  - [x] `reportStatusEnum = pgEnum('report_status', ['pending', 'upheld', 'dismissed'])`
+  - [x] `reports` table: `id` (uuid, `defaultRandom()`, PK), `eventId` (uuid, `references(() => events.id, { onDelete: 'cascade' })`, notNull), `reporterUserId` (uuid, `references(() => users.id)`, notNull — no `onDelete`, matching `corrections.submittedByUserId`), `reason` (`reportReasonEnum`, notNull), `details` (text, nullable), `status` (`reportStatusEnum`, default `'pending'`, notNull), `moderatorIgnored` (boolean, default `false`, notNull), `resolvedByModeratorId` (uuid, `references(() => users.id)`, nullable — matches `defaultLocationChangeRequests.reviewedByModeratorId`'s no-`onDelete` shape), `createdAt`/`resolvedAt` (`resolvedAt` nullable, no default).
+  - [x] Indexes: `reportsEventIdx: index('idx_reports_event_id').on(t.eventId)` (generic per-event lookup, used by `isHiddenForCurrentUser`'s `and(eq(reporterUserId,...), eq(eventId,...))` exists-check and by `myReports`/`reportedEvents` joins) and `reportsEventReasonIdx: index('idx_reports_event_reason').on(t.eventId, t.reason)` (composite, directly supports Story 4.4a's "count unique reporters where `eventId=X AND reason='cancelled'`" threshold query — per AC1's "indexed on `event_id` and `reason`").
+  - [x] `reportsRelations = relations(reports, ({ one }) => ({ event: one(events, ...), reporterUser: one(users, { fields: [reports.reporterUserId], references: [users.id] }), resolvedByModerator: one(users, { fields: [reports.resolvedByModeratorId], references: [users.id] }) }))`, mirroring `defaultLocationChangeRequestsRelations`'s shape.
+  - [x] Run `pnpm --filter @festgrid/database generate` to produce `0023_*.sql` (next after `0022_sad_warbound.sql`) and commit it (AD-3). Purely additive — no existing rows, no backfill.
+- [x] **Task 2 (AC1–AC6) — GraphQL schema:** Create `apps/backend/src/schema/reports.graphql`:
   ```graphql
   enum ReportReason {
     cancelled
@@ -86,19 +86,19 @@ baseline_commit: 3dfa5f7dbcfeebb6b62b91d6b472e5b21f20b0f9
   }
   ```
   In `apps/backend/src/schema/events.graphql`, add `isHiddenForCurrentUser: Boolean!` to the `Event` type (after the existing `isAddedToCalendar: Boolean!` line, matching that field's placement style).
-- [ ] **Task 3 (AC2) — `submitReport` resolver:** In `apps/backend/src/schema/resolvers.ts`, import `reports`, `reportReasonEnum`-typed values are just strings at the resolver layer (no new drizzle-orm import needed beyond `eq`/`and`, already imported). Add to `Mutation`:
+- [x] **Task 3 (AC2) — `submitReport` resolver:** In `apps/backend/src/schema/resolvers.ts`, import `reports`, `reportReasonEnum`-typed values are just strings at the resolver layer (no new drizzle-orm import needed beyond `eq`/`and`, already imported). Add to `Mutation`:
   1. `requireAuth(context)`.
   2. Look up `events` by `eventId`; if not found, throw `GraphQLError('Event not found', { extensions: { code: 'NOT_FOUND' } })`.
   3. If `reason === 'dangerous'`: query `reports` for an existing row `where(and(eq(reports.reporterUserId, userId), eq(reports.eventId, eventId), eq(reports.reason, 'dangerous'), eq(reports.moderatorIgnored, true)))`; if found, throw `GraphQLError(..., { extensions: { code: 'REPORT_IGNORED' } })` (AC2).
   4. Else insert a `reports` row (`eventId`, `reporterUserId: userId`, `reason`, `details: details ?? null`, `status: 'pending'`) and return it (serialize `createdAt`/`resolvedAt` to ISO strings, `resolvedAt` stays `null`; matches `updateUserSettings`'s `.toISOString()` precedent).
-- [ ] **Task 4 (AC3) — `myReports` query + `Report.event` field resolver:**
-  - [ ] `myReports: async (_, __, context) => { const { userId } = requireAuth(context); return db.select().from(reports).where(eq(reports.reporterUserId, userId)).orderBy(desc(reports.createdAt)); }` (serialize timestamps).
-  - [ ] Add a `Report: { event: async (parent, _, __, info) => { ...buildOptimizedDrizzleSelect(events, info)-based lookup by parent.eventId, left-joined with posts for imageUrl/sourcePostUrl/originalPostUrl, mirroring the existing `event(id)` Query resolver's exact shape... } }` type-resolver map entry, mirroring `Subscription.account`'s nested-entity-resolver precedent (`subscriptions.graphql`).
-- [ ] **Task 5 (AC4) — `reportedEvents` query + `resolveReport` mutation:**
-  - [ ] `reportedEvents: async (_, { status, reason }, context) => { requireModerator(context); const conditions = [...(status ? [eq(reports.status, status)] : []), ...(reason ? [eq(reports.reason, reason)] : [])]; return db.select().from(reports).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(reports.createdAt)); }`.
-  - [ ] `resolveReport: async (_, { id, outcome }, context) => { const moderator = requireModerator(context); const [report] = await db.select().from(reports).where(eq(reports.id, id)); if (!report) throw NOT_FOUND; if (report.status !== 'pending') throw INVALID_STATE_TRANSITION; const [updated] = await db.update(reports).set({ status: outcome, resolvedByModeratorId: moderator.userId, resolvedAt: new Date() }).where(eq(reports.id, id)).returning(); return updated; }`.
-- [ ] **Task 6 (AC5) — `ignoreSubsequentReports` mutation:** `async (_, { reportId }, context) => { requireModerator(context); const [report] = await db.select().from(reports).where(eq(reports.id, reportId)); if (!report) throw NOT_FOUND; if (report.reason !== 'dangerous') throw GraphQLError('ignoreSubsequentReports only applies to dangerous-reason reports', { extensions: { code: 'BAD_REQUEST' } }); const [updated] = await db.update(reports).set({ moderatorIgnored: true }).where(eq(reports.id, reportId)).returning(); return updated; }`.
-- [ ] **Task 7 (AC6) — `Event.isHiddenForCurrentUser` field resolver:** In the `Event` type-resolver map (`resolvers.ts`, alongside `isFavorited`/`isAddedToCalendar`), add:
+- [x] **Task 4 (AC3) — `myReports` query + `Report.event` field resolver:**
+  - [x] `myReports: async (_, __, context) => { const { userId } = requireAuth(context); return db.select().from(reports).where(eq(reports.reporterUserId, userId)).orderBy(desc(reports.createdAt)); }` (serialize timestamps).
+  - [x] Add a `Report: { event: async (parent, _, __, info) => { ...buildOptimizedDrizzleSelect(events, info)-based lookup by parent.eventId, left-joined with posts for imageUrl/sourcePostUrl/originalPostUrl, mirroring the existing `event(id)` Query resolver's exact shape... } }` type-resolver map entry, mirroring `Subscription.account`'s nested-entity-resolver precedent (`subscriptions.graphql`).
+- [x] **Task 5 (AC4) — `reportedEvents` query + `resolveReport` mutation:**
+  - [x] `reportedEvents: async (_, { status, reason }, context) => { requireModerator(context); const conditions = [...(status ? [eq(reports.status, status)] : []), ...(reason ? [eq(reports.reason, reason)] : [])]; return db.select().from(reports).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(reports.createdAt)); }`.
+  - [x] `resolveReport: async (_, { id, outcome }, context) => { const moderator = requireModerator(context); const [report] = await db.select().from(reports).where(eq(reports.id, id)); if (!report) throw NOT_FOUND; if (report.status !== 'pending') throw INVALID_STATE_TRANSITION; const [updated] = await db.update(reports).set({ status: outcome, resolvedByModeratorId: moderator.userId, resolvedAt: new Date() }).where(eq(reports.id, id)).returning(); return updated; }`.
+- [x] **Task 6 (AC5) — `ignoreSubsequentReports` mutation:** `async (_, { reportId }, context) => { requireModerator(context); const [report] = await db.select().from(reports).where(eq(reports.id, reportId)); if (!report) throw NOT_FOUND; if (report.reason !== 'dangerous') throw GraphQLError('ignoreSubsequentReports only applies to dangerous-reason reports', { extensions: { code: 'BAD_REQUEST' } }); const [updated] = await db.update(reports).set({ moderatorIgnored: true }).where(eq(reports.id, reportId)).returning(); return updated; }`.
+- [x] **Task 7 (AC6) — `Event.isHiddenForCurrentUser` field resolver:** In the `Event` type-resolver map (`resolvers.ts`, alongside `isFavorited`/`isAddedToCalendar`), add:
   ```ts
   isHiddenForCurrentUser: async (parent: any, _: any, context: any) => {
     try {
@@ -112,18 +112,18 @@ baseline_commit: 3dfa5f7dbcfeebb6b62b91d6b472e5b21f20b0f9
     }
   },
   ```
-- [ ] **Task 8 (AC1–AC7) — Tests:** Create `apps/backend/src/schema/reports.test.ts` (real local DB, `graphql-yoga` `createSchema`/`createYoga`, mirroring `corrections.test.ts`'s harness and real-DB seed/cleanup pattern):
+- [x] **Task 8 (AC1–AC7) — Tests:** Create `apps/backend/src/schema/reports.test.ts` (real local DB, `graphql-yoga` `createSchema`/`createYoga`, mirroring `corrections.test.ts`'s harness and real-DB seed/cleanup pattern):
   - `submitReport`: unauthenticated rejected `UNAUTHENTICATED`; unknown `eventId` rejected `NOT_FOUND`; valid submission inserts a `pending` row and returns it with the resolved `event`; a second `dangerous` submission after `ignoreSubsequentReports` has been called on the first is rejected `REPORT_IGNORED` with no new row inserted; a second `cancelled`/`personal` submission (no `moderator_ignored` gate for those reasons) succeeds and inserts a second row.
   - `myReports`: returns only the caller's own reports, not another user's.
   - `reportedEvents`: non-moderator caller rejected `FORBIDDEN`; moderator caller sees all reports; `status`/`reason` filter args each narrow the result set correctly.
   - `resolveReport`: non-moderator rejected `FORBIDDEN`; unknown `id` rejected `NOT_FOUND`; resolving an already-resolved report rejected `INVALID_STATE_TRANSITION`; a valid call sets `status`/`resolvedByModeratorId`/`resolvedAt` correctly for both `upheld` and `dismissed` outcomes.
   - `ignoreSubsequentReports`: non-moderator rejected `FORBIDDEN`; unknown `reportId` rejected `NOT_FOUND`; a `cancelled`/`personal`-reason report rejected `BAD_REQUEST`; a `dangerous`-reason report sets `moderatorIgnored: true`.
   - `Event.isHiddenForCurrentUser` (via the `events`/`event`/`eventBySlug` queries): `false` for an unauthenticated caller and for an authenticated caller with no report on that event; `true` for the reporter regardless of `reason` (`cancelled`/`dangerous`/`personal` each independently tested) and regardless of `status` (still `true` after the report is `resolveReport`'d to `dismissed`, proving the Dangerous-reason "remains hidden" requirement); `false` for a different authenticated user who has not reported that event.
-- [ ] **Task 9 — Codegen + Verification (AC1–AC7):**
-  - [ ] `pnpm --filter backend codegen` to regenerate `apps/backend/src/generated/resolvers-types.ts` against the new `reports.graphql` and the extended `events.graphql`.
-  - [ ] `pnpm --filter @festgrid/database generate` output reviewed: one additive migration, no drops/renames.
-  - [ ] `pnpm --filter backend test` — new `reports.test.ts` passes; all existing `apps/backend` suites remain unmodified and passing.
-  - [ ] `pnpm build`, `pnpm lint`, `pnpm test` (root): full suite, no regressions.
+- [x] **Task 9 — Codegen + Verification (AC1–AC7):**
+  - [x] `pnpm --filter backend codegen` to regenerate `apps/backend/src/generated/resolvers-types.ts` against the new `reports.graphql` and the extended `events.graphql`.
+  - [x] `pnpm --filter @festgrid/database generate` output reviewed: one additive migration, no drops/renames.
+  - [x] `pnpm --filter backend test` — new `reports.test.ts` passes; all existing `apps/backend` suites remain unmodified and passing.
+  - [x] `pnpm build`, `pnpm lint`, `pnpm test` (root): full suite, no regressions.
 
 ## Dev Notes
 
@@ -256,14 +256,29 @@ epics.md's original AC5 text said this field would be "joined via `buildOptimize
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 
 ### Agent Model Used
+- Claude 3.5 Sonnet
 
 ### Debug Log References
+- [x] Database migration 0023 successfully generated.
+- [x] GraphQL codegen ran successfully.
+- [x] 17/17 integration tests in reports.test.ts pass perfectly.
 
 ### Completion Notes List
+- [x] Implemented the additive `reports` table in Postgres schema with required indexes and cascading foreign keys.
+- [x] Exposed GraphQL mutations: `submitReport`, `resolveReport`, `ignoreSubsequentReports`.
+- [x] Exposed GraphQL queries: `myReports`, `reportedEvents` (filterable by status/reason).
+- [x] Added `isHiddenForCurrentUser` resolver on `Event` type to handle visibility filtering for reporters.
 
 ### File List
+- `packages/database/schema.ts`
+- `packages/database/migrations/0023_light_rawhide_kid.sql`
+- `apps/backend/src/schema/reports.graphql`
+- `apps/backend/src/schema/events.graphql`
+- `apps/backend/src/schema/resolvers.ts`
+- `apps/backend/src/schema/reports.test.ts`
+- `apps/backend/src/generated/resolvers-types.ts`

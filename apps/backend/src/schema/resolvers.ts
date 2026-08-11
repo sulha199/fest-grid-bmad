@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
-import { requireAuth } from '../lib/auth/context.js';
+import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and, exists, desc, inArray, or } from 'drizzle-orm';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl } from '@festgrid/domain/scraper';
@@ -1030,9 +1030,121 @@ export const resolvers: Resolvers = {
       const data = mapExtractionPayloadToProposedCorrection(payload);
       return { data };
     },
+    submitReport: async (_: any, { eventId, reason, details }: any, context: any): Promise<any> => {
+      const authUser = requireAuth(context);
+      const [existingEvent] = await db.select().from(events).where(eq(events.id, eventId));
+      if (!existingEvent) {
+        throw new GraphQLError('Event not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+      if (reason === 'dangerous') {
+        const existingReport = await db.select()
+          .from(reports)
+          .where(and(
+            eq(reports.reporterUserId, authUser.userId),
+            eq(reports.eventId, eventId),
+            eq(reports.reason, 'dangerous'),
+            eq(reports.moderatorIgnored, true)
+          ));
+        if (existingReport.length > 0) {
+          throw new GraphQLError('This report has already been reviewed and will not be re-submitted.', {
+            extensions: { code: 'REPORT_IGNORED' }
+          });
+        }
+      }
+      const [newReport] = await db.insert(reports).values({
+        eventId,
+        reporterUserId: authUser.userId,
+        reason,
+        details: details ?? null,
+        status: 'pending',
+      }).returning();
+      return {
+        ...newReport,
+        createdAt: newReport.createdAt.toISOString(),
+        resolvedAt: newReport.resolvedAt ? newReport.resolvedAt.toISOString() : null,
+      };
+    },
+    resolveReport: async (_: any, { id, outcome }: any, context: any): Promise<any> => {
+      const moderator = requireModerator(context);
+      const [report] = await db.select().from(reports).where(eq(reports.id, id));
+      if (!report) {
+        throw new GraphQLError('Report not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+      if (report.status !== 'pending') {
+        throw new GraphQLError('Report is already resolved', {
+          extensions: { code: 'INVALID_STATE_TRANSITION' },
+        });
+      }
+      const [updated] = await db.update(reports).set({
+        status: outcome,
+        resolvedByModeratorId: moderator.userId,
+        resolvedAt: new Date(),
+      }).where(eq(reports.id, id)).returning();
+      return {
+        ...updated,
+        createdAt: updated.createdAt.toISOString(),
+        resolvedAt: updated.resolvedAt ? updated.resolvedAt.toISOString() : null,
+      };
+    },
+    ignoreSubsequentReports: async (_: any, { reportId }: any, context: any): Promise<any> => {
+      requireModerator(context);
+      const [report] = await db.select().from(reports).where(eq(reports.id, reportId));
+      if (!report) {
+        throw new GraphQLError('Report not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+      if (report.reason !== 'dangerous') {
+        throw new GraphQLError('ignoreSubsequentReports only applies to dangerous-reason reports', {
+          extensions: { code: 'BAD_REQUEST' },
+        });
+      }
+      const [updated] = await db.update(reports).set({
+        moderatorIgnored: true,
+      }).where(eq(reports.id, reportId)).returning();
+      return {
+        ...updated,
+        createdAt: updated.createdAt.toISOString(),
+        resolvedAt: updated.resolvedAt ? updated.resolvedAt.toISOString() : null,
+      };
+    },
   },
   Query: {
     health: () => true,
+    myReports: async (_: any, __: any, context: any): Promise<any> => {
+      const authUser = requireAuth(context);
+      const rows = await db.select().from(reports)
+        .where(eq(reports.reporterUserId, authUser.userId))
+        .orderBy(desc(reports.createdAt));
+      return rows.map(r => ({
+        ...r,
+        createdAt: r.createdAt.toISOString(),
+        resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
+      }));
+    },
+    reportedEvents: async (_: any, { status, reason }: any, context: any): Promise<any> => {
+      requireModerator(context);
+      const conditions: any[] = [];
+      if (status) {
+        conditions.push(eq(reports.status, status));
+      }
+      if (reason) {
+        conditions.push(eq(reports.reason, reason));
+      }
+      const rows = await db.select()
+        .from(reports)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(desc(reports.createdAt));
+      return rows.map(r => ({
+        ...r,
+        createdAt: r.createdAt.toISOString(),
+        resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
+      }));
+    },
     myApiKeys: async (_: any, __: any, context: any) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(apiKeys)
@@ -1353,6 +1465,24 @@ export const resolvers: Resolvers = {
       return (rows[0] as any) || null;
     }
   },
+  Report: {
+    event: async (parent: any, _: any, __: any, info: any) => {
+      const requestedFields = buildOptimizedDrizzleSelect(events, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: events.id,
+        postId: events.postId,
+        slug: events.slug,
+        imageUrl: posts.imageUrl,
+        sourcePostUrl: posts.postUrl,
+        originalPostUrl: posts.originalPostUrl,
+      }).from(events)
+        .leftJoin(posts, eq(events.postId, posts.id))
+        .where(eq(events.id, parent.eventId));
+      
+      return (rows[0] as any) || null;
+    }
+  },
   Event: {
     sourceSocialMediaAccountProfile: async (parent: any, args: any, context: any, info: any) => {
       if (!parent.postId) {
@@ -1404,6 +1534,17 @@ export const resolvers: Resolvers = {
             eq(calendarAdditions.eventId, parent.id),
             activeOnly(calendarAdditions)
           ));
+        return rows.length > 0;
+      } catch {
+        return false;
+      }
+    },
+    isHiddenForCurrentUser: async (parent: any, _: any, context: any) => {
+      try {
+        const authUser = requireAuth(context);
+        const rows = await db.select({ id: reports.id })
+          .from(reports)
+          .where(and(eq(reports.reporterUserId, authUser.userId), eq(reports.eventId, parent.id)));
         return rows.length > 0;
       } catch {
         return false;

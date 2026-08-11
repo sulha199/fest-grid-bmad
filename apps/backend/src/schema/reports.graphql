@@ -1,0 +1,41 @@
+enum ReportReason {
+  cancelled
+  dangerous
+  personal
+}
+
+enum ReportStatus {
+  pending
+  upheld
+  dismissed
+}
+
+enum ReportOutcome {
+  upheld
+  dismissed
+}
+
+type Report {
+  id: ID!
+  eventId: ID!
+  event: Event!
+  reporterUserId: ID!
+  reason: ReportReason!
+  details: String
+  status: ReportStatus!
+  moderatorIgnored: Boolean!
+  resolvedByModeratorId: ID
+  createdAt: String!
+  resolvedAt: String
+}
+
+extend type Query {
+  myReports: [Report!]!
+  reportedEvents(status: ReportStatus, reason: ReportReason): [Report!]!
+}
+
+extend type Mutation {
+  submitReport(eventId: ID!, reason: ReportReason!, details: String): Report!
+  resolveReport(id: ID!, outcome: ReportOutcome!): Report!
+  ignoreSubsequentReports(reportId: ID!): Report!
+}
