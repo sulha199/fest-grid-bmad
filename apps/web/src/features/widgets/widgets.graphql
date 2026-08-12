@@ -1,0 +1,50 @@
+mutation createWidget($input: CreateWidgetInput!) {
+  createWidget(input: $input) {
+    id
+    ownerUserId
+    filters
+    displayMode
+    theme
+    createdAt
+  }
+}
+
+mutation updateWidget($id: ID!, $input: UpdateWidgetInput!) {
+  updateWidget(id: $id, input: $input) {
+    id
+    ownerUserId
+    filters
+    displayMode
+    theme
+    createdAt
+  }
+}
+
+mutation deleteWidget($id: ID!, $action: SoftDeleteAction!) {
+  deleteWidget(id: $id, action: $action) {
+    id
+    deletedAt
+  }
+}
+
+query myWidgets {
+  myWidgets {
+    id
+    ownerUserId
+    filters
+    displayMode
+    theme
+    createdAt
+  }
+}
+
+query widgetById($id: ID!) {
+  widgetById(id: $id) {
+    id
+    ownerUserId
+    filters
+    displayMode
+    theme
+    createdAt
+  }
+}

@@ -37,6 +37,14 @@ content = content.replace(/export type UpdateUserSettingsInput = \{\r?\n\s+hideP
 content = content.replace(/export type CreateApiKeyInput = \{\r?\n\s+key\:\s+string[\s\S]*?\};\r?\n/g, '');
 content = content.replace(/export type SubscribeToAccountInput = \{\r?\n\s+accountId\:\s+string[\s\S]*?\};\r?\n/g, '');
 
+// Replace duplicate CreateWidgetInput and UpdateWidgetInput
+content = content.replace(/export type CreateWidgetInput = \{\r?\n\s+displayMode\?\:\s+WidgetDisplayMode[\s\S]*?\};\r?\n/g, '');
+content = content.replace(/export type UpdateWidgetInput = \{\r?\n\s+displayMode\?\:\s+WidgetDisplayMode[\s\S]*?\};\r?\n/g, '');
+
+// Replace duplicate types WidgetDisplayMode and WidgetTheme
+content = content.replace(/export type WidgetDisplayMode =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type WidgetTheme =[\s\S]*?;\r?\n/g, '');
+
 // Replace duplicate CastVoteInput
 content = content.replace(/export type CastVoteInput = \{\r?\n\s+accountId\?\:\s+string\s\|[\s\S]*?\};\r?\n/g, '');
 

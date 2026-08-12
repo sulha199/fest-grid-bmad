@@ -4,7 +4,8 @@
 
 - Epic: 6
 - Story ID: 6.5a
-- Status: ready-for-dev
+- Status: review
+- baseline_commit: ab3c7ef
 
 ## Story
 
@@ -24,17 +25,17 @@ So that a widget is a persisted, independently-editable entity with a stable id 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: 1): Database Migration for `widgets` table
-  - [ ] Define `widgets` table in `packages/database/schema.ts` with standard uuid pk, owner_user_id FK, filters jsonb, display_mode enum, theme enum, timestamps, and deleted_at soft delete
-  - [ ] Generate migrations with `pnpm --filter @festgrid/database db:generate`
-  - [ ] Ensure partial indexes on active widgets (where `deleted_at IS NULL`) are properly configured
-  - [ ] Run migration on local database
-- [ ] Task 2 (AC: 2, 3, 4, 5, 6): GraphQL SDL Schema & Resolvers
-  - [ ] Create `widgets.graphql` in `apps/backend/src/schema/` declaring Widget, enum theme, enum display mode, and mutations/queries
-  - [ ] Run GraphQL codegen to sync backend types
-  - [ ] Implement query `myWidgets`, query `widgetById`, mutations `createWidget`, `updateWidget`, `deleteWidget` in `resolvers.ts`
-- [ ] Task 3 (AC: 2): AJV Schema Validation for Widget Filters
-  - [ ] Integrate AJV validation on `filters` parameter using same rules as Unified Query DSL (AD-1)
+- [x] Task 1 (AC: 1): Database Migration for `widgets` table
+  - [x] Define `widgets` table in `packages/database/schema.ts` with standard uuid pk, owner_user_id FK, filters jsonb, display_mode enum, theme enum, timestamps, and deleted_at soft delete
+  - [x] Generate migrations with `pnpm --filter @festgrid/database db:generate`
+  - [x] Ensure partial indexes on active widgets (where `deleted_at IS NULL`) are properly configured
+  - [x] Run migration on local database
+- [x] Task 2 (AC: 2, 3, 4, 5, 6): GraphQL SDL Schema & Resolvers
+  - [x] Create `widgets.graphql` in `apps/backend/src/schema/` declaring Widget, enum theme, enum display mode, and mutations/queries
+  - [x] Run GraphQL codegen to sync backend types
+  - [x] Implement query `myWidgets`, query `widgetById`, mutations `createWidget`, `updateWidget`, `deleteWidget` in `resolvers.ts`
+- [x] Task 3 (AC: 2): AJV Schema Validation for Widget Filters
+  - [x] Integrate AJV validation on `filters` parameter using same rules as Unified Query DSL (AD-1)
 
 ## Dev Notes
 
@@ -82,21 +83,21 @@ So that a widget is a persisted, independently-editable entity with a stable id 
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation
-- [ ] Architecture and boundary confirmation
-- [ ] Testing plan confirmation
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted
+- [x] Scope confirmation
+- [x] Architecture and boundary confirmation
+- [x] Testing plan confirmation
+- [x] Explicit human approval state (Approved)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted
 
 ## Testing Requirements
 
-- [ ] Integration tests verifying `createWidget` validation and `widgetById` unauthenticated safe-rejection.
-- [ ] Integration tests verifying `deleteWidget` ownership constraints and state transition retry blocks.
+- [x] Integration tests verifying `createWidget` validation and `widgetById` unauthenticated safe-rejection.
+- [x] Integration tests verifying `deleteWidget` ownership constraints and state transition retry blocks.
 
 ## Deliverables Checklist
 
-- [ ] `widgets` migration script and schema updates
-- [ ] GraphQL query/mutation resolvers for widget configuration management
+- [x] `widgets` migration script and schema updates
+- [x] GraphQL query/mutation resolvers for widget configuration management
 
 ## Out of Scope
 
@@ -104,13 +105,13 @@ So that a widget is a persisted, independently-editable entity with a stable id 
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 

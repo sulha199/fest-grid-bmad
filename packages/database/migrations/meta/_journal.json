@@ -183,6 +183,13 @@
       "when": 1786547702521,
       "tag": "0025_pale_saracen",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1786556605059,
+      "tag": "0026_legal_roland_deschain",
+      "breakpoints": true
     }
   ]
 }

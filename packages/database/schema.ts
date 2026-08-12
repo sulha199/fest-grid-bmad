@@ -449,3 +449,25 @@ export const accountVotesRelations = relations(accountVotes, ({ one }) => ({
     references: [socialMediaAccountProfiles.id],
   }),
 }));
+
+export const widgetDisplayModeEnum = pgEnum('widget_display_mode', ['CARD', 'CALENDAR']);
+export const widgetThemeEnum = pgEnum('widget_theme', ['DARK', 'LIGHT']);
+
+export const widgets = pgTable('widgets', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  ownerUserId: uuid('owner_user_id').references(() => users.id).notNull(),
+  filters: jsonb('filters').notNull(),
+  displayMode: widgetDisplayModeEnum('display_mode').default('CARD').notNull(),
+  theme: widgetThemeEnum('theme').default('LIGHT').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+}, (t) => ({
+  activeIdx: index('idx_widgets_active').on(t.ownerUserId).where(sql`deleted_at IS NULL`),
+}));
+
+export const widgetsRelations = relations(widgets, ({ one }) => ({
+  owner: one(users, {
+    fields: [widgets.ownerUserId],
+    references: [users.id],
+  }),
+}));

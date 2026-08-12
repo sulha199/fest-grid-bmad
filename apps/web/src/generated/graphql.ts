@@ -104,6 +104,12 @@ export type CreateUserLocationInput = {
   radius: Scalars['Int']['input'];
 };
 
+export type CreateWidgetInput = {
+  displayMode?: InputMaybe<WidgetDisplayMode>;
+  filters: Scalars['JSON']['input'];
+  theme?: InputMaybe<WidgetTheme>;
+};
+
 export enum DefaultLocationChangeAction {
   Accept = 'ACCEPT',
   Revert = 'REVERT'
@@ -244,9 +250,11 @@ export type Mutation = {
   castVote: AccountVote;
   createApiKey: ApiKey;
   createUserLocation: UserLocation;
+  createWidget: Widget;
   deleteApiKey: ApiKey;
   deleteEventPermanently: Scalars['Boolean']['output'];
   deleteUserLocation: UserLocation;
+  deleteWidget: Widget;
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   ignoreSubsequentReports: Report;
@@ -268,6 +276,7 @@ export type Mutation = {
   unregisterFcmToken: Scalars['Boolean']['output'];
   updateUserLocation: UserLocation;
   updateUserSettings: UserSettings;
+  updateWidget: Widget;
   withdrawVote: AccountVote;
 };
 
@@ -287,6 +296,11 @@ export type MutationCreateUserLocationArgs = {
 };
 
 
+export type MutationCreateWidgetArgs = {
+  input: CreateWidgetInput;
+};
+
+
 export type MutationDeleteApiKeyArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
@@ -299,6 +313,12 @@ export type MutationDeleteEventPermanentlyArgs = {
 
 
 export type MutationDeleteUserLocationArgs = {
+  action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteWidgetArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
 };
@@ -421,6 +441,12 @@ export type MutationUpdateUserSettingsArgs = {
 };
 
 
+export type MutationUpdateWidgetArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateWidgetInput;
+};
+
+
 export type MutationWithdrawVoteArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
@@ -509,6 +535,7 @@ export type Query = {
   myReports: Array<Report>;
   mySettings: UserSettings;
   mySubscriptions: Array<Subscription>;
+  myWidgets: Array<Widget>;
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
@@ -517,6 +544,7 @@ export type Query = {
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
   voteRegionBreakdown: Array<RegionVoteBucket>;
   votedAccountSuggestions: Array<RankedAccountVote>;
+  widgetById?: Maybe<Widget>;
 };
 
 
@@ -585,6 +613,11 @@ export type QueryVoteRegionBreakdownArgs = {
 
 export type QueryVotedAccountSuggestionsArgs = {
   query?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QueryWidgetByIdArgs = {
+  id: Scalars['ID']['input'];
 };
 
 export type RankedAccountVote = {
@@ -735,6 +768,12 @@ export type UpdateUserSettingsInput = {
   pushNotificationsEnabled?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
+export type UpdateWidgetInput = {
+  displayMode?: InputMaybe<WidgetDisplayMode>;
+  filters?: InputMaybe<Scalars['JSON']['input']>;
+  theme?: InputMaybe<WidgetTheme>;
+};
+
 export type UserLocation = {
   __typename?: 'UserLocation';
   createdAt: Scalars['String']['output'];
@@ -759,6 +798,31 @@ export type ValidationError = {
   field: Scalars['String']['output'];
   message: Scalars['String']['output'];
 };
+
+export type Widget = {
+  __typename?: 'Widget';
+  createdAt: Scalars['String']['output'];
+  deletedAt?: Maybe<Scalars['String']['output']>;
+  displayMode: WidgetDisplayMode;
+  filters: Scalars['JSON']['output'];
+  id: Scalars['ID']['output'];
+  ownerUserId: Scalars['ID']['output'];
+  theme: WidgetTheme;
+};
+
+export enum WidgetDisplayMode {
+  Calendar = 'CALENDAR',
+  Card = 'CARD'
+}
+
+export enum WidgetTheme {
+  Dark = 'DARK',
+  Light = 'LIGHT'
+}
+
+
+
+
 
 
 
@@ -1128,6 +1192,41 @@ export type VotedAccountSuggestionsQueryVariables = Exact<{
 
 
 export type VotedAccountSuggestionsQuery = { votedAccountSuggestions: Array<{ voteCount: number, userVoteId: string | null, profile: { id: string, platform: string, accountId: string, username: string, displayName: string, profileImageUrl: string | null, description: string | null } }> };
+
+export type CreateWidgetMutationVariables = Exact<{
+  input: CreateWidgetInput;
+}>;
+
+
+export type CreateWidgetMutation = { createWidget: { id: string, ownerUserId: string, filters: unknown, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string } };
+
+export type UpdateWidgetMutationVariables = Exact<{
+  id: string | number;
+  input: UpdateWidgetInput;
+}>;
+
+
+export type UpdateWidgetMutation = { updateWidget: { id: string, ownerUserId: string, filters: unknown, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string } };
+
+export type DeleteWidgetMutationVariables = Exact<{
+  id: string | number;
+  action: SoftDeleteAction;
+}>;
+
+
+export type DeleteWidgetMutation = { deleteWidget: { id: string, deletedAt: string | null } };
+
+export type MyWidgetsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MyWidgetsQuery = { myWidgets: Array<{ id: string, ownerUserId: string, filters: unknown, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string }> };
+
+export type WidgetByIdQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type WidgetByIdQuery = { widgetById: { id: string, ownerUserId: string, filters: unknown, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string } | null };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -2746,6 +2845,154 @@ export const useVotedAccountSuggestionsQuery = <
       {
     queryKey: variables === undefined ? ['votedAccountSuggestions'] : ['votedAccountSuggestions', variables],
     queryFn: fetcher<VotedAccountSuggestionsQuery, VotedAccountSuggestionsQueryVariables>(client, VotedAccountSuggestionsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const CreateWidgetDocument = new TypedDocumentString(`
+    mutation createWidget($input: CreateWidgetInput!) {
+  createWidget(input: $input) {
+    id
+    ownerUserId
+    filters
+    displayMode
+    theme
+    createdAt
+  }
+}
+    `);
+
+export const useCreateWidgetMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateWidgetMutation, TError, CreateWidgetMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateWidgetMutation, TError, CreateWidgetMutationVariables, TContext>(
+      {
+    mutationKey: ['createWidget'],
+    mutationFn: (variables?: CreateWidgetMutationVariables) => fetcher<CreateWidgetMutation, CreateWidgetMutationVariables>(client, CreateWidgetDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const UpdateWidgetDocument = new TypedDocumentString(`
+    mutation updateWidget($id: ID!, $input: UpdateWidgetInput!) {
+  updateWidget(id: $id, input: $input) {
+    id
+    ownerUserId
+    filters
+    displayMode
+    theme
+    createdAt
+  }
+}
+    `);
+
+export const useUpdateWidgetMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateWidgetMutation, TError, UpdateWidgetMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateWidgetMutation, TError, UpdateWidgetMutationVariables, TContext>(
+      {
+    mutationKey: ['updateWidget'],
+    mutationFn: (variables?: UpdateWidgetMutationVariables) => fetcher<UpdateWidgetMutation, UpdateWidgetMutationVariables>(client, UpdateWidgetDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const DeleteWidgetDocument = new TypedDocumentString(`
+    mutation deleteWidget($id: ID!, $action: SoftDeleteAction!) {
+  deleteWidget(id: $id, action: $action) {
+    id
+    deletedAt
+  }
+}
+    `);
+
+export const useDeleteWidgetMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DeleteWidgetMutation, TError, DeleteWidgetMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DeleteWidgetMutation, TError, DeleteWidgetMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteWidget'],
+    mutationFn: (variables?: DeleteWidgetMutationVariables) => fetcher<DeleteWidgetMutation, DeleteWidgetMutationVariables>(client, DeleteWidgetDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const MyWidgetsDocument = new TypedDocumentString(`
+    query myWidgets {
+  myWidgets {
+    id
+    ownerUserId
+    filters
+    displayMode
+    theme
+    createdAt
+  }
+}
+    `);
+
+export const useMyWidgetsQuery = <
+      TData = MyWidgetsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: MyWidgetsQueryVariables,
+      options?: Omit<UseQueryOptions<MyWidgetsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<MyWidgetsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<MyWidgetsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['myWidgets'] : ['myWidgets', variables],
+    queryFn: fetcher<MyWidgetsQuery, MyWidgetsQueryVariables>(client, MyWidgetsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const WidgetByIdDocument = new TypedDocumentString(`
+    query widgetById($id: ID!) {
+  widgetById(id: $id) {
+    id
+    ownerUserId
+    filters
+    displayMode
+    theme
+    createdAt
+  }
+}
+    `);
+
+export const useWidgetByIdQuery = <
+      TData = WidgetByIdQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: WidgetByIdQueryVariables,
+      options?: Omit<UseQueryOptions<WidgetByIdQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WidgetByIdQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<WidgetByIdQuery, TError, TData>(
+      {
+    queryKey: ['widgetById', variables],
+    queryFn: fetcher<WidgetByIdQuery, WidgetByIdQueryVariables>(client, WidgetByIdDocument, variables, headers),
     ...options
   }
     )};

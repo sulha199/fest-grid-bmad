@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and, exists, desc, inArray, or, gte, isNull, ilike } from 'drizzle-orm';
@@ -1503,6 +1503,80 @@ export const resolvers: Resolvers = {
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
+    createWidget: async (_: any, { input }: any, context: any) => {
+      const authUser = requireAuth(context);
+      
+      if (typeof input.filters !== 'object' || input.filters === null) {
+        throw new GraphQLError('Filters must be a valid JSON object', { extensions: { code: 'BAD_REQUEST' } });
+      }
+
+      const [inserted] = await db.insert(widgets).values({
+        ownerUserId: authUser.userId,
+        filters: input.filters,
+        displayMode: input.displayMode || 'CARD',
+        theme: input.theme || 'LIGHT',
+      }).returning();
+      return inserted;
+    },
+    updateWidget: async (_: any, { id, input }: any, context: any) => {
+      const authUser = requireAuth(context);
+      
+      const [existing] = await db.select().from(widgets).where(and(eq(widgets.id, id), eq(widgets.ownerUserId, authUser.userId)));
+      if (!existing) {
+        throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
+      }
+      if (existing.deletedAt !== null) {
+        throw new GraphQLError('Cannot update a deleted widget', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+      }
+
+      const updateFields: any = {};
+      if (input.filters !== undefined) {
+        if (typeof input.filters !== 'object' || input.filters === null) {
+          throw new GraphQLError('Filters must be a valid JSON object', { extensions: { code: 'BAD_REQUEST' } });
+        }
+        updateFields.filters = input.filters;
+      }
+      if (input.displayMode !== undefined) {
+        updateFields.displayMode = input.displayMode;
+      }
+      if (input.theme !== undefined) {
+        updateFields.theme = input.theme;
+      }
+
+      const [updated] = await db.update(widgets)
+        .set(updateFields)
+        .where(eq(widgets.id, id))
+        .returning();
+      return updated;
+    },
+    deleteWidget: async (_: any, { id, action }: any, context: any) => {
+      const authUser = requireAuth(context);
+      const [existing] = await db.select().from(widgets).where(and(eq(widgets.id, id), eq(widgets.ownerUserId, authUser.userId)));
+      if (!existing) {
+        throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      if (action === 'DELETE') {
+        if (existing.deletedAt !== null) {
+          throw new GraphQLError('Widget is already deleted', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(widgets)
+          .set({ deletedAt: new Date() })
+          .where(eq(widgets.id, id))
+          .returning();
+        return updated;
+      } else if (action === 'RESTORE') {
+        if (existing.deletedAt === null) {
+          throw new GraphQLError('Widget is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(widgets)
+          .set({ deletedAt: null })
+          .where(eq(widgets.id, id))
+          .returning();
+        return updated;
+      }
+      throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
+    },
   },
   Query: {
     health: () => true,
@@ -1911,6 +1985,14 @@ export const resolvers: Resolvers = {
         }
       }
       return result;
+    },
+    myWidgets: async (_: any, __: any, context: any) => {
+      const authUser = requireAuth(context);
+      return await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+    },
+    widgetById: async (_: any, { id }: any, context: any) => {
+      const [row] = await db.select().from(widgets).where(and(eq(widgets.id, id), isNull(widgets.deletedAt)));
+      return row || null;
     },
     events: async (_: any, { query, limit, offset, includeSoftDeleted, includeMyArchived }: any, context: any, info: any) => {
       const hasFavoritedEqTrue = (condition: QueryCondition | undefined): boolean => {
@@ -2332,6 +2414,10 @@ export const resolvers: Resolvers = {
     }
   },
   AccountVote: {
+    createdAt: (parent: any) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
+    deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
+  },
+  Widget: {
     createdAt: (parent: any) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
     deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },

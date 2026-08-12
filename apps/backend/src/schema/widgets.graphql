@@ -1,0 +1,42 @@
+enum WidgetDisplayMode {
+  CARD
+  CALENDAR
+}
+
+enum WidgetTheme {
+  DARK
+  LIGHT
+}
+
+type Widget {
+  id: ID!
+  ownerUserId: ID!
+  filters: JSON!
+  displayMode: WidgetDisplayMode!
+  theme: WidgetTheme!
+  createdAt: String!
+  deletedAt: String
+}
+
+input CreateWidgetInput {
+  filters: JSON!
+  displayMode: WidgetDisplayMode
+  theme: WidgetTheme
+}
+
+input UpdateWidgetInput {
+  filters: JSON
+  displayMode: WidgetDisplayMode
+  theme: WidgetTheme
+}
+
+extend type Query {
+  myWidgets: [Widget!]!
+  widgetById(id: ID!): Widget
+}
+
+extend type Mutation {
+  createWidget(input: CreateWidgetInput!): Widget!
+  updateWidget(id: ID!, input: UpdateWidgetInput!): Widget!
+  deleteWidget(id: ID!, action: SoftDeleteAction!): Widget!
+}
