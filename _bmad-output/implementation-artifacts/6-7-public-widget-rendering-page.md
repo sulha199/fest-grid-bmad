@@ -4,7 +4,8 @@
 
 - Epic: 6
 - Story ID: 6.7
-- Status: ready-for-dev
+- Status: review
+- baseline_commit: 22ec582
 
 ## Story
 
@@ -23,14 +24,14 @@ So that visitors on allowed third-party platforms see our extracted events rende
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: 1, 2, 3, 4): Implement Public Widget Page
-  - [ ] Create route page at `apps/web/src/app/[locale]/widget/[id]/page.tsx` fetching the widget config (`widgetById`)
-  - [ ] Render `EventDiscoveryPanel` (Card view) or `WeeklyCalendarView` (Calendar view) based on widget's configured displayMode, passing `filters` to queries
-  - [ ] Apply dark/light theme wrapper classes dynamically matching configured widget theme
-- [ ] Task 2 (AC: 5, 6): Implement Parent PostMessage Height Reporting Handshake
-  - [ ] Set up a ResizeObserver on the widget DOM wrapper or page container
-  - [ ] On height change, send debounced height updates to parent window using `window.parent.postMessage({ type: 'festdaily-widget-resize', widgetId: id, height: height }, '*')`
-  - [ ] Ensure details sheets or modals remain read-only and render beautifully within the bounds of the iframe
+- [x] Task 1 (AC: 1, 2, 3, 4): Implement Public Widget Page
+  - [x] Create route page at `apps/web/src/app/[locale]/widget/[id]/page.tsx` fetching the widget config (`widgetById`)
+  - [x] Render `EventDiscoveryPanel` (Card view) or `WeeklyCalendarView` (Calendar view) based on widget's configured displayMode, passing `filters` to queries
+  - [x] Apply dark/light theme wrapper classes dynamically matching configured widget theme
+- [x] Task 2 (AC: 5, 6): Implement Parent PostMessage Height Reporting Handshake
+  - [x] Set up a ResizeObserver on the widget DOM wrapper or page container
+  - [x] On height change, send debounced height updates to parent window using `window.parent.postMessage({ type: 'festdaily-widget-resize', widgetId: id, height: height }, '*')`
+  - [x] Ensure details sheets or modals remain read-only and render beautifully within the bounds of the iframe
 
 ## Dev Notes
 
@@ -75,21 +76,21 @@ So that visitors on allowed third-party platforms see our extracted events rende
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation
-- [ ] Architecture and boundary confirmation
-- [ ] Testing plan confirmation
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted
+- [x] Scope confirmation
+- [x] Architecture and boundary confirmation
+- [x] Testing plan confirmation
+- [x] Explicit human approval state (Approved)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted
 
 ## Testing Requirements
 
-- [ ] Integration tests verifying correct view selection based on configuration display mode.
-- [ ] E2E tests verifying complete height resize events postMessage dispatches.
+- [x] Integration tests verifying correct view selection based on configuration display mode.
+- [x] E2E tests verifying complete height resize events postMessage dispatches.
 
 ## Deliverables Checklist
 
-- [ ] Responsive public widget page `/widget/[id]/`
-- [ ] Dynamic postMessage auto-resize reporting handler
+- [x] Responsive public widget page `/widget/[id]/`
+- [x] Dynamic postMessage auto-resize reporting handler
 
 ## Out of Scope
 
@@ -97,13 +98,13 @@ So that visitors on allowed third-party platforms see our extracted events rende
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 
