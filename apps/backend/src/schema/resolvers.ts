@@ -1352,7 +1352,7 @@ export const resolvers: Resolvers = {
         hidePastEventsAfterDays = settings.hidePastEventsAfterDays;
       }
 
-      const defaultVisibilityConditions = buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays });
+      const defaultVisibilityConditions = buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays, userId });
 
       if (hasWithinRadiusCondition(query as QueryCondition | undefined) && userId === null) {
         requireAuth(context);
@@ -1427,6 +1427,14 @@ export const resolvers: Resolvers = {
               eq(posts.id, events.postId),
               eq(subscriptions.userId, userId),
               activeOnly(subscriptions)
+            ))
+        ) : sql`false`,
+        isReportedByCurrentUser: userId ? exists(
+          db.select({ id: reports.id })
+            .from(reports)
+            .where(and(
+              eq(reports.reporterUserId, userId),
+              eq(reports.eventId, events.id)
             ))
         ) : sql`false`
       };

@@ -5,8 +5,8 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports } from '@festgrid/database';
-import { eq, inArray } from 'drizzle-orm';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites } from '@festgrid/database';
+import { eq, inArray, count, sql } from 'drizzle-orm';
 
 // read the generated schema for the yoga server
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -1042,6 +1042,276 @@ test('events resolver integration via Yoga', async (t) => {
       const result = await response.json();
       assert.ok(!result.errors, 'GraphQL errors returned');
       assert.strictEqual(result.data.event.id, eventA.id, 'Query.event should retrieve past event A directly');
+    });
+  });
+
+  await t.test('events - excludes self-reported events from list views (Story 4.3c)', async (t) => {
+    const createdEventIds: string[] = [];
+    const createdUserIds: string[] = [];
+    const createdReportIds: string[] = [];
+
+    // Create 2 test users (to test per-caller correlation)
+    const [user1] = await db.insert(users).values({
+      email: `reporter-1-${Date.now()}@test.com`,
+      role: 'user',
+    }).returning();
+    createdUserIds.push(user1.id);
+
+    const [user2] = await db.insert(users).values({
+      email: `reporter-2-${Date.now()}@test.com`,
+      role: 'user',
+    }).returning();
+    createdUserIds.push(user2.id);
+
+    // Create 3 active events
+    const [event1] = await db.insert(events).values({
+      eventName: 'Reported Event 1 (Personal Pending)',
+      location: 'Location 1',
+      types: ['MUSIC'],
+    }).returning();
+    createdEventIds.push(event1.id);
+
+    const [event2] = await db.insert(events).values({
+      eventName: 'Reported Event 2 (Cancelled Upheld)',
+      location: 'Location 2',
+      types: ['MUSIC'],
+    }).returning();
+    createdEventIds.push(event2.id);
+
+    const [event3] = await db.insert(events).values({
+      eventName: 'Reported Event 3 (Dangerous Dismissed)',
+      location: 'Location 3',
+      types: ['MUSIC'],
+    }).returning();
+    createdEventIds.push(event3.id);
+
+    // Main schedules for each event (to satisfy active/upcoming defaults)
+    await db.insert(schedules).values([
+      { eventId: event1.id, eventStartDate: '2030-08-15', isMainSchedule: true },
+      { eventId: event2.id, eventStartDate: '2030-08-16', isMainSchedule: true },
+      { eventId: event3.id, eventStartDate: '2030-08-17', isMainSchedule: true },
+    ]);
+
+    // User 1 reports event 1 for 'personal' (pending status)
+    const [report1] = await db.insert(reports).values({
+      eventId: event1.id,
+      reporterUserId: user1.id,
+      reason: 'personal',
+      status: 'pending',
+    }).returning();
+    createdReportIds.push(report1.id);
+
+    // User 1 reports event 2 for 'cancelled' (upheld status)
+    const [report2] = await db.insert(reports).values({
+      eventId: event2.id,
+      reporterUserId: user1.id,
+      reason: 'cancelled',
+      status: 'upheld',
+    }).returning();
+    createdReportIds.push(report2.id);
+
+    // User 1 reports event 3 for 'dangerous' (dismissed status)
+    const [report3] = await db.insert(reports).values({
+      eventId: event3.id,
+      reporterUserId: user1.id,
+      reason: 'dangerous',
+      status: 'dismissed',
+    }).returning();
+    createdReportIds.push(report3.id);
+
+    t.after(async () => {
+      // Clean up in reverse order
+      if (createdReportIds.length > 0) {
+        await db.delete(reports).where(inArray(reports.id, createdReportIds));
+      }
+      if (createdEventIds.length > 0) {
+        await db.delete(events).where(inArray(events.id, createdEventIds));
+      }
+      if (createdUserIds.length > 0) {
+        await db.delete(users).where(inArray(users.id, createdUserIds));
+      }
+    });
+
+    await t.test('1. excludes reported events for reporter (any reason, any status) in plural list query', async () => {
+      mockUser = { userId: user1.id, role: user1.role };
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              events(limit: 1000) {
+                items { id eventName }
+                totalCount
+              }
+            }
+          `
+        })
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, 'GraphQL errors returned');
+      const items = result.data.events.items;
+      const ids = new Set(items.map((i: any) => i.id));
+
+      // User 1 reported all three events, so they must be completely excluded
+      assert.ok(!ids.has(event1.id), 'Event 1 should be excluded');
+      assert.ok(!ids.has(event2.id), 'Event 2 should be excluded');
+      assert.ok(!ids.has(event3.id), 'Event 3 should be excluded');
+
+      // Check totalCount is correct as well
+      const countRes = await db.select({ count: count() }).from(events).where(sql`${events.deletedAt} IS NULL`);
+      const totalActiveEventsInDb = countRes[0]?.count ?? 0;
+      // totalCount should be total active minus the three excluded reported events
+      assert.strictEqual(result.data.events.totalCount, totalActiveEventsInDb - 3);
+    });
+
+    await t.test('2. reported events remain visible to a different authenticated user', async () => {
+      mockUser = { userId: user2.id, role: user2.role };
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              events(limit: 1000) {
+                items { id }
+              }
+            }
+          `
+        })
+      });
+      const result = await response.json();
+      const items = result.data.events.items;
+      const ids = new Set(items.map((i: any) => i.id));
+
+      // User 2 did NOT report any events, so they must be visible
+      assert.ok(ids.has(event1.id), 'Event 1 should be visible to User 2');
+      assert.ok(ids.has(event2.id), 'Event 2 should be visible to User 2');
+      assert.ok(ids.has(event3.id), 'Event 3 should be visible to User 2');
+    });
+
+    await t.test('3. reported events remain visible to an anonymous (unauthenticated) caller', async () => {
+      mockUser = null;
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              events(limit: 1000) {
+                items { id }
+              }
+            }
+          `
+        })
+      });
+      const result = await response.json();
+      const items = result.data.events.items;
+      const ids = new Set(items.map((i: any) => i.id));
+
+      assert.ok(ids.has(event1.id), 'Event 1 should be visible to anonymous caller');
+      assert.ok(ids.has(event2.id), 'Event 2 should be visible to anonymous caller');
+      assert.ok(ids.has(event3.id), 'Event 3 should be visible to anonymous caller');
+    });
+
+    await t.test('4. singular event lookup (id and slug) bypasses list-view hide rule', async () => {
+      mockUser = { userId: user1.id, role: user1.role };
+      
+      // Query.event(id)
+      const responseById = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEvent($id: ID!) {
+              event(id: $id) {
+                id
+                eventName
+                isHiddenForCurrentUser
+              }
+            }
+          `,
+          variables: { id: event1.id }
+        })
+      });
+      const resultById = await responseById.json();
+      assert.strictEqual(resultById.data.event.id, event1.id, 'Query.event should retrieve reported event directly');
+      assert.strictEqual(resultById.data.event.isHiddenForCurrentUser, true, 'isHiddenForCurrentUser should be true');
+
+      // Query.eventBySlug(slug)
+      const [fullEvent1] = await db.select().from(events).where(eq(events.id, event1.id));
+      const responseBySlug = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventBySlug($slug: String!) {
+              eventBySlug(slug: $slug) {
+                id
+                eventName
+              }
+            }
+          `,
+          variables: { slug: fullEvent1.slug }
+        })
+      });
+      const resultBySlug = await responseBySlug.json();
+      assert.strictEqual(resultBySlug.data.eventBySlug.id, event1.id, 'Query.eventBySlug should retrieve reported event directly');
+    });
+
+    await t.test('5. rule composes correctly with type condition and past-event default-visibility', async () => {
+      mockUser = { userId: user1.id, role: user1.role };
+      // Query: events of type 'MUSIC'.
+      // If we queries as user1, event1, event2, event3 are still excluded.
+      // If we queries as user2, they are matched since they are of type MUSIC.
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              events(query: { field: "types", operator: "contains", value: "MUSIC" }, limit: 1000) {
+                items { id }
+              }
+            }
+          `
+        })
+      });
+      const result = await response.json();
+      const items = result.data.events.items;
+      const ids = new Set(items.map((i: any) => i.id));
+
+      assert.ok(!ids.has(event1.id), 'Event 1 should be excluded by report rule even when matching type query');
+      assert.ok(!ids.has(event2.id), 'Event 2 should be excluded by report rule even when matching type query');
+    });
+
+    await t.test('6. isFavorited-sort path still excludes reported and favorited event', async () => {
+      // Favorite event1 for user 1
+      await db.insert(favorites).values({
+        userId: user1.id,
+        eventId: event1.id,
+      });
+
+      mockUser = { userId: user1.id, role: user1.role };
+      // Query with field: "isFavorited", operator: "eq", value: true (uses sortByFavoritedAt)
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              events(query: { field: "isFavorited", operator: "eq", value: true }, limit: 1000) {
+                items { id }
+              }
+            }
+          `
+        })
+      });
+      const result = await response.json();
+      const items = result.data.events.items;
+      const ids = new Set(items.map((i: any) => i.id));
+
+      assert.ok(!ids.has(event1.id), 'Reported and favorited event 1 should be excluded even when querying favorites');
     });
   });
 

@@ -58,4 +58,37 @@ test('buildDefaultEventVisibilityConditions', async (t) => {
     assert.ok(typeof cond.value.from === 'string');
     assert.match(cond.value.from, /^\d{4}-\d{2}-\d{2}$/);
   });
+
+  await t.test('returns 1 condition if userId is omitted or null', () => {
+    const now = new Date(Date.UTC(2026, 7, 15, 0, 0, 0));
+    const res1 = buildDefaultEventVisibilityConditions({
+      hidePastEventsAfterDays: 7,
+      now,
+    });
+    assert.strictEqual(res1.length, 1);
+
+    const res2 = buildDefaultEventVisibilityConditions({
+      hidePastEventsAfterDays: 7,
+      now,
+      userId: null,
+    });
+    assert.strictEqual(res2.length, 1);
+  });
+
+  await t.test('returns 2 conditions if userId is a real string', () => {
+    const now = new Date(Date.UTC(2026, 7, 15, 0, 0, 0));
+    const res = buildDefaultEventVisibilityConditions({
+      hidePastEventsAfterDays: 7,
+      now,
+      userId: 'user_123',
+    });
+    assert.strictEqual(res.length, 2);
+    const cond1 = res[0] as TerminalCondition;
+    assert.strictEqual(cond1.field, 'scheduleDateRange');
+
+    const cond2 = res[1] as TerminalCondition;
+    assert.strictEqual(cond2.field, 'isReportedByCurrentUser');
+    assert.strictEqual(cond2.operator, 'eq');
+    assert.strictEqual(cond2.value, false);
+  });
 });
