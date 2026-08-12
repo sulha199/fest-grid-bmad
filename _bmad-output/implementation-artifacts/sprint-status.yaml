@@ -546,6 +546,9 @@ development_status:
   # "joined via buildOptimizedDrizzleSelect" AC text (that utility only selects real table
   # columns, no joins/subqueries possible) to the codebase's actual Event.isFavorited-style
   # field-resolver pattern. No new prerequisite stories split off.
+  # Reopened 2026-08-12 via bmad-correct-course: submitReport needs a personal-reason
+  # auto-resolve branch (new auto_resolved ReportStatus enum value + migration).
+  # Status stays 'review' (additive amendment). See sprint-change-proposal-2026-08-12.md.
   4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering: review
   4-3-report-an-event: review
   # added 2026-08-11 via bmad-create-story Gate 2 finding while drafting Story 4.3:
@@ -555,6 +558,20 @@ development_status:
   # User confirmed via AskUserQuestion to scope Story 4.3 to detail-view only and
   # split this off as its own design/implementation pass. See epics.md Story 4.3b note.
   4-3b-add-a-report-trigger-to-eventcard-list-view: backlog
+  # added 2026-08-12 via bmad-correct-course: wires Story 2.7's default-visibility
+  # rule chain to exclude self-reported events from list views (Discovery/Feed/
+  # Favorites/My Calendar/search), closing the gap where isHiddenForCurrentUser
+  # was only consumed by the event detail view. See sprint-change-proposal-2026-08-12.md.
+  # regenerated 2026-08-12 via bmad-create-story: full context engine pass. This story
+  # postdates epic-4-readiness.md's 2026-08-11 sweep (not in its stories_covered), so
+  # all three gates were run fresh via subagent -- Gate 1 PASS (reuses the existing
+  # isFavorited/isAddedToCalendar/isFromSubscribedAccount fieldMap exists() pattern,
+  # no new DSL operator/endpoint), Gate 2 PASS (zero UI surface, confirmed against
+  # design-artifacts), Gate 3 PASS (reports/buildDefaultEventVisibilityConditions
+  # already Epic-4-scoped, no cross-epic promotion needed). No gap found, no new
+  # prerequisite story split off. Dependencies (Story 2.7, Story 4.3a) confirmed
+  # real shipped code via git log, not just planned.
+  4-3c-extend-default-event-visibility-rules-to-exclude-self-reported-events-from-list-views: ready-for-dev
   # created 2026-08-11 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-4-readiness.md (4.4a explicitly in stories_covered; the
   # sweep's own status-enum->deletedAt and deleteEventPermanently-hard-delete-
@@ -614,6 +631,9 @@ development_status:
   # report's event detail view (Context-Aware Detail Views rule) since a user's
   # reports reference unrelated events with no meaningful browsing sequence, unlike
   # Favorites/Discovery. No new prerequisite stories split off.
+  # Reopened 2026-08-12 via bmad-correct-course: StatusBadge variant union needs
+  # the new auto_resolved status (Story 4.3a's 2026-08-12 correction). Status stays
+  # 'review' (additive amendment). See sprint-change-proposal-2026-08-12.md.
   4-6-users-reports-page: review
   # added 2026-08-12 via bmad-create-story Gate 2 finding (Freya subagent) while
   # drafting Story 4.7: no page in the codebase handles an authenticated-but-
@@ -644,6 +664,10 @@ development_status:
   # existing extraction pipeline -- no new code needed, but a Forward note was added to
   # Story 5.1a (epics.md) flagging its own future submission mutation must apply the
   # same server-side guard. No DB migration required anywhere in this story.
+  # AC amended 2026-08-12 via bmad-correct-course: default reportedEvents query
+  # must scope to status: PENDING so auto-resolved personal reports (Story 4.3a's
+  # 2026-08-12 correction) never appear in the attention queue. Story is unstarted,
+  # so no rework caused. See sprint-change-proposal-2026-08-12.md.
   4-7-moderator-items-page: ready-for-dev
   # 4-7-moderator-items-page scope extended to include DefaultLocationChangeRequest review (see epics.md)
   # added 2026-08-06 via bmad-create-story at user's request while drafting Story 2.7:

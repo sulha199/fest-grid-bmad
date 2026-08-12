@@ -150,6 +150,7 @@ A 'Report' button will be available for all events (whether from Social Media Ac
         *   If the moderator marks the event as safe, subsequent similar reports from the *same* requesting user for that specific event will be ignored, though the event will remain hidden for that user.
     *   **Reason: Personal:**
         *   The reporting user will immediately no longer see the event. This action only affects the individual user's view and does not impact the event's visibility for other users.
+        *   This action requires no moderator review — the report is automatically marked resolved at submission and never appears in a moderator's pending queue.
 
 #### 3.9.3 User and Moderator Interfaces
 

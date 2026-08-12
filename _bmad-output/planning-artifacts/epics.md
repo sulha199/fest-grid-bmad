@@ -2218,6 +2218,8 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Correction (2026-08-11, amended via `bmad-create-story` while drafting this story):** Two shape changes, both confirmed with the user via `AskUserQuestion`: (1) `status` is expanded from a literal `[pending, resolved]` 2-value enum to `[pending, upheld, dismissed]` (3 values), and a `resolved_by_moderator_id` FK (nullable, no cascade) is added — aligning with PRD Section 4.12's `Report`/`ReportStatus` interface (the PRD's declared source of truth for data structures, per `project-context.md`) and mirroring the codebase's existing `defaultLocationChangeRequests.reviewedByModeratorId` moderator-audit-trail precedent, which this AC's original text omitted; `moderator_ignored` remains its own separate boolean (a distinct "suppress future dangerous-report submissions" mechanic, not a status value). (2) `isHiddenForCurrentUser` is broadened from "an active personal-reason report" to **any report the caller has filed on that event, of any reason, regardless of resolution status** — PRD 3.9.2 states "the reporting user will immediately no longer see the event" under all three reasons (Cancelled, Dangerous, Personal), not personal alone, and the Dangerous-reason bullet explicitly requires the event to "remain hidden for that user" even after a moderator dismisses/marks-it-safe (i.e. hiding must survive report resolution, which a status-scoped read would break). Story 4.8's own note is corrected below to match.
 
+**Correction (2026-08-12, via `bmad-correct-course`):** `submitReport`'s insert (`resolvers.ts:1057-1063`) currently sets `status: 'pending'` unconditionally, regardless of `reason`. Per PRD 3.9.2, a `personal`-reason report never requires moderator action — the entire effect of the report (hiding the event from that user) already happens automatically via `isHiddenForCurrentUser`, so leaving it `pending` would incorrectly surface it in Story 4.7's moderator queue and misrepresent its status on Story 4.6's My Reports page. AC revised: `submitReport` sets `status: 'auto_resolved'` (new fourth `ReportStatus` enum value — DB enum migration + `reports.graphql` SDL update required) and `resolvedAt: now()` when `reason === 'personal'`; `resolvedByModeratorId` stays `null` since no moderator acted. `cancelled`/`dangerous` reports are unaffected and still insert as `pending`. Confirmed with the user via `AskUserQuestion` during `bmad-correct-course`: a new distinct status value (over reusing `dismissed`) so "auto-resolved, no review needed" reads unambiguously differently from "a moderator reviewed and dismissed this." See `sprint-change-proposal-2026-08-12.md`.
+
 **Depends on:** Story 0.8, Story 0.17, Story 1.3a.
 
 ### Story 4.3: Report an event
@@ -2256,6 +2258,24 @@ Users can contribute to data quality by correcting event details and reporting i
 **Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced while drafting Story 4.3. PRD 3.9.2 explicitly requires the Report trigger in both list-view and detail-view, but `EventCard.tsx` has no existing overflow-menu pattern (unlike `EventDetailView`, which Story 4.1 already built one into) and no UX artifact specifies the card-level design. The user confirmed via `AskUserQuestion` to scope Story 4.3 to detail-view only (mirroring Story 4.1's Correct-Data precedent) and split the list-view trigger off as its own focused design/implementation pass rather than absorb it into Story 4.3. Single-story UI split, lettered suffix directly off Story 4.3, matching the `1.3a`/`1.3b`/`1.6a` numbering precedent.
 
 **Depends on:** Story 4.3, Story 4.3a.
+
+### Story 4.3c: Extend default event-visibility rules to exclude self-reported events from list views
+
+**As a** developer,
+**I want** the events list resolver's default-visibility rule chain (Story 2.7) to exclude any event the requesting user has personally reported, of any reason and regardless of resolution status,
+**So that** Discovery, Feed, Favorites, My Calendar, and search results stop surfacing events a user has already told the platform they don't want to see — closing the gap where `isHiddenForCurrentUser` (Story 4.3a) is computed correctly but only consumed by the event detail view.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 2.7's `buildDefaultEventVisibilityConditions` (`packages/domain/src/events/buildDefaultEventVisibilityConditions.ts`) already returns an ordered list of rule-conditions AND'd into every plural `events` query (Discovery/Feed/Favorites/My Calendar/search, `resolvers.ts:1355`/`1436-1439`) — the exact extension point its own AC anticipated ("future rules... personal report-hide... can each be added as one more list entry"),
+*   **When** the authenticated caller's user ID is known (unauthenticated callers have no reports and are unaffected),
+*   **Then** a new rule-condition excludes any event with a `reports` row where `reporter_user_id` equals the caller's ID — any `reason` (cancelled/dangerous/personal), regardless of `status` — mirroring `isHiddenForCurrentUser`'s (Story 4.3a) existing "any report, any status" semantics exactly, implemented as a `NOT EXISTS` condition (new `QueryCondition` field/operator, or an equivalent addition to the Drizzle where-builder that consumes the DSL) rather than a post-fetch filter, consistent with Story 2.7's "never a client-side/post-fetch filter" rule.
+*   **And** this rule applies only to the plural `events` list query — the singular `event(id)`/`eventBySlug(slug)` lookups (`resolvers.ts:1532`/`1548`) remain unfiltered by it, so Story 4.3's existing detail-view "you reported this" (`isHiddenForCurrentUser`) messaging keeps working for direct/deep-link access.
+*   **And** no frontend change is required: list-view components already render whatever the `events` query returns, so hiding happens transparently once the resolver excludes the row.
+
+**Note:** Added 2026-08-12 via `bmad-correct-course`. Story 2.7 built the extensible default-visibility mechanism explicitly anticipating this rule, and Story 4.3a already computes the correct "any reason, any status" hide condition as a per-event field — but no story ever connected the two for list queries, so a self-reported event kept appearing in every list view except the one page that reads `isHiddenForCurrentUser` directly. User-reported gap via `bmad-correct-course`, 2026-08-12 (see `sprint-change-proposal-2026-08-12.md`).
+
+**Depends on:** Story 2.7, Story 4.3a.
 
 ### Story 4.4a: Add soft-delete to the events table and extend the events resolver and moderator mutations
 
@@ -2322,6 +2342,8 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **Then** I see a list of all the reports I have submitted, fetched via the `myReports` query (Story 4.3a) — not directly from the database.
 *   **And** for each report, I can see the reported event, the reason for the report, and the current status (e.g., "Pending", "Resolved").
 
+**Correction (2026-08-12, via `bmad-correct-course`):** `packages/ui/src/core/status-badge.tsx`'s variant union (already extended by this story to `pending`/`upheld`/`dismissed`) must additionally support the new `auto_resolved` `ReportStatus` value (Story 4.3a's 2026-08-12 correction) so a personal report renders a real label (e.g. "Resolved") on the My Reports page instead of falling through to an unstyled/unknown badge. See `sprint-change-proposal-2026-08-12.md`.
+
 **Depends on:** Story 4.3a.
 
 ### Story 4.7a: Build the reusable moderator route-guard
@@ -2368,12 +2390,14 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Correction (2026-08-12, amended via `bmad-create-story` while drafting this story):** The reported-events list was initially decided (via `AskUserQuestion`) to render one row per individual `Report`, matching `reportedEvents`' flat per-Report return shape. The user reconsidered and requested event-grouped display instead, where a single moderator action resolves every pending report on that event at once — the AC above reflects this reconsidered, final shape; the flat per-Report decision never shipped.
 
+**Correction (2026-08-12, via `bmad-correct-course`):** The moderator-attention `reportedEvents` query (Story 4.3a) accepts optional `status`/`reason` filters but has no enforced default. AC revised: this page's default (unfiltered-by-the-moderator) view must call `reportedEvents(status: PENDING)` explicitly, so `personal`-reason reports — which Story 4.3a's 2026-08-12 correction now auto-resolves to `auto_resolved` at submission — and any already-`upheld`/`dismissed` report never appear in the "requires my attention" list. A moderator may still explicitly filter by `reason: personal` or any `status` for audit/history purposes; only the default view is scoped. See `sprint-change-proposal-2026-08-12.md`.
+
 **Depends on:** Story 4.3a, Story 4.4a, Story 3.3b, Story 0.17, Story 4.7a.
 
 ### Story 4.8: View archived (hidden) personal events
 
 **As a** user,
-**I want** a dedicated "Archive" page listing my favorited, calendar-added, and subscribed-account events that have been hidden by the platform's default visibility rules (expired past events, moderator soft-deletes, my own "Personal" report hides),
+**I want** a dedicated "Archive" page listing my favorited, calendar-added, and subscribed-account events that have been hidden by the platform's default visibility rules (expired past events, moderator soft-deletes, events I've reported for any reason — Story 4.3a's 2026-08-11 correction broadened this from personal-only, Story 4.3c wires it into list views on 2026-08-12),
 **So that** I can still find and review events I have a personal connection to, even after they've dropped out of the main Feed, Discovery, Favorites, or My Calendar views.
 
 **Acceptance Criteria:**
@@ -2386,7 +2410,7 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Note:** Added 2026-08-06 during Story 2.7's creation, at the user's explicit request. Story 2.7 introduces the platform's first default event-visibility-hiding mechanism (built extensible for Story 4.3a/4.4a's later rules) and broadens "hide past events" from personal-lists-only to a global default across every event view, which makes a dedicated escape hatch necessary so users don't lose access to their own favorited/calendar-added/subscribed events entirely. Positioned as Epic 4's final story — after 4.3a/4.4a, which supply two of this page's three hide-reasons, and after Epic 3 (subscription data) — rather than Epic 2, since it depends on hide-reasons and subscription data neither Epic 2 nor Epic 0 have. Full UX/interaction design (empty state, "why hidden" iconography/copy, whether any unhide/restore action exists) is intentionally left to this story's own future `bmad-create-story` pass, not specified here.
 
-**Depends on:** Story 2.7, Story 3.1a, Story 4.3a, Story 4.4a.
+**Depends on:** Story 2.7, Story 3.1a, Story 4.3a, Story 4.3c, Story 4.4a.
 
 ### Epic 5: Onboarding and Manual Event Extraction
 
