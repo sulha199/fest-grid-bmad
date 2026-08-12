@@ -191,6 +191,7 @@ export type Mutation = {
   createApiKey: ApiKey;
   createUserLocation: UserLocation;
   deleteApiKey: ApiKey;
+  deleteEventPermanently: Scalars['Boolean']['output'];
   deleteUserLocation: UserLocation;
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
@@ -199,6 +200,7 @@ export type Mutation = {
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
   resolveReport: Report;
+  restoreEvent: Event;
   setAccountDefaultLocation: SocialMediaAccountProfile;
   submitCorrection: Correction;
   submitReport: Report;
@@ -223,6 +225,11 @@ export type MutationCreateUserLocationArgs = {
 
 export type MutationDeleteApiKeyArgs = {
   action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteEventPermanentlyArgs = {
   id: Scalars['ID']['input'];
 };
 
@@ -268,6 +275,12 @@ export type MutationReportSystemErrorArgs = {
 export type MutationResolveReportArgs = {
   id: Scalars['ID']['input'];
   outcome: ReportOutcome;
+};
+
+
+export type MutationRestoreEventArgs = {
+  action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
 };
 
 
@@ -407,6 +420,7 @@ export type QueryEventBySlugArgs = {
 
 
 export type QueryEventsArgs = {
+  includeSoftDeleted?: InputMaybe<Scalars['Boolean']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
@@ -855,6 +869,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   createApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationCreateApiKeyArgs, 'input'>>;
   createUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationCreateUserLocationArgs, 'input'>>;
   deleteApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationDeleteApiKeyArgs, 'action' | 'id'>>;
+  deleteEventPermanently?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteEventPermanentlyArgs, 'id'>>;
   deleteUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationDeleteUserLocationArgs, 'action' | 'id'>>;
   editAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationEditAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   extractEventDataFromUrl?: Resolver<ResolversTypes['ExtractEventDataFromUrlResult'], ParentType, ContextType, RequireFields<MutationExtractEventDataFromUrlArgs, 'url'>>;
@@ -863,6 +878,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
   reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
   resolveReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationResolveReportArgs, 'id' | 'outcome'>>;
+  restoreEvent?: Resolver<ResolversTypes['Event'], ParentType, ContextType, RequireFields<MutationRestoreEventArgs, 'action' | 'id'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   submitCorrection?: Resolver<ResolversTypes['Correction'], ParentType, ContextType, RequireFields<MutationSubmitCorrectionArgs, 'eventId' | 'proposedData' | 'source'>>;
   submitReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationSubmitReportArgs, 'eventId' | 'reason'>>;

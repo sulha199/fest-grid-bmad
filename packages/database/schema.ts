@@ -167,13 +167,15 @@ export const events = pgTable('events', {
   confidenceScore: doublePrecision('confidence_score'),
   sourceSocialMediaAccountId: text('source_social_media_account_id'),
   postId: uuid('post_id').references(() => posts.id, { onDelete: 'set null' }),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete support
   ...timestamps,
 }, (t) => ({
-  nameIdx: index('event_name_idx').on(t.eventName),
-  typesIdx: index('event_types_idx').on(t.types),
-  categoriesIdx: index('event_categories_idx').on(t.categories),
-  locationIdx: index('event_location_idx').on(t.location),
-  postIdIdx: index('event_post_id_idx').on(t.postId),
+  nameIdx: index('event_name_idx').on(t.eventName).where(sql`deleted_at IS NULL`),
+  typesIdx: index('event_types_idx').on(t.types).where(sql`deleted_at IS NULL`),
+  categoriesIdx: index('event_categories_idx').on(t.categories).where(sql`deleted_at IS NULL`),
+  locationIdx: index('event_location_idx').on(t.location).where(sql`deleted_at IS NULL`),
+  postIdIdx: index('event_post_id_idx').on(t.postId).where(sql`deleted_at IS NULL`),
+  // postIdUnq stays a full, unconditional uniqueness constraint deliberately for data integrity
   postIdUnq: unique().on(t.postId),
 }));
 

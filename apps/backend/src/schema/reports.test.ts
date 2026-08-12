@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, events, schedules, reports } from '@festgrid/database';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { GraphQLError } from 'graphql';
 
 // read the generated schema for the yoga server
@@ -568,6 +568,68 @@ test('reports resolver integration', async (t) => {
     result = await response.json();
     assert.ok(!result.errors);
     assert.strictEqual(result.data.event.isHiddenForCurrentUser, false);
+  });
+
+  await t.test('submitReport - cancelled threshold-triggered soft-delete matrix (Story 4.4a)', async (t) => {
+    // Let's create an event to report
+    const [reportEvent] = await db.insert(events).values({
+      eventName: '4.4a Report Event',
+      location: 'Threshold City',
+    }).returning();
+
+    // Create three test users (reporters)
+    const [u1] = await db.insert(users).values({ email: `u1-${Date.now()}@t.com`, role: 'user' }).returning();
+    const [u2] = await db.insert(users).values({ email: `u2-${Date.now()}@t.com`, role: 'user' }).returning();
+    const [u3] = await db.insert(users).values({ email: `u3-${Date.now()}@t.com`, role: 'user' }).returning();
+
+    t.after(async () => {
+      await db.delete(reports).where(eq(reports.eventId, reportEvent.id));
+      await db.delete(events).where(eq(events.id, reportEvent.id));
+      await db.delete(users).where(inArray(users.id, [u1.id, u2.id, u3.id]));
+    });
+
+    // Helper helper to submit report
+    const submit = async (user: any, reason: string) => {
+      mockUser = { userId: user.id, role: user.role };
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation {
+              submitReport(eventId: "${reportEvent.id}", reason: ${reason}) {
+                id
+              }
+            }
+          `
+        })
+      });
+      return await response.json();
+    };
+
+    // 1st unique reporter:Cancelled -> should stay active
+    let res = await submit(u1, 'cancelled');
+    assert.ok(!res.errors, JSON.stringify(res.errors));
+    let [evState] = await db.select().from(events).where(eq(events.id, reportEvent.id));
+    assert.strictEqual(evState.deletedAt, null, 'Should be active after 1 report');
+
+    // Duplicate report from u1:Cancelled -> should stay active (count distinct)
+    res = await submit(u1, 'cancelled');
+    assert.ok(!res.errors);
+    [evState] = await db.select().from(events).where(eq(events.id, reportEvent.id));
+    assert.strictEqual(evState.deletedAt, null, 'Should be active after duplicate report');
+
+    // 2nd unique reporter:Cancelled -> should stay active
+    res = await submit(u2, 'cancelled');
+    assert.ok(!res.errors);
+    [evState] = await db.select().from(events).where(eq(events.id, reportEvent.id));
+    assert.strictEqual(evState.deletedAt, null, 'Should be active after 2 reports');
+
+    // 3rd unique reporter:Cancelled -> threshold of 3 reached, event gets soft deleted synchronously!
+    res = await submit(u3, 'cancelled');
+    assert.ok(!res.errors);
+    [evState] = await db.select().from(events).where(eq(events.id, reportEvent.id));
+    assert.ok(evState.deletedAt !== null, 'Event should be soft-deleted after 3 unique reports');
   });
 
   await t.test('cleanup - remove seeded reports, schedules, users, and events', async () => {

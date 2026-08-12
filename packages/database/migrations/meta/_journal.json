@@ -169,6 +169,13 @@
       "when": 1786454900980,
       "tag": "0023_light_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1786488948381,
+      "tag": "0024_groovy_chimera",
+      "breakpoints": true
     }
   ]
 }

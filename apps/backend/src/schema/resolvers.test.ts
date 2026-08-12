@@ -5,7 +5,7 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 
 // read the generated schema for the yoga server
@@ -116,60 +116,60 @@ test('events resolver integration via Yoga', async (t) => {
       return event;
     }
 
-    // AC6 boundary cases, all evaluated against range [2026-08-01, 2026-08-07]
+    // AC6 boundary cases, all evaluated against range [2030-08-01, 2030-08-07]
     const insideEvent = await createEventWithSchedule({
       eventName: '1.3h test - fully inside range',
-      scheduleStartDate: '2026-08-02',
-      scheduleEndDate: '2026-08-03',
+      scheduleStartDate: '2030-08-02',
+      scheduleEndDate: '2030-08-03',
     });
     const spanningEvent = await createEventWithSchedule({
       eventName: '1.3h test - spans/contains range',
-      scheduleStartDate: '2026-07-25',
-      scheduleEndDate: '2026-08-15',
+      scheduleStartDate: '2030-07-25',
+      scheduleEndDate: '2030-08-15',
     });
     const startEdgeEvent = await createEventWithSchedule({
       eventName: '1.3h test - overlaps start edge only',
-      scheduleStartDate: '2026-07-28',
-      scheduleEndDate: '2026-08-02',
+      scheduleStartDate: '2030-07-28',
+      scheduleEndDate: '2030-08-02',
     });
     const endEdgeEvent = await createEventWithSchedule({
       eventName: '1.3h test - overlaps end edge only',
-      scheduleStartDate: '2026-08-05',
-      scheduleEndDate: '2026-08-10',
+      scheduleStartDate: '2030-08-05',
+      scheduleEndDate: '2030-08-10',
     });
     const outsideEvent = await createEventWithSchedule({
       eventName: '1.3h test - entirely outside range',
-      scheduleStartDate: '2026-09-01',
-      scheduleEndDate: '2026-09-05',
+      scheduleStartDate: '2030-09-01',
+      scheduleEndDate: '2030-09-05',
     });
     const singleDayEvent = await createEventWithSchedule({
       eventName: '1.3h test - single-day (null end date)',
-      scheduleStartDate: '2026-08-04',
+      scheduleStartDate: '2030-08-04',
       scheduleEndDate: null,
     });
     const subScheduleOnlyEvent = await createEventWithSchedule({
       eventName: '1.3h test - main schedule outside range',
-      scheduleStartDate: '2026-09-10',
-      scheduleEndDate: '2026-09-12',
+      scheduleStartDate: '2030-09-10',
+      scheduleEndDate: '2030-09-12',
       isMainSchedule: true,
     });
     await db.insert(schedules).values({
       eventId: subScheduleOnlyEvent.id,
-      eventStartDate: '2026-08-06',
-      eventEndDate: '2026-08-06',
+      eventStartDate: '2030-08-06',
+      eventEndDate: '2030-08-06',
       isMainSchedule: false,
     });
     const compositionEvent = await createEventWithSchedule({
       eventName: '1.3h test - composition with types',
       types: ['MUSIC'],
-      scheduleStartDate: '2026-08-02',
-      scheduleEndDate: '2026-08-03',
+      scheduleStartDate: '2030-08-02',
+      scheduleEndDate: '2030-08-03',
     });
     const compositionMismatchEvent = await createEventWithSchedule({
       eventName: '1.3h test - composition mismatch (wrong type)',
       types: ['ARTS'],
-      scheduleStartDate: '2026-08-02',
-      scheduleEndDate: '2026-08-03',
+      scheduleStartDate: '2030-08-02',
+      scheduleEndDate: '2030-08-03',
     });
 
     t.after(async () => {
@@ -179,7 +179,7 @@ test('events resolver integration via Yoga', async (t) => {
     const overlapsCondition = {
       field: 'scheduleDateRange',
       operator: 'overlaps',
-      value: { from: '2026-08-01', to: '2026-08-07' },
+      value: { from: '2030-08-01', to: '2030-08-07' },
     };
 
     async function queryOverlaps(query: unknown) {
@@ -235,8 +235,8 @@ test('events resolver integration via Yoga', async (t) => {
     await t.test('composes correctly with itself across independent or-ed conditions (AC4)', async () => {
       const secondWeekEvent = await createEventWithSchedule({
         eventName: '1.3h test - second independent week',
-        scheduleStartDate: '2026-09-15',
-        scheduleEndDate: '2026-09-16',
+        scheduleStartDate: '2030-09-15',
+        scheduleEndDate: '2030-09-16',
       });
       createdEventIds.push(secondWeekEvent.id);
 
@@ -247,7 +247,7 @@ test('events resolver integration via Yoga', async (t) => {
           {
             field: 'scheduleDateRange',
             operator: 'overlaps',
-            value: { from: '2026-09-14', to: '2026-09-18' },
+            value: { from: '2030-09-14', to: '2030-09-18' },
           },
         ],
       });
@@ -1148,5 +1148,316 @@ test('events resolver integration via Yoga', async (t) => {
         await db.delete(events).where(eq(events.id, noPostEvent.id));
       }
     });
+  });
+});
+
+test('Story 4.4a - Soft Delete and Moderator Mutations integration', async (t) => {
+  // Let's seed an active event and a soft-deleted event
+  const [activeEvent] = await db.insert(events).values({
+    eventName: '4.4a Active Event',
+    location: 'Active City',
+  }).returning();
+
+  const [deletedEvent] = await db.insert(events).values({
+    eventName: '4.4a Soft Deleted Event',
+    location: 'Deleted City',
+    deletedAt: new Date(),
+  }).returning();
+
+  // Create a schedule for each so that they are sortable / queryable without crashes
+  await db.insert(schedules).values([
+    { eventId: activeEvent.id, eventStartDate: '2026-08-15', isMainSchedule: true },
+    { eventId: deletedEvent.id, eventStartDate: '2026-08-15', isMainSchedule: true },
+  ]);
+
+  t.after(async () => {
+    // Cleanup
+    await db.delete(schedules).where(inArray(schedules.eventId, [activeEvent.id, deletedEvent.id]));
+    await db.delete(events).where(inArray(events.id, [activeEvent.id, deletedEvent.id]));
+  });
+
+  await t.test('events - default query excludes soft-deleted events', async () => {
+    mockUser = null;
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            events(limit: 100) {
+              items { id eventName }
+            }
+          }
+        `
+      })
+    });
+    const result = await response.json();
+    assert.ok(!result.errors, 'Should have no errors');
+    const items = result.data.events.items;
+    const foundDeleted = items.some((item: any) => item.id === deletedEvent.id);
+    const foundActive = items.some((item: any) => item.id === activeEvent.id);
+    assert.strictEqual(foundDeleted, false, 'Soft-deleted event should be excluded');
+    assert.strictEqual(foundActive, true, 'Active event should be included');
+  });
+
+  await t.test('events - includeSoftDeleted: true auth/role gating', async () => {
+    // Unauthenticated
+    mockUser = null;
+    let response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            events(includeSoftDeleted: true) {
+              items { id }
+            }
+          }
+        `
+      })
+    });
+    let result = await response.json();
+    assert.ok(result.errors, 'Should fail without auth');
+    assert.strictEqual(result.errors[0].extensions?.code, 'UNAUTHENTICATED');
+
+    // Authenticated regular user
+    mockUser = { userId: '00000000-0000-0000-0000-000000000001', role: 'user' };
+    response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            events(includeSoftDeleted: true) {
+              items { id }
+            }
+          }
+        `
+      })
+    });
+    result = await response.json();
+    assert.ok(result.errors, 'Should fail for non-moderator');
+    assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
+
+    // Authenticated moderator
+    mockUser = { userId: '00000000-0000-0000-0000-000000000002', role: 'moderator' };
+    response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            events(includeSoftDeleted: true) {
+              items { id }
+            }
+          }
+        `
+      })
+    });
+    result = await response.json();
+    assert.ok(!result.errors, 'Should succeed for moderator');
+    const items = result.data.events.items;
+    const foundDeleted = items.some((item: any) => item.id === deletedEvent.id);
+    const foundActive = items.some((item: any) => item.id === activeEvent.id);
+    assert.strictEqual(foundDeleted, true, 'Soft-deleted event should be included');
+    assert.strictEqual(foundActive, true, 'Active event should be included');
+  });
+
+  await t.test('event(id) / eventBySlug(slug) returns null for soft-deleted event', async () => {
+    mockUser = null;
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query GetEvent($id: ID!, $slug: String!) {
+            event(id: $id) { id }
+            eventBySlug(slug: $slug) { id }
+          }
+        `,
+        variables: { id: deletedEvent.id, slug: deletedEvent.slug }
+      })
+    });
+    const result = await response.json();
+    assert.ok(!result.errors);
+    assert.strictEqual(result.data.event, null);
+    assert.strictEqual(result.data.eventBySlug, null);
+  });
+
+  await t.test('restoreEvent mutation - full transition state machine', async () => {
+    // Unauthenticated
+    mockUser = null;
+    let response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            restoreEvent(id: "${deletedEvent.id}", action: RESTORE) { id }
+          }
+        `
+      })
+    });
+    let result = await response.json();
+    assert.strictEqual(result.errors?.[0].extensions?.code, 'UNAUTHENTICATED');
+
+    // regular user
+    mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'user' };
+    response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            restoreEvent(id: "${deletedEvent.id}", action: RESTORE) { id }
+          }
+        `
+      })
+    });
+    result = await response.json();
+    assert.strictEqual(result.errors?.[0].extensions?.code, 'FORBIDDEN');
+
+    // Moderator - NOT_FOUND
+    mockUser = { userId: '00000000-0000-0000-0000-000000000004', role: 'moderator' };
+    response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            restoreEvent(id: "00000000-0000-0000-0000-000000000000", action: RESTORE) { id }
+          }
+        `
+      })
+    });
+    result = await response.json();
+    assert.strictEqual(result.errors?.[0].extensions?.code, 'NOT_FOUND');
+
+    // Moderator - INVALID_STATE_TRANSITION (RESTORE on already active event)
+    response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            restoreEvent(id: "${activeEvent.id}", action: RESTORE) { id }
+          }
+        `
+      })
+    });
+    result = await response.json();
+    assert.strictEqual(result.errors?.[0].extensions?.code, 'INVALID_STATE_TRANSITION');
+
+    // Moderator - RESTORE on soft-deleted event
+    response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            restoreEvent(id: "${deletedEvent.id}", action: RESTORE) { id eventName }
+          }
+        `
+      })
+    });
+    result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.strictEqual(result.data.restoreEvent.eventName, '4.4a Soft Deleted Event');
+
+    // Verify it is active now
+    const [restoredRows] = await db.select().from(events).where(eq(events.id, deletedEvent.id));
+    assert.strictEqual(restoredRows.deletedAt, null);
+
+    // Moderator - DELETE (soft delete) on now-active event
+    response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            restoreEvent(id: "${deletedEvent.id}", action: DELETE) { id }
+          }
+        `
+      })
+    });
+    result = await response.json();
+    assert.ok(!result.errors);
+
+    const [softDeletedRows] = await db.select().from(events).where(eq(events.id, deletedEvent.id));
+    assert.ok(softDeletedRows.deletedAt !== null);
+
+    // Moderator - INVALID_STATE_TRANSITION (DELETE on already soft-deleted event)
+    response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            restoreEvent(id: "${deletedEvent.id}", action: DELETE) { id }
+          }
+        `
+      })
+    });
+    result = await response.json();
+    assert.strictEqual(result.errors?.[0].extensions?.code, 'INVALID_STATE_TRANSITION');
+  });
+
+  await t.test('deleteEventPermanently mutation and cascade proof', async () => {
+    // Create a temp user to satisfy FK
+    const [tempUser] = await db.insert(users).values({
+      email: `temp-cascade-reporter-${Date.now()}@test.com`,
+      role: 'user',
+    }).returning();
+
+    // Create an event, a schedule, and a report on it
+    const [tempEvent] = await db.insert(events).values({
+      eventName: '4.4a Temp Cascade Event',
+      location: 'Cascade City',
+    }).returning();
+
+    const [tempSchedule] = await db.insert(schedules).values({
+      eventId: tempEvent.id,
+      eventStartDate: '2026-08-15',
+    }).returning();
+
+    const [tempReport] = await db.insert(reports).values({
+      eventId: tempEvent.id,
+      reporterUserId: tempUser.id,
+      reason: 'cancelled',
+      status: 'pending',
+    }).returning();
+
+    mockUser = { userId: '00000000-0000-0000-0000-000000000002', role: 'moderator' };
+
+    // Execute hard delete
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            deleteEventPermanently(id: "${tempEvent.id}")
+          }
+        `
+      })
+    });
+    const result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.strictEqual(result.data.deleteEventPermanently, true);
+
+    // Verify event is completely gone
+    const eventRows = await db.select().from(events).where(eq(events.id, tempEvent.id));
+    assert.strictEqual(eventRows.length, 0);
+
+    // Verify schedule cascades
+    const scheduleRows = await db.select().from(schedules).where(eq(schedules.id, tempSchedule.id));
+    assert.strictEqual(scheduleRows.length, 0);
+
+    // Verify report cascades
+    const reportRows = await db.select().from(reports).where(eq(reports.id, tempReport.id));
+    assert.strictEqual(reportRows.length, 0);
+
+    // Clean up temp user
+    await db.delete(users).where(eq(users.id, tempUser.id));
   });
 });

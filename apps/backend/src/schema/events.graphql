@@ -102,7 +102,12 @@ input EventQueryConditionInput {
 }
 
 extend type Query {
-  events(query: EventQueryConditionInput, limit: Int, offset: Int): EventConnection!
+  events(query: EventQueryConditionInput, limit: Int, offset: Int, includeSoftDeleted: Boolean): EventConnection!
   event(id: ID!): Event
   eventBySlug(slug: String!): Event
+}
+
+extend type Mutation {
+  restoreEvent(id: ID!, action: SoftDeleteAction!): Event!
+  deleteEventPermanently(id: ID!): Boolean!
 }

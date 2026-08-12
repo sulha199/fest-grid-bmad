@@ -4,7 +4,7 @@ import { db } from '../db/client.js';
 import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
-import { eq, count, sql, asc, and, exists, desc, inArray, or } from 'drizzle-orm';
+import { eq, count, sql, asc, and, exists, desc, inArray, or, gte } from 'drizzle-orm';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl } from '@festgrid/domain/scraper';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
@@ -20,7 +20,7 @@ import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user
 import { resolveLocation, getAddressPredictions } from '../lib/geolocation/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
-import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection } from '@festgrid/domain/events';
+import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS } from '@festgrid/domain/events';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError } from '@festgrid/domain';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
@@ -1060,6 +1060,31 @@ export const resolvers: Resolvers = {
         details: details ?? null,
         status: 'pending',
       }).returning();
+
+      if (reason === 'cancelled') {
+        const cutoff = getCancelledReportWindowCutoff({ windowDays: DEFAULT_CANCELLED_REPORT_WINDOW_DAYS });
+        const countRes = await db.select({
+          count: sql<number>`count(distinct ${reports.reporterUserId})`
+        })
+        .from(reports)
+        .where(
+          and(
+            eq(reports.eventId, eventId),
+            eq(reports.reason, 'cancelled'),
+            gte(reports.createdAt, cutoff)
+          )
+        );
+        const uniqueCount = Number(countRes[0]?.count ?? 0);
+        if (shouldSoftDeleteFromCancelledReports({
+          uniqueReporterCount: uniqueCount,
+          threshold: DEFAULT_CANCELLED_REPORT_THRESHOLD,
+        })) {
+          await db.update(events)
+            .set({ deletedAt: new Date(), updatedAt: new Date() })
+            .where(eq(events.id, eventId));
+        }
+      }
+
       return {
         ...newReport,
         createdAt: newReport.createdAt.toISOString(),
@@ -1111,6 +1136,55 @@ export const resolvers: Resolvers = {
         createdAt: updated.createdAt.toISOString(),
         resolvedAt: updated.resolvedAt ? updated.resolvedAt.toISOString() : null,
       };
+    },
+    restoreEvent: async (_: any, { id, action }: any, context: any, info: any) => {
+      requireModerator(context);
+      const existingRows = await db.select().from(events).where(eq(events.id, id));
+      if (existingRows.length === 0) {
+        throw new GraphQLError('Event not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const existing = existingRows[0];
+      if (action === 'DELETE') {
+        if (existing.deletedAt !== null) {
+          throw new GraphQLError('Event is already deleted', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        await db.update(events)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(eq(events.id, id));
+      } else if (action === 'RESTORE') {
+        if (existing.deletedAt === null) {
+          throw new GraphQLError('Event is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        await db.update(events)
+          .set({ deletedAt: null, updatedAt: new Date() })
+          .where(eq(events.id, id));
+      } else {
+        throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
+      }
+
+      const requestedFields = buildOptimizedDrizzleSelect(events, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: events.id,
+        postId: events.postId,
+        imageUrl: posts.imageUrl,
+        sourcePostUrl: posts.postUrl,
+        originalPostUrl: posts.originalPostUrl,
+      }).from(events)
+        .leftJoin(posts, eq(events.postId, posts.id))
+        .where(eq(events.id, id));
+
+      return (rows[0] as any) || null;
+    },
+    deleteEventPermanently: async (_: any, { id }: any, context: any) => {
+      requireModerator(context);
+      const existingRows = await db.select().from(events).where(eq(events.id, id));
+      if (existingRows.length === 0) {
+        throw new GraphQLError('Event not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      await db.delete(events).where(eq(events.id, id));
+      return true;
     },
   },
   Query: {
@@ -1240,7 +1314,7 @@ export const resolvers: Resolvers = {
       }
       return rows[0];
     },
-    events: async (_: any, { query, limit, offset }: any, context: any, info: any) => {
+    events: async (_: any, { query, limit, offset, includeSoftDeleted }: any, context: any, info: any) => {
       const hasFavoritedEqTrue = (condition: QueryCondition | undefined): boolean => {
         if (!condition) {
           return false;
@@ -1359,7 +1433,13 @@ export const resolvers: Resolvers = {
           ...defaultVisibilityConditions,
         ],
       };
-      const whereClause = buildDrizzleWhere(finalCondition, fieldMap);
+      let whereClause = buildDrizzleWhere(finalCondition, fieldMap);
+
+      if (includeSoftDeleted === true) {
+        requireModerator(context);
+      } else {
+        whereClause = whereClause ? and(whereClause as any, activeOnly(events)) : activeOnly(events);
+      }
       
       const qLimit = Math.min(limit ?? 1000, 1000);
       const qOffset = offset ?? 0;
@@ -1444,7 +1524,7 @@ export const resolvers: Resolvers = {
         originalPostUrl: posts.originalPostUrl,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
-        .where(eq(events.id, id));
+        .where(and(eq(events.id, id), activeOnly(events)));
 
       return (rows[0] as any) || null;
     },
@@ -1460,7 +1540,7 @@ export const resolvers: Resolvers = {
         originalPostUrl: posts.originalPostUrl,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
-        .where(eq(events.slug, slug));
+        .where(and(eq(events.slug, slug), activeOnly(events)));
 
       return (rows[0] as any) || null;
     }
