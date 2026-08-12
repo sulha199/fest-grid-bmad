@@ -1644,6 +1644,8 @@ export const resolvers: Resolvers = {
     },
     event: async (_: any, { id }: any, context: any, info: any) => {
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
+      const isModerator = context.user?.role === 'moderator';
+      
       const rows = await db.select({
         ...requestedFields,
         id: events.id,
@@ -1653,12 +1655,14 @@ export const resolvers: Resolvers = {
         originalPostUrl: posts.originalPostUrl,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
-        .where(and(eq(events.id, id), activeOnly(events)));
+        .where(isModerator ? eq(events.id, id) : and(eq(events.id, id), activeOnly(events)));
 
       return (rows[0] as any) || null;
     },
     eventBySlug: async (_: any, { slug }: any, context: any, info: any) => {
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
+      const isModerator = context.user?.role === 'moderator';
+
       const rows = await db.select({
         ...requestedFields,
         id: events.id,
@@ -1669,7 +1673,7 @@ export const resolvers: Resolvers = {
         originalPostUrl: posts.originalPostUrl,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
-        .where(and(eq(events.slug, slug), activeOnly(events)));
+        .where(isModerator ? eq(events.slug, slug) : and(eq(events.slug, slug), activeOnly(events)));
 
       return (rows[0] as any) || null;
     }
