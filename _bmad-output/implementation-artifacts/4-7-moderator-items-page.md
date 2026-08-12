@@ -74,7 +74,7 @@ so that I can effectively moderate content quality on the platform (PRD §3.9.3,
 - [ ] **Task 12: Testing (AC1-9)**
   - [ ] Backend integration tests per Tasks 2/3 above.
   - [ ] Frontend integration tests (Vitest + msw): route-guard delegation to Story 4.7a's hook (mock its states); grouping renders correctly for a multi-report event; Mark Safe/Restore label switches on `event.deletedAt`; Delete Permanently requires confirmation; per-reporter Ignore-future-reports control renders once per distinct dangerous reporter, not once per report; Accept/Revert location-change flows; empty/error states for both sections.
-  - [ ] E2E (Playwright): a moderator test account resolves a reported event (Mark Safe) and sees it drop off the list; a moderator accepts a pending location change and sees it drop off the list. (Non-moderator/unauthenticated route-guard E2E coverage belongs to Story 4.7a, not duplicated here.)
+  - [ ] E2E (Playwright): a moderator test account resolves a reported event (Mark Safe) and sees it drop off the list; a moderator accepts a pending location change and sees it drop off the list; a non-moderator (or unauthenticated) visitor who navigates directly to `/moderator/items` is redirected away and never sees moderator content (Correction, 2026-08-12, via `bmad-create-story` while drafting Story 4.7a: reverses this story's earlier note assuming Story 4.7a would own this E2E — Story 4.7a has no page of its own to test through at its own creation/implementation time, since this page is its only consumer and doesn't exist yet; Story 4.7a instead ships hook-level Vitest coverage only, per its own AC).
   - [ ] Full `pnpm build` / `pnpm lint` / `pnpm run codegen` clean.
 
 ## Dev Notes
@@ -212,7 +212,7 @@ See Task 11: `moderator_items_page_viewed`, `moderator_report_resolved`, `modera
 - [ ] Backend integration tests (Vitest, `apps/backend`): `resolveReportsForEvent` (clears `deletedAt` + resolves pending reports atomically, leaves non-pending reports untouched, `NOT_FOUND`/`FORBIDDEN` paths); `pendingDefaultLocationChanges` (returns only `PENDING_REVIEW` rows, oldest-first); `resolveDefaultLocationChange` (accept/revert semantics, `INVALID_STATE_TRANSITION` on already-resolved, `FORBIDDEN`); `DefaultLocationChangeRequest.account` field resolver.
 - [ ] Frontend integration tests (Vitest + msw): route-guard delegation to Story 4.7a; event-grouped rendering with multiple reports per event; Mark Safe/Restore label conditional on `deletedAt`; Delete Permanently confirmation step; per-distinct-reporter Ignore-future-reports control; Accept/Revert location-change rows; empty/error states both sections; all locale-sensitive rendering (reused `ReportReason`/`ReportStatus` + new `DefaultLocationChangeStatus`).
 - [ ] `status-badge.test.tsx`: new `pendingReview`/`accepted`/`reverted` variant cases, confirming all five prior variants still pass unchanged.
-- [ ] E2E (Playwright): moderator resolves a reported event end-to-end; moderator accepts a pending location change end-to-end.
+- [ ] E2E (Playwright): moderator resolves a reported event end-to-end; moderator accepts a pending location change end-to-end; non-moderator/unauthenticated direct navigation to `/moderator/items` redirects away without exposing content (moved here from an earlier assumption that Story 4.7a would own it — see Task 12 Correction note).
 
 ## Deliverables Checklist
 
