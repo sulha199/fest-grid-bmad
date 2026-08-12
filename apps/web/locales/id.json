@@ -35,7 +35,9 @@
     "accountPageTitle": "{displayName} | FestDaily",
     "accountPageDescription": "Jelajahi acara dari {displayName} di FestDaily.",
     "moderatorItemsTitle": "Item Moderator | FestDaily",
-    "moderatorItemsDescription": "Tinjau acara yang dilaporkan dan perubahan lokasi default yang tertunda."
+    "moderatorItemsDescription": "Tinjau acara yang dilaporkan dan perubahan lokasi default yang tertunda.",
+    "manualPostSelectionTitle": "Ekstrak Acara | FestDaily",
+    "manualPostSelectionDescription": "Pilih postingan dari akun media sosial yang Anda ikuti untuk mengekstrak acara festival musik."
   },
   "AccountPage": {
     "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",
@@ -142,6 +144,13 @@
     "typeLabel": "Tipe",
     "categoryLabel": "Kategori",
     "clearLabel": "Hapus filter"
+  },
+  "ManualPostSelectionPage": {
+    "title": "Ekstrak Acara",
+    "noSubscriptionsEmptyState": "Anda belum berlangganan akun apa pun. Berlanggananlah ke akun untuk mengekstrak acara dari postingan mereka.",
+    "noSubscriptionsCta": "Kelola Langganan",
+    "noPostsEmptyState": "Tidak ada postingan terbaru untuk akun ini.",
+    "inactiveWarningTitle": "Akun ini tidak aktif (tidak ada postingan dalam 30 hari terakhir)"
   },
   "DiscoveryPage": {
     "title": "Temukan Acara",
@@ -362,6 +371,7 @@
     "profile": "Profil",
     "locations": "Lokasi",
     "subscriptions": "Akun Berlangganan",
+    "manualPostSelection": "Ekstrak Acara",
     "apiKeys": "Kunci API",
     "queueStatus": "Status Antrean",
     "notifications": "Notifikasi",

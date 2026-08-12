@@ -35,7 +35,9 @@
     "accountPageTitle": "{displayName} | FestDaily",
     "accountPageDescription": "Browse events from {displayName} on FestDaily.",
     "moderatorItemsTitle": "Moderator Items | FestDaily",
-    "moderatorItemsDescription": "Review reported events and pending location changes."
+    "moderatorItemsDescription": "Review reported events and pending location changes.",
+    "manualPostSelectionTitle": "Extract Events | FestDaily",
+    "manualPostSelectionDescription": "Select posts from your subscribed social media accounts to extract music festival events."
   },
   "AccountPage": {
     "errorState": "Failed to load events. Please try again later.",
@@ -142,6 +144,13 @@
     "typeLabel": "Type",
     "categoryLabel": "Category",
     "clearLabel": "Clear filters"
+  },
+  "ManualPostSelectionPage": {
+    "title": "Extract Events",
+    "noSubscriptionsEmptyState": "You are not subscribed to any accounts yet. Subscribe to accounts to extract events from their posts.",
+    "noSubscriptionsCta": "Manage Subscriptions",
+    "noPostsEmptyState": "No recent posts found for this account.",
+    "inactiveWarningTitle": "This account is inactive (no posts in the last 30 days)"
   },
   "DiscoveryPage": {
     "title": "Discover Events",
@@ -362,6 +371,7 @@
     "profile": "Profile",
     "locations": "Locations",
     "subscriptions": "Subscribed Accounts",
+    "manualPostSelection": "Extract Events",
     "apiKeys": "API Keys",
     "queueStatus": "Queue Status",
     "notifications": "Notifications",

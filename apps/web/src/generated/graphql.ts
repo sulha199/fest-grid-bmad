@@ -935,6 +935,22 @@ export type GetMyApiKeysQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type GetMyApiKeysQuery = { myApiKeys: Array<{ id: string, provider: string, maskedKey: string, isValid: boolean, createdAt: string, updatedAt: string }> };
 
+export type MarkSubscriptionViewedMutationVariables = Exact<{
+  subscriptionId: string | number;
+}>;
+
+
+export type MarkSubscriptionViewedMutation = { markSubscriptionViewed: { id: string, isNewlyAdded: boolean } };
+
+export type GetPostsByAccountQueryVariables = Exact<{
+  accountId: string | number;
+  cursor?: string | null | undefined;
+  limit?: number | null | undefined;
+}>;
+
+
+export type GetPostsByAccountQuery = { postsByAccount: { nextCursor: string | null, hasMore: boolean, items: Array<{ id: string, accountId: string, content: string, imageUrl: string | null, postUrl: string, originalPostUrl: string | null, isExtracted: boolean, publishedAt: string }> } };
+
 export type MyReportsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -994,7 +1010,7 @@ export type EditAccountDefaultLocationMutation = { editAccountDefaultLocation: {
 export type GetMySubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, createdAt: string, pendingExtractionCount: number, account: { id: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
+export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, isInactive: boolean, createdAt: string, pendingExtractionCount: number, account: { id: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
 
 export type ReportSystemErrorMutationVariables = Exact<{
   input: ReportSystemErrorInput;
@@ -2045,6 +2061,69 @@ export const useGetMyApiKeysQuery = <
   }
     )};
 
+export const MarkSubscriptionViewedDocument = new TypedDocumentString(`
+    mutation markSubscriptionViewed($subscriptionId: ID!) {
+  markSubscriptionViewed(subscriptionId: $subscriptionId) {
+    id
+    isNewlyAdded
+  }
+}
+    `);
+
+export const useMarkSubscriptionViewedMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<MarkSubscriptionViewedMutation, TError, MarkSubscriptionViewedMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<MarkSubscriptionViewedMutation, TError, MarkSubscriptionViewedMutationVariables, TContext>(
+      {
+    mutationKey: ['markSubscriptionViewed'],
+    mutationFn: (variables?: MarkSubscriptionViewedMutationVariables) => fetcher<MarkSubscriptionViewedMutation, MarkSubscriptionViewedMutationVariables>(client, MarkSubscriptionViewedDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const GetPostsByAccountDocument = new TypedDocumentString(`
+    query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int) {
+  postsByAccount(accountId: $accountId, cursor: $cursor, limit: $limit) {
+    items {
+      id
+      accountId
+      content
+      imageUrl
+      postUrl
+      originalPostUrl
+      isExtracted
+      publishedAt
+    }
+    nextCursor
+    hasMore
+  }
+}
+    `);
+
+export const useGetPostsByAccountQuery = <
+      TData = GetPostsByAccountQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: GetPostsByAccountQueryVariables,
+      options?: Omit<UseQueryOptions<GetPostsByAccountQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetPostsByAccountQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetPostsByAccountQuery, TError, TData>(
+      {
+    queryKey: ['getPostsByAccount', variables],
+    queryFn: fetcher<GetPostsByAccountQuery, GetPostsByAccountQueryVariables>(client, GetPostsByAccountDocument, variables, headers),
+    ...options
+  }
+    )};
+
 export const MyReportsDocument = new TypedDocumentString(`
     query myReports {
   myReports {
@@ -2289,6 +2368,7 @@ export const GetMySubscriptionsDocument = new TypedDocumentString(`
     id
     accountId
     isNewlyAdded
+    isInactive
     createdAt
     pendingExtractionCount
     account {

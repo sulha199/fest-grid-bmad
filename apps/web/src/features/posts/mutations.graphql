@@ -1,0 +1,6 @@
+mutation markSubscriptionViewed($subscriptionId: ID!) {
+  markSubscriptionViewed(subscriptionId: $subscriptionId) {
+    id
+    isNewlyAdded
+  }
+}

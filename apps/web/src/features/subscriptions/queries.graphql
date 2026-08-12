@@ -3,6 +3,7 @@ query getMySubscriptions {
     id
     accountId
     isNewlyAdded
+    isInactive
     createdAt
     pendingExtractionCount
     account {

@@ -13,6 +13,15 @@ const nextConfig = {
   // unrelated outer `festgrid/` repo instead, since it also has a pnpm-lock.yaml.
   outputFileTracingRoot: path.join(__dirname, '..', '..'),
   transpilePackages: ['@festgrid/domain'],
+  async redirects() {
+    return [
+      {
+        source: '/posts/extract',
+        destination: '/posts/select',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default withNextIntl(nextConfig);

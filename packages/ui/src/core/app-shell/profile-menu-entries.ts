@@ -1,4 +1,4 @@
-import { LucideIcon, User, MapPin, Radio, Key, ListChecks, Bell, FileText, ShieldAlert, Archive } from 'lucide-react';
+import { LucideIcon, User, MapPin, Radio, Key, ListChecks, Bell, FileText, ShieldAlert, Archive, Sparkles } from 'lucide-react';
 
 export interface ProfileMenuEntry {
   id: string;
@@ -28,6 +28,12 @@ export const profileMenuEntries: ProfileMenuEntry[] = [
     href: '/settings/subscriptions',
     icon: Radio,
     requiresApiKey: true,
+  },
+  {
+    id: 'manual-post-selection',
+    labelKey: 'manualPostSelection',
+    href: '/posts/select',
+    icon: Sparkles,
   },
   {
     id: 'api-keys',

@@ -1,0 +1,16 @@
+query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int) {
+  postsByAccount(accountId: $accountId, cursor: $cursor, limit: $limit) {
+    items {
+      id
+      accountId
+      content
+      imageUrl
+      postUrl
+      originalPostUrl
+      isExtracted
+      publishedAt
+    }
+    nextCursor
+    hasMore
+  }
+}
