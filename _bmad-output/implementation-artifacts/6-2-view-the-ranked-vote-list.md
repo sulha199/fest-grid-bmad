@@ -4,7 +4,7 @@
 
 - Epic: 6
 - Story ID: 6.2
-- Status: in-progress
+- Status: review
 - baseline_commit: b1d0404
 
 ## Story
@@ -93,14 +93,14 @@ So that I can see what's currently in demand.
 
 ## Testing Requirements
 
-- [ ] Integration tests verifying toggle active state queries and location selector mapping.
-- [ ] E2E tests verifying complete vote list rendering and Near Me re-sorting behavior.
+- [x] Integration tests verifying toggle active state queries and location selector mapping.
+- [x] E2E tests verifying complete vote list rendering and Near Me re-sorting behavior.
 
 ## Deliverables Checklist
 
-- [ ] Votes page route rendering list of accounts ranked by votes
-- [ ] Near Me proximity toggle component mapped to location preference
-- [ ] Region breakdown sheet displaying bucketed voter counts
+- [x] Votes page route rendering list of accounts ranked by votes
+- [x] Near Me proximity toggle component mapped to location preference
+- [x] Region breakdown sheet displaying bucketed voter counts
 
 ## Out of Scope
 
@@ -108,13 +108,13 @@ So that I can see what's currently in demand.
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [/] In progress
+- [x] Complete
 
 ## Dev Agent Record
 
