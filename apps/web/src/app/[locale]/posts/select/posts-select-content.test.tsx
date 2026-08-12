@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import enMessages from '../../../../../locales/en.json';
 import { PostsSelectContent } from './posts-select-content';
 import { graphqlClient } from '@/lib/graphql-client';
+import { usePostSelectionStore } from './post-selection-store';
 
 const mockRouterPush = vi.fn();
 
@@ -47,6 +48,8 @@ let mockPosts: any[] = [];
 let forceError = false;
 
 beforeEach(() => {
+  usePostSelectionStore.getState().clearSelection();
+
   mockApiKeys = [
     {
       id: 'key-1',
@@ -143,6 +146,16 @@ beforeEach(() => {
           id: arg2?.subscriptionId || 'sub-1',
           isNewlyAdded: false,
         },
+      };
+    }
+    if (docStr.includes('selectPostsForExtraction')) {
+      return {
+        selectPostsForExtraction: [
+          {
+            id: 'post-1',
+            isExtracted: true,
+          },
+        ],
       };
     }
     return {};
@@ -253,6 +266,32 @@ describe('PostsSelectContent integration', () => {
         return query.includes('markSubscriptionViewed');
       });
       expect(calledMarkViewed).toBe(true);
+    });
+  });
+
+  it('toggles post selection and shows sticky summary bar, then submits selection', async () => {
+    renderComponent();
+
+    const card = await screen.findByText('This is a sample post about a music festival');
+    fireEvent.click(card);
+
+    // Verify summary bar count
+    const summaryCount = await screen.findByText('Selected Posts: 1');
+    expect(summaryCount).toBeInTheDocument();
+
+    // Verify "Extract Events" button is rendered
+    const extractBtn = screen.getByRole('button', { name: 'Extract Events' });
+    expect(extractBtn).toBeInTheDocument();
+
+    // Click "Extract Events" and verify mutation called
+    fireEvent.click(extractBtn);
+
+    await waitFor(() => {
+      const calledSelect = vi.mocked(graphqlClient.request).mock.calls.some((call: any) => {
+        const query = call[0]?.document?.toString() || call[0]?.toString() || '';
+        return query.includes('selectPostsForExtraction');
+      });
+      expect(calledSelect).toBe(true);
     });
   });
 });

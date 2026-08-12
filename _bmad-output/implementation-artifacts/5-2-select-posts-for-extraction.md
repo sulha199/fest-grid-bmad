@@ -4,7 +4,7 @@
 
 - Epic: 5
 - Story ID: 5.2
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -26,39 +26,39 @@ so that I can efficiently choose which posts to process.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: State Management — Zustand Selection Store** (AC: 3, 4, 5)
-  - [ ] Create a strictly-typed Zustand store `usePostSelectionStore` at `apps/web/src/app/[locale]/posts/select/post-selection-store.ts`.
-  - [ ] Define the store state: `selectedPostIds: string[]`.
-  - [ ] Define the store actions:
+- [x] **Task 1: State Management — Zustand Selection Store** (AC: 3, 4, 5)
+  - [x] Create a strictly-typed Zustand store `usePostSelectionStore` at `apps/web/src/app/[locale]/posts/select/post-selection-store.ts`.
+  - [x] Define the store state: `selectedPostIds: string[]`.
+  - [x] Define the store actions:
     - `togglePost(postId: string)`: Adds the ID if absent, removes it if present.
     - `clearSelection()`: Resets `selectedPostIds` to an empty array.
     - `isSelected(postId: string): boolean`: Returns whether a post ID is currently selected.
-- [ ] **Task 2: UI Integration — Post Card Checkbox Wiring** (AC: 1, 2, 3, 4, 5)
-  - [ ] In `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx`, read the selection state and actions from `usePostSelectionStore`.
-  - [ ] Update the `PostCard` rendering loop to pass the current selection state (e.g., `selected={isSelected(post.id)}`) and an interaction callback (e.g., `onSelectToggle={() => togglePost(post.id)}`).
-  - [ ] Verify that checking a checkbox properly updates the Zustand state and reflects visually on the card.
-  - [ ] Verify that switching tabs preserves the selected checkboxes, as the store survives component unmounting.
-- [ ] **Task 3: Presentation — Sticky Summary Bar** (AC: 6)
-  - [ ] Add a sticky/docked `SummaryBar` at the bottom of the Manual Post Selection page (colocated in `posts-select-content.tsx` or as a sub-component).
-  - [ ] Display the count: `"Selected Posts: X"` where `X` is `selectedPostIds.length`.
-  - [ ] Render the "Extract Events" primary button in the Summary Bar.
-  - [ ] Disable the "Extract Events" button if `selectedPostIds.length === 0`.
-- [ ] **Task 4: Mutation — selectPostsForExtraction Call** (AC: 7)
-  - [ ] In `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx`, set up the `selectPostsForExtraction` mutation using TanStack React Query (`useMutation`) and GraphQL Code Generator's typed client helper.
-  - [ ] On clicking "Extract Events", call the mutation passing the array of `selectedPostIds`.
-  - [ ] Show the full-screen `<BlockingLoader />` (`packages/ui/src/core/blocking-loader.tsx`, from Story 1.7a) while the mutation is pending (complying with the Blocking Loader UX Invariant).
-  - [ ] On success:
-    - [ ] Clear selection state via `clearSelection()`.
-    - [ ] Display a locale-aware success toast (e.g., `"Successfully queued X posts for extraction!"` / `"Berhasil mengantrekan X postingan untuk diekstrak!"`).
-    - [ ] Redirect the user to `/` (the main discovery feed) or the dynamic `exitPath` query parameter.
-  - [ ] On failure:
-    - [ ] Handle any mutation GraphQL errors gracefully, showing an on-brand toast with the error message (e.g., `"Quota exceeded"`, `"Selection failed"`, etc.).
-- [ ] **Task 5: Automated Testing — Integration & Interactivity** (AC: All)
-  - [ ] Write Vitest integration tests in `apps/web/src/app/[locale]/posts/select/posts-select-content.test.tsx` (extending the Story 5.1 test file).
-  - [ ] Mock the `postsByAccount` query and `selectPostsForExtraction` mutation using MSW.
-  - [ ] Assert that clicking a post's checkbox updates the selected count in the summary bar.
-  - [ ] Assert that selection state is maintained when changing tabs in the mocked Tabs component.
-  - [ ] Assert that clicking "Extract Events" triggers the MSW handler for `selectPostsForExtraction` with the expected list of post IDs, and correctly triggers navigation on success.
+- [x] **Task 2: UI Integration — Post Card Checkbox Wiring** (AC: 1, 2, 3, 4, 5)
+  - [x] In `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx`, read the selection state and actions from `usePostSelectionStore`.
+  - [x] Update the `PostCard` rendering loop to pass the current selection state (e.g., `selected={isSelected(post.id)}`) and an interaction callback (e.g., `onSelectToggle={() => togglePost(post.id)}`).
+  - [x] Verify that checking a checkbox properly updates the Zustand state and reflects visually on the card.
+  - [x] Verify that switching tabs preserves the selected checkboxes, as the store survives component unmounting.
+- [x] **Task 3: Presentation — Sticky Summary Bar** (AC: 6)
+  - [x] Add a sticky/docked `SummaryBar` at the bottom of the Manual Post Selection page (colocated in `posts-select-content.tsx` or as a sub-component).
+  - [x] Display the count: `"Selected Posts: X"` where `X` is `selectedPostIds.length`.
+  - [x] Render the "Extract Events" primary button in the Summary Bar.
+  - [x] Disable the "Extract Events" button if `selectedPostIds.length === 0`.
+- [x] **Task 4: Mutation — selectPostsForExtraction Call** (AC: 7)
+  - [x] In `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx`, set up the `selectPostsForExtraction` mutation using TanStack React Query (`useMutation`) and GraphQL Code Generator's typed client helper.
+  - [x] On clicking "Extract Events", call the mutation passing the array of `selectedPostIds`.
+  - [x] Show the full-screen `<BlockingLoader />` (`packages/ui/src/core/blocking-loader.tsx`, from Story 1.7a) while the mutation is pending (complying with the Blocking Loader UX Invariant).
+  - [x] On success:
+    - [x] Clear selection state via `clearSelection()`.
+    - [x] Display a locale-aware success toast (e.g., `"Successfully queued X posts for extraction!"` / `"Berhasil mengantrekan X postingan untuk diekstrak!"`).
+    - [x] Redirect the user to `/` (the main discovery feed) or the dynamic `exitPath` query parameter.
+  - [x] On failure:
+    - [x] Handle any mutation GraphQL errors gracefully, showing an on-brand toast with the error message (e.g., `"Quota exceeded"`, `"Selection failed"`, etc.).
+- [x] **Task 5: Automated Testing — Integration & Interactivity** (AC: All)
+  - [x] Write Vitest integration tests in `apps/web/src/app/[locale]/posts/select/posts-select-content.test.tsx` (extending the Story 5.1 test file).
+  - [x] Mock the `postsByAccount` query and `selectPostsForExtraction` mutation using MSW.
+  - [x] Assert that clicking a post's checkbox updates the selected count in the summary bar.
+  - [x] Assert that selection state is maintained when changing tabs in the mocked Tabs component.
+  - [x] Assert that clicking "Extract Events" triggers the MSW handler for `selectPostsForExtraction` with the expected list of post IDs, and correctly triggers navigation on success.
 
 ## Dev Notes
 
@@ -153,7 +153,23 @@ so that I can efficiently choose which posts to process.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed (All tasks implemented and 100% verified via integration tests)
+
+### Change Log
+
+- Created Zustand store `post-selection-store.ts` to manage multi-tab selected posts list.
+- Wired selected state and toggle callbacks on `PostCard` in `posts-select-content.tsx`.
+- Implemented sticky `SummaryBar` at the bottom of the page showing counts and trigger button.
+- Integrated `selectPostsForExtraction` mutation with `<BlockingLoader />` overlay and locale-aware success/failure toasts.
+- Wrote robust integration tests in `posts-select-content.test.tsx` verifying checkbox toggling, multi-tab persistence, and mutation submission.
+
+### File List
+
+- `apps/web/src/app/[locale]/posts/select/post-selection-store.ts`
+- `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx`
+- `apps/web/src/app/[locale]/posts/select/posts-select-content.test.tsx`
+- `apps/web/src/features/posts/mutations.graphql`
+- `apps/web/src/generated/graphql.ts`
 
 ## Dev Agent Record
 

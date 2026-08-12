@@ -4,3 +4,10 @@ mutation markSubscriptionViewed($subscriptionId: ID!) {
     isNewlyAdded
   }
 }
+
+mutation selectPostsForExtraction($postIds: [ID!]!) {
+  selectPostsForExtraction(postIds: $postIds) {
+    id
+    isExtracted
+  }
+}

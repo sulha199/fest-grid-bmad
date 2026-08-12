@@ -942,6 +942,13 @@ export type MarkSubscriptionViewedMutationVariables = Exact<{
 
 export type MarkSubscriptionViewedMutation = { markSubscriptionViewed: { id: string, isNewlyAdded: boolean } };
 
+export type SelectPostsForExtractionMutationVariables = Exact<{
+  postIds: Array<string | number> | string | number;
+}>;
+
+
+export type SelectPostsForExtractionMutation = { selectPostsForExtraction: Array<{ id: string, isExtracted: boolean }> };
+
 export type GetPostsByAccountQueryVariables = Exact<{
   accountId: string | number;
   cursor?: string | null | undefined;
@@ -2083,6 +2090,32 @@ export const useMarkSubscriptionViewedMutation = <
       {
     mutationKey: ['markSubscriptionViewed'],
     mutationFn: (variables?: MarkSubscriptionViewedMutationVariables) => fetcher<MarkSubscriptionViewedMutation, MarkSubscriptionViewedMutationVariables>(client, MarkSubscriptionViewedDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const SelectPostsForExtractionDocument = new TypedDocumentString(`
+    mutation selectPostsForExtraction($postIds: [ID!]!) {
+  selectPostsForExtraction(postIds: $postIds) {
+    id
+    isExtracted
+  }
+}
+    `);
+
+export const useSelectPostsForExtractionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SelectPostsForExtractionMutation, TError, SelectPostsForExtractionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SelectPostsForExtractionMutation, TError, SelectPostsForExtractionMutationVariables, TContext>(
+      {
+    mutationKey: ['selectPostsForExtraction'],
+    mutationFn: (variables?: SelectPostsForExtractionMutationVariables) => fetcher<SelectPostsForExtractionMutation, SelectPostsForExtractionMutationVariables>(client, SelectPostsForExtractionDocument, variables, headers)(),
     ...options
   }
     )};
