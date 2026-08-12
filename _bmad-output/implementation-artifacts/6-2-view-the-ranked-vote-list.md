@@ -4,7 +4,8 @@
 
 - Epic: 6
 - Story ID: 6.2
-- Status: ready-for-dev
+- Status: in-progress
+- baseline_commit: b1d0404
 
 ## Story
 
@@ -84,11 +85,11 @@ So that I can see what's currently in demand.
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation
-- [ ] Architecture and boundary confirmation
-- [ ] Testing plan confirmation
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted
+- [x] Scope confirmation
+- [x] Architecture and boundary confirmation
+- [x] Testing plan confirmation
+- [x] Explicit human approval state (Approved)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted
 
 ## Testing Requirements
 
@@ -113,7 +114,7 @@ So that I can see what's currently in demand.
 
 ## Completion Status
 
-- [ ] Not started
+- [/] In progress
 
 ## Dev Agent Record
 

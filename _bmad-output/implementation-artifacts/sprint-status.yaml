@@ -717,7 +717,7 @@ development_status:
   epic-6: in-progress
   6-1a-build-the-account-vote-backend-graphql-api-layer: review
   6-1-vote-for-a-social-media-account: review
-  6-2-view-the-ranked-vote-list: ready-for-dev
+  6-2-view-the-ranked-vote-list: in-progress
   6-3-withdraw-a-vote: backlog
   6-4-autocomplete-voted-accounts-when-subscribing: backlog
   # added 2026-08-08 during PRD/epics.md revision: widget model changed from
