@@ -1,0 +1,24 @@
+mutation registerEmbedDomain($widgetId: ID!, $pattern: String!) {
+  registerEmbedDomain(widgetId: $widgetId, pattern: $pattern) {
+    id
+    widgetId
+    pattern
+    createdAt
+  }
+}
+
+mutation deregisterEmbedDomain($id: ID!, $action: SoftDeleteAction!) {
+  deregisterEmbedDomain(id: $id, action: $action) {
+    id
+    deletedAt
+  }
+}
+
+query embedDomainsForWidget($widgetId: ID!) {
+  embedDomainsForWidget(widgetId: $widgetId) {
+    id
+    widgetId
+    pattern
+    createdAt
+  }
+}

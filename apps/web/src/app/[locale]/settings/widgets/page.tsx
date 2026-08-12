@@ -8,11 +8,15 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { BlockingLoader } from "@festgrid/ui"
+import { EmbedDomainsDialog } from "@/components/widgets/EmbedDomainsDialog"
 
 export default function WidgetsPage() {
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
   const [editingWidget, setEditingWidget] = useState<any>(null)
+
+  const [selectedDomainsWidgetId, setSelectedDomainsWidgetId] = useState<string | null>(null)
+  const [isDomainsOpen, setIsDomainsOpen] = useState(false)
 
   const [theme, setTheme] = useState<WidgetTheme>(WidgetTheme.Light)
   const [displayMode, setDisplayMode] = useState<WidgetDisplayMode>(WidgetDisplayMode.Card)
@@ -143,6 +147,15 @@ export default function WidgetsPage() {
                   </div>
                   <div className="flex gap-2">
                     <button
+                      onClick={() => {
+                        setSelectedDomainsWidgetId(widget.id)
+                        setIsDomainsOpen(true)
+                      }}
+                      className="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3"
+                    >
+                      Manage Domains
+                    </button>
+                    <button
                       onClick={() => handleOpenEdit(widget)}
                       className="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3"
                     >
@@ -191,6 +204,15 @@ export default function WidgetsPage() {
           })}
         </div>
       )}
+
+      <EmbedDomainsDialog
+        widgetId={selectedDomainsWidgetId}
+        isOpen={isDomainsOpen}
+        onClose={() => {
+          setIsDomainsOpen(false)
+          setSelectedDomainsWidgetId(null)
+        }}
+      />
 
       <Dialog open={isOpen} onOpenChange={(open) => !open && setIsOpen(false)}>
         <DialogContent className="sm:max-w-lg bg-background">

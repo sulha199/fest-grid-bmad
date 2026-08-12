@@ -135,6 +135,15 @@ export enum DefaultLocationChangeRequestStatus {
   Reverted = 'REVERTED'
 }
 
+export type EmbedDomain = {
+  __typename?: 'EmbedDomain';
+  createdAt: Scalars['String']['output'];
+  deletedAt?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  pattern: Scalars['String']['output'];
+  widgetId: Scalars['ID']['output'];
+};
+
 export type Event = {
   __typename?: 'Event';
   categories?: Maybe<Array<EventCategory>>;
@@ -255,10 +264,12 @@ export type Mutation = {
   deleteEventPermanently: Scalars['Boolean']['output'];
   deleteUserLocation: UserLocation;
   deleteWidget: Widget;
+  deregisterEmbedDomain: EmbedDomain;
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   ignoreSubsequentReports: Report;
   markSubscriptionViewed: Subscription;
+  registerEmbedDomain: EmbedDomain;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
@@ -324,6 +335,12 @@ export type MutationDeleteWidgetArgs = {
 };
 
 
+export type MutationDeregisterEmbedDomainArgs = {
+  action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationEditAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   input: SetAccountDefaultLocationInput;
@@ -342,6 +359,12 @@ export type MutationIgnoreSubsequentReportsArgs = {
 
 export type MutationMarkSubscriptionViewedArgs = {
   subscriptionId: Scalars['ID']['input'];
+};
+
+
+export type MutationRegisterEmbedDomainArgs = {
+  pattern: Scalars['String']['input'];
+  widgetId: Scalars['ID']['input'];
 };
 
 
@@ -524,10 +547,12 @@ export type ProposedScheduleCorrectionInput = {
 export type Query = {
   __typename?: 'Query';
   addressAutocomplete: Array<AddressSuggestion>;
+  embedDomainsForWidget: Array<EmbedDomain>;
   event?: Maybe<Event>;
   eventBySlug?: Maybe<Event>;
   events: EventConnection;
   health: Scalars['Boolean']['output'];
+  isOriginAllowedForWidget: Scalars['Boolean']['output'];
   me: Me;
   myApiKeys: Array<ApiKey>;
   myExtractionQuota: ExtractionQuota;
@@ -553,6 +578,11 @@ export type QueryAddressAutocompleteArgs = {
 };
 
 
+export type QueryEmbedDomainsForWidgetArgs = {
+  widgetId: Scalars['ID']['input'];
+};
+
+
 export type QueryEventArgs = {
   id: Scalars['ID']['input'];
   includeMyArchived?: InputMaybe<Scalars['Boolean']['input']>;
@@ -571,6 +601,12 @@ export type QueryEventsArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
+};
+
+
+export type QueryIsOriginAllowedForWidgetArgs = {
+  origin: Scalars['String']['input'];
+  widgetId: Scalars['ID']['input'];
 };
 
 
@@ -1192,6 +1228,29 @@ export type VotedAccountSuggestionsQueryVariables = Exact<{
 
 
 export type VotedAccountSuggestionsQuery = { votedAccountSuggestions: Array<{ voteCount: number, userVoteId: string | null, profile: { id: string, platform: string, accountId: string, username: string, displayName: string, profileImageUrl: string | null, description: string | null } }> };
+
+export type RegisterEmbedDomainMutationVariables = Exact<{
+  widgetId: string | number;
+  pattern: string;
+}>;
+
+
+export type RegisterEmbedDomainMutation = { registerEmbedDomain: { id: string, widgetId: string, pattern: string, createdAt: string } };
+
+export type DeregisterEmbedDomainMutationVariables = Exact<{
+  id: string | number;
+  action: SoftDeleteAction;
+}>;
+
+
+export type DeregisterEmbedDomainMutation = { deregisterEmbedDomain: { id: string, deletedAt: string | null } };
+
+export type EmbedDomainsForWidgetQueryVariables = Exact<{
+  widgetId: string | number;
+}>;
+
+
+export type EmbedDomainsForWidgetQuery = { embedDomainsForWidget: Array<{ id: string, widgetId: string, pattern: string, createdAt: string }> };
 
 export type CreateWidgetMutationVariables = Exact<{
   input: CreateWidgetInput;
@@ -2845,6 +2904,89 @@ export const useVotedAccountSuggestionsQuery = <
       {
     queryKey: variables === undefined ? ['votedAccountSuggestions'] : ['votedAccountSuggestions', variables],
     queryFn: fetcher<VotedAccountSuggestionsQuery, VotedAccountSuggestionsQueryVariables>(client, VotedAccountSuggestionsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const RegisterEmbedDomainDocument = new TypedDocumentString(`
+    mutation registerEmbedDomain($widgetId: ID!, $pattern: String!) {
+  registerEmbedDomain(widgetId: $widgetId, pattern: $pattern) {
+    id
+    widgetId
+    pattern
+    createdAt
+  }
+}
+    `);
+
+export const useRegisterEmbedDomainMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RegisterEmbedDomainMutation, TError, RegisterEmbedDomainMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RegisterEmbedDomainMutation, TError, RegisterEmbedDomainMutationVariables, TContext>(
+      {
+    mutationKey: ['registerEmbedDomain'],
+    mutationFn: (variables?: RegisterEmbedDomainMutationVariables) => fetcher<RegisterEmbedDomainMutation, RegisterEmbedDomainMutationVariables>(client, RegisterEmbedDomainDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const DeregisterEmbedDomainDocument = new TypedDocumentString(`
+    mutation deregisterEmbedDomain($id: ID!, $action: SoftDeleteAction!) {
+  deregisterEmbedDomain(id: $id, action: $action) {
+    id
+    deletedAt
+  }
+}
+    `);
+
+export const useDeregisterEmbedDomainMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DeregisterEmbedDomainMutation, TError, DeregisterEmbedDomainMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DeregisterEmbedDomainMutation, TError, DeregisterEmbedDomainMutationVariables, TContext>(
+      {
+    mutationKey: ['deregisterEmbedDomain'],
+    mutationFn: (variables?: DeregisterEmbedDomainMutationVariables) => fetcher<DeregisterEmbedDomainMutation, DeregisterEmbedDomainMutationVariables>(client, DeregisterEmbedDomainDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const EmbedDomainsForWidgetDocument = new TypedDocumentString(`
+    query embedDomainsForWidget($widgetId: ID!) {
+  embedDomainsForWidget(widgetId: $widgetId) {
+    id
+    widgetId
+    pattern
+    createdAt
+  }
+}
+    `);
+
+export const useEmbedDomainsForWidgetQuery = <
+      TData = EmbedDomainsForWidgetQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: EmbedDomainsForWidgetQueryVariables,
+      options?: Omit<UseQueryOptions<EmbedDomainsForWidgetQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EmbedDomainsForWidgetQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<EmbedDomainsForWidgetQuery, TError, TData>(
+      {
+    queryKey: ['embedDomainsForWidget', variables],
+    queryFn: fetcher<EmbedDomainsForWidgetQuery, EmbedDomainsForWidgetQueryVariables>(client, EmbedDomainsForWidgetDocument, variables, headers),
     ...options
   }
     )};
