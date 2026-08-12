@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-12T10:00:00Z
+last_updated: 2026-08-12T17:53:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -698,6 +698,8 @@ development_status:
   epic-4-retrospective: optional
   epic-5: in-progress
   5-1a-build-the-manual-post-selection-and-extraction-graphql-api-layer: review
+  5-1b-build-the-reusable-postcard-component: backlog
+  5-1-manual-post-selection-screen: ready-for-dev
   5-2-select-posts-for-extraction: backlog
   5-3-display-and-enforce-api-quota: backlog
   5-4-inactive-account-warning: backlog

@@ -2445,6 +2445,28 @@ Users are guided through the initial setup and can manually select posts for eve
 
 **Depends on:** Story 0.8, Story 0.13, Story 0.17, Story 3.1a, Story 3.2, Story 3.3a, Story 3.5.
 
+### Story 5.1b: Build the reusable PostCard component
+
+**As a** developer,
+**I want** a reusable `PostCard` component in `packages/ui`,
+**So that** we can render individual social media posts consistently with fallback images, skeletons, and selectable checkboxes across the Manual Post Selection screen and other social media-related pages.
+
+**Acceptance Criteria:**
+
+*   **Given** a post object conforming to the standard `Post` interface (Story 5.1a),
+*   **When** the `PostCard` is rendered,
+*   **Then** it displays the post's text content, publisher information (profile name/platform), and publication date formatted using the active locale.
+*   **And** if a post has an image, it renders the image. If the image fails to load, it falls back to a stylized, brand-aligned visual placeholder using the `onError` image-fallback pattern (matching `EventCard`'s fallback pattern at `packages/ui/src/features/events/EventCard.tsx:155-164`).
+*   **And** if no image is present, the layout adapts gracefully without leaving blank space or empty image boxes.
+*   **And** the component accepts an `isSelected: boolean` prop and an `onSelectionChange: (selected: boolean) => void` callback. Renders a checkbox at the top-right corner; clicking the checkbox triggers `onSelectionChange`.
+*   **And** the component accepts a `disabled` prop. If true, the card is visually greyed out, the checkbox is disabled, and clicking the card is a no-op (used for already-extracted posts, Story 5.3).
+*   **And** a companion `PostCardSkeleton` component is provided to represent the loading state of the card, minimizing CLS during lazy load.
+*   **And** the component is created inside `packages/ui/src/features/posts/PostCard.tsx` (not `apps/web`), ensuring it contains no React Query or GraphQL-client imports and is fully pure and reusable.
+
+**Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced during drafting of Story 5.1 via a fresh Freya/Winston-persona subagent review. Splitting `PostCard` as a reusable component ensures dedicated focus on post rendering, image fallback robust error-handling, skeletons, and selectable checkbox interactions before the main screen is wired. Single-story UI split, lettered suffix off Story 5.1.
+
+**Depends on:** Story 5.1a.
+
 ### Story 5.1: Manual post selection screen
 
 **As a** user,
@@ -2460,7 +2482,7 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **And** each tab displays the 20 most recent posts from that account, fetched via the `postsByAccount(accountId, cursor, limit)` query (Story 5.1a).
 *   **And** posts are loaded lazily to improve performance.
 
-**Depends on:** Story 5.1a.
+**Depends on:** Story 5.1a, Story 5.1b.
 
 ### Story 5.2: Select posts for extraction
 
