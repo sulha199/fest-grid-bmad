@@ -14,4 +14,5 @@ export * from './features/locations';
 export * from './features/events';
 export * from './features/auth';
 export * from './features/subscriptions';
+export * from './features/posts';
 export * from './hooks';

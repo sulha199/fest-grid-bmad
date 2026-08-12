@@ -1,10 +1,13 @@
+---
+baseline_commit: f809a8e7a10d6808715ba4a62d3c14cfb8f20d2e
+---
 # Story 5.1b: Build the reusable PostCard component
 
 ## Story Details
 
 - Epic: 5
 - Story ID: 5.1b
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -26,11 +29,11 @@ So that we can render individual social media posts consistently with fallback i
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Core Types Declaration** (AC: All)
+- [x] **Task 1: Core Types Declaration** (AC: All)
   - Declare the properties of `PostCardProps` and `PostCardSkeletonProps` inside `packages/ui/src/features/posts/PostCard.types.ts`.
   - Ensure correct reference to `@festgrid/shared-types`'s `Post` interface.
 
-- [ ] **Task 2: Component Implementation** (AC: All)
+- [x] **Task 2: Component Implementation** (AC: All)
   - Create the `PostCard` and `PostCardSkeleton` inside `packages/ui/src/features/posts/PostCard.tsx`.
   - Handle date formatting with graceful degradation by importing and using `useScopedLocale` and `useScopedTimezone` hooks from `../../hooks`.
   - Implement the `onError` state for imageUrl fallback using React state `imgError` (mirroring `EventCard`).
@@ -38,11 +41,11 @@ So that we can render individual social media posts consistently with fallback i
   - Implement the `disabled` state: visually grayed out (using class names like `opacity-60 grayscale` and `cursor-not-allowed`), checkbox set to `disabled`, and mouse events/clicks are a no-op.
   - Create `PostCardSkeleton` with `animate-pulse` styling representing a loading skeleton that mirrors the card's dimensions and layout to avoid Layout Shift (CLS).
 
-- [ ] **Task 3: Module Exports** (AC: Pure Exports)
+- [x] **Task 3: Module Exports** (AC: Pure Exports)
   - Create `packages/ui/src/features/posts/index.ts` exporting `PostCard`, `PostCardSkeleton`, and their types.
   - Add `export * from './features/posts'` to `packages/ui/src/index.ts`.
 
-- [ ] **Task 4: Automated Testing** (AC: All)
+- [x] **Task 4: Automated Testing** (AC: All)
   - Create `packages/ui/src/features/posts/PostCard.test.tsx` and write comprehensive tests covering:
     - Renders text content, publisher name, and platform icon or label.
     - Gracefully formats the `publishedAt` timestamp using the scoped locale and timezone hooks.
@@ -51,7 +54,7 @@ So that we can render individual social media posts consistently with fallback i
     - Disabled behavior: verify the card is visually greyed out, checkbox is disabled, and clicks do not trigger selection change.
     - Loading state: verify `PostCardSkeleton` renders correct layout with `animate-pulse` and `aria-busy="true"`.
 
-- [ ] **Task 5: Pre-dev Verification & Verification** (AC: Clean build)
+- [x] **Task 5: Pre-dev Verification & Verification** (AC: Clean build)
   - Verify that tests run successfully and there are no TypeScript compile or ESLint errors:
     - Run `pnpm --filter @festgrid/ui test` to run tests.
     - Run workspace lint and typecheck checks.
@@ -108,10 +111,10 @@ So that we can render individual social media posts consistently with fallback i
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope matches the user intent and requirements precisely.
-- [ ] Architecture design complies with pure component isolation principles.
-- [ ] Test coverage covers fallback, disabled, selection, and skeleton states exhaustively.
-- [ ] Explicit human approval state (Default: pending approval)
+- [x] Scope matches the user intent and requirements precisely.
+- [x] Architecture design complies with pure component isolation principles.
+- [x] Test coverage covers fallback, disabled, selection, and skeleton states exhaustively.
+- [x] Explicit human approval state (Approved: shulha, 2026-08-12)
 
 ## Testing Requirements
 
@@ -122,11 +125,11 @@ So that we can render individual social media posts consistently with fallback i
 
 ## Deliverables Checklist
 
-- [ ] `packages/ui/src/features/posts/PostCard.types.ts`
-- [ ] `packages/ui/src/features/posts/PostCard.tsx`
-- [ ] `packages/ui/src/features/posts/index.ts`
-- [ ] `packages/ui/src/features/posts/PostCard.test.tsx`
-- [ ] Updated `packages/ui/src/index.ts`
+- [x] `packages/ui/src/features/posts/PostCard.types.ts`
+- [x] `packages/ui/src/features/posts/PostCard.tsx`
+- [x] `packages/ui/src/features/posts/index.ts`
+- [x] `packages/ui/src/features/posts/PostCard.test.tsx`
+- [x] Updated `packages/ui/src/index.ts`
 
 ## Out of Scope
 
@@ -141,10 +144,21 @@ So that we can render individual social media posts consistently with fallback i
 
 ## Completion Status
 
-- Status: ready-for-dev
-- Progress: 0%
+- Status: review
+- Progress: 100%
 
 ## Dev Agent Record
 
 - Story created on 2026-08-12.
 - Created by Gemini CLI using ultimate BMad context engine rules.
+- Status updated to `in-progress` on 2026-08-12.
+- Status updated to `review` on 2026-08-12.
+
+### Completion Notes
+- Fully implemented `PostCard` and `PostCardSkeleton` in `packages/ui/src/features/posts/PostCard.tsx` in a completely stateless, pure manner.
+- Handled graceful formatting of post publication date utilizing the existing `useScopedLocale` and `useScopedTimezone` hooks with appropriate fallbacks to prevent runtime RangeErrors.
+- Implemented `imgError` state so that broken image URLs cleanly fallback to styled placeholders, and adjusted layout dynamically to omit the image element if `imageUrl` is absent.
+- Integrated a customized checkbox (utilizing `@festgrid/ui` core's `Checkbox` primitive) in the top-right corner to handle state selection. Handled event click propagation carefully to avoid double-triggers.
+- Programmed a greyed out, un-clickable disabled state to represent posts that are already extracted.
+- Wrote robust and extensive tests inside `packages/ui/src/features/posts/PostCard.test.tsx` covering core rendering, fallback images, disabled checks, interactive callbacks, and skeleton loaders.
+- Confirmed that `pnpm --filter @festgrid/ui test` executes with 100% clean passes, and lint and type-checking pass without any errors in the new codebase paths.
