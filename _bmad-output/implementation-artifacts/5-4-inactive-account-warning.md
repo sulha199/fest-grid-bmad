@@ -4,7 +4,7 @@
 
 - Epic: 5
 - Story ID: 5.4
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -23,14 +23,14 @@ so that I can manage my subscriptions effectively.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: 1, 2, 3) Add inactive warning icon to subscription tabs
-  - [ ] Extract or update the tab trigger component to accept an `isInactive` prop.
-  - [ ] Render a warning icon (e.g., `TriangleAlert` or similar from `lucide-react`) next to the tab label if `isInactive` is true.
-- [ ] Task 2 (AC: 1, 2, 4) Add warning message and remove button to tab content
-  - [ ] Update the tab content view to display a warning message banner (e.g., using `Alert` component from Shadcn UI) if the active subscription `isInactive` is true.
-  - [ ] Add a "Remove Subscription" button within the warning banner.
-  - [ ] Wire the "Remove Subscription" button to call the `removeSubscription` mutation (using generated GraphQL hooks).
-  - [ ] Implement the established `useSoftDeleteWithUndo` (Story 0.18) pattern for the remove action to provide a safe, reversible experience.
+- [x] Task 1 (AC: 1, 2, 3) Add inactive warning icon to subscription tabs
+  - [x] Extract or update the tab trigger component to accept an `isInactive` prop.
+  - [x] Render a warning icon (e.g., `TriangleAlert` or similar from `lucide-react`) next to the tab label if `isInactive` is true.
+- [x] Task 2 (AC: 1, 2, 4) Add warning message and remove button to tab content
+  - [x] Update the tab content view to display a warning message banner (e.g., using `Alert` component from Shadcn UI) if the active subscription `isInactive` is true.
+  - [x] Add a "Remove Subscription" button within the warning banner.
+  - [x] Wire the "Remove Subscription" button to call the `removeSubscription` mutation (using generated GraphQL hooks).
+  - [x] Implement the established `useSoftDeleteWithUndo` (Story 0.18) pattern for the remove action to provide a safe, reversible experience.
 
 ## Dev Notes
 
@@ -114,7 +114,21 @@ so that I can manage my subscriptions effectively.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed (All tasks implemented and 100% verified via integration tests)
+
+### Change Log
+
+- Intercepted `isInactive` from subscriptions to render caution / warning alert icons next to tab names.
+- Configured warning banner in active inactive tab content with 'Remove Subscription' button.
+- Wired removal action to `removeSubscription` mutation with reversibility support via `useSoftDeleteWithUndo`.
+- Wrote integration tests verifying warning banners and removal actions.
+
+### File List
+
+- `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx`
+- `apps/web/src/app/[locale]/posts/select/posts-select-content.test.tsx`
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`
 
 ## Dev Agent Record
 
