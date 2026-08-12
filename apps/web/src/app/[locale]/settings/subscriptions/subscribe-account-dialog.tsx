@@ -5,11 +5,11 @@ import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BlockingLoader } from "@festgrid/ui"
+import { BlockingLoader, useDebounce } from "@festgrid/ui"
 import { usePostHog } from "@festgrid/analytics"
 import { SUPPORTED_PLATFORMS, parseSocialMediaAccountHandle } from "@festgrid/domain/subscriptions"
 import { getPlatformDisplayName } from "@festgrid/domain/scraper"
-import { useSubscribeToAccountMutation } from "@/generated/graphql"
+import { useSubscribeToAccountMutation, useVotedAccountSuggestionsQuery } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
 
@@ -27,6 +27,19 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
 
   const [platform, setPlatform] = useState<string>(SUPPORTED_PLATFORMS[0])
   const [handleInput, setHandleInput] = useState("")
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false)
+
+  const debouncedSearch = useDebounce(handleInput, 300)
+
+  const { data: suggestionsData, isLoading: isSuggestionsLoading } = useVotedAccountSuggestionsQuery(
+    graphqlClient,
+    { query: debouncedSearch },
+    {
+      enabled: isOpen && debouncedSearch.trim().length >= 2,
+    }
+  )
+
+  const suggestions = suggestionsData?.votedAccountSuggestions || []
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -92,18 +105,63 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
                 <label className="text-sm font-medium text-foreground block">
                   {t("accountLabel")}
                 </label>
                 <input
                   type="text"
                   value={handleInput}
-                  onChange={(e) => setHandleInput(e.target.value)}
+                  onChange={(e) => {
+                    setHandleInput(e.target.value)
+                    setIsSuggestionsOpen(true)
+                  }}
+                  onFocus={() => setIsSuggestionsOpen(true)}
                   placeholder={t("accountPlaceholder")}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   required
                 />
+
+                {isSuggestionsOpen && handleInput.trim().length >= 2 && (
+                  <div className="absolute z-50 w-full rounded-md border border-input bg-background shadow-md max-h-60 overflow-y-auto mt-1 p-1">
+                    {isSuggestionsLoading ? (
+                      <div className="text-xs text-muted-foreground p-3 text-center animate-pulse">
+                        Searching suggestions...
+                      </div>
+                    ) : suggestions.length === 0 ? (
+                      <div className="text-xs text-muted-foreground p-3 text-center">
+                        No matching voted accounts found
+                      </div>
+                    ) : (
+                      suggestions.map((entry: any) => {
+                        const profile = entry.profile
+                        return (
+                          <button
+                            key={profile.id}
+                            type="button"
+                            onClick={() => {
+                              setPlatform(profile.platform)
+                              setHandleInput(profile.username)
+                              setIsSuggestionsOpen(false)
+                              toast.info(`Selected voted account: @${profile.username}`)
+                            }}
+                            className="w-full flex items-center justify-between p-2.5 rounded hover:bg-accent text-left text-sm text-foreground transition-colors"
+                          >
+                            <div>
+                              <span className="font-semibold block">{profile.displayName}</span>
+                              <span className="text-xs text-muted-foreground block">
+                                @{profile.username} • {getPlatformDisplayName(profile.platform)}
+                              </span>
+                            </div>
+                            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                              {entry.voteCount} votes
+                            </span>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

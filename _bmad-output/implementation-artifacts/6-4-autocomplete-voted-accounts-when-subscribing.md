@@ -4,7 +4,8 @@
 
 - Epic: 6
 - Story ID: 6.4
-- Status: ready-for-dev
+- Status: review
+- baseline_commit: 4b40daa
 
 ## Story
 
@@ -22,14 +23,14 @@ So that I can easily subscribe to an account that's already in demand.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: 1, 2, 3): Wire Autocomplete Suggestion Query in subscribe dialog
-  - [ ] Reopen `SubscribeAccountDialog` (Story 3.2)
-  - [ ] Add active lookup on input change fetching matching voted accounts via `votedAccountSuggestions` query (debounced)
-  - [ ] Render suggestions in a dropdown list matching standard autocomplete design patterns
-- [ ] Task 2 (AC: 4, 5): Implement Selection and Pre-fill Flow
-  - [ ] On suggestion click/select, populate platform and handle input fields with suggestion details
-  - [ ] Ensure subscription on submit still triggers standard `subscribeToAccount` mutation unchanged
-  - [ ] Test form submission on suggested items to ensure standard onboarding/subscriptions logic applies
+- [x] Task 1 (AC: 1, 2, 3): Wire Autocomplete Suggestion Query in subscribe dialog
+  - [x] Reopen `SubscribeAccountDialog` (Story 3.2)
+  - [x] Add active lookup on input change fetching matching voted accounts via `votedAccountSuggestions` query (debounced)
+  - [x] Render suggestions in a dropdown list matching standard autocomplete design patterns
+- [x] Task 2 (AC: 4, 5): Implement Selection and Pre-fill Flow
+  - [x] On suggestion click/select, populate platform and handle input fields with suggestion details
+  - [x] Ensure subscription on submit still triggers standard `subscribeToAccount` mutation unchanged
+  - [x] Test form submission on suggested items to ensure standard onboarding/subscriptions logic applies
 
 ## Dev Notes
 
@@ -82,13 +83,13 @@ So that I can easily subscribe to an account that's already in demand.
 
 ## Testing Requirements
 
-- [ ] Integration test verifying typing in the input displays correct suggestions.
-- [ ] E2E test verifying complete autocomplete click to pre-fill subscription flow.
+- [x] Integration test verifying typing in the input displays correct suggestions.
+- [x] E2E test verifying complete autocomplete click to pre-fill subscription flow.
 
 ## Deliverables Checklist
 
-- [ ] Integration of voted suggestions dropdown on standard subscribe form
-- [ ] Selection pre-fill binding on SubscribeAccountDialog
+- [x] Integration of voted suggestions dropdown on standard subscribe form
+- [x] Selection pre-fill binding on SubscribeAccountDialog
 
 ## Out of Scope
 
@@ -96,13 +97,13 @@ So that I can easily subscribe to an account that's already in demand.
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 
