@@ -4,7 +4,7 @@
 
 - Epic: 5
 - Story ID: 5.3
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -24,21 +24,21 @@ so that I can manage my API usage effectively and avoid redundant extractions.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: 1, 5) — Create `SummaryBar` component:
-  - [ ] Implement `SummaryBar` in `apps/web/src/features/post-selection/components/summary-bar.tsx` (or a suitable directory under features).
-  - [ ] Accept `selectedCount: number` and `quota: number` as props.
-  - [ ] Display "Selected Posts: {selectedCount} / {quota}".
-  - [ ] Apply red text styling if `selectedCount > quota`.
-- [ ] Task 2 (AC: 2, 4) — Implement client-side quota limit checks and tooltips:
-  - [ ] Within the manual post selection page or wrapper, prevent selection of further items if `selectedCount === quota` is reached.
-  - [ ] Ensure checkbox for additional posts is disabled once the quota limit is reached.
-  - [ ] Wrap unselected `PostCard` checkboxes or cards with a Tooltip component (e.g. using Radix Tooltip) to show "You have reached your quota limit" on hover when quota is reached.
-- [ ] Task 3 (AC: 3) — Disable and grey out processed posts:
-  - [ ] Pass `disabled={true}` to `PostCard` (Story 5.1b) if the post's `isExtracted` field is `true` from the `postsByAccount` query.
-  - [ ] Verify that processed cards are visually greyed out, checkboxes are disabled, and clicking them is a no-op.
-- [ ] Task 4 (AC: 1-5) — Unit & Integration tests:
-  - [ ] Write tests in `apps/web/src/features/post-selection/components/summary-bar.test.tsx` to verify standard rendering, red text styling when over-quota, and standard states.
-  - [ ] Write integration tests for the post selection container (or wizard step) to verify that selecting more items than allowed by `myExtractionQuota` is blocked, and tooltips are displayed correctly.
+- [x] Task 1 (AC: 1, 5) — Create `SummaryBar` component:
+  - [x] Implement `SummaryBar` in `apps/web/src/features/post-selection/components/summary-bar.tsx` (or a suitable directory under features).
+  - [x] Accept `selectedCount: number` and `quota: number` as props.
+  - [x] Display "Selected Posts: {selectedCount} / {quota}".
+  - [x] Apply red text styling if `selectedCount > quota`.
+- [x] Task 2 (AC: 2, 4) — Implement client-side quota limit checks and tooltips:
+  - [x] Within the manual post selection page or wrapper, prevent selection of further items if `selectedCount === quota` is reached.
+  - [x] Ensure checkbox for additional posts is disabled once the quota limit is reached.
+  - [x] Wrap unselected `PostCard` checkboxes or cards with a Tooltip component (e.g. using Radix Tooltip) to show "You have reached your quota limit" on hover when quota is reached.
+- [x] Task 3 (AC: 3) — Disable and grey out processed posts:
+  - [x] Pass `disabled={true}` to `PostCard` (Story 5.1b) if the post's `isExtracted` field is `true` from the `postsByAccount` query.
+  - [x] Verify that processed cards are visually greyed out, checkboxes are disabled, and clicking them is a no-op.
+- [x] Task 4 (AC: 1-5) — Unit & Integration tests:
+  - [x] Write tests in `apps/web/src/features/post-selection/components/summary-bar.test.tsx` to verify standard rendering, red text styling when over-quota, and standard states.
+  - [x] Write integration tests for the post selection container (or wizard step) to verify that selecting more items than allowed by `myExtractionQuota` is blocked, and tooltips are displayed correctly.
 
 ## Dev Notes
 
@@ -117,7 +117,24 @@ so that I can manage my API usage effectively and avoid redundant extractions.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed (All tasks implemented and 100% verified via unit and integration tests)
+
+### Change Log
+
+- Created `SummaryBar` component tracking selected count and quota remaining.
+- Wired real-time `myExtractionQuota` query to display the user's actual extraction quota.
+- Configured client-side checks and tooltip warnings when the quota limit is reached.
+- Disabled and greyed out already-processed posts in the grid.
+- Wrote unit tests for `SummaryBar` and integration tests for posts-select-content verifying quota limits and displays.
+
+### File List
+
+- `apps/web/src/features/post-selection/components/summary-bar.tsx`
+- `apps/web/src/features/post-selection/components/summary-bar.test.tsx`
+- `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx`
+- `apps/web/src/app/[locale]/posts/select/posts-select-content.test.tsx`
+- `apps/web/src/features/posts/queries.graphql`
+- `apps/web/src/generated/graphql.ts`
 
 ## Dev Agent Record
 

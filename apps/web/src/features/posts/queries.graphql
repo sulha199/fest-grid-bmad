@@ -14,3 +14,11 @@ query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int) {
     hasMore
   }
 }
+
+query getMyExtractionQuota {
+  myExtractionQuota {
+    limit
+    used
+    remaining
+  }
+}

@@ -958,6 +958,11 @@ export type GetPostsByAccountQueryVariables = Exact<{
 
 export type GetPostsByAccountQuery = { postsByAccount: { nextCursor: string | null, hasMore: boolean, items: Array<{ id: string, accountId: string, content: string, imageUrl: string | null, postUrl: string, originalPostUrl: string | null, isExtracted: boolean, publishedAt: string }> } };
 
+export type GetMyExtractionQuotaQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetMyExtractionQuotaQuery = { myExtractionQuota: { limit: number, used: number, remaining: number } };
+
 export type MyReportsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -2153,6 +2158,34 @@ export const useGetPostsByAccountQuery = <
       {
     queryKey: ['getPostsByAccount', variables],
     queryFn: fetcher<GetPostsByAccountQuery, GetPostsByAccountQueryVariables>(client, GetPostsByAccountDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetMyExtractionQuotaDocument = new TypedDocumentString(`
+    query getMyExtractionQuota {
+  myExtractionQuota {
+    limit
+    used
+    remaining
+  }
+}
+    `);
+
+export const useGetMyExtractionQuotaQuery = <
+      TData = GetMyExtractionQuotaQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: GetMyExtractionQuotaQueryVariables,
+      options?: Omit<UseQueryOptions<GetMyExtractionQuotaQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetMyExtractionQuotaQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetMyExtractionQuotaQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['getMyExtractionQuota'] : ['getMyExtractionQuota', variables],
+    queryFn: fetcher<GetMyExtractionQuotaQuery, GetMyExtractionQuotaQueryVariables>(client, GetMyExtractionQuotaDocument, variables, headers),
     ...options
   }
     )};

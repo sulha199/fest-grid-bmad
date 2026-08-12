@@ -45,6 +45,7 @@ vi.mock('@/lib/graphql-client', () => {
 let mockApiKeys: any[] = [];
 let mockSubscriptions: any[] = [];
 let mockPosts: any[] = [];
+let mockQuota = { limit: 5, used: 2, remaining: 3 };
 let forceError = false;
 
 beforeEach(() => {
@@ -100,14 +101,35 @@ beforeEach(() => {
     {
       id: 'post-1',
       accountId: 'acc-1',
-      content: 'This is a sample post about a music festival',
-      imageUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819',
+      content: 'Post 1 content',
+      imageUrl: null,
       postUrl: 'https://instagram.com/p/post1',
       originalPostUrl: null,
       isExtracted: false,
       publishedAt: '2026-08-10T12:00:00.000Z',
     },
+    {
+      id: 'post-2',
+      accountId: 'acc-1',
+      content: 'Post 2 content',
+      imageUrl: null,
+      postUrl: 'https://instagram.com/p/post2',
+      originalPostUrl: null,
+      isExtracted: false,
+      publishedAt: '2026-08-10T12:00:00.000Z',
+    },
+    {
+      id: 'post-3',
+      accountId: 'acc-1',
+      content: 'Post 3 content (Processed)',
+      imageUrl: null,
+      postUrl: 'https://instagram.com/p/post3',
+      originalPostUrl: null,
+      isExtracted: true,
+      publishedAt: '2026-08-10T12:00:00.000Z',
+    },
   ];
+  mockQuota = { limit: 5, used: 2, remaining: 1 }; // Remaining quota is 1
   forceError = false;
 
   vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
@@ -129,6 +151,11 @@ beforeEach(() => {
     if (docStr.includes('GetMyApiKeys')) {
       return {
         myApiKeys: mockApiKeys,
+      };
+    }
+    if (docStr.includes('getMyExtractionQuota')) {
+      return {
+        myExtractionQuota: mockQuota,
       };
     }
     if (docStr.includes('getPostsByAccount')) {
@@ -220,7 +247,7 @@ describe('PostsSelectContent integration', () => {
     renderComponent();
 
     // Verify page title
-    const title = await screen.findByText('Extract Events');
+    const title = await screen.findByRole('heading', { level: 1, name: 'Extract Events' });
     expect(title).toBeInTheDocument();
 
     // Verify tabs
@@ -230,7 +257,7 @@ describe('PostsSelectContent integration', () => {
     expect(tab2).toBeInTheDocument();
 
     // Verify active posts
-    const postContent = await screen.findByText('This is a sample post about a music festival');
+    const postContent = await screen.findByText('Post 1 content');
     expect(postContent).toBeInTheDocument();
   });
 
@@ -269,14 +296,14 @@ describe('PostsSelectContent integration', () => {
     });
   });
 
-  it('toggles post selection and shows sticky summary bar, then submits selection', async () => {
+  it('toggles post selection and shows sticky summary bar, then submits selection within quota', async () => {
     renderComponent();
 
-    const card = await screen.findByText('This is a sample post about a music festival');
+    const card = await screen.findByText('Post 1 content');
     fireEvent.click(card);
 
-    // Verify summary bar count
-    const summaryCount = await screen.findByText('Selected Posts: 1');
+    // Verify summary bar count with quota
+    const summaryCount = await screen.findByText('Selected Posts: 1 / 1');
     expect(summaryCount).toBeInTheDocument();
 
     // Verify "Extract Events" button is rendered
@@ -293,5 +320,26 @@ describe('PostsSelectContent integration', () => {
       });
       expect(calledSelect).toBe(true);
     });
+  });
+
+  it('disables other cards and shows quota warnings when quota limit is reached', async () => {
+    renderComponent();
+
+    const card1 = await screen.findByText('Post 1 content');
+    fireEvent.click(card1);
+
+    // Remaining quota is 1, so selecting 1 post reaches the limit.
+    // The second card ('Post 2 content') container should now have title / tooltip indicating quota limit.
+    const card2Container = screen.getByText('Post 2 content').closest('[title]');
+    expect(card2Container).toHaveAttribute('title', 'You have reached your quota limit.');
+  });
+
+  it('disables and marks already processed posts as disabled', async () => {
+    renderComponent();
+
+    // Post 3 is already processed (isExtracted: true)
+    const card3Container = await screen.findByText('Post 3 content (Processed)');
+    const container = card3Container.closest('[title]');
+    expect(container).toHaveAttribute('title', 'Already processed');
   });
 });

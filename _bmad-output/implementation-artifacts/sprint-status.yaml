@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-12T21:20:00Z
+last_updated: 2026-08-12T21:23:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -701,7 +701,7 @@ development_status:
   5-1b-build-the-reusable-postcard-component: review
   5-1-manual-post-selection-screen: review
   5-2-select-posts-for-extraction: review
-  5-3-display-and-enforce-api-quota: ready-for-dev
+  5-3-display-and-enforce-api-quota: review
   5-4-inactive-account-warning: ready-for-dev
   5-5-integrate-manual-post-selection-into-the-getting-started-wizard: backlog
   epic-5-retrospective: optional

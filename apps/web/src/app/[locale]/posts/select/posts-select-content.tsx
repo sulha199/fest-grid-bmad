@@ -12,11 +12,13 @@ import {
   useGetPostsByAccountQuery,
   useMarkSubscriptionViewedMutation,
   useSelectPostsForExtractionMutation,
+  useGetMyExtractionQuotaQuery,
 } from '@/generated/graphql';
 import { PostCard, PostCardSkeleton, BlockingLoader } from '@festgrid/ui';
 import { AlertCircle } from 'lucide-react';
 import { usePostSelectionStore } from './post-selection-store';
 import { toast } from 'sonner';
+import { SummaryBar } from '@/features/post-selection/components/summary-bar';
 
 export function PostsSelectContent() {
   const t = useTranslations('ManualPostSelectionPage');
@@ -55,19 +57,34 @@ export function PostsSelectContent() {
     }
   );
 
+  // 3. Fetch Extraction Quota
+  const {
+    data: quotaData,
+    isLoading: quotaLoading,
+    error: quotaError,
+    refetch: refetchQuota,
+  } = useGetMyExtractionQuotaQuery(
+    graphqlClient,
+    {},
+    {
+      enabled: !!session,
+    }
+  );
+
   const subscriptions = subData?.mySubscriptions || [];
   const apiKeys = keysData?.myApiKeys || [];
+  const remainingQuota = quotaData?.myExtractionQuota?.remaining ?? 0;
 
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
 
-  // 3. Handle auth redirect
+  // 4. Handle auth redirect
   useEffect(() => {
     if (!authLoading && !session) {
       router.push('/login');
     }
   }, [authLoading, session, router]);
 
-  // 4. Wizard Redirection Logic
+  // 5. Wizard Redirection Logic
   useEffect(() => {
     if (session && !subLoading && !keysLoading) {
       const hasApiKeys = apiKeys.length > 0;
@@ -81,7 +98,7 @@ export function PostsSelectContent() {
     }
   }, [session, subscriptions, apiKeys, subLoading, keysLoading, router]);
 
-  // 5. Auto-activation of tabs
+  // 6. Auto-activation of tabs
   useEffect(() => {
     if (subscriptions.length > 0 && !activeAccountId) {
       const newlyAdded = subscriptions.find((s) => s.isNewlyAdded);
@@ -93,7 +110,7 @@ export function PostsSelectContent() {
     }
   }, [subscriptions, activeAccountId]);
 
-  // 6. Mutation to mark subscription as viewed
+  // 7. Mutation to mark subscription as viewed
   const { mutate: markViewed } = useMarkSubscriptionViewedMutation(graphqlClient, {
     onSuccess: () => {
       refetchSubs();
@@ -108,7 +125,7 @@ export function PostsSelectContent() {
     }
   }, [activeAccountId, activeSub, markViewed]);
 
-  // 7. Query posts for the active account
+  // 8. Query posts for the active account
   const {
     data: postsData,
     isLoading: postsLoading,
@@ -127,7 +144,7 @@ export function PostsSelectContent() {
 
   const posts = postsData?.postsByAccount?.items || [];
 
-  // 8. Mutation to select posts for extraction
+  // 9. Mutation to select posts for extraction
   const { mutate: selectPosts, isPending: isExtracting } = useSelectPostsForExtractionMutation(
     graphqlClient,
     {
@@ -139,6 +156,7 @@ export function PostsSelectContent() {
             ? `Successfully enqueued ${count} posts for extraction!`
             : `Berhasil mengantrekan ${count} postingan untuk diekstrak!`
         );
+        refetchQuota();
         router.push(redirectPath);
       },
       onError: (err: any) => {
@@ -149,16 +167,22 @@ export function PostsSelectContent() {
 
   const handleExtract = () => {
     if (selectedPostIds.length > 0) {
+      // Authoritative server-side guard
+      if (selectedPostIds.length > remainingQuota) {
+        toast.error('Cannot select more posts than your remaining API quota.');
+        return;
+      }
       selectPosts({ postIds: selectedPostIds });
     }
   };
 
-  const isLoading = authLoading || subLoading || keysLoading;
-  const hasError = subError || keysError;
+  const isLoading = authLoading || subLoading || keysLoading || quotaLoading;
+  const hasError = subError || keysError || quotaError;
 
   const refetchAll = () => {
     refetchSubs();
     refetchKeys();
+    refetchQuota();
     if (activeAccountId) {
       refetchPosts();
     }
@@ -270,52 +294,58 @@ export function PostsSelectContent() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {posts.map((post) => (
-              <PostCard
-                key={post.id}
-                post={{
-                  id: post.id as string,
-                  accountId: post.accountId as string,
-                  content: post.content,
-                  imageUrl: post.imageUrl || undefined,
-                  postUrl: post.postUrl,
-                  originalPostUrl: post.originalPostUrl || undefined,
-                  isExtracted: post.isExtracted,
-                  publishedAt: post.publishedAt,
-                }}
-                isSelected={selectedPostIds.includes(post.id as string)}
-                onSelectionChange={() => togglePost(post.id as string)}
-                publisher={
-                  activeSub
-                    ? {
-                        displayName: activeSub.account.displayName,
-                        username: activeSub.account.username,
-                        profileImageUrl: activeSub.account.profileImageUrl || undefined,
-                        platform: activeSub.account.platform,
-                      }
-                    : undefined
-                }
-              />
-            ))}
+            {posts.map((post) => {
+              const isSelected = selectedPostIds.includes(post.id as string);
+              const isProcessed = post.isExtracted;
+              const quotaReached = selectedPostIds.length >= remainingQuota;
+              const isDisabled = isProcessed || (!isSelected && quotaReached);
+              const hoverTitle = isProcessed
+                ? 'Already processed'
+                : !isSelected && quotaReached
+                ? 'You have reached your quota limit.'
+                : undefined;
+
+              return (
+                <div key={post.id} title={hoverTitle}>
+                  <PostCard
+                    post={{
+                      id: post.id as string,
+                      accountId: post.accountId as string,
+                      content: post.content,
+                      imageUrl: post.imageUrl || undefined,
+                      postUrl: post.postUrl,
+                      originalPostUrl: post.originalPostUrl || undefined,
+                      isExtracted: post.isExtracted,
+                      publishedAt: post.publishedAt,
+                    }}
+                    isSelected={isSelected}
+                    onSelectionChange={() => togglePost(post.id as string)}
+                    disabled={isDisabled}
+                    publisher={
+                      activeSub
+                        ? {
+                            displayName: activeSub.account.displayName,
+                            username: activeSub.account.username,
+                            profileImageUrl: activeSub.account.profileImageUrl || undefined,
+                            platform: activeSub.account.platform,
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Sticky Summary Bar */}
-      {selectedPostIds.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-slate-200 dark:border-slate-800 p-4 shadow-lg flex items-center justify-between max-w-7xl mx-auto rounded-t-xl z-50">
-          <span className="font-semibold text-slate-700 dark:text-slate-300">
-            Selected Posts: {selectedPostIds.length}
-          </span>
-          <button
-            onClick={handleExtract}
-            disabled={isExtracting}
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-6 py-2"
-          >
-            Extract Events
-          </button>
-        </div>
-      )}
+      {/* Summary Bar */}
+      <SummaryBar
+        selectedCount={selectedPostIds.length}
+        quota={remainingQuota}
+        isExtracting={isExtracting}
+        onExtract={handleExtract}
+      />
     </div>
   );
 }
