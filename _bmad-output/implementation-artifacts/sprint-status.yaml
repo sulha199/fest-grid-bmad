@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-12T21:27:00Z
+last_updated: 2026-08-12T21:28:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -703,7 +703,7 @@ development_status:
   5-2-select-posts-for-extraction: review
   5-3-display-and-enforce-api-quota: review
   5-4-inactive-account-warning: review
-  5-5-integrate-manual-post-selection-into-the-getting-started-wizard: ready-for-dev
+  5-5-integrate-manual-post-selection-into-the-getting-started-wizard: review
   epic-5-retrospective: optional
   # Epic 6 added 2026-08-08 via bmad-prd (Sections 3.13/3.14, FR69-FR86) + direct
   # epics.md append (bmad-create-epics-and-stories skipped -- its Step 1 overwrites

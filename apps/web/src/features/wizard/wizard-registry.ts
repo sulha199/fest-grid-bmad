@@ -5,7 +5,7 @@ import { OnboardingSubscribeStep } from '../onboarding/onboarding-subscribe-step
 export const wizardRegistry: Record<string, WizardDefinition> = {
   onboarding: {
     key: 'onboarding',
-    defaultExitPath: '/',
+    defaultExitPath: '/posts/select',
     steps: [
       { slug: 'api-key', canSkipStep: false, Component: OnboardingApiKeyStep },
       { slug: 'subscribe', canSkipStep: false, Component: OnboardingSubscribeStep },
