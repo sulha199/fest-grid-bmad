@@ -702,7 +702,7 @@ development_status:
   5-1-manual-post-selection-screen: ready-for-dev
   5-2-select-posts-for-extraction: ready-for-dev
   5-3-display-and-enforce-api-quota: ready-for-dev
-  5-4-inactive-account-warning: backlog
+  5-4-inactive-account-warning: ready-for-dev
   5-5-integrate-manual-post-selection-into-the-getting-started-wizard: backlog
   epic-5-retrospective: optional
   # Epic 6 added 2026-08-08 via bmad-prd (Sections 3.13/3.14, FR69-FR86) + direct
