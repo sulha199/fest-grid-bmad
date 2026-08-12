@@ -4,7 +4,8 @@
 
 - Epic: 6
 - Story ID: 6.6a
-- Status: ready-for-dev
+- Status: review
+- baseline_commit: 6aa4195
 
 ## Story
 
@@ -24,17 +25,17 @@ So that Story 6.6's domain-management screen and Story 6.7a's widget CSP middlew
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: 1): Database Migration for `embed_domains` table
-  - [ ] Define `embed_domains` table in `packages/database/schema.ts` referencing `widgets.id` and with a unique pattern constraint, timestamps, and deleted_at soft delete column
-  - [ ] Generate migrations with `pnpm --filter @festgrid/database db:generate` and edit index file where `deleted_at IS NULL`
-  - [ ] Run migration on local database
-- [ ] Task 2 (AC: 2, 3, 4, 5): GraphQL SDL Schema & Resolvers
-  - [ ] Create `embed-domains.graphql` in `apps/backend/src/schema/` declaring EmbedDomain types, mutations, and queries
-  - [ ] Run GraphQL codegen to sync backend types
-  - [ ] Implement query `embedDomainsForWidget`, query `isOriginAllowedForWidget`, mutations `registerEmbedDomain`, `deregisterEmbedDomain` in `resolvers.ts`
-- [ ] Task 3 (AC: 2): Integrate Public Suffix List (PSL) Validation
-  - [ ] Use `tldts` package inside `registerEmbedDomain` mutation resolver for wildcard suffix checks
-  - [ ] Implement wildcard extraction, normalization, and shared hosting validation, returning BAD_REQUEST for public suffixes like `*.vercel.app`
+- [x] Task 1 (AC: 1): Database Migration for `embed_domains` table
+  - [x] Define `embed_domains` table in `packages/database/schema.ts` referencing `widgets.id` and with a unique pattern constraint, timestamps, and deleted_at soft delete column
+  - [x] Generate migrations with `pnpm --filter @festgrid/database db:generate` and edit index file where `deleted_at IS NULL`
+  - [x] Run migration on local database
+- [x] Task 2 (AC: 2, 3, 4, 5): GraphQL SDL Schema & Resolvers
+  - [x] Create `embed-domains.graphql` in `apps/backend/src/schema/` declaring EmbedDomain types, mutations, and queries
+  - [x] Run GraphQL codegen to sync backend types
+  - [x] Implement query `embedDomainsForWidget`, query `isOriginAllowedForWidget`, mutations `registerEmbedDomain`, `deregisterEmbedDomain` in `resolvers.ts`
+- [x] Task 3 (AC: 2): Integrate Public Suffix List (PSL) Validation
+  - [x] Use `tldts` package inside `registerEmbedDomain` mutation resolver for wildcard suffix checks
+  - [x] Implement wildcard extraction, normalization, and shared hosting validation, returning BAD_REQUEST for public suffixes like `*.vercel.app`
 
 ## Dev Notes
 
@@ -82,21 +83,21 @@ So that Story 6.6's domain-management screen and Story 6.7a's widget CSP middlew
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation
-- [ ] Architecture and boundary confirmation
-- [ ] Testing plan confirmation
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted
+- [x] Scope confirmation
+- [x] Architecture and boundary confirmation
+- [x] Testing plan confirmation
+- [x] Explicit human approval state (Approved)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted
 
 ## Testing Requirements
 
-- [ ] Integration tests verifying `registerEmbedDomain` normalization and PSL constraints.
-- [ ] Integration tests verifying `isOriginAllowedForWidget` exact and suffix matching.
+- [x] Integration tests verifying `registerEmbedDomain` normalization and PSL constraints.
+- [x] Integration tests verifying `isOriginAllowedForWidget` exact and suffix matching.
 
 ## Deliverables Checklist
 
-- [ ] `embed_domains` migration script and schema updates
-- [ ] GraphQL query/mutation resolvers for widget origin access control
+- [x] `embed_domains` migration script and schema updates
+- [x] GraphQL query/mutation resolvers for widget origin access control
 
 ## Out of Scope
 
@@ -104,13 +105,13 @@ So that Story 6.6's domain-management screen and Story 6.7a's widget CSP middlew
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 

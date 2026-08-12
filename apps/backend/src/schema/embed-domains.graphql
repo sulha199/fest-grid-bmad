@@ -1,0 +1,17 @@
+type EmbedDomain {
+  id: ID!
+  widgetId: ID!
+  pattern: String!
+  createdAt: String!
+  deletedAt: String
+}
+
+extend type Query {
+  embedDomainsForWidget(widgetId: ID!): [EmbedDomain!]!
+  isOriginAllowedForWidget(widgetId: ID!, origin: String!): Boolean!
+}
+
+extend type Mutation {
+  registerEmbedDomain(widgetId: ID!, pattern: String!): EmbedDomain!
+  deregisterEmbedDomain(id: ID!, action: SoftDeleteAction!): EmbedDomain!
+}

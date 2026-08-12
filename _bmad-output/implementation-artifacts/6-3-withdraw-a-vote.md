@@ -4,7 +4,8 @@
 
 - Epic: 6
 - Story ID: 6.3
-- Status: ready-for-dev
+- Status: review
+- baseline_commit: f1bb2d2
 
 ## Story
 
@@ -22,13 +23,13 @@ So that I can change my mind about which accounts I'm registering demand for.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: 1, 2, 3): Implement frontend Withdraw Vote Action
-  - [ ] On the Ranked Vote List page (Story 6.2), add a "Withdraw Vote" toggle or state when the user has already voted for an account
-  - [ ] If clicked, trigger `withdrawVote(id: $voteId, action: DELETE)` mutation
-  - [ ] Update local list state or refetch query to decrement count and remove/update row style
-- [ ] Task 2 (AC: 4, 5): Implement Reactivate / Re-vote Flow
-  - [ ] Ensure that clicking "Vote" again on a previously withdrawn account calls `castVote`, which reactivates the same vote row in backend (idempotent reactivate, Story 6.1a)
-  - [ ] Test the withdraw -> re-vote -> withdraw loop to ensure visual counts and state reflect backend correctly
+- [x] Task 1 (AC: 1, 2, 3): Implement frontend Withdraw Vote Action
+  - [x] On the Ranked Vote List page (Story 6.2), add a "Withdraw Vote" toggle or state when the user has already voted for an account
+  - [x] If clicked, trigger `withdrawVote(id: $voteId, action: DELETE)` mutation
+  - [x] Update local list state or refetch query to decrement count and remove/update row style
+- [x] Task 2 (AC: 4, 5): Implement Reactivate / Re-vote Flow
+  - [x] Ensure that clicking "Vote" again on a previously withdrawn account calls `castVote`, which reactivates the same vote row in backend (idempotent reactivate, Story 6.1a)
+  - [x] Test the withdraw -> re-vote -> withdraw loop to ensure visual counts and state reflect backend correctly
 
 ## Dev Notes
 
@@ -74,11 +75,11 @@ So that I can change my mind about which accounts I'm registering demand for.
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation
-- [ ] Architecture and boundary confirmation
-- [ ] Testing plan confirmation
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted
+- [x] Scope confirmation
+- [x] Architecture and boundary confirmation
+- [x] Testing plan confirmation
+- [x] Explicit human approval state (Approved)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted
 
 ## Testing Requirements
 
@@ -96,13 +97,13 @@ So that I can change my mind about which accounts I'm registering demand for.
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 

@@ -471,3 +471,21 @@ export const widgetsRelations = relations(widgets, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+export const embedDomains = pgTable('embed_domains', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  widgetId: uuid('widget_id').references(() => widgets.id).notNull(),
+  pattern: text('pattern').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+}, (t) => ({
+  activeIdx: index('idx_embed_domains_active').on(t.widgetId).where(sql`deleted_at IS NULL`),
+  patternUnqIdx: uniqueIndex('idx_embed_domains_pattern_widget').on(t.widgetId, t.pattern),
+}));
+
+export const embedDomainsRelations = relations(embedDomains, ({ one }) => ({
+  widget: one(widgets, {
+    fields: [embedDomains.widgetId],
+    references: [widgets.id],
+  }),
+}));

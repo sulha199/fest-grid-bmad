@@ -4,7 +4,8 @@
 
 - Epic: 6
 - Story ID: 6.5
-- Status: ready-for-dev
+- Status: review
+- baseline_commit: b28001b
 
 ## Story
 
@@ -24,20 +25,20 @@ So that I can embed FestDaily's event discovery on another site and update it la
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: 1, 2, 3, 4): Implement Widget Generator Form and Preview page
-  - [ ] Create route page at `apps/web/src/app/[locale]/settings/widgets/page.tsx` listing existing user widgets (`myWidgets` query)
-  - [ ] Create create/edit widget forms configuring filters, display mode, and theme
-  - [ ] Trigger `createWidget` or `updateWidget` mutation on form submission
-  - [ ] Provide live widget preview rendering in configured mode and theme
-- [ ] Task 2 (AC: 5, 7): Generate Embed Snippets and fallbacks
-  - [ ] Add display area showing (1) recommended Script inclusion code + placeholder `div` with `data-festdaily-widget-id`
-  - [ ] Add fallback Raw Iframe URL `.../widget/{id}` for stripped script environments
-  - [ ] Verify that no embedding domain checks are enforced during generation/preview stage
-- [ ] Task 3 (AC: 6): Create static `embed.js` script helper
-  - [ ] Create static file `apps/web/public/embed.js` serving the static loader
-  - [ ] Set up DOM listener in `embed.js` querying all elements with `data-festdaily-widget-id`
-  - [ ] Dynamically construct and append responsive iframe overlays pointing to `.../widget/{id}`
-  - [ ] Implement `postMessage` listener to auto-resize iframe height dynamically
+- [x] Task 1 (AC: 1, 2, 3, 4): Implement Widget Generator Form and Preview page
+  - [x] Create route page at `apps/web/src/app/[locale]/settings/widgets/page.tsx` listing existing user widgets (`myWidgets` query)
+  - [x] Create create/edit widget forms configuring filters, display mode, and theme
+  - [x] Trigger `createWidget` or `updateWidget` mutation on form submission
+  - [x] Provide live widget preview rendering in configured mode and theme
+- [x] Task 2 (AC: 5, 7): Generate Embed Snippets and fallbacks
+  - [x] Add display area showing (1) recommended Script inclusion code + placeholder `div` with `data-festdaily-widget-id`
+  - [x] Add fallback Raw Iframe URL `.../widget/{id}` for stripped script environments
+  - [x] Verify that no embedding domain checks are enforced during generation/preview stage
+- [x] Task 3 (AC: 6): Create static `embed.js` script helper
+  - [x] Create static file `apps/web/public/embed.js` serving the static loader
+  - [x] Set up DOM listener in `embed.js` querying all elements with `data-festdaily-widget-id`
+  - [x] Dynamically construct and append responsive iframe overlays pointing to `.../widget/{id}`
+  - [x] Implement `postMessage` listener to auto-resize iframe height dynamically
 
 ## Dev Notes
 
@@ -86,21 +87,21 @@ So that I can embed FestDaily's event discovery on another site and update it la
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation
-- [ ] Architecture and boundary confirmation
-- [ ] Testing plan confirmation
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted
+- [x] Scope confirmation
+- [x] Architecture and boundary confirmation
+- [x] Testing plan confirmation
+- [x] Explicit human approval state (Approved)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted
 
 ## Testing Requirements
 
-- [ ] Integration tests verifying live preview rendering changes on settings updates.
-- [ ] End-to-end tests verifying script-driven dynamic iframe injection and auto-resize.
+- [x] Integration tests verifying live preview rendering changes on settings updates.
+- [x] End-to-end tests verifying script-driven dynamic iframe injection and auto-resize.
 
 ## Deliverables Checklist
 
-- [ ] Widget configurations list and management page
-- [ ] Static `embed.js` serving responsive iframe wrappers
+- [x] Widget configurations list and management page
+- [x] Static `embed.js` serving responsive iframe wrappers
 
 ## Out of Scope
 
@@ -108,13 +109,13 @@ So that I can embed FestDaily's event discovery on another site and update it la
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 

@@ -125,6 +125,15 @@ export enum DefaultLocationChangeRequestStatus {
   Reverted = 'REVERTED'
 }
 
+export type EmbedDomain = {
+  __typename?: 'EmbedDomain';
+  createdAt: Scalars['String']['output'];
+  deletedAt?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  pattern: Scalars['String']['output'];
+  widgetId: Scalars['ID']['output'];
+};
+
 export type Event = {
   __typename?: 'Event';
   categories?: Maybe<Array<EventCategory>>;
@@ -251,10 +260,12 @@ export type Mutation = {
   deleteEventPermanently: Scalars['Boolean']['output'];
   deleteUserLocation: UserLocation;
   deleteWidget: Widget;
+  deregisterEmbedDomain: EmbedDomain;
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   ignoreSubsequentReports: Report;
   markSubscriptionViewed: Subscription;
+  registerEmbedDomain: EmbedDomain;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
@@ -320,6 +331,12 @@ export type MutationDeleteWidgetArgs = {
 };
 
 
+export type MutationDeregisterEmbedDomainArgs = {
+  action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationEditAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   input: SetAccountDefaultLocationInput;
@@ -338,6 +355,12 @@ export type MutationIgnoreSubsequentReportsArgs = {
 
 export type MutationMarkSubscriptionViewedArgs = {
   subscriptionId: Scalars['ID']['input'];
+};
+
+
+export type MutationRegisterEmbedDomainArgs = {
+  pattern: Scalars['String']['input'];
+  widgetId: Scalars['ID']['input'];
 };
 
 
@@ -520,10 +543,12 @@ export type ProposedScheduleCorrectionInput = {
 export type Query = {
   __typename?: 'Query';
   addressAutocomplete: Array<AddressSuggestion>;
+  embedDomainsForWidget: Array<EmbedDomain>;
   event?: Maybe<Event>;
   eventBySlug?: Maybe<Event>;
   events: EventConnection;
   health: Scalars['Boolean']['output'];
+  isOriginAllowedForWidget: Scalars['Boolean']['output'];
   me: Me;
   myApiKeys: Array<ApiKey>;
   myExtractionQuota: ExtractionQuota;
@@ -549,6 +574,11 @@ export type QueryAddressAutocompleteArgs = {
 };
 
 
+export type QueryEmbedDomainsForWidgetArgs = {
+  widgetId: Scalars['ID']['input'];
+};
+
+
 export type QueryEventArgs = {
   id: Scalars['ID']['input'];
   includeMyArchived?: InputMaybe<Scalars['Boolean']['input']>;
@@ -567,6 +597,12 @@ export type QueryEventsArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
+};
+
+
+export type QueryIsOriginAllowedForWidgetArgs = {
+  origin: Scalars['String']['input'];
+  widgetId: Scalars['ID']['input'];
 };
 
 
@@ -903,6 +939,7 @@ export type ResolversTypes = ResolversObject<{
   DefaultLocationChangeAction: DefaultLocationChangeAction;
   DefaultLocationChangeRequest: ResolverTypeWrapper<DefaultLocationChangeRequest>;
   DefaultLocationChangeRequestStatus: DefaultLocationChangeRequestStatus;
+  EmbedDomain: ResolverTypeWrapper<EmbedDomain>;
   Event: ResolverTypeWrapper<Event>;
   EventCategory: EventCategory;
   EventConnection: ResolverTypeWrapper<EventConnection>;
@@ -967,6 +1004,7 @@ export type ResolversParentTypes = ResolversObject<{
   CreateUserLocationInput: CreateUserLocationInput;
   CreateWidgetInput: CreateWidgetInput;
   DefaultLocationChangeRequest: DefaultLocationChangeRequest;
+  EmbedDomain: EmbedDomain;
   Event: Event;
   EventConnection: EventConnection;
   EventQueryConditionInput: EventQueryConditionInput;
@@ -1066,6 +1104,15 @@ export type DefaultLocationChangeRequestResolvers<ContextType = GraphQLContext, 
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type EmbedDomainResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['EmbedDomain'] = ResolversParentTypes['EmbedDomain']> = ResolversObject<{
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  deletedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  pattern?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  widgetId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type EventResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Event'] = ResolversParentTypes['Event']> = ResolversObject<{
   categories?: Resolver<Maybe<Array<ResolversTypes['EventCategory']>>, ParentType, ContextType>;
   contactInfo?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -1144,10 +1191,12 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   deleteEventPermanently?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteEventPermanentlyArgs, 'id'>>;
   deleteUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationDeleteUserLocationArgs, 'action' | 'id'>>;
   deleteWidget?: Resolver<ResolversTypes['Widget'], ParentType, ContextType, RequireFields<MutationDeleteWidgetArgs, 'action' | 'id'>>;
+  deregisterEmbedDomain?: Resolver<ResolversTypes['EmbedDomain'], ParentType, ContextType, RequireFields<MutationDeregisterEmbedDomainArgs, 'action' | 'id'>>;
   editAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationEditAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   extractEventDataFromUrl?: Resolver<ResolversTypes['ExtractEventDataFromUrlResult'], ParentType, ContextType, RequireFields<MutationExtractEventDataFromUrlArgs, 'url'>>;
   ignoreSubsequentReports?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationIgnoreSubsequentReportsArgs, 'reportId'>>;
   markSubscriptionViewed?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationMarkSubscriptionViewedArgs, 'subscriptionId'>>;
+  registerEmbedDomain?: Resolver<ResolversTypes['EmbedDomain'], ParentType, ContextType, RequireFields<MutationRegisterEmbedDomainArgs, 'pattern' | 'widgetId'>>;
   registerFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRegisterFcmTokenArgs, 'token'>>;
   removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
   reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
@@ -1216,10 +1265,12 @@ export type ProposedScheduleCorrectionDataResolvers<ContextType = GraphQLContext
 
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
   addressAutocomplete?: Resolver<Array<ResolversTypes['AddressSuggestion']>, ParentType, ContextType, RequireFields<QueryAddressAutocompleteArgs, 'input'>>;
+  embedDomainsForWidget?: Resolver<Array<ResolversTypes['EmbedDomain']>, ParentType, ContextType, RequireFields<QueryEmbedDomainsForWidgetArgs, 'widgetId'>>;
   event?: Resolver<Maybe<ResolversTypes['Event']>, ParentType, ContextType, RequireFields<QueryEventArgs, 'id'>>;
   eventBySlug?: Resolver<Maybe<ResolversTypes['Event']>, ParentType, ContextType, RequireFields<QueryEventBySlugArgs, 'slug'>>;
   events?: Resolver<ResolversTypes['EventConnection'], ParentType, ContextType, Partial<QueryEventsArgs>>;
   health?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  isOriginAllowedForWidget?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryIsOriginAllowedForWidgetArgs, 'origin' | 'widgetId'>>;
   me?: Resolver<ResolversTypes['Me'], ParentType, ContextType>;
   myApiKeys?: Resolver<Array<ResolversTypes['ApiKey']>, ParentType, ContextType>;
   myExtractionQuota?: Resolver<ResolversTypes['ExtractionQuota'], ParentType, ContextType>;
@@ -1374,6 +1425,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Coordinates?: CoordinatesResolvers<ContextType>;
   Correction?: CorrectionResolvers<ContextType>;
   DefaultLocationChangeRequest?: DefaultLocationChangeRequestResolvers<ContextType>;
+  EmbedDomain?: EmbedDomainResolvers<ContextType>;
   Event?: EventResolvers<ContextType>;
   EventConnection?: EventConnectionResolvers<ContextType>;
   ExtractEventDataFromUrlResult?: ExtractEventDataFromUrlResultResolvers<ContextType>;

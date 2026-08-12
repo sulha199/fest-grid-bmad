@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and, exists, desc, inArray, or, gte, isNull, ilike } from 'drizzle-orm';
+import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile } from '@festgrid/domain/scraper';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
@@ -1577,6 +1578,87 @@ export const resolvers: Resolvers = {
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
+    registerEmbedDomain: async (_: any, { widgetId, pattern }: any, context: any) => {
+      const authUser = requireAuth(context);
+      
+      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      if (!widget) {
+        throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      let cleanPattern = pattern.toLowerCase().trim().replace(/^https?:\/\//, '').split('/')[0];
+      
+      const isWildcard = cleanPattern.startsWith('*.');
+      if (isWildcard) {
+        const suffix = cleanPattern.slice(2);
+        if (!suffix || suffix.includes('*')) {
+          throw new GraphQLError('Invalid wildcard pattern format', { extensions: { code: 'BAD_REQUEST' } });
+        }
+        const parsed = parseTld(suffix, { allowPrivateDomains: true });
+        const isPublicSuffix = parsed.publicSuffix === suffix;
+        const isSharedHostingDomain = parsed.domain === suffix && parsed.publicSuffix && parsed.publicSuffix.includes('.');
+        if (isPublicSuffix || parsed.domain === null || isSharedHostingDomain) {
+          throw new GraphQLError(`Wildcard suffix "${suffix}" is a public suffix or shared hosting domain and is not allowed.`, { extensions: { code: 'BAD_REQUEST' } });
+        }
+      } else {
+        if (cleanPattern.includes('*')) {
+          throw new GraphQLError('Pattern cannot contain wildcards unless it starts with "*."', { extensions: { code: 'BAD_REQUEST' } });
+        }
+      }
+
+      const [inserted] = await db.insert(embedDomains)
+        .values({
+          widgetId,
+          pattern: cleanPattern,
+        })
+        .onConflictDoUpdate({
+          target: [embedDomains.widgetId, embedDomains.pattern],
+          set: {
+            deletedAt: null,
+          }
+        })
+        .returning();
+      return inserted;
+    },
+    deregisterEmbedDomain: async (_: any, { id, action }: any, context: any) => {
+      const authUser = requireAuth(context);
+      
+      const [existing] = await db.select({
+        id: embedDomains.id,
+        widgetId: embedDomains.widgetId,
+        pattern: embedDomains.pattern,
+        deletedAt: embedDomains.deletedAt,
+        ownerUserId: widgets.ownerUserId,
+      })
+      .from(embedDomains)
+      .innerJoin(widgets, eq(embedDomains.widgetId, widgets.id))
+      .where(and(eq(embedDomains.id, id), eq(widgets.ownerUserId, authUser.userId)));
+
+      if (!existing) {
+        throw new GraphQLError('EmbedDomain not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      if (action === 'DELETE') {
+        if (existing.deletedAt !== null) {
+          throw new GraphQLError('Embed domain has already been deregistered', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(embedDomains)
+          .set({ deletedAt: new Date() })
+          .where(eq(embedDomains.id, id))
+          .returning();
+        return updated;
+      } else if (action === 'RESTORE') {
+        if (existing.deletedAt === null) {
+          throw new GraphQLError('Embed domain is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(embedDomains)
+          .set({ deletedAt: null })
+          .where(eq(embedDomains.id, id))
+          .returning();
+        return updated;
+      }
+      throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
+    },
   },
   Query: {
     health: () => true,
@@ -1993,6 +2075,33 @@ export const resolvers: Resolvers = {
     widgetById: async (_: any, { id }: any, context: any) => {
       const [row] = await db.select().from(widgets).where(and(eq(widgets.id, id), isNull(widgets.deletedAt)));
       return row || null;
+    },
+    embedDomainsForWidget: async (_: any, { widgetId }: any, context: any) => {
+      const authUser = requireAuth(context);
+      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      if (!widget) {
+        throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
+      }
+      return await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
+    },
+    isOriginAllowedForWidget: async (_: any, { widgetId, origin }: any) => {
+      const cleanOrigin = origin.toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
+      const activePatterns = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
+      
+      for (const row of activePatterns) {
+        const pattern = row.pattern.toLowerCase();
+        if (pattern.startsWith('*.')) {
+          const suffix = pattern.slice(2);
+          if (cleanOrigin === suffix || cleanOrigin.endsWith('.' + suffix)) {
+            return true;
+          }
+        } else {
+          if (pattern === cleanOrigin) {
+            return true;
+          }
+        }
+      }
+      return false;
     },
     events: async (_: any, { query, limit, offset, includeSoftDeleted, includeMyArchived }: any, context: any, info: any) => {
       const hasFavoritedEqTrue = (condition: QueryCondition | undefined): boolean => {
@@ -2418,6 +2527,10 @@ export const resolvers: Resolvers = {
     deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },
   Widget: {
+    createdAt: (parent: any) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
+    deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
+  },
+  EmbedDomain: {
     createdAt: (parent: any) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
     deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },
