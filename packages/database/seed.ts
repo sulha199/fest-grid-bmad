@@ -9,6 +9,7 @@ import {
   userLocations,
   users,
   socialMediaAccountProfiles,
+  reports,
 } from './schema';
 import { loadDatabaseEnv } from './env';
 
@@ -143,6 +144,15 @@ export const FIXTURE_POSTS = [
     publishedAt: new Date('2027-10-15T10:00:00Z'),
     content: 'Join us at the Upcoming Family Workshop 2027! Fun for all ages. #family #bandung',
   },
+  {
+    id: '60000000-0000-0000-0000-000000000004',
+    accountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[0].id,
+    postUrl: 'https://instagram.com/jktcity.events/p/C4CANCELLATION',
+    imageUrl: 'https://images.example.com/events/cancellation-threshold-test.jpg',
+    isExtracted: true,
+    publishedAt: new Date('2027-11-01T10:00:00Z'),
+    content: 'Cancellation test post content. #cancellation',
+  },
 ];
 
 const FIXTURE_EVENTS = [
@@ -184,6 +194,19 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.93,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[1].accountId,
     postId: FIXTURE_POSTS[2].id,
+  },
+  {
+    id: '40000000-0000-0000-0000-000000000004',
+    slug: 'cancellation-threshold-test-fixed',
+    eventName: 'Cancellation Threshold Test Event',
+    types: ['PERFORMANCE'],
+    categories: ['MUSIC'],
+    location: 'Cancellation Arena',
+    organizerName: 'Nusantara Sound Collective',
+    contactInfo: 'https://instagram.com/jktcity.events/p/C4CANCELLATION',
+    confidenceScore: 0.99,
+    sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[0].accountId,
+    postId: '60000000-0000-0000-0000-000000000004',
   },
 ];
 
@@ -248,6 +271,40 @@ const FIXTURE_SCHEDULES = [
     ticketPrice: 'Free with registration',
     locationDetails: { coordinates: { latitude: -6.9153, longitude: 107.6109 } },
   },
+  {
+    id: '50000000-0000-0000-0000-000000000005',
+    slug: 'cancellation-threshold-test-main-fixed',
+    eventId: '40000000-0000-0000-0000-000000000004',
+    isMainSchedule: true,
+    eventStartDate: '2027-11-20',
+    eventEndDate: '2027-11-20',
+    eventStartTime: '18:00:00',
+    eventEndTime: '20:00:00',
+    title: 'Cancellation Main Session',
+    performers: ['Cancellation Performers'],
+    location: 'Cancellation Arena - Main Area',
+    ticketPrice: 'Free',
+    locationDetails: { coordinates: { latitude: -6.1701, longitude: 106.8283 } },
+  },
+];
+
+const FIXTURE_REPORTS = [
+  {
+    id: '80000000-0000-0000-0000-000000000001',
+    eventId: '40000000-0000-0000-0000-000000000004',
+    reporterUserId: FIXTURE_USERS[0].id,
+    reason: 'cancelled',
+    details: 'Widely reported as cancelled',
+    status: 'pending',
+  },
+  {
+    id: '80000000-0000-0000-0000-000000000002',
+    eventId: '40000000-0000-0000-0000-000000000004',
+    reporterUserId: FIXTURE_USERS[1].id,
+    reason: 'cancelled',
+    details: 'Cancelled by organizer',
+    status: 'pending',
+  },
 ];
 
 export const FIXTURE_COUNTS = {
@@ -259,6 +316,7 @@ export const FIXTURE_COUNTS = {
   posts: FIXTURE_POSTS.length,
   events: FIXTURE_EVENTS.length,
   schedules: FIXTURE_SCHEDULES.length,
+  reports: FIXTURE_REPORTS.length,
 } as const;
 
 export const FIXTURE_USER_IDS = FIXTURE_USERS.map((user) => user.id).sort();
@@ -271,6 +329,7 @@ export const FIXTURE_EVENT_IDS = FIXTURE_EVENTS.map((event) => event.id).sort();
 export const FIXTURE_SCHEDULE_IDS = FIXTURE_SCHEDULES.map((schedule) => schedule.id).sort();
 export const FIXTURE_EVENT_SLUGS = FIXTURE_EVENTS.map((event) => event.slug).sort();
 export const FIXTURE_SCHEDULE_SLUGS = FIXTURE_SCHEDULES.map((schedule) => schedule.slug).sort();
+export const FIXTURE_REPORT_IDS = FIXTURE_REPORTS.map((report) => report.id).sort();
 
 export function isLocalConnectionString(connectionString: string): boolean {
   try {
@@ -311,6 +370,7 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
   try {
     await db.transaction(async (tx) => {
       // Explicit deletion order protects FK constraints and ensures deterministic reruns.
+      await tx.delete(reports);
       await tx.delete(schedules);
       await tx.delete(events);
       await tx.delete(posts);
@@ -328,6 +388,7 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
       await tx.insert(posts).values([...FIXTURE_POSTS]);
       await tx.insert(events).values([...FIXTURE_EVENTS]);
       await tx.insert(schedules).values([...FIXTURE_SCHEDULES]);
+      await tx.insert(reports).values([...FIXTURE_REPORTS]);
     });
   } finally {
     await sqlClient.end();

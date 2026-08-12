@@ -11,6 +11,7 @@ import {
   userLocations,
   users,
   socialMediaAccountProfiles,
+  reports,
 } from './schema';
 import {
   FIXTURE_API_KEY_IDS,
@@ -24,6 +25,7 @@ import {
   FIXTURE_USER_IDS,
   FIXTURE_USER_LOCATION_IDS,
   FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILE_IDS,
+  FIXTURE_REPORT_IDS,
   FIXTURE_POSTS,
   createSqlClient,
   seedDatabase,
@@ -60,6 +62,7 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const [postCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(posts);
       const [eventCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(events);
       const [scheduleCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(schedules);
+      const [reportCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(reports);
 
       assert.equal(userCount.count, FIXTURE_COUNTS.users);
       assert.equal(userLocationCount.count, FIXTURE_COUNTS.userLocations);
@@ -69,6 +72,7 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.equal(postCount.count, FIXTURE_COUNTS.posts);
       assert.equal(eventCount.count, FIXTURE_COUNTS.events);
       assert.equal(scheduleCount.count, FIXTURE_COUNTS.schedules);
+      assert.equal(reportCount.count, FIXTURE_COUNTS.reports);
 
       // Guard new unique constraint on postUrl from being broken by duplicate seed data
       assert.equal(new Set(FIXTURE_POSTS.map(p => p.postUrl)).size, FIXTURE_POSTS.length);
@@ -136,6 +140,7 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const postIdRows = await db.select({ id: posts.id }).from(posts);
       const eventIdRows = await db.select({ id: events.id }).from(events);
       const scheduleIdRows = await db.select({ id: schedules.id }).from(schedules);
+      const reportIdRows = await db.select({ id: reports.id }).from(reports);
 
       assert.deepEqual(
         userIdRows.map((row) => row.id).sort(),
@@ -168,6 +173,10 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.deepEqual(
         scheduleIdRows.map((row) => row.id).sort(),
         FIXTURE_SCHEDULE_IDS,
+      );
+      assert.deepEqual(
+        reportIdRows.map((row) => row.id).sort(),
+        FIXTURE_REPORT_IDS,
       );
 
       assert.deepEqual(
@@ -240,6 +249,9 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const [scheduleCountSecondRun] = await dbAfterSecondRun
         .select({ count: sql<number>`cast(count(*) as int)` })
         .from(schedules);
+      const [reportCountSecondRun] = await dbAfterSecondRun
+        .select({ count: sql<number>`cast(count(*) as int)` })
+        .from(reports);
 
       assert.equal(userCountSecondRun.count, FIXTURE_COUNTS.users);
       assert.equal(userLocationCountSecondRun.count, FIXTURE_COUNTS.userLocations);
@@ -249,6 +261,7 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.equal(postCountSecondRun.count, FIXTURE_COUNTS.posts);
       assert.equal(eventCountSecondRun.count, FIXTURE_COUNTS.events);
       assert.equal(scheduleCountSecondRun.count, FIXTURE_COUNTS.schedules);
+      assert.equal(reportCountSecondRun.count, FIXTURE_COUNTS.reports);
 
       const eventPostJoinsSecondRun = await dbAfterSecondRun
         .select({ eventId: events.id, imageUrl: posts.imageUrl })
@@ -280,6 +293,9 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const scheduleIdRowsSecondRun = await dbAfterSecondRun
         .select({ id: schedules.id })
         .from(schedules);
+      const reportIdRowsSecondRun = await dbAfterSecondRun
+        .select({ id: reports.id })
+        .from(reports);
       const eventSlugRowsSecondRun = await dbAfterSecondRun.select({ slug: events.slug }).from(events);
       const scheduleSlugRowsSecondRun = await dbAfterSecondRun
         .select({ slug: schedules.slug })
@@ -316,6 +332,10 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.deepEqual(
         scheduleIdRowsSecondRun.map((row) => row.id).sort(),
         FIXTURE_SCHEDULE_IDS,
+      );
+      assert.deepEqual(
+        reportIdRowsSecondRun.map((row) => row.id).sort(),
+        FIXTURE_REPORT_IDS,
       );
 
       assert.deepEqual(
