@@ -195,6 +195,7 @@ export type Mutation = {
   createApiKey: ApiKey;
   createUserLocation: UserLocation;
   deleteApiKey: ApiKey;
+  deleteEventPermanently: Scalars['Boolean']['output'];
   deleteUserLocation: UserLocation;
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
@@ -203,6 +204,7 @@ export type Mutation = {
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
   resolveReport: Report;
+  restoreEvent: Event;
   setAccountDefaultLocation: SocialMediaAccountProfile;
   submitCorrection: Correction;
   submitReport: Report;
@@ -227,6 +229,11 @@ export type MutationCreateUserLocationArgs = {
 
 export type MutationDeleteApiKeyArgs = {
   action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteEventPermanentlyArgs = {
   id: Scalars['ID']['input'];
 };
 
@@ -272,6 +279,12 @@ export type MutationReportSystemErrorArgs = {
 export type MutationResolveReportArgs = {
   id: Scalars['ID']['input'];
   outcome: ReportOutcome;
+};
+
+
+export type MutationRestoreEventArgs = {
+  action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
 };
 
 
@@ -411,6 +424,7 @@ export type QueryEventBySlugArgs = {
 
 
 export type QueryEventsArgs = {
+  includeSoftDeleted?: InputMaybe<Scalars['Boolean']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
@@ -776,6 +790,11 @@ export type GetMyApiKeysQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type GetMyApiKeysQuery = { myApiKeys: Array<{ id: string, provider: string, maskedKey: string, isValid: boolean, createdAt: string, updatedAt: string }> };
+
+export type MyReportsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MyReportsQuery = { myReports: Array<{ id: string, reason: ReportReason, status: ReportStatus, createdAt: string, event: { id: string, slug: string, eventName: string, imageUrl: string | null } }> };
 
 export type DeleteApiKeyMutationVariables = Exact<{
   id: string | number;
@@ -1640,6 +1659,41 @@ export const useGetMyApiKeysQuery = <
       {
     queryKey: variables === undefined ? ['GetMyApiKeys'] : ['GetMyApiKeys', variables],
     queryFn: fetcher<GetMyApiKeysQuery, GetMyApiKeysQueryVariables>(client, GetMyApiKeysDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const MyReportsDocument = new TypedDocumentString(`
+    query myReports {
+  myReports {
+    id
+    reason
+    status
+    createdAt
+    event {
+      id
+      slug
+      eventName
+      imageUrl
+    }
+  }
+}
+    `);
+
+export const useMyReportsQuery = <
+      TData = MyReportsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: MyReportsQueryVariables,
+      options?: Omit<UseQueryOptions<MyReportsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<MyReportsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<MyReportsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['myReports'] : ['myReports', variables],
+    queryFn: fetcher<MyReportsQuery, MyReportsQueryVariables>(client, MyReportsDocument, variables, headers),
     ...options
   }
     )};

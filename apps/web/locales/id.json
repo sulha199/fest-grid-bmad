@@ -12,6 +12,8 @@
     "feedDescription": "Lihat acara dari akun media sosial yang Anda ikuti di FestDaily.",
     "favoritesTitle": "Favorit Saya | FestDaily",
     "favoritesDescription": "Lihat dan kelola acara favorit Anda di FestDaily.",
+    "reportsTitle": "Laporan Saya | FestDaily",
+    "reportsDescription": "Lihat dan lacak status laporan yang telah Anda kirimkan di FestDaily.",
     "locationsTitle": "Lokasi Saya | FestDaily",
     "locationsDescription": "Kelola lokasi tersimpan Anda di FestDaily.",
     "subscriptionsTitle": "Akun Langganan Saya | FestDaily",
@@ -181,13 +183,20 @@
     "errorState": "Gagal memuat acara favorit. Silakan coba lagi nanti.",
     "emptyState": "Anda belum memiliki acara favorit.",
     "searchEmptyState": "Tidak ada acara favorit yang cocok dengan pencarian Anda.",
-    "priceFrom": "Mulai dari",
+    "priceFrom": "Mulai",
     "loadingMore": "Memuat lebih banyak acara favorit...",
     "searchPlaceholder": "Cari di favorit Anda...",
-    "searchClearLabel": "Hapus pencarian",
+    "searchClearLabel": "Bersihkan pencarian",
     "favoriteButtonLabel": "Hapus dari Favorit",
     "pendingRemovalToastMessage": "Acara ditandai untuk dihapus",
     "undoLabel": "Urungkan"
+  },
+  "ReportsPage": {
+    "title": "Laporan Saya",
+    "errorState": "Gagal memuat laporan yang dikirimkan. Silakan coba lagi nanti.",
+    "emptyState": "Anda belum mengirimkan laporan apa pun.",
+    "loadingLabel": "Memuat laporan...",
+    "submittedOn": "Dikirim pada {date}"
   },
   "EventType": {
     "EXHIBITION": "Pameran",
@@ -208,15 +217,25 @@
     "ARTS_AND_CULTURE": "Seni & Budaya",
     "FOOD_AND_DRINK": "Makanan & Minuman",
     "SPORTS_AND_FITNESS": "Olahraga & Kebugaran",
-    "FAMILY_AND_KIDS": "Keluarga & Anak",
+    "FAMILY_AND_KIDS": "Keluarga & Anak-anak",
     "HOBBIES_AND_INTERESTS": "Hobi & Minat",
-    "BUSINESS_AND_NETWORKING": "Bisnis & Jejaring",
+    "BUSINESS_AND_NETWORKING": "Bisnis & Jaringan",
     "HEALTH_AND_WELLNESS": "Kesehatan & Kebugaran",
     "HOLIDAY": "Hari Libur",
-    "CHARITY_AND_CAUSES": "Amal & Kemanusiaan",
-    "CIVIC_AND_COMMUNITY": "Kemasyarakatan & Komunitas",
+    "CHARITY_AND_CAUSES": "Amal & Kepedulian",
+    "CIVIC_AND_COMMUNITY": "Sipil & Komunitas",
     "RELIGION_AND_SPIRITUALITY": "Agama & Spiritualitas",
     "OTHER": "Lainnya"
+  },
+  "ReportReason": {
+    "cancelled": "Dibatalkan",
+    "dangerous": "Berbahaya",
+    "personal": "Pribadi"
+  },
+  "ReportStatus": {
+    "pending": "Tertunda",
+    "upheld": "Diterima",
+    "dismissed": "Ditolak"
   },
   "Auth": {
     "heading": "Selamat datang kembali",

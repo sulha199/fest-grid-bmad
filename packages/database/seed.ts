@@ -293,17 +293,17 @@ const FIXTURE_REPORTS = [
     id: '80000000-0000-0000-0000-000000000001',
     eventId: '40000000-0000-0000-0000-000000000004',
     reporterUserId: FIXTURE_USERS[0].id,
-    reason: 'cancelled',
+    reason: 'cancelled' as const,
     details: 'Widely reported as cancelled',
-    status: 'pending',
+    status: 'pending' as const,
   },
   {
     id: '80000000-0000-0000-0000-000000000002',
     eventId: '40000000-0000-0000-0000-000000000004',
     reporterUserId: FIXTURE_USERS[1].id,
-    reason: 'cancelled',
+    reason: 'cancelled' as const,
     details: 'Cancelled by organizer',
-    status: 'pending',
+    status: 'pending' as const,
   },
 ];
 

@@ -12,6 +12,8 @@
     "feedDescription": "View events from your subscribed social media accounts on FestDaily.",
     "favoritesTitle": "My Favorites | FestDaily",
     "favoritesDescription": "View and manage your favorited events on FestDaily.",
+    "reportsTitle": "My Reports | FestDaily",
+    "reportsDescription": "View and track the status of your submitted reports on FestDaily.",
     "locationsTitle": "My Locations | FestDaily",
     "locationsDescription": "Manage your saved locations on FestDaily.",
     "subscriptionsTitle": "My Subscribed Accounts | FestDaily",
@@ -189,6 +191,13 @@
     "pendingRemovalToastMessage": "Event marked for removal",
     "undoLabel": "Undo"
   },
+  "ReportsPage": {
+    "title": "My Reports",
+    "errorState": "Failed to load submitted reports. Please try again later.",
+    "emptyState": "You have not submitted any reports yet.",
+    "loadingLabel": "Loading reports...",
+    "submittedOn": "Submitted on {date}"
+  },
   "EventType": {
     "EXHIBITION": "Exhibition",
     "COMPETITION": "Competition",
@@ -217,6 +226,16 @@
     "CIVIC_AND_COMMUNITY": "Civic & Community",
     "RELIGION_AND_SPIRITUALITY": "Religion & Spirituality",
     "OTHER": "Other"
+  },
+  "ReportReason": {
+    "cancelled": "Cancelled",
+    "dangerous": "Dangerous",
+    "personal": "Personal"
+  },
+  "ReportStatus": {
+    "pending": "Pending",
+    "upheld": "Upheld",
+    "dismissed": "Dismissed"
   },
   "Auth": {
     "heading": "Welcome back",

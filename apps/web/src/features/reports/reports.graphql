@@ -1,0 +1,14 @@
+query myReports {
+  myReports {
+    id
+    reason
+    status
+    createdAt
+    event {
+      id
+      slug
+      eventName
+      imageUrl
+    }
+  }
+}

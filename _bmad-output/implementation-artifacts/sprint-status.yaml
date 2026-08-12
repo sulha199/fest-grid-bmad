@@ -614,7 +614,14 @@ development_status:
   # report's event detail view (Context-Aware Detail Views rule) since a user's
   # reports reference unrelated events with no meaningful browsing sequence, unlike
   # Favorites/Discovery. No new prerequisite stories split off.
-  4-6-users-reports-page: ready-for-dev
+  4-6-users-reports-page: review
+  # added 2026-08-12 via bmad-create-story Gate 2 finding (Freya subagent) while
+  # drafting Story 4.7: no page in the codebase handles an authenticated-but-
+  # wrong-role visitor (only isAuthenticated->/login exists today); no second
+  # moderator-gated page exists anywhere in epics.md yet, so the user was asked
+  # via AskUserQuestion whether to split this off now or build it inline in 4.7
+  # per the no-premature-abstraction precedent -- user chose to split it off.
+  # See epics.md Story 4.7a note.
   4-7-moderator-items-page: backlog
   # 4-7-moderator-items-page scope extended to include DefaultLocationChangeRequest review (see epics.md)
   # added 2026-08-06 via bmad-create-story at user's request while drafting Story 2.7:
