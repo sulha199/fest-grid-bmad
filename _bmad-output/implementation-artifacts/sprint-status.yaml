@@ -716,7 +716,7 @@ development_status:
   # by Story 3.1/3.2 but left unbuilt; Story 6.1 is its second consumer.
   epic-6: in-progress
   6-1a-build-the-account-vote-backend-graphql-api-layer: review
-  6-1-vote-for-a-social-media-account: ready-for-dev
+  6-1-vote-for-a-social-media-account: review
   6-2-view-the-ranked-vote-list: backlog
   6-3-withdraw-a-vote: backlog
   6-4-autocomplete-voted-accounts-when-subscribing: backlog

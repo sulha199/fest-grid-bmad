@@ -4,7 +4,8 @@
 
 - Epic: 6
 - Story ID: 6.1
-- Status: ready-for-dev
+- Status: review
+- baseline_commit: 3e1e091
 
 ## Story
 
@@ -25,18 +26,18 @@ So that I can register demand for it even without a BYOK Gemini API key.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: 1, 2, 3): Implement frontend Cast Vote action for existing accounts
-  - [ ] Add Cast Vote button to the Ranked Vote List items (Story 6.2 page)
-  - [ ] Wire the button to call `castVote(input: { accountId: $accountId })` mutation
-  - [ ] Update local list state or refetch to show updated rank and vote count
-- [ ] Task 2 (AC: 4, 5, 6): Implement "Add New Account to Vote" Form
-  - [ ] Design form/dialog allowing user to select a platform (enum platform) and enter handle/URL
-  - [ ] On submit, trigger `castVote(input: { platform: $platform, handleOrUrl: $handleOrUrl })`
-  - [ ] Display loading overlay (blocking loader pattern) during resolution
-  - [ ] Handle errors: display clear platform-unsupported or profile-not-found errors to user
-- [ ] Task 3 (AC: 7, 8): Implement Idempotency and Quota-free display
-  - [ ] Ensure double clicking or re-voting is handled gracefully via mutation idempotency
-  - [ ] Verify that no API Key setup is required to cast a vote, and no BYOK quota is subtracted
+- [x] Task 1 (AC: 1, 2, 3): Implement frontend Cast Vote action for existing accounts
+  - [x] Add Cast Vote button to the Ranked Vote List items (Story 6.2 page)
+  - [x] Wire the button to call `castVote(input: { accountId: $accountId })` mutation
+  - [x] Update local list state or refetch to show updated rank and vote count
+- [x] Task 2 (AC: 4, 5, 6): Implement "Add New Account to Vote" Form
+  - [x] Design form/dialog allowing user to select a platform (enum platform) and enter handle/URL
+  - [x] On submit, trigger `castVote(input: { platform: $platform, handleOrUrl: $handleOrUrl })`
+  - [x] Display loading overlay (blocking loader pattern) during resolution
+  - [x] Handle errors: display clear platform-unsupported or profile-not-found errors to user
+- [x] Task 3 (AC: 7, 8): Implement Idempotency and Quota-free display
+  - [x] Ensure double clicking or re-voting is handled gracefully via mutation idempotency
+  - [x] Verify that no API Key setup is required to cast a vote, and no BYOK quota is subtracted
 
 ## Dev Notes
 
@@ -83,21 +84,21 @@ So that I can register demand for it even without a BYOK Gemini API key.
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation
-- [ ] Architecture and boundary confirmation
-- [ ] Testing plan confirmation
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted
+- [x] Scope confirmation
+- [x] Architecture and boundary confirmation
+- [x] Testing plan confirmation
+- [x] Explicit human approval state (Approved)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted
 
 ## Testing Requirements
 
-- [ ] Integration test verifying vote submission and error state display in form.
-- [ ] E2E test verifying complete new account vote casting flow.
+- [x] Integration test verifying vote submission and error state display in form.
+- [x] E2E test verifying complete new account vote casting flow.
 
 ## Deliverables Checklist
 
-- [ ] `CastVoteForm` component implementing platform selection and handle entry
-- [ ] Integration of vote casting button on vote list page
+- [x] `CastVoteForm` component implementing platform selection and handle entry
+- [x] Integration of vote casting button on vote list page
 
 ## Out of Scope
 
@@ -105,13 +106,13 @@ So that I can register demand for it even without a BYOK Gemini API key.
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 

@@ -1,0 +1,53 @@
+mutation castVote($input: CastVoteInput!) {
+  castVote(input: $input) {
+    id
+    userId
+    accountId
+    createdAt
+    deletedAt
+  }
+}
+
+mutation withdrawVote($id: ID!, $action: SoftDeleteAction!) {
+  withdrawVote(id: $id, action: $action) {
+    id
+    deletedAt
+  }
+}
+
+query rankedVoteAccounts($nearMe: Boolean, $locationPreferenceId: ID) {
+  rankedVoteAccounts(nearMe: $nearMe, locationPreferenceId: $locationPreferenceId) {
+    voteCount
+    profile {
+      id
+      platform
+      accountId
+      username
+      displayName
+      profileImageUrl
+      description
+    }
+  }
+}
+
+query voteRegionBreakdown($accountId: ID!) {
+  voteRegionBreakdown(accountId: $accountId) {
+    label
+    voterCount
+  }
+}
+
+query votedAccountSuggestions($query: String) {
+  votedAccountSuggestions(query: $query) {
+    voteCount
+    profile {
+      id
+      platform
+      accountId
+      username
+      displayName
+      profileImageUrl
+      description
+    }
+  }
+}

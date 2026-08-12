@@ -37,6 +37,9 @@ content = content.replace(/export type UpdateUserSettingsInput = \{\r?\n\s+hideP
 content = content.replace(/export type CreateApiKeyInput = \{\r?\n\s+key\:\s+string[\s\S]*?\};\r?\n/g, '');
 content = content.replace(/export type SubscribeToAccountInput = \{\r?\n\s+accountId\:\s+string[\s\S]*?\};\r?\n/g, '');
 
+// Replace duplicate CastVoteInput
+content = content.replace(/export type CastVoteInput = \{\r?\n\s+accountId\?\:\s+string\s\|[\s\S]*?\};\r?\n/g, '');
+
 // Replace duplicate SetAccountDefaultLocationInput
 content = content.replace(/export type SetAccountDefaultLocationInput = \{\r?\n\s+latitude\?\: number[\s\S]*?\};\r?\n/g, '');
 

@@ -29,6 +29,15 @@ export type Scalars = {
   JSON: { input: any; output: any; }
 };
 
+export type AccountVote = {
+  __typename?: 'AccountVote';
+  accountId: Scalars['ID']['output'];
+  createdAt: Scalars['String']['output'];
+  deletedAt?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  userId: Scalars['ID']['output'];
+};
+
 export type AddressSuggestion = {
   __typename?: 'AddressSuggestion';
   description: Scalars['String']['output'];
@@ -43,6 +52,12 @@ export type ApiKey = {
   maskedKey: Scalars['String']['output'];
   provider: Scalars['String']['output'];
   updatedAt: Scalars['String']['output'];
+};
+
+export type CastVoteInput = {
+  accountId?: InputMaybe<Scalars['ID']['input']>;
+  handleOrUrl?: InputMaybe<Scalars['String']['input']>;
+  platform?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Coordinates = {
@@ -226,6 +241,7 @@ export type Me = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  castVote: AccountVote;
   createApiKey: ApiKey;
   createUserLocation: UserLocation;
   deleteApiKey: ApiKey;
@@ -252,6 +268,12 @@ export type Mutation = {
   unregisterFcmToken: Scalars['Boolean']['output'];
   updateUserLocation: UserLocation;
   updateUserSettings: UserSettings;
+  withdrawVote: AccountVote;
+};
+
+
+export type MutationCastVoteArgs = {
+  input: CastVoteInput;
 };
 
 
@@ -398,6 +420,12 @@ export type MutationUpdateUserSettingsArgs = {
   input: UpdateUserSettingsInput;
 };
 
+
+export type MutationWithdrawVoteArgs = {
+  action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
+};
+
 export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
@@ -484,8 +512,11 @@ export type Query = {
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
+  rankedVoteAccounts: Array<RankedAccountVote>;
   reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
+  voteRegionBreakdown: Array<RegionVoteBucket>;
+  votedAccountSuggestions: Array<RankedAccountVote>;
 };
 
 
@@ -529,6 +560,12 @@ export type QueryPreviewLocationArgs = {
 };
 
 
+export type QueryRankedVoteAccountsArgs = {
+  locationPreferenceId?: InputMaybe<Scalars['ID']['input']>;
+  nearMe?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
 export type QueryReportedEventsArgs = {
   reason?: InputMaybe<ReportReason>;
   status?: InputMaybe<ReportStatus>;
@@ -538,6 +575,28 @@ export type QueryReportedEventsArgs = {
 export type QuerySocialMediaAccountProfileByAccountIdArgs = {
   accountId: Scalars['String']['input'];
   platform: Scalars['String']['input'];
+};
+
+
+export type QueryVoteRegionBreakdownArgs = {
+  accountId: Scalars['ID']['input'];
+};
+
+
+export type QueryVotedAccountSuggestionsArgs = {
+  query?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type RankedAccountVote = {
+  __typename?: 'RankedAccountVote';
+  profile: SocialMediaAccountProfile;
+  voteCount: Scalars['Int']['output'];
+};
+
+export type RegionVoteBucket = {
+  __typename?: 'RegionVoteBucket';
+  label: Scalars['String']['output'];
+  voterCount: Scalars['Int']['output'];
 };
 
 export type Report = {
@@ -699,6 +758,7 @@ export type ValidationError = {
   field: Scalars['String']['output'];
   message: Scalars['String']['output'];
 };
+
 
 
 
@@ -1030,6 +1090,43 @@ export type ReportSystemErrorMutationVariables = Exact<{
 
 
 export type ReportSystemErrorMutation = { reportSystemError: boolean };
+
+export type CastVoteMutationVariables = Exact<{
+  input: CastVoteInput;
+}>;
+
+
+export type CastVoteMutation = { castVote: { id: string, userId: string, accountId: string, createdAt: string, deletedAt: string | null } };
+
+export type WithdrawVoteMutationVariables = Exact<{
+  id: string | number;
+  action: SoftDeleteAction;
+}>;
+
+
+export type WithdrawVoteMutation = { withdrawVote: { id: string, deletedAt: string | null } };
+
+export type RankedVoteAccountsQueryVariables = Exact<{
+  nearMe?: boolean | null | undefined;
+  locationPreferenceId?: string | number | null | undefined;
+}>;
+
+
+export type RankedVoteAccountsQuery = { rankedVoteAccounts: Array<{ voteCount: number, profile: { id: string, platform: string, accountId: string, username: string, displayName: string, profileImageUrl: string | null, description: string | null } }> };
+
+export type VoteRegionBreakdownQueryVariables = Exact<{
+  accountId: string | number;
+}>;
+
+
+export type VoteRegionBreakdownQuery = { voteRegionBreakdown: Array<{ label: string, voterCount: number }> };
+
+export type VotedAccountSuggestionsQueryVariables = Exact<{
+  query?: string | null | undefined;
+}>;
+
+
+export type VotedAccountSuggestionsQuery = { votedAccountSuggestions: Array<{ voteCount: number, profile: { id: string, platform: string, accountId: string, username: string, displayName: string, profileImageUrl: string | null, description: string | null } }> };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -2494,6 +2591,158 @@ export const useReportSystemErrorMutation = <
       {
     mutationKey: ['ReportSystemError'],
     mutationFn: (variables?: ReportSystemErrorMutationVariables) => fetcher<ReportSystemErrorMutation, ReportSystemErrorMutationVariables>(client, ReportSystemErrorDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const CastVoteDocument = new TypedDocumentString(`
+    mutation castVote($input: CastVoteInput!) {
+  castVote(input: $input) {
+    id
+    userId
+    accountId
+    createdAt
+    deletedAt
+  }
+}
+    `);
+
+export const useCastVoteMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CastVoteMutation, TError, CastVoteMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CastVoteMutation, TError, CastVoteMutationVariables, TContext>(
+      {
+    mutationKey: ['castVote'],
+    mutationFn: (variables?: CastVoteMutationVariables) => fetcher<CastVoteMutation, CastVoteMutationVariables>(client, CastVoteDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const WithdrawVoteDocument = new TypedDocumentString(`
+    mutation withdrawVote($id: ID!, $action: SoftDeleteAction!) {
+  withdrawVote(id: $id, action: $action) {
+    id
+    deletedAt
+  }
+}
+    `);
+
+export const useWithdrawVoteMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<WithdrawVoteMutation, TError, WithdrawVoteMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<WithdrawVoteMutation, TError, WithdrawVoteMutationVariables, TContext>(
+      {
+    mutationKey: ['withdrawVote'],
+    mutationFn: (variables?: WithdrawVoteMutationVariables) => fetcher<WithdrawVoteMutation, WithdrawVoteMutationVariables>(client, WithdrawVoteDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const RankedVoteAccountsDocument = new TypedDocumentString(`
+    query rankedVoteAccounts($nearMe: Boolean, $locationPreferenceId: ID) {
+  rankedVoteAccounts(nearMe: $nearMe, locationPreferenceId: $locationPreferenceId) {
+    voteCount
+    profile {
+      id
+      platform
+      accountId
+      username
+      displayName
+      profileImageUrl
+      description
+    }
+  }
+}
+    `);
+
+export const useRankedVoteAccountsQuery = <
+      TData = RankedVoteAccountsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: RankedVoteAccountsQueryVariables,
+      options?: Omit<UseQueryOptions<RankedVoteAccountsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<RankedVoteAccountsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<RankedVoteAccountsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['rankedVoteAccounts'] : ['rankedVoteAccounts', variables],
+    queryFn: fetcher<RankedVoteAccountsQuery, RankedVoteAccountsQueryVariables>(client, RankedVoteAccountsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const VoteRegionBreakdownDocument = new TypedDocumentString(`
+    query voteRegionBreakdown($accountId: ID!) {
+  voteRegionBreakdown(accountId: $accountId) {
+    label
+    voterCount
+  }
+}
+    `);
+
+export const useVoteRegionBreakdownQuery = <
+      TData = VoteRegionBreakdownQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: VoteRegionBreakdownQueryVariables,
+      options?: Omit<UseQueryOptions<VoteRegionBreakdownQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<VoteRegionBreakdownQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<VoteRegionBreakdownQuery, TError, TData>(
+      {
+    queryKey: ['voteRegionBreakdown', variables],
+    queryFn: fetcher<VoteRegionBreakdownQuery, VoteRegionBreakdownQueryVariables>(client, VoteRegionBreakdownDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const VotedAccountSuggestionsDocument = new TypedDocumentString(`
+    query votedAccountSuggestions($query: String) {
+  votedAccountSuggestions(query: $query) {
+    voteCount
+    profile {
+      id
+      platform
+      accountId
+      username
+      displayName
+      profileImageUrl
+      description
+    }
+  }
+}
+    `);
+
+export const useVotedAccountSuggestionsQuery = <
+      TData = VotedAccountSuggestionsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: VotedAccountSuggestionsQueryVariables,
+      options?: Omit<UseQueryOptions<VotedAccountSuggestionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<VotedAccountSuggestionsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<VotedAccountSuggestionsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['votedAccountSuggestions'] : ['votedAccountSuggestions', variables],
+    queryFn: fetcher<VotedAccountSuggestionsQuery, VotedAccountSuggestionsQueryVariables>(client, VotedAccountSuggestionsDocument, variables, headers),
     ...options
   }
     )};
