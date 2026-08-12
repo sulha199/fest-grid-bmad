@@ -4,7 +4,7 @@
 
 - Epic: 6
 - Story ID: 6.6
-- Status: in-progress
+- Status: review
 - baseline_commit: 153b22f
 
 ## Story
@@ -24,14 +24,14 @@ So that I can control exactly where my widget is allowed to be rendered (PRD §3
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: 1, 2, 3, 6): Implement Domain Management Dialog
-  - [ ] On the widgets list page (Story 6.5), add a "Domains" action button next to each widget
-  - [ ] Clicking "Domains" opens an `EmbedDomainsDialog` fetching registered domains for that widget (`useEmbedDomainsForWidgetQuery`)
-  - [ ] Add client-side validation for pattern inputs, enforcing exact-hostname or wildcard format `*.<hostname>`
-  - [ ] Integrate `useRegisterEmbedDomainMutation` to register new patterns, with non-blocking optimistic UI or loading indicator updates
-- [ ] Task 2 (AC: 4, 5): Implement Deregistration and Undo Flow
-  - [ ] Wire domain item remove buttons to trigger `useDeregisterEmbedDomainMutation(id, action: DELETE)`
-  - [ ] Integrate a Toast message with an "Undo" option (Story 0.18) calling `deregisterEmbedDomain(id, action: RESTORE)` if clicked on timeout
+- [x] Task 1 (AC: 1, 2, 3, 6): Implement Domain Management Dialog
+  - [x] On the widgets list page (Story 6.5), add a "Domains" action button next to each widget
+  - [x] Clicking "Domains" opens an `EmbedDomainsDialog` fetching registered domains for that widget (`useEmbedDomainsForWidgetQuery`)
+  - [x] Add client-side validation for pattern inputs, enforcing exact-hostname or wildcard format `*.<hostname>`
+  - [x] Integrate `useRegisterEmbedDomainMutation` to register new patterns, with non-blocking optimistic UI or loading indicator updates
+- [x] Task 2 (AC: 4, 5): Implement Deregistration and Undo Flow
+  - [x] Wire domain item remove buttons to trigger `useDeregisterEmbedDomainMutation(id, action: DELETE)`
+  - [x] Integrate a Toast message with an "Undo" option (Story 0.18) calling `deregisterEmbedDomain(id, action: RESTORE)` if clicked on timeout
 
 ## Dev Notes
 
@@ -100,13 +100,13 @@ So that I can control exactly where my widget is allowed to be rendered (PRD §3
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [/] In progress
+- [x] Complete
 
 ## Dev Agent Record
 
