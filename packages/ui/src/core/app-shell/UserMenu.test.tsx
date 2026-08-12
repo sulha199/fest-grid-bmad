@@ -63,11 +63,18 @@ describe('UserMenu component', () => {
     expect(screen.getByRole('button', { name: 'Log Out' })).toBeInTheDocument();
   });
 
-  it('renders Moderator Items link and dividers when role is MODERATOR', () => {
-    render(<UserMenu {...defaultProps} role="MODERATOR" />);
+  it('renders Moderator Items link and dividers when role is moderator', () => {
+    render(<UserMenu {...defaultProps} role="moderator" />);
 
     // Verify Moderator link is rendered
     expect(screen.getByTestId('menu-link-/moderator/items')).toBeInTheDocument();
+  });
+
+  it('keeps Moderator Items link hidden when role is user', () => {
+    render(<UserMenu {...defaultProps} role="user" />);
+
+    // Verify Moderator link is not rendered
+    expect(screen.queryByTestId('menu-link-/moderator/items')).not.toBeInTheDocument();
   });
 
   it('triggers onSignOut and onClose when Log Out is clicked', () => {

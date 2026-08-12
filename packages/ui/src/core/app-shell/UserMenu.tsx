@@ -73,7 +73,7 @@ export function UserMenu({
   // Filter entries based on role
   const visibleEntries = profileMenuEntries.filter((entry) => {
     if (entry.requiresModerator) {
-      return role === 'MODERATOR';
+      return role === 'moderator';
     }
     return true;
   });
