@@ -48,6 +48,8 @@ export async function geocodeAddress(address: string): Promise<LocationDetails> 
     placeId: result.place_id,
     timezone: result.timezone?.name,
     provider: 'GEOAPIFY',
+    city: result.city,
+    province: result.state || result.province || result.county,
   };
 }
 
@@ -75,6 +77,8 @@ export async function reverseGeocode(coordinates: Coordinates): Promise<Location
     placeId: result.place_id,
     timezone: result.timezone?.name,
     provider: 'GEOAPIFY',
+    city: result.city,
+    province: result.state || result.province || result.county,
   };
 }
 
@@ -103,6 +107,8 @@ export async function getPlaceDetails(placeId: string): Promise<LocationDetails>
     placeName: properties.name,
     timezone: properties.timezone?.name,
     provider: 'GEOAPIFY',
+    city: properties.city,
+    province: properties.state || properties.province || properties.county,
   };
 }
 

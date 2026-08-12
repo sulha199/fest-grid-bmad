@@ -176,6 +176,13 @@
       "when": 1786488948381,
       "tag": "0024_groovy_chimera",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1786547702521,
+      "tag": "0025_pale_saracen",
+      "breakpoints": true
     }
   ]
 }

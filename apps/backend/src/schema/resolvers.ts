@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
-import { eq, count, sql, asc, and, exists, desc, inArray, or, gte } from 'drizzle-orm';
+import { eq, count, sql, asc, and, exists, desc, inArray, or, gte, isNull, ilike } from 'drizzle-orm';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
-import { getScraperAdapter, detectPlatformFromUrl } from '@festgrid/domain/scraper';
+import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile } from '@festgrid/domain/scraper';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { mapExtractionPayloadToProposedCorrection } from '@festgrid/domain/events';
 import { callGemini, AiGatewayExhaustedError } from '../lib/ai-gateway/adapter.js';
@@ -17,7 +17,7 @@ import { getActiveSubscriberUserIds } from '../lib/subscriptions/get-active-subs
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
 import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user-settings.js';
-import { resolveLocation, getAddressPredictions } from '../lib/geolocation/adapter.js';
+import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../lib/geolocation/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
 import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS } from '@festgrid/domain/events';
@@ -1393,6 +1393,116 @@ export const resolvers: Resolvers = {
         publishedAt: p.publishedAt.toISOString()
       }));
     },
+    castVote: async (_: any, { input }: any, context: any) => {
+      const authUser = requireAuth(context);
+      
+      let accountId = input.accountId;
+      
+      if (!accountId) {
+        if (!input.platform || !input.handleOrUrl) {
+          throw new GraphQLError('accountId or platform + handleOrUrl required', { extensions: { code: 'BAD_REQUEST' } });
+        }
+        
+        if (!SUPPORTED_PLATFORMS.includes(input.platform.toLowerCase() as any)) {
+          throw new GraphQLError('Unsupported platform', { extensions: { code: 'BAD_REQUEST' } });
+        }
+        
+        let lookupResult;
+        try {
+          lookupResult = await lookupAccountProfile(input.platform.toLowerCase() as any, input.handleOrUrl);
+        } catch (err) {
+          throw new GraphQLError('Failed to lookup account profile', { extensions: { code: 'BAD_REQUEST' } });
+        }
+        
+        if (!lookupResult) {
+          throw new GraphQLError('Account profile lookup failed or account not found on platform', { extensions: { code: 'BAD_REQUEST' } });
+        }
+        
+        const [profile] = await db.insert(socialMediaAccountProfiles)
+          .values({
+            platform: input.platform.toLowerCase(),
+            accountId: lookupResult.accountId,
+            username: lookupResult.username,
+            displayName: lookupResult.displayName,
+            profileImageUrl: lookupResult.profileImageUrl || null,
+            description: lookupResult.description || null,
+          })
+          .onConflictDoUpdate({
+            target: [socialMediaAccountProfiles.platform, socialMediaAccountProfiles.accountId],
+            set: {
+              username: lookupResult.username,
+              displayName: lookupResult.displayName,
+              profileImageUrl: lookupResult.profileImageUrl || null,
+              description: lookupResult.description || null,
+              updatedAt: new Date(),
+            }
+          })
+          .returning();
+          
+        accountId = profile.id;
+      } else {
+        const [profile] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, accountId));
+        if (!profile) {
+          throw new GraphQLError('Social media account profile not found', { extensions: { code: 'NOT_FOUND' } });
+        }
+      }
+      
+      const existingVote = await db.select().from(accountVotes)
+        .where(and(eq(accountVotes.userId, authUser.userId), eq(accountVotes.accountId, accountId)));
+        
+      if (existingVote.length > 0) {
+        const vote = existingVote[0];
+        if (vote.deletedAt !== null) {
+          const [updated] = await db.update(accountVotes)
+            .set({ deletedAt: null, createdAt: new Date() })
+            .where(eq(accountVotes.id, vote.id))
+            .returning();
+          return updated;
+        }
+        return vote;
+      }
+      
+      const [newVote] = await db.insert(accountVotes)
+        .values({
+          userId: authUser.userId,
+          accountId: accountId,
+        })
+        .returning();
+        
+      return newVote;
+    },
+    withdrawVote: async (_: any, { id, action }: any, context: any) => {
+      const authUser = requireAuth(context);
+      
+      const existingVote = await db.select().from(accountVotes)
+        .where(and(eq(accountVotes.id, id), eq(accountVotes.userId, authUser.userId)));
+        
+      if (existingVote.length === 0) {
+        throw new GraphQLError('Vote not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      
+      const vote = existingVote[0];
+      if (action === 'DELETE') {
+        if (vote.deletedAt !== null) {
+          throw new GraphQLError('Vote has already been withdrawn', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(accountVotes)
+          .set({ deletedAt: new Date() })
+          .where(eq(accountVotes.id, id))
+          .returning();
+        return updated;
+      } else if (action === 'RESTORE') {
+        if (vote.deletedAt === null) {
+          throw new GraphQLError('Vote is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(accountVotes)
+          .set({ deletedAt: null })
+          .where(eq(accountVotes.id, id))
+          .returning();
+        return updated;
+      }
+      throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
+    },
   },
   Query: {
     health: () => true,
@@ -1608,6 +1718,194 @@ export const resolvers: Resolvers = {
         throw new Error('User not found');
       }
       return rows[0];
+    },
+    rankedVoteAccounts: async (_: any, { nearMe, locationPreferenceId }: any, context: any, info: any) => {
+      const activeSubs = await db.select({ accountId: subscriptions.accountId })
+        .from(subscriptions)
+        .where(isNull(subscriptions.deletedAt));
+      const excludedAccountIds = activeSubs.map(s => s.accountId);
+
+      let userId: string | null = null;
+      try {
+        const authUser = requireAuth(context);
+        userId = authUser.userId;
+      } catch {
+        // Not authenticated
+      }
+
+      let locationPref: any = null;
+      if (nearMe && locationPreferenceId && userId) {
+        const [loc] = await db.select().from(userLocations)
+          .where(and(eq(userLocations.id, locationPreferenceId), eq(userLocations.userId, userId), isNull(userLocations.deletedAt)));
+        if (loc) {
+          locationPref = loc;
+        }
+      }
+
+      const conditions = [isNull(accountVotes.deletedAt)];
+      if (excludedAccountIds.length > 0) {
+        conditions.push(notInArray(accountVotes.accountId, excludedAccountIds));
+      }
+
+      let rows;
+      if (locationPref) {
+        const callerLat = locationPref.latitude;
+        const callerLng = locationPref.longitude;
+        const callerRadiusKm = locationPref.radius / 1000;
+
+        const distanceSql = sql`6371 * acos(LEAST(1, GREATEST(-1,
+          cos(radians(${callerLat})) * cos(radians(${userLocations.latitude})) *
+          cos(radians(${userLocations.longitude}) - radians(${callerLng})) +
+          sin(radians(${callerLat})) * sin(radians(${userLocations.latitude}))
+        )))`;
+
+        const voterWeights = db.select({
+          userId: userLocations.userId,
+          weight: sql<number>`MAX(CASE WHEN ${distanceSql} <= ${callerRadiusKm} THEN 10 ELSE 1 END)`.as('weight')
+        })
+        .from(userLocations)
+        .where(isNull(userLocations.deletedAt))
+        .groupBy(userLocations.userId)
+        .as('voter_weights');
+
+        rows = await db.select({
+          accountId: accountVotes.accountId,
+          voteCount: sql<number>`count(${accountVotes.id})::int`,
+          weightedScore: sql<number>`SUM(COALESCE(${voterWeights.weight}, 1))::int`,
+        })
+        .from(accountVotes)
+        .leftJoin(voterWeights, eq(accountVotes.userId, voterWeights.userId))
+        .where(and(...conditions))
+        .groupBy(accountVotes.accountId)
+        .orderBy(desc(sql`SUM(COALESCE(${voterWeights.weight}, 1))`), desc(sql`count(${accountVotes.id})`));
+      } else {
+        rows = await db.select({
+          accountId: accountVotes.accountId,
+          voteCount: sql<number>`count(${accountVotes.id})::int`,
+        })
+        .from(accountVotes)
+        .where(and(...conditions))
+        .groupBy(accountVotes.accountId)
+        .orderBy(desc(sql`count(${accountVotes.id})`));
+      }
+
+      const result = [];
+      for (const row of rows) {
+        const [profile] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, row.accountId));
+        if (profile) {
+          if (profile.defaultLocation) {
+            profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
+          }
+          result.push({
+            profile: profile as any,
+            voteCount: row.voteCount,
+          });
+        }
+      }
+      return result;
+    },
+    voteRegionBreakdown: async (_: any, { accountId }: any, context: any) => {
+      const votes = await db.select({
+        userId: accountVotes.userId,
+        latitude: userLocations.latitude,
+        longitude: userLocations.longitude,
+        locationDetails: userLocations.locationDetails,
+      })
+      .from(accountVotes)
+      .leftJoin(userLocations, and(eq(accountVotes.userId, userLocations.userId), isNull(userLocations.deletedAt)))
+      .where(and(eq(accountVotes.accountId, accountId), isNull(accountVotes.deletedAt)));
+
+      const voterLocationsMap = new Map<string, { latitude: number; longitude: number; city?: string; province?: string }>();
+      for (const row of votes) {
+        if (row.latitude !== null && row.longitude !== null && !voterLocationsMap.has(row.userId)) {
+          const details = row.locationDetails as any;
+          voterLocationsMap.set(row.userId, {
+            latitude: row.latitude,
+            longitude: row.longitude,
+            city: details?.city,
+            province: details?.province,
+          });
+        }
+      }
+
+      const bucketsMap = new Map<string, number>();
+      for (const [_, loc] of voterLocationsMap.entries()) {
+        let city = loc.city;
+        let province = loc.province;
+        if (!city || !province) {
+          const resolved = await resolveAdminRegion({ latitude: loc.latitude, longitude: loc.longitude });
+          city = resolved.city;
+          province = resolved.province;
+        }
+
+        if (city && province && city !== 'Unknown' && province !== 'Unknown') {
+          const label = `${city}, ${province}`;
+          bucketsMap.set(label, (bucketsMap.get(label) || 0) + 1);
+        }
+      }
+
+      const result = [];
+      for (const [label, count] of bucketsMap.entries()) {
+        if (count >= 5) {
+          result.push({ label, voterCount: count });
+        }
+      }
+
+      return result;
+    },
+    votedAccountSuggestions: async (_: any, { query }: any, context: any) => {
+      requireAuth(context);
+
+      const activeSubs = await db.select({ accountId: subscriptions.accountId })
+        .from(subscriptions)
+        .where(isNull(subscriptions.deletedAt));
+      const excludedAccountIds = activeSubs.map(s => s.accountId);
+
+      const conditions = [isNull(accountVotes.deletedAt)];
+      if (excludedAccountIds.length > 0) {
+        conditions.push(notInArray(accountVotes.accountId, excludedAccountIds));
+      }
+
+      const profileConditions = [];
+      if (query) {
+        profileConditions.push(
+          or(
+            ilike(socialMediaAccountProfiles.username, `%${query}%`),
+            ilike(socialMediaAccountProfiles.displayName, `%${query}%`),
+            ilike(socialMediaAccountProfiles.platform, `%${query}%`)
+          )
+        );
+      }
+
+      const votesQuery = db.select({
+        accountId: accountVotes.accountId,
+        voteCount: sql<number>`count(${accountVotes.id})::int`,
+      })
+      .from(accountVotes)
+      .innerJoin(socialMediaAccountProfiles, eq(accountVotes.accountId, socialMediaAccountProfiles.id))
+      .where(and(
+        ...conditions,
+        ...(profileConditions.length > 0 ? profileConditions : [])
+      ))
+      .groupBy(accountVotes.accountId)
+      .orderBy(desc(sql`count(${accountVotes.id})`));
+
+      const rows = await votesQuery;
+
+      const result = [];
+      for (const row of rows) {
+        const [profile] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, row.accountId));
+        if (profile) {
+          if (profile.defaultLocation) {
+            profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
+          }
+          result.push({
+            profile: profile as any,
+            voteCount: row.voteCount,
+          });
+        }
+      }
+      return result;
     },
     events: async (_: any, { query, limit, offset, includeSoftDeleted, includeMyArchived }: any, context: any, info: any) => {
       const hasFavoritedEqTrue = (condition: QueryCondition | undefined): boolean => {
@@ -2008,6 +2306,29 @@ export const resolvers: Resolvers = {
 
       return (rows[0] as any) || null;
     }
+  },
+  RankedAccountVote: {
+    profile: async (parent: any, _: any, context: any, info: any) => {
+      if (parent.profile) {
+        return parent.profile;
+      }
+      const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: socialMediaAccountProfiles.id,
+      }).from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, parent.accountId || parent.profileId));
+      
+      const profile = rows[0] as any;
+      if (profile && profile.defaultLocation) {
+        profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
+      }
+      return profile || null;
+    }
+  },
+  AccountVote: {
+    createdAt: (parent: any) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
+    deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },
   DefaultLocationChangeRequest: {
     account: async (parent: any, _: any, __: any, info: any) => {

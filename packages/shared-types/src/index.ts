@@ -59,6 +59,8 @@ export interface LocationDetails {
   formattedAddress?: string;
   timezone?: string;
   provider?: GeolocationProvider;
+  city?: string;
+  province?: string;
 }
 
 export interface Schedule {

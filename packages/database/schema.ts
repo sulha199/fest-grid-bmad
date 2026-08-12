@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, pgEnum, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, pgEnum, index, unique, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { LocationDetails } from '@festgrid/shared-types';
@@ -424,5 +424,28 @@ export const reportsRelations = relations(reports, ({ one }) => ({
   resolvedByModerator: one(users, {
     fields: [reports.resolvedByModeratorId],
     references: [users.id],
+  }),
+}));
+
+export const accountVotes = pgTable('account_votes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  accountId: uuid('account_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+}, (t) => ({
+  userAccountUniqueIdx: uniqueIndex('idx_account_votes_user_account').on(t.userId, t.accountId),
+  activeUserVotesIdx: index('idx_account_votes_active_user').on(t.userId).where(sql`deleted_at IS NULL`),
+  activeAccountVotesIdx: index('idx_account_votes_active_account').on(t.accountId).where(sql`deleted_at IS NULL`),
+}));
+
+export const accountVotesRelations = relations(accountVotes, ({ one }) => ({
+  user: one(users, {
+    fields: [accountVotes.userId],
+    references: [users.id],
+  }),
+  accountProfile: one(socialMediaAccountProfiles, {
+    fields: [accountVotes.accountId],
+    references: [socialMediaAccountProfiles.id],
   }),
 }));

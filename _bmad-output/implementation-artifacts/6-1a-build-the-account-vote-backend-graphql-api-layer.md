@@ -4,7 +4,8 @@
 
 - Epic: 6
 - Story ID: 6.1a
-- Status: ready-for-dev
+- Status: review
+- baseline_commit: 1d80ee18065d1337e37499b48d300c0a4f45e1dd
 
 ## Story
 
@@ -26,31 +27,31 @@ So that Stories 6.1-6.4 read and write vote data through the backend API instead
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: 1): Database Migration for `account_votes`
-  - [ ] Add Drizzle schema table for `account_votes` in `packages/database/src/schema.ts`
-  - [ ] Generate migrations with `pnpm --filter @festgrid/database db:generate`
-  - [ ] Ensure partial indexes scoped to `WHERE deleted_at IS NULL` on hot columns are properly crafted (manually edit migration if needed per AD-8 rule 3)
-  - [ ] Run migrations on local database with `pnpm --filter @festgrid/database db:migrate`
-- [ ] Task 2 (AC: 2, 4, 5, 7, 8): GraphQL Schema & Code Gen
-  - [ ] Add GraphQL SDL types, inputs, mutations, and queries in `apps/backend/src/schema/typeDefs.ts`
-  - [ ] Run codegen to generate TypeScript resolvers and types: `pnpm --filter apps/backend codegen`
-- [ ] Task 3 (AC: 2, 3): Implement `castVote` Mutation Resolver
-  - [ ] Add `castVote` resolver in `apps/backend/src/schema/resolvers.ts`
-  - [ ] Enforce `requireAuth` on resolver
-  - [ ] Implement idempotency (check if user already voted for account; reactivate soft-deleted row if previously withdrawn)
-  - [ ] Support `{ platform, handleOrUrl }` lookup-or-create profile flow via amended `ScraperAdapter.lookupAccountProfile`
-- [ ] Task 4 (AC: 4): Implement `withdrawVote` Mutation Resolver
-  - [ ] Add `withdrawVote` resolver in `apps/backend/src/schema/resolvers.ts`
-  - [ ] Enforce `requireAuth` and verify the caller's ownership of the vote row
-  - [ ] Soft delete via AD-8 rule 4 shape; raise `INVALID_STATE_TRANSITION` on duplicate withdrawal
-- [ ] Task 5 (AC: 5, 6, 8): Implement Queries `rankedVoteAccounts` and `votedAccountSuggestions`
-  - [ ] Implement query logic in `apps/backend/src/schema/resolvers.ts`
-  - [ ] Exclude accounts with active subscriptions using `activeOnly`
-  - [ ] Implement `nearMe` haversine distance re-weighting when location preference is supplied and validated
-  - [ ] Expose `votedAccountSuggestions` with `requireAuth` and partial keyword search on name fields
-- [ ] Task 6 (AC: 7): Implement `voteRegionBreakdown` and Extend Geolocation Adapter
-  - [ ] Extend Geolocation adapter in `packages/domain/src/geolocation/` with `resolveAdminRegion(coordinates)`
-  - [ ] Implement `voteRegionBreakdown` resolver to group active voters by city/province and suppress groups with < 5 distinct voters (NFR26)
+- [x] Task 1 (AC: 1): Database Migration for `account_votes`
+  - [x] Add Drizzle schema table for `account_votes` in `packages/database/src/schema.ts`
+  - [x] Generate migrations with `pnpm --filter @festgrid/database db:generate`
+  - [x] Ensure partial indexes scoped to `WHERE deleted_at IS NULL` on hot columns are properly crafted (manually edit migration if needed per AD-8 rule 3)
+  - [x] Run migrations on local database with `pnpm --filter @festgrid/database db:migrate`
+- [x] Task 2 (AC: 2, 4, 5, 7, 8): GraphQL Schema & Code Gen
+  - [x] Add GraphQL SDL types, inputs, mutations, and queries in `apps/backend/src/schema/typeDefs.ts`
+  - [x] Run codegen to generate TypeScript resolvers and types: `pnpm --filter apps/backend codegen`
+- [x] Task 3 (AC: 2, 3): Implement `castVote` Mutation Resolver
+  - [x] Add `castVote` resolver in `apps/backend/src/schema/resolvers.ts`
+  - [x] Enforce `requireAuth` on resolver
+  - [x] Implement idempotency (check if user already voted for account; reactivate soft-deleted row if previously withdrawn)
+  - [x] Support `{ platform, handleOrUrl }` lookup-or-create profile flow via amended `ScraperAdapter.lookupAccountProfile`
+- [x] Task 4 (AC: 4): Implement `withdrawVote` Mutation Resolver
+  - [x] Add `withdrawVote` resolver in `apps/backend/src/schema/resolvers.ts`
+  - [x] Enforce `requireAuth` and verify the caller's ownership of the vote row
+  - [x] Soft delete via AD-8 rule 4 shape; raise `INVALID_STATE_TRANSITION` on duplicate withdrawal
+- [x] Task 5 (AC: 5, 6, 8): Implement Queries `rankedVoteAccounts` and `votedAccountSuggestions`
+  - [x] Implement query logic in `apps/backend/src/schema/resolvers.ts`
+  - [x] Exclude accounts with active subscriptions using `activeOnly`
+  - [x] Implement `nearMe` haversine distance re-weighting when location preference is supplied and validated
+  - [x] Expose `votedAccountSuggestions` with `requireAuth` and partial keyword search on name fields
+- [x] Task 6 (AC: 7): Implement `voteRegionBreakdown` and Extend Geolocation Adapter
+  - [x] Extend Geolocation adapter in `packages/domain/src/geolocation/` with `resolveAdminRegion(coordinates)`
+  - [x] Implement `voteRegionBreakdown` resolver to group active voters by city/province and suppress groups with < 5 distinct voters (NFR26)
 
 ## Dev Notes
 
@@ -104,11 +105,11 @@ So that Stories 6.1-6.4 read and write vote data through the backend API instead
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation
-- [ ] Architecture and boundary confirmation
-- [ ] Testing plan confirmation
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted
+- [x] Scope confirmation
+- [x] Architecture and boundary confirmation
+- [x] Testing plan confirmation
+- [x] Explicit human approval state (Approved)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted
 
 ## Testing Requirements
 
@@ -128,13 +129,13 @@ So that Stories 6.1-6.4 read and write vote data through the backend API instead
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 

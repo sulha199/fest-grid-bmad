@@ -1,0 +1,34 @@
+type AccountVote {
+  id: ID!
+  userId: ID!
+  accountId: ID!
+  createdAt: String!
+  deletedAt: String
+}
+
+input CastVoteInput {
+  accountId: ID
+  platform: String
+  handleOrUrl: String
+}
+
+type RankedAccountVote {
+  profile: SocialMediaAccountProfile!
+  voteCount: Int!
+}
+
+type RegionVoteBucket {
+  label: String!
+  voterCount: Int!
+}
+
+extend type Query {
+  rankedVoteAccounts(nearMe: Boolean, locationPreferenceId: ID): [RankedAccountVote!]!
+  voteRegionBreakdown(accountId: ID!): [RegionVoteBucket!]!
+  votedAccountSuggestions(query: String): [RankedAccountVote!]!
+}
+
+extend type Mutation {
+  castVote(input: CastVoteInput!): AccountVote!
+  withdrawVote(id: ID!, action: SoftDeleteAction!): AccountVote!
+}

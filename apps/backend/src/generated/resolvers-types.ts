@@ -19,6 +19,15 @@ export type Scalars = {
   JSON: { input: any; output: any; }
 };
 
+export type AccountVote = {
+  __typename?: 'AccountVote';
+  accountId: Scalars['ID']['output'];
+  createdAt: Scalars['String']['output'];
+  deletedAt?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  userId: Scalars['ID']['output'];
+};
+
 export type AddressSuggestion = {
   __typename?: 'AddressSuggestion';
   description: Scalars['String']['output'];
@@ -33,6 +42,12 @@ export type ApiKey = {
   maskedKey: Scalars['String']['output'];
   provider: Scalars['String']['output'];
   updatedAt: Scalars['String']['output'];
+};
+
+export type CastVoteInput = {
+  accountId?: InputMaybe<Scalars['ID']['input']>;
+  handleOrUrl?: InputMaybe<Scalars['String']['input']>;
+  platform?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Coordinates = {
@@ -222,6 +237,7 @@ export type Me = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  castVote: AccountVote;
   createApiKey: ApiKey;
   createUserLocation: UserLocation;
   deleteApiKey: ApiKey;
@@ -248,6 +264,12 @@ export type Mutation = {
   unregisterFcmToken: Scalars['Boolean']['output'];
   updateUserLocation: UserLocation;
   updateUserSettings: UserSettings;
+  withdrawVote: AccountVote;
+};
+
+
+export type MutationCastVoteArgs = {
+  input: CastVoteInput;
 };
 
 
@@ -394,6 +416,12 @@ export type MutationUpdateUserSettingsArgs = {
   input: UpdateUserSettingsInput;
 };
 
+
+export type MutationWithdrawVoteArgs = {
+  action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
+};
+
 export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
@@ -480,8 +508,11 @@ export type Query = {
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
+  rankedVoteAccounts: Array<RankedAccountVote>;
   reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
+  voteRegionBreakdown: Array<RegionVoteBucket>;
+  votedAccountSuggestions: Array<RankedAccountVote>;
 };
 
 
@@ -525,6 +556,12 @@ export type QueryPreviewLocationArgs = {
 };
 
 
+export type QueryRankedVoteAccountsArgs = {
+  locationPreferenceId?: InputMaybe<Scalars['ID']['input']>;
+  nearMe?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
 export type QueryReportedEventsArgs = {
   reason?: InputMaybe<ReportReason>;
   status?: InputMaybe<ReportStatus>;
@@ -534,6 +571,28 @@ export type QueryReportedEventsArgs = {
 export type QuerySocialMediaAccountProfileByAccountIdArgs = {
   accountId: Scalars['String']['input'];
   platform: Scalars['String']['input'];
+};
+
+
+export type QueryVoteRegionBreakdownArgs = {
+  accountId: Scalars['ID']['input'];
+};
+
+
+export type QueryVotedAccountSuggestionsArgs = {
+  query?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type RankedAccountVote = {
+  __typename?: 'RankedAccountVote';
+  profile: SocialMediaAccountProfile;
+  voteCount: Scalars['Int']['output'];
+};
+
+export type RegionVoteBucket = {
+  __typename?: 'RegionVoteBucket';
+  label: Scalars['String']['output'];
+  voterCount: Scalars['Int']['output'];
 };
 
 export type Report = {
@@ -768,9 +827,11 @@ export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
+  AccountVote: ResolverTypeWrapper<AccountVote>;
   AddressSuggestion: ResolverTypeWrapper<AddressSuggestion>;
   ApiKey: ResolverTypeWrapper<ApiKey>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
+  CastVoteInput: CastVoteInput;
   Coordinates: ResolverTypeWrapper<Coordinates>;
   Correction: ResolverTypeWrapper<Correction>;
   CorrectionSource: CorrectionSource;
@@ -803,6 +864,8 @@ export type ResolversTypes = ResolversObject<{
   ProposedScheduleCorrectionData: ResolverTypeWrapper<ProposedScheduleCorrectionData>;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
   Query: ResolverTypeWrapper<{}>;
+  RankedAccountVote: ResolverTypeWrapper<RankedAccountVote>;
+  RegionVoteBucket: ResolverTypeWrapper<RegionVoteBucket>;
   Report: ResolverTypeWrapper<Report>;
   ReportOutcome: ReportOutcome;
   ReportReason: ReportReason;
@@ -827,9 +890,11 @@ export type ResolversTypes = ResolversObject<{
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
+  AccountVote: AccountVote;
   AddressSuggestion: AddressSuggestion;
   ApiKey: ApiKey;
   Boolean: Scalars['Boolean']['output'];
+  CastVoteInput: CastVoteInput;
   Coordinates: Coordinates;
   Correction: Correction;
   CreateApiKeyInput: CreateApiKeyInput;
@@ -854,6 +919,8 @@ export type ResolversParentTypes = ResolversObject<{
   ProposedScheduleCorrectionData: ProposedScheduleCorrectionData;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
   Query: {};
+  RankedAccountVote: RankedAccountVote;
+  RegionVoteBucket: RegionVoteBucket;
   Report: Report;
   ReportSystemErrorInput: ReportSystemErrorInput;
   Schedule: Schedule;
@@ -870,6 +937,15 @@ export type ResolversParentTypes = ResolversObject<{
   UserLocation: UserLocation;
   UserSettings: UserSettings;
   ValidationError: ValidationError;
+}>;
+
+export type AccountVoteResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AccountVote'] = ResolversParentTypes['AccountVote']> = ResolversObject<{
+  accountId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  deletedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  userId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type AddressSuggestionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AddressSuggestion'] = ResolversParentTypes['AddressSuggestion']> = ResolversObject<{
@@ -991,6 +1067,7 @@ export type MeResolvers<ContextType = GraphQLContext, ParentType extends Resolve
 }>;
 
 export type MutationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
+  castVote?: Resolver<ResolversTypes['AccountVote'], ParentType, ContextType, RequireFields<MutationCastVoteArgs, 'input'>>;
   createApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationCreateApiKeyArgs, 'input'>>;
   createUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationCreateUserLocationArgs, 'input'>>;
   deleteApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationDeleteApiKeyArgs, 'action' | 'id'>>;
@@ -1017,6 +1094,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   unregisterFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationUnregisterFcmTokenArgs, 'token'>>;
   updateUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationUpdateUserLocationArgs, 'id' | 'input'>>;
   updateUserSettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType, RequireFields<MutationUpdateUserSettingsArgs, 'input'>>;
+  withdrawVote?: Resolver<ResolversTypes['AccountVote'], ParentType, ContextType, RequireFields<MutationWithdrawVoteArgs, 'action' | 'id'>>;
 }>;
 
 export type PostResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Post'] = ResolversParentTypes['Post']> = ResolversObject<{
@@ -1080,8 +1158,23 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   pendingDefaultLocationChanges?: Resolver<Array<ResolversTypes['DefaultLocationChangeRequest']>, ParentType, ContextType>;
   postsByAccount?: Resolver<ResolversTypes['PostConnection'], ParentType, ContextType, RequireFields<QueryPostsByAccountArgs, 'accountId'>>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
+  rankedVoteAccounts?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryRankedVoteAccountsArgs>>;
   reportedEvents?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, Partial<QueryReportedEventsArgs>>;
   socialMediaAccountProfileByAccountId?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType, RequireFields<QuerySocialMediaAccountProfileByAccountIdArgs, 'accountId' | 'platform'>>;
+  voteRegionBreakdown?: Resolver<Array<ResolversTypes['RegionVoteBucket']>, ParentType, ContextType, RequireFields<QueryVoteRegionBreakdownArgs, 'accountId'>>;
+  votedAccountSuggestions?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryVotedAccountSuggestionsArgs>>;
+}>;
+
+export type RankedAccountVoteResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RankedAccountVote'] = ResolversParentTypes['RankedAccountVote']> = ResolversObject<{
+  profile?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType>;
+  voteCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type RegionVoteBucketResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RegionVoteBucket'] = ResolversParentTypes['RegionVoteBucket']> = ResolversObject<{
+  label?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  voterCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type ReportResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Report'] = ResolversParentTypes['Report']> = ResolversObject<{
@@ -1189,6 +1282,7 @@ export type ValidationErrorResolvers<ContextType = GraphQLContext, ParentType ex
 }>;
 
 export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
+  AccountVote?: AccountVoteResolvers<ContextType>;
   AddressSuggestion?: AddressSuggestionResolvers<ContextType>;
   ApiKey?: ApiKeyResolvers<ContextType>;
   Coordinates?: CoordinatesResolvers<ContextType>;
@@ -1207,6 +1301,8 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ProposedEventCorrectionData?: ProposedEventCorrectionDataResolvers<ContextType>;
   ProposedScheduleCorrectionData?: ProposedScheduleCorrectionDataResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
+  RankedAccountVote?: RankedAccountVoteResolvers<ContextType>;
+  RegionVoteBucket?: RegionVoteBucketResolvers<ContextType>;
   Report?: ReportResolvers<ContextType>;
   Schedule?: ScheduleResolvers<ContextType>;
   SocialMediaAccountProfile?: SocialMediaAccountProfileResolvers<ContextType>;

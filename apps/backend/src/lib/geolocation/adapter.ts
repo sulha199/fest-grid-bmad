@@ -45,3 +45,27 @@ export async function getAddressPredictions(input: string): Promise<AddressPredi
   }
   return getClientPredictions(input);
 }
+
+export async function resolveAdminRegion(coordinates: { latitude: number; longitude: number }): Promise<{ city: string; province: string }> {
+  const cacheKey = `reverse:${coordinates.latitude.toFixed(5)},${coordinates.longitude.toFixed(5)}`;
+  const cached = await getCached(cacheKey);
+  if (cached && (cached.city || cached.province)) {
+    return {
+      city: cached.city || 'Unknown',
+      province: cached.province || 'Unknown'
+    };
+  }
+
+  try {
+    const details = await reverseGeocode(coordinates);
+    return {
+      city: details.city || 'Unknown',
+      province: details.province || 'Unknown'
+    };
+  } catch {
+    return {
+      city: 'Unknown',
+      province: 'Unknown'
+    };
+  }
+}
