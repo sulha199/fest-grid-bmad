@@ -668,7 +668,7 @@ development_status:
   # must scope to status: PENDING so auto-resolved personal reports (Story 4.3a's
   # 2026-08-12 correction) never appear in the attention queue. Story is unstarted,
   # so no rework caused. See sprint-change-proposal-2026-08-12.md.
-  4-7-moderator-items-page: ready-for-dev
+  4-7-moderator-items-page: done
   # 4-7-moderator-items-page scope extended to include DefaultLocationChangeRequest review (see epics.md)
   # added 2026-08-06 via bmad-create-story at user's request while drafting Story 2.7:
   # 2.7 broadens past-event hiding to a global default and needs an escape hatch so users

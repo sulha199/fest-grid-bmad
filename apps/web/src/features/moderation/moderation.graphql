@@ -1,0 +1,77 @@
+query getReportedEvents($status: ReportStatus, $reason: ReportReason) {
+  reportedEvents(status: $status, reason: $reason) {
+    id
+    eventId
+    reporterUserId
+    reason
+    details
+    status
+    createdAt
+    moderatorIgnored
+    event {
+      id
+      slug
+      eventName
+      imageUrl
+      deletedAt
+    }
+  }
+}
+
+mutation resolveReportsForEvent($eventId: ID!) {
+  resolveReportsForEvent(eventId: $eventId) {
+    id
+    status
+    resolvedAt
+  }
+}
+
+mutation deleteEventPermanently($id: ID!) {
+  deleteEventPermanently(id: $id)
+}
+
+mutation ignoreSubsequentReports($reportId: ID!) {
+  ignoreSubsequentReports(reportId: $reportId) {
+    id
+    moderatorIgnored
+  }
+}
+
+query getPendingDefaultLocationChanges {
+  pendingDefaultLocationChanges {
+    id
+    accountId
+    status
+    createdAt
+    account {
+      id
+      displayName
+      platform
+      username
+      profileImageUrl
+    }
+    previousLocation {
+      placeName
+      formattedAddress
+      coordinates {
+        lat
+        lng
+      }
+    }
+    newLocation {
+      placeName
+      formattedAddress
+      coordinates {
+        lat
+        lng
+      }
+    }
+  }
+}
+
+mutation resolveDefaultLocationChange($id: ID!, $action: DefaultLocationChangeAction!) {
+  resolveDefaultLocationChange(id: $id, action: $action) {
+    id
+    status
+  }
+}

@@ -1,0 +1,31 @@
+enum DefaultLocationChangeRequestStatus {
+  PENDING_REVIEW
+  ACCEPTED
+  REVERTED
+}
+
+enum DefaultLocationChangeAction {
+  ACCEPT
+  REVERT
+}
+
+type DefaultLocationChangeRequest {
+  id: ID!
+  accountId: ID!
+  account: SocialMediaAccountProfile!
+  previousLocation: LocationDetails
+  newLocation: LocationDetails!
+  status: DefaultLocationChangeRequestStatus!
+  changedByUserId: ID!
+  createdAt: String!
+  reviewedByModeratorId: ID
+  reviewedAt: String
+}
+
+extend type Query {
+  pendingDefaultLocationChanges: [DefaultLocationChangeRequest!]!
+}
+
+extend type Mutation {
+  resolveDefaultLocationChange(id: ID!, action: DefaultLocationChangeAction!): DefaultLocationChangeRequest!
+}

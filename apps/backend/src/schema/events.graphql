@@ -86,6 +86,7 @@ type Event {
   isAddedToCalendar: Boolean!
   isHiddenForCurrentUser: Boolean!
   sourceSocialMediaAccountProfile: SocialMediaAccountProfile
+  deletedAt: String
 }
 
 type EventConnection {

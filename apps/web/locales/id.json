@@ -31,7 +31,9 @@
     "wizardOnboardingSubscribeTitle": "Berlangganan",
     "wizardOnboardingSubscribeDescription": "Berlangganan akun media sosial pertama Anda.",
     "accountPageTitle": "{displayName} | FestDaily",
-    "accountPageDescription": "Jelajahi acara dari {displayName} di FestDaily."
+    "accountPageDescription": "Jelajahi acara dari {displayName} di FestDaily.",
+    "moderatorItemsTitle": "Item Moderator | FestDaily",
+    "moderatorItemsDescription": "Tinjau acara yang dilaporkan dan perubahan lokasi default yang tertunda."
   },
   "AccountPage": {
     "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",
@@ -461,5 +463,38 @@
     "errorScrapeFailed": "Gagal mengambil data dari postingan media sosial. Silakan coba lagi.",
     "errorExtractionFailed": "AI gagal mengekstrak acara dari postingan ini.",
     "errorQuotaExhausted": "Kuota kunci API Anda telah habis."
+  },
+  "DefaultLocationChangeStatus": {
+    "PENDING_REVIEW": "Menunggu Tinjauan",
+    "ACCEPTED": "Diterima",
+    "REVERTED": "Dikembalikan"
+  },
+  "ModeratorItemsPage": {
+    "pageTitle": "Item Moderator",
+    "pageDescription": "Tinjau dan tindak lanjuti acara yang dilaporkan serta perubahan lokasi default yang tertunda.",
+    "reportedEventsSection": "Acara yang Dilaporkan",
+    "pendingLocationChangesSection": "Perubahan Lokasi Default yang Tertunda",
+    "emptyReportedEvents": "Tidak ada acara dilaporkan yang memerlukan perhatian.",
+    "emptyLocationChanges": "Tidak ada perubahan lokasi default yang menunggu tinjauan.",
+    "errorTitle": "Error",
+    "errorDescription": "Gagal memuat item moderator. Silakan coba lagi.",
+    "retryBtn": "Coba Lagi",
+    "buttonMarkSafe": "Tandai Aman",
+    "buttonRestore": "Pulihkan Acara",
+    "buttonDeletePermanently": "Hapus Permanen",
+    "buttonDeletePermanentlyConfirm": "Apakah Anda yakin ingin menghapus acara ini secara permanen? Tindakan ini tidak dapat dibatalkan.",
+    "buttonIgnoreFutureReports": "Abaikan laporan masa depan dari pengguna ini",
+    "buttonAccept": "Terima",
+    "buttonRevert": "Kembalikan",
+    "filterReasonLabel": "Filter berdasarkan Alasan",
+    "filterStatusLabel": "Filter berdasarkan Status",
+    "allOption": "Semua",
+    "reportedAtLabel": "Dilaporkan pada",
+    "byReporterLabel": "oleh pelapor",
+    "reasonLabel": "Alasan",
+    "detailsLabel": "Detail",
+    "statusLabel": "Status",
+    "fromLabel": "Dari",
+    "toLabel": "Ke"
   }
 }

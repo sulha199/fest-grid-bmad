@@ -31,7 +31,9 @@
     "wizardOnboardingSubscribeTitle": "Subscribe",
     "wizardOnboardingSubscribeDescription": "Subscribe to your first social media account.",
     "accountPageTitle": "{displayName} | FestDaily",
-    "accountPageDescription": "Browse events from {displayName} on FestDaily."
+    "accountPageDescription": "Browse events from {displayName} on FestDaily.",
+    "moderatorItemsTitle": "Moderator Items | FestDaily",
+    "moderatorItemsDescription": "Review reported events and pending location changes."
   },
   "AccountPage": {
     "errorState": "Failed to load events. Please try again later.",
@@ -461,5 +463,38 @@
     "errorScrapeFailed": "Failed to scrape the social media post. Please try again.",
     "errorExtractionFailed": "AI failed to extract any events from this post.",
     "errorQuotaExhausted": "Your API key quota has been exhausted."
+  },
+  "DefaultLocationChangeStatus": {
+    "PENDING_REVIEW": "Pending Review",
+    "ACCEPTED": "Accepted",
+    "REVERTED": "Reverted"
+  },
+  "ModeratorItemsPage": {
+    "pageTitle": "Moderator Items",
+    "pageDescription": "Review and action reported events and pending default location changes.",
+    "reportedEventsSection": "Reported Events",
+    "pendingLocationChangesSection": "Pending Location Changes",
+    "emptyReportedEvents": "No reported events require attention.",
+    "emptyLocationChanges": "No pending default location changes awaiting review.",
+    "errorTitle": "Error",
+    "errorDescription": "Failed to load moderator items. Please try again.",
+    "retryBtn": "Retry",
+    "buttonMarkSafe": "Mark Safe",
+    "buttonRestore": "Restore Event",
+    "buttonDeletePermanently": "Delete Permanently",
+    "buttonDeletePermanentlyConfirm": "Are you sure you want to permanently delete this event? This action is irreversible.",
+    "buttonIgnoreFutureReports": "Ignore future reports from this user",
+    "buttonAccept": "Accept",
+    "buttonRevert": "Revert",
+    "filterReasonLabel": "Filter by Reason",
+    "filterStatusLabel": "Filter by Status",
+    "allOption": "All",
+    "reportedAtLabel": "Reported on",
+    "byReporterLabel": "by reporter",
+    "reasonLabel": "Reason",
+    "detailsLabel": "Details",
+    "statusLabel": "Status",
+    "fromLabel": "From",
+    "toLabel": "To"
   }
 }

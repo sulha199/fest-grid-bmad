@@ -38,4 +38,5 @@ extend type Mutation {
   submitReport(eventId: ID!, reason: ReportReason!, details: String): Report!
   resolveReport(id: ID!, outcome: ReportOutcome!): Report!
   ignoreSubsequentReports(reportId: ID!): Report!
+  resolveReportsForEvent(eventId: ID!): [Report!]!
 }

@@ -79,11 +79,37 @@ export type CreateUserLocationInput = {
   radius: Scalars['Int']['input'];
 };
 
+export enum DefaultLocationChangeAction {
+  Accept = 'ACCEPT',
+  Revert = 'REVERT'
+}
+
+export type DefaultLocationChangeRequest = {
+  __typename?: 'DefaultLocationChangeRequest';
+  account: SocialMediaAccountProfile;
+  accountId: Scalars['ID']['output'];
+  changedByUserId: Scalars['ID']['output'];
+  createdAt: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  newLocation: LocationDetails;
+  previousLocation?: Maybe<LocationDetails>;
+  reviewedAt?: Maybe<Scalars['String']['output']>;
+  reviewedByModeratorId?: Maybe<Scalars['ID']['output']>;
+  status: DefaultLocationChangeRequestStatus;
+};
+
+export enum DefaultLocationChangeRequestStatus {
+  Accepted = 'ACCEPTED',
+  PendingReview = 'PENDING_REVIEW',
+  Reverted = 'REVERTED'
+}
+
 export type Event = {
   __typename?: 'Event';
   categories?: Maybe<Array<EventCategory>>;
   contactInfo?: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['String']['output'];
+  deletedAt?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
   id: Scalars['ID']['output'];
@@ -199,7 +225,9 @@ export type Mutation = {
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
+  resolveDefaultLocationChange: DefaultLocationChangeRequest;
   resolveReport: Report;
+  resolveReportsForEvent: Array<Report>;
   restoreEvent: Event;
   setAccountDefaultLocation: SocialMediaAccountProfile;
   submitCorrection: Correction;
@@ -272,9 +300,20 @@ export type MutationReportSystemErrorArgs = {
 };
 
 
+export type MutationResolveDefaultLocationChangeArgs = {
+  action: DefaultLocationChangeAction;
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationResolveReportArgs = {
   id: Scalars['ID']['input'];
   outcome: ReportOutcome;
+};
+
+
+export type MutationResolveReportsForEventArgs = {
+  eventId: Scalars['ID']['input'];
 };
 
 
@@ -398,6 +437,7 @@ export type Query = {
   myReports: Array<Report>;
   mySettings: UserSettings;
   mySubscriptions: Array<Subscription>;
+  pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   previewLocation: LocationDetails;
   reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
@@ -685,6 +725,9 @@ export type ResolversTypes = ResolversObject<{
   CorrectionStatus: CorrectionStatus;
   CreateApiKeyInput: CreateApiKeyInput;
   CreateUserLocationInput: CreateUserLocationInput;
+  DefaultLocationChangeAction: DefaultLocationChangeAction;
+  DefaultLocationChangeRequest: ResolverTypeWrapper<DefaultLocationChangeRequest>;
+  DefaultLocationChangeRequestStatus: DefaultLocationChangeRequestStatus;
   Event: ResolverTypeWrapper<Event>;
   EventCategory: EventCategory;
   EventConnection: ResolverTypeWrapper<EventConnection>;
@@ -736,6 +779,7 @@ export type ResolversParentTypes = ResolversObject<{
   Correction: Correction;
   CreateApiKeyInput: CreateApiKeyInput;
   CreateUserLocationInput: CreateUserLocationInput;
+  DefaultLocationChangeRequest: DefaultLocationChangeRequest;
   Event: Event;
   EventConnection: EventConnection;
   EventQueryConditionInput: EventQueryConditionInput;
@@ -805,10 +849,25 @@ export type CorrectionResolvers<ContextType = GraphQLContext, ParentType extends
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type DefaultLocationChangeRequestResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DefaultLocationChangeRequest'] = ResolversParentTypes['DefaultLocationChangeRequest']> = ResolversObject<{
+  account?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType>;
+  accountId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  changedByUserId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  newLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType>;
+  previousLocation?: Resolver<Maybe<ResolversTypes['LocationDetails']>, ParentType, ContextType>;
+  reviewedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  reviewedByModeratorId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['DefaultLocationChangeRequestStatus'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type EventResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Event'] = ResolversParentTypes['Event']> = ResolversObject<{
   categories?: Resolver<Maybe<Array<ResolversTypes['EventCategory']>>, ParentType, ContextType>;
   contactInfo?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  deletedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
@@ -877,7 +936,9 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   registerFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRegisterFcmTokenArgs, 'token'>>;
   removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
   reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
+  resolveDefaultLocationChange?: Resolver<ResolversTypes['DefaultLocationChangeRequest'], ParentType, ContextType, RequireFields<MutationResolveDefaultLocationChangeArgs, 'action' | 'id'>>;
   resolveReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationResolveReportArgs, 'id' | 'outcome'>>;
+  resolveReportsForEvent?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, RequireFields<MutationResolveReportsForEventArgs, 'eventId'>>;
   restoreEvent?: Resolver<ResolversTypes['Event'], ParentType, ContextType, RequireFields<MutationRestoreEventArgs, 'action' | 'id'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   submitCorrection?: Resolver<ResolversTypes['Correction'], ParentType, ContextType, RequireFields<MutationSubmitCorrectionArgs, 'eventId' | 'proposedData' | 'source'>>;
@@ -928,6 +989,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   myReports?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType>;
   mySettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType>;
   mySubscriptions?: Resolver<Array<ResolversTypes['Subscription']>, ParentType, ContextType>;
+  pendingDefaultLocationChanges?: Resolver<Array<ResolversTypes['DefaultLocationChangeRequest']>, ParentType, ContextType>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
   reportedEvents?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, Partial<QueryReportedEventsArgs>>;
   socialMediaAccountProfileByAccountId?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType, RequireFields<QuerySocialMediaAccountProfileByAccountIdArgs, 'accountId' | 'platform'>>;
@@ -1041,6 +1103,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ApiKey?: ApiKeyResolvers<ContextType>;
   Coordinates?: CoordinatesResolvers<ContextType>;
   Correction?: CorrectionResolvers<ContextType>;
+  DefaultLocationChangeRequest?: DefaultLocationChangeRequestResolvers<ContextType>;
   Event?: EventResolvers<ContextType>;
   EventConnection?: EventConnectionResolvers<ContextType>;
   ExtractEventDataFromUrlResult?: ExtractEventDataFromUrlResultResolvers<ContextType>;

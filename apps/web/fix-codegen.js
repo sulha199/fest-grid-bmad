@@ -53,6 +53,10 @@ content = content.replace(/export type ReportOutcome =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ReportReason =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ReportStatus =[\s\S]*?;\r?\n/g, '');
 
+// Replace duplicate DefaultLocationChangeAction and DefaultLocationChangeRequestStatus
+content = content.replace(/export type DefaultLocationChangeAction =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type DefaultLocationChangeRequestStatus =[\s\S]*?;\r?\n/g, '');
+
 // Replace duplicate ProposedEventCorrectionInput and ProposedScheduleCorrectionInput
 content = content.replace(/export type ProposedEventCorrectionInput = \{\r?\n\s+categories\:\s+Array<EventCategory>;\r?\n\s+contactInfo\?\:\s+string[\s\S]*?\};\r?\n/g, '');
 content = content.replace(/export type ProposedScheduleCorrectionInput = \{\r?\n\s+eventEndDate\?\:\s+string\s\|[\s\S]*?\};\r?\n/g, '');

@@ -89,11 +89,37 @@ export type CreateUserLocationInput = {
   radius: Scalars['Int']['input'];
 };
 
+export enum DefaultLocationChangeAction {
+  Accept = 'ACCEPT',
+  Revert = 'REVERT'
+}
+
+export type DefaultLocationChangeRequest = {
+  __typename?: 'DefaultLocationChangeRequest';
+  account: SocialMediaAccountProfile;
+  accountId: Scalars['ID']['output'];
+  changedByUserId: Scalars['ID']['output'];
+  createdAt: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  newLocation: LocationDetails;
+  previousLocation?: Maybe<LocationDetails>;
+  reviewedAt?: Maybe<Scalars['String']['output']>;
+  reviewedByModeratorId?: Maybe<Scalars['ID']['output']>;
+  status: DefaultLocationChangeRequestStatus;
+};
+
+export enum DefaultLocationChangeRequestStatus {
+  Accepted = 'ACCEPTED',
+  PendingReview = 'PENDING_REVIEW',
+  Reverted = 'REVERTED'
+}
+
 export type Event = {
   __typename?: 'Event';
   categories?: Maybe<Array<EventCategory>>;
   contactInfo?: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['String']['output'];
+  deletedAt?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
   id: Scalars['ID']['output'];
@@ -203,7 +229,9 @@ export type Mutation = {
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
+  resolveDefaultLocationChange: DefaultLocationChangeRequest;
   resolveReport: Report;
+  resolveReportsForEvent: Array<Report>;
   restoreEvent: Event;
   setAccountDefaultLocation: SocialMediaAccountProfile;
   submitCorrection: Correction;
@@ -276,9 +304,20 @@ export type MutationReportSystemErrorArgs = {
 };
 
 
+export type MutationResolveDefaultLocationChangeArgs = {
+  action: DefaultLocationChangeAction;
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationResolveReportArgs = {
   id: Scalars['ID']['input'];
   outcome: ReportOutcome;
+};
+
+
+export type MutationResolveReportsForEventArgs = {
+  eventId: Scalars['ID']['input'];
 };
 
 
@@ -402,6 +441,7 @@ export type Query = {
   myReports: Array<Report>;
   mySettings: UserSettings;
   mySubscriptions: Array<Subscription>;
+  pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   previewLocation: LocationDetails;
   reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
@@ -627,6 +667,8 @@ export type ValidationError = {
 
 
 
+
+
 export type GetSocialMediaAccountProfileByAccountIdQueryVariables = Exact<{
   platform: string;
   accountId: string;
@@ -771,6 +813,48 @@ export type PreviewLocationQueryVariables = Exact<{
 
 
 export type PreviewLocationQuery = { previewLocation: { formattedAddress: string | null, placeName: string | null, provider: GeolocationProvider | null, coordinates: { lat: number, lng: number } } };
+
+export type GetReportedEventsQueryVariables = Exact<{
+  status?: ReportStatus | null | undefined;
+  reason?: ReportReason | null | undefined;
+}>;
+
+
+export type GetReportedEventsQuery = { reportedEvents: Array<{ id: string, eventId: string, reporterUserId: string, reason: ReportReason, details: string | null, status: ReportStatus, createdAt: string, moderatorIgnored: boolean, event: { id: string, slug: string, eventName: string, imageUrl: string | null, deletedAt: string | null } }> };
+
+export type ResolveReportsForEventMutationVariables = Exact<{
+  eventId: string | number;
+}>;
+
+
+export type ResolveReportsForEventMutation = { resolveReportsForEvent: Array<{ id: string, status: ReportStatus, resolvedAt: string | null }> };
+
+export type DeleteEventPermanentlyMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteEventPermanentlyMutation = { deleteEventPermanently: boolean };
+
+export type IgnoreSubsequentReportsMutationVariables = Exact<{
+  reportId: string | number;
+}>;
+
+
+export type IgnoreSubsequentReportsMutation = { ignoreSubsequentReports: { id: string, moderatorIgnored: boolean } };
+
+export type GetPendingDefaultLocationChangesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetPendingDefaultLocationChangesQuery = { pendingDefaultLocationChanges: Array<{ id: string, accountId: string, status: DefaultLocationChangeRequestStatus, createdAt: string, account: { id: string, displayName: string, platform: string, username: string, profileImageUrl: string | null }, previousLocation: { placeName: string | null, formattedAddress: string | null, coordinates: { lat: number, lng: number } } | null, newLocation: { placeName: string | null, formattedAddress: string | null, coordinates: { lat: number, lng: number } } }> };
+
+export type ResolveDefaultLocationChangeMutationVariables = Exact<{
+  id: string | number;
+  action: DefaultLocationChangeAction;
+}>;
+
+
+export type ResolveDefaultLocationChangeMutation = { resolveDefaultLocationChange: { id: string, status: DefaultLocationChangeRequestStatus } };
 
 export type CreateApiKeyMutationVariables = Exact<{
   input: CreateApiKeyInput;
@@ -1567,6 +1651,200 @@ export const usePreviewLocationQuery = <
       {
     queryKey: variables === undefined ? ['previewLocation'] : ['previewLocation', variables],
     queryFn: fetcher<PreviewLocationQuery, PreviewLocationQueryVariables>(client, PreviewLocationDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetReportedEventsDocument = new TypedDocumentString(`
+    query getReportedEvents($status: ReportStatus, $reason: ReportReason) {
+  reportedEvents(status: $status, reason: $reason) {
+    id
+    eventId
+    reporterUserId
+    reason
+    details
+    status
+    createdAt
+    moderatorIgnored
+    event {
+      id
+      slug
+      eventName
+      imageUrl
+      deletedAt
+    }
+  }
+}
+    `);
+
+export const useGetReportedEventsQuery = <
+      TData = GetReportedEventsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: GetReportedEventsQueryVariables,
+      options?: Omit<UseQueryOptions<GetReportedEventsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetReportedEventsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetReportedEventsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['getReportedEvents'] : ['getReportedEvents', variables],
+    queryFn: fetcher<GetReportedEventsQuery, GetReportedEventsQueryVariables>(client, GetReportedEventsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const ResolveReportsForEventDocument = new TypedDocumentString(`
+    mutation resolveReportsForEvent($eventId: ID!) {
+  resolveReportsForEvent(eventId: $eventId) {
+    id
+    status
+    resolvedAt
+  }
+}
+    `);
+
+export const useResolveReportsForEventMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ResolveReportsForEventMutation, TError, ResolveReportsForEventMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ResolveReportsForEventMutation, TError, ResolveReportsForEventMutationVariables, TContext>(
+      {
+    mutationKey: ['resolveReportsForEvent'],
+    mutationFn: (variables?: ResolveReportsForEventMutationVariables) => fetcher<ResolveReportsForEventMutation, ResolveReportsForEventMutationVariables>(client, ResolveReportsForEventDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const DeleteEventPermanentlyDocument = new TypedDocumentString(`
+    mutation deleteEventPermanently($id: ID!) {
+  deleteEventPermanently(id: $id)
+}
+    `);
+
+export const useDeleteEventPermanentlyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DeleteEventPermanentlyMutation, TError, DeleteEventPermanentlyMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DeleteEventPermanentlyMutation, TError, DeleteEventPermanentlyMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteEventPermanently'],
+    mutationFn: (variables?: DeleteEventPermanentlyMutationVariables) => fetcher<DeleteEventPermanentlyMutation, DeleteEventPermanentlyMutationVariables>(client, DeleteEventPermanentlyDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const IgnoreSubsequentReportsDocument = new TypedDocumentString(`
+    mutation ignoreSubsequentReports($reportId: ID!) {
+  ignoreSubsequentReports(reportId: $reportId) {
+    id
+    moderatorIgnored
+  }
+}
+    `);
+
+export const useIgnoreSubsequentReportsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<IgnoreSubsequentReportsMutation, TError, IgnoreSubsequentReportsMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<IgnoreSubsequentReportsMutation, TError, IgnoreSubsequentReportsMutationVariables, TContext>(
+      {
+    mutationKey: ['ignoreSubsequentReports'],
+    mutationFn: (variables?: IgnoreSubsequentReportsMutationVariables) => fetcher<IgnoreSubsequentReportsMutation, IgnoreSubsequentReportsMutationVariables>(client, IgnoreSubsequentReportsDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const GetPendingDefaultLocationChangesDocument = new TypedDocumentString(`
+    query getPendingDefaultLocationChanges {
+  pendingDefaultLocationChanges {
+    id
+    accountId
+    status
+    createdAt
+    account {
+      id
+      displayName
+      platform
+      username
+      profileImageUrl
+    }
+    previousLocation {
+      placeName
+      formattedAddress
+      coordinates {
+        lat
+        lng
+      }
+    }
+    newLocation {
+      placeName
+      formattedAddress
+      coordinates {
+        lat
+        lng
+      }
+    }
+  }
+}
+    `);
+
+export const useGetPendingDefaultLocationChangesQuery = <
+      TData = GetPendingDefaultLocationChangesQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: GetPendingDefaultLocationChangesQueryVariables,
+      options?: Omit<UseQueryOptions<GetPendingDefaultLocationChangesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetPendingDefaultLocationChangesQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetPendingDefaultLocationChangesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['getPendingDefaultLocationChanges'] : ['getPendingDefaultLocationChanges', variables],
+    queryFn: fetcher<GetPendingDefaultLocationChangesQuery, GetPendingDefaultLocationChangesQueryVariables>(client, GetPendingDefaultLocationChangesDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const ResolveDefaultLocationChangeDocument = new TypedDocumentString(`
+    mutation resolveDefaultLocationChange($id: ID!, $action: DefaultLocationChangeAction!) {
+  resolveDefaultLocationChange(id: $id, action: $action) {
+    id
+    status
+  }
+}
+    `);
+
+export const useResolveDefaultLocationChangeMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ResolveDefaultLocationChangeMutation, TError, ResolveDefaultLocationChangeMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ResolveDefaultLocationChangeMutation, TError, ResolveDefaultLocationChangeMutationVariables, TContext>(
+      {
+    mutationKey: ['resolveDefaultLocationChange'],
+    mutationFn: (variables?: ResolveDefaultLocationChangeMutationVariables) => fetcher<ResolveDefaultLocationChangeMutation, ResolveDefaultLocationChangeMutationVariables>(client, ResolveDefaultLocationChangeDocument, variables, headers)(),
     ...options
   }
     )};

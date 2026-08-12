@@ -679,6 +679,117 @@ test('reports resolver integration', async (t) => {
     assert.ok(matchedCall, 'Should have logged email stub send for moderatorUser');
   });
 
+  await t.test('resolveReportsForEvent - non-moderator rejected with FORBIDDEN', async () => {
+    mockUser = { userId: regularUser.id, role: regularUser.role };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation ResolveReportsForEvent($eventId: ID!) {
+            resolveReportsForEvent(eventId: $eventId) {
+              id
+            }
+          }
+        `,
+        variables: { eventId: testEvent.id }
+      })
+    });
+    const result = await response.json();
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
+  });
+
+  await t.test('resolveReportsForEvent - unknown eventId rejected with NOT_FOUND', async () => {
+    mockUser = { userId: moderatorUser.id, role: moderatorUser.role };
+    const unknownUuid = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation ResolveReportsForEvent($eventId: ID!) {
+            resolveReportsForEvent(eventId: $eventId) {
+              id
+            }
+          }
+        `,
+        variables: { eventId: unknownUuid }
+      })
+    });
+    const result = await response.json();
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'NOT_FOUND');
+  });
+
+  await t.test('resolveReportsForEvent - soft-deleted event with pending and resolved reports', async () => {
+    // Soft-delete the test event
+    await db.update(events).set({ deletedAt: new Date() }).where(eq(events.id, testEvent.id));
+
+    // Clear reports on this event
+    await db.delete(reports).where(eq(reports.eventId, testEvent.id));
+
+    // Insert 2 pending reports
+    const [p1] = await db.insert(reports).values({
+      eventId: testEvent.id,
+      reporterUserId: regularUser.id,
+      reason: 'cancelled',
+      status: 'pending',
+    }).returning();
+
+    const [p2] = await db.insert(reports).values({
+      eventId: testEvent.id,
+      reporterUserId: regularUser2.id,
+      reason: 'personal',
+      status: 'pending',
+    }).returning();
+
+    // Insert 1 already-dismissed report
+    const [p3] = await db.insert(reports).values({
+      eventId: testEvent.id,
+      reporterUserId: regularUser2.id,
+      reason: 'personal',
+      status: 'dismissed',
+      resolvedByModeratorId: moderatorUser.id,
+      resolvedAt: new Date(),
+    }).returning();
+
+    mockUser = { userId: moderatorUser.id, role: moderatorUser.role };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation ResolveReportsForEvent($eventId: ID!) {
+            resolveReportsForEvent(eventId: $eventId) {
+              id
+              status
+              resolvedByModeratorId
+            }
+          }
+        `,
+        variables: { eventId: testEvent.id }
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    const resolvedReports = result.data.resolveReportsForEvent;
+    
+    // Check that we returned the 2 newly resolved reports
+    assert.strictEqual(resolvedReports.length, 2);
+    assert.ok(resolvedReports.some((r: any) => r.id === p1.id && r.status === 'dismissed'));
+    assert.ok(resolvedReports.some((r: any) => r.id === p2.id && r.status === 'dismissed'));
+
+    // Verify in database that event is un-deleted (deletedAt is null)
+    const [updatedEvent] = await db.select().from(events).where(eq(events.id, testEvent.id));
+    assert.strictEqual(updatedEvent.deletedAt, null);
+
+    // Verify that the already dismissed report stayed untouched (or wasn't resolved again/returned)
+    const [dismissedInDb] = await db.select().from(reports).where(eq(reports.id, p3.id));
+    assert.strictEqual(dismissedInDb.status, 'dismissed');
+  });
+
   await t.test('cleanup - remove seeded reports, schedules, users, and events', async () => {
     await db.delete(reports).where(eq(reports.eventId, testEvent.id));
     await db.delete(schedules).where(eq(schedules.eventId, testEvent.id));

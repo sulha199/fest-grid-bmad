@@ -1142,6 +1142,40 @@ export const resolvers: Resolvers = {
         resolvedAt: updated.resolvedAt ? updated.resolvedAt.toISOString() : null,
       };
     },
+    resolveReportsForEvent: async (_: any, { eventId }: any, context: any): Promise<any> => {
+      const moderator = requireModerator(context);
+      const [existingEvent] = await db.select().from(events).where(eq(events.id, eventId));
+      if (!existingEvent) {
+        throw new GraphQLError('Event not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      const updatedReports = await db.transaction(async (tx) => {
+        if (existingEvent.deletedAt !== null) {
+          await tx.update(events)
+            .set({ deletedAt: null, updatedAt: new Date() })
+            .where(eq(events.id, eventId));
+        }
+
+        const rows = await tx.update(reports)
+          .set({
+            status: 'dismissed',
+            resolvedByModeratorId: moderator.userId,
+            resolvedAt: new Date(),
+          })
+          .where(and(eq(reports.eventId, eventId), eq(reports.status, 'pending')))
+          .returning();
+
+        return rows;
+      });
+
+      return updatedReports.map((r: any) => ({
+        ...r,
+        createdAt: r.createdAt.toISOString(),
+        resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
+      }));
+    },
     restoreEvent: async (_: any, { id, action }: any, context: any, info: any) => {
       requireModerator(context);
       const existingRows = await db.select().from(events).where(eq(events.id, id));
@@ -1191,6 +1225,73 @@ export const resolvers: Resolvers = {
       await db.delete(events).where(eq(events.id, id));
       return true;
     },
+    resolveDefaultLocationChange: async (_: any, { id, action }: any, context: any): Promise<any> => {
+      const moderator = requireModerator(context);
+      
+      const [reqRow] = await db.select()
+        .from(defaultLocationChangeRequests)
+        .where(eq(defaultLocationChangeRequests.id, id));
+
+      if (!reqRow) {
+        throw new GraphQLError('DefaultLocationChangeRequest not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      if (reqRow.status !== 'PENDING_REVIEW') {
+        throw new GraphQLError('DefaultLocationChangeRequest is already resolved', {
+          extensions: { code: 'INVALID_STATE_TRANSITION' },
+        });
+      }
+
+      const updatedRow = await db.transaction(async (tx) => {
+        if (action === 'ACCEPT') {
+          const [updated] = await tx.update(defaultLocationChangeRequests)
+            .set({
+              status: 'ACCEPTED',
+              reviewedByModeratorId: moderator.userId,
+              reviewedAt: new Date(),
+            })
+            .where(eq(defaultLocationChangeRequests.id, id))
+            .returning();
+          return updated;
+        } else if (action === 'REVERT') {
+          if (!reqRow.previousLocation) {
+            throw new GraphQLError('Cannot revert change because previous location was not recorded', {
+              extensions: { code: 'BAD_REQUEST' },
+            });
+          }
+
+          await tx.update(socialMediaAccountProfiles)
+            .set({
+              defaultLocation: reqRow.previousLocation,
+            })
+            .where(eq(socialMediaAccountProfiles.id, reqRow.accountId));
+
+          const [updated] = await tx.update(defaultLocationChangeRequests)
+            .set({
+              status: 'REVERTED',
+              reviewedByModeratorId: moderator.userId,
+              reviewedAt: new Date(),
+            })
+            .where(eq(defaultLocationChangeRequests.id, id))
+            .returning();
+          return updated;
+        } else {
+          throw new GraphQLError('Invalid action', {
+            extensions: { code: 'BAD_REQUEST' },
+          });
+        }
+      });
+
+      return {
+        ...updatedRow,
+        previousLocation: formatLocationDetails(updatedRow.previousLocation),
+        newLocation: formatLocationDetails(updatedRow.newLocation),
+        createdAt: updatedRow.createdAt.toISOString(),
+        reviewedAt: updatedRow.reviewedAt ? updatedRow.reviewedAt.toISOString() : null,
+      };
+    },
   },
   Query: {
     health: () => true,
@@ -1222,6 +1323,21 @@ export const resolvers: Resolvers = {
         ...r,
         createdAt: r.createdAt.toISOString(),
         resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
+      }));
+    },
+    pendingDefaultLocationChanges: async (_: any, __: any, context: any): Promise<any> => {
+      requireModerator(context);
+      const rows = await db.select()
+        .from(defaultLocationChangeRequests)
+        .where(eq(defaultLocationChangeRequests.status, 'PENDING_REVIEW'))
+        .orderBy(asc(defaultLocationChangeRequests.createdAt));
+
+      return rows.map((r) => ({
+        ...r,
+        previousLocation: formatLocationDetails(r.previousLocation),
+        newLocation: formatLocationDetails(r.newLocation),
+        createdAt: r.createdAt.toISOString(),
+        reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null,
       }));
     },
     myApiKeys: async (_: any, __: any, context: any) => {
@@ -1556,6 +1672,23 @@ export const resolvers: Resolvers = {
         .where(and(eq(events.slug, slug), activeOnly(events)));
 
       return (rows[0] as any) || null;
+    }
+  },
+  DefaultLocationChangeRequest: {
+    account: async (parent: any, _: any, __: any, info: any) => {
+      const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: socialMediaAccountProfiles.id,
+      }).from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, parent.accountId));
+
+      const profile = rows[0] as any;
+      if (profile && profile.defaultLocation) {
+        profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
+      }
+
+      return profile || null;
     }
   },
   Report: {

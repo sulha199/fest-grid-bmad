@@ -42,4 +42,25 @@ describe('StatusBadge Component', () => {
     expect(badge).toBeDefined();
     expect(badge.className).toContain('text-green-800');
   });
+
+  it('renders correctly with pendingReview variant', () => {
+    render(<StatusBadge variant="pendingReview" label="Pending Review" />);
+    const badge = screen.getByText('Pending Review');
+    expect(badge).toBeDefined();
+    expect(badge.className).toContain('text-amber-800');
+  });
+
+  it('renders correctly with accepted variant', () => {
+    render(<StatusBadge variant="accepted" label="Accepted" />);
+    const badge = screen.getByText('Accepted');
+    expect(badge).toBeDefined();
+    expect(badge.className).toContain('text-green-800');
+  });
+
+  it('renders correctly with reverted variant', () => {
+    render(<StatusBadge variant="reverted" label="Reverted" />);
+    const badge = screen.getByText('Reverted');
+    expect(badge).toBeDefined();
+    expect(badge.className).toContain('text-red-800');
+  });
 });
