@@ -185,6 +185,13 @@ beforeEach(() => {
         ],
       };
     }
+    if (docStr.includes('removeSubscription')) {
+      return {
+        removeSubscription: {
+          id: arg2?.id || 'sub-2',
+        },
+      };
+    }
     return {};
   });
 });
@@ -341,5 +348,31 @@ describe('PostsSelectContent integration', () => {
     const card3Container = await screen.findByText('Post 3 content (Processed)');
     const container = card3Container.closest('[title]');
     expect(container).toHaveAttribute('title', 'Already processed');
+  });
+
+  it('displays inactive account warning banner and allows removing subscription', async () => {
+    renderComponent();
+
+    // Switch to inactive sub (tab 2)
+    const tab2 = await screen.findByText('Inactive Sub');
+    fireEvent.click(tab2);
+
+    // Verify warning banner displays
+    const bannerTitle = await screen.findByText('Inactive Account');
+    expect(bannerTitle).toBeInTheDocument();
+
+    const removeBtn = screen.getByRole('button', { name: 'Remove Subscription' });
+    expect(removeBtn).toBeInTheDocument();
+
+    // Click remove subscription
+    fireEvent.click(removeBtn);
+
+    await waitFor(() => {
+      const calledRemove = vi.mocked(graphqlClient.request).mock.calls.some((call: any) => {
+        const query = call[0]?.document?.toString() || call[0]?.toString() || '';
+        return query.includes('removeSubscription');
+      });
+      expect(calledRemove).toBe(true);
+    });
   });
 });

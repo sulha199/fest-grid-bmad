@@ -150,7 +150,14 @@
     "noSubscriptionsEmptyState": "You are not subscribed to any accounts yet. Subscribe to accounts to extract events from their posts.",
     "noSubscriptionsCta": "Manage Subscriptions",
     "noPostsEmptyState": "No recent posts found for this account.",
-    "inactiveWarningTitle": "This account is inactive (no posts in the last 30 days)"
+    "inactiveWarningTitle": "This account is inactive (no posts in the last 30 days)",
+    "inactiveAccountAlertTitle": "Inactive Account",
+    "inactiveAccountAlertDescription": "This account has not published any posts in the last 30 days. You may want to remove this subscription to clean up your feed.",
+    "removeSubscriptionBtn": "Remove Subscription",
+    "removingSubscriptionAnnouncement": "Removing subscription...",
+    "removeSuccess": "Subscription removed successfully",
+    "undoLabel": "Undo",
+    "removeError": "Failed to remove subscription"
   },
   "DiscoveryPage": {
     "title": "Discover Events",

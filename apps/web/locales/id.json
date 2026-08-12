@@ -150,7 +150,14 @@
     "noSubscriptionsEmptyState": "Anda belum berlangganan akun apa pun. Berlanggananlah ke akun untuk mengekstrak acara dari postingan mereka.",
     "noSubscriptionsCta": "Kelola Langganan",
     "noPostsEmptyState": "Tidak ada postingan terbaru untuk akun ini.",
-    "inactiveWarningTitle": "Akun ini tidak aktif (tidak ada postingan dalam 30 hari terakhir)"
+    "inactiveWarningTitle": "Akun ini tidak aktif (tidak ada postingan dalam 30 hari terakhir)",
+    "inactiveAccountAlertTitle": "Akun Tidak Aktif",
+    "inactiveAccountAlertDescription": "Akun ini belum mempublikasikan postingan apa pun dalam 30 hari terakhir. Anda mungkin ingin menghapus langganan ini untuk merapikan umpan Anda.",
+    "removeSubscriptionBtn": "Hapus Langganan",
+    "removingSubscriptionAnnouncement": "Menghapus langganan...",
+    "removeSuccess": "Langganan berhasil dihapus",
+    "undoLabel": "Urungkan",
+    "removeError": "Gagal menghapus langganan"
   },
   "DiscoveryPage": {
     "title": "Temukan Acara",

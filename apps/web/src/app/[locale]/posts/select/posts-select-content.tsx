@@ -13,12 +13,15 @@ import {
   useMarkSubscriptionViewedMutation,
   useSelectPostsForExtractionMutation,
   useGetMyExtractionQuotaQuery,
+  useRemoveSubscriptionMutation,
+  SoftDeleteAction,
 } from '@/generated/graphql';
-import { PostCard, PostCardSkeleton, BlockingLoader } from '@festgrid/ui';
-import { AlertCircle } from 'lucide-react';
+import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo } from '@festgrid/ui';
+import { AlertCircle, TriangleAlert } from 'lucide-react';
 import { usePostSelectionStore } from './post-selection-store';
 import { toast } from 'sonner';
 import { SummaryBar } from '@/features/post-selection/components/summary-bar';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function PostsSelectContent() {
   const t = useTranslations('ManualPostSelectionPage');
@@ -26,6 +29,7 @@ export function PostsSelectContent() {
   const searchParams = useSearchParams();
   const redirectPath = searchParams?.get('redirect') || '/';
   const { session, isLoading: authLoading } = useAuthSession();
+  const queryClient = useQueryClient();
 
   const { selectedPostIds, togglePost, clearSelection } = usePostSelectionStore();
 
@@ -71,20 +75,39 @@ export function PostsSelectContent() {
     }
   );
 
-  const subscriptions = subData?.mySubscriptions || [];
+  // 4. Soft delete subscription with undo setup
+  const { mutateAsync: removeSubscription } = useRemoveSubscriptionMutation(graphqlClient);
+
+  const { isPending: isSoftDeletePending, markPending } = useSoftDeleteWithUndo<string>({
+    onExpire: (id) => {
+      queryClient.setQueryData(['getMySubscriptions'], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          mySubscriptions: (old.mySubscriptions || []).filter((sub: any) => sub.id !== id),
+        };
+      });
+      refetchSubs();
+    },
+  });
+
+  const rawSubscriptions = subData?.mySubscriptions || [];
+  // Filter out any subscription currently in the soft-deleted pending queue
+  const subscriptions = rawSubscriptions.filter((sub) => !isSoftDeletePending(sub.id));
+  
   const apiKeys = keysData?.myApiKeys || [];
   const remainingQuota = quotaData?.myExtractionQuota?.remaining ?? 0;
 
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
 
-  // 4. Handle auth redirect
+  // 5. Handle auth redirect
   useEffect(() => {
     if (!authLoading && !session) {
       router.push('/login');
     }
   }, [authLoading, session, router]);
 
-  // 5. Wizard Redirection Logic
+  // 6. Wizard Redirection Logic
   useEffect(() => {
     if (session && !subLoading && !keysLoading) {
       const hasApiKeys = apiKeys.length > 0;
@@ -98,9 +121,9 @@ export function PostsSelectContent() {
     }
   }, [session, subscriptions, apiKeys, subLoading, keysLoading, router]);
 
-  // 6. Auto-activation of tabs
+  // 7. Auto-activation of tabs
   useEffect(() => {
-    if (subscriptions.length > 0 && !activeAccountId) {
+    if (subscriptions.length > 0 && (!activeAccountId || !subscriptions.some(s => s.account.id === activeAccountId))) {
       const newlyAdded = subscriptions.find((s) => s.isNewlyAdded);
       if (newlyAdded) {
         setActiveAccountId(newlyAdded.account.id);
@@ -110,7 +133,7 @@ export function PostsSelectContent() {
     }
   }, [subscriptions, activeAccountId]);
 
-  // 7. Mutation to mark subscription as viewed
+  // 8. Mutation to mark subscription as viewed
   const { mutate: markViewed } = useMarkSubscriptionViewedMutation(graphqlClient, {
     onSuccess: () => {
       refetchSubs();
@@ -125,7 +148,7 @@ export function PostsSelectContent() {
     }
   }, [activeAccountId, activeSub, markViewed]);
 
-  // 8. Query posts for the active account
+  // 9. Query posts for the active account
   const {
     data: postsData,
     isLoading: postsLoading,
@@ -144,7 +167,7 @@ export function PostsSelectContent() {
 
   const posts = postsData?.postsByAccount?.items || [];
 
-  // 9. Mutation to select posts for extraction
+  // 10. Mutation to select posts for extraction
   const { mutate: selectPosts, isPending: isExtracting } = useSelectPostsForExtractionMutation(
     graphqlClient,
     {
@@ -173,6 +196,34 @@ export function PostsSelectContent() {
         return;
       }
       selectPosts({ postIds: selectedPostIds });
+    }
+  };
+
+  const handleDeleteSubscription = async (sub: any) => {
+    try {
+      await removeSubscription({
+        id: sub.id,
+        action: SoftDeleteAction.Delete,
+      });
+
+      markPending(
+        sub.id,
+        async () => {
+          try {
+            await removeSubscription({
+              id: sub.id,
+              action: SoftDeleteAction.Restore,
+            });
+            refetchSubs();
+          } catch (err) {
+            console.error('Failed to restore subscription', err);
+            throw err;
+          }
+        },
+        t('removeSuccess') || 'Subscription removed successfully'
+      );
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to remove subscription.');
     }
   };
 
@@ -235,7 +286,7 @@ export function PostsSelectContent() {
   }
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto pb-24">
+    <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
       <BlockingLoader active={isExtracting} label="Extracting event data..." />
 
       <div>
@@ -269,6 +320,25 @@ export function PostsSelectContent() {
           })}
         </div>
       </div>
+
+      {/* Inactive Account Warning Banner */}
+      {activeSub?.isInactive && (
+        <div className="p-4 border rounded-xl bg-yellow-50 dark:bg-yellow-950/20 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <TriangleAlert className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h4 className="font-semibold leading-tight">{t('inactiveAccountAlertTitle')}</h4>
+              <p className="text-sm opacity-90 leading-normal">{t('inactiveAccountAlertDescription')}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => handleDeleteSubscription(activeSub)}
+            className="whitespace-nowrap inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-destructive text-destructive-foreground hover:bg-destructive/90 h-10 px-4 py-2"
+          >
+            {t('removeSubscriptionBtn')}
+          </button>
+        </div>
+      )}
 
       {/* Tab Content */}
       <div className="mt-6">
