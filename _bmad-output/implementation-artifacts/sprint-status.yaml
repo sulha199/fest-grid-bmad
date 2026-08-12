@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-12T22:34:00Z
+last_updated: 2026-08-12T22:35:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -716,7 +716,7 @@ development_status:
   # by Story 3.1/3.2 but left unbuilt; Story 6.1 is its second consumer.
   epic-6: in-progress
   6-1a-build-the-account-vote-backend-graphql-api-layer: review
-  6-1-vote-for-a-social-media-account: backlog
+  6-1-vote-for-a-social-media-account: ready-for-dev
   6-2-view-the-ranked-vote-list: backlog
   6-3-withdraw-a-vote: backlog
   6-4-autocomplete-voted-accounts-when-subscribing: backlog
