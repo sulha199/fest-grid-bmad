@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { useGetEventBySlugQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation } from "@/generated/graphql"
+import { useGetEventBySlugQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useMeQuery } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
@@ -43,6 +43,16 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     graphqlClient,
     { slug }
   )
+
+  const { data: meData } = useMeQuery(
+    graphqlClient,
+    undefined,
+    {
+      enabled: !!session,
+    }
+  )
+
+  const isModerator = meData?.me?.role === "moderator"
 
   const { mutate: toggleFavorite } = useToggleFavoriteMutation(graphqlClient, {
     onMutate: async () => {
@@ -175,7 +185,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   }
 
   // Hidden After Report / Hidden For Current User view
-  const isHidden = data?.eventBySlug?.isHiddenForCurrentUser === true || isHiddenAfterReport
+  const isHidden = (data?.eventBySlug?.isHiddenForCurrentUser === true && !isModerator) || isHiddenAfterReport
   if (!isPending && !error && data?.eventBySlug && isHidden) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center bg-background rounded-lg border border-gray-200 dark:border-gray-800 max-w-md mx-auto my-8 space-y-4">
