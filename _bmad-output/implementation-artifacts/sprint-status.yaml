@@ -700,7 +700,7 @@ development_status:
   5-1a-build-the-manual-post-selection-and-extraction-graphql-api-layer: review
   5-1b-build-the-reusable-postcard-component: backlog
   5-1-manual-post-selection-screen: ready-for-dev
-  5-2-select-posts-for-extraction: backlog
+  5-2-select-posts-for-extraction: ready-for-dev
   5-3-display-and-enforce-api-quota: backlog
   5-4-inactive-account-warning: backlog
   5-5-integrate-manual-post-selection-into-the-getting-started-wizard: backlog
