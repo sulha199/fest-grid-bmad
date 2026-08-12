@@ -696,8 +696,8 @@ development_status:
   # with Story 4.7's own in-flight Event.deletedAt schema addition.
   4-8-view-archived-hidden-personal-events: review
   epic-4-retrospective: optional
-  epic-5: backlog
-  5-1a-build-the-manual-post-selection-and-extraction-graphql-api-layer: backlog
+  epic-5: in-progress
+  5-1a-build-the-manual-post-selection-and-extraction-graphql-api-layer: ready-for-dev
   5-1-manual-post-selection-screen: backlog
   5-2-select-posts-for-extraction: backlog
   5-3-display-and-enforce-api-quota: backlog
