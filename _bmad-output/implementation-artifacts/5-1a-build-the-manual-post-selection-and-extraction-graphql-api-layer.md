@@ -1,10 +1,13 @@
+---
+baseline_commit: 1ff86129fca4ba72a236033c9e9e9683d0c5427f
+---
 # Story 5.1a: Build the manual post selection & extraction GraphQL API layer
 
 ## Story Details
 
 - Epic: 5
 - Story ID: 5.1a
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -26,28 +29,28 @@ So that Stories 5.1-5.5 read and write manual-post-selection data through the ba
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Backend — GraphQL Schema Updates** (AC: All)
-  - [ ] Extend the `Subscription` type in `apps/backend/src/schema/subscriptions.graphql` with a computed `isInactive: Boolean!` field.
-  - [ ] Add `markSubscriptionViewed(subscriptionId: ID!): Subscription!` to mutations in `apps/backend/src/schema/subscriptions.graphql`.
-  - [ ] Add type definitions in `apps/backend/src/schema/extraction.graphql`:
+- [x] **Task 1: Backend — GraphQL Schema Updates** (AC: All)
+  - [x] Extend the `Subscription` type in `apps/backend/src/schema/subscriptions.graphql` with a computed `isInactive: Boolean!` field.
+  - [x] Add `markSubscriptionViewed(subscriptionId: ID!): Subscription!` to mutations in `apps/backend/src/schema/subscriptions.graphql`.
+  - [x] Add type definitions in `apps/backend/src/schema/extraction.graphql`:
     - `type Post` containing: `id: ID!`, `accountId: ID!`, `content: String!`, `imageUrl: String`, `postUrl: String!`, `originalPostUrl: String`, `isExtracted: Boolean!`, `publishedAt: String!`.
     - `type PostConnection` containing: `items: [Post!]!`, `nextCursor: String`, `hasMore: Boolean!`.
     - `type ExtractionQuota` containing: `limit: Int!`, `used: Int!`, `remaining: Int!`.
-  - [ ] Add the following queries to `apps/backend/src/schema/extraction.graphql`:
+  - [x] Add the following queries to `apps/backend/src/schema/extraction.graphql`:
     - `postsByAccount(accountId: ID!, cursor: String, limit: Int): PostConnection!`
     - `myExtractionQuota: ExtractionQuota!`
-  - [ ] Add the following mutation to `apps/backend/src/schema/extraction.graphql`:
+  - [x] Add the following mutation to `apps/backend/src/schema/extraction.graphql`:
     - `selectPostsForExtraction(postIds: [ID!]!): [Post!]!` (returns the list of newly enqueued posts).
 
-- [ ] **Task 2: Backend — Resolvers Implementation** (AC: All)
-  - [ ] **`Subscription.isInactive` computed field resolver**:
+- [x] **Task 2: Backend — Resolvers Implementation** (AC: All)
+  - [x] **`Subscription.isInactive` computed field resolver**:
     - Query the `posts` table for the most recent post belonging to the subscription's `accountId` (order by `posts.publishedAt` descending, limit 1).
     - If no posts are found, or the most recent post's `publishedAt` timestamp is older than 30 days ago (relative to `Date.now()`), return `true`. Otherwise, return `false`.
-  - [ ] **`Mutation.markSubscriptionViewed` resolver**:
+  - [x] **`Mutation.markSubscriptionViewed` resolver**:
     - Require authentication (`requireAuth(context)`).
     - Update `subscriptions` set `isNewlyAdded = false`, where `id = subscriptionId` and `userId = authUser.userId`.
     - Retrieve and return the updated subscription row via `formatSubscription`.
-  - [ ] **`Query.myExtractionQuota` resolver**:
+  - [x] **`Query.myExtractionQuota` resolver**:
     - Require authentication (`requireAuth(context)`).
     - Query active (`deletedAt IS NULL`) keys in the `apiKeys` table for `userId = authUser.userId`.
     - Compute quota usage across the user's valid keys:
@@ -55,7 +58,7 @@ So that Stories 5.1-5.5 read and write manual-post-selection data through the ba
       - `used` = sum of `usageCount` across these keys (using `isCycleElapsed` to reset usage counts to 0 if the cycle has reset, matching `usage-store.ts` logic).
       - `remaining` = max of `0` and `limit - used`.
     - Return `ExtractionQuota` object.
-  - [ ] **`Query.postsByAccount` resolver**:
+  - [x] **`Query.postsByAccount` resolver**:
     - Require authentication (`requireAuth(context)`).
     - Security Scope Check: Query `subscriptions` to confirm the authenticated user holds an active subscription (`deletedAt IS NULL`) for `accountId`. If none exists, throw a GraphQLError with code `NOT_FOUND` (or `FORBIDDEN` / "No active subscription to this account").
     - Fetch posts for `accountId` from the `posts` table ordered by `publishedAt` descending.
@@ -64,7 +67,7 @@ So that Stories 5.1-5.5 read and write manual-post-selection data through the ba
       - Query `limit + 1` rows (default `limit = 20`).
       - If returned rows count exceeds `limit`, slice to `limit`, set `hasMore = true`, and set `nextCursor` to the `publishedAt.toISOString()` of the last returned post. Otherwise, `hasMore = false` and `nextCursor = null`.
       - Return `PostConnection`.
-  - [ ] **`Mutation.selectPostsForExtraction` resolver**:
+  - [x] **`Mutation.selectPostsForExtraction` resolver**:
     - Require authentication (`requireAuth(context)`).
     - Retrieve user's remaining quota using `myExtractionQuota` logic. If `postIds.length > remainingQuota`, throw a GraphQLError with code `QUOTA_EXHAUSTED` and message "Selection exceeds remaining API quota".
     - Security Scope Check: Query the database to ensure all `postIds` submitted belong to accounts the user is actively subscribed to.
@@ -72,11 +75,11 @@ So that Stories 5.1-5.5 read and write manual-post-selection data through the ba
       - Note: `enqueuePostForProcessing` independently validates that each post exists and that `isExtracted` is `false` (throwing `PostAlreadyExtractedError` if `isExtracted` is true), matching `enqueuePostForProcessing`'s robust design.
     - Query and return the processed `Post` objects.
 
-- [ ] **Task 3: GraphQL Code Generator** (AC: All)
-  - [ ] Run the GraphQL code generator to update types in `apps/backend` and `apps/web`: `pnpm --filter backend run codegen` and `pnpm --filter web run codegen`.
+- [x] **Task 3: GraphQL Code Generator** (AC: All)
+  - [x] Run the GraphQL code generator to update types in `apps/backend` and `apps/web`: `pnpm --filter backend run codegen` and `pnpm --filter web run codegen`.
 
-- [ ] **Task 4: Automated Testing** (AC: All)
-  - [ ] Extend/add integration tests in `apps/backend/src/schema/extraction.test.ts` covering:
+- [x] **Task 4: Automated Testing** (AC: All)
+  - [x] Extend/add integration tests in `apps/backend/src/schema/extraction.test.ts` covering:
     - `Subscription.isInactive`: test true/false cases based on published post timestamps.
     - `markSubscriptionViewed`: verify it sets `isNewlyAdded` to `false` and requires ownership.
     - `myExtractionQuota`: test cases with 0, 1, or 2 keys, including elapsed billing cycles.

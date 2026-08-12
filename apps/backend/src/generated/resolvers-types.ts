@@ -192,6 +192,13 @@ export enum ExtractionErrorCode {
   UnsupportedPlatform = 'UNSUPPORTED_PLATFORM'
 }
 
+export type ExtractionQuota = {
+  __typename?: 'ExtractionQuota';
+  limit: Scalars['Int']['output'];
+  remaining: Scalars['Int']['output'];
+  used: Scalars['Int']['output'];
+};
+
 export enum GeolocationProvider {
   Geoapify = 'GEOAPIFY'
 }
@@ -223,6 +230,7 @@ export type Mutation = {
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   ignoreSubsequentReports: Report;
+  markSubscriptionViewed: Subscription;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
@@ -230,6 +238,7 @@ export type Mutation = {
   resolveReport: Report;
   resolveReportsForEvent: Array<Report>;
   restoreEvent: Event;
+  selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
   submitCorrection: Correction;
   submitReport: Report;
@@ -285,6 +294,11 @@ export type MutationIgnoreSubsequentReportsArgs = {
 };
 
 
+export type MutationMarkSubscriptionViewedArgs = {
+  subscriptionId: Scalars['ID']['input'];
+};
+
+
 export type MutationRegisterFcmTokenArgs = {
   token: Scalars['String']['input'];
 };
@@ -321,6 +335,11 @@ export type MutationResolveReportsForEventArgs = {
 export type MutationRestoreEventArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationSelectPostsForExtractionArgs = {
+  postIds: Array<Scalars['ID']['input']>;
 };
 
 
@@ -373,6 +392,25 @@ export type MutationUpdateUserLocationArgs = {
 
 export type MutationUpdateUserSettingsArgs = {
   input: UpdateUserSettingsInput;
+};
+
+export type Post = {
+  __typename?: 'Post';
+  accountId: Scalars['ID']['output'];
+  content: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  imageUrl?: Maybe<Scalars['String']['output']>;
+  isExtracted: Scalars['Boolean']['output'];
+  originalPostUrl?: Maybe<Scalars['String']['output']>;
+  postUrl: Scalars['String']['output'];
+  publishedAt: Scalars['String']['output'];
+};
+
+export type PostConnection = {
+  __typename?: 'PostConnection';
+  hasMore: Scalars['Boolean']['output'];
+  items: Array<Post>;
+  nextCursor?: Maybe<Scalars['String']['output']>;
 };
 
 export type ProposedEventCorrectionData = {
@@ -434,11 +472,13 @@ export type Query = {
   health: Scalars['Boolean']['output'];
   me: Me;
   myApiKeys: Array<ApiKey>;
+  myExtractionQuota: ExtractionQuota;
   myLocations: Array<UserLocation>;
   myReports: Array<Report>;
   mySettings: UserSettings;
   mySubscriptions: Array<Subscription>;
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
+  postsByAccount: PostConnection;
   previewLocation: LocationDetails;
   reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
@@ -468,6 +508,13 @@ export type QueryEventsArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
+};
+
+
+export type QueryPostsByAccountArgs = {
+  accountId: Scalars['ID']['input'];
+  cursor?: InputMaybe<Scalars['String']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
@@ -592,6 +639,7 @@ export type Subscription = {
   accountId: Scalars['ID']['output'];
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
+  isInactive: Scalars['Boolean']['output'];
   isNewlyAdded: Scalars['Boolean']['output'];
   pendingExtractionCount: Scalars['Int']['output'];
 };
@@ -739,6 +787,7 @@ export type ResolversTypes = ResolversObject<{
   EventType: EventType;
   ExtractEventDataFromUrlResult: ResolverTypeWrapper<ExtractEventDataFromUrlResult>;
   ExtractionErrorCode: ExtractionErrorCode;
+  ExtractionQuota: ResolverTypeWrapper<ExtractionQuota>;
   Float: ResolverTypeWrapper<Scalars['Float']['output']>;
   GeolocationProvider: GeolocationProvider;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
@@ -747,6 +796,8 @@ export type ResolversTypes = ResolversObject<{
   LocationDetails: ResolverTypeWrapper<LocationDetails>;
   Me: ResolverTypeWrapper<Me>;
   Mutation: ResolverTypeWrapper<{}>;
+  Post: ResolverTypeWrapper<Post>;
+  PostConnection: ResolverTypeWrapper<PostConnection>;
   ProposedEventCorrectionData: ResolverTypeWrapper<ProposedEventCorrectionData>;
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
   ProposedScheduleCorrectionData: ResolverTypeWrapper<ProposedScheduleCorrectionData>;
@@ -788,6 +839,7 @@ export type ResolversParentTypes = ResolversObject<{
   EventConnection: EventConnection;
   EventQueryConditionInput: EventQueryConditionInput;
   ExtractEventDataFromUrlResult: ExtractEventDataFromUrlResult;
+  ExtractionQuota: ExtractionQuota;
   Float: Scalars['Float']['output'];
   ID: Scalars['ID']['output'];
   Int: Scalars['Int']['output'];
@@ -795,6 +847,8 @@ export type ResolversParentTypes = ResolversObject<{
   LocationDetails: LocationDetails;
   Me: Me;
   Mutation: {};
+  Post: Post;
+  PostConnection: PostConnection;
   ProposedEventCorrectionData: ProposedEventCorrectionData;
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
   ProposedScheduleCorrectionData: ProposedScheduleCorrectionData;
@@ -908,6 +962,13 @@ export type ExtractEventDataFromUrlResultResolvers<ContextType = GraphQLContext,
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type ExtractionQuotaResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ExtractionQuota'] = ResolversParentTypes['ExtractionQuota']> = ResolversObject<{
+  limit?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  remaining?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  used?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export interface JsonScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['JSON'], any> {
   name: 'JSON';
 }
@@ -938,6 +999,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   editAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationEditAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   extractEventDataFromUrl?: Resolver<ResolversTypes['ExtractEventDataFromUrlResult'], ParentType, ContextType, RequireFields<MutationExtractEventDataFromUrlArgs, 'url'>>;
   ignoreSubsequentReports?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationIgnoreSubsequentReportsArgs, 'reportId'>>;
+  markSubscriptionViewed?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationMarkSubscriptionViewedArgs, 'subscriptionId'>>;
   registerFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRegisterFcmTokenArgs, 'token'>>;
   removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
   reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
@@ -945,6 +1007,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   resolveReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationResolveReportArgs, 'id' | 'outcome'>>;
   resolveReportsForEvent?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, RequireFields<MutationResolveReportsForEventArgs, 'eventId'>>;
   restoreEvent?: Resolver<ResolversTypes['Event'], ParentType, ContextType, RequireFields<MutationRestoreEventArgs, 'action' | 'id'>>;
+  selectPostsForExtraction?: Resolver<Array<ResolversTypes['Post']>, ParentType, ContextType, RequireFields<MutationSelectPostsForExtractionArgs, 'postIds'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   submitCorrection?: Resolver<ResolversTypes['Correction'], ParentType, ContextType, RequireFields<MutationSubmitCorrectionArgs, 'eventId' | 'proposedData' | 'source'>>;
   submitReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationSubmitReportArgs, 'eventId' | 'reason'>>;
@@ -954,6 +1017,25 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   unregisterFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationUnregisterFcmTokenArgs, 'token'>>;
   updateUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationUpdateUserLocationArgs, 'id' | 'input'>>;
   updateUserSettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType, RequireFields<MutationUpdateUserSettingsArgs, 'input'>>;
+}>;
+
+export type PostResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Post'] = ResolversParentTypes['Post']> = ResolversObject<{
+  accountId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  content?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  isExtracted?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  originalPostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  postUrl?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  publishedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type PostConnectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PostConnection'] = ResolversParentTypes['PostConnection']> = ResolversObject<{
+  hasMore?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['Post']>, ParentType, ContextType>;
+  nextCursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type ProposedEventCorrectionDataResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ProposedEventCorrectionData'] = ResolversParentTypes['ProposedEventCorrectionData']> = ResolversObject<{
@@ -990,11 +1072,13 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   health?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   me?: Resolver<ResolversTypes['Me'], ParentType, ContextType>;
   myApiKeys?: Resolver<Array<ResolversTypes['ApiKey']>, ParentType, ContextType>;
+  myExtractionQuota?: Resolver<ResolversTypes['ExtractionQuota'], ParentType, ContextType>;
   myLocations?: Resolver<Array<ResolversTypes['UserLocation']>, ParentType, ContextType>;
   myReports?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType>;
   mySettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType>;
   mySubscriptions?: Resolver<Array<ResolversTypes['Subscription']>, ParentType, ContextType>;
   pendingDefaultLocationChanges?: Resolver<Array<ResolversTypes['DefaultLocationChangeRequest']>, ParentType, ContextType>;
+  postsByAccount?: Resolver<ResolversTypes['PostConnection'], ParentType, ContextType, RequireFields<QueryPostsByAccountArgs, 'accountId'>>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
   reportedEvents?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, Partial<QueryReportedEventsArgs>>;
   socialMediaAccountProfileByAccountId?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType, RequireFields<QuerySocialMediaAccountProfileByAccountIdArgs, 'accountId' | 'platform'>>;
@@ -1061,6 +1145,7 @@ export type SubscriptionResolvers<ContextType = GraphQLContext, ParentType exten
   accountId?: SubscriptionResolver<ResolversTypes['ID'], "accountId", ParentType, ContextType>;
   createdAt?: SubscriptionResolver<ResolversTypes['String'], "createdAt", ParentType, ContextType>;
   id?: SubscriptionResolver<ResolversTypes['ID'], "id", ParentType, ContextType>;
+  isInactive?: SubscriptionResolver<ResolversTypes['Boolean'], "isInactive", ParentType, ContextType>;
   isNewlyAdded?: SubscriptionResolver<ResolversTypes['Boolean'], "isNewlyAdded", ParentType, ContextType>;
   pendingExtractionCount?: SubscriptionResolver<ResolversTypes['Int'], "pendingExtractionCount", ParentType, ContextType>;
 }>;
@@ -1112,10 +1197,13 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Event?: EventResolvers<ContextType>;
   EventConnection?: EventConnectionResolvers<ContextType>;
   ExtractEventDataFromUrlResult?: ExtractEventDataFromUrlResultResolvers<ContextType>;
+  ExtractionQuota?: ExtractionQuotaResolvers<ContextType>;
   JSON?: GraphQLScalarType;
   LocationDetails?: LocationDetailsResolvers<ContextType>;
   Me?: MeResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
+  Post?: PostResolvers<ContextType>;
+  PostConnection?: PostConnectionResolvers<ContextType>;
   ProposedEventCorrectionData?: ProposedEventCorrectionDataResolvers<ContextType>;
   ProposedScheduleCorrectionData?: ProposedScheduleCorrectionDataResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;

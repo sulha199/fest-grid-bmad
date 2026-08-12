@@ -22,7 +22,8 @@ import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
 import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS } from '@festgrid/domain/events';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
-import { ScraperCapacityExceededError } from '@festgrid/domain';
+import { ScraperCapacityExceededError, isCycleElapsed } from '@festgrid/domain';
+import { PostAlreadyExtractedError, PostNotFoundError } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { encryptApiKey } from '../lib/ai-gateway/kms.js';
 import { compileValidator } from '../validation/validate.js';
@@ -31,6 +32,7 @@ import { proposedEventCorrectionSchema } from '../validation/proposed-event-corr
 import { sendTemplatedEmail } from '../lib/email/adapter.js';
 import { loadBackendEnv } from '../env.js';
 import { sendDangerousReportModeratorAlerts } from '../lib/notifications/send-dangerous-report-moderator-alerts.js';
+import { enqueuePostForProcessing } from '../lib/posts/enqueue-post-for-processing.js';
 
 const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema);
 const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);
@@ -113,6 +115,19 @@ export const resolvers: Resolvers = {
           )
         );
       return rows[0]?.count ?? 0;
+    },
+    isInactive: async (parent: any) => {
+      const rows = await db.select({ publishedAt: posts.publishedAt })
+        .from(posts)
+        .where(eq(posts.accountId, parent.accountId))
+        .orderBy(desc(posts.publishedAt))
+        .limit(1);
+      if (rows.length === 0) {
+        return true;
+      }
+      const mostRecent = rows[0].publishedAt;
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      return mostRecent < thirtyDaysAgo;
     }
   } as any,
   SocialMediaAccountProfile: {
@@ -1292,6 +1307,92 @@ export const resolvers: Resolvers = {
         reviewedAt: updatedRow.reviewedAt ? updatedRow.reviewedAt.toISOString() : null,
       };
     },
+    markSubscriptionViewed: async (_: any, { subscriptionId }: any, context: any) => {
+      const authUser = requireAuth(context);
+      const [updated] = await db.update(subscriptions)
+        .set({ isNewlyAdded: false })
+        .where(and(eq(subscriptions.id, subscriptionId), eq(subscriptions.userId, authUser.userId)))
+        .returning();
+      if (!updated) {
+        throw new GraphQLError('Subscription not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      return formatSubscription(updated);
+    },
+    selectPostsForExtraction: async (_: any, { postIds }: any, context: any) => {
+      const authUser = requireAuth(context);
+
+      if (postIds.length === 0) {
+        return [];
+      }
+
+      // Quota check
+      const keysRows = await db.select().from(apiKeys)
+        .where(and(
+          eq(apiKeys.userId, authUser.userId),
+          eq(apiKeys.provider, 'gemini'),
+          activeOnly(apiKeys)
+        ));
+      const env = loadBackendEnv();
+      const cycleDays = env.apiKeyUsageCycleDays;
+      const now = new Date();
+
+      let used = 0;
+      for (const row of keysRows) {
+        const isElapsed = isCycleElapsed(row.usageCycleResetAt.toISOString(), cycleDays, now);
+        used += isElapsed ? 0 : row.usageCount;
+      }
+
+      const limit = keysRows.length * 50;
+      const remainingQuota = Math.max(0, limit - used);
+
+      if (postIds.length > remainingQuota) {
+        throw new GraphQLError('Selection exceeds remaining API quota', {
+          extensions: { code: 'QUOTA_EXHAUSTED' }
+        });
+      }
+
+      // Security Check: hold active subscriptions for all submitted post accounts
+      const submitPosts = await db.select({ id: posts.id, accountId: posts.accountId })
+        .from(posts)
+        .where(inArray(posts.id, postIds));
+
+      if (submitPosts.length !== postIds.length) {
+        throw new GraphQLError('One or more posts not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const activeSubs = await db.select({ accountId: subscriptions.accountId })
+        .from(subscriptions)
+        .where(and(eq(subscriptions.userId, authUser.userId), activeOnly(subscriptions)));
+      
+      const subAccountIds = new Set(activeSubs.map(s => s.accountId));
+      for (const post of submitPosts) {
+        if (!subAccountIds.has(post.accountId)) {
+          throw new GraphQLError('No active subscription to this account', {
+            extensions: { code: 'FORBIDDEN' }
+          });
+        }
+      }
+
+      try {
+        for (const postId of postIds) {
+          await enqueuePostForProcessing(postId);
+        }
+      } catch (err: any) {
+        if (err instanceof PostAlreadyExtractedError) {
+          throw new GraphQLError('Post has already been extracted', { extensions: { code: 'BAD_REQUEST' } });
+        }
+        if (err instanceof PostNotFoundError) {
+          throw new GraphQLError('Post not found', { extensions: { code: 'NOT_FOUND' } });
+        }
+        throw err;
+      }
+
+      const updatedPosts = await db.select().from(posts).where(inArray(posts.id, postIds));
+      return updatedPosts.map(p => ({
+        ...p,
+        publishedAt: p.publishedAt.toISOString()
+      }));
+    },
   },
   Query: {
     health: () => true,
@@ -1353,6 +1454,79 @@ export const resolvers: Resolvers = {
         .where(and(eq(subscriptions.userId, authUser.userId), activeOnly(subscriptions)))
         .orderBy(desc(subscriptions.createdAt));
       return rows.map(row => formatSubscription(row));
+    },
+    postsByAccount: async (_: any, { accountId, cursor, limit }: any, context: any) => {
+      const authUser = requireAuth(context);
+
+      // Security Scope Check: Caller must have an active subscription to the account
+      const subRows = await db.select({ id: subscriptions.id })
+        .from(subscriptions)
+        .where(and(
+          eq(subscriptions.userId, authUser.userId),
+          eq(subscriptions.accountId, accountId),
+          activeOnly(subscriptions)
+        ))
+        .limit(1);
+
+      if (subRows.length === 0) {
+        throw new GraphQLError('No active subscription to this account', {
+          extensions: { code: 'FORBIDDEN' }
+        });
+      }
+
+      const qLimit = limit ?? 20;
+      const conditions = [eq(posts.accountId, accountId)];
+      if (cursor) {
+        conditions.push(sql`${posts.publishedAt} < ${new Date(cursor)}`);
+      }
+
+      const postsRows = await db.select()
+        .from(posts)
+        .where(and(...conditions))
+        .orderBy(desc(posts.publishedAt))
+        .limit(qLimit + 1);
+
+      const hasMore = postsRows.length > qLimit;
+      const items = hasMore ? postsRows.slice(0, qLimit) : postsRows;
+      const nextCursor = hasMore ? items[items.length - 1].publishedAt.toISOString() : null;
+
+      return {
+        items: items.map(p => ({
+          ...p,
+          publishedAt: p.publishedAt.toISOString()
+        })),
+        nextCursor,
+        hasMore
+      };
+    },
+    myExtractionQuota: async (_: any, __: any, context: any) => {
+      const authUser = requireAuth(context);
+
+      const keysRows = await db.select().from(apiKeys)
+        .where(and(
+          eq(apiKeys.userId, authUser.userId),
+          eq(apiKeys.provider, 'gemini'),
+          activeOnly(apiKeys)
+        ));
+
+      const env = loadBackendEnv();
+      const cycleDays = env.apiKeyUsageCycleDays;
+      const now = new Date();
+
+      let used = 0;
+      for (const row of keysRows) {
+        const isElapsed = isCycleElapsed(row.usageCycleResetAt.toISOString(), cycleDays, now);
+        used += isElapsed ? 0 : row.usageCount;
+      }
+
+      const limit = keysRows.length * 50;
+      const remaining = Math.max(0, limit - used);
+
+      return {
+        limit,
+        used,
+        remaining
+      };
     },
     socialMediaAccountProfileByAccountId: async (_: any, { platform, accountId }: any, context: any, info: any) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);

@@ -5,6 +5,7 @@ type Subscription {
   createdAt: String!
   account: SocialMediaAccountProfile!
   pendingExtractionCount: Int!
+  isInactive: Boolean!
 }
 
 extend type Query {
@@ -26,4 +27,5 @@ type SubscribeToAccountResult {
 extend type Mutation {
   subscribeToAccount(input: SubscribeToAccountInput!): SubscribeToAccountResult!
   removeSubscription(id: ID!, action: SoftDeleteAction!): Subscription!
+  markSubscriptionViewed(subscriptionId: ID!): Subscription!
 }

@@ -37,6 +37,35 @@ type ExtractEventDataFromUrlResult {
   errorMessage: String
 }
 
+type Post {
+  id: ID!
+  accountId: ID!
+  content: String!
+  imageUrl: String
+  postUrl: String!
+  originalPostUrl: String
+  isExtracted: Boolean!
+  publishedAt: String!
+}
+
+type PostConnection {
+  items: [Post!]!
+  nextCursor: String
+  hasMore: Boolean!
+}
+
+type ExtractionQuota {
+  limit: Int!
+  used: Int!
+  remaining: Int!
+}
+
+extend type Query {
+  postsByAccount(accountId: ID!, cursor: String, limit: Int): PostConnection!
+  myExtractionQuota: ExtractionQuota!
+}
+
 extend type Mutation {
   extractEventDataFromUrl(url: String!): ExtractEventDataFromUrlResult!
+  selectPostsForExtraction(postIds: [ID!]!): [Post!]!
 }

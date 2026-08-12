@@ -196,6 +196,13 @@ export enum ExtractionErrorCode {
   UnsupportedPlatform = 'UNSUPPORTED_PLATFORM'
 }
 
+export type ExtractionQuota = {
+  __typename?: 'ExtractionQuota';
+  limit: Scalars['Int']['output'];
+  remaining: Scalars['Int']['output'];
+  used: Scalars['Int']['output'];
+};
+
 export enum GeolocationProvider {
   Geoapify = 'GEOAPIFY'
 }
@@ -227,6 +234,7 @@ export type Mutation = {
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   ignoreSubsequentReports: Report;
+  markSubscriptionViewed: Subscription;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
@@ -234,6 +242,7 @@ export type Mutation = {
   resolveReport: Report;
   resolveReportsForEvent: Array<Report>;
   restoreEvent: Event;
+  selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
   submitCorrection: Correction;
   submitReport: Report;
@@ -289,6 +298,11 @@ export type MutationIgnoreSubsequentReportsArgs = {
 };
 
 
+export type MutationMarkSubscriptionViewedArgs = {
+  subscriptionId: Scalars['ID']['input'];
+};
+
+
 export type MutationRegisterFcmTokenArgs = {
   token: Scalars['String']['input'];
 };
@@ -325,6 +339,11 @@ export type MutationResolveReportsForEventArgs = {
 export type MutationRestoreEventArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationSelectPostsForExtractionArgs = {
+  postIds: Array<Scalars['ID']['input']>;
 };
 
 
@@ -377,6 +396,25 @@ export type MutationUpdateUserLocationArgs = {
 
 export type MutationUpdateUserSettingsArgs = {
   input: UpdateUserSettingsInput;
+};
+
+export type Post = {
+  __typename?: 'Post';
+  accountId: Scalars['ID']['output'];
+  content: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  imageUrl?: Maybe<Scalars['String']['output']>;
+  isExtracted: Scalars['Boolean']['output'];
+  originalPostUrl?: Maybe<Scalars['String']['output']>;
+  postUrl: Scalars['String']['output'];
+  publishedAt: Scalars['String']['output'];
+};
+
+export type PostConnection = {
+  __typename?: 'PostConnection';
+  hasMore: Scalars['Boolean']['output'];
+  items: Array<Post>;
+  nextCursor?: Maybe<Scalars['String']['output']>;
 };
 
 export type ProposedEventCorrectionData = {
@@ -438,11 +476,13 @@ export type Query = {
   health: Scalars['Boolean']['output'];
   me: Me;
   myApiKeys: Array<ApiKey>;
+  myExtractionQuota: ExtractionQuota;
   myLocations: Array<UserLocation>;
   myReports: Array<Report>;
   mySettings: UserSettings;
   mySubscriptions: Array<Subscription>;
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
+  postsByAccount: PostConnection;
   previewLocation: LocationDetails;
   reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
@@ -472,6 +512,13 @@ export type QueryEventsArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
+};
+
+
+export type QueryPostsByAccountArgs = {
+  accountId: Scalars['ID']['input'];
+  cursor?: InputMaybe<Scalars['String']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
@@ -596,6 +643,7 @@ export type Subscription = {
   accountId: Scalars['ID']['output'];
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
+  isInactive: Scalars['Boolean']['output'];
   isNewlyAdded: Scalars['Boolean']['output'];
   pendingExtractionCount: Scalars['Int']['output'];
 };
