@@ -125,6 +125,7 @@ export type Event = {
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   isAddedToCalendar: Scalars['Boolean']['output'];
+  isExpiredForCurrentUser: Scalars['Boolean']['output'];
   isFavorited: Scalars['Boolean']['output'];
   isHiddenForCurrentUser: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
@@ -455,15 +456,18 @@ export type QueryAddressAutocompleteArgs = {
 
 export type QueryEventArgs = {
   id: Scalars['ID']['input'];
+  includeMyArchived?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 
 export type QueryEventBySlugArgs = {
+  includeMyArchived?: InputMaybe<Scalars['Boolean']['input']>;
   slug: Scalars['String']['input'];
 };
 
 
 export type QueryEventsArgs = {
+  includeMyArchived?: InputMaybe<Scalars['Boolean']['input']>;
   includeSoftDeleted?: InputMaybe<Scalars['Boolean']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
@@ -760,6 +764,14 @@ export type GetEventsForMyCalendarQueryVariables = Exact<{
 
 
 export type GetEventsForMyCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, isAddedToCalendar: boolean }> }> } };
+
+export type GetArchivedEventsQueryVariables = Exact<{
+  limit?: number | null | undefined;
+  offset?: number | null | undefined;
+}>;
+
+
+export type GetArchivedEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, slug: string, eventName: string, imageUrl: string | null, location: string | null, categories: Array<EventCategory> | null, types: Array<EventType> | null, deletedAt: string | null, isHiddenForCurrentUser: boolean, isExpiredForCurrentUser: boolean, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, ticketPrice: string | null }> }> } };
 
 export type SubmitReportMutationVariables = Exact<{
   eventId: string | number;
@@ -1427,6 +1439,50 @@ export const useGetEventsForMyCalendarQuery = <
       {
     queryKey: variables === undefined ? ['getEventsForMyCalendar'] : ['getEventsForMyCalendar', variables],
     queryFn: fetcher<GetEventsForMyCalendarQuery, GetEventsForMyCalendarQueryVariables>(client, GetEventsForMyCalendarDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetArchivedEventsDocument = new TypedDocumentString(`
+    query getArchivedEvents($limit: Int, $offset: Int) {
+  events(limit: $limit, offset: $offset, includeMyArchived: true) {
+    items {
+      id
+      slug
+      eventName
+      imageUrl
+      location
+      categories
+      types
+      schedules {
+        isMainSchedule
+        eventStartDate
+        ticketPrice
+      }
+      deletedAt
+      isHiddenForCurrentUser
+      isExpiredForCurrentUser
+    }
+    hasMore
+    totalCount
+  }
+}
+    `);
+
+export const useGetArchivedEventsQuery = <
+      TData = GetArchivedEventsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: GetArchivedEventsQueryVariables,
+      options?: Omit<UseQueryOptions<GetArchivedEventsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetArchivedEventsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetArchivedEventsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['getArchivedEvents'] : ['getArchivedEvents', variables],
+    queryFn: fetcher<GetArchivedEventsQuery, GetArchivedEventsQueryVariables>(client, GetArchivedEventsDocument, variables, headers),
     ...options
   }
     )};

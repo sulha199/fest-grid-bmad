@@ -65,4 +65,7 @@ export interface EventCardProps {
 
   /** Optional label overrides for internally-rendered microcopy (i18n-readiness) */
   labels?: EventCardLabels;
+
+  /** Optional absolutely-positioned status badge slot */
+  statusBadge?: React.ReactNode;
 }

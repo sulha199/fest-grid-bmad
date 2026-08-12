@@ -152,3 +152,27 @@ query getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryCondit
     totalCount
   }
 }
+
+query getArchivedEvents($limit: Int, $offset: Int) {
+  events(limit: $limit, offset: $offset, includeMyArchived: true) {
+    items {
+      id
+      slug
+      eventName
+      imageUrl
+      location
+      categories
+      types
+      schedules {
+        isMainSchedule
+        eventStartDate
+        ticketPrice
+      }
+      deletedAt
+      isHiddenForCurrentUser
+      isExpiredForCurrentUser
+    }
+    hasMore
+    totalCount
+  }
+}

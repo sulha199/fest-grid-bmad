@@ -87,6 +87,7 @@ type Event {
   isHiddenForCurrentUser: Boolean!
   sourceSocialMediaAccountProfile: SocialMediaAccountProfile
   deletedAt: String
+  isExpiredForCurrentUser: Boolean!
 }
 
 type EventConnection {
@@ -103,9 +104,9 @@ input EventQueryConditionInput {
 }
 
 extend type Query {
-  events(query: EventQueryConditionInput, limit: Int, offset: Int, includeSoftDeleted: Boolean): EventConnection!
-  event(id: ID!): Event
-  eventBySlug(slug: String!): Event
+  events(query: EventQueryConditionInput, limit: Int, offset: Int, includeSoftDeleted: Boolean, includeMyArchived: Boolean): EventConnection!
+  event(id: ID!, includeMyArchived: Boolean): Event
+  eventBySlug(slug: String!, includeMyArchived: Boolean): Event
 }
 
 extend type Mutation {

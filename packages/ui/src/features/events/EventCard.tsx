@@ -74,6 +74,7 @@ export function EventCard({
   href,
   onClick,
   labels = {},
+  statusBadge,
 }: EventCardProps) {
   const defaultLabels = {
     imageFallbackAlt: 'No image available',
@@ -152,6 +153,9 @@ export function EventCard({
         className="flex-1 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="relative h-48 w-full bg-muted overflow-hidden flex items-center justify-center">
+          {statusBadge && (
+            <div className="absolute top-2 right-2 z-10">{statusBadge}</div>
+          )}
           {!imgError && imageUrl ? (
             <img 
               src={imageUrl} 

@@ -115,6 +115,7 @@ export type Event = {
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   isAddedToCalendar: Scalars['Boolean']['output'];
+  isExpiredForCurrentUser: Scalars['Boolean']['output'];
   isFavorited: Scalars['Boolean']['output'];
   isHiddenForCurrentUser: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
@@ -451,15 +452,18 @@ export type QueryAddressAutocompleteArgs = {
 
 export type QueryEventArgs = {
   id: Scalars['ID']['input'];
+  includeMyArchived?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 
 export type QueryEventBySlugArgs = {
+  includeMyArchived?: InputMaybe<Scalars['Boolean']['input']>;
   slug: Scalars['String']['input'];
 };
 
 
 export type QueryEventsArgs = {
+  includeMyArchived?: InputMaybe<Scalars['Boolean']['input']>;
   includeSoftDeleted?: InputMaybe<Scalars['Boolean']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
@@ -873,6 +877,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   isAddedToCalendar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  isExpiredForCurrentUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isFavorited?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isHiddenForCurrentUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   location?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

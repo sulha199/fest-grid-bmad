@@ -694,7 +694,7 @@ development_status:
   # Gate item added confirming Story 4-3c reaches real implemented code (not just
   # planned) before this story's Task 1 reuse step begins, and confirming no collision
   # with Story 4.7's own in-flight Event.deletedAt schema addition.
-  4-8-view-archived-hidden-personal-events: ready-for-dev
+  4-8-view-archived-hidden-personal-events: review
   epic-4-retrospective: optional
   epic-5: backlog
   5-1a-build-the-manual-post-selection-and-extraction-graphql-api-layer: backlog

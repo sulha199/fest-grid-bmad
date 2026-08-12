@@ -18,6 +18,8 @@
     "locationsDescription": "Kelola lokasi tersimpan Anda di FestDaily.",
     "subscriptionsTitle": "Akun Langganan Saya | FestDaily",
     "subscriptionsDescription": "Kelola langganan akun media sosial Anda di FestDaily.",
+    "archiveTitle": "Arsip Saya | FestDaily",
+    "archiveDescription": "Lihat acara Anda yang diarsipkan dan disembunyikan di FestDaily.",
     "myCalendarTitle": "Kalender Saya | FestDaily",
     "myCalendarDescription": "Lihat dan kelola jadwal kalender kustom Anda di FestDaily.",
     "notificationsTitle": "Pengaturan Notifikasi | FestDaily",
@@ -193,6 +195,16 @@
     "pendingRemovalToastMessage": "Acara ditandai untuk dihapus",
     "undoLabel": "Urungkan"
   },
+  "ArchivePage": {
+    "title": "Arsip Saya",
+    "errorState": "Gagal memuat acara yang diarsipkan. Silakan coba lagi nanti.",
+    "emptyState": "Anda tidak memiliki acara yang diarsipkan.",
+    "priceFrom": "Mulai",
+    "loadingMore": "Memuat lebih banyak acara yang diarsipkan...",
+    "reasonExpired": "Kedaluwarsa",
+    "reasonRemoved": "Dihapus oleh Moderasi",
+    "reasonHiddenByMe": "Disembunyikan oleh Saya"
+  },
   "ReportsPage": {
     "title": "Laporan Saya",
     "errorState": "Gagal memuat laporan yang dikirimkan. Silakan coba lagi nanti.",
@@ -354,6 +366,7 @@
     "queueStatus": "Status Antrean",
     "notifications": "Notifikasi",
     "reports": "Laporan",
+    "archive": "Arsip",
     "moderatorItems": "Item Moderator",
     "logout": "Keluar",
     "close": "Tutup"

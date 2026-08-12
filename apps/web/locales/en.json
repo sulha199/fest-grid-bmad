@@ -18,6 +18,8 @@
     "locationsDescription": "Manage your saved locations on FestDaily.",
     "subscriptionsTitle": "My Subscribed Accounts | FestDaily",
     "subscriptionsDescription": "Manage your social media account subscriptions on FestDaily.",
+    "archiveTitle": "My Archive | FestDaily",
+    "archiveDescription": "View your archived and hidden events on FestDaily.",
     "myCalendarTitle": "My Calendar | FestDaily",
     "myCalendarDescription": "View and manage your custom calendar schedules on FestDaily.",
     "notificationsTitle": "Notification Settings | FestDaily",
@@ -193,6 +195,16 @@
     "pendingRemovalToastMessage": "Event marked for removal",
     "undoLabel": "Undo"
   },
+  "ArchivePage": {
+    "title": "My Archive",
+    "errorState": "Failed to load archived events. Please try again later.",
+    "emptyState": "You have no archived events.",
+    "priceFrom": "From",
+    "loadingMore": "Loading more archived events...",
+    "reasonExpired": "Expired",
+    "reasonRemoved": "Removed by Moderation",
+    "reasonHiddenByMe": "Hidden by Me"
+  },
   "ReportsPage": {
     "title": "My Reports",
     "errorState": "Failed to load submitted reports. Please try again later.",
@@ -354,6 +366,7 @@
     "queueStatus": "Queue Status",
     "notifications": "Notifications",
     "reports": "Reports",
+    "archive": "Archive",
     "moderatorItems": "Moderator Items",
     "logout": "Log Out",
     "close": "Close"

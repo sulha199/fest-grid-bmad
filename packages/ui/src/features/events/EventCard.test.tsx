@@ -248,4 +248,15 @@ describe('EventCard', () => {
     expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
   });
 
+  it('renders statusBadge when provided', () => {
+    render(
+      <EventCard 
+        {...defaultProps} 
+        statusBadge={<span data-testid="test-badge">Archived</span>}
+      />
+    );
+    expect(screen.getByTestId('test-badge')).toBeInTheDocument();
+    expect(screen.getByText('Archived')).toBeInTheDocument();
+  });
+
 });

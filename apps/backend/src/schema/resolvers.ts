@@ -1435,7 +1435,7 @@ export const resolvers: Resolvers = {
       }
       return rows[0];
     },
-    events: async (_: any, { query, limit, offset, includeSoftDeleted }: any, context: any, info: any) => {
+    events: async (_: any, { query, limit, offset, includeSoftDeleted, includeMyArchived }: any, context: any, info: any) => {
       const hasFavoritedEqTrue = (condition: QueryCondition | undefined): boolean => {
         if (!condition) {
           return false;
@@ -1467,6 +1467,15 @@ export const resolvers: Resolvers = {
         const settings = await getOrCreateUserSettings(userId);
         hidePastEventsAfterDays = settings.hidePastEventsAfterDays;
       }
+
+      // Compute threshold precisely matching buildDefaultEventVisibilityConditions
+      const now = new Date();
+      const utcYear = now.getUTCFullYear();
+      const utcMonth = now.getUTCMonth();
+      const utcDate = now.getUTCDate();
+      const utcMidnight = new Date(Date.UTC(utcYear, utcMonth, utcDate));
+      utcMidnight.setUTCDate(utcMidnight.getUTCDate() - hidePastEventsAfterDays);
+      const threshold = `${utcMidnight.getUTCFullYear()}-${String(utcMidnight.getUTCMonth() + 1).padStart(2, '0')}-${String(utcMidnight.getUTCDate()).padStart(2, '0')}`;
 
       const defaultVisibilityConditions = buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays, userId });
 
@@ -1552,22 +1561,54 @@ export const resolvers: Resolvers = {
               eq(reports.reporterUserId, userId),
               eq(reports.eventId, events.id)
             ))
-        ) : sql`false`
+        ) : sql`false`,
+        isPastEvent: sql`NOT EXISTS (SELECT 1 FROM ${schedules} WHERE ${schedules.eventId} = ${events.id} AND daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${threshold}::date, NULL, '[]'))`,
+        isHiddenByModeration: sql`(${events.deletedAt} IS NOT NULL)`
       };
 
-      const finalCondition: QueryCondition = {
-        operator: 'and',
-        conditions: [
-          ...(resolvedQuery ? [resolvedQuery as QueryCondition] : []),
-          ...defaultVisibilityConditions,
-        ],
-      };
-      let whereClause = buildDrizzleWhere(finalCondition, fieldMap);
-
-      if (includeSoftDeleted === true) {
-        requireModerator(context);
+      let whereClause;
+      if (includeMyArchived === true) {
+        requireAuth(context);
+        const forcedHiddenCondition: QueryCondition = {
+          operator: 'or',
+          conditions: [
+            { field: 'isPastEvent', operator: 'eq', value: true },
+            { field: 'isHiddenByModeration', operator: 'eq', value: true },
+            { field: 'isReportedByCurrentUser', operator: 'eq', value: true },
+          ],
+        };
+        const forcedConnectionCondition: QueryCondition = {
+          operator: 'or',
+          conditions: [
+            { field: 'isFavorited', operator: 'eq', value: true },
+            { field: 'isAddedToCalendar', operator: 'eq', value: true },
+            { field: 'isFromSubscribedAccount', operator: 'eq', value: true },
+          ],
+        };
+        const finalCondition: QueryCondition = {
+          operator: 'and',
+          conditions: [
+            ...(resolvedQuery ? [resolvedQuery as QueryCondition] : []),
+            forcedHiddenCondition,
+            forcedConnectionCondition,
+          ],
+        };
+        whereClause = buildDrizzleWhere(finalCondition, fieldMap);
       } else {
-        whereClause = whereClause ? and(whereClause as any, activeOnly(events)) : activeOnly(events);
+        const finalCondition: QueryCondition = {
+          operator: 'and',
+          conditions: [
+            ...(resolvedQuery ? [resolvedQuery as QueryCondition] : []),
+            ...defaultVisibilityConditions,
+          ],
+        };
+        whereClause = buildDrizzleWhere(finalCondition, fieldMap);
+
+        if (includeSoftDeleted === true) {
+          requireModerator(context);
+        } else {
+          whereClause = whereClause ? and(whereClause as any, activeOnly(events)) : activeOnly(events);
+        }
       }
       
       const qLimit = Math.min(limit ?? 1000, 1000);
@@ -1642,10 +1683,68 @@ export const resolvers: Resolvers = {
         totalCount
       };
     },
-    event: async (_: any, { id }: any, context: any, info: any) => {
+    event: async (_: any, { id, includeMyArchived }: any, context: any, info: any) => {
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
       const isModerator = context.user?.role === 'moderator';
       
+      let condition;
+      if (isModerator) {
+        condition = eq(events.id, id);
+      } else if (includeMyArchived === true) {
+        const authUser = requireAuth(context);
+        const userId = authUser.userId;
+        const personalConnectionCheck = or(
+          exists(
+            db.select({ id: favorites.id })
+              .from(favorites)
+              .where(and(
+                eq(favorites.userId, userId),
+                eq(favorites.eventId, events.id),
+                activeOnly(favorites)
+              ))
+          ),
+          exists(
+            db.select({ id: calendarAdditions.id })
+              .from(calendarAdditions)
+              .where(and(
+                eq(calendarAdditions.userId, userId),
+                eq(calendarAdditions.eventId, events.id),
+                activeOnly(calendarAdditions)
+              ))
+          ),
+          exists(
+            db.select({ id: subscriptions.id })
+              .from(subscriptions)
+              .innerJoin(posts, eq(subscriptions.accountId, posts.accountId))
+              .where(and(
+                eq(posts.id, events.postId),
+                eq(subscriptions.userId, userId),
+                activeOnly(subscriptions)
+              ))
+          ),
+          exists(
+            db.select({ id: reports.id })
+              .from(reports)
+              .where(and(
+                eq(reports.reporterUserId, userId),
+                eq(reports.eventId, events.id)
+              ))
+          )
+        );
+        condition = and(
+          eq(events.id, id),
+          or(
+            activeOnly(events),
+            and(
+              sql`${events.deletedAt} IS NOT NULL`,
+              personalConnectionCheck
+            )
+          )
+        );
+      } else {
+        condition = and(eq(events.id, id), activeOnly(events));
+      }
+
       const rows = await db.select({
         ...requestedFields,
         id: events.id,
@@ -1655,13 +1754,71 @@ export const resolvers: Resolvers = {
         originalPostUrl: posts.originalPostUrl,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
-        .where(isModerator ? eq(events.id, id) : and(eq(events.id, id), activeOnly(events)));
+        .where(condition);
 
       return (rows[0] as any) || null;
     },
-    eventBySlug: async (_: any, { slug }: any, context: any, info: any) => {
+    eventBySlug: async (_: any, { slug, includeMyArchived }: any, context: any, info: any) => {
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
       const isModerator = context.user?.role === 'moderator';
+
+      let condition;
+      if (isModerator) {
+        condition = eq(events.slug, slug);
+      } else if (includeMyArchived === true) {
+        const authUser = requireAuth(context);
+        const userId = authUser.userId;
+        const personalConnectionCheck = or(
+          exists(
+            db.select({ id: favorites.id })
+              .from(favorites)
+              .where(and(
+                eq(favorites.userId, userId),
+                eq(favorites.eventId, events.id),
+                activeOnly(favorites)
+              ))
+          ),
+          exists(
+            db.select({ id: calendarAdditions.id })
+              .from(calendarAdditions)
+              .where(and(
+                eq(calendarAdditions.userId, userId),
+                eq(calendarAdditions.eventId, events.id),
+                activeOnly(calendarAdditions)
+              ))
+          ),
+          exists(
+            db.select({ id: subscriptions.id })
+              .from(subscriptions)
+              .innerJoin(posts, eq(subscriptions.accountId, posts.accountId))
+              .where(and(
+                eq(posts.id, events.postId),
+                eq(subscriptions.userId, userId),
+                activeOnly(subscriptions)
+              ))
+          ),
+          exists(
+            db.select({ id: reports.id })
+              .from(reports)
+              .where(and(
+                eq(reports.reporterUserId, userId),
+                eq(reports.eventId, events.id)
+              ))
+          )
+        );
+        condition = and(
+          eq(events.slug, slug),
+          or(
+            activeOnly(events),
+            and(
+              sql`${events.deletedAt} IS NOT NULL`,
+              personalConnectionCheck
+            )
+          )
+        );
+      } else {
+        condition = and(eq(events.slug, slug), activeOnly(events));
+      }
 
       const rows = await db.select({
         ...requestedFields,
@@ -1673,7 +1830,7 @@ export const resolvers: Resolvers = {
         originalPostUrl: posts.originalPostUrl,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
-        .where(isModerator ? eq(events.slug, slug) : and(eq(events.slug, slug), activeOnly(events)));
+        .where(condition);
 
       return (rows[0] as any) || null;
     }
@@ -1776,6 +1933,32 @@ export const resolvers: Resolvers = {
           .from(reports)
           .where(and(eq(reports.reporterUserId, authUser.userId), eq(reports.eventId, parent.id)));
         return rows.length > 0;
+      } catch {
+        return false;
+      }
+    },
+    isExpiredForCurrentUser: async (parent: any, _: any, context: any) => {
+      try {
+        const authUser = requireAuth(context);
+        const settings = await getOrCreateUserSettings(authUser.userId);
+        const hidePastEventsAfterDays = settings.hidePastEventsAfterDays;
+
+        const now = new Date();
+        const utcYear = now.getUTCFullYear();
+        const utcMonth = now.getUTCMonth();
+        const utcDate = now.getUTCDate();
+        const utcMidnight = new Date(Date.UTC(utcYear, utcMonth, utcDate));
+        utcMidnight.setUTCDate(utcMidnight.getUTCDate() - hidePastEventsAfterDays);
+        const threshold = `${utcMidnight.getUTCFullYear()}-${String(utcMidnight.getUTCMonth() + 1).padStart(2, '0')}-${String(utcMidnight.getUTCDate()).padStart(2, '0')}`;
+
+        // Negated past-event overlaps check
+        const rows = await db.select({ id: schedules.id })
+          .from(schedules)
+          .where(and(
+            eq(schedules.eventId, parent.id),
+            sql`daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${threshold}::date, NULL, '[]')`
+          ));
+        return rows.length === 0;
       } catch {
         return false;
       }

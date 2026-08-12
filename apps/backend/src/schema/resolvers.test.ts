@@ -1419,6 +1419,165 @@ test('events resolver integration via Yoga', async (t) => {
       }
     });
   });
+
+  await t.test('events - includeMyArchived opt-in bypass (Story 4.8)', async () => {
+    const userId = '88888888-8888-8888-8888-888888888888';
+    const otherUserId = '99999999-9999-9999-9999-999999999999';
+
+    // Seed users
+    await db.delete(users).where(inArray(users.id, [userId, otherUserId]));
+    await db.insert(users).values([
+      { id: userId, email: 'user@test.com', role: 'user' },
+      { id: otherUserId, email: 'other@test.com', role: 'user' }
+    ]);
+
+    // Seed a soft-deleted event that userId favorited
+    const softDeletedEventId = 'ea111111-1111-1111-1111-ea1111111111';
+    const activeEventId = 'ea222222-2222-2222-2222-ea2222222222';
+    const pastEventId = 'ea333333-3333-3333-3333-ea3333333333';
+
+    await db.delete(events).where(inArray(events.id, [softDeletedEventId, activeEventId, pastEventId]));
+    await db.insert(events).values([
+      { id: softDeletedEventId, eventName: 'Archived Soft-deleted Event', slug: 'archived-soft-deleted-event', deletedAt: new Date(), location: 'Test Location' },
+      { id: activeEventId, eventName: 'Normal Active Event', slug: 'normal-active-event', location: 'Test Location' },
+      { id: pastEventId, eventName: 'Expired Past Event', slug: 'expired-past-event', location: 'Test Location' }
+    ]);
+
+    // Seed schedules (expired schedule for pastEventId, main schedules for others)
+    await db.delete(schedules).where(inArray(schedules.eventId, [softDeletedEventId, activeEventId, pastEventId]));
+    await db.insert(schedules).values([
+      { id: '11111111-1111-1111-1111-111111111111', eventId: softDeletedEventId, isMainSchedule: true, eventStartDate: '2026-08-30' },
+      { id: '22222222-2222-2222-2222-222222222222', eventId: activeEventId, isMainSchedule: true, eventStartDate: '2026-08-30' },
+      { id: '33333333-3333-3333-3333-333333333333', eventId: pastEventId, isMainSchedule: true, eventStartDate: '1970-01-01' } // definitely past
+    ]);
+
+    // Seed favorites (userId favorites softDeletedEventId and pastEventId)
+    await db.delete(favorites).where(inArray(favorites.eventId, [softDeletedEventId, pastEventId]));
+    await db.insert(favorites).values([
+      { id: '44444444-4444-4444-4444-444444444444', userId, eventId: softDeletedEventId },
+      { id: '55555555-5555-5555-5555-555555555555', userId, eventId: pastEventId }
+    ]);
+
+    try {
+      // Test 1: Unauthenticated request throws UNAUTHORIZED / UNAUTHENTICATED
+      mockUser = null;
+      const res1 = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              events(includeMyArchived: true) {
+                items { id }
+              }
+            }
+          `
+        })
+      });
+      const result1 = await res1.json();
+      assert.ok(result1.errors);
+      assert.strictEqual(result1.errors[0].extensions?.code, 'UNAUTHENTICATED');
+
+      // Test 2: Authenticated request returns archived/hidden events where there is a personal connection
+      mockUser = { userId, role: 'user' };
+      const res2 = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              events(includeMyArchived: true) {
+                items {
+                  id
+                  eventName
+                  deletedAt
+                  isExpiredForCurrentUser
+                }
+              }
+            }
+          `
+        })
+      });
+      const result2 = await res2.json();
+      assert.ok(!result2.errors, JSON.stringify(result2.errors));
+      const items2 = result2.data.events.items;
+      // Should contain softDeletedEventId and pastEventId, but NOT activeEventId (no hidden rule applies to activeEventId)
+      const itemIds = items2.map((item: any) => item.id);
+      assert.ok(itemIds.includes(softDeletedEventId));
+      assert.ok(itemIds.includes(pastEventId));
+      assert.ok(!itemIds.includes(activeEventId));
+
+      const pastItem = items2.find((i: any) => i.id === pastEventId);
+      assert.strictEqual(pastItem.isExpiredForCurrentUser, true);
+
+      // Test 3: Other user gets nothing or only their own (otherUserId hasn't favorited pastEventId, and soft-deleted is only visible to owners/connections)
+      mockUser = { userId: otherUserId, role: 'user' };
+      const res3 = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              events(includeMyArchived: true) {
+                items { id }
+              }
+            }
+          `
+        })
+      });
+      const result3 = await res3.json();
+      assert.ok(!result3.errors);
+      const itemIds3 = result3.data.events.items.map((item: any) => item.id);
+      assert.ok(!itemIds3.includes(pastEventId));
+
+      // Test 4: Singular Query.event and Query.eventBySlug owner-scoped bypass on soft-deleted
+      // Case A: Owner (with personal connection) gets the soft-deleted event details when includeMyArchived: true
+      mockUser = { userId, role: 'user' };
+      const res4 = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              event(id: "${softDeletedEventId}", includeMyArchived: true) {
+                id
+                eventName
+              }
+            }
+          `
+        })
+      });
+      const result4 = await res4.json();
+      assert.ok(!result4.errors);
+      assert.strictEqual(result4.data.event?.id, softDeletedEventId);
+
+      // Case B: Non-owner gets null/not found for includeMyArchived: true on soft-deleted
+      mockUser = { userId: otherUserId, role: 'user' };
+      const res5 = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              event(id: "${softDeletedEventId}", includeMyArchived: true) {
+                id
+              }
+            }
+          `
+        })
+      });
+      const result5 = await res5.json();
+      assert.ok(!result5.errors);
+      assert.strictEqual(result5.data.event, null);
+
+    } finally {
+      // Clean up
+      await db.delete(favorites).where(inArray(favorites.eventId, [softDeletedEventId, pastEventId]));
+      await db.delete(schedules).where(inArray(schedules.eventId, [softDeletedEventId, activeEventId, pastEventId]));
+      await db.delete(events).where(inArray(events.id, [softDeletedEventId, activeEventId, pastEventId]));
+      await db.delete(users).where(inArray(users.id, [userId, otherUserId]));
+    }
+  });
 });
 
 test('Story 4.4a - Soft Delete and Moderator Mutations integration', async (t) => {
@@ -1731,3 +1890,4 @@ test('Story 4.4a - Soft Delete and Moderator Mutations integration', async (t) =
     await db.delete(users).where(eq(users.id, tempUser.id));
   });
 });
+

@@ -153,8 +153,6 @@ describe('EventDiscoveryPanel', () => {
   });
 
   it('updates the active view content when a switcher tab is clicked', async () => {
-    const { user } = require('@testing-library/user-event');
-    const u = user ? user.setup() : null; // in case we want to use direct fireEvent instead, let's use fireEvent for robustness in JSDOM tests without extra setup overhead
     const { fireEvent } = require('@testing-library/react');
     
     render(<EventDiscoveryPanel {...defaultProps} />);

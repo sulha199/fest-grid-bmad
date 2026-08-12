@@ -7,7 +7,7 @@ baseline_commit: ff277ee70d49baea9ac7a4e4c821b1e1d08692de
 
 - Epic: 4
 - Story ID: 4.8
-- Status: ready-for-dev
+- Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -205,7 +205,7 @@ Task 1's `isPastEvent` fragment and Task 2's `Event.isExpiredForCurrentUser` fie
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Done
 
 ## Dev Agent Record
 

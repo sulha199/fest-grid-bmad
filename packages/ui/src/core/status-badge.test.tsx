@@ -63,4 +63,25 @@ describe('StatusBadge Component', () => {
     expect(badge).toBeDefined();
     expect(badge.className).toContain('text-red-800');
   });
+
+  it('renders correctly with expired variant', () => {
+    render(<StatusBadge variant="expired" label="Expired" />);
+    const badge = screen.getByText('Expired');
+    expect(badge).toBeDefined();
+    expect(badge.className).toContain('text-slate-800');
+  });
+
+  it('renders correctly with removedByModeration variant', () => {
+    render(<StatusBadge variant="removedByModeration" label="Removed" />);
+    const badge = screen.getByText('Removed');
+    expect(badge).toBeDefined();
+    expect(badge.className).toContain('text-red-800');
+  });
+
+  it('renders correctly with hiddenByMe variant', () => {
+    render(<StatusBadge variant="hiddenByMe" label="Hidden" />);
+    const badge = screen.getByText('Hidden');
+    expect(badge).toBeDefined();
+    expect(badge.className).toContain('text-amber-800');
+  });
 });
