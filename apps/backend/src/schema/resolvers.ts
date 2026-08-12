@@ -30,6 +30,7 @@ import { reportSystemErrorSchema } from '../validation/report-system-error.schem
 import { proposedEventCorrectionSchema } from '../validation/proposed-event-correction.schema.js';
 import { sendTemplatedEmail } from '../lib/email/adapter.js';
 import { loadBackendEnv } from '../env.js';
+import { sendDangerousReportModeratorAlerts } from '../lib/notifications/send-dangerous-report-moderator-alerts.js';
 
 const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema);
 const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);
@@ -1083,6 +1084,10 @@ export const resolvers: Resolvers = {
             .set({ deletedAt: new Date(), updatedAt: new Date() })
             .where(eq(events.id, eventId));
         }
+      }
+
+      if (reason === 'dangerous') {
+        await sendDangerousReportModeratorAlerts(existingEvent.eventName);
       }
 
       return {

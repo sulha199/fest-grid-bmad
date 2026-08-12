@@ -8,7 +8,7 @@ baseline_commit: b1eac62fe5312e9ac61b1a9ca439ea312528acbc
 
 - **Epic:** 4
 - **Story ID:** 4.5
-- **Status:** ready-for-dev
+- **Status:** review
 
 ## Story
 
@@ -26,7 +26,7 @@ baseline_commit: b1eac62fe5312e9ac61b1a9ca439ea312528acbc
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1, AC2) — Extract a testable moderator-alert dispatch function:** Create `apps/backend/src/lib/notifications/send-dangerous-report-moderator-alerts.ts`, following `send-quota-warning-emails.ts`'s exact shape (deps-injection default parameter, so the function is unit-testable without any ESM module-mocking):
+- [x] **Task 1 (AC1, AC2) — Extract a testable moderator-alert dispatch function:** Create `apps/backend/src/lib/notifications/send-dangerous-report-moderator-alerts.ts`, following `send-quota-warning-emails.ts`'s exact shape (deps-injection default parameter, so the function is unit-testable without any ESM module-mocking):
   ```ts
   import { loadBackendEnv } from '../../env.js';
   import { db } from '../../db/client.js';
@@ -64,25 +64,25 @@ baseline_commit: b1eac62fe5312e9ac61b1a9ca439ea312528acbc
   }
   ```
   This function never throws — every failure path (moderator lookup, individual send) is caught and logged internally, matching AC1's "never causes `submitReport` to fail" requirement. `moderatorReviewUrl` construction (`${webAppBaseUrl}/moderator/items`) mirrors `editAccountDefaultLocation`'s existing identical construction (`resolvers.ts:397`) exactly — same target page, same env var.
-- [ ] **Task 2 (AC1) — Wire into `submitReport`:** In `apps/backend/src/schema/resolvers.ts`, import `sendDangerousReportModeratorAlerts` from `../lib/notifications/send-dangerous-report-moderator-alerts.js`. In the `submitReport` mutation (currently `resolvers.ts:1033-1068`), after the `db.insert(reports)...returning()` call succeeds and `newReport` is available, add:
+- [x] **Task 2 (AC1) — Wire into `submitReport`:** In `apps/backend/src/schema/resolvers.ts`, import `sendDangerousReportModeratorAlerts` from `../lib/notifications/send-dangerous-report-moderator-alerts.js`. In the `submitReport` mutation (currently `resolvers.ts:1033-1068`), after the `db.insert(reports)...returning()` call succeeds and `newReport` is available, add:
   ```ts
   if (reason === 'dangerous') {
     await sendDangerousReportModeratorAlerts(existingEvent.eventName);
   }
   ```
   placed after the insert, before the `return { ...newReport, ... }` statement. `existingEvent` is already in scope from the resolver's existing AC/`NOT_FOUND` lookup (`resolvers.ts:1035`) — no new query needed to get the event name. Do **not** copy `editAccountDefaultLocation`'s fire-and-forget `Promise.allSettled(...).catch(...)`-without-`await` pattern (`resolvers.ts:391-419`) — see Dev Notes "Await vs. Fire-and-Forget Decision" for why this story deliberately diverges from that precedent.
-- [ ] **Task 3 (AC1, AC2) — Unit/integration tests for the extracted function:** Create `apps/backend/src/lib/notifications/send-dangerous-report-moderator-alerts.test.ts` (`node:test`, real local DB, mirroring `send-quota-warning-emails.test.ts`'s direct-`db.insert`-users-and-cleanup-in-`t.after` pattern):
+- [x] **Task 3 (AC1, AC2) — Unit/integration tests for the extracted function:** Create `apps/backend/src/lib/notifications/send-dangerous-report-moderator-alerts.test.ts` (`node:test`, real local DB, mirroring `send-quota-warning-emails.test.ts`'s direct-`db.insert`-users-and-cleanup-in-`t.after` pattern):
   - Seed 2 `users` rows with `role: 'moderator'` and 1 with `role: 'user'`. Call `sendDangerousReportModeratorAlerts('Test Event', { sendTemplatedEmail: mockFn })` where `mockFn` is a local `async (templateKey, to, variables) => { calls.push({ templateKey, to, variables }); return 'mock-id'; }`. Assert `calls.length === 2`, each call has `templateKey === 'DANGEROUS_EVENT_MODERATOR_ALERT'`, `to` matching one of the 2 moderator emails (not the regular user's), and `variables` deep-equal `{ eventName: 'Test Event', moderatorReviewUrl: '<webAppBaseUrl>/moderator/items' }`.
   - Zero-moderators case: seed only `role: 'user'` rows, call the function, assert it resolves (does not throw) and the mock `sendTemplatedEmail` was never called.
   - Partial-failure case: seed 2 moderators, pass a mock `sendTemplatedEmail` that rejects for the first call and resolves for the second (e.g. keyed by call order or recipient email). Assert the function still resolves without throwing, and both calls were attempted (the second moderator is not skipped because the first failed) — proving `Promise.allSettled` semantics, not `Promise.all`.
   - All-failure case: mock `sendTemplatedEmail` always rejects. Assert the function still resolves without throwing (proves AC1's "never causes `submitReport` to fail" guarantee at the function's own boundary, independent of the resolver wiring tested in Task 4).
-- [ ] **Task 4 (AC1) — Resolver-level wiring test:** Extend `apps/backend/src/schema/reports.test.ts` with a new `t.test('submitReport - dangerous reason triggers moderator email alert', ...)` block, reusing the shared `moderatorUser`/`testEvent` seeded in that file's existing `setup` block (`reports.test.ts:36-78` — do not re-seed). Because `NODE_ENV=test` makes the real `sendTemplatedEmail` (Story 0.15a's stub) safe to call for real (it logs to `console.info` and never hits SES), this test does **not** mock/spy on `sendDangerousReportModeratorAlerts` or the email adapter itself — see Dev Notes "Why This Test Doesn't Mock the Email Module" for why that would not reliably work here. Instead:
+- [x] **Task 4 (AC1) — Resolver-level wiring test:** Extend `apps/backend/src/schema/reports.test.ts` with a new `t.test('submitReport - dangerous reason triggers moderator email alert', ...)` block, reusing the shared `moderatorUser`/`testEvent` seeded in that file's existing `setup` block (`reports.test.ts:36-78` — do not re-seed). Because `NODE_ENV=test` makes the real `sendTemplatedEmail` (Story 0.15a's stub) safe to call for real (it logs to `console.info` and never hits SES), this test does **not** mock/spy on `sendDangerousReportModeratorAlerts` or the email adapter itself — see Dev Notes "Why This Test Doesn't Mock the Email Module" for why that would not reliably work here. Instead:
   - Spy on `console.info` via `t.mock.method(console, 'info', () => {})` (a plain mutable global object — the same class of target `mock.method(globalThis, 'fetch', ...)` already uses elsewhere in this codebase, e.g. `geolocation/adapter.test.ts`) before calling `submitReport`.
   - Call the real `submitReport` GraphQL mutation via the existing `yoga.fetch` harness with `mockUser = { userId: regularUser2.id, role: regularUser2.role }` (a distinct regular user from the other `submitReport` tests in this file, to avoid the existing-`dangerous`-report `REPORT_IGNORED` interference) and `reason: 'dangerous'`.
   - Assert the mutation still succeeds (`result.data.submitReport.id` present, no `errors`).
   - Assert the `console.info` spy was called at least once with a message containing `'[Email Stub]'` and `'DANGEROUS_EVENT_MODERATOR_ALERT'` and the seeded `moderatorUser.email` — proving the resolver actually invoked the full dispatch path (resolver → `sendDangerousReportModeratorAlerts` → `sendTemplatedEmail` → console-stub log) end-to-end, not just that the mutation didn't throw.
   - Restore the `console.info` mock (`consoleInfoMock.mock.restore()`) at the end of the test.
-- [ ] **Task 5 — Verification:** `pnpm --filter backend test` (new `send-dangerous-report-moderator-alerts.test.ts` passes; extended `reports.test.ts` passes; all existing `apps/backend` suites remain unmodified and passing — no codegen/schema/migration changes in this story, so no `pnpm --filter backend codegen` or `pnpm --filter @festgrid/database generate` step is needed). `pnpm build`, `pnpm lint`, `pnpm test` (root): full suite, no regressions.
+- [x] **Task 5 — Verification:** `pnpm --filter backend test` (new `send-dangerous-report-moderator-alerts.test.ts` passes; extended `reports.test.ts` passes; all existing `apps/backend` suites remain unmodified and passing — no codegen/schema/migration changes in this story, so no `pnpm --filter backend codegen` or `pnpm --filter @festgrid/database generate` step is needed). `pnpm build`, `pnpm lint`, `pnpm test` (root): full suite, no regressions.
 
 ## Dev Notes
 
@@ -208,16 +208,28 @@ Task 4's resolver-level wiring test spies on `console.info` rather than the emai
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude 3.5 Sonnet
 
 ### Debug Log References
 
+- Happy path and edge-case validation logs verified from `send-dangerous-report-moderator-alerts.test.ts` and `reports.test.ts` passes.
+
 ### Completion Notes List
 
+- Implemented `sendDangerousReportModeratorAlerts` function to query all users with the role of `moderator` and notify them using the outbound email adapter with the `DANGEROUS_EVENT_MODERATOR_ALERT` template.
+- Intercepted `submitReport` mutation for the reason "dangerous", which triggers immediate dispatch of moderator notifications, awaiting the promise to ensure the AWS Lambda execution context doesn't freeze prior to the send attempt, while gracefully catching any internal failures to prevent mutation rollback.
+- Wrote exhaustive unit/integration tests covering happy paths, zero moderators, partial email dispatch failures, and full email dispatch failures.
+- Added resolver-level integration testing spying on `console.info` using Yoga server fetching and verifying that the correct email template with its variables are dispatched end-to-end.
+
 ### File List
+
+- `apps/backend/src/lib/notifications/send-dangerous-report-moderator-alerts.ts` (New)
+- `apps/backend/src/lib/notifications/send-dangerous-report-moderator-alerts.test.ts` (New)
+- `apps/backend/src/schema/resolvers.ts` (Modified)
+- `apps/backend/src/schema/reports.test.ts` (Modified)

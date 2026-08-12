@@ -40,6 +40,9 @@ test('reports resolver integration', async (t) => {
   let testEvent: any;
 
   await t.test('setup - seed users and event', async () => {
+    // Clear reports table to prevent test pollution
+    await db.delete(reports);
+
     // Insert test event
     const [insertedEvent] = await db.insert(events).values({
       eventName: 'Reports Test Event',
@@ -630,6 +633,50 @@ test('reports resolver integration', async (t) => {
     assert.ok(!res.errors);
     [evState] = await db.select().from(events).where(eq(events.id, reportEvent.id));
     assert.ok(evState.deletedAt !== null, 'Event should be soft-deleted after 3 unique reports');
+  });
+
+  await t.test('submitReport - dangerous reason triggers moderator email alert', async (t) => {
+    const consoleInfoCalls: any[] = [];
+    const consoleInfoMock = t.mock.method(console, 'info', (...args: any[]) => {
+      consoleInfoCalls.push(args);
+    });
+
+    mockUser = { userId: regularUser2.id, role: regularUser2.role };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation SubmitReport($eventId: ID!, $reason: ReportReason!) {
+            submitReport(eventId: $eventId, reason: $reason) {
+              id
+              reason
+            }
+          }
+        `,
+        variables: {
+          eventId: testEvent.id,
+          reason: 'dangerous',
+        },
+      }),
+    });
+
+    const result = await response.json();
+    consoleInfoMock.mock.restore();
+
+    assert.ok(!result.errors, 'should not return errors');
+    assert.strictEqual(result.data.submitReport.reason, 'dangerous');
+
+    const matchedCall = consoleInfoCalls.some((args) => {
+      const msg = args.join(' ');
+      return (
+        msg.includes('[Email Stub]') &&
+        msg.includes('Template: DANGEROUS_EVENT_MODERATOR_ALERT') &&
+        msg.includes(`To: ${moderatorUser.email}`)
+      );
+    });
+
+    assert.ok(matchedCall, 'Should have logged email stub send for moderatorUser');
   });
 
   await t.test('cleanup - remove seeded reports, schedules, users, and events', async () => {
