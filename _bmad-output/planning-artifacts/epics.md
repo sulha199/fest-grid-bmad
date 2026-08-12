@@ -2324,6 +2324,26 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Depends on:** Story 4.3a.
 
+### Story 4.7a: Build the reusable moderator route-guard
+
+**As a** developer,
+**I want** a reusable, shared guard that checks the authenticated caller's role before rendering a moderator-only page,
+**So that** Story 4.7 (and any future moderator-gated page) enforces access control consistently instead of hand-rolling its own authorization check, and a non-moderator who navigates directly to a moderator URL (bypassing the already-hidden nav item) gets defined, tested behavior instead of an ad-hoc one-off check.
+
+**Acceptance Criteria:**
+
+*   **Given** the existing `Query.me.role` field (Story 0.17, backend) already flows to the frontend via the generated `useMeQuery` hook and is already used to hide the "Moderator Items" nav entry for non-moderators (Story 0.7/2.8), but no page anywhere in the codebase yet handles an *authenticated-but-wrong-role* visitor — every existing personal page (e.g. `/favorites`, `/reports`) only guards on `isAuthenticated`, redirecting unauthenticated visitors to `/login`,
+*   **When** a moderator-gated route is visited,
+*   **Then** a reusable hook (`useRequireModerator()`, `apps/web/src/features/auth/use-require-moderator.ts`) exposes a `status` of `loading` | `unauthenticated` | `unauthorized` | `authorized`, computed from `useAuthSession()` (`isLoading`, `user`) and `useMeQuery`'s `me.role`.
+*   **And** consuming pages redirect on `unauthenticated` to `/login` (existing pattern, unchanged) and on `unauthorized` to `/` (home) — treating direct URL access the same as if the route did not exist for that user, consistent with the nav item already being invisible to them; no error is thrown or logged for the `unauthorized` case, since attempting the URL is not itself a client bug.
+*   **And** while `status === 'loading'`, the consuming page renders its normal route-level `<RouteLoader />` (Story 0.26) rather than flashing an interim redirect or the page's real content.
+*   **And** the hook has its own integration test suite (Vitest) covering all four states, independent of any one consuming page.
+*   **And** Story 4.7's `/moderator/items` page is this hook's first consumer, calling it exactly once at the top of its content component.
+
+**Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced while drafting Story 4.7 via a fresh Freya-persona subagent review. No existing page in the codebase handles an authenticated-but-wrong-role visitor (only `isAuthenticated`→`/login` exists today), and this is a distinct, stateful piece of logic (loading/unauthenticated/unauthorized/authorized) that Story 4.7 would otherwise have to invent ad hoc as a byproduct of its own page — the exact failure mode this gate exists to catch, per the Story 1.3 retrospective this gate was written from. Presented to the user via `AskUserQuestion` alongside two other real Story 4.7 tradeoffs (2026-08-12): the Gate 2 subagent's own finding noted that, as of this pass, no *second* moderator-gated page exists anywhere in Epic 0-6, meaning the strict "≥2 places" reuse bar is not literally met today — the user was given the choice to build the guard inline in 4.7 instead (matching Story 4.6's precedent of declining a split without a second real consumer) or split it off now. **User chose to split it off**, prioritizing a tested, dedicated state machine for this security-relevant boundary over deferring it, even with only one current consumer. Single-story UI/architecture split, lettered suffix directly off Story 4.7, matching the `1.3a`/`1.3b`/`1.6a` numbering precedent.
+
+**Depends on:** Story 0.17, Story 0.26, Story 2.8.
+
 ### Story 4.7: Moderator Items page
 
 **As a** moderator,
@@ -2334,13 +2354,20 @@ Users can contribute to data quality by correcting event details and reporting i
 
 *   **Given** I am logged in as a moderator,
 *   **When** I navigate to the "Moderator Items" page from the user menu,
-*   **Then** I see a list of all reported events that require my attention, fetched via the moderator-only `reportedEvents` query (Story 4.3a) — not directly from the database.
-*   **And** for each reported event, I can see the reason for the report and any additional details.
-*   **And** I can take action on the report, such as marking an event as safe, restoring a soft-deleted event, or permanently deleting an event, using Story 4.3a's report-resolution mutations and Story 4.4a's `restoreEvent`/`deleteEventPermanently` mutations — not direct database access from `apps/web`.
-*   **And** I also see a separate list of pending `DefaultLocationChangeRequest` rows (status `PENDING_REVIEW`, PRD §4.14) awaiting my review, fetched via a moderator-only `pendingDefaultLocationChanges` query, gated by `requireModerator` (Story 0.17) per Architecture Spine AD-7 rule 5.
+*   **Then** I see a list of all reported events that require my attention, fetched via the moderator-only `reportedEvents` query (Story 4.3a) — not directly from the database — and **grouped by event** (revised 2026-08-12 via `AskUserQuestion`; supersedes the query's flat per-`Report` shape for display purposes): each event with at least one `pending` report renders as one row/card, listing every report filed against it (reason, details, reporting user, status).
+*   **And** for each reported event, I can see the reason(s) for the report(s) and any additional details.
+*   **And** I take exactly one moderator action per event, which resolves every currently-`pending` report on that event at once, rather than resolving reports individually:
+    *   **"Mark Safe" / "Restore"** (button label conditional on whether the event is currently soft-deleted) calls a new `resolveReportsForEvent(eventId: ID!): [Report!]!` mutation (guarded by `requireModerator`, this story's own new addition alongside Story 4.3a's existing `reports`-domain mutations) which, in one transaction: clears `events.deletedAt` if the event is currently soft-deleted (no separate call to Story 4.4a's `restoreEvent`), and sets every `pending` report on that event to `status: dismissed` with `resolvedByModeratorId`/`resolvedAt` stamped.
+    *   **"Delete Permanently"** calls Story 4.4a's existing `deleteEventPermanently(id)` mutation as-is (unchanged) — its FK cascade (`reports.eventId` → `onDelete: cascade`) already removes all of that event's report rows in the same operation, so no separate report-resolution call is needed or meaningful.
+    *   Confirmed 2026-08-12 via `AskUserQuestion`/direct code verification: `posts.isExtracted` (write-once, never reset to `false`) already prevents the deleted event's source post from being re-processed by the extraction pipeline, so `deleteEventPermanently` needs no further change to guard against re-extraction (see Story 5.1a's new Forward note for the one remaining, out-of-scope loose end).
+*   **And**, independent of the event-level action above, for each *dangerous*-reason report I can additionally choose **"Ignore future reports from this user"** for that specific reporter (Story 4.3a's `ignoreSubsequentReports(reportId)` mutation) — shown once per distinct reporting user among an event's dangerous reports, since it suppresses future submissions from one user, not the event as a whole, and does not by itself resolve any report.
+*   **And** I also see a separate list of pending `DefaultLocationChangeRequest` rows (status `PENDING_REVIEW`, PRD §4.14) awaiting my review, fetched via a moderator-only `pendingDefaultLocationChanges` query, gated by `requireModerator` (Story 0.17) per Architecture Spine AD-7 rule 5. Each entry also exposes the linked account's `displayName`/`platform`/`username`/`profileImageUrl` (via a new `account` field resolver on the returned type, mirroring `Report.event`'s field-resolver pattern) — added 2026-08-12 via `bmad-create-story`/`AskUserQuestion`, since the AC's literal `accountId` alone (an internal UUID) gives a moderator nothing recognizable to act on.
 *   **And** for each pending change, I can see the `accountId`, `previousLocation`, and `newLocation`, and either **accept** it (setting `status: ACCEPTED`, leaving `SocialMediaAccountProfile.defaultLocation` as `newLocation`) or **revert** it (setting `status: REVERTED` and writing `SocialMediaAccountProfile.defaultLocation` back to `previousLocation`), via a `resolveDefaultLocationChange(id, action)` mutation guarded by `requireModerator`.
+*   **And** the page is gated by Story 4.7a's `useRequireModerator()` guard, not a one-off check local to this page.
 
-**Depends on:** Story 4.3a, Story 4.4a, Story 3.3b, Story 0.17.
+**Correction (2026-08-12, amended via `bmad-create-story` while drafting this story):** The reported-events list was initially decided (via `AskUserQuestion`) to render one row per individual `Report`, matching `reportedEvents`' flat per-Report return shape. The user reconsidered and requested event-grouped display instead, where a single moderator action resolves every pending report on that event at once — the AC above reflects this reconsidered, final shape; the flat per-Report decision never shipped.
+
+**Depends on:** Story 4.3a, Story 4.4a, Story 3.3b, Story 0.17, Story 4.7a.
 
 ### Story 4.8: View archived (hidden) personal events
 
@@ -2388,6 +2415,8 @@ Users are guided through the initial setup and can manually select posts for eve
 **Amendment (2026-08-01, Epic 3 readiness re-sweep):** `postsBySubscription(subscriptionId, ...)` renamed to `postsByAccount(accountId, ...)`. Follows from Story 3.1a: posts now belong to the shared `social_media_account_profiles` row (an account can have multiple subscribers), not to any one subscription.
 
 **Amendment (2026-08-07, added via `bmad-create-story` while drafting Story 3.2):** `mySubscriptions` and `removeSubscription` ownership moved to Story 3.2 (resolved via `AskUserQuestion` during that story's creation) — building `/settings/subscriptions`'s list+remove view made Epic 3 need these regardless, and having Epic 5 own them would have made Epic 3's own page depend on Epic 5 existing first. This story now **extends** Story 3.2's `mySubscriptions` with `isInactive` (needs Story 3.3a's `posts` table, unavailable when Story 3.2 ships) instead of rebuilding the query, and reuses Story 3.2's `removeSubscription` mutation as-is rather than redeclaring it. Previously this story built both from scratch; the `postsBySubscription`→`postsByAccount` rename above and this ownership move are independent amendments from different sweeps.
+
+**Forward note (2026-08-12, added via `bmad-create-story` while drafting Story 4.7):** Confirmed with the user that `posts.isExtracted` (write-once, never reset to `false` anywhere in the codebase — see `markPostExtracted()`) already prevents a permanently-deleted event's source post from ever being re-selected by the automated pipeline, since `enqueuePostForProcessing()` already throws `PostAlreadyExtractedError` server-side when `isExtracted` is true. When this story's `selectPostsForExtraction(postIds)` mutation is actually built, it must apply the identical server-side `isExtracted` guard (not merely rely on the UI disabling already-processed posts, per this AC's existing "visually disabled" language) — mirroring `enqueuePostForProcessing`'s existing precedent — so a client can't bypass the disabled checkbox and resubmit a post whose event a moderator has since permanently deleted (Story 4.7/4.4a's `deleteEventPermanently`). No schema or logic change needed in Story 4.7 itself; this is purely a heads-up for this story's own future `bmad-create-story` pass.
 
 **Depends on:** Story 0.8, Story 0.13, Story 0.17, Story 3.1a, Story 3.2, Story 3.3a, Story 3.5.
 
