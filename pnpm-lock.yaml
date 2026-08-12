@@ -196,6 +196,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      date-fns-tz:
+        specifier: '3'
+        version: 3.2.0(date-fns@4.4.0)
       firebase:
         specifier: ^12.16.0
         version: 12.17.1
@@ -205,6 +208,9 @@ importers:
       graphql-request:
         specifier: ^7.4.0
         version: 7.4.0(graphql@16.14.2)
+      ics:
+        specifier: '3'
+        version: 3.12.0
       lucide-react:
         specifier: ^1.25.0
         version: 1.25.0(react@19.2.7)
@@ -391,12 +397,6 @@ importers:
       '@festgrid/shared-types':
         specifier: workspace:*
         version: link:../shared-types
-      date-fns-tz:
-        specifier: '3'
-        version: 3.2.0(date-fns@4.4.0)
-      ics:
-        specifier: '3'
-        version: 3.12.0
     devDependencies:
       '@festgrid/eslint-config':
         specifier: workspace:*

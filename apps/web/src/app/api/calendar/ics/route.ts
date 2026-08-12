@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { graphqlClient } from '@/lib/graphql-client';
 import { GetEventForIcsExportDocument, GetEventForIcsExportQuery } from '@/generated/graphql';
-import { buildIcsCalendar, IcsEventInput, IcsScheduleInput } from '@festgrid/domain/calendar';
+import { buildIcsCalendar, IcsEventInput, IcsScheduleInput } from '@/lib/calendar/buildIcsCalendar';
 
 export async function GET(req: NextRequest) {
   try {

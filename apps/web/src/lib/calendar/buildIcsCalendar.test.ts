@@ -1,7 +1,6 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import { buildIcsCalendar } from './buildIcsCalendar.js';
-import { IcsEventInput, IcsScheduleInput } from './types.js';
+import { describe, it, expect } from 'vitest';
+import { buildIcsCalendar } from './buildIcsCalendar';
+import { IcsEventInput, IcsScheduleInput } from './types';
 
 describe('buildIcsCalendar', () => {
   const baseEvent: IcsEventInput = {
@@ -25,18 +24,18 @@ describe('buildIcsCalendar', () => {
   it('generates a single schedule with start and end present', () => {
     const result = buildIcsCalendar(baseEvent, [baseSchedule]);
     
-    assert.match(result, /BEGIN:VCALENDAR/);
-    assert.match(result, /BEGIN:VEVENT/);
-    assert.match(result, /UID:sched-1@festdaily\.app/);
-    assert.match(result, /SUMMARY:Test Event: Morning Session/);
-    assert.match(result, /DESCRIPTION:A test event description/);
-    assert.match(result, /URL:https:\/\/festdaily\.app\/events\/test-event/);
-    assert.match(result, /LOCATION:Main Stage/);
+    expect(result).toMatch(/BEGIN:VCALENDAR/);
+    expect(result).toMatch(/BEGIN:VEVENT/);
+    expect(result).toMatch(/UID:sched-1@festdaily\.app/);
+    expect(result).toMatch(/SUMMARY:Test Event: Morning Session/);
+    expect(result).toMatch(/DESCRIPTION:A test event description/);
+    expect(result).toMatch(/URL:https:\/\/festdaily\.app\/events\/test-event/);
+    expect(result).toMatch(/LOCATION:Main Stage/);
     // Asia/Jakarta is UTC+7. Local 10:00 is UTC 03:00.
-    assert.match(result, /DTSTART:20260810T030000Z/);
-    assert.match(result, /DTEND:20260810T050000Z/);
-    assert.match(result, /END:VEVENT/);
-    assert.match(result, /END:VCALENDAR/);
+    expect(result).toMatch(/DTSTART:20260810T030000Z/);
+    expect(result).toMatch(/DTEND:20260810T050000Z/);
+    expect(result).toMatch(/END:VEVENT/);
+    expect(result).toMatch(/END:VCALENDAR/);
   });
 
   it('generates multiple VEVENTs for multiple schedules', () => {
@@ -50,12 +49,12 @@ describe('buildIcsCalendar', () => {
     const result = buildIcsCalendar(baseEvent, [baseSchedule, sched2]);
     
     // Check that both UIDs exist
-    assert.match(result, /UID:sched-1@festdaily\.app/);
-    assert.match(result, /UID:sched-2@festdaily\.app/);
+    expect(result).toMatch(/UID:sched-1@festdaily\.app/);
+    expect(result).toMatch(/UID:sched-2@festdaily\.app/);
     
     // Check that we have exactly two VEVENTs
     const veventCount = (result.match(/BEGIN:VEVENT/g) || []).length;
-    assert.equal(veventCount, 2);
+    expect(veventCount).toBe(2);
   });
 
   it('handles start-only by defaulting to a 2-hour duration', () => {
@@ -67,8 +66,8 @@ describe('buildIcsCalendar', () => {
     const result = buildIcsCalendar(baseEvent, [noEndSchedule]);
     
     // duration defaults to 2 hours
-    assert.match(result, /DTSTART:20260810T030000Z/);
-    assert.match(result, /DURATION:PT2H/);
+    expect(result).toMatch(/DTSTART:20260810T030000Z/);
+    expect(result).toMatch(/DURATION:PT2H/);
   });
 
   it('handles no-start by creating an all-day event (1 day)', () => {
@@ -81,8 +80,8 @@ describe('buildIcsCalendar', () => {
     const result = buildIcsCalendar(baseEvent, [allDaySchedule]);
     
     // All day events use VALUE=DATE and do not have time components
-    assert.match(result, /DTSTART;VALUE=DATE:20260810/);
-    assert.match(result, /DTEND;VALUE=DATE:20260811/);
+    expect(result).toMatch(/DTSTART;VALUE=DATE:20260810/);
+    expect(result).toMatch(/DTEND;VALUE=DATE:20260811/);
   });
 
   it('handles no-start by creating an all-day event (multiple days)', () => {
@@ -96,9 +95,9 @@ describe('buildIcsCalendar', () => {
     const result = buildIcsCalendar(baseEvent, [allDaySchedule]);
     
     // All day events use VALUE=DATE. End date is exclusive in ICS.
-    assert.match(result, /DTSTART;VALUE=DATE:20260810/);
+    expect(result).toMatch(/DTSTART;VALUE=DATE:20260810/);
     // End date should be 2026-08-13 (day after the last date)
-    assert.match(result, /DTEND;VALUE=DATE:20260813/);
+    expect(result).toMatch(/DTEND;VALUE=DATE:20260813/);
   });
 
   it('handles missing timezone by using floating format (no Z)', () => {
@@ -109,10 +108,10 @@ describe('buildIcsCalendar', () => {
     const result = buildIcsCalendar(baseEvent, [noTzSchedule]);
     
     // Should use the literal wall-clock time
-    assert.match(result, /DTSTART:20260810T100000\r\n/);
-    assert.match(result, /DTEND:20260810T120000\r\n/);
-    assert.doesNotMatch(result, /DTSTART:.*Z/);
-    assert.doesNotMatch(result, /DTEND:.*Z/);
+    expect(result).toMatch(/DTSTART:20260810T100000\r\n/);
+    expect(result).toMatch(/DTEND:20260810T120000\r\n/);
+    expect(result).not.toMatch(/DTSTART:.*Z/);
+    expect(result).not.toMatch(/DTEND:.*Z/);
   });
 
   it('handles invalid timezone by falling back to floating format (no Z)', () => {
@@ -123,9 +122,9 @@ describe('buildIcsCalendar', () => {
     const result = buildIcsCalendar(baseEvent, [invalidTzSchedule]);
     
     // Should use the literal wall-clock time
-    assert.match(result, /DTSTART:20260810T100000\r\n/);
-    assert.match(result, /DTEND:20260810T120000\r\n/);
-    assert.doesNotMatch(result, /DTSTART:.*Z/);
+    expect(result).toMatch(/DTSTART:20260810T100000\r\n/);
+    expect(result).toMatch(/DTEND:20260810T120000\r\n/);
+    expect(result).not.toMatch(/DTSTART:.*Z/);
   });
 
   it('ensures UID stability across two calls with the same schedule ID', () => {
@@ -137,8 +136,8 @@ describe('buildIcsCalendar', () => {
       return match ? match[1] : null;
     };
     
-    assert.equal(extractUid(result1), extractUid(result2));
-    assert.equal(extractUid(result1), 'sched-1@festdaily.app');
+    expect(extractUid(result1)).toBe(extractUid(result2));
+    expect(extractUid(result1)).toBe('sched-1@festdaily.app');
   });
 
   it('escapes special characters correctly in title, description, and location', () => {
@@ -156,28 +155,28 @@ describe('buildIcsCalendar', () => {
     const result = buildIcsCalendar(specialEvent, [specialSchedule]);
     
     // ics package automatically escapes commas, semicolons, and newlines
-    assert.ok(result.includes('SUMMARY:Test\\, Event\\; with\\nnewlines: Session\\, morning\\;'));
-    assert.ok(result.includes('DESCRIPTION:Line 1\\nLine 2\\, and\\; some symbols'));
-    assert.ok(result.includes('LOCATION:Stage\\, Main\\; Area'));
+    expect(result).toContain('SUMMARY:Test\\, Event\\; with\\nnewlines: Session\\, morning\\;');
+    expect(result).toContain('DESCRIPTION:Line 1\\nLine 2\\, and\\; some symbols');
+    expect(result).toContain('LOCATION:Stage\\, Main\\; Area');
   });
   
   it('falls back location properly', () => {
     // 1. locationDetails.formattedAddress
     const sched1: IcsScheduleInput = { ...baseSchedule, location: 'Loc', locationDetails: { formattedAddress: 'Addr' } };
-    assert.match(buildIcsCalendar(baseEvent, [sched1]), /LOCATION:Addr/);
+    expect(buildIcsCalendar(baseEvent, [sched1])).toMatch(/LOCATION:Addr/);
     
     // 2. schedule.location
     const sched2: IcsScheduleInput = { ...baseSchedule, location: 'Loc', locationDetails: null };
-    assert.match(buildIcsCalendar(baseEvent, [sched2]), /LOCATION:Loc/);
+    expect(buildIcsCalendar(baseEvent, [sched2])).toMatch(/LOCATION:Loc/);
     
     // 3. event.location
     const eventWithLoc: IcsEventInput = { ...baseEvent, location: 'Event Loc' };
     const sched3: IcsScheduleInput = { ...baseSchedule, location: null, locationDetails: null };
-    assert.match(buildIcsCalendar(eventWithLoc, [sched3]), /LOCATION:Event Loc/);
+    expect(buildIcsCalendar(eventWithLoc, [sched3])).toMatch(/LOCATION:Event Loc/);
   });
 
   it('handles missing event title in schedule', () => {
     const sched: IcsScheduleInput = { ...baseSchedule, title: null };
-    assert.match(buildIcsCalendar(baseEvent, [sched]), /SUMMARY:Test Event\r\n/);
+    expect(buildIcsCalendar(baseEvent, [sched])).toMatch(/SUMMARY:Test Event\r\n/);
   });
 });

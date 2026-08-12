@@ -22,10 +22,6 @@
       "types": "./dist/geolocation/index.d.ts",
       "default": "./dist/geolocation/index.js"
     },
-    "./calendar": {
-      "types": "./dist/calendar/index.d.ts",
-      "default": "./dist/calendar/index.js"
-    },
     "./user-locations": {
       "types": "./dist/user-locations/index.d.ts",
       "default": "./dist/user-locations/index.js"
@@ -63,9 +59,7 @@
     "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
-    "@festgrid/shared-types": "workspace:*",
-    "date-fns-tz": "3",
-    "ics": "3"
+    "@festgrid/shared-types": "workspace:*"
   },
   "devDependencies": {
     "@festgrid/eslint-config": "workspace:*",
