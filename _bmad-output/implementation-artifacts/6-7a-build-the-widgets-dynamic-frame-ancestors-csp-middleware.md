@@ -4,7 +4,8 @@
 
 - Epic: 6
 - Story ID: 6.7a
-- Status: ready-for-dev
+- Status: review
+- baseline_commit: 1d5edef
 
 ## Story
 
@@ -23,11 +24,11 @@ So that we prevent clickjacking and unallowed framing on unauthorized third-part
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: 1, 2, 3, 5, 6): Implement dynamic CSP check inside widget page server-side render
-  - [ ] Add server-side origin parsing to the widget page `/widget/[id]/page.tsx` or Next.js middleware
-  - [ ] Check whitelisted origins via `isOriginAllowedForWidget` query call
-  - [ ] Set dynamic `Content-Security-Policy: frame-ancestors <origin>` header if whitelisted, or `'none'` otherwise
-  - [ ] Handle dev/local requests with no headers by serving fallback `'self'` safely
+- [x] Task 1 (AC: 1, 2, 3, 5, 6): Implement dynamic CSP check inside widget page server-side render
+  - [x] Add server-side origin parsing to the widget page `/widget/[id]/page.tsx` or Next.js middleware
+  - [x] Check whitelisted origins via `isOriginAllowedForWidget` query call
+  - [x] Set dynamic `Content-Security-Policy: frame-ancestors <origin>` header if whitelisted, or `'none'` otherwise
+  - [x] Handle dev/local requests with no headers by serving fallback `'self'` safely
 
 ## Dev Notes
 
@@ -71,19 +72,19 @@ So that we prevent clickjacking and unallowed framing on unauthorized third-part
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation
-- [ ] Architecture and boundary confirmation
-- [ ] Testing plan confirmation
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted
+- [x] Scope confirmation
+- [x] Architecture and boundary confirmation
+- [x] Testing plan confirmation
+- [x] Explicit human approval state (Approved)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted
 
 ## Testing Requirements
 
-- [ ] Integration tests verifying `frame-ancestors` value on varying request header origins.
+- [x] Integration tests verifying `frame-ancestors` value on varying request header origins.
 
 ## Deliverables Checklist
 
-- [ ] Dynamic frame-ancestors CSP verification filter
+- [x] Dynamic frame-ancestors CSP verification filter
 
 ## Out of Scope
 
@@ -91,13 +92,13 @@ So that we prevent clickjacking and unallowed framing on unauthorized third-part
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 

@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-12T22:45:00Z
+last_updated: 2026-08-12T22:46:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -727,6 +727,6 @@ development_status:
   6-5-configure-and-generate-a-widget-embed: review
   6-6a-build-the-embed-domain-backend-graphql-api-layer: review
   6-6-register-and-manage-embed-domains: ready-for-dev
-  6-7a-build-the-widgets-dynamic-frame-ancestors-csp-middleware: ready-for-dev
+  6-7a-build-the-widgets-dynamic-frame-ancestors-csp-middleware: review
   6-7-public-widget-rendering-page: backlog
   epic-6-retrospective: optional
