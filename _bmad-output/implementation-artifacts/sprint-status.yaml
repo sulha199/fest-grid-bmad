@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-12T22:40:00Z
+last_updated: 2026-08-12T22:41:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -723,8 +723,8 @@ development_status:
   # added 2026-08-08 during PRD/epics.md revision: widget model changed from
   # stateless URL query params to a persisted entity (own id, editable post-
   # creation, embeds auto-update). See epics.md Story 6.5a note.
-  6-5a-build-the-widget-config-backend-graphql-api-layer: ready-for-dev
-  6-5-configure-and-generate-a-widget-embed: backlog
+  6-5a-build-the-widget-config-backend-graphql-api-layer: review
+  6-5-configure-and-generate-a-widget-embed: ready-for-dev
   6-6a-build-the-embed-domain-backend-graphql-api-layer: backlog
   6-6-register-and-manage-embed-domains: backlog
   6-7a-build-the-widgets-dynamic-frame-ancestors-csp-middleware: backlog
