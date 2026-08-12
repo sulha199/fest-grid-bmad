@@ -590,6 +590,7 @@ export type QueryVotedAccountSuggestionsArgs = {
 export type RankedAccountVote = {
   __typename?: 'RankedAccountVote';
   profile: SocialMediaAccountProfile;
+  userVoteId?: Maybe<Scalars['ID']['output']>;
   voteCount: Scalars['Int']['output'];
 };
 
@@ -1112,7 +1113,7 @@ export type RankedVoteAccountsQueryVariables = Exact<{
 }>;
 
 
-export type RankedVoteAccountsQuery = { rankedVoteAccounts: Array<{ voteCount: number, profile: { id: string, platform: string, accountId: string, username: string, displayName: string, profileImageUrl: string | null, description: string | null } }> };
+export type RankedVoteAccountsQuery = { rankedVoteAccounts: Array<{ voteCount: number, userVoteId: string | null, profile: { id: string, platform: string, accountId: string, username: string, displayName: string, profileImageUrl: string | null, description: string | null } }> };
 
 export type VoteRegionBreakdownQueryVariables = Exact<{
   accountId: string | number;
@@ -1126,7 +1127,7 @@ export type VotedAccountSuggestionsQueryVariables = Exact<{
 }>;
 
 
-export type VotedAccountSuggestionsQuery = { votedAccountSuggestions: Array<{ voteCount: number, profile: { id: string, platform: string, accountId: string, username: string, displayName: string, profileImageUrl: string | null, description: string | null } }> };
+export type VotedAccountSuggestionsQuery = { votedAccountSuggestions: Array<{ voteCount: number, userVoteId: string | null, profile: { id: string, platform: string, accountId: string, username: string, displayName: string, profileImageUrl: string | null, description: string | null } }> };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -2654,6 +2655,7 @@ export const RankedVoteAccountsDocument = new TypedDocumentString(`
     query rankedVoteAccounts($nearMe: Boolean, $locationPreferenceId: ID) {
   rankedVoteAccounts(nearMe: $nearMe, locationPreferenceId: $locationPreferenceId) {
     voteCount
+    userVoteId
     profile {
       id
       platform
@@ -2716,6 +2718,7 @@ export const VotedAccountSuggestionsDocument = new TypedDocumentString(`
     query votedAccountSuggestions($query: String) {
   votedAccountSuggestions(query: $query) {
     voteCount
+    userVoteId
     profile {
       id
       platform

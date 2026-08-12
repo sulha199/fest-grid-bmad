@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
-import { useRankedVoteAccountsQuery, useCastVoteMutation } from "@/generated/graphql"
+import { useRankedVoteAccountsQuery, useCastVoteMutation, useWithdrawVoteMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
@@ -27,6 +27,7 @@ export function RankedVoteList({ nearMe, selectedLocationId }: RankedVoteListPro
   )
 
   const { mutateAsync: castVote, isPending: isVoting } = useCastVoteMutation(graphqlClient)
+  const { mutateAsync: withdrawVote, isPending: isWithdrawing } = useWithdrawVoteMutation(graphqlClient)
 
   const handleVote = async (accountId: string) => {
     try {
@@ -38,6 +39,20 @@ export function RankedVoteList({ nearMe, selectedLocationId }: RankedVoteListPro
       refetch()
     } catch {
       toast.error("Failed to record vote")
+    }
+  }
+
+  const handleWithdraw = async (voteId: string) => {
+    try {
+      await withdrawVote({
+        id: voteId,
+        action: "DELETE" as any,
+      })
+      toast.success("Vote withdrawn successfully!")
+      queryClient.invalidateQueries({ queryKey: ["rankedVoteAccounts"] })
+      refetch()
+    } catch {
+      toast.error("Failed to withdraw vote")
     }
   }
 
@@ -92,13 +107,23 @@ export function RankedVoteList({ nearMe, selectedLocationId }: RankedVoteListPro
                   <span className="text-xs text-muted-foreground block">votes</span>
                 </div>
 
-                <button
-                  onClick={() => handleVote(profile.id)}
-                  disabled={isVoting}
-                  className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 disabled:opacity-50"
-                >
-                  Vote
-                </button>
+                {entry.userVoteId ? (
+                  <button
+                    onClick={() => entry.userVoteId && handleWithdraw(entry.userVoteId)}
+                    disabled={isVoting || isWithdrawing}
+                    className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 disabled:opacity-50"
+                  >
+                    Withdraw
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleVote(profile.id)}
+                    disabled={isVoting || isWithdrawing}
+                    className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 disabled:opacity-50"
+                  >
+                    Vote
+                  </button>
+                )}
 
                 <button
                   onClick={() => {

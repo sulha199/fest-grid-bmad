@@ -18,6 +18,7 @@ mutation withdrawVote($id: ID!, $action: SoftDeleteAction!) {
 query rankedVoteAccounts($nearMe: Boolean, $locationPreferenceId: ID) {
   rankedVoteAccounts(nearMe: $nearMe, locationPreferenceId: $locationPreferenceId) {
     voteCount
+    userVoteId
     profile {
       id
       platform
@@ -40,6 +41,7 @@ query voteRegionBreakdown($accountId: ID!) {
 query votedAccountSuggestions($query: String) {
   votedAccountSuggestions(query: $query) {
     voteCount
+    userVoteId
     profile {
       id
       platform

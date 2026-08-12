@@ -586,6 +586,7 @@ export type QueryVotedAccountSuggestionsArgs = {
 export type RankedAccountVote = {
   __typename?: 'RankedAccountVote';
   profile: SocialMediaAccountProfile;
+  userVoteId?: Maybe<Scalars['ID']['output']>;
   voteCount: Scalars['Int']['output'];
 };
 
@@ -1167,6 +1168,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
 
 export type RankedAccountVoteResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RankedAccountVote'] = ResolversParentTypes['RankedAccountVote']> = ResolversObject<{
   profile?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType>;
+  userVoteId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   voteCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;

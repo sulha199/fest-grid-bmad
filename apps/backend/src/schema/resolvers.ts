@@ -1772,6 +1772,7 @@ export const resolvers: Resolvers = {
           accountId: accountVotes.accountId,
           voteCount: sql<number>`count(${accountVotes.id})::int`,
           weightedScore: sql<number>`SUM(COALESCE(${voterWeights.weight}, 1))::int`,
+          userVoteId: userId ? sql<string | null>`MAX(CASE WHEN ${accountVotes.userId} = ${userId} THEN ${accountVotes.id}::text ELSE NULL END)` : sql`NULL`,
         })
         .from(accountVotes)
         .leftJoin(voterWeights, eq(accountVotes.userId, voterWeights.userId))
@@ -1782,6 +1783,7 @@ export const resolvers: Resolvers = {
         rows = await db.select({
           accountId: accountVotes.accountId,
           voteCount: sql<number>`count(${accountVotes.id})::int`,
+          userVoteId: userId ? sql<string | null>`MAX(CASE WHEN ${accountVotes.userId} = ${userId} THEN ${accountVotes.id}::text ELSE NULL END)` : sql`NULL`,
         })
         .from(accountVotes)
         .where(and(...conditions))
@@ -1799,6 +1801,7 @@ export const resolvers: Resolvers = {
           result.push({
             profile: profile as any,
             voteCount: row.voteCount,
+            userVoteId: row.userVoteId,
           });
         }
       }
@@ -1880,6 +1883,7 @@ export const resolvers: Resolvers = {
       const votesQuery = db.select({
         accountId: accountVotes.accountId,
         voteCount: sql<number>`count(${accountVotes.id})::int`,
+        userVoteId: sql<string | null>`MAX(CASE WHEN ${accountVotes.userId} = ${context.user.userId} THEN ${accountVotes.id}::text ELSE NULL END)`,
       })
       .from(accountVotes)
       .innerJoin(socialMediaAccountProfiles, eq(accountVotes.accountId, socialMediaAccountProfiles.id))
@@ -1902,6 +1906,7 @@ export const resolvers: Resolvers = {
           result.push({
             profile: profile as any,
             voteCount: row.voteCount,
+            userVoteId: row.userVoteId,
           });
         }
       }
