@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-12T22:37:00Z
+last_updated: 2026-08-12T22:38:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -719,7 +719,7 @@ development_status:
   6-1-vote-for-a-social-media-account: review
   6-2-view-the-ranked-vote-list: review
   6-3-withdraw-a-vote: ready-for-dev
-  6-4-autocomplete-voted-accounts-when-subscribing: backlog
+  6-4-autocomplete-voted-accounts-when-subscribing: ready-for-dev
   # added 2026-08-08 during PRD/epics.md revision: widget model changed from
   # stateless URL query params to a persisted entity (own id, editable post-
   # creation, embeds auto-update). See epics.md Story 6.5a note.
