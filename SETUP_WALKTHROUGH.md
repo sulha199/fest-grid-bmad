@@ -240,7 +240,7 @@ The AI Gateway wraps all outbound Google Gemini API calls behind a single Adapte
     *   Set the relevant environment variables in your root `.env`:
         ```env
         BYOK_KMS_KEY_ID="" # Provisioned automatically by Story 0.14's AWS IaC stack
-        GEMINI_MODEL="gemini-2.5-flash"
+        GEMINI_MODEL="gemini-3.5-flash-lite"
         API_KEY_INVALID_ATTEMPTS_THRESHOLD="5"
         API_KEY_USAGE_CYCLE_DAYS="30"
         ```

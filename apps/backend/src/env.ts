@@ -78,7 +78,7 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     byokKmsKeyId: process.env.BYOK_KMS_KEY_ID,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
-    geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    geminiModel: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     apiKeyInvalidAttemptsThreshold: parseInt(process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD || '5', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
