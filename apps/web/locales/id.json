@@ -413,6 +413,8 @@
   },
   "Wizards": {
     "onboarding": {
+      "title": "Memulai",
+      "description": "Tambahkan kunci API Gemini Anda dan berlangganan akun media sosial pertama Anda untuk mulai mengekstrak acara ke feed Anda.",
       "steps": {
         "api-key": {
           "title": "Tambah Kunci API",

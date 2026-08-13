@@ -413,6 +413,8 @@
   },
   "Wizards": {
     "onboarding": {
+      "title": "Getting Started",
+      "description": "Add your Gemini API key and subscribe to your first social media account to start extracting events into your feed.",
       "steps": {
         "api-key": {
           "title": "Add API Key",

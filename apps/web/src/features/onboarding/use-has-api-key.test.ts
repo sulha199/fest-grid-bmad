@@ -1,8 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
-import { useHasApiKey } from './use-has-api-key';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useApiKeyStatus, useHasApiKey } from './use-has-api-key';
 
 let mockSession: any = null;
-let mockMyApiKeys: any[] = [];
+let mockGetMyApiKeysQueryResult: any = { data: { myApiKeys: [] }, isLoading: false };
 
 vi.mock('@/components/providers/auth-session-provider', () => ({
   useAuthSession: () => ({
@@ -11,29 +11,39 @@ vi.mock('@/components/providers/auth-session-provider', () => ({
 }));
 
 vi.mock('@/generated/graphql', () => ({
-  useGetMyApiKeysQuery: () => ({
-    data: {
-      myApiKeys: mockMyApiKeys,
-    },
-  }),
+  useGetMyApiKeysQuery: () => mockGetMyApiKeysQueryResult,
 }));
+
+beforeEach(() => {
+  mockSession = null;
+  mockGetMyApiKeysQueryResult = { data: { myApiKeys: [] }, isLoading: false };
+});
 
 describe('useHasApiKey', () => {
   it('returns false while unauthenticated', () => {
     mockSession = null;
-    mockMyApiKeys = [];
     expect(useHasApiKey()).toBe(false);
   });
 
   it('returns false with zero keys', () => {
     mockSession = { user: { id: 'user-1' } };
-    mockMyApiKeys = [];
     expect(useHasApiKey()).toBe(false);
   });
 
   it('returns true with >=1 key', () => {
     mockSession = { user: { id: 'user-1' } };
-    mockMyApiKeys = [{ id: 'key-1' }];
+    mockGetMyApiKeysQueryResult = { data: { myApiKeys: [{ id: 'key-1' }] }, isLoading: false };
     expect(useHasApiKey()).toBe(true);
+  });
+});
+
+describe('useApiKeyStatus', () => {
+  it('returns loading state and key presence separately', () => {
+    mockSession = { user: { id: 'user-1' } };
+    mockGetMyApiKeysQueryResult = { data: undefined, isLoading: true };
+    expect(useApiKeyStatus()).toEqual({ hasApiKey: false, isLoading: true });
+
+    mockGetMyApiKeysQueryResult = { data: { myApiKeys: [{ id: 'key-1' }] }, isLoading: false };
+    expect(useApiKeyStatus()).toEqual({ hasApiKey: true, isLoading: false });
   });
 });

@@ -204,6 +204,8 @@ so that any current or future multi-step flow (Story 3.1's onboarding wizard now
 - Vitest UI and Web tests passed completely.
 - Web production build compiled and verified successfully.
 
+**Amended 2026-08-13:** the wizard page chrome now also renders a wizard-level title/description (`Wizards.${wizardKey}.title`/`description`), rendered once above `WizardStepSummary`, distinct from and in addition to the existing per-step `Wizards.${wizardKey}.steps.${stepSlug}.title`/`description` shown inside the step card. Added because Story 3.2's new `/settings/subscriptions` → wizard redirect (see below) can land a user in the wizard with no prior context; every wizard registry entry (currently just `onboarding`, Story 3.1) must supply both a wizard-level and per-step set of i18n keys going forward.
+
 ### Completion Notes List
 - Built the entire wizard routing mechanism, wizard-registry, and helper utilities.
 - Implemented `useWizardStep()` and `WizardStepProvider` to manage and share client-side step completion states.

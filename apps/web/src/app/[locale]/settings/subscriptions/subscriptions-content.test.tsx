@@ -47,17 +47,6 @@ vi.mock('../../../../lib/graphql-client', async () => {
 import { SubscriptionsContent } from './subscriptions-content';
 import { server as globalServer } from '../../../../../../../packages/testing-config/vitest.setup';
 
-let mockHasApiKey = true;
-vi.mock('@/features/onboarding/use-has-api-key', () => ({
-  useHasApiKey: () => mockHasApiKey,
-}));
-
-vi.mock('@festgrid/analytics', () => ({
-  usePostHog: () => ({
-    capture: mockPosthogCapture,
-  }),
-}));
-
 const mockSubscriptions = [
   {
     id: 'sub-1',
@@ -95,6 +84,20 @@ const mockSubscriptions = [
   },
 ];
 
+let mockHasApiKey = true;
+let mockApiKeyLoading = false;
+let subscriptionsResponse: any[] = mockSubscriptions;
+vi.mock('@/features/onboarding/use-has-api-key', () => ({
+  useHasApiKey: () => mockHasApiKey,
+  useApiKeyStatus: () => ({ hasApiKey: mockHasApiKey, isLoading: mockApiKeyLoading }),
+}));
+
+vi.mock('@festgrid/analytics', () => ({
+  usePostHog: () => ({
+    capture: mockPosthogCapture,
+  }),
+}));
+
 let removeCalls: { id: string; action: string }[] = [];
 
 const handleRequest = async ({ request }: { request: any }) => {
@@ -103,7 +106,7 @@ const handleRequest = async ({ request }: { request: any }) => {
   if (operationName === 'getMySubscriptions' || query?.includes('getMySubscriptions')) {
     return HttpResponse.json({
       data: {
-        mySubscriptions: mockSubscriptions,
+        mySubscriptions: subscriptionsResponse,
       },
     });
   }
@@ -134,6 +137,8 @@ afterEach(() => {
   server.resetHandlers();
   cleanup();
   vi.clearAllMocks();
+  mockApiKeyLoading = false;
+  subscriptionsResponse = mockSubscriptions;
   removeCalls = [];
 });
 afterAll(() => {
@@ -197,6 +202,20 @@ describe('SubscriptionsContent', () => {
     await waitFor(() => {
       expect(screen.getByText(/must first add a Gemini API Key/)).toBeInTheDocument();
       expect(screen.getByText('Configure API Keys')).toBeInTheDocument();
+      expect(mockRouterPush).not.toHaveBeenCalled();
+    });
+  });
+
+  it('redirects to the onboarding wizard when there is no API key and no existing subscriptions', async () => {
+    mockSession = { user: { id: 'user-1' } };
+    mockHasApiKey = false;
+    subscriptionsResponse = [];
+    renderWithProviders(<SubscriptionsContent />);
+
+    await waitFor(() => {
+      expect(mockRouterPush).toHaveBeenCalledWith(
+        `/wizard/onboarding/api-key?redirect=${encodeURIComponent('/settings/subscriptions')}`
+      );
     });
   });
 

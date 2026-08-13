@@ -89,6 +89,11 @@ function WizardPageInner({ wizardKey, stepSlug }: WizardPageContentProps) {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">{t(`Wizards.${wizardKey}.title`)}</h1>
+        <p className="text-gray-500 text-sm mt-1">{t(`Wizards.${wizardKey}.description`)}</p>
+      </div>
+
       <WizardStepSummary steps={summarySteps} currentStepSlug={stepSlug} />
       
       <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100 min-h-[300px]">

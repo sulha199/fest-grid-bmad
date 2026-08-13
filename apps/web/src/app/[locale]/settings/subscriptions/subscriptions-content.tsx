@@ -8,7 +8,7 @@ import { useRouter, Link } from "@/i18n/navigation"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useGetMySubscriptionsQuery, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
 import { getPlatformDisplayName } from "@festgrid/domain/scraper"
-import { useHasApiKey } from "@/features/onboarding/use-has-api-key"
+import { useApiKeyStatus } from "@/features/onboarding/use-has-api-key"
 import { SubscribeAccountDialog } from "./subscribe-account-dialog"
 import { SetDefaultLocationDialog } from "./set-default-location-dialog"
 import { Plus, Trash2, Pencil } from "lucide-react"
@@ -21,7 +21,7 @@ export function SubscriptionsContent() {
   const queryClient = useQueryClient()
   const posthog = usePostHog()
   const { session, isLoading: authLoading } = useAuthSession()
-  const hasApiKey = useHasApiKey()
+  const { hasApiKey, isLoading: apiKeyLoading } = useApiKeyStatus()
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
@@ -57,6 +57,15 @@ export function SubscriptionsContent() {
   })
 
   const subscriptions = (data?.mySubscriptions || [])
+
+  useEffect(() => {
+    if (session && !isLoading && !apiKeyLoading) {
+      if (!hasApiKey && subscriptions.length === 0) {
+        router.push(`/wizard/onboarding/api-key?redirect=${encodeURIComponent('/settings/subscriptions')}`)
+      }
+    }
+  }, [session, hasApiKey, apiKeyLoading, subscriptions, isLoading, router])
+
   const editingSub = subscriptions.find(sub => sub.account.id === editingAccountId)
   const editingInitialLocation = editingSub?.account.defaultLocation
     ? {

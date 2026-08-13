@@ -25,6 +25,14 @@ vi.mock('@festgrid/analytics', () => ({
   }),
 }));
 
+// Mock React Query cache updates
+const mockSetQueriesData = vi.fn();
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    setQueriesData: mockSetQueriesData,
+  }),
+}));
+
 // Mock graphql queries/mutations
 let mockMyApiKeys: any[] = [];
 let mockIsLoading = false;
@@ -71,7 +79,7 @@ describe('OnboardingApiKeyStep', () => {
     mockMutateAsync.mockResolvedValueOnce({ createApiKey: { id: 'new-key' } });
     render(<OnboardingApiKeyStep />);
 
-    const input = screen.getByPlaceholderOfId ? screen.getByPlaceholderOfId('apiKeyPlaceholder') : screen.getByPlaceholderText('apiKeyPlaceholder');
+    const input = screen.getByPlaceholderText('apiKeyPlaceholder');
     fireEvent.change(input, { target: { value: 'GEMINI-TEST-KEY' } });
 
     const submitBtn = screen.getByText('apiKeySubmitLabel');
@@ -84,6 +92,17 @@ describe('OnboardingApiKeyStep', () => {
           key: 'GEMINI-TEST-KEY',
         },
       });
+      expect(mockSetQueriesData).toHaveBeenCalledWith(
+        { queryKey: ['GetMyApiKeys'] },
+        expect.any(Function),
+      );
+
+      const [, updater] = mockSetQueriesData.mock.calls.at(-1)!;
+      expect(updater(undefined)).toEqual({ myApiKeys: [{ id: 'new-key' }] });
+      expect(updater({ myApiKeys: [{ id: 'existing-key' }] })).toEqual({
+        myApiKeys: [{ id: 'new-key' }, { id: 'existing-key' }],
+      });
+
       expect(mockCapture).toHaveBeenCalledWith('wizard_api_key_step_completed');
       expect(mockSetStepCompleted).toHaveBeenCalledWith(true);
     });

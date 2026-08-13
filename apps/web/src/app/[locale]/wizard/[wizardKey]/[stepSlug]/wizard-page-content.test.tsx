@@ -3,6 +3,7 @@ import React from 'react';
 import { render, screen, act, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextIntlClientProvider } from 'next-intl';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { notFound, useSearchParams, useParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
 import { wizardRegistry } from '@/features/wizard/wizard-registry';
@@ -53,6 +54,27 @@ function StepTwoComponent() {
 }
 
 describe('WizardPageContent Client Component', () => {
+  const testMessages = {
+    ...enMessages,
+    Wizards: {
+      ...enMessages.Wizards,
+      'test-wizard': {
+        title: 'Test Wizard',
+        description: 'Test wizard description',
+        steps: {
+          'step-1': {
+            title: 'Step 1',
+            description: 'Step 1 description',
+          },
+          'step-2': {
+            title: 'Step 2',
+            description: 'Step 2 description',
+          },
+        },
+      },
+    },
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockSearchParams = new URLSearchParams();
@@ -75,10 +97,18 @@ describe('WizardPageContent Client Component', () => {
   });
 
   const renderWithI18n = (ui: React.ReactElement) => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+
     return render(
-      <NextIntlClientProvider locale="en" messages={enMessages}>
-        {ui}
-      </NextIntlClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <NextIntlClientProvider locale="en" messages={testMessages}>
+          {ui}
+        </NextIntlClientProvider>
+      </QueryClientProvider>
     );
   };
 
@@ -102,6 +132,7 @@ describe('WizardPageContent Client Component', () => {
     // Check step summary horizontal items
     const listitems = screen.getAllByRole('listitem');
     expect(listitems).toHaveLength(2);
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
 
     // Expect current step Component content to render
     expect(screen.getByText('Step One Component')).toBeInTheDocument();
@@ -114,6 +145,15 @@ describe('WizardPageContent Client Component', () => {
     expect(prevBtn).toBeDisabled(); // First step disables previous
     expect(nextBtn).toBeDisabled(); // Initially incomplete, so next is disabled
     expect(skipBtn).not.toBeDisabled(); // canSkipStep: true and not last step
+  });
+
+  it('renders the wizard-level title and description for a real registered wizard', () => {
+    renderWithI18n(<WizardPageContent wizardKey="onboarding" stepSlug="api-key" />);
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: enMessages.Wizards.onboarding.title })
+    ).toBeInTheDocument();
+    expect(screen.getByText(enMessages.Wizards.onboarding.description)).toBeInTheDocument();
   });
 
   it('enables next button and preserves redirect param on transition', () => {
@@ -174,7 +214,7 @@ describe('WizardPageContent Client Component', () => {
     wizardRegistry['test-wizard'].steps[1].Component = AutoCompleteStep;
 
     rerender(
-      <NextIntlClientProvider locale="en" messages={enMessages}>
+      <NextIntlClientProvider locale="en" messages={testMessages}>
         <WizardPageContent wizardKey="test-wizard" stepSlug="step-2" />
       </NextIntlClientProvider>
     );
@@ -192,7 +232,7 @@ describe('WizardPageContent Client Component', () => {
     // Test without redirect / unsafe redirect
     mockSearchParams = new URLSearchParams({ redirect: 'https://evil.com' }); // Unsafe
     rerender(
-      <NextIntlClientProvider locale="en" messages={enMessages}>
+      <NextIntlClientProvider locale="en" messages={testMessages}>
         <WizardPageContent wizardKey="test-wizard" stepSlug="step-2" />
       </NextIntlClientProvider>
     );

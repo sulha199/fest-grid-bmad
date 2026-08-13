@@ -228,6 +228,8 @@ so that I can fully manage which accounts I'm monitoring for events, not just ad
 
 - [ ] Not started
 
+**Amended 2026-08-13:** when the user has zero active API keys **and** zero existing subscriptions, `/settings/subscriptions` now redirects to `/wizard/onboarding/api-key?redirect=%2Fsettings%2Fsubscriptions` on load (mirroring Story 5.1a's `/posts/select` pattern), instead of rendering the inline no-API-key prompt against an empty list. The inline prompt (linking to `/settings/api-keys`) is unchanged and still renders for users with zero keys but ≥1 existing subscription — AC4's "view/remove regardless of key possession" guarantee is preserved for that case. Implemented via a new `useApiKeyStatus()` export alongside the existing `useHasApiKey()` hook (`apps/web/src/features/onboarding/use-has-api-key.ts`), adding a loading flag `useHasApiKey()` never exposed.
+
 ## Dev Agent Record
 
 ### Agent Model Used

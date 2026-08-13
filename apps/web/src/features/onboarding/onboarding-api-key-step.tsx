@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { BlockingLoader, useWizardStep } from '@festgrid/ui';
 import { usePostHog } from '@festgrid/analytics';
+import { useQueryClient } from '@tanstack/react-query';
 import { useGetMyApiKeysQuery, useCreateApiKeyMutation } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 
@@ -12,6 +13,7 @@ export function OnboardingApiKeyStep() {
   const t = useTranslations('OnboardingWizard');
   const posthog = usePostHog();
   const { setStepCompleted } = useWizardStep();
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = useGetMyApiKeysQuery(graphqlClient);
   const { mutateAsync: createApiKey, isPending: isSaving } = useCreateApiKeyMutation(graphqlClient);
@@ -30,11 +32,19 @@ export function OnboardingApiKeyStep() {
     if (!apiKeyVal.trim()) return;
 
     try {
-      await createApiKey({
+      const result = await createApiKey({
         input: {
           provider: 'gemini',
           key: apiKeyVal.trim(),
         },
+      });
+
+      queryClient.setQueriesData({ queryKey: ['GetMyApiKeys'] }, (old: any) => {
+        if (!old) return { myApiKeys: [result.createApiKey] };
+        return {
+          ...old,
+          myApiKeys: [result.createApiKey, ...(old.myApiKeys || [])],
+        };
       });
 
       posthog.capture('wizard_api_key_step_completed');
