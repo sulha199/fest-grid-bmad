@@ -349,6 +349,35 @@ development_status:
   # shape). EXPLORATORY -- outreach only, no adapter code until a concrete offer
   # exists.
   3-4c-explore-whitelisted-access-with-instagram-viewer-sites: backlog
+  # added 2026-08-14 via bmad-help/architect analysis of docs/assets/Apify actor
+  # costing and facts.md; corrected same day. None of the four actors evaluated
+  # publish a run-duration SLA, and two synchronous call sites (getPostByUrl,
+  # lookupAccountProfile) exist today with only one (getPostByUrl) having a local
+  # timeout. Recommends picking the sync-path actor empirically (cost + latency +
+  # success rate across all four candidates) and adding the missing timeout to
+  # lookupAccountProfile; batch path (Story 3.4a) unaffected. CORRECTION: the
+  # app-funded key is the project owner's own account -- owner is open to
+  # third-party/community actors there for best outcome (accepts Apify Actor
+  # Terms Sec 4.4 Creator-access exposure knowingly). Inverse of Story 3.4b's
+  # future BYOK path, which is restricted to Apify-maintained actors only since
+  # contributed keys would belong to individual community members, not the owner.
+  # UPDATE 2026-08-14: user added real per-actor run durations to the costing doc.
+  # Single-sample results: apify/instagram-api-scraper 31s, apify/instagram-post-
+  # scraper 1m15s (worst!), sones/instagram-posts-scraper-lowcost 5s (best), fast-
+  # instagram-post-scraper 7s. Both Apify-maintained durations already EXCEED the
+  # current 20s getPostByUrl timeout -- likely a live production issue today, not
+  # just a future risk. Priority raised accordingly; still backlog pending a fuller
+  # sample (Task 1b) and a real bmad-create-story pass.
+  # UPDATE 2026-08-14 (user request): scope broadened to getNewestPosts too, since
+  # all 3 adapter methods share one callApifyActor call today -- a sync-path-only
+  # swap would silently change the batch actor as well. Confirmed duplication is
+  # already DB-safe (persist-scraped-post.ts onConflictDoNothing on postUrl)
+  # regardless of actor, so the real batch question is filter cost-efficiency: does
+  # a cutoff matching zero new posts actually bill zero items (Story 3.4 AC4), or
+  # does the actor charge for filtered-out items like fast-instagram-post-scraper's
+  # sample hinted at? New Task 1c tests this across all four actors before
+  # getNewestPosts gets its own actor constant, decided independently of Task 1b.
+  3-4d-per-use-case-actor-selection-and-sync-path-timeout: backlog
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap); Gate 2 run fresh (no gap, zero UI

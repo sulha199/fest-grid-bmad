@@ -230,7 +230,16 @@
       "Bash(grep -iA4 \"RegisterFcmToken\\\\|UpdateUserSettings\")",
       "Bash(cd \"c:/projects/portfolio/festgrid/bmad\" && sed -n '1,50p' apps/web/src/app/[locale]/layout.test.tsx)",
       "Bash(sort -t- -k2 -n)",
-      "Bash(xargs grep -l -i \"posts\")"
+      "Bash(xargs grep -l -i \"posts\")",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:deepmind.google)",
+      "WebFetch(domain:docsbot.ai)",
+      "Bash(find 'C:\\\\Users\\\\shulh\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--projects-portfolio-festgrid-bmad\\\\27e26d80-8a08-4485-8458-8ae55bac5348\\\\tasks' -iname *bukhgi84x*)",
+      "Bash(wc -c 'C:\\\\Users\\\\shulh\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--projects-portfolio-festgrid-bmad\\\\27e26d80-8a08-4485-8458-8ae55bac5348\\\\tasks\\\\bukhgi84x.output')",
+      "Bash(echo \"---\")",
+      "Bash(ps aux *)",
+      "Bash(git -C \"c:/projects/portfolio/festgrid/bmad\" check-ignore -v .env apps/backend/.env)",
+      "Bash(timeout 90 npx tsx --test src/lib/subscriptions/subscribe-to-account.test.ts)"
     ],
     "additionalDirectories": [
       "c:\\projects\\portfolio\\festgrid\\bmad\\apps\\web\\src\\app\\[locale]\\@modal",

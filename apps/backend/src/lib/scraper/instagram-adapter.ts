@@ -1,6 +1,23 @@
+import { ApifyApiError, ApifyClient } from 'apify-client';
 import { ScraperAdapter, ScraperAccountRef, ScrapedPost, AccountProfileLookupResult } from '@festgrid/domain';
-import { isProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
+import { assertProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
 import { loadBackendEnv } from '../../env.js';
+
+function normalizeApifyError(err: unknown, context: string): Error {
+  if (err instanceof ApifyApiError) {
+    const detail = err.data && typeof err.data === 'object' && 'error' in err.data && err.data.error && typeof err.data.error === 'object' && 'message' in err.data.error
+      ? String((err.data as any).error.message)
+      : err.message;
+
+    return new Error(`Apify request failed while ${context}: ${detail}`);
+  }
+
+  if (err instanceof Error) {
+    return new Error(`Apify request failed while ${context}: ${err.message}`);
+  }
+
+  return new Error(`Apify request failed while ${context}`);
+}
 
 export let callApifyActor = async (input: object): Promise<any[]> => {
   const env = loadBackendEnv();
@@ -8,22 +25,16 @@ export let callApifyActor = async (input: object): Promise<any[]> => {
     throw new Error('APIFY_API_TOKEN is not configured');
   }
 
-  const response = await fetch(
-    `https://api.apify.com/v2/actors/apify~instagram-scraper/run-sync-get-dataset-items?token=${env.apifyApiToken}&timeout=120&format=json`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(input),
-    }
-  );
+  const client = new ApifyClient({ token: env.apifyApiToken });
+  const run = await client.actor('apify/instagram-api-scraper').call(input as Record<string, unknown>);
 
-  if (!response.ok) {
-    throw new Error(`Apify API call failed: ${response.status} ${response.statusText}`);
+  const datasetId = run.defaultDatasetId;
+  if (!datasetId) {
+    return [];
   }
 
-  return response.json() as Promise<any[]>;
+  const { items } = await client.dataset(datasetId).listItems({ clean: true, limit: 1000 });
+  return items as any[];
 };
 
 export function setCallApifyActor(fn: typeof callApifyActor) {
@@ -50,37 +61,37 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 
 export const instagramScraperAdapter: ScraperAdapter = {
   async getPostByUrl(url: string): Promise<ScrapedPost | null> {
-    const isAvailable = await isProviderCapacityAvailable('apify');
-    if (!isAvailable) {
-      console.warn(`Apify capacity threshold ratio reached. Skipping scrape for URL: ${url}`);
-      return null;
-    }
+    await assertProviderCapacityAvailable('apify', `URL ${url}`);
 
     const runCall = async (): Promise<ScrapedPost | null> => {
-      const items = await callApifyActor({
-        directUrls: [url],
-        resultsType: 'posts',
-        resultsLimit: 1,
-      });
+      try {
+        const items = await callApifyActor({
+          directUrls: [url],
+          resultsType: 'posts',
+          resultsLimit: 1,
+        });
 
-      if (!items || items.length === 0) {
-        return null;
+        if (!items || items.length === 0) {
+          return null;
+        }
+
+        const item = items[0];
+        const publishedAt = item.timestamp || item.pubDate || item.publishedAt || new Date().toISOString();
+        const postUrl = item.url || item.postUrl || `https://www.instagram.com/p/${item.shortCode || item.id || ''}/`;
+
+        const mapped: ScrapedPost = {
+          content: item.caption || item.text || item.description || '',
+          imageUrl: item.displayUrl || item.imageUrl || undefined,
+          postUrl,
+          originalPostUrl: item.url || item.postUrl || undefined,
+          publishedAt,
+        };
+
+        await recordProviderUsage('apify', 1);
+        return mapped;
+      } catch (err) {
+        throw normalizeApifyError(err, `fetching post by URL ${url}`);
       }
-
-      const item = items[0];
-      const publishedAt = item.timestamp || item.pubDate || item.publishedAt || new Date().toISOString();
-      const postUrl = item.url || item.postUrl || `https://www.instagram.com/p/${item.shortCode || item.id || ''}/`;
-
-      const mapped: ScrapedPost = {
-        content: item.caption || item.text || item.description || '',
-        imageUrl: item.displayUrl || item.imageUrl || undefined,
-        postUrl,
-        originalPostUrl: item.url || item.postUrl || undefined,
-        publishedAt,
-      };
-
-      await recordProviderUsage('apify', 1);
-      return mapped;
     };
 
     return withTimeout(runCall(), 20000);
@@ -88,11 +99,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
 
   async getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]> {
     const env = loadBackendEnv();
-    const isAvailable = await isProviderCapacityAvailable('apify');
-    if (!isAvailable) {
-      console.warn(`Apify capacity threshold ratio reached. Skipping scrape batch for account: ${account.username}`);
-      return [];
-    }
+    await assertProviderCapacityAvailable('apify', `account ${account.username}`);
 
     try {
       const url = `https://www.instagram.com/${account.username}/`;
@@ -127,16 +134,12 @@ export const instagramScraperAdapter: ScraperAdapter = {
       return mappedPosts;
     } catch (err) {
       console.error(`Instagram Scraper Adapter error fetching posts for ${account.username}:`, err);
-      throw err;
+      throw normalizeApifyError(err, `fetching newest posts for ${account.username}`);
     }
   },
 
   async lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null> {
-    const isAvailable = await isProviderCapacityAvailable('apify');
-    if (!isAvailable) {
-      console.warn(`Apify capacity threshold ratio reached. Skipping profile lookup for: ${handleOrUrl}`);
-      return null;
-    }
+    await assertProviderCapacityAvailable('apify', `profile ${handleOrUrl}`);
 
     try {
       const url = handleOrUrl.startsWith('http') ? handleOrUrl : `https://www.instagram.com/${handleOrUrl}/`;
@@ -163,7 +166,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
       return result;
     } catch (err) {
       console.error(`Instagram Scraper Adapter error looking up profile for ${handleOrUrl}:`, err);
-      throw err;
+      throw normalizeApifyError(err, `looking up profile ${handleOrUrl}`);
     }
   },
 };

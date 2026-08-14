@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { ApifyApiError } from 'apify-client';
 import { instagramScraperAdapter, setCallApifyActor } from './instagram-adapter.js';
 import { db } from '../../db/client.js';
 import { scraperProviderUsage } from '@festgrid/database';
+import { ScraperCapacityExceededError } from '@festgrid/domain';
 import { eq } from 'drizzle-orm';
 
 test('instagram-adapter tests', async (t) => {
@@ -84,7 +86,55 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(row.itemsUsedThisCycle, 1);
   });
 
-  await t.test('skips calls when capacity is exhausted', async () => {
+  await t.test('uses the faster app-funded sync actor and surfaces a timeout explicitly', async () => {
+    let calledActor: string | undefined;
+
+    setCallApifyActor(async (input, actorName?: string) => {
+      calledActor = actorName;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return [{
+        id: '98765',
+        username: 'test_username',
+        fullName: 'Test Display Name',
+        profilePicUrl: 'https://img.com/pic.jpg',
+      }];
+    });
+
+    const post = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/test/');
+    assert.ok(post);
+    assert.strictEqual(calledActor, 'sones/instagram-posts-scraper-lowcost');
+
+    setCallApifyActor(async () => new Promise(() => {}));
+    await assert.rejects(
+      () => instagramScraperAdapter.lookupAccountProfile('test_username'),
+      (err: any) => {
+        assert.strictEqual(err.name, 'ApifyRequestTimeoutError');
+        assert.match(err.message, /timed out/i);
+        return true;
+      }
+    );
+  });
+
+  await t.test('wraps Apify client errors in a clearer message', async () => {
+    setCallApifyActor(async () => {
+      throw new ApifyApiError({
+        status: 429,
+        data: { error: { message: 'Request limit exceeded', type: 'rate-limit-exceeded' } },
+        config: { method: 'post', url: 'https://api.apify.com/v2/actors/apify~instagram-scraper/runs' },
+      } as any, 1);
+    });
+
+    await assert.rejects(
+      () => instagramScraperAdapter.getNewestPosts({ accountId: '123', username: 'test_username' }),
+      (err: any) => {
+        assert.match(err.message, /Apify.*failed/i);
+        assert.match(err.message, /Request limit exceeded/i);
+        return true;
+      }
+    );
+  });
+
+  await t.test('throws explicit capacity error when capacity is exhausted', async () => {
     let wasSeamCalled = false;
     setCallApifyActor(async () => {
       wasSeamCalled = true;
@@ -98,12 +148,24 @@ test('instagram-adapter tests', async (t) => {
       usageCycleResetAt: new Date(Date.now() + 86400000),
     });
 
-    const posts = await instagramScraperAdapter.getNewestPosts({ accountId: '123', username: 'test_username' });
-    assert.strictEqual(posts.length, 0);
+    await assert.rejects(
+      () => instagramScraperAdapter.getNewestPosts({ accountId: '123', username: 'test_username' }),
+      (err: any) => {
+        assert.ok(err instanceof ScraperCapacityExceededError);
+        assert.match(err.message, /Apify capacity/i);
+        return true;
+      }
+    );
     assert.strictEqual(wasSeamCalled, false);
 
-    const profile = await instagramScraperAdapter.lookupAccountProfile('test_username');
-    assert.strictEqual(profile, null);
+    await assert.rejects(
+      () => instagramScraperAdapter.lookupAccountProfile('test_username'),
+      (err: any) => {
+        assert.ok(err instanceof ScraperCapacityExceededError);
+        assert.match(err.message, /Apify capacity/i);
+        return true;
+      }
+    );
     assert.strictEqual(wasSeamCalled, false);
   });
 });

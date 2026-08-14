@@ -19,7 +19,8 @@ export function OnboardingApiKeyStep() {
   const { mutateAsync: createApiKey, isPending: isSaving } = useCreateApiKeyMutation(graphqlClient);
   const [apiKeyVal, setApiKeyVal] = useState('');
 
-  const hasExistingKey = (data?.myApiKeys.length ?? 0) > 0;
+  const apiKeys = data?.myApiKeys ?? [];
+  const hasExistingKey = apiKeys.length > 0;
 
   useEffect(() => {
     if (hasExistingKey) {
@@ -65,8 +66,18 @@ export function OnboardingApiKeyStep() {
       <BlockingLoader active={isSaving} label={t('savingLabel')} />
 
       {hasExistingKey && (
-        <div className="p-4 bg-green-50 border border-green-200 text-green-700 text-sm rounded-md">
-          {t('apiKeyAlreadyHaveOne')}
+        <div className="space-y-2">
+          <div className="p-4 bg-green-50 border border-green-200 text-green-700 text-sm rounded-md">
+            {t('apiKeyAlreadyHaveOne')}
+          </div>
+          <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+            {apiKeys.map((key: any) => (
+              <div key={key.id} className="flex items-center justify-between gap-2 text-sm">
+                <span className="font-medium capitalize">{key.provider}</span>
+                <span className="font-mono text-muted-foreground">{key.maskedKey}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

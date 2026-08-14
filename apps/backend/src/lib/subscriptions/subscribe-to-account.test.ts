@@ -9,6 +9,11 @@ import { db as usageDb } from '../../db/client.js';
 import { scraperProviderUsage } from '@festgrid/database';
 import { ScraperCapacityExceededError } from '@festgrid/domain';
 
+// Force off regardless of the developer's local .env: without a queue configured (the
+// default in this test env), subscribeToAccount would otherwise fire real Apify calls
+// for brand-new profiles via the local-dev inline-fallback path.
+process.env.SCRAPE_INLINE_FALLBACK_ENABLED = 'false';
+
 test('subscribeToAccount integration tests', async (t) => {
   let testUser: any;
 

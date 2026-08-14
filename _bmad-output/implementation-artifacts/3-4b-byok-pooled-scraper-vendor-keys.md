@@ -62,6 +62,16 @@ Story 3.4c's outreach (to Instagram-viewer/proxy sites) deliberately withholds t
 
 Accordingly, both drafts below name the app (FestDaily) and describe its general purpose. What they still deliberately withhold: the actual AI/Gemini-based event-extraction mechanism (kept to the light "checked for event information" phrasing) — that detail isn't needed to answer the actual legal question asked, which is about key-usage/data-sharing scope, not about what happens to the data afterward.
 
+### Actor-Creator Data-Access Risk (Third-Party Actors) — added 2026-08-14, resolved by design 2026-08-14
+
+Separate from the sublicensing/data-sharing-scope ambiguity above, Apify's own permissions model surfaces a second, narrower risk around **third-party (non-Apify-maintained) Actors**:
+
+- Per [Apify's Actor Terms §4.1](https://docs.apify.com/legal/actor-terms-and-conditions), *"we share your Account information and Customer Data with the Creator, to the extent the Actor is able to access them"* — and §4.4: **"We do not monitor or control how Creators use the access granted to them through Actor permissions."**
+- Even an Actor declaring only "limited permissions" (the lower tier) can, per [Apify's permissions docs](https://docs.apify.com/platform/actors/running/permissions), *"read basic user information from the environment (whether the user is paying, their proxy password, or public profile)"* — i.e. a real credential (the account's residential-proxy password), not just metadata. "Full permissions" goes further; Apify's own docs decline to itemize a ceiling on it (*"all data in your Apify account... administrative tasks... manage your datasets or schedules"*).
+- This is **orthogonal to the §5.2/§8.1(iv) sublicensing question** — it's about what a third-party Actor developer can see of the *contributing user's own Apify account*, not about what other FestDaily users see of the scraped data.
+
+**Design decision (2026-08-14, confirmed with user):** this risk is scoped by who owns the account exposed to it. The current app-funded key is the project owner's own account — the owner has weighed this trade-off and is open to third-party Actors there for the best cost/reliability outcome (see Story 3-4d, which is not gated by this story). **BYOK-pooled keys, once/if this story's Legal Gate clears, are restricted to Apify-maintained Actors only** — Creator = Apify itself, so §4.4's disclaimer never actually bites for a contributing user's key. This is a deliberate, narrower default than the app-funded path precisely because BYOK means choosing this exposure on behalf of many different individual community members' own accounts, not the app owner's own risk to take. AC1's "extend the existing `api_keys` table/UI" and AC2's "generalize Story 0.13's `selectApiKey`" should both assume an Apify-maintained-actors-only invocation path when this story is eventually detailed further — no AC4 disclosure language about third-party Actor Creator access is needed as a result, since that scenario is designed out rather than merely disclosed.
+
 ### Vendor Outreach — Email Drafts
 
 Send both (they are independent; one vendor confirming does not imply the other has). Replace `[Name]`/`[FestDaily]` placeholders as appropriate. Keep a copy of the response (screenshot, forwarded email, or support-ticket link) for this story's record.
@@ -130,9 +140,21 @@ Send both (they are independent; one vendor confirming does not imply the other 
 > Thanks again,
 > [Name]
 
+---
+
+**Follow-up to Apify (send once — original outreach above was already sent per 2026-08-14 user confirmation; exact send date not recorded in this file, no response received yet as of 2026-08-14).** This is a reply-in-thread nudge, not a new cold email. Note: an earlier draft of this follow-up added a question about third-party Actor Creator-access (Actor Terms §4.4) — that question was dropped since the design has since settled on restricting BYOK-pooled keys to Apify-maintained Actors only (see Dev Notes above), which makes the question moot rather than something Apify needs to answer. This follow-up is a plain nudge only.
+**Subject: Re: Question about permitted use — user-contributed API keys used within a multi-tenant application**
+
+> Hi Apify team,
+>
+> Following up on my note below — wanted to check in on questions 1-4, whenever you have a chance to look into this.
+>
+> Thank you,
+> [Name]
+
 ### Vendor Responses (fill in once received)
 
-- **Apify:** *(not yet contacted / awaiting response / response received — record date, respondent, and summary here)*
+- **Apify:** *(outreach sent — per user confirmation 2026-08-14; exact original send date not recorded here, update if known. Awaiting response as of 2026-08-14. Follow-up draft above ready to send once a reasonable wait has passed — typically 1-2 weeks for a first response to a B2B legal/support inquiry before nudging.)*
 - **Bright Data: closed for this story (3.4b) specifically, 2026-08-10 — but the follow-up's underlying question resolved favorably for Story 3.4a.** Initial response received from Akhilesh (support/sales contact): *"Bright Data no longer provides the IPs for Social media account management usecase or accessing payment gateways like PayPal & Stripe. We do the KYC only for the Registered business entities not Freelancer individuals."* Follow-up response (same thread, 2026-08-10): *"We can support you collecting Social media data from our Webscraper APIs and Filter APIs. If you have the post URL or Profile URL you can give those as an input and fetch the publicly available data."* This confirms the account-management exclusion was about their Proxy/IP product, not the Web Scraper/Dataset API — good news for Story 3.4a, which is now unblocked on the policy question (see that story's own note for the one remaining capability question: does profile-URL input return recent posts, or only metadata/single-post lookup). **This does not change this story's (3.4b's) own conclusion**: the KYC-for-registered-business-entities restriction is untouched by either reply and still rules out individual end-users contributing their own Bright Data key. Bright Data BYOK remains closed here. Apify's BYOK viability is unaffected by any of this and remains open pending its own response.
 
 ### References
@@ -179,7 +201,7 @@ Send both (they are independent; one vendor confirming does not imply the other 
 
 ## Deliverables Checklist
 
-- [ ] Apify outreach email sent.
+- [x] Apify outreach email sent (per user confirmation 2026-08-14; exact date not recorded in this file). Follow-up draft (with new §4.4 question) ready to send once a reasonable wait has passed.
 - [x] Bright Data outreach email sent — response received 2026-08-10, closed (KYC restricted to registered business entities).
 - [ ] Apify's response recorded in this file's "Vendor Responses" section (or a documented decision to abandon this story entirely if Apify also declines).
 
@@ -193,12 +215,12 @@ Send both (they are independent; one vendor confirming does not imply the other 
 ## Definition of Done
 
 - [x] Bright Data outreach sent and response recorded (closed).
-- [ ] Apify outreach sent and response recorded.
+- [x] Apify outreach sent (2026-08-14 or earlier, per user confirmation) — response not yet recorded.
 - [ ] A clear go/no-go decision for Apify recorded, with reasoning, before this story is ever moved to `ready-for-dev`.
 
 ## Completion Status
 
-- [ ] Not started (outreach not yet sent)
+- [ ] In progress — Apify outreach sent, awaiting response. Follow-up draft (Vendor Outreach section) ready once a reasonable wait has passed.
 
 ## Dev Agent Record
 

@@ -8,6 +8,11 @@ import { db } from '../db/client.js';
 import { users, apiKeys, subscriptions, socialMediaAccountProfiles, posts, events, schedules } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 
+// Force off regardless of the developer's local .env: without a queue configured (the
+// default in this test env), subscribeToAccount would otherwise fire real Apify calls
+// for brand-new profiles via the local-dev inline-fallback path.
+process.env.SCRAPE_INLINE_FALLBACK_ENABLED = 'false';
+
 // Read all required schema fragments dynamically from the schema directory
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
 const files = fs.readdirSync(schemaDir).filter(f => f.endsWith('.graphql'));

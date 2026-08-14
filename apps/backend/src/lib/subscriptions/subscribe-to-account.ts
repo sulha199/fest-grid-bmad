@@ -5,6 +5,8 @@ import { activeOnly } from '@festgrid/graphql-select';
 import { ScraperCapacityExceededError, SupportedPlatform } from '@festgrid/domain';
 import { isProviderCapacityAvailable } from '../scraper/usage-store.js';
 import { enqueueScrapeJob } from '../scraper/enqueue-scrape-job.js';
+import { processScrapeJob } from '../scraper/process-scrape-job.js';
+import { loadBackendEnv } from '../../env.js';
 
 interface ProfileInput {
   displayName: string;
@@ -73,15 +75,32 @@ export async function subscribeToAccount({
       .then((rows) => rows[0]);
 
     if (accountProfile) {
-      try {
-        await enqueueScrapeJob({
-          profileId: accountProfile.id,
-          platform: accountProfile.platform as SupportedPlatform,
-          accountId: accountProfile.accountId,
-          username: accountProfile.username,
+      const scrapeTarget = {
+        profileId: accountProfile.id,
+        platform: accountProfile.platform as SupportedPlatform,
+        accountId: accountProfile.accountId,
+        username: accountProfile.username,
+        isInitialNewSubscription: true,
+      };
+
+      const env = loadBackendEnv();
+      if (env.scrapingQueueUrl) {
+        try {
+          await enqueueScrapeJob(scrapeTarget);
+        } catch (err) {
+          console.error(`Failed to enqueue on-demand scrape job for brand-new profile ${accountProfile.id}:`, err);
+        }
+      } else if (env.scrapeInlineFallbackEnabled) {
+        // No queue configured and inline fallback explicitly opted into (local dev only,
+        // via SCRAPE_INLINE_FALLBACK_ENABLED in a personal .env): process the scrape job
+        // inline instead of enqueuing, since there's no Lambda locally to drain the queue.
+        // Fire-and-forget, mirroring the async nature of the queue path so subscribing
+        // doesn't block on the scrape. Left off by default so tests/CI never hit Apify.
+        processScrapeJob(scrapeTarget).catch((err) => {
+          console.error(`Failed to process on-demand scrape job inline for brand-new profile ${accountProfile.id}:`, err);
         });
-      } catch (err) {
-        console.error(`Failed to enqueue on-demand scrape job for brand-new profile ${accountProfile.id}:`, err);
+      } else {
+        console.error(`Failed to enqueue on-demand scrape job for brand-new profile ${accountProfile.id}: SCRAPING_QUEUE_URL is not configured`);
       }
     }
   }

@@ -25,14 +25,27 @@ vi.mock('@festgrid/analytics', () => ({
   }),
 }));
 
+// Mock React Query cache invalidation
+const mockInvalidateQueries = vi.fn();
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    invalidateQueries: mockInvalidateQueries,
+  }),
+}));
+
 // Mock graphql queries/mutations
 const mockMutateAsync = vi.fn();
 let mockIsPending = false;
+let mockSubscriptions: any[] = [];
 
 vi.mock('@/generated/graphql', () => ({
   useSubscribeToAccountMutation: () => ({
     mutateAsync: mockMutateAsync,
     isPending: mockIsPending,
+  }),
+  useGetMySubscriptionsQuery: () => ({
+    data: { mySubscriptions: mockSubscriptions },
+    isLoading: false,
   }),
 }));
 
@@ -40,6 +53,8 @@ describe('OnboardingSubscribeStep', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsPending = false;
+    mockSubscriptions = [];
+    mockInvalidateQueries.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -74,6 +89,7 @@ describe('OnboardingSubscribeStep', () => {
           displayName: 'my_handle',
         },
       });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['getMySubscriptions'] });
       expect(mockCapture).toHaveBeenCalledWith('wizard_subscribe_step_completed', { platform: 'instagram' });
       expect(mockSetStepCompleted).toHaveBeenCalledWith(true);
     });
@@ -104,8 +120,43 @@ describe('OnboardingSubscribeStep', () => {
           displayName: 'my_handle',
         },
       });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['getMySubscriptions'] });
       expect(mockCapture).toHaveBeenCalledWith('wizard_subscribe_step_completed', { platform: 'instagram' });
       expect(mockSetStepCompleted).toHaveBeenCalledWith(true);
+    });
+  });
+
+  it('shows the current subscriptions list and clears the form after a successful subscription', async () => {
+    mockMutateAsync.mockResolvedValueOnce({
+      subscribeToAccount: {
+        subscription: { id: 'sub-1', isNewlyAdded: true },
+        alreadySubscribed: false,
+      },
+    });
+
+    mockSubscriptions = [
+      {
+        id: 'existing-sub',
+        accountId: 'acc-1',
+        account: {
+          id: 'acc-1',
+          username: 'existing_handle',
+          displayName: 'Existing Handle',
+          platform: 'instagram',
+        },
+      },
+    ];
+
+    render(<OnboardingSubscribeStep />);
+    expect(screen.getByText('Existing Handle')).toBeInTheDocument();
+
+    const handleInput = screen.getByLabelText('accountLabel');
+    fireEvent.change(handleInput, { target: { value: '@new_handle' } });
+    fireEvent.click(screen.getByText('subscribeSubmitLabel'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('accountLabel')).toHaveValue('');
+      expect(screen.getByLabelText('platformLabel')).toHaveValue('instagram');
     });
   });
 });

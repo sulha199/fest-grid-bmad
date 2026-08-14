@@ -1833,6 +1833,18 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.4.
 
+### Story 3.4d: Per-use-case Apify actor selection and sync-path timeout handling
+
+**As a** system,
+**I want** the on-demand (synchronous, user-facing) scraper paths to use whichever actor — official or third-party — gives the best real-world outcome for the current app-funded key, with an explicit bounded timeout, distinct from the batch path's actor choice,
+**So that** a slow Apify run can't silently hang a GraphQL mutation or burn budget on a call the user has already given up on, and actor selection is driven by measured cost/reliability results rather than a single fixed choice.
+
+**Note (2026-08-14, added via `bmad-help`/architect analysis of `docs/assets/Apify actor costing and facts.md`; corrected same day):** Two findings drove this story: (1) none of the four actors evaluated (the current `apify/instagram-api-scraper`, plus `apify/instagram-post-scraper`, `instagram-scraper/fast-instagram-post-scraper`, `sones/instagram-posts-scraper-lowcost`) publish a run-duration SLA — Apify's own store page for the current actor states runs can take "a few seconds to a few hours"; (2) two call sites are synchronous/user-facing today (`getPostByUrl` at `resolvers.ts:993`, `lookupAccountProfile` at `resolvers.ts:1429`) and only one has a local timeout (`getPostByUrl`'s hardcoded 20s). Recommendation is to pick the sync-path actor empirically (cost + latency + success rate) and add the missing timeout to `lookupAccountProfile` — the batch path (already async via Story 3.4a) is unaffected. Per user correction 2026-08-14: the app-funded key is the project owner's own account, and the owner is open to third-party/community actors there for the best available outcome, accepting Apify's Actor Terms §4.4 Creator-access exposure on their own account knowingly. This is the **inverse** of Story 3.4b's future BYOK path, which — because contributed keys would belong to individual community members, not the owner — is restricted to Apify-maintained actors only, a stricter default made on other people's behalf. See the full story file (`_bmad-output/implementation-artifacts/3-4d-per-use-case-actor-selection-and-sync-path-timeout.md`) for the cost comparison table and the Actor-Creator data-access research.
+
+**Amendment (2026-08-14, user request):** Scope broadened to also cover `getNewestPosts`'s actor choice, since all three `ScraperAdapter` methods share one `callApifyActor` call today — a sync-path-only swap would silently change the batch path's actor too. Investigating confirmed duplicate posts are already prevented at the DB layer (`persist-scraped-post.ts`'s `onConflictDoNothing` on `postUrl`) regardless of actor, so the real batch-relevant question is cost-efficiency of each actor's newest-posts-only cutoff filter, not data correctness — does a cutoff matching zero new posts actually return/bill zero items (Story 3.4 AC4's requirement), or does the actor bill for filtered-out items like `fast-instagram-post-scraper`'s original sample hinted at? New Task 1c tests this directly across all four actors before `getNewestPosts` gets its own actor constant, decided independently from the sync-path pick.
+
+**Depends on:** Story 3.4.
+
 ### Story 3.5: Add new posts to a processing queue
 
 **As a** system,

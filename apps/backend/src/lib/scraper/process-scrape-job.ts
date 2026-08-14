@@ -6,6 +6,26 @@ import { loadBackendEnv } from '../../env.js';
 import { eq, desc } from 'drizzle-orm';
 import { ScrapeTarget } from './get-scrape-targets.js';
 
+const NEW_SUBSCRIBE_RETRY_WINDOWS_DAYS = [3, 7, 10, 14, 17, 21, 24, 27, 30];
+const MAX_TOTAL_RETURNED = 15;
+const MAX_UNIQUE_NEW_POSTS = 10;
+
+async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: Array<{ content: string; imageUrl?: string; postUrl: string; originalPostUrl?: string; publishedAt: string }>): Promise<number> {
+  let persisted = 0;
+  for (const post of scrapedPosts) {
+    await persistScrapedPost({
+      accountId: job.profileId,
+      content: post.content,
+      imageUrl: post.imageUrl || null,
+      postUrl: post.postUrl,
+      originalPostUrl: post.originalPostUrl || null,
+      publishedAt: post.publishedAt,
+    });
+    persisted += 1;
+  }
+  return persisted;
+}
+
 export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
   const env = loadBackendEnv();
 
@@ -19,6 +39,40 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
       .orderBy(desc(posts.publishedAt))
       .limit(1);
 
+    const adapter = getScraperAdapter(job.platform);
+
+    if (job.isInitialNewSubscription) {
+      const uniquePostUrls = new Set<string>();
+      let totalReturned = 0;
+
+      for (const days of NEW_SUBSCRIBE_RETRY_WINDOWS_DAYS) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+        const newerThan = cutoffDate.toISOString();
+
+        const scrapedPosts = await adapter.getNewestPosts(
+          { accountId: job.accountId, username: job.username },
+          { newerThan }
+        );
+
+        const uniqueNewPosts = scrapedPosts.filter((post) => {
+          if (uniquePostUrls.has(post.postUrl)) return false;
+          uniquePostUrls.add(post.postUrl);
+          return true;
+        });
+
+        const persisted = await persistScrapedPosts(job, uniqueNewPosts);
+        totalReturned += scrapedPosts.length;
+
+        if (persisted === 0 && scrapedPosts.length === 0) continue;
+        if (totalReturned >= MAX_TOTAL_RETURNED || uniquePostUrls.size >= MAX_UNIQUE_NEW_POSTS) {
+          break;
+        }
+      }
+
+      return;
+    }
+
     let newerThan: string;
     if (newestPost) {
       newerThan = newestPost.publishedAt.toISOString();
@@ -28,22 +82,12 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
       newerThan = lookbackDate.toISOString();
     }
 
-    const adapter = getScraperAdapter(job.platform);
     const scrapedPosts = await adapter.getNewestPosts(
       { accountId: job.accountId, username: job.username },
       { newerThan }
     );
 
-    for (const post of scrapedPosts) {
-      await persistScrapedPost({
-        accountId: job.profileId,
-        content: post.content,
-        imageUrl: post.imageUrl || null,
-        postUrl: post.postUrl,
-        originalPostUrl: post.originalPostUrl || null,
-        publishedAt: post.publishedAt,
-      });
-    }
+    await persistScrapedPosts(job, scrapedPosts);
   } catch (err) {
     console.error(`Error processing scrape job for account ${job.username} (${job.profileId}):`, err);
     // AC7: catch and log, but do not rethrow to prevent failing other jobs in SQS batch

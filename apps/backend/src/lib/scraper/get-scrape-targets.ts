@@ -10,6 +10,7 @@ export interface ScrapeTarget {
   platform: SupportedPlatform;
   accountId: string;
   username: string;
+  isInitialNewSubscription?: boolean;
 }
 
 export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {

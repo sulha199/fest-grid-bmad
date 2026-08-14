@@ -17,19 +17,21 @@ test('process-scrape-job integration tests', async (t) => {
   testUser = seededUsers[0];
 
   t.afterEach(async () => {
+    if (createdProfiles.length > 0) {
+      await db.delete(posts).where(inArray(posts.accountId, createdProfiles));
+      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, createdProfiles));
+      createdProfiles.length = 0;
+    }
     if (createdPosts.length > 0) {
       await db.delete(posts).where(inArray(posts.id, createdPosts));
       createdPosts.length = 0;
-    }
-    if (createdProfiles.length > 0) {
-      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, createdProfiles));
-      createdProfiles.length = 0;
     }
   });
 
   await t.test('processes scrape job correctly, computes lookback default, persists posts and stamps lastScrapedAt', async () => {
     // Register a mock platform for the test
     const mockPlatform = 'test-fake-platform' as any;
+    const uniqueUrlBase = `https://fake.com/${Date.now()}-${Math.random().toString(16).slice(2)}`;
     let computedNewerThan: string | undefined = undefined;
 
     const fakeAdapter: ScraperAdapter = {
@@ -38,12 +40,15 @@ test('process-scrape-job integration tests', async (t) => {
         return [
           {
             content: 'Fake post 1',
-            postUrl: 'https://fake.com/p/1',
+            postUrl: `${uniqueUrlBase}/p/1`,
             publishedAt: '2026-08-08T12:00:00Z',
           },
         ];
       },
       async lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getPostByUrl(url: string): Promise<ScrapedPost | null> {
         return null;
       },
     };
@@ -80,7 +85,7 @@ test('process-scrape-job integration tests', async (t) => {
     const dbPosts = await db.select().from(posts).where(eq(posts.accountId, profile.id));
     assert.strictEqual(dbPosts.length, 1);
     assert.strictEqual(dbPosts[0].content, 'Fake post 1');
-    assert.strictEqual(dbPosts[0].postUrl, 'https://fake.com/p/1');
+    assert.strictEqual(dbPosts[0].postUrl, `${uniqueUrlBase}/p/1`);
     createdPosts.push(dbPosts[0].id);
 
     // 3. Assert lastScrapedAt stamped
@@ -98,6 +103,9 @@ test('process-scrape-job integration tests', async (t) => {
         return [];
       },
       async lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getPostByUrl(url: string): Promise<ScrapedPost | null> {
         return null;
       },
     };
@@ -139,8 +147,74 @@ test('process-scrape-job integration tests', async (t) => {
     assert.strictEqual(new Date(computedNewerThan).toISOString(), publishedAt.toISOString(), 'newerThan should equal existing post publishedAt');
   });
 
-  await t.test('handles adapter throw without propagating error (AC7)', async () => {
+  await t.test('retries with wider windows for a brand-new subscription until thresholds are met', async () => {
     const mockPlatform = 'test-fake-platform-3' as any;
+    const uniqueUrlBase = `https://fake.com/${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const seenWindows: string[] = [];
+
+    const fakeAdapter: ScraperAdapter = {
+      async getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]> {
+        seenWindows.push(options?.newerThan ?? '');
+        if (seenWindows.length === 1) {
+          return Array.from({ length: 4 }, (_, index) => ({
+            content: `Retry window ${seenWindows.length} post ${index + 1}`,
+            postUrl: `${uniqueUrlBase}/r1/p${index + 1}`,
+            publishedAt: new Date(Date.now() - (index + 1) * 60 * 60 * 1000).toISOString(),
+          }));
+        }
+
+        if (seenWindows.length === 2) {
+          return Array.from({ length: 4 }, (_, index) => ({
+            content: `Retry window ${seenWindows.length} post ${index + 1}`,
+            postUrl: `${uniqueUrlBase}/r2/p${index + 1}`,
+            publishedAt: new Date(Date.now() - (index + 2) * 60 * 60 * 1000).toISOString(),
+          }));
+        }
+
+        return Array.from({ length: 5 }, (_, index) => ({
+          content: `Retry window ${seenWindows.length} post ${index + 1}`,
+          postUrl: `${uniqueUrlBase}/r3/p${index + 1}`,
+          publishedAt: new Date(Date.now() - (index + 3) * 60 * 60 * 1000).toISOString(),
+        }));
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getPostByUrl(url: string): Promise<ScrapedPost | null> {
+        return null;
+      },
+    };
+
+    registerScraperAdapter(mockPlatform, fakeAdapter);
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-3-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Account 3',
+      username: 'fake_acc_3',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    const job = {
+      profileId: profile.id,
+      platform: mockPlatform,
+      accountId: profile.accountId,
+      username: profile.username,
+      isInitialNewSubscription: true,
+    };
+
+    await processScrapeJob(job);
+
+    assert.ok(seenWindows.length >= 2, 'new-subscribe path should retry across wider lookback windows');
+    assert.ok(seenWindows[0] !== seenWindows[1], 'retry windows should widen between attempts');
+
+    const dbPosts = await db.select().from(posts).where(eq(posts.accountId, profile.id));
+    assert.ok(dbPosts.length >= 8, 'retried new-subscribe path should keep fetching until the unique-post threshold is reached');
+    createdPosts.push(...dbPosts.map((post) => post.id));
+  });
+
+  await t.test('handles adapter throw without propagating error (AC7)', async () => {
+    const mockPlatform = 'test-fake-platform-4' as any;
 
     const throwingAdapter: ScraperAdapter = {
       async getNewestPosts(): Promise<ScrapedPost[]> {
@@ -149,15 +223,18 @@ test('process-scrape-job integration tests', async (t) => {
       async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
         return null;
       },
+      async getPostByUrl(url: string): Promise<ScrapedPost | null> {
+        return null;
+      },
     };
 
     registerScraperAdapter(mockPlatform, throwingAdapter);
 
     const [profile] = await db.insert(socialMediaAccountProfiles).values({
-      accountId: 'fake-acc-3-' + Date.now(),
+      accountId: 'fake-acc-4-' + Date.now(),
       platform: mockPlatform,
-      displayName: 'Fake Account 3',
-      username: 'fake_acc_3',
+      displayName: 'Fake Account 4',
+      username: 'fake_acc_4',
     }).returning();
     createdProfiles.push(profile.id);
 

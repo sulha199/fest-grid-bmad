@@ -96,6 +96,43 @@ test('api keys resolvers integration', async (t) => {
     assert.strictEqual(result.errors[0].extensions?.code, 'BAD_REQUEST');
   });
 
+  await t.test('createApiKey rejects duplicate keys for the same provider', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const resCreate = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            createApiKey(input: { provider: "gemini", key: "duplicate-key-1234" }) {
+              id
+            }
+          }
+        `
+      })
+    });
+    const resultCreate = await resCreate.json();
+    assert.ok(!resultCreate.errors, 'first duplicate key insert should succeed');
+
+    const resDuplicate = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            createApiKey(input: { provider: "gemini", key: "duplicate-key-1234" }) {
+              id
+            }
+          }
+        `
+      })
+    });
+    const resultDuplicate = await resDuplicate.json();
+    assert.ok(resultDuplicate.errors, 'duplicate key should be rejected');
+    assert.strictEqual(resultDuplicate.errors[0].extensions?.code, 'DUPLICATE_API_KEY');
+  });
+
   await t.test('createApiKey, myApiKeys, deleteApiKey flow', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
 

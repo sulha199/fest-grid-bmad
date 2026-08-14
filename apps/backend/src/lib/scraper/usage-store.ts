@@ -1,6 +1,6 @@
 import { db } from '../../db/client.js';
 import { scraperProviderUsage } from '@festgrid/database';
-import { isCycleElapsed, nextCycleReset } from '@festgrid/domain';
+import { isCycleElapsed, nextCycleReset, ScraperCapacityExceededError } from '@festgrid/domain';
 import { eq } from 'drizzle-orm';
 import { loadBackendEnv } from '../../env.js';
 
@@ -59,4 +59,12 @@ export async function isProviderCapacityAvailable(provider: string): Promise<boo
   const budgetLimit = env.scraperMonthlyBudgetUsd * env.scraperCapacityThresholdRatio;
 
   return estimatedUsd < budgetLimit;
+}
+
+export async function assertProviderCapacityAvailable(provider: string, context?: string): Promise<void> {
+  const isAvailable = await isProviderCapacityAvailable(provider);
+  if (!isAvailable) {
+    const detail = context ? ` for ${context}` : '';
+    throw new ScraperCapacityExceededError(`Apify capacity exceeded${detail}. Scraper usage has reached the configured threshold and requests are paused until the next cycle reset.`);
+  }
 }

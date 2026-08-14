@@ -12,6 +12,7 @@ import { getPlatformDisplayName } from "@festgrid/domain/scraper"
 import { useSubscribeToAccountMutation, useVotedAccountSuggestionsQuery } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
+import { ClientError } from "graphql-request"
 
 interface SubscribeAccountDialogProps {
   isOpen: boolean
@@ -70,7 +71,15 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
 
       setHandleInput("")
       onClose()
-    } catch {
+    } catch (err) {
+      if (err instanceof ClientError) {
+        const firstError = err.response?.errors?.[0]
+        if (firstError?.extensions?.code === "SCRAPER_CAPACITY_EXCEEDED") {
+          toast.error("Apify usage is temporarily at capacity. New subscriptions are paused until the next cycle reset.")
+          return
+        }
+      }
+
       toast.error(t("subscribeErrorToast") || "Failed to subscribe")
     }
   }

@@ -26,7 +26,7 @@ import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, isCycleElapsed } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
-import { encryptApiKey } from '../lib/ai-gateway/kms.js';
+import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
 import { compileValidator } from '../validation/validate.js';
 import { reportSystemErrorSchema } from '../validation/report-system-error.schema.js';
 import { proposedEventCorrectionSchema } from '../validation/proposed-event-correction.schema.js';
@@ -148,11 +148,26 @@ export const resolvers: Resolvers = {
   Mutation: {
     createApiKey: async (_: any, { input }: any, context: any) => {
       const authUser = requireAuth(context);
+      const normalizedKey = input.key.trim();
       if (input.provider.toLowerCase() !== 'gemini') {
         throw new GraphQLError('Unsupported provider', { extensions: { code: 'BAD_REQUEST' } });
       }
-      const keyEncrypted = await encryptApiKey(input.key);
-      const keyLast4 = input.key.slice(-4);
+      if (!normalizedKey) {
+        throw new GraphQLError('API key is required', { extensions: { code: 'BAD_REQUEST' } });
+      }
+
+      const activeKeys = await db.select().from(apiKeys)
+        .where(and(eq(apiKeys.provider, input.provider.toLowerCase()), activeOnly(apiKeys)));
+
+      for (const existingKey of activeKeys) {
+        const plaintext = await decryptApiKey(existingKey.keyEncrypted);
+        if (plaintext.trim() === normalizedKey) {
+          throw new GraphQLError('API key already exists', { extensions: { code: 'DUPLICATE_API_KEY' } });
+        }
+      }
+
+      const keyEncrypted = await encryptApiKey(normalizedKey);
+      const keyLast4 = normalizedKey.slice(-4);
       const [inserted] = await db.insert(apiKeys).values({
         userId: authUser.userId,
         provider: input.provider.toLowerCase(),
@@ -983,6 +998,7 @@ export const resolvers: Resolvers = {
             };
           }
         } catch (err) {
+          console.error(`Failed to scrape post from URL ${url}:`, err);
           return {
             errorCode: 'SCRAPE_FAILED',
             errorMessage: 'Could not retrieve content from the provided URL.',

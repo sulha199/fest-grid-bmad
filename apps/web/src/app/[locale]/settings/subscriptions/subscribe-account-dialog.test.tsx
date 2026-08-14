@@ -148,4 +148,30 @@ describe('SubscribeAccountDialog', () => {
 
     expect(handleClose).toHaveBeenCalled();
   });
+
+  it('shows an explicit capacity message when the scraper quota is exhausted', async () => {
+    server.use(
+      graphql.mutation('SubscribeToAccount', () => HttpResponse.json({
+        errors: [{
+          message: 'Apify capacity exceeded',
+          extensions: { code: 'SCRAPER_CAPACITY_EXCEEDED' },
+        }],
+      }))
+    );
+
+    const handleClose = vi.fn();
+    renderWithProviders(<SubscribeAccountDialog isOpen={true} onClose={handleClose} />);
+
+    const accountInput = screen.getByPlaceholderText('e.g., jkt_festivals');
+    fireEvent.change(accountInput, { target: { value: 'jkt_festivals' } });
+
+    const submitButton = screen.getByRole('button', { name: 'Subscribe' });
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Apify usage is temporarily at capacity. New subscriptions are paused until the next cycle reset.')).toBeInTheDocument();
+    });
+
+    expect(handleClose).not.toHaveBeenCalled();
+  });
 });

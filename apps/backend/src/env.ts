@@ -17,6 +17,7 @@ export interface BackendEnv {
   apiKeyUsageCycleDays: number;
   webAppBaseUrl: string;
   scrapingQueueUrl?: string;
+  scrapeInlineFallbackEnabled: boolean;
   aiProcessingQueueUrl?: string;
   dataIngestionQueueUrl?: string;
   apifyApiToken?: string;
@@ -87,6 +88,8 @@ export function loadBackendEnv(): BackendEnv {
     webAppBaseUrl: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapingQueueUrl: process.env.SCRAPING_QUEUE_URL,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeInlineFallbackEnabled: process.env.SCRAPE_INLINE_FALLBACK_ENABLED === 'true',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     aiProcessingQueueUrl: process.env.AI_PROCESSING_QUEUE_URL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
