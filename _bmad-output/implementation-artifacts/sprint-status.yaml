@@ -377,6 +377,18 @@ development_status:
   # does the actor charge for filtered-out items like fast-instagram-post-scraper's
   # sample hinted at? New Task 1c tests this across all four actors before
   # getNewestPosts gets its own actor constant, decided independently of Task 1b.
+  # UPDATE 2026-08-14: Task 1c fully complete (all 12 real Apify test runs against
+  # pakuwonmall.jogja, including a re-run of Run 6 which initially used the wrong
+  # cutoff by mistake). Two confirmed bugs disqualify two of the four candidates
+  # for getNewestPosts: apify/instagram-api-scraper (current prod actor) leaks all
+  # 3 pinned posts past its onlyPostsNewerThan cutoff, even at a true live
+  # zero-boundary cutoff; sones/instagram-posts-scraper-lowcost never filters
+  # server-side, returns is_newer_than_cutoff:false items regardless of cutoff.
+  # apify/instagram-post-scraper passed every scenario cleanly and is the FINAL
+  # CONFIRMED getNewestPosts actor pick. fast-instagram-post-scraper remains a
+  # validated fallback (correct data, but bills a nonzero fee even on a correct
+  # 0-item result). Still backlog pending a real bmad-create-story pass to turn
+  # this into an implementation-ready story.
   3-4d-per-use-case-actor-selection-and-sync-path-timeout: backlog
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
