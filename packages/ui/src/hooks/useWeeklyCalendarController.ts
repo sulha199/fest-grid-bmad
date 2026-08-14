@@ -1,20 +1,41 @@
 import { useMemo } from 'react';
 import { WeeklyCalendarControllerOptions, WeeklyCalendarControllerResult } from './useWeeklyCalendarController.types';
 
-export const getSunday = (dateStr: string) => {
-  const d = new Date(dateStr);
-  const day = d.getDay();
-  const sunday = new Date(d);
-  sunday.setDate(d.getDate() - day);
-  return sunday.toISOString().split('T')[0];
+const parseDateOnly = (dateStr: string) => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
 };
 
-export const getSaturday = (sundayStr: string) => {
-  const d = new Date(sundayStr);
-  const saturday = new Date(d);
-  saturday.setDate(d.getDate() + 6);
-  return saturday.toISOString().split('T')[0];
+const formatIsoDate = (value: Date) => {
+  const year = value.getUTCFullYear();
+  const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(value.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
+
+const shiftDate = (date: Date, days: number) => {
+  const shifted = new Date(date);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted;
+};
+
+export const getWeekStart = (dateStr: string) => {
+  const d = parseDateOnly(dateStr);
+  const day = d.getUTCDay();
+  const mondayOffset = (day + 6) % 7;
+  const monday = shiftDate(d, -mondayOffset);
+  return formatIsoDate(monday);
+};
+
+export const getWeekEnd = (weekStartStr: string) => {
+  const d = parseDateOnly(weekStartStr);
+  const sunday = shiftDate(d, 6);
+  return formatIsoDate(sunday);
+};
+
+export const getSunday = (dateStr: string) => getWeekStart(dateStr);
+
+export const getSaturday = (sundayStr: string) => getWeekEnd(sundayStr);
 
 export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
   options: WeeklyCalendarControllerOptions<TEvent>
@@ -30,8 +51,8 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
     errorStateLabel = 'An error occurred',
   } = options;
 
-  const weekStart = useMemo(() => getSunday(week), [week]);
-  const weekEnd = useMemo(() => getSaturday(weekStart), [weekStart]);
+  const weekStart = useMemo(() => getWeekStart(week), [week]);
+  const weekEnd = useMemo(() => getWeekEnd(weekStart), [weekStart]);
 
   const schedules = useMemo(() => {
     const events = rawEvents ?? [];
@@ -52,9 +73,8 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
   }, [rawEvents]);
 
   const handlePrevWeek = () => {
-    const current = new Date(weekStart);
-    current.setDate(current.getDate() - 7);
-    const newWeek = current.toISOString().split('T')[0];
+    const current = parseDateOnly(weekStart);
+    const newWeek = formatIsoDate(shiftDate(current, -7));
     setWeek(newWeek);
     if (onNavigate) {
       onNavigate('previous', newWeek);
@@ -62,19 +82,27 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
   };
 
   const handleNextWeek = () => {
-    const current = new Date(weekStart);
-    current.setDate(current.getDate() + 7);
-    const newWeek = current.toISOString().split('T')[0];
+    const current = parseDateOnly(weekStart);
+    const newWeek = formatIsoDate(shiftDate(current, 7));
     setWeek(newWeek);
     if (onNavigate) {
       onNavigate('next', newWeek);
     }
   };
 
-  const handleToday = () => {
-    setWeek(todayStr);
+  const handleSelectWeek = (dateStr: string) => {
+    const newWeek = getWeekStart(dateStr);
+    setWeek(newWeek);
     if (onNavigate) {
-      onNavigate('today', todayStr);
+      onNavigate('select', newWeek);
+    }
+  };
+
+  const handleToday = () => {
+    const normalizedToday = getWeekStart(todayStr);
+    setWeek(normalizedToday);
+    if (onNavigate) {
+      onNavigate('today', normalizedToday);
     }
   };
 
@@ -93,6 +121,7 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
     errorDetail,
     handlePrevWeek,
     handleNextWeek,
+    handleSelectWeek,
     handleToday,
   };
 }

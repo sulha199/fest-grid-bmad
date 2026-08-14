@@ -64,6 +64,7 @@ export function CalendarView({ q, types, categories, nearby }: CalendarViewProps
     errorDetail,
     handlePrevWeek,
     handleNextWeek,
+    handleSelectWeek,
     handleToday,
   } = useWeeklyCalendarController({
     week,
@@ -90,6 +91,8 @@ export function CalendarView({ q, types, categories, nearby }: CalendarViewProps
     prevWeekLabel: t('calendarPrevWeekLabel'),
     nextWeekLabel: t('calendarNextWeekLabel'),
     todayLabel: t('calendarTodayLabel'),
+    selectWeekLabel: t('calendarSelectWeekLabel'),
+    chooseWeekLabel: t('calendarChooseWeekLabel'),
     moreLabel: (count: number) => t('calendarMoreLabel', { count }),
     closePopoverLabel: t('calendarClosePopoverLabel'),
   };
@@ -102,6 +105,7 @@ export function CalendarView({ q, types, categories, nearby }: CalendarViewProps
       onToday={handleToday}
       onPrevWeek={handlePrevWeek}
       onNextWeek={handleNextWeek}
+      onSelectWeek={handleSelectWeek}
       onScheduleClick={handleScheduleClick}
       status={status === 'pending' ? 'loading' : (status as any)}
       errorMessage={errorMessage}

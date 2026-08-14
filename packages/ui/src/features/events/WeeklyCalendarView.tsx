@@ -153,6 +153,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   onToday,
   onPrevWeek,
   onNextWeek,
+  onSelectWeek,
   onScheduleClick,
   status,
   errorMessage,
@@ -172,6 +173,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     prevWeekLabel: 'Previous week',
     nextWeekLabel: 'Next week',
     todayLabel: 'Today',
+    selectWeekLabel: 'Select week',
+    chooseWeekLabel: 'Choose a week',
     closePopoverLabel: 'Close details',
     loadingText: 'Loading calendar view...',
     favoritedBadgeLabel: 'Favorited',
@@ -202,6 +205,17 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   }, [weekStart]);
 
   const weekEnd = visibleDays[6];
+
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [pickerDate, setPickerDate] = useState(() => {
+    const baseline = typeof weekStart === 'string' ? new Date(`${weekStart}T12:00:00Z`) : new Date(weekStart);
+    return baseline.toISOString().slice(0, 10);
+  });
+
+  useEffect(() => {
+    const baseline = typeof weekStart === 'string' ? new Date(`${weekStart}T12:00:00Z`) : new Date(weekStart);
+    setPickerDate(baseline.toISOString().slice(0, 10));
+  }, [weekStart]);
 
   // Helper to normalize a date object to YYYY-MM-DD for reliable string comparisons
   const toISODateString = (d: Date) => {
@@ -478,6 +492,38 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
+          {onSelectWeek && (
+            <div className="relative">
+              <button
+                type="button"
+                className={NAV_BUTTON_CLASS}
+                onClick={() => setIsPickerOpen((open) => !open)}
+                aria-label={defaultLabels.selectWeekLabel}
+                aria-expanded={isPickerOpen}
+              >
+                {defaultLabels.selectWeekLabel}
+              </button>
+              {isPickerOpen && (
+                <div className="absolute right-0 top-full mt-2 z-40 rounded-md border border-gray-200 bg-white p-2 shadow-lg">
+                  <label className="sr-only" htmlFor="week-picker-input">{defaultLabels.chooseWeekLabel}</label>
+                  <input
+                    id="week-picker-input"
+                    aria-label={defaultLabels.chooseWeekLabel}
+                    type="date"
+                    value={pickerDate}
+                    onChange={(event) => {
+                      const nextDate = event.target.value;
+                      if (!nextDate) return;
+                      setPickerDate(nextDate);
+                      onSelectWeek(nextDate);
+                      setIsPickerOpen(false);
+                    }}
+                    className="rounded border border-gray-300 px-2 py-1 text-sm"
+                  />
+                </div>
+              )}
+            </div>
+          )}
           <button
             type="button"
             className={NAV_BUTTON_CLASS}

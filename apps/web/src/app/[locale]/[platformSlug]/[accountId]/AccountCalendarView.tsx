@@ -67,6 +67,7 @@ export default function AccountCalendarView({ q, types, categories, profile }: A
     errorDetail,
     handlePrevWeek,
     handleNextWeek,
+    handleSelectWeek,
     handleToday,
   } = useWeeklyCalendarController({
     week,
@@ -93,6 +94,8 @@ export default function AccountCalendarView({ q, types, categories, profile }: A
     prevWeekLabel: t('calendarPrevWeekLabel'),
     nextWeekLabel: t('calendarNextWeekLabel'),
     todayLabel: t('calendarTodayLabel'),
+    selectWeekLabel: t('calendarSelectWeekLabel'),
+    chooseWeekLabel: t('calendarChooseWeekLabel'),
     moreLabel: (count: number) => t('calendarMoreLabel', { count }),
     closePopoverLabel: t('calendarClosePopoverLabel'),
   };
@@ -105,6 +108,7 @@ export default function AccountCalendarView({ q, types, categories, profile }: A
       onToday={handleToday}
       onPrevWeek={handlePrevWeek}
       onNextWeek={handleNextWeek}
+      onSelectWeek={handleSelectWeek}
       onScheduleClick={handleScheduleClick}
       status={status === 'pending' ? 'loading' : (status as any)}
       errorMessage={errorMessage}

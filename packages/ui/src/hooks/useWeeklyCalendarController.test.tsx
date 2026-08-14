@@ -32,8 +32,8 @@ describe('useWeeklyCalendarController', () => {
     },
   ];
 
-  it('calculates correct Sunday and Saturday boundaries', () => {
-    // 2026-08-10 is a Monday. Sunday of that week is 2026-08-09. Saturday is 2026-08-15.
+  it('calculates correct Monday and Sunday boundaries', () => {
+    // 2026-08-10 is a Monday. The Monday-start week is 2026-08-10 through 2026-08-16.
     const setWeekMock = vi.fn();
     const { result } = renderHook(() =>
       useWeeklyCalendarController({
@@ -46,8 +46,8 @@ describe('useWeeklyCalendarController', () => {
       })
     );
 
-    expect(result.current.weekStart).toBe('2026-08-09');
-    expect(result.current.weekEnd).toBe('2026-08-15');
+    expect(result.current.weekStart).toBe('2026-08-10');
+    expect(result.current.weekEnd).toBe('2026-08-16');
   });
 
   it('flattens schedules correctly and maps types', () => {
@@ -90,7 +90,7 @@ describe('useWeeklyCalendarController', () => {
     });
   });
 
-  it('navigates previous week, next week, and today, and fires callbacks', () => {
+  it('navigates previous week, next week, today, and an arbitrary picked date, and fires callbacks', () => {
     const setWeekMock = vi.fn();
     const onNavigateMock = vi.fn();
     const { result } = renderHook(() =>
@@ -108,16 +108,20 @@ describe('useWeeklyCalendarController', () => {
     act(() => {
       result.current.handlePrevWeek();
     });
-    // weekStart was 2026-08-09. Moving back 7 days => 2026-08-02
-    expect(setWeekMock).toHaveBeenLastCalledWith('2026-08-02');
-    expect(onNavigateMock).toHaveBeenLastCalledWith('previous', '2026-08-02');
+    expect(setWeekMock).toHaveBeenLastCalledWith('2026-08-03');
+    expect(onNavigateMock).toHaveBeenLastCalledWith('previous', '2026-08-03');
 
     act(() => {
       result.current.handleNextWeek();
     });
-    // weekStart was 2026-08-09. Moving forward 7 days => 2026-08-16
-    expect(setWeekMock).toHaveBeenLastCalledWith('2026-08-16');
-    expect(onNavigateMock).toHaveBeenLastCalledWith('next', '2026-08-16');
+    expect(setWeekMock).toHaveBeenLastCalledWith('2026-08-17');
+    expect(onNavigateMock).toHaveBeenLastCalledWith('next', '2026-08-17');
+
+    act(() => {
+      result.current.handleSelectWeek('2026-08-14');
+    });
+    expect(setWeekMock).toHaveBeenLastCalledWith('2026-08-10');
+    expect(onNavigateMock).toHaveBeenLastCalledWith('select', '2026-08-10');
 
     act(() => {
       result.current.handleToday();

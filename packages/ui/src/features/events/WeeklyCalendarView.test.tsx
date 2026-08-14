@@ -95,6 +95,23 @@ describe('WeeklyCalendarView', () => {
     expect(onNextWeek).toHaveBeenCalledTimes(1);
   });
 
+  it('opens a week-picker and calls onSelectWeek with the picked date', () => {
+    const onSelectWeek = vi.fn();
+
+    render(
+      <WeeklyCalendarView
+        {...defaultProps}
+        onSelectWeek={onSelectWeek}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText('Select week'));
+    const picker = screen.getByLabelText('Choose a week');
+    fireEvent.change(picker, { target: { value: '2026-08-10' } });
+
+    expect(onSelectWeek).toHaveBeenCalledWith('2026-08-10');
+  });
+
   it('renders compact schedule cards with correct title weights', () => {
     render(<WeeklyCalendarView {...defaultProps} locale="en-US" />);
 

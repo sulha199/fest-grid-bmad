@@ -5,7 +5,7 @@ export interface WeeklyCalendarControllerOptions<TEvent = any> {
   rawEvents: TEvent[] | null | undefined;
   queryStatus: 'pending' | 'success' | 'error' | string;
   queryError: any;
-  onNavigate?: (direction: 'previous' | 'next' | 'today', newWeek: string) => void;
+  onNavigate?: (direction: 'previous' | 'next' | 'today' | 'select', newWeek: string) => void;
   errorStateLabel?: string;
 }
 
@@ -18,5 +18,6 @@ export interface WeeklyCalendarControllerResult<TSchedule = any> {
   errorDetail: string | undefined;
   handlePrevWeek: () => void;
   handleNextWeek: () => void;
+  handleSelectWeek: (dateStr: string) => void;
   handleToday: () => void;
 }

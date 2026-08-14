@@ -51,6 +51,8 @@
     "calendarPrevWeekLabel": "Minggu sebelumnya",
     "calendarNextWeekLabel": "Minggu berikutnya",
     "calendarTodayLabel": "Hari Ini",
+    "calendarSelectWeekLabel": "Pilih minggu",
+    "calendarChooseWeekLabel": "Pilih minggu",
     "calendarMoreLabel": "{count, plural, =1 {# acara lainnya} other {# acara lainnya}}",
     "calendarErrorState": "Gagal memuat acara kalender.",
     "calendarClosePopoverLabel": "Tutup popover"
@@ -174,6 +176,8 @@
     "calendarPrevWeekLabel": "Minggu sebelumnya",
     "calendarNextWeekLabel": "Minggu berikutnya",
     "calendarTodayLabel": "Hari Ini",
+    "calendarSelectWeekLabel": "Pilih minggu",
+    "calendarChooseWeekLabel": "Pilih minggu",
     "calendarMoreLabel": "{count, plural, =1 {# acara lainnya} other {# acara lainnya}}",
     "calendarErrorState": "Gagal memuat acara kalender.",
     "calendarClosePopoverLabel": "Tutup popover"
@@ -194,6 +198,8 @@
     "calendarPrevWeekLabel": "Minggu sebelumnya",
     "calendarNextWeekLabel": "Minggu berikutnya",
     "calendarTodayLabel": "Hari Ini",
+    "calendarSelectWeekLabel": "Pilih minggu",
+    "calendarChooseWeekLabel": "Pilih minggu",
     "calendarMoreLabel": "{count, plural, =1 {# acara lainnya} other {# acara lainnya}}",
     "calendarErrorState": "Gagal memuat acara kalender.",
     "calendarClosePopoverLabel": "Tutup popover"
@@ -393,6 +399,8 @@
     "calendarPrevWeekLabel": "Minggu sebelumnya",
     "calendarNextWeekLabel": "Minggu berikutnya",
     "calendarTodayLabel": "Hari Ini",
+    "calendarSelectWeekLabel": "Pilih minggu",
+    "calendarChooseWeekLabel": "Pilih minggu",
     "calendarMoreLabel": "{count, plural, =1 {# acara lagi} other {# acara lagi}}",
     "calendarErrorState": "Gagal memuat acara kalender.",
     "calendarClosePopoverLabel": "Tutup popover",

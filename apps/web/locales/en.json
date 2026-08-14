@@ -51,6 +51,8 @@
     "calendarPrevWeekLabel": "Previous week",
     "calendarNextWeekLabel": "Next week",
     "calendarTodayLabel": "Today",
+    "calendarSelectWeekLabel": "Select week",
+    "calendarChooseWeekLabel": "Choose a week",
     "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
     "calendarErrorState": "Failed to load calendar events.",
     "calendarClosePopoverLabel": "Close popover"
@@ -174,6 +176,8 @@
     "calendarPrevWeekLabel": "Previous week",
     "calendarNextWeekLabel": "Next week",
     "calendarTodayLabel": "Today",
+    "calendarSelectWeekLabel": "Select week",
+    "calendarChooseWeekLabel": "Choose a week",
     "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
     "calendarErrorState": "Failed to load calendar events.",
     "calendarClosePopoverLabel": "Close popover"
@@ -194,6 +198,8 @@
     "calendarPrevWeekLabel": "Previous week",
     "calendarNextWeekLabel": "Next week",
     "calendarTodayLabel": "Today",
+    "calendarSelectWeekLabel": "Select week",
+    "calendarChooseWeekLabel": "Choose a week",
     "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
     "calendarErrorState": "Failed to load calendar events.",
     "calendarClosePopoverLabel": "Close popover"
@@ -332,6 +338,7 @@
     "subscribeSuccessToast": "Successfully subscribed to the account!",
     "alreadySubscribedToast": "You are already subscribed to this account.",
     "subscribeErrorToast": "Failed to subscribe to the account. Please try again.",
+    "scraperCapacityExceededToast": "Apify usage is temporarily at capacity. New subscriptions are paused until the next cycle reset.",
     "savingLabel": "Subscribing...",
     "noApiKeyPrompt": "To subscribe to new accounts, you must first add a Gemini API Key.",
     "noApiKeyLinkLabel": "Configure API Keys",
@@ -393,6 +400,8 @@
     "calendarPrevWeekLabel": "Previous week",
     "calendarNextWeekLabel": "Next week",
     "calendarTodayLabel": "Today",
+    "calendarSelectWeekLabel": "Select week",
+    "calendarChooseWeekLabel": "Choose a week",
     "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
     "calendarErrorState": "Failed to load calendar events.",
     "calendarClosePopoverLabel": "Close popover",

@@ -62,6 +62,7 @@ export function FeedCalendarView({ q, types, categories, subscriptions }: FeedCa
     errorDetail,
     handlePrevWeek,
     handleNextWeek,
+    handleSelectWeek,
     handleToday,
   } = useWeeklyCalendarController({
     week,
@@ -88,6 +89,8 @@ export function FeedCalendarView({ q, types, categories, subscriptions }: FeedCa
     prevWeekLabel: t('calendarPrevWeekLabel'),
     nextWeekLabel: t('calendarNextWeekLabel'),
     todayLabel: t('calendarTodayLabel'),
+    selectWeekLabel: t('calendarSelectWeekLabel'),
+    chooseWeekLabel: t('calendarChooseWeekLabel'),
     moreLabel: (count: number) => t('calendarMoreLabel', { count }),
     closePopoverLabel: t('calendarClosePopoverLabel'),
   };
@@ -100,6 +103,7 @@ export function FeedCalendarView({ q, types, categories, subscriptions }: FeedCa
       onToday={handleToday}
       onPrevWeek={handlePrevWeek}
       onNextWeek={handleNextWeek}
+      onSelectWeek={handleSelectWeek}
       onScheduleClick={handleScheduleClick}
       status={status === 'pending' ? 'loading' : (status as any)}
       errorMessage={errorMessage}

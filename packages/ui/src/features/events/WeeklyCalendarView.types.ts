@@ -18,6 +18,10 @@ export interface WeeklyCalendarViewLabels {
   nextWeekLabel?: string;
   /** "Today" button label */
   todayLabel?: string;
+  /** aria-label for the week selection trigger */
+  selectWeekLabel?: string;
+  /** aria-label for the date input or popover calendar */
+  chooseWeekLabel?: string;
   /** aria-label for the favorited badge */
   favoritedBadgeLabel?: string;
   /** aria-label for the added to calendar badge */
@@ -45,6 +49,7 @@ export interface WeeklyCalendarViewProps<TSchedule extends WeeklyCalendarViewSch
   onToday: () => void;
   onPrevWeek: () => void;
   onNextWeek: () => void;
+  onSelectWeek?: (date: string) => void;
   onScheduleClick: (schedule: TSchedule) => void;
   status: 'loading' | 'error' | 'success';
   errorMessage?: string;
