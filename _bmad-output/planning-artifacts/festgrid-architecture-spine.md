@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-08-06T00:00:00Z"
+updated: "2026-08-14T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -159,6 +159,20 @@ This document defines the core architectural invariants for the FestDaily applic
         **Accepted legacy exception:** `toggleFavorite` and `toggleCalendarAddition` (`apps/backend/src/schema/resolvers.ts`) predate this rule and use an implicit-toggle shape instead (no `action` argument; the server infers direction from the row's current `deletedAt`, returning a custom `ToggleFavoriteResult`/`ToggleCalendarAdditionResult` boolean-flag type rather than the resource's own type). They are shipped, tested, and functionally equivalent (both achieve delete-then-undo), and are not being reconciled to rule 4. Every new soft-delete mutation — `deleteUserLocation`'s migration above, and `ApiKey`/`Subscription` delete mutations (Epic 3/4) once built — must use the rule 4 shape.
 
         **Accepted hard-delete exception (added 2026-08-11, Epic 4 readiness re-sweep, confirmed with the user via `AskUserQuestion`):** `deleteEventPermanently(id: ID!): Boolean!` (Story 4.4a, `events`, moderator-only) is a genuine hard `DELETE`, not a soft-delete/restore-cycle mutation, and is therefore exempt from — not a violator of — this AD's "Prevents: hard deletes on bound tables" clause. It exists as a deliberate, distinct moderator action from `restoreEvent` (the soft-delete/undo pair): permanently removing egregious/abusive event listings that should not remain recoverable, cascading to dependent `schedules`/`corrections`/`reports`/`favorites`/`calendarAdditions` rows. Any future hard-delete mutation on a bound table must be similarly named here as an explicit exception before being built — this is not a general license to bypass rule 1/4 for convenience.
+
+---
+
+### AD-9: Date/Week Selection UI Convention
+
+*   **Binds:** Any FestGrid UI that lets a user pick a calendar date — currently Story 1.3g's manual week-picker (`packages/ui/src/features/events/WeeklyCalendarView.tsx`, CAP-4 of the 2026-08-13 Discovery/Detail/Calendar UX change), and any future date-selection UI added to the app.
+*   **Prevents:**
+    1.  A third-party date-picker dependency. **Verified 2026-08-14** against `ui.shadcn.com/docs/components/base/date-picker`: shadcn/ui has no dedicated `DatePicker` component — its "Date of Birth" example is a composition recipe (`Button` trigger inside `Popover`, wrapping `Calendar` with `mode="single"`, `captionLayout="dropdown"`, `React.useState<Date>()` for selected-date state). This composition is the only sanctioned base going forward.
+    2.  A hand-rolled calendar grid reimplementing `Calendar`/`react-day-picker` from scratch.
+    3.  A second, independently-computed week/date-boundary calculation living inside any picker component. Boundary math has exactly one home: Story 3.7a's `useWeeklyCalendarController` (`getWeekStart`/`getWeekEnd`, AD-8-adjacent AC6/AC7 of the same change proposal).
+*   **Rule:**
+    1.  **Composition base:** every date-picker in FestGrid is `Button` (trigger) + `Popover` + `Calendar`, `mode="single"` unless a feature genuinely needs range/multi-select selection — never a hand-rolled grid or a new npm date-picker dependency.
+    2.  **`WeekPicker` wrapper:** `packages/ui/src/core/WeekPicker.tsx` wraps `Calendar` with `modifiers`/`modifiersClassNames` to visually highlight the full selected week row (not just the clicked day) — chosen over a plain undecorated composition for the better picking affordance (user-confirmed 2026-08-14). It takes `onSelectWeek(date: string)` and a **required** `getWeekRange(date: Date): { start: Date; end: Date }` prop supplied by the caller from Story 3.7a's exported `getWeekStart`/`getWeekEnd` — `WeekPicker` never computes a boundary itself, so exactly one boundary implementation exists app-wide.
+    3.  **Reuse before regeneralization:** future date-pickers reuse `WeekPicker` directly if week-range selection is needed again; otherwise compose `Button`+`Popover`+`Calendar` inline per rule 1. A pattern graduates into a new `packages/ui/src/core/` primitive only once a second real consumer exists, matching the project's existing `core/` (domain-agnostic, reused) vs. `features/<domain>/` (single-feature) placement convention.
 
 ---
 

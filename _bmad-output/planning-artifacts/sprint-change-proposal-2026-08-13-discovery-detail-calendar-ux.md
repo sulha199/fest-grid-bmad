@@ -173,7 +173,7 @@ callback (the component computes no boundary itself, matching AC2's controlled-c
 pattern — the caller's Story 3.7a hook resolves the actual week via its own AC7).
 ```
 
-**Dev Notes addendum:** shadcn `popover` (shared with Story 1.5) and `calendar` are not yet installed; add via the shadcn CLI.
+**Dev Notes addendum:** shadcn `popover` (shared with Story 1.5) and `calendar` are not yet installed; add via the shadcn CLI. Per `festgrid-architecture-spine.md` AD-9 (added 2026-08-14): build this as `packages/ui/src/core/WeekPicker.tsx` — a reusable wrapper around shadcn's `Calendar` (`mode="single"`) that highlights the full selected week row via `modifiers`/`modifiersClassNames`, not a plain undecorated date composition. `WeekPicker` takes `onSelectWeek(date: string)` and a required `getWeekRange(date: Date): { start: Date; end: Date }` prop — it computes no boundary itself; the caller (this story) supplies Story 3.7a's exported `getWeekStart`/`getWeekEnd` (AC6/AC7), so exactly one boundary implementation exists app-wide.
 
 **Rationale:** Keeps `WeeklyCalendarView` a pure controlled presentational component — it renders the trigger and reports the picked date, exactly as it already does for prev/next/Today, while Story 3.7a's hook (AC7) owns resolving that date into a week boundary.
 
