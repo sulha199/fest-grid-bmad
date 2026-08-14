@@ -38,8 +38,8 @@ This story exists to close that gap: match actor choice to the latency/cost prof
 
 ## Tasks / Subtasks
 
-- [x] Task 1a (done 2026-08-14): Single-sample duration recorded for all four candidates in the costing doc — see Dev Notes comparison table. Result: both third-party actors (5s, 7s) are faster *and* cheaper than both Apify-maintained actors (31s, 75s); `apify/instagram-post-scraper` in particular is the slowest of the four despite being the original cost-only pick.
-- [ ] Task 1b: One sample per actor is a direction, not a distribution — Apify's own docs warn duration varies by content/location/etc. Run a matched-n=1 batch (5x each) against all four actors, same target account (`pakuwonmall.jogja`) throughout so actor choice is the only variable, and record duration + success/failure per run before locking in a pick (AC: #1, #5). Plan (added 2026-08-14):
+- [X]  Task 1a (done 2026-08-14): Single-sample duration recorded for all four candidates in the costing doc — see Dev Notes comparison table. Result: both third-party actors (5s, 7s) are faster *and* cheaper than both Apify-maintained actors (31s, 75s); `apify/instagram-post-scraper` in particular is the slowest of the four despite being the original cost-only pick.
+- [ ]  Task 1b: One sample per actor is a direction, not a distribution — Apify's own docs warn duration varies by content/location/etc. Run a matched-n=1 batch (5x each) against all four actors, same target account (`pakuwonmall.jogja`) throughout so actor choice is the only variable, and record duration + success/failure per run before locking in a pick (AC: #1, #5). Plan (added 2026-08-14):
 
   **Capability check first:** confirm on each third-party actor's Apify console Input tab whether it accepts a direct post URL/shortcode input, not just a username. The one example input captured for both `sones/instagram-posts-scraper-lowcost` and `instagram-scraper/fast-instagram-post-scraper` only shows username-based input — if neither has a post-URL field, they **cannot** replace `getPostByUrl` (which fetches one exact post by URL), only `lookupAccountProfile`/newest-posts-style calls. This would split the eventual AC1 pick per adapter method rather than one actor for both.
 
@@ -54,49 +54,50 @@ This story exists to close that gap: match actor choice to the latency/cost prof
 
   **Recording template (fill in as runs complete):**
 
-  | Actor | Mode | Input params | Run # | Date/Time | Run ID | Duration | Success (Y/N) | Failure reason | Cost ($) | Items returned | Notes |
-  |---|---|---|---|---|---|---|---|---|---|---|---|
-  | `apify/instagram-api-scraper` | getPostByUrl | `{"directUrls": ["https://www.instagram.com/p/Db9-oj1EaiF/"], "resultsType": "posts", "resultsLimit": 1}` | 1 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-api-scraper` | getPostByUrl | `{"directUrls": ["https://www.instagram.com/p/Db9-oj1EaiF/"], "resultsType": "posts", "resultsLimit": 1}` | 2 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-api-scraper` | getPostByUrl | `{"directUrls": ["https://www.instagram.com/p/Db9-oj1EaiF/"], "resultsType": "posts", "resultsLimit": 1}` | 3 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-api-scraper` | getPostByUrl | `{"directUrls": ["https://www.instagram.com/p/Db9-oj1EaiF/"], "resultsType": "posts", "resultsLimit": 1}` | 4 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-api-scraper` | getPostByUrl | `{"directUrls": ["https://www.instagram.com/p/Db9-oj1EaiF/"], "resultsType": "posts", "resultsLimit": 1}` | 5 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-api-scraper` | lookupAccountProfile | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "details", "resultsLimit": 1}` | 1 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-api-scraper` | lookupAccountProfile | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "details", "resultsLimit": 1}` | 2 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-api-scraper` | lookupAccountProfile | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "details", "resultsLimit": 1}` | 3 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-api-scraper` | lookupAccountProfile | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "details", "resultsLimit": 1}` | 4 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-api-scraper` | lookupAccountProfile | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "details", "resultsLimit": 1}` | 5 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-post-scraper` | n/a (posts-only) | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 1, "dataDetailLevel": "basicData", "skipPinnedPosts": true}` | 1 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-post-scraper` | n/a (posts-only) | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 1, "dataDetailLevel": "basicData", "skipPinnedPosts": true}` | 2 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-post-scraper` | n/a (posts-only) | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 1, "dataDetailLevel": "basicData", "skipPinnedPosts": true}` | 3 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-post-scraper` | n/a (posts-only) | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 1, "dataDetailLevel": "basicData", "skipPinnedPosts": true}` | 4 |  |  |  |  |  |  |  |  |
-  | `apify/instagram-post-scraper` | n/a (posts-only) | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 1, "dataDetailLevel": "basicData", "skipPinnedPosts": true}` | 5 |  |  |  |  |  |  |  |  |
-  | `sones/instagram-posts-scraper-lowcost` | n/a (posts-only) | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 1 |  |  |  |  |  |  |  |  |
-  | `sones/instagram-posts-scraper-lowcost` | n/a (posts-only) | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 2 |  |  |  |  |  |  |  |  |
-  | `sones/instagram-posts-scraper-lowcost` | n/a (posts-only) | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 3 |  |  |  |  |  |  |  |  |
-  | `sones/instagram-posts-scraper-lowcost` | n/a (posts-only) | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 4 |  |  |  |  |  |  |  |  |
-  | `sones/instagram-posts-scraper-lowcost` | n/a (posts-only) | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 5 |  |  |  |  |  |  |  |  |
-  | `instagram-scraper/fast-instagram-post-scraper` | n/a (posts-only) | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "retries": 3}` | 1 |  |  |  |  |  |  |  |  |
-  | `instagram-scraper/fast-instagram-post-scraper` | n/a (posts-only) | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "retries": 3}` | 2 |  |  |  |  |  |  |  |  |
-  | `instagram-scraper/fast-instagram-post-scraper` | n/a (posts-only) | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "retries": 3}` | 3 |  |  |  |  |  |  |  |  |
-  | `instagram-scraper/fast-instagram-post-scraper` | n/a (posts-only) | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "retries": 3}` | 4 |  |  |  |  |  |  |  |  |
-  | `instagram-scraper/fast-instagram-post-scraper` | n/a (posts-only) | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "retries": 3}` | 5 |  |  |  |  |  |  |  |  |
+
+  | Actor                                           | Mode                 | Input params                                                                                                                                                                                          | Run # | Date/Time | Run ID | Duration | Success (Y/N) | Failure reason | Cost ($) | Items returned | Notes |
+  | ----------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | --------- | ------ | -------- | ------------- | -------------- | -------- | -------------- | ----- |
+  | `apify/instagram-api-scraper`                   | getPostByUrl         | `{"directUrls": ["https://www.instagram.com/p/Db9-oj1EaiF/"], "resultsType": "posts", "resultsLimit": 1}`                                                                                             | 1     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-api-scraper`                   | getPostByUrl         | `{"directUrls": ["https://www.instagram.com/p/Db9-oj1EaiF/"], "resultsType": "posts", "resultsLimit": 1}`                                                                                             | 2     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-api-scraper`                   | getPostByUrl         | `{"directUrls": ["https://www.instagram.com/p/Db9-oj1EaiF/"], "resultsType": "posts", "resultsLimit": 1}`                                                                                             | 3     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-api-scraper`                   | getPostByUrl         | `{"directUrls": ["https://www.instagram.com/p/Db9-oj1EaiF/"], "resultsType": "posts", "resultsLimit": 1}`                                                                                             | 4     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-api-scraper`                   | getPostByUrl         | `{"directUrls": ["https://www.instagram.com/p/Db9-oj1EaiF/"], "resultsType": "posts", "resultsLimit": 1}`                                                                                             | 5     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-api-scraper`                   | lookupAccountProfile | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "details", "resultsLimit": 1}`                                                                                       | 1     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-api-scraper`                   | lookupAccountProfile | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "details", "resultsLimit": 1}`                                                                                       | 2     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-api-scraper`                   | lookupAccountProfile | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "details", "resultsLimit": 1}`                                                                                       | 3     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-api-scraper`                   | lookupAccountProfile | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "details", "resultsLimit": 1}`                                                                                       | 4     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-api-scraper`                   | lookupAccountProfile | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "details", "resultsLimit": 1}`                                                                                       | 5     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-post-scraper`                  | n/a (posts-only)     | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 1, "dataDetailLevel": "basicData", "skipPinnedPosts": true}`                                                          | 1     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-post-scraper`                  | n/a (posts-only)     | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 1, "dataDetailLevel": "basicData", "skipPinnedPosts": true}`                                                          | 2     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-post-scraper`                  | n/a (posts-only)     | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 1, "dataDetailLevel": "basicData", "skipPinnedPosts": true}`                                                          | 3     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-post-scraper`                  | n/a (posts-only)     | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 1, "dataDetailLevel": "basicData", "skipPinnedPosts": true}`                                                          | 4     |           |        |          |               |                |          |                |       |
+  | `apify/instagram-post-scraper`                  | n/a (posts-only)     | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 1, "dataDetailLevel": "basicData", "skipPinnedPosts": true}`                                                          | 5     |           |        |          |               |                |          |                |       |
+  | `sones/instagram-posts-scraper-lowcost`         | n/a (posts-only)     | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 1     |           |        |          |               |                |          |                |       |
+  | `sones/instagram-posts-scraper-lowcost`         | n/a (posts-only)     | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 2     |           |        |          |               |                |          |                |       |
+  | `sones/instagram-posts-scraper-lowcost`         | n/a (posts-only)     | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 3     |           |        |          |               |                |          |                |       |
+  | `sones/instagram-posts-scraper-lowcost`         | n/a (posts-only)     | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 4     |           |        |          |               |                |          |                |       |
+  | `sones/instagram-posts-scraper-lowcost`         | n/a (posts-only)     | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 5     |           |        |          |               |                |          |                |       |
+  | `instagram-scraper/fast-instagram-post-scraper` | n/a (posts-only)     | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "retries": 3}`                                                                                                                   | 1     |           |        |          |               |                |          |                |       |
+  | `instagram-scraper/fast-instagram-post-scraper` | n/a (posts-only)     | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "retries": 3}`                                                                                                                   | 2     |           |        |          |               |                |          |                |       |
+  | `instagram-scraper/fast-instagram-post-scraper` | n/a (posts-only)     | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "retries": 3}`                                                                                                                   | 3     |           |        |          |               |                |          |                |       |
+  | `instagram-scraper/fast-instagram-post-scraper` | n/a (posts-only)     | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "retries": 3}`                                                                                                                   | 4     |           |        |          |               |                |          |                |       |
+  | `instagram-scraper/fast-instagram-post-scraper` | n/a (posts-only)     | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "retries": 3}`                                                                                                                   | 5     |           |        |          |               |                |          |                |       |
 
   Column notes: **Run ID** = the Apify console run ID (e.g. `wgmpjNjwPFsB3NOCc`), for traceability back to the actual run if a number looks off. **Duration** = console-reported wall-clock run time, same field used for the Task 1a samples (`31 s`, `1 m 15 s`, etc. — keep the same unit format for easy comparison). **Failure reason** = blank if successful; otherwise the actual error (timeout, empty result, rate-limited, private/unavailable account, etc.) — do not just mark "N", the reason matters for judging whether a failure is actor-side flakiness or a bad test input. **Items returned** = sanity check that the run actually returned the 1 requested item, not 0.
 
   **Rollup summary (compute once the table above is filled in):**
 
-  | Actor | Mode | Input params | Runs | Successes | Failures | Success rate | Min duration | Max duration | Median (p50) duration | Avg cost |
-  |---|---|---|---|---|---|---|---|---|---|---|
-  | `apify/instagram-api-scraper` | getPostByUrl | `{"directUrls": ["https://www.instagram.com/p/Db9-oj1EaiF/"], "resultsType": "posts", "resultsLimit": 1}` | 5 |  |  |  |  |  |  |  |
-  | `apify/instagram-api-scraper` | lookupAccountProfile | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "details", "resultsLimit": 1}` | 5 |  |  |  |  |  |  |  |
-  | `apify/instagram-post-scraper` | — | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 1, "dataDetailLevel": "basicData", "skipPinnedPosts": true}` | 5 |  |  |  |  |  |  |  |
-  | `sones/instagram-posts-scraper-lowcost` | — | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 5 |  |  |  |  |  |  |  |
-  | `instagram-scraper/fast-instagram-post-scraper` | — | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "retries": 3}` | 5 |  |  |  |  |  |  |  |
+
+  | Actor                                           | Mode                 | Input params                                                                                                                                                                                          | Runs | Successes | Failures | Success rate | Min duration | Max duration | Median (p50) duration | Avg cost |
+  | ----------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | --------- | -------- | ------------ | ------------ | ------------ | --------------------- | -------- |
+  | `apify/instagram-api-scraper`                   | getPostByUrl         | `{"directUrls": ["https://www.instagram.com/p/Db9-oj1EaiF/"], "resultsType": "posts", "resultsLimit": 1}`                                                                                             | 5    |           |          |              |              |              |                       |          |
+  | `apify/instagram-api-scraper`                   | lookupAccountProfile | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "details", "resultsLimit": 1}`                                                                                       | 5    |           |          |              |              |              |                       |          |
+  | `apify/instagram-post-scraper`                  | —                   | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 1, "dataDetailLevel": "basicData", "skipPinnedPosts": true}`                                                          | 5    |           |          |              |              |              |                       |          |
+  | `sones/instagram-posts-scraper-lowcost`         | —                   | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 5    |           |          |              |              |              |                       |          |
+  | `instagram-scraper/fast-instagram-post-scraper` | —                   | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 1, "retries": 3}`                                                                                                                   | 5    |           |          |              |              |              |                       |          |
 
   AC1's actual pick should be made from this rollup, not the single-sample table in Dev Notes above (which stays as-is for historical reference / the reason Task 1b was opened in the first place).
-
-- [ ] Task 1c (added 2026-08-14, per user request to also cover the batch/newest-post use case): Verify each actor's newest-posts-only cutoff filter actually works the way `getNewestPosts` needs — this decides the separate `getNewestPosts` actor constant (AC3/AC4), independent of Task 1a/1b's sync-path pick. See Dev Notes "Duplication Is Already DB-Safe; What Actually Matters Is Filter Cost-Efficiency" for why this is a filtering/cost question, not a data-correctness one (duplicate rows are already prevented at the DB layer regardless of actor).
+- [ ]  Task 1c (added 2026-08-14, per user request to also cover the batch/newest-post use case): Verify each actor's newest-posts-only cutoff filter actually works the way `getNewestPosts` needs — this decides the separate `getNewestPosts` actor constant (AC3/AC4), independent of Task 1a/1b's sync-path pick. See Dev Notes "Duplication Is Already DB-Safe; What Actually Matters Is Filter Cost-Efficiency" for why this is a filtering/cost question, not a data-correctness one (duplicate rows are already prevented at the DB layer regardless of actor).
 
   **What to check, per run:** (1) does the actor return *only* items newer than the cutoff, or does it return everything and just annotate/flag them (like `fast-instagram-post-scraper`'s `is_newer_than_cutoff` field hinted at in the original sample)? (2) does the cost breakdown bill for items outside the cutoff (a "Processing Fee (Filtered Items)"-style line, as `fast-instagram-post-scraper`'s original sample showed) or are they free? (3) critically — does a cutoff matching **zero** real posts return 0 items and bill ~$0, matching Story 3.4 AC4's explicit requirement (*"a call for an account with nothing new returns, and bills, zero items"*)? An actor that fails #3 breaks the entire cost-control premise the daily batch depends on, regardless of how it performs on Task 1a/1b.
 
@@ -117,6 +118,7 @@ This story exists to close that gap: match actor choice to the latency/cost prof
   ```
 
   *Scenario A — baseline cutoff (`2026-08-10`, before all 10 known posts): expect **≥10 items** back (all 10 known posts; possibly more, up to `resultsLimit: 15`, if the account posted anything earlier than 08-12T02:55 that this sample didn't capture).*
+
   1. `apify/instagram-api-scraper`: `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "posts", "resultsLimit": 15, "onlyPostsNewerThan": "2026-08-10"}`
   2. `apify/instagram-post-scraper`: `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 15, "dataDetailLevel": "basicData", "skipPinnedPosts": true, "onlyPostsNewerThan": "2026-08-10"}`
   3. `sones/instagram-posts-scraper-lowcost`: `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "newerThan": "2026-08-10T00:00:00Z", "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}`
@@ -136,29 +138,178 @@ This story exists to close that gap: match actor choice to the latency/cost prof
 
   Run Scenario C two or three times per actor if the first result looks surprising (nonzero cost despite 0 items, or nonzero items despite the just-past cutoff) — a single run isn't enough to trust an edge case this consequential.
 
-  **Recording template:**
+  **Recording template — one fill-in block per run (a table cell can't hold a pasted JSON output; this format can).** For each of the 12 runs below, fill in the plain fields (date/time, run ID, duration, cost, item count) and paste the full JSON output as-is. Leave "Timestamps match expected?" and "'Filtered items' charge present?" blank — those get filled in afterward from a review of the pasted output, not while you're collecting data.
 
-  | Actor | Scenario | Input params | Expected items | Items returned | Timestamps match expected? | Cost ($) | "Filtered items" charge present? | Notes |
-  |---|---|---|---|---|---|---|---|---|
-  | `apify/instagram-api-scraper` | A (baseline, 2026-08-10) | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "posts", "resultsLimit": 15, "onlyPostsNewerThan": "2026-08-10"}` | ≥10 |  |  |  |  |  |
-  | `apify/instagram-api-scraper` | B (split, 2026-08-13T00:00:00Z) | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "posts", "resultsLimit": 15, "onlyPostsNewerThan": "2026-08-13T00:00:00.000Z"}` | exactly 3 |  |  |  |  |  |
-  | `apify/instagram-api-scraper` | C (zero, live T+1s) | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "posts", "resultsLimit": 15, "onlyPostsNewerThan": "<T+1s>"}` | 0 |  |  |  |  |  |
-  | `apify/instagram-post-scraper` | A (baseline, 2026-08-10) | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 15, "dataDetailLevel": "basicData", "skipPinnedPosts": true, "onlyPostsNewerThan": "2026-08-10"}` | ≥10 |  |  |  |  |  |
-  | `apify/instagram-post-scraper` | B (split, 2026-08-13T00:00:00Z) | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 15, "dataDetailLevel": "basicData", "skipPinnedPosts": true, "onlyPostsNewerThan": "2026-08-13T00:00:00.000Z"}` | exactly 3 |  |  |  |  |  |
-  | `apify/instagram-post-scraper` | C (zero, live T+1s) | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 15, "dataDetailLevel": "basicData", "skipPinnedPosts": true, "onlyPostsNewerThan": "<T+1s>"}` | 0 |  |  |  |  |  |
-  | `sones/instagram-posts-scraper-lowcost` | A (baseline, 2026-08-10) | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "newerThan": "2026-08-10T00:00:00Z", "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | ≥10 |  |  |  |  |  |
-  | `sones/instagram-posts-scraper-lowcost` | B (split, 2026-08-13T00:00:00Z) | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "newerThan": "2026-08-13T00:00:00Z", "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | exactly 3 |  |  |  |  |  |
-  | `sones/instagram-posts-scraper-lowcost` | C (zero, live T+1s) | `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "newerThan": "<T+1s>", "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}` | 0 |  |  |  |  |  |
-  | `instagram-scraper/fast-instagram-post-scraper` | A (baseline, 2026-08-10) | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "recent": "2026-08-10", "retries": 3}` | ≥10 |  |  |  |  |  |
-  | `instagram-scraper/fast-instagram-post-scraper` | B (split, 2026-08-13) | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "recent": "2026-08-13", "retries": 3}` | exactly 3 |  |  |  |  |  |
-  | `instagram-scraper/fast-instagram-post-scraper` | C (zero, live tomorrow) | `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "recent": "<tomorrow>", "retries": 3}` | 0 |  |  |  |  |  |
+  ---
+
+  **Run 1 — `apify/instagram-api-scraper` — Scenario A (baseline, expect ≥10 items)**
+  Input: `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "posts", "resultsLimit": 15, "onlyPostsNewerThan": "2026-08-10"}`
+  - Date/Time:
+  - Run ID:
+  - Duration:
+  - Cost ($):
+  - Items returned (count):
+  - Output (paste full JSON):
+  ```json
+
+  ```
+
+  **Run 2 — `apify/instagram-api-scraper` — Scenario B (split, expect exactly 3 items)**
+  Input: `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "posts", "resultsLimit": 15, "onlyPostsNewerThan": "2026-08-13T00:00:00.000Z"}`
+  - Date/Time:
+  - Run ID:
+  - Duration:
+  - Cost ($):
+  - Items returned (count):
+  - Output (paste full JSON):
+  ```json
+
+  ```
+
+  **Run 3 — `apify/instagram-api-scraper` — Scenario C (zero, live T+1s)**
+  Input: `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "posts", "resultsLimit": 15, "onlyPostsNewerThan": "<T+1s, fill in the real value you used>"}`
+  - Date/Time:
+  - Run ID:
+  - Duration:
+  - Cost ($):
+  - Items returned (count):
+  - Output (paste full JSON):
+  ```json
+
+  ```
+
+  **Run 4 — `apify/instagram-post-scraper` — Scenario A (baseline, expect ≥10 items)**
+  Input: `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 15, "dataDetailLevel": "basicData", "skipPinnedPosts": true, "onlyPostsNewerThan": "2026-08-10"}`
+  - Date/Time:
+  - Run ID:
+  - Duration:
+  - Cost ($):
+  - Items returned (count):
+  - Output (paste full JSON):
+  ```json
+
+  ```
+
+  **Run 5 — `apify/instagram-post-scraper` — Scenario B (split, expect exactly 3 items)**
+  Input: `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 15, "dataDetailLevel": "basicData", "skipPinnedPosts": true, "onlyPostsNewerThan": "2026-08-13T00:00:00.000Z"}`
+  - Date/Time:
+  - Run ID:
+  - Duration:
+  - Cost ($):
+  - Items returned (count):
+  - Output (paste full JSON):
+  ```json
+
+  ```
+
+  **Run 6 — `apify/instagram-post-scraper` — Scenario C (zero, live T+1s)**
+  Input: `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsLimit": 15, "dataDetailLevel": "basicData", "skipPinnedPosts": true, "onlyPostsNewerThan": "<T+1s, fill in the real value you used>"}`
+  - Date/Time:
+  - Run ID:
+  - Duration:
+  - Cost ($):
+  - Items returned (count):
+  - Output (paste full JSON):
+  ```json
+
+  ```
+
+  **Run 7 — `sones/instagram-posts-scraper-lowcost` — Scenario A (baseline, expect ≥10 items)**
+  Input: `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "newerThan": "2026-08-10T00:00:00Z", "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}`
+  - Date/Time:
+  - Run ID:
+  - Duration:
+  - Cost ($):
+  - Items returned (count):
+  - Output (paste full JSON):
+  ```json
+
+  ```
+
+  **Run 8 — `sones/instagram-posts-scraper-lowcost` — Scenario B (split, expect exactly 3 items)**
+  Input: `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "newerThan": "2026-08-13T00:00:00Z", "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}`
+  - Date/Time:
+  - Run ID:
+  - Duration:
+  - Cost ($):
+  - Items returned (count):
+  - Output (paste full JSON):
+  ```json
+
+  ```
+
+  **Run 9 — `sones/instagram-posts-scraper-lowcost` — Scenario C (zero, live T+1s)**
+  Input: `{"usernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "newerThan": "<T+1s, fill in the real value you used>", "proxy": {"useApifyProxy": true}, "maxRetries": 3, "maxConcurrentProfiles": 1, "delayBetweenProfiles": 250, "delayBetweenRequests": 500}`
+  - Date/Time:
+  - Run ID:
+  - Duration:
+  - Cost ($):
+  - Items returned (count):
+  - Output (paste full JSON):
+  ```json
+
+  ```
+
+  **Run 10 — `instagram-scraper/fast-instagram-post-scraper` — Scenario A (baseline, expect ≥10 items)**
+  Input: `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "recent": "2026-08-10", "retries": 3}`
+  - Date/Time:
+  - Run ID:
+  - Duration:
+  - Cost ($):
+  - Items returned (count):
+  - Output (paste full JSON):
+  ```json
+
+  ```
+
+  **Run 11 — `instagram-scraper/fast-instagram-post-scraper` — Scenario B (split, expect exactly 3 items)**
+  Input: `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "recent": "2026-08-13", "retries": 3}`
+  - Date/Time:
+  - Run ID:
+  - Duration:
+  - Cost ($):
+  - Items returned (count):
+  - Output (paste full JSON):
+  ```json
+
+  ```
+
+  **Run 12 — `instagram-scraper/fast-instagram-post-scraper` — Scenario C (zero, live tomorrow)**
+  Input: `{"instagramUsernames": ["pakuwonmall.jogja"], "postsPerProfile": 15, "recent": "<tomorrow's date, fill in the real value you used>", "retries": 3}`
+  - Date/Time:
+  - Run ID:
+  - Duration:
+  - Cost ($):
+  - Items returned (count):
+  - Output (paste full JSON):
+  ```json
+
+  ```
+
+  ---
+
+  **Derived analysis (fill in after all 12 runs' output is pasted above — computed from the raw output, not collected during runs):**
+
+  | Actor | Scenario | Expected items | Actual items | Timestamps match expected? | "Filtered items" charge present? | Verdict |
+  |---|---|---|---|---|---|---|
+  | `apify/instagram-api-scraper` | A |  |  |  |  |  |
+  | `apify/instagram-api-scraper` | B | exactly 3 |  |  |  |  |
+  | `apify/instagram-api-scraper` | C | 0 |  |  |  |  |
+  | `apify/instagram-post-scraper` | A |  |  |  |  |  |
+  | `apify/instagram-post-scraper` | B | exactly 3 |  |  |  |  |
+  | `apify/instagram-post-scraper` | C | 0 |  |  |  |  |
+  | `sones/instagram-posts-scraper-lowcost` | A |  |  |  |  |  |
+  | `sones/instagram-posts-scraper-lowcost` | B | exactly 3 |  |  |  |  |
+  | `sones/instagram-posts-scraper-lowcost` | C | 0 |  |  |  |  |
+  | `instagram-scraper/fast-instagram-post-scraper` | A |  |  |  |  |  |
+  | `instagram-scraper/fast-instagram-post-scraper` | B | exactly 3 |  |  |  |  |
+  | `instagram-scraper/fast-instagram-post-scraper` | C | 0 |  |  |  |  |
 
   Any actor that fails Scenario B (wrong count, or right count but wrong timestamps) or Scenario C (nonzero cost or nonzero items on a cutoff nothing can be newer than) should be considered disqualified for `getNewestPosts` regardless of its Task 1a/1b sync-path performance — the daily batch runs against every subscribed account every day, so a per-call cost leak here compounds in a way a one-off sync call never would.
-
-- [ ] Task 2: Extract actor IDs into named config/env constants, one per adapter method use-case (sync vs batch) (AC: #4).
-- [ ] Task 3: Swap the sync-path actor per Task 1's findings (AC: #1).
-- [ ] Task 4: Add `withTimeout` wrapping to `lookupAccountProfile`, with a distinct timed-out error type/message from "not found" (AC: #2).
-- [ ] Task 5: Update `instagram-adapter.test.ts` for the timeout case and the actor-selection change.
+- [ ]  Task 2: Extract actor IDs into named config/env constants, one per adapter method use-case (sync vs batch) (AC: #4).
+- [ ]  Task 3: Swap the sync-path actor per Task 1's findings (AC: #1).
+- [ ]  Task 4: Add `withTimeout` wrapping to `lookupAccountProfile`, with a distinct timed-out error type/message from "not found" (AC: #2).
+- [ ]  Task 5: Update `instagram-adapter.test.ts` for the timeout case and the actor-selection change.
 
 *Task breakdown intentionally left at this level — re-run `bmad-create-story 3-4d` for full implementation detail (exact env var names, error-type shape, test cases) before `dev-story`.*
 
@@ -166,12 +317,13 @@ This story exists to close that gap: match actor choice to the latency/cost prof
 
 ### Actor Cost & Duration Comparison (from `docs/assets/Apify actor costing and facts.md` + live store-page verification, 2026-08-14; duration column added by user 2026-08-14)
 
-| Actor | Input params (this sample) | Cost/1000 items | Observed duration (1 sample run each) | Maintainer | Notes |
-|---|---|---|---|---|---|
-| `apify/instagram-api-scraper` *(current, all 3 use cases)* | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "posts", "resultsLimit": 3, "searchType": "hashtag", "addParentData": false}` | ~$2.30–2.90/1000 observed / $1.40/1000 published | **31 s** (for only 3 results) | Apify | Broadest feature set (posts/details/hashtag/search) but most expensive **and** slowest-per-item of the four; own docs: *"a few seconds to a few hours"* per run. Already exceeds the current 20s sync-path timeout. |
-| `apify/instagram-post-scraper` | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "dataDetailLevel": "basicData", "onlyPostsNewerThan": "2026-08-06", "resultsLimit": 10, "skipPinnedPosts": true}` | ~$1.70/1000 observed | **1 m 15 s** (for 10 results) | Apify | Narrower (posts only), `dataDetailLevel` knob for basic-vs-full — cheaper on paper, but the **slowest actor observed by a wide margin**. Not a fit for a synchronous call site under this data; ruled out below. |
-| `instagram-scraper/fast-instagram-post-scraper` | `{"instagramUsernames": ["pakuwonmall.jogja"], "recent": "2026-08-06", "postsPerProfile": 10, "retries": 3}` | ~$0.90/1000 observed / $0.45/1000 published | **7 s** (10 requested, 7 returned + 3 filtered) | Third-party | Marketed for speed via no-login extraction — the branding checks out against this sample. Strong candidate for the current app-funded key — see AC5. |
-| `sones/instagram-posts-scraper-lowcost` | `{"usernames": ["jogjaexpocenter"], "newerThan": "2026-08-06T13:07:24+07:00", "postsPerProfile": 10, "proxy": {"useApifyProxy": true}, "delayBetweenProfiles": 250, "delayBetweenRequests": 500, "maxRetries": 3, "maxConcurrentProfiles": 10}` | ~$0.80/1000 observed / $0.30/1000 published | **5 s** (for 10 results) | Third-party (community, "Samy") | Cheapest **and** fastest observed. 90.2% success rate, 4.77★/5.3k users — the reliability trade-off to weigh against being the top performer here. Strong candidate for the current app-funded key — see AC5. **Caveat:** this sample targeted a *different* account (`jogjaexpocenter`) than the other three (`pakuwonmall.jogja`) — not a perfectly controlled comparison; Task 1b/1c standardize on `pakuwonmall.jogja` for all four actors to fix this. |
+
+| Actor                                                      | Input params (this sample)                                                                                                                                                                                                                      | Cost/1000 items                                   | Observed duration (1 sample run each)           | Maintainer                      | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apify/instagram-api-scraper` *(current, all 3 use cases)* | `{"directUrls": ["https://www.instagram.com/pakuwonmall.jogja/"], "resultsType": "posts", "resultsLimit": 3, "searchType": "hashtag", "addParentData": false}`                                                                                  | ~$2.30–2.90/1000 observed / $1.40/1000 published | **31 s** (for only 3 results)                   | Apify                           | Broadest feature set (posts/details/hashtag/search) but most expensive**and** slowest-per-item of the four; own docs: *"a few seconds to a few hours"* per run. Already exceeds the current 20s sync-path timeout.                                                                                                                                                                                                                                             |
+| `apify/instagram-post-scraper`                             | `{"username": ["https://www.instagram.com/pakuwonmall.jogja/"], "dataDetailLevel": "basicData", "onlyPostsNewerThan": "2026-08-06", "resultsLimit": 10, "skipPinnedPosts": true}`                                                               | ~$1.70/1000 observed                              | **1 m 15 s** (for 10 results)                   | Apify                           | Narrower (posts only),`dataDetailLevel` knob for basic-vs-full — cheaper on paper, but the **slowest actor observed by a wide margin**. Not a fit for a synchronous call site under this data; ruled out below.                                                                                                                                                                                                                                               |
+| `instagram-scraper/fast-instagram-post-scraper`            | `{"instagramUsernames": ["pakuwonmall.jogja"], "recent": "2026-08-06", "postsPerProfile": 10, "retries": 3}`                                                                                                                                    | ~$0.90/1000 observed / $0.45/1000 published       | **7 s** (10 requested, 7 returned + 3 filtered) | Third-party                     | Marketed for speed via no-login extraction — the branding checks out against this sample. Strong candidate for the current app-funded key — see AC5.                                                                                                                                                                                                                                                                                                         |
+| `sones/instagram-posts-scraper-lowcost`                    | `{"usernames": ["jogjaexpocenter"], "newerThan": "2026-08-06T13:07:24+07:00", "postsPerProfile": 10, "proxy": {"useApifyProxy": true}, "delayBetweenProfiles": 250, "delayBetweenRequests": 500, "maxRetries": 3, "maxConcurrentProfiles": 10}` | ~$0.80/1000 observed / $0.30/1000 published       | **5 s** (for 10 results)                        | Third-party (community, "Samy") | Cheapest**and** fastest observed. 90.2% success rate, 4.77★/5.3k users — the reliability trade-off to weigh against being the top performer here. Strong candidate for the current app-funded key — see AC5. **Caveat:** this sample targeted a *different* account (`jogjaexpocenter`) than the other three (`pakuwonmall.jogja`) — not a perfectly controlled comparison; Task 1b/1c standardize on `pakuwonmall.jogja` for all four actors to fix this. |
 
 **This flips the original cost-only recommendation.** Cost alone pointed at `apify/instagram-post-scraper` as the sync-path pick; the duration data shows it's actually the slowest of the four (75s), while the two third-party actors are both faster *and* cheaper (5-7s vs. 31-75s for the Apify-maintained pair). Both Apify-maintained actors' observed durations already exceed the current 20s sync-path timeout — see Background finding #3. This is a single sample per actor, not a distribution (Apify's own docs warn duration varies by "content complexity, location, and other factors"), so Task 1 still calls for a slightly larger sample before locking in a pick — but the direction of the evidence is strong and consistent with the "fast"/"lowcost" actors' own positioning, not a coin flip.
 
@@ -206,8 +358,8 @@ The app-funded Apify account is the project owner's own account — per the 2026
 
 ## Global Rules References
 
-- [x] `_bmad-output/project-context.md` — Adapter Pattern (General Architecture rule): this story keeps the existing `ScraperAdapter` interface unchanged, only varying which actor ID backs each method — no new abstraction introduced.
-- [x] `_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md` — no PRD-level behavior change; this is a cost/reliability refinement of Story 3.4's existing scraping capability, not a new feature.
+- [X]  `_bmad-output/project-context.md` — Adapter Pattern (General Architecture rule): this story keeps the existing `ScraperAdapter` interface unchanged, only varying which actor ID backs each method — no new abstraction introduced.
+- [X]  `_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md` — no PRD-level behavior change; this is a cost/reliability refinement of Story 3.4's existing scraping capability, not a new feature.
 
 ## Out of Scope
 
@@ -218,13 +370,13 @@ The app-funded Apify account is the project owner's own account — per the 2026
 
 ## Definition of Done
 
-- [x] Task 1a's single-sample cost/duration comparison recorded (2026-08-14) — see Dev Notes.
-- [ ] Task 1b's fuller-sample confirmation for the two leading third-party candidates (sync-path pick).
-- [ ] Task 1c's filter-correctness/cost verification across all four actors (batch-path pick for `getNewestPosts`).
-- [ ] Sync-path actor swapped per AC1, actor IDs extracted to three named constants per AC4 (`getPostByUrl`, `lookupAccountProfile`, `getNewestPosts`).
-- [ ] `lookupAccountProfile` timeout added per AC2, with a distinct error type from "not found."
-- [ ] `instagram-adapter.test.ts` updated and passing.
+- [X]  Task 1a's single-sample cost/duration comparison recorded (2026-08-14) — see Dev Notes.
+- [ ]  Task 1b's fuller-sample confirmation for the two leading third-party candidates (sync-path pick).
+- [ ]  Task 1c's filter-correctness/cost verification across all four actors (batch-path pick for `getNewestPosts`).
+- [ ]  Sync-path actor swapped per AC1, actor IDs extracted to three named constants per AC4 (`getPostByUrl`, `lookupAccountProfile`, `getNewestPosts`).
+- [ ]  `lookupAccountProfile` timeout added per AC2, with a distinct error type from "not found."
+- [ ]  `instagram-adapter.test.ts` updated and passing.
 
 ## Completion Status
 
-- [ ] Backlog — initial cost/duration comparison done (Task 1a), pending a fuller sync-path sample (Task 1b), a batch-path filter-correctness/cost verification (Task 1c), and `bmad-create-story 3-4d` for full task-level detail before `dev-story`. Elevated priority: current production `getPostByUrl` timeout (20s) is already shorter than both observed Apify-maintained actor durations (31s, 75s) — see Background finding #3. Scope also now explicitly covers `getNewestPosts`'s actor constant (Background finding #4), not just the two sync-path methods — confirmed duplication itself is already DB-safe regardless of actor (see Dev Notes), so Task 1c is about cost-efficiency of each actor's newest-posts filter, not data correctness.
+- [ ]  Backlog — initial cost/duration comparison done (Task 1a), pending a fuller sync-path sample (Task 1b), a batch-path filter-correctness/cost verification (Task 1c), and `bmad-create-story 3-4d` for full task-level detail before `dev-story`. Elevated priority: current production `getPostByUrl` timeout (20s) is already shorter than both observed Apify-maintained actor durations (31s, 75s) — see Background finding #3. Scope also now explicitly covers `getNewestPosts`'s actor constant (Background finding #4), not just the two sync-path methods — confirmed duplication itself is already DB-safe regardless of actor (see Dev Notes), so Task 1c is about cost-efficiency of each actor's newest-posts filter, not data correctness.
