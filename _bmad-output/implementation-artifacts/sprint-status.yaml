@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-15T22:05:00Z
+last_updated: 2026-08-15T22:10:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -378,7 +378,18 @@ development_status:
   # (capability, not policy): confirm profile-URL input returns recent POSTS
   # (discovery) vs only profile metadata/single-post lookup -- verify with a
   # real test call before committing to the async job-tracking/webhook design.
-  3-4a-add-brightdata-as-the-priority-scraping-vendor-for-the-scheduled-batch: backlog
+  # UPDATE 2026-08-15 (bmad-create-story): a full story file already existed
+  # (drafted 2026-08-09, one day before the ON HOLD note froze it) but this
+  # status key was never synced to match its own ready-for-dev header. User
+  # gave the new explicit decision to reopen the Bright Data avenue (epics.md
+  # Story 3.4a REOPENED note); re-verified the story's technical premises
+  # directly against current code (usage-store.ts, instagram-adapter.ts,
+  # get-scrape-targets.ts, subscribe-to-account.ts, scraper.ts lambda, CDK
+  # stack) -- no drift found, content unchanged. Status synced to ready-for-dev.
+  # The profile-URL discovery-vs-metadata capability question above remains an
+  # accepted, tracked gap to close during implementation (needs a real
+  # authenticated Bright Data call, not resolvable via static research).
+  3-4a-add-brightdata-as-the-priority-scraping-vendor-for-the-scheduled-batch: ready-for-dev
   # added 2026-08-08 via bmad-create-story while drafting Story 3.4: BYOK-pooled
   # scraper-vendor keys, researched and found legally ambiguous for both Apify
   # (anti-sublicensing clause) and Bright Data (KYC/declared-use-case vetting).

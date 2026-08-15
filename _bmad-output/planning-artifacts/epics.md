@@ -1823,6 +1823,8 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **ON HOLD (2026-08-10, added via `bmad-create-story`):** User decision — drop the Bright Data avenue entirely rather than send the clarifying follow-up (see Story 3.4b's own "drafted but not sent" record). Since this story's entire premise is Bright Data as the batch-priority vendor, it has no remaining basis to proceed and is parked on hold, not actively pursued. It is **not** cancelled/removed outright, in case Bright Data becomes worth reconsidering later (e.g. if Apify's own limitations or cost eventually make revisiting Bright Data worthwhile) — but do not run `bmad-create-story 3-4a` without a new, explicit decision to reopen this avenue.
 
+**REOPENED (2026-08-15, added via `bmad-create-story` at the user's explicit confirmation):** This is the new, explicit decision the note above required. User confirmed proceeding with `bmad-create-story 3-4a` now, superseding the ON HOLD note. The stale `sprint-status.yaml` comment (2026-08-10, "Story is UNBLOCKED for bmad-create-story 3-4a") had drifted out of sync with this epics.md ON HOLD note and is what surfaced the conflict — this REOPENED note is the authoritative resolution. The remaining open capability question (does a Bright Data profile-URL input return recent posts/discovery, vs. only profile metadata or a specific already-known post URL) is still unverified and is addressed as part of this story's own creation pass below.
+
 **Depends on:** Story 3.4.
 
 ---
