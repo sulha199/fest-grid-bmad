@@ -778,6 +778,25 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Depends on:** Story 0.14, Story 0.25.
 
+### Story 0.28: Set up shadcn/ui component generation for packages/ui
+
+**As a** developer,
+**I want** `packages/ui` to have its own shadcn/ui `components.json` and the underlying Radix/date-picker dependencies it needs (`@radix-ui/react-popover`, `react-day-picker`, `date-fns` or equivalent),
+**So that** reusable `packages/ui` components (Story 1.3g's `WeekPicker`, Story 1.5's `FilterHub` dropdown popovers) can be built on the shadcn-sanctioned `Button`+`Popover`(+`Calendar`) composition without either duplicating `apps/web`'s own shadcn setup ad hoc or, worse, having `packages/ui` import from `apps/web` (the wrong dependency direction — `packages/ui` is a dependency of `apps/web`, never the reverse).
+
+**Acceptance Criteria:**
+
+*   **Given** `apps/web/components.json` already configures shadcn CLI output into `apps/web/src/components/ui/`, and `packages/ui` currently has zero shadcn/Radix components, no `components.json`, and no `@radix-ui/*` dependency,
+*   **When** this story runs the shadcn CLI against `packages/ui` (a new `packages/ui/components.json` targeting `packages/ui/src/core/ui/` as its primitive-output directory, matching this monorepo's `apps/web` convention of a dedicated `ui/` subfolder for CLI-generated files as opposed to hand-authored `core/` components),
+*   **Then** `packages/ui/src/core/ui/popover.tsx` and `packages/ui/src/core/ui/calendar.tsx` are generated via `pnpm --filter @festgrid/ui exec shadcn add popover calendar`, and `packages/ui/package.json` gains the CLI's resulting dependencies (`@radix-ui/react-popover`, `react-day-picker`, and any transitive date-utility dependency the `calendar` component requires) as direct dependencies, not devDependencies — these ship in the built package.
+*   **And** `packages/ui`'s existing hand-rolled `core/` primitives (`checkbox.tsx`, `multi-select.tsx`, `blocking-loader.tsx`, etc.) are left untouched — this story only adds the new CLI-generated `ui/` subfolder alongside them, it does not migrate/replace any existing component.
+*   **And** a trivial smoke test (or existing `pnpm --filter @festgrid/ui build`) confirms `packages/ui` still builds and its existing test suite still passes with the new dependencies added.
+*   **And** this story ships no consumer of the new primitives itself — Story 1.3g's `WeekPicker.tsx` and Story 1.5's `FilterHub` popover redesign are its first two consumers, built in their own stories.
+
+**Note:** Added 2026-08-15 via `bmad-create-story` while reopening Story 1.3g for AC13 (`sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md` Section 4.4, AD-9). AD-9 mandates `packages/ui/src/core/WeekPicker.tsx` wrapping shadcn `Popover`+`Calendar`, but no shadcn/Radix setup exists anywhere in `packages/ui` — only `apps/web` has one, and `packages/ui` cannot depend on `apps/web`. The same gap independently blocks Story 1.5's FilterHub popover redesign (Section 4.1 of the same proposal), so this is a tooling/infrastructure gap needed by ≥2 stories, not a single-story concern — split into a new Epic 0 story per `story-split-gate.md`'s numbering rule rather than absorbed into either 1.3g or 1.5. User confirmed via `AskUserQuestion` during Story 1.3g's reopening.
+
+**Depends on:** None.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
@@ -957,7 +976,9 @@ Users can discover and browse events.
 
 **Note:** This story exists because of a Gate 2 finding (`story-split-gate.md`) surfaced while creating Story 1.3f. `DESIGN.md`'s `calendar` component tokens already define `event_rendering.discovery_view`/`event_rendering.personal_view` as two named variants of one shared component (differing only in `max_events_per_day`), and Story 2.6 ("View and manage events on a calendar", Epic 2, `backlog`) is a confirmed second, independently-scoped consumer — meeting Gate 2's reuse-across-≥2-places bar directly from the authoritative UX artifact rather than speculation. Story 2.6's current AC text does not yet explicitly commit to the weekly-grid/prev-next-nav/Today-button shape (only `DESIGN.md`'s token structure implies it) — this component's contract is derived from `DESIGN.md`/`EXPERIENCE.md` now, and Story 2.6 should confirm/adjust when it is actually drafted rather than assuming zero drift. Classified as a single-story-origin UI split (mirroring the `1.3a`/`1.3b`/`1.3d`/`1.3e` precedent), positioned as a lettered suffix directly off Story 1.3f, its first consumer, and placed immediately before it in this file despite sorting after it alphabetically (`g` > `f`) — split-discovery order, not alphabetical order, determines position, per `story-split-gate.md`'s "insert a new lettered story, never renumber" rule. Confirmed with the user via `AskUserQuestion` (2026-08-05).
 
-**Depends on:** None (pure presentational component — no backend/data-fetching dependency of its own).
+**Amendment (2026-08-15, added via `bmad-create-story` while reopening this story for AC13):** Added AC13 (manual week-picker control, `sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md` Section 4.4, AD-9) — see the implementation-artifact story file for the full AC text and `WeekPicker.tsx`'s contract. `Depends on` updated to add Story 3.7a (boundary-resolution exports) and Story 0.28 (shadcn/Radix setup for `packages/ui` — new prerequisite, see that story's Note).
+
+**Depends on:** Story 3.7a, Story 0.28 (added 2026-08-15; originally none).
 
 ### Story 1.3h: Extend the events GraphQL API with schedule-level date-range query support
 

@@ -1,5 +1,5 @@
 ---
-baseline_commit: a5668cd6d6aee32205c0b572c45d5bd40a87dce2
+baseline_commit: 0f3eddb9163f6755e9e5aae7b5f8db6da61d8149
 ---
 # Story 1.3g: Build the reusable WeeklyCalendarView component
 
@@ -7,7 +7,7 @@ baseline_commit: a5668cd6d6aee32205c0b572c45d5bd40a87dce2
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.3g
-- Status: review
+- Status: ready-for-dev (reopened; AC13's `WeekPicker.tsx` work is blocked on Story 0.28 — see Dev Notes → Current Implementation State)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,6 +31,9 @@ so that the Discovery feed's Calendar View (Story 1.3f) and the future "My Calen
 10. **And** the component defines its own minimal schedule-shape type (`id`, `eventSlug`, `eventName`, `isMainSchedule`, `eventStartDate`, `eventEndDate?`, `eventStartTime?`, `eventEndTime?`), generic over `TSchedule extends` that shape — it does not import any `apps/web`-generated GraphQL type, matching `EventListView`/`EventDiscoveryPanel`'s existing decoupling pattern.
 11. **And** it exposes `loading`/`error` states (a skeleton grid / a caller-supplied error message+detail) for when the caller's data is still being fetched, matching `EventListView`'s `status` prop pattern.
 12. **And** the component is documented and exported from `packages/ui`'s public entry point (`packages/ui/src/features/events/index.ts`).
+
+**AC13 — Manual week-picker control (added 2026-08-13 via `bmad-correct-course`, Section 4.4; refined 2026-08-15 via `bmad-create-story`):**
+And the header row (AC1, AC2) gains a new week-picker trigger — a `Button` opening a `Popover` containing a `Calendar` (shadcn date picker, per `festgrid-architecture-spine.md` AD-9) — alongside the existing prev/next/Today controls. Selecting a date calls a new caller-supplied `onSelectWeek(date: string)` callback. Per AD-9, the picker itself is `packages/ui/src/core/WeekPicker.tsx` — a reusable wrapper around shadcn's `Calendar` (`mode="single"`) that highlights the full selected week row via `modifiers`/`modifiersClassNames`, not a plain undecorated date composition — taking `onSelectWeek(date: string)` and a **required** `getWeekRange(date: Date): { start: Date; end: Date }` prop; `WeekPicker` computes no boundary itself. `WeeklyCalendarView` therefore gains a new required `getWeekRange` prop (alongside the existing optional `onSelectWeek`) that it passes straight through to `WeekPicker` — the actual boundary source is Story 3.7a's exported `getWeekStart`/`getWeekEnd`, supplied by whichever `apps/web` wrapper renders this component, so exactly one boundary implementation exists app-wide.
 
 ## Tasks / Subtasks
 
@@ -69,8 +72,34 @@ so that the Discovery feed's Calendar View (Story 1.3f) and the future "My Calen
   - [x] Accessibility assertions: tooltip has `role="tooltip"`; popover trigger has correct `aria-expanded`/`aria-haspopup`; day cells/cards are reachable via keyboard alone (no mouse-only interaction path).
 - [x] Task 12: Final checks
   - [x] `pnpm build` / `pnpm lint` clean at the repo root (`packages/ui` and its consumers).
+- [ ] **Task 13 (AC13) — Blocked on Story 0.28:** Do not start Task 14 until Story 0.28 ("Set up shadcn/ui component generation for `packages/ui`") is done — it establishes `packages/ui`'s `components.json` and installs the underlying `popover`/`calendar` shadcn primitives this task's `WeekPicker.tsx` wraps. Confirm `packages/ui/src/core/ui/popover.tsx` and `packages/ui/src/core/ui/calendar.tsx` exist before proceeding.
+- [ ] **Task 14 (AC13) — Build `WeekPicker.tsx` (`packages/ui/src/core/`):**
+  - Create `packages/ui/src/core/WeekPicker.tsx`: `Button` (trigger) + `Popover` + `Calendar` (`mode="single"`) composition per AD-9. Props: `selectedDate: string | undefined` (or similar, for controlled display), `onSelectWeek: (date: string) => void`, and a **required** `getWeekRange: (date: Date) => { start: Date; end: Date }`.
+  - Use `Calendar`'s `modifiers`/`modifiersClassNames` to highlight the **full row** of the week containing the currently-hovered/selected date (compute the highlighted range via the caller-supplied `getWeekRange`, not any boundary math of `WeekPicker`'s own) — this is the one differentiator from a plain single-date shadcn `Calendar` composition, per AD-9's explicit rationale ("better picking affordance").
+  - `WeekPicker` must not import `getWeekStart`/`getWeekEnd` from Story 3.7a's hook directly, and must not contain any day-of-week arithmetic itself — `getWeekRange` is the only boundary source, supplied by the caller. This is the AD-9 rule 3 "exactly one boundary implementation exists app-wide" invariant; do not weaken it for convenience.
+  - Add a colocated `WeekPicker.test.tsx` covering: trigger opens the popover, selecting a date calls `onSelectWeek` with that date, the popover closes after selection, and the correct week row (per a test `getWeekRange` stub) receives the highlight modifier class.
+- [ ] **Task 15 (AC13) — Wire `WeekPicker` into `WeeklyCalendarView`'s header row:**
+  - Add `getWeekRange: (date: Date) => { start: Date; end: Date }` as a new prop to `WeeklyCalendarViewProps` (required when `onSelectWeek` is supplied — both already exist as of the current partial implementation, `onSelectWeek` is already optional/wired; `getWeekRange` is new).
+  - Replace the current hand-rolled native `<input type="date">` week-picker (the `isPickerOpen`/`pickerDate` state and the absolutely-positioned `<div>` block in the current file, header lines ~208-217 and ~494-525) with `<WeekPicker onSelectWeek={onSelectWeek} getWeekRange={getWeekRange} .../>` — this is a replacement, not an addition; remove the native-input markup and its now-unused local state entirely.
+  - Update `WeeklyCalendarView.test.tsx`'s existing "opens a week-picker and calls onSelectWeek with the picked date" test (currently drives a native `<input type="date">` via `fireEvent.change`) to instead drive the new `WeekPicker`/shadcn `Calendar` interaction (open the popover, click a day cell) — the underlying mechanism changed, the test must change with it, not be left asserting the removed native-input behavior.
+- [ ] **Task 16 (Gate 3 finding from Story 3.7a's reopening, not itself part of AC13) — Remove the divergent Sunday-start day-grid calculation:**
+  - The current `visibleDays` computation (lines ~186-204) **re-derives** a Sunday-start boundary from whatever `weekStart` it receives (`dayOfWeek = baseDate.getDay(); sundayOffset = dayOfWeek; startOfWeek = baseDate - sundayOffset`), rather than trusting the caller-supplied `weekStart` as the literal first rendered day. This silently "corrects" any non-Sunday `weekStart` back to Sunday — invisible until now only because every existing caller happened to already pass a Sunday-start value (the pre-3.7a-fix convention). Once Story 3.7a's Monday-start fix is live, this recomputation will silently shift the rendered week by up to 6 days, a real regression.
+  - **Fix:** delete the `dayOfWeek`/`sundayOffset` recomputation entirely. `WeeklyCalendarView` is a controlled component (AC2) — it must render exactly 7 consecutive days starting at the literal `weekStart` prop it was given, performing no boundary correction of its own. Replace the block with a direct loop from `baseDate` (still needed for the noon-normalization DST guard) with no day-of-week offset applied.
+  - This removes code rather than adding Monday-start math — `WeeklyCalendarView` should not need to know about weekday semantics at all, matching its own AC2 controlled-component contract.
+  - Add/update a `WeeklyCalendarView.test.tsx` case asserting that a non-Sunday `weekStart` (e.g. a Monday, matching Story 3.7a's corrected output) renders that exact date as the first visible day — not silently shifted to the preceding Sunday.
 
 ## Dev Notes
+
+### Current Implementation State (AC13, added 2026-08-15 — read before starting Task 13+)
+
+This is **not** a clean slate for AC13. A failed `bmad-quick-dev` run (commit `519f822`, 2026-08-14) already added a **functional but architecturally non-compliant** stopgap week-picker directly to `WeeklyCalendarView.tsx`:
+
+- A native `<input type="date">`, shown/hidden via local `isPickerOpen` state, positioned in an absolutely-positioned `<div>` under a "Select week" trigger button. It correctly calls `onSelectWeek(date)` on change (verified: the existing `WeeklyCalendarView.test.tsx` test "opens a week-picker and calls onSelectWeek with the picked date" passes against this implementation).
+- `WeeklyCalendarViewProps`/`WeeklyCalendarViewLabels` already gained `onSelectWeek?`, `selectWeekLabel?`, `chooseWeekLabel?` — these are fine to keep.
+- **This does not satisfy AC13.** It's a plain native date input with zero week-row highlighting, not the shadcn `Button`+`Popover`+`Calendar` composition AD-9 mandates, and there is no `WeekPicker.tsx` anywhere in `packages/ui/src/core/`. Tasks 13-15 replace this stopgap; do not treat AC13 as already done because `onSelectWeek` fires correctly — the *mechanism* is the gap AD-9 exists to close (it was written specifically to prevent exactly this kind of hand-rolled-composition drift, see AD-9's "Prevents" list).
+- The same commit also independently introduced the divergent Sunday-start `visibleDays` boundary recomputation described in Task 16 — present in the code before `519f822` in a different form (Sunday-only, unconditionally correct at the time since every caller was Sunday-start) but only became a live bug once Story 3.7a's boundary math changed to Monday-start (this same session). Task 16 is unrelated to AC13 itself but was surfaced as a Gate finding during Story 3.7a's own reopening (see below) and is this story's required pre-condition to fix, since 3.7a deliberately stayed hook-only.
+- `apps/web/locales/en.json`/`id.json` already gained `calendarSelectWeekLabel`/`calendarChooseWeekLabel` keys (also via `519f822`) for Story 1.3f/2.6's own wrapper wiring — these are fine, no change needed here (this story doesn't own `apps/web` i18n keys, see AC9/i18n Keys Required below).
+- `CalendarView.tsx` (1.3f) and `my-calendar-content.tsx` (2.6) already pass `onSelectWeek={handleSelectWeek}` through to this component. **Once Task 15 adds the new required `getWeekRange` prop, both of those wrapper files will need a corresponding update to also pass `getWeekRange` — that update belongs to Stories 1.3f/2.6 respectively, not this story** (mirroring exactly how Story 3.7a flagged this story's own divergent-calc fix instead of absorbing it). Flag this explicitly when 1.3f/2.6 are next reopened.
 
 ### Architecture & UX Gate Findings
 
@@ -80,6 +109,10 @@ so that the Discovery feed's Calendar View (Story 1.3f) and the future "My Calen
   - **"+N more" overflow disclosure (AC5):** does **not** meet Gate 2's reuse bar as a new `packages/ui` Popover/Disclosure primitive. Story 2.8 ("User Menu", Epic 2, still `backlog`) has a plausible but currently-unscoped, differently-shaped anchored menu (dropdown-at-desktop/bottom-sheet-at-mobile) that is not a confirmed second consumer of the same mechanism — Gate 2's "≥2 confirmed consumers grounded in actual `epics.md` text" bar (the same bar that justified splitting `EventCard`/`useInfiniteScroll`/`MultiSelect` into their own stories) is not met. The popover is built inline, scoped to this story.
   - **Hover/focus tooltip (AC7) and roving-tabindex (AC8):** both stay inline/component-local, not extracted to `packages/ui/src/hooks/`. The tooltip's only prior codebase instance (`NavRailItem`/`useNavRailItemInteraction.ts`) was itself hand-rolled inline rather than pre-extracted on a single consumer — reinforcing "don't pre-extract at N=1." Roving-tabindex has zero other `epics.md` hits (`grep -i "roving|arrow.?key" epics.md` returns only this story's own AC8).
   - No other sub-piece in this story's AC set (`event_card_compact` styling, multi-day segment logic) has a named ≥2-consumer case in `epics.md`.
+
+**Fresh Gate 3 finding (2026-08-15, this reopening for AC13):** `packages/ui` has no shadcn/Radix setup at all (no `components.json`, no `@radix-ui/*` dependency), but AD-9 mandates `WeekPicker.tsx` wrap shadcn `Popover`+`Calendar`. The identical gap independently blocks Story 1.5's FilterHub popover redesign (same `sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md`, Section 4.1) — a tooling/infrastructure gap needed by ≥2 stories, not a single-story concern. Not absorbed into this story; split into new **Story 0.28** ("Set up shadcn/ui component generation for `packages/ui`") per `story-split-gate.md`'s numbering rule (tooling gap → new Epic 0 story). User confirmed via `AskUserQuestion`. This story's `Depends on` updated accordingly (also adding Story 3.7a, whose `getWeekStart`/`getWeekEnd` this story's callers use to build the `getWeekRange` prop Task 14/15 require).
+
+**Fresh Gate 1 finding (2026-08-15, this reopening):** the divergent `visibleDays` Sunday-start recomputation (Task 16) — not a new-infrastructure gap, but an existing-code correctness gap surfaced by Story 3.7a's own reopening (see Story 3.7a's Dev Notes → Architecture & UX Gate Findings, which explicitly deferred this fix to this story rather than touching this story's file itself). Addressed directly in Task 16, not split out — it's a bugfix inside this story's own file, not new scope requiring a prerequisite.
 
 ### Design Decisions Confirmed With User (2026-08-05)
 
@@ -180,7 +213,8 @@ None. This is a pure presentational `packages/ui` component with no analytics/tr
 ### Package boundaries
 
 - `packages/ui/src/features/events/`: new `WeeklyCalendarView.tsx`, `WeeklyCalendarView.types.ts`, `WeeklyCalendarView.test.tsx` (and optionally a colocated `WeeklyCalendarView.utils.ts` per the Component Contract Summary note above), exported via the existing `index.ts`. No `next-intl`, no GraphQL-generated types, no React Query, no `nuqs` (unlike `EventDiscoveryPanel`/`FilterHub`, this component owns no URL state itself).
-- No other package touched by this story — `apps/web`'s consumption (Story 1.3f's `CalendarView` wrapper) and `apps/backend`/`packages/domain`/`packages/database` are all out of scope (see `## Out of Scope`). The small corrections to `1-3f-build-the-discovery-weekly-calendar-view-and-view-switcher.md` (Consumer Story Sync Check above) are documentation-only edits to an as-yet-unimplemented sibling story file, not a functional change to any package.
+- New (AC13, Task 14, blocked on Story 0.28): `packages/ui/src/core/WeekPicker.tsx`, `WeekPicker.test.tsx` — depends on `packages/ui/src/core/ui/popover.tsx`/`calendar.tsx` existing first (Story 0.28's output).
+- No other package touched by this story — `apps/web`'s consumption (Story 1.3f's `CalendarView` wrapper, Story 2.6's `my-calendar-content.tsx`) and `apps/backend`/`packages/domain`/`packages/database` are all out of scope (see `## Out of Scope`). The small corrections to `1-3f-build-the-discovery-weekly-calendar-view-and-view-switcher.md` (Consumer Story Sync Check above) are documentation-only edits to an as-yet-unimplemented sibling story file, not a functional change to any package.
 
 ### Architecture / technical constraints
 
@@ -217,13 +251,16 @@ None. This is a pure presentational `packages/ui` component with no analytics/tr
 - [Source: `packages/ui/src/core/blocking-loader.tsx` (focus-trap pattern reused for the "+N more" popover)]
 - [Source: `packages/ui/src/core/app-shell/NavRailItem.tsx`, `packages/ui/src/hooks/useNavRailItemInteraction.ts` (hover/focus tooltip pattern)]
 - [Source: `packages/ui/src/hooks/useScopedLocale.tsx`]
+- [Source: `_bmad-output/planning-artifacts/sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md#4.4`] — AC13 origin.
+- [Source: `_bmad-output/implementation-artifacts/3-7a-extract-shared-weekly-calendar-controller-hook.md`] — authoritative `getWeekStart`/`getWeekEnd` contract this story's callers use to build `getWeekRange`; also documents the divergent-calc Gate finding Task 16 addresses.
+- [Source: `packages/ui/src/features/events/WeeklyCalendarView.tsx`, `.types.ts`, `.test.tsx`] — current (partial AC13) implementation; read in full before starting Task 13+ (see Current Implementation State).
 
 ## Global Rules References
 
 - `_bmad-output/project-context.md` (UI Components & Scalability, Code Organization, Locale-Sensitive Data Rendering, UI Patterns & UX Invariants/Loaders, State Management Architecture)
 - `_bmad-output/planning-artifacts/story-content-structure.md`
-- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (AD-6 i18n/locale strategy — component-level scoping only, no provider)
-- `_bmad-output/planning-artifacts/epics.md` (Story 1.3g, Story 1.3f, Story 1.3d, Story 1.3e, Story 2.6)
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (AD-6 i18n/locale strategy — component-level scoping only, no provider; **AD-9 Date/Week Selection UI Convention — the authoritative source for AC13's `WeekPicker.tsx` contract**)
+- `_bmad-output/planning-artifacts/epics.md` (Story 1.3g, Story 1.3f, Story 1.3d, Story 1.3e, Story 2.6, Story 3.7a, Story 0.28)
 - `_bmad-output/planning-artifacts/story-split-gate.md`
 - `_bmad-output/planning-artifacts/epic-readiness/epic-1-readiness.md`
 - `docs/infrastructure/index.md` (frontend-only story, no infra shard changes — summary suffices)
@@ -236,7 +273,9 @@ None. This is a pure presentational `packages/ui` component with no analytics/tr
 - Optional new (implementation detail, dev agent's discretion): `packages/ui/src/features/events/WeeklyCalendarView.utils.ts` for colocated non-exported helpers (day-cell bucketing, multi-day segment computation).
 - Modified: `packages/ui/src/features/events/index.ts` (export additions).
 - Modified (documentation-only correction): `_bmad-output/implementation-artifacts/1-3f-build-the-discovery-weekly-calendar-view-and-view-switcher.md` (Task 5 prop-name correction, Task 7 new i18n key).
-- **Not modified by this story otherwise:** `apps/web/**` (Story 1.3f's `CalendarView` wrapper consumes this component but is out of scope here), `apps/backend/**`, `packages/domain/**`, `packages/database/**`.
+- New (AC13, Task 14, blocked on Story 0.28): `packages/ui/src/core/WeekPicker.tsx`, `WeekPicker.test.tsx`.
+- Modified (AC13, Task 15-16): `packages/ui/src/features/events/WeeklyCalendarView.tsx` (replace native-input picker with `WeekPicker`; remove divergent `visibleDays` boundary recomputation), `WeeklyCalendarView.types.ts` (add `getWeekRange` prop), `WeeklyCalendarView.test.tsx` (update the week-picker test for the new mechanism; add a non-Sunday `weekStart` regression test).
+- **Not modified by this story:** `apps/web/**` (Story 1.3f's/2.6's own wrappers consume this component and will need their own follow-up to pass `getWeekRange` — flagged for their own reopening, not done here), `apps/backend/**`, `packages/domain/**`, `packages/database/**`. `packages/ui/src/core/ui/popover.tsx`/`calendar.tsx` are Story 0.28's output, consumed but not created here.
 
 ### Rule Mapping
 
@@ -248,12 +287,16 @@ None. This is a pure presentational `packages/ui` component with no analytics/tr
 - *Story-split-gate Gate 2* → fresh subagent pass found no further reusable sub-piece meeting the ≥2-consumer bar; popover-vs-inline-expansion tradeoff for AC5 surfaced to and resolved by the user rather than silently picked (Design Decisions Confirmed With User above).
 - *Accessibility (WCAG 2.1 AA)* → keyboard-reachable tooltip (AC7), roving-tabindex grid nav (AC8), and popover focus trap (Task 5) all covered by Task 11's explicit a11y test assertions.
 - *Cross-story consistency* → this story's exact contract (`status`/`errorMessage`/`errorDetail`, `moreLabel` as a resolver function, `closePopoverLabel`) is reconciled with and corrected into Story 1.3f, its confirmed first consumer (Consumer Story Sync Check above), so the two stories cannot drift.
+- *AD-9 (Date/Week Selection UI Convention)* → `WeekPicker.tsx` (Task 14) is the sanctioned `Button`+`Popover`+`Calendar` composition, sourcing its boundary exclusively from a caller-supplied `getWeekRange` — never a second, independently-computed boundary (Task 14's explicit non-negotiable).
+- *Story-split-gate Gate 3 (this reopening)* → the missing `packages/ui` shadcn/Radix setup, needed by both this story and Story 1.5, is not absorbed here — split into prerequisite Story 0.28 (Architecture & UX Gate Findings above).
+- *Controlled-component contract (AC2, re-affirmed by Task 16)* → the divergent `visibleDays` Sunday-start recomputation is removed, not patched to a different hardcoded weekday — `WeeklyCalendarView` performs no boundary math of its own, full stop.
 
 ### Verification Plan
 
-- `packages/ui`: `WeeklyCalendarView.test.tsx` — full AC coverage per Task 11 (grid/header rendering, multi-day spanning + clamping, overflow + popover open/close/focus-trap/dismiss, click wiring from both grid and popover cards, tooltip hover+keyboard-focus reachability, roving-tabindex movement model, loading/error/success states, locale/timezone graceful degradation).
+- `packages/ui`: `WeeklyCalendarView.test.tsx` — full AC coverage per Task 11 (grid/header rendering, multi-day spanning + clamping, overflow + popover open/close/focus-trap/dismiss, click wiring from both grid and popover cards, tooltip hover+keyboard-focus reachability, roving-tabindex movement model, loading/error/success states, locale/timezone graceful degradation), plus the updated week-picker test (Task 15) and non-Sunday `weekStart` regression test (Task 16).
+- `packages/ui`: new `WeekPicker.test.tsx` (Task 14) — trigger/popover open, date selection calls `onSelectWeek`, popover closes on selection, correct week row highlighted per a test `getWeekRange` stub.
 - Manual: `pnpm build`/`pnpm lint` clean at the repo root for `packages/ui`.
-- Downstream verification (not owned by this story, tracked here for traceability): Story 1.3f's own `CalendarView.test.tsx` and its Task 3 ("verify Story 1.3g is done, do not re-implement here") are the integration-level proof that this component's actual contract matches what Story 1.3f assumes — now corrected to match exactly.
+- Downstream verification (not owned by this story, tracked here for traceability): Story 1.3f's own `CalendarView.test.tsx` and its Task 3 ("verify Story 1.3g is done, do not re-implement here") are the integration-level proof that this component's actual contract matches what Story 1.3f assumes — now corrected to match exactly. Stories 1.3f/2.6 also each need their own follow-up to pass the new `getWeekRange` prop once this story ships (Current Implementation State above) — tracked there, not here.
 
 ## Pre-Coding Approval Gate
 
@@ -263,11 +306,15 @@ None. This is a pure presentational `packages/ui` component with no analytics/tr
 - [ ] **Consumer-story sync corrections accepted:** the `status`/`errorMessage`/`errorDetail` prop shape (not `loading`/`error`), `moreLabel` as a `(count) => string` resolver function, and the new `closePopoverLabel`/`calendarClosePopoverLabel` requirement have all been reconciled into Story 1.3f directly (Consumer Story Sync Check above).
 - [ ] Architecture and data/API boundaries confirmed: no DB/ORM access, no GraphQL/generated-type import, no `next-intl`/`nuqs`/React Query dependency inside `packages/ui` — fully controlled, framework-agnostic component.
 - [ ] Testing plan confirmed: `WeeklyCalendarView.test.tsx` covering all 12 ACs including the a11y-specific assertions (tooltip keyboard reachability, popover focus trap, roving-tabindex model) per Task 11.
+- [ ] **AC13 scope confirmed:** Task 13 (blocked on Story 0.28) is not started until 0.28 is `done`. `WeekPicker.tsx` sources its boundary exclusively from the caller-supplied `getWeekRange` — no independent boundary math (AD-9 rule 3).
+- [ ] **Gate 3 prerequisite confirmed:** the `packages/ui` shadcn/Radix setup gap is not absorbed into this story — deferred to Story 0.28, confirmed via `AskUserQuestion` (Architecture & UX Gate Findings above).
+- [ ] **Task 16 scope confirmed:** the divergent `visibleDays` boundary recomputation is deleted, not replaced with different hardcoded weekday math — `WeeklyCalendarView` performs no boundary calculation of its own (controlled-component contract, AC2).
 - [ ] Explicit human approval state (Default: pending approval)
 
 ## Testing Requirements
 
-- `packages/ui`: `WeeklyCalendarView.test.tsx` (new) — see Task 11 for the full enumerated coverage list. No `packages/domain` logic is introduced by this story, so the 100% domain-coverage rule does not apply here; this component follows the same Vitest + Testing Library integration-style convention as `EventCard.test.tsx`/`EventListView.test.tsx`/`NavRailItem.test.tsx`.
+- `packages/ui`: `WeeklyCalendarView.test.tsx` (existing, AC1-12 done) — see Task 11 for the full enumerated coverage list. No `packages/domain` logic is introduced by this story, so the 100% domain-coverage rule does not apply here; this component follows the same Vitest + Testing Library integration-style convention as `EventCard.test.tsx`/`EventListView.test.tsx`/`NavRailItem.test.tsx`.
+- `packages/ui`: `WeeklyCalendarView.test.tsx` updates for AC13/Task 16 (new week-picker mechanism test, non-Sunday `weekStart` regression test) and new `WeekPicker.test.tsx` (Task 14) — see Verification Plan above for exact coverage.
 - Manual: `pnpm build`/`pnpm lint` clean at the repo root.
 - E2E: none owned by this story — Story 1.3f's Definition of Done already specifies the one required E2E happy-path test covering the composed Discovery Calendar View flow (switch view, navigate week, click a schedule), which will exercise this component as an implementation detail, not a standalone E2E target of its own (matching `EventCard`/`EventListView`/`EventDiscoveryPanel`'s precedent of no dedicated E2E test for a `packages/ui` primitive).
 
@@ -286,26 +333,32 @@ None. This is a pure presentational `packages/ui` component with no analytics/tr
 - [x] Exported and documented from `packages/ui/src/features/events/index.ts` (AC12).
 - [x] Story 1.3f's Task 5/Task 7 corrected to match this story's actual contract (Consumer Story Sync Check).
 - [x] `pnpm build`/`pnpm lint` clean at the repo root.
+- [ ] `WeekPicker.tsx` built per AD-9 (`Button`+`Popover`+`Calendar`, `getWeekRange`-sourced week-row highlight, no independent boundary math) — Task 14 (AC13).
+- [ ] Native `<input type="date">` stopgap replaced by `WeekPicker` in `WeeklyCalendarView`'s header row; `getWeekRange` prop added — Task 15 (AC13).
+- [ ] Divergent `visibleDays` Sunday-start recomputation removed — Task 16.
+- [ ] `WeeklyCalendarView.test.tsx` updated for the new picker mechanism and a non-Sunday `weekStart` regression case; new `WeekPicker.test.tsx` passing.
 
 ## Out of Scope
 
-- **Story 1.3f's `CalendarView` wrapper** (data-fetching, `week`/`view` URL state, `apps/web`-level routing/navigation on schedule click) — consumes this component, not built here.
+- **Story 1.3f's `CalendarView` wrapper** (data-fetching, `week`/`view` URL state, `apps/web`-level routing/navigation on schedule click, and — newly — passing the `getWeekRange` prop this story's AC13 adds) — consumes this component, not built here.
 - **Story 1.3h's backend schedule-level date-range query support** — unrelated backend capability; this component receives whatever `schedules` array its caller already fetched.
-- **Story 2.6's "My Calendar" page** — a future second consumer of this same component (`maxEventsPerDay: -1`, favorited/added-to-calendar-scoped data); not built here, and per Note in `epics.md`, Story 2.6's own AC text has not yet been confirmed to match this component's exact contract — Story 2.6 should re-confirm/adjust against this story's actual shipped contract when it is drafted.
-- **A generic `packages/ui` Popover/Disclosure primitive** — evaluated by Gate 2 and explicitly rejected for extraction (no confirmed ≥2-consumer case yet; see Architecture & UX Gate Findings). The "+N more" popover built here is scoped to this component only.
+- **Story 2.6's "My Calendar" page** — a second consumer of this same component (`maxEventsPerDay: -1`, favorited/added-to-calendar-scoped data), including its own `getWeekRange` wiring — not built here; per Note in `epics.md`, Story 2.6's own AC text has not yet been confirmed to match this component's exact contract — Story 2.6 should re-confirm/adjust against this story's actual shipped contract when it is drafted.
+- **A generic `packages/ui` Popover/Disclosure primitive** — evaluated by Gate 2 and explicitly rejected for extraction (no confirmed ≥2-consumer case yet; see Architecture & UX Gate Findings). The "+N more" popover built here is scoped to this component only. (`WeekPicker`'s own `Popover` usage is the shadcn primitive from Story 0.28, a different thing — not this rejected generic-disclosure primitive.)
 - **A generic roving-tabindex/grid-keyboard-nav hook** — same reasoning; implemented inline for this component only.
+- **Story 0.28 itself** (`packages/ui`'s shadcn/Radix setup) — a hard prerequisite for Task 13+, built as its own story, not here.
 
 ## Definition of Done
 
-- All 12 Acceptance Criteria satisfied.
-- `WeeklyCalendarView.test.tsx` passing with the full coverage enumerated in Task 11.
+- All 13 Acceptance Criteria satisfied (AC1-12 already were; AC13 targeted at Tasks 13-16).
+- `WeeklyCalendarView.test.tsx` passing with the full coverage enumerated in Task 11 plus the AC13/Task 16 additions; `WeekPicker.test.tsx` passing.
 - Lint and type checks passing for `packages/ui`.
 - `pnpm build` clean at the repo root.
 - Manual confirmation that Story 1.3f's (corrected) documented prop contract is satisfied exactly, since that story cannot proceed to completion without it.
+- Story 0.28 is `done` before Task 14 starts.
 
 ## Completion Status
 
-- [x] Completed (Review state)
+**Reopened 2026-08-15** — AC1-AC12 previously complete (`review` status). AC13 outstanding, blocked on Story 0.28 (Tasks 13-16 above). A prior partial `bmad-quick-dev` attempt (commit `519f822`) already added a functional-but-non-AD-9-compliant native-input stopgap for `onSelectWeek` — see Dev Notes → Current Implementation State for the precise starting point and why it doesn't satisfy AC13 as-is.
 
 ## Dev Agent Record
 
@@ -340,8 +393,13 @@ Claude 3.5 Sonnet
 
 ### Completion Notes List
 
-_To be filled by the dev agent._
+_To be filled by the dev agent (for Tasks 13-16 / AC13)._
 
 ### File List
 
-_To be filled by the dev agent._
+_To be filled by the dev agent (for Tasks 13-16 / AC13)._
+
+### Change Log
+
+- **2026-08-05**: Original story created (AC1-12), status `review`.
+- **2026-08-15**: Reopened via `bmad-create-story` to add AC13 (manual week-picker, `sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md` Section 4.4, AD-9). Documented that a prior partial `bmad-quick-dev` attempt (`519f822`) already added a functional native-`<input type="date">` stopgap that does not satisfy AD-9's shadcn `Button`+`Popover`+`Calendar` composition requirement. Split a new Gate 3 finding (missing `packages/ui` shadcn/Radix setup, shared with Story 1.5) into prerequisite Story 0.28 rather than absorbing it here. Also scoped Task 16 to fix a divergent Sunday-start `visibleDays` boundary recomputation flagged during Story 3.7a's own reopening — latent since inception, only became a live bug once 3.7a's boundary math became Monday-start.
