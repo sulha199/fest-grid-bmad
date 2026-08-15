@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-15T11:00:00Z
+last_updated: 2026-08-15T12:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -693,7 +693,29 @@ development_status:
   # 4.1 already built one into) and no UX artifact specifies the card-level design.
   # User confirmed via AskUserQuestion to scope Story 4.3 to detail-view only and
   # split this off as its own design/implementation pass. See epics.md Story 4.3b note.
-  4-3b-add-a-report-trigger-to-eventcard-list-view: backlog
+  # regenerated 2026-08-15 via bmad-create-story: full context engine pass. Gate 1/3
+  # run fresh (this story postdates epic-4-readiness.md's stories_covered list, which
+  # does not include 4.3b) -- no gap, Story 4.3/4.3a verified already implemented in
+  # the codebase (reports table, submitReport resolver, report-dialog.tsx all exist
+  # on disk). Gate 2 run fresh via a one-shot Freya-persona subagent for the overflow-
+  # menu placement decision epics.md flagged as this story's own call to make:
+  # recommended top-left/always-visible/opposite-corner-from-Favorite placement,
+  # adopted directly. Three real tradeoffs resolved with the user via AskUserQuestion:
+  # (1) unauthenticated list-view Report clicks reuse the existing login modal
+  # (Discovery/Account pages) rather than epics.md's literal /login-redirect text,
+  # for consistency with Favorite's established pattern at those exact call sites;
+  # (2) post-report list behavior uses immediate, non-reversible removal via a new
+  # shared useLocallyHiddenIds hook (packages/ui/src/hooks) rather than a toast-only/
+  # wait-for-refetch approach or per-page duplicated state -- deliberately not built
+  # on the existing useSoftDeleteWithUndo hook, since that hook's Undo affordance is
+  # wrong for a non-reversible action; (3) page-wiring scope is Discovery/Favorites/
+  # Feed/Account (4 pages) -- Archive deferred (real EventCard consumer, out of scope
+  # by choice), My Calendar out of scope by construction (no EventCard/EventListView
+  # usage at all, confirmed via grep). Also confirmed report-dialog.tsx (Story 4.3)
+  # is already reusable as-is with no extraction needed, despite epics.md's own
+  # speculative "likely requires extracting" framing. No new prerequisite stories
+  # split off.
+  4-3b-add-a-report-trigger-to-eventcard-list-view: ready-for-dev
   # added 2026-08-12 via bmad-correct-course: wires Story 2.7's default-visibility
   # rule chain to exclude self-reported events from list views (Discovery/Feed/
   # Favorites/My Calendar/search), closing the gap where isHiddenForCurrentUser
