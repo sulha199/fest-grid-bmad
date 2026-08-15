@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-15T22:10:00Z
+last_updated: 2026-08-16T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -199,7 +199,7 @@ development_status:
   # Story 0.28 (packages/ui shadcn/Radix setup, shared with Story 1.3g's WeekPicker,
   # not re-split here) plus this story's own shadcn badge addition (single-consumer,
   # added directly in this story rather than expanding 0.28's shared scope).
-  1-5-filter-events-by-type-and-category: ready-for-dev
+  1-5-filter-events-by-type-and-category: review
   1-6a-build-the-reusable-event-detail-view-component: done
   1-6b-build-the-context-aware-list-navigation-hook: done
   # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-

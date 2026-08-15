@@ -3,6 +3,13 @@
 import * as React from 'react';
 import { useQueryState, parseAsArrayOf, parseAsString } from 'nuqs';
 import { MultiSelect } from '../../core/multi-select';
+import { Badge } from '../../core/ui/badge';
+import { Button } from '../../core/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../../core/ui/popover';
 
 import { LocationRadiusFilter } from './LocationRadiusFilter';
 import { LocationRadiusFilterProps } from './LocationRadiusFilter.types';
@@ -69,35 +76,43 @@ export function FilterHub({
   const isNearbyActive = selectedValue !== null && selectedValue !== 'off';
   const hasSelection = selectedTypes.length > 0 || selectedCategories.length > 0 || isNearbyActive;
 
+  const renderFacet = (
+    label: string,
+    options: { value: string; label: string }[],
+    selectedValues: string[],
+    onChange: (values: string[]) => void
+  ) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant={selectedValues.length > 0 ? 'default' : 'outline'}>
+          {label}
+          {selectedValues.length > 0 && <Badge>{selectedValues.length}</Badge>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent>
+        <MultiSelect
+          facetLabel={label}
+          options={options}
+          selectedValues={selectedValues}
+          onChange={onChange}
+          labels={{ clearLabel: labels.clearLabel }}
+          hideClearAction
+        />
+        <button
+          type="button"
+          onClick={() => onChange([])}
+          className="mt-3 text-xs font-medium text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+        >
+          {labels.clearLabel}
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+
   return (
-    <div className={`flex flex-col gap-6 ${className}`}>
-      {hasSelection && (
-        <div className="flex justify-end">
-          <button 
-            type="button" 
-            onClick={handleClear}
-            className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-          >
-            {labels.clearLabel}
-          </button>
-        </div>
-      )}
-      <MultiSelect
-        facetLabel={labels.typeLabel}
-        options={types}
-        selectedValues={selectedTypes}
-        onChange={handleTypeChange}
-        labels={{ clearLabel: labels.clearLabel }}
-        hideClearAction
-      />
-      <MultiSelect
-        facetLabel={labels.categoryLabel}
-        options={categories}
-        selectedValues={selectedCategories}
-        onChange={handleCategoryChange}
-        labels={{ clearLabel: labels.clearLabel }}
-        hideClearAction
-      />
+    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
+      {renderFacet(labels.typeLabel, types, selectedTypes, handleTypeChange)}
+      {renderFacet(labels.categoryLabel, categories, selectedCategories, handleCategoryChange)}
       <LocationRadiusFilter
         isAuthenticated={isAuthenticated}
         isLoadingLocations={isLoadingLocations}
@@ -111,6 +126,15 @@ export function FilterHub({
         onRadiusChange={onRadiusChange}
         labels={labels.locationFilterLabels}
       />
+      {hasSelection && (
+        <button
+          type="button"
+            onClick={handleClear}
+            className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+        >
+          {labels.clearLabel}
+        </button>
+      )}
     </div>
   );
 }

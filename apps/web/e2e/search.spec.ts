@@ -14,7 +14,7 @@ test.describe('Search functionality', () => {
     await searchInput.press('Enter');
 
     // 3. Verify URL reflects the query
-    await expect(page).toHaveURL(/\?q=Mock\+Event/);
+    await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('Mock Event');
 
     // 4. Verify search results are filtered (assume the mock server returns "No events match your search." 
     // or specific mock events depending on backend state. Here we just assert the query string works.)
@@ -27,7 +27,7 @@ test.describe('Search functionality', () => {
     await clearButton.click();
 
     // 6. Verify URL is cleared
-    await expect(page).not.toHaveURL(/\?q=/);
+    await expect.poll(() => new URL(page.url()).searchParams.has('q')).toBe(false);
     await expect(searchInput).toHaveValue('');
   });
 });

@@ -397,7 +397,8 @@ test('filter integration: single-facet, single-value selection produces correct 
     expect(screen.getByText('Test Event 1')).toBeInTheDocument();
   });
 
-  // Select 'Festival' type
+  // Open the Type facet popover, then select 'Festival' type
+  fireEvent.click(screen.getByRole('button', { name: 'Type' }));
   const festivalButton = screen.getAllByRole('button', { name: 'Festival' })[0];
   fireEvent.click(festivalButton);
 
@@ -418,9 +419,10 @@ test('filter integration: single-facet, multi-value selection produces one in co
     expect(screen.getByText('Test Event 1')).toBeInTheDocument();
   });
 
+  fireEvent.click(screen.getByRole('button', { name: 'Type' }));
   const festivalButton = screen.getAllByRole('button', { name: 'Festival' })[0];
   fireEvent.click(festivalButton);
-  
+
   const performanceButton = screen.getAllByRole('button', { name: 'Performance' })[0];
   fireEvent.click(performanceButton);
 
@@ -445,9 +447,11 @@ test('filter integration: selections across both facets plus active search combi
   fireEvent.change(searchInput, { target: { value: 'Rock' } });
   fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
 
+  fireEvent.click(screen.getByRole('button', { name: 'Type' }));
   const festivalButton = screen.getAllByRole('button', { name: 'Festival' })[0];
   fireEvent.click(festivalButton);
 
+  fireEvent.click(screen.getByRole('button', { name: 'Category' }));
   const musicButton = screen.getAllByRole('button', { name: 'Music' })[0];
   fireEvent.click(musicButton);
 
@@ -477,6 +481,7 @@ test('filter integration: clearing filters restores default query', async () => 
     expect(screen.getByText('Test Event 1')).toBeInTheDocument();
   });
 
+  fireEvent.click(screen.getByRole('button', { name: 'Type' }));
   const festivalButton = screen.getAllByRole('button', { name: 'Festival' })[0];
   fireEvent.click(festivalButton);
 
@@ -488,6 +493,9 @@ test('filter integration: clearing filters restores default query', async () => 
       ]
     });
   });
+
+  // Close the Type popover so only the row-level "Clear filters" button matches.
+  fireEvent.keyDown(festivalButton, { key: 'Escape', code: 'Escape' });
 
   const clearButton = screen.getByRole('button', { name: 'Clear filters' });
   fireEvent.click(clearButton);
