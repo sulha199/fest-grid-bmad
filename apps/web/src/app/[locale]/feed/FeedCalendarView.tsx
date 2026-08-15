@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useGetEventsForCalendarQuery } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { buildFeedCalendarQueryCondition } from '@festgrid/domain/events';
-import { WeeklyCalendarView, useWeeklyCalendarController, getSunday, getSaturday } from '@festgrid/ui';
+import { WeeklyCalendarView, useWeeklyCalendarController, getWeekStart, getWeekEnd } from '@festgrid/ui';
 import { useRouter } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import { usePostHog } from '@festgrid/analytics';
@@ -30,8 +30,8 @@ export function FeedCalendarView({ q, types, categories, subscriptions }: FeedCa
     parseAsString.withDefault(todayStr)
   );
 
-  const weekStart = useMemo(() => getSunday(week), [week]);
-  const weekEnd = useMemo(() => getSaturday(weekStart), [weekStart]);
+  const weekStart = useMemo(() => getWeekStart(week), [week]);
+  const weekEnd = useMemo(() => getWeekEnd(weekStart), [weekStart]);
 
   const queryCondition = useMemo(() => {
     return buildFeedCalendarQueryCondition({

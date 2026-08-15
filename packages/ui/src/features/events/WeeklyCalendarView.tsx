@@ -188,9 +188,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     // Force set to noon to avoid daylight saving hour boundary issues shifting days
     baseDate.setHours(12, 0, 0, 0);
     
-    // Find the day of the week (0-6).
+    // Find the day of the week (0-6) and align to Sunday-start week ranges.
     const dayOfWeek = baseDate.getDay();
-    // Calculate start of week (Sunday as first day)
     const sundayOffset = dayOfWeek;
     const startOfWeek = new Date(baseDate);
     startOfWeek.setDate(baseDate.getDate() - sundayOffset);

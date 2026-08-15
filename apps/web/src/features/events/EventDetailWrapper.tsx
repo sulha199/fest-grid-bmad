@@ -305,24 +305,28 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
         {nav.hasListContext ? (
           <>
             <button
+              type="button"
               onClick={handlePrevious}
               disabled={nav.previous.disabled || nav.previous.loading}
-              className="flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+              aria-label={t("previous")}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200 dark:hover:bg-gray-800"
             >
-              <ChevronLeft className="w-4 h-4" />
-              {t("previous")}
+              <ChevronLeft className="h-4 w-4" />
+              <span className="sr-only">{t("previous")}</span>
             </button>
             <button
+              type="button"
               onClick={handleNext}
               disabled={nav.next.disabled || nav.next.loading}
-              className="flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+              aria-label={t("next")}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200 dark:hover:bg-gray-800"
             >
               {nav.next.loading ? (
-                <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+                <span className="animate-spin inline-block h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
               ) : (
-                t("next")
+                <ChevronRight className="h-4 w-4" />
               )}
-              <ChevronRight className="w-4 h-4" />
+              <span className="sr-only">{t("next")}</span>
             </button>
           </>
         ) : (
@@ -339,11 +343,15 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       </div>
       {isModal && (
         <button
+          type="button"
           onClick={() => router.back()}
-          className="text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-100 hover:text-foreground dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-800"
           aria-label={t("closeModal")}
         >
-          {t("closeModal")}
+          <span className="sr-only">{t("closeModal")}</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current">
+            <path d="M6.75 6.75a.75.75 0 0 1 1.06 0L12 10.94l4.19-4.19a.75.75 0 1 1 1.06 1.06L13.06 12l4.19 4.19a.75.75 0 1 1-1.06 1.06L12 13.06l-4.19 4.19a.75.75 0 0 1-1.06-1.06L10.94 12 6.75 7.81a.75.75 0 0 1 0-1.06Z" />
+          </svg>
         </button>
       )}
     </div>
