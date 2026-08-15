@@ -22,20 +22,16 @@ const shiftDate = (date: Date, days: number) => {
 export const getWeekStart = (dateStr: string) => {
   const d = parseDateOnly(dateStr);
   const day = d.getUTCDay();
-  const sundayOffset = day;
-  const sunday = shiftDate(d, -sundayOffset);
-  return formatIsoDate(sunday);
+  const mondayOffset = (day + 6) % 7;
+  const monday = shiftDate(d, -mondayOffset);
+  return formatIsoDate(monday);
 };
 
 export const getWeekEnd = (weekStartStr: string) => {
   const d = parseDateOnly(weekStartStr);
-  const saturday = shiftDate(d, 6);
-  return formatIsoDate(saturday);
+  const sunday = shiftDate(d, 6);
+  return formatIsoDate(sunday);
 };
-
-export const getSunday = (dateStr: string) => getWeekStart(dateStr);
-
-export const getSaturday = (weekStartStr: string) => getWeekEnd(weekStartStr);
 
 export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
   options: WeeklyCalendarControllerOptions<TEvent>
