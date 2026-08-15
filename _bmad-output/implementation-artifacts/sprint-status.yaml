@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-12T22:48:00Z
+last_updated: 2026-08-15T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -478,7 +478,21 @@ development_status:
   # User confirmed via AskUserQuestion to extract a shared useWeeklyCalendarController
   # hook into packages/ui/src/hooks/ as its own prerequisite story rather than accept
   # a third duplicate. See epics.md Story 3.7a note.
-  3-7a-extract-shared-weekly-calendar-controller-hook: review
+  # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-
+  # discovery-detail-calendar-ux.md Section 4.3: added AC6 (Monday-start boundary,
+  # user-confirmed) and AC7 (arbitrary-week selection, feeds Story 1.3g's week-picker).
+  # AC6/AC7 were already correctly implemented once (commit 519f822, 2026-08-14) then
+  # silently regressed by a later commit (c0c4912, 2026-08-15, HEAD) that reverted the
+  # boundary math back to Sunday-start while keeping the renamed function signatures --
+  # remaining work is a restoration, not new implementation (Tasks 7-9 in the story
+  # file). Fresh Gate check found WeeklyCalendarView.tsx (Story 1.3g's file) has its
+  # own divergent Sunday-start calc, untouched by either commit; user confirmed via
+  # AskUserQuestion to keep this story hook-only and flag it as a pre-condition for
+  # 1.3g's own reopening rather than expand this story's scope. NOTE: 519f822 also
+  # substantially touched files belonging to Stories 1.3f, 2.6, and 1.3g (pass-through
+  # wiring and partial week-picker UI) -- their own bmad-create-story passes should
+  # verify actual current file state rather than assume ground-up implementation.
+  3-7a-extract-shared-weekly-calendar-controller-hook: ready-for-dev
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap); Gate 2 run fresh via Freya subagent
   # (real gap: planned FeedCalendarView.tsx would be a third near-duplicate of
