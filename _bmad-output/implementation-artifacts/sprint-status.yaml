@@ -134,7 +134,7 @@ development_status:
   # Story 1.5's FilterHub popover too. User confirmed via AskUserQuestion to split
   # into a new Epic 0 story rather than absorb into either 1.3g or 1.5. See
   # epics.md Story 0.28 note.
-  0-28-set-up-shadcn-ui-component-generation-for-packages-ui: ready-for-dev
+  0-28-set-up-shadcn-ui-component-generation-for-packages-ui: review
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
