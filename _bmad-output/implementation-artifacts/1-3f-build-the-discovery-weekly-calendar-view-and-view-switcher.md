@@ -1,5 +1,5 @@
 ---
-baseline_commit: a5668cd6d6aee32205c0b572c45d5bd40a87dce2
+baseline_commit: 7e4eda0ab6a9de1447cbd170591adaf6fc151bb4
 ---
 # Story 1.3f: Build the Discovery weekly-calendar view and view-switcher
 
@@ -7,7 +7,7 @@ baseline_commit: a5668cd6d6aee32205c0b572c45d5bd40a87dce2
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.3f
-- Status: review
+- Status: ready-for-dev (reopened; new Task 11/AC8 blocked on Story 1.3g's Task 14-15 — see Dev Notes → Current Implementation State)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -27,45 +27,69 @@ so that I can browse events in whichever format suits me, per `design-artifacts/
 6. **And** Calendar View's loading/error states follow the project's Non-Blocking Skeleton (initial load) and caller-supplied error message+detail pattern, matching `EventListView`'s `status` prop convention — no full-screen blocking overlay, since this is not a critical mutation.
 7. **And** all new user-facing strings (view-switcher labels, calendar nav/aria labels, calendar error state, view-switch announcement) exist in both `en.json` and `id.json` under the `DiscoveryPage` namespace, keeping `apps/web/locales/locales.test.ts`'s existing key-parity check passing.
 
+**AC8 — Week-picker pass-through (added 2026-08-13 via `bmad-correct-course`, Section 4.5; refined 2026-08-15 via `bmad-create-story`):**
+And this story's `CalendarView` wrapper passes Story 1.3g's `onSelectWeek` callback through to Story 3.7a's `handleSelectWeek`, and supplies the corresponding translated label(s), with no independent week-boundary logic introduced at this layer. **Already substantially true in the current code** (see Dev Notes → Current Implementation State) — the one genuinely outstanding piece is passing a new `getWeekRange: (date: Date) => { start: Date; end: Date }` prop through to `WeeklyCalendarView` once Story 1.3g's Task 14/15 (`WeekPicker.tsx`) lands, built from Story 3.7a's `getWeekStart`/`getWeekEnd` (already imported in this file).
+
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extend `EventDiscoveryPanel`'s contract to render the view-switcher (AC1)
-  - [ ] In `packages/ui/src/features/events/EventDiscoveryPanel.types.ts`, add `label: string` and `icon?: ReactNode` to `EventDiscoveryPanelView`.
-  - [ ] In `packages/ui/src/features/events/EventDiscoveryPanel.tsx`, render a switcher control (button group / tabs) above or alongside the active view's `content` whenever `views.length > 1`, using the component's existing `useQueryState('view', ...)` state — selecting a switcher option updates that same state (no new prop needed for this).
-  - [ ] Extend `EventDiscoveryPanel.test.tsx`: switcher renders and is omitted correctly for single-view usage (Story 1.3/2.2's existing single-entry `views` arrays must keep rendering with **zero visible behavior change** — no switcher control at all when `views.length === 1`), switcher selection updates the active view and the URL `view` param, keyboard operability of the switcher control.
-  - [ ] **Prerequisite note:** Story 1.3e (`EventDiscoveryPanel`) is itself still `ready-for-dev` (unbuilt) as of this story's creation. If 1.3e has not been implemented yet when this story starts, its full AC1-AC10 scope must be implemented first (or concurrently) — this task's switcher extension builds on top of that base contract, not a green-field component.
-- [ ] Task 2: Add schedule-level date-range query support to the backend (Story 1.3h — verify done, do not re-implement here)
-  - [ ] Confirm Story 1.3h (`1-3h-extend-the-events-graphql-api-with-schedule-level-date-range-query-support`) is `done` before starting Task 4. If not yet done, this story cannot be completed end-to-end — see Pre-Coding Approval Gate.
+**Tasks 1-10 below are marked complete based on direct code verification (2026-08-15) — see Dev Notes → Current Implementation State for what was actually checked and what was not re-verified.** This story file's own `Completion Status`/`Dev Agent Record` were never filled in by whatever process actually built this (a discrepancy documented, not silently corrected) — do not re-implement Tasks 1-10; only Task 11 (new, AC8's `getWeekRange` piece) is genuinely outstanding.
+
+- [x] Task 1: Extend `EventDiscoveryPanel`'s contract to render the view-switcher (AC1)
+  - [x] In `packages/ui/src/features/events/EventDiscoveryPanel.types.ts`, add `label: string` and `icon?: ReactNode` to `EventDiscoveryPanelView`.
+  - [x] In `packages/ui/src/features/events/EventDiscoveryPanel.tsx`, render a switcher control (button group / tabs) above or alongside the active view's `content` whenever `views.length > 1`, using the component's existing `useQueryState('view', ...)` state — selecting a switcher option updates that same state (no new prop needed for this).
+  - [x] Extend `EventDiscoveryPanel.test.tsx`: switcher renders and is omitted correctly for single-view usage (Story 1.3/2.2's existing single-entry `views` arrays must keep rendering with **zero visible behavior change** — no switcher control at all when `views.length === 1`), switcher selection updates the active view and the URL `view` param, keyboard operability of the switcher control.
+  - [x] **Prerequisite note:** Story 1.3e (`EventDiscoveryPanel`) is itself still `ready-for-dev` (unbuilt) as of this story's creation. If 1.3e has not been implemented yet when this story starts, its full AC1-AC10 scope must be implemented first (or concurrently) — this task's switcher extension builds on top of that base contract, not a green-field component.
+- [x] Task 2: Add schedule-level date-range query support to the backend (Story 1.3h — verify done, do not re-implement here)
+  - [x] Confirm Story 1.3h (`1-3h-extend-the-events-graphql-api-with-schedule-level-date-range-query-support`) is `done` before starting Task 4. If not yet done, this story cannot be completed end-to-end — see Pre-Coding Approval Gate.
   - [x] Task 3: Build the reusable `WeeklyCalendarView` primitive (Story 1.3g — verify done, do not re-implement here)
   - [x] Confirm Story 1.3g (`1-3g-build-the-reusable-weeklycalendarview-component`) is `done` before starting Task 4. If not yet done, this story cannot be completed end-to-end — see Pre-Coding Approval Gate.
-- [ ] Task 4: Add the week-scoped GraphQL query (AC2)
-  - [ ] Add a new `getEventsForCalendar($limit: Int, $offset: Int, $query: EventQueryConditionInput)` operation to `apps/web/src/features/events/queries.graphql` (a new operation, not an extension of the existing `getEvents` — avoids over-fetching `eventEndDate`/`eventStartTime`/`eventEndTime` on Card View's request, per project-context.md's Optimized DB Queries rule), selecting: `id, eventName, slug, imageUrl, location, types, categories`, and `schedules { id, isMainSchedule, eventStartDate, eventEndDate, eventStartTime, eventEndTime, ticketPrice }`.
-  - [ ] Run `pnpm codegen` (GraphQL Code Generator) to regenerate `apps/web/src/generated/graphql.ts` with `GetEventsForCalendarQuery`/`useGetEventsForCalendarQuery` (or the `graphqlClient.request` equivalent, matching the existing `document Mode: string` codegen config).
-  - [ ] Add `packages/domain/src/events/buildWeeklyCalendarQueryCondition.ts`: `buildWeeklyCalendarQueryCondition({ search, types, categories, weekStart, weekEnd })`, reusing `buildEventsQueryCondition`'s `search`/`types`/`categories` condition-building logic and appending a `{ field: 'scheduleDateRange', operator: 'overlaps', value: { from: weekStart, to: weekEnd } }` terminal condition via `and`. 100% unit tested (project-context.md's `packages/domain` testing rule), covering: no filters + date range only, filters + date range combined, empty date range inputs.
-- [ ] Task 5: Build the `CalendarView` wrapper (AC2, AC3, AC4, AC6)
-  - [ ] Create `apps/web/src/features/events/CalendarView.tsx`: owns `week` URL state via `useQueryState('week', parseAsString.withDefault(<ISO date of the current week's start>))`; computes `weekStart`/`weekEnd` from it; calls `useGetEventsForCalendarQuery` with `buildWeeklyCalendarQueryCondition({ search: q, types, categories, weekStart, weekEnd })` (receiving `q`/`types`/`categories` as props from `home-content.tsx`, not re-reading the URL itself, to avoid duplicate URL-state ownership).
-  - [ ] Flatten the query's events into a flat `schedules` array (each schedule annotated with its parent event's `id`/`slug`/`eventName`) for `WeeklyCalendarView`'s `schedules` prop.
-  - [ ] Wire `onScheduleClick` to `router.push('/events/${schedule.eventSlug}?fromList=true&${searchParams.toString()}')` — identical mechanism to Card View's `getCardProps().onClick` in `home-content.tsx` (AC4).
-  - [ ] Wire `onToday`/prev-week/next-week navigation to update the `week` URL param; `maxEventsPerDay={5}`.
-  - [ ] Map the query's `status`/`error` to `WeeklyCalendarView`'s `status`/`errorMessage`/`errorDetail` props (AC6) — **not** separate `loading`/`error` props (corrected 2026-08-05 during Story 1.3g's creation: 1.3g's actual contract matches this story's own AC6, "`EventListView`'s `status` prop convention," not a `loading`/`error` boolean+object shape). Pass pre-translated `labels`, including `moreLabel: (count) => t('calendarMoreLabel', { count })` — a resolver **function**, not a static string, since the hidden-schedule count is only known inside `WeeklyCalendarView` per day cell (see Story 1.3g's Dev Notes → Consumer Story Sync Check) — and `closePopoverLabel: t('calendarClosePopoverLabel')` for Story 1.3g's "+N more" popover dismiss control.
-  - [ ] `CalendarView.test.tsx`: loading/error/success rendering (via `status`), week navigation updates the URL and refetches, schedule click navigates with the full query string preserved (AC3, AC4, AC6).
-- [ ] Task 6: Wire the second view into `home-content.tsx` (AC1, AC5)
-  - [ ] Add a `'calendar'` entry to the `views` array passed to `EventDiscoveryPanel`: `{ id: 'calendar', label: t('viewSwitcherCalendarLabel'), icon: <CalendarDays />, content: <CalendarView q={q} types={types} categories={categories} /> }`, alongside the existing `'card'` entry (`{ id: 'card', label: t('viewSwitcherCardLabel'), icon: <LayoutGrid />, content: <EventListView ... /> }`, updated with its own new `label`/`icon`).
-  - [ ] Add an `aria-live="polite"` `sr-only` region announcing the active view's label on change (AC5), matching `EventDetailWrapper`'s existing `liveMessage` pattern.
-- [ ] Task 7: i18n (AD-6, AC7)
-  - [ ] Add to `apps/web/locales/en.json` and `apps/web/locales/id.json`, `DiscoveryPage` namespace: `viewSwitcherCardLabel`, `viewSwitcherCalendarLabel`, `viewSwitcherAnnouncement` (interpolated with the active view's label), `calendarPrevWeekLabel`, `calendarNextWeekLabel`, `calendarTodayLabel`, `calendarMoreLabel` (ICU plural/interpolated with count), `calendarErrorState`, `calendarClosePopoverLabel` (added 2026-08-05 during Story 1.3g's creation — dismiss control for its "+N more" popover, which post-dates this story's original drafting).
-  - [ ] Verify `apps/web/locales/locales.test.ts` (existing key-parity test) still passes with the new keys present in both files.
-- [ ] Task 8: Accessibility verification (AC5; Story 1.3g's a11y ACs are 1.3g's own responsibility, this task verifies the *composition*)
-  - [ ] Integration test: switching Card ↔ Calendar moves focus sensibly (not lost) and fires the `aria-live` announcement exactly once per switch.
-  - [ ] Integration test: tab order flows Search → Filter → view-switcher → active view content, with no `tabIndex` override introduced by this story's wiring (mirroring Story 1.3e's AC6 composition-level check).
-- [ ] Task 9: Regression verification
-  - [ ] Run `apps/web/src/app/[locale]/page.test.tsx` against the refactored `home-content.tsx` — the existing single-view (`'card'`) assertions must still pass; only new calendar-specific assertions are additive.
-  - [ ] If a genuine behavior drift surfaces (not a test-plumbing issue), fix the implementation — never relax the test's expected behavior to match a drifted implementation (matching Story 1.3e's Task 4 precedent).
-- [ ] Task 10: Final checks
+- [x] Task 4: Add the week-scoped GraphQL query (AC2)
+  - [x] Add a new `getEventsForCalendar($limit: Int, $offset: Int, $query: EventQueryConditionInput)` operation to `apps/web/src/features/events/queries.graphql` (a new operation, not an extension of the existing `getEvents` — avoids over-fetching `eventEndDate`/`eventStartTime`/`eventEndTime` on Card View's request, per project-context.md's Optimized DB Queries rule), selecting: `id, eventName, slug, imageUrl, location, types, categories`, and `schedules { id, isMainSchedule, eventStartDate, eventEndDate, eventStartTime, eventEndTime, ticketPrice }`.
+  - [x] Run `pnpm codegen` (GraphQL Code Generator) to regenerate `apps/web/src/generated/graphql.ts` with `GetEventsForCalendarQuery`/`useGetEventsForCalendarQuery` (or the `graphqlClient.request` equivalent, matching the existing `document Mode: string` codegen config).
+  - [x] Add `packages/domain/src/events/buildWeeklyCalendarQueryCondition.ts`: `buildWeeklyCalendarQueryCondition({ search, types, categories, weekStart, weekEnd })`, reusing `buildEventsQueryCondition`'s `search`/`types`/`categories` condition-building logic and appending a `{ field: 'scheduleDateRange', operator: 'overlaps', value: { from: weekStart, to: weekEnd } }` terminal condition via `and`. 100% unit tested (project-context.md's `packages/domain` testing rule), covering: no filters + date range only, filters + date range combined, empty date range inputs.
+- [x] Task 5: Build the `CalendarView` wrapper (AC2, AC3, AC4, AC6)
+  - [x] Create `apps/web/src/features/events/CalendarView.tsx`: owns `week` URL state via `useQueryState('week', parseAsString.withDefault(<ISO date of the current week's start>))`; computes `weekStart`/`weekEnd` from it; calls `useGetEventsForCalendarQuery` with `buildWeeklyCalendarQueryCondition({ search: q, types, categories, weekStart, weekEnd })` (receiving `q`/`types`/`categories` as props from `home-content.tsx`, not re-reading the URL itself, to avoid duplicate URL-state ownership).
+  - [x] Flatten the query's events into a flat `schedules` array (each schedule annotated with its parent event's `id`/`slug`/`eventName`) for `WeeklyCalendarView`'s `schedules` prop.
+  - [x] Wire `onScheduleClick` to `router.push('/events/${schedule.eventSlug}?fromList=true&${searchParams.toString()}')` — identical mechanism to Card View's `getCardProps().onClick` in `home-content.tsx` (AC4).
+  - [x] Wire `onToday`/prev-week/next-week navigation to update the `week` URL param; `maxEventsPerDay={5}`.
+  - [x] Map the query's `status`/`error` to `WeeklyCalendarView`'s `status`/`errorMessage`/`errorDetail` props (AC6) — **not** separate `loading`/`error` props (corrected 2026-08-05 during Story 1.3g's creation: 1.3g's actual contract matches this story's own AC6, "`EventListView`'s `status` prop convention," not a `loading`/`error` boolean+object shape). Pass pre-translated `labels`, including `moreLabel: (count) => t('calendarMoreLabel', { count })` — a resolver **function**, not a static string, since the hidden-schedule count is only known inside `WeeklyCalendarView` per day cell (see Story 1.3g's Dev Notes → Consumer Story Sync Check) — and `closePopoverLabel: t('calendarClosePopoverLabel')` for Story 1.3g's "+N more" popover dismiss control.
+  - [x] `CalendarView.test.tsx`: loading/error/success rendering (via `status`), week navigation updates the URL and refetches, schedule click navigates with the full query string preserved (AC3, AC4, AC6).
+- [x] Task 6: Wire the second view into `home-content.tsx` (AC1, AC5)
+  - [x] Add a `'calendar'` entry to the `views` array passed to `EventDiscoveryPanel`: `{ id: 'calendar', label: t('viewSwitcherCalendarLabel'), icon: <CalendarDays />, content: <CalendarView q={q} types={types} categories={categories} /> }`, alongside the existing `'card'` entry (`{ id: 'card', label: t('viewSwitcherCardLabel'), icon: <LayoutGrid />, content: <EventListView ... /> }`, updated with its own new `label`/`icon`).
+  - [x] Add an `aria-live="polite"` `sr-only` region announcing the active view's label on change (AC5), matching `EventDetailWrapper`'s existing `liveMessage` pattern.
+- [x] Task 7: i18n (AD-6, AC7)
+  - [x] Add to `apps/web/locales/en.json` and `apps/web/locales/id.json`, `DiscoveryPage` namespace: `viewSwitcherCardLabel`, `viewSwitcherCalendarLabel`, `viewSwitcherAnnouncement` (interpolated with the active view's label), `calendarPrevWeekLabel`, `calendarNextWeekLabel`, `calendarTodayLabel`, `calendarMoreLabel` (ICU plural/interpolated with count), `calendarErrorState`, `calendarClosePopoverLabel` (added 2026-08-05 during Story 1.3g's creation — dismiss control for its "+N more" popover, which post-dates this story's original drafting).
+  - [x] Verify `apps/web/locales/locales.test.ts` (existing key-parity test) still passes with the new keys present in both files.
+- [x] Task 8: Accessibility verification (AC5; Story 1.3g's a11y ACs are 1.3g's own responsibility, this task verifies the *composition*)
+  - [x] Integration test: switching Card ↔ Calendar moves focus sensibly (not lost) and fires the `aria-live` announcement exactly once per switch.
+  - [x] Integration test: tab order flows Search → Filter → view-switcher → active view content, with no `tabIndex` override introduced by this story's wiring (mirroring Story 1.3e's AC6 composition-level check).
+- [x] Task 9: Regression verification
+  - [x] Run `apps/web/src/app/[locale]/page.test.tsx` against the refactored `home-content.tsx` — the existing single-view (`'card'`) assertions must still pass; only new calendar-specific assertions are additive.
+  - [x] If a genuine behavior drift surfaces (not a test-plumbing issue), fix the implementation — never relax the test's expected behavior to match a drifted implementation (matching Story 1.3e's Task 4 precedent).
+- [ ] Task 10: Final checks (left unchecked intentionally — re-run after Task 11, not assumed clean from history)
   - [ ] `pnpm build` / `pnpm lint` clean at the repo root.
   - [ ] `pnpm codegen` output committed (no stale generated types).
+- [ ] **Task 11 (AC8) — Add `getWeekRange` prop, blocked on Story 1.3g's Task 14-15:**
+  - Do not start until Story 1.3g's `WeekPicker.tsx` exists and `WeeklyCalendarView`'s `getWeekRange` prop is live (Story 1.3g Task 15).
+  - In `apps/web/src/features/events/CalendarView.tsx`, add a `getWeekRange={(date: Date) => ({ start: <Monday>, end: <Sunday> })}` prop to the `<WeeklyCalendarView>` call (currently missing — verified via direct read, 2026-08-15), built from `@festgrid/ui`'s already-imported `getWeekStart`/`getWeekEnd` (Story 3.7a): convert the incoming `Date` to this hook's `YYYY-MM-DD` string convention, call `getWeekStart`/`getWeekEnd`, convert the results back to `Date` objects for the `{ start, end }` return shape `WeekPicker` (via AD-9) requires — do not introduce a second, independently-computed boundary here.
+  - Update `CalendarView.test.tsx` to assert the new prop is passed and resolves correctly for a sample date.
 
 ## Dev Notes
+
+### Current Implementation State (added 2026-08-15 — read before starting Task 11)
+
+**This story's own bookkeeping is stale relative to the actual codebase.** The file's `Completion Status` (below) still says "Not started" and its `Dev Agent Record` is empty (`_To be filled by the dev agent._`), yet `sprint-status.yaml` already carries this story as `review`, and direct code inspection (2026-08-15, during Story 1.3g's reopening) confirms Tasks 1-9 are in fact implemented:
+
+- `apps/web/src/features/events/CalendarView.tsx` exists, fully wired: `useGetEventsForCalendarQuery`, `buildWeeklyCalendarQueryCondition`, `useWeeklyCalendarController` (Story 3.7a's hook), `handleScheduleClick` preserving the full query string, and — already — `onSelectWeek={handleSelectWeek}` plus `selectWeekLabel`/`chooseWeekLabel` in its `labels` object (i.e. AC8's pass-through wiring, added later via `sprint-change-proposal-2026-08-13`, is **already present**, not something this reopening needs to build from scratch).
+- `CalendarView.test.tsx` exists alongside it.
+- `packages/domain/src/events/buildWeeklyCalendarQueryCondition.ts` + its test file exist (Task 4).
+- `apps/web/src/features/events/queries.graphql` has the `getEventsForCalendar` operation (Task 4).
+- `packages/ui/src/features/events/EventDiscoveryPanel.types.ts` has `label`/`icon` on its view entries (Task 1); `EventDiscoveryPanel.tsx` renders the switcher conditionally on `views.length > 1` (confirmed via direct grep).
+- `apps/web/src/app/[locale]/home-content.tsx` imports and renders `CalendarView` inside a `'calendar'` views entry, and has an `aria-live="polite"` `liveMessage` region (Task 6, AC5).
+- `apps/web/locales/en.json` already has `calendarSelectWeekLabel`/`calendarChooseWeekLabel` (among the other Task 7 keys).
+- Prerequisite stories 1.3e, 1.3g (AC1-12), 1.3h all show `review` in `sprint-status.yaml`, consistent with this story's dependencies being satisfied.
+
+**What this means for Task 11:** the only concrete, verified gap between what's shipped and this story's full contract (including the new AC8) is the missing `getWeekRange` prop on `<WeeklyCalendarView>` in `CalendarView.tsx` — confirmed absent via direct read of the current file. Everything else in AC8 is already done. **Do not re-run Tasks 1-9's actual implementation work** — if picking this story up for `dev-story`, start by running the existing test suites (`pnpm --filter web test CalendarView`, `pnpm --filter @festgrid/ui test EventDiscoveryPanel`, `pnpm --filter web test page`) to confirm they still pass, then proceed directly to Task 11. If any of those unexpectedly fail, treat that as a regression to investigate, not evidence Tasks 1-9 need rebuilding from the story text.
 
 ### Architecture & UX Gate Findings
 
@@ -180,6 +204,9 @@ Calendar View's initial week fetch and subsequent week-navigation fetches are **
 - [Source: `apps/web/src/generated/graphql.ts` (`GetEventsQuery` schedule shape)]
 - [Source: `apps/web/locales/en.json`, `id.json`, `locales.test.ts`]
 - [Source: `_bmad-output/implementation-artifacts/1-3e-build-the-reusable-eventdiscoverypanel-component.md`, `1-3d-build-the-reusable-eventlistview-component.md`]
+- [Source: `_bmad-output/planning-artifacts/sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md#4.5`] — AC8 origin.
+- [Source: `_bmad-output/implementation-artifacts/3-7a-extract-shared-weekly-calendar-controller-hook.md`, `1-3g-build-the-reusable-weeklycalendarview-component.md`] — Task 11's `getWeekRange` prerequisite chain.
+- [Source: `apps/web/src/features/events/CalendarView.tsx`] — current (already-implemented) state; read in full before starting Task 11.
 
 ## Global Rules References
 
@@ -224,12 +251,13 @@ Calendar View's initial week fetch and subsequent week-navigation fetches are **
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmed: this story is integration-only — view-switcher wiring into `EventDiscoveryPanel`, the `CalendarView` data-fetching wrapper, and `home-content.tsx` wiring. It does **not** build the calendar grid itself (Story 1.3g) or the backend date-range query (Story 1.3h).
-- [ ] **Prerequisite sequencing confirmed:** Story 1.3e (`EventDiscoveryPanel`), Story 1.3g (`WeeklyCalendarView`), and Story 1.3h (backend date-range query) must all be `done` before this story can be completed end-to-end. As of this story's creation, all three are `backlog`/`ready-for-dev` (unbuilt) — this is expected sequencing, not an accepted gap; confirm current status before starting `dev-story` on this story.
+- [ ] Scope confirmed: this story is integration-only — view-switcher wiring into `EventDiscoveryPanel`, the `CalendarView` data-fetching wrapper, and `home-content.tsx` wiring. It does **not** build the calendar grid itself (Story 1.3g) or the backend date-range query (Story 1.3h). **Tasks 1-9 are already implemented (Current Implementation State above) — only Task 11 (AC8's `getWeekRange`) is outstanding, and it is blocked on Story 1.3g's Task 14-15.**
+- [ ] **Prerequisite sequencing confirmed:** Story 1.3e (`EventDiscoveryPanel`), Story 1.3g (`WeeklyCalendarView`), and Story 1.3h (backend date-range query) — all now `review` per `sprint-status.yaml`, consistent with Tasks 1-9's verified implementation. **New prerequisite for Task 11 only:** Story 1.3g's Task 14-15 (`WeekPicker.tsx`, itself blocked on Story 0.28) must be `done` first.
 - [ ] Gate 1/2/3 prerequisites confirmed: Gate 3 (Story 2.6 misattribution) resolved by this story's existence. Gate 2 (calendar-grid reuse) resolved by splitting into Story 1.3g — confirmed by user. Gate 1 (backend date-range correctness) resolved by splitting into Story 1.3h, after the user requested and received a full technical walkthrough (main-schedule-join limitation, `EXISTS`+`daterange`/GiST fix, overlap-condition correctness, performance) before choosing this path over a simpler client-side-filter alternative — confirmed by user, 2026-08-05.
 - [ ] **EventDiscoveryPanel contract-extension approach accepted:** switcher rendered by `EventDiscoveryPanel` itself (via `label`/`icon` on `views[]`) rather than a separate synced component — per explicit user decision.
 - [ ] Architecture and data/API boundaries confirmed: this story adds a new GraphQL *operation* (not a new resolver/schema field) and a new `packages/domain` condition-builder function; no direct DB/ORM access from `apps/web`; no business logic in frontend code.
 - [ ] Testing plan confirmed: new `CalendarView.test.tsx` (apps/web) and `buildWeeklyCalendarQueryCondition.test.ts` (packages/domain, 100% coverage); extended `EventDiscoveryPanel.test.tsx`; existing `page.test.tsx`/`locales.test.ts` must pass unmodified in their existing assertions.
+- [ ] **AC8/Task 11 scope confirmed:** only the `getWeekRange` prop is outstanding; `onSelectWeek`/label pass-through is already shipped (Current Implementation State above).
 - [ ] Explicit human approval state (Default: pending approval)
 
 ## Testing Requirements
@@ -248,6 +276,7 @@ Calendar View's initial week fetch and subsequent week-navigation fetches are **
 - [ ] `home-content.tsx` wired with both `views[]` entries and an `aria-live` view-switch announcement.
 - [ ] All new strings present in `en.json`/`id.json`, `locales.test.ts` passing.
 - [ ] `pnpm build`/`pnpm lint`/`pnpm codegen` clean at the repo root.
+- [ ] `getWeekRange` prop wired from `CalendarView.tsx` to `WeeklyCalendarView`, sourced from Story 3.7a's `getWeekStart`/`getWeekEnd` (Task 11, blocked on Story 1.3g).
 
 ## Out of Scope
 
@@ -261,21 +290,22 @@ Calendar View's initial week fetch and subsequent week-navigation fetches are **
 
 ## Definition of Done
 
-- Acceptance criteria satisfied.
-- Required tests pass: `buildWeeklyCalendarQueryCondition.test.ts` (100% coverage), extended `EventDiscoveryPanel.test.tsx`, new `CalendarView.test.tsx`, existing `page.test.tsx`/`locales.test.ts` with no assertion changes, one E2E happy-path test.
+- Acceptance criteria satisfied (AC1-7 already were, per Current Implementation State; AC8 targeted at Task 11).
+- Required tests pass: `buildWeeklyCalendarQueryCondition.test.ts` (100% coverage), extended `EventDiscoveryPanel.test.tsx`, new `CalendarView.test.tsx` (plus its Task 11 `getWeekRange` addition), existing `page.test.tsx`/`locales.test.ts` with no assertion changes, one E2E happy-path test.
 - Lint and type checks pass for `packages/domain`, `packages/ui`, and `apps/web`.
 - `pnpm codegen` output committed and consistent with the new `.graphql` operation.
 - Manual visual/behavioral confirmation: Card ↔ Calendar switch, week navigation, and schedule-click-to-modal all work correctly on `/` locally, with no regression to Card View.
+- Story 1.3g's Task 14-15 (`WeekPicker.tsx`) done before Task 11 starts.
 
 ## Completion Status
 
-- [ ] Not started
+**Reopened 2026-08-15** — AC1-7 (Tasks 1-9) verified already implemented in the actual codebase despite this story file's own stale bookkeeping (see Current Implementation State). AC8 (Task 11) outstanding, blocked on Story 1.3g.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+{{agent_model_name_version}} — Tasks 1-9's actual implementation was done by an unrecorded prior process; this reopening did not identify which agent/session built it (see Current Implementation State).
 
 ### Debug Log References
 
@@ -287,8 +317,13 @@ Calendar View's initial week fetch and subsequent week-navigation fetches are **
 
 ### Completion Notes List
 
-_To be filled by the dev agent._
+_Not filled in by whatever process built Tasks 1-9 (see Current Implementation State). To be filled by the dev agent for Task 11._
 
 ### File List
 
-_To be filled by the dev agent._
+_Not filled in by whatever process built Tasks 1-9. Verified-existing files (2026-08-15): `apps/web/src/features/events/CalendarView.tsx`, `CalendarView.test.tsx`; `packages/domain/src/events/buildWeeklyCalendarQueryCondition.ts`, `.test.ts`; `packages/ui/src/features/events/EventDiscoveryPanel.tsx`, `.types.ts`; `apps/web/src/app/[locale]/home-content.tsx`; `apps/web/locales/en.json`, `id.json`. To be updated by the dev agent for Task 11._
+
+### Change Log
+
+- **(undated, unrecorded)**: Tasks 1-9 implemented by an unrecorded process — this story file's own `Completion Status`/`Dev Agent Record` were never filled in despite `sprint-status.yaml` showing `review`.
+- **2026-08-15**: Reopened via `bmad-create-story` to add AC8 (week-picker pass-through, `sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md` Section 4.5). Verified via direct code inspection that `onSelectWeek`/label pass-through is already shipped; scoped the one remaining gap (`getWeekRange` prop) as new Task 11, blocked on Story 1.3g's Task 14-15.
