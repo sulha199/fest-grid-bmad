@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { graphql, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { NuqsTestingAdapter } from 'nuqs/adapters/testing';
+import { server as globalServer } from '@festgrid/testing-config/vitest.setup';
 
 const mockRouterPush = vi.fn();
 vi.mock('@/i18n/navigation', () => ({
@@ -63,8 +64,8 @@ const mockMyCalendarEvents = {
           {
             id: 'sched-fav-1',
             isMainSchedule: true,
-            eventStartDate: '2026-08-05',
-            eventEndDate: '2026-08-05',
+            eventStartDate: '2026-08-10',
+            eventEndDate: '2026-08-10',
             eventStartTime: '19:00:00',
             eventEndTime: '22:00:00',
             ticketPrice: '20.00',
@@ -85,8 +86,8 @@ const mockMyCalendarEvents = {
           {
             id: 'sched-added-1',
             isMainSchedule: true,
-            eventStartDate: '2026-08-05',
-            eventEndDate: '2026-08-05',
+            eventStartDate: '2026-08-11',
+            eventEndDate: '2026-08-11',
             eventStartTime: '19:00:00',
             eventEndTime: '22:00:00',
             ticketPrice: '20.00',
@@ -100,8 +101,10 @@ const mockMyCalendarEvents = {
   },
 };
 
+const api = graphql.link('*/api/graphql');
+
 const server = setupServer(
-  graphql.query('getEventsForMyCalendar', () => {
+  api.query('getEventsForMyCalendar', () => {
     return HttpResponse.json({
       data: mockMyCalendarEvents,
     });
@@ -111,8 +114,14 @@ const server = setupServer(
 describe('MyCalendarContent', () => {
   let queryClient: QueryClient;
 
-  beforeAll(() => server.listen());
-  afterAll(() => server.close());
+  beforeAll(() => {
+    globalServer.close();
+    server.listen({ onUnhandledRequest: 'error' });
+  });
+  afterAll(() => {
+    server.close();
+    globalServer.listen({ onUnhandledRequest: 'error' });
+  });
 
   beforeEach(() => {
     queryClient = new QueryClient({

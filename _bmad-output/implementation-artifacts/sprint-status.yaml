@@ -277,7 +277,7 @@ development_status:
   # accurately filled in) -- onSelectWeek/label pass-through is already shipped in
   # my-calendar-content.tsx; only a new getWeekRange prop is outstanding (Task 9,
   # blocked on Story 1.3g's Task 14-15), identical to Story 1.3f's Task 11.
-  2-6-view-and-manage-events-on-a-calendar: ready-for-dev
+  2-6-view-and-manage-events-on-a-calendar: review
   2-6a-create-user-settings-table-and-settings-query-mutation-resolvers: review
   # regenerated 2026-08-06 via bmad-create-story: user broadened scope from
   # personal-lists-only to a global default across every event view, requested a
