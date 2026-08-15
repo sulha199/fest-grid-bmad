@@ -1,5 +1,5 @@
 ---
-baseline_commit: 4f9da635068ae5956013a7f4dfaf88c1c30dd2d0
+baseline_commit: 84109e352e220085c42c5edb8d219db1627c2165
 ---
 # Story 1.5: Filter events by type and category
 
@@ -7,7 +7,7 @@ baseline_commit: 4f9da635068ae5956013a7f4dfaf88c1c30dd2d0
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.5
-- Status: done
+- Status: ready-for-dev (reopened; new Tasks 7-9/AC9-10 blocked on Story 0.28 — see Dev Notes → Current Implementation State)
 
 ## Story
 
@@ -25,6 +25,12 @@ so that I can narrow down the list of events to my interests.
 6. **AC6 — i18n:** And all Filter Hub UI text (facet labels, the "Clear filters" action, and every `EventType`/`EventCategory` enum value's display label) is localized using `next-intl`, with message keys present in both `en` and `id` locale files (AD-6, NFR23).
 7. **AC7 — Analytics:** And selecting or clearing a filter fires a `filter_applied` PostHog event (AD-5) whenever the resulting selection changes, carrying the full current selection for both facets.
 8. **AC8 — Test coverage:** And integration tests cover the multi-select `in`-condition DSL semantics (single value, multiple values, combined with search via `and`, mocked at the GraphQL layer), URL-state sync, and clear-filter reset behavior; one E2E test covers selecting type/category filters, seeing the filtered results, and clearing them.
+
+**AC9 — Compact dropdown presentation (added 2026-08-13 via `bmad-correct-course`):**
+And each facet (Type, Category) is presented as a closed-by-default trigger button (shadcn `Popover`, not a searchable combobox — AC1's tap-to-toggle pill list renders unchanged inside the popover's content, preserving AC1's interaction model) rather than an always-expanded row. The trigger shows the facet label, switches to a primary-colored (`variant="default"`) style when that facet has any selection (`variant="outline"` when empty), and displays a small floating count badge only when selection count > 0. This AC changes only the collapsed/expanded presentation, not the underlying tap-to-toggle interaction, and does not reintroduce the searchable-combobox pattern AC1 explicitly rejected.
+
+**AC10 — Per-facet clear + compact row layout (added 2026-08-13 via `bmad-correct-course`):**
+And each facet's popover includes its own "Clear" action in addition to the existing "Clear filters" action (AC5) covering both facets. The Type/Category triggers plus any existing Location filter trigger lay out in a single horizontally-wrapping row instead of a vertical stack, with "Clear filters" inline at the row's end.
 
 ## Tasks / Subtasks
 
@@ -53,7 +59,28 @@ so that I can narrow down the list of events to my interests.
 - [x] [Review][Patch] SQL Type Mismatch Risk & Unauthorized Backend Modification [packages/graphql-select/drizzle-where.ts]
 - [x] [Review][Patch] State Race Condition on Rapid Toggling in MultiSelect [packages/ui/src/core/multi-select.tsx]
 
+- [ ] **Task 7 (AC9) — Blocked on Story 0.28; add shadcn `badge`:**
+  - Do not start Task 8 until Story 0.28 is `done` (establishes `packages/ui`'s `components.json`/`cn()`/`@/*` alias and the `popover` primitive this task also needs).
+  - Additionally run `pnpm --filter @festgrid/ui exec shadcn add badge` — `badge` is needed only by this story (the selection-count indicator), unlike `popover`/`calendar` which Story 0.28 added because ≥2 stories needed them; adding it here (not in 0.28) keeps 0.28 scoped to the genuinely shared gap only.
+- [ ] **Task 8 (AC9) — Wrap each `MultiSelect` in a `Popover` trigger (`packages/ui/src/features/events/FilterHub.tsx`):**
+  - Do **not** modify `packages/ui/src/core/multi-select.tsx` — its internal tap-to-toggle pill rendering is unchanged (AC9 explicitly preserves AC1's interaction model); only `FilterHub.tsx` changes.
+  - Replace each direct `<MultiSelect ... />` render with a `Popover` (`packages/ui/src/core/ui/popover.tsx`, Story 0.28's output): `PopoverTrigger` is a `Button` (`packages/ui/src/core/ui/button.tsx`) showing the facet label, `variant="default"` when `selectedTypes.length > 0`/`selectedCategories.length > 0`, `variant="outline"` when empty, with a small `Badge` (`packages/ui/src/core/ui/badge.tsx`, Task 7) showing the selection count, rendered only when count > 0. `PopoverContent` renders the existing `<MultiSelect>` unchanged.
+  - Update `FilterHub.test.tsx`: trigger renders closed by default; opening reveals the unchanged tap-to-toggle pill list; trigger switches `variant`/shows the count badge based on selection state; trigger's own visual state does not affect the underlying DSL/URL-state logic (Tasks 2-3, unchanged and already tested).
+- [ ] **Task 9 (AC10) — Per-facet Clear + single-row layout:**
+  - Add a "Clear" action inside each facet's `PopoverContent`, clearing only that facet's selection (distinct from the existing row-level "Clear filters," AC5, which clears both facets plus location).
+  - Change `FilterHub.tsx`'s root layout from a vertical `flex flex-col gap-6` stack to a horizontally-wrapping row (`flex flex-wrap items-center gap-2` or similar) containing the Type trigger, Category trigger, the existing `LocationRadiusFilter` trigger, and "Clear filters" inline at the row's end.
+  - Update `FilterHub.test.tsx` for the new layout and per-facet clear behavior; existing DSL/URL-state/analytics tests (Tasks 2-4) require no changes — this is presentation-only.
+  - Amend `design-artifacts/UX-festgrid-run-1/EXPERIENCE.md`'s Filter Hub description per `sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md` Section 4.6 (user-confirmed via `AskUserQuestion` during that proposal's drafting): replace "Prominently displayed... users tap on `EventType`/`EventCategory` buttons/tags" with wording reflecting the compact-dropdown-trigger interaction, so the UX source doesn't drift from shipped reality — the same discipline this project applied the first time this exact tension surfaced (this story's original Gate 2 finding, Architecture & UX Gate Findings below).
+
 ## Dev Notes
+
+### Current Implementation State (added 2026-08-15 — read before starting Task 7)
+
+Unlike the calendar-chain stories (3.7a/1.3g/1.3f/2.6), `FilterHub.tsx` was **not touched** by the failed `bmad-quick-dev` run (`a60864f`/`519f822`/`c0c4912`) — confirmed via `git show --stat` across all three commits. This is a genuine clean slate: the current `FilterHub.tsx` is exactly the always-expanded vertical-stack version this story originally shipped (`Status: done` until this reopening), with no partial AC9/AC10 work sitting in history to account for.
+
+- Current `FilterHub.tsx` renders two `<MultiSelect>` instances directly (no `Popover` wrapper) in a `flex flex-col gap-6` vertical stack, plus a conditionally-rendered row-level "Clear filters" button and the existing `<LocationRadiusFilter>`.
+- `packages/ui` has no shadcn/Radix setup at all as of this reopening — Task 7's block on Story 0.28 is a hard prerequisite, not a formality; `Popover`/`Button` don't exist anywhere in `packages/ui` until 0.28 ships them.
+- `MultiSelect` (`packages/ui/src/core/multi-select.tsx`, Story 1.5a) itself needs no change — its tap-to-toggle pill rendering is exactly what AC9 requires to render unchanged inside the new popover content.
 
 ### Architecture & UX Gate Findings
 
@@ -61,6 +88,8 @@ so that I can narrow down the list of events to my interests.
 - **Gate 2 (UI Complexity & Reusability) — run fresh via subagent persona Freya (2026-08-01): gap found.** The originally-drafted `MultiSelect` (a Shadcn `Popover`+`Command` faceted-filter combobox — trigger button, badges, search-within-popover, checkmark list, "Clear filters" footer) stacks the same category of independent state dimensions (open/close, internal search-filter, multi-toggle selection, keyboard nav, combobox a11y) that triggered the Story 1.3b (`EventCard`)/1.3c (`useInfiniteScroll`) splits, and clears the reuse bar independently of that (Epic 3's FR31 — filtering subscribed-account events by type/category — is a near-certain second consumer beyond this story's `FilterHub`). **Resolution: split into Story 1.5a** (`packages/ui/src/core/multi-select.tsx`), positioned immediately before this story as its prerequisite. `FilterHub` itself does **not** independently trigger Gate 2 — it is thin composition (two `MultiSelect` instances + `nuqs` wiring), comparable to how the discovery page's own composition logic stayed in Stories 1.3/1.4 rather than being split further.
   - **Documentation-consistency correction (drives AC1's scope, not just a flagged discrepancy):** Neither `DESIGN.md` nor `EXPERIENCE.md` nor the Sarah discovery scenario (`design-artifacts/C-UX-Scenarios/01-sarahs-weekend-rescue/01.1-event-discovery/01.1-event-discovery.md`) describes a searchable popover/combobox for type/category filtering — both describe simple **tap-to-toggle buttons/tags** with the grid updating in real time ("Taps on 'Family & Kids' category from the Filter Hub" / "Taps on 'Workshop' type from the Filter Hub"). The original draft's Shadcn "faceted filter" combobox pattern was an unsourced embellishment, not authoritative FestGrid UX. Story 1.5a's ACs (and therefore this story's AC1) are scoped to the tap-to-toggle interaction actually specified in the UX artifacts.
 - **Lightweight escape-hatch guard (no subagent):** Checked this story's specific scope for anything neither the epic-1 sweep nor the fresh Gate 2 pass anticipated — filtering introduces no new external service, no new data entity, and no new infra dependency; the `in`-condition DSL shape for `types`/`categories` was explicitly designed into Story 1.3a's resolver scope (epics.md Story 1.3a AC: "supports filtering by ... type/category (`in`)"). Nothing new found.
+
+**Fresh Gate 3 finding (2026-08-15, this reopening for AC9/AC10):** `packages/ui` has no shadcn/Radix setup — no `components.json`, no `cn()` utility, no `@radix-ui/*` dependency — but AC9's `Popover` trigger requires one. This is the identical gap Story 1.3g's reopening found for its own `WeekPicker.tsx` (same `sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md`, Section 4.4/AD-9) — already resolved by **Story 0.28**, not re-split here. This story additionally needs shadcn `badge` (Task 7), which — unlike `popover`/`calendar` — has only this one confirmed consumer, so it's added directly in this story's own task rather than expanding Story 0.28's shared scope.
 
 ### Data Type Compatibility & Migration Requirements
 
@@ -114,14 +143,22 @@ As of this story's creation (2026-08-01), Stories 1.3, 1.3a, 1.3b, 1.3c, and 1.4
 - `nuqs` v2 (`^2.9.4`): `parseAsArrayOf(parseAsString).withDefault([])` serializes/deserializes comma-separated URL values (e.g. `?types=FESTIVAL,CONCERT`) and treats an empty array as "absent," matching AC5's clear-and-remove-param behavior with no extra logic needed.
 - `graphql-codegen`'s `typescript-react-query` plugin (already a devDependency per Story 1.3a's Dev Notes) generates a typed hook whose `query` variable accepts `EventQueryConditionInput` — no codegen changes needed for this story since it only supplies additional variable values to the existing generated hook.
 
+### References (AC9/AC10, added 2026-08-15)
+
+- [Source: `_bmad-output/planning-artifacts/sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md#4.1`, `#4.6`] — AC9/AC10 origin and the `EXPERIENCE.md` amendment.
+- [Source: `_bmad-output/implementation-artifacts/0-28-set-up-shadcn-ui-component-generation-for-packages-ui.md`, `1-3g-build-the-reusable-weeklycalendarview-component.md`] — the shared Gate 3 finding and its resolution (`packages/ui` shadcn setup), not re-split here.
+- [Source: `packages/ui/src/features/events/FilterHub.tsx`] — current (unmodified since original ship) state; read in full before starting Task 8.
+- [Source: `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` AD-9] — the `Button`+`Popover`(+`Calendar`) composition convention this story's trigger also follows (minus `Calendar`, not applicable here).
+
 ## Global Rules References
 
 - `_bmad-output/project-context.md`
 - `_bmad-output/planning-artifacts/story-content-structure.md`
-- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (AD-1, AD-2, AD-4, AD-5, AD-6)
-- `_bmad-output/planning-artifacts/epics.md` (Stories 1.3, 1.3a, 1.4, 1.5, 1.5a)
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (AD-1, AD-2, AD-4, AD-5, AD-6, AD-9)
+- `_bmad-output/planning-artifacts/epics.md` (Stories 1.3, 1.3a, 1.4, 1.5, 1.5a, 1.3g, 0.28)
 - `_bmad-output/planning-artifacts/story-split-gate.md`
 - `_bmad-output/planning-artifacts/epic-readiness/epic-1-readiness.md`
+- `_bmad-output/planning-artifacts/sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md` (Section 4.1, AC9-10 origin)
 - `docs/infrastructure/1-frontend.md`, `docs/infrastructure/2-backend.md`
 
 ## Implementation Plan (Rule-Compliant)
@@ -134,7 +171,8 @@ As of this story's creation (2026-08-01), Stories 1.3, 1.3a, 1.3b, 1.3c, and 1.4
 - UPDATE `apps/web/locales/en.json`, `apps/web/locales/id.json`: add the 27 new message keys listed in Dev Notes.
 - NEW integration test(s) (Vitest + MSW): single-value `in` condition, multi-value `in` condition (single condition, not multiple), combination with search via `and`, clear-filter URL/query reset.
 - NEW `apps/web/e2e/filter.spec.ts` (Playwright): select type + category, see filtered grid and URL, clear filters, see full list return.
-- **Consumed, not modified by this story:** `packages/ui/src/core/multi-select.tsx` (Story 1.5a — prerequisite), `apps/backend` (Story 1.3a's resolver/DSL mapper), Story 1.3's `EventCard`/infinite-scroll wiring, Story 1.4's `SearchBar`/query-builder.
+- **(AC9/AC10, Tasks 7-9, blocked on Story 0.28):** UPDATE `packages/ui/src/features/events/FilterHub.tsx` — wrap each `MultiSelect` in a `Popover`+`Button`+`Badge` trigger, add per-facet Clear, change layout to a single wrapping row. NEW `packages/ui/src/core/ui/badge.tsx` (shadcn CLI output, this story's own — not Story 0.28's shared scope). UPDATE `design-artifacts/UX-festgrid-run-1/EXPERIENCE.md` (Filter Hub description, proposal Section 4.6).
+- **Consumed, not modified by this story:** `packages/ui/src/core/multi-select.tsx` (Story 1.5a — prerequisite, internal rendering unchanged by AC9), `apps/backend` (Story 1.3a's resolver/DSL mapper), Story 1.3's `EventCard`/infinite-scroll wiring, Story 1.4's `SearchBar`/query-builder, `packages/ui/src/core/ui/popover.tsx`/`button.tsx` (Story 0.28's output, consumed not built here).
 
 ### Rule Mapping
 
@@ -154,6 +192,7 @@ As of this story's creation (2026-08-01), Stories 1.3, 1.3a, 1.3b, 1.3c, and 1.4
 - Integration test: "Clear filters" removes both URL params and restores the default (or search-only) query.
 - E2E happy-path (`apps/web/e2e/filter.spec.ts`): select a type and a category, see the filtered list and URL reflect both, clear filters, see the full list return.
 - `pnpm --filter web lint`, `pnpm --filter web build` (type-check), `pnpm --filter web test`, and `pnpm --filter web test:e2e` all clean; `pnpm --filter @festgrid/ui lint`/build clean for `FilterHub`.
+- **(AC9/AC10)** Integration test: trigger renders closed by default, opens to reveal the unchanged pill list, switches variant/shows count badge based on selection state. Integration test: per-facet Clear only affects that facet. Existing DSL/URL-state/analytics tests (Tasks 2-4) re-run unmodified as regression proof this is presentation-only.
 
 ## Pre-Coding Approval Gate
 
@@ -165,6 +204,8 @@ As of this story's creation (2026-08-01), Stories 1.3, 1.3a, 1.3b, 1.3c, and 1.4
 - [x] Testing plan reviewed (Vitest/MSW integration tests + one Playwright E2E happy path).
 - [x] Gate 1/2/3 findings acknowledged: Gate 1/3 cited from swept `epic-1-readiness.md` (no new gap for this story); Gate 2 run fresh via subagent persona Freya, found a gap (`MultiSelect` split to Story 1.5a) and a UX-documentation correction (tap-to-toggle, not a searchable combobox).
 - [x] Human approval to start coding granted
+- [ ] **AC9/AC10 scope confirmed (2026-08-15 reopening):** Tasks 7-9 blocked on Story 0.28 (`packages/ui` shadcn/Radix setup — a Gate 3 finding shared with Story 1.3g, not re-split here). `MultiSelect`'s internal rendering is unchanged; only `FilterHub.tsx`'s wrapper/layout changes.
+- [ ] Explicit human approval state for Tasks 7-9 (Default: pending approval)
 
 ## Testing Requirements
 
@@ -172,6 +213,7 @@ As of this story's creation (2026-08-01), Stories 1.3, 1.3a, 1.3b, 1.3c, and 1.4
 - Integration coverage for combining facet selections with the active search query via one flat `and` group.
 - Integration coverage for clear-filter URL/query reset behavior.
 - One E2E happy-path flow (Playwright) for selecting type/category filters, seeing filtered results, and clearing them.
+- **(AC9/AC10)** Popover trigger open/closed rendering and variant/badge state; per-facet Clear; existing DSL/URL/analytics tests re-run unmodified as regression proof.
 
 ## Deliverables Checklist
 
@@ -181,25 +223,32 @@ As of this story's creation (2026-08-01), Stories 1.3, 1.3a, 1.3b, 1.3c, and 1.4
 - [x] All 27 new `en`/`id` message keys added (Filter Hub labels + `EventType`/`EventCategory` enum labels).
 - [x] `filter_applied` PostHog event instrumented.
 - [x] Integration and E2E tests written and passing.
+- [ ] Type/Category triggers show closed-by-default `Popover`s with primary-color/count-badge selection state (AC9, Task 8).
+- [ ] Per-facet Clear + single-row layout (AC10, Task 9).
+- [ ] `EXPERIENCE.md`'s Filter Hub description amended to match (Task 9).
 
 ## Out of Scope
 
-- The `MultiSelect` component itself (Story 1.5a — prerequisite, not built here; this story only consumes it).
+- The `MultiSelect` component itself (Story 1.5a — prerequisite, not built here; this story only consumes it — and AC9 does not change its internals either).
 - Filter by Location (mentioned in `EXPERIENCE.md`'s Filter Hub description but scoped to saved locations, which don't exist until Epic 2 — `epics.md`'s Story 1.5 AC covers type/category only).
 - Event details navigation (Story 1.6/1.6a).
 - Search input itself (Story 1.4 — already built, only consumed/extended here).
 - Filtering subscribed-account events by type/category/source (Epic 3, FR31) — a future consumer of `MultiSelect`/`FilterHub`, not this story's scope.
+- **Story 0.28 itself** (`packages/ui`'s shadcn/Radix setup) — a hard prerequisite for Tasks 7-9, built as its own story, not here.
+- **A searchable combobox reintroduction** — AC9 explicitly preserves AC1's tap-to-toggle interaction inside the popover; a search-within-popover pattern was rejected in this story's original Gate 2 finding and remains rejected.
 
 ## Definition of Done
 
-- Acceptance criteria (AC1-AC8) satisfied.
+- Acceptance criteria (AC1-AC8 already were; AC9-10 targeted at Tasks 7-9) satisfied.
 - Required integration and E2E tests pass.
 - Lint and type checks pass for `apps/web` and `packages/ui`.
 - `en`/`id` locale files updated with all 27 new message keys (AD-6).
+- Story 0.28 is `done` before Task 8 starts.
+- `EXPERIENCE.md`'s Filter Hub description matches the shipped compact-dropdown interaction.
 
 ## Completion Status
 
-Completed.
+**Reopened 2026-08-15** — AC1-8 previously complete (`done` status). AC9-10 outstanding, blocked on Story 0.28 (Tasks 7-9 above). Unlike the calendar-chain stories, no prior partial implementation attempt touched this file — a genuine clean slate for the new work.
 
 ## Dev Agent Record
 
@@ -231,3 +280,8 @@ Completed.
 - `apps/web/e2e/filter.spec.ts`
 - `_bmad-output/implementation-artifacts/sprint-status.yaml`
 - `_bmad-output/implementation-artifacts/1-5-filter-events-by-type-and-category.md`
+
+### Change Log
+
+- **(prior session)**: AC1-8 (Tasks 1-6) implemented and shipped — see Completion Notes List above.
+- **2026-08-15**: Reopened via `bmad-create-story` to add AC9 (compact dropdown presentation) and AC10 (per-facet clear + row layout), per `sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md` Section 4.1. Confirmed via `git show --stat` that no prior partial attempt touched `FilterHub.tsx` — genuine clean slate. Scoped Tasks 7-9, blocked on Story 0.28 (shared shadcn/Radix setup gap, not re-split here) plus this story's own `badge` addition.
