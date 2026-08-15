@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-15T10:00:00Z
+last_updated: 2026-08-15T11:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -451,10 +451,12 @@ development_status:
   # to new Story 3.4e, since it's a confirmed live data-integrity bug (Story 6.1a
   # is already `review` status and ships the fabrication bug) versus this story's
   # remaining scope being a non-urgent cost/reliability optimization. AC6/Task 6
-  # removed from this story's active scope -- see 3-4e. This story's AC1-5/Tasks
-  # 1-5 (actor selection, timeout) are unaffected and still pending
-  # bmad-create-story for a dev-ready pass.
-  3-4d-per-use-case-actor-selection-and-sync-path-timeout: backlog
+  # removed from this story's active scope -- see 3-4e.
+  # UPDATE 2026-08-15 (bmad-create-story full pass): Tasks 2-6 (actor-constant
+  # extraction, lookupAccountProfile timeout via new ApifyRequestTimeoutError,
+  # castVote resolver wiring, test fixes) now have full task-level detail --
+  # ready for bmad-dev-story or bmad-quick-dev.
+  3-4d-per-use-case-actor-selection-and-sync-path-timeout: ready-for-dev
   # NEW 2026-08-15, split off 3-4d via Sprint Change Proposal (see that story's
   # Amendment 4 and epics.md Story 3.4e). Fixes a confirmed, already-live
   # data-integrity bug: getPostByUrl/lookupAccountProfile treat Apify's truthy

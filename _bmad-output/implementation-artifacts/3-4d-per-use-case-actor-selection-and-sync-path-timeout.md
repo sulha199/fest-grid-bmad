@@ -4,9 +4,9 @@
 
 - Epic: 3
 - Story ID: 3.4d
-- Status: in-progress
+- Status: ready-for-dev
 
-<!-- Note: this story captures an architecture-level finding and recommendation at a lighter level of detail than a dev-story-ready pass. Re-run bmad-create-story 3-4d for a fully detailed task breakdown before dev-story — this file's Dev Notes are the input to that pass, not a substitute for it. -->
+<!-- 2026-08-15: full bmad-create-story context-engine pass complete. Tasks 1a-1c (below) were already done with real data as a lighter-weight analysis pass on 2026-08-14; this pass adds full task-level detail for the remaining Tasks 2-5 (exact constant names, error-type shape, resolvers.ts wiring, test cases) plus the canonical section structure (story-content-structure.md), so the file is now dev-story-ready. Task 6 was split out to Story 3.4e on 2026-08-15 (Sprint Change Proposal) before this pass began. -->
 
 ## Story
 
@@ -166,11 +166,60 @@ This story exists to close that gap: match actor choice to the latency/cost prof
   | `instagram-scraper/fast-instagram-post-scraper` | C | 0 (correct!) | $0.0119 (nonzero — "Processing Fee (Filtered Items)") | No | ✅ Returned-set correct, but bills for what it filtered out | partial pass — correct data, imperfect cost |
 
   See "Task 1c Conclusions" in Dev Notes below for what this means for `getNewestPosts`'s actor pick.
-- [ ]  Task 2: Extract actor IDs into named config/env constants, one per adapter method use-case (sync vs batch) (AC: #4).
-- [ ]  Task 3: Swap the sync-path actor per Task 1's findings (AC: #1).
-- [ ]  Task 4: Add `withTimeout` wrapping to `lookupAccountProfile`, with a distinct timed-out error type/message from "not found" (AC: #2).
-- [ ]  Task 5: Update `instagram-adapter.test.ts` for the timeout case and the actor-selection change.
-- [ ]  ~~Task 6~~ **SPLIT OUT to Story 3.4e, 2026-08-15** (Sprint Change Proposal `sprint-change-proposal-2026-08-15-not-found-detection-bug.md`) — see that story for the full task content, carried forward verbatim.
+- [ ]  Task 2: Extract actor IDs into three named constants in `instagram-adapter.ts` (AC: #4)
+  - [ ]  Add three module-scoped, exported `const` string literals near the top of `instagram-adapter.ts` (below the imports, above `normalizeApifyError`), one per adapter method use-case — plain code constants, not new env vars (per Dev Notes "Task 2/3/4 Implementation Detail": AC4 itself frames this as a "one-line change," i.e. a code edit, and no other actor-related value in this file is env-configurable except the API token/results-limit already in `env.ts`, which this story does not touch):
+    ```ts
+    const GET_POST_BY_URL_ACTOR = 'apify/instagram-post-scraper';
+    const LOOKUP_ACCOUNT_PROFILE_ACTOR = 'apify/instagram-post-scraper';
+    const GET_NEWEST_POSTS_ACTOR = 'apify/instagram-post-scraper';
+    ```
+  - [ ]  Change `callApifyActor`'s signature from `(input: object): Promise<any[]>` to `(input: object, actorId: string): Promise<any[]>`, and change its internal `client.actor('apify/instagram-api-scraper')` call to `client.actor(actorId)`. Update `setCallApifyActor`'s type (`typeof callApifyActor`) automatically follows from this signature change — no separate edit needed there.
+- [ ]  Task 3: Swap each method to call `callApifyActor` with its own actor constant (AC: #1, #3, #4)
+  - [ ]  `getPostByUrl`: `callApifyActor({...}, GET_POST_BY_URL_ACTOR)`.
+  - [ ]  `lookupAccountProfile`: `callApifyActor({...}, LOOKUP_ACCOUNT_PROFILE_ACTOR)`.
+  - [ ]  `getNewestPosts`: `callApifyActor(input, GET_NEWEST_POSTS_ACTOR)` — this is the only change to `getNewestPosts` in this story; its async/batch timeout behavior is explicitly unchanged (AC3, Out of Scope).
+- [ ]  Task 4: Add a rejecting (not resolve-null) timeout to `lookupAccountProfile`, with a distinct error type (AC: #2)
+  - [ ]  Add `ApifyRequestTimeoutError` to `packages/domain/src/scraper/types.ts`, alongside the existing `ScraperCapacityExceededError`, following its exact pattern:
+    ```ts
+    export class ApifyRequestTimeoutError extends Error {
+      constructor(message?: string) {
+        super(message);
+        this.name = 'ApifyRequestTimeoutError';
+      }
+    }
+    ```
+    Export it from the package's index alongside `ScraperCapacityExceededError` (same barrel file/pattern).
+  - [ ]  In `instagram-adapter.ts`, add a sibling helper to the existing `withTimeout` — do **not** modify `withTimeout` itself (`getPostByUrl` keeps using it unchanged, see Dev Notes and Out of Scope) — that rejects instead of resolving `null`:
+    ```ts
+    function withTimeoutOrThrow<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+      return new Promise<T>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          reject(new ApifyRequestTimeoutError(message));
+        }, ms);
+
+        promise
+          .then((res) => { clearTimeout(timer); resolve(res); })
+          .catch((err) => { clearTimeout(timer); reject(err); });
+      });
+    }
+    ```
+  - [ ]  Wrap `lookupAccountProfile`'s body (the existing `try { ... }` block, same 20000ms bound `getPostByUrl` already uses — no evidence from Task 1b's real runs (7-20s observed) suggests a different bound is needed) with `withTimeoutOrThrow(runLookup(), 20000, 'Account profile lookup timed out')`, mirroring `getPostByUrl`'s existing `runCall()`-then-`withTimeout(runCall(), 20000)` structure so the two methods stay visually consistent even though their timeout *behavior* now differs (reject vs. resolve-null — see Dev Notes for why).
+- [ ]  Task 5: Wire the new error type into `castVote`'s resolver, mirroring the existing `ScraperCapacityExceededError` pattern (AC: #2)
+  - [ ]  In `apps/backend/src/schema/resolvers.ts`, import `ApifyRequestTimeoutError` from `@festgrid/domain` alongside the existing `ScraperCapacityExceededError` import (resolvers.ts:26).
+  - [ ]  In `castVote`'s `try { lookupResult = await lookupAccountProfile(...) } catch (err) { ... }` block (resolvers.ts:1427-1432), add a new branch **before** the existing generic `throw new GraphQLError('Failed to lookup account profile', ...)`, matching the exact pattern already used two resolvers above for `subscribeToAccount` (resolvers.ts:231-238):
+    ```ts
+    } catch (err) {
+      if (err instanceof ApifyRequestTimeoutError) {
+        throw new GraphQLError(err.message, { extensions: { code: 'SCRAPE_TIMEOUT' } });
+      }
+      throw new GraphQLError('Failed to lookup account profile', { extensions: { code: 'BAD_REQUEST' } });
+    }
+    ```
+- [ ]  Task 6: Update `instagram-adapter.test.ts` (AC: #4, #2, plus fixing pre-existing incorrect assertions — see Dev Notes "Pre-Existing Test Corrections")
+  - [ ]  Fix the existing (currently failing) test `'uses the faster app-funded sync actor and surfaces a timeout explicitly'`: its `calledActor` assertion currently expects `'sones/instagram-posts-scraper-lowcost'` — this is **wrong** per AC1's own confirmed finding that `sones` cannot serve `getPostByUrl` at all (rejects post/reel/story URLs). Change the expected value to `GET_POST_BY_URL_ACTOR`'s real value, `'apify/instagram-post-scraper'`.
+  - [ ]  That same test's timeout assertion (`err.name === 'ApifyRequestTimeoutError'`, `err.message` matches `/timed out/i`) is already correctly shaped for Task 4's implementation — no change needed to that half, just confirm it now passes for real.
+  - [ ]  Update the two `calledInput`-shape assertions in `'getNewestPosts maps output correctly...'` and `'lookupAccountProfile maps details correctly...'` if `setCallApifyActor`'s mock signature changes shape (it already accepts a second `actorName?` parameter per the pre-existing test — no change needed there, just confirm the mock is invoked with the right actor string per method).
+- [ ]  ~~Not-found detection (originally numbered "Task 6" in this file's pre-2026-08-15 version)~~ **SPLIT OUT to Story 3.4e, 2026-08-15** (Sprint Change Proposal `sprint-change-proposal-2026-08-15-not-found-detection-bug.md`) — see that story for the full task content, carried forward verbatim.
 
 *Task breakdown intentionally left at this level — re-run `bmad-create-story 3-4d` for full implementation detail (exact env var names, error-type shape, test cases) before `dev-story`.*
 
@@ -233,10 +282,10 @@ Not an empty array — a **truthy 1-item array**. The adapter's existing guard (
 
 1. **`getPostByUrl` silently returns a hollow "post" instead of failing.** None of `item.caption`/`item.text`/`item.description` exist on the error object, so `content` maps to `''` — but `item.url` *is* present (the error object echoes the input URL back), so `postUrl`/`originalPostUrl` get set, and `publishedAt` falls through to `new Date().toISOString()` (right now) since no timestamp exists either. The result is a non-null `ScrapedPost` with empty content. [resolvers.ts:994](apps/backend/src/schema/resolvers.ts#L994)'s `if (!scrapedPost) return SCRAPE_FAILED` never fires — this garbage post proceeds into the Gemini extraction pipeline instead, burning a Gemini call on nothing and likely surfacing a confusing empty/nonsensical result to the user instead of a clear "couldn't retrieve this post" error.
 2. **`lookupAccountProfile` is worse: it fabricates a plausible-looking fake profile.** The mapping's fallback chain is `item.fullName || item.displayName || item.name || item.username || ''` — all the named fields are absent on the error object, but `item.username` **is** present (again, the error object echoes back the input, this time the garbled handle itself). So `displayName` resolves to `"pakuwonmall.jogjasfdfdsfsdf"` — genuinely indistinguishable from a real (if oddly-named) account at the type level. `accountId` resolves the same way (`item.id || item.username`, `item.id` absent). [resolvers.ts:1434](apps/backend/src/schema/resolvers.ts#L1434)'s `if (!lookupResult) throw 'not found'` never fires. **`castVote` proceeds to `db.insert(socialMediaAccountProfiles)` with this fabricated data and the mutation reports success** — any user who fat-fingers a handle (or deliberately probes with garbage) gets a silently-created junk `SocialMediaAccountProfile` row in production, not an error.
-3. **Confirmed actor-agnostic — this is not solved by AC1's actor pick.** `apify/instagram-api-scraper` and `apify/instagram-post-scraper` return byte-for-byte the same error shape (`"error": "not_found", "errorDescription": "Post does not exist"` — even reused verbatim for the *account*-lookup case, where "Post" is technically the wrong noun, suggesting a shared generic error template on Apify's side). Whichever actor wins AC1 for either method, this bug ships unless the adapter itself is fixed — see AC6 (new, added 2026-08-15) for the required check.
+3. **Confirmed actor-agnostic — this is not solved by AC1's actor pick.** `apify/instagram-api-scraper` and `apify/instagram-post-scraper` return byte-for-byte the same error shape (`"error": "not_found", "errorDescription": "Post does not exist"` — even reused verbatim for the *account*-lookup case, where "Post" is technically the wrong noun, suggesting a shared generic error template on Apify's side). Whichever actor wins AC1 for either method, this bug ships unless the adapter itself is fixed — see Story 3.4e (split out 2026-08-15, carries the former AC6 forward) for the required check.
 4. **Also a minor cost angle, secondary to the correctness bug:** every invalid-input run was billed as a normal successful "Result (1)" ($0.0033 for `api-scraper`, $0.0017 for `post-scraper`) — Apify has no way to know the caller considers this a failure, so a bad handle/URL costs the same as a good one.
 
-**On actor pick itself (secondary to the bug above, but still answered):** both actors work correctly on valid input for both methods. `apify/instagram-post-scraper` is faster on `getPostByUrl` in this sample (16s vs. `apify/instagram-api-scraper`'s comparable range) and cheaper per item ($0.0017 vs. $0.0023-0.0033), consistent with Task 1c's broader cost findings — no reason to override that direction here. Given AC6's fix applies identically to both actors, the actor choice for `getPostByUrl`/`lookupAccountProfile` doesn't block on it.
+**On actor pick itself (secondary to the bug above, but still answered):** both actors work correctly on valid input for both methods. `apify/instagram-post-scraper` is faster on `getPostByUrl` in this sample (16s vs. `apify/instagram-api-scraper`'s comparable range) and cheaper per item ($0.0017 vs. $0.0023-0.0033), consistent with Task 1c's broader cost findings — no reason to override that direction here. Given Story 3.4e's fix (the former AC6) applies identically to both actors, the actor choice for `getPostByUrl`/`lookupAccountProfile` doesn't block on it.
 
 ### Task 1c Conclusions (2026-08-14 — all 12 runs complete and valid, real data)
 
@@ -276,6 +325,49 @@ The app-funded Apify account is the project owner's own account — per the 2026
 
 `getPostByUrl` already has a 20s local timeout ([instagram-adapter.ts:97](apps/backend/src/lib/scraper/instagram-adapter.ts#L97)) via the existing `withTimeout` helper in the same file — `lookupAccountProfile` ([instagram-adapter.ts:141](apps/backend/src/lib/scraper/instagram-adapter.ts#L141)) has none. Both are awaited synchronously from GraphQL mutation resolvers ([resolvers.ts:993](apps/backend/src/schema/resolvers.ts#L993), [resolvers.ts:1429](apps/backend/src/schema/resolvers.ts#L1429)). A timeout on the JS side does not cancel the underlying Apify run or its billing — it only stops the caller from waiting indefinitely; this story does not attempt to cancel in-flight Apify runs, only to bound how long the user-facing request waits.
 
+### Task 2/3/4/5 Implementation Detail (2026-08-15, full `bmad-create-story` pass)
+
+**Actor pick for all three constants: `apify/instagram-post-scraper`.** Not a coincidence across all three — each method's pick traces to a different piece of already-collected real evidence, they just converged:
+- `getNewestPosts` (`GET_NEWEST_POSTS_ACTOR`): unambiguous — "Task 1c Conclusions" above names it the confirmed winner, clean across all three scenarios.
+- `getPostByUrl` (`GET_POST_BY_URL_ACTOR`): explicit in "Task 1b Conclusions" above — faster (16s vs. api-scraper's comparable range) and cheaper ($0.0017 vs. $0.0023-0.0033) in the real Task 1b sample, "no reason to override that direction."
+- `lookupAccountProfile` (`LOOKUP_ACCOUNT_PROFILE_ACTOR`): the one judgment call in this set, flagged here rather than silently assumed. Task 1b Part 2's own two valid-handle runs actually show `apify/instagram-api-scraper` (run-05) slightly *faster* than `apify/instagram-post-scraper` (run-07) for this specific method — 7s vs. 9s. But "Task 1b Conclusions" explicitly says *"the actor choice for `getPostByUrl`/`lookupAccountProfile` doesn't block on [the not-found bug]"* and frames the direction as general, not `getPostByUrl`-specific; `apify/instagram-post-scraper` is also consistently cheaper per item across every sample in this file. A 2-second difference is immaterial against a 20-second timeout budget either way. Picked `apify/instagram-post-scraper` here too, for cost consistency and one fewer distinct value to reason about — not because the story's prior research pinned this exact method down unambiguously. If this call is wrong, it's a one-line constant change (AC4's whole point) with no other blast radius.
+
+**Why the timeout must *reject*, not resolve `null` (AC2's literal "reuse the existing `withTimeout` helper" vs. its actual intent):** `withTimeout` (used by `getPostByUrl` today) resolves `null` on timeout. If `lookupAccountProfile` reused it unmodified, a timeout would flow into `castVote`'s `if (!lookupResult) throw 'not found'` branch (resolvers.ts:1434) — the *exact* conflation AC2 says to avoid ("do not conflate a slow run with a nonexistent account"). The only reading of AC2 consistent with its own stated purpose is: reuse the timeout-racing *pattern*, not the resolve-null *behavior* — hence `withTimeoutOrThrow`, a small sibling to `withTimeout`, not a modification of it (which would also silently change `getPostByUrl`'s established behavior — out of scope, see Out of Scope below).
+
+**Why `ApifyRequestTimeoutError` lives in `packages/domain`, not locally in the adapter file:** Mirrors `ScraperCapacityExceededError`'s exact existing precedent — same file (`packages/domain/src/scraper/types.ts`), same pattern (extends `Error`, sets `this.name`), same reason: `resolvers.ts` needs to `instanceof`-check it from outside the adapter's own file, and `ScraperCapacityExceededError` already establishes that domain-package types (not apps/backend-local classes) are how this codebase shares typed errors across the adapter/resolver boundary.
+
+**Why `resolvers.ts`'s `castVote` catch block is in scope for this story (not just `instagram-adapter.ts`):** Discovered by reading the actual call site (non-negotiable per this workflow's "read files being modified" step), not assumed from the AC text alone. Today, `castVote`'s catch block collapses *every* thrown error from `lookupAccountProfile` into the same generic `'Failed to lookup account profile'` / `BAD_REQUEST` — so a "typed" error thrown by the adapter alone would not, by itself, reach the user any differently than today. Real precedent exists two resolvers above (`subscribeToAccount`, resolvers.ts:231-238) for exactly this situation: catch a specific domain error type, throw a `GraphQLError` with its own message and a distinct `extensions.code`. Task 5 mirrors that pattern exactly rather than leaving AC2 satisfied only at the JS-throw level.
+
+**Known, accepted limitation (see Out of Scope): this does not yet change what the end user *sees*.** Gate 2 (UI Complexity & Reusability) confirmed no gap for this story, because `CastVoteForm.tsx`'s error handling is an already-existing generic catch-all for `castVote`'s error codes (confirmed during Story 3.4e's own Gate 2 run) — a new `SCRAPE_TIMEOUT` code will flow through that same generic handler today, not a distinct "try again" message, until/unless a future frontend story special-cases it. AC2 is satisfied at the API contract level (a caller *can* now distinguish timeout from not-found by GraphQL error code) even though the current frontend doesn't yet act on that distinction differently. This mirrors Story 3.4e's own precedent of leaving the frontend unchanged.
+
+### Pre-Existing Test Corrections
+
+`instagram-adapter.test.ts`'s test `'uses the faster app-funded sync actor and surfaces a timeout explicitly'` (added in commit `71aec22`, the same commit as this story's initial research) already anticipated part of this story's shape correctly — the two-argument `setCallApifyActor(async (input, actorName?) => ...)` mock signature matches Task 2's `callApifyActor(input, actorId)` change exactly, and the `ApifyRequestTimeoutError`/`/timed out/i` timeout assertion matches Task 4's design exactly. But its `calledActor` assertion (`'sones/instagram-posts-scraper-lowcost'`) is **factually wrong** against this story's own AC1 finding — `sones` cannot serve `getPostByUrl` at all (rejects post/reel/story URLs, confirmed via its own input schema, see "Task 1b Simplified" above). This test currently fails against the unmodified source for both reasons (wrong actor expectation, and the source doesn't yet implement multi-actor calls or a rejecting timeout at all). Task 6 fixes the actor-value assertion; the timeout-shape assertion needs no change, just real implementation to back it.
+
+### Architecture & UX Gate Findings
+
+- **Epic 3 readiness sweep** (`_bmad-output/planning-artifacts/epic-readiness/epic-3-readiness.md`, `swept: true`, 2026-08-09) covers Gate 1/3 for Epic 3's architecture. Not re-run fresh here per `story-split-gate.md`'s Epic-Level Sweep Mode. **Lightweight escape-hatch guard:** this story's remaining scope (constants, a timeout helper, a domain-package error class matching an existing pattern, one new resolver catch branch matching an existing pattern) introduces no new external service, data entity, or infra dependency beyond what the sweep already covered for this same adapter/resolver pair — nothing here plausibly falls outside it.
+- **Gate 2 (UI Complexity & Reusability)** — run fresh via subagent (Freya persona), since Gate 2 stays per-story even under Epic-Level Sweep Mode. **No gap found.** 100% backend scope; no new GraphQL schema field, no new UI component/hook/util. The one caveat (a new distinct error code not yet surfaced distinctly by the frontend) was evaluated and explicitly judged not to be a Gate 2 gap — see "Task 2/3/4/5 Implementation Detail" above and Out of Scope below; Gate 2 splits UI complexity *out of* feature stories, it doesn't manufacture new frontend scope where the current draft has none.
+
+### Package Boundaries
+
+- `ApifyRequestTimeoutError` goes in `packages/domain/src/scraper/types.ts` (see above) — not `packages/domain` React-restricted concerns (it's a plain `Error` subclass, no React), and not adapter-local, since `resolvers.ts` needs to import and `instanceof`-check it. No `packages/ui` component and no new `packages/domain` *mechanism* (query DSL, generic util) are introduced — this is a single, narrowly-scoped error class following an exact existing precedent, not a new abstraction layer.
+- The three actor-ID constants and the `withTimeoutOrThrow` helper stay local to `instagram-adapter.ts` — they are Apify/Instagram-adapter-specific, not reusable across the (still-stub) Twitter/X adapter, which has no actors or timeout concerns of its own yet.
+
+### Data Type Compatibility & Migration Requirements
+
+- Compatibility finding: No mismatch found.
+- Impacted fields/contracts: None at the data layer. `ScrapedPost`/`AccountProfileLookupResult` return shapes are unchanged. `lookupAccountProfile`'s *rejection* behavior on timeout is a new thrown-error case, not a return-type change (its Promise resolution type, `AccountProfileLookupResult | null`, is unchanged — TypeScript doesn't encode "may also reject with X" in the return type today, consistent with how `ScraperCapacityExceededError` is already handled).
+- Required DB migration changes: No changes required — no schema/table touched.
+- Required TypeScript type changes: One new exported class, `ApifyRequestTimeoutError`, added to `packages/domain/src/scraper/types.ts` and its barrel export — additive only, no existing type/interface signature changed.
+- Backward compatibility and rollout notes: Purely additive. `getPostByUrl`'s own timeout behavior (`withTimeout`, resolve-null) is deliberately left unchanged (see Out of Scope) — no caller of `getPostByUrl` needs any change. `castVote`'s new `instanceof ApifyRequestTimeoutError` branch is additive (an `if` before the existing fallback `throw`); the fallback path for every other error type is unchanged.
+- Verification checks: Task 6's test updates assert the real rejection (`err.name === 'ApifyRequestTimeoutError'`, message matches `/timed out/i`) end-to-end through `lookupAccountProfile`'s public method, not just the internal helper in isolation.
+
+### Project Structure Notes
+
+- Files touched: `apps/backend/src/lib/scraper/instagram-adapter.ts` (UPDATE — constants, `callApifyActor` signature, `withTimeoutOrThrow`), `apps/backend/src/lib/scraper/instagram-adapter.test.ts` (UPDATE — fix + extend), `packages/domain/src/scraper/types.ts` (UPDATE — new `ApifyRequestTimeoutError` class + barrel export), `apps/backend/src/schema/resolvers.ts` (UPDATE — one new `instanceof` branch in `castVote`'s catch block). No new files. `getNewestPosts` gets a one-line actor-constant swap only (Task 3); its async/batch design is otherwise untouched.
+- **Test runtime note (same as Story 3.4e's own Dev Notes):** despite `project-context.md`'s general "Testing Philosophy" section naming Vitest for `apps/*`, this file (and its siblings in `apps/backend/src/lib/scraper/`) actually use Node's built-in `node:test`/`node:assert` runner, run via `tsx --test src/**/*.test.ts` (`apps/backend/package.json`'s `test` script). Follow the file's own established pattern.
+
 ### References
 
 - [Source: docs/assets/Apify actor costing and facts.md] — the four actors' cost/input/output samples this story's comparison table is drawn from.
@@ -286,11 +378,62 @@ The app-funded Apify account is the project owner's own account — per the 2026
 - [Source: _bmad-output/implementation-artifacts/3-4b-byok-pooled-scraper-vendor-keys.md] — the BYOK story whose actor pool is deliberately narrower than this one's, per the app-funded-vs-BYOK risk-ownership distinction in AC5.
 - [Source: apps/backend/src/lib/posts/persist-scraped-post.ts] — the DB-level dedup safety net (`onConflictDoNothing` on `postUrl`) that makes duplication a non-issue for actor choice, read directly to answer the user's 2026-08-14 batch/dedup question rather than assumed.
 - [Source: apps/backend/src/lib/scraper/process-scrape-job.ts] — `newerThan` computation (`MAX(posts.publishedAt)`), read directly to confirm exactly what cutoff value each actor is actually called with in production today.
+- [Source: `packages/domain/src/scraper/types.ts`] — `ScraperCapacityExceededError`'s exact pattern, read directly and mirrored for the new `ApifyRequestTimeoutError`.
+- [Source: `apps/backend/src/schema/resolvers.ts:231-238`] — `subscribeToAccount`'s `instanceof ScraperCapacityExceededError` catch-branch pattern, read directly and mirrored for `castVote`'s new `instanceof ApifyRequestTimeoutError` branch (Task 5).
+- [Source: `apps/backend/src/schema/resolvers.ts:1413-1436`] — `castVote`'s full current catch-block/not-found logic, read directly to confirm today's error handling collapses all `lookupAccountProfile` throws into one generic message (motivating Task 5).
+- [Source: `_bmad-output/implementation-artifacts/3-4e-fix-not-found-detection-in-the-instagram-scraper-adapter.md`] — sibling story fixing the adjacent not-found-detection bug in the same two methods; its own Gate 2 finding (`CastVoteForm.tsx`'s existing generic error handling) is reused here rather than re-derived.
 
 ## Global Rules References
 
 - [X]  `_bmad-output/project-context.md` — Adapter Pattern (General Architecture rule): this story keeps the existing `ScraperAdapter` interface unchanged, only varying which actor ID backs each method — no new abstraction introduced.
 - [X]  `_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md` — no PRD-level behavior change; this is a cost/reliability refinement of Story 3.4's existing scraping capability, not a new feature.
+- [X]  `_bmad-output/planning-artifacts/story-content-structure.md` — this story follows the canonical section order/status vocabulary defined there.
+- [X]  `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — no architecture-decision (AD) record is implicated (no schema/soft-delete/query-DSL/queue change); confirmed by the Epic 3 readiness sweep's Gate 1/3 coverage above.
+- [X]  `docs/infrastructure/index.md` — no infra/deployment change; this story is application-code-only.
+
+## Implementation Plan (Rule-Compliant)
+
+- **File Change Plan:**
+  - `apps/backend/src/lib/scraper/instagram-adapter.ts` — add 3 actor-ID constants; change `callApifyActor`'s signature to accept `actorId`; add `withTimeoutOrThrow`; wire constants + the new timeout helper into `getPostByUrl`/`lookupAccountProfile`/`getNewestPosts`.
+  - `packages/domain/src/scraper/types.ts` — add `ApifyRequestTimeoutError` class + barrel export.
+  - `apps/backend/src/schema/resolvers.ts` — add `ApifyRequestTimeoutError` import; add one `instanceof` branch to `castVote`'s catch block.
+  - `apps/backend/src/lib/scraper/instagram-adapter.test.ts` — fix the pre-existing wrong actor assertion; confirm/extend the timeout assertion; add/adjust `calledInput`/`calledActor` assertions per method.
+- **Rule Mapping:**
+  - Adapter Pattern (`project-context.md`) → actor constants and the timeout helper stay inside `instagram-adapter.ts`; no new shared abstraction beyond the domain-package error class, which follows an exact existing precedent (`ScraperCapacityExceededError`).
+  - Testing Rules, unhappy-path coverage (`project-context.md`) → the timeout test case is exactly this: an "unhappy path" integration test for new adapter/resolver logic.
+  - Story Content Structure (`story-content-structure.md`) → this file's own section order/status vocabulary.
+- **Verification Plan:**
+  - Run `apps/backend`'s test script (`pnpm --filter backend test`, or `tsx --test src/lib/scraper/instagram-adapter.test.ts` directly) — all tests in this file, including the now-fixed pre-existing one, must pass.
+  - Manual/integration verification: a `castVote` call against a real (or mocked-hanging) slow `lookupAccountProfile` returns a `SCRAPE_TIMEOUT` GraphQL error, not the generic `BAD_REQUEST` "not found" message; a genuinely fast, valid lookup is unaffected.
+  - Type check + lint for `apps/backend` and `packages/domain` (touched packages only), per Definition of Done.
+
+## Pre-Coding Approval Gate
+
+- [ ] Scope confirmation — Tasks 2-6 above (Tasks 1a-1c already done with real data); AC1-5 (AC6 split to Story 3.4e).
+- [ ] Architecture and boundary confirmation — Gate 1/3 cited from swept `epic-3-readiness.md`; Gate 2 run fresh, no gap found (see Dev Notes).
+- [ ] Testing plan confirmation — fixed + new tests in `instagram-adapter.test.ts`, plus the manual/integration verification steps in the Implementation Plan.
+- [ ] Explicit human approval state (Default: pending approval)
+- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — no gap found on any gate; nothing to accept.
+- [ ] `LOOKUP_ACCOUNT_PROFILE_ACTOR`'s pick (`apify/instagram-post-scraper`, chosen for cost-consistency despite a 2-second-slower single sample vs. `apify/instagram-api-scraper` — see Dev Notes "Task 2/3/4/5 Implementation Detail") is accepted, or overridden before `dev-story` begins.
+
+## Testing Requirements
+
+- [ ] Fix the pre-existing failing test's `calledActor` assertion (Task 6) — must pass with the real `GET_POST_BY_URL_ACTOR` value.
+- [ ] Confirm the pre-existing timeout assertion (`ApifyRequestTimeoutError`, `/timed out/i`) passes for real once Task 4 is implemented.
+- [ ] Confirm the file's other pre-existing (already-passing) tests remain passing: `getNewestPosts maps output correctly...`, `lookupAccountProfile maps details correctly...`, `wraps Apify client errors...`, `throws explicit capacity error...`.
+- [ ] New/updated integration test (Task 5's resolvers.ts change, recommended): `castVote` maps an `ApifyRequestTimeoutError` thrown by `lookupAccountProfile` to a `SCRAPE_TIMEOUT` GraphQL error — if `resolvers.ts` has an existing test file covering `castVote`, add it there; otherwise this is acceptable to leave as manual verification (see Implementation Plan) given resolvers.ts's current test coverage pattern should be checked before deciding.
+- [ ] No E2E test required — backend-only correctness/reliability fix; existing GraphQL-level error contracts for the two affected mutations are unchanged in shape (only a new possible error code is added).
+
+## Deliverables Checklist
+
+- [ ] Three actor-ID constants added and wired into `getPostByUrl`/`lookupAccountProfile`/`getNewestPosts`.
+- [ ] `callApifyActor` signature updated to accept `actorId`.
+- [ ] `ApifyRequestTimeoutError` added to `packages/domain/src/scraper/types.ts` and exported.
+- [ ] `withTimeoutOrThrow` added; `lookupAccountProfile` wrapped with it (20000ms bound); `getPostByUrl`'s existing `withTimeout` usage left unchanged.
+- [ ] `castVote`'s catch block in `resolvers.ts` gains the `instanceof ApifyRequestTimeoutError` → `SCRAPE_TIMEOUT` branch.
+- [ ] `instagram-adapter.test.ts`'s pre-existing wrong assertion fixed; timeout assertion confirmed passing.
+- [ ] `pnpm --filter backend test` run and passing (this file's tests, in full — no pre-existing-unrelated-failure caveat this time, since this story is exactly what fixes that file's one failing test).
+- [ ] Lint/type check passing for `apps/backend` and `packages/domain`.
 
 ## Out of Scope
 
@@ -298,17 +441,30 @@ The app-funded Apify account is the project owner's own account — per the 2026
 - Any BYOK-specific actor selection — Story 3.4b's future BYOK path is restricted to Apify-maintained actors only, by design, and is out of scope here regardless of what this story finds for the app-funded key.
 - Cancelling in-flight Apify runs on timeout (JS-side timeout only bounds the caller's wait, not the run itself or its billing).
 - Any change to `persist-scraped-post.ts`'s DB-level dedup mechanism — confirmed already correct and actor-agnostic (see Dev Notes), not something this story needs to touch.
+- `getPostByUrl`'s existing `withTimeout` (resolve-`null`-on-timeout) behavior — left unchanged even though it exhibits the same timeout/not-found conflation AC2 fixes for `lookupAccountProfile`. AC2's own text scopes the new, stricter timeout-error behavior to `lookupAccountProfile` only ("gains the same bounded-timeout treatment `getPostByUrl` *already has*"); bringing `getPostByUrl` up to the same distinct-error standard would be a separate, explicitly-scoped follow-up, not silently bundled here.
+- Frontend surfacing of the new `SCRAPE_TIMEOUT` GraphQL error code as a visually/textually distinct message from `castVote`'s other `BAD_REQUEST` cases — `CastVoteForm.tsx`'s existing generic error handling covers it today (same as any other `castVote` error code); AC2 is satisfied at the API-contract level (the error is now programmatically distinguishable), not yet at the UI level. Confirmed via Gate 2 as not a gap this story needs to close.
 
 ## Definition of Done
 
 - [X]  Task 1a's single-sample cost/duration comparison recorded (2026-08-14) — see Dev Notes.
 - [x]  Task 1b's focused valid/invalid-input comparison for the two real `getPostByUrl`/`lookupAccountProfile` candidates — all 8 runs complete with real data 2026-08-15, both actors confirmed working on valid input; **critical actor-agnostic not-found-detection bug found — fix split out to Story 3.4e, 2026-08-15 (Sprint Change Proposal)** — see Dev Notes "Task 1b Conclusions" and Story 3.4e (`epics.md`).
 - [x]  Task 1c's filter-correctness/cost verification across all four actors (batch-path pick for `getNewestPosts`) — all 12 runs complete with real data 2026-08-14, final recommendation confirmed (`apify/instagram-post-scraper`) — see Dev Notes "Task 1c Conclusions."
-- [ ]  Sync-path actor swapped per AC1, actor IDs extracted to three named constants per AC4 (`getPostByUrl`, `lookupAccountProfile`, `getNewestPosts`).
-- [ ]  `lookupAccountProfile` timeout added per AC2, with a distinct error type from "not found."
+- [ ]  Sync-path actor swapped per AC1, actor IDs extracted to three named constants per AC4 (`getPostByUrl`, `lookupAccountProfile`, `getNewestPosts`) — Task 2/3, fully detailed 2026-08-15 (see Dev Notes "Task 2/3/4/5 Implementation Detail").
+- [ ]  `lookupAccountProfile` timeout added per AC2, with a distinct error type from "not found" (`ApifyRequestTimeoutError`, `withTimeoutOrThrow`) — Task 4, fully detailed 2026-08-15.
+- [ ]  `castVote`'s resolver wired to surface the distinct timeout error as `SCRAPE_TIMEOUT` — Task 5, fully detailed 2026-08-15 (discovered during this pass by reading `resolvers.ts`; not explicit in the original AC2 text but required for AC2's own stated intent).
 - [x]  ~~Not-found detection fixed per AC6/Task 6~~ — out of scope, see Story 3.4e.
-- [ ]  `instagram-adapter.test.ts` updated and passing (this story's remaining timeout/actor-swap test coverage only — Task 6's not-found fixture cases moved to Story 3.4e).
+- [ ]  `instagram-adapter.test.ts` updated and passing (fix the pre-existing wrong `calledActor` assertion, confirm the timeout assertion) — Task 6, fully detailed 2026-08-15.
 
 ## Completion Status
 
-- [ ]  Backlog — Task 1a, 1b, and 1c all done with real data (see their respective Dev Notes "Conclusions" sections), `bmad-create-story 3-4d` still needed for full task-level detail before `dev-story`. Elevated priority: current production `getPostByUrl` timeout (20s) is already shorter than both observed Apify-maintained actor durations (31s, 75s) — Background finding #3. **The not-found-detection bug (Background finding #7) has been split out to Story 3.4e** (Sprint Change Proposal, `sprint-change-proposal-2026-08-15-not-found-detection-bug.md`) given its severity — a confirmed, already-live data-integrity defect in Story 6.1a (`review` status) — versus this story's remaining scope being a non-urgent cost/reliability optimization. Batch-path bugs also confirmed via Task 1c (findings #5, #6): `apify/instagram-api-scraper` (current `getNewestPosts` actor) leaks pinned posts past its cutoff; `sones` never filters server-side at all. `apify/instagram-post-scraper` is the confirmed `getNewestPosts` replacement, clean across all 3 scenarios, and also the stronger candidate for the sync-path methods per Task 1b's valid-input data.
+- [ ]  Ready for `dev-story` — Task 1a, 1b, and 1c all done with real data (see their respective Dev Notes "Conclusions" sections). A full `bmad-create-story` context-engine pass completed 2026-08-15, adding task-level detail for Tasks 2-6 (exact constant names/values, the `ApifyRequestTimeoutError`/`withTimeoutOrThrow` design, the `resolvers.ts castVote` wiring discovered by reading that file directly, and corrections to a pre-existing incorrect test assertion) — see Dev Notes "Task 2/3/4/5 Implementation Detail" and "Pre-Existing Test Corrections." Elevated priority: current production `getPostByUrl` timeout (20s) is already shorter than both observed Apify-maintained actor durations (31s, 75s) — Background finding #3. **The not-found-detection bug (Background finding #7) was split out to Story 3.4e** (Sprint Change Proposal, `sprint-change-proposal-2026-08-15-not-found-detection-bug.md`, already created and `ready-for-dev`) given its severity — a confirmed, already-live data-integrity defect in Story 6.1a (`review` status) — versus this story's remaining scope being a non-urgent cost/reliability optimization. Batch-path bugs also confirmed via Task 1c (findings #5, #6): `apify/instagram-api-scraper` (current `getNewestPosts` actor) leaks pinned posts past its cutoff; `sones` never filters server-side at all. `apify/instagram-post-scraper` is the confirmed `getNewestPosts` replacement, and (per this pass's own reasoning above) the pick for the two sync-path methods as well.
+
+## Dev Agent Record
+
+### Agent Model Used
+
+### Debug Log References
+
+### Completion Notes List
+
+### File List
