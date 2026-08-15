@@ -1,5 +1,5 @@
 ---
-baseline_commit: HEAD
+baseline_commit: 6bc344df103dfc8c9989c3496a30a0e049a40684
 ---
 # Story 2.6: View and manage events on a calendar
 
@@ -7,7 +7,7 @@ baseline_commit: HEAD
 
 - Epic: 2 - User Personalization
 - Story ID: 2.6
-- Status: review
+- Status: ready-for-dev (reopened; new Task 9/AC9 blocked on Story 1.3g's Task 14-15 — see Dev Notes → Current Implementation State)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -29,6 +29,9 @@ so that I can visualize my upcoming event schedule at a glance, per `EXPERIENCE.
 8. **And** all user-facing labels (toggle labels, badge `aria-label`s, nav/error copy, page title) are localized via next-intl (`en`/`id`) — no hardcoded user-facing strings.
 
 **Note (AC correction vs. `epics.md`):** `epics.md`'s original Story 2.6 AC only says "I see a calendar view... distinct visual treatment... toggle visibility," with no mechanism detail. ACs 1, 3, 5, 6, 7 above were derived from direct code investigation (Story 1.3f/1.3g's already-shipped Discovery Calendar View, Story 2.2's `/favorites` auth-gate precedent) and are authoritative for this story going forward.
+
+**AC9 — Week-picker pass-through (added 2026-08-13 via `bmad-correct-course`, Section 4.5; refined 2026-08-15 via `bmad-create-story`):**
+And this story's `my-calendar-content.tsx` wrapper passes Story 1.3g's `onSelectWeek` callback through to Story 3.7a's `handleSelectWeek`, and supplies the corresponding translated label(s), with no independent week-boundary logic introduced at this layer. **Already substantially true in the current code** (see Dev Notes → Current Implementation State) — the one genuinely outstanding piece is passing a new `getWeekRange: (date: Date) => { start: Date; end: Date }` prop through to `WeeklyCalendarView` once Story 1.3g's Task 14/15 (`WeekPicker.tsx`) lands, built from Story 3.7a's `getWeekStart`/`getWeekEnd` (already imported in this file).
 
 ## Tasks / Subtasks
 
@@ -76,7 +79,16 @@ so that I can visualize my upcoming event schedule at a glance, per `EXPERIENCE.
   - [x] `pnpm build` / `pnpm lint` clean at the repo root.
   - [x] `pnpm codegen` output committed.
 
+- [ ] **Task 9 (AC9) — Add `getWeekRange` prop, blocked on Story 1.3g's Task 14-15:**
+  - Do not start until Story 1.3g's `WeekPicker.tsx` exists and `WeeklyCalendarView`'s `getWeekRange` prop is live (Story 1.3g Task 15).
+  - In `apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx`, add a `getWeekRange={(date: Date) => ({ start: <Monday>, end: <Sunday> })}` prop to the `<WeeklyCalendarView>` call (currently missing — verified via direct read, 2026-08-15), built from `@festgrid/ui`'s already-imported `getWeekStart`/`getWeekEnd` (Story 3.7a) — identical implementation to Story 1.3f's own Task 11, since both wrappers consume the same hook exports. Do not introduce a second, independently-computed boundary here.
+  - Update `my-calendar-content.test.tsx` to assert the new prop is passed and resolves correctly for a sample date.
+
 ## Dev Notes
+
+### Current Implementation State (added 2026-08-15 — read before starting Task 9)
+
+Unlike Story 1.3f (whose own bookkeeping was stale), this story's `Completion Status`/`Dev Agent Record` genuinely reflect an implemented story — `Completion Notes List` and `File List` below are filled in with real detail, consistent with `sprint-status.yaml`'s `review` status. Direct code inspection (2026-08-15, during Story 1.3g's reopening) confirms `apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx` already wires `onSelectWeek={handleSelectWeek}` and `selectWeekLabel`/`chooseWeekLabel` in its `labels` object — AC9's pass-through wiring (added later via `sprint-change-proposal-2026-08-13`) is **already present**, exactly like Story 1.3f's equivalent wrapper. The one confirmed, concrete gap is the same as 1.3f's: no `getWeekRange` prop is passed to `<WeeklyCalendarView>` yet — it doesn't exist as a prop until Story 1.3g's Task 15 ships it. Task 9 above is the only outstanding work for this reopening.
 
 ### Architecture & UX Gate Findings
 
@@ -170,6 +182,8 @@ Matches `CalendarView.tsx`'s existing classification exactly: the initial week f
 - [Source: `packages/domain/src/events/buildWeeklyCalendarQueryCondition.ts` (Story 1.3f — composition pattern template)]
 - [Source: `apps/backend/src/schema/resolvers.ts` (`isFavorited`/`isAddedToCalendar` fieldMap and computed-field resolvers, Story 2.1a)]
 - [Source: `_bmad-output/implementation-artifacts/2-6b-wire-the-add-to-calendar-trigger-dialog-and-ics-export.md` (direct prerequisite)]
+- [Source: `_bmad-output/planning-artifacts/sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md#4.5`] — AC9 origin.
+- [Source: `_bmad-output/implementation-artifacts/3-7a-extract-shared-weekly-calendar-controller-hook.md`, `1-3g-build-the-reusable-weeklycalendarview-component.md`, `1-3f-build-the-discovery-weekly-calendar-view-and-view-switcher.md`] — Task 9's `getWeekRange` prerequisite chain and identical-fix precedent (1.3f's Task 11).
 
 ## Global Rules References
 
@@ -220,6 +234,7 @@ Matches `CalendarView.tsx`'s existing classification exactly: the initial week f
 - [ ] **Visual distinction mechanism accepted:** icon badges (`Heart`/`CalendarPlus`), not new color/border tokens — per explicit user decision, 2026-08-06.
 - [ ] Architecture and data/API boundaries confirmed: this story adds one new GraphQL *operation* (not a new resolver/schema field) and one new `packages/domain` condition-builder function; no direct DB/ORM access from `apps/web`; no business logic in frontend code.
 - [ ] Testing plan confirmed: new `my-calendar-content.test.tsx`, `buildMyCalendarQueryCondition.test.ts` (100% coverage), extended `WeeklyCalendarView.test.tsx`, new `checkbox.test.tsx`; existing `CalendarView.test.tsx` must pass unmodified in its existing assertions.
+- [ ] **AC9/Task 9 scope confirmed:** only the `getWeekRange` prop is outstanding; `onSelectWeek`/label pass-through is already shipped (Current Implementation State above). Blocked on Story 1.3g's Task 14-15.
 - [ ] Explicit human approval state (Default: pending approval)
 
 ## Testing Requirements
@@ -241,6 +256,7 @@ Matches `CalendarView.tsx`'s existing classification exactly: the initial week f
 - [ ] New `packages/ui/src/core/checkbox.tsx` primitive, tested.
 - [ ] All new strings present in `en.json`/`id.json` (`MyCalendarPage`/`Metadata` namespaces); `locales.test.ts` passing.
 - [ ] `pnpm build`/`pnpm lint`/`pnpm codegen` clean at the repo root.
+- [ ] `getWeekRange` prop wired from `my-calendar-content.tsx` to `WeeklyCalendarView`, sourced from Story 3.7a's `getWeekStart`/`getWeekEnd` (Task 9, blocked on Story 1.3g).
 
 ## Out of Scope
 
@@ -259,10 +275,11 @@ Matches `CalendarView.tsx`'s existing classification exactly: the initial week f
 - `pnpm codegen` output committed and consistent with the new `.graphql` operation.
 - Manual visual/behavioral confirmation: badge rendering, toggle filtering, and week navigation all work correctly on `/my-calendar` locally, with no regression to Discovery's Calendar View.
 - No decrease in overall project test coverage.
+- Story 1.3g's Task 14-15 (`WeekPicker.tsx`) done before Task 9 starts.
 
 ## Completion Status
 
-- [ ] Not started
+**Reopened 2026-08-15** — AC1-8 (Tasks 1-8) previously implemented (Completion Notes/File List below reflect genuine prior work, unlike Story 1.3f's stale equivalent). AC9 (Task 9) outstanding, blocked on Story 1.3g.
 
 ## Dev Agent Record
 
@@ -308,3 +325,8 @@ Matches `CalendarView.tsx`'s existing classification exactly: the initial week f
 - `apps/web/locales/en.json` (modified)
 - `apps/web/locales/id.json` (modified)
 - `packages/ui/src/features/events/EventDetailView.tsx` (fixed import)
+
+### Change Log
+
+- **(prior session)**: Tasks 1-8 implemented and verified — see Completion Notes List above.
+- **2026-08-15**: Reopened via `bmad-create-story` to add AC9 (week-picker pass-through, `sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md` Section 4.5). Verified via direct code inspection that `onSelectWeek`/label pass-through is already shipped; scoped the one remaining gap (`getWeekRange` prop) as new Task 9, blocked on Story 1.3g's Task 14-15 — identical situation and fix to Story 1.3f's Task 11.

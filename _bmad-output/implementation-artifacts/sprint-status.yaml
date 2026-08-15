@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-15T03:00:00Z
+last_updated: 2026-08-15T04:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -255,7 +255,14 @@ development_status:
   # by epic-2-readiness.md's "Anticipated Gate 2 note" and Stories 2.1/2.1b's own
   # Out-of-Scope notes). See 2.6's Architecture & UX Gate Findings for detail.
   2-6b-wire-the-add-to-calendar-trigger-dialog-and-ics-export: review
-  2-6-view-and-manage-events-on-a-calendar: review
+  # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-
+  # discovery-detail-calendar-ux.md Section 4.5: added AC9 (week-picker pass-through).
+  # Verified via direct code inspection that Tasks 1-8 are genuinely already
+  # implemented (this story's own Completion Notes/File List, unlike 1.3f's, were
+  # accurately filled in) -- onSelectWeek/label pass-through is already shipped in
+  # my-calendar-content.tsx; only a new getWeekRange prop is outstanding (Task 9,
+  # blocked on Story 1.3g's Task 14-15), identical to Story 1.3f's Task 11.
+  2-6-view-and-manage-events-on-a-calendar: ready-for-dev
   2-6a-create-user-settings-table-and-settings-query-mutation-resolvers: review
   # regenerated 2026-08-06 via bmad-create-story: user broadened scope from
   # personal-lists-only to a global default across every event view, requested a
