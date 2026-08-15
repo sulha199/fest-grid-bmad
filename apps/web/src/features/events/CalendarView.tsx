@@ -97,11 +97,19 @@ export function CalendarView({ q, types, categories, nearby }: CalendarViewProps
     closePopoverLabel: t('calendarClosePopoverLabel'),
   };
 
+  const getWeekRange = (date: Date) => {
+    const iso = date.toISOString().slice(0, 10);
+    const start = new Date(`${getWeekStart(iso)}T12:00:00Z`);
+    const end = new Date(`${getWeekEnd(getWeekStart(iso))}T12:00:00Z`);
+    return { start, end };
+  };
+
   return (
     <WeeklyCalendarView
       weekStart={weekStart}
       schedules={schedules}
       maxEventsPerDay={5}
+      getWeekRange={getWeekRange}
       onToday={handleToday}
       onPrevWeek={handlePrevWeek}
       onNextWeek={handleNextWeek}

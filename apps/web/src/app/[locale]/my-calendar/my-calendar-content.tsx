@@ -134,6 +134,13 @@ export function MyCalendarContent() {
     addedToCalendarBadgeLabel: t('addedToCalendarBadgeLabel'),
   };
 
+  const getWeekRange = (date: Date) => {
+    const iso = date.toISOString().slice(0, 10);
+    const start = new Date(`${getWeekStart(iso)}T12:00:00Z`);
+    const end = new Date(`${getWeekEnd(getWeekStart(iso))}T12:00:00Z`);
+    return { start, end };
+  };
+
   if (!session) {
     return null;
   }
@@ -164,6 +171,7 @@ export function MyCalendarContent() {
         weekStart={weekStart}
         schedules={schedules}
         maxEventsPerDay={-1} // unlimited per personal_view token
+        getWeekRange={getWeekRange}
         onToday={handleToday}
         onPrevWeek={handlePrevWeek}
         onNextWeek={handleNextWeek}

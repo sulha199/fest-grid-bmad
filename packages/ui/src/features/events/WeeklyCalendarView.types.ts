@@ -46,6 +46,7 @@ export interface WeeklyCalendarViewProps<TSchedule extends WeeklyCalendarViewSch
   schedules: TSchedule[];
   /** Positive integer, or -1 for unlimited (matching DESIGN.md's discovery_view/personal_view split) */
   maxEventsPerDay: number;
+  getWeekRange: (date: Date) => { start: Date; end: Date };
   onToday: () => void;
   onPrevWeek: () => void;
   onNextWeek: () => void;

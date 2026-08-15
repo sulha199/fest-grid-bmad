@@ -43,10 +43,23 @@ describe('WeeklyCalendarView', () => {
     },
   ];
 
+  const getWeekRange = (date: Date) => {
+    const start = new Date(date);
+    const day = start.getDay();
+    const diff = (day + 6) % 7;
+    start.setDate(start.getDate() - diff);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    end.setHours(0, 0, 0, 0);
+    return { start, end };
+  };
+
   const defaultProps = {
     weekStart: '2026-08-05', // August 5, 2026 (Wednesday)
     schedules: sampleSchedules,
     maxEventsPerDay: 5,
+    getWeekRange,
     onToday: vi.fn(),
     onPrevWeek: vi.fn(),
     onNextWeek: vi.fn(),
@@ -61,14 +74,21 @@ describe('WeeklyCalendarView', () => {
       </ScopedLocaleProvider>
     );
 
-    // Wednesday, Aug 5 to Tuesday, Aug 11
-    // The weekly view starts at Sunday, Aug 2, 2026 (Sunday is offset 0)
-    // Sunday Aug 2 to Saturday Aug 8, 2026
-    expect(screen.getByText(/Aug 2.*8, 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Aug 5.*11, 2026/)).toBeInTheDocument();
+    expect(screen.getByText('5 Wed')).toBeInTheDocument();
+    expect(screen.getByText('11 Tue')).toBeInTheDocument();
+  });
 
-    // Verify day headers
-    expect(screen.getByText('2 Sun')).toBeInTheDocument();
-    expect(screen.getByText('8 Sat')).toBeInTheDocument();
+  it('renders the exact supplied weekStart as the first visible day without Sunday correction', () => {
+    render(
+      <ScopedLocaleProvider locale="en-US">
+        <WeeklyCalendarView {...defaultProps} weekStart="2026-08-10" />
+      </ScopedLocaleProvider>
+    );
+
+    expect(screen.getByText(/Aug 10.*16, 2026/)).toBeInTheDocument();
+    expect(screen.getByText('10 Mon')).toBeInTheDocument();
+    expect(screen.getByText('16 Sun')).toBeInTheDocument();
   });
 
   it('Today, prev week, and next week navigation clicks trigger respective callbacks', () => {
@@ -95,7 +115,7 @@ describe('WeeklyCalendarView', () => {
     expect(onNextWeek).toHaveBeenCalledTimes(1);
   });
 
-  it('opens a week-picker and calls onSelectWeek with the picked date', () => {
+  it('opens the week picker and calls onSelectWeek with the picked date', () => {
     const onSelectWeek = vi.fn();
 
     render(
@@ -105,9 +125,8 @@ describe('WeeklyCalendarView', () => {
       />
     );
 
-    fireEvent.click(screen.getByLabelText('Select week'));
-    const picker = screen.getByLabelText('Choose a week');
-    fireEvent.change(picker, { target: { value: '2026-08-10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Select week' }));
+    fireEvent.click(screen.getAllByText('10')[0]);
 
     expect(onSelectWeek).toHaveBeenCalledWith('2026-08-10');
   });
@@ -137,7 +156,6 @@ describe('WeeklyCalendarView', () => {
   });
 
   it('clips multi-day schedules at week boundaries correctly', () => {
-    // A schedule starting before Sunday Aug 2 (e.g., Aug 1) and ending Aug 4 (Tue)
     const outOfBoundsSchedule = [
       {
         id: 'sched-boundary',
@@ -145,23 +163,29 @@ describe('WeeklyCalendarView', () => {
         eventName: 'Boundary Festival',
         isMainSchedule: true,
         eventStartDate: '2026-07-31',
-        eventEndDate: '2026-08-04', // Overlaps Sun Aug 2, Mon Aug 3, Tue Aug 4
+        eventEndDate: '2026-08-04',
       },
     ];
 
-    render(<WeeklyCalendarView {...defaultProps} schedules={outOfBoundsSchedule} locale="en-US" />);
+    render(
+      <WeeklyCalendarView
+        {...defaultProps}
+        weekStart="2026-08-02"
+        schedules={outOfBoundsSchedule}
+        locale="en-US"
+      />
+    );
 
     const segments = screen.getAllByText('Boundary Festival');
-    // Only 3 segments (Aug 2, 3, 4) should be rendered on the visible week, others clipped
     expect(segments.length).toBe(3);
   });
 
   it('camps daily events if they exceed maxEventsPerDay and triggers popover', () => {
     // Sunday Aug 2 gets 3 events
     const lotsOfEvents = [
-      { id: '1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-02' },
-      { id: '2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-02' },
-      { id: '3', eventName: 'Event 3', isMainSchedule: true, eventStartDate: '2026-08-02' },
+      { id: '1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
+      { id: '2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
+      { id: '3', eventName: 'Event 3', isMainSchedule: true, eventStartDate: '2026-08-05' },
     ];
 
     const moreLabel = vi.fn((count: number) => `+${count} items remaining`);
@@ -202,9 +226,9 @@ describe('WeeklyCalendarView', () => {
   it('triggers onScheduleClick with full schedule object on grid card or popover card click', () => {
     const onScheduleClick = vi.fn();
     const lotsOfEvents = [
-      { id: '1', eventSlug: 'e1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-02' },
-      { id: '2', eventSlug: 'e2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-02' },
-      { id: '3', eventSlug: 'e3', eventName: 'Event 3', isMainSchedule: true, eventStartDate: '2026-08-02' },
+      { id: '1', eventSlug: 'e1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
+      { id: '2', eventSlug: 'e2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
+      { id: '3', eventSlug: 'e3', eventName: 'Event 3', isMainSchedule: true, eventStartDate: '2026-08-05' },
     ];
 
     render(

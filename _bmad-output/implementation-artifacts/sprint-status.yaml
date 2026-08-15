@@ -167,7 +167,7 @@ development_status:
   # are BLOCKED on new prerequisite Story 0.28 (packages/ui shadcn/Radix setup, a
   # Gate 3 finding also needed by Story 1.5 -- not absorbed into this story per
   # AskUserQuestion). Depends on updated to add Story 3.7a, Story 0.28.
-  1-3g-build-the-reusable-weeklycalendarview-component: ready-for-dev
+  1-3g-build-the-reusable-weeklycalendarview-component: review
   # added 2026-08-05 via bmad-create-story Gate 1 finding while drafting Story 1.3f —
   # the events resolver's main-schedule-only join can't correctly date-range-filter
   # sub-schedules; needs its own EXISTS-subquery DSL field + GiST index migration.

@@ -7,7 +7,7 @@ baseline_commit: 0f3eddb9163f6755e9e5aae7b5f8db6da61d8149
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.3g
-- Status: ready-for-dev (reopened; AC13's `WeekPicker.tsx` work is blocked on Story 0.28 — see Dev Notes → Current Implementation State)
+- Status: review (reopened; AC13's `WeekPicker.tsx` work is blocked on Story 0.28 — see Dev Notes → Current Implementation State)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
