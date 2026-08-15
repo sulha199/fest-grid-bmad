@@ -389,6 +389,18 @@ development_status:
   # validated fallback (correct data, but bills a nonzero fee even on a correct
   # 0-item result). Still backlog pending a real bmad-create-story pass to turn
   # this into an implementation-ready story.
+  # UPDATE 2026-08-15: Task 1b fully complete too (all 8 runs, real data). Found a
+  # MAJOR actor-agnostic correctness bug: an invalid post URL/handle returns a
+  # truthy 1-item array {"error":"not_found",...} from BOTH apify/instagram-api-
+  # scraper and apify/instagram-post-scraper -- not an empty array. The existing
+  # items.length===0 check never catches this. getPostByUrl silently returns an
+  # empty-content post instead of SCRAPE_FAILED; lookupAccountProfile is worse --
+  # its fallback chain lands on item.username (the invalid handle itself echoed
+  # back), so castVote silently inserts a fake SocialMediaAccountProfile row for a
+  # nonexistent account and reports success. New AC6 + Task 6 added: check
+  # item.error (plus a field-absence fallback) in addition to the length check --
+  # required regardless of actor choice, since both tested actors share the bug.
+  # See story Dev Notes "Task 1b Conclusions" and 3-4d-task1b-runs/.
   3-4d-per-use-case-actor-selection-and-sync-path-timeout: backlog
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
