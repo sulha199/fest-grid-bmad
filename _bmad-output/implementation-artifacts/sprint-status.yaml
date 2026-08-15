@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-15T05:00:00Z
+last_updated: 2026-08-15T06:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -202,7 +202,14 @@ development_status:
   1-5-filter-events-by-type-and-category: ready-for-dev
   1-6a-build-the-reusable-event-detail-view-component: done
   1-6b-build-the-context-aware-list-navigation-hook: done
-  1-6-view-event-details: done
+  # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-
+  # discovery-detail-calendar-ux.md Section 4.2: added AC13 (Carousel-chrome
+  # navigation) and AC14 (icon-only modal close). Verified via git show that AC14
+  # is already correctly implemented (failed bmad-quick-dev run's final commit,
+  # c0c4912) but AC13's Carousel chrome is not -- scoped as Task 15. Unlike
+  # Stories 1.3g/1.5, NOT blocked on Story 0.28: EventDetailWrapper.tsx is an
+  # apps/web file with its own already-existing shadcn setup.
+  1-6-view-event-details: ready-for-dev
   1-7a-build-the-reusable-blockingloader-component: review
   1-7-user-signup-and-login-with-google: review
   1-8-setup-posthog-analytics: review

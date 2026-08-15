@@ -1,5 +1,5 @@
 ---
-baseline_commit: 12ca5c11c335303ffb96f499c62f88346b58111c
+baseline_commit: d669ab27eb32c0364f9526ab722ab8404aedae71
 ---
 # Story 1.6: View event details
 
@@ -7,7 +7,7 @@ baseline_commit: 12ca5c11c335303ffb96f499c62f88346b58111c
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.6
-- Status: done
+- Status: ready-for-dev (reopened; new Task 15/AC13 — see Dev Notes → Current Implementation State. Unlike Stories 1.3g/1.5, this story is NOT blocked on Story 0.28: `EventDetailWrapper.tsx` is an `apps/web` file with its own already-existing shadcn setup)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,6 +32,12 @@ so that I can get all the information I need about the event.
 11. **AC11 — Source-post attribution (added 2026-08-01 via `bmad-correct-course`):** The event details view displays attribution link(s) back to the source social media post, when the event has a linked post: the original-platform post (`Post.originalPostUrl`, when the scraper adapter was able to derive it) and/or the post as actually scraped (`Post.postUrl`, which may be a proxy/mirror site such as `imginn.com`). Whichever of the two is unavailable for a given post is simply omitted (per Story 1.6a's AC15 contract) — this is not the fabricated "proxy-platform URL" concept from the pre-split-gate-era draft (see Dev Notes), it is grounded in PRD §3.3.3/§3.7.
 12. **AC12 — Dynamic page title & meta tags (added 2026-08-01, `project-context.md`'s "Dynamic Page Title & Meta Tags" rule):** Both the full-page route (`/events/[slug]/page.tsx`) and the intercepted modal route (`@modal/(.)events/[slug]/page.tsx`) set the browser tab title and meta description to the event's own `eventName`/description via a route-level `generateMetadata` export, built with the shared `apps/web/src/lib/metadata.ts` helper (Story 1.9) and sourced through next-intl's server-side `getTranslations()` — never a static `metadata` export, and never a client-side `document.title` mutation. Baseline `og:title`/`og:description` are included, mirroring the resolved event title/description. Because both routes fetch event data client-side (`useEventBySlugQuery`, AC4), each route's `page.tsx` follows Story 1.9's established split: a Server Component `page.tsx` (holding `generateMetadata`) that renders the client-fetching logic from a colocated file, rather than exporting metadata from a `"use client"` file (not supported by Next.js).
 
+**AC13 — Carousel-chrome Next/Previous navigation (added 2026-08-13 via `bmad-correct-course`):**
+And the Next/Previous controls specified in AC5 are presented using shadcn `Carousel` visual/gesture chrome (arrow controls, optional swipe) wrapping the single currently-loaded `EventDetailView`, rather than plain buttons. This is a presentation change only: the underlying async, single-item, list-context-aware navigation (AC5, AC6) and existing disabled/loading states are preserved unchanged. This is explicitly **not** a multi-slide carousel — no more than one event's data is ever mounted at a time.
+
+**AC14 — Icon-only modal close (added 2026-08-13 via `bmad-correct-course`):**
+And the modal-mode close control (rendered when accessed via the intercepted route) displays only an icon (no visible text label), with an `aria-label` and screen-reader-only text retained for accessibility — matching the existing icon-only pattern already used by `apps/web/src/components/ui/dialog.tsx`'s `DialogClose`. **Already implemented** (see Dev Notes → Current Implementation State) — no further work needed for this AC.
+
 ## Tasks / Subtasks
 
 - [x] 1. Wire `apps/backend/src/schema/events.graphql` into the actual runtime schema and codegen input (AC4) — **pre-existing gap, not introduced by this story:** confirmed by direct read that `apps/backend/src/server.ts` (`readFileSync(.../src/schema/typeDefs.graphql')`) and `apps/backend/codegen.ts` (`schema: 'src/schema/typeDefs.graphql'`) both reference *only* `typeDefs.graphql` (`type Query { health: Boolean! }`), while `events.graphql`'s `Event`/`Schedule`/`events`/`event` definitions are never merged in. Point both at a glob/merge of `src/schema/*.graphql` (mirroring `apps/web/codegen.ts`'s own `schema: '../backend/src/schema/**/*.graphql'`, which already assumes multiple files) so this story's new fields are actually reachable at runtime.
@@ -50,8 +56,23 @@ so that I can get all the information I need about the event.
 - [x] 12. Fire the `event_details_viewed` PostHog event (`{ eventId, eventName }` payload) via `usePostHog()` from `@festgrid/analytics` once per successful detail-view open, from a single shared location consumed by both routes (not duplicated) (AC9).
 - [x] 13. Write E2E tests (`apps/web/e2e/event-details.spec.ts`, Playwright): clicking a card on the discovery grid opens the modal and updates the URL; navigating directly to `/events/[slug]` renders the full page with no Next/Previous controls when there is no list context (AC1, AC2, AC5, AC10).
 - [x] 14. **(Added 2026-08-01, source-attribution amendment, AC11):** Add `sourcePostUrl: String` and `originalPostUrl: String` fields to the `Event` type in `events.graphql`, and implement their resolvers in `resolvers.ts` by joining `posts` via `events.postId` — the same join Story 1.3a's AC6 already established for `Event.imageUrl`. If Story 1.3a's `imageUrl` join is already implemented by the time this task is picked up, extend that same resolver/join to also return `sourcePostUrl`/`originalPostUrl` rather than issuing a duplicate `posts` join; otherwise implement all three fields together against one join. Map both onto `EventDetailView`'s `sourcePostUrl`/`originalPostUrl` props (Story 1.6a AC15) in the shared prop-mapper (Task 7/8). Requires Story 1.2a's AC7/Task 13 migration (`posts.original_post_url`) to be applied first for `originalPostUrl` to ever be non-null — see Pre-Coding Approval Gate.
+- [x] 15a. **(AC14, already done — verification only, see Current Implementation State):** Confirm the modal-mode close button in `apps/web/src/features/events/EventDetailWrapper.tsx` remains icon-only (currently a hand-drawn inline SVG `X`, `aria-label={t("closeModal")}`, `sr-only` text) — no visible text label. No code change expected.
+- [ ] **Task 15 (AC13) — Wrap Next/Previous in shadcn `Carousel` chrome (`apps/web`):**
+  - Run `pnpm --filter web exec shadcn add carousel` (installs `embla-carousel-react` and `apps/web/src/components/ui/carousel.tsx`) — this story does **not** need Story 0.28's `packages/ui` shadcn setup, since `EventDetailWrapper.tsx` is an `apps/web` file consuming `apps/web`'s own already-existing `components.json`/`cn()`/`@/*` alias, exactly like `apps/web/src/components/ui/dialog.tsx` already does.
+  - In `EventDetailWrapper.tsx`'s `navigationHeader`, replace the current plain circular `<button>` pair (`handlePrevious`/`handleNext`, `ChevronLeft`/`ChevronRight`) with `Carousel`/`CarouselPrevious`/`CarouselNext` chrome wrapping the single currently-rendered `EventDetailView` — but wire `CarouselPrevious`/`CarouselNext`'s click handlers to the **existing** `handlePrevious`/`handleNext` (which call `nav.requestNext()`/`nav.previous.target` and `router.replace(...)`, Story 1.6b's async list-navigation hook), not Embla's own internal slide-index state. Embla's `Carousel` normally manages multi-slide index state internally; this usage is explicitly single-slide (AC13: "no more than one event's data is ever mounted at a time"), so `Carousel`/`CarouselContent` wraps exactly one `CarouselItem` containing the current `EventDetailView`, and only the arrow-control **chrome** (visual style, disabled-state styling, optional swipe gesture) is reused — the actual "which event is next" logic stays entirely owned by `nav`/`router.replace`, not Embla.
+  - Preserve the existing `disabled={nav.previous.disabled || nav.previous.loading}` / `disabled={nav.next.disabled || nav.next.loading}` and the loading-spinner-vs-chevron swap on the Next control — `CarouselPrevious`/`CarouselNext` accept a `disabled` prop and `className` override; do not drop this existing async-loading affordance while restyling.
+  - Update `EventDetailWrapper.test.tsx` (or equivalent, if one exists — confirm at build time): Next/Previous still call `handleNext`/`handlePrevious` correctly under the new chrome; disabled/loading states still render correctly; keyboard operability (arrow-key/Tab) of the new `Carousel` controls.
+  - `en.json`/`id.json`'s `EventDetailsPage.previous`/`.next` keys are unchanged (still valid as `aria-label`s on the new chrome) — no locale key changes needed for AC13.
 
 ## Dev Notes
+
+### Current Implementation State (added 2026-08-15 — read before starting Task 15)
+
+Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-chain stories, the failed `bmad-quick-dev` run's final commit (`c0c4912`, "refactor(calendar): replace getSunday/getSaturday...") **did** touch `apps/web/src/features/events/EventDetailWrapper.tsx` — confirmed via `git show c0c4912 -- .../EventDetailWrapper.tsx`. What it actually did:
+
+- **AC14 (icon-only close) is already fully implemented and correct** — the modal-mode close button already renders only a hand-drawn inline SVG `X` icon, with `aria-label={t("closeModal")}` and `sr-only` text, no visible label. Task 15a above is verification-only.
+- The Next/Previous buttons were also restyled in that same commit (circular icon buttons, `ChevronLeft`/`ChevronRight`, disabled/loading states preserved) — but **no shadcn `Carousel` was added anywhere**; they are still plain custom `<button>` elements, just restyled to look more icon-button-like. **AC13 is not satisfied** — Task 15 is the real remaining work, not a formality.
+- `nav.requestNext()`/`nav.previous.target`/`handleNext`/`handlePrevious` (Story 1.6b's async list-navigation hook, consumed here) are untouched and must be reused exactly as-is by Task 15's new `Carousel` chrome — do not reimplement or wrap in Embla's own slide-index state.
 
 ### Architecture & UX Gate Findings
 
@@ -59,6 +80,8 @@ so that I can get all the information I need about the event.
 - **Gate 2 (run fresh via subagent, persona Freya, during this story's creation, 2026-08-01) — SPLIT:** The draft scope folded "Next/Previous navigation that reads list context, detects list-boundary, and triggers a background next-page fetch" directly into this story. The subagent found this combines the same independent state dimensions (fetch + derived state + side effects) that triggered the Story 1.3c (`useInfiniteScroll`) split, and clears the reuse bar independently: `project-context.md`'s "Context-Aware Detail Views" invariant explicitly generalizes this behavior across "any list" (Discovery, Favorites, Subscriptions), and Epic 2's Story 2.2 ("View favorited events") and Story 2.6 ("View and manage events on a calendar") are concrete near-term consumers of the same mechanism. **Resolution:** split into new Story **1.6b — "Build the context-aware list navigation hook"**, written as a full section into `epics.md` (positioned after 1.6a, before 1.6) and added as a `backlog` entry to `sprint-status.yaml` immediately before this story. This story (1.6) only *consumes* 1.6b's hook (Task 10); it does not implement the hook's internals.
 - **Gate 2 finding corrected, then reinstated via `bmad-correct-course` (both 2026-08-01):** the previous (pre-split-gate-era) draft of this story required "a link to the original social media post" and "a link to a proxy-platform post URL," asserting "full source URLs are not stored in the database." At Gate 2 time, the subagent and independent verification against `epics.md`'s Story 1.6/1.6a ACs, the PRD, and the UX scenario found **zero grounding** for this requirement and dropped it — the premise was also factually wrong against the schema as it stood (`posts.postUrl` is already stored, and no `platformId`/generic "proxy" concept existed). The user then confirmed the underlying need is real: FestGrid's Instagram scraper is blocked from direct access and scrapes via a proxy/mirror site (`imginn.com`), which happens to preserve Instagram's own post ID, making the original URL derivable for this specific adapter. A `bmad-correct-course` pass (2026-08-01) properly grounded this in PRD §3.3.3/§3.7/§4.7 (`Post.originalPostUrl`, new nullable field/column — see Story 1.2a's amendment) and reinstated it as **AC11** above. The corrected version differs from the stale draft in two ways: (1) no generic `platformId` field is needed — the two URLs (`postUrl`, `originalPostUrl`) are both plain stored strings; (2) derivation of `originalPostUrl` is an adapter-specific concern owned by the scraper (Story 3.4, not yet detailed), not a per-request "read/render time" construction in this story's resolver — this story's `eventBySlug` resolver only needs to select and return both already-stored columns.
 - **Lightweight guard — gap found, resolved inline (not split):** Confirmed by direct read of `apps/backend/src/server.ts` and `apps/backend/codegen.ts` that `events.graphql` (already written by Story 1.3a) is not actually merged into the runtime schema or codegen input (both reference only `typeDefs.graphql`, currently `type Query { health: Boolean! }`). This is a completeness gap in Story 1.3a's own already-approved scope, not a new architectural layer this story is bypassing or absorbing — per the "a story must leave the system working end-to-end" rule, Task 1 fixes the wiring so this story's own `eventBySlug` addition (and 1.3a's pre-existing `events`/`event` fields) are actually reachable. No new prerequisite story warranted; this is a one-line schema-loading fix co-located with the files this story already touches.
+
+**Fresh Gate check (2026-08-15, this reopening for AC13/AC14) — no gap found, no prerequisite needed.** Unlike Story 1.3g's `WeekPicker.tsx` and Story 1.5's `FilterHub` popover (both `packages/ui` components requiring the new Story 0.28 prerequisite), `EventDetailWrapper.tsx` lives in `apps/web`, which already has its own shadcn `components.json`/`cn()`/`@/*` alias (in active use by `apps/web/src/components/ui/dialog.tsx` already). Adding shadcn `carousel` (Task 15) is a same-package, no-new-tooling addition — no Gate 3 finding, no split.
 
 ### Data Type Compatibility & Migration Requirements
 
@@ -130,6 +153,7 @@ so that I can get all the information I need about the event.
 - [x] `_bmad-output/planning-artifacts/story-content-structure.md` — this file's structure.
 - [x] `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — AD-1, AD-2 (single-item vs. collection scoping), AD-4, AD-5, AD-6.
 - [x] `docs/infrastructure/1-frontend.md` — reviewed; no infra/deployment changes in this story beyond application code.
+- [x] `_bmad-output/planning-artifacts/sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md` (Section 4.2, AC13-14 origin) — added 2026-08-15.
 
 ## Implementation Plan (Rule-Compliant)
 
@@ -146,6 +170,7 @@ so that I can get all the information I need about the event.
 - UPDATE `apps/web/src/app/[locale]/page.tsx`: `EventCard` `onClick` → `router.push('/events/' + slug)`.
 - UPDATE `apps/web/locales/en.json`, `apps/web/locales/id.json`: `EventDetailsPage.*` keys.
 - NEW `apps/web/e2e/event-details.spec.ts`.
+- **(AC13, Task 15, added 2026-08-15):** NEW `apps/web/src/components/ui/carousel.tsx` (shadcn CLI output, `apps/web`'s own existing setup). UPDATE `apps/web/src/features/events/EventDetailWrapper.tsx` — Next/Previous restyled as `Carousel` chrome, wired to existing `handleNext`/`handlePrevious`.
 - **Consumed, not modified:** `EventDetailView` (1.6a), context-aware list navigation hook (1.6b), `EventCard` (1.3b).
 
 ### Rule Mapping
@@ -157,6 +182,7 @@ so that I can get all the information I need about the event.
 - Reuse boundaries (AC3, AC5) → `EventDetailView` (1.6a) and the context-aware navigation hook (1.6b) are consumed, not reimplemented inline.
 - Interception correctness (AC1, AC7) → `onClick`/`router.push` instead of `EventCard`'s `href`, and `@modal`/`(.)events/[slug]` parallel+intercepting route structure.
 - Dynamic page title & meta tags (AC12, `project-context.md`) → both routes split into Server Component `page.tsx` (`generateMetadata` + `buildPageMetadata`, Story 1.9's helper) + colocated `"use client"` content file, per Story 1.9's established convention.
+- *AD-9-adjacent consistency (AC13)* → `Carousel` chrome sourced via `apps/web`'s own shadcn setup (no `packages/ui`/Story 0.28 dependency, since this component isn't a `packages/ui` primitive); the single-slide usage explicitly keeps Story 1.6b's async navigation as the sole source of "what's next," never Embla's own index state.
 
 ### Verification Plan
 
@@ -165,6 +191,7 @@ so that I can get all the information I need about the event.
 - E2E: a direct navigation to `/events/[slug]` renders the full page with no Next/Previous controls shown (no list context) (AC2, AC5).
 - Manual/automated check: refreshing the browser while the modal is open still resolves to the full-page route (proves interception is client-nav-only, not a workaround).
 - `pnpm --filter backend test`, `pnpm --filter backend lint`, `pnpm --filter web lint`, `pnpm --filter web build` (type-check), `pnpm --filter web test`, `pnpm --filter web test:e2e` all clean.
+- **(AC13)** Next/Previous still call the existing `handleNext`/`handlePrevious` under the new `Carousel` chrome; disabled/loading states preserved; keyboard operability of the new controls.
 
 ## Pre-Coding Approval Gate
 
@@ -177,6 +204,7 @@ so that I can get all the information I need about the event.
 - [ ] Architecture and API/data boundaries confirmed (GraphQL-only, non-DSL single-item query; AD-1/AD-2/AD-4/AD-5/AD-6).
 - [ ] Testing plan reviewed (backend integration tests + Playwright E2E for modal-open and deep-link-fallback).
 - [ ] Human approval to start coding granted (pending)
+- [ ] **(2026-08-15 reopening) AC13/AC14 scope confirmed:** AC14 (icon-only close) is already implemented — verification only (Task 15a). AC13 (`Carousel` chrome) is genuinely outstanding (Task 15); no `packages/ui`/Story 0.28 dependency, since `EventDetailWrapper.tsx` uses `apps/web`'s own existing shadcn setup. The original checklist items above (AC1-12) predate this reopening and reflect the story's original pending-approval state at creation — Tasks 1-14 are separately confirmed already implemented in the running app (see Dev Notes → Current Implementation State), not re-litigated here.
 
 ## Testing Requirements
 
@@ -186,6 +214,7 @@ so that I can get all the information I need about the event.
 - [ ] Integration test: both routes' `generateMetadata` resolves an event-specific title/description (distinct from the Discovery page's default) for both `en`/`id` locales (AC12), mirroring Story 1.9's `metadata.test.ts`/root-layout `generateMetadata` test pattern.
 - [ ] 100% coverage is not mandated here — that requirement is scoped to `packages/domain` only; this story introduces no `packages/domain` logic.
 - [ ] Use `@festgrid/testing-config` conventions already established by sibling stories (Story 0.10) — no ad hoc test setup.
+- [ ] **(AC13, added 2026-08-15)** Next/Previous under the new `Carousel` chrome still call `handleNext`/`handlePrevious` correctly; disabled/loading states preserved; keyboard operability of the new controls.
 
 ## Deliverables Checklist
 
@@ -198,6 +227,8 @@ so that I can get all the information I need about the event.
 - [ ] Backend integration tests and Playwright E2E tests written and passing.
 - [ ] **(Amendment)** `Event.sourcePostUrl`/`Event.originalPostUrl` resolvers implemented and wired into `EventDetailView`'s attribution-link props.
 - [ ] **(Amendment, 2026-08-01)** Both the full-page route and the intercepted modal route export `generateMetadata` (via `buildPageMetadata`/next-intl `getTranslations()`) with an event-specific title/description, per the `page.tsx` + colocated client-content-file split (AC12).
+- [x] **(AC14, added 2026-08-13, already shipped)** Modal-mode close control is icon-only with `aria-label`/`sr-only` text.
+- [ ] **(AC13, added 2026-08-13)** Next/Previous presented with shadcn `Carousel` chrome, wired to the existing async navigation (Task 15).
 
 ### Review Findings
 
@@ -215,10 +246,12 @@ so that I can get all the information I need about the event.
 - Favoriting and add-to-calendar mutation logic — Epic 2 (Story 2.1/2.1a and a future calendar story); `EventDetailView`'s reserved slots stay unwired here, consistent with 1.6a's own Out of Scope.
 - Deriving/populating `Post.originalPostUrl` at scrape time (the actual imginn.com-to-Instagram URL derivation logic) — Story 3.4's scope (not yet detailed), not this story's. This story only reads and displays whatever is already stored.
 - The `posts.original_post_url` migration itself — Story 1.2a's AC7/Task 13, not this story's.
+- **A true multi-slide carousel** — AC13 explicitly keeps this single-slide (one `EventDetailView` mounted at a time); only Embla's chrome/gesture styling is reused, not its slide-index model.
+- **Story 0.28** (`packages/ui`'s shadcn/Radix setup) — not a dependency of this story; `EventDetailWrapper.tsx` uses `apps/web`'s own separate, already-existing shadcn setup.
 
 ## Definition of Done
 
-- [ ] All Acceptance Criteria (AC1–AC12) are met.
+- [ ] All Acceptance Criteria (AC1–AC14) are met (AC1-12 already were, per prior implementation; AC14 already shipped; AC13 targeted at Task 15).
 - [ ] Required backend integration tests and E2E tests (see Testing Requirements) are written and passing.
 - [ ] Lint and TypeScript strict-mode/build checks pass for `apps/backend` and `apps/web`.
 - [ ] `en`/`id` locale files updated with all new message keys (AD-6).
@@ -226,7 +259,7 @@ so that I can get all the information I need about the event.
 
 ## Completion Status
 
-- [x] Done
+**Reopened 2026-08-15** — AC1-12 previously complete (`Done` status, though this file's own Pre-Coding Approval Gate checkboxes and Dev Agent Record were never filled in — a bookkeeping gap, not evidence of missing implementation; `EventDetailWrapper.tsx` on disk confirms AC1-12 are built). AC14 (icon-only close) already shipped via the failed `bmad-quick-dev` run's final commit. AC13 (`Carousel` chrome) outstanding, targeted at Task 15 — see Dev Notes → Current Implementation State.
 
 ## Dev Agent Record
 
@@ -239,3 +272,8 @@ so that I can get all the information I need about the event.
 ### Completion Notes List
 
 ### File List
+
+### Change Log
+
+- **(prior session, undated, unrecorded)**: AC1-12 implemented — confirmed via direct code inspection of `EventDetailWrapper.tsx` and its surrounding routes/resolvers, though this file's own Dev Agent Record was never filled in.
+- **2026-08-15**: Reopened via `bmad-create-story` to add AC13 (Carousel-chrome navigation) and AC14 (icon-only modal close), per `sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md` Section 4.2. Verified via `git show c0c4912 -- EventDetailWrapper.tsx` that AC14 is already correctly implemented (from the failed `bmad-quick-dev` run) but AC13's `Carousel` chrome is not — scoped as Task 15, unblocked (no `packages/ui`/Story 0.28 dependency, since this is an `apps/web` file with its own existing shadcn setup).
