@@ -7,14 +7,14 @@ import { EventDiscoveryPanel } from "@festgrid/ui"
 import { useTranslations } from "next-intl"
 
 interface WidgetPageProps {
-  params: {
+  params: Promise<{
     id: string
     locale: string
-  }
+  }>
 }
 
 export default function WidgetPage({ params }: WidgetPageProps) {
-  const { id } = params
+  const { id } = React.use(params)
   const tNearby = useTranslations("NearbyFilter")
 
   const { data, isLoading } = useWidgetByIdQuery(

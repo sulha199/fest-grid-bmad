@@ -11,7 +11,6 @@ import {
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
   GetArchivedEventsQuery,
-  useGetArchivedEventsInfiniteQuery,
   GetArchivedEventsDocument,
 } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
