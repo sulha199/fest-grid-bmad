@@ -17,7 +17,10 @@ export default function ModalLayout({ children }: { children: React.ReactNode })
 
   return (
     <Dialog open={true} onOpenChange={(open) => { if (!open) router.back() }}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-6 rounded-xl">
+      <DialogContent
+        className="max-w-3xl max-h-[85vh] overflow-y-auto p-6 rounded-xl"
+        showCloseButton={false}
+      >
         {children}
       </DialogContent>
     </Dialog>

@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-16T07:46:00Z
+last_updated: 2026-08-16T21:45:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -209,6 +209,17 @@ development_status:
   # c0c4912) but AC13's Carousel chrome is not -- scoped as Task 15. Unlike
   # Stories 1.3g/1.5, NOT blocked on Story 0.28: EventDetailWrapper.tsx is an
   # apps/web file with its own already-existing shadcn setup.
+  # 2026-08-16: Task 15/AC13 implemented (Carousel chrome), then amended at user
+  # request to a 3-slide peek-preview window + real swipe gesture (beyond the
+  # original single-slide text) -- also fixed a duplicate modal close button found
+  # during that work. Same-day bmad-correct-course pass
+  # (sprint-change-proposal-2026-08-16-detail-carousel-ux-fixes.md) fixed two UX
+  # regressions from manual testing: peek/active slide size mismatch (EventPreviewCard
+  # restructured to mirror EventDetailView's own loading-skeleton shape) and the
+  # route-level RouteLoader incorrectly showing on in-app Next/Previous navigation
+  # (adjacent slugs now prefetched via router.prefetch()). Status stays in-progress
+  # pending the remaining Definition of Done items (backend/E2E test pass, final
+  # Dev Agent Record fill-in).
   1-6-view-event-details: in-progress
   1-7a-build-the-reusable-blockingloader-component: review
   1-7-user-signup-and-login-with-google: review

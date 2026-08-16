@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { useGetEventBySlugQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useMeQuery } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
@@ -13,10 +13,11 @@ import { useSearchParams } from "next/navigation"
 import { useTranslations, useLocale } from "next-intl"
 import { usePostHog } from "@festgrid/analytics"
 import { toast } from "sonner"
-import { ChevronLeft, ChevronRight, Home } from "lucide-react"
+import { ChevronLeft, ChevronRight, Home, X } from "lucide-react"
 import { CorrectionDialog } from "./correction-dialog"
 import { ReportDialog } from "./report-dialog"
-import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel"
+import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi } from "@/components/ui/carousel"
+import { EventPreviewCard } from "./event-preview-card"
 
 interface EventDetailWrapperProps {
   slug: string
@@ -32,6 +33,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = useState(false)
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false)
   const [isHiddenAfterReport, setIsHiddenAfterReport] = useState(false)
+  const [emblaApi, setEmblaApi] = useState<CarouselApi>()
   const posthog = usePostHog()
   const t = useTranslations("EventDetailsPage")
   const labels = useEventDetailViewLabels()
@@ -184,6 +186,79 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       router.replace(`/events/${nav.previous.target.item.slug}${paramsStr ? `?${paramsStr}` : ""}`)
     }
   }
+
+  const previousSlug = nav.previous.target?.item.slug
+  const nextSlug = nav.next.target?.item.slug
+
+  // Warm the RSC payload for both known adjacent targets as soon as they're
+  // known, so a committed Next/Previous navigation resolves faster. On the
+  // full-page route (no sibling loading.tsx there) this can warm the full
+  // dynamic payload, including generateMetadata's own server-side fetch
+  // (AC12). It does NOT do the same for the modal route — Next.js only
+  // prefetches "down to and including loading.js" for a dynamic segment, so a
+  // route WITH a loading.tsx never gets its actual dynamic content prefetched
+  // this way. The modal route's RouteLoader flash on Next/Previous is instead
+  // fixed by not having a loading.tsx there at all (removed — see
+  // project-context.md's Route-Level Suspense Fallback rule addendum): that
+  // file could only ever be reached via an in-app transition, never a genuine
+  // cold/direct-URL open (interception never applies to those), so removing
+  // it just lets Next.js's default "keep old content mounted during
+  // transition" behavior take over instead of flashing a fallback.
+  useEffect(() => {
+    const paramsStr = searchParams.toString()
+    const suffix = paramsStr ? `?${paramsStr}` : ""
+    if (previousSlug) {
+      router.prefetch(`/events/${previousSlug}${suffix}`)
+    }
+    if (nextSlug) {
+      router.prefetch(`/events/${nextSlug}${suffix}`)
+    }
+  }, [router, searchParams, previousSlug, nextSlug])
+
+  // The previous-peek CarouselItem only renders when a previous target exists, so
+  // "current" sits at index 0 or 1 depending on whether that slide is present.
+  const currentSlideIndex = nav.previous.disabled ? 0 : 1
+  const currentSlideIndexRef = useRef(currentSlideIndex)
+  currentSlideIndexRef.current = currentSlideIndex
+
+  // handleNext/handlePrevious are redefined every render (not memoized), but the
+  // swipe-commit listener below only subscribes to Embla once (see its own
+  // [emblaApi]-only deps). Refs keep it calling the latest versions instead of a
+  // stale closure — handlePrevious in particular reads nav.previous.target as a
+  // plain synchronous snapshot (unlike handleNext's ref-backed nav.requestNext()),
+  // so a stale closure would silently never navigate backward.
+  const handleNextRef = useRef(handleNext)
+  handleNextRef.current = handleNext
+  const handlePreviousRef = useRef(handlePrevious)
+  handlePreviousRef.current = handlePrevious
+
+  // Snap back to the current slide (no animation) whenever the underlying event
+  // changes or the window reshapes (previous/next availability changes) — this is
+  // what returns the carousel to center after a committed swipe or button click.
+  useEffect(() => {
+    if (!emblaApi) return
+    emblaApi.scrollTo(currentSlideIndex, true)
+  }, [emblaApi, eventId, currentSlideIndex, nav.hasListContext])
+
+  // Swipe-commit: Embla fires "select" once a drag crosses the snap threshold.
+  // This is purely an alternate trigger for the same handleNext/handlePrevious
+  // already wired to the arrow buttons — no separate navigation logic here.
+  useEffect(() => {
+    if (!emblaApi) return
+    const onSelect = () => {
+      const selected = emblaApi.selectedScrollSnap()
+      if (selected === currentSlideIndexRef.current) return
+      if (selected > currentSlideIndexRef.current) {
+        handleNextRef.current()
+      } else {
+        handlePreviousRef.current()
+      }
+    }
+    emblaApi.on("select", onSelect)
+    return () => {
+      emblaApi.off("select", onSelect)
+    }
+  }, [emblaApi])
 
   // Hidden After Report / Hidden For Current User view
   const isHidden = (data?.eventBySlug?.isHiddenForCurrentUser === true && !isModerator) || isHiddenAfterReport
@@ -348,31 +423,49 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
           aria-label={t("closeModal")}
         >
           <span className="sr-only">{t("closeModal")}</span>
-          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current">
-            <path d="M6.75 6.75a.75.75 0 0 1 1.06 0L12 10.94l4.19-4.19a.75.75 0 1 1 1.06 1.06L13.06 12l4.19 4.19a.75.75 0 1 1-1.06 1.06L12 13.06l-4.19 4.19a.75.75 0 0 1-1.06-1.06L10.94 12 6.75 7.81a.75.75 0 0 1 0-1.06Z" />
-          </svg>
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
     </div>
   )
 
+  const currentSlide = (
+    <CarouselItem>
+      {isPending ? (
+        <EventDetailView loading={true} labels={labels} eventName="" location="" schedules={[]} />
+      ) : error ? (
+        <EventDetailView error={{ message: (error as Error).message || "Unknown error" }} labels={labels} eventName="" location="" schedules={[]} />
+      ) : mappedProps ? (
+        <EventDetailView {...mappedProps} />
+      ) : null}
+    </CarouselItem>
+  )
+
   const detailViewContent = (
-    <Carousel className="w-full">
+    <Carousel className="w-full" setApi={setEmblaApi} opts={{ startIndex: currentSlideIndex }}>
       <div className="space-y-4">
         <div aria-live="polite" className="sr-only">
           {liveMessage}
         </div>
         {navigationHeader}
         <CarouselContent>
-          <CarouselItem>
-            {isPending ? (
-              <EventDetailView loading={true} labels={labels} eventName="" location="" schedules={[]} />
-            ) : error ? (
-              <EventDetailView error={{ message: (error as Error).message || "Unknown error" }} labels={labels} eventName="" location="" schedules={[]} />
-            ) : mappedProps ? (
-              <EventDetailView {...mappedProps} />
-            ) : null}
-          </CarouselItem>
+          {nav.hasListContext && !nav.previous.disabled && (
+            <CarouselItem>
+              <EventPreviewCard
+                imageUrl={nav.previous.target?.item.imageUrl}
+                imageAlt={nav.previous.target?.item.eventName ?? ""}
+              />
+            </CarouselItem>
+          )}
+          {currentSlide}
+          {nav.hasListContext && !nav.next.disabled && (
+            <CarouselItem>
+              <EventPreviewCard
+                imageUrl={nav.next.target?.item.imageUrl}
+                imageAlt={nav.next.target?.item.eventName ?? ""}
+              />
+            </CarouselItem>
+          )}
         </CarouselContent>
       </div>
     </Carousel>

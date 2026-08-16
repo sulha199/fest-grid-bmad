@@ -38,11 +38,13 @@ import { NuqsTestingAdapter } from "nuqs/adapters/testing"
 // Mock router and auth session
 const mockRouterPush = vi.fn()
 const mockRouterReplace = vi.fn()
+const mockRouterPrefetch = vi.fn()
 vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({
     push: mockRouterPush,
     replace: mockRouterReplace,
     back: vi.fn(),
+    prefetch: mockRouterPrefetch,
   }),
 }))
 
@@ -100,12 +102,16 @@ const handlers = [
     const idCondition = (variables as any)?.query?.conditions?.find((c: any) => c?.field === "id")
     const ids = (idCondition?.value ?? []) as string[]
 
+    const eventNames: Record<string, string> = { evt_1: "Test Event", evt_2: "Second Event", evt_3: "Third Event" }
+    const slugs: Record<string, string> = { evt_1: "test-event", evt_2: "second-event", evt_3: "third-event" }
+    const imageUrls: Record<string, string | null> = { evt_1: null, evt_2: "https://example.com/evt2.jpg", evt_3: "https://example.com/evt3.jpg" }
+
     const rows = ids.map((id) => ({
       id,
-      eventName: id === "evt_2" ? "Second Event" : "Test Event",
-      slug: id === "evt_2" ? "second-event" : "test-event",
+      eventName: eventNames[id] ?? "Test Event",
+      slug: slugs[id] ?? "test-event",
       isFavorited: true,
-      imageUrl: null,
+      imageUrl: imageUrls[id] ?? null,
       location: "Test Location",
       types: [],
       categories: [],
@@ -228,6 +234,7 @@ describe("EventDetailWrapper", () => {
     mockPosthogCapture.mockClear()
     mockRouterReplace.mockClear()
     mockRouterPush.mockClear()
+    mockRouterPrefetch.mockClear()
   })
 
   afterEach(() => {
@@ -484,5 +491,51 @@ describe("EventDetailWrapper", () => {
         "/events/second-event?fromList=favorites&favoriteIds=evt_1%2Cevt_2"
       )
     })
+  })
+
+  it("renders card-level peek previews with the real list-item image on both sides, and none when a direction is disabled", async () => {
+    // Current event (evt_2) sits in the middle of a 3-item favorites list, so both
+    // a previous peek (evt_1) and a next peek (evt_3) should render.
+    currentMockEvent.id = "evt_2"
+    currentMockEvent.slug = "second-event"
+    currentMockEvent.eventName = "Second Event"
+    mockSearchParams = new URLSearchParams("fromList=favorites&favoriteIds=evt_1,evt_2,evt_3")
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Second Event" })).toBeInTheDocument()
+
+    // Two decorative peek images (evt_1 has none, evt_3 does) plus none for evt_1 itself.
+    const peekImages = await screen.findAllByRole("img", { hidden: true })
+    const peekSrcs = peekImages.map((img) => (img as HTMLImageElement).src)
+    expect(peekSrcs).toContain("https://example.com/evt3.jpg")
+
+    // Only real content ("Second Event") is a heading — peek cards carry no real text.
+    expect(screen.queryByText("Test Event")).not.toBeInTheDocument()
+    expect(screen.queryByText("Third Event")).not.toBeInTheDocument()
+
+    // Both known adjacent targets are prefetched so a committed Next/Previous
+    // navigation resolves before the route-level RouteLoader fallback can show.
+    await waitFor(() => {
+      expect(mockRouterPrefetch).toHaveBeenCalledWith(
+        "/events/test-event?fromList=favorites&favoriteIds=evt_1%2Cevt_2%2Cevt_3"
+      )
+      expect(mockRouterPrefetch).toHaveBeenCalledWith(
+        "/events/third-event?fromList=favorites&favoriteIds=evt_1%2Cevt_2%2Cevt_3"
+      )
+    })
+  })
+
+  it("renders no peek preview when there is no list context (deep link)", async () => {
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    // No list context => no Carousel chrome, no peek images at all.
+    expect(screen.queryByRole("img", { hidden: true })).not.toBeInTheDocument()
+
+    // Nothing to prefetch either — a genuine cold/direct-URL open has no known
+    // adjacent target, so the route-level RouteLoader is expected here.
+    expect(mockRouterPrefetch).not.toHaveBeenCalled()
   })
 })
