@@ -8,6 +8,15 @@ test.describe('Search functionality', () => {
     // Ensure the page is loaded by checking for the main title
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
+    // The heading above is server-rendered and can be visible before client
+    // hydration attaches SearchBar's onKeyDown handler. Under load (e.g. run
+    // right after filter.spec.ts in the same suite) fill()+press('Enter') can
+    // race ahead of hydration: the raw DOM value gets set, then hydration
+    // reconciles the controlled input back to React's still-empty state,
+    // silently dropping the typed query. Waiting for the network to go idle
+    // is a reliable proxy for "the JS bundle has executed and hydrated."
+    await page.waitForLoadState('networkidle');
+
     // 2. Type a query and press Enter
     const searchInput = page.getByPlaceholder('Search by name, performer, or location...');
     await searchInput.fill('Mock Event');
