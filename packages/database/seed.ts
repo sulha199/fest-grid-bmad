@@ -10,6 +10,11 @@ import {
   users,
   socialMediaAccountProfiles,
   reports,
+  accountVotes,
+  widgets,
+  embedDomains,
+  defaultLocationChangeRequests,
+  corrections,
 } from './schema';
 import { loadDatabaseEnv } from './env';
 
@@ -370,6 +375,15 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
   try {
     await db.transaction(async (tx) => {
       // Explicit deletion order protects FK constraints and ensures deterministic reruns.
+      // These five have no ON DELETE CASCADE back to users/events/socialMediaAccountProfiles
+      // (unlike favorites/calendarAdditions/fcmTokens, which do and so need no explicit
+      // cleanup here), so they must be cleared before their referenced rows or the delete
+      // below fails with a foreign-key-constraint violation.
+      await tx.delete(embedDomains);
+      await tx.delete(widgets);
+      await tx.delete(accountVotes);
+      await tx.delete(corrections);
+      await tx.delete(defaultLocationChangeRequests);
       await tx.delete(reports);
       await tx.delete(schedules);
       await tx.delete(events);
