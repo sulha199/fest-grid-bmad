@@ -9,6 +9,27 @@ class MockResizeObserver {
   disconnect() {}
 }
 global.ResizeObserver = MockResizeObserver;
+
+class MockIntersectionObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+global.IntersectionObserver = MockIntersectionObserver as any;
+
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: vi.fn().mockImplementation((query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(), // deprecated
+    removeListener: vi.fn(), // deprecated
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+})
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { graphql, HttpResponse } from "msw"
 import { server as globalServer } from "../../../../../packages/testing-config/vitest.setup"
@@ -439,5 +460,29 @@ describe("EventDetailWrapper", () => {
     // Verify it transitions to hidden empty state
     expect(await screen.findByRole("heading", { name: "EventDetailsPage.hiddenAfterReportTitle" })).toBeInTheDocument()
     expect(screen.queryByRole("heading", { name: "Test Event" })).not.toBeInTheDocument()
+  })
+
+  it("renders Carousel layout structure and supports button-click navigation", async () => {
+    mockSearchParams = new URLSearchParams("fromList=favorites&favoriteIds=evt_1,evt_2")
+    renderComponent()
+
+    // Verify Carousel container region exists
+    const carouselRegion = await screen.findByRole("region")
+    expect(carouselRegion).toBeInTheDocument()
+    expect(carouselRegion).toHaveAttribute("aria-roledescription", "carousel")
+
+    const prevButton = await screen.findByRole("button", { name: "EventDetailsPage.previous" })
+    const nextButton = await screen.findByRole("button", { name: "EventDetailsPage.next" })
+
+    expect(prevButton).toBeInTheDocument()
+    expect(nextButton).toBeInTheDocument()
+
+    // Click next calls replace
+    fireEvent.click(nextButton)
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith(
+        "/events/second-event?fromList=favorites&favoriteIds=evt_1%2Cevt_2"
+      )
+    })
   })
 })

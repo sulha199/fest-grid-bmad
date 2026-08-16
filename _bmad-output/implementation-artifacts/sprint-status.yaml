@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-16T00:00:00Z
+last_updated: 2026-08-16T07:46:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -209,7 +209,7 @@ development_status:
   # c0c4912) but AC13's Carousel chrome is not -- scoped as Task 15. Unlike
   # Stories 1.3g/1.5, NOT blocked on Story 0.28: EventDetailWrapper.tsx is an
   # apps/web file with its own already-existing shadcn setup.
-  1-6-view-event-details: ready-for-dev
+  1-6-view-event-details: in-progress
   1-7a-build-the-reusable-blockingloader-component: review
   1-7-user-signup-and-login-with-google: review
   1-8-setup-posthog-analytics: review

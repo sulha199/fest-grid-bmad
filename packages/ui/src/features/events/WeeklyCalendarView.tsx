@@ -8,6 +8,7 @@ import type {
   WeeklyCalendarViewProps,
   WeeklyCalendarViewScheduleShape,
 } from './WeeklyCalendarView.types';
+import { getWeekStart, getWeekEnd } from '../../hooks';
 
 // Design system styles from DESIGN.md
 const CALENDAR_BASE_CLASS = "border border-gray-200 rounded-lg";
@@ -165,6 +166,16 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   labels = {},
   className = '',
 }: WeeklyCalendarViewProps<TSchedule>) {
+  // Provide default getWeekRange if not supplied
+  const defaultGetWeekRange = (date: Date) => {
+    const iso = date.toISOString().slice(0, 10);
+    const startIso = getWeekStart(iso);
+    const endIso = getWeekEnd(startIso);
+    const start = new Date(`${startIso}T12:00:00Z`);
+    const end = new Date(`${endIso}T12:00:00Z`);
+    return { start, end };
+  };
+  const effectiveGetWeekRange = getWeekRange ?? defaultGetWeekRange;
   const contextLocale = useScopedLocale();
   const contextTimezone = useScopedTimezone();
 
@@ -480,7 +491,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
             <WeekPicker
               selectedDate={typeof weekStart === 'string' ? weekStart : new Date(weekStart).toISOString().slice(0, 10)}
               onSelectWeek={onSelectWeek}
-              getWeekRange={getWeekRange}
+              getWeekRange={effectiveGetWeekRange}
               buttonLabel={defaultLabels.selectWeekLabel}
               ariaLabel={defaultLabels.selectWeekLabel}
             />

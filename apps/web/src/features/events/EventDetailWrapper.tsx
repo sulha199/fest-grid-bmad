@@ -16,6 +16,7 @@ import { toast } from "sonner"
 import { ChevronLeft, ChevronRight, Home } from "lucide-react"
 import { CorrectionDialog } from "./correction-dialog"
 import { ReportDialog } from "./report-dialog"
+import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel"
 
 interface EventDetailWrapperProps {
   slug: string
@@ -304,22 +305,20 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       <div className="flex gap-2">
         {nav.hasListContext ? (
           <>
-            <button
-              type="button"
-              onClick={handlePrevious}
+            <CarouselPrevious
               disabled={nav.previous.disabled || nav.previous.loading}
+              onClick={handlePrevious}
               aria-label={t("previous")}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200 dark:hover:bg-gray-800"
+              className="static translate-y-0 h-10 w-10 inline-flex items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200 dark:hover:bg-gray-800"
             >
               <ChevronLeft className="h-4 w-4" />
               <span className="sr-only">{t("previous")}</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleNext}
+            </CarouselPrevious>
+            <CarouselNext
               disabled={nav.next.disabled || nav.next.loading}
+              onClick={handleNext}
               aria-label={t("next")}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200 dark:hover:bg-gray-800"
+              className="static translate-y-0 h-10 w-10 inline-flex items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200 dark:hover:bg-gray-800"
             >
               {nav.next.loading ? (
                 <span className="animate-spin inline-block h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
@@ -327,7 +326,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
                 <ChevronRight className="h-4 w-4" />
               )}
               <span className="sr-only">{t("next")}</span>
-            </button>
+            </CarouselNext>
           </>
         ) : (
           !isModal && (
@@ -358,19 +357,25 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   )
 
   const detailViewContent = (
-    <div className="space-y-4">
-      <div aria-live="polite" className="sr-only">
-        {liveMessage}
+    <Carousel className="w-full">
+      <div className="space-y-4">
+        <div aria-live="polite" className="sr-only">
+          {liveMessage}
+        </div>
+        {navigationHeader}
+        <CarouselContent>
+          <CarouselItem>
+            {isPending ? (
+              <EventDetailView loading={true} labels={labels} eventName="" location="" schedules={[]} />
+            ) : error ? (
+              <EventDetailView error={{ message: (error as Error).message || "Unknown error" }} labels={labels} eventName="" location="" schedules={[]} />
+            ) : mappedProps ? (
+              <EventDetailView {...mappedProps} />
+            ) : null}
+          </CarouselItem>
+        </CarouselContent>
       </div>
-      {navigationHeader}
-      {isPending ? (
-        <EventDetailView loading={true} labels={labels} eventName="" location="" schedules={[]} />
-      ) : error ? (
-        <EventDetailView error={{ message: (error as Error).message || "Unknown error" }} labels={labels} eventName="" location="" schedules={[]} />
-      ) : mappedProps ? (
-        <EventDetailView {...mappedProps} />
-      ) : null}
-    </div>
+    </Carousel>
   )
 
   if (isModal) {
