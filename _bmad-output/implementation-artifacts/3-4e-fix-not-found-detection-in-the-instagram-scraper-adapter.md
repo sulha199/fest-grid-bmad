@@ -66,6 +66,19 @@ so that `castVote`-by-handle (Story 6.1a) stops silently creating fake `SocialMe
 - Backward compatibility and rollout notes: Purely additive/corrective — every caller of `getPostByUrl`/`lookupAccountProfile` already has an `if (!result)` branch (resolvers.ts:994, resolvers.ts:1434) that today never fires for this input class; this story only makes those existing branches reachable for a new (previously-mismapped) input case. No caller-side change needed or made.
 - Verification checks: New fixture tests (Task 4) assert `null` for the real captured error shape end-to-end through the adapter's public methods (not just the internal helper in isolation).
 
+### Multi-Username Batch Call — Not Currently Used, Landmine If Ever Adopted (2026-08-17, added via `bmad-correct-course` follow-up testing)
+
+Two real, position-reversed tests against `apify/instagram-post-scraper`:
+- Run `hlJ6ieseVAtL9jvGI` (2026-08-17 09:59, `$0.0034`): input `username: [invalidHandle, validHandle]` → output `[errorItem, validItem]` (error at index 0).
+- Run `Ap4UdYdV8HgZYM4ud` (2026-08-17 10:04, `$0.0034`): input `username: [validHandle, invalidHandle]` → output `[validItem, errorItem]` (error at index 1).
+
+Three things now confirmed:
+- **The not-found item's shape is identical to the single-item case** (`run-02`/`-04`/`-06`/`-08`) — `isNotFoundItem`'s `item.error` check (Task 1/AC1/AC2) is per-item and works correctly here too, no design change needed.
+- **The two item shapes use *different* correlation fields** — the not-found item has `username` (echoing the input handle), the valid item has `ownerUsername` (and no top-level `username` field at all). Matching a result back to its input by field content is unsafe across mixed valid/invalid batches.
+- **Output array order tracks input array order exactly** — confirmed by two independent runs with reversed positions, not a single data point. `items[0]` (e.g. [`instagram-adapter.ts:96`](../../apps/backend/src/lib/scraper/instagram-adapter.ts#L96)) is only safe when exactly one input is sent; it is **not** safe to assume "the not-found item is always at index 0" if a future call ever sends more than one input — the not-found item lands at whichever index its input handle occupied.
+- **Why this doesn't change this story's scope:** every current call site (Story 3.4/3.4a) invokes the Instagram adapter with exactly one account per Apify call — `getPostByUrl`/`lookupAccountProfile` always send a single-element array (so `items[0]` is always correct today), and `getNewestPosts` is dispatched one account per SQS job/Apify call, never a batched multi-username array. This scenario is untestable-in-production today.
+- **Why it's worth recording anyway:** if a future cost optimization ever batches multiple accounts into one Apify call (no current story proposes this), correlate each result to its input by array index (confirmed reliable, order-preserving), never by matching field names across item shapes, and never by assuming a fixed index like `0`.
+
 ### Project Structure Notes
 
 - Files touched: `apps/backend/src/lib/scraper/instagram-adapter.ts` (UPDATE), `apps/backend/src/lib/scraper/instagram-adapter.test.ts` (UPDATE). No new files. Matches this feature area's existing structure — no variance.

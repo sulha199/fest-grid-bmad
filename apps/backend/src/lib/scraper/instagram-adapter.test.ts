@@ -86,6 +86,31 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(row.itemsUsedThisCycle, 1);
   });
 
+  await t.test('getPostByUrl returns null for not‑found error item', async () => {
+    setCallApifyActor(async () => [
+      {
+        url: 'https://www.instagram.com/p/invalid/',
+        username: 'invalid_handle',
+        error: 'not_found',
+        errorDescription: 'Post does not exist',
+      },
+    ]);
+    const result = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/invalid/');
+    assert.strictEqual(result, null);
+  });
+
+  await t.test('lookupAccountProfile returns null for not‑found error item', async () => {
+    setCallApifyActor(async () => [
+      {
+        username: 'invalid_handle',
+        error: 'not_found',
+        errorDescription: 'Profile does not exist',
+      },
+    ]);
+    const result = await instagramScraperAdapter.lookupAccountProfile('invalid_handle');
+    assert.strictEqual(result, null);
+  });
+
   await t.test('uses the faster app-funded sync actor and surfaces a timeout explicitly', async () => {
     let calledActor: string | undefined;
 

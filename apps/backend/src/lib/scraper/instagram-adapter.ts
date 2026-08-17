@@ -59,6 +59,24 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   });
 }
 
+/**
+ * Detects Apify 'not found' responses.
+ * Returns true if the item represents a not‑found error.
+ */
+function isNotFoundItem(item: any): boolean {
+  if (!item) return false;
+  // Apify may embed an error object with a message.
+  if (item.error && typeof item.error.message === 'string') {
+    const msg = item.error.message.toLowerCase();
+    if (msg.includes('not found') || msg.includes('does not exist')) return true;
+  }
+  // Fallback: missing key fields for posts or profiles.
+  const hasPostFields = item.caption || item.text || item.description || item.url || item.postUrl;
+  const hasProfileFields = item.id || item.username || item.fullName || item.displayName;
+  if (!hasPostFields && !hasProfileFields) return true;
+  return false;
+}
+
 export const instagramScraperAdapter: ScraperAdapter = {
   async getPostByUrl(url: string): Promise<ScrapedPost | null> {
     await assertProviderCapacityAvailable('apify', `URL ${url}`);
@@ -76,6 +94,10 @@ export const instagramScraperAdapter: ScraperAdapter = {
         }
 
         const item = items[0];
+        // Detect not‑found response before mapping.
+        if (isNotFoundItem(item)) {
+          return null;
+        }
         const publishedAt = item.timestamp || item.pubDate || item.publishedAt || new Date().toISOString();
         const postUrl = item.url || item.postUrl || `https://www.instagram.com/p/${item.shortCode || item.id || ''}/`;
 
@@ -144,22 +166,26 @@ export const instagramScraperAdapter: ScraperAdapter = {
     try {
       const url = handleOrUrl.startsWith('http') ? handleOrUrl : `https://www.instagram.com/${handleOrUrl}/`;
       const items = await callApifyActor({
-        directUrls: [url],
-        resultsType: 'details',
-        resultsLimit: 1,
-      });
+          directUrls: [url],
+          resultsType: 'details',
+          resultsLimit: 1,
+        });
 
-      if (!items || items.length === 0) {
-        return null;
-      }
+        if (!items || items.length === 0) {
+          return null;
+        }
 
-      const item = items[0];
-      const result: AccountProfileLookupResult = {
-        accountId: item.id || item.username || '',
-        displayName: item.fullName || item.displayName || item.name || item.username || '',
-        username: item.username || '',
-        profileImageUrl: item.profilePicUrl || item.profileImageUrl || undefined,
-      };
+        const item = items[0];
+        // Detect not‑found response before mapping.
+        if (isNotFoundItem(item)) {
+          return null;
+        }
+        const result: AccountProfileLookupResult = {
+          accountId: item.id || item.username || '',
+          displayName: item.fullName || item.displayName || item.name || item.username || '',
+          username: item.username || '',
+          profileImageUrl: item.profilePicUrl || item.profileImageUrl || undefined,
+        };
 
       await recordProviderUsage('apify', 1);
 
