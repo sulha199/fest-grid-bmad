@@ -493,6 +493,30 @@ development_status:
   # (3-4e-fix-not-found-detection-in-the-instagram-scraper-adapter.md), ready
   # for bmad-dev-story or bmad-quick-dev per the story's own priority note.
   3-4e-fix-not-found-detection-in-the-instagram-scraper-adapter: ready-for-dev
+  # NEW 2026-08-17, added via bmad-correct-course at the user's explicit request
+  # ("Add as a 3rd split-off story now"), folded into the same sprint-change-
+  # proposal-2026-08-15-not-found-detection-bug.md document as 3-4d/3-4e (that
+  # file is being retitled/extended to cover all three). Two findings: (1)
+  # confirmed via direct read of apps/infrastructure/lib/festgrid-backend-
+  # stack.ts that sharedLambdaProps (and every individual Lambda) sets no
+  # `timeout` -- apiLambda/scraperLambda/aiProcessorLambda/ingestorLambda all
+  # silently inherit AWS's 3-second default today, an already-live bug
+  # independent of the async-handling question below; (2) user asked whether
+  # scheduled-batch scraping using Apify (which can run minutes to ~1hr per
+  # Apify's own actor page) was anticipated, then clarified the intended
+  # multi-vendor split: brightdata only for scheduled batch, apify for
+  # scheduled batch (fallback) + vote-time profile check + subscribe-time --
+  # "for scheduled batch we would have same long process but different
+  # mechanism." Confirmed directly against Apify's own API docs that ad-hoc
+  # per-run webhooks (base64 `webhooks` query param) and GET
+  # /v2/actor-runs/{runId} status polling are both available, so the
+  # getNewestPosts role can get the same async job+webhook+sweep treatment
+  # Story 3.4a already built for Bright Data. getPostByUrl/lookupAccountProfile
+  # (Story 3.4d's sync paths) are explicitly unaffected. Not yet run through
+  # bmad-create-story -- backlog until that pass and until the consolidated
+  # Sprint Change Proposal (now covering 3.4d/3.4e/3.4f) receives final user
+  # approval.
+  3-4f-fix-missing-lambda-timeouts-and-extend-async-job-handling-to-apifys-long-running-scrape-paths: backlog
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap); Gate 2 run fresh (no gap, zero UI
