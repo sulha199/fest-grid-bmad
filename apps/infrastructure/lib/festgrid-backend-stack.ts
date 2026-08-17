@@ -80,6 +80,8 @@ export class FestgridBackendStack extends cdk.Stack {
       bundling: {
         format: nodejs.OutputFormat.CJS,
       },
+      // Increased timeout to avoid default 3‑second limit causing failures
+      timeout: cdk.Duration.seconds(30),
     };
 
     // L_API

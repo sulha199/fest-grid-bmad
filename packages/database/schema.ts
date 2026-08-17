@@ -137,6 +137,7 @@ export const apiKeys = pgTable('api_keys', {
 export const posts = pgTable('posts', {
   id: uuid('id').defaultRandom().primaryKey(),
   accountId: uuid('account_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  platform: text('platform').notNull(),
   content: text('content').notNull(),
   imageUrl: text('image_url'),
   postUrl: text('post_url').notNull(),
