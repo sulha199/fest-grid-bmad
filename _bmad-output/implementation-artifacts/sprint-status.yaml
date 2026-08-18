@@ -512,11 +512,22 @@ development_status:
   # /v2/actor-runs/{runId} status polling are both available, so the
   # getNewestPosts role can get the same async job+webhook+sweep treatment
   # Story 3.4a already built for Bright Data. getPostByUrl/lookupAccountProfile
-  # (Story 3.4d's sync paths) are explicitly unaffected. Not yet run through
-  # bmad-create-story -- backlog until that pass and until the consolidated
-  # Sprint Change Proposal (now covering 3.4d/3.4e/3.4f) receives final user
-  # approval.
-  3-4f-fix-missing-lambda-timeouts-and-extend-async-job-handling-to-apifys-long-running-scrape-paths: backlog
+  # (Story 3.4d's sync paths) are explicitly unaffected.
+  # 2026-08-18: bmad-create-story full pass complete -- full story file created
+  # (3-4f-fix-missing-lambda-timeouts-and-extend-async-job-handling-to-apifys-long-running-scrape-paths.md).
+  # Re-verified live: sharedLambdaProps already has a blanket 30s timeout (dd01ac5),
+  # not the "no timeout" premise this draft AC originally assumed -- story redrafted
+  # around the actual current state (per-Lambda explicit overrides needed instead).
+  # Story 3.4a found in-progress with a partially inconsistent implementation
+  # (unwired /webhooks/brightdata route, orphaned duplicate Lambda constructs) --
+  # this story's own dependency scoped to only the parts of 3.4a confirmed real/working
+  # (attemptBrightDataTrigger, runStaleJobSweep, get-scrape-targets.ts exclusion); the
+  # rest flagged as 3.4a's own open gap in the story's Pre-Coding Approval Gate, not
+  # fixed here. New apify_pending_jobs table kept separate from brightdata_pending_jobs
+  # per explicit user decision (avoids touching 3.4a's actively-changing code). Gate 1/2/3
+  # all run fresh (3.4f postdates epic-3-readiness.md's sweep) -- all three: no gap.
+  # Ready for bmad-dev-story or bmad-quick-dev.
+  3-4f-fix-missing-lambda-timeouts-and-extend-async-job-handling-to-apifys-long-running-scrape-paths: ready-for-dev
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap); Gate 2 run fresh (no gap, zero UI
