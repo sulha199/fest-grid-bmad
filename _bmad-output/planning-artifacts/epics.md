@@ -1917,6 +1917,26 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.4 (the `getNewestPosts` call site this modifies), Story 3.4a (the webhook Lambda/route, pending-jobs pattern, and stale-job sweep this story extends rather than duplicates), Story 3.4d (the sync-path timeout handling this story leaves unaffected, AC6).
 
+### Story 3.4g: Validate scraped posts from Apify and Bright Data with an AJV schema
+
+**As a** system,
+**I want** every `ScrapedPost`-shaped object produced by both vendor paths (Apify's `mapApifyItemToScrapedPost`, and Bright Data's `processBrightDataResult` field-mapping) validated against a shared AJV schema before it reaches `persistScrapedPost`,
+**So that** malformed or incomplete scraper output from either vendor is caught and dropped at the boundary instead of silently flowing into persistence and downstream AI extraction.
+
+**Added 2026-08-18 via `bmad-create-story` (user-identified compliance gap, not a Gate 1/2/3 finding):** `project-context.md`'s "Runtime Schema Validation" rule ("All data entering the system from external sources (APIs, scrapers) must be validated at the point of entry with Zod (frontend) or AJV (backend)") is already honored for the Gemini AI-extraction path (`extracted-event.schema.ts`, `process-ai-job.ts`) but was never implemented for either scraper vendor path — `mapApifyItemToScrapedPost` (`instagram-adapter.ts:84-95`) and `processBrightDataResult` (`process-brightdata-result.ts:12-39`, Story 3.4a) both only do defensive `||`-fallback field extraction, no schema check. Originally scoped to Apify only; expanded to Bright Data during story creation once the same gap was confirmed there, alongside two pre-existing bugs on that path (a broken `persistScrapedPost` import in two files, confirmed via `tsc`, and a `Date`-vs-`string` mismatch on `publishedAt`) that this story's validation work directly surfaces and fixes. Full detail in the story file (`_bmad-output/implementation-artifacts/3-4g-validate-scraped-posts-from-apify-and-brightdata-with-ajv-schema.md`).
+
+**Acceptance Criteria:**
+
+1.  A new `apps/backend/src/validation/scraped-post.schema.ts` exports an AJV `JSONSchemaType<ScrapedPost>` schema (`content`/`postUrl`/`publishedAt` required; `imageUrl`/`originalPostUrl` optional `nullable: true`; `additionalProperties: false`), mirroring `extracted-event.schema.ts`'s convention.
+2.  `mapApifyItemToScrapedPost` validates its constructed object against this schema before returning, and its return type changes to `ScrapedPost | null`, logging AJV `.errors` on failure.
+3.  All three call sites of `mapApifyItemToScrapedPost` (`getPostByUrl`, `getNewestPosts`, and `processApifyAsyncResult`) correctly handle the new `null` outcome — passing it through, filtering it out of a batch, or explicitly skipping it, respectively — without otherwise changing control flow or `recordProviderUsage` semantics.
+4.  `processBrightDataResult` validates its constructed candidate object against the same shared schema before calling `persistScrapedPost`, logging and skipping (matching its existing `if (!postUrl)` skip pattern) on failure.
+5.  `instagram-adapter.test.ts` and `process-apify-async-result.test.ts` gain valid/invalid-item test cases; a new `process-brightdata-result.test.ts` (none exists today) covers a valid record and an AJV-invalid record.
+6.  The broken `persistScrapedPost` relative import (`./persist-scraped-post.js`, which does not exist — confirmed via `tsc`'s `TS2307`) in both `process-apify-async-result.ts` and `process-brightdata-result.ts` is fixed to `../posts/persist-scraped-post.js`, matching `process-scrape-job.ts`'s already-correct import.
+7.  `processBrightDataResult`'s `publishedAt` is passed to `persistScrapedPost` as an ISO string (not a `Date` object), matching `PersistScrapedPostParams.publishedAt: string` and the new schema's `publishedAt: string` check.
+
+**Depends on:** Story 3.4 (the `instagram-adapter.ts` this story modifies), Story 3.4a (the Bright Data path this story modifies), Story 3.4f (`processApifyAsyncResult`, the third Apify call site this story updates), Story 0.11 (the `compileValidator`/AJV foundation this story reuses as-is).
+
 ### Story 3.5: Add new posts to a processing queue
 
 **As a** system,
