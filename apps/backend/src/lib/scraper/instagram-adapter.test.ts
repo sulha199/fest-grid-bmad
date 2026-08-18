@@ -20,6 +20,7 @@ test('instagram-adapter tests', async (t) => {
 
     const result = mapApifyItemToScrapedPost(item);
 
+    assert.ok(result !== null);
     assert.strictEqual(result.content, 'Test caption');
     assert.strictEqual(result.postUrl, 'https://www.instagram.com/p/C_abc123/');
     assert.strictEqual(result.imageUrl, 'https://www.instagram.com/p/C_abc123/img.jpg');
@@ -198,6 +199,78 @@ test('instagram-adapter tests', async (t) => {
         return true;
       }
     );
+  });
+
+  await t.test('mapApifyItemToScrapedPost returns null for invalid item (missing required fields)', async () => {
+    const invalidItem = {
+      url: 'https://www.instagram.com/p/missing_content/',
+      // Missing caption/text/description (content)
+      timestamp: '2026-08-08T00:00:00Z',
+    };
+
+    const result = mapApifyItemToScrapedPost(invalidItem);
+    assert.strictEqual(result, null);
+  });
+
+  await t.test('mapApifyItemToScrapedPost returns null for invalid item (wrong-typed publishedAt)', async () => {
+    const invalidItem = {
+      caption: 'Test caption',
+      url: 'https://www.instagram.com/p/C_abc123/',
+      timestamp: 12345, // number instead of string
+    };
+
+    const result = mapApifyItemToScrapedPost(invalidItem);
+    assert.strictEqual(result, null);
+  });
+
+  await t.test('mapApifyItemToScrapedPost returns valid post even without optional imageUrl/originalPostUrl', async () => {
+    const validItem = {
+      caption: 'Just text',
+      url: 'https://www.instagram.com/p/C_abc123/',
+      timestamp: '2026-08-08T00:00:00Z',
+      // No displayUrl or imageUrl
+      // No separate originalPostUrl
+    };
+
+    const result = mapApifyItemToScrapedPost(validItem);
+    assert.ok(result !== null);
+    assert.strictEqual(result.content, 'Just text');
+    assert.strictEqual(result.postUrl, 'https://www.instagram.com/p/C_abc123/');
+    assert.strictEqual(result.publishedAt, '2026-08-08T00:00:00Z');
+    // Optional fields should not be present or should be undefined if not set
+    assert.strictEqual(result.imageUrl, undefined);
+  });
+
+  await t.test('getNewestPosts filters out invalid items and returns only valid ones', async () => {
+    setCallApifyActor(async () => [
+      {
+        timestamp: '2026-08-08T00:00:00Z',
+        url: 'https://www.instagram.com/p/C_abc123/',
+        caption: 'Valid post',
+        displayUrl: 'https://www.instagram.com/p/C_abc123/img.jpg',
+      },
+      {
+        url: 'https://www.instagram.com/p/invalid/',
+        // Missing caption and timestamp
+      },
+      {
+        timestamp: '2026-08-07T00:00:00Z',
+        url: 'https://www.instagram.com/p/C_xyz789/',
+        caption: 'Another valid post',
+      },
+    ]);
+
+    const posts = await instagramScraperAdapter.getNewestPosts(
+      { accountId: '123', username: 'test_username' }
+    );
+
+    assert.strictEqual(posts.length, 2);
+    assert.strictEqual(posts[0].content, 'Valid post');
+    assert.strictEqual(posts[1].content, 'Another valid post');
+
+    // Verify usage recorded for all 3 items (Apify bills regardless of validation)
+    const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
+    assert.strictEqual(row.itemsUsedThisCycle, 3);
   });
 
   await t.test('throws explicit capacity error when capacity is exhausted', async () => {

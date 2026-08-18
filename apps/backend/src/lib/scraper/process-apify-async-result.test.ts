@@ -147,4 +147,65 @@ test('process-apify-async-result tests', async (t) => {
 
     assert.strictEqual(job.status, 'COMPLETED');
   });
+
+  await t.test('skips AJV-invalid items and persists valid ones', async () => {
+    const { id, webhookToken } = await createPendingJob({
+      profileId: testProfileId,
+      runId: 'run-validation-' + Date.now(),
+    });
+
+    const pendingJob = {
+      id,
+      profileId: testProfileId,
+      runId: 'run-validation',
+      webhookToken,
+      status: 'PENDING' as const,
+      expiresAt: new Date(Date.now() + 3600000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const items = [
+      {
+        url: 'https://www.instagram.com/p/valid1/',
+        caption: 'Valid post 1',
+        timestamp: '2026-08-08T00:00:00Z',
+        displayUrl: 'https://example.com/img1.jpg',
+      },
+      {
+        // This item will fail AJV validation: missing 'content' (required)
+        url: 'https://www.instagram.com/p/invalid_no_caption/',
+        timestamp: '2026-08-09T00:00:00Z',
+      },
+      {
+        url: 'https://www.instagram.com/p/valid2/',
+        caption: 'Valid post 2',
+        timestamp: '2026-08-10T00:00:00Z',
+        displayUrl: 'https://example.com/img2.jpg',
+      },
+    ];
+
+    // Should not throw despite AJV-invalid item
+    await processApifyAsyncResult(pendingJob, items);
+
+    // Verify only valid posts persisted
+    const persistedPosts = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.accountId, testProfileId));
+
+    assert.strictEqual(persistedPosts.length, 2);
+    assert.strictEqual(persistedPosts[0].content, 'Valid post 1');
+    assert.strictEqual(persistedPosts[0].postUrl, 'https://www.instagram.com/p/valid1/');
+    assert.strictEqual(persistedPosts[1].content, 'Valid post 2');
+    assert.strictEqual(persistedPosts[1].postUrl, 'https://www.instagram.com/p/valid2/');
+
+    // Verify job still marked completed
+    const [job] = await db
+      .select()
+      .from(apifyPendingJobs)
+      .where(eq(apifyPendingJobs.id, id));
+
+    assert.strictEqual(job.status, 'COMPLETED');
+  });
 });

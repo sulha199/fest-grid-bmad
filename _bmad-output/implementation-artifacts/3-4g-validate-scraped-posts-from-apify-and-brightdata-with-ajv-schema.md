@@ -4,7 +4,8 @@
 
 - Epic: 3
 - Story ID: 3.4g
-- Status: ready-for-dev
+- Status: review
+- baseline_commit: 575b8a445847eee4d959c451b6c368f5db94ba97
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,23 +32,23 @@ so that malformed or incomplete scraper output from either vendor is caught and 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Define the shared `ScrapedPost` AJV schema (AC: #1)
-  - [ ] Subtask 1.1: Create `apps/backend/src/validation/scraped-post.schema.ts`, modeled directly on `extracted-event.schema.ts`'s `JSONSchemaType<T>` + `required`/`nullable`/`additionalProperties: false` pattern.
-- [ ] Task 2: Wire validation into the Apify path (`instagram-adapter.ts`) and all three of its call sites (AC: #2, #3, #5)
-  - [ ] Subtask 2.1: Compile the validator once at module scope in `instagram-adapter.ts` via `compileValidator<ScrapedPost>(scrapedPostSchema)` (not per-call inside the mapper — see Dev Notes rationale) and call it on the constructed candidate object before returning.
-  - [ ] Subtask 2.2: Change `mapApifyItemToScrapedPost`'s signature to `(item: any): ScrapedPost | null`, log `validate.errors` on failure, return `null`.
-  - [ ] Subtask 2.3: Build the candidate object so that an absent `imageUrl`/`originalPostUrl` is an **omitted key**, not a key present with value `undefined` — see the "Data Type Compatibility" gotcha below; a literal `undefined` value on a present key fails AJV's `nullable: true` check (which only accepts `string | null`, not `undefined`).
-  - [ ] Subtask 2.4: Update `getPostByUrl` to pass through the mapper's `null` result unchanged (it already declares `ScrapedPost | null`).
-  - [ ] Subtask 2.5: Update `getNewestPosts` to filter `null` entries out of the mapped array (e.g. a type-guarded `.filter((post): post is ScrapedPost => post !== null)`) before returning, while leaving the existing `recordProviderUsage('apify', items.length)` call counting raw Apify item count unchanged.
-  - [ ] Subtask 2.6: Update `processApifyAsyncResult` (`process-apify-async-result.ts`) to explicitly check for and skip a `null` mapper result before calling `persistScrapedPost`, logging a clear "skipped invalid item" message distinct from the existing generic per-item catch-block error.
-  - [ ] Subtask 2.7: Add new test cases to `instagram-adapter.test.ts` and `process-apify-async-result.test.ts` per AC5.
-- [ ] Task 3: Wire the same validation into the Bright Data path (`process-brightdata-result.ts`) (AC: #4, #5)
-  - [ ] Subtask 3.1: In `processBrightDataResult`, after building the candidate object from `brightDataRecord` fields, validate it against the same `scrapedPostSchema`/`compileValidator<ScrapedPost>` before calling `persistScrapedPost`; on failure, log and `continue` (matching the existing `if (!postUrl)` skip pattern already in the function).
-  - [ ] Subtask 3.2: Create `process-brightdata-result.test.ts` (new file — none exists today) covering a valid record and an AJV-invalid record, following `process-apify-async-result.test.ts`'s db-integration test style (`t.beforeEach`/`t.afterEach` profile setup/teardown, real `db` assertions).
-- [ ] Task 4: Fix the two pre-existing bugs this story's work directly touches (AC: #6, #7)
-  - [ ] Subtask 4.1: Fix the broken `persistScrapedPost` import path in both `process-apify-async-result.ts` and `process-brightdata-result.ts` (`./persist-scraped-post.js` → `../posts/persist-scraped-post.js`).
-  - [ ] Subtask 4.2: Fix `processBrightDataResult`'s `publishedAt` to be passed as an ISO string (`.toISOString()`), not a `Date` object, to `persistScrapedPost` — required for the AJV schema's `publishedAt: string` check to reflect the actual runtime value being validated.
-  - [ ] Subtask 4.3: Run `npx tsc --noEmit -p apps/backend` scoped to the touched files to confirm both import-path errors are gone (the wider backend build has unrelated pre-existing errors from in-flight, uncommitted schema/resolver work visible in `git status` — out of scope for this story; do not attempt to fix those).
+- [x] Task 1: Define the shared `ScrapedPost` AJV schema (AC: #1)
+  - [x] Subtask 1.1: Create `apps/backend/src/validation/scraped-post.schema.ts`, modeled directly on `extracted-event.schema.ts`'s `JSONSchemaType<T>` + `required`/`nullable`/`additionalProperties: false` pattern.
+- [x] Task 2: Wire validation into the Apify path (`instagram-adapter.ts`) and all three of its call sites (AC: #2, #3, #5)
+  - [x] Subtask 2.1: Compile the validator once at module scope in `instagram-adapter.ts` via `compileValidator<ScrapedPost>(scrapedPostSchema)` (not per-call inside the mapper — see Dev Notes rationale) and call it on the constructed candidate object before returning.
+  - [x] Subtask 2.2: Change `mapApifyItemToScrapedPost`'s signature to `(item: any): ScrapedPost | null`, log `validate.errors` on failure, return `null`.
+  - [x] Subtask 2.3: Build the candidate object so that an absent `imageUrl`/`originalPostUrl` is an **omitted key**, not a key present with value `undefined` — see the "Data Type Compatibility" gotcha below; a literal `undefined` value on a present key fails AJV's `nullable: true` check (which only accepts `string | null`, not `undefined`).
+  - [x] Subtask 2.4: Update `getPostByUrl` to pass through the mapper's `null` result unchanged (it already declares `ScrapedPost | null`).
+  - [x] Subtask 2.5: Update `getNewestPosts` to filter `null` entries out of the mapped array (e.g. a type-guarded `.filter((post): post is ScrapedPost => post !== null)`) before returning, while leaving the existing `recordProviderUsage('apify', items.length)` call counting raw Apify item count unchanged.
+  - [x] Subtask 2.6: Update `processApifyAsyncResult` (`process-apify-async-result.ts`) to explicitly check for and skip a `null` mapper result before calling `persistScrapedPost`, logging a clear "skipped invalid item" message distinct from the existing generic per-item catch-block error.
+  - [x] Subtask 2.7: Add new test cases to `instagram-adapter.test.ts` and `process-apify-async-result.test.ts` per AC5.
+- [x] Task 3: Wire the same validation into the Bright Data path (`process-brightdata-result.ts`) (AC: #4, #5)
+  - [x] Subtask 3.1: In `processBrightDataResult`, after building the candidate object from `brightDataRecord` fields, validate it against the same `scrapedPostSchema`/`compileValidator<ScrapedPost>` before calling `persistScrapedPost`; on failure, log and `continue` (matching the existing `if (!postUrl)` skip pattern already in the function).
+  - [x] Subtask 3.2: Create `process-brightdata-result.test.ts` (new file — none exists today) covering a valid record and an AJV-invalid record, following `process-apify-async-result.test.ts`'s db-integration test style (`t.beforeEach`/`t.afterEach` profile setup/teardown, real `db` assertions).
+- [x] Task 4: Fix the two pre-existing bugs this story's work directly touches (AC: #6, #7)
+  - [x] Subtask 4.1: Fix the broken `persistScrapedPost` import path in both `process-apify-async-result.ts` and `process-brightdata-result.ts` (`./persist-scraped-post.js` → `../posts/persist-scraped-post.js`).
+  - [x] Subtask 4.2: Fix `processBrightDataResult`'s `publishedAt` to be passed as an ISO string (`.toISOString()`), not a `Date` object, to `persistScrapedPost` — required for the AJV schema's `publishedAt: string` check to reflect the actual runtime value being validated.
+  - [x] Subtask 4.3: Run `npx tsc --noEmit -p apps/backend` scoped to the touched files to confirm both import-path errors are gone (the wider backend build has unrelated pre-existing errors from in-flight, uncommitted schema/resolver work visible in `git status` — out of scope for this story; do not attempt to fix those).
 
 ## Dev Notes
 
@@ -172,14 +173,67 @@ so that malformed or incomplete scraper output from either vendor is caught and 
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed: All tasks, subtasks, and acceptance criteria implemented and tested
 
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Haiku 4.5
 
 ### Debug Log References
+- N/A (implementation proceeded without debugging required)
 
 ### Completion Notes List
 
+#### Implementation Summary
+This story closes a documented compliance gap against `project-context.md`'s "Runtime Schema Validation" rule (AC1-7), bringing both Apify and Bright Data scraper vendor paths into strict AJV schema validation at the point of entry, matching the existing Gemini AI-extraction pattern.
+
+**Key Implementation Details:**
+1. Created `apps/backend/src/validation/scraped-post.schema.ts` — shared AJV schema for both vendors with required fields (content, postUrl, publishedAt) and optional nullable fields (imageUrl, originalPostUrl). Mirrors `extracted-event.schema.ts` pattern exactly.
+
+2. **Apify Path Validation** — Updated `instagram-adapter.ts`:
+   - Module-scope validator compilation (single-time cost, no per-item recompilation)
+   - `mapApifyItemToScrapedPost` now returns `ScrapedPost | null` with validation + error logging
+   - Critical fix: omit optional fields via conditional spread (not undefined assignment) to pass AJV's nullable check
+   - All three call sites updated: `getPostByUrl` passes null through, `getNewestPosts` filters nulls via type-guarded filter, `processApifyAsyncResult` explicit null-skip with clear logging
+
+3. **Bright Data Path Validation** — Updated `process-brightdata-result.ts`:
+   - Same module-scope validator + validation pattern as Apify
+   - Validates candidate object post-construction, logs + continues on failure (matches existing `if (!postUrl)` skip pattern)
+   - Fixed pre-existing bugs AC6/AC7: broken import path (`./` → `../posts/`) and `Date` → ISO string conversion for publishedAt
+
+4. **Comprehensive Test Coverage**:
+   - `instagram-adapter.test.ts`: added 4 new test cases covering regression (valid post still works), invalid-item rejection (missing required fields, wrong types), and batch filtering
+   - `process-apify-async-result.test.ts`: added 1 test case for AJV-invalid item skipping while valid items persist
+   - `process-brightdata-result.test.ts`: new file with 3 test cases (valid record persistence, AJV-invalid record skipping, missing URL early-exit)
+
+5. **Type Safety**: All TypeScript errors resolved (pre-existing `persist-scraped-post.ts` error confirmed out-of-scope per dev notes). Test-file null-check guards added per return type change.
+
+#### Design Tradeoffs
+- **Omitting optional fields vs undefined assignment**: Chose conditional spread (`...(value && { key: value })`) to avoid undefined keys failing AJV's nullable check. This is more explicit and cleaner than conditional object mutation.
+- **Validation placement**: Chosen at each vendor's boundary (mapper + process function) to fail-fast and log distinctly per vendor, rather than centralizing downstream.
+- **Error handling**: Non-throwing failure modes (null return, continue) allow batch processing to tolerate individual item failures, consistent with Gemini path and user expectation for resilient data pipelines.
+
+#### Testing Approach
+- Unit tests for valid/invalid items directly on the mapper functions
+- Integration tests on the full async result processors with real DB operations
+- Both suites use existing test patterns (`node:test`, `db` fixtures, domain-specific assertions)
+- Test cases cover: valid items (regression), missing required fields, wrong-typed fields, batch filtering
+
 ### File List
+
+**NEW FILES:**
+- `apps/backend/src/validation/scraped-post.schema.ts` — AJV schema for ScrapedPost validation
+- `apps/backend/src/lib/scraper/process-brightdata-result.test.ts` — integration tests for Bright Data validation
+
+**MODIFIED FILES:**
+- `apps/backend/src/lib/scraper/instagram-adapter.ts` — added validation, changed mapApifyItemToScrapedPost return type, updated call sites
+- `apps/backend/src/lib/scraper/instagram-adapter.test.ts` — added 4 new test cases for validation behavior
+- `apps/backend/src/lib/scraper/process-apify-async-result.ts` — fixed import path (AC6), added null-skip guard (AC2/AC3)
+- `apps/backend/src/lib/scraper/process-apify-async-result.test.ts` — added 1 new test case for AJV-invalid item skipping
+- `apps/backend/src/lib/scraper/process-brightdata-result.ts` — added AJV validation, fixed import path (AC6), fixed publishedAt Date→string conversion (AC7)
+- Story file (this file) — completed all tasks/subtasks, added this record
+
+### Change Log
+
+- 2026-08-18: Story implementation completed. All acceptance criteria satisfied. AJV schema validation wired into both Apify and Bright Data scraper paths. Pre-existing import and type bugs fixed. Comprehensive test coverage added (7 new test cases across 3 test files).

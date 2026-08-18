@@ -1,7 +1,7 @@
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
-import { persistScrapedPost } from './persist-scraped-post.js';
+import { persistScrapedPost } from '../posts/persist-scraped-post.js';
 import { markPendingJobCompleted } from './apify-pending-jobs-store.js';
 import { mapApifyItemToScrapedPost } from './instagram-adapter.js';
 import type { ApifyPendingJob } from './apify-pending-jobs-store.js';
@@ -14,6 +14,10 @@ export async function processApifyAsyncResult(
   for (const item of items) {
     try {
       const post = mapApifyItemToScrapedPost(item);
+      if (!post) {
+        console.warn(`Skipped invalid Apify item: failed AJV schema validation`);
+        continue;
+      }
 
       await persistScrapedPost({
         accountId: pendingJob.profileId,

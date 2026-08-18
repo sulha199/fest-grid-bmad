@@ -1,9 +1,15 @@
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
-import { persistScrapedPost } from './persist-scraped-post.js';
+import { persistScrapedPost } from '../posts/persist-scraped-post.js';
 import { markPendingJobCompleted } from './brightdata-pending-jobs-store.js';
 import type { BrightdataPendingJob } from './brightdata-pending-jobs-store.js';
+import { compileValidator } from '../../validation/validate.js';
+import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
+import type { ScrapedPost } from '@festgrid/domain';
+
+// Compile validator once at module scope to avoid recompilation per record
+const validateScrapedPost = compileValidator<ScrapedPost>(scrapedPostSchema);
 
 export async function processBrightDataResult(
   pendingJob: BrightdataPendingJob,
@@ -12,25 +18,42 @@ export async function processBrightDataResult(
   // Map Bright Data records to ScrapedPost format and persist each
   for (const record of records) {
     const brightDataRecord = record as Record<string, unknown>;
-    
+
     // Map Bright Data field names to our post structure
     const postUrl = brightDataRecord.url as string;
     const imageUrl = brightDataRecord.image_url as string;
     const caption = brightDataRecord.caption as string;
     const datePosted = brightDataRecord.date_posted as string;
-    
+
     if (!postUrl) {
       console.warn('Bright Data record missing URL, skipping');
       continue;
     }
 
     try {
+      // Build candidate ScrapedPost object, omitting optional fields if falsy
+      const publishedAtStr = datePosted ? new Date(datePosted).toISOString() : new Date().toISOString();
+      const candidate: ScrapedPost = {
+        content: caption || '',
+        postUrl,
+        publishedAt: publishedAtStr,
+        // Only include optional fields if they have values
+        ...(imageUrl && { imageUrl }),
+      };
+
+      // Validate against schema
+      const isValid = validateScrapedPost(candidate);
+      if (!isValid) {
+        console.warn(`Bright Data record failed AJV schema validation:`, validateScrapedPost.errors);
+        continue;
+      }
+
       await persistScrapedPost({
         accountId: pendingJob.profileId,
-        postUrl,
-        imageUrl: imageUrl || null,
-        content: caption || '',
-        publishedAt: datePosted ? new Date(datePosted) : new Date(),
+        postUrl: candidate.postUrl,
+        imageUrl: candidate.imageUrl || null,
+        content: candidate.content,
+        publishedAt: candidate.publishedAt,
       });
     } catch (error) {
       console.error(`Failed to persist post from Bright Data: ${postUrl}`, error);

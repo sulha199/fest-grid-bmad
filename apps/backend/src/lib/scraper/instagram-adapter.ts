@@ -2,10 +2,15 @@ import { ApifyApiError, ApifyClient } from 'apify-client';
 import { ScraperAdapter, ScraperAccountRef, ScrapedPost, AccountProfileLookupResult, ApifyRequestTimeoutError } from '@festgrid/domain';
 import { assertProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
 import { loadBackendEnv } from '../../env.js';
+import { compileValidator } from '../../validation/validate.js';
+import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
 
 const GET_POST_BY_URL_ACTOR = 'apify/instagram-post-scraper';
 const LOOKUP_ACCOUNT_PROFILE_ACTOR = 'apify/instagram-post-scraper';
 const GET_NEWEST_POSTS_ACTOR = 'apify/instagram-post-scraper';
+
+// Compile validator once at module scope to avoid recompilation per item
+const validateScrapedPost = compileValidator<ScrapedPost>(scrapedPostSchema);
 
 function normalizeApifyError(err: unknown, context: string): Error {
   if (err instanceof ApifyApiError) {
@@ -79,19 +84,31 @@ function withTimeoutOrThrow<T>(promise: Promise<T>, ms: number, message: string)
 }
 
 /**
- * Maps an Apify item to a ScrapedPost.
+ * Maps an Apify item to a ScrapedPost and validates against schema.
+ * Returns null if validation fails.
  */
-export function mapApifyItemToScrapedPost(item: any): ScrapedPost {
+export function mapApifyItemToScrapedPost(item: any): ScrapedPost | null {
   const publishedAt = item.timestamp || item.pubDate || item.publishedAt || new Date().toISOString();
   const postUrl = item.url || item.postUrl || `https://www.instagram.com/p/${item.shortCode || item.id || ''}/`;
+  const imageUrl = item.displayUrl || item.imageUrl;
+  const originalPostUrl = item.url || item.postUrl;
 
-  return {
+  const candidate: ScrapedPost = {
     content: item.caption || item.text || item.description || '',
-    imageUrl: item.displayUrl || item.imageUrl || undefined,
     postUrl,
-    originalPostUrl: item.url || item.postUrl || undefined,
     publishedAt,
+    // Only include optional fields if they have values (avoid undefined, which fails nullable check)
+    ...(imageUrl && { imageUrl }),
+    ...(originalPostUrl && { originalPostUrl }),
   };
+
+  const isValid = validateScrapedPost(candidate);
+  if (!isValid) {
+    console.error(`Apify item failed AJV validation:`, validateScrapedPost.errors);
+    return null;
+  }
+
+  return candidate;
 }
 
 /**
@@ -144,9 +161,13 @@ export const instagramScraperAdapter: ScraperAdapter = {
           return null;
         }
 
-        const mapped = mapApifyItemToScrapedPost(item);
+        const post = mapApifyItemToScrapedPost(item);
+        if (!post) {
+          return null;
+        }
+
         await recordProviderUsage('apify', 1);
-        return mapped;
+        return post;
       } catch (err) {
         throw normalizeApifyError(err, `fetching post by URL ${url}`);
       }
@@ -172,7 +193,9 @@ export const instagramScraperAdapter: ScraperAdapter = {
       }
 
       const items = await callApifyActor(input, GET_NEWEST_POSTS_ACTOR);
-      const mappedPosts = items.map(mapApifyItemToScrapedPost);
+      const mappedPosts = items
+        .map(mapApifyItemToScrapedPost)
+        .filter((post): post is ScrapedPost => post !== null);
 
       if (items.length > 0) {
         await recordProviderUsage('apify', items.length);
