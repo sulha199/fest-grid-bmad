@@ -272,6 +272,7 @@ export type Mutation = {
   resolveDefaultLocationChange: DefaultLocationChangeRequest;
   resolveReport: Report;
   resolveReportsForEvent: Array<Report>;
+  resolveScheduleTimezone: ResolveScheduleTimezoneResult;
   restoreEvent: Event;
   selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
@@ -395,6 +396,12 @@ export type MutationResolveReportArgs = {
 
 export type MutationResolveReportsForEventArgs = {
   eventId: Scalars['ID']['input'];
+};
+
+
+export type MutationResolveScheduleTimezoneArgs = {
+  scheduleId: Scalars['ID']['input'];
+  timezone: Scalars['String']['input'];
 };
 
 
@@ -709,6 +716,13 @@ export type ReportSystemErrorInput = {
   source: Scalars['String']['input'];
 };
 
+export type ResolveScheduleTimezoneResult = {
+  __typename?: 'ResolveScheduleTimezoneResult';
+  scheduleId: Scalars['ID']['output'];
+  timezone: Scalars['String']['output'];
+  timezoneStatus: ScheduleTimezoneStatus;
+};
+
 export type Schedule = {
   __typename?: 'Schedule';
   createdAt: Scalars['String']['output'];
@@ -727,8 +741,14 @@ export type Schedule = {
   ticketPrice?: Maybe<Scalars['String']['output']>;
   ticketUrl?: Maybe<Scalars['String']['output']>;
   timezone?: Maybe<Scalars['String']['output']>;
+  timezoneStatus?: Maybe<ScheduleTimezoneStatus>;
   updatedAt: Scalars['String']['output'];
 };
+
+export enum ScheduleTimezoneStatus {
+  NeedsClarification = 'NEEDS_CLARIFICATION',
+  Resolved = 'RESOLVED'
+}
 
 export type SetAccountDefaultLocationInput = {
   latitude?: InputMaybe<Scalars['Float']['input']>;
@@ -976,7 +996,9 @@ export type ResolversTypes = ResolversObject<{
   ReportReason: ReportReason;
   ReportStatus: ReportStatus;
   ReportSystemErrorInput: ReportSystemErrorInput;
+  ResolveScheduleTimezoneResult: ResolverTypeWrapper<ResolveScheduleTimezoneResult>;
   Schedule: ResolverTypeWrapper<Schedule>;
+  ScheduleTimezoneStatus: ScheduleTimezoneStatus;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
   SocialMediaAccountProfile: ResolverTypeWrapper<SocialMediaAccountProfile>;
   SoftDeleteAction: SoftDeleteAction;
@@ -1034,6 +1056,7 @@ export type ResolversParentTypes = ResolversObject<{
   RegionVoteBucket: RegionVoteBucket;
   Report: Report;
   ReportSystemErrorInput: ReportSystemErrorInput;
+  ResolveScheduleTimezoneResult: ResolveScheduleTimezoneResult;
   Schedule: Schedule;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
   SocialMediaAccountProfile: SocialMediaAccountProfile;
@@ -1209,6 +1232,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   resolveDefaultLocationChange?: Resolver<ResolversTypes['DefaultLocationChangeRequest'], ParentType, ContextType, RequireFields<MutationResolveDefaultLocationChangeArgs, 'action' | 'id'>>;
   resolveReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationResolveReportArgs, 'id' | 'outcome'>>;
   resolveReportsForEvent?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, RequireFields<MutationResolveReportsForEventArgs, 'eventId'>>;
+  resolveScheduleTimezone?: Resolver<ResolversTypes['ResolveScheduleTimezoneResult'], ParentType, ContextType, RequireFields<MutationResolveScheduleTimezoneArgs, 'scheduleId' | 'timezone'>>;
   restoreEvent?: Resolver<ResolversTypes['Event'], ParentType, ContextType, RequireFields<MutationRestoreEventArgs, 'action' | 'id'>>;
   selectPostsForExtraction?: Resolver<Array<ResolversTypes['Post']>, ParentType, ContextType, RequireFields<MutationSelectPostsForExtractionArgs, 'postIds'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
@@ -1325,6 +1349,13 @@ export type ReportResolvers<ContextType = GraphQLContext, ParentType extends Res
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type ResolveScheduleTimezoneResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ResolveScheduleTimezoneResult'] = ResolversParentTypes['ResolveScheduleTimezoneResult']> = ResolversObject<{
+  scheduleId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  timezone?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  timezoneStatus?: Resolver<ResolversTypes['ScheduleTimezoneStatus'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Schedule'] = ResolversParentTypes['Schedule']> = ResolversObject<{
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   eventEndDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -1342,6 +1373,7 @@ export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends R
   ticketPrice?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   ticketUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   timezone?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  timezoneStatus?: Resolver<Maybe<ResolversTypes['ScheduleTimezoneStatus']>, ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -1449,6 +1481,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   RankedAccountVote?: RankedAccountVoteResolvers<ContextType>;
   RegionVoteBucket?: RegionVoteBucketResolvers<ContextType>;
   Report?: ReportResolvers<ContextType>;
+  ResolveScheduleTimezoneResult?: ResolveScheduleTimezoneResultResolvers<ContextType>;
   Schedule?: ScheduleResolvers<ContextType>;
   SocialMediaAccountProfile?: SocialMediaAccountProfileResolvers<ContextType>;
   SubscribeToAccountResult?: SubscribeToAccountResultResolvers<ContextType>;

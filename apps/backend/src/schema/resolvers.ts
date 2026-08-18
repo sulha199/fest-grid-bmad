@@ -684,13 +684,13 @@ export const resolvers: Resolvers = {
     },
     toggleCalendarAddition: async (_: any, { eventId, scheduleId }: any, context: any) => {
       const authUser = requireAuth(context);
-      
+
       return await db.transaction(async (tx) => {
         const scheduleRows = await tx.select().from(schedules).where(eq(schedules.id, scheduleId));
         if (scheduleRows.length === 0) {
           throw new GraphQLError('Schedule not found', { extensions: { code: 'NOT_FOUND' } });
         }
-        
+
         const schedule = scheduleRows[0];
         if (schedule.eventId !== eventId) {
           throw new GraphQLError('Event ID mismatch', { extensions: { code: 'BAD_REQUEST' } });
@@ -698,7 +698,7 @@ export const resolvers: Resolvers = {
 
         const existingRows = await tx.select().from(calendarAdditions)
           .where(and(eq(calendarAdditions.userId, authUser.userId), eq(calendarAdditions.scheduleId, scheduleId)));
-        
+
         if (existingRows.length > 0) {
           const existing = existingRows[0];
           if (existing.deletedAt === null) {
@@ -724,6 +724,42 @@ export const resolvers: Resolvers = {
           return { eventId, scheduleId, isAddedToCalendar: true };
         }
       });
+    },
+    resolveScheduleTimezone: async (_: any, { scheduleId, timezone }: any, context: any) => {
+      const authUser = requireAuth(context);
+
+      if (!isValidIanaTimezone(timezone)) {
+        throw new GraphQLError('Invalid IANA timezone.', {
+          extensions: { code: 'BAD_REQUEST' }
+        });
+      }
+
+      const scheduleRows = await db.select().from(schedules).where(eq(schedules.id, scheduleId));
+      if (scheduleRows.length === 0) {
+        throw new GraphQLError('Schedule not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const schedule = scheduleRows[0];
+      if (schedule.timezoneStatus !== 'NEEDS_CLARIFICATION') {
+        throw new GraphQLError('Schedule timezone is not pending clarification.', {
+          extensions: { code: 'INVALID_STATE_TRANSITION' }
+        });
+      }
+
+      const [updated] = await db.update(schedules)
+        .set({
+          timezone,
+          timezoneStatus: 'RESOLVED' as any,
+          updatedAt: new Date(),
+        })
+        .where(eq(schedules.id, scheduleId))
+        .returning();
+
+      return {
+        scheduleId: updated.id,
+        timezone: updated.timezone,
+        timezoneStatus: updated.timezoneStatus,
+      };
     },
     registerFcmToken: async (_: any, { token }: any, context: any) => {
       const authUser = requireAuth(context);

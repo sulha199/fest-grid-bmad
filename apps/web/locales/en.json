@@ -95,7 +95,13 @@
     "correctDataMenuItemLabel": "Correct Data",
     "reportMenuItemLabel": "Report",
     "hiddenAfterReportTitle": "This event is no longer available to you",
-    "hiddenAfterReportBody": "You have reported this event and it has been hidden from your view."
+    "hiddenAfterReportBody": "You have reported this event and it has been hidden from your view.",
+    "timezoneClarificationLabel": "The timezone for this schedule couldn't be determined automatically. Please select or enter the correct timezone.",
+    "timezoneSelectLabel": "Timezone",
+    "timezoneSelectPlaceholder": "Enter timezone (e.g., UTC, America/New_York)",
+    "timezoneSubmitLabel": "Confirm",
+    "timezoneSubmitSuccessAnnouncement": "Timezone updated successfully",
+    "timezoneSubmitErrorAnnouncement": "Failed to update timezone. Please try again."
   },
   "EventReportForm": {
     "dialogTitle": "Report Event",

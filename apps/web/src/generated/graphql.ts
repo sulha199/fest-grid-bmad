@@ -276,6 +276,7 @@ export type Mutation = {
   resolveDefaultLocationChange: DefaultLocationChangeRequest;
   resolveReport: Report;
   resolveReportsForEvent: Array<Report>;
+  resolveScheduleTimezone: ResolveScheduleTimezoneResult;
   restoreEvent: Event;
   selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
@@ -399,6 +400,12 @@ export type MutationResolveReportArgs = {
 
 export type MutationResolveReportsForEventArgs = {
   eventId: Scalars['ID']['input'];
+};
+
+
+export type MutationResolveScheduleTimezoneArgs = {
+  scheduleId: Scalars['ID']['input'];
+  timezone: Scalars['String']['input'];
 };
 
 
@@ -713,6 +720,13 @@ export type ReportSystemErrorInput = {
   source: Scalars['String']['input'];
 };
 
+export type ResolveScheduleTimezoneResult = {
+  __typename?: 'ResolveScheduleTimezoneResult';
+  scheduleId: Scalars['ID']['output'];
+  timezone: Scalars['String']['output'];
+  timezoneStatus: ScheduleTimezoneStatus;
+};
+
 export type Schedule = {
   __typename?: 'Schedule';
   createdAt: Scalars['String']['output'];
@@ -731,8 +745,14 @@ export type Schedule = {
   ticketPrice?: Maybe<Scalars['String']['output']>;
   ticketUrl?: Maybe<Scalars['String']['output']>;
   timezone?: Maybe<Scalars['String']['output']>;
+  timezoneStatus?: Maybe<ScheduleTimezoneStatus>;
   updatedAt: Scalars['String']['output'];
 };
+
+export enum ScheduleTimezoneStatus {
+  NeedsClarification = 'NEEDS_CLARIFICATION',
+  Resolved = 'RESOLVED'
+}
 
 export type SetAccountDefaultLocationInput = {
   latitude?: InputMaybe<Scalars['Float']['input']>;
@@ -885,9 +905,6 @@ export enum WidgetTheme {
 
 
 
-
-
-
 export type GetSocialMediaAccountProfileByAccountIdQueryVariables = Exact<{
   platform: string;
   accountId: string;
@@ -939,6 +956,14 @@ export type ToggleCalendarAdditionMutationVariables = Exact<{
 
 export type ToggleCalendarAdditionMutation = { toggleCalendarAddition: { eventId: string, scheduleId: string, isAddedToCalendar: boolean } };
 
+export type ResolveScheduleTimezoneMutationVariables = Exact<{
+  scheduleId: string | number;
+  timezone: string;
+}>;
+
+
+export type ResolveScheduleTimezoneMutation = { resolveScheduleTimezone: { scheduleId: string, timezone: string, timezoneStatus: ScheduleTimezoneStatus } };
+
 export type GetEventsQueryVariables = Exact<{
   limit?: number | null | undefined;
   offset?: number | null | undefined;
@@ -960,7 +985,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, isFavorited: boolean, isHiddenForCurrentUser: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, displayName: string, profileImageUrl: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, isFavorited: boolean, isHiddenForCurrentUser: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, displayName: string, profileImageUrl: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetEventForIcsExportQueryVariables = Exact<{
   id: string | number;
@@ -1536,6 +1561,33 @@ export const useToggleCalendarAdditionMutation = <
   }
     )};
 
+export const ResolveScheduleTimezoneDocument = new TypedDocumentString(`
+    mutation resolveScheduleTimezone($scheduleId: ID!, $timezone: String!) {
+  resolveScheduleTimezone(scheduleId: $scheduleId, timezone: $timezone) {
+    scheduleId
+    timezone
+    timezoneStatus
+  }
+}
+    `);
+
+export const useResolveScheduleTimezoneMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ResolveScheduleTimezoneMutation, TError, ResolveScheduleTimezoneMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ResolveScheduleTimezoneMutation, TError, ResolveScheduleTimezoneMutationVariables, TContext>(
+      {
+    mutationKey: ['resolveScheduleTimezone'],
+    mutationFn: (variables?: ResolveScheduleTimezoneMutationVariables) => fetcher<ResolveScheduleTimezoneMutation, ResolveScheduleTimezoneMutationVariables>(client, ResolveScheduleTimezoneDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
 export const GetEventsDocument = new TypedDocumentString(`
     query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
   events(limit: $limit, offset: $offset, query: $query) {
@@ -1639,6 +1691,8 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
       eventEndDate
       eventStartTime
       eventEndTime
+      timezone
+      timezoneStatus
       performers
       location
       locationDetails {

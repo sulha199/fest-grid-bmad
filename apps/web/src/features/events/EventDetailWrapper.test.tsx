@@ -174,6 +174,21 @@ const handlers = [
       },
     })
   }),
+  api.mutation("resolveScheduleTimezone", ({ variables }) => {
+    const { scheduleId, timezone } = variables as any
+    if (!timezone || timezone === "invalid") {
+      return HttpResponse.json({ errors: [{ message: "Invalid timezone" }] })
+    }
+    return HttpResponse.json({
+      data: {
+        resolveScheduleTimezone: {
+          scheduleId,
+          timezone,
+          timezoneStatus: "RESOLVED",
+        },
+      },
+    })
+  }),
 ]
 
 describe("EventDetailWrapper", () => {
@@ -206,6 +221,8 @@ describe("EventDetailWrapper", () => {
           eventEndDate: null,
           eventStartTime: null,
           eventEndTime: null,
+          timezone: null,
+          timezoneStatus: "NEEDS_CLARIFICATION",
           performers: [],
           location: "Stage 1",
           locationDetails: null,
@@ -221,6 +238,8 @@ describe("EventDetailWrapper", () => {
           eventEndDate: null,
           eventStartTime: null,
           eventEndTime: null,
+          timezone: "UTC",
+          timezoneStatus: "RESOLVED",
           performers: [],
           location: "Stage 2",
           locationDetails: null,
@@ -537,5 +556,84 @@ describe("EventDetailWrapper", () => {
     // Nothing to prefetch either — a genuine cold/direct-URL open has no known
     // adjacent target, so the route-level RouteLoader is expected here.
     expect(mockRouterPrefetch).not.toHaveBeenCalled()
+  })
+
+  it("renders timezone clarification indicator for NEEDS_CLARIFICATION schedule", async () => {
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    // The first schedule (sched_1) has NEEDS_CLARIFICATION, should render indicator
+    const timezoneLabel = await screen.findByText("EventDetailsPage.timezoneClarificationLabel")
+    expect(timezoneLabel).toBeInTheDocument()
+  })
+
+  it("does not render timezone clarification indicator for RESOLVED schedule", async () => {
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    // Should render twice (once for each schedule), but second one (sched_2) should not have it
+    const clarificationLabels = screen.queryAllByText("EventDetailsPage.timezoneClarificationLabel")
+    expect(clarificationLabels).toHaveLength(1) // Only first schedule
+  })
+
+  it("unauthenticated timezone submit redirects to /login", async () => {
+    mockSession = null // Unauthenticated
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const timezoneInput = await screen.findByPlaceholderText("EventDetailsPage.timezoneSelectPlaceholder") as HTMLInputElement
+    fireEvent.change(timezoneInput, { target: { value: "America/New_York" } })
+
+    const submitButton = await screen.findByRole("button", { name: "EventDetailsPage.timezoneSubmitLabel" })
+    fireEvent.click(submitButton)
+
+    // Should redirect to login, not call mutation
+    expect(mockRouterPush).toHaveBeenCalledWith("/login")
+  })
+
+  it("authenticated timezone submit calls mutation and shows success message", async () => {
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const timezoneInput = await screen.findByPlaceholderText("EventDetailsPage.timezoneSelectPlaceholder") as HTMLInputElement
+    fireEvent.change(timezoneInput, { target: { value: "America/New_York" } })
+
+    const submitButton = await screen.findByRole("button", { name: "EventDetailsPage.timezoneSubmitLabel" })
+    fireEvent.click(submitButton)
+
+    // Optimistic update should show success announcement in live region
+    const liveRegion = document.querySelector('[aria-live="polite"]')
+    await waitFor(() => {
+      expect(liveRegion?.textContent).toContain("EventDetailsPage.timezoneSubmitSuccessAnnouncement")
+    })
+  })
+
+  it("timezone submit failure shows error message and rolls back optimistic update", async () => {
+    // Override handler for this test to return error
+    globalServer.use(
+      graphql.link("*/api/graphql").mutation("resolveScheduleTimezone", () => {
+        return HttpResponse.json({ errors: [{ message: "Mutation failed" }] })
+      })
+    )
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const timezoneInput = await screen.findByPlaceholderText("EventDetailsPage.timezoneSelectPlaceholder") as HTMLInputElement
+    fireEvent.change(timezoneInput, { target: { value: "America/New_York" } })
+
+    const submitButton = await screen.findByRole("button", { name: "EventDetailsPage.timezoneSubmitLabel" })
+    fireEvent.click(submitButton)
+
+    // Error message should appear in live region
+    const liveRegion = document.querySelector('[aria-live="polite"]')
+    await waitFor(() => {
+      expect(liveRegion?.textContent).toContain("EventDetailsPage.timezoneSubmitErrorAnnouncement")
+    })
   })
 })

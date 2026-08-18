@@ -95,7 +95,13 @@
     "correctDataMenuItemLabel": "Koreksi Data",
     "reportMenuItemLabel": "Laporkan",
     "hiddenAfterReportTitle": "Acara ini tidak lagi tersedia untuk Anda",
-    "hiddenAfterReportBody": "Anda telah melaporkan acara ini dan telah disembunyikan dari tampilan Anda."
+    "hiddenAfterReportBody": "Anda telah melaporkan acara ini dan telah disembunyikan dari tampilan Anda.",
+    "timezoneClarificationLabel": "Zona waktu untuk jadwal ini tidak dapat ditentukan secara otomatis. Silakan pilih atau masukkan zona waktu yang benar.",
+    "timezoneSelectLabel": "Zona Waktu",
+    "timezoneSelectPlaceholder": "Masukkan zona waktu (misalnya, UTC, Asia/Jakarta)",
+    "timezoneSubmitLabel": "Konfirmasi",
+    "timezoneSubmitSuccessAnnouncement": "Zona waktu berhasil diperbarui",
+    "timezoneSubmitErrorAnnouncement": "Gagal memperbarui zona waktu. Silakan coba lagi."
   },
   "EventReportForm": {
     "dialogTitle": "Laporkan Acara",
@@ -366,7 +372,8 @@
     "resolvingAddressLabel": "mencari alamat...",
     "addressPreviewErrorFallback": "Lokasi saat ini ({lat}, {lng})",
     "saveButtonLabel": "Simpan",
-    "savingAnnouncement": "Menyimpan lokasi..."
+    "savingAnnouncement": "Menyimpan lokasi...",
+    "scraperCapacityExceededToast": "Penggunaan Apify saat ini penuh. Langganan baru ditunda hingga siklus ulang berikutnya."
   },
   "NearbyFilter": {
     "filterLabel": "Terdekat",

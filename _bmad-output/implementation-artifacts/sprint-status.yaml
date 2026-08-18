@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-16T21:45:00Z
+last_updated: 2026-08-18T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -534,6 +534,17 @@ development_status:
   # all run fresh (3.4f postdates epic-3-readiness.md's sweep) -- all three: no gap.
   # Ready for bmad-dev-story or bmad-quick-dev.
   3-4f-fix-missing-lambda-timeouts-and-extend-async-job-handling-to-apifys-long-running-scrape-paths: review
+  # added 2026-08-18 via bmad-create-story: user-identified compliance gap against
+  # project-context.md's Runtime Schema Validation rule (neither scraper vendor path --
+  # Apify nor Bright Data -- got AJV validation, only the Gemini path did). Scope
+  # expanded from Apify-only to both vendors during story creation once the same gap
+  # was confirmed on the Bright Data path (process-brightdata-result.ts), which also
+  # surfaced two pre-existing bugs this story's work directly fixes: a broken
+  # persistScrapedPost import (confirmed via tsc TS2307) in two files, and a
+  # Date-vs-string publishedAt mismatch. Gate 1/2/3: no gap (reuses Story 0.11's
+  # compileValidator/AJV foundation as-is; epic-3-readiness.md already swept
+  # 2026-08-09; no UI surface).
+  3-4g-validate-scraped-posts-from-apify-and-brightdata-with-ajv-schema: ready-for-dev
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap); Gate 2 run fresh (no gap, zero UI
@@ -584,7 +595,7 @@ development_status:
   # schedules.timezoneStatus = 'NEEDS_CLARIFICATION' (3.6a) is written but nothing
   # displays/resolves it yet. Depends on 3.6b and 3.7 both existing first. See
   # epics.md Story 3.6d note.
-  3-6d-surface-schedules-flagged-as-needing-timezone-clarification: ready-for-dev
+  3-6d-surface-schedules-flagged-as-needing-timezone-clarification: review
   # added 2026-08-10 via bmad-create-story Gate 2 finding (Freya persona, run fresh
   # since epic-3-readiness.md only swept Gate 1/3) while drafting Story 3.7: Feed's
   # planned calendar view would be a third near-byte-for-byte duplicate of

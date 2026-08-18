@@ -60,6 +60,8 @@ query getEventBySlug($slug: String!) {
       eventEndDate
       eventStartTime
       eventEndTime
+      timezone
+      timezoneStatus
       performers
       location
       locationDetails {

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from "react"
-import { useGetEventBySlugQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useMeQuery } from "@/generated/graphql"
+import { useGetEventBySlugQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useResolveScheduleTimezoneMutation, useMeQuery } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
@@ -156,6 +156,41 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
         eventId: variables.eventId,
         scheduleId: variables.scheduleId,
       })
+    },
+  })
+
+  const { mutate: resolveScheduleTimezone } = useResolveScheduleTimezoneMutation(graphqlClient, {
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: ["getEventBySlug"] })
+      const previousData = queryClient.getQueriesData({ queryKey: ["getEventBySlug"] })[0]?.[1]
+
+      queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, (old: unknown) => {
+        const typedOld = old as any
+        if (!typedOld?.eventBySlug) return typedOld
+        return {
+          ...typedOld,
+          eventBySlug: {
+            ...typedOld.eventBySlug,
+            schedules: (typedOld.eventBySlug.schedules || []).map((s: any) => {
+              if (s.id === variables.scheduleId) {
+                return { ...s, timezone: variables.timezone, timezoneStatus: 'RESOLVED' }
+              }
+              return s
+            }),
+          },
+        }
+      })
+
+      return { previousData }
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, context.previousData)
+      }
+      setLiveMessage(t("timezoneSubmitErrorAnnouncement"))
+    },
+    onSuccess: () => {
+      setLiveMessage(t("timezoneSubmitSuccessAnnouncement"))
     },
   })
 
@@ -358,6 +393,13 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
           }
         },
         onAddToCalendar: handleAddToCalendar,
+        onResolveScheduleTimezone: (scheduleId: string, timezone: string) => {
+          if (!session) {
+            router.push("/login")
+            return
+          }
+          resolveScheduleTimezone({ scheduleId, timezone })
+        },
         onCorrectData: () => {
           if (!session) {
             router.push("/login")

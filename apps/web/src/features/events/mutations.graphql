@@ -12,3 +12,11 @@ mutation toggleCalendarAddition($eventId: ID!, $scheduleId: ID!) {
     isAddedToCalendar
   }
 }
+
+mutation resolveScheduleTimezone($scheduleId: ID!, $timezone: String!) {
+  resolveScheduleTimezone(scheduleId: $scheduleId, timezone: $timezone) {
+    scheduleId
+    timezone
+    timezoneStatus
+  }
+}

@@ -8,6 +8,8 @@ export interface ScheduleDetail {
   eventEndDate?: string | null;
   eventStartTime?: string | null;
   eventEndTime?: string | null;
+  timezone?: string | null;
+  timezoneStatus?: 'RESOLVED' | 'NEEDS_CLARIFICATION' | null;
   title?: string | null;
   performers?: string | null;
   location?: string | null;
@@ -41,6 +43,12 @@ export interface EventDetailViewLabels {
   moreActionsButtonLabel: string;
   correctDataMenuItemLabel: string;
   reportMenuItemLabel?: string;
+  timezoneClarificationLabel: string;
+  timezoneSelectLabel: string;
+  timezoneSelectPlaceholder: string;
+  timezoneSubmitLabel: string;
+  timezoneSubmitSuccessAnnouncement: string;
+  timezoneSubmitErrorAnnouncement: string;
 }
 
 /**
@@ -79,10 +87,11 @@ export interface EventDetailViewProps {
   // Handlers (AC11)
   isFavorited?: boolean;
   onFavoriteToggle?: () => void;
-  
+
   isAuthenticated?: boolean;
   isAddedToCalendar?: boolean;
   onAddToCalendar?: (selectedScheduleIds: string[]) => void;
+  onResolveScheduleTimezone?: (scheduleId: string, timezone: string) => void;
   onCorrectData?: () => void;
   onReport?: () => void;
 }

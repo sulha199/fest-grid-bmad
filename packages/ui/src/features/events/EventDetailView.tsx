@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus, MoreVertical } from 'lucide-react';
+import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus, MoreVertical, AlertCircle } from 'lucide-react';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from './EventDetailView.types';
 import { EventImage } from './EventImage';
 
@@ -35,6 +35,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   isAuthenticated = true,
   isAddedToCalendar,
   onAddToCalendar,
+  onResolveScheduleTimezone,
   onCorrectData,
   onReport,
 }) => {
@@ -44,6 +45,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const menuContainerRef = React.useRef<HTMLDivElement>(null);
   const menuTriggerRef = React.useRef<HTMLButtonElement>(null);
+
+  const [timezoneStates, setTimezoneStates] = React.useState<Record<string, { value: string }>>({})
 
   const menuActions = React.useMemo(() => {
     const list: { label: string; onClick: () => void }[] = [];
@@ -287,13 +290,45 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                 <li key={idx} className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg flex flex-col gap-3">
                   <h3 className="font-semibold text-lg flex items-center gap-2">
                     <CalendarDays className="w-5 h-5 text-gray-500" />
-                    { 
-                      scheduleAsHeader ? 
-                        formatScheduleDate(schedule) : 
+                    {
+                      scheduleAsHeader ?
+                        formatScheduleDate(schedule) :
                         (schedule.title || `${labels.defaultScheduleTitle} ${idx + 1}`)
                     }
                   </h3>
-                  
+
+                  {schedule.timezoneStatus === 'NEEDS_CLARIFICATION' && onResolveScheduleTimezone && (
+                    <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
+                      <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-500 shrink-0 mt-0.5" />
+                      <div className="flex-1 flex flex-col gap-2">
+                        <p className="text-sm text-yellow-800 dark:text-yellow-200">{labels.timezoneClarificationLabel}</p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={timezoneStates[schedule.id]?.value || ''}
+                            onChange={(e) => setTimezoneStates(prev => ({ ...prev, [schedule.id]: { value: e.target.value } }))}
+                            placeholder={labels.timezoneSelectPlaceholder}
+                            className="px-2 py-1 text-sm border border-yellow-300 dark:border-yellow-700 bg-white dark:bg-gray-900 rounded text-gray-900 dark:text-gray-100"
+                            aria-label={labels.timezoneSelectLabel}
+                          />
+                          <button
+                            onClick={() => {
+                              const value = timezoneStates[schedule.id]?.value;
+                              if (value) {
+                                onResolveScheduleTimezone(schedule.id, value);
+                                setTimezoneStates(prev => ({ ...prev, [schedule.id]: { value: '' } }));
+                              }
+                            }}
+                            disabled={!timezoneStates[schedule.id]?.value}
+                            className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {labels.timezoneSubmitLabel}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className={`flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-400 ${scheduleAsHeader ? "" : "ml-7"}`}>
                     {!scheduleAsHeader && (
                       <p className="font-medium text-gray-900 dark:text-gray-100">

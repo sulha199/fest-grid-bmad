@@ -31,6 +31,11 @@ enum EventCategory {
   OTHER
 }
 
+enum ScheduleTimezoneStatus {
+  RESOLVED
+  NEEDS_CLARIFICATION
+}
+
 type Coordinates {
   lat: Float!
   lng: Float!
@@ -53,6 +58,7 @@ type Schedule {
   eventStartTime: String
   eventEndTime: String
   timezone: String
+  timezoneStatus: ScheduleTimezoneStatus
   performers: [String!]
   location: String
   locationDetails: LocationDetails
@@ -109,7 +115,14 @@ extend type Query {
   eventBySlug(slug: String!, includeMyArchived: Boolean): Event
 }
 
+type ResolveScheduleTimezoneResult {
+  scheduleId: ID!
+  timezone: String!
+  timezoneStatus: ScheduleTimezoneStatus!
+}
+
 extend type Mutation {
   restoreEvent(id: ID!, action: SoftDeleteAction!): Event!
   deleteEventPermanently(id: ID!): Boolean!
+  resolveScheduleTimezone(scheduleId: ID!, timezone: String!): ResolveScheduleTimezoneResult!
 }
