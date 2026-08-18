@@ -1,3 +1,7 @@
+---
+baseline_commit: 5a6c7e4f5a8f1fcafe0a1c7ef5df471effb27082
+---
+
 # Story 3.4a: Add Bright Data as the priority scraping vendor for the scheduled batch
 
 ## Story Details
@@ -266,7 +270,12 @@ Story 3.3c's `ScraperAdapter` interface is platform-keyed (`instagram` → one a
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Tasks 1-10: Core Bright Data integration modules implemented
+- [x] Database migration generated and applied
+- [x] Environment variables configured
+- [ ] CDK infrastructure wiring (paths need correction)
+- [ ] Full build pass and tests
+- [ ] Documentation updates
 
 ## Dev Agent Record
 

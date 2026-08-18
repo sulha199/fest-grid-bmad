@@ -4,6 +4,21 @@ import { isCycleElapsed, nextCycleReset, ScraperCapacityExceededError } from '@f
 import { eq } from 'drizzle-orm';
 import { loadBackendEnv } from '../../env.js';
 
+// Helper to get provider-specific pricing and budget
+function getProviderPricing(provider: string, env: ReturnType<typeof loadBackendEnv>) {
+  if (provider === 'brightdata') {
+    return {
+      pricePerThousandItemsUsd: env.brightdataPricePerThousandItemsUsd ?? 1.5,
+      monthlyBudgetUsd: env.brightdataMonthlyBudgetUsd ?? 7.5,
+    };
+  }
+  // default to apify values
+  return {
+    pricePerThousandItemsUsd: env.scraperPricePerThousandItemsUsd ?? 2.3,
+    monthlyBudgetUsd: env.scraperMonthlyBudgetUsd ?? 10,
+  };
+}
+
 export async function recordProviderUsage(provider: string, itemCount: number): Promise<void> {
   const env = loadBackendEnv();
   const cycleDays = env.scraperUsageCycleDays;
@@ -55,8 +70,10 @@ export async function isProviderCapacityAvailable(provider: string): Promise<boo
     itemsUsed = 0; // Usage has conceptually reset
   }
 
-  const estimatedUsd = itemsUsed * (env.scraperPricePerThousandItemsUsd / 1000);
-  const budgetLimit = env.scraperMonthlyBudgetUsd * env.scraperCapacityThresholdRatio;
+  const { pricePerThousandItemsUsd, monthlyBudgetUsd } = getProviderPricing(provider, env);
+
+  const estimatedUsd = itemsUsed * (pricePerThousandItemsUsd / 1000);
+  const budgetLimit = monthlyBudgetUsd * env.scraperCapacityThresholdRatio;
 
   return estimatedUsd < budgetLimit;
 }

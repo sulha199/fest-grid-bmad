@@ -1,5 +1,5 @@
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
+import { socialMediaAccountProfiles, subscriptions, brightdataPendingJobs } from '@festgrid/database';
 import { activeOnly } from '@festgrid/graphql-select';
 import { SUPPORTED_PLATFORMS, SupportedPlatform } from '@festgrid/domain';
 import { loadBackendEnv } from '../../env.js';
@@ -24,20 +24,24 @@ export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {
     accountId: socialMediaAccountProfiles.accountId,
     username: socialMediaAccountProfiles.username,
   })
-  .from(socialMediaAccountProfiles)
-  .innerJoin(subscriptions, eq(subscriptions.accountId, socialMediaAccountProfiles.id))
-  .where(
-    and(
-      activeOnly(subscriptions),
-      or(
-        isNull(socialMediaAccountProfiles.lastScrapedAt),
-        lt(socialMediaAccountProfiles.lastScrapedAt, cutoffDate)
+    .from(socialMediaAccountProfiles)
+    .innerJoin(subscriptions, eq(subscriptions.accountId, socialMediaAccountProfiles.id))
+    .where(
+      and(
+        activeOnly(subscriptions),
+        or(
+          isNull(socialMediaAccountProfiles.lastScrapedAt),
+          lt(socialMediaAccountProfiles.lastScrapedAt, cutoffDate)
+        )
       )
-    )
-  );
+    );
 
-  // TypeScript deduplication by profileId
-  const distinctRows = Array.from(new Map(rows.map(r => [r.profileId, r])).values());
+  // Exclude profiles that already have a pending Bright Data job
+  const pendingRows = await db.select({ profileId: brightdataPendingJobs.profileId }).from(brightdataPendingJobs);
+  const pendingSet = new Set(pendingRows.map(p => p.profileId));
+
+  // TypeScript deduplication by profileId and filter pending
+  const distinctRows = Array.from(new Map(rows.map(r => [r.profileId, r])).values()).filter(r => !pendingSet.has(r.profileId));
 
   const targets: ScrapeTarget[] = [];
   for (const row of distinctRows) {

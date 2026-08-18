@@ -31,6 +31,26 @@ export interface BackendEnv {
   queueNotificationThresholdDays: number;
   queueNotificationThresholdCount: number;
   queueNotificationCooldownDays: number;
+  // Bright Data integration env vars
+  brightdataApiToken?: string;
+  brightdataDatasetId?: string;
+  brightdataWebhookBaseUrl?: string;
+  brightdataJobTimeoutMinutes?: number;
+  brightdataPricePerThousandItemsUsd?: number;
+  brightdataMonthlyBudgetUsd?: number;
+  brightdataWebhookSecret?: string;
+  brightdataWebhookDlqArn?: string;
+}
+
+/** Validate that required Bright Data vars are present */
+function assertBrightDataEnv(env: BackendEnv) {
+  const missing: string[] = [];
+  if (!env.brightdataApiToken) missing.push('BRIGHTDATA_API_TOKEN');
+  if (!env.brightdataDatasetId) missing.push('BRIGHTDATA_DATASET_ID');
+  if (!env.brightdataWebhookBaseUrl) missing.push('BRIGHTDATA_WEBHOOK_BASE_URL');
+  if (missing.length) {
+    throw new Error(`Missing required Bright Data environment variables: ${missing.join(', ')}. Please add them to your .env file.`);
+  }
 }
 
 export function loadBackendEnv(): BackendEnv {
@@ -47,7 +67,7 @@ export function loadBackendEnv(): BackendEnv {
   // Fallbacks for various cwd environments
   dotenv.config({ path: resolve(process.cwd(), '../../.env') });
   dotenv.config({ path: resolve(process.cwd(), '.env') });
-  
+
   const portStr = process.env.BACKEND_PORT;
   if (!portStr) {
     throw new Error('BACKEND_PORT is not defined in environment variables.');
@@ -58,10 +78,10 @@ export function loadBackendEnv(): BackendEnv {
     throw new Error('BACKEND_PORT must be a valid number.');
   }
 
-  return { 
-    port, 
+  const env: BackendEnv = {
+    port,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
-    supabaseUrl: process.env.SUPABASE_URL, 
+    supabaseUrl: process.env.SUPABASE_URL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     databaseUrl: process.env.DATABASE_URL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
@@ -71,7 +91,7 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     firebaseClientEmail: process.env.FIREBASE_CLIENT_EMAIL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
-    firebasePrivateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
+    firebasePrivateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\\\n/g, '\\n') : undefined,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     sesFromEmailAddress: process.env.SES_FROM_EMAIL_ADDRESS,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
@@ -116,5 +136,27 @@ export function loadBackendEnv(): BackendEnv {
     queueNotificationThresholdCount: parseInt(process.env.QUEUE_NOTIFICATION_THRESHOLD_COUNT || '3', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     queueNotificationCooldownDays: parseInt(process.env.QUEUE_NOTIFICATION_COOLDOWN_DAYS || '7', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataApiToken: process.env.BRIGHTDATA_API_TOKEN,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataDatasetId: process.env.BRIGHTDATA_DATASET_ID || 'gd_lk5ns7kz21pck8jpis',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataWebhookBaseUrl: process.env.BRIGHTDATA_WEBHOOK_BASE_URL,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataJobTimeoutMinutes: parseInt(process.env.BRIGHTDATA_JOB_TIMEOUT_MINUTES || '180', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataPricePerThousandItemsUsd: parseFloat(process.env.BRIGHTDATA_PRICE_PER_1000_ITEMS_USD || '1.50'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataMonthlyBudgetUsd: parseFloat(process.env.BRIGHTDATA_MONTHLY_BUDGET_USD || '7.50'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataWebhookSecret: process.env.BRIGHTDATA_WEBHOOK_SECRET,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataWebhookDlqArn: process.env.BRIGHTDATA_WEBHOOK_DLQ_ARN,
   };
+
+  // Ensure required Bright Data variables are present (webhook base URL is set post-deploy by CDK)
+  // For local dev without CDK, skip this check if BRIGHTDATA_WEBHOOK_BASE_URL is not set
+  // assertBrightDataEnv(env);
+
+  return env;
 }

@@ -35,6 +35,19 @@ export const scheduleTimezoneStatusEnum = pgEnum('schedule_timezone_status', ['R
 
 export const correctionSourceEnum = pgEnum('correction_source', ['manual', 'ai_assisted']);
 export const correctionStatusEnum = pgEnum('correction_status', ['pending', 'applied', 'rejected']);
+export const brightdataJobStatusEnum = pgEnum('brightdata_job_status', ['PENDING', 'COMPLETED', 'EXPIRED']);
+
+export const brightdataPendingJobs = pgTable('brightdata_pending_jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  snapshotId: text('snapshot_id').notNull().unique(),
+  webhookToken: text('webhook_token').notNull().unique(),
+  status: brightdataJobStatusEnum('status').default('PENDING').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  ...timestamps,
+}, (t) => ({
+  statusExpiresIdx: index('idx_brightdata_pending_jobs_status_expires').on(t.status, t.expiresAt)
+}));
 
 export const reportReasonEnum = pgEnum('report_reason', ['cancelled', 'dangerous', 'personal']);
 export const reportStatusEnum = pgEnum('report_status', ['pending', 'upheld', 'dismissed']);

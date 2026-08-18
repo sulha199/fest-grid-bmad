@@ -208,5 +208,56 @@ export class FestgridBackendStack extends cdk.Stack {
       description: 'The API Gateway invoke URL',
       exportName: `festgrid-api-url-${stageName}`,
     });
+    // BrightData Trigger Lambda (scheduled)
+    const brightDataTriggerLambda = new nodejs.NodejsFunction(this, `BrightDataTrigger-${stageName}`, {
+      entry: path.resolve(projectRoot, 'apps/backend/src/lambda/trigger-brightdata-for-target.lambda.ts'),
+      handler: 'handler',
+      ...sharedLambdaProps,
+      environment: {
+        STAGE: stageName,
+        DATABASE_URL: process.env.DATABASE_URL || '',
+        BRIGHTDATA_WEBHOOK_BASE_URL: process.env.BRIGHTDATA_WEBHOOK_BASE_URL || '',
+      },
+    });
+
+    // BrightData Webhook Lambda (invoked by BrightData)
+    const brightDataWebhookLambda = new nodejs.NodejsFunction(this, `BrightDataWebhook-${stageName}`, {
+      entry: path.resolve(projectRoot, 'apps/backend/src/lambda/brightdata-webhook.lambda.ts'),
+      handler: 'handler',
+      ...sharedLambdaProps,
+      environment: {
+        STAGE: stageName,
+        DATABASE_URL: process.env.DATABASE_URL || '',
+        BRIGHTDATA_WEBHOOK_SECRET: process.env.BRIGHTDATA_WEBHOOK_SECRET || '',
+        BRIGHTDATA_WEBHOOK_DLQ_ARN: process.env.BRIGHTDATA_WEBHOOK_DLQ_ARN || '',
+      },
+    });
+
+    // Stale Job Sweep Lambda (scheduled)
+    const staleJobSweepLambda = new nodejs.NodejsFunction(this, `StaleJobSweep-${stageName}`, {
+      entry: path.resolve(projectRoot, 'apps/backend/src/lambda/stale-job-sweep.lambda.ts'),
+      handler: 'handler',
+      ...sharedLambdaProps,
+      environment: {
+        STAGE: stageName,
+        DATABASE_URL: process.env.DATABASE_URL || '',
+      },
+    });
+
+    // Schedule BrightData Trigger (daily)
+    const brightDataTriggerRule = new events.Rule(this, `BrightDataTriggerRule-${stageName}`, {
+      schedule: events.Schedule.rate(cdk.Duration.days(1)),
+    });
+    brightDataTriggerRule.addTarget(new targets.LambdaFunction(brightDataTriggerLambda));
+
+    // Schedule Stale Job Sweep (hourly)
+    const staleJobSweepRule = new events.Rule(this, `StaleJobSweepRule-${stageName}`, {
+      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+    });
+    staleJobSweepRule.addTarget(new targets.LambdaFunction(staleJobSweepLambda));
+
+    // Grant permissions for BrightData trigger to enqueue scraping jobs
+    scrapingQueue.grantSendMessages(brightDataTriggerLambda);
+
   }
 }
