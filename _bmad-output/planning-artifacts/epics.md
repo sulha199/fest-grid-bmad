@@ -1937,6 +1937,51 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.4 (the `instagram-adapter.ts` this story modifies), Story 3.4a (the Bright Data path this story modifies), Story 3.4f (`processApifyAsyncResult`, the third Apify call site this story updates), Story 0.11 (the `compileValidator`/AJV foundation this story reuses as-is).
 
+### Story 3.4h: Capture and surface data format anomalies from scraper vendors
+
+**As a** platform operator and content moderator,
+**I want** AJV validation failures detected by Story 3-4g to be captured, persisted, and surfaced in a daily digest email with full context,
+**So that** I can investigate data quality issues from scraper vendors, reprocess failed payloads with historical parser versions, and track data anomalies over time without losing context when validation gates drop invalid data.
+
+**Acceptance Criteria:**
+
+1.  When Story 3-4g's AJV validation fails in any scraper path (Apify, Bright Data, or Gemini extraction), the malformed payload is captured with full context — raw JSON, validation error, scraper vendor, account ID, post URL, timestamp, and parser version — and persisted to a new `unprocessed_scraper_payloads` table before being discarded.
+2.  A new `parser_version_registry` table tracks all historical parser versions ever deployed, with semantic version strings, deployment timestamps, and active status flags.
+3.  A user-configurable retention TTL (`UNPROCESSED_PAYLOAD_RETENTION_DAYS`, default 30 days) determines when payloads auto-delete via a daily Lambda (02:00 UTC).
+4.  A GraphQL query `queryUnprocessedPayloads(filters: {source, vendor, createdAfter, createdBefore}, cursor, limit)` returns paginated, filterable payloads — raw JSON + error + context, untruncated — for Story 3-4i's moderator UI to consume.
+5.  A GraphQL mutation `reprocessPayload(payloadId: ID!, parserVersion: String!): ReprocessResult!` enqueues a stored payload to the `AIProcessingQueue` with the selected parser version, returning a tracking ID or status — moderators can choose from any historical parser version available in `parser_version_registry`.
+6.  A daily digest email (08:00 UTC) is sent to all moderators summarizing anomalies grouped by source (Apify, Bright Data, Gemini), with sample error messages and a link to the moderator dashboard (Story 3-4i).
+7.  A GraphQL mutation `deleteUnprocessedPayload(payloadId: ID!)` allows moderators to manually soft-delete a payload from the retention queue.
+8.  All mutations are `requireModerator`-gated; the query is also `requireModerator`-scoped.
+
+**Note (2026-08-18, added via `bmad-create-story` as user-identified follow-up to Story 3-4g):** Story 3-4g detects validation failures and drops invalid payloads; this story captures those failures before they're lost, persists them with parser versioning infrastructure, and enables moderator-driven investigation and recovery. Separated from Story 3-4g to keep validation focused on detection, and from Story 3-4i to keep infrastructure separate from moderator UI. Full detail in the story file (`_bmad-output/implementation-artifacts/3-4h-capture-and-surface-data-format-anomalies.md`).
+
+**Amendment (2026-08-18, user clarification during story creation):** Parser versioning is full-featured — moderators can select *any* historical parser version when re-processing, not just the current one. Re-processing enqueues asynchronously (does not block the moderator action). Retention TTL is user-configurable via environment variable.
+
+**Depends on:** Story 3-4g (validation detection), Story 3.5 (AIProcessingQueue for enqueue), Story 0.15 (email adapter for daily digest), Story 4.7a (moderator auth).
+
+### Story 3.4i: Moderator unprocessed-payload browser and re-processing UI
+
+**As a** content moderator,
+**I want** a dedicated page in the moderator tools to browse unprocessed payloads captured by Story 3-4h, filter by anomaly source and date, select a parser version, and trigger re-processing,
+**So that** I can investigate data quality issues and recover failed extractions without developer intervention.
+
+**Acceptance Criteria:**
+
+1.  A new route `/moderator/unprocessed-payloads` displays a filterable, paginated list of unprocessed payloads (via the `queryUnprocessedPayloads` query from Story 3-4h).
+2.  Filters include: source (Apify / Bright Data / Gemini), vendor (Instagram, etc.), date range (createdAfter/createdBefore), and sort order (newest/oldest).
+3.  Each payload item in the list shows: timestamp, source/vendor, account ID, post URL, validation error message (one-line summary), and action buttons.
+4.  Clicking an item expands to show the raw JSON payload (untruncated) and full error details in a monospace, read-only display.
+5.  A dropdown on each payload allows selecting a parser version from all available historical versions in `parser_version_registry` (fetched via GraphQL).
+6.  A "Reprocess" button triggers the `reprocessPayload` mutation (Story 3-4h) with the selected parser version, enqueuing the payload asynchronously and showing a toast confirmation.
+7.  A "Delete" button soft-deletes the payload via `deleteUnprocessedPayload` (Story 3-4h).
+8.  An empty state message is shown when no payloads exist or all are filtered out.
+9.  This page is separate from Story 4.7's moderator-items-page (which owns reports and default-location changes).
+
+**Note (2026-08-18, user decision during story creation):** This story owns the entire moderator page for unprocessed payloads, separate from Story 4.7. It consumes the GraphQL queries and mutations built by Story 3-4h. Positioned as a UI-only story, with no backend changes beyond Story 3-4h's infrastructure.
+
+**Depends on:** Story 3-4h (backend mutations/queries), Story 4.7a (moderator route guard).
+
 ### Story 3.5: Add new posts to a processing queue
 
 **As a** system,

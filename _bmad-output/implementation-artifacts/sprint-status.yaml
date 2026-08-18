@@ -545,6 +545,17 @@ development_status:
   # compileValidator/AJV foundation as-is; epic-3-readiness.md already swept
   # 2026-08-09; no UI surface).
   3-4g-validate-scraped-posts-from-apify-and-brightdata-with-ajv-schema: review
+  # added 2026-08-18 via bmad-create-story: captures AJV validation failures from scrapers,
+  # persists raw payloads with full context, tracks parser versions, enables moderator-driven
+  # re-processing with version selection. Depends on: 3-4g (detection), 0.15 (email),
+  # 3.5 (enqueue), 4.7a (auth). Followed by: 3-4i (moderator UI page).
+  3-4h-capture-and-surface-data-format-anomalies: ready-for-dev
+  # added 2026-08-18 via bmad-create-story: new moderator page (/moderator/unprocessed-payloads)
+  # to browse unprocessed payloads, select parser version from all historical versions, and
+  # trigger re-processing. Separate from Story 4.7 (moderator-items-page). Depends on: 3-4h.
+  # 2026-08-18: full story file created (comprehensive UI story, 844 lines) -- ready for
+  # bmad-dev-story once Story 3-4h ships (backend contracts this story consumes).
+  3-4i-moderator-unprocessed-payload-browser-and-reprocessing: ready-for-dev
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap); Gate 2 run fresh (no gap, zero UI
