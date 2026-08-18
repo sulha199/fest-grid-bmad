@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { graphqlClient } from '@/lib/graphql-client';
-import { useMeQuery } from '@/generated/graphql';
+import { useMeQuery, useUpdateUserTimezoneMutation } from '@/generated/graphql';
 import { Session, User, AuthChangeEvent } from '@supabase/supabase-js';
 import { usePostHog } from '@festgrid/analytics';
 
@@ -20,6 +20,16 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const posthog = usePostHog();
+  const { mutateAsync: updateUserTimezone } = useUpdateUserTimezoneMutation(graphqlClient);
+
+  const captureTimezone = async () => {
+    try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      await updateUserTimezone({ timezone });
+    } catch (e) {
+      console.warn('Timezone capture failed:', e);
+    }
+  };
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -30,6 +40,7 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
       if (initialSession) {
         graphqlClient.setHeader('Authorization', `Bearer ${initialSession.access_token}`);
         localStorage.setItem('festgrid_has_session', 'true');
+        captureTimezone();
       } else {
         graphqlClient.setHeader('Authorization', '');
       }
@@ -41,6 +52,7 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
       setSession(currentSession);
       if (currentSession) {
         graphqlClient.setHeader('Authorization', `Bearer ${currentSession.access_token}`);
+        captureTimezone();
 
         if (event === 'SIGNED_IN') {
           // Identify in PostHog
@@ -83,7 +95,7 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
     return () => {
       subscription.unsubscribe();
     };
-  }, [posthog]);
+  }, [posthog, captureTimezone]);
 
   // Set up me query
   const { refetch } = useMeQuery(

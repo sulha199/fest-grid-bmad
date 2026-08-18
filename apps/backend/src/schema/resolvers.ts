@@ -17,6 +17,7 @@ import { extractedEventSchema } from '../validation/extracted-event.schema.js';
 import { getActiveSubscriberUserIds } from '../lib/subscriptions/get-active-subscriber-user-ids.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
+import { isValidIanaTimezone } from '@festgrid/domain/users';
 import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user-settings.js';
 import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../lib/geolocation/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
@@ -746,6 +747,24 @@ export const resolvers: Resolvers = {
           eq(fcmTokens.userId, authUser.userId)
         )
       );
+      return true;
+    },
+    updateUserTimezone: async (_: any, { timezone }: any, context: any) => {
+      const authUser = requireAuth(context);
+      if (!isValidIanaTimezone(timezone)) {
+        throw new GraphQLError('Invalid IANA timezone.', {
+          extensions: { code: 'BAD_REQUEST' }
+        });
+      }
+      const current = await db.select({ timezone: users.timezone }).from(users)
+        .where(eq(users.id, authUser.userId))
+        .limit(1);
+      if (current[0]?.timezone !== timezone) {
+        await db.update(users).set({
+          timezone,
+          updatedAt: new Date(),
+        }).where(eq(users.id, authUser.userId));
+      }
       return true;
     },
     reportSystemError: async (_: any, { input }: any) => {

@@ -287,6 +287,7 @@ export type Mutation = {
   unregisterFcmToken: Scalars['Boolean']['output'];
   updateUserLocation: UserLocation;
   updateUserSettings: UserSettings;
+  updateUserTimezone: Scalars['Boolean']['output'];
   updateWidget: Widget;
   withdrawVote: AccountVote;
 };
@@ -461,6 +462,11 @@ export type MutationUpdateUserLocationArgs = {
 
 export type MutationUpdateUserSettingsArgs = {
   input: UpdateUserSettingsInput;
+};
+
+
+export type MutationUpdateUserTimezoneArgs = {
+  timezone: Scalars['String']['input'];
 };
 
 
@@ -889,6 +895,13 @@ export type GetSocialMediaAccountProfileByAccountIdQueryVariables = Exact<{
 
 
 export type GetSocialMediaAccountProfileByAccountIdQuery = { socialMediaAccountProfileByAccountId: { id: string, accountId: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, description: string | null } | null };
+
+export type UpdateUserTimezoneMutationVariables = Exact<{
+  timezone: string;
+}>;
+
+
+export type UpdateUserTimezoneMutation = { updateUserTimezone: boolean };
 
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1335,6 +1348,29 @@ export const useGetSocialMediaAccountProfileByAccountIdQuery = <
       {
     queryKey: ['getSocialMediaAccountProfileByAccountId', variables],
     queryFn: fetcher<GetSocialMediaAccountProfileByAccountIdQuery, GetSocialMediaAccountProfileByAccountIdQueryVariables>(client, GetSocialMediaAccountProfileByAccountIdDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const UpdateUserTimezoneDocument = new TypedDocumentString(`
+    mutation updateUserTimezone($timezone: String!) {
+  updateUserTimezone(timezone: $timezone)
+}
+    `);
+
+export const useUpdateUserTimezoneMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateUserTimezoneMutation, TError, UpdateUserTimezoneMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateUserTimezoneMutation, TError, UpdateUserTimezoneMutationVariables, TContext>(
+      {
+    mutationKey: ['updateUserTimezone'],
+    mutationFn: (variables?: UpdateUserTimezoneMutationVariables) => fetcher<UpdateUserTimezoneMutation, UpdateUserTimezoneMutationVariables>(client, UpdateUserTimezoneDocument, variables, headers)(),
     ...options
   }
     )};

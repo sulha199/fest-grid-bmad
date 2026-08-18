@@ -49,6 +49,10 @@
     "./posts": {
       "types": "./dist/posts/index.d.ts",
       "default": "./dist/posts/index.js"
+    },
+    "./users": {
+      "types": "./dist/users/index.d.ts",
+      "default": "./dist/users/index.js"
     }
   },
   "scripts": {

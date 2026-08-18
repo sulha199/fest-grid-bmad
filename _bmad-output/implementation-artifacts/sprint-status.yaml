@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-08-12T18:52:00Z
+# last_updated: 2026-08-18T23:59:59Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -579,7 +579,7 @@ development_status:
   # users.timezone (added by 3.6a to match PRD 4.8's User.timezone) has no capture
   # mechanism anywhere in the codebase -- without this story FR33 Tier 2 can never
   # fire in practice. See epics.md Story 3.6c note.
-  3-6c-capture-and-store-the-subscribing-users-timezone: ready-for-dev
+  3-6c-capture-and-store-the-subscribing-users-timezone: review
   # added 2026-08-10 via bmad-create-story Gate 3 finding while drafting Story 3.6a:
   # schedules.timezoneStatus = 'NEEDS_CLARIFICATION' (3.6a) is written but nothing
   # displays/resolves it yet. Depends on 3.6b and 3.7 both existing first. See

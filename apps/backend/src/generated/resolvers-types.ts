@@ -283,6 +283,7 @@ export type Mutation = {
   unregisterFcmToken: Scalars['Boolean']['output'];
   updateUserLocation: UserLocation;
   updateUserSettings: UserSettings;
+  updateUserTimezone: Scalars['Boolean']['output'];
   updateWidget: Widget;
   withdrawVote: AccountVote;
 };
@@ -457,6 +458,11 @@ export type MutationUpdateUserLocationArgs = {
 
 export type MutationUpdateUserSettingsArgs = {
   input: UpdateUserSettingsInput;
+};
+
+
+export type MutationUpdateUserTimezoneArgs = {
+  timezone: Scalars['String']['input'];
 };
 
 
@@ -1214,6 +1220,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   unregisterFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationUnregisterFcmTokenArgs, 'token'>>;
   updateUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationUpdateUserLocationArgs, 'id' | 'input'>>;
   updateUserSettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType, RequireFields<MutationUpdateUserSettingsArgs, 'input'>>;
+  updateUserTimezone?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationUpdateUserTimezoneArgs, 'timezone'>>;
   updateWidget?: Resolver<ResolversTypes['Widget'], ParentType, ContextType, RequireFields<MutationUpdateWidgetArgs, 'id' | 'input'>>;
   withdrawVote?: Resolver<ResolversTypes['AccountVote'], ParentType, ContextType, RequireFields<MutationWithdrawVoteArgs, 'action' | 'id'>>;
 }>;
