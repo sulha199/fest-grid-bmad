@@ -22,6 +22,7 @@ graph TD
             direction TB
             L_API[Lambda: API Logic]
             L_Scrape[Lambda: Scraper]
+            L_ApifyWebhook[Lambda: Apify Webhook]
             L_AI[Lambda: AI Processor]
             L_Ingest[Lambda: Ingestor]
         end
@@ -44,6 +45,7 @@ graph TD
         Gemini[Google Gemini API]
         Geoapify[Geoapify]
         SES[Amazon SES]
+        Apify[Apify Actor API]
     end
 
     U --> V
@@ -52,7 +54,12 @@ graph TD
     APIGW --> L_API
 
     EventBridge -- triggers --> L_Scrape
+    L_Scrape -- triggers async job (webhooks param) --> Apify
+    L_Scrape -- polls/recovers (sweep) --> Apify
+    Apify -- webhook callback --> L_ApifyWebhook
+    L_ApifyWebhook -- persists scraped posts to --> Supabase
     L_Scrape -- enqueues --> SQS_Scrape
+    L_API -- triggers async job (on-demand backfill) --> Apify
     L_API -- enqueues (on-demand, new account) --> SQS_Scrape
     SQS_Scrape -- triggers --> L_Scrape
     L_Scrape -- persists scraped posts to --> Supabase

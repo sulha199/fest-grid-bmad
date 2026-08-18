@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { ApifyApiError } from 'apify-client';
-import { instagramScraperAdapter, setCallApifyActor } from './instagram-adapter.js';
+import { instagramScraperAdapter, setCallApifyActor, mapApifyItemToScrapedPost } from './instagram-adapter.js';
 import { db } from '../../db/client.js';
 import { scraperProviderUsage } from '@festgrid/database';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError } from '@festgrid/domain';
@@ -9,6 +9,23 @@ import { eq } from 'drizzle-orm';
 
 test('instagram-adapter tests', async (t) => {
   const provider = 'apify';
+
+  await t.test('mapApifyItemToScrapedPost maps Apify item correctly', async () => {
+    const item = {
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_abc123/',
+      caption: 'Test caption',
+      displayUrl: 'https://www.instagram.com/p/C_abc123/img.jpg',
+    };
+
+    const result = mapApifyItemToScrapedPost(item);
+
+    assert.strictEqual(result.content, 'Test caption');
+    assert.strictEqual(result.postUrl, 'https://www.instagram.com/p/C_abc123/');
+    assert.strictEqual(result.imageUrl, 'https://www.instagram.com/p/C_abc123/img.jpg');
+    assert.strictEqual(result.publishedAt, '2026-08-08T00:00:00Z');
+    assert.strictEqual(result.originalPostUrl, 'https://www.instagram.com/p/C_abc123/');
+  });
 
   t.afterEach(async () => {
     await db.delete(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));

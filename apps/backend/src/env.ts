@@ -40,6 +40,9 @@ export interface BackendEnv {
   brightdataMonthlyBudgetUsd?: number;
   brightdataWebhookSecret?: string;
   brightdataWebhookDlqArn?: string;
+  // Apify integration env vars
+  apifyWebhookBaseUrl?: string;
+  apifyJobTimeoutMinutes?: number;
 }
 
 /** Validate that required Bright Data vars are present */
@@ -152,6 +155,10 @@ export function loadBackendEnv(): BackendEnv {
     brightdataWebhookSecret: process.env.BRIGHTDATA_WEBHOOK_SECRET,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     brightdataWebhookDlqArn: process.env.BRIGHTDATA_WEBHOOK_DLQ_ARN,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    apifyWebhookBaseUrl: process.env.APIFY_WEBHOOK_BASE_URL,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    apifyJobTimeoutMinutes: parseInt(process.env.APIFY_JOB_TIMEOUT_MINUTES || '180', 10),
   };
 
   // Ensure required Bright Data variables are present (webhook base URL is set post-deploy by CDK)

@@ -49,6 +49,20 @@ export const brightdataPendingJobs = pgTable('brightdata_pending_jobs', {
   statusExpiresIdx: index('idx_brightdata_pending_jobs_status_expires').on(t.status, t.expiresAt)
 }));
 
+export const apifyJobStatusEnum = pgEnum('apify_job_status', ['PENDING', 'COMPLETED', 'EXPIRED']);
+
+export const apifyPendingJobs = pgTable('apify_pending_jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  runId: text('run_id').notNull().unique(),
+  webhookToken: text('webhook_token').notNull().unique(),
+  status: apifyJobStatusEnum('status').default('PENDING').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  ...timestamps,
+}, (t) => ({
+  statusExpiresIdx: index('idx_apify_pending_jobs_status_expires').on(t.status, t.expiresAt)
+}));
+
 export const reportReasonEnum = pgEnum('report_reason', ['cancelled', 'dangerous', 'personal']);
 export const reportStatusEnum = pgEnum('report_status', ['pending', 'upheld', 'dismissed']);
 

@@ -7,6 +7,7 @@ import { isProviderCapacityAvailable } from '../scraper/usage-store.js';
 import { enqueueScrapeJob } from '../scraper/enqueue-scrape-job.js';
 import { processScrapeJob } from '../scraper/process-scrape-job.js';
 import { attemptBrightDataTrigger } from '../scraper/trigger-brightdata-for-target.js';
+import { attemptApifyAsyncTrigger } from '../scraper/trigger-apify-for-target.js';
 import { loadBackendEnv } from '../../env.js';
 
 interface ProfileInput {
@@ -90,14 +91,24 @@ export async function subscribeToAccount({
       const env = loadBackendEnv();
       if (env.scrapingQueueUrl) {
         try {
-          // If Apify unavailable but Bright Data available, trigger Bright Data for Instagram
-          if (!apifyAvailable && brightDataAvailable && platform === 'instagram') {
-            const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-            await attemptBrightDataTrigger(scrapeTarget, newerThan);
-          } else {
-            // Apify available or non-Instagram: use existing queue path
-            await enqueueScrapeJob(scrapeTarget);
+          const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+          // Try Apify async trigger first
+          const apifyAsyncTriggered = await attemptApifyAsyncTrigger(scrapeTarget, newerThan);
+          if (apifyAsyncTriggered) {
+            return;
           }
+
+          // Fall back to Bright Data for Instagram
+          if (platform === 'instagram') {
+            const brightDataTriggered = await attemptBrightDataTrigger(scrapeTarget, newerThan);
+            if (brightDataTriggered) {
+              return;
+            }
+          }
+
+          // Fall back to SQS queue if both async tiers fail
+          await enqueueScrapeJob(scrapeTarget);
         } catch (err) {
           console.error(`Failed to enqueue on-demand scrape job for brand-new profile ${accountProfile.id}:`, err);
         }

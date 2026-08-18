@@ -533,7 +533,7 @@ development_status:
   # per explicit user decision (avoids touching 3.4a's actively-changing code). Gate 1/2/3
   # all run fresh (3.4f postdates epic-3-readiness.md's sweep) -- all three: no gap.
   # Ready for bmad-dev-story or bmad-quick-dev.
-  3-4f-fix-missing-lambda-timeouts-and-extend-async-job-handling-to-apifys-long-running-scrape-paths: ready-for-dev
+  3-4f-fix-missing-lambda-timeouts-and-extend-async-job-handling-to-apifys-long-running-scrape-paths: review
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap); Gate 2 run fresh (no gap, zero UI

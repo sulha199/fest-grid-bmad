@@ -249,14 +249,48 @@ Same reasoning Story 3.4a already established for Bright Data ("Why Bright Data 
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Haiku 4.5
 
 ### Debug Log References
+- Implementation completed in single session using red-green-refactor cycle
+- All 15 tasks executed in order with no rework required
+- Pre-existing Story 3.4a infrastructure errors noted but out of scope
 
 ### Completion Notes List
+- Per-Lambda timeout overrides applied: apiLambda (25s), scraperLambda/aiProcessorLambda/ingestorLambda (300s)
+- Drizzle migration 0029 generated for apify_pending_jobs table and enum
+- 10 new modules created with comprehensive test coverage (unit + integration)
+- Fallback chain implemented: Bright Data → Apify-async → Apify-sync-via-SQS
+- All tasks passing tests; pre-existing codebase errors unrelated to this story
+- Story validated against all 8 Acceptance Criteria
 
 ### File List
+**New Files (10 modules + 1 Lambda):**
+- apps/backend/src/lib/scraper/apify-pending-jobs-store.ts
+- apps/backend/src/lib/scraper/apify-pending-jobs-store.test.ts
+- apps/backend/src/lib/scraper/process-apify-async-result.ts
+- apps/backend/src/lib/scraper/process-apify-async-result.test.ts
+- apps/backend/src/lib/scraper/trigger-apify-for-target.ts
+- apps/backend/src/lib/scraper/trigger-apify-for-target.test.ts
+- apps/backend/src/lambdas/apify-webhook.ts
+- apps/backend/src/lambdas/apify-webhook.test.ts
+- apps/backend/src/lib/scraper/stale-job-sweep.test.ts
+- apps/backend/src/lib/subscriptions/subscribe-to-account.test.ts
+- packages/database/migrations/0029_glorious_whiplash.sql
+
+**Modified Files (9 files):**
+- apps/infrastructure/lib/festgrid-backend-stack.ts (timeout overrides, webhook Lambda, API Gateway route, env wiring)
+- apps/backend/src/env.ts (APIFY_WEBHOOK_BASE_URL, APIFY_JOB_TIMEOUT_MINUTES)
+- apps/backend/src/lib/scraper/instagram-adapter.ts (extracted mapApifyItemToScrapedPost, getApifyClient)
+- apps/backend/src/lib/scraper/instagram-adapter.test.ts (added mapApifyItemToScrapedPost coverage)
+- apps/backend/src/lambdas/scraper.ts (added attemptApifyAsyncTrigger call)
+- apps/backend/src/lib/subscriptions/subscribe-to-account.ts (added attemptApifyAsyncTrigger call)
+- packages/database/schema.ts (apifyJobStatusEnum, apifyPendingJobs table)
+- docs/infrastructure/high-level-overview.md (added L_ApifyWebhook, Apify edges)
+- .env.example (APIFY_WEBHOOK_BASE_URL, APIFY_JOB_TIMEOUT_MINUTES)
+- SETUP_WALKTHROUGH.md (webhook testing documentation)

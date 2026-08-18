@@ -271,4 +271,14 @@ Apify's `apify/instagram-scraper` actor is the concrete Instagram `ScraperAdapte
     *   *Note: `SCRAPER_MONTHLY_BUDGET_USD`/`SCRAPER_PRICE_PER_1000_ITEMS_USD` reflect Apify's free-plan pricing as confirmed on 2026-08-08 — revisit these values if Apify changes its pricing. `SCRAPER_CAPACITY_THRESHOLD_RATIO` (default 90%) is the fraction of the free-tier budget the app will actually use before pausing new subscriptions/scrapes (Story 3.4's capacity gate) — intentionally leaves headroom rather than running right up to the vendor's hard limit.*
     *   *Note: If `APIFY_API_TOKEN` is omitted, the adapter's real calls will fail — there is currently no local-dev stub for this adapter (unlike the outbound email adapter, Story 0.15a); local development against real scraping requires a real token.*
 
+### Local Webhook Testing
+
+To test the Apify webhook callback (`POST /webhooks/apify`) locally, you need to expose your local Lambda to the internet:
+
+1. **Use ngrok to create a public tunnel:** The same ngrok setup documented in the [Bright Data webhook runbook](./bright-data-webhook-testing.md) applies here (see that runbook for detailed ngrok instructions).
+2. **Set `APIFY_WEBHOOK_BASE_URL`** in your local `.env` to your ngrok tunnel URL: `APIFY_WEBHOOK_BASE_URL="https://YOUR_NGROK_DOMAIN/webhooks/apify"`.
+3. **Deploy your stack locally** so the webhook Lambda can receive and process Apify's callbacks.
+
+(Note: `APIFY_WEBHOOK_BASE_URL` is set automatically post-deploy by CDK in staging/prod environments; this local setup is only needed for local testing.)
+
 This walkthrough provides a high-level overview of the setup process. For detailed configuration and implementation, refer to the official documentation of each service.

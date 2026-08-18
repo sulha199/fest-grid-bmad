@@ -89,6 +89,7 @@ export class FestgridBackendStack extends cdk.Stack {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/api.ts'),
       handler: 'handler',
       ...sharedLambdaProps,
+      timeout: cdk.Duration.seconds(25),
       environment: {
         STAGE: stageName,
         BYOK_KMS_KEY_ID: kmsKey.keyId,
@@ -103,6 +104,7 @@ export class FestgridBackendStack extends cdk.Stack {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/scraper.ts'),
       handler: 'handler',
       ...sharedLambdaProps,
+      timeout: cdk.Duration.seconds(300),
       environment: {
         STAGE: stageName,
         DATABASE_URL: process.env.DATABASE_URL || '',
@@ -116,6 +118,7 @@ export class FestgridBackendStack extends cdk.Stack {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/ai-processor.ts'),
       handler: 'handler',
       ...sharedLambdaProps,
+      timeout: cdk.Duration.seconds(300),
       environment: {
         STAGE: stageName,
         BYOK_KMS_KEY_ID: kmsKey.keyId,
@@ -130,6 +133,7 @@ export class FestgridBackendStack extends cdk.Stack {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/ingestor.ts'),
       handler: 'handler',
       ...sharedLambdaProps,
+      timeout: cdk.Duration.seconds(300),
       environment: {
         STAGE: stageName,
         DATABASE_URL: process.env.DATABASE_URL || '',
@@ -202,6 +206,14 @@ export class FestgridBackendStack extends cdk.Stack {
       stage: api.deploymentStage,
     });
 
+    // Create webhooks resource and add Apify webhook endpoint
+    const webhooksResource = api.root.addResource('webhooks');
+    webhooksResource.addResource('apify').addMethod('POST', new apigateway.LambdaIntegration(apifyWebhookLambda));
+
+    // Wire Apify webhook URL to apiLambda and scraperLambda (post-construction)
+    apiLambda.addEnvironment('APIFY_WEBHOOK_BASE_URL', `${api.url}webhooks/apify`);
+    scraperLambda.addEnvironment('APIFY_WEBHOOK_BASE_URL', `${api.url}webhooks/apify`);
+
     // Output API Gateway URL
     new cdk.CfnOutput(this, `apiGatewayUrl`, {
       value: api.url,
@@ -258,6 +270,18 @@ export class FestgridBackendStack extends cdk.Stack {
 
     // Grant permissions for BrightData trigger to enqueue scraping jobs
     scrapingQueue.grantSendMessages(brightDataTriggerLambda);
+
+    // Apify Webhook Lambda (invoked by Apify)
+    const apifyWebhookLambda = new nodejs.NodejsFunction(this, `ApifyWebhook-${stageName}`, {
+      entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/apify-webhook.ts'),
+      handler: 'handler',
+      ...sharedLambdaProps,
+      environment: {
+        STAGE: stageName,
+        DATABASE_URL: process.env.DATABASE_URL || '',
+        APIFY_API_TOKEN: process.env.APIFY_API_TOKEN || '',
+      },
+    });
 
   }
 }

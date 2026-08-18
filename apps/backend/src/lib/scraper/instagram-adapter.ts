@@ -23,13 +23,16 @@ function normalizeApifyError(err: unknown, context: string): Error {
   return new Error(`Apify request failed while ${context}`);
 }
 
-export let callApifyActor = async (input: object, actorId: string): Promise<any[]> => {
+export function getApifyClient(): ApifyClient {
   const env = loadBackendEnv();
   if (!env.apifyApiToken) {
     throw new Error('APIFY_API_TOKEN is not configured');
   }
+  return new ApifyClient({ token: env.apifyApiToken });
+}
 
-  const client = new ApifyClient({ token: env.apifyApiToken });
+export let callApifyActor = async (input: object, actorId: string): Promise<any[]> => {
+  const client = getApifyClient();
   const run = await client.actor(actorId).call(input as Record<string, unknown>);
 
   const datasetId = run.defaultDatasetId;
@@ -73,6 +76,22 @@ function withTimeoutOrThrow<T>(promise: Promise<T>, ms: number, message: string)
       .then((res) => { clearTimeout(timer); resolve(res); })
       .catch((err) => { clearTimeout(timer); reject(err); });
   });
+}
+
+/**
+ * Maps an Apify item to a ScrapedPost.
+ */
+export function mapApifyItemToScrapedPost(item: any): ScrapedPost {
+  const publishedAt = item.timestamp || item.pubDate || item.publishedAt || new Date().toISOString();
+  const postUrl = item.url || item.postUrl || `https://www.instagram.com/p/${item.shortCode || item.id || ''}/`;
+
+  return {
+    content: item.caption || item.text || item.description || '',
+    imageUrl: item.displayUrl || item.imageUrl || undefined,
+    postUrl,
+    originalPostUrl: item.url || item.postUrl || undefined,
+    publishedAt,
+  };
 }
 
 /**
@@ -124,17 +143,8 @@ export const instagramScraperAdapter: ScraperAdapter = {
         if (isNotFoundItem(item, 'post')) {
           return null;
         }
-        const publishedAt = item.timestamp || item.pubDate || item.publishedAt || new Date().toISOString();
-        const postUrl = item.url || item.postUrl || `https://www.instagram.com/p/${item.shortCode || item.id || ''}/`;
 
-        const mapped: ScrapedPost = {
-          content: item.caption || item.text || item.description || '',
-          imageUrl: item.displayUrl || item.imageUrl || undefined,
-          postUrl,
-          originalPostUrl: item.url || item.postUrl || undefined,
-          publishedAt,
-        };
-
+        const mapped = mapApifyItemToScrapedPost(item);
         await recordProviderUsage('apify', 1);
         return mapped;
       } catch (err) {
@@ -162,18 +172,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
       }
 
       const items = await callApifyActor(input, GET_NEWEST_POSTS_ACTOR);
-
-      const mappedPosts: ScrapedPost[] = items.map((item: any) => {
-        const publishedAt = item.timestamp || item.pubDate || item.publishedAt || new Date().toISOString();
-        const postUrl = item.url || item.postUrl || `https://www.instagram.com/p/${item.shortCode || item.id || ''}/`;
-        return {
-          content: item.caption || item.text || item.description || '',
-          imageUrl: item.displayUrl || item.imageUrl || undefined,
-          postUrl,
-          originalPostUrl: item.url || item.postUrl || undefined,
-          publishedAt,
-        };
-      });
+      const mappedPosts = items.map(mapApifyItemToScrapedPost);
 
       if (items.length > 0) {
         await recordProviderUsage('apify', items.length);

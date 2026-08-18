@@ -4,6 +4,7 @@ import { getBatchScrapeTargets } from '../lib/scraper/get-scrape-targets.js';
 import { enqueueScrapeJob } from '../lib/scraper/enqueue-scrape-job.js';
 import { processScrapeJob } from '../lib/scraper/process-scrape-job.js';
 import { attemptBrightDataTrigger } from '../lib/scraper/trigger-brightdata-for-target.js';
+import { attemptApifyAsyncTrigger } from '../lib/scraper/trigger-apify-for-target.js';
 import { runStaleJobSweep } from '../lib/scraper/stale-job-sweep.js';
 
 export const handler = async (
@@ -39,16 +40,25 @@ export const handler = async (
 
       const results = await Promise.allSettled(
         targets.map(async (target) => {
-          // Try Bright Data first for Instagram, then fall back to Apify
+          const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+          // Try Bright Data first for Instagram
           if (target.platform === 'instagram') {
-            const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
             const brightDataTriggered = await attemptBrightDataTrigger(target, newerThan);
             if (brightDataTriggered) {
               console.log(`Triggered Bright Data job for ${target.username}`);
               return;
             }
           }
-          // Fall back to Apify for non-Instagram targets or if Bright Data fails
+
+          // Fall back to Apify async trigger for all platforms
+          const apifyAsyncTriggered = await attemptApifyAsyncTrigger(target, newerThan);
+          if (apifyAsyncTriggered) {
+            console.log(`Triggered Apify async job for ${target.username}`);
+            return;
+          }
+
+          // Fall back to SQS queue if both async tiers fail
           await enqueueScrapeJob(target);
         })
       );

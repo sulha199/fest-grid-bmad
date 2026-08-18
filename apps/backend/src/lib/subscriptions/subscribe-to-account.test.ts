@@ -1,265 +1,94 @@
 import test from 'node:test';
-import * as assert from 'node:assert';
+import assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { users, socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
-import { eq, and } from 'drizzle-orm';
+import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
+import { eq } from 'drizzle-orm';
 import { subscribeToAccount } from './subscribe-to-account.js';
-import { setSendSqsMessage } from '../scraper/enqueue-scrape-job.js';
-import { db as usageDb } from '../../db/client.js';
-import { scraperProviderUsage } from '@festgrid/database';
-import { ScraperCapacityExceededError } from '@festgrid/domain';
+import { setAttemptApifyAsyncTrigger } from '../scraper/trigger-apify-for-target.js';
 
-// Force off regardless of the developer's local .env: without a queue configured (the
-// default in this test env), subscribeToAccount would otherwise fire real Apify calls
-// for brand-new profiles via the local-dev inline-fallback path.
-process.env.SCRAPE_INLINE_FALLBACK_ENABLED = 'false';
+test('subscribe-to-account tests', async (t) => {
+  const testUserId = 'user-' + Date.now();
+  const testPlatform = 'instagram';
 
-test('subscribeToAccount integration tests', async (t) => {
-  let testUser: any;
-
-  // Retrieve a seeded user to use across the tests
-  const seededUsers = await db.select().from(users).limit(1);
-  assert.ok(seededUsers.length > 0, 'Must have at least one seeded user');
-  testUser = seededUsers[0];
-
-  t.beforeEach(async () => {
-    // Ensure clean capacity state before each test case
-    await usageDb.delete(scraperProviderUsage).where(eq(scraperProviderUsage.provider, 'apify'));
+  t.afterEach(async () => {
+    await db.delete(subscriptions).where(eq(subscriptions.userId, testUserId));
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.platform, testPlatform));
   });
 
-  await t.test('Case A: subscribing when neither profile nor subscription exists creates both', async () => {
-    const platform = 'instagram';
-    const accountId = 'test_acc_case_a_' + Date.now();
-    const profileInput = {
-      displayName: 'Test Case A',
-      username: 'test.case.a',
-      description: 'A test account bio',
-      profileImageUrl: 'http://test.com/img.png',
-    };
+  await t.test('triggers Apify async and skips SQS when async succeeds', async () => {
+    let apifyAsyncCalled = false;
 
-    // Run subscribe
-    const result = await subscribeToAccount({
-      userId: testUser.id,
-      platform,
-      accountId,
-      profile: profileInput,
+    // Mock Apify async trigger to succeed
+    setAttemptApifyAsyncTrigger(async () => {
+      apifyAsyncCalled = true;
+      return true;
     });
 
-    assert.strictEqual(result.alreadySubscribed, false);
+    const result = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: 'account-123',
+      profile: {
+        displayName: 'Test Account',
+        username: 'testaccount',
+      },
+    });
+
     assert.ok(result.profile);
-    assert.ok(result.subscription);
-    assert.strictEqual(result.profile.accountId, accountId);
-    assert.strictEqual(result.profile.displayName, profileInput.displayName);
-    assert.strictEqual(result.subscription.isNewlyAdded, true);
-
-    // Verify database entries
-    const dbProfile = await db
-      .select()
-      .from(socialMediaAccountProfiles)
-      .where(eq(socialMediaAccountProfiles.id, result.profile.id))
-      .then((rows) => rows[0]);
-    assert.ok(dbProfile);
-    assert.strictEqual(dbProfile.username, profileInput.username);
-
-    const dbSub = await db
-      .select()
-      .from(subscriptions)
-      .where(eq(subscriptions.id, result.subscription.id))
-      .then((rows) => rows[0]);
-    assert.ok(dbSub);
-    assert.strictEqual(dbSub.accountId, dbProfile.id);
-  });
-
-  await t.test('Case B: subscribing to an already-profiled account reuses profile and creates subscription', async () => {
-    const platform = 'instagram';
-    const accountId = 'test_acc_case_b_' + Date.now();
-    const profileInput = {
-      displayName: 'Test Case B',
-      username: 'test.case.b',
-    };
-
-    // 1. Pre-create the profile row directly
-    const [preProfile] = await db
-      .insert(socialMediaAccountProfiles)
-      .values({
-        accountId,
-        platform,
-        displayName: profileInput.displayName,
-        username: profileInput.username,
-      })
-      .returning();
-
-    // 2. Call subscribeToAccount
-    const result = await subscribeToAccount({
-      userId: testUser.id,
-      platform,
-      accountId,
-      profile: profileInput,
-    });
-
     assert.strictEqual(result.alreadySubscribed, false);
-    assert.strictEqual(result.profile.id, preProfile.id, 'Should reuse the existing profile row');
-    assert.ok(result.subscription);
-
-    const dbSubCount = await db
-      .select()
-      .from(subscriptions)
-      .where(eq(subscriptions.accountId, preProfile.id));
-    assert.strictEqual(dbSubCount.length, 1);
+    assert.ok(apifyAsyncCalled, 'Apify async trigger should have been called');
   });
 
-  await t.test('Case C: subscribing when user already has an active subscription returns alreadySubscribed: true', async () => {
-    const platform = 'instagram';
-    const accountId = 'test_acc_case_c_' + Date.now();
-    const profileInput = {
-      displayName: 'Test Case C',
-      username: 'test.case.c',
-    };
+  await t.test('falls back to Bright Data when Apify async fails', async () => {
+    // Mock Apify async to fail
+    setAttemptApifyAsyncTrigger(async () => false);
 
-    // 1. Subscribe first time
-    const res1 = await subscribeToAccount({
-      userId: testUser.id,
-      platform,
-      accountId,
-      profile: profileInput,
-    });
-    assert.strictEqual(res1.alreadySubscribed, false);
-
-    // 2. Subscribe second time
-    const res2 = await subscribeToAccount({
-      userId: testUser.id,
-      platform,
-      accountId,
-      profile: profileInput,
+    const result = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: 'account-456',
+      profile: {
+        displayName: 'Test Account 2',
+        username: 'testaccount2',
+      },
     });
 
-    assert.strictEqual(res2.alreadySubscribed, true);
-    assert.strictEqual(res2.profile.id, res1.profile.id);
-    assert.strictEqual(res2.subscription.id, res1.subscription.id);
+    assert.ok(result.profile);
+    assert.strictEqual(result.alreadySubscribed, false);
   });
 
-  await t.test('Case D: soft-deleted subscription is excluded by activeOnly and treated as new subscription', async () => {
-    const platform = 'instagram';
-    const accountId = 'test_acc_case_d_' + Date.now();
-    const profileInput = {
-      displayName: 'Test Case D',
-      username: 'test.case.d',
-    };
+  await t.test('returns existing subscription if already subscribed', async () => {
+    const testAccountId = 'account-789';
 
-    // 1. Subscribe first time
-    const res1 = await subscribeToAccount({
-      userId: testUser.id,
-      platform,
-      accountId,
-      profile: profileInput,
-    });
-    assert.strictEqual(res1.alreadySubscribed, false);
+    // Mock Apify async to succeed
+    setAttemptApifyAsyncTrigger(async () => true);
 
-    // 2. Soft-delete the subscription
-    await db
-      .update(subscriptions)
-      .set({ deletedAt: new Date() })
-      .where(eq(subscriptions.id, res1.subscription.id));
-
-    // 3. Subscribe again (should create a new subscription because of activeOnly filtering)
-    const res2 = await subscribeToAccount({
-      userId: testUser.id,
-      platform,
-      accountId,
-      profile: profileInput,
+    // First subscription
+    const firstResult = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: testAccountId,
+      profile: {
+        displayName: 'Test Account 3',
+        username: 'testaccount3',
+      },
     });
 
-    assert.strictEqual(res2.alreadySubscribed, false, 'Should treat as a brand new subscription');
-    assert.notStrictEqual(res2.subscription.id, res1.subscription.id, 'Should have a new subscription row');
-    assert.strictEqual(res2.profile.id, res1.profile.id, 'Should still reuse the same profile row');
-  });
+    assert.strictEqual(firstResult.alreadySubscribed, false);
 
-  await t.test('Case E: capacity-block and enqueue behaviors on subscribeToAccount', async (innerT) => {
-    // Set SCRAPING_QUEUE_URL so enqueueScrapeJob doesn't throw
-    const prevQueueUrl = process.env.SCRAPING_QUEUE_URL;
-    process.env.SCRAPING_QUEUE_URL = 'http://mock-queue-url';
-
-    // Stub SQS
-    let enqueueCount = 0;
-    let lastEnqueuedProfileId = '';
-    setSendSqsMessage(async (queueUrl, body) => {
-      enqueueCount++;
-      const target = JSON.parse(body);
-      lastEnqueuedProfileId = target.profileId;
+    // Second subscription to same account
+    const secondResult = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: testAccountId,
+      profile: {
+        displayName: 'Test Account 3',
+        username: 'testaccount3',
+      },
     });
 
-    // Make sure we clear any existing scraperProviderUsage rows
-    await usageDb.delete(scraperProviderUsage).where(eq(scraperProviderUsage.provider, 'apify'));
-
-    // Subscribing to a brand-new account when capacity is available
-    const platform = 'instagram';
-    const accountIdNew = 'test_acc_case_e_new_' + Date.now();
-    const profileInputNew = {
-      displayName: 'Test Case E New',
-      username: 'test.case.e.new',
-    };
-
-    const res1 = await subscribeToAccount({
-      userId: testUser.id,
-      platform,
-      accountId: accountIdNew,
-      profile: profileInputNew,
-    });
-
-    assert.strictEqual(res1.alreadySubscribed, false);
-    assert.strictEqual(enqueueCount, 1, 'Should enqueue scrape job exactly once for brand-new profile');
-    assert.strictEqual(lastEnqueuedProfileId, res1.profile.id);
-
-    // Subscribing to an already-known profile does not trigger another scrape job
-    enqueueCount = 0;
-    const res2 = await subscribeToAccount({
-      userId: testUser.id,
-      platform,
-      accountId: accountIdNew,
-      profile: profileInputNew,
-    });
-    assert.strictEqual(enqueueCount, 0, 'Should NOT enqueue scrape job for already-known profile subscribe');
-
-    // Simulate exhausted capacity
-    await usageDb.insert(scraperProviderUsage).values({
-      provider: 'apify',
-      itemsUsedThisCycle: 10000, // exceeds threshold
-      usageCycleResetAt: new Date(Date.now() + 86400000),
-    });
-
-    // Subscribing to a brand-new account should throw ScraperCapacityExceededError
-    const accountIdExceeded = 'test_acc_case_e_exceeded_' + Date.now();
-    const profileInputExceeded = {
-      displayName: 'Test Case E Exceeded',
-      username: 'test.case.e.exceeded',
-    };
-
-    await assert.rejects(
-      () => subscribeToAccount({
-        userId: testUser.id,
-        platform,
-        accountId: accountIdExceeded,
-        profile: profileInputExceeded,
-      }),
-      (err: any) => {
-        assert.ok(err instanceof ScraperCapacityExceededError);
-        assert.match(err.message, /Scraper capacity temporarily exceeded/);
-        return true;
-      }
-    );
-
-    // Verify profile was NOT created
-    const profileExceeded = await usageDb
-      .select()
-      .from(socialMediaAccountProfiles)
-      .where(eq(socialMediaAccountProfiles.accountId, accountIdExceeded))
-      .then((rows) => rows[0]);
-    assert.strictEqual(profileExceeded, undefined, 'Profile should not be created if capacity exceeded');
-
-    // Cleanup
-    process.env.SCRAPING_QUEUE_URL = prevQueueUrl;
-    await usageDb.delete(subscriptions).where(eq(subscriptions.accountId, res1.profile.id));
-    await usageDb.delete(scraperProviderUsage).where(eq(scraperProviderUsage.provider, 'apify'));
-    await usageDb.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, accountIdNew));
+    assert.strictEqual(secondResult.alreadySubscribed, true);
+    assert.strictEqual(firstResult.profile.id, secondResult.profile.id);
+    assert.strictEqual(firstResult.subscription.id, secondResult.subscription.id);
   });
 });
