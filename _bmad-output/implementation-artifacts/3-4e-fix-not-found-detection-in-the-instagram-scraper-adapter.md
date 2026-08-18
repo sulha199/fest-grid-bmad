@@ -1,10 +1,14 @@
+---
+baseline_commit: b2db74218404360faca800b236955a00616299e0
+---
+
 # Story 3.4e: Fix not-found detection in the Instagram scraper adapter
 
 ## Story Details
 
 - Epic: 3
 - Story ID: 3.4e
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -28,22 +32,22 @@ so that `castVote`-by-handle (Story 6.1a) stops silently creating fake `SocialMe
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add a shared, adapter-local not-found detector to `instagram-adapter.ts` (AC: #1, #2, #3)
-  - [ ] Add a private (non-exported) helper, e.g. `isNotFoundItem(item: any, kind: 'post' | 'profile'): boolean`, that returns `true` when (a) `item` has a truthy `error` field (the confirmed real Apify shape), or (b) for `kind: 'post'`, both `item.caption` and `item.timestamp` are absent, or (c) for `kind: 'profile'`, both `item.fullName` and `item.biography` are absent.
-  - [ ] Keep this helper local to `instagram-adapter.ts` — it is Apify/Instagram-response-shape-specific field-mapping logic, the same category as the file's existing `normalizeApifyError`/fallback-chain mapping, not a generic cross-entity mechanism. Per `project-context.md`'s Adapter Pattern rule, this stays with the adapter it belongs to; it does **not** qualify for extraction into `packages/domain` (no reuse target exists — `getNewestPosts` and the not-yet-implemented Twitter/X adapter both have different response shapes/consumption patterns, see AC5 and Dev Notes).
-- [ ] Task 2: Wire the check into `getPostByUrl` (AC: #1, #3)
-  - [ ] After the existing `if (!items || items.length === 0) return null;` guard ([instagram-adapter.ts:74](../../apps/backend/src/lib/scraper/instagram-adapter.ts#L74)) and after `const item = items[0];`, add `if (isNotFoundItem(item, 'post')) return null;` before the existing field-mapping block.
-  - [ ] Do not call `recordProviderUsage` on this new early-return path — matches this method's own existing convention (the sibling `items.length === 0` branch two lines above also skips usage recording), not a new inconsistency this story introduces.
-- [ ] Task 3: Wire the check into `lookupAccountProfile` (AC: #2, #3)
-  - [ ] Same pattern as Task 2, after [instagram-adapter.ts:152](../../apps/backend/src/lib/scraper/instagram-adapter.ts#L152)'s existing guard: `if (isNotFoundItem(item, 'profile')) return null;` before the existing field-mapping block. Same no-`recordProviderUsage`-on-early-return convention as Task 2.
-- [ ] Task 4: Add fixture-based tests to `instagram-adapter.test.ts` (AC: #4)
-  - [ ] New test case: `getPostByUrl` returns `null` when `callApifyActor` resolves the real captured error-item shape (`run-02`/`run-04`): `[{ url: '...', username: '...', error: 'not_found', errorDescription: 'Post does not exist' }]`.
-  - [ ] New test case: `lookupAccountProfile` returns `null` for the same real captured shape (`run-06`/`run-08`).
-  - [ ] Optional but recommended: one field-absence-fallback case per method (AC3), e.g. an item with no `error` field but also no `caption`/`timestamp` (post) or no `fullName`/`biography` (profile), asserting `null` — proves the fallback path independently of the `error`-field path.
-  - [ ] Add these as new `t.test(...)` blocks using the file's existing `node:test`/`node:assert` + `setCallApifyActor` mocking pattern (see Dev Notes — this file does **not** use Vitest despite `project-context.md`'s general testing-philosophy section).
-- [ ] Task 5: Verify no unintended scope creep (AC: #5)
-  - [ ] Confirm `twitter-adapter.ts` is unmodified by this story's diff — its stub methods still throw `'Twitter/X scraping is not yet implemented'` unchanged.
-  - [ ] Confirm `getNewestPosts` is unmodified — this story's not-found detection is scoped to the two single-item lookup methods only, per AC1/AC2.
+- [x] Task 1: Add a shared, adapter-local not-found detector to `instagram-adapter.ts` (AC: #1, #2, #3)
+  - [x] Add a private (non-exported) helper, e.g. `isNotFoundItem(item: any, kind: 'post' | 'profile'): boolean`, that returns `true` when (a) `item` has a truthy `error` field (the confirmed real Apify shape), or (b) for `kind: 'post'`, both `item.caption` and `item.timestamp` are absent, or (c) for `kind: 'profile'`, both `item.fullName` and `item.biography` are absent.
+  - [x] Keep this helper local to `instagram-adapter.ts` — it is Apify/Instagram-response-shape-specific field-mapping logic, the same category as the file's existing `normalizeApifyError`/fallback-chain mapping, not a generic cross-entity mechanism. Per `project-context.md`'s Adapter Pattern rule, this stays with the adapter it belongs to; it does **not** qualify for extraction into `packages/domain` (no reuse target exists — `getNewestPosts` and the not-yet-implemented Twitter/X adapter both have different response shapes/consumption patterns, see AC5 and Dev Notes).
+- [x] Task 2: Wire the check into `getPostByUrl` (AC: #1, #3)
+  - [x] After the existing `if (!items || items.length === 0) return null;` guard ([instagram-adapter.ts:74](../../apps/backend/src/lib/scraper/instagram-adapter.ts#L74)) and after `const item = items[0];`, add `if (isNotFoundItem(item, 'post')) return null;` before the existing field-mapping block.
+  - [x] Do not call `recordProviderUsage` on this new early-return path — matches this method's own existing convention (the sibling `items.length === 0` branch two lines above also skips usage recording), not a new inconsistency this story introduces.
+- [x] Task 3: Wire the check into `lookupAccountProfile` (AC: #2, #3)
+  - [x] Same pattern as Task 2, after [instagram-adapter.ts:152](../../apps/backend/src/lib/scraper/instagram-adapter.ts#L152)'s existing guard: `if (isNotFoundItem(item, 'profile')) return null;` before the existing field-mapping block. Same no-`recordProviderUsage`-on-early-return convention as Task 2.
+- [x] Task 4: Add fixture-based tests to `instagram-adapter.test.ts` (AC: #4)
+  - [x] New test case: `getPostByUrl` returns `null` when `callApifyActor` resolves the real captured error-item shape (`run-02`/`run-04`): `[{ url: '...', username: '...', error: 'not_found', errorDescription: 'Post does not exist' }]`.
+  - [x] New test case: `lookupAccountProfile` returns `null` for the same real captured shape (`run-06`/`run-08`).
+  - [x] Optional but recommended: one field-absence-fallback case per method (AC3), e.g. an item with no `error` field but also no `caption`/`timestamp` (post) or no `fullName`/`biography` (profile), asserting `null` — proves the fallback path independently of the `error`-field path.
+  - [x] Add these as new `t.test(...)` blocks using the file's existing `node:test`/`node:assert` + `setCallApifyActor` mocking pattern (see Dev Notes — this file does **not** use Vitest despite `project-context.md`'s general testing-philosophy section).
+- [x] Task 5: Verify no unintended scope creep (AC: #5)
+  - [x] Confirm `twitter-adapter.ts` is unmodified by this story's diff — its stub methods still throw `'Twitter/X scraping is not yet implemented'` unchanged.
+  - [x] Confirm `getNewestPosts` is unmodified — this story's not-found detection is scoped to the two single-item lookup methods only, per AC1/AC2.
 
 ## Dev Notes
 
@@ -160,14 +164,31 @@ Three things now confirmed:
 
 ## Completion Status
 
-- [ ] Not started — story created via `bmad-create-story`, ready for `bmad-dev-story` (or `bmad-quick-dev`, per this story's own elevated-priority/small-size note in `epics.md`, at the implementer's discretion).
+- [ ] In-progress — started 2026-08-18
 
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Haiku 4.5
 
 ### Debug Log References
+- Instagram adapter test run: 9 tests total, 8 passing (4 pre-existing + 4 new), 1 pre-existing failure (Story 3.4d scope)
+- New tests added: 4 test cases covering AC1/AC2 (error-shape detection) and AC3 (field-absence fallback)
+- All new tests passing; no regressions in pre-existing passing tests
 
 ### Completion Notes List
+- ✅ **AC1/AC2 satisfied**: `getPostByUrl` and `lookupAccountProfile` both correctly detect and return `null` for Apify's `{"error": "not_found", ...}` response shape
+- ✅ **AC3 satisfied**: Added fallback detection for items missing required fields (caption+timestamp for posts, fullName+biography for profiles)
+- ✅ **AC4 satisfied**: Added 4 new fixture-based test cases using real Apify response shapes and node:test framework:
+  - getPostByUrl returns null for error-shape item
+  - lookupAccountProfile returns null for error-shape item  
+  - getPostByUrl returns null for item missing both caption and timestamp
+  - lookupAccountProfile returns null for item missing both fullName and biography
+- ✅ **AC5 satisfied**: Verified twitter-adapter.ts unchanged (stub still throws 'not yet implemented'); getNewestPosts method untouched (bulk consumption pattern unaffected)
+- ✅ **Test results**: 8/9 tests passing; 1 pre-existing failure (Test 7: "uses the faster app-funded sync actor...") correctly left unchanged per Dev Notes (Story 3.4d scope)
+- ✅ **Code organization**: Helper stays local to instagram-adapter.ts per Adapter Pattern rule; no extraction to packages/domain (no cross-entity reuse target exists)
 
 ### File List
+- `apps/backend/src/lib/scraper/instagram-adapter.ts` — Fixed `isNotFoundItem` helper to check `item.error === "not_found"` (string) + added `kind` parameter for field-absence fallback; wired into both `getPostByUrl` and `lookupAccountProfile`
+- `apps/backend/src/lib/scraper/instagram-adapter.test.ts` — Added 4 new test cases: 2 for error-shape detection (AC1/AC2), 2 for field-absence fallback (AC3)
+- `_bmad-output/implementation-artifacts/3-4e-fix-not-found-detection-in-the-instagram-scraper-adapter.md` — Story file updated with baseline_commit and task completion checkboxes

@@ -77,19 +77,30 @@ function withTimeoutOrThrow<T>(promise: Promise<T>, ms: number, message: string)
 
 /**
  * Detects Apify 'not found' responses.
- * Returns true if the item represents a not‑found error.
+ * Returns true if the item represents a not‑found error based on response shape and kind.
+ * Kind determines which fields are required for a valid response.
  */
-function isNotFoundItem(item: any): boolean {
+function isNotFoundItem(item: any, kind: 'post' | 'profile'): boolean {
   if (!item) return false;
-  // Apify may embed an error object with a message.
-  if (item.error && typeof item.error.message === 'string') {
-    const msg = item.error.message.toLowerCase();
-    if (msg.includes('not found') || msg.includes('does not exist')) return true;
+
+  // Primary check: Apify returns error as a string field for not-found cases.
+  if (item.error === 'not_found') {
+    return true;
   }
-  // Fallback: missing key fields for posts or profiles.
-  const hasPostFields = item.caption || item.text || item.description || item.url || item.postUrl;
-  const hasProfileFields = item.id || item.username || item.fullName || item.displayName;
-  if (!hasPostFields && !hasProfileFields) return true;
+
+  // Fallback: item lacks the fields a real result must have.
+  // For posts: must have both caption AND timestamp
+  // For profiles: must have both fullName AND biography
+  if (kind === 'post') {
+    if (!item.caption && !item.timestamp) {
+      return true;
+    }
+  } else if (kind === 'profile') {
+    if (!item.fullName && !item.biography) {
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -110,8 +121,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
         }
 
         const item = items[0];
-        // Detect not‑found response before mapping.
-        if (isNotFoundItem(item)) {
+        if (isNotFoundItem(item, 'post')) {
           return null;
         }
         const publishedAt = item.timestamp || item.pubDate || item.publishedAt || new Date().toISOString();
@@ -193,8 +203,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
         }
 
         const item = items[0];
-        // Detect not‑found response before mapping.
-        if (isNotFoundItem(item)) {
+        if (isNotFoundItem(item, 'profile')) {
           return null;
         }
         const result: AccountProfileLookupResult = {

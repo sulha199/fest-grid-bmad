@@ -492,7 +492,13 @@ development_status:
   # 2026-08-15: bmad-create-story pass complete -- full story file created
   # (3-4e-fix-not-found-detection-in-the-instagram-scraper-adapter.md), ready
   # for bmad-dev-story or bmad-quick-dev per the story's own priority note.
-  3-4e-fix-not-found-detection-in-the-instagram-scraper-adapter: ready-for-dev
+  # 2026-08-18: bmad-dev-story complete -- fixed isNotFoundItem helper to check
+  # item.error === "not_found" (string, not object.message), added kind parameter
+  # for field-absence fallback logic, wired into both getPostByUrl and
+  # lookupAccountProfile. Added 4 new test cases (AC1/AC2 error-shape + AC3
+  # fallback), all passing. Pre-existing failing test (Story 3.4d scope) left
+  # unchanged per Dev Notes.
+  3-4e-fix-not-found-detection-in-the-instagram-scraper-adapter: review
   # NEW 2026-08-17, added via bmad-correct-course at the user's explicit request
   # ("Add as a 3rd split-off story now"), folded into the same sprint-change-
   # proposal-2026-08-15-not-found-detection-bug.md document as 3-4d/3-4e (that

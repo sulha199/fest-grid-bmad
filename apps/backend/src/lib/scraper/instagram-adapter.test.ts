@@ -111,6 +111,30 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(result, null);
   });
 
+  await t.test('getPostByUrl returns null for item missing both caption and timestamp', async () => {
+    setCallApifyActor(async () => [
+      {
+        url: 'https://www.instagram.com/p/missing_fields/',
+        id: '12345',
+        displayUrl: 'https://example.com/img.jpg',
+      },
+    ]);
+    const result = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/missing_fields/');
+    assert.strictEqual(result, null);
+  });
+
+  await t.test('lookupAccountProfile returns null for item missing both fullName and biography', async () => {
+    setCallApifyActor(async () => [
+      {
+        id: '98765',
+        username: 'test_user',
+        profilePicUrl: 'https://example.com/pic.jpg',
+      },
+    ]);
+    const result = await instagramScraperAdapter.lookupAccountProfile('test_user');
+    assert.strictEqual(result, null);
+  });
+
   await t.test('uses the faster app-funded sync actor and surfaces a timeout explicitly', async () => {
     let calledActor: string | undefined;
 
