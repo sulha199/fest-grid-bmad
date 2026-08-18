@@ -2,6 +2,7 @@ import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
+import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
 import { markPendingJobCompleted } from './brightdata-pending-jobs-store.js';
 import type { BrightdataPendingJob } from './brightdata-pending-jobs-store.js';
 import { compileValidator } from '../../validation/validate.js';
@@ -45,6 +46,23 @@ export async function processBrightDataResult(
       const isValid = validateScrapedPost(candidate);
       if (!isValid) {
         console.warn(`Bright Data record failed AJV schema validation:`, validateScrapedPost.errors);
+        // Capture unprocessed payload before skipping
+        try {
+          await persistUnprocessedPayload({
+            rawPayload: candidate,
+            validationError: validateScrapedPost.errors,
+            context: {
+              source: 'brightdata',
+              scraperVendor: null,
+              accountId: null,
+              postUrl,
+              timestamp: new Date().toISOString(),
+              parserVersion: '3.4g',
+            },
+          });
+        } catch (err) {
+          console.error('Failed to persist unprocessed Bright Data payload:', err);
+        }
         continue;
       }
 

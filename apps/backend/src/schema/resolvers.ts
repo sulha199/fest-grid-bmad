@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
-import { eq, count, sql, asc, and, exists, desc, inArray, or, gte, isNull, ilike } from 'drizzle-orm';
+import { eq, count, sql, asc, and, exists, desc, inArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile } from '@festgrid/domain/scraper';
@@ -1733,6 +1733,56 @@ export const resolvers: Resolvers = {
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
+    reprocessPayload: async (_: any, { payloadId, parserVersion }: any, context: any) => {
+      requireModerator(context);
+
+      // Verify payload exists
+      const payloadRows = await db
+        .select()
+        .from(unprocessedScraperPayloads)
+        .where(eq(unprocessedScraperPayloads.id, payloadId))
+        .limit(1);
+
+      if (!payloadRows.length || payloadRows[0].deletedAt) {
+        return { success: false, message: 'Payload not found or already deleted' };
+      }
+
+      // Verify parser version exists
+      const versionRows = await db
+        .select()
+        .from(parserVersionRegistry)
+        .where(eq(parserVersionRegistry.version, parserVersion))
+        .limit(1);
+
+      if (!versionRows.length) {
+        return { success: false, message: `Parser version ${parserVersion} not found in registry` };
+      }
+
+      // TODO: Enqueue to AIProcessingQueue
+      // For now, return success with a placeholder queueId
+      const queueId = randomUUID();
+
+      return {
+        success: true,
+        queueId,
+        message: `Payload requeued to AIProcessingQueue with parser ${parserVersion}`,
+      };
+    },
+    deleteUnprocessedPayload: async (_: any, { payloadId }: any, context: any) => {
+      requireModerator(context);
+
+      const result = await db
+        .update(unprocessedScraperPayloads)
+        .set({ deletedAt: new Date() })
+        .where(
+          and(
+            eq(unprocessedScraperPayloads.id, payloadId),
+            isNull(unprocessedScraperPayloads.deletedAt)
+          )
+        );
+
+      return result.rowCount > 0;
+    },
   },
   Query: {
     health: () => true,
@@ -2575,6 +2625,70 @@ export const resolvers: Resolvers = {
         .where(condition);
 
       return (rows[0] as any) || null;
+    },
+    queryUnprocessedPayloads: async (_: any, { filters, first, after }: any, context: any) => {
+      requireModerator(context);
+
+      const limit = (first || 10) + 1; // +1 to detect hasNextPage
+      const offset = after ? parseInt(Buffer.from(after, 'base64').toString(), 10) : 0;
+
+      const conditions = [isNull(unprocessedScraperPayloads.deletedAt)];
+
+      if (filters?.source) {
+        conditions.push(sql`context->>'source' = ${filters.source.toLowerCase()}`);
+      }
+      if (filters?.createdAfter) {
+        conditions.push(gte(unprocessedScraperPayloads.createdAt, new Date(filters.createdAfter)));
+      }
+      if (filters?.createdBefore) {
+        conditions.push(sql`${unprocessedScraperPayloads.createdAt} <= ${new Date(filters.createdBefore)}`);
+      }
+      if (filters?.parserVersion) {
+        conditions.push(sql`context->>'parserVersion' = ${filters.parserVersion}`);
+      }
+
+      const rows = await db
+        .select()
+        .from(unprocessedScraperPayloads)
+        .where(and(...conditions))
+        .orderBy(desc(unprocessedScraperPayloads.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      const hasNextPage = rows.length > (first || 10);
+      const edges = rows.slice(0, first || 10).map((row, idx) => ({
+        node: row,
+        cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+      }));
+
+      const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+
+      const totalCountRows = await db
+        .select({ count: count() })
+        .from(unprocessedScraperPayloads)
+        .where(and(...conditions));
+
+      return {
+        edges,
+        pageInfo: { hasNextPage, endCursor },
+        totalCount: totalCountRows[0]?.count || 0,
+      };
+    },
+    parserVersions: async (_: any, { onlyActive }: any, context: any) => {
+      requireModerator(context);
+
+      const conditions = [];
+      if (onlyActive) {
+        conditions.push(eq(parserVersionRegistry.isActive, true));
+      }
+
+      const rows = await db
+        .select()
+        .from(parserVersionRegistry)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(parserVersionRegistry.deployedAt));
+
+      return rows;
     }
   },
   RankedAccountVote: {

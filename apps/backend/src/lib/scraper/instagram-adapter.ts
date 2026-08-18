@@ -4,6 +4,7 @@ import { assertProviderCapacityAvailable, recordProviderUsage } from './usage-st
 import { loadBackendEnv } from '../../env.js';
 import { compileValidator } from '../../validation/validate.js';
 import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
+import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
 
 const GET_POST_BY_URL_ACTOR = 'apify/instagram-post-scraper';
 const LOOKUP_ACCOUNT_PROFILE_ACTOR = 'apify/instagram-post-scraper';
@@ -85,9 +86,9 @@ function withTimeoutOrThrow<T>(promise: Promise<T>, ms: number, message: string)
 
 /**
  * Maps an Apify item to a ScrapedPost and validates against schema.
- * Returns null if validation fails.
+ * Returns null if validation fails (after capturing the unprocessed payload).
  */
-export function mapApifyItemToScrapedPost(item: any): ScrapedPost | null {
+export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost | null> {
   const publishedAt = item.timestamp || item.pubDate || item.publishedAt || new Date().toISOString();
   const postUrl = item.url || item.postUrl || `https://www.instagram.com/p/${item.shortCode || item.id || ''}/`;
   const imageUrl = item.displayUrl || item.imageUrl;
@@ -105,6 +106,23 @@ export function mapApifyItemToScrapedPost(item: any): ScrapedPost | null {
   const isValid = validateScrapedPost(candidate);
   if (!isValid) {
     console.error(`Apify item failed AJV validation:`, validateScrapedPost.errors);
+    // Capture unprocessed payload before discarding
+    try {
+      await persistUnprocessedPayload({
+        rawPayload: candidate,
+        validationError: validateScrapedPost.errors,
+        context: {
+          source: 'apify',
+          scraperVendor: 'instagram',
+          accountId: null,
+          postUrl,
+          timestamp: new Date().toISOString(),
+          parserVersion: '3.4g',
+        },
+      });
+    } catch (err) {
+      console.error('Failed to persist unprocessed Apify payload:', err);
+    }
     return null;
   }
 
@@ -161,7 +179,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
           return null;
         }
 
-        const post = mapApifyItemToScrapedPost(item);
+        const post = await mapApifyItemToScrapedPost(item);
         if (!post) {
           return null;
         }
@@ -193,9 +211,8 @@ export const instagramScraperAdapter: ScraperAdapter = {
       }
 
       const items = await callApifyActor(input, GET_NEWEST_POSTS_ACTOR);
-      const mappedPosts = items
-        .map(mapApifyItemToScrapedPost)
-        .filter((post): post is ScrapedPost => post !== null);
+      const mappedResults = await Promise.all(items.map(mapApifyItemToScrapedPost));
+      const mappedPosts = mappedResults.filter((post): post is ScrapedPost => post !== null);
 
       if (items.length > 0) {
         await recordProviderUsage('apify', items.length);

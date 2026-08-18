@@ -517,3 +517,36 @@ export const embedDomainsRelations = relations(embedDomains, ({ one }) => ({
     references: [widgets.id],
   }),
 }));
+
+export const unprocessedScraperPayloads = pgTable('unprocessed_scraper_payloads', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  rawPayload: jsonb('raw_payload').notNull(),
+  validationError: jsonb('validation_error').notNull(),
+  context: jsonb('context').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+}, (t) => ({
+  idxCreatedDesc: index('idx_unprocessed_payloads_created_desc')
+    .on(t.createdAt)
+    .desc()
+    .where(sql`deleted_at IS NULL`),
+  idxSourceGin: index('idx_unprocessed_payloads_source')
+    .on(t.context)
+    .where(sql`deleted_at IS NULL`),
+  idxCleanup: index('idx_unprocessed_payloads_cleanup')
+    .on(t.createdAt)
+    .where(sql`deleted_at IS NULL`),
+}));
+
+export const parserVersionRegistry = pgTable('parser_version_registry', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  version: text('version').notNull().unique(),
+  description: text('description'),
+  sourceFile: text('source_file'),
+  deployedAt: timestamp('deployed_at', { withTimezone: true }).defaultNow().notNull(),
+  isActive: boolean('is_active').default(false).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  idxVersion: uniqueIndex('idx_parser_versions_version').on(t.version),
+  idxActive: index('idx_parser_versions_active').on(t.isActive, t.version),
+}));

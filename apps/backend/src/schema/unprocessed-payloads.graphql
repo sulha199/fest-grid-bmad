@@ -1,0 +1,91 @@
+scalar JSON
+
+enum UnprocessedPayloadSource {
+  APIFY
+  BRIGHTDATA
+  GEMINI
+}
+
+type PayloadContext {
+  source: UnprocessedPayloadSource!
+  scraperVendor: String
+  accountId: String
+  postUrl: String
+  timestamp: DateTime!
+  parserVersion: String!
+}
+
+type ValidationErrorDetail {
+  instancePath: String
+  schemaPath: String
+  keyword: String
+  params: JSON
+  message: String!
+}
+
+type UnprocessedScraperPayload {
+  id: ID!
+  rawPayload: JSON!
+  validationError: [ValidationErrorDetail!]!
+  context: PayloadContext!
+  createdAt: DateTime!
+  deletedAt: DateTime
+}
+
+input UnprocessedPayloadFilters {
+  source: UnprocessedPayloadSource
+  createdAfter: DateTime
+  createdBefore: DateTime
+  parserVersion: String
+}
+
+type UnprocessedPayloadEdge {
+  node: UnprocessedScraperPayload!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}
+
+type UnprocessedPayloadConnection {
+  edges: [UnprocessedPayloadEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ReprocessResult {
+  success: Boolean!
+  queueId: String
+  message: String!
+}
+
+type ParserVersion {
+  id: ID!
+  version: String!
+  description: String
+  sourceFile: String
+  deployedAt: DateTime!
+  isActive: Boolean!
+  createdAt: DateTime!
+}
+
+extend type Query {
+  queryUnprocessedPayloads(
+    filters: UnprocessedPayloadFilters,
+    first: Int,
+    after: String
+  ): UnprocessedPayloadConnection!
+
+  parserVersions(onlyActive: Boolean): [ParserVersion!]!
+}
+
+extend type Mutation {
+  reprocessPayload(
+    payloadId: ID!,
+    parserVersion: String!
+  ): ReprocessResult!
+
+  deleteUnprocessedPayload(payloadId: ID!): Boolean!
+}
