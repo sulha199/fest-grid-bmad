@@ -549,7 +549,7 @@ development_status:
   # persists raw payloads with full context, tracks parser versions, enables moderator-driven
   # re-processing with version selection. Depends on: 3-4g (detection), 0.15 (email),
   # 3.5 (enqueue), 4.7a (auth). Followed by: 3-4i (moderator UI page).
-  3-4h-capture-and-surface-data-format-anomalies: ready-for-dev
+  3-4h-capture-and-surface-data-format-anomalies: review
   # added 2026-08-18 via bmad-create-story: new moderator page (/moderator/unprocessed-payloads)
   # to browse unprocessed payloads, select parser version from all historical versions, and
   # trigger re-processing. Separate from Story 4.7 (moderator-items-page). Depends on: 3-4h.
