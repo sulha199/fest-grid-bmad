@@ -1,7 +1,11 @@
 import { ApifyApiError, ApifyClient } from 'apify-client';
-import { ScraperAdapter, ScraperAccountRef, ScrapedPost, AccountProfileLookupResult } from '@festgrid/domain';
+import { ScraperAdapter, ScraperAccountRef, ScrapedPost, AccountProfileLookupResult, ApifyRequestTimeoutError } from '@festgrid/domain';
 import { assertProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
 import { loadBackendEnv } from '../../env.js';
+
+const GET_POST_BY_URL_ACTOR = 'apify/instagram-post-scraper';
+const LOOKUP_ACCOUNT_PROFILE_ACTOR = 'apify/instagram-post-scraper';
+const GET_NEWEST_POSTS_ACTOR = 'apify/instagram-post-scraper';
 
 function normalizeApifyError(err: unknown, context: string): Error {
   if (err instanceof ApifyApiError) {
@@ -19,14 +23,14 @@ function normalizeApifyError(err: unknown, context: string): Error {
   return new Error(`Apify request failed while ${context}`);
 }
 
-export let callApifyActor = async (input: object): Promise<any[]> => {
+export let callApifyActor = async (input: object, actorId: string): Promise<any[]> => {
   const env = loadBackendEnv();
   if (!env.apifyApiToken) {
     throw new Error('APIFY_API_TOKEN is not configured');
   }
 
   const client = new ApifyClient({ token: env.apifyApiToken });
-  const run = await client.actor('apify/instagram-api-scraper').call(input as Record<string, unknown>);
+  const run = await client.actor(actorId).call(input as Record<string, unknown>);
 
   const datasetId = run.defaultDatasetId;
   if (!datasetId) {
@@ -59,6 +63,18 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   });
 }
 
+function withTimeoutOrThrow<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new ApifyRequestTimeoutError(message));
+    }, ms);
+
+    promise
+      .then((res) => { clearTimeout(timer); resolve(res); })
+      .catch((err) => { clearTimeout(timer); reject(err); });
+  });
+}
+
 /**
  * Detects Apify 'not found' responses.
  * Returns true if the item represents a not‑found error.
@@ -87,7 +103,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
           directUrls: [url],
           resultsType: 'posts',
           resultsLimit: 1,
-        });
+        }, GET_POST_BY_URL_ACTOR);
 
         if (!items || items.length === 0) {
           return null;
@@ -135,7 +151,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
         input.onlyPostsNewerThan = options.newerThan;
       }
 
-      const items = await callApifyActor(input);
+      const items = await callApifyActor(input, GET_NEWEST_POSTS_ACTOR);
 
       const mappedPosts: ScrapedPost[] = items.map((item: any) => {
         const publishedAt = item.timestamp || item.pubDate || item.publishedAt || new Date().toISOString();
@@ -163,13 +179,14 @@ export const instagramScraperAdapter: ScraperAdapter = {
   async lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null> {
     await assertProviderCapacityAvailable('apify', `profile ${handleOrUrl}`);
 
-    try {
-      const url = handleOrUrl.startsWith('http') ? handleOrUrl : `https://www.instagram.com/${handleOrUrl}/`;
-      const items = await callApifyActor({
+    const runLookup = async (): Promise<AccountProfileLookupResult | null> => {
+      try {
+        const url = handleOrUrl.startsWith('http') ? handleOrUrl : `https://www.instagram.com/${handleOrUrl}/`;
+        const items = await callApifyActor({
           directUrls: [url],
           resultsType: 'details',
           resultsLimit: 1,
-        });
+        }, LOOKUP_ACCOUNT_PROFILE_ACTOR);
 
         if (!items || items.length === 0) {
           return null;
@@ -187,12 +204,15 @@ export const instagramScraperAdapter: ScraperAdapter = {
           profileImageUrl: item.profilePicUrl || item.profileImageUrl || undefined,
         };
 
-      await recordProviderUsage('apify', 1);
+        await recordProviderUsage('apify', 1);
 
-      return result;
-    } catch (err) {
-      console.error(`Instagram Scraper Adapter error looking up profile for ${handleOrUrl}:`, err);
-      throw normalizeApifyError(err, `looking up profile ${handleOrUrl}`);
-    }
+        return result;
+      } catch (err) {
+        console.error(`Instagram Scraper Adapter error looking up profile for ${handleOrUrl}:`, err);
+        throw normalizeApifyError(err, `looking up profile ${handleOrUrl}`);
+      }
+    };
+
+    return withTimeoutOrThrow(runLookup(), 20000, 'Account profile lookup timed out');
   },
 };

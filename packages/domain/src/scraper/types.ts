@@ -25,6 +25,13 @@ export class ScraperCapacityExceededError extends Error {
   }
 }
 
+export class ApifyRequestTimeoutError extends Error {
+  constructor(message?: string) {
+    super(message);
+    this.name = 'ApifyRequestTimeoutError';
+  }
+}
+
 export interface ScraperAdapter {
   getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]>;
   lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null>;

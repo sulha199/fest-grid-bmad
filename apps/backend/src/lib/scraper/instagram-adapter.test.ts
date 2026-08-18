@@ -4,7 +4,7 @@ import { ApifyApiError } from 'apify-client';
 import { instagramScraperAdapter, setCallApifyActor } from './instagram-adapter.js';
 import { db } from '../../db/client.js';
 import { scraperProviderUsage } from '@festgrid/database';
-import { ScraperCapacityExceededError } from '@festgrid/domain';
+import { ScraperCapacityExceededError, ApifyRequestTimeoutError } from '@festgrid/domain';
 import { eq } from 'drizzle-orm';
 
 test('instagram-adapter tests', async (t) => {
@@ -127,7 +127,7 @@ test('instagram-adapter tests', async (t) => {
 
     const post = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/test/');
     assert.ok(post);
-    assert.strictEqual(calledActor, 'sones/instagram-posts-scraper-lowcost');
+    assert.strictEqual(calledActor, 'apify/instagram-post-scraper');
 
     setCallApifyActor(async () => new Promise(() => {}));
     await assert.rejects(

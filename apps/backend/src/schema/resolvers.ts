@@ -23,7 +23,7 @@ import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
 import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS } from '@festgrid/domain/events';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
-import { ScraperCapacityExceededError, isCycleElapsed } from '@festgrid/domain';
+import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
@@ -1428,6 +1428,9 @@ export const resolvers: Resolvers = {
         try {
           lookupResult = await lookupAccountProfile(input.platform.toLowerCase() as any, input.handleOrUrl);
         } catch (err) {
+          if (err instanceof ApifyRequestTimeoutError) {
+            throw new GraphQLError(err.message, { extensions: { code: 'SCRAPE_TIMEOUT' } });
+          }
           throw new GraphQLError('Failed to lookup account profile', { extensions: { code: 'BAD_REQUEST' } });
         }
         
