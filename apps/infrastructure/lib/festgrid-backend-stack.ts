@@ -96,6 +96,8 @@ export class FestgridBackendStack extends cdk.Stack {
         DATABASE_URL: process.env.DATABASE_URL || '',
         SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
         GEOAPIFY_API_KEY: process.env.GEOAPIFY_API_KEY || '',
+        BRIGHTDATA_API_TOKEN: process.env.BRIGHTDATA_API_TOKEN || '',
+        BRIGHTDATA_DATASET_ID: process.env.BRIGHTDATA_DATASET_ID || 'gd_lk5ns7kz21pck8jpis',
       },
     });
 
@@ -110,6 +112,8 @@ export class FestgridBackendStack extends cdk.Stack {
         DATABASE_URL: process.env.DATABASE_URL || '',
         SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
         APIFY_API_TOKEN: process.env.APIFY_API_TOKEN || '',
+        BRIGHTDATA_API_TOKEN: process.env.BRIGHTDATA_API_TOKEN || '',
+        BRIGHTDATA_DATASET_ID: process.env.BRIGHTDATA_DATASET_ID || 'gd_lk5ns7kz21pck8jpis',
       },
     });
 
@@ -206,13 +210,27 @@ export class FestgridBackendStack extends cdk.Stack {
       stage: api.deploymentStage,
     });
 
-    // Create webhooks resource and add Apify webhook endpoint
+    // Webhook Lambda (handles Bright Data and Apify webhook callbacks)
+    const webhookLambda = new nodejs.NodejsFunction(this, `Webhook-${stageName}`, {
+      entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/webhook.ts'),
+      handler: 'handler',
+      ...sharedLambdaProps,
+      environment: {
+        STAGE: stageName,
+        DATABASE_URL: process.env.DATABASE_URL || '',
+      },
+    });
+
+    // Create webhooks resource and add webhook endpoints
     const webhooksResource = api.root.addResource('webhooks');
     webhooksResource.addResource('apify').addMethod('POST', new apigateway.LambdaIntegration(apifyWebhookLambda));
+    webhooksResource.addResource('brightdata').addMethod('POST', new apigateway.LambdaIntegration(webhookLambda));
 
-    // Wire Apify webhook URL to apiLambda and scraperLambda (post-construction)
+    // Wire webhook URLs to apiLambda and scraperLambda (post-construction to avoid circular refs)
     apiLambda.addEnvironment('APIFY_WEBHOOK_BASE_URL', `${api.url}webhooks/apify`);
     scraperLambda.addEnvironment('APIFY_WEBHOOK_BASE_URL', `${api.url}webhooks/apify`);
+    apiLambda.addEnvironment('BRIGHTDATA_WEBHOOK_BASE_URL', `${api.url}webhooks/brightdata`);
+    scraperLambda.addEnvironment('BRIGHTDATA_WEBHOOK_BASE_URL', `${api.url}webhooks/brightdata`);
 
     // Output API Gateway URL
     new cdk.CfnOutput(this, `apiGatewayUrl`, {
@@ -220,56 +238,14 @@ export class FestgridBackendStack extends cdk.Stack {
       description: 'The API Gateway invoke URL',
       exportName: `festgrid-api-url-${stageName}`,
     });
-    // BrightData Trigger Lambda (scheduled)
-    const brightDataTriggerLambda = new nodejs.NodejsFunction(this, `BrightDataTrigger-${stageName}`, {
-      entry: path.resolve(projectRoot, 'apps/backend/src/lambda/trigger-brightdata-for-target.lambda.ts'),
-      handler: 'handler',
-      ...sharedLambdaProps,
-      environment: {
-        STAGE: stageName,
-        DATABASE_URL: process.env.DATABASE_URL || '',
-        BRIGHTDATA_WEBHOOK_BASE_URL: process.env.BRIGHTDATA_WEBHOOK_BASE_URL || '',
-      },
-    });
 
-    // BrightData Webhook Lambda (invoked by BrightData)
-    const brightDataWebhookLambda = new nodejs.NodejsFunction(this, `BrightDataWebhook-${stageName}`, {
-      entry: path.resolve(projectRoot, 'apps/backend/src/lambda/brightdata-webhook.lambda.ts'),
-      handler: 'handler',
-      ...sharedLambdaProps,
-      environment: {
-        STAGE: stageName,
-        DATABASE_URL: process.env.DATABASE_URL || '',
-        BRIGHTDATA_WEBHOOK_SECRET: process.env.BRIGHTDATA_WEBHOOK_SECRET || '',
-        BRIGHTDATA_WEBHOOK_DLQ_ARN: process.env.BRIGHTDATA_WEBHOOK_DLQ_ARN || '',
-      },
-    });
-
-    // Stale Job Sweep Lambda (scheduled)
-    const staleJobSweepLambda = new nodejs.NodejsFunction(this, `StaleJobSweep-${stageName}`, {
-      entry: path.resolve(projectRoot, 'apps/backend/src/lambda/stale-job-sweep.lambda.ts'),
-      handler: 'handler',
-      ...sharedLambdaProps,
-      environment: {
-        STAGE: stageName,
-        DATABASE_URL: process.env.DATABASE_URL || '',
-      },
-    });
-
-    // Schedule BrightData Trigger (daily)
-    const brightDataTriggerRule = new events.Rule(this, `BrightDataTriggerRule-${stageName}`, {
-      schedule: events.Schedule.rate(cdk.Duration.days(1)),
-    });
-    brightDataTriggerRule.addTarget(new targets.LambdaFunction(brightDataTriggerLambda));
-
-    // Schedule Stale Job Sweep (hourly)
-    const staleJobSweepRule = new events.Rule(this, `StaleJobSweepRule-${stageName}`, {
+    // Schedule Stale Job Sweep (hourly) - targets scraper Lambda with jobType payload
+    const staleJobSweepRule = new events.Rule(this, `ScraperStaleJobSweepRule-${stageName}`, {
       schedule: events.Schedule.rate(cdk.Duration.hours(1)),
     });
-    staleJobSweepRule.addTarget(new targets.LambdaFunction(staleJobSweepLambda));
-
-    // Grant permissions for BrightData trigger to enqueue scraping jobs
-    scrapingQueue.grantSendMessages(brightDataTriggerLambda);
+    staleJobSweepRule.addTarget(new targets.LambdaFunction(scraperLambda, {
+      event: events.RuleTargetInput.fromObject({ jobType: 'stale-job-sweep' }),
+    }));
 
     // Apify Webhook Lambda (invoked by Apify)
     const apifyWebhookLambda = new nodejs.NodejsFunction(this, `ApifyWebhook-${stageName}`, {
