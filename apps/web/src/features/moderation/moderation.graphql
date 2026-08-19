@@ -75,3 +75,44 @@ mutation resolveDefaultLocationChange($id: ID!, $action: DefaultLocationChangeAc
     status
   }
 }
+
+query queryUnprocessedPayloads($filters: UnprocessedPayloadFilters, $cursor: String, $limit: Int) {
+  queryUnprocessedPayloads(filters: $filters, after: $cursor, first: $limit) {
+    edges {
+      node {
+        id
+        rawPayload
+        validationError {
+          message
+        }
+        context {
+          source
+          scraperVendor
+          accountId
+          postUrl
+          timestamp
+          parserVersion
+        }
+        createdAt
+        deletedAt
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    totalCount
+  }
+}
+
+mutation reprocessPayload($payloadId: ID!, $parserVersion: String!) {
+  reprocessPayload(payloadId: $payloadId, parserVersion: $parserVersion) {
+    success
+    message
+  }
+}
+
+mutation deleteUnprocessedPayload($payloadId: ID!) {
+  deleteUnprocessedPayload(payloadId: $payloadId)
+}
