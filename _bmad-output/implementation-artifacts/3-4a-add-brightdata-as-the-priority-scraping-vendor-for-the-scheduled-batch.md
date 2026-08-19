@@ -270,19 +270,76 @@ Story 3.3c's `ScraperAdapter` interface is platform-keyed (`instagram` → one a
 
 ## Completion Status
 
-- [x] Tasks 1-10: Core Bright Data integration modules implemented
-- [x] Database migration generated and applied
-- [x] Environment variables configured
-- [ ] CDK infrastructure wiring (paths need correction)
-- [ ] Full build pass and tests
-- [ ] Documentation updates
+- [x] Task 1: brightdata_pending_jobs table + enum migration
+- [x] Task 2: usage-store.ts extended for per-provider pricing
+- [x] Task 3: brightdata-client.ts - HTTP calls (trigger/progress/snapshot)
+- [x] Task 4: brightdata-pending-jobs-store.ts - CRUD operations
+- [x] Task 5: process-brightdata-result.ts - Shared post-processing
+- [x] Task 6: webhook.ts Lambda - Handler implemented
+- [x] Task 7: trigger-brightdata-for-target.ts - Orchestration
+- [x] Task 8: stale-job-sweep.ts - Periodic recovery sweep
+- [x] Task 9: scraper.ts retrofitted - Bright Data triggers and sweep routing
+- [x] Task 10: subscribe-to-account.ts retrofitted - Bright Data fallback
+- [x] Task 11: env.ts extended - All Bright Data env vars added
+- [x] Task 12: CDK infrastructure - Webhook Lambda, API routes, env wiring
+- [ ] Task 13: Documentation updates (SETUP_WALKTHROUGH.md, high-level-overview.md)
+- [ ] Task 14: Verification Plan execution (full build pass)
+- [ ] Pre-Coding Approval Gate verification before marking done
 
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Haiku 4.5
 
-### Debug Log References
+### Implementation Session (2026-08-19)
+Session focused on infrastructure fixes and story implementation completion:
 
-### Completion Notes List
+**Infrastructure Fixes (Commit b4f9640):**
+- Added missing DateTime scalar to typeDefs.graphql (fixed GraphQL schema validation)
+- Deleted stale src/lambda/ directory (5 files with incomplete/duplicate implementations)
+- Fixed webhook-dev-server.ts to reference lambdas/webhook.ts
+- Corrected trigger-brightdata-onetime.ts imports and function signature
+- Fixed subscriptions.test.ts using invalid posts table fields
+
+**Story Implementation (Commit 6411e8c):**
+- Consolidated webhook Lambda for Apify and Bright Data callbacks
+- Removed duplicate BrightDataTrigger and StaleJobSweep Lambda definitions
+- Added /webhooks/brightdata API Gateway route
+- Wired stale-job-sweep EventBridge rule to scraper Lambda with jobType payload
+- Added BRIGHTDATA env vars to both apiLambda and scraperLambda
+
+### Completion Notes
+Story 3-4a core implementation is complete. All core Bright Data modules are implemented and wired. The infrastructure refactoring consolidated duplicate Lambda definitions and properly integrated the stale-job-sweep into the scraper Lambda's EventBridge handling.
+
+**Outstanding Items:**
+1. Documentation updates (SETUP_WALKTHROUGH.md, high-level-overview.md)
+2. Full build verification (pre-existing test failures in other stories need attention)
+3. Pre-Coding Approval Gate signoff before marking story as done
 
 ### File List
+**New Files:**
+- apps/backend/src/lib/scraper/brightdata-client.ts
+- apps/backend/src/lib/scraper/brightdata-client.test.ts
+- apps/backend/src/lib/scraper/brightdata-pending-jobs-store.ts
+- apps/backend/src/lib/scraper/brightdata-pending-jobs-store.test.ts
+- apps/backend/src/lib/scraper/process-brightdata-result.ts
+- apps/backend/src/lib/scraper/process-brightdata-result.test.ts
+- apps/backend/src/lib/scraper/trigger-brightdata-for-target.ts
+- apps/backend/src/lib/scraper/trigger-brightdata-for-target.test.ts
+- apps/backend/src/lib/scraper/stale-job-sweep.ts
+- apps/backend/src/lib/scraper/stale-job-sweep.test.ts
+- apps/backend/src/lambdas/webhook.ts
+
+**Modified Files:**
+- packages/database/schema.ts (added brightdata_pending_jobs table)
+- apps/backend/src/lambdas/scraper.ts (EventBridge stale-job-sweep branch)
+- apps/backend/src/lib/scraper/usage-store.ts (per-provider pricing)
+- apps/backend/src/lib/scraper/get-scrape-targets.ts (pending-job exclusion)
+- apps/backend/src/lib/subscriptions/subscribe-to-account.ts (Bright Data fallback)
+- apps/backend/src/env.ts (all Bright Data env vars)
+- apps/infrastructure/lib/festgrid-backend-stack.ts (webhook route, EventBridge wiring)
+- apps/backend/src/trigger-brightdata-onetime.ts (debug script)
+- apps/backend/src/webhook-dev-server.ts (dev server)
+
+**Deleted Files:**
+- apps/backend/src/lambda/ directory (5 stale/duplicate files)
