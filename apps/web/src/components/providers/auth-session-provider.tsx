@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { graphqlClient } from '@/lib/graphql-client';
 import { useMeQuery, useUpdateUserTimezoneMutation } from '@/generated/graphql';
@@ -22,14 +22,14 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
   const posthog = usePostHog();
   const { mutateAsync: updateUserTimezone } = useUpdateUserTimezoneMutation(graphqlClient);
 
-  const captureTimezone = async () => {
+  const captureTimezone = useCallback(async () => {
     try {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       await updateUserTimezone({ timezone });
     } catch (e) {
       console.warn('Timezone capture failed:', e);
     }
-  };
+  }, [updateUserTimezone]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();

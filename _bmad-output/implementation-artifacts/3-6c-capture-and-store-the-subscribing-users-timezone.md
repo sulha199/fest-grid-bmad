@@ -188,9 +188,25 @@ No existing resolver in this codebase does a read-then-compare-then-conditionall
 - [x] Domain package builds successfully; backend resolver compiles; frontend codegen generates types successfully.
 - [x] No Drizzle migration generated (none required — `users.timezone` column pre-exists from Story 3.6a).
 
+## Post-Implementation Bug Fix (2026-08-19)
+
+### Bug: Excessive updateUserTimezone() Calls
+
+**Issue:** `updateUserTimezone()` mutation was being called excessively due to `captureTimezone` not being memoized. The function was redefined on every render, invalidating the `useEffect` dependency array and causing the effect to re-run repeatedly.
+
+**Root Cause:** `captureTimezone` was defined as a regular async function without `useCallback`, so even though it was in the dependency array, it was a new function on every render.
+
+**Fix:** Wrapped `captureTimezone` with `useCallback` hook and added `[updateUserTimezone]` as the explicit dependency array. This ensures the function only changes when `updateUserTimezone` changes (which is stable from the hook), not on every render.
+
+**Files Modified:**
+- [x] `apps/web/src/components/providers/auth-session-provider.tsx` — wrapped `captureTimezone` with `useCallback`
+- [x] `apps/web/src/components/providers/auth-session-provider.test.tsx` — added test to verify mutation isn't called excessively on re-renders
+
+**Test Coverage:** Added new test "should not call mutation excessively on re-renders (AC4: useCallback memoization)" to verify the fix prevents redundant mutation calls during component re-renders.
+
 ## Completion Status
 
-- [x] Complete — ready for code review
+- [x] Complete — ready for code review (post-implementation bug fix applied)
 
 ## Dev Agent Record
 
@@ -208,12 +224,14 @@ Claude Haiku 4.5
 
 **Story 3.6c implementation complete.** All 8 tasks done, all 6 ACs satisfied.
 
+**Post-Implementation Fix (2026-08-19):** Bug discovered where `updateUserTimezone()` was being called excessively on component re-renders. Root cause: `captureTimezone` was redefined on every render without memoization, invalidating the `useEffect` dependency array. Fixed by wrapping `captureTimezone` with `useCallback` and adding explicit `[updateUserTimezone]` dependency. Added integration test to verify the fix prevents excessive calls during re-renders.
+
 **Deviation from plan:** Story 3.6d (which was supposed to build the validator per the planning notes) has not been implemented yet (still in `ready-for-dev`). Since the validator is a small, pure-logic module that's critical to this story, I built it directly in this story's implementation rather than blocking on Story 3.6d. When Story 3.6d is later implemented, it can reuse this validator from `@festgrid/domain/users` without duplication.
 
 **Implementation summary:**
 - **Domain (packages/domain):** Pure validator `isValidIanaTimezone` using Intl.DateTimeFormat try/catch, with comprehensive test coverage (valid IANA zones, invalid strings, type coercion edge cases).
 - **Backend (apps/backend):** GraphQL mutation schema, resolver with auth check, timezone validation, read-before-write guard (AC4), and integration test coverage.
-- **Frontend (apps/web):** GraphQL mutation operation document, wired into `AuthSessionProvider` to capture timezone on every authenticated session (both initial `getSession()` and all subsequent `onAuthStateChange` events), with non-blocking error handling.
+- **Frontend (apps/web):** GraphQL mutation operation document, wired into `AuthSessionProvider` to capture timezone on every authenticated session (both initial `getSession()` and all subsequent `onAuthStateChange` events), with non-blocking error handling. **Bug fix:** `captureTimezone` wrapped with `useCallback` to prevent excessive mutation calls on re-renders.
 
 **AC Coverage:**
 1. ✅ Capture on initial session + every `onAuthStateChange` with session (not gated to SIGNED_IN)
@@ -222,6 +240,7 @@ Claude Haiku 4.5
 4. ✅ Read-before-write optimization (verified in test: identical resubmission does not UPDATE)
 5. ✅ Backward compat: existing users stay NULL until first capture (no backfill)
 6. ✅ Non-blocking best-effort capture with console.warn on failure
+7. ✅ **2026-08-19:** `useCallback` memoization prevents excessive mutation calls on re-renders
 
 ### File List
 
@@ -238,5 +257,6 @@ Claude Haiku 4.5
 - `packages/domain/package.json` — added `"./users"` export path
 - `apps/backend/src/schema/resolvers.ts` — added `isValidIanaTimezone` import, implemented `updateUserTimezone` resolver
 - `apps/backend/src/generated/resolvers-types.ts` — regenerated via codegen (new `updateUserTimezone` resolver type)
-- `apps/web/src/components/providers/auth-session-provider.tsx` — added timezone capture calls + mutation hook
+- `apps/web/src/components/providers/auth-session-provider.tsx` — added timezone capture calls + mutation hook; **2026-08-19 update:** wrapped `captureTimezone` with `useCallback` to fix excessive mutation calls
 - `apps/web/src/generated/graphql.ts` — regenerated via codegen (new `UpdateUserTimezoneMutation` type + hook)
+- `apps/web/src/components/providers/auth-session-provider.test.tsx` — **2026-08-19 update:** added test to verify mutation isn't called excessively on re-renders
