@@ -56,7 +56,7 @@ test('instagram-adapter tests', async (t) => {
 
     assert.strictEqual(calledActor, 'apify/instagram-post-scraper');
     assert.deepStrictEqual(calledInput, {
-      username: 'test_username',
+      username: ['test_username'],
       resultsType: 'posts',
       resultsLimit: 10,
       onlyPostsNewerThan: '2026-08-01T00:00:00Z',

@@ -23,7 +23,7 @@ interface LookupAccountProfileActorInput {
 }
 
 interface GetNewestPostsActorInput {
-  username: string;
+  username: string[];
   resultsType: 'posts';
   resultsLimit: number;
   onlyPostsNewerThan?: string;
@@ -286,7 +286,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
 
     try {
       const input: GetNewestPostsActorInput = {
-        username: account.username,
+        username: [account.username],
         resultsType: 'posts',
         resultsLimit: env.scrapeResultsLimit,
         ...(options?.newerThan && { onlyPostsNewerThan: options.newerThan }),
