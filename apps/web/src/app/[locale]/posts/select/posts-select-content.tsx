@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useAuthSession } from '@/components/providers/auth-session-provider';
 import { useRouter, Link } from '@/i18n/navigation';
@@ -35,12 +35,6 @@ export function PostsSelectContent() {
   const { selectedPostIds, togglePost, clearSelection } = usePostSelectionStore();
 
   // 1. Fetch Subscriptions
-  // Determine if we should poll based on isScrapeInProgress and timeout
-  const shouldPoll = activeSub?.account?.isScrapeInProgress && scrapePollingStartTime;
-  const pollTimeElapsed = scrapePollingStartTime ? Date.now() - scrapePollingStartTime : 0;
-  const pollTimeoutMs = 60000; // 60 seconds
-  const shouldStopPolling = pollTimeElapsed > pollTimeoutMs;
-
   const {
     data: subData,
     isLoading: subLoading,
@@ -51,7 +45,6 @@ export function PostsSelectContent() {
     {},
     {
       enabled: !!session,
-      refetchInterval: shouldPoll && !shouldStopPolling ? 3000 : false, // Poll every 3s, or stop if timeout
     }
   );
 
@@ -103,7 +96,7 @@ export function PostsSelectContent() {
   // Filter out any subscription currently in the soft-deleted pending queue
   const subscriptions = rawSubscriptions.filter((sub) => !isSoftDeletePending(sub.id));
   
-  const apiKeys = keysData?.myApiKeys || [];
+  const apiKeys = useMemo(() => keysData?.myApiKeys || [], [keysData?.myApiKeys]);
   const remainingQuota = quotaData?.myExtractionQuota?.remaining ?? 0;
 
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
@@ -172,6 +165,23 @@ export function PostsSelectContent() {
   });
 
   const activeSub = subscriptions.find((s) => s.account.id === activeAccountId);
+
+  // Polling configuration
+  const pollTimeoutMs = 60000; // 60 seconds
+  const shouldPoll = activeSub?.account?.isScrapeInProgress && scrapePollingStartTime;
+  const pollTimeElapsed = scrapePollingStartTime ? Date.now() - scrapePollingStartTime : 0;
+  const shouldStopPolling = pollTimeElapsed > pollTimeoutMs;
+
+  // Set up polling interval for subscription updates
+  useEffect(() => {
+    if (!shouldPoll || shouldStopPolling) return;
+
+    const pollInterval = setInterval(() => {
+      refetchSubs();
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [shouldPoll, shouldStopPolling, refetchSubs]);
 
   useEffect(() => {
     if (activeSub && activeSub.isNewlyAdded) {
@@ -468,7 +478,6 @@ export function PostsSelectContent() {
                       activeSub
                         ? {
                             displayName: activeSub.account.displayName,
-                            username: activeSub.account.username,
                             profileImageUrl: activeSub.account.profileImageUrl || undefined,
                             platform: activeSub.account.platform,
                           }
