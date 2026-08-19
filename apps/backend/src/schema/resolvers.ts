@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { eq, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
@@ -36,6 +36,7 @@ import { sendTemplatedEmail } from '../lib/email/adapter.js';
 import { loadBackendEnv } from '../env.js';
 import { sendDangerousReportModeratorAlerts } from '../lib/notifications/send-dangerous-report-moderator-alerts.js';
 import { enqueuePostForProcessing } from '../lib/posts/enqueue-post-for-processing.js';
+import { replayActorRun } from '../lib/scraper/replay-actor-run.js';
 
 const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema);
 const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);
@@ -1921,6 +1922,10 @@ export const resolvers: Resolvers = {
 
       return result.rowCount > 0;
     },
+    replayActorRun: async (_: any, { actorRunId }: any, context: any) => {
+      requireModerator(context);
+      return replayActorRun(actorRunId);
+    },
   },
   Query: {
     health: () => true,
@@ -2827,6 +2832,57 @@ export const resolvers: Resolvers = {
         .orderBy(desc(parserVersionRegistry.deployedAt));
 
       return rows;
+    },
+    queryActorRuns: async (_: any, { filters, first, after }: any, context: any) => {
+      requireModerator(context);
+
+      const limit = (first || 10) + 1; // +1 to detect hasNextPage
+      const offset = after ? parseInt(Buffer.from(after, 'base64').toString(), 10) : 0;
+
+      const conditions = [];
+
+      if (filters?.vendor) {
+        conditions.push(eq(scraperActorRuns.vendor, filters.vendor.toLowerCase() as any));
+      }
+      if (filters?.status) {
+        conditions.push(eq(scraperActorRuns.status, filters.status as any));
+      }
+      if (filters?.profileId) {
+        conditions.push(eq(scraperActorRuns.profileId, filters.profileId));
+      }
+      if (filters?.createdAfter) {
+        conditions.push(gte(scraperActorRuns.createdAt, new Date(filters.createdAfter)));
+      }
+      if (filters?.createdBefore) {
+        conditions.push(lte(scraperActorRuns.createdAt, new Date(filters.createdBefore)));
+      }
+
+      const rows = await db
+        .select()
+        .from(scraperActorRuns)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(scraperActorRuns.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      const hasNextPage = rows.length > (first || 10);
+      const edges = rows.slice(0, first || 10).map((row, idx) => ({
+        node: row,
+        cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+      }));
+
+      const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+
+      const totalCountRows = await db
+        .select({ count: count() })
+        .from(scraperActorRuns)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+      return {
+        edges,
+        pageInfo: { hasNextPage, endCursor },
+        totalCount: totalCountRows[0]?.count || 0,
+      };
     }
   },
   RankedAccountVote: {

@@ -1,0 +1,75 @@
+# Reuse global scalar and PageInfo from unprocessed-payloads.graphql
+# (do not redeclare - they are auto-discovered and available)
+
+enum ActorRunVendor {
+  APIFY
+  BRIGHTDATA
+}
+
+enum ActorRunTriggerMode {
+  SYNC
+  ASYNC
+}
+
+enum ActorRunStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+  ABORTED
+}
+
+type ScraperActorRun {
+  id: ID!
+  vendor: ActorRunVendor!
+  triggerMode: ActorRunTriggerMode!
+  profileId: ID!
+  runId: String!
+  status: ActorRunStatus!
+  rawInput: JSON!
+  rawOutput: JSON
+  itemCount: Int
+  errorMessage: String
+  pendingJobId: String
+  startedAt: DateTime!
+  completedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input ActorRunFilters {
+  vendor: ActorRunVendor
+  status: ActorRunStatus
+  profileId: ID
+  createdAfter: DateTime
+  createdBefore: DateTime
+}
+
+type ActorRunEdge {
+  node: ScraperActorRun!
+  cursor: String!
+}
+
+type ActorRunConnection {
+  edges: [ActorRunEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ReplayActorRunResult {
+  success: Boolean!
+  postsPersisted: Int!
+  message: String!
+}
+
+extend type Query {
+  queryActorRuns(
+    filters: ActorRunFilters,
+    first: Int,
+    after: String
+  ): ActorRunConnection!
+}
+
+extend type Mutation {
+  replayActorRun(actorRunId: ID!): ReplayActorRunResult!
+}

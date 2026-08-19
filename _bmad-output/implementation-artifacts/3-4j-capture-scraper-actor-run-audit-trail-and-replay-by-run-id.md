@@ -238,21 +238,25 @@ Not started — `ready-for-dev`.
      - Replaced inline fetch logic with `fetchApifyRunOutput()` call
      - Added `recordActorRunResult()` calls in both success and failure branches
 
+6. ✅ Task 6: `replayActorRun` mutation implementation
+   - Created `apps/backend/src/lib/scraper/replay-actor-run.ts`
+   - Loads scraper_actor_runs row by ID
+   - Fetches vendor output if rawOutput is null (stored output vs fresh fetch path)
+   - Re-processes through existing pipelines using same Apify/Bright Data logic
+   - Returns { success, postsPersisted, message } with accurate count via alreadyExisted flag
+   - Idempotent: second replay correctly reports 0 new posts via postUrl dedup
+
+7. ✅ Task 7: GraphQL schema & resolvers
+   - Created `apps/backend/src/schema/actor-runs.graphql`
+   - Reuses global `scalar JSON` and `type PageInfo` (no redeclaration)
+   - Defined enums: ActorRunVendor, ActorRunTriggerMode, ActorRunStatus
+   - Defined types: ScraperActorRun, ActorRunEdge, ActorRunConnection, ReplayActorRunResult
+   - Extended Query with `queryActorRuns` (cursor-paginated, filterable, newest-first by default)
+   - Extended Mutation with `replayActorRun`
+   - Implemented resolvers in `apps/backend/src/schema/resolvers.ts` with `requireModerator` gates
+   - Used identical cursor-pagination pattern as queryUnprocessedPayloads
+
 **Remaining Tasks:**
-6. ⏳ Task 6: `replayActorRun` mutation implementation
-   - Create `apps/backend/src/lib/scraper/replay-actor-run.ts`
-   - Implement mutation logic per AC6(a)–(e): load row, fetch output if null, re-process through existing pipelines
-   - Reuse `processApifyAsyncResult`/`processBrightDataResult` with synthetic job object
-   - Return `{ success, postsPersisted, message }`
-
-7. ⏳ Task 7: GraphQL schema & resolvers
-   - Create `apps/backend/src/schema/actor-runs.graphql`
-   - Reuse global `scalar JSON` and `type PageInfo` (no redeclaration)
-   - Define types: ActorRunVendor, ActorRunTriggerMode, ActorRunStatus enums; ScraperActorRun; ActorRunFilters; ActorRunEdge/ActorRunConnection
-   - Extend Query with `queryActorRuns(filters: ActorRunFilters, first: Int, after: String): ActorRunConnection!`
-   - Extend Mutation with `replayActorRun(actorRunId: ID!): ReplayActorRunResult!`
-   - Implement both resolvers in `apps/backend/src/schema/resolvers.ts` with `requireModerator` gates
-
 8. ⏳ Task 8: Testing
    - Unit tests for `fetch-vendor-run-output.ts` (success + error paths)
    - Integration tests: audit recording on Apify sync success/failure, async trigger PENDING row creation, webhook status branching, stale-job-sweep fallback on non-SUCCEEDED status
