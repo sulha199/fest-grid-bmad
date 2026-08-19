@@ -40,14 +40,14 @@ describe('ActorRunsContent', () => {
       refetch: vi.fn(),
     });
 
-    render(<ActorRunsContent />, { wrapper: createWrapper() }, { wrapper: createWrapper() });
+    render(<ActorRunsContent />, { wrapper: createWrapper() });
     expect(screen.queryByText('Scraper Actor Runs')).not.toBeInTheDocument();
   });
 
   it('shows authorization guard when not authorized', () => {
     (useRequireModerator as any).mockReturnValue({ status: 'unauthorized' });
 
-    render(<ActorRunsContent />, { wrapper: createWrapper() }, { wrapper: createWrapper() });
+    render(<ActorRunsContent />, { wrapper: createWrapper() });
     // RouteLoader is shown (not the heading)
     expect(screen.queryByText('Scraper Actor Runs')).not.toBeInTheDocument();
   });
@@ -67,7 +67,7 @@ describe('ActorRunsContent', () => {
       refetch: vi.fn(),
     });
 
-    render(<ActorRunsContent />, { wrapper: createWrapper() }, { wrapper: createWrapper() });
+    render(<ActorRunsContent />, { wrapper: createWrapper() });
     expect(screen.getByText('No actor runs found')).toBeInTheDocument();
   });
 
@@ -102,7 +102,7 @@ describe('ActorRunsContent', () => {
       refetch: vi.fn(),
     });
 
-    render(<ActorRunsContent />, { wrapper: createWrapper() }, { wrapper: createWrapper() });
+    render(<ActorRunsContent />, { wrapper: createWrapper() });
     expect(screen.getByText('run-123')).toBeInTheDocument();
   });
 

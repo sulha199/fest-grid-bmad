@@ -1,0 +1,34 @@
+query queryActorRuns($filters: ActorRunFilters, $first: Int, $after: String) {
+  queryActorRuns(filters: $filters, first: $first, after: $after) {
+    edges {
+      node {
+        id
+        vendor
+        triggerMode
+        profileId
+        runId
+        status
+        rawInput
+        rawOutput
+        itemCount
+        errorMessage
+        startedAt
+        completedAt
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    totalCount
+  }
+}
+
+mutation replayActorRun($actorRunId: ID!) {
+  replayActorRun(actorRunId: $actorRunId) {
+    success
+    postsPersisted
+    message
+  }
+}

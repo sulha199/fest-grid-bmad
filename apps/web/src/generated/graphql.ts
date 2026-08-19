@@ -39,6 +39,45 @@ export type AccountVote = {
   userId: Scalars['ID']['output'];
 };
 
+export type ActorRunConnection = {
+  __typename?: 'ActorRunConnection';
+  edges: Array<ActorRunEdge>;
+  pageInfo: PageInfo;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type ActorRunEdge = {
+  __typename?: 'ActorRunEdge';
+  cursor: Scalars['String']['output'];
+  node: ScraperActorRun;
+};
+
+export type ActorRunFilters = {
+  createdAfter?: InputMaybe<Scalars['DateTime']['input']>;
+  createdBefore?: InputMaybe<Scalars['DateTime']['input']>;
+  profileId?: InputMaybe<Scalars['ID']['input']>;
+  status?: InputMaybe<ActorRunStatus>;
+  vendor?: InputMaybe<ActorRunVendor>;
+};
+
+export enum ActorRunStatus {
+  Aborted = 'ABORTED',
+  Failed = 'FAILED',
+  Pending = 'PENDING',
+  Succeeded = 'SUCCEEDED',
+  TimedOut = 'TIMED_OUT'
+}
+
+export enum ActorRunTriggerMode {
+  Async = 'ASYNC',
+  Sync = 'SYNC'
+}
+
+export enum ActorRunVendor {
+  Apify = 'APIFY',
+  Brightdata = 'BRIGHTDATA'
+}
+
 export type AddressSuggestion = {
   __typename?: 'AddressSuggestion';
   description: Scalars['String']['output'];
@@ -274,6 +313,7 @@ export type Mutation = {
   registerEmbedDomain: EmbedDomain;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
+  replayActorRun: ReplayActorRunResult;
   reportSystemError: Scalars['Boolean']['output'];
   reprocessPayload: ReprocessResult;
   resolveDefaultLocationChange: DefaultLocationChangeRequest;
@@ -387,6 +427,11 @@ export type MutationRegisterFcmTokenArgs = {
 export type MutationRemoveSubscriptionArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationReplayActorRunArgs = {
+  actorRunId: Scalars['ID']['input'];
 };
 
 
@@ -625,6 +670,7 @@ export type Query = {
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
+  queryActorRuns: ActorRunConnection;
   queryUnprocessedPayloads: UnprocessedPayloadConnection;
   rankedVoteAccounts: Array<RankedAccountVote>;
   reportedEvents: Array<Report>;
@@ -691,6 +737,13 @@ export type QueryPreviewLocationArgs = {
 };
 
 
+export type QueryQueryActorRunsArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  filters?: InputMaybe<ActorRunFilters>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
 export type QueryQueryUnprocessedPayloadsArgs = {
   after?: InputMaybe<Scalars['String']['input']>;
   filters?: InputMaybe<UnprocessedPayloadFilters>;
@@ -741,6 +794,13 @@ export type RegionVoteBucket = {
   __typename?: 'RegionVoteBucket';
   label: Scalars['String']['output'];
   voterCount: Scalars['Int']['output'];
+};
+
+export type ReplayActorRunResult = {
+  __typename?: 'ReplayActorRunResult';
+  message: Scalars['String']['output'];
+  postsPersisted: Scalars['Int']['output'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type Report = {
@@ -821,6 +881,25 @@ export enum ScheduleTimezoneStatus {
   NeedsClarification = 'NEEDS_CLARIFICATION',
   Resolved = 'RESOLVED'
 }
+
+export type ScraperActorRun = {
+  __typename?: 'ScraperActorRun';
+  completedAt?: Maybe<Scalars['DateTime']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  itemCount?: Maybe<Scalars['Int']['output']>;
+  pendingJobId?: Maybe<Scalars['String']['output']>;
+  profileId: Scalars['ID']['output'];
+  rawInput: Scalars['JSON']['output'];
+  rawOutput?: Maybe<Scalars['JSON']['output']>;
+  runId: Scalars['String']['output'];
+  startedAt: Scalars['DateTime']['output'];
+  status: ActorRunStatus;
+  triggerMode: ActorRunTriggerMode;
+  updatedAt: Scalars['DateTime']['output'];
+  vendor: ActorRunVendor;
+};
 
 export type SetAccountDefaultLocationInput = {
   latitude?: InputMaybe<Scalars['Float']['input']>;
@@ -1003,6 +1082,29 @@ export enum WidgetTheme {
   Light = 'LIGHT'
 }
 
+export type ActorRunFilters = {
+  createdAfter?: unknown;
+  createdBefore?: unknown;
+  profileId?: string | number | null | undefined;
+  status?: ActorRunStatus | null | undefined;
+  vendor?: ActorRunVendor | null | undefined;
+};
+
+export type ActorRunStatus =
+  | 'ABORTED'
+  | 'FAILED'
+  | 'PENDING'
+  | 'SUCCEEDED'
+  | 'TIMED_OUT';
+
+export type ActorRunTriggerMode =
+  | 'ASYNC'
+  | 'SYNC';
+
+export type ActorRunVendor =
+  | 'APIFY'
+  | 'BRIGHTDATA';
+
 
 
 
@@ -1044,6 +1146,22 @@ export type UnprocessedPayloadSource =
 
 
 
+
+export type QueryActorRunsQueryVariables = Exact<{
+  filters?: ActorRunFilters | null | undefined;
+  first?: number | null | undefined;
+  after?: string | null | undefined;
+}>;
+
+
+export type QueryActorRunsQuery = { queryActorRuns: { totalCount: number, edges: Array<{ cursor: string, node: { id: string, vendor: ActorRunVendor, triggerMode: ActorRunTriggerMode, profileId: string, runId: string, status: ActorRunStatus, rawInput: unknown, rawOutput: unknown, itemCount: number | null, errorMessage: string | null, startedAt: unknown, completedAt: unknown } }>, pageInfo: { hasNextPage: boolean, endCursor: string | null } } };
+
+export type ReplayActorRunMutationVariables = Exact<{
+  actorRunId: string | number;
+}>;
+
+
+export type ReplayActorRunMutation = { replayActorRun: { success: boolean, postsPersisted: number, message: string } };
 
 export type GetSocialMediaAccountProfileByAccountIdQueryVariables = Exact<{
   platform: string;
@@ -1515,6 +1633,80 @@ export class TypedDocumentString<TResult, TVariables>
     return this.value;
   }
 }
+
+export const QueryActorRunsDocument = new TypedDocumentString(`
+    query queryActorRuns($filters: ActorRunFilters, $first: Int, $after: String) {
+  queryActorRuns(filters: $filters, first: $first, after: $after) {
+    edges {
+      node {
+        id
+        vendor
+        triggerMode
+        profileId
+        runId
+        status
+        rawInput
+        rawOutput
+        itemCount
+        errorMessage
+        startedAt
+        completedAt
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    totalCount
+  }
+}
+    `);
+
+export const useQueryActorRunsQuery = <
+      TData = QueryActorRunsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: QueryActorRunsQueryVariables,
+      options?: Omit<UseQueryOptions<QueryActorRunsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<QueryActorRunsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<QueryActorRunsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['queryActorRuns'] : ['queryActorRuns', variables],
+    queryFn: fetcher<QueryActorRunsQuery, QueryActorRunsQueryVariables>(client, QueryActorRunsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const ReplayActorRunDocument = new TypedDocumentString(`
+    mutation replayActorRun($actorRunId: ID!) {
+  replayActorRun(actorRunId: $actorRunId) {
+    success
+    postsPersisted
+    message
+  }
+}
+    `);
+
+export const useReplayActorRunMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ReplayActorRunMutation, TError, ReplayActorRunMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ReplayActorRunMutation, TError, ReplayActorRunMutationVariables, TContext>(
+      {
+    mutationKey: ['replayActorRun'],
+    mutationFn: (variables?: ReplayActorRunMutationVariables) => fetcher<ReplayActorRunMutation, ReplayActorRunMutationVariables>(client, ReplayActorRunDocument, variables, headers)(),
+    ...options
+  }
+    )};
 
 export const GetSocialMediaAccountProfileByAccountIdDocument = new TypedDocumentString(`
     query getSocialMediaAccountProfileByAccountId($platform: String!, $accountId: String!) {
