@@ -38,7 +38,9 @@
     "moderatorItemsDescription": "Tinjau acara yang dilaporkan dan perubahan lokasi default yang tertunda.",
     "manualPostSelectionTitle": "Ekstrak Acara | FestDaily",
     "manualPostSelectionDescription": "Pilih postingan dari akun media sosial yang Anda ikuti untuk mengekstrak acara festival musik.",
-    "unprocessedPayloadsDescription": "Telusuri dan proses ulang payload yang belum diproses dari vendor scraper"
+    "unprocessedPayloadsDescription": "Telusuri dan proses ulang payload yang belum diproses dari vendor scraper",
+    "actorRunsTitle": "Jalankan Scraper | Moderator FestDaily",
+    "actorRunsDescription": "Jelajahi dan putar ulang jalankan aktor scraper"
   },
   "AccountPage": {
     "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",
@@ -594,5 +596,41 @@
     "emptyHeadline": "Tidak ada payload yang belum diproses",
     "filterVendorLabel": "Vendor",
     "payloadErrorSummary": "Error"
+  },
+  "ActorRunsPage": {
+    "pageHeading": "Jalankan Aktor Scraper",
+    "pageDescription": "Jelajahi dan putar ulang jalankan aktor dari Apify dan Bright Data",
+    "vendorFilterLabel": "Vendor",
+    "statusFilterLabel": "Status",
+    "dateFromLabel": "Dari (Tanggal)",
+    "dateToLabel": "Hingga (Tanggal)",
+    "accountFilterLabel": "Akun",
+    "apifyBadge": "Apify",
+    "brightdataBadge": "Bright Data",
+    "syncBadge": "Sinkron",
+    "asyncBadge": "Asinkron",
+    "pendingStatus": "Tertunda",
+    "succeededStatus": "Berhasil",
+    "failedStatus": "Gagal",
+    "timedOutStatus": "Waktu Habis",
+    "abortedStatus": "Dibatalkan",
+    "expandButtonLabel": "Lihat detail",
+    "collapseButtonLabel": "Sembunyikan detail",
+    "rawInputLabel": "Input Mentah",
+    "rawOutputLabel": "Output Mentah",
+    "errorMessageLabel": "Pesan Error",
+    "itemCountLabel": "Item",
+    "replayButtonLabel": "Putar Ulang",
+    "replaySuccessToast": "Putar ulang selesai — {count, plural, =0 {tidak ada posting baru (sudah terbaru)} one {# posting dipulihkan} other {# posting dipulihkan}}",
+    "replayErrorToast": "Putar ulang gagal — {message}",
+    "emptyHeadline": "Tidak ada jalankan aktor ditemukan",
+    "emptyMessage": "Coba sesuaikan filter untuk menemukan jalankan scraper",
+    "errorHeadline": "Tidak dapat memuat jalankan",
+    "errorTryAgain": "Coba lagi",
+    "filterApplyButton": "Terapkan filter",
+    "filterClearButton": "Hapus semua",
+    "loadMoreButton": "Muat lebih banyak",
+    "loadingLabel": "Memuat jalankan...",
+    "replayingLabel": "Memutar ulang..."
   }
 }

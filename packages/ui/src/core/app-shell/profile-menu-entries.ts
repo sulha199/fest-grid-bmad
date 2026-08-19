@@ -1,4 +1,4 @@
-import { LucideIcon, User, MapPin, Radio, Key, ListChecks, Bell, FileText, ShieldAlert, Archive, Sparkles } from 'lucide-react';
+import { LucideIcon, User, MapPin, Radio, Key, ListChecks, Bell, FileText, ShieldAlert, Archive, Sparkles, Activity, AlertCircle } from 'lucide-react';
 
 export interface ProfileMenuEntry {
   id: string;
@@ -70,6 +70,20 @@ export const profileMenuEntries: ProfileMenuEntry[] = [
     labelKey: 'moderatorItems',
     href: '/moderator/items',
     icon: ShieldAlert,
+    requiresModerator: true,
+  },
+  {
+    id: 'unprocessed-payloads',
+    labelKey: 'unprocessedPayloads',
+    href: '/moderator/unprocessed-payloads',
+    icon: AlertCircle,
+    requiresModerator: true,
+  },
+  {
+    id: 'actor-runs',
+    labelKey: 'actorRuns',
+    href: '/moderator/actor-runs',
+    icon: Activity,
     requiresModerator: true,
   },
 ];

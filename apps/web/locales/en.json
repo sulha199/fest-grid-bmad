@@ -39,7 +39,9 @@
     "manualPostSelectionTitle": "Extract Events | FestDaily",
     "manualPostSelectionDescription": "Select posts from your subscribed social media accounts to extract music festival events.",
     "unprocessedPayloadsTitle": "Unprocessed Payloads | FestDaily Moderator",
-    "unprocessedPayloadsDescription": "Browse and re-process unprocessed payloads from scraper vendors"
+    "unprocessedPayloadsDescription": "Browse and re-process unprocessed payloads from scraper vendors",
+    "actorRunsTitle": "Scraper Runs | FestDaily Moderator",
+    "actorRunsDescription": "Browse and replay scraper actor runs"
   },
   "AccountPage": {
     "errorState": "Failed to load events. Please try again later.",
@@ -595,5 +597,41 @@
     "errorHeadline": "Couldn't load payloads",
     "sourceGemini": "Gemini",
     "payloadVendor": "Vendor"
+  },
+  "ActorRunsPage": {
+    "pageHeading": "Scraper Actor Runs",
+    "pageDescription": "Browse and replay actor runs from Apify and Bright Data",
+    "vendorFilterLabel": "Vendor",
+    "statusFilterLabel": "Status",
+    "dateFromLabel": "From (Date)",
+    "dateToLabel": "To (Date)",
+    "accountFilterLabel": "Account",
+    "apifyBadge": "Apify",
+    "brightdataBadge": "Bright Data",
+    "syncBadge": "Sync",
+    "asyncBadge": "Async",
+    "pendingStatus": "Pending",
+    "succeededStatus": "Succeeded",
+    "failedStatus": "Failed",
+    "timedOutStatus": "Timed Out",
+    "abortedStatus": "Aborted",
+    "expandButtonLabel": "View details",
+    "collapseButtonLabel": "Hide details",
+    "rawInputLabel": "Raw Input",
+    "rawOutputLabel": "Raw Output",
+    "errorMessageLabel": "Error Message",
+    "itemCountLabel": "Items",
+    "replayButtonLabel": "Replay",
+    "replaySuccessToast": "Replay complete — {count, plural, =0 {no new posts (already up to date)} one {# post recovered} other {# posts recovered}}",
+    "replayErrorToast": "Replay failed — {message}",
+    "emptyHeadline": "No actor runs found",
+    "emptyMessage": "Try adjusting your filters to find scraper runs",
+    "errorHeadline": "Couldn't load runs",
+    "errorTryAgain": "Try again",
+    "filterApplyButton": "Apply filters",
+    "filterClearButton": "Clear all",
+    "loadMoreButton": "Load more",
+    "loadingLabel": "Loading runs...",
+    "replayingLabel": "Replaying..."
   }
 }

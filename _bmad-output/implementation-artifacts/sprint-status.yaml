@@ -571,7 +571,7 @@ development_status:
   # frontend precedent (Gate 2 finding). Extracts a new RawJsonViewer packages/ui component --
   # genuine reuse evidence vs. Story 3-4i's own inline (never extracted) raw-JSON display.
   # Blocked on 3-4j shipping its GraphQL contracts.
-  3-4k-moderator-actor-run-browser-and-replay-ui: ready-for-dev
+  3-4k-moderator-actor-run-browser-and-replay-ui: review
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap); Gate 2 run fresh (no gap, zero UI
