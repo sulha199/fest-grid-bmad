@@ -199,9 +199,8 @@ export const instagramScraperAdapter: ScraperAdapter = {
     await assertProviderCapacityAvailable('apify', `account ${account.username}`);
 
     try {
-      const url = `https://www.instagram.com/${account.username}/`;
       const input: any = {
-        directUrls: [url],
+        username: account.username,
         resultsType: 'posts',
         resultsLimit: env.scrapeResultsLimit,
       };
