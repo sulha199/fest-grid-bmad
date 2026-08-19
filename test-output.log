@@ -1,0 +1,959 @@
+
+> backend@1.0.0 test C:\projects\portfolio\festgrid\bmad\apps\backend
+> tsx --test src/**/*.test.ts "--no-colors"
+
+TAP version 13
+# Apify webhook received without jobToken query parameter
+# Subtest: apify-webhook tests
+    # Subtest: returns 400 when jobToken is missing
+    not ok 1 - returns 400 when jobToken is missing
+      ---
+      duration_ms: 207.4155
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\lambdas\\apify-webhook.test.ts:2:1811'
+      failureType: 'hookFailed'
+      error: 'relation "apify_pending_jobs" does not exist'
+      code: '42P01'
+      name: 'PostgresError'
+      stack: |-
+        ErrorResponse (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:815:30)
+        handle (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:489:6)
+        Socket.data (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:324:9)
+        Socket.emit (node:events:524:28)
+        addChunk (node:internal/streams/readable:561:12)
+        readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+        Readable.push (node:internal/streams/readable:392:5)
+        TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+      ...
+    # Subtest: returns 200 when job not found
+    not ok 2 - returns 200 when job not found
+      ---
+      duration_ms: 8.3676
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\lambdas\\apify-webhook.test.ts:2:2106'
+      failureType: 'hookFailed'
+      error: 'duplicate key value violates unique constraint "social_media_account_profiles_platform_account_id_unique"'
+      code: '23505'
+      name: 'PostgresError'
+      stack: |-
+        ErrorResponse (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:815:30)
+        handle (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:489:6)
+        Socket.data (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:324:9)
+        Socket.emit (node:events:524:28)
+        addChunk (node:internal/streams/readable:561:12)
+        readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+        Readable.push (node:internal/streams/readable:392:5)
+        TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+      ...
+    # Subtest: returns 200 when job already completed
+    not ok 3 - returns 200 when job already completed
+      ---
+      duration_ms: 6.4458
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\lambdas\\apify-webhook.test.ts:2:2412'
+      failureType: 'hookFailed'
+      error: 'duplicate key value violates unique constraint "social_media_account_profiles_platform_account_id_unique"'
+      code: '23505'
+      name: 'PostgresError'
+      stack: |-
+        ErrorResponse (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:815:30)
+        handle (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:489:6)
+        Socket.data (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:324:9)
+        Socket.emit (node:events:524:28)
+        addChunk (node:internal/streams/readable:561:12)
+        readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+        Readable.push (node:internal/streams/readable:392:5)
+        TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+      ...
+    # Subtest: returns 200 when job expired
+    not ok 4 - returns 200 when job expired
+      ---
+      duration_ms: 6.502
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\lambdas\\apify-webhook.test.ts:2:3024'
+      failureType: 'hookFailed'
+      error: 'duplicate key value violates unique constraint "social_media_account_profiles_platform_account_id_unique"'
+      code: '23505'
+      name: 'PostgresError'
+      stack: |-
+        ErrorResponse (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:815:30)
+        handle (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:489:6)
+        Socket.data (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:324:9)
+        Socket.emit (node:events:524:28)
+        addChunk (node:internal/streams/readable:561:12)
+        readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+        Readable.push (node:internal/streams/readable:392:5)
+        TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+      ...
+    # Subtest: returns 200 on any error
+    not ok 5 - returns 200 on any error
+      ---
+      duration_ms: 6.8684
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\lambdas\\apify-webhook.test.ts:2:3846'
+      failureType: 'hookFailed'
+      error: 'duplicate key value violates unique constraint "social_media_account_profiles_platform_account_id_unique"'
+      code: '23505'
+      name: 'PostgresError'
+      stack: |-
+        ErrorResponse (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:815:30)
+        handle (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:489:6)
+        Socket.data (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:324:9)
+        Socket.emit (node:events:524:28)
+        addChunk (node:internal/streams/readable:561:12)
+        readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+        Readable.push (node:internal/streams/readable:392:5)
+        TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+      ...
+    1..5
+not ok 1 - apify-webhook tests
+  ---
+  duration_ms: 240.0427
+  location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\lambdas\\apify-webhook.test.ts:2:1182'
+  failureType: 'subtestsFailed'
+  error: '5 subtests failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+C:\projects\portfolio\festgrid\bmad\apps\backend:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  backend@1.0.0 test: `tsx --test src/**/*.test.ts "--no-colors"`
+Exit status 143
+# Notifier lambda invoked {"event":{}}
+# Notifier Lambda executed successfully.
+# Subtest: notifier lambda handler tests
+    # Subtest: invokes sendQuotaWarningEmails exactly once
+    ok 1 - invokes sendQuotaWarningEmails exactly once
+      ---
+      duration_ms: 3.0641
+      ...
+    1..1
+ok 2 - notifier lambda handler tests
+  ---
+  duration_ms: 4.7902
+  ...
+# Subtest: Firebase Admin helper tests
+    # Subtest: buildPushMessage correctly shapes the FCM message object with all fields
+    ok 1 - buildPushMessage correctly shapes the FCM message object with all fields
+      ---
+      duration_ms: 2.6713
+      ...
+    # Subtest: buildPushMessage omits the data property if not provided or empty
+    ok 2 - buildPushMessage omits the data property if not provided or empty
+      ---
+      duration_ms: 0.5057
+      ...
+    1..2
+ok 3 - Firebase Admin helper tests
+  ---
+  duration_ms: 5.0405
+  type: 'suite'
+  ...
+# Subtest: account votes resolvers integration
+    # Subtest: setup - get test users and create account profiles
+    ok 1 - setup - get test users and create account profiles
+      ---
+      duration_ms: 191.4663
+      ...
+# [31mERR[0m ReferenceError: notInArray is not defined
+#     at Object.rankedVoteAccounts (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\resolvers.ts:1977:20)
+#     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+#     at async TestContext.<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\account-votes.test.ts:88:18)
+#     at async Test.run (node:internal/test_runner/test:932:9)
+#     at async TestContext.<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\account-votes.test.ts:64:3)
+#     at async Test.run (node:internal/test_runner/test:932:9)
+#     at async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3) {
+#   path: [ 'rankedVoteAccounts' ],
+#   locations: [ { line: 1, column: 3 } ],
+#   extensions: [Object: null prototype] {}
+# }
+    # Subtest: castVote, rankedVoteAccounts, and suggestions flow
+    not ok 2 - castVote, rankedVoteAccounts, and suggestions flow
+      ---
+      duration_ms: 95.1921
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\account-votes.test.ts:2:2746'
+      failureType: 'testCodeFailure'
+      error: 'ranked query failed: [{"message":"Unexpected error.","locations":[{"line":1,"column":3}],"path":["rankedVoteAccounts"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]'
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected: true
+      actual: false
+      operator: '=='
+      stack: |-
+        TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\account-votes.test.ts:96:12)
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\account-votes.test.ts:64:3)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+# [31mERR[0m ReferenceError: notInArray is not defined
+#     at Object.rankedVoteAccounts (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\resolvers.ts:1977:20)
+#     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+#     at async TestContext.<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\account-votes.test.ts:144:23)
+#     at async Test.run (node:internal/test_runner/test:932:9)
+#     at async TestContext.<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\account-votes.test.ts:117:3)
+#     at async Test.run (node:internal/test_runner/test:932:9)
+#     at async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3) {
+#   path: [ 'rankedVoteAccounts' ],
+#   locations: [ { line: 1, column: 3 } ],
+#   extensions: [Object: null prototype] {}
+# }
+    # Subtest: withdrawVote mutation flow
+    not ok 3 - withdrawVote mutation flow
+      ---
+      duration_ms: 26.7722
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\account-votes.test.ts:10:1193'
+      failureType: 'testCodeFailure'
+      error: "Cannot read properties of null (reading 'rankedVoteAccounts')"
+      code: 'ERR_TEST_FAILURE'
+      name: 'TypeError'
+      stack: |-
+        TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\account-votes.test.ts:152:37)
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\account-votes.test.ts:117:3)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    1..3
+not ok 4 - account votes resolvers integration
+  ---
+  duration_ms: 316.8285
+  location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\account-votes.test.ts:2:1699'
+  failureType: 'subtestsFailed'
+  error: '2 subtests failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: api keys resolvers integration
+    # Subtest: setup - get test users and clear existing data
+    ok 1 - setup - get test users and clear existing data
+      ---
+      duration_ms: 217.0619
+      ...
+    # Subtest: unauthenticated calls are rejected
+    ok 2 - unauthenticated calls are rejected
+      ---
+      duration_ms: 89.2938
+      ...
+    # Subtest: createApiKey - validation of provider
+    ok 3 - createApiKey - validation of provider
+      ---
+      duration_ms: 8.9645
+      ...
+    # Subtest: createApiKey rejects duplicate keys for the same provider
+    not ok 4 - createApiKey rejects duplicate keys for the same provider
+      ---
+      duration_ms: 17.6081
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\api-keys.test.ts:14:206'
+      failureType: 'testCodeFailure'
+      error: 'first duplicate key insert should succeed'
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected: true
+      actual: false
+      operator: '=='
+      stack: |-
+        TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\api-keys.test.ts:116:12)
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\api-keys.test.ts:99:3)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    # Subtest: createApiKey, myApiKeys, deleteApiKey flow
+    not ok 5 - createApiKey, myApiKeys, deleteApiKey flow
+      ---
+      duration_ms: 14.5848
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\api-keys.test.ts:26:225'
+      failureType: 'testCodeFailure'
+      error: 'should not have errors: [{"message":"API key already exists","locations":[{"line":3,"column":13}],"path":["createApiKey"],"extensions":{"code":"DUPLICATE_API_KEY"}}]'
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected: true
+      actual: false
+      operator: '=='
+      stack: |-
+        TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\api-keys.test.ts:159:12)
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\api-keys.test.ts:136:3)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    1..5
+not ok 5 - api keys resolvers integration
+  ---
+  duration_ms: 351.2685
+  location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\api-keys.test.ts:2:1699'
+  failureType: 'subtestsFailed'
+  error: '2 subtests failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: Story 4.4: Cancelled Report Visibility and Soft-Delete Flow
+    # Subtest: 1.2: 3 unique reports triggers soft delete, 1 & 2 do not
+    ok 1 - 1.2: 3 unique reports triggers soft delete, 1 & 2 do not
+      ---
+      duration_ms: 392.1534
+      ...
+    # Subtest: 1.3: regular query excludes, moderator query with includeSoftDeleted includes
+    ok 2 - 1.3: regular query excludes, moderator query with includeSoftDeleted includes
+      ---
+      duration_ms: 118.4976
+      ...
+    # Subtest: 1.4: restoreEvent makes it visible again with deletedAt null
+    ok 3 - 1.4: restoreEvent makes it visible again with deletedAt null
+      ---
+      duration_ms: 62.8475
+      ...
+    # Subtest: 1.5: out-of-window reports do not count toward threshold
+    ok 4 - 1.5: out-of-window reports do not count toward threshold
+      ---
+      duration_ms: 43.1897
+      ...
+    1..4
+ok 6 - Story 4.4: Cancelled Report Visibility and Soft-Delete Flow
+  ---
+  duration_ms: 622.7514
+  ...
+# Subtest: src\\schema\\cancelled-report-visibility.integration.test.ts
+not ok 6 - src\\schema\\cancelled-report-visibility.integration.test.ts
+  ---
+  duration_ms: 238424.6789
+  location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\cancelled-report-visibility.integration.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 143
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: submitCorrection resolver integration
+    # Subtest: setup - get test user and event
+    ok 1 - setup - get test user and event
+      ---
+      duration_ms: 222.951
+      ...
+    # Subtest: submitCorrection - unauthenticated rejected
+    ok 2 - submitCorrection - unauthenticated rejected
+      ---
+      duration_ms: 47.4889
+      ...
+    # Subtest: submitCorrection - unknown eventId rejected with NOT_FOUND
+    ok 3 - submitCorrection - unknown eventId rejected with NOT_FOUND
+      ---
+      duration_ms: 14.7146
+      ...
+    # Subtest: submitCorrection - AJV validation error (empty eventName)
+    ok 4 - submitCorrection - AJV validation error (empty eventName)
+      ---
+      duration_ms: 21.694
+      ...
+    # Subtest: submitCorrection - consistency check error (end date before start date)
+    ok 5 - submitCorrection - consistency check error (end date before start date)
+      ---
+      duration_ms: 9.1861
+      ...
+    # Subtest: submitCorrection - ownership error (schedule id does not belong to event)
+    ok 6 - submitCorrection - ownership error (schedule id does not belong to event)
+      ---
+      duration_ms: 11.1369
+      ...
+    # Subtest: submitCorrection - happy path applied and verified in DB
+    ok 7 - submitCorrection - happy path applied and verified in DB
+      ---
+      duration_ms: 21.7549
+      ...
+    1..7
+ok 8 - submitCorrection resolver integration
+  ---
+  duration_ms: 352.8872
+  ...
+# Subtest: src\\schema\\corrections.test.ts
+not ok 7 - src\\schema\\corrections.test.ts
+  ---
+  duration_ms: 238338.6669
+  location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\corrections.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 143
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: default location change requests resolver integration
+    # Subtest: setup - seed users and account profile
+    ok 1 - setup - seed users and account profile
+      ---
+      duration_ms: 223.8321
+      ...
+    # Subtest: pendingDefaultLocationChanges - non-moderator rejected with FORBIDDEN
+    ok 2 - pendingDefaultLocationChanges - non-moderator rejected with FORBIDDEN
+      ---
+      duration_ms: 93.2934
+      ...
+    # Subtest: pendingDefaultLocationChanges - moderator query works
+    ok 3 - pendingDefaultLocationChanges - moderator query works
+      ---
+      duration_ms: 33.51
+      ...
+    # Subtest: resolveDefaultLocationChange - non-moderator rejected with FORBIDDEN
+    ok 4 - resolveDefaultLocationChange - non-moderator rejected with FORBIDDEN
+      ---
+      duration_ms: 8.4776
+      ...
+    # Subtest: resolveDefaultLocationChange - ACCEPT flow
+    ok 5 - resolveDefaultLocationChange - ACCEPT flow
+      ---
+      duration_ms: 19.3596
+      ...
+    # Subtest: resolveDefaultLocationChange - already resolved throws INVALID_STATE_TRANSITION
+    ok 6 - resolveDefaultLocationChange - already resolved throws INVALID_STATE_TRANSITION
+      ---
+      duration_ms: 10.1753
+      ...
+    # Subtest: resolveDefaultLocationChange - REVERT flow
+    ok 7 - resolveDefaultLocationChange - REVERT flow
+      ---
+      duration_ms: 16.332
+      ...
+    # Subtest: cleanup
+    ok 8 - cleanup
+      ---
+      duration_ms: 66.9129
+      ...
+    1..8
+ok 10 - default location change requests resolver integration
+  ---
+  duration_ms: 476.4093
+  ...
+# Subtest: src\\schema\\default-location-change-requests.test.ts
+not ok 8 - src\\schema\\default-location-change-requests.test.ts
+  ---
+  duration_ms: 238268.2881
+  location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\default-location-change-requests.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 143
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: embed domains resolvers integration
+    # Subtest: setup - get test user and create temporary widget
+    ok 1 - setup - get test user and create temporary widget
+      ---
+      duration_ms: 237.7025
+      ...
+    # Subtest: registerEmbedDomain, embedDomainsForWidget, deregisterEmbedDomain, and isOriginAllowedForWidget flow
+    ok 2 - registerEmbedDomain, embedDomainsForWidget, deregisterEmbedDomain, and isOriginAllowedForWidget flow
+      ---
+      duration_ms: 110.8145
+      ...
+    1..2
+ok 12 - embed domains resolvers integration
+  ---
+  duration_ms: 350.8538
+  ...
+# Subtest: src\\schema\\embed-domains.test.ts
+not ok 9 - src\\schema\\embed-domains.test.ts
+  ---
+  duration_ms: 238199.1061
+  location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\embed-domains.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 143
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: extractEventDataFromUrl resolver integration
+    # Subtest: setup - get test data
+    not ok 1 - setup - get test data
+      ---
+      duration_ms: 190.5118
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\extraction.test.ts:7:321'
+      failureType: 'testCodeFailure'
+      error: 'column "platform" of relation "posts" does not exist'
+      code: '42703'
+      name: 'PostgresError'
+      stack: |-
+        ErrorResponse (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:815:30)
+        handle (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:489:6)
+        Socket.data (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:324:9)
+        Socket.emit (node:events:524:28)
+        addChunk (node:internal/streams/readable:561:12)
+        readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+        Readable.push (node:internal/streams/readable:392:5)
+        TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+      ...
+    # Subtest: extractEventDataFromUrl - unauthenticated rejected
+    ok 2 - extractEventDataFromUrl - unauthenticated rejected
+      ---
+      duration_ms: 54.9519
+      ...
+# [31mERR[0m PostgresError: column "platform" does not exist
+#     at ErrorResponse (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:815:30)
+#     at handle (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:489:6)
+#     at Socket.data (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:324:9)
+#     at Socket.emit (node:events:524:28)
+#     at addChunk (node:internal/streams/readable:561:12)
+#     at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+#     at Readable.push (node:internal/streams/readable:392:5)
+#     at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+#   path: [ 'extractEventDataFromUrl' ],
+#   locations: [ { line: 3, column: 13 } ],
+#   extensions: [Object: null prototype] {}
+# }
+# EXISTING PATH RESOLVER RESULT: {
+#   "errors": [
+#     {
+#       "message": "Unexpected error.",
+#       "locations": [
+#         {
+#           "line": 3,
+#           "column": 13
+#         }
+#       ],
+#       "path": [
+#         "extractEventDataFromUrl"
+#       ],
+#       "extensions": {
+#         "code": "INTERNAL_SERVER_ERROR"
+#       }
+#     }
+#   ],
+#   "data": null
+# }
+    # Subtest: extractEventDataFromUrl - existing post path with valid key successfully extracts data
+    not ok 3 - extractEventDataFromUrl - existing post path with valid key successfully extracts data
+      ---
+      duration_ms: 24.6737
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\extraction.test.ts:17:234'
+      failureType: 'testCodeFailure'
+      error: 'should not have errors'
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected: true
+      actual: false
+      operator: '=='
+      stack: |-
+        TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\extraction.test.ts:182:12)
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\extraction.test.ts:129:3)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+# [31mERR[0m PostgresError: column "platform" does not exist
+#     at ErrorResponse (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:815:30)
+#     at handle (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:489:6)
+#     at Socket.data (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:324:9)
+#     at Socket.emit (node:events:524:28)
+#     at addChunk (node:internal/streams/readable:561:12)
+#     at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+#     at Readable.push (node:internal/streams/readable:392:5)
+#     at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+#   path: [ 'extractEventDataFromUrl' ],
+#   locations: [ { line: 3, column: 13 } ],
+#   extensions: [Object: null prototype] {}
+# }
+    # Subtest: extractEventDataFromUrl - new post path unrecognized platform returns UNSUPPORTED_PLATFORM
+    not ok 4 - extractEventDataFromUrl - new post path unrecognized platform returns UNSUPPORTED_PLATFORM
+      ---
+      duration_ms: 27.1438
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\extraction.test.ts:35:502'
+      failureType: 'testCodeFailure'
+      error: "Cannot read properties of null (reading 'extractEventDataFromUrl')"
+      code: 'ERR_TEST_FAILURE'
+      name: 'TypeError'
+      stack: |-
+        TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\extraction.test.ts:210:36)
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\extraction.test.ts:188:3)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+# [31mERR[0m PostgresError: column "platform" does not exist
+#     at ErrorResponse (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:815:30)
+#     at handle (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:489:6)
+#     at Socket.data (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:324:9)
+#     at Socket.emit (node:events:524:28)
+#     at addChunk (node:internal/streams/readable:561:12)
+#     at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+#     at Readable.push (node:internal/streams/readable:392:5)
+#     at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+#   path: [ 'extractEventDataFromUrl' ],
+#   locations: [ { line: 3, column: 13 } ],
+#   extensions: [Object: null prototype] {}
+# }
+# NEW PATH RESOLVER RESULT: {
+#   "errors": [
+#     {
+#       "message": "Unexpected error.",
+#       "locations": [
+#         {
+#           "line": 3,
+#           "column": 13
+#         }
+#       ],
+#       "path": [
+#         "extractEventDataFromUrl"
+#       ],
+#       "extensions": {
+#         "code": "INTERNAL_SERVER_ERROR"
+#       }
+#     }
+#   ],
+#   "data": null
+# }
+    # Subtest: extractEventDataFromUrl - new post path successfully scrapes and extracts
+    not ok 5 - extractEventDataFromUrl - new post path successfully scrapes and extracts
+      ---
+      duration_ms: 10.076
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\extraction.test.ts:42:205'
+      failureType: 'testCodeFailure'
+      error: 'should not have errors'
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected: true
+      actual: false
+      operator: '=='
+      stack: |-
+        TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\extraction.test.ts:275:12)
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\extraction.test.ts:213:3)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+# [31mERR[0m PostgresError: column "platform" does not exist
+#     at ErrorResponse (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:815:30)
+#     at handle (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:489:6)
+#     at Socket.data (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:324:9)
+#     at Socket.emit (node:events:524:28)
+#     at addChunk (node:internal/streams/readable:561:12)
+#     at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+#     at Readable.push (node:internal/streams/readable:392:5)
+#     at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+#   path: [ 'extractEventDataFromUrl' ],
+#   locations: [ { line: 3, column: 13 } ],
+#   extensions: [Object: null prototype] {}
+# }
+    # Subtest: extractEventDataFromUrl - isEvent false returns EXTRACTION_FAILED
+    not ok 6 - extractEventDataFromUrl - isEvent false returns EXTRACTION_FAILED
+      ---
+      duration_ms: 8.2862
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\extraction.test.ts:59:412'
+      failureType: 'testCodeFailure'
+      error: "Cannot read properties of null (reading 'extractEventDataFromUrl')"
+      code: 'ERR_TEST_FAILURE'
+      name: 'TypeError'
+      stack: |-
+        TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\extraction.test.ts:315:36)
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\extraction.test.ts:280:3)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    1..6
+not ok 14 - extractEventDataFromUrl resolver integration
+  ---
+  duration_ms: 394.1551
+  location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\extraction.test.ts:7:194'
+  failureType: 'subtestsFailed'
+  error: '5 subtests failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: manual post selection & extraction integration tests
+    # Subtest: setup - manual post selection test data
+    not ok 1 - setup - manual post selection test data
+      ---
+      duration_ms: 16.8832
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\extraction.test.ts:66:557'
+      failureType: 'testCodeFailure'
+      error: 'column "platform" of relation "posts" does not exist'
+      code: '42703'
+      name: 'PostgresError'
+      stack: |-
+        ErrorResponse (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:815:30)
+        handle (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:489:6)
+        Socket.data (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:324:9)
+        Socket.emit (node:events:524:28)
+        addChunk (node:internal/streams/readable:561:12)
+        readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+        Readable.push (node:internal/streams/readable:392:5)
+        TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+      ...
+    # Subtest: Subscription.isInactive resolves to true if posts are older than 30 days
+    ok 2 - Subscription.isInactive resolves to true if posts are older than 30 days
+      ---
+      duration_ms: 12.0365
+      ...
+    # Subtest: Subscription.isInactive resolves to false if there is a post within 30 days
+    not ok 3 - Subscription.isInactive resolves to false if there is a post within 30 days
+      ---
+      duration_ms: 3.2522
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\extraction.test.ts:73:240'
+      failureType: 'testCodeFailure'
+      error: 'column "platform" of relation "posts" does not exist'
+      code: '42703'
+      name: 'PostgresError'
+      stack: |-
+        ErrorResponse (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:815:30)
+        handle (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:489:6)
+        Socket.data (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:324:9)
+        Socket.emit (node:events:524:28)
+        addChunk (node:internal/streams/readable:561:12)
+        readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+        Readable.push (node:internal/streams/readable:392:5)
+        TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+      ...
+    # Subtest: markSubscriptionViewed sets isNewlyAdded to false
+    ok 4 - markSubscriptionViewed sets isNewlyAdded to false
+      ---
+      duration_ms: 8.7
+      ...
+    # Subtest: myExtractionQuota returns limits and remaining
+    ok 5 - myExtractionQuota returns limits and remaining
+      ---
+      duration_ms: 8.5499
+      ...
+# [31mERR[0m PostgresError: column "platform" does not exist
+#     at ErrorResponse (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:815:30)
+#     at handle (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:489:6)
+#     at Socket.data (C:\\projects\\portfolio\\festgrid\\bmad\\node_modules\\.pnpm\\postgres@3.4.9\\node_modules\\postgres\\cjs\\src\\connection.js:324:9)
+#     at Socket.emit (node:events:524:28)
+#     at addChunk (node:internal/streams/readable:561:12)
+#     at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+#     at Readable.push (node:internal/streams/readable:392:5)
+#     at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+#   path: [ 'postsByAccount' ],
+#   locations: [ { line: 3, column: 13 } ],
+#   extensions: [Object: null prototype] {}
+# }
+    # Subtest: postsByAccount retrieves posts for account with cursor-based pagination
+    not ok 6 - postsByAccount retrieves posts for account with cursor-based pagination
+      ---
+      duration_ms: 11.4581
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\extraction.test.ts:95:291'
+      failureType: 'testCodeFailure'
+      error: 'should not have errors'
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected: true
+      actual: false
+      operator: '=='
+      stack: |-
+        TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\extraction.test.ts:550:12)
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\extraction.test.ts:526:3)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async Test.processPendingSubtests (node:internal/test_runner/test:629:7)
+      ...
+    # Subtest: selectPostsForExtraction throws FORBIDDEN if user is not subscribed to post account
+    not ok 7 - selectPostsForExtraction throws FORBIDDEN if user is not subscribed to post account
+      ---
+      duration_ms: 8.6968
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\extraction.test.ts:106:327'
+      failureType: 'testCodeFailure'
+      error: 'column "platform" of relation "posts" does not exist'
+      code: '42703'
+      name: 'PostgresError'
+      stack: |-
+        ErrorResponse (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:815:30)
+        handle (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:489:6)
+        Socket.data (C:\projects\portfolio\festgrid\bmad\node_modules\.pnpm\postgres@3.4.9\node_modules\postgres\cjs\src\connection.js:324:9)
+        Socket.emit (node:events:524:28)
+        addChunk (node:internal/streams/readable:561:12)
+        readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+        Readable.push (node:internal/streams/readable:392:5)
+        TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+      ...
+    # Subtest: selectPostsForExtraction successfully enqueues posts
+    not ok 8 - selectPostsForExtraction successfully enqueues posts
+      ---
+      duration_ms: 1.6679
+      location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\extraction.test.ts:112:186'
+      failureType: 'testCodeFailure'
+      error: "Cannot read properties of undefined (reading 'id')"
+      code: 'ERR_TEST_FAILURE'
+      name: 'TypeError'
+      stack: |-
+        TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\extraction.test.ts:621:43)
+        Test.runInAsyncScope (node:async_hooks:211:14)
+        Test.run (node:internal/test_runner/test:931:25)
+        Test.start (node:internal/test_runner/test:829:17)
+        TestContext.test (node:internal/test_runner/test:313:20)
+        TestContext.<anonymous> (C:\projects\portfolio\festgrid\bmad\apps\backend\src\schema\extraction.test.ts:606:11)
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async Test.run (node:internal/test_runner/test:932:9)
+        async Test.processPendingSubtests (node:internal/test_runner/test:629:7)
+      ...
+    1..8
+not ok 15 - manual post selection & extraction integration tests
+  ---
+  duration_ms: 94.6894
+  location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\extraction.test.ts:66:347'
+  failureType: 'subtestsFailed'
+  error: '5 subtests failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: favorites and calendar additions resolvers integration
+    # Subtest: setup - get test user and event
+    ok 1 - setup - get test user and event
+      ---
+      duration_ms: 326.0157
+      ...
+    # Subtest: toggleFavorite - unauthenticated rejected
+    ok 2 - toggleFavorite - unauthenticated rejected
+      ---
+      duration_ms: 47.659
+      ...
+    # Subtest: toggleFavorite - toggle on, off, and on
+    ok 3 - toggleFavorite - toggle on, off, and on
+      ---
+      duration_ms: 58.8955
+      ...
+    # Subtest: events filtering by isFavorited
+    ok 4 - events filtering by isFavorited
+      ---
+      duration_ms: 28.598
+      ...
+    # Subtest: toggleCalendarAddition - unauthenticated rejected
+    ok 5 - toggleCalendarAddition - unauthenticated rejected
+      ---
+      duration_ms: 3.036
+      ...
+    # Subtest: toggleCalendarAddition - mismatch integrity check
+    ok 6 - toggleCalendarAddition - mismatch integrity check
+      ---
+      duration_ms: 7.5161
+      ...
+    # Subtest: toggleCalendarAddition - toggle on, off, and on
+    ok 7 - toggleCalendarAddition - toggle on, off, and on
+      ---
+      duration_ms: 138.5299
+      ...
+    # Subtest: events filtering by isAddedToCalendar
+    ok 8 - events filtering by isAddedToCalendar
+      ---
+      duration_ms: 26.4991
+      ...
+    1..8
+ok 16 - favorites and calendar additions resolvers integration
+  ---
+  duration_ms: 640.5591
+  ...
+# Subtest: src\\schema\\favorites-and-calendar.test.ts
+not ok 11 - src\\schema\\favorites-and-calendar.test.ts
+  ---
+  duration_ms: 238061.6188
+  location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\favorites-and-calendar.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 143
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: FCM device token registry integration tests
+    # Subtest: setup - get two seeded test users
+    ok 1 - setup - get two seeded test users
+      ---
+      duration_ms: 105.5059
+      ...
+    # Subtest: registerFcmToken - unauthenticated rejected
+    ok 2 - registerFcmToken - unauthenticated rejected
+      ---
+      duration_ms: 39.0108
+      ...
+    # Subtest: registerFcmToken - authenticated user registers token
+    ok 3 - registerFcmToken - authenticated user registers token
+      ---
+      duration_ms: 12.5491
+      ...
+    # Subtest: registerFcmToken - same user registering same token is idempotent
+    ok 4 - registerFcmToken - same user registering same token is idempotent
+      ---
+      duration_ms: 5.9453
+      ...
+    # Subtest: registerFcmToken - different user registering same token reassigns ownership
+    ok 5 - registerFcmToken - different user registering same token reassigns ownership
+      ---
+      duration_ms: 7.7327
+      ...
+    # Subtest: unregisterFcmToken - unauthenticated rejected
+    ok 6 - unregisterFcmToken - unauthenticated rejected
+      ---
+      duration_ms: 7.9242
+      ...
+    # Subtest: unregisterFcmToken - different user unregistering is no-op
+    ok 7 - unregisterFcmToken - different user unregistering is no-op
+      ---
+      duration_ms: 5.7315
+      ...
+    # Subtest: unregisterFcmToken - actual owner can unregister
+    ok 8 - unregisterFcmToken - actual owner can unregister
+      ---
+      duration_ms: 4.1752
+      ...
+    # Subtest: teardown - cleanup test token
+    ok 9 - teardown - cleanup test token
+      ---
+      duration_ms: 1.7888
+      ...
+    1..9
+ok 18 - FCM device token registry integration tests
+  ---
+  duration_ms: 194.4437
+  ...
+# Subtest: src\\schema\\fcm-tokens.test.ts
+not ok 12 - src\\schema\\fcm-tokens.test.ts
+  ---
+  duration_ms: 237194.4834
+  location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\fcm-tokens.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 143
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: geolocation resolvers integration
+    # Subtest: unauthenticated calls to previewLocation are rejected
+    ok 1 - unauthenticated calls to previewLocation are rejected
+      ---
+      duration_ms: 24.5185
+      ...
+    # Subtest: authenticated call to previewLocation returns successfully
+    ok 2 - authenticated call to previewLocation returns successfully
+      ---
+      duration_ms: 737.694
+      ...
+    # Subtest: repeated calls reuse geolocation cache
+    ok 3 - repeated calls reuse geolocation cache
+      ---
+      duration_ms: 3.7384
+      ...
+    # Subtest: authenticated call with placeId only returns successfully
+    ok 4 - authenticated call with placeId only returns successfully
+      ---
+      duration_ms: 8.9521
+      ...
+    # Subtest: call with coordinates AND placeId returns BAD_REQUEST
+    ok 5 - call with coordinates AND placeId returns BAD_REQUEST
+      ---
+      duration_ms: 2.9927
+      ...
+    # Subtest: call with neither coordinates nor placeId returns BAD_REQUEST
+    ok 6 - call with neither coordinates nor placeId returns BAD_REQUEST
+      ---
+      duration_ms: 1.9955
+      ...
+    1..6
+ok 20 - geolocation resolvers integration
+  ---
+  duration_ms: 782.2499
+  ...
+# Subtest: src\\schema\\geolocation.test.ts
+not ok 13 - src\\schema\\geolocation.test.ts
+  ---
+  duration_ms: 236187.2313
+  location: 'C:\\projects\\portfolio\\festgrid\\bmad\\apps\\backend\\src\\schema\\geolocation.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 143
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...

@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { handler } from './lambda/brightdata-webhook.lambda.js';
+import { handler } from './lambdas/webhook.js';
 import type { APIGatewayProxyEvent } from 'aws-lambda';
 
 const PORT = process.env.WEBHOOK_DEV_PORT ?? 4001;

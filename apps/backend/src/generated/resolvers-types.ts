@@ -16,6 +16,7 @@ export type Scalars = {
   Boolean: { input: boolean; output: boolean; }
   Int: { input: number; output: number; }
   Float: { input: number; output: number; }
+  DateTime: { input: any; output: any; }
   JSON: { input: any; output: any; }
 };
 
@@ -258,6 +259,7 @@ export type Mutation = {
   createWidget: Widget;
   deleteApiKey: ApiKey;
   deleteEventPermanently: Scalars['Boolean']['output'];
+  deleteUnprocessedPayload: Scalars['Boolean']['output'];
   deleteUserLocation: UserLocation;
   deleteWidget: Widget;
   deregisterEmbedDomain: EmbedDomain;
@@ -269,6 +271,7 @@ export type Mutation = {
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
+  reprocessPayload: ReprocessResult;
   resolveDefaultLocationChange: DefaultLocationChangeRequest;
   resolveReport: Report;
   resolveReportsForEvent: Array<Report>;
@@ -318,6 +321,11 @@ export type MutationDeleteApiKeyArgs = {
 
 export type MutationDeleteEventPermanentlyArgs = {
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteUnprocessedPayloadArgs = {
+  payloadId: Scalars['ID']['input'];
 };
 
 
@@ -379,6 +387,12 @@ export type MutationRemoveSubscriptionArgs = {
 
 export type MutationReportSystemErrorArgs = {
   input: ReportSystemErrorInput;
+};
+
+
+export type MutationReprocessPayloadArgs = {
+  parserVersion: Scalars['String']['input'];
+  payloadId: Scalars['ID']['input'];
 };
 
 
@@ -484,6 +498,33 @@ export type MutationWithdrawVoteArgs = {
   id: Scalars['ID']['input'];
 };
 
+export type PageInfo = {
+  __typename?: 'PageInfo';
+  endCursor?: Maybe<Scalars['String']['output']>;
+  hasNextPage: Scalars['Boolean']['output'];
+};
+
+export type ParserVersion = {
+  __typename?: 'ParserVersion';
+  createdAt: Scalars['DateTime']['output'];
+  deployedAt: Scalars['DateTime']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  isActive: Scalars['Boolean']['output'];
+  sourceFile?: Maybe<Scalars['String']['output']>;
+  version: Scalars['String']['output'];
+};
+
+export type PayloadContext = {
+  __typename?: 'PayloadContext';
+  accountId?: Maybe<Scalars['String']['output']>;
+  parserVersion: Scalars['String']['output'];
+  postUrl?: Maybe<Scalars['String']['output']>;
+  scraperVendor?: Maybe<Scalars['String']['output']>;
+  source: UnprocessedPayloadSource;
+  timestamp: Scalars['DateTime']['output'];
+};
+
 export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
@@ -570,9 +611,11 @@ export type Query = {
   mySettings: UserSettings;
   mySubscriptions: Array<Subscription>;
   myWidgets: Array<Widget>;
+  parserVersions: Array<ParserVersion>;
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
+  queryUnprocessedPayloads: UnprocessedPayloadConnection;
   rankedVoteAccounts: Array<RankedAccountVote>;
   reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
@@ -619,6 +662,11 @@ export type QueryIsOriginAllowedForWidgetArgs = {
 };
 
 
+export type QueryParserVersionsArgs = {
+  onlyActive?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
 export type QueryPostsByAccountArgs = {
   accountId: Scalars['ID']['input'];
   cursor?: InputMaybe<Scalars['String']['input']>;
@@ -630,6 +678,13 @@ export type QueryPreviewLocationArgs = {
   latitude?: InputMaybe<Scalars['Float']['input']>;
   longitude?: InputMaybe<Scalars['Float']['input']>;
   placeId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QueryQueryUnprocessedPayloadsArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  filters?: InputMaybe<UnprocessedPayloadFilters>;
+  first?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
@@ -714,6 +769,13 @@ export type ReportSystemErrorInput = {
   context?: InputMaybe<Scalars['String']['input']>;
   message: Scalars['String']['input'];
   source: Scalars['String']['input'];
+};
+
+export type ReprocessResult = {
+  __typename?: 'ReprocessResult';
+  message: Scalars['String']['output'];
+  queueId?: Maybe<Scalars['String']['output']>;
+  success: Scalars['Boolean']['output'];
 };
 
 export type ResolveScheduleTimezoneResult = {
@@ -812,6 +874,42 @@ export type ToggleFavoriteResult = {
   isFavorited: Scalars['Boolean']['output'];
 };
 
+export type UnprocessedPayloadConnection = {
+  __typename?: 'UnprocessedPayloadConnection';
+  edges: Array<UnprocessedPayloadEdge>;
+  pageInfo: PageInfo;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type UnprocessedPayloadEdge = {
+  __typename?: 'UnprocessedPayloadEdge';
+  cursor: Scalars['String']['output'];
+  node: UnprocessedScraperPayload;
+};
+
+export type UnprocessedPayloadFilters = {
+  createdAfter?: InputMaybe<Scalars['DateTime']['input']>;
+  createdBefore?: InputMaybe<Scalars['DateTime']['input']>;
+  parserVersion?: InputMaybe<Scalars['String']['input']>;
+  source?: InputMaybe<UnprocessedPayloadSource>;
+};
+
+export enum UnprocessedPayloadSource {
+  Apify = 'APIFY',
+  Brightdata = 'BRIGHTDATA',
+  Gemini = 'GEMINI'
+}
+
+export type UnprocessedScraperPayload = {
+  __typename?: 'UnprocessedScraperPayload';
+  context: PayloadContext;
+  createdAt: Scalars['DateTime']['output'];
+  deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['ID']['output'];
+  rawPayload: Scalars['JSON']['output'];
+  validationError: Array<ValidationErrorDetail>;
+};
+
 export type UpdateUserLocationInput = {
   address?: InputMaybe<Scalars['String']['input']>;
   latitude?: InputMaybe<Scalars['Float']['input']>;
@@ -855,6 +953,15 @@ export type ValidationError = {
   __typename?: 'ValidationError';
   field: Scalars['String']['output'];
   message: Scalars['String']['output'];
+};
+
+export type ValidationErrorDetail = {
+  __typename?: 'ValidationErrorDetail';
+  instancePath?: Maybe<Scalars['String']['output']>;
+  keyword?: Maybe<Scalars['String']['output']>;
+  message: Scalars['String']['output'];
+  params?: Maybe<Scalars['JSON']['output']>;
+  schemaPath?: Maybe<Scalars['String']['output']>;
 };
 
 export type Widget = {
@@ -962,6 +1069,7 @@ export type ResolversTypes = ResolversObject<{
   CreateApiKeyInput: CreateApiKeyInput;
   CreateUserLocationInput: CreateUserLocationInput;
   CreateWidgetInput: CreateWidgetInput;
+  DateTime: ResolverTypeWrapper<Scalars['DateTime']['output']>;
   DefaultLocationChangeAction: DefaultLocationChangeAction;
   DefaultLocationChangeRequest: ResolverTypeWrapper<DefaultLocationChangeRequest>;
   DefaultLocationChangeRequestStatus: DefaultLocationChangeRequestStatus;
@@ -982,6 +1090,9 @@ export type ResolversTypes = ResolversObject<{
   LocationDetails: ResolverTypeWrapper<LocationDetails>;
   Me: ResolverTypeWrapper<Me>;
   Mutation: ResolverTypeWrapper<{}>;
+  PageInfo: ResolverTypeWrapper<PageInfo>;
+  ParserVersion: ResolverTypeWrapper<ParserVersion>;
+  PayloadContext: ResolverTypeWrapper<PayloadContext>;
   Post: ResolverTypeWrapper<Post>;
   PostConnection: ResolverTypeWrapper<PostConnection>;
   ProposedEventCorrectionData: ResolverTypeWrapper<ProposedEventCorrectionData>;
@@ -996,6 +1107,7 @@ export type ResolversTypes = ResolversObject<{
   ReportReason: ReportReason;
   ReportStatus: ReportStatus;
   ReportSystemErrorInput: ReportSystemErrorInput;
+  ReprocessResult: ResolverTypeWrapper<ReprocessResult>;
   ResolveScheduleTimezoneResult: ResolverTypeWrapper<ResolveScheduleTimezoneResult>;
   Schedule: ResolverTypeWrapper<Schedule>;
   ScheduleTimezoneStatus: ScheduleTimezoneStatus;
@@ -1008,12 +1120,18 @@ export type ResolversTypes = ResolversObject<{
   Subscription: ResolverTypeWrapper<{}>;
   ToggleCalendarAdditionResult: ResolverTypeWrapper<ToggleCalendarAdditionResult>;
   ToggleFavoriteResult: ResolverTypeWrapper<ToggleFavoriteResult>;
+  UnprocessedPayloadConnection: ResolverTypeWrapper<UnprocessedPayloadConnection>;
+  UnprocessedPayloadEdge: ResolverTypeWrapper<UnprocessedPayloadEdge>;
+  UnprocessedPayloadFilters: UnprocessedPayloadFilters;
+  UnprocessedPayloadSource: UnprocessedPayloadSource;
+  UnprocessedScraperPayload: ResolverTypeWrapper<UnprocessedScraperPayload>;
   UpdateUserLocationInput: UpdateUserLocationInput;
   UpdateUserSettingsInput: UpdateUserSettingsInput;
   UpdateWidgetInput: UpdateWidgetInput;
   UserLocation: ResolverTypeWrapper<UserLocation>;
   UserSettings: ResolverTypeWrapper<UserSettings>;
   ValidationError: ResolverTypeWrapper<ValidationError>;
+  ValidationErrorDetail: ResolverTypeWrapper<ValidationErrorDetail>;
   Widget: ResolverTypeWrapper<Widget>;
   WidgetDisplayMode: WidgetDisplayMode;
   WidgetTheme: WidgetTheme;
@@ -1031,6 +1149,7 @@ export type ResolversParentTypes = ResolversObject<{
   CreateApiKeyInput: CreateApiKeyInput;
   CreateUserLocationInput: CreateUserLocationInput;
   CreateWidgetInput: CreateWidgetInput;
+  DateTime: Scalars['DateTime']['output'];
   DefaultLocationChangeRequest: DefaultLocationChangeRequest;
   EmbedDomain: EmbedDomain;
   Event: Event;
@@ -1045,6 +1164,9 @@ export type ResolversParentTypes = ResolversObject<{
   LocationDetails: LocationDetails;
   Me: Me;
   Mutation: {};
+  PageInfo: PageInfo;
+  ParserVersion: ParserVersion;
+  PayloadContext: PayloadContext;
   Post: Post;
   PostConnection: PostConnection;
   ProposedEventCorrectionData: ProposedEventCorrectionData;
@@ -1056,6 +1178,7 @@ export type ResolversParentTypes = ResolversObject<{
   RegionVoteBucket: RegionVoteBucket;
   Report: Report;
   ReportSystemErrorInput: ReportSystemErrorInput;
+  ReprocessResult: ReprocessResult;
   ResolveScheduleTimezoneResult: ResolveScheduleTimezoneResult;
   Schedule: Schedule;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
@@ -1066,12 +1189,17 @@ export type ResolversParentTypes = ResolversObject<{
   Subscription: {};
   ToggleCalendarAdditionResult: ToggleCalendarAdditionResult;
   ToggleFavoriteResult: ToggleFavoriteResult;
+  UnprocessedPayloadConnection: UnprocessedPayloadConnection;
+  UnprocessedPayloadEdge: UnprocessedPayloadEdge;
+  UnprocessedPayloadFilters: UnprocessedPayloadFilters;
+  UnprocessedScraperPayload: UnprocessedScraperPayload;
   UpdateUserLocationInput: UpdateUserLocationInput;
   UpdateUserSettingsInput: UpdateUserSettingsInput;
   UpdateWidgetInput: UpdateWidgetInput;
   UserLocation: UserLocation;
   UserSettings: UserSettings;
   ValidationError: ValidationError;
+  ValidationErrorDetail: ValidationErrorDetail;
   Widget: Widget;
 }>;
 
@@ -1118,6 +1246,10 @@ export type CorrectionResolvers<ContextType = GraphQLContext, ParentType extends
   validationErrors?: Resolver<Maybe<Array<ResolversTypes['ValidationError']>>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
+
+export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['DateTime'], any> {
+  name: 'DateTime';
+}
 
 export type DefaultLocationChangeRequestResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DefaultLocationChangeRequest'] = ResolversParentTypes['DefaultLocationChangeRequest']> = ResolversObject<{
   account?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType>;
@@ -1218,6 +1350,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   createWidget?: Resolver<ResolversTypes['Widget'], ParentType, ContextType, RequireFields<MutationCreateWidgetArgs, 'input'>>;
   deleteApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationDeleteApiKeyArgs, 'action' | 'id'>>;
   deleteEventPermanently?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteEventPermanentlyArgs, 'id'>>;
+  deleteUnprocessedPayload?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteUnprocessedPayloadArgs, 'payloadId'>>;
   deleteUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationDeleteUserLocationArgs, 'action' | 'id'>>;
   deleteWidget?: Resolver<ResolversTypes['Widget'], ParentType, ContextType, RequireFields<MutationDeleteWidgetArgs, 'action' | 'id'>>;
   deregisterEmbedDomain?: Resolver<ResolversTypes['EmbedDomain'], ParentType, ContextType, RequireFields<MutationDeregisterEmbedDomainArgs, 'action' | 'id'>>;
@@ -1229,6 +1362,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   registerFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRegisterFcmTokenArgs, 'token'>>;
   removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
   reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
+  reprocessPayload?: Resolver<ResolversTypes['ReprocessResult'], ParentType, ContextType, RequireFields<MutationReprocessPayloadArgs, 'parserVersion' | 'payloadId'>>;
   resolveDefaultLocationChange?: Resolver<ResolversTypes['DefaultLocationChangeRequest'], ParentType, ContextType, RequireFields<MutationResolveDefaultLocationChangeArgs, 'action' | 'id'>>;
   resolveReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationResolveReportArgs, 'id' | 'outcome'>>;
   resolveReportsForEvent?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, RequireFields<MutationResolveReportsForEventArgs, 'eventId'>>;
@@ -1247,6 +1381,33 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   updateUserTimezone?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationUpdateUserTimezoneArgs, 'timezone'>>;
   updateWidget?: Resolver<ResolversTypes['Widget'], ParentType, ContextType, RequireFields<MutationUpdateWidgetArgs, 'id' | 'input'>>;
   withdrawVote?: Resolver<ResolversTypes['AccountVote'], ParentType, ContextType, RequireFields<MutationWithdrawVoteArgs, 'action' | 'id'>>;
+}>;
+
+export type PageInfoResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PageInfo'] = ResolversParentTypes['PageInfo']> = ResolversObject<{
+  endCursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  hasNextPage?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ParserVersionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ParserVersion'] = ResolversParentTypes['ParserVersion']> = ResolversObject<{
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  deployedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  isActive?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  sourceFile?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  version?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type PayloadContextResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PayloadContext'] = ResolversParentTypes['PayloadContext']> = ResolversObject<{
+  accountId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  parserVersion?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  postUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  scraperVendor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  source?: Resolver<ResolversTypes['UnprocessedPayloadSource'], ParentType, ContextType>;
+  timestamp?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type PostResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Post'] = ResolversParentTypes['Post']> = ResolversObject<{
@@ -1310,9 +1471,11 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   mySettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType>;
   mySubscriptions?: Resolver<Array<ResolversTypes['Subscription']>, ParentType, ContextType>;
   myWidgets?: Resolver<Array<ResolversTypes['Widget']>, ParentType, ContextType>;
+  parserVersions?: Resolver<Array<ResolversTypes['ParserVersion']>, ParentType, ContextType, Partial<QueryParserVersionsArgs>>;
   pendingDefaultLocationChanges?: Resolver<Array<ResolversTypes['DefaultLocationChangeRequest']>, ParentType, ContextType>;
   postsByAccount?: Resolver<ResolversTypes['PostConnection'], ParentType, ContextType, RequireFields<QueryPostsByAccountArgs, 'accountId'>>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
+  queryUnprocessedPayloads?: Resolver<ResolversTypes['UnprocessedPayloadConnection'], ParentType, ContextType, Partial<QueryQueryUnprocessedPayloadsArgs>>;
   rankedVoteAccounts?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryRankedVoteAccountsArgs>>;
   reportedEvents?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, Partial<QueryReportedEventsArgs>>;
   socialMediaAccountProfileByAccountId?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType, RequireFields<QuerySocialMediaAccountProfileByAccountIdArgs, 'accountId' | 'platform'>>;
@@ -1346,6 +1509,13 @@ export type ReportResolvers<ContextType = GraphQLContext, ParentType extends Res
   resolvedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   resolvedByModeratorId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   status?: Resolver<ResolversTypes['ReportStatus'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ReprocessResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ReprocessResult'] = ResolversParentTypes['ReprocessResult']> = ResolversObject<{
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  queueId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1421,6 +1591,29 @@ export type ToggleFavoriteResultResolvers<ContextType = GraphQLContext, ParentTy
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type UnprocessedPayloadConnectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['UnprocessedPayloadConnection'] = ResolversParentTypes['UnprocessedPayloadConnection']> = ResolversObject<{
+  edges?: Resolver<Array<ResolversTypes['UnprocessedPayloadEdge']>, ParentType, ContextType>;
+  pageInfo?: Resolver<ResolversTypes['PageInfo'], ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type UnprocessedPayloadEdgeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['UnprocessedPayloadEdge'] = ResolversParentTypes['UnprocessedPayloadEdge']> = ResolversObject<{
+  cursor?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  node?: Resolver<ResolversTypes['UnprocessedScraperPayload'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type UnprocessedScraperPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['UnprocessedScraperPayload'] = ResolversParentTypes['UnprocessedScraperPayload']> = ResolversObject<{
+  context?: Resolver<ResolversTypes['PayloadContext'], ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  deletedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  rawPayload?: Resolver<ResolversTypes['JSON'], ParentType, ContextType>;
+  validationError?: Resolver<Array<ResolversTypes['ValidationErrorDetail']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type UserLocationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['UserLocation'] = ResolversParentTypes['UserLocation']> = ResolversObject<{
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
@@ -1446,6 +1639,15 @@ export type ValidationErrorResolvers<ContextType = GraphQLContext, ParentType ex
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type ValidationErrorDetailResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ValidationErrorDetail'] = ResolversParentTypes['ValidationErrorDetail']> = ResolversObject<{
+  instancePath?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  keyword?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  params?: Resolver<Maybe<ResolversTypes['JSON']>, ParentType, ContextType>;
+  schemaPath?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type WidgetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Widget'] = ResolversParentTypes['Widget']> = ResolversObject<{
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   deletedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -1463,6 +1665,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ApiKey?: ApiKeyResolvers<ContextType>;
   Coordinates?: CoordinatesResolvers<ContextType>;
   Correction?: CorrectionResolvers<ContextType>;
+  DateTime?: GraphQLScalarType;
   DefaultLocationChangeRequest?: DefaultLocationChangeRequestResolvers<ContextType>;
   EmbedDomain?: EmbedDomainResolvers<ContextType>;
   Event?: EventResolvers<ContextType>;
@@ -1473,6 +1676,9 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   LocationDetails?: LocationDetailsResolvers<ContextType>;
   Me?: MeResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
+  PageInfo?: PageInfoResolvers<ContextType>;
+  ParserVersion?: ParserVersionResolvers<ContextType>;
+  PayloadContext?: PayloadContextResolvers<ContextType>;
   Post?: PostResolvers<ContextType>;
   PostConnection?: PostConnectionResolvers<ContextType>;
   ProposedEventCorrectionData?: ProposedEventCorrectionDataResolvers<ContextType>;
@@ -1481,6 +1687,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   RankedAccountVote?: RankedAccountVoteResolvers<ContextType>;
   RegionVoteBucket?: RegionVoteBucketResolvers<ContextType>;
   Report?: ReportResolvers<ContextType>;
+  ReprocessResult?: ReprocessResultResolvers<ContextType>;
   ResolveScheduleTimezoneResult?: ResolveScheduleTimezoneResultResolvers<ContextType>;
   Schedule?: ScheduleResolvers<ContextType>;
   SocialMediaAccountProfile?: SocialMediaAccountProfileResolvers<ContextType>;
@@ -1488,9 +1695,13 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Subscription?: SubscriptionResolvers<ContextType>;
   ToggleCalendarAdditionResult?: ToggleCalendarAdditionResultResolvers<ContextType>;
   ToggleFavoriteResult?: ToggleFavoriteResultResolvers<ContextType>;
+  UnprocessedPayloadConnection?: UnprocessedPayloadConnectionResolvers<ContextType>;
+  UnprocessedPayloadEdge?: UnprocessedPayloadEdgeResolvers<ContextType>;
+  UnprocessedScraperPayload?: UnprocessedScraperPayloadResolvers<ContextType>;
   UserLocation?: UserLocationResolvers<ContextType>;
   UserSettings?: UserSettingsResolvers<ContextType>;
   ValidationError?: ValidationErrorResolvers<ContextType>;
+  ValidationErrorDetail?: ValidationErrorDetailResolvers<ContextType>;
   Widget?: WidgetResolvers<ContextType>;
 }>;
 

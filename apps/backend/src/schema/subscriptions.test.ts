@@ -546,7 +546,6 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       platform: 'instagram',
       postUrl: 'https://instagram.com/p/test_post_1',
       content: 'Test Event 1 Content',
-      rawContent: 'Test Event 1 Content',
       publishedAt: new Date(),
     }).returning();
 
@@ -674,7 +673,6 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       platform: 'instagram',
       postUrl: 'https://instagram.com/p/test_post_2',
       content: 'Test Event 2 Content',
-      rawContent: 'Test Event 2 Content',
       publishedAt: new Date(),
     }).returning();
 
@@ -788,7 +786,6 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       platform: 'instagram',
       postUrl: 'https://instagram.com/p/q_test_post_1',
       content: 'Post 1 Content',
-      rawContent: 'Post 1 Content',
       isExtracted: false,
       publishedAt: new Date(),
     }).returning();
@@ -798,7 +795,6 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       platform: 'instagram',
       postUrl: 'https://instagram.com/p/q_test_post_2',
       content: 'Post 2 Content',
-      rawContent: 'Post 2 Content',
       isExtracted: false,
       publishedAt: new Date(),
     }).returning();
@@ -808,7 +804,6 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       platform: 'instagram',
       postUrl: 'https://instagram.com/p/q_test_post_3',
       content: 'Post 3 Content',
-      rawContent: 'Post 3 Content',
       isExtracted: true,
       publishedAt: new Date(),
     }).returning();

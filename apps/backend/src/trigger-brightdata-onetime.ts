@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
-import { loadBackendEnv } from '../env.js';
-import { triggerBrightDataJob, getBrightDataProgress, getBrightDataSnapshot } from '../lib/scraper/brightdata-client.js';
+import { loadBackendEnv } from './env.js';
+import { triggerBrightDataJob, getBrightDataProgress, getBrightDataSnapshot, mapBrightDataDateToStartDate } from './lib/scraper/brightdata-client.js';
 
 /**
  * One‑off script to trigger a BrightData scrape for a specific social media account.
@@ -32,12 +32,14 @@ import { triggerBrightDataJob, getBrightDataProgress, getBrightDataSnapshot } fr
   const startDate = `${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}-${today.getUTCFullYear()}`;
 
   console.log('Triggering BrightData job...');
-  const triggerResult = await triggerBrightDataJob({
-    url: `https://api.brightdata.com/v1/scrape/${accountId}`,
-    numOfPosts: numPosts,
-    startDate,
-    webhookUrl: env.brightdataWebhookBaseUrl ?? '',
-  });
+  const triggerResult = await triggerBrightDataJob(
+    {
+      url: `https://www.instagram.com/${accountId}/`,
+      numOfPosts: numPosts,
+      startDate,
+    },
+    env.brightdataWebhookBaseUrl ?? ''
+  );
   console.log('Job triggered, snapshotId:', triggerResult.snapshotId);
 
   // Simple polling until the job reports COMPLETED (or FAILED)

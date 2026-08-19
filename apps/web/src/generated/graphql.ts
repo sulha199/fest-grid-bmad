@@ -26,6 +26,7 @@ export type Scalars = {
   Boolean: { input: boolean; output: boolean; }
   Int: { input: number; output: number; }
   Float: { input: number; output: number; }
+  DateTime: { input: any; output: any; }
   JSON: { input: any; output: any; }
 };
 
@@ -262,6 +263,7 @@ export type Mutation = {
   createWidget: Widget;
   deleteApiKey: ApiKey;
   deleteEventPermanently: Scalars['Boolean']['output'];
+  deleteUnprocessedPayload: Scalars['Boolean']['output'];
   deleteUserLocation: UserLocation;
   deleteWidget: Widget;
   deregisterEmbedDomain: EmbedDomain;
@@ -273,6 +275,7 @@ export type Mutation = {
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
   reportSystemError: Scalars['Boolean']['output'];
+  reprocessPayload: ReprocessResult;
   resolveDefaultLocationChange: DefaultLocationChangeRequest;
   resolveReport: Report;
   resolveReportsForEvent: Array<Report>;
@@ -322,6 +325,11 @@ export type MutationDeleteApiKeyArgs = {
 
 export type MutationDeleteEventPermanentlyArgs = {
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteUnprocessedPayloadArgs = {
+  payloadId: Scalars['ID']['input'];
 };
 
 
@@ -383,6 +391,12 @@ export type MutationRemoveSubscriptionArgs = {
 
 export type MutationReportSystemErrorArgs = {
   input: ReportSystemErrorInput;
+};
+
+
+export type MutationReprocessPayloadArgs = {
+  parserVersion: Scalars['String']['input'];
+  payloadId: Scalars['ID']['input'];
 };
 
 
@@ -488,6 +502,33 @@ export type MutationWithdrawVoteArgs = {
   id: Scalars['ID']['input'];
 };
 
+export type PageInfo = {
+  __typename?: 'PageInfo';
+  endCursor?: Maybe<Scalars['String']['output']>;
+  hasNextPage: Scalars['Boolean']['output'];
+};
+
+export type ParserVersion = {
+  __typename?: 'ParserVersion';
+  createdAt: Scalars['DateTime']['output'];
+  deployedAt: Scalars['DateTime']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  isActive: Scalars['Boolean']['output'];
+  sourceFile?: Maybe<Scalars['String']['output']>;
+  version: Scalars['String']['output'];
+};
+
+export type PayloadContext = {
+  __typename?: 'PayloadContext';
+  accountId?: Maybe<Scalars['String']['output']>;
+  parserVersion: Scalars['String']['output'];
+  postUrl?: Maybe<Scalars['String']['output']>;
+  scraperVendor?: Maybe<Scalars['String']['output']>;
+  source: UnprocessedPayloadSource;
+  timestamp: Scalars['DateTime']['output'];
+};
+
 export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
@@ -574,9 +615,11 @@ export type Query = {
   mySettings: UserSettings;
   mySubscriptions: Array<Subscription>;
   myWidgets: Array<Widget>;
+  parserVersions: Array<ParserVersion>;
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
+  queryUnprocessedPayloads: UnprocessedPayloadConnection;
   rankedVoteAccounts: Array<RankedAccountVote>;
   reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
@@ -623,6 +666,11 @@ export type QueryIsOriginAllowedForWidgetArgs = {
 };
 
 
+export type QueryParserVersionsArgs = {
+  onlyActive?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
 export type QueryPostsByAccountArgs = {
   accountId: Scalars['ID']['input'];
   cursor?: InputMaybe<Scalars['String']['input']>;
@@ -634,6 +682,13 @@ export type QueryPreviewLocationArgs = {
   latitude?: InputMaybe<Scalars['Float']['input']>;
   longitude?: InputMaybe<Scalars['Float']['input']>;
   placeId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QueryQueryUnprocessedPayloadsArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  filters?: InputMaybe<UnprocessedPayloadFilters>;
+  first?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
@@ -718,6 +773,13 @@ export type ReportSystemErrorInput = {
   context?: InputMaybe<Scalars['String']['input']>;
   message: Scalars['String']['input'];
   source: Scalars['String']['input'];
+};
+
+export type ReprocessResult = {
+  __typename?: 'ReprocessResult';
+  message: Scalars['String']['output'];
+  queueId?: Maybe<Scalars['String']['output']>;
+  success: Scalars['Boolean']['output'];
 };
 
 export type ResolveScheduleTimezoneResult = {
@@ -816,6 +878,42 @@ export type ToggleFavoriteResult = {
   isFavorited: Scalars['Boolean']['output'];
 };
 
+export type UnprocessedPayloadConnection = {
+  __typename?: 'UnprocessedPayloadConnection';
+  edges: Array<UnprocessedPayloadEdge>;
+  pageInfo: PageInfo;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type UnprocessedPayloadEdge = {
+  __typename?: 'UnprocessedPayloadEdge';
+  cursor: Scalars['String']['output'];
+  node: UnprocessedScraperPayload;
+};
+
+export type UnprocessedPayloadFilters = {
+  createdAfter?: InputMaybe<Scalars['DateTime']['input']>;
+  createdBefore?: InputMaybe<Scalars['DateTime']['input']>;
+  parserVersion?: InputMaybe<Scalars['String']['input']>;
+  source?: InputMaybe<UnprocessedPayloadSource>;
+};
+
+export enum UnprocessedPayloadSource {
+  Apify = 'APIFY',
+  Brightdata = 'BRIGHTDATA',
+  Gemini = 'GEMINI'
+}
+
+export type UnprocessedScraperPayload = {
+  __typename?: 'UnprocessedScraperPayload';
+  context: PayloadContext;
+  createdAt: Scalars['DateTime']['output'];
+  deletedAt?: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['ID']['output'];
+  rawPayload: Scalars['JSON']['output'];
+  validationError: Array<ValidationErrorDetail>;
+};
+
 export type UpdateUserLocationInput = {
   address?: InputMaybe<Scalars['String']['input']>;
   latitude?: InputMaybe<Scalars['Float']['input']>;
@@ -861,6 +959,15 @@ export type ValidationError = {
   message: Scalars['String']['output'];
 };
 
+export type ValidationErrorDetail = {
+  __typename?: 'ValidationErrorDetail';
+  instancePath?: Maybe<Scalars['String']['output']>;
+  keyword?: Maybe<Scalars['String']['output']>;
+  message: Scalars['String']['output'];
+  params?: Maybe<Scalars['JSON']['output']>;
+  schemaPath?: Maybe<Scalars['String']['output']>;
+};
+
 export type Widget = {
   __typename?: 'Widget';
   createdAt: Scalars['String']['output'];
@@ -899,6 +1006,25 @@ export enum WidgetTheme {
 
 
 
+
+export type ScheduleTimezoneStatus =
+  | 'NEEDS_CLARIFICATION'
+  | 'RESOLVED';
+
+
+
+
+export type UnprocessedPayloadFilters = {
+  createdAfter?: unknown;
+  createdBefore?: unknown;
+  parserVersion?: string | null | undefined;
+  source?: UnprocessedPayloadSource | null | undefined;
+};
+
+export type UnprocessedPayloadSource =
+  | 'APIFY'
+  | 'BRIGHTDATA'
+  | 'GEMINI';
 
 
 
@@ -1114,6 +1240,30 @@ export type ResolveDefaultLocationChangeMutationVariables = Exact<{
 
 
 export type ResolveDefaultLocationChangeMutation = { resolveDefaultLocationChange: { id: string, status: DefaultLocationChangeRequestStatus } };
+
+export type QueryUnprocessedPayloadsQueryVariables = Exact<{
+  filters?: UnprocessedPayloadFilters | null | undefined;
+  cursor?: string | null | undefined;
+  limit?: number | null | undefined;
+}>;
+
+
+export type QueryUnprocessedPayloadsQuery = { queryUnprocessedPayloads: { totalCount: number, edges: Array<{ cursor: string, node: { id: string, rawPayload: unknown, createdAt: unknown, deletedAt: unknown, validationError: Array<{ message: string }>, context: { source: UnprocessedPayloadSource, scraperVendor: string | null, accountId: string | null, postUrl: string | null, timestamp: unknown, parserVersion: string } } }>, pageInfo: { hasNextPage: boolean, endCursor: string | null } } };
+
+export type ReprocessPayloadMutationVariables = Exact<{
+  payloadId: string | number;
+  parserVersion: string;
+}>;
+
+
+export type ReprocessPayloadMutation = { reprocessPayload: { success: boolean, message: string } };
+
+export type DeleteUnprocessedPayloadMutationVariables = Exact<{
+  payloadId: string | number;
+}>;
+
+
+export type DeleteUnprocessedPayloadMutation = { deleteUnprocessedPayload: boolean };
 
 export type CreateApiKeyMutationVariables = Exact<{
   input: CreateApiKeyInput;
@@ -2323,6 +2473,105 @@ export const useResolveDefaultLocationChangeMutation = <
       {
     mutationKey: ['resolveDefaultLocationChange'],
     mutationFn: (variables?: ResolveDefaultLocationChangeMutationVariables) => fetcher<ResolveDefaultLocationChangeMutation, ResolveDefaultLocationChangeMutationVariables>(client, ResolveDefaultLocationChangeDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const QueryUnprocessedPayloadsDocument = new TypedDocumentString(`
+    query queryUnprocessedPayloads($filters: UnprocessedPayloadFilters, $cursor: String, $limit: Int) {
+  queryUnprocessedPayloads(filters: $filters, after: $cursor, first: $limit) {
+    edges {
+      node {
+        id
+        rawPayload
+        validationError {
+          message
+        }
+        context {
+          source
+          scraperVendor
+          accountId
+          postUrl
+          timestamp
+          parserVersion
+        }
+        createdAt
+        deletedAt
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    totalCount
+  }
+}
+    `);
+
+export const useQueryUnprocessedPayloadsQuery = <
+      TData = QueryUnprocessedPayloadsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: QueryUnprocessedPayloadsQueryVariables,
+      options?: Omit<UseQueryOptions<QueryUnprocessedPayloadsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<QueryUnprocessedPayloadsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<QueryUnprocessedPayloadsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['queryUnprocessedPayloads'] : ['queryUnprocessedPayloads', variables],
+    queryFn: fetcher<QueryUnprocessedPayloadsQuery, QueryUnprocessedPayloadsQueryVariables>(client, QueryUnprocessedPayloadsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const ReprocessPayloadDocument = new TypedDocumentString(`
+    mutation reprocessPayload($payloadId: ID!, $parserVersion: String!) {
+  reprocessPayload(payloadId: $payloadId, parserVersion: $parserVersion) {
+    success
+    message
+  }
+}
+    `);
+
+export const useReprocessPayloadMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ReprocessPayloadMutation, TError, ReprocessPayloadMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ReprocessPayloadMutation, TError, ReprocessPayloadMutationVariables, TContext>(
+      {
+    mutationKey: ['reprocessPayload'],
+    mutationFn: (variables?: ReprocessPayloadMutationVariables) => fetcher<ReprocessPayloadMutation, ReprocessPayloadMutationVariables>(client, ReprocessPayloadDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const DeleteUnprocessedPayloadDocument = new TypedDocumentString(`
+    mutation deleteUnprocessedPayload($payloadId: ID!) {
+  deleteUnprocessedPayload(payloadId: $payloadId)
+}
+    `);
+
+export const useDeleteUnprocessedPayloadMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DeleteUnprocessedPayloadMutation, TError, DeleteUnprocessedPayloadMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DeleteUnprocessedPayloadMutation, TError, DeleteUnprocessedPayloadMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteUnprocessedPayload'],
+    mutationFn: (variables?: DeleteUnprocessedPayloadMutationVariables) => fetcher<DeleteUnprocessedPayloadMutation, DeleteUnprocessedPayloadMutationVariables>(client, DeleteUnprocessedPayloadDocument, variables, headers)(),
     ...options
   }
     )};

@@ -3,6 +3,8 @@ schema {
   mutation: Mutation
 }
 
+scalar DateTime
+
 type Query {
   health: Boolean!
 }
