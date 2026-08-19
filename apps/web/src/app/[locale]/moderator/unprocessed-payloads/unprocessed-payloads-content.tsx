@@ -13,7 +13,6 @@ import type { UnprocessedPayloadFilters } from "./types"
 
 interface FilterState {
   source: string | null
-  vendor: string | null
   createdAfter: string | null
   createdBefore: string | null
   sortOrder: "newest" | "oldest"
@@ -26,7 +25,6 @@ export function UnprocessedPayloadsContent() {
 
   const [filters, setFilters] = useState<FilterState>({
     source: null,
-    vendor: null,
     createdAfter: null,
     createdBefore: null,
     sortOrder: "newest",
@@ -36,7 +34,6 @@ export function UnprocessedPayloadsContent() {
 
   const graphqlFilters: UnprocessedPayloadFilters = {
     source: filters.source,
-    vendor: filters.vendor,
     createdAfter: filters.createdAfter,
     createdBefore: filters.createdBefore,
   }

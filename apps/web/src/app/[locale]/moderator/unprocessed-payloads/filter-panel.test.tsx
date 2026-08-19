@@ -25,7 +25,6 @@ describe("FilterPanel", () => {
   const mockOnFilterChange = vi.fn()
   const defaultFilters = {
     source: null,
-    vendor: null,
     createdAfter: null,
     createdBefore: null,
     sortOrder: "newest" as const,
@@ -38,7 +37,6 @@ describe("FilterPanel", () => {
   it("renders filter controls", () => {
     render(<FilterPanel filters={defaultFilters} onFilterChange={mockOnFilterChange} />)
     expect(screen.getByText("Source")).toBeInTheDocument()
-    expect(screen.getByText("Vendor")).toBeInTheDocument()
     expect(screen.getByText("Apply filters")).toBeInTheDocument()
     expect(screen.getByText("Clear all")).toBeInTheDocument()
   })
@@ -53,16 +51,6 @@ describe("FilterPanel", () => {
     expect(mockOnFilterChange).toHaveBeenCalledWith({ source: "APIFY" })
   })
 
-  it("updates vendor filter on input", async () => {
-    const user = userEvent.setup()
-    render(<FilterPanel filters={defaultFilters} onFilterChange={mockOnFilterChange} />)
-
-    const vendorInput = screen.getByPlaceholderText("e.g., Instagram")
-    await user.type(vendorInput, "Instagram")
-
-    expect(mockOnFilterChange).toHaveBeenCalledWith({ vendor: "I" }) // Called for each keystroke
-  })
-
   it("clears all filters on Clear button click", async () => {
     const user = userEvent.setup()
     render(<FilterPanel filters={defaultFilters} onFilterChange={mockOnFilterChange} />)
@@ -72,7 +60,6 @@ describe("FilterPanel", () => {
 
     expect(mockOnFilterChange).toHaveBeenCalledWith({
       source: null,
-      vendor: null,
       createdAfter: null,
       createdBefore: null,
       sortOrder: "newest",

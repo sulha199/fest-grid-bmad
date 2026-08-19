@@ -6,12 +6,11 @@ import { useTranslations } from "next-intl"
 interface FilterPanelProps {
   filters: {
     source: string | null
-    vendor: string | null
     createdAfter: string | null
     createdBefore: string | null
     sortOrder: "newest" | "oldest"
   }
-  onFilterChange: (filters: Partial<{ source: string | null; vendor: string | null; createdAfter: string | null; createdBefore: string | null; sortOrder: "newest" | "oldest" }>) => void
+  onFilterChange: (filters: Partial<{ source: string | null; createdAfter: string | null; createdBefore: string | null; sortOrder: "newest" | "oldest" }>) => void
 }
 
 export function FilterPanel({ filters, onFilterChange }: FilterPanelProps) {
@@ -20,7 +19,6 @@ export function FilterPanel({ filters, onFilterChange }: FilterPanelProps) {
   const handleClear = () => {
     onFilterChange({
       source: null,
-      vendor: null,
       createdAfter: null,
       createdBefore: null,
       sortOrder: "newest",
@@ -42,23 +40,9 @@ export function FilterPanel({ filters, onFilterChange }: FilterPanelProps) {
           >
             <option value="">All Sources</option>
             <option value="APIFY">{t("sourceApify")}</option>
-            <option value="BRIGHT_DATA">{t("sourceBrightData")}</option>
+            <option value="BRIGHTDATA">{t("sourceBrightData")}</option>
             <option value="GEMINI">{t("sourceGemini")}</option>
           </select>
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="vendor" className="text-sm font-medium">
-            {t("filterVendorLabel")}
-          </label>
-          <input
-            id="vendor"
-            type="text"
-            placeholder="e.g., Instagram"
-            value={filters.vendor || ""}
-            onChange={(e) => onFilterChange({ vendor: e.target.value || null })}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-          />
         </div>
 
         <div className="space-y-2">

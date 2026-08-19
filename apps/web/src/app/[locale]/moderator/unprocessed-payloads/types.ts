@@ -6,7 +6,7 @@ export type ValidationError = {
 };
 
 export type UnprocessedPayloadContext = {
-  source: "APIFY" | "BRIGHT_DATA" | "GEMINI";
+  source: "APIFY" | "BRIGHTDATA" | "GEMINI";
   scraperVendor?: string | null;
   accountId?: string | null;
   postUrl?: string | null;
@@ -41,7 +41,6 @@ export type UnprocessedPayloadConnection = {
 
 export type UnprocessedPayloadFilters = {
   source?: string | null;
-  vendor?: string | null;
   createdAfter?: string | null;
   createdBefore?: string | null;
 };
