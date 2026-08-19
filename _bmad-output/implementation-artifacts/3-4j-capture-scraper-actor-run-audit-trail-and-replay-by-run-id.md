@@ -1,3 +1,7 @@
+---
+baseline_commit: b09fd58dfa9f523371121f809d8be72819ffe844
+---
+
 # Story 3.4j: Capture scraper actor-run audit trail and enable replay-by-run-ID
 
 ## Story Details
@@ -5,9 +9,9 @@
 - Epic: 3 (Social Media Event Integration)
 - Story ID: 3-4j
 - Key: 3-4j-capture-scraper-actor-run-audit-trail-and-replay-by-run-id
-- Status: ready-for-dev
+- Status: in-progress
 - Type: Backend-only story (schema, capture wiring, GraphQL API)
-- Baseline Commit: 5f5c4880 (2026-08-19, tip of `master` at story creation)
+- Baseline Commit: b09fd58dfa9f523371121f809d8be72819ffe844 (2026-08-19, start of implementation)
 
 ## Story
 
@@ -185,4 +189,90 @@ Not started — `ready-for-dev`.
 
 ## Dev Agent Record
 
-_(To be filled in by `bmad-dev-story` during implementation.)_
+### Implementation Progress
+
+**Session 1 (2026-08-19):**
+
+**Completed Tasks:**
+1. ✅ Task 1: Database schema & migration
+   - Added three new enums: `scraperRunVendorEnum`, `scraperRunTriggerModeEnum`, `scraperRunStatusEnum`
+   - Created `scraperActorRuns` table with all required fields (id, vendor, triggerMode, profileId, runId, status, rawInput, rawOutput, itemCount, errorMessage, pendingJobId, startedAt, completedAt, timestamps)
+   - Generated migration 0032_clammy_komodo.sql (no manual edits needed - excluded from AD-8 soft-delete per AC8)
+
+2. ✅ Task 2: Shared audit-write helpers
+   - Created `record-actor-run.ts` with:
+     - `recordActorRunStart(input)`: inserts pending run, handles DB errors gracefully
+     - `recordActorRunResult(input)`: updates run by id or (vendor, runId), handles DB errors gracefully
+     - `recordSyncActorRun(input)`: convenience wrapper for sync-path complete run lifecycle (single insert, onConflictDoNothing on (vendor, runId))
+   - Created `fetch-vendor-run-output.ts` with:
+     - `fetchApifyRunOutput(runId)`: extracted from stale-job-sweep, returns {status, items}
+     - `fetchBrightDataRunOutput(snapshotId)`: extracted from stale-job-sweep, returns {status, items}
+   - Created unit tests: `record-actor-run.test.ts` covering success and error handling paths
+
+3. ✅ Task 3: Wire capture into Apify sync path
+   - Updated `callApifyActor()` to record audit trail when `apifyAuditContext` is set
+   - Added `setApifyAuditContext()` and `clearApifyAuditContext()` exports for context management
+   - Updated `process-scrape-job.ts` to set audit context before both `getNewestPosts()` calls
+   - Wraps calls in try/finally to ensure context is cleared
+
+4. ✅ Task 4: Wire capture into Apify async path
+   - Updated `trigger-apify-for-target.ts`:
+     - Added `recordActorRunStart()` call after `createPendingJob()` with PENDING status
+     - Captures full actor input and stores pendingJobId for cross-reference
+   - Updated `apify-webhook.ts`:
+     - Added run.status branching (was unconditionally treating all webhooks as success)
+     - Only calls `processApifyAsyncResult()` when run.status === 'SUCCEEDED'
+     - Calls `recordActorRunResult()` with appropriate status on success or failure
+     - Handles edge case: successful run but no dataset available
+   - Updated `stale-job-sweep.ts`:
+     - Replaced inline fetch logic with `fetchApifyRunOutput()` call
+     - Added `recordActorRunResult()` calls in both success and failure branches
+
+**Remaining Tasks:**
+5. ⏳ Task 5: Wire capture into Bright Data async path
+   - Similar pattern to Apify async (trigger start + webhook result recording + stale sweep)
+   - Files: `trigger-brightdata-for-target.ts`, `apps/backend/src/lambdas/webhook.ts`, `stale-job-sweep.ts` (Bright Data branch)
+
+6. ⏳ Task 6: `replayActorRun` mutation implementation
+   - Create `apps/backend/src/lib/scraper/replay-actor-run.ts`
+   - Implement mutation logic per AC6(a)–(e): load row, fetch output if null, re-process through existing pipelines
+   - Reuse `processApifyAsyncResult`/`processBrightDataResult` with synthetic job object
+   - Return `{ success, postsPersisted, message }`
+
+7. ⏳ Task 7: GraphQL schema & resolvers
+   - Create `apps/backend/src/schema/actor-runs.graphql`
+   - Reuse global `scalar JSON` and `type PageInfo` (no redeclaration)
+   - Define types: ActorRunVendor, ActorRunTriggerMode, ActorRunStatus enums; ScraperActorRun; ActorRunFilters; ActorRunEdge/ActorRunConnection
+   - Extend Query with `queryActorRuns(filters: ActorRunFilters, first: Int, after: String): ActorRunConnection!`
+   - Extend Mutation with `replayActorRun(actorRunId: ID!): ReplayActorRunResult!`
+   - Implement both resolvers in `apps/backend/src/schema/resolvers.ts` with `requireModerator` gates
+
+8. ⏳ Task 8: Testing
+   - Unit tests for `fetch-vendor-run-output.ts` (success + error paths)
+   - Integration tests: audit recording on Apify sync success/failure, async trigger PENDING row creation, webhook status branching, stale-job-sweep fallback on non-SUCCEEDED status
+   - Test for Bright Data webhook and sweep (once Task 5 wired)
+   - Test for `replayActorRun` mutation (stored output path, missing output fetch path, double-replay)
+   - Integration test for `queryActorRuns` filters and pagination
+   - Full regression suite via `pnpm --filter backend test`
+
+### Key Design Decisions Made
+- **Audit context via module-level variable**: callApifyActor uses `apifyAuditContext` (process-scoped) rather than adding profileId parameter to adapter interface
+- **Sync-path convenience wrapper**: `recordSyncActorRun()` combines start+result into single insert per story guidance, reduces duplication
+- **onConflictDoNothing on (vendor, runId)**: handles case where webhook fires before stale-job-sweep processes the run
+- **Error handling**: all audit writes catch and log errors; never throw or block caller
+- **Webhook status branching**: fixing existing latent bug where FAILED/TIMED_OUT/ABORTED webhooks attempted dataset fetch that may not exist
+
+### Files Created/Modified
+**Created:**
+- `packages/database/migrations/0032_clammy_komodo.sql` (auto-generated)
+- `apps/backend/src/lib/scraper/record-actor-run.ts`
+- `apps/backend/src/lib/scraper/fetch-vendor-run-output.ts`
+- `apps/backend/src/lib/scraper/record-actor-run.test.ts`
+
+**Modified:**
+- `packages/database/schema.ts` (added 3 enums + scraperActorRuns table)
+- `apps/backend/src/lib/scraper/instagram-adapter.ts` (audit context + recording in callApifyActor)
+- `apps/backend/src/lib/scraper/process-scrape-job.ts` (set audit context before getNewestPosts calls)
+- `apps/backend/src/lib/scraper/trigger-apify-for-target.ts` (recordActorRunStart on trigger)
+- `apps/backend/src/lambdas/apify-webhook.ts` (run.status branching + recordActorRunResult)
+- `apps/backend/src/lib/scraper/stale-job-sweep.ts` (use fetchApifyRunOutput + recordActorRunResult)

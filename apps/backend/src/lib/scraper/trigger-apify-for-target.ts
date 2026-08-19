@@ -2,6 +2,7 @@ import { getApifyClient } from './instagram-adapter.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
 import { recordProviderUsage, isProviderCapacityAvailable } from './usage-store.js';
 import { loadBackendEnv } from '../../env.js';
+import { recordActorRunStart } from './record-actor-run.js';
 
 export interface ScrapeTarget {
   profileId: string;
@@ -53,9 +54,25 @@ export let attemptApifyAsyncTrigger = async (
     );
 
     // Create pending job row (with the pre-generated token and now-known runId)
-    await createPendingJob({
+    const pendingJob = await createPendingJob({
       profileId: target.profileId,
       runId: run.id,
+    });
+
+    // Record audit trail at trigger time
+    await recordActorRunStart({
+      vendor: 'apify',
+      triggerMode: 'async',
+      profileId: target.profileId,
+      runId: run.id,
+      rawInput: {
+        directUrls: [`https://www.instagram.com/${target.username}/`],
+        resultsType: 'posts',
+        resultsLimit: env.scrapeResultsLimit,
+        onlyPostsNewerThan: newerThan,
+      },
+      pendingJobId: pendingJob.id,
+      status: 'PENDING',
     });
 
     // Record usage (nominal trigger-time accounting)

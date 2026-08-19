@@ -3,12 +3,13 @@ import { findExpiredPendingJobs as findExpiredApifyJobs, markPendingJobExpired a
 import { getBrightDataProgress, getBrightDataSnapshot } from './brightdata-client.js';
 import { processBrightDataResult } from './process-brightdata-result.js';
 import { processApifyAsyncResult } from './process-apify-async-result.js';
-import { getApifyClient } from './instagram-adapter.js';
+import { fetchApifyRunOutput, fetchBrightDataRunOutput } from './fetch-vendor-run-output.js';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { getScraperAdapter } from './register-adapters.js';
 import { enqueueScrapeJob } from './enqueue-scrape-job.js';
+import { recordActorRunResult } from './record-actor-run.js';
 
 export async function runStaleJobSweep(): Promise<void> {
   // Process Bright Data jobs
@@ -70,15 +71,26 @@ async function processSingleExpiredBrightDataJob(job: any): Promise<void> {
 
 async function processSingleExpiredApifyJob(job: any): Promise<void> {
   try {
-    const client = getApifyClient();
-    const run = await client.run(job.runId).get();
+    const output = await fetchApifyRunOutput(job.runId);
 
-    if (run.status === 'SUCCEEDED') {
-      // Job succeeded, fetch dataset and process
-      const { items } = await client.dataset(run.defaultDatasetId).listItems({ clean: true, limit: 1000 });
-      await processApifyAsyncResult(job, items as any[]);
+    if (output.status === 'SUCCEEDED') {
+      // Job succeeded, process results
+      await recordActorRunResult({
+        vendor: 'apify',
+        runId: job.runId,
+        status: 'SUCCEEDED',
+        rawOutput: output.items,
+        itemCount: output.items.length,
+      });
+      await processApifyAsyncResult(job, output.items as any[]);
     } else {
-      // Job failed/timed out/aborted - mark as expired and fall back to SQS
+      // Job failed/timed out/aborted - record and mark as expired
+      await recordActorRunResult({
+        vendor: 'apify',
+        runId: job.runId,
+        status: output.status as any,
+        errorMessage: `Run status from stale-job-sweep: ${output.status}`,
+      });
       await markApifyJobExpired(job.id);
 
       // Fetch profile info for fallback

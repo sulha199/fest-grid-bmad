@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { findPendingJobByToken, markPendingJobExpired } from '../lib/scraper/apify-pending-jobs-store.js';
 import { processApifyAsyncResult } from '../lib/scraper/process-apify-async-result.js';
 import { getApifyClient } from '../lib/scraper/instagram-adapter.js';
+import { recordActorRunResult } from '../lib/scraper/record-actor-run.js';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
@@ -45,24 +46,77 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Fetch the run to get dataset ID
+    // Fetch the run to get its status and dataset ID
     const client = getApifyClient();
     const run = await client.run(pendingJob.runId).get();
 
-    if (!run || !run.defaultDatasetId) {
-      console.warn(`Apify webhook: run ${pendingJob.runId} has no dataset`);
+    if (!run) {
+      console.warn(`Apify webhook: run ${pendingJob.runId} not found`);
+      await recordActorRunResult({
+        vendor: 'apify',
+        runId: pendingJob.runId,
+        status: 'FAILED',
+        errorMessage: 'Run not found when processing webhook',
+      });
       await markPendingJobExpired(pendingJob.id);
       return {
         statusCode: 200,
-        body: JSON.stringify({ message: 'No dataset available' }),
+        body: JSON.stringify({ message: 'Run not found' }),
       };
     }
 
-    // Fetch dataset items
-    const { items } = await client.dataset(run.defaultDatasetId!).listItems({ clean: true, limit: 1000 });
+    // Branch on run status: only process dataset for successful runs
+    if (run.status === 'SUCCEEDED') {
+      if (!run.defaultDatasetId) {
+        console.warn(`Apify webhook: successful run ${pendingJob.runId} has no dataset`);
+        await recordActorRunResult({
+          vendor: 'apify',
+          runId: pendingJob.runId,
+          status: 'SUCCEEDED',
+          rawOutput: [],
+          itemCount: 0,
+          errorMessage: 'No dataset available despite successful run',
+        });
+        await markPendingJobExpired(pendingJob.id);
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ message: 'No dataset available' }),
+        };
+      }
 
-    // Process results
-    await processApifyAsyncResult(pendingJob, items as any[]);
+      // Fetch dataset items
+      const { items } = await client.dataset(run.defaultDatasetId).listItems({ clean: true, limit: 1000 });
+
+      // Record successful audit trail
+      await recordActorRunResult({
+        vendor: 'apify',
+        runId: pendingJob.runId,
+        status: 'SUCCEEDED',
+        rawOutput: items,
+        itemCount: items.length,
+      });
+
+      // Process results
+      await processApifyAsyncResult(pendingJob, items as any[]);
+    } else {
+      // Job failed/timed out/aborted - record failure and mark as expired
+      const statusMap: Record<string, 'FAILED' | 'TIMED_OUT' | 'ABORTED'> = {
+        'FAILED': 'FAILED',
+        'TIMED_OUT': 'TIMED_OUT',
+        'ABORTED': 'ABORTED',
+      };
+
+      const recordedStatus = statusMap[run.status] || 'FAILED';
+
+      await recordActorRunResult({
+        vendor: 'apify',
+        runId: pendingJob.runId,
+        status: recordedStatus,
+        errorMessage: `Run status: ${run.status}`,
+      });
+
+      await markPendingJobExpired(pendingJob.id);
+    }
 
     return {
       statusCode: 200,

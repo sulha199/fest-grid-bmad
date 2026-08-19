@@ -37,6 +37,10 @@ export const correctionSourceEnum = pgEnum('correction_source', ['manual', 'ai_a
 export const correctionStatusEnum = pgEnum('correction_status', ['pending', 'applied', 'rejected']);
 export const brightdataJobStatusEnum = pgEnum('brightdata_job_status', ['PENDING', 'COMPLETED', 'EXPIRED']);
 
+export const scraperRunVendorEnum = pgEnum('scraper_run_vendor', ['apify', 'brightdata']);
+export const scraperRunTriggerModeEnum = pgEnum('scraper_run_trigger_mode', ['sync', 'async']);
+export const scraperRunStatusEnum = pgEnum('scraper_run_status', ['PENDING', 'SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED']);
+
 export const brightdataPendingJobs = pgTable('brightdata_pending_jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
   profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
@@ -177,6 +181,28 @@ export const posts = pgTable('posts', {
   accountIdIdx: index('account_id_idx').on(t.accountId),
   publishedAtIdx: index('published_at_idx').on(t.publishedAt),
   postUrlUnq: unique().on(t.postUrl),
+}));
+
+export const scraperActorRuns = pgTable('scraper_actor_runs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  vendor: scraperRunVendorEnum('vendor').notNull(),
+  triggerMode: scraperRunTriggerModeEnum('trigger_mode').notNull(),
+  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  runId: text('run_id').notNull(),
+  status: scraperRunStatusEnum('status').default('PENDING').notNull(),
+  rawInput: jsonb('raw_input').notNull(),
+  rawOutput: jsonb('raw_output'),
+  itemCount: integer('item_count'),
+  errorMessage: text('error_message'),
+  pendingJobId: uuid('pending_job_id'),
+  startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => ({
+  vendorRunIdUnq: unique().on(t.vendor, t.runId),
+  profileIdIdx: index('idx_scraper_actor_runs_profile_id').on(t.profileId),
+  vendorStatusIdx: index('idx_scraper_actor_runs_vendor_status').on(t.vendor, t.status),
+  createdAtIdx: index('idx_scraper_actor_runs_created_at').on(t.createdAt),
 }));
 
 export const events = pgTable('events', {

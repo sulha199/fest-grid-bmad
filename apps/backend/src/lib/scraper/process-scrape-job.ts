@@ -5,6 +5,7 @@ import { persistScrapedPost } from '../posts/persist-scraped-post.js';
 import { loadBackendEnv } from '../../env.js';
 import { eq, desc } from 'drizzle-orm';
 import { ScrapeTarget } from './get-scrape-targets.js';
+import { setApifyAuditContext, clearApifyAuditContext } from './instagram-adapter.js';
 
 const NEW_SUBSCRIBE_RETRY_WINDOWS_DAYS = [3, 7, 10, 14, 17, 21, 24, 27, 30];
 const MAX_TOTAL_RETURNED = 15;
@@ -51,23 +52,28 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
         cutoffDate.setDate(cutoffDate.getDate() - days);
         const newerThan = cutoffDate.toISOString();
 
-        const scrapedPosts = await adapter.getNewestPosts(
-          { accountId: job.accountId, username: job.username },
-          { newerThan }
-        );
+        setApifyAuditContext(job.profileId, 'sync');
+        try {
+          const scrapedPosts = await adapter.getNewestPosts(
+            { accountId: job.accountId, username: job.username },
+            { newerThan }
+          );
 
-        const uniqueNewPosts = scrapedPosts.filter((post) => {
-          if (uniquePostUrls.has(post.postUrl)) return false;
-          uniquePostUrls.add(post.postUrl);
-          return true;
-        });
+          const uniqueNewPosts = scrapedPosts.filter((post) => {
+            if (uniquePostUrls.has(post.postUrl)) return false;
+            uniquePostUrls.add(post.postUrl);
+            return true;
+          });
 
-        const persisted = await persistScrapedPosts(job, uniqueNewPosts);
-        totalReturned += scrapedPosts.length;
+          const persisted = await persistScrapedPosts(job, uniqueNewPosts);
+          totalReturned += scrapedPosts.length;
 
-        if (persisted === 0 && scrapedPosts.length === 0) continue;
-        if (totalReturned >= MAX_TOTAL_RETURNED || uniquePostUrls.size >= MAX_UNIQUE_NEW_POSTS) {
-          break;
+          if (persisted === 0 && scrapedPosts.length === 0) continue;
+          if (totalReturned >= MAX_TOTAL_RETURNED || uniquePostUrls.size >= MAX_UNIQUE_NEW_POSTS) {
+            break;
+          }
+        } finally {
+          clearApifyAuditContext();
         }
       }
 
@@ -83,12 +89,17 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
       newerThan = lookbackDate.toISOString();
     }
 
-    const scrapedPosts = await adapter.getNewestPosts(
-      { accountId: job.accountId, username: job.username },
-      { newerThan }
-    );
+    setApifyAuditContext(job.profileId, 'sync');
+    try {
+      const scrapedPosts = await adapter.getNewestPosts(
+        { accountId: job.accountId, username: job.username },
+        { newerThan }
+      );
 
-    await persistScrapedPosts(job, scrapedPosts);
+      await persistScrapedPosts(job, scrapedPosts);
+    } finally {
+      clearApifyAuditContext();
+    }
   } catch (err) {
     console.error(`Error processing scrape job for account ${job.username} (${job.profileId}):`, err);
     // AC7: catch and log, but do not rethrow to prevent failing other jobs in SQS batch

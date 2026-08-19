@@ -5,6 +5,7 @@ import { loadBackendEnv } from '../../env.js';
 import { compileValidator } from '../../validation/validate.js';
 import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
 import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
+import { recordSyncActorRun } from './record-actor-run.js';
 
 // ============================================================================
 // ACTOR INPUT TYPES
@@ -122,21 +123,45 @@ export function getApifyClient(): ApifyClient {
   return new ApifyClient({ token: env.apifyApiToken });
 }
 
+// Context for audit recording (set by callers that have profileId)
+export let apifyAuditContext: { profileId: string; triggerMode: 'sync' | 'async' } | undefined;
+
 export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorInputFor<T>): Promise<ActorOutputFor<T>> => {
   const client = getApifyClient();
   const run = await client.actor(actorId).call(input as unknown as Record<string, unknown>);
 
   const datasetId = run.defaultDatasetId;
-  if (!datasetId) {
-    return [] as ActorOutputFor<T>;
+  const items = datasetId
+    ? (await client.dataset(datasetId).listItems({ clean: true, limit: 1000 })).items as ActorOutputFor<T>
+    : ([] as ActorOutputFor<T>);
+
+  // Record audit trail if context is set (sync path with profileId available)
+  if (apifyAuditContext?.profileId) {
+    await recordSyncActorRun({
+      vendor: 'apify',
+      profileId: apifyAuditContext.profileId,
+      runId: run.id,
+      rawInput: input,
+      status: run.status === 'SUCCEEDED' ? 'SUCCEEDED' : 'FAILED',
+      rawOutput: items,
+      itemCount: items.length,
+      errorMessage: run.status === 'SUCCEEDED' ? undefined : `Run status: ${run.status}`,
+    });
   }
 
-  const { items } = await client.dataset(datasetId).listItems({ clean: true, limit: 1000 });
-  return items as ActorOutputFor<T>;
+  return items;
 };
 
 export function setCallApifyActor(fn: typeof callApifyActor) {
   callApifyActor = fn;
+}
+
+export function setApifyAuditContext(profileId: string, triggerMode: 'sync' | 'async'): void {
+  apifyAuditContext = { profileId, triggerMode };
+}
+
+export function clearApifyAuditContext(): void {
+  apifyAuditContext = undefined;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
