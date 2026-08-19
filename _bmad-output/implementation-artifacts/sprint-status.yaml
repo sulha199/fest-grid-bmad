@@ -400,7 +400,7 @@ development_status:
   # The profile-URL discovery-vs-metadata capability question above remains an
   # accepted, tracked gap to close during implementation (needs a real
   # authenticated Bright Data call, not resolvable via static research).
-  3-4a-add-brightdata-as-the-priority-scraping-vendor-for-the-scheduled-batch: in-progress
+  3-4a-add-brightdata-as-the-priority-scraping-vendor-for-the-scheduled-batch: review
   # added 2026-08-08 via bmad-create-story while drafting Story 3.4: BYOK-pooled
   # scraper-vendor keys, researched and found legally ambiguous for both Apify
   # (anti-sublicensing clause) and Bright Data (KYC/declared-use-case vetting).
