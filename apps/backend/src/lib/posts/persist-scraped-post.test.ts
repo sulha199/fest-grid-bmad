@@ -21,6 +21,7 @@ test('persistScrapedPost integration tests', async (t) => {
     const postUrl = 'https://instagram.com/p/test_post_a_' + Date.now();
     const result = await persistScrapedPost({
       accountId: profile.id,
+      platform: 'instagram',
       content: 'Test content A',
       imageUrl: 'https://test.com/image.png',
       postUrl,
@@ -46,6 +47,7 @@ test('persistScrapedPost integration tests', async (t) => {
     const postUrl = 'https://instagram.com/p/test_post_b_' + Date.now();
     const result1 = await persistScrapedPost({
       accountId: profile.id,
+      platform: 'instagram',
       content: 'Test content B1',
       imageUrl: 'https://test.com/image1.png',
       postUrl,
@@ -55,6 +57,7 @@ test('persistScrapedPost integration tests', async (t) => {
 
     const result2 = await persistScrapedPost({
       accountId: profile.id,
+      platform: 'instagram',
       content: 'Test content B2', // updated content should be ignored as row is returned unchanged
       imageUrl: 'https://test.com/image2.png',
       postUrl,
@@ -79,6 +82,7 @@ test('persistScrapedPost integration tests', async (t) => {
 
     const result1 = await persistScrapedPost({
       accountId: profile.id,
+      platform: 'instagram',
       content: 'Test content C1',
       postUrl: postUrl1,
       publishedAt: new Date().toISOString(),
@@ -87,6 +91,7 @@ test('persistScrapedPost integration tests', async (t) => {
 
     const result2 = await persistScrapedPost({
       accountId: profile.id,
+      platform: 'instagram',
       content: 'Test content C2',
       postUrl: postUrl2,
       publishedAt: new Date().toISOString(),
@@ -113,6 +118,7 @@ test('persistScrapedPost integration tests', async (t) => {
 
     const result1 = await persistScrapedPost({
       accountId: profile.id,
+      platform: 'instagram',
       content: 'Test content D1',
       postUrl: postUrl1,
       originalPostUrl,
@@ -122,6 +128,7 @@ test('persistScrapedPost integration tests', async (t) => {
 
     const result2 = await persistScrapedPost({
       accountId: profile.id,
+      platform: 'instagram',
       content: 'Test content D2',
       postUrl: postUrl2,
       originalPostUrl,

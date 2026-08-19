@@ -68,6 +68,7 @@ export async function processBrightDataResult(
 
       await persistScrapedPost({
         accountId: pendingJob.profileId,
+        platform: 'instagram', // Bright Data adapter only handles Instagram today
         postUrl: candidate.postUrl,
         imageUrl: candidate.imageUrl || null,
         content: candidate.content,

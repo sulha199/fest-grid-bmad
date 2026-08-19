@@ -47,3 +47,25 @@ This file tracks work deferred from development stories, code reviews, and plann
 ## Deferred from: code review of 1-2a-create-posts-table-and-link-seeded-events-to-their-source-post.md (2026-08-03)
 
 - Extra changes (generateSlug using crypto, RELIGION_AND_SPIRITUALITY) in the diff baseline. Pre-existing changes from other commits on master.
+
+## Deferred from: quick-dev fix of missing-platform-field-in-post-inserts (2026-08-19)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-fix-missing-platform-field-in-post-inserts.md`
+  summary: `mapApifyItemToScrapedPost()` in process-apify-async-result.ts is called without await, causing the result to be a Promise instead of a ScrapedPost object.
+  evidence: Pre-existing bug in line 16 of process-apify-async-result.ts. The check 'if (!post)' on line 17 will always be false (Promises are truthy), causing validation failures to be silently ignored. Surfaced by code review of the platform-field fix.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-fix-missing-platform-field-in-post-inserts.md`
+  summary: instagram-adapter.ts line 234 uses AND logic ('if (!item.caption && !item.timestamp)') instead of OR to validate posts, allowing incomplete posts with either field missing to pass through.
+  evidence: Pre-existing bug. According to the comment, both caption AND timestamp are required, but AND logic only detects missing posts when BOTH are absent. A post with caption but no timestamp passes through as valid despite violating the schema. Surfaced by code review.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-fix-missing-platform-field-in-post-inserts.md`
+  summary: instagram-adapter.ts line 238 uses AND logic ('if (!item.fullName && !item.biography)') instead of OR to validate profiles, allowing incomplete profiles with either field missing to pass through.
+  evidence: Pre-existing bug. Valid profiles require both fullName AND biography, but AND logic only detects missing profiles when BOTH are absent. A profile with only one field passes through as valid, allowing malformed data into the database. Surfaced by code review.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-fix-missing-platform-field-in-post-inserts.md`
+  summary: instagram-adapter.ts line 300 calls recordProviderUsage with items.length instead of mappedPosts.length, counting unfiltered items including those that failed validation.
+  evidence: Pre-existing bug. The mappedPosts array (line 297) contains only successfully validated posts, but usage accounting counts all items in the unfiltered array. This inflates vendor usage metrics by billing for items that failed validation and were never persisted. Surfaced by code review.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-fix-missing-platform-field-in-post-inserts.md`
+  summary: process-brightdata-result.ts line 27 uses an unchecked type assertion ('as string') on brightDataRecord.date_posted, masking potential type mismatches with the API.
+  evidence: Pre-existing pattern. If Bright Data API returns date_posted as a number (milliseconds) or null, the assertion hides the type mismatch. Line 36 passes this to new Date(), which may produce incorrect timestamps if the source data format changes. Surfaced by code review.

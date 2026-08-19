@@ -15,6 +15,7 @@ async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: Array<{ cont
   for (const post of scrapedPosts) {
     await persistScrapedPost({
       accountId: job.profileId,
+      platform: job.platform,
       content: post.content,
       imageUrl: post.imageUrl || null,
       postUrl: post.postUrl,

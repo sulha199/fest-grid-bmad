@@ -21,6 +21,7 @@ export async function processApifyAsyncResult(
 
       await persistScrapedPost({
         accountId: pendingJob.profileId,
+        platform: 'instagram', // Apify adapter only handles Instagram today
         postUrl: post.postUrl,
         imageUrl: post.imageUrl || null,
         content: post.content,

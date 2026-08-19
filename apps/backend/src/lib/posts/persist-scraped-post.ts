@@ -4,6 +4,7 @@ import { eq, or } from 'drizzle-orm';
 
 interface PersistScrapedPostParams {
   accountId: string;
+  platform: string;
   content: string;
   imageUrl?: string | null;
   postUrl: string;
@@ -13,6 +14,7 @@ interface PersistScrapedPostParams {
 
 export async function persistScrapedPost({
   accountId,
+  platform,
   content,
   imageUrl,
   postUrl,
@@ -43,6 +45,7 @@ export async function persistScrapedPost({
     .insert(posts)
     .values({
       accountId,
+      platform,
       content,
       imageUrl,
       postUrl,
