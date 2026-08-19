@@ -6,7 +6,10 @@ import { compileValidator } from '../../validation/validate.js';
 import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
 import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
 
-// Actor input types for strict typing
+// ============================================================================
+// ACTOR INPUT TYPES
+// ============================================================================
+
 interface GetPostByUrlActorInput {
   directUrls: string[];
   resultsType: 'posts';
@@ -26,13 +29,67 @@ interface GetNewestPostsActorInput {
   onlyPostsNewerThan?: string;
 }
 
-// Actor registry: maps actor ID to its input type
-interface ActorRegistry {
-  'apify/instagram-post-scraper': GetPostByUrlActorInput | LookupAccountProfileActorInput | GetNewestPostsActorInput;
+// ============================================================================
+// ACTOR OUTPUT TYPES — Raw responses from Apify
+// ============================================================================
+
+// Raw post item from Apify (multiple possible field names from different actor versions)
+interface ApifyPostItem {
+  url?: string;
+  postUrl?: string;
+  id?: string;
+  shortCode?: string;
+  caption?: string;
+  text?: string;
+  description?: string;
+  timestamp?: string;
+  pubDate?: string;
+  publishedAt?: string;
+  displayUrl?: string;
+  imageUrl?: string;
+  // Error response fields
+  error?: string;
+  errorDescription?: string;
 }
 
+// Raw profile item from Apify
+interface ApifyProfileItem {
+  id?: string;
+  username?: string;
+  fullName?: string;
+  displayName?: string;
+  name?: string;
+  biography?: string;
+  profilePicUrl?: string;
+  profileImageUrl?: string;
+  // Error response fields
+  error?: string;
+  errorDescription?: string;
+}
+
+// Use-case specific output types
+type GetPostByUrlActorOutput = ApifyPostItem[];
+type LookupAccountProfileActorOutput = ApifyProfileItem[];
+type GetNewestPostsActorOutput = ApifyPostItem[];
+
+// ============================================================================
+// ACTOR REGISTRY — Maps actor ID to both input and output types
+// ============================================================================
+
+interface ActorRegistry {
+  'apify/instagram-post-scraper': {
+    input: GetPostByUrlActorInput | LookupAccountProfileActorInput | GetNewestPostsActorInput;
+    output: GetPostByUrlActorOutput | LookupAccountProfileActorOutput | GetNewestPostsActorOutput;
+  };
+}
+
+// Strict type extractors
 type ActorId = keyof ActorRegistry;
-type ActorInputFor<T extends ActorId> = ActorRegistry[T];
+type ActorInputFor<T extends ActorId> = ActorRegistry[T]['input'];
+type ActorOutputFor<T extends ActorId> = ActorRegistry[T]['output'];
+
+// Parser version — increment when output types change (tracks data schema evolution)
+const APIFY_PARSER_VERSION = '3.4g';
 
 const GET_POST_BY_URL_ACTOR = 'apify/instagram-post-scraper';
 const LOOKUP_ACCOUNT_PROFILE_ACTOR = 'apify/instagram-post-scraper';
@@ -65,17 +122,17 @@ export function getApifyClient(): ApifyClient {
   return new ApifyClient({ token: env.apifyApiToken });
 }
 
-export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorInputFor<T>): Promise<any[]> => {
+export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorInputFor<T>): Promise<ActorOutputFor<T>> => {
   const client = getApifyClient();
   const run = await client.actor(actorId).call(input as unknown as Record<string, unknown>);
 
   const datasetId = run.defaultDatasetId;
   if (!datasetId) {
-    return [];
+    return [] as ActorOutputFor<T>;
   }
 
   const { items } = await client.dataset(datasetId).listItems({ clean: true, limit: 1000 });
-  return items as unknown[];
+  return items as ActorOutputFor<T>;
 };
 
 export function setCallApifyActor(fn: typeof callApifyActor) {
@@ -145,7 +202,7 @@ export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost 
           accountId: null,
           postUrl,
           timestamp: new Date().toISOString(),
-          parserVersion: '3.4g',
+          parserVersion: APIFY_PARSER_VERSION,
         },
       });
     } catch (err) {
@@ -197,7 +254,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
           resultsType: 'posts',
           resultsLimit: 1,
         };
-        const items = await callApifyActor(GET_POST_BY_URL_ACTOR, input);
+        const items = (await callApifyActor(GET_POST_BY_URL_ACTOR, input)) as GetPostByUrlActorOutput;
 
         if (!items || items.length === 0) {
           return null;
@@ -235,7 +292,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
         ...(options?.newerThan && { onlyPostsNewerThan: options.newerThan }),
       };
 
-      const items = await callApifyActor(GET_NEWEST_POSTS_ACTOR, input);
+      const items = (await callApifyActor(GET_NEWEST_POSTS_ACTOR, input)) as GetNewestPostsActorOutput;
       const mappedResults = await Promise.all(items.map(mapApifyItemToScrapedPost));
       const mappedPosts = mappedResults.filter((post): post is ScrapedPost => post !== null);
 
@@ -261,7 +318,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
           resultsType: 'details',
           resultsLimit: 1,
         };
-        const items = await callApifyActor(LOOKUP_ACCOUNT_PROFILE_ACTOR, input);
+        const items = (await callApifyActor(LOOKUP_ACCOUNT_PROFILE_ACTOR, input)) as LookupAccountProfileActorOutput;
 
         if (!items || items.length === 0) {
           return null;

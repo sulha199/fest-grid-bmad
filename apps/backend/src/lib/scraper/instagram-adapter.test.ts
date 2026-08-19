@@ -111,50 +111,62 @@ test('instagram-adapter tests', async (t) => {
   });
 
   await t.test('getPostByUrl returns null for not‑found error item', async () => {
-    setCallApifyActor(async () => [
-      {
-        url: 'https://www.instagram.com/p/invalid/',
-        username: 'invalid_handle',
-        error: 'not_found',
-        errorDescription: 'Post does not exist',
-      },
-    ] as unknown[]);
+    setCallApifyActor(async (actorId) => {
+      const response = [
+        {
+          url: 'https://www.instagram.com/p/invalid/',
+          username: 'invalid_handle',
+          error: 'not_found',
+          errorDescription: 'Post does not exist',
+        },
+      ];
+      return response as any; // ActorOutputFor<T> inferred from context
+    });
     const result = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/invalid/');
     assert.strictEqual(result, null);
   });
 
   await t.test('lookupAccountProfile returns null for not‑found error item', async () => {
-    setCallApifyActor(async () => [
-      {
-        username: 'invalid_handle',
-        error: 'not_found',
-        errorDescription: 'Profile does not exist',
-      },
-    ] as unknown[]);
+    setCallApifyActor(async (actorId) => {
+      const response = [
+        {
+          username: 'invalid_handle',
+          error: 'not_found',
+          errorDescription: 'Profile does not exist',
+        },
+      ];
+      return response as any; // ActorOutputFor<T> inferred from context
+    });
     const result = await instagramScraperAdapter.lookupAccountProfile('invalid_handle');
     assert.strictEqual(result, null);
   });
 
   await t.test('getPostByUrl returns null for item missing both caption and timestamp', async () => {
-    setCallApifyActor(async () => [
-      {
-        url: 'https://www.instagram.com/p/missing_fields/',
-        id: '12345',
-        displayUrl: 'https://example.com/img.jpg',
-      },
-    ] as unknown[]);
+    setCallApifyActor(async (actorId) => {
+      const response = [
+        {
+          url: 'https://www.instagram.com/p/missing_fields/',
+          id: '12345',
+          displayUrl: 'https://example.com/img.jpg',
+        },
+      ];
+      return response as any; // ActorOutputFor<T> inferred from context
+    });
     const result = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/missing_fields/');
     assert.strictEqual(result, null);
   });
 
   await t.test('lookupAccountProfile returns null for item missing both fullName and biography', async () => {
-    setCallApifyActor(async () => [
-      {
-        id: '98765',
-        username: 'test_user',
-        profilePicUrl: 'https://example.com/pic.jpg',
-      },
-    ] as unknown[]);
+    setCallApifyActor(async (actorId) => {
+      const response = [
+        {
+          id: '98765',
+          username: 'test_user',
+          profilePicUrl: 'https://example.com/pic.jpg',
+        },
+      ];
+      return response as any; // ActorOutputFor<T> inferred from context
+    });
     const result = await instagramScraperAdapter.lookupAccountProfile('test_user');
     assert.strictEqual(result, null);
   });
@@ -177,7 +189,7 @@ test('instagram-adapter tests', async (t) => {
     assert.ok(post);
     assert.strictEqual(calledActor, 'apify/instagram-post-scraper');
 
-    setCallApifyActor(async () => new Promise(() => {}));
+    setCallApifyActor(async () => new Promise(() => {}) as any);
     await assert.rejects(
       () => instagramScraperAdapter.lookupAccountProfile('test_username'),
       (err: any) => {
@@ -189,7 +201,7 @@ test('instagram-adapter tests', async (t) => {
   });
 
   await t.test('wraps Apify client errors in a clearer message', async () => {
-    setCallApifyActor(async (): Promise<unknown[]> => {
+    setCallApifyActor(async (): Promise<any> => {
       throw new ApifyApiError({
         status: 429,
         data: { error: { message: 'Request limit exceeded', type: 'rate-limit-exceeded' } },
