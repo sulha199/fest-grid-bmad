@@ -13,7 +13,7 @@ export async function processApifyAsyncResult(
   // Map Apify items to ScrapedPost format and persist each
   for (const item of items) {
     try {
-      const post = mapApifyItemToScrapedPost(item);
+      const post = await mapApifyItemToScrapedPost(item);
       if (!post) {
         console.warn(`Skipped invalid Apify item: failed AJV schema validation`);
         continue;
