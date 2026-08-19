@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS "brightdata_pending_jobs" (
 	CONSTRAINT "brightdata_pending_jobs_webhook_token_unique" UNIQUE("webhook_token")
 );
 --> statement-breakpoint
-ALTER TABLE "posts" ADD COLUMN "platform" text NOT NULL;--> statement-breakpoint
+ALTER TABLE "posts" ADD COLUMN "platform" text;--> statement-breakpoint
+UPDATE "posts" p SET "platform" = (SELECT "platform" FROM "social_media_account_profiles" WHERE "id" = p."account_id") WHERE "platform" IS NULL;--> statement-breakpoint
+ALTER TABLE "posts" ALTER COLUMN "platform" SET NOT NULL;--> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "brightdata_pending_jobs" ADD CONSTRAINT "brightdata_pending_jobs_profile_id_social_media_account_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."social_media_account_profiles"("id") ON DELETE no action ON UPDATE no action;
 EXCEPTION

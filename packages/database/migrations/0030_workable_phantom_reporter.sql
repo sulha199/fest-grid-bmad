@@ -21,5 +21,5 @@ CREATE TABLE IF NOT EXISTS "unprocessed_scraper_payloads" (
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_parser_versions_version" ON "parser_version_registry" ("version");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "idx_parser_versions_active" ON "parser_version_registry" ("is_active" DESC, "version" DESC);--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "idx_unprocessed_payloads_created_desc" ON "unprocessed_scraper_payloads" ("created_at" DESC) WHERE "deleted_at" IS NULL;--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_unprocessed_payloads_source" USING GIN ON "unprocessed_scraper_payloads" ("context") WHERE "deleted_at" IS NULL;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_unprocessed_payloads_source" ON "unprocessed_scraper_payloads" USING GIN ("context") WHERE "deleted_at" IS NULL;--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "idx_unprocessed_payloads_cleanup" ON "unprocessed_scraper_payloads" ("created_at") WHERE "deleted_at" IS NULL;
