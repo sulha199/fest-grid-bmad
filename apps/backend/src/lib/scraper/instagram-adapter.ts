@@ -6,6 +6,34 @@ import { compileValidator } from '../../validation/validate.js';
 import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
 import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
 
+// Actor input types for strict typing
+interface GetPostByUrlActorInput {
+  directUrls: string[];
+  resultsType: 'posts';
+  resultsLimit: 1;
+}
+
+interface LookupAccountProfileActorInput {
+  directUrls: string[];
+  resultsType: 'details';
+  resultsLimit: 1;
+}
+
+interface GetNewestPostsActorInput {
+  username: string;
+  resultsType: 'posts';
+  resultsLimit: number;
+  onlyPostsNewerThan?: string;
+}
+
+// Actor registry: maps actor ID to its input type
+interface ActorRegistry {
+  'apify/instagram-post-scraper': GetPostByUrlActorInput | LookupAccountProfileActorInput | GetNewestPostsActorInput;
+}
+
+type ActorId = keyof ActorRegistry;
+type ActorInputFor<T extends ActorId> = ActorRegistry[T];
+
 const GET_POST_BY_URL_ACTOR = 'apify/instagram-post-scraper';
 const LOOKUP_ACCOUNT_PROFILE_ACTOR = 'apify/instagram-post-scraper';
 const GET_NEWEST_POSTS_ACTOR = 'apify/instagram-post-scraper';
@@ -37,9 +65,9 @@ export function getApifyClient(): ApifyClient {
   return new ApifyClient({ token: env.apifyApiToken });
 }
 
-export let callApifyActor = async (input: object, actorId: string): Promise<any[]> => {
+export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorInputFor<T>): Promise<any[]> => {
   const client = getApifyClient();
-  const run = await client.actor(actorId).call(input as Record<string, unknown>);
+  const run = await client.actor(actorId).call(input as unknown as Record<string, unknown>);
 
   const datasetId = run.defaultDatasetId;
   if (!datasetId) {
@@ -47,7 +75,7 @@ export let callApifyActor = async (input: object, actorId: string): Promise<any[
   }
 
   const { items } = await client.dataset(datasetId).listItems({ clean: true, limit: 1000 });
-  return items as any[];
+  return items as unknown[];
 };
 
 export function setCallApifyActor(fn: typeof callApifyActor) {
@@ -164,11 +192,12 @@ export const instagramScraperAdapter: ScraperAdapter = {
 
     const runCall = async (): Promise<ScrapedPost | null> => {
       try {
-        const items = await callApifyActor({
+        const input: GetPostByUrlActorInput = {
           directUrls: [url],
           resultsType: 'posts',
           resultsLimit: 1,
-        }, GET_POST_BY_URL_ACTOR);
+        };
+        const items = await callApifyActor(GET_POST_BY_URL_ACTOR, input);
 
         if (!items || items.length === 0) {
           return null;
@@ -199,17 +228,14 @@ export const instagramScraperAdapter: ScraperAdapter = {
     await assertProviderCapacityAvailable('apify', `account ${account.username}`);
 
     try {
-      const input: any = {
+      const input: GetNewestPostsActorInput = {
         username: account.username,
         resultsType: 'posts',
         resultsLimit: env.scrapeResultsLimit,
+        ...(options?.newerThan && { onlyPostsNewerThan: options.newerThan }),
       };
 
-      if (options?.newerThan) {
-        input.onlyPostsNewerThan = options.newerThan;
-      }
-
-      const items = await callApifyActor(input, GET_NEWEST_POSTS_ACTOR);
+      const items = await callApifyActor(GET_NEWEST_POSTS_ACTOR, input);
       const mappedResults = await Promise.all(items.map(mapApifyItemToScrapedPost));
       const mappedPosts = mappedResults.filter((post): post is ScrapedPost => post !== null);
 
@@ -230,11 +256,12 @@ export const instagramScraperAdapter: ScraperAdapter = {
     const runLookup = async (): Promise<AccountProfileLookupResult | null> => {
       try {
         const url = handleOrUrl.startsWith('http') ? handleOrUrl : `https://www.instagram.com/${handleOrUrl}/`;
-        const items = await callApifyActor({
+        const input: LookupAccountProfileActorInput = {
           directUrls: [url],
           resultsType: 'details',
           resultsLimit: 1,
-        }, LOOKUP_ACCOUNT_PROFILE_ACTOR);
+        };
+        const items = await callApifyActor(LOOKUP_ACCOUNT_PROFILE_ACTOR, input);
 
         if (!items || items.length === 0) {
           return null;

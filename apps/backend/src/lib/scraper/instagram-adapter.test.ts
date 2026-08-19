@@ -18,14 +18,14 @@ test('instagram-adapter tests', async (t) => {
       displayUrl: 'https://www.instagram.com/p/C_abc123/img.jpg',
     };
 
-    const result = mapApifyItemToScrapedPost(item);
+    const result = await mapApifyItemToScrapedPost(item);
 
     assert.ok(result !== null);
-    assert.strictEqual(result.content, 'Test caption');
-    assert.strictEqual(result.postUrl, 'https://www.instagram.com/p/C_abc123/');
-    assert.strictEqual(result.imageUrl, 'https://www.instagram.com/p/C_abc123/img.jpg');
-    assert.strictEqual(result.publishedAt, '2026-08-08T00:00:00Z');
-    assert.strictEqual(result.originalPostUrl, 'https://www.instagram.com/p/C_abc123/');
+    assert.strictEqual(result!.content, 'Test caption');
+    assert.strictEqual(result!.postUrl, 'https://www.instagram.com/p/C_abc123/');
+    assert.strictEqual(result!.imageUrl, 'https://www.instagram.com/p/C_abc123/img.jpg');
+    assert.strictEqual(result!.publishedAt, '2026-08-08T00:00:00Z');
+    assert.strictEqual(result!.originalPostUrl, 'https://www.instagram.com/p/C_abc123/');
   });
 
   t.afterEach(async () => {
@@ -34,8 +34,10 @@ test('instagram-adapter tests', async (t) => {
 
   await t.test('getNewestPosts maps output correctly and records usage', async () => {
     let calledInput: any = null;
+    let calledActor: string | undefined;
 
-    setCallApifyActor(async (input) => {
+    setCallApifyActor(async (actorId, input) => {
+      calledActor = actorId;
       calledInput = input;
       return [
         {
@@ -52,8 +54,9 @@ test('instagram-adapter tests', async (t) => {
       { newerThan: '2026-08-01T00:00:00Z' }
     );
 
+    assert.strictEqual(calledActor, 'apify/instagram-post-scraper');
     assert.deepStrictEqual(calledInput, {
-      directUrls: ['https://www.instagram.com/test_username/'],
+      username: 'test_username',
       resultsType: 'posts',
       resultsLimit: 10,
       onlyPostsNewerThan: '2026-08-01T00:00:00Z',
@@ -72,8 +75,10 @@ test('instagram-adapter tests', async (t) => {
 
   await t.test('lookupAccountProfile maps details correctly and records usage', async () => {
     let calledInput: any = null;
+    let calledActor: string | undefined;
 
-    setCallApifyActor(async (input) => {
+    setCallApifyActor(async (actorId, input) => {
+      calledActor = actorId;
       calledInput = input;
       return [
         {
@@ -87,6 +92,7 @@ test('instagram-adapter tests', async (t) => {
 
     const profile = await instagramScraperAdapter.lookupAccountProfile('test_username');
 
+    assert.strictEqual(calledActor, 'apify/instagram-post-scraper');
     assert.deepStrictEqual(calledInput, {
       directUrls: ['https://www.instagram.com/test_username/'],
       resultsType: 'details',
@@ -112,7 +118,7 @@ test('instagram-adapter tests', async (t) => {
         error: 'not_found',
         errorDescription: 'Post does not exist',
       },
-    ]);
+    ] as unknown[]);
     const result = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/invalid/');
     assert.strictEqual(result, null);
   });
@@ -124,7 +130,7 @@ test('instagram-adapter tests', async (t) => {
         error: 'not_found',
         errorDescription: 'Profile does not exist',
       },
-    ]);
+    ] as unknown[]);
     const result = await instagramScraperAdapter.lookupAccountProfile('invalid_handle');
     assert.strictEqual(result, null);
   });
@@ -136,7 +142,7 @@ test('instagram-adapter tests', async (t) => {
         id: '12345',
         displayUrl: 'https://example.com/img.jpg',
       },
-    ]);
+    ] as unknown[]);
     const result = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/missing_fields/');
     assert.strictEqual(result, null);
   });
@@ -148,7 +154,7 @@ test('instagram-adapter tests', async (t) => {
         username: 'test_user',
         profilePicUrl: 'https://example.com/pic.jpg',
       },
-    ]);
+    ] as unknown[]);
     const result = await instagramScraperAdapter.lookupAccountProfile('test_user');
     assert.strictEqual(result, null);
   });
@@ -156,8 +162,8 @@ test('instagram-adapter tests', async (t) => {
   await t.test('uses the faster app-funded sync actor and surfaces a timeout explicitly', async () => {
     let calledActor: string | undefined;
 
-    setCallApifyActor(async (input, actorName?: string) => {
-      calledActor = actorName;
+    setCallApifyActor(async (actorId, input) => {
+      calledActor = actorId;
       await new Promise((resolve) => setTimeout(resolve, 50));
       return [{
         id: '98765',
@@ -183,7 +189,7 @@ test('instagram-adapter tests', async (t) => {
   });
 
   await t.test('wraps Apify client errors in a clearer message', async () => {
-    setCallApifyActor(async () => {
+    setCallApifyActor(async (): Promise<unknown[]> => {
       throw new ApifyApiError({
         status: 429,
         data: { error: { message: 'Request limit exceeded', type: 'rate-limit-exceeded' } },
@@ -232,13 +238,13 @@ test('instagram-adapter tests', async (t) => {
       // No separate originalPostUrl
     };
 
-    const result = mapApifyItemToScrapedPost(validItem);
+    const result = await mapApifyItemToScrapedPost(validItem);
     assert.ok(result !== null);
-    assert.strictEqual(result.content, 'Just text');
-    assert.strictEqual(result.postUrl, 'https://www.instagram.com/p/C_abc123/');
-    assert.strictEqual(result.publishedAt, '2026-08-08T00:00:00Z');
+    assert.strictEqual(result!.content, 'Just text');
+    assert.strictEqual(result!.postUrl, 'https://www.instagram.com/p/C_abc123/');
+    assert.strictEqual(result!.publishedAt, '2026-08-08T00:00:00Z');
     // Optional fields should not be present or should be undefined if not set
-    assert.strictEqual(result.imageUrl, undefined);
+    assert.strictEqual(result!.imageUrl, undefined);
   });
 
   await t.test('getNewestPosts filters out invalid items and returns only valid ones', async () => {
