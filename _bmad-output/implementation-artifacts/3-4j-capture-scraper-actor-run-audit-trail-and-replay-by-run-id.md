@@ -9,7 +9,7 @@ baseline_commit: b09fd58dfa9f523371121f809d8be72819ffe844
 - Epic: 3 (Social Media Event Integration)
 - Story ID: 3-4j
 - Key: 3-4j-capture-scraper-actor-run-audit-trail-and-replay-by-run-id
-- Status: in-progress
+- Status: review
 - Type: Backend-only story (schema, capture wiring, GraphQL API)
 - Baseline Commit: b09fd58dfa9f523371121f809d8be72819ffe844 (2026-08-19, start of implementation)
 
