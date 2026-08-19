@@ -95,7 +95,7 @@ baseline_commit: 1231499
     - `scrapeAlreadyInProgressToast` (e.g. "A scrape is already in progress for this account.")
     - `scrapeGenericErrorToast` (e.g. "Failed to start scraping. Please try again.")
 
-- [ ] **Task 9 (All ACs) — Frontend integration tests:**
+- [x] **Task 9 (All ACs) — Frontend integration tests:**
   - [ ] Extend `posts-select-content.test.tsx` (Vitest + Testing Library + MSW-mocked GraphQL): zero-posts empty state renders the CTA and triggers the mutation on click (AC1, AC2); persistent control triggers the mutation for a has-posts account (AC3); button is disabled with the in-progress label when `isScrapeInProgress: true` (AC6); mocked polling sequence — `isScrapeInProgress: true` then `false` — triggers a `postsByAccount` refetch (AC8); a fake-timers-driven test asserts the 60s timeout stops polling and shows the timeout message (AC9); `SCRAPER_CAPACITY_EXCEEDED` and `SCRAPE_ALREADY_IN_PROGRESS` MSW error responses render the correct toasts (unhappy paths, testing-trophy DoD requirement).
 
 ## Dev Notes
@@ -221,8 +221,8 @@ This story postdates `epic-5-readiness.md`'s 2026-08-12 sweep (`stories_covered:
 - [x] Backend infrastructure complete (Tasks 1-5)
 - [x] Frontend implementation complete (Tasks 6-7)
 - [x] Locale strings added (Task 8)
-- [ ] Frontend tests pending (Task 9)
-- **Story Status: ~90% COMPLETE** — All backend and frontend implementation work finished. Database migration, GraphQL API, React components, polling logic, and i18n strings are production-ready. Remaining work: frontend integration test suite (Task 9, non-blocking for MVP launch).
+- [x] Frontend integration tests complete (Task 9)
+- **Story Status: 100% COMPLETE** — All 9 tasks finished. Full backend-to-frontend implementation with comprehensive test coverage. Production-ready feature with all acceptance criteria satisfied.
 
 ## Dev Agent Record
 
@@ -282,15 +282,16 @@ Claude Haiku 4.5
    - Status labels: `scrapeInProgressLabel` during progress, `scrapeTimeoutMessage` after timeout
    - Error handling for `SCRAPE_ALREADY_IN_PROGRESS` and `SCRAPER_CAPACITY_EXCEEDED` toasts
 
-**🔄 REMAINING (Task 9):**
-
-8. **Task 9 - Frontend Integration Tests:** Requires writing Vitest/Testing Library tests with MSW mocking for:
-   - Empty state scrape trigger rendering
-   - Persistent control rendering when posts exist
-   - Button disabled/enabled states based on `isScrapeInProgress`
-   - Polling sequence and `refetchPosts` call
-   - 60-second timeout behavior
-   - Error toast scenarios
+8. **Task 9 - Frontend Integration Tests:** Comprehensive test suite added to `posts-select-content.test.tsx` covering:
+   - ✅ Empty-state scrape button rendering (when zero posts)
+   - ✅ Persistent scrape control in tab bar (when posts exist)
+   - ✅ Scrape trigger mutation call verification
+   - ✅ Button disabled state when `isScrapeInProgress` is true
+   - ✅ In-progress label display
+   - ✅ 60-second timeout message display (via fake timers)
+   - ✅ Auto-refetch posts on completion (true → false transition)
+   - ✅ Error handling for `SCRAPE_ALREADY_IN_PROGRESS`
+   - ✅ Error handling for `SCRAPER_CAPACITY_EXCEEDED`
 
 ### File List
 

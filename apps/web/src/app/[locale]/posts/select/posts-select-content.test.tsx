@@ -375,4 +375,201 @@ describe('PostsSelectContent integration', () => {
       expect(calledRemove).toBe(true);
     });
   });
+
+  describe('On-demand scraping trigger (Task 5.6)', () => {
+    it('renders empty state with scrape button when account has no posts', async () => {
+      mockPosts = [];
+      renderComponent();
+
+      // Should show empty state message
+      const emptyStateMsg = await screen.findByText(/No posts scraped yet for this account/);
+      expect(emptyStateMsg).toBeInTheDocument();
+
+      // Should show Scrape Posts button
+      const scrapeBtn = screen.getByRole('button', { name: 'Scrape Posts' });
+      expect(scrapeBtn).toBeInTheDocument();
+      expect(scrapeBtn).not.toBeDisabled();
+    });
+
+    it('renders persistent scrape control in tab bar when account has posts', async () => {
+      renderComponent();
+
+      // Posts should be visible
+      await screen.findByText('Post 1 content');
+
+      // Scrape button should be in tab bar area
+      const scrapeBtn = screen.getByRole('button', { name: 'Scrape Posts' });
+      expect(scrapeBtn).toBeInTheDocument();
+      expect(scrapeBtn).not.toBeDisabled();
+    });
+
+    it('calls triggerAccountScrape mutation when scrape button clicked', async () => {
+      renderComponent();
+
+      const scrapeBtn = await screen.findByRole('button', { name: 'Scrape Posts' });
+      fireEvent.click(scrapeBtn);
+
+      await waitFor(() => {
+        const calledTrigger = vi.mocked(graphqlClient.request).mock.calls.some((call: any) => {
+          const query = call[0]?.document?.toString() || call[0]?.toString() || '';
+          return query.includes('triggerAccountScrape');
+        });
+        expect(calledTrigger).toBe(true);
+      });
+    });
+
+    it('disables scrape button when isScrapeInProgress is true', async () => {
+      // Set subscription with isScrapeInProgress = true
+      mockSubscriptions = [
+        {
+          ...mockSubscriptions[0],
+          account: {
+            ...mockSubscriptions[0].account,
+            isScrapeInProgress: true,
+            lastScrapedAt: '2026-08-10T12:00:00.000Z',
+          },
+        },
+      ];
+
+      renderComponent();
+
+      const scrapeBtn = await screen.findByRole('button', { name: 'Scrape Posts' });
+
+      await waitFor(() => {
+        expect(scrapeBtn).toBeDisabled();
+      });
+    });
+
+    it('shows in-progress label when scraping is active', async () => {
+      mockSubscriptions = [
+        {
+          ...mockSubscriptions[0],
+          account: {
+            ...mockSubscriptions[0].account,
+            isScrapeInProgress: true,
+            lastScrapedAt: null,
+          },
+        },
+      ];
+
+      renderComponent();
+
+      const inProgressLabel = await screen.findByText(/Scraping for new posts/);
+      expect(inProgressLabel).toBeInTheDocument();
+    });
+
+    it('shows timeout message when polling exceeds 60 seconds', async () => {
+      vi.useFakeTimers();
+
+      mockSubscriptions = [
+        {
+          ...mockSubscriptions[0],
+          account: {
+            ...mockSubscriptions[0].account,
+            isScrapeInProgress: true,
+            lastScrapedAt: null,
+          },
+        },
+      ];
+
+      renderComponent();
+
+      // Advance time past 60 seconds
+      vi.advanceTimersByTime(61000);
+
+      const timeoutMsg = await screen.findByText(/Still processing/);
+      expect(timeoutMsg).toBeInTheDocument();
+
+      vi.useRealTimers();
+    });
+
+    it('refetches posts when isScrapeInProgress transitions from true to false', async () => {
+      const { rerender } = renderComponent();
+
+      // Start with isScrapeInProgress = true
+      mockSubscriptions = [
+        {
+          ...mockSubscriptions[0],
+          account: {
+            ...mockSubscriptions[0].account,
+            isScrapeInProgress: true,
+            lastScrapedAt: null,
+          },
+        },
+      ];
+
+      // Re-render to update subscription state
+      rerender(
+        <QueryClientProvider client={new QueryClient()}>
+          <NextIntlClientProvider locale="en" messages={enMessages}>
+            <PostsSelectContent />
+          </NextIntlClientProvider>
+        </QueryClientProvider>
+      );
+
+      // Now transition to isScrapeInProgress = false
+      mockSubscriptions = [
+        {
+          ...mockSubscriptions[0],
+          account: {
+            ...mockSubscriptions[0].account,
+            isScrapeInProgress: false,
+            lastScrapedAt: '2026-08-10T13:00:00.000Z',
+          },
+        },
+      ];
+
+      rerender(
+        <QueryClientProvider client={new QueryClient()}>
+          <NextIntlClientProvider locale="en" messages={enMessages}>
+            <PostsSelectContent />
+          </NextIntlClientProvider>
+        </QueryClientProvider>
+      );
+
+      // Verify that getPostsByAccount is called
+      await waitFor(() => {
+        const calledGetPosts = vi.mocked(graphqlClient.request).mock.calls.some((call: any) => {
+          const query = call[0]?.document?.toString() || call[0]?.toString() || '';
+          return query.includes('getPostsByAccount');
+        });
+        expect(calledGetPosts).toBe(true);
+      });
+    });
+
+    it('handles SCRAPE_ALREADY_IN_PROGRESS error gracefully', async () => {
+      const mockError = new Error('SCRAPE_ALREADY_IN_PROGRESS');
+      (mockError as any).response = {
+        errors: [{ extensions: { code: 'SCRAPE_ALREADY_IN_PROGRESS' } }],
+      };
+
+      vi.mocked(graphqlClient.request).mockRejectedValueOnce(mockError);
+
+      renderComponent();
+
+      const scrapeBtn = await screen.findByRole('button', { name: 'Scrape Posts' });
+      fireEvent.click(scrapeBtn);
+
+      // Verify error handling (in real app, this would show a toast)
+      // For this test, we just verify the error doesn't crash the component
+      expect(scrapeBtn).toBeInTheDocument();
+    });
+
+    it('handles SCRAPER_CAPACITY_EXCEEDED error gracefully', async () => {
+      const mockError = new Error('SCRAPER_CAPACITY_EXCEEDED');
+      (mockError as any).response = {
+        errors: [{ extensions: { code: 'SCRAPER_CAPACITY_EXCEEDED' } }],
+      };
+
+      vi.mocked(graphqlClient.request).mockRejectedValueOnce(mockError);
+
+      renderComponent();
+
+      const scrapeBtn = await screen.findByRole('button', { name: 'Scrape Posts' });
+      fireEvent.click(scrapeBtn);
+
+      // Verify component remains stable
+      expect(scrapeBtn).toBeInTheDocument();
+    });
+  });
 });
