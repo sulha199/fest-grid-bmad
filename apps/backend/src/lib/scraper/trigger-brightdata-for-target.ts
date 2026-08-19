@@ -2,6 +2,7 @@ import { isProviderCapacityAvailable, recordProviderUsage } from './usage-store.
 import { triggerBrightDataJob, mapBrightDataDateToStartDate } from './brightdata-client.js';
 import { createPendingJob } from './brightdata-pending-jobs-store.js';
 import { loadBackendEnv } from '../../env.js';
+import { recordActorRunStart } from './record-actor-run.js';
 
 export async function attemptBrightDataTrigger(
   target: { profileId: string; username: string },
@@ -40,6 +41,21 @@ export async function attemptBrightDataTrigger(
     if (pendingJob.webhookToken !== webhookToken) {
       console.error('Webhook token mismatch - this should not happen');
     }
+
+    // Record audit trail at trigger time
+    await recordActorRunStart({
+      vendor: 'brightdata',
+      triggerMode: 'async',
+      profileId: target.profileId,
+      runId: triggerResult.snapshotId,
+      rawInput: {
+        url: profileUrl,
+        numOfPosts: env.scrapeResultsLimit || 10,
+        startDate,
+      },
+      pendingJobId: pendingJob.id,
+      status: 'PENDING',
+    });
 
     // Record usage
     await recordProviderUsage('brightdata', 1);

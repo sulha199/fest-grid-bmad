@@ -5,6 +5,7 @@ import {
 } from 'aws-lambda';
 import { findPendingJobByToken, markPendingJobCompleted } from '../lib/scraper/brightdata-pending-jobs-store.js';
 import { processBrightDataResult } from '../lib/scraper/process-brightdata-result.js';
+import { recordActorRunResult } from '../lib/scraper/record-actor-run.js';
 
 export const handler = async (
   event: APIGatewayProxyEvent,
@@ -46,6 +47,15 @@ export const handler = async (
     if (event.body) {
       records = JSON.parse(event.body);
     }
+
+    // Record audit trail
+    await recordActorRunResult({
+      vendor: 'brightdata',
+      runId: pendingJob.snapshotId,
+      status: 'SUCCEEDED',
+      rawOutput: records,
+      itemCount: records.length,
+    });
 
     // Process results
     await processBrightDataResult(pendingJob, records);

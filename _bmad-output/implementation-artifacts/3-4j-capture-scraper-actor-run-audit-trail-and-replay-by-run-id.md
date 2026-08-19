@@ -216,6 +216,16 @@ Not started — `ready-for-dev`.
    - Wraps calls in try/finally to ensure context is cleared
 
 4. ✅ Task 4: Wire capture into Apify async path
+   - trigger-apify-for-target.ts: recordActorRunStart after createPendingJob
+   - apify-webhook.ts: run.status branching + recordActorRunResult
+   - stale-job-sweep.ts: Use fetchApifyRunOutput + recordActorRunResult
+
+5. ✅ Task 5: Wire capture into Bright Data async path
+   - trigger-brightdata-for-target.ts: recordActorRunStart after createPendingJob
+   - webhook.ts (Bright Data handler): recordActorRunResult after processBrightDataResult
+   - stale-job-sweep.ts: Use fetchBrightDataRunOutput + recordActorRunResult
+
+**Previously listed Task 4:**
    - Updated `trigger-apify-for-target.ts`:
      - Added `recordActorRunStart()` call after `createPendingJob()` with PENDING status
      - Captures full actor input and stores pendingJobId for cross-reference
@@ -229,10 +239,6 @@ Not started — `ready-for-dev`.
      - Added `recordActorRunResult()` calls in both success and failure branches
 
 **Remaining Tasks:**
-5. ⏳ Task 5: Wire capture into Bright Data async path
-   - Similar pattern to Apify async (trigger start + webhook result recording + stale sweep)
-   - Files: `trigger-brightdata-for-target.ts`, `apps/backend/src/lambdas/webhook.ts`, `stale-job-sweep.ts` (Bright Data branch)
-
 6. ⏳ Task 6: `replayActorRun` mutation implementation
    - Create `apps/backend/src/lib/scraper/replay-actor-run.ts`
    - Implement mutation logic per AC6(a)–(e): load row, fetch output if null, re-process through existing pipelines

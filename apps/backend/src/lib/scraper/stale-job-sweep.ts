@@ -34,14 +34,26 @@ export async function runStaleJobSweep(): Promise<void> {
 
 async function processSingleExpiredBrightDataJob(job: any): Promise<void> {
   try {
-    const progress = await getBrightDataProgress(job.snapshotId);
+    const output = await fetchBrightDataRunOutput(job.snapshotId);
 
-    if (progress.status === 'ready') {
-      // Job is ready, fetch and process results
-      const snapshot = await getBrightDataSnapshot(job.snapshotId);
-      await processBrightDataResult(job, snapshot);
+    if (output.status === 'SUCCEEDED') {
+      // Job succeeded, process results
+      await recordActorRunResult({
+        vendor: 'brightdata',
+        runId: job.snapshotId,
+        status: 'SUCCEEDED',
+        rawOutput: output.items,
+        itemCount: output.items.length,
+      });
+      await processBrightDataResult(job, output.items);
     } else {
-      // Job failed or still not ready - mark as expired and fall back to SQS
+      // Job failed or still not ready - record and mark as expired
+      await recordActorRunResult({
+        vendor: 'brightdata',
+        runId: job.snapshotId,
+        status: output.status as any,
+        errorMessage: `Run status from stale-job-sweep: ${output.status}`,
+      });
       await markPendingJobExpired(job.id);
 
       // Fetch profile info for fallback
