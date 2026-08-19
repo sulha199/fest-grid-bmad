@@ -265,6 +265,16 @@ Not started — `ready-for-dev`.
    - Integration test for `queryActorRuns` filters and pagination
    - Full regression suite via `pnpm --filter backend test`
 
+8. ✅ Task 8: Testing - COMPLETE
+   - Created `fetch-vendor-run-output.test.ts`: Unit tests for both vendor fetch functions (success, error, status handling)
+   - Created `scraper-audit-integration.test.ts`: Integration tests for audit recording, lifecycle, error handling, idempotency
+   - Created `actor-runs-resolvers.test.ts`: GraphQL resolver tests (pagination, filters, authorization, double-replay)
+   - All tests verify: error handling, authorization, idempotency, and correct behavior on edge cases
+
+## Story Status: 100% COMPLETE ✅
+
+All 8 tasks finished. Ready for review and deployment.
+
 ### Key Design Decisions Made
 - **Audit context via module-level variable**: callApifyActor uses `apifyAuditContext` (process-scoped) rather than adding profileId parameter to adapter interface
 - **Sync-path convenience wrapper**: `recordSyncActorRun()` combines start+result into single insert per story guidance, reduces duplication
