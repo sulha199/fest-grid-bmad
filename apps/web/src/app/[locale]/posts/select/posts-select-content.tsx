@@ -14,6 +14,7 @@ import {
   useSelectPostsForExtractionMutation,
   useGetMyExtractionQuotaQuery,
   useRemoveSubscriptionMutation,
+  useTriggerAccountScrapeMutation,
   SoftDeleteAction,
 } from '@/generated/graphql';
 import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo } from '@festgrid/ui';
@@ -34,6 +35,12 @@ export function PostsSelectContent() {
   const { selectedPostIds, togglePost, clearSelection } = usePostSelectionStore();
 
   // 1. Fetch Subscriptions
+  // Determine if we should poll based on isScrapeInProgress and timeout
+  const shouldPoll = activeSub?.account?.isScrapeInProgress && scrapePollingStartTime;
+  const pollTimeElapsed = scrapePollingStartTime ? Date.now() - scrapePollingStartTime : 0;
+  const pollTimeoutMs = 60000; // 60 seconds
+  const shouldStopPolling = pollTimeElapsed > pollTimeoutMs;
+
   const {
     data: subData,
     isLoading: subLoading,
@@ -44,6 +51,7 @@ export function PostsSelectContent() {
     {},
     {
       enabled: !!session,
+      refetchInterval: shouldPoll && !shouldStopPolling ? 3000 : false, // Poll every 3s, or stop if timeout
     }
   );
 
@@ -99,6 +107,29 @@ export function PostsSelectContent() {
   const remainingQuota = quotaData?.myExtractionQuota?.remaining ?? 0;
 
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+  const [scrapePollingStartTime, setScrapePollingStartTime] = useState<number | null>(null);
+
+  // Trigger account scrape mutation
+  const { mutate: triggerScrape, isPending: isScraping } = useTriggerAccountScrapeMutation(
+    graphqlClient,
+    {
+      onSuccess: () => {
+        // Start polling timer
+        setScrapePollingStartTime(Date.now());
+        toast.success(t('scrapePostsButton') || 'Scrape triggered');
+      },
+      onError: (err: any) => {
+        const code = err?.response?.errors?.[0]?.extensions?.code;
+        if (code === 'SCRAPE_ALREADY_IN_PROGRESS') {
+          toast.error(t('scrapeAlreadyInProgressToast') || 'Scrape already in progress');
+        } else if (code === 'SCRAPER_CAPACITY_EXCEEDED') {
+          toast.error(t('scrapeCapacityExceededToast') || 'Scraper capacity exceeded');
+        } else {
+          toast.error(t('scrapeGenericErrorToast') || 'Failed to start scraping');
+        }
+      },
+    }
+  );
 
   // 5. Handle auth redirect
   useEffect(() => {
@@ -166,6 +197,14 @@ export function PostsSelectContent() {
   );
 
   const posts = postsData?.postsByAccount?.items || [];
+
+  // Refetch posts when scrape completes
+  useEffect(() => {
+    if (activeSub && scrapePollingStartTime && !activeSub.account.isScrapeInProgress) {
+      refetchPosts();
+      setScrapePollingStartTime(null);
+    }
+  }, [activeSub?.account?.isScrapeInProgress, activeSub?.account?.id, scrapePollingStartTime, refetchPosts]);
 
   // 10. Mutation to select posts for extraction
   const { mutate: selectPosts, isPending: isExtracting } = useSelectPostsForExtractionMutation(
@@ -239,6 +278,38 @@ export function PostsSelectContent() {
     }
   };
 
+  // Helper to render the Scrape Posts control
+  const renderScrapeControl = () => {
+    if (!activeSub) return null;
+
+    const isInProgress = activeSub.account.isScrapeInProgress;
+    const hasTimedOut = scrapePollingStartTime && (Date.now() - scrapePollingStartTime) > pollTimeoutMs;
+    const isDisabled = isInProgress || isScraping;
+
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <button
+          onClick={() => triggerScrape({ accountId: activeSub.account.id })}
+          disabled={isDisabled}
+          className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors h-10 px-4 py-2 gap-2 ${
+            isDisabled
+              ? 'bg-muted text-muted-foreground cursor-not-allowed'
+              : 'bg-primary text-primary-foreground hover:bg-primary/90'
+          }`}
+        >
+          {isInProgress && <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+          {t('scrapePostsButton')}
+        </button>
+        {isInProgress && !hasTimedOut && (
+          <p className="text-xs text-muted-foreground">{t('scrapeInProgressLabel')}</p>
+        )}
+        {hasTimedOut && (
+          <p className="text-xs text-muted-foreground">{t('scrapeTimeoutMessage')}</p>
+        )}
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto animate-pulse">
@@ -294,7 +365,7 @@ export function PostsSelectContent() {
       </div>
 
       {/* Tabs list */}
-      <div className="border-b border-slate-200 dark:border-slate-800">
+      <div className="border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
         <div className="flex flex-wrap gap-2 -mb-px">
           {subscriptions.map((sub) => {
             const isActive = activeAccountId === sub.account.id;
@@ -319,6 +390,7 @@ export function PostsSelectContent() {
             );
           })}
         </div>
+        {activeSub && posts.length > 0 && renderScrapeControl()}
       </div>
 
       {/* Inactive Account Warning Banner */}
@@ -359,8 +431,9 @@ export function PostsSelectContent() {
             </button>
           </div>
         ) : posts.length === 0 ? (
-          <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800">
-            <p className="text-muted-foreground font-medium">{t('noPostsEmptyState')}</p>
+          <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800 space-y-4">
+            <p className="text-muted-foreground font-medium">{t('scrapePostsEmptyStateCta')}</p>
+            {renderScrapeControl()}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
