@@ -2698,6 +2698,27 @@ Users are guided through the initial setup and can manually select posts for eve
 
 **Depends on:** Story 3.2, Story 5.1a.
 
+### Story 5.6: On-demand scraping trigger for manual post selection
+
+**As a** user on the Manual Post Selection screen,
+**I want** a "Scrape Posts" button that checks a subscribed account for new posts right now, instead of waiting for the once-daily batch,
+**So that** I'm not stuck looking at an empty or stale post list for an account I specifically came here to extract events from.
+
+**Acceptance Criteria:**
+
+*   **Given** I am on the "Manual Post Selection" screen (`/posts/select`) viewing a subscribed account's tab,
+*   **When** the active account has zero posts ever scraped,
+*   **Then** I see a "Scrape Posts" call-to-action in the empty state, and clicking it triggers the same initial-scrape cascade Story 3.1/3.2's subscribe flow already uses for a brand-new account (Apify async trigger → Bright Data async trigger fallback (Instagram) → SQS enqueue fallback), extracted into a shared `triggerScrapeForAccount` function so it is not duplicated.
+*   **And**, when the active account already has posts, a persistent "Scrape Posts" control (near the tab bar) triggers the same cascade, but scoped to only posts newer than that account's most recent scraped post (`MAX(posts.publishedAt)`), not a full re-scrape.
+*   **And** both branches are decided and executed server-side by a new `triggerAccountScrape(accountId: ID!): TriggerAccountScrapeResult!` mutation (Story 5.1a's GraphQL layer is extended, not rebuilt) — scoped so a caller can only trigger a scrape for an account they hold an active subscription to, mirroring `postsByAccount`'s existing ownership check.
+*   **And** while a triggered scrape is still in flight for that account (a new server-computed `SocialMediaAccountProfile.isScrapeInProgress` field, derived from a new `scrapeTriggeredAt` timestamp vs. the existing `lastScrapedAt`), the "Scrape Posts" control is disabled with a label explaining why, and the mutation itself rejects a redundant trigger server-side (`SCRAPE_ALREADY_IN_PROGRESS`) rather than relying on the disabled button alone.
+*   **And** the page polls for completion (bounded, ~60s) and automatically refetches the account's posts as soon as `isScrapeInProgress` clears, rather than requiring a manual page reload; on timeout it stops polling and shows a "still processing" message instead of polling forever.
+*   **And** if the shared Apify/Bright Data provider capacity is exhausted, the mutation surfaces the existing `SCRAPER_CAPACITY_EXCEEDED` error code (Story 3.4/3.2's existing pattern) rather than a new error shape.
+
+**Note (2026-08-19, added via `bmad-create-story` at user request):** This story postdates `epic-5-readiness.md`'s 2026-08-12 sweep (`stories_covered: 5.1-5.5` only) and was not anticipated by it — Gate 1/2/3 were run fresh rather than cited from the sweep, per the project's lightweight escape-hatch guard. All three: **no gap** (see the story file's Architecture & UX Gate Findings for the full Winston/Freya verdicts) — this reuses 100% of the scraping infrastructure Stories 3.4/3.4a/3.4d/3.4f already built (no new external service, queue, Lambda, or webhook route), and the UI is a single low-complexity control with no second consumer, built inline rather than split into `packages/ui`. The trigger cascade currently inlined once in `subscribeToAccount` (Story 3.1a) is extracted into a shared `triggerScrapeForAccount` function so this story's mutation and the existing subscribe-time trigger share one implementation instead of duplicating it.
+
+**Depends on:** Story 5.1a, Story 5.1, Story 5.2, Story 3.3a, Story 3.4, Story 3.4a.
+
 ### Epic 6: Community Voting and Embeddable Distribution
 
 Users who can't or don't want to provide a BYOK API key can still register demand for a social media account, and any site can embed FestDaily's event discovery as a public widget.

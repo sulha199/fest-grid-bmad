@@ -947,6 +947,18 @@ development_status:
   5-3-display-and-enforce-api-quota: review
   5-4-inactive-account-warning: review
   5-5-integrate-manual-post-selection-into-the-getting-started-wizard: review
+  # added 2026-08-19 via bmad-create-story at user request: "Scrape Posts" button on
+  # /posts/select for both the zero-posts (reuses Story 3.1/3.2's initial-scrape
+  # cascade) and has-posts (newerThan = MAX(posts.publishedAt)) cases. Postdates
+  # epic-5-readiness.md's 2026-08-12 sweep (not in stories_covered) -- Gate 1/2/3 run
+  # fresh via subagent per the lightweight escape-hatch guard, all three: no gap.
+  # Extracts the trigger cascade currently inlined once in subscribeToAccount
+  # (Story 3.1a) into a shared triggerScrapeForAccount function. Verified live via
+  # direct code reads that Story 3.4a's Bright Data CDK wiring (webhook route,
+  # consolidated Lambda) landed this morning (commit 6411e8c, 2026-08-19) -- the
+  # sprint-status note below on 3-4a describing an unwired route is now stale.
+  # See epics.md Story 5.6.
+  5-6-on-demand-scraping-trigger-for-manual-post-selection: ready-for-dev
   epic-5-retrospective: optional
   # Epic 6 added 2026-08-08 via bmad-prd (Sections 3.13/3.14, FR69-FR86) + direct
   # epics.md append (bmad-create-epics-and-stories skipped -- its Step 1 overwrites
