@@ -4,11 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { activeOnly } from '@festgrid/graphql-select';
 import { ScraperCapacityExceededError, SupportedPlatform } from '@festgrid/domain';
 import { isProviderCapacityAvailable } from '../scraper/usage-store.js';
-import { enqueueScrapeJob } from '../scraper/enqueue-scrape-job.js';
-import { processScrapeJob } from '../scraper/process-scrape-job.js';
-import { attemptBrightDataTrigger } from '../scraper/trigger-brightdata-for-target.js';
-import { attemptApifyAsyncTrigger } from '../scraper/trigger-apify-for-target.js';
-import { loadBackendEnv } from '../../env.js';
+import { triggerScrapeForAccount } from '../scraper/trigger-scrape-for-account.js';
 
 interface ProfileInput {
   displayName: string;
@@ -88,42 +84,8 @@ export async function subscribeToAccount({
         isInitialNewSubscription: true,
       };
 
-      const env = loadBackendEnv();
-      if (env.scrapingQueueUrl) {
-        try {
-          const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-          // Try Apify async trigger first
-          const apifyAsyncTriggered = await attemptApifyAsyncTrigger(scrapeTarget, newerThan);
-          if (apifyAsyncTriggered) {
-            return;
-          }
-
-          // Fall back to Bright Data for Instagram
-          if (platform === 'instagram') {
-            const brightDataTriggered = await attemptBrightDataTrigger(scrapeTarget, newerThan);
-            if (brightDataTriggered) {
-              return;
-            }
-          }
-
-          // Fall back to SQS queue if both async tiers fail
-          await enqueueScrapeJob(scrapeTarget);
-        } catch (err) {
-          console.error(`Failed to enqueue on-demand scrape job for brand-new profile ${accountProfile.id}:`, err);
-        }
-      } else if (env.scrapeInlineFallbackEnabled) {
-        // No queue configured and inline fallback explicitly opted into (local dev only,
-        // via SCRAPE_INLINE_FALLBACK_ENABLED in a personal .env): process the scrape job
-        // inline instead of enqueuing, since there's no Lambda locally to drain the queue.
-        // Fire-and-forget, mirroring the async nature of the queue path so subscribing
-        // doesn't block on the scrape. Left off by default so tests/CI never hit Apify.
-        processScrapeJob(scrapeTarget).catch((err) => {
-          console.error(`Failed to process on-demand scrape job inline for brand-new profile ${accountProfile.id}:`, err);
-        });
-      } else {
-        console.error(`Failed to enqueue on-demand scrape job for brand-new profile ${accountProfile.id}: SCRAPING_QUEUE_URL is not configured`);
-      }
+      const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      await triggerScrapeForAccount(scrapeTarget, newerThan);
     }
   }
 

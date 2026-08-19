@@ -167,7 +167,14 @@
     "removingSubscriptionAnnouncement": "Removing subscription...",
     "removeSuccess": "Subscription removed successfully",
     "undoLabel": "Undo",
-    "removeError": "Failed to remove subscription"
+    "removeError": "Failed to remove subscription",
+    "scrapePostsButton": "Scrape Posts",
+    "scrapePostsEmptyStateCta": "No posts scraped yet for this account — scrape now to check.",
+    "scrapeInProgressLabel": "Scraping for new posts…",
+    "scrapeTimeoutMessage": "Still processing — check back in a moment.",
+    "scrapeCapacityExceededToast": "Scraper capacity is temporarily exhausted. Try again later.",
+    "scrapeAlreadyInProgressToast": "A scrape is already in progress for this account.",
+    "scrapeGenericErrorToast": "Failed to start scraping. Please try again."
   },
   "DiscoveryPage": {
     "title": "Discover Events",

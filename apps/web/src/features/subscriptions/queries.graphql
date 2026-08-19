@@ -12,6 +12,8 @@ query getMySubscriptions {
       displayName
       username
       profileImageUrl
+      isScrapeInProgress
+      lastScrapedAt
       defaultLocation {
         coordinates {
           lat

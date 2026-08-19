@@ -111,6 +111,7 @@ export const socialMediaAccountProfiles = pgTable('social_media_account_profiles
   description: text('description'),
   lastPostDate: timestamp('last_post_date', { withTimezone: true }),
   lastScrapedAt: timestamp('last_scraped_at', { withTimezone: true }),
+  scrapeTriggeredAt: timestamp('scrape_triggered_at', { withTimezone: true }),
   defaultLocation: jsonb('default_location').$type<LocationDetails>(),
   ...timestamps,
 }, (t) => ({

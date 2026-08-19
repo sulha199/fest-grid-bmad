@@ -32,3 +32,10 @@ mutation editAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLo
     hasPendingDefaultLocationReview
   }
 }
+
+mutation triggerAccountScrape($accountId: ID!) {
+  triggerAccountScrape(accountId: $accountId) {
+    triggered
+    isInitialScrape
+  }
+}

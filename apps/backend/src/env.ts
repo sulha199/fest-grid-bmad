@@ -45,6 +45,8 @@ export interface BackendEnv {
   apifyJobTimeoutMinutes?: number;
   // Unprocessed payload retention
   unprocessedPayloadRetentionDays?: string;
+  // Scrape in-progress timeout
+  scrapeInProgressTimeoutHours?: string;
 }
 
 /** Validate that required Bright Data vars are present */
@@ -163,6 +165,8 @@ export function loadBackendEnv(): BackendEnv {
     apifyJobTimeoutMinutes: parseInt(process.env.APIFY_JOB_TIMEOUT_MINUTES || '180', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     unprocessedPayloadRetentionDays: process.env.UNPROCESSED_PAYLOAD_RETENTION_DAYS || '30',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeInProgressTimeoutHours: process.env.SCRAPE_IN_PROGRESS_TIMEOUT_HOURS || '3',
   };
 
   // Ensure required Bright Data variables are present (webhook base URL is set post-deploy by CDK)

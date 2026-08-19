@@ -24,8 +24,14 @@ type SubscribeToAccountResult {
   alreadySubscribed: Boolean!
 }
 
+type TriggerAccountScrapeResult {
+  triggered: Boolean!
+  isInitialScrape: Boolean!
+}
+
 extend type Mutation {
   subscribeToAccount(input: SubscribeToAccountInput!): SubscribeToAccountResult!
   removeSubscription(id: ID!, action: SoftDeleteAction!): Subscription!
   markSubscriptionViewed(subscriptionId: ID!): Subscription!
+  triggerAccountScrape(accountId: ID!): TriggerAccountScrapeResult!
 }

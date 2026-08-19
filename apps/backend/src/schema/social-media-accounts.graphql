@@ -7,6 +7,8 @@ type SocialMediaAccountProfile {
   profileImageUrl: String
   description: String
   lastPostDate: String
+  lastScrapedAt: String
+  isScrapeInProgress: Boolean!
   defaultLocation: LocationDetails
   hasPendingDefaultLocationReview: Boolean!
 }

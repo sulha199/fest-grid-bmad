@@ -841,6 +841,186 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
   });
 
+  await t.test('triggerAccountScrape mutation tests', async (t) => {
+    let testProfile: any;
+    let testSubscription: any;
+
+    await t.test('setup - create profile and subscription for trigger tests', async () => {
+      const [profile] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'trigger_test_account',
+        platform: 'instagram',
+        username: 'trigger_test_user',
+        displayName: 'Trigger Test Account',
+        profileImageUrl: null,
+        description: null,
+        scrapeTriggeredAt: null,
+        lastScrapedAt: null,
+      }).returning();
+      testProfile = profile;
+
+      const [sub] = await db.insert(subscriptions).values({
+        userId: testUser.id,
+        accountId: profile.id,
+        isNewlyAdded: true,
+      }).returning();
+      testSubscription = sub;
+    });
+
+    await t.test('triggerAccountScrape - non-subscriber caller is rejected', async () => {
+      mockUser = { userId: anotherUser.id, role: anotherUser.role };
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation TriggerAccountScrape($accountId: ID!) {
+              triggerAccountScrape(accountId: $accountId) {
+                triggered
+                isInitialScrape
+              }
+            }
+          `,
+          variables: {
+            accountId: testProfile.id
+          }
+        })
+      });
+
+      const body = await response.json();
+      assert.ok(body.errors, 'Should reject non-subscriber');
+      assert.equal(body.errors[0].extensions?.code, 'NOT_FOUND');
+    });
+
+    await t.test('triggerAccountScrape - zero posts returns isInitialScrape: true', async () => {
+      mockUser = { userId: testUser.id, role: testUser.role };
+
+      // Ensure no posts exist for this account
+      await db.delete(posts).where(eq(posts.accountId, testProfile.id));
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation TriggerAccountScrape($accountId: ID!) {
+              triggerAccountScrape(accountId: $accountId) {
+                triggered
+                isInitialScrape
+              }
+            }
+          `,
+          variables: {
+            accountId: testProfile.id
+          }
+        })
+      });
+
+      const body = await response.json();
+      assert.ok(!body.errors, 'Should not have errors: ' + JSON.stringify(body.errors));
+      assert.equal(body.data.triggerAccountScrape.triggered, true);
+      assert.equal(body.data.triggerAccountScrape.isInitialScrape, true);
+
+      // Verify scrapeTriggeredAt was stamped
+      const updated = await db.select()
+        .from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, testProfile.id))
+        .limit(1);
+      assert.ok((updated[0] as any).scrapeTriggeredAt, 'scrapeTriggeredAt should be set');
+    });
+
+    await t.test('triggerAccountScrape - has-posts account returns isInitialScrape: false', async () => {
+      mockUser = { userId: testUser.id, role: testUser.role };
+
+      // Insert a post so it's not zero-posts
+      const [post] = await db.insert(posts).values({
+        accountId: testProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/existing_post',
+        content: 'Existing Post',
+        isExtracted: false,
+        publishedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      }).returning();
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation TriggerAccountScrape($accountId: ID!) {
+              triggerAccountScrape(accountId: $accountId) {
+                triggered
+                isInitialScrape
+              }
+            }
+          `,
+          variables: {
+            accountId: testProfile.id
+          }
+        })
+      });
+
+      const body = await response.json();
+      assert.ok(!body.errors, 'Should not have errors: ' + JSON.stringify(body.errors));
+      assert.equal(body.data.triggerAccountScrape.triggered, true);
+      assert.equal(body.data.triggerAccountScrape.isInitialScrape, false);
+
+      // Clean up
+      await db.delete(posts).where(eq(posts.accountId, testProfile.id));
+    });
+
+    await t.test('triggerAccountScrape - isScrapeInProgress resolver returns true after trigger', async () => {
+      mockUser = { userId: testUser.id, role: testUser.role };
+
+      // Trigger a scrape
+      await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation TriggerAccountScrape($accountId: ID!) {
+              triggerAccountScrape(accountId: $accountId) {
+                triggered
+              }
+            }
+          `,
+          variables: {
+            accountId: testProfile.id
+          }
+        })
+      });
+
+      // Query isScrapeInProgress
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              mySubscriptions {
+                account {
+                  isScrapeInProgress
+                }
+              }
+            }
+          `
+        })
+      });
+
+      const body = await response.json();
+      assert.ok(!body.errors, 'Should not have errors: ' + JSON.stringify(body.errors));
+      const foundSub = body.data.mySubscriptions.find((s: any) => s.account.id === testProfile.id);
+      assert.ok(foundSub, 'Should find subscription');
+      assert.equal(foundSub.account.isScrapeInProgress, true, 'isScrapeInProgress should be true');
+    });
+
+    await t.test('cleanup - delete trigger test data', async () => {
+      await db.delete(posts).where(eq(posts.accountId, testProfile.id));
+      await db.delete(subscriptions).where(eq(subscriptions.id, testSubscription.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfile.id));
+    });
+  });
+
   await t.test('cleanup - delete all created test data', async () => {
     await db.delete(subscriptions).where(eq(subscriptions.userId, testUser.id));
     await db.delete(apiKeys).where(eq(apiKeys.userId, testUser.id));

@@ -958,7 +958,7 @@ development_status:
   # consolidated Lambda) landed this morning (commit 6411e8c, 2026-08-19) -- the
   # sprint-status note below on 3-4a describing an unwired route is now stale.
   # See epics.md Story 5.6.
-  5-6-on-demand-scraping-trigger-for-manual-post-selection: ready-for-dev
+  5-6-on-demand-scraping-trigger-for-manual-post-selection: in-progress
   epic-5-retrospective: optional
   # Epic 6 added 2026-08-08 via bmad-prd (Sections 3.13/3.14, FR69-FR86) + direct
   # epics.md append (bmad-create-epics-and-stories skipped -- its Step 1 overwrites

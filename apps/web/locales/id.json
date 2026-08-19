@@ -166,7 +166,14 @@
     "removingSubscriptionAnnouncement": "Menghapus langganan...",
     "removeSuccess": "Langganan berhasil dihapus",
     "undoLabel": "Urungkan",
-    "removeError": "Gagal menghapus langganan"
+    "removeError": "Gagal menghapus langganan",
+    "scrapePostsButton": "Ambil Postingan",
+    "scrapePostsEmptyStateCta": "Belum ada postingan yang diambil untuk akun ini — ambil sekarang untuk memeriksa.",
+    "scrapeInProgressLabel": "Mengambil postingan baru…",
+    "scrapeTimeoutMessage": "Masih diproses — periksa lagi dalam beberapa saat.",
+    "scrapeCapacityExceededToast": "Kapasitas scraper sementara habis. Coba lagi nanti.",
+    "scrapeAlreadyInProgressToast": "Proses pengambilan sudah berjalan untuk akun ini.",
+    "scrapeGenericErrorToast": "Gagal memulai pengambilan. Silakan coba lagi."
   },
   "DiscoveryPage": {
     "title": "Temukan Acara",

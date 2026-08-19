@@ -288,6 +288,7 @@ export type Mutation = {
   subscribeToAccount: SubscribeToAccountResult;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
+  triggerAccountScrape: TriggerAccountScrapeResult;
   unregisterFcmToken: Scalars['Boolean']['output'];
   updateUserLocation: UserLocation;
   updateUserSettings: UserSettings;
@@ -467,6 +468,11 @@ export type MutationToggleCalendarAdditionArgs = {
 
 export type MutationToggleFavoriteArgs = {
   eventId: Scalars['ID']['input'];
+};
+
+
+export type MutationTriggerAccountScrapeArgs = {
+  accountId: Scalars['ID']['input'];
 };
 
 
@@ -830,7 +836,9 @@ export type SocialMediaAccountProfile = {
   displayName: Scalars['String']['output'];
   hasPendingDefaultLocationReview: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
+  isScrapeInProgress: Scalars['Boolean']['output'];
   lastPostDate?: Maybe<Scalars['String']['output']>;
+  lastScrapedAt?: Maybe<Scalars['String']['output']>;
   platform: Scalars['String']['output'];
   profileImageUrl?: Maybe<Scalars['String']['output']>;
   username: Scalars['String']['output'];
@@ -876,6 +884,12 @@ export type ToggleFavoriteResult = {
   __typename?: 'ToggleFavoriteResult';
   eventId: Scalars['ID']['output'];
   isFavorited: Scalars['Boolean']['output'];
+};
+
+export type TriggerAccountScrapeResult = {
+  __typename?: 'TriggerAccountScrapeResult';
+  isInitialScrape: Scalars['Boolean']['output'];
+  triggered: Scalars['Boolean']['output'];
 };
 
 export type UnprocessedPayloadConnection = {
@@ -1368,10 +1382,17 @@ export type EditAccountDefaultLocationMutationVariables = Exact<{
 
 export type EditAccountDefaultLocationMutation = { editAccountDefaultLocation: { id: string, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } };
 
+export type TriggerAccountScrapeMutationVariables = Exact<{
+  accountId: string | number;
+}>;
+
+
+export type TriggerAccountScrapeMutation = { triggerAccountScrape: { triggered: boolean, isInitialScrape: boolean } };
+
 export type GetMySubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, isInactive: boolean, createdAt: string, pendingExtractionCount: number, account: { id: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
+export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, isInactive: boolean, createdAt: string, pendingExtractionCount: number, account: { id: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, isScrapeInProgress: boolean, lastScrapedAt: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
 
 export type ReportSystemErrorMutationVariables = Exact<{
   input: ReportSystemErrorInput;
@@ -3023,6 +3044,32 @@ export const useEditAccountDefaultLocationMutation = <
   }
     )};
 
+export const TriggerAccountScrapeDocument = new TypedDocumentString(`
+    mutation triggerAccountScrape($accountId: ID!) {
+  triggerAccountScrape(accountId: $accountId) {
+    triggered
+    isInitialScrape
+  }
+}
+    `);
+
+export const useTriggerAccountScrapeMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<TriggerAccountScrapeMutation, TError, TriggerAccountScrapeMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<TriggerAccountScrapeMutation, TError, TriggerAccountScrapeMutationVariables, TContext>(
+      {
+    mutationKey: ['triggerAccountScrape'],
+    mutationFn: (variables?: TriggerAccountScrapeMutationVariables) => fetcher<TriggerAccountScrapeMutation, TriggerAccountScrapeMutationVariables>(client, TriggerAccountScrapeDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
 export const GetMySubscriptionsDocument = new TypedDocumentString(`
     query getMySubscriptions {
   mySubscriptions {
@@ -3038,6 +3085,8 @@ export const GetMySubscriptionsDocument = new TypedDocumentString(`
       displayName
       username
       profileImageUrl
+      isScrapeInProgress
+      lastScrapedAt
       defaultLocation {
         coordinates {
           lat

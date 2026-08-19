@@ -27,6 +27,7 @@ import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
+import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
 import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
 import { compileValidator } from '../validation/validate.js';
 import { reportSystemErrorSchema } from '../validation/report-system-error.schema.js';
@@ -144,6 +145,39 @@ export const resolvers: Resolvers = {
         )
         .limit(1);
       return rows.length > 0;
+    },
+    isScrapeInProgress: async (parent: any) => {
+      const rows = await db.select({
+        scrapeTriggeredAt: socialMediaAccountProfiles.scrapeTriggeredAt,
+        lastScrapedAt: socialMediaAccountProfiles.lastScrapedAt,
+      })
+        .from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, parent.id))
+        .limit(1);
+
+      const profile = rows[0];
+      if (!profile || !profile.scrapeTriggeredAt) {
+        return false;
+      }
+
+      const env = loadBackendEnv();
+      const scrapeInProgressTimeoutHours = parseInt(env.scrapeInProgressTimeoutHours || '3', 10);
+      const timeoutMs = scrapeInProgressTimeoutHours * 60 * 60 * 1000;
+      const scrapeTimeoutBoundary = new Date(Date.now() - timeoutMs);
+
+      // If scrapeTriggeredAt is older than the timeout, consider it cleared (orphaned job)
+      if (profile.scrapeTriggeredAt < scrapeTimeoutBoundary) {
+        return false;
+      }
+
+      // In-progress if:
+      // - scrapeTriggeredAt is set AND
+      // - (lastScrapedAt is null OR lastScrapedAt < scrapeTriggeredAt)
+      if (profile.lastScrapedAt === null || profile.lastScrapedAt < profile.scrapeTriggeredAt) {
+        return true;
+      }
+
+      return false;
     },
   } as any,
   Mutation: {
@@ -268,6 +302,110 @@ export const resolvers: Resolvers = {
         return formatSubscription(updated);
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
+    },
+    triggerAccountScrape: async (_: any, { accountId }: any, context: any) => {
+      const authUser = requireAuth(context);
+
+      // 1. Check that the user has an active subscription to this account
+      const activeSubRows = await db.select()
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.userId, authUser.userId),
+            eq(subscriptions.accountId, accountId),
+            activeOnly(subscriptions)
+          )
+        )
+        .limit(1);
+
+      if (activeSubRows.length === 0) {
+        throw new GraphQLError('Subscription not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      // 2. Get the account profile
+      const profileRows = await db.select()
+        .from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, accountId))
+        .limit(1);
+
+      if (profileRows.length === 0) {
+        throw new GraphQLError('Account profile not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const profile = profileRows[0];
+
+      // 3. Re-check isScrapeInProgress server-side
+      const env = loadBackendEnv();
+      const scrapeInProgressTimeoutHours = parseInt(env.scrapeInProgressTimeoutHours || '3', 10);
+      const timeoutMs = scrapeInProgressTimeoutHours * 60 * 60 * 1000;
+      const scrapeTimeoutBoundary = new Date(Date.now() - timeoutMs);
+
+      let isScrapeInProgress = false;
+      if (profile.scrapeTriggeredAt && profile.scrapeTriggeredAt > scrapeTimeoutBoundary) {
+        if (profile.lastScrapedAt === null || profile.lastScrapedAt < profile.scrapeTriggeredAt) {
+          isScrapeInProgress = true;
+        }
+      }
+
+      if (isScrapeInProgress) {
+        throw new GraphQLError('Scrape already in progress for this account.', {
+          extensions: { code: 'SCRAPE_ALREADY_IN_PROGRESS' },
+        });
+      }
+
+      // 4. Decide branch: count posts to determine if initial or incremental
+      const postCountRows = await db.select({ count: count() })
+        .from(posts)
+        .where(eq(posts.accountId, accountId));
+
+      const postCount = postCountRows[0]?.count ?? 0;
+      let isInitialScrape = false;
+      let newerThan: string;
+
+      if (postCount === 0) {
+        // Initial scrape: 7 days ago
+        isInitialScrape = true;
+        newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      } else {
+        // Incremental: from the most recent post
+        const mostRecentRows = await db.select({ publishedAt: posts.publishedAt })
+          .from(posts)
+          .where(eq(posts.accountId, accountId))
+          .orderBy(desc(posts.publishedAt))
+          .limit(1);
+
+        if (mostRecentRows.length > 0) {
+          newerThan = mostRecentRows[0].publishedAt.toISOString();
+        } else {
+          // Fallback (shouldn't happen)
+          newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        }
+      }
+
+      // 5. Build ScrapeTarget and trigger the cascade
+      const scrapeTarget = {
+        profileId: profile.id,
+        platform: profile.platform,
+        accountId: profile.accountId,
+        username: profile.username,
+        isInitialNewSubscription: isInitialScrape,
+      };
+
+      try {
+        await triggerScrapeForAccount(scrapeTarget, newerThan);
+      } catch (err) {
+        if (err instanceof ScraperCapacityExceededError) {
+          throw new GraphQLError(err.message, {
+            extensions: { code: 'SCRAPER_CAPACITY_EXCEEDED' },
+          });
+        }
+        throw err;
+      }
+
+      return {
+        triggered: true,
+        isInitialScrape,
+      };
     },
     setAccountDefaultLocation: async (_: any, { accountId, input }: any, context: any, info: any) => {
       try {
