@@ -1982,6 +1982,49 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3-4h (backend mutations/queries), Story 4.7a (moderator route guard).
 
+### Story 3.4j: Capture scraper actor-run audit trail and enable replay-by-run-ID
+
+**As a** platform operator and content moderator,
+**I want** every Apify/Bright Data actor run (sync or async, succeeded or failed) recorded with its raw input and raw output, and a way to replay a specific run by its run ID without re-scraping,
+**So that** I can diagnose silent scraping failures (e.g. a run that reports success upstream but persists zero posts) and recover the lost data by re-processing the vendor's already-fetched output, instead of burning scraper quota on a redundant re-scrape.
+
+**Acceptance Criteria:**
+
+1.  Every Apify actor call — synchronous (`callApifyActor`, used by on-demand/batch `getNewestPosts`/`getPostByUrl`/`lookupAccountProfile`) or asynchronous (the webhook-polled tier) — writes a row to a new `scraper_actor_runs` table on completion, capturing vendor, trigger mode, account/profile, run ID, status, raw input, raw output, item count, and error message.
+2.  The same capture applies to Bright Data, at both trigger time and result time (webhook and stale-job-sweep resolution).
+3.  `rawInput`/`rawOutput` are stored as unconstrained JSONB with no fixed shape, since vendor actor output can change field names across versions outside this app's control — distinct from Story 3-4h's `parserVersionRegistry`, which versions FestGrid's own parsing code, not the vendor's wire format.
+4.  Audit-row writes never fail or block the underlying scrape/webhook/sweep operation.
+5.  A `requireModerator`-gated GraphQL query `queryActorRuns(filters, first, after): ActorRunConnection!` returns a cursor-paginated, filterable (vendor, status, account, date range) list of runs, reusing Story 3-4h's cursor/edge/pageInfo shape.
+6.  A `requireModerator`-gated GraphQL mutation `replayActorRun(actorRunId: ID!): ReplayActorRunResult!` reuses the run's stored output when present (no vendor API call), or fetches it fresh by run ID when the run was recorded but never resolved, then re-persists through the existing (already idempotent) post-persistence pipeline — returning `{ success, postsPersisted, message }` synchronously, not a placeholder queue ID.
+7.  Replaying a run twice is safe — persistence is dedup-on-`postUrl`, so a second replay reports `0` new posts rather than erroring.
+8.  `scraper_actor_runs` is excluded from the AD-8 soft-delete convention (immutable audit log, same rationale as `Schedule`/`Post`/`GeolocationCache`).
+
+**Note (2026-08-19, added via `bmad-create-story` as user-identified follow-up during investigation of a production scraping bug):** A `/bmad-help` investigation traced a "no posts appearing after a scrape run" report to a confirmed, separate bug (`persist-scraped-post.ts` never sets the NOT NULL `posts.platform` column — tracked outside BMad story ceremony as a `bmad-quick-dev` fix, not this story's deliverable). That investigation also found the codebase has **no record at all** of any scraper actor run's input/output today — neither vendor's sync or async tier persists anything beyond a bare `runId`/`snapshotId` in the narrowly-scoped `apifyPendingJobs`/`brightdataPendingJobs` webhook-coordination tables. This story (and its UI counterpart, 3-4k) closes that gap. A new unified table (rather than extending the two existing pending-job tables) was chosen deliberately: the synchronous Apify tier — the one actually implicated in the reported bug — never creates a row in `apifyPendingJobs` at all, so extending it would leave that tier uncovered; see the story file's Dev Notes for full evidence.
+
+**Depends on:** Story 3.4 (existing scrape pipeline), Story 3-4a (Bright Data async tier), Story 3-4d (async job handling), Story 3-4h (precedent for JSON-payload capture pattern, not a hard dependency).
+
+### Story 3.4k: Moderator actor-run browser and replay UI
+
+**As a** content moderator,
+**I want** a dedicated page in the moderator tools to browse every scraper actor run (Apify and Bright Data, sync and async, any status), inspect its raw input/output, and replay a specific run by ID,
+**So that** I can investigate scraping failures — including runs that reported success but produced no posts — and recover the data without developer intervention or re-scraping.
+
+**Acceptance Criteria:**
+
+1.  A new route `/moderator/actor-runs` displays a filterable, paginated list of actor runs (via `queryActorRuns` from Story 3-4j), newest-first by default.
+2.  Filters: vendor (Apify/Bright Data), status, date range, account/profile.
+3.  Each run shows: timestamp, vendor badge, trigger-mode badge, account, run ID, status badge, item count.
+4.  Clicking a run expands raw `rawInput`/`rawOutput` JSON in a new shared `RawJsonViewer` component (extracted to `packages/ui` — see Note) plus any error message.
+5.  A "Replay" button calls `replayActorRun` (Story 3-4j) with a blocking loader and a success/error toast reporting `postsPersisted`. Available on any run regardless of stored status, since the primary recovery scenario (success reported, zero posts persisted) looks identical to a normal successful run at this table's level.
+6.  An empty state is shown when no runs exist or all are filtered out.
+7.  Gated by Story 4.7a's `useRequireModerator()`.
+8.  A new entry is added to `profileMenuEntries` (`packages/ui`) so the page is reachable from the user menu.
+9.  All copy sourced through next-intl (en/id).
+
+**Note (2026-08-19, user decision during story creation):** Split from Story 3-4j following the exact 3-4h/3-4i backend/frontend precedent. A dedicated `RawJsonViewer` component is extracted to `packages/ui` in this story (not left inline as Story 3-4i's own raw-JSON display was) because this is now a second, independent consumer of the identical capability — genuine reuse evidence rather than speculative extraction. Full detail in the story file (`_bmad-output/implementation-artifacts/3-4k-moderator-actor-run-browser-and-replay-ui.md`).
+
+**Depends on:** Story 3-4j (backend contracts), Story 4.7a (moderator route guard).
+
 ### Story 3.5: Add new posts to a processing queue
 
 **As a** system,
