@@ -11,21 +11,21 @@
     },
     "FestgridBackendStack-dev": {
       "type": "aws:cloudformation:stack",
-      "environment": "aws://unknown-account/us-east-1",
+      "environment": "aws://944921953880/us-east-1",
       "properties": {
         "templateFile": "FestgridBackendStack-dev.template.json",
         "terminationProtection": false,
         "validateOnSynth": false,
-        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
-        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/1c259fe1f91b8aebd35e412100a7e23475ce0250f69300eff1818a21afea8f05.json",
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::944921953880:role/cdk-hnb659fds-deploy-role-944921953880-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::944921953880:role/cdk-hnb659fds-cfn-exec-role-944921953880-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-944921953880-us-east-1/3b6c9762f78aaa75894a5cc4cde7553ab269e133aafcd85e3e2fa212e144787a.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
           "FestgridBackendStack-dev.assets"
         ],
         "lookupRole": {
-          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-us-east-1",
+          "arn": "arn:${AWS::Partition}:iam::944921953880:role/cdk-hnb659fds-lookup-role-944921953880-us-east-1",
           "requiresBootstrapStackVersion": 8,
           "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
         }
@@ -46,21 +46,21 @@
     },
     "FestgridBackendStack-staging": {
       "type": "aws:cloudformation:stack",
-      "environment": "aws://unknown-account/us-east-1",
+      "environment": "aws://944921953880/us-east-1",
       "properties": {
         "templateFile": "FestgridBackendStack-staging.template.json",
         "terminationProtection": false,
         "validateOnSynth": false,
-        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
-        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/0b8839dd9cd85b2bf409e921be18e49e35d3e56dd925bf7d06df01971cc28c38.json",
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::944921953880:role/cdk-hnb659fds-deploy-role-944921953880-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::944921953880:role/cdk-hnb659fds-cfn-exec-role-944921953880-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-944921953880-us-east-1/e46487a4b7fd019289e38749d919980263d7827bd99f3b450f8230163a40b59f.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
           "FestgridBackendStack-staging.assets"
         ],
         "lookupRole": {
-          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-us-east-1",
+          "arn": "arn:${AWS::Partition}:iam::944921953880:role/cdk-hnb659fds-lookup-role-944921953880-us-east-1",
           "requiresBootstrapStackVersion": 8,
           "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
         }
@@ -81,21 +81,21 @@
     },
     "FestgridBackendStack-prod": {
       "type": "aws:cloudformation:stack",
-      "environment": "aws://unknown-account/us-east-1",
+      "environment": "aws://944921953880/us-east-1",
       "properties": {
         "templateFile": "FestgridBackendStack-prod.template.json",
         "terminationProtection": false,
         "validateOnSynth": false,
-        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
-        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/d78c028778db2b77798dd176db9a2c3b424ac4ef80fafa348a5ddb81a7602e5b.json",
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::944921953880:role/cdk-hnb659fds-deploy-role-944921953880-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::944921953880:role/cdk-hnb659fds-cfn-exec-role-944921953880-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-944921953880-us-east-1/172099586d03298dea0bdf0a505408f15e13a686da57e422229d8de89550752d.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
           "FestgridBackendStack-prod.assets"
         ],
         "lookupRole": {
-          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-us-east-1",
+          "arn": "arn:${AWS::Partition}:iam::944921953880:role/cdk-hnb659fds-lookup-role-944921953880-us-east-1",
           "requiresBootstrapStackVersion": 8,
           "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
         }

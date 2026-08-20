@@ -36,6 +36,7 @@ export class FestgridBackendStack extends cdk.Stack {
     });
     const scrapingQueue = new sqs.Queue(this, `ScrapingQueue-${stageName}`, {
       queueName: `festgrid-scraping-queue-${stageName}`,
+      visibilityTimeout: cdk.Duration.seconds(300),
       deadLetterQueue: {
         queue: scrapingDlq,
         maxReceiveCount: 3,
@@ -49,6 +50,7 @@ export class FestgridBackendStack extends cdk.Stack {
     });
     const aiProcessingQueue = new sqs.Queue(this, `AIProcessingQueue-${stageName}`, {
       queueName: `festgrid-ai-processing-queue-${stageName}`,
+      visibilityTimeout: cdk.Duration.seconds(300),
       deadLetterQueue: {
         queue: aiProcessingDlq,
         maxReceiveCount: 3,
@@ -62,6 +64,7 @@ export class FestgridBackendStack extends cdk.Stack {
     });
     const dataIngestionQueue = new sqs.Queue(this, `DataIngestionQueue-${stageName}`, {
       queueName: `festgrid-data-ingestion-queue-${stageName}`,
+      visibilityTimeout: cdk.Duration.seconds(300),
       deadLetterQueue: {
         queue: dataIngestionDlq,
         maxReceiveCount: 3,

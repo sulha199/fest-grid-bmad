@@ -10,18 +10,7 @@
        "Action": "kms:*",
        "Effect": "Allow",
        "Principal": {
-        "AWS": {
-         "Fn::Join": [
-          "",
-          [
-           "arn:aws:iam::",
-           {
-            "Ref": "AWS::AccountId"
-           },
-           ":root"
-          ]
-         ]
-        }
+        "AWS": "arn:aws:iam::944921953880:root"
        },
        "Resource": "*"
       }
@@ -73,7 +62,8 @@
       ]
      },
      "maxReceiveCount": 3
-    }
+    },
+    "VisibilityTimeout": 300
    },
    "UpdateReplacePolicy": "Delete",
    "DeletionPolicy": "Delete",
@@ -104,7 +94,8 @@
       ]
      },
      "maxReceiveCount": 3
-    }
+    },
+    "VisibilityTimeout": 300
    },
    "UpdateReplacePolicy": "Delete",
    "DeletionPolicy": "Delete",
@@ -135,7 +126,8 @@
       ]
      },
      "maxReceiveCount": 3
-    }
+    },
+    "VisibilityTimeout": 300
    },
    "UpdateReplacePolicy": "Delete",
    "DeletionPolicy": "Delete",
@@ -184,6 +176,20 @@
      "Statement": [
       {
        "Action": [
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:SendMessage"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "ScrapingQueuestaging32D3E6CB",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
         "kms:Decrypt",
         "kms:Encrypt",
         "kms:GenerateDataKey*",
@@ -215,10 +221,8 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
-     },
-     "S3Key": "cc12d5dae98a822ad162d43c7a33e9489a6baa8c99f02e862b7ba8b8d866a6c1.zip"
+     "S3Bucket": "cdk-hnb659fds-assets-944921953880-us-east-1",
+     "S3Key": "f948f614c3e05f1aace73b3e37bc0f1cbdbdcbd9a7159427d33bddc887787f47.zip"
     },
     "Environment": {
      "Variables": {
@@ -226,7 +230,49 @@
       "BYOK_KMS_KEY_ID": {
        "Ref": "KmsKeystaging0C0573F0"
       },
-      "DATABASE_URL": ""
+      "DATABASE_URL": "",
+      "SCRAPING_QUEUE_URL": {
+       "Ref": "ScrapingQueuestaging32D3E6CB"
+      },
+      "GEOAPIFY_API_KEY": "",
+      "BRIGHTDATA_API_TOKEN": "",
+      "BRIGHTDATA_DATASET_ID": "gd_lk5ns7kz21pck8jpis",
+      "APIFY_WEBHOOK_BASE_URL": {
+       "Fn::Join": [
+        "",
+        [
+         {
+          "Fn::Sub": [
+           "https://${ApiId}.execute-api.${AWS::Region}.amazonaws.com/staging",
+           {
+            "ApiId": {
+             "Ref": "ApiGatewaystaging6A395A9C"
+            }
+           }
+          ]
+         },
+         "/webhooks/apify"
+        ]
+       ]
+      },
+      "BRIGHTDATA_WEBHOOK_BASE_URL": {
+       "Fn::Join": [
+        "",
+        [
+         {
+          "Fn::Sub": [
+           "https://${ApiId}.execute-api.${AWS::Region}.amazonaws.com/staging",
+           {
+            "ApiId": {
+             "Ref": "ApiGatewaystaging6A395A9C"
+            }
+           }
+          ]
+         },
+         "/webhooks/brightdata"
+        ]
+       ]
+      }
      }
     },
     "Handler": "index.handler",
@@ -236,7 +282,8 @@
       "Arn"
      ]
     },
-    "Runtime": "nodejs22.x"
+    "Runtime": "nodejs22.x",
+    "Timeout": 25
    },
    "DependsOn": [
     "ApiLambdastagingServiceRoleDefaultPolicyCDFA7E30",
@@ -244,7 +291,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/ApiLambda-staging/Resource",
-    "aws:asset:path": "asset.cc12d5dae98a822ad162d43c7a33e9489a6baa8c99f02e862b7ba8b8d866a6c1",
+    "aws:asset:path": "asset.f948f614c3e05f1aace73b3e37bc0f1cbdbdcbd9a7159427d33bddc887787f47",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -304,20 +351,6 @@
          "Arn"
         ]
        }
-      },
-      {
-       "Action": [
-        "sqs:GetQueueAttributes",
-        "sqs:GetQueueUrl",
-        "sqs:SendMessage"
-       ],
-       "Effect": "Allow",
-       "Resource": {
-        "Fn::GetAtt": [
-         "AIProcessingQueuestaging9DE39A58",
-         "Arn"
-        ]
-       }
       }
      ],
      "Version": "2012-10-17"
@@ -337,14 +370,55 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
-     },
-     "S3Key": "57f86f7bdbc63cf45b2072c8a9bec5798a1b174a8e8844718f5ea1d130f75826.zip"
+     "S3Bucket": "cdk-hnb659fds-assets-944921953880-us-east-1",
+     "S3Key": "8910fe05885ee147acfc888d9d5430330e53d54f6f947c6393cdc8222d3cf3e6.zip"
     },
     "Environment": {
      "Variables": {
-      "STAGE": "staging"
+      "STAGE": "staging",
+      "DATABASE_URL": "",
+      "SCRAPING_QUEUE_URL": {
+       "Ref": "ScrapingQueuestaging32D3E6CB"
+      },
+      "APIFY_API_TOKEN": "",
+      "BRIGHTDATA_API_TOKEN": "",
+      "BRIGHTDATA_DATASET_ID": "gd_lk5ns7kz21pck8jpis",
+      "APIFY_WEBHOOK_BASE_URL": {
+       "Fn::Join": [
+        "",
+        [
+         {
+          "Fn::Sub": [
+           "https://${ApiId}.execute-api.${AWS::Region}.amazonaws.com/staging",
+           {
+            "ApiId": {
+             "Ref": "ApiGatewaystaging6A395A9C"
+            }
+           }
+          ]
+         },
+         "/webhooks/apify"
+        ]
+       ]
+      },
+      "BRIGHTDATA_WEBHOOK_BASE_URL": {
+       "Fn::Join": [
+        "",
+        [
+         {
+          "Fn::Sub": [
+           "https://${ApiId}.execute-api.${AWS::Region}.amazonaws.com/staging",
+           {
+            "ApiId": {
+             "Ref": "ApiGatewaystaging6A395A9C"
+            }
+           }
+          ]
+         },
+         "/webhooks/brightdata"
+        ]
+       ]
+      }
      }
     },
     "Handler": "index.handler",
@@ -354,7 +428,8 @@
       "Arn"
      ]
     },
-    "Runtime": "nodejs22.x"
+    "Runtime": "nodejs22.x",
+    "Timeout": 300
    },
    "DependsOn": [
     "ScraperLambdastagingServiceRoleDefaultPolicy66DB7EE1",
@@ -362,7 +437,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/ScraperLambda-staging/Resource",
-    "aws:asset:path": "asset.57f86f7bdbc63cf45b2072c8a9bec5798a1b174a8e8844718f5ea1d130f75826",
+    "aws:asset:path": "asset.8910fe05885ee147acfc888d9d5430330e53d54f6f947c6393cdc8222d3cf3e6",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -486,17 +561,20 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
-     },
-     "S3Key": "cd59c6be609155f64cb97fb8ec1678e3543e4de0978e4ee6b2577b84efa876d6.zip"
+     "S3Bucket": "cdk-hnb659fds-assets-944921953880-us-east-1",
+     "S3Key": "19e261ddd686b3da1c23d69fe14db22da07d41260cdaf584c6c5b118398e7ea2.zip"
     },
     "Environment": {
      "Variables": {
       "STAGE": "staging",
       "BYOK_KMS_KEY_ID": {
        "Ref": "KmsKeystaging0C0573F0"
-      }
+      },
+      "DATABASE_URL": "",
+      "DATA_INGESTION_QUEUE_URL": {
+       "Ref": "DataIngestionQueuestagingC59D6420"
+      },
+      "GEOAPIFY_API_KEY": ""
      }
     },
     "Handler": "index.handler",
@@ -506,7 +584,8 @@
       "Arn"
      ]
     },
-    "Runtime": "nodejs22.x"
+    "Runtime": "nodejs22.x",
+    "Timeout": 300
    },
    "DependsOn": [
     "AIProcessorLambdastagingServiceRoleDefaultPolicy35115838",
@@ -514,7 +593,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/AIProcessorLambda-staging/Resource",
-    "aws:asset:path": "asset.cd59c6be609155f64cb97fb8ec1678e3543e4de0978e4ee6b2577b84efa876d6",
+    "aws:asset:path": "asset.19e261ddd686b3da1c23d69fe14db22da07d41260cdaf584c6c5b118398e7ea2",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -530,7 +609,10 @@
     },
     "FunctionName": {
      "Ref": "AIProcessorLambdastaging1BEA27AF"
-    }
+    },
+    "FunctionResponseTypes": [
+     "ReportBatchItemFailures"
+    ]
    },
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/AIProcessorLambda-staging/SqsEventSource:FestgridBackendStackstagingAIProcessingQueuestagingF8499D69/Resource"
@@ -609,10 +691,8 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
-     },
-     "S3Key": "b534ae0ddff3776f58084f11d650f144276dcfa23f7c1126dd53eb93b15b4ba6.zip"
+     "S3Bucket": "cdk-hnb659fds-assets-944921953880-us-east-1",
+     "S3Key": "a391b46c58872dde8488c2ddf9329c0be51f080b29ac092602393d995c33d79e.zip"
     },
     "Environment": {
      "Variables": {
@@ -627,7 +707,8 @@
       "Arn"
      ]
     },
-    "Runtime": "nodejs22.x"
+    "Runtime": "nodejs22.x",
+    "Timeout": 300
    },
    "DependsOn": [
     "IngestorLambdastagingServiceRoleDefaultPolicyCDD2D466",
@@ -635,7 +716,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/IngestorLambda-staging/Resource",
-    "aws:asset:path": "asset.b534ae0ddff3776f58084f11d650f144276dcfa23f7c1126dd53eb93b15b4ba6",
+    "aws:asset:path": "asset.a391b46c58872dde8488c2ddf9329c0be51f080b29ac092602393d995c33d79e",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -651,7 +732,10 @@
     },
     "FunctionName": {
      "Ref": "IngestorLambdastagingA01914B5"
-    }
+    },
+    "FunctionResponseTypes": [
+     "ReportBatchItemFailures"
+    ]
    },
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/IngestorLambda-staging/SqsEventSource:FestgridBackendStackstagingDataIngestionQueuestaging2898411D/Resource"
@@ -660,7 +744,7 @@
   "ScraperScheduleRulestaging2377A749": {
    "Type": "AWS::Events::Rule",
    "Properties": {
-    "ScheduleExpression": "rate(6 hours)",
+    "ScheduleExpression": "rate(1 day)",
     "State": "ENABLED",
     "Targets": [
      {
@@ -710,7 +794,7 @@
     "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Resource"
    }
   },
-  "ApiGatewaystagingDeploymentEBA323A27be213b5057047511357870280542423": {
+  "ApiGatewaystagingDeploymentEBA323A21b08cdc4a2764ae6e32b1f7a7b8ad50a": {
    "Type": "AWS::ApiGateway::Deployment",
    "Properties": {
     "Description": "API Gateway for FestGrid (FestDaily) backend resolvers",
@@ -723,7 +807,15 @@
     "ApiGatewaystagingproxyOPTIONS6B7C9402",
     "ApiGatewaystagingproxyB2D49298",
     "ApiGatewaystagingANY74D2093E",
-    "ApiGatewaystagingOPTIONS7C83C9F3"
+    "ApiGatewaystagingOPTIONS7C83C9F3",
+    "ApiGatewaystagingwebhooksapifyOPTIONS02C4C4D7",
+    "ApiGatewaystagingwebhooksapifyPOSTAF0F7D08",
+    "ApiGatewaystagingwebhooksapify6BC4685D",
+    "ApiGatewaystagingwebhooksbrightdataOPTIONSE07EDD91",
+    "ApiGatewaystagingwebhooksbrightdataPOSTC1BD2207",
+    "ApiGatewaystagingwebhooksbrightdata82E26860",
+    "ApiGatewaystagingwebhooksOPTIONS3053E5DE",
+    "ApiGatewaystagingwebhooks1A239EED"
    ],
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Deployment/Resource",
@@ -734,7 +826,7 @@
    "Type": "AWS::ApiGateway::Stage",
    "Properties": {
     "DeploymentId": {
-     "Ref": "ApiGatewaystagingDeploymentEBA323A27be213b5057047511357870280542423"
+     "Ref": "ApiGatewaystagingDeploymentEBA323A21b08cdc4a2764ae6e32b1f7a7b8ad50a"
     },
     "RestApiId": {
      "Ref": "ApiGatewaystaging6A395A9C"
@@ -867,11 +959,7 @@
      "Fn::Join": [
       "",
       [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
+       "arn:aws:execute-api:us-east-1:944921953880:",
        {
         "Ref": "ApiGatewaystaging6A395A9C"
        },
@@ -903,11 +991,7 @@
      "Fn::Join": [
       "",
       [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
+       "arn:aws:execute-api:us-east-1:944921953880:",
        {
         "Ref": "ApiGatewaystaging6A395A9C"
        },
@@ -970,11 +1054,7 @@
      "Fn::Join": [
       "",
       [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
+       "arn:aws:execute-api:us-east-1:944921953880:",
        {
         "Ref": "ApiGatewaystaging6A395A9C"
        },
@@ -1006,11 +1086,7 @@
      "Fn::Join": [
       "",
       [
-       "arn:aws:execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
+       "arn:aws:execute-api:us-east-1:944921953880:",
        {
         "Ref": "ApiGatewaystaging6A395A9C"
        },
@@ -1061,6 +1137,373 @@
     "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/ANY/Resource"
    }
   },
+  "ApiGatewaystagingwebhooks1A239EED": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "ApiGatewaystaging6A395A9C",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "webhooks",
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/webhooks/Resource"
+   }
+  },
+  "ApiGatewaystagingwebhooksOPTIONS3053E5DE": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "ApiGatewaystagingwebhooks1A239EED"
+    },
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/webhooks/OPTIONS/Resource"
+   }
+  },
+  "ApiGatewaystagingwebhooksapify6BC4685D": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "ApiGatewaystagingwebhooks1A239EED"
+    },
+    "PathPart": "apify",
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/webhooks/apify/Resource"
+   }
+  },
+  "ApiGatewaystagingwebhooksapifyOPTIONS02C4C4D7": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "ApiGatewaystagingwebhooksapify6BC4685D"
+    },
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/webhooks/apify/OPTIONS/Resource"
+   }
+  },
+  "ApiGatewaystagingwebhooksapifyPOSTApiPermissionFestgridBackendStackstagingApiGatewaystaging513F30E7POSTwebhooksapify38C4A22C": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ApifyWebhookstagingC8D994BA",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:944921953880:",
+       {
+        "Ref": "ApiGatewaystaging6A395A9C"
+       },
+       "/",
+       {
+        "Ref": "ApiGatewaystagingDeploymentStageprod18A73CE3"
+       },
+       "/POST/webhooks/apify"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/webhooks/apify/POST/ApiPermission.FestgridBackendStackstagingApiGatewaystaging513F30E7.POST..webhooks.apify"
+   }
+  },
+  "ApiGatewaystagingwebhooksapifyPOSTApiPermissionTestFestgridBackendStackstagingApiGatewaystaging513F30E7POSTwebhooksapifyF05304EC": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ApifyWebhookstagingC8D994BA",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:944921953880:",
+       {
+        "Ref": "ApiGatewaystaging6A395A9C"
+       },
+       "/test-invoke-stage/POST/webhooks/apify"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/webhooks/apify/POST/ApiPermission.Test.FestgridBackendStackstagingApiGatewaystaging513F30E7.POST..webhooks.apify"
+   }
+  },
+  "ApiGatewaystagingwebhooksapifyPOSTAF0F7D08": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "ApifyWebhookstagingC8D994BA",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "ApiGatewaystagingwebhooksapify6BC4685D"
+    },
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/webhooks/apify/POST/Resource"
+   }
+  },
+  "ApiGatewaystagingwebhooksbrightdata82E26860": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "ApiGatewaystagingwebhooks1A239EED"
+    },
+    "PathPart": "brightdata",
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/webhooks/brightdata/Resource"
+   }
+  },
+  "ApiGatewaystagingwebhooksbrightdataOPTIONSE07EDD91": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "ApiGatewaystagingwebhooksbrightdata82E26860"
+    },
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/webhooks/brightdata/OPTIONS/Resource"
+   }
+  },
+  "ApiGatewaystagingwebhooksbrightdataPOSTApiPermissionFestgridBackendStackstagingApiGatewaystaging513F30E7POSTwebhooksbrightdata7BF1CE21": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "WebhookstagingEFFDF279",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:944921953880:",
+       {
+        "Ref": "ApiGatewaystaging6A395A9C"
+       },
+       "/",
+       {
+        "Ref": "ApiGatewaystagingDeploymentStageprod18A73CE3"
+       },
+       "/POST/webhooks/brightdata"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/webhooks/brightdata/POST/ApiPermission.FestgridBackendStackstagingApiGatewaystaging513F30E7.POST..webhooks.brightdata"
+   }
+  },
+  "ApiGatewaystagingwebhooksbrightdataPOSTApiPermissionTestFestgridBackendStackstagingApiGatewaystaging513F30E7POSTwebhooksbrightdataAE5EAF5F": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "WebhookstagingEFFDF279",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:us-east-1:944921953880:",
+       {
+        "Ref": "ApiGatewaystaging6A395A9C"
+       },
+       "/test-invoke-stage/POST/webhooks/brightdata"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/webhooks/brightdata/POST/ApiPermission.Test.FestgridBackendStackstagingApiGatewaystaging513F30E7.POST..webhooks.brightdata"
+   }
+  },
+  "ApiGatewaystagingwebhooksbrightdataPOSTC1BD2207": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "WebhookstagingEFFDF279",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "ApiGatewaystagingwebhooksbrightdata82E26860"
+    },
+    "RestApiId": {
+     "Ref": "ApiGatewaystaging6A395A9C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/Default/webhooks/brightdata/POST/Resource"
+   }
+  },
   "ApiGatewaystagingUsagePlanstagingD3DBE458": {
    "Type": "AWS::ApiGateway::UsagePlan",
    "Properties": {
@@ -1083,6 +1526,185 @@
    },
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/ApiGateway-staging/UsagePlan-staging/Resource"
+   }
+  },
+  "WebhookstagingServiceRole4D8753EE": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/Webhook-staging/ServiceRole/Resource"
+   }
+  },
+  "WebhookstagingEFFDF279": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-944921953880-us-east-1",
+     "S3Key": "5b2977f51f011a3facbd0b631caed3fb50f1bdefd966139761983799feac2af8.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "STAGE": "staging",
+      "DATABASE_URL": ""
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "WebhookstagingServiceRole4D8753EE",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "WebhookstagingServiceRole4D8753EE"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/Webhook-staging/Resource",
+    "aws:asset:path": "asset.5b2977f51f011a3facbd0b631caed3fb50f1bdefd966139761983799feac2af8",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ApifyWebhookstagingServiceRole8A539231": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApifyWebhook-staging/ServiceRole/Resource"
+   }
+  },
+  "ApifyWebhookstagingC8D994BA": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-944921953880-us-east-1",
+     "S3Key": "d30a4064ca4932cfd88e4dfb7919f1346129c720291a0a379aaebbfaf955a475.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "STAGE": "staging",
+      "DATABASE_URL": "",
+      "APIFY_API_TOKEN": ""
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "ApifyWebhookstagingServiceRole8A539231",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "ApifyWebhookstagingServiceRole8A539231"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApifyWebhook-staging/Resource",
+    "aws:asset:path": "asset.d30a4064ca4932cfd88e4dfb7919f1346129c720291a0a379aaebbfaf955a475",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ScraperStaleJobSweepRulestaging0FDDEBD4": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "ScheduleExpression": "rate(1 hour)",
+    "State": "ENABLED",
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "ScraperLambdastaging3B8405F2",
+        "Arn"
+       ]
+      },
+      "Id": "Target0",
+      "Input": "{\"jobType\":\"stale-job-sweep\"}"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ScraperStaleJobSweepRule-staging/Resource"
+   }
+  },
+  "ScraperStaleJobSweepRulestagingAllowEventRuleFestgridBackendStackstagingScraperLambdastaging9ADD5F211CE599BA": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ScraperLambdastaging3B8405F2",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "ScraperStaleJobSweepRulestaging0FDDEBD4",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ScraperStaleJobSweepRule-staging/AllowEventRuleFestgridBackendStackstagingScraperLambdastaging9ADD5F21"
    }
   },
   "CDKMetadata": {
