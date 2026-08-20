@@ -199,12 +199,13 @@ No changes required. This story consumes Story 3-4j's GraphQL contracts as-is (`
 
 ### Review Findings
 
-- [ ] [Review][Patch] Use a data-backed account/profile selector for the profile filter instead of accepting arbitrary profile ID text [apps/web/src/app/[locale]/moderator/actor-runs/actor-runs-content.tsx:202]
-- [ ] [Review][Patch] Render the account/profile identifier in each actor-run list row as required by AC3 [apps/web/src/app/[locale]/moderator/actor-runs/actor-runs-content.tsx:285]
-- [ ] [Review][Patch] Route all new visible copy, including vendor/status options, `Run ID`, and fallback errors, through the ActorRunsPage i18n namespace [apps/web/src/app/[locale]/moderator/actor-runs/actor-runs-content.tsx:181]
-- [ ] [Review][Patch] Remove stale-variable `refetchRuns()` calls from filter and pagination state transitions [apps/web/src/app/[locale]/moderator/actor-runs/actor-runs-content.tsx:72]
-- [ ] [Review][Patch] Add RawJsonViewer tests for the custom and default accessible labels required by patch 7 [packages/ui/src/core/RawJsonViewer.test.tsx:6]
-- [ ] [Review][Patch] Assert that replay `success: false` and rejection paths call `toast.error`, not only that success text is absent [apps/web/src/app/[locale]/moderator/actor-runs/actor-runs-content.test.tsx:333]
+- [x] [Review][Patch] Use a data-backed account/profile selector for the profile filter instead of accepting arbitrary profile ID text [apps/web/src/app/[locale]/moderator/actor-runs/actor-runs-content.tsx:202]
+- [x] [Review][Patch] Render the account/profile identifier in each actor-run list row as required by AC3 [apps/web/src/app/[locale]/moderator/actor-runs/actor-runs-content.tsx:285]
+- [x] [Review][Patch] Route all new visible copy, including vendor/status options, `Run ID`, and fallback errors, through the ActorRunsPage i18n namespace [apps/web/src/app/[locale]/moderator/actor-runs/actor-runs-content.tsx:181]
+- [x] [Review][Patch] Remove stale-variable `refetchRuns()` calls from filter and pagination state transitions [apps/web/src/app/[locale]/moderator/actor-runs/actor-runs-content.tsx:72]
+- [x] [Review][Patch] Add RawJsonViewer tests for the custom and default accessible labels required by patch 7 [packages/ui/src/core/RawJsonViewer.test.tsx:6]
+- [x] [Review][Patch] Assert that replay `success: false` and rejection paths call `toast.error`, not only that success text is absent [apps/web/src/app/[locale]/moderator/actor-runs/actor-runs-content.test.tsx:333]
+- [ ] [Review][Patch] Refetch actor-run data after a successful replay so newly fetched `rawOutput` and changed run metadata are reflected without leaving the page [apps/web/src/app/[locale]/moderator/actor-runs/actor-runs-content.tsx:80]
 - [x] [Review][Defer] Harden actor-run cursor decoding — deferred, pre-existing in Story 3-4j [apps/backend/src/schema/resolvers.ts:2839]
 - [x] [Review][Defer] Define inclusive local-day semantics for actor-run date filters — deferred, pre-existing in Story 3-4j [apps/backend/src/schema/resolvers.ts:2853]
 - [x] [Review][Defer] Revoke and rotate credentials exposed in the tracked root `.env`, then remove the file from repository history — deferred, outside Story 3-4k scope [.env:1]

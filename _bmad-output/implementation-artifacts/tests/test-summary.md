@@ -10,8 +10,7 @@
 
 ## Validation
 - [x] Editor diagnostics report no errors in the E2E spec or seed change.
-- [ ] Playwright execution requires `E2E_AUTH_STORAGE_STATE` containing an authenticated moderator session. The spec deliberately skips when it is absent, matching the existing privileged E2E test convention.
+- [x] Playwright actor-runs happy path passed with `E2E_AUTH_STORAGE_STATE` for `shulha.y@gmail.com` as a moderator: menu route, Apify filter, stored-run detail expansion, and replay completion.
 
 ## Next Steps
-- Provide `E2E_AUTH_STORAGE_STATE` for a moderator account and run `pnpm --filter web test:e2e -- e2e/actor-runs.spec.ts`.
 - Run code review after the privileged E2E flow is proven green.
