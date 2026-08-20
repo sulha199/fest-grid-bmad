@@ -30,6 +30,7 @@ test-results/
 out/
 build
 dist
+cdk.out
 
 
 # Debug
