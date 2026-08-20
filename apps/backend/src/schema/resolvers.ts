@@ -2842,7 +2842,7 @@ export const resolvers: Resolvers = {
       const conditions = [];
 
       if (filters?.vendor) {
-        conditions.push(eq(scraperActorRuns.vendor, filters.vendor.toLowerCase() as any));
+        conditions.push(eq(scraperActorRuns.vendor, filters.vendor as any));
       }
       if (filters?.status) {
         conditions.push(eq(scraperActorRuns.status, filters.status as any));
