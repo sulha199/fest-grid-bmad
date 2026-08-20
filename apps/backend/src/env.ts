@@ -19,7 +19,9 @@ export interface BackendEnv {
   scrapingQueueUrl?: string;
   scrapeInlineFallbackEnabled: boolean;
   aiProcessingQueueUrl?: string;
+  aiProcessingInlineFallbackEnabled: boolean;
   dataIngestionQueueUrl?: string;
+  dataIngestionInlineFallbackEnabled: boolean;
   apifyApiToken?: string;
   scrapeResultsLimit: number;
   scrapeInitialLookbackDays: number;
@@ -120,7 +122,11 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     aiProcessingQueueUrl: process.env.AI_PROCESSING_QUEUE_URL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
+    aiProcessingInlineFallbackEnabled: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED === 'true',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
     dataIngestionQueueUrl: process.env.DATA_INGESTION_QUEUE_URL,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    dataIngestionInlineFallbackEnabled: process.env.DATA_INGESTION_INLINE_FALLBACK_ENABLED === 'true',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     apifyApiToken: process.env.APIFY_API_TOKEN,
     // eslint-disable-next-line turbo/no-undeclared-env-vars

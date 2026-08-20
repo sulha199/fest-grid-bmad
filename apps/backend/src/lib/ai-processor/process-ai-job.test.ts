@@ -9,6 +9,11 @@ import { setSendSqsMessage } from '../aws/send-sqs-message.js';
 import { type ProcessingJobMessage } from '@festgrid/domain/posts';
 import { AiGatewayExhaustedError } from '../ai-gateway/adapter.js';
 
+// Force off regardless of the developer's local .env: Case F below relies on
+// processAiJob throwing when DATA_INGESTION_QUEUE_URL is unset, which the
+// local-dev inline-fallback path would otherwise swallow.
+process.env.DATA_INGESTION_INLINE_FALLBACK_ENABLED = 'false';
+
 test('processAiJob orchestrator tests', async (t) => {
   const originalEnvQueueUrl = process.env.DATA_INGESTION_QUEUE_URL;
 

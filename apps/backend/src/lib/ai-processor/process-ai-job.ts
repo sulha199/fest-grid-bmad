@@ -9,6 +9,7 @@ import { resolveAccountAndLocations } from './resolve-account-and-locations.js';
 import { resolveScheduleTimezones } from './resolve-schedule-timezones.js';
 import { markPostExtracted as defaultMarkPostExtracted } from '../posts/mark-post-extracted.js';
 import { sendSqsMessage } from '../aws/send-sqs-message.js';
+import { processIngestionJob } from '../ingestor/process-ingestion-job.js';
 import { loadBackendEnv } from '../../env.js';
 
 export let callGeminiSeam = defaultCallGemini;
@@ -83,13 +84,21 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     scheduleTimezoneResolutions
   });
 
-  // 8. Enqueue to DataIngestionQueue
-  const dataIngestionQueueUrl = (env as any).dataIngestionQueueUrl;
-  if (!dataIngestionQueueUrl) {
+  // 8. Enqueue to DataIngestionQueue (or process inline in local dev)
+  if (env.dataIngestionQueueUrl) {
+    await sendSqsMessage(env.dataIngestionQueueUrl, JSON.stringify(eventMessage));
+  } else if (env.dataIngestionInlineFallbackEnabled) {
+    // No queue configured and inline fallback explicitly opted into (local dev only,
+    // via DATA_INGESTION_INLINE_FALLBACK_ENABLED in a personal .env): process ingestion
+    // inline instead of enqueuing, since there's no Lambda locally to drain the queue.
+    // Fire-and-forget, mirroring the async decoupling of the real queue path below —
+    // the post is marked extracted on successful hand-off, not on ingestion outcome.
+    processIngestionJob(eventMessage).catch((err) => {
+      console.error(`Failed to process ingestion job inline for post ${message.postId}:`, err);
+    });
+  } else {
     throw new Error('DATA_INGESTION_QUEUE_URL is not configured');
   }
-
-  await sendSqsMessage(dataIngestionQueueUrl, JSON.stringify(eventMessage));
 
   // 9. Mark post extracted on successful enqueue
   await markPostExtractedSeam(message.postId);
