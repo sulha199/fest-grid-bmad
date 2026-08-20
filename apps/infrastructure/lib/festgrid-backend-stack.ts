@@ -210,7 +210,7 @@ export class FestgridBackendStack extends cdk.Stack {
       stage: api.deploymentStage,
     });
 
-    // Webhook Lambda (handles Bright Data and Apify webhook callbacks)
+    // Webhook Lambdas
     const webhookLambda = new nodejs.NodejsFunction(this, `Webhook-${stageName}`, {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/webhook.ts'),
       handler: 'handler',
@@ -218,6 +218,17 @@ export class FestgridBackendStack extends cdk.Stack {
       environment: {
         STAGE: stageName,
         DATABASE_URL: process.env.DATABASE_URL || '',
+      },
+    });
+
+    const apifyWebhookLambda = new nodejs.NodejsFunction(this, `ApifyWebhook-${stageName}`, {
+      entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/apify-webhook.ts'),
+      handler: 'handler',
+      ...sharedLambdaProps,
+      environment: {
+        STAGE: stageName,
+        DATABASE_URL: process.env.DATABASE_URL || '',
+        APIFY_API_TOKEN: process.env.APIFY_API_TOKEN || '',
       },
     });
 
@@ -246,18 +257,6 @@ export class FestgridBackendStack extends cdk.Stack {
     staleJobSweepRule.addTarget(new targets.LambdaFunction(scraperLambda, {
       event: events.RuleTargetInput.fromObject({ jobType: 'stale-job-sweep' }),
     }));
-
-    // Apify Webhook Lambda (invoked by Apify)
-    const apifyWebhookLambda = new nodejs.NodejsFunction(this, `ApifyWebhook-${stageName}`, {
-      entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/apify-webhook.ts'),
-      handler: 'handler',
-      ...sharedLambdaProps,
-      environment: {
-        STAGE: stageName,
-        DATABASE_URL: process.env.DATABASE_URL || '',
-        APIFY_API_TOKEN: process.env.APIFY_API_TOKEN || '',
-      },
-    });
 
   }
 }
