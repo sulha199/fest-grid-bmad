@@ -61,7 +61,7 @@ development_status:
   0-8-build-fake-llmport-and-execport-adapters-for-testing: ready-for-dev
   0-9-resolve-and-validate-the-target-bmad-project: ready-for-dev
   0-10-wire-the-composition-root-and-cli-entrypoint-stub: ready-for-dev
-  0-11-define-the-nodecontext-dependency-pattern: backlog
+  0-11-define-the-nodecontext-dependency-pattern: ready-for-dev
   epic-0-retrospective: optional
 
   epic-1: backlog
