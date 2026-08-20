@@ -409,6 +409,8 @@
     "reports": "Reports",
     "archive": "Archive",
     "moderatorItems": "Moderator Items",
+    "unprocessedPayloads": "Unprocessed Payloads",
+    "actorRuns": "Scraper Runs",
     "logout": "Log Out",
     "close": "Close"
   },
@@ -603,6 +605,8 @@
     "pageDescription": "Browse and replay actor runs from Apify and Bright Data",
     "vendorFilterLabel": "Vendor",
     "statusFilterLabel": "Status",
+    "profileFilterLabel": "Account / Profile",
+    "profileFilterPlaceholder": "Filter by profile ID...",
     "dateFromLabel": "From (Date)",
     "dateToLabel": "To (Date)",
     "accountFilterLabel": "Account",

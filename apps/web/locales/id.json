@@ -408,6 +408,8 @@
     "reports": "Laporan",
     "archive": "Arsip",
     "moderatorItems": "Item Moderator",
+    "unprocessedPayloads": "Muatan Belum Diproses",
+    "actorRuns": "Jalankan Scraper",
     "logout": "Keluar",
     "close": "Tutup"
   },
@@ -602,6 +604,8 @@
     "pageDescription": "Jelajahi dan putar ulang jalankan aktor dari Apify dan Bright Data",
     "vendorFilterLabel": "Vendor",
     "statusFilterLabel": "Status",
+    "profileFilterLabel": "Akun / Profil",
+    "profileFilterPlaceholder": "Saring berdasarkan ID profil...",
     "dateFromLabel": "Dari (Tanggal)",
     "dateToLabel": "Hingga (Tanggal)",
     "accountFilterLabel": "Akun",

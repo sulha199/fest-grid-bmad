@@ -2,6 +2,7 @@
 
 interface RawJsonViewerProps {
   value: unknown;
+  label?: string;
 }
 
 function tryParseJson(value: unknown): string {
@@ -24,14 +25,14 @@ function tryParseJson(value: unknown): string {
   }
 }
 
-export function RawJsonViewer({ value }: RawJsonViewerProps) {
+export function RawJsonViewer({ value, label = 'JSON content' }: RawJsonViewerProps) {
   const displayText = tryParseJson(value);
 
   return (
     <div className="overflow-auto rounded border border-border bg-muted p-3 max-h-96">
       <pre
         role="region"
-        aria-label="JSON content"
+        aria-label={label}
         className="font-mono text-xs leading-relaxed text-foreground whitespace-pre-wrap"
       >
         {displayText}

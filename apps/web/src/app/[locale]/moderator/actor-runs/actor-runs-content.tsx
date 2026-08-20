@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useLocale } from 'next-intl';
 import { RouteLoader, BlockingLoader, RawJsonViewer } from '@festgrid/ui';
 import { useRequireModerator } from '@/features/auth/use-require-moderator';
 import { toast } from 'sonner';
@@ -22,8 +23,13 @@ interface ExpandedRunId {
   [key: string]: boolean;
 }
 
+interface ReplayingState {
+  [key: string]: boolean;
+}
+
 export function ActorRunsContent() {
   const t = useTranslations('ActorRunsPage');
+  const locale = useLocale();
   const { status: authStatus } = useRequireModerator();
 
   const [filters, setFilters] = useState<FilterState>({
@@ -36,6 +42,7 @@ export function ActorRunsContent() {
 
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [expandedRuns, setExpandedRuns] = useState<ExpandedRunId>({});
+  const [replayingRuns, setReplayingRuns] = useState<ReplayingState>({});
 
   const graphqlFilters: ActorRunFilters = {
     vendor: (filters.vendor as any) || undefined,
@@ -52,7 +59,7 @@ export function ActorRunsContent() {
     authStatus === 'authorized'
   );
 
-  const { mutateAsync: replayRun, isPending: isReplaying } = useReplayActorRunMutation();
+  const { mutateAsync: replayRun } = useReplayActorRunMutation();
 
   if (authStatus === 'loading' || authStatus === 'unauthenticated' || authStatus === 'unauthorized') {
     return <RouteLoader />;
@@ -69,6 +76,7 @@ export function ActorRunsContent() {
   };
 
   const handleReplay = async (runId: string) => {
+    setReplayingRuns((prev) => ({ ...prev, [runId]: true }));
     try {
       const result = await replayRun({ actorRunId: runId });
       if (result.success) {
@@ -80,6 +88,8 @@ export function ActorRunsContent() {
       }
     } catch (error) {
       toast.error(t('replayErrorToast', { message: error instanceof Error ? error.message : 'Unknown error' }));
+    } finally {
+      setReplayingRuns((prev) => ({ ...prev, [runId]: false }));
     }
   };
 
@@ -113,6 +123,42 @@ export function ActorRunsContent() {
     };
     return statusMap[status] || status;
   };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'SUCCEEDED':
+        return 'bg-green-100 text-green-900';
+      case 'PENDING':
+        return 'bg-yellow-100 text-yellow-900';
+      case 'FAILED':
+      case 'TIMED_OUT':
+      case 'ABORTED':
+        return 'bg-red-100 text-red-900';
+      default:
+        return 'bg-gray-100 text-gray-900';
+    }
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return timestamp;
+
+      const localeTag = locale === 'id' ? 'id-ID' : 'en-US';
+      return new Intl.DateTimeFormat(localeTag, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }).format(date);
+    } catch {
+      return timestamp;
+    }
+  };
+
+  const isAnyReplayInProgress = Object.values(replayingRuns).some((v) => v);
 
   return (
     <div className="min-h-screen bg-background">
@@ -152,6 +198,17 @@ export function ActorRunsContent() {
                 <option value="TIMED_OUT">{t('timedOutStatus')}</option>
                 <option value="ABORTED">{t('abortedStatus')}</option>
               </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">{t('profileFilterLabel')}</label>
+              <input
+                type="text"
+                placeholder={t('profileFilterPlaceholder')}
+                value={filters.profileId || ''}
+                onChange={(e) => handleFilterChange({ profileId: e.target.value || null })}
+                className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"
+              />
             </div>
 
             <div>
@@ -237,7 +294,7 @@ export function ActorRunsContent() {
                       <div className="mb-2 flex flex-wrap gap-2">
                         <span className="rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-900">{getVendorLabel(isRun.vendor)}</span>
                         <span className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-900">{getTriggerModeLabel(isRun.triggerMode)}</span>
-                        <span className={`rounded px-2 py-1 text-xs font-medium ${isRun.status === 'SUCCEEDED' ? 'bg-green-100 text-green-900' : 'bg-yellow-100 text-yellow-900'}`}>
+                        <span className={`rounded px-2 py-1 text-xs font-medium ${getStatusBadgeColor(isRun.status)}`}>
                           {getStatusLabel(isRun.status)}
                         </span>
                       </div>
@@ -246,7 +303,7 @@ export function ActorRunsContent() {
                       </p>
                       {isRun.startedAt && (
                         <p className="text-xs text-muted-foreground">
-                          {new Date(isRun.startedAt).toLocaleString()}
+                          {formatTimestamp(isRun.startedAt)}
                         </p>
                       )}
                     </div>
@@ -263,13 +320,13 @@ export function ActorRunsContent() {
                     <div className="mt-4 space-y-4 border-t border-border pt-4">
                       <div>
                         <h4 className="mb-2 text-sm font-medium">{t('rawInputLabel')}</h4>
-                        <RawJsonViewer value={isRun.rawInput} />
+                        <RawJsonViewer value={isRun.rawInput} label={t('rawInputLabel')} />
                       </div>
 
                       {isRun.rawOutput && (
                         <div>
                           <h4 className="mb-2 text-sm font-medium">{t('rawOutputLabel')}</h4>
-                          <RawJsonViewer value={isRun.rawOutput} />
+                          <RawJsonViewer value={isRun.rawOutput} label={t('rawOutputLabel')} />
                         </div>
                       )}
 
@@ -282,10 +339,10 @@ export function ActorRunsContent() {
 
                       <Button
                         onClick={() => handleReplay(run.id)}
-                        disabled={isReplaying}
+                        disabled={replayingRuns[run.id] || false}
                         className="w-full"
                       >
-                        {isReplaying ? t('replayingLabel') : t('replayButtonLabel')}
+                        {replayingRuns[run.id] ? t('replayingLabel') : t('replayButtonLabel')}
                       </Button>
                     </div>
                   )}
@@ -308,7 +365,7 @@ export function ActorRunsContent() {
         )}
       </div>
 
-      <BlockingLoader active={isReplaying} />
+      <BlockingLoader active={isAnyReplayInProgress} />
     </div>
   );
 }

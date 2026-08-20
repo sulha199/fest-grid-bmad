@@ -292,4 +292,124 @@ describe('ActorRunsContent', () => {
       expect(refetchMock).toHaveBeenCalled();
     });
   });
+
+  it('handles replay mutation returning success: false', async () => {
+    const refetchMock = vi.fn();
+    const replayMock = vi.fn().mockResolvedValue({
+      success: false,
+      postsPersisted: 0,
+      message: 'Replay failed due to invalid data',
+    });
+
+    (useRequireModerator as any).mockReturnValue({ status: 'authorized' });
+    (useQueryActorRuns as any).mockReturnValue({
+      data: {
+        queryActorRuns: {
+          edges: [
+            {
+              node: {
+                id: '1',
+                vendor: 'APIFY',
+                triggerMode: 'SYNC',
+                status: 'SUCCEEDED',
+                runId: 'run-123',
+                itemCount: 5,
+                rawInput: { test: 'input' },
+                rawOutput: { test: 'output' },
+                errorMessage: null,
+                startedAt: new Date().toISOString(),
+              },
+              cursor: 'cursor-1',
+            },
+          ],
+          pageInfo: { hasNextPage: false, endCursor: null },
+          totalCount: 1,
+        },
+      },
+      isLoading: false,
+      error: null,
+      refetch: refetchMock,
+    });
+    (useReplayActorRunMutation as any).mockReturnValue({
+      mutateAsync: replayMock,
+      isPending: false,
+    });
+
+    const { container } = render(<ActorRunsContent />);
+
+    // Expand run details
+    const expandButton = container.querySelector('button[aria-label*="View details"]');
+    fireEvent.click(expandButton!);
+
+    // Click replay button
+    await waitFor(() => {
+      const replayButton = screen.getByText('Replay');
+      fireEvent.click(replayButton);
+    });
+
+    await waitFor(() => {
+      expect(replayMock).toHaveBeenCalledWith({ actorRunId: '1' });
+    });
+
+    // No success toast should be shown; error toast expected
+    expect(screen.queryByText(/Replay complete/)).not.toBeInTheDocument();
+  });
+
+  it('handles replay mutation throwing an exception', async () => {
+    const refetchMock = vi.fn();
+    const replayMock = vi.fn().mockRejectedValue(new Error('Network error'));
+
+    (useRequireModerator as any).mockReturnValue({ status: 'authorized' });
+    (useQueryActorRuns as any).mockReturnValue({
+      data: {
+        queryActorRuns: {
+          edges: [
+            {
+              node: {
+                id: '1',
+                vendor: 'APIFY',
+                triggerMode: 'SYNC',
+                status: 'SUCCEEDED',
+                runId: 'run-123',
+                itemCount: 5,
+                rawInput: { test: 'input' },
+                rawOutput: { test: 'output' },
+                errorMessage: null,
+                startedAt: new Date().toISOString(),
+              },
+              cursor: 'cursor-1',
+            },
+          ],
+          pageInfo: { hasNextPage: false, endCursor: null },
+          totalCount: 1,
+        },
+      },
+      isLoading: false,
+      error: null,
+      refetch: refetchMock,
+    });
+    (useReplayActorRunMutation as any).mockReturnValue({
+      mutateAsync: replayMock,
+      isPending: false,
+    });
+
+    const { container } = render(<ActorRunsContent />);
+
+    // Expand run details
+    const expandButton = container.querySelector('button[aria-label*="View details"]');
+    fireEvent.click(expandButton!);
+
+    // Click replay button
+    await waitFor(() => {
+      const replayButton = screen.getByText('Replay');
+      fireEvent.click(replayButton);
+    });
+
+    await waitFor(() => {
+      expect(replayMock).toHaveBeenCalledWith({ actorRunId: '1' });
+    });
+
+    // No success toast should be shown; error toast expected
+    expect(screen.queryByText(/Replay complete/)).not.toBeInTheDocument();
+  });
 });
