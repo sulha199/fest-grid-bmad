@@ -237,11 +237,12 @@ export class FestgridBackendStack extends cdk.Stack {
     webhooksResource.addResource('apify').addMethod('POST', new apigateway.LambdaIntegration(apifyWebhookLambda));
     webhooksResource.addResource('brightdata').addMethod('POST', new apigateway.LambdaIntegration(webhookLambda));
 
-    // Wire webhook URLs to apiLambda and scraperLambda (post-construction to avoid circular refs)
-    apiLambda.addEnvironment('APIFY_WEBHOOK_BASE_URL', `${api.url}webhooks/apify`);
-    scraperLambda.addEnvironment('APIFY_WEBHOOK_BASE_URL', `${api.url}webhooks/apify`);
-    apiLambda.addEnvironment('BRIGHTDATA_WEBHOOK_BASE_URL', `${api.url}webhooks/brightdata`);
-    scraperLambda.addEnvironment('BRIGHTDATA_WEBHOOK_BASE_URL', `${api.url}webhooks/brightdata`);
+    // Wire webhook URLs to apiLambda and scraperLambda (construct URL to avoid circular deps)
+    const webhookBaseUrl = `https://${api.restApiId}.execute-api.${this.region}.amazonaws.com/${api.deploymentStage.stageName}`;
+    apiLambda.addEnvironment('APIFY_WEBHOOK_BASE_URL', `${webhookBaseUrl}/webhooks/apify`);
+    scraperLambda.addEnvironment('APIFY_WEBHOOK_BASE_URL', `${webhookBaseUrl}/webhooks/apify`);
+    apiLambda.addEnvironment('BRIGHTDATA_WEBHOOK_BASE_URL', `${webhookBaseUrl}/webhooks/brightdata`);
+    scraperLambda.addEnvironment('BRIGHTDATA_WEBHOOK_BASE_URL', `${webhookBaseUrl}/webhooks/brightdata`);
 
     // Output API Gateway URL
     new cdk.CfnOutput(this, `apiGatewayUrl`, {
