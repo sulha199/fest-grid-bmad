@@ -30,7 +30,7 @@ test-results/
 out/
 build
 dist
-cdk.out
+cdk.out/
 
 
 # Debug
@@ -48,3 +48,4 @@ yarn-error.log*
 
 # Claude Code local settings (personal/machine-specific, not shared)
 .claude/settings.local.json
+apps/infrastructure/cdk.out/
