@@ -39,7 +39,7 @@ async function processSingleExpiredBrightDataJob(job: any): Promise<void> {
     if (output.status === 'SUCCEEDED') {
       // Job succeeded, process results
       await recordActorRunResult({
-        vendor: 'brightdata',
+        vendor: 'BRIGHTDATA',
         runId: job.snapshotId,
         status: 'SUCCEEDED',
         rawOutput: output.items,
@@ -49,7 +49,7 @@ async function processSingleExpiredBrightDataJob(job: any): Promise<void> {
     } else {
       // Job failed or still not ready - record and mark as expired
       await recordActorRunResult({
-        vendor: 'brightdata',
+        vendor: 'BRIGHTDATA',
         runId: job.snapshotId,
         status: output.status as any,
         errorMessage: `Run status from stale-job-sweep: ${output.status}`,
@@ -88,7 +88,7 @@ async function processSingleExpiredApifyJob(job: any): Promise<void> {
     if (output.status === 'SUCCEEDED') {
       // Job succeeded, process results
       await recordActorRunResult({
-        vendor: 'apify',
+        vendor: 'APIFY',
         runId: job.runId,
         status: 'SUCCEEDED',
         rawOutput: output.items,
@@ -98,7 +98,7 @@ async function processSingleExpiredApifyJob(job: any): Promise<void> {
     } else {
       // Job failed/timed out/aborted - record and mark as expired
       await recordActorRunResult({
-        vendor: 'apify',
+        vendor: 'APIFY',
         runId: job.runId,
         status: output.status as any,
         errorMessage: `Run status from stale-job-sweep: ${output.status}`,

@@ -9,7 +9,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'html',
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
   },
   projects: [
@@ -18,9 +18,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
-    url: 'http://127.0.0.1:3000',
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: 'pnpm --filter backend dev',
+      url: 'http://localhost:4001/graphql',
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
 });

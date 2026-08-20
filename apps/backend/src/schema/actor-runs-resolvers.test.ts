@@ -16,8 +16,8 @@ describe('Actor Runs GraphQL Resolvers', () => {
       const mockRuns = [
         {
           id: 'audit-1',
-          vendor: 'apify',
-          triggerMode: 'sync',
+          vendor: 'APIFY',
+          triggerMode: 'SYNC',
           profileId: 'profile-1',
           runId: 'run-1',
           status: 'SUCCEEDED',

@@ -31,8 +31,8 @@ test('scraper actor run linking (Story 3-4l)', async (t) => {
   await t.test('persistScrapedPost accepts and writes scraperActorRunId', async () => {
     // Create an audit run
     const auditRunId = await recordActorRunStart({
-      vendor: 'apify',
-      triggerMode: 'sync',
+      vendor: 'APIFY',
+      triggerMode: 'SYNC',
       profileId: testProfileId,
       runId: testRunId,
       rawInput: { test: true },
@@ -87,8 +87,8 @@ test('scraper actor run linking (Story 3-4l)', async (t) => {
   await t.test('persistUnprocessedPayload accepts and writes scraperActorRunId', async () => {
     // Create an audit run
     const auditRunId = await recordActorRunStart({
-      vendor: 'apify',
-      triggerMode: 'sync',
+      vendor: 'APIFY',
+      triggerMode: 'SYNC',
       profileId: testProfileId,
       runId: testRunId,
       rawInput: { test: true },
@@ -158,8 +158,8 @@ test('scraper actor run linking (Story 3-4l)', async (t) => {
 
     // Record async run start
     const recordedId = await recordActorRunStart({
-      vendor: 'apify',
-      triggerMode: 'async',
+      vendor: 'APIFY',
+      triggerMode: 'ASYNC',
       profileId: testProfileId,
       runId: asyncRunId,
       rawInput: { test: true },
@@ -176,15 +176,15 @@ test('scraper actor run linking (Story 3-4l)', async (t) => {
       .limit(1);
 
     assert.ok(recorded, 'Run should exist in database');
-    assert.strictEqual(recorded.vendor, 'apify');
-    assert.strictEqual(recorded.triggerMode, 'async');
+    assert.strictEqual(recorded.vendor, 'APIFY');
+    assert.strictEqual(recorded.triggerMode, 'SYNC');
   });
 
   await t.test('Multiple posts from same run are linked correctly', async () => {
     // Create an audit run
     const auditRunId = await recordActorRunStart({
-      vendor: 'apify',
-      triggerMode: 'sync',
+      vendor: 'APIFY',
+      triggerMode: 'SYNC',
       profileId: testProfileId,
       runId: testRunId,
       rawInput: { test: true },

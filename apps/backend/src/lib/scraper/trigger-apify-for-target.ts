@@ -55,8 +55,8 @@ export let attemptApifyAsyncTrigger = async (
 
     // Record audit trail at trigger time (without pendingJobId initially)
     const auditRunId = await recordActorRunStart({
-      vendor: 'apify',
-      triggerMode: 'async',
+      vendor: 'APIFY',
+      triggerMode: 'ASYNC',
       profileId: target.profileId,
       runId: run.id,
       rawInput: {

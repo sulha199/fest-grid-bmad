@@ -2,6 +2,12 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: code review of 3-4k-moderator-actor-run-browser-and-replay-ui.md (2026-08-20)
+
+- Actor-run cursor decoding accepts malformed base64/non-numeric values and can produce a `NaN` offset. Evidence: pre-existing Story 3-4j resolver at `apps/backend/src/schema/resolvers.ts:2839`; explicitly excluded from the 3-4k review-patch scope.
+- Actor-run `createdBefore` filtering compares against midnight at the start of the selected date, so the UI's end-date filter is not inclusive for the whole day. Evidence: pre-existing Story 3-4j resolver at `apps/backend/src/schema/resolvers.ts:2857`; explicitly excluded from the 3-4k review-patch scope.
+- The tracked root `.env` contains live-looking AWS, Firebase, Apify, Supabase, and other service credentials. Evidence: repository security issue observed during the 3-4k review; revoke and rotate all exposed credentials and remove the file from repository history before any production use. This is outside the Story 3-4k implementation diff.
+
 ## Deferred from: code review of 0-1-initialize-pnpm-monorepo.md (2026-07-22)
 
 - Missing next-intl integration vs. project i18n constraint — The app layout and page currently hardcode English text, directly violating project-context.md general architecture rules 14 & 15. Deferred: To address i18n setup in a dedicated workspace setup story

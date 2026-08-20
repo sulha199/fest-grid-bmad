@@ -24,7 +24,7 @@ describe('Scraper Audit Integration', () => {
       (db.insert as any).mockReturnValue(mockInsert());
 
       await recordSyncActorRun({
-        vendor: 'apify',
+        vendor: 'APIFY',
         profileId: 'profile-123',
         runId: 'run-456',
         rawInput: { username: 'testuser' },
@@ -46,8 +46,8 @@ describe('Scraper Audit Integration', () => {
       (db.insert as any).mockReturnValue(mockInsert());
 
       const result = await recordActorRunStart({
-        vendor: 'brightdata',
-        triggerMode: 'async',
+        vendor: 'BRIGHTDATA',
+        triggerMode: 'ASYNC',
         profileId: 'profile-789',
         runId: 'snapshot-abc',
         rawInput: { url: 'https://instagram.com/user/' },
@@ -68,7 +68,7 @@ describe('Scraper Audit Integration', () => {
       (db.update as any).mockReturnValue(mockUpdate());
 
       await recordActorRunResult({
-        vendor: 'apify',
+        vendor: 'APIFY',
         runId: 'run-999',
         status: 'SUCCEEDED',
         rawOutput: [{ url: 'https://instagram.com/p/2' }],
@@ -86,7 +86,7 @@ describe('Scraper Audit Integration', () => {
           where: vi.fn().mockResolvedValue([
             {
               id: 'audit-123',
-              vendor: 'apify',
+              vendor: 'APIFY',
               profileId: 'profile-123',
               runId: 'run-456',
               rawOutput: [{ url: 'https://instagram.com/p/1', caption: 'Test' }],
@@ -131,7 +131,7 @@ describe('Scraper Audit Integration', () => {
 
       // Should not throw
       await recordSyncActorRun({
-        vendor: 'apify',
+        vendor: 'APIFY',
         profileId: 'profile-123',
         runId: 'run-456',
         rawInput: {},
@@ -152,7 +152,7 @@ describe('Scraper Audit Integration', () => {
       (db.update as any).mockReturnValue(mockUpdate());
 
       await recordActorRunResult({
-        vendor: 'apify',
+        vendor: 'APIFY',
         runId: 'run-failed',
         status: 'FAILED',
         errorMessage: 'Run timed out after 30 seconds',
@@ -174,7 +174,7 @@ describe('Scraper Audit Integration', () => {
 
       // First insert
       await recordSyncActorRun({
-        vendor: 'apify',
+        vendor: 'APIFY',
         profileId: 'profile-123',
         runId: 'run-dup',
         rawInput: {},
@@ -183,7 +183,7 @@ describe('Scraper Audit Integration', () => {
 
       // Second insert with same runId should not error
       await recordSyncActorRun({
-        vendor: 'apify',
+        vendor: 'APIFY',
         profileId: 'profile-123',
         runId: 'run-dup',
         rawInput: {},

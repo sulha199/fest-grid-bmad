@@ -20,8 +20,8 @@ describe('record-actor-run', () => {
       (db.insert as any).mockReturnValue(mockInsert());
 
       const result = await recordActorRunStart({
-        vendor: 'apify',
-        triggerMode: 'async',
+        vendor: 'APIFY',
+        triggerMode: 'ASYNC',
         profileId: 'profile-123',
         runId: 'apify-run-123',
         rawInput: { username: 'testuser' },
@@ -38,8 +38,8 @@ describe('record-actor-run', () => {
       });
 
       const result = await recordActorRunStart({
-        vendor: 'apify',
-        triggerMode: 'async',
+        vendor: 'APIFY',
+        triggerMode: 'ASYNC',
         profileId: 'profile-123',
         runId: 'apify-run-123',
         rawInput: { username: 'testuser' },
@@ -63,7 +63,7 @@ describe('record-actor-run', () => {
 
       await recordActorRunResult({
         id: 'run-123',
-        vendor: 'apify',
+        vendor: 'APIFY',
         runId: 'apify-run-123',
         status: 'SUCCEEDED',
         rawOutput: [{ url: 'https://instagram.com/p/123' }],
@@ -82,7 +82,7 @@ describe('record-actor-run', () => {
 
       await recordActorRunResult({
         id: 'run-123',
-        vendor: 'apify',
+        vendor: 'APIFY',
         runId: 'apify-run-123',
         status: 'SUCCEEDED',
       });
@@ -103,7 +103,7 @@ describe('record-actor-run', () => {
       (db.insert as any).mockReturnValue(mockInsert());
 
       await recordSyncActorRun({
-        vendor: 'apify',
+        vendor: 'APIFY',
         profileId: 'profile-123',
         runId: 'apify-run-123',
         rawInput: { username: 'testuser' },
@@ -125,7 +125,7 @@ describe('record-actor-run', () => {
       (db.insert as any).mockReturnValue(mockInsert());
 
       await recordSyncActorRun({
-        vendor: 'apify',
+        vendor: 'APIFY',
         profileId: 'profile-123',
         runId: 'apify-run-123',
         rawInput: { username: 'testuser' },
@@ -144,7 +144,7 @@ describe('record-actor-run', () => {
       });
 
       await recordSyncActorRun({
-        vendor: 'apify',
+        vendor: 'APIFY',
         profileId: 'profile-123',
         runId: 'apify-run-123',
         rawInput: { username: 'testuser' },

@@ -15,21 +15,24 @@ import {
   embedDomains,
   defaultLocationChangeRequests,
   corrections,
+  scraperActorRuns,
 } from './schema';
 import { loadDatabaseEnv } from './env';
 
 const FIXTURE_USERS = [
   {
-    id: '00000000-0000-0000-0000-000000000001',
-    email: 'alice.dev@festgrid.local',
-    name: 'Alice Dev',
-    avatarUrl: 'https://images.example.com/users/alice.jpg',
+    id: '8d01845c-dc75-4e71-890d-49893bfa366e',
+    email: 'shulha.y@gmail.com',
+    name: 'Shulha Yahya',
+    avatarUrl: 'https://lh3.googleusercontent.com/a/ACg8ocKEXBNmDikdKpUoR0tEbZiT7EcBsFOSZ7j6PeyFLxxvhmo=s96-c',
+    role: 'moderator' as const,
   },
   {
-    id: '00000000-0000-0000-0000-000000000002',
-    email: 'bob.dev@festgrid.local',
-    name: 'Bob Dev',
-    avatarUrl: 'https://images.example.com/users/bob.jpg',
+    id: 'b340aae2-ea44-43e7-9745-2b9c38f8f892',
+    email: 'festdailyapps@gmail.com',
+    name: 'FestDaily Apps',
+    avatarUrl: 'https://lh3.googleusercontent.com/a/ACg8ocKTsMqAPgUw06qKWJ2RRoD3FMEJBaXXQkXyR_RCCz05xSAm=s96-c',
+    role: 'user' as const,
   },
 ];
 
@@ -161,6 +164,33 @@ export const FIXTURE_POSTS = [
     isExtracted: true,
     publishedAt: new Date('2027-11-01T10:00:00Z'),
     content: 'Cancellation test post content. #cancellation',
+  },
+];
+
+const FIXTURE_SCRAPER_ACTOR_RUNS = [
+  {
+    id: '90000000-0000-0000-0000-000000000001',
+    vendor: 'APIFY' as const,
+    triggerMode: 'SYNC' as const,
+    profileId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[0].id,
+    runId: 'E2E-ACTOR-RUN-001',
+    status: 'SUCCEEDED' as const,
+    rawInput: {
+      username: ['jktcity.events'],
+      resultsType: 'posts',
+      resultsLimit: 1,
+    },
+    rawOutput: [
+      {
+        url: FIXTURE_POSTS[0].postUrl,
+        caption: FIXTURE_POSTS[0].content,
+        timestamp: FIXTURE_POSTS[0].publishedAt.toISOString(),
+        imageUrl: FIXTURE_POSTS[0].imageUrl,
+      },
+    ],
+    itemCount: 1,
+    startedAt: new Date('2026-08-20T10:00:00Z'),
+    completedAt: new Date('2026-08-20T10:00:01Z'),
   },
 ];
 
@@ -323,6 +353,7 @@ export const FIXTURE_COUNTS = {
   subscriptions: FIXTURE_SUBSCRIPTIONS.length,
   apiKeys: FIXTURE_API_KEYS.length,
   posts: FIXTURE_POSTS.length,
+  scraperActorRuns: FIXTURE_SCRAPER_ACTOR_RUNS.length,
   events: FIXTURE_EVENTS.length,
   schedules: FIXTURE_SCHEDULES.length,
   reports: FIXTURE_REPORTS.length,
@@ -370,6 +401,58 @@ export function createSqlClient(connectionString: string) {
   });
 }
 
+async function migrateEnumTypes(sqlClient: any): Promise<void> {
+  console.log('Starting enum type migrations...');
+  try {
+    // Check if the enum values are already in the correct case
+    const result = await sqlClient`
+      SELECT enumlabel FROM pg_enum
+      WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'scraper_run_vendor')
+      LIMIT 1
+    `;
+
+    if (result && result.length > 0 && result[0].enumlabel === 'APIFY') {
+      // Already migrated
+      console.log('✓ Scraper actor run enums already in uppercase, skipping migration');
+      return;
+    }
+    console.log('Scraper actor run enums need migration');
+
+    // Drop constraints and old enum types
+    await sqlClient`ALTER TABLE scraper_actor_runs DROP CONSTRAINT IF EXISTS scraper_actor_runs_vendor_run_id_key`;
+    await sqlClient`DROP INDEX IF EXISTS idx_scraper_actor_runs_vendor_status`;
+
+    // Change column types to text temporarily and convert to uppercase
+    await sqlClient`ALTER TABLE scraper_actor_runs ALTER COLUMN vendor DROP DEFAULT`;
+    await sqlClient`ALTER TABLE scraper_actor_runs ALTER COLUMN vendor TYPE text USING UPPER(vendor::text)`;
+    await sqlClient`ALTER TABLE scraper_actor_runs ALTER COLUMN trigger_mode TYPE text USING UPPER(trigger_mode::text)`;
+
+    // Drop old enums
+    await sqlClient`DROP TYPE IF EXISTS scraper_run_vendor CASCADE`;
+    await sqlClient`DROP TYPE IF EXISTS scraper_run_trigger_mode CASCADE`;
+
+    // Create new enums with uppercase values
+    await sqlClient`CREATE TYPE scraper_run_vendor AS ENUM ('APIFY', 'BRIGHTDATA')`;
+    await sqlClient`CREATE TYPE scraper_run_trigger_mode AS ENUM ('SYNC', 'ASYNC')`;
+
+    // Convert columns back to enums (values are now uppercase)
+    await sqlClient`ALTER TABLE scraper_actor_runs ALTER COLUMN vendor TYPE scraper_run_vendor USING vendor::scraper_run_vendor`;
+    await sqlClient`ALTER TABLE scraper_actor_runs ALTER COLUMN trigger_mode TYPE scraper_run_trigger_mode USING trigger_mode::scraper_run_trigger_mode`;
+
+    // Recreate constraints
+    await sqlClient`
+      ALTER TABLE scraper_actor_runs
+      ADD CONSTRAINT scraper_actor_runs_vendor_run_id_key UNIQUE (vendor, run_id)
+    `;
+    await sqlClient`CREATE INDEX idx_scraper_actor_runs_vendor_status ON scraper_actor_runs (vendor, status)`;
+
+    console.log('✓ Scraper actor run enum types migrated to uppercase');
+  } catch (err) {
+    console.warn('Could not migrate scraper enums (may already be correct):', (err as any).message);
+  }
+
+}
+
 export async function seedDatabase(connectionString?: string): Promise<void> {
   const resolvedConnectionString = connectionString ?? loadDatabaseEnv(__dirname).databaseUrl;
   assertSafeSeedTarget(resolvedConnectionString);
@@ -377,6 +460,12 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
   const db = drizzle(sqlClient);
 
   try {
+    // Clear reports table directly (before migrating enums) to avoid enum conflicts
+    await sqlClient`TRUNCATE TABLE reports CASCADE`;
+
+    // Now migrate enum types
+    await migrateEnumTypes(sqlClient);
+
     await db.transaction(async (tx) => {
       // Explicit deletion order protects FK constraints and ensures deterministic reruns.
       // These five have no ON DELETE CASCADE back to users/events/socialMediaAccountProfiles
@@ -388,10 +477,10 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
       await tx.delete(accountVotes);
       await tx.delete(corrections);
       await tx.delete(defaultLocationChangeRequests);
-      await tx.delete(reports);
       await tx.delete(schedules);
       await tx.delete(events);
       await tx.delete(posts);
+      await tx.delete(scraperActorRuns);
       await tx.delete(apiKeys);
       await tx.delete(subscriptions);
       await tx.delete(socialMediaAccountProfiles);
@@ -404,6 +493,7 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
       await tx.insert(subscriptions).values([...FIXTURE_SUBSCRIPTIONS]);
       await tx.insert(apiKeys).values([...FIXTURE_API_KEYS]);
       await tx.insert(posts).values([...FIXTURE_POSTS]);
+      await tx.insert(scraperActorRuns).values([...FIXTURE_SCRAPER_ACTOR_RUNS]);
       await tx.insert(events).values([...FIXTURE_EVENTS]);
       await tx.insert(schedules).values([...FIXTURE_SCHEDULES]);
       await tx.insert(reports).values([...FIXTURE_REPORTS]);

@@ -570,8 +570,7 @@ development_status:
   # added 2026-08-19 via bmad-create-story: split from 3-4j following the 3-4h/3-4i backend/
   # frontend precedent (Gate 2 finding). Extracts a new RawJsonViewer packages/ui component --
   # genuine reuse evidence vs. Story 3-4i's own inline (never extracted) raw-JSON display.
-  # Blocked on 3-4j shipping its GraphQL contracts.
-  3-4k-moderator-actor-run-browser-and-replay-ui: review
+  # Blocked on 3-4j shipping its GraphQL contracts.  3-4k-moderator-actor-run-browser-and-replay-ui: in-progress
   # added 2026-08-19 via bmad-create-story: user-identified linking gap during /bmad-help
   # investigation. Story 3-4j captures scraper_actor_runs table but doesn't thread the run ID
   # to posts/unprocessed_payloads, leaving moderator UI (3-4k) unable to display "posts from

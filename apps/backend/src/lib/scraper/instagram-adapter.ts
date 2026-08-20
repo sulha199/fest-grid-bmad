@@ -124,7 +124,7 @@ export function getApifyClient(): ApifyClient {
 }
 
 // Context for audit recording and run ID threading (set by callers that have profileId)
-export let apifyAuditContext: { profileId: string; triggerMode: 'sync' | 'async'; runId?: string } | undefined;
+export let apifyAuditContext: { profileId: string; triggerMode: 'SYNC' | 'ASYNC'; runId?: string } | undefined;
 
 export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorInputFor<T>): Promise<ActorOutputFor<T>> => {
   const client = getApifyClient();
@@ -138,7 +138,7 @@ export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorIn
   // Record audit trail if context is set (sync path with profileId available)
   if (apifyAuditContext?.profileId) {
     const auditRunId = await recordSyncActorRun({
-      vendor: 'apify',
+      vendor: 'APIFY',
       profileId: apifyAuditContext.profileId,
       runId: run.id,
       rawInput: input,
@@ -160,7 +160,7 @@ export function setCallApifyActor(fn: typeof callApifyActor) {
   callApifyActor = fn;
 }
 
-export function setApifyAuditContext(profileId: string, triggerMode: 'sync' | 'async'): void {
+export function setApifyAuditContext(profileId: string, triggerMode: 'SYNC' | 'ASYNC'): void {
   apifyAuditContext = { profileId, triggerMode };
 }
 

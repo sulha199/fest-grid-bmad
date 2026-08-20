@@ -59,6 +59,10 @@ export function ActorRunsContent() {
     authStatus === 'authorized'
   );
 
+  const profileOptions = Array.from(
+    new Set((runsData?.queryActorRuns?.edges ?? []).map((edge) => edge.node.profileId).filter((value): value is string => Boolean(value)))
+  );
+
   const { mutateAsync: replayRun } = useReplayActorRunMutation();
 
   if (authStatus === 'loading' || authStatus === 'unauthenticated' || authStatus === 'unauthorized') {
@@ -72,7 +76,6 @@ export function ActorRunsContent() {
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
     setCursor(undefined);
-    refetchRuns();
   };
 
   const handleReplay = async (runId: string) => {
@@ -82,12 +85,11 @@ export function ActorRunsContent() {
       if (result.success) {
         const count = result.postsPersisted;
         toast.success(t('replaySuccessToast', { count }));
-        refetchRuns();
       } else {
-        toast.error(t('replayErrorToast', { message: result.message || 'Unknown error' }));
+        toast.error(t('replayErrorToast', { message: result.message || t('unknownError') }));
       }
     } catch (error) {
-      toast.error(t('replayErrorToast', { message: error instanceof Error ? error.message : 'Unknown error' }));
+      toast.error(t('replayErrorToast', { message: error instanceof Error ? error.message : t('unknownError') }));
     } finally {
       setReplayingRuns((prev) => ({ ...prev, [runId]: false }));
     }
@@ -178,9 +180,9 @@ export function ActorRunsContent() {
                 onChange={(e) => handleFilterChange({ vendor: e.target.value || null })}
                 className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"
               >
-                <option value="">All Vendors</option>
-                <option value="APIFY">Apify</option>
-                <option value="BRIGHTDATA">Bright Data</option>
+                <option value="">{t('allVendorsOption')}</option>
+                <option value="APIFY">{t('apifyBadge')}</option>
+                <option value="BRIGHTDATA">{t('brightdataBadge')}</option>
               </select>
             </div>
 
@@ -191,7 +193,7 @@ export function ActorRunsContent() {
                 onChange={(e) => handleFilterChange({ status: e.target.value || null })}
                 className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"
               >
-                <option value="">All Statuses</option>
+                <option value="">{t('allStatusesOption')}</option>
                 <option value="PENDING">{t('pendingStatus')}</option>
                 <option value="SUCCEEDED">{t('succeededStatus')}</option>
                 <option value="FAILED">{t('failedStatus')}</option>
@@ -202,13 +204,18 @@ export function ActorRunsContent() {
 
             <div>
               <label className="text-sm font-medium">{t('profileFilterLabel')}</label>
-              <input
-                type="text"
-                placeholder={t('profileFilterPlaceholder')}
+              <select
                 value={filters.profileId || ''}
                 onChange={(e) => handleFilterChange({ profileId: e.target.value || null })}
                 className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"
-              />
+              >
+                <option value="">{t('allProfilesOption')}</option>
+                {profileOptions.map((profileId) => (
+                  <option key={profileId} value={profileId}>
+                    {profileId}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -243,7 +250,6 @@ export function ActorRunsContent() {
                   profileId: null,
                 });
                 setCursor(undefined);
-                refetchRuns();
               }}
               variant="outline"
               size="sm"
@@ -299,7 +305,10 @@ export function ActorRunsContent() {
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Run ID: {isRun.runId} • {isRun.itemCount || 0} {t('itemCountLabel')}
+                        {t('runIdLabel')}: {isRun.runId} • {isRun.itemCount || 0} {t('itemCountLabel')}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {t('accountProfileLabel')}: {isRun.profileId}
                       </p>
                       {isRun.startedAt && (
                         <p className="text-xs text-muted-foreground">
@@ -354,7 +363,6 @@ export function ActorRunsContent() {
               <button
                 onClick={() => {
                   setCursor(queryResult?.pageInfo?.endCursor || undefined);
-                  refetchRuns();
                 }}
                 className="w-full py-3 text-center text-sm font-medium text-primary hover:underline"
               >

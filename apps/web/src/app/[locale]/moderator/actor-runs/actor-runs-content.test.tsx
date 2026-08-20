@@ -1,8 +1,9 @@
 import '@testing-library/jest-dom/vitest';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import enMessages from '../../../../../locales/en.json';
 import { ActorRunsContent } from './actor-runs-content';
 import { useQueryActorRuns, useReplayActorRunMutation } from './hooks';
@@ -10,6 +11,12 @@ import { useRequireModerator } from '@/features/auth/use-require-moderator';
 
 vi.mock('./hooks');
 vi.mock('@/features/auth/use-require-moderator');
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -29,6 +36,20 @@ const createWrapper = () => {
 describe('ActorRunsContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+    (useReplayActorRunMutation as any).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
   });
 
   it('shows loading state when data is loading', () => {
@@ -103,7 +124,7 @@ describe('ActorRunsContent', () => {
     });
 
     render(<ActorRunsContent />, { wrapper: createWrapper() });
-    expect(screen.getByText('run-123')).toBeInTheDocument();
+    expect(screen.getByText(/run-123/)).toBeInTheDocument();
   });
 
   it('expands and collapses run details', async () => {
@@ -137,7 +158,7 @@ describe('ActorRunsContent', () => {
       refetch: vi.fn(),
     });
 
-    const { container } = render(<ActorRunsContent />);
+    const { container } = render(<ActorRunsContent />, { wrapper: createWrapper() });
 
     // Initially details should not be visible
     expect(screen.queryByText('Raw Input')).not.toBeInTheDocument();
@@ -153,7 +174,6 @@ describe('ActorRunsContent', () => {
   });
 
   it('filters by vendor', async () => {
-    const refetchMock = vi.fn();
     (useRequireModerator as any).mockReturnValue({ status: 'authorized' });
     (useQueryActorRuns as any).mockReturnValue({
       data: {
@@ -165,16 +185,21 @@ describe('ActorRunsContent', () => {
       },
       isLoading: false,
       error: null,
-      refetch: refetchMock,
+      refetch: vi.fn(),
     });
 
     render(<ActorRunsContent />, { wrapper: createWrapper() });
 
-    const vendorSelect = screen.getByDisplayValue('All Vendors') as HTMLSelectElement;
+    const vendorSelect = screen.getAllByRole('combobox')[0] as HTMLSelectElement;
     fireEvent.change(vendorSelect, { target: { value: 'APIFY' } });
 
     await waitFor(() => {
-      expect(refetchMock).toHaveBeenCalled();
+      expect(useQueryActorRuns).toHaveBeenLastCalledWith(
+        expect.objectContaining({ vendor: 'APIFY' }),
+        undefined,
+        20,
+        true
+      );
     });
   });
 
@@ -220,7 +245,7 @@ describe('ActorRunsContent', () => {
       isPending: false,
     });
 
-    const { container } = render(<ActorRunsContent />);
+    const { container } = render(<ActorRunsContent />, { wrapper: createWrapper() });
 
     // Expand run details
     const expandButton = container.querySelector('button[aria-label*="View details"]');
@@ -289,7 +314,12 @@ describe('ActorRunsContent', () => {
 
     fireEvent.click(loadMoreButton);
     await waitFor(() => {
-      expect(refetchMock).toHaveBeenCalled();
+      expect(useQueryActorRuns).toHaveBeenLastCalledWith(
+        expect.any(Object),
+        'cursor-1',
+        20,
+        true
+      );
     });
   });
 
@@ -335,13 +365,11 @@ describe('ActorRunsContent', () => {
       isPending: false,
     });
 
-    const { container } = render(<ActorRunsContent />);
+    const { container } = render(<ActorRunsContent />, { wrapper: createWrapper() });
 
-    // Expand run details
     const expandButton = container.querySelector('button[aria-label*="View details"]');
     fireEvent.click(expandButton!);
 
-    // Click replay button
     await waitFor(() => {
       const replayButton = screen.getByText('Replay');
       fireEvent.click(replayButton);
@@ -349,10 +377,8 @@ describe('ActorRunsContent', () => {
 
     await waitFor(() => {
       expect(replayMock).toHaveBeenCalledWith({ actorRunId: '1' });
+      expect(toast.error).toHaveBeenCalled();
     });
-
-    // No success toast should be shown; error toast expected
-    expect(screen.queryByText(/Replay complete/)).not.toBeInTheDocument();
   });
 
   it('handles replay mutation throwing an exception', async () => {
@@ -393,13 +419,11 @@ describe('ActorRunsContent', () => {
       isPending: false,
     });
 
-    const { container } = render(<ActorRunsContent />);
+    const { container } = render(<ActorRunsContent />, { wrapper: createWrapper() });
 
-    // Expand run details
     const expandButton = container.querySelector('button[aria-label*="View details"]');
     fireEvent.click(expandButton!);
 
-    // Click replay button
     await waitFor(() => {
       const replayButton = screen.getByText('Replay');
       fireEvent.click(replayButton);
@@ -407,9 +431,7 @@ describe('ActorRunsContent', () => {
 
     await waitFor(() => {
       expect(replayMock).toHaveBeenCalledWith({ actorRunId: '1' });
+      expect(toast.error).toHaveBeenCalled();
     });
-
-    // No success toast should be shown; error toast expected
-    expect(screen.queryByText(/Replay complete/)).not.toBeInTheDocument();
   });
 });

@@ -7,5 +7,12 @@ export default mergeConfig(
   reactConfig,
   defineConfig({
     plugins: [react(), tsconfigPaths()],
+    resolve: {
+      alias: {
+        'next/navigation': 'next/navigation.js',
+        'next/link': 'next/link.js',
+        'next/headers': 'next/headers.js',
+      },
+    },
   })
 );

@@ -50,7 +50,7 @@ export const handler = async (
 
     // Record audit trail
     await recordActorRunResult({
-      vendor: 'brightdata',
+      vendor: 'BRIGHTDATA',
       runId: pendingJob.snapshotId,
       status: 'SUCCEEDED',
       rawOutput: records,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { RawJsonViewer } from './RawJsonViewer';
 
 describe('RawJsonViewer', () => {
@@ -42,6 +42,16 @@ describe('RawJsonViewer', () => {
     const { container } = render(<RawJsonViewer value={{ test: 'data' }} />);
     const pre = container.querySelector('pre');
     expect(pre).toHaveClass('font-mono');
+  });
+
+  it('uses the default accessibility label when none is provided', () => {
+    render(<RawJsonViewer value={{ test: 'data' }} />);
+    expect(screen.getByLabelText('JSON content')).toBeInTheDocument();
+  });
+
+  it('uses a custom accessibility label when provided', () => {
+    render(<RawJsonViewer value={{ test: 'data' }} label="Raw Output" />);
+    expect(screen.getByLabelText('Raw Output')).toBeInTheDocument();
   });
 
   it('is scrollable for long content', () => {

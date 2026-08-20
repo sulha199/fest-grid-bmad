@@ -1082,28 +1082,6 @@ export enum WidgetTheme {
   Light = 'LIGHT'
 }
 
-export type ActorRunFilters = {
-  createdAfter?: unknown;
-  createdBefore?: unknown;
-  profileId?: string | number | null | undefined;
-  status?: ActorRunStatus | null | undefined;
-  vendor?: ActorRunVendor | null | undefined;
-};
-
-export type ActorRunStatus =
-  | 'ABORTED'
-  | 'FAILED'
-  | 'PENDING'
-  | 'SUCCEEDED'
-  | 'TIMED_OUT';
-
-export type ActorRunTriggerMode =
-  | 'ASYNC'
-  | 'SYNC';
-
-export type ActorRunVendor =
-  | 'APIFY'
-  | 'BRIGHTDATA';
 
 
 
@@ -1123,24 +1101,10 @@ export type ActorRunVendor =
 
 
 
-export type ScheduleTimezoneStatus =
-  | 'NEEDS_CLARIFICATION'
-  | 'RESOLVED';
 
 
 
 
-export type UnprocessedPayloadFilters = {
-  createdAfter?: unknown;
-  createdBefore?: unknown;
-  parserVersion?: string | null | undefined;
-  source?: UnprocessedPayloadSource | null | undefined;
-};
-
-export type UnprocessedPayloadSource =
-  | 'APIFY'
-  | 'BRIGHTDATA'
-  | 'GEMINI';
 
 
 

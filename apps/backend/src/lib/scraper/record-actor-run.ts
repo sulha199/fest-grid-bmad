@@ -3,8 +3,8 @@ import { scraperActorRuns } from '@festgrid/database';
 import { eq, and } from 'drizzle-orm';
 
 export type RecordActorRunStartInput = {
-  vendor: 'apify' | 'brightdata';
-  triggerMode: 'sync' | 'async';
+  vendor: 'APIFY' | 'BRIGHTDATA';
+  triggerMode: 'SYNC' | 'ASYNC';
   profileId: string;
   runId: string;
   rawInput: unknown;
@@ -14,7 +14,7 @@ export type RecordActorRunStartInput = {
 
 export type RecordActorRunResultInput = {
   id?: string;
-  vendor: 'apify' | 'brightdata';
+  vendor: 'APIFY' | 'BRIGHTDATA';
   runId: string;
   status: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'TIMED_OUT' | 'ABORTED';
   rawOutput?: unknown;
@@ -31,8 +31,8 @@ export async function recordActorRunStart(input: RecordActorRunStartInput): Prom
     const [result] = await db
       .insert(scraperActorRuns)
       .values({
-        vendor: input.vendor as 'apify' | 'brightdata',
-        triggerMode: input.triggerMode as 'sync' | 'async',
+        vendor: input.vendor as 'APIFY' | 'BRIGHTDATA',
+        triggerMode: input.triggerMode as 'SYNC' | 'ASYNC',
         profileId: input.profileId,
         runId: input.runId,
         rawInput: input.rawInput,
@@ -85,7 +85,7 @@ export async function recordActorRunResult(input: RecordActorRunResultInput): Pr
         })
         .where(
           and(
-            eq(scraperActorRuns.vendor, input.vendor as 'apify' | 'brightdata'),
+            eq(scraperActorRuns.vendor, input.vendor as 'APIFY' | 'BRIGHTDATA'),
             eq(scraperActorRuns.runId, input.runId)
           )
         );
@@ -106,7 +106,7 @@ export async function recordActorRunResult(input: RecordActorRunResultInput): Pr
  * This function catches and logs any DB errors; it never throws or blocks the caller.
  */
 export async function recordSyncActorRun(input: {
-  vendor: 'apify' | 'brightdata';
+  vendor: 'APIFY' | 'BRIGHTDATA';
   profileId: string;
   runId: string;
   rawInput: unknown;
@@ -120,7 +120,7 @@ export async function recordSyncActorRun(input: {
       .insert(scraperActorRuns)
       .values({
         vendor: input.vendor as any,
-        triggerMode: 'sync' as any,
+        triggerMode: 'SYNC' as any,
         profileId: input.profileId,
         runId: input.runId,
         rawInput: input.rawInput,

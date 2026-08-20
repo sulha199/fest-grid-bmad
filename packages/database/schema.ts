@@ -37,8 +37,8 @@ export const correctionSourceEnum = pgEnum('correction_source', ['manual', 'ai_a
 export const correctionStatusEnum = pgEnum('correction_status', ['pending', 'applied', 'rejected']);
 export const brightdataJobStatusEnum = pgEnum('brightdata_job_status', ['PENDING', 'COMPLETED', 'EXPIRED']);
 
-export const scraperRunVendorEnum = pgEnum('scraper_run_vendor', ['apify', 'brightdata']);
-export const scraperRunTriggerModeEnum = pgEnum('scraper_run_trigger_mode', ['sync', 'async']);
+export const scraperRunVendorEnum = pgEnum('scraper_run_vendor', ['APIFY', 'BRIGHTDATA']);
+export const scraperRunTriggerModeEnum = pgEnum('scraper_run_trigger_mode', ['SYNC', 'ASYNC']);
 export const scraperRunStatusEnum = pgEnum('scraper_run_status', ['PENDING', 'SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED']);
 
 export const brightdataPendingJobs = pgTable('brightdata_pending_jobs', {

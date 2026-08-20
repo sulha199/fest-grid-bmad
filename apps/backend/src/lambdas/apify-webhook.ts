@@ -53,7 +53,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!run) {
       console.warn(`Apify webhook: run ${pendingJob.runId} not found`);
       await recordActorRunResult({
-        vendor: 'apify',
+        vendor: 'APIFY',
         runId: pendingJob.runId,
         status: 'FAILED',
         errorMessage: 'Run not found when processing webhook',
@@ -70,7 +70,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (!run.defaultDatasetId) {
         console.warn(`Apify webhook: successful run ${pendingJob.runId} has no dataset`);
         await recordActorRunResult({
-          vendor: 'apify',
+          vendor: 'APIFY',
           runId: pendingJob.runId,
           status: 'SUCCEEDED',
           rawOutput: [],
@@ -89,7 +89,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // Record successful audit trail
       await recordActorRunResult({
-        vendor: 'apify',
+        vendor: 'APIFY',
         runId: pendingJob.runId,
         status: 'SUCCEEDED',
         rawOutput: items,
@@ -109,7 +109,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const recordedStatus = statusMap[run.status] || 'FAILED';
 
       await recordActorRunResult({
-        vendor: 'apify',
+        vendor: 'APIFY',
         runId: pendingJob.runId,
         status: recordedStatus,
         errorMessage: `Run status: ${run.status}`,

@@ -33,8 +33,8 @@ export async function attemptBrightDataTrigger(
 
     // Record audit trail at trigger time (without pendingJobId initially)
     const auditRunId = await recordActorRunStart({
-      vendor: 'brightdata',
-      triggerMode: 'async',
+      vendor: 'BRIGHTDATA',
+      triggerMode: 'ASYNC',
       profileId: target.profileId,
       runId: triggerResult.snapshotId,
       rawInput: {

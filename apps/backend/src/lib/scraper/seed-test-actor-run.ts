@@ -25,7 +25,7 @@ export async function seedTestActorRun() {
   const existing = await db
     .select()
     .from(scraperActorRuns)
-    .where((t) => t.runId === runId && t.vendor === 'apify')
+    .where((t) => t.runId === runId && t.vendor === 'APIFY')
     .limit(1)
     .then((rows) => rows[0]);
 
@@ -106,8 +106,8 @@ export async function seedTestActorRun() {
   const actorRunId = await db
     .insert(scraperActorRuns)
     .values({
-      vendor: 'apify',
-      triggerMode: 'sync',
+      vendor: 'APIFY',
+      triggerMode: 'SYNC',
       profileId: profile.id,
       runId,
       status: 'SUCCEEDED',
