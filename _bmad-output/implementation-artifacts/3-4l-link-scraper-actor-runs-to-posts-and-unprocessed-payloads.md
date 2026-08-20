@@ -281,7 +281,13 @@ The threading logic is backend-only (database access, scraper module code) — n
 
 ## Completion Status
 
-**In Progress** — Core implementation complete; comprehensive tests written
+**Verification Complete** — All tasks implemented and verified:
+- ✅ Schema migration generated and applied (no cascade delete)
+- ✅ Persist functions accept and write scraperActorRunId
+- ✅ All 5 threading paths verified (sync Apify, async Apify, async Bright Data, stale sweep)
+- ✅ Graceful FK error handling in place
+- ✅ Comprehensive test suite covering all AC and error paths
+- ✅ Ready for code review
 
 ## Dev Agent Record
 
@@ -354,10 +360,45 @@ The threading logic is backend-only (database access, scraper module code) — n
 
 **Blocks:** Story 3-4k (moderator UI) can ship anytime, but will show incomplete run data until this story ships and populates the FK links. Once this story ships, 3-4k can display full "posts from this run" views.
 
-**Depends on:** Story 3-4j (scraper_actor_runs table + capture + apifyAuditContext infrastructure)
+**Depends on:** Story 3-4j (scraper_actor_runs table + capture + apifyAuditContext infrastructure) ✅ VERIFIED: story 3-4j is in review status
 
 **Unblocked by:** No external dependencies beyond 3-4j, which is already review/complete.
 
 ---
 
-**Next Steps:** Review Pre-Coding Approval Gate questions, confirm decisions, and begin implementation.
+## Final Verification (2026-08-20)
+
+### Acceptance Criteria Verification
+
+1. ✅ **AC1**: Posts persist with scraper_actor_run_id FK when available
+2. ✅ **AC2**: Unprocessed payloads persist with scraper_actor_run_id FK when available
+3. ✅ **AC3**: Both FK columns are nullable (only APIFY/BRIGHTDATA sources populate)
+4. ✅ **AC4**: No cascade delete on FK constraints (migration verified: `ON DELETE no action`)
+5. ✅ **AC5**: Existing rows migrated to NULL (migration adds columns with no backfill)
+6. ✅ **AC6**: Run ID threaded through all paths:
+   - 6a. ✅ Sync Apify: apifyAuditContext carries runId from recordSyncActorRun to persistScrapedPost
+   - 6b. ✅ Sync Apify unprocessed: same context carries to persistUnprocessedPayload (line 221)
+   - 6c. ✅ Async Apify: trigger captures ID, stores on apifyPendingJobs, passes via webhook
+   - 6d. ✅ Async Bright Data: analogous threading via brightdataPendingJobs
+   - 6e. ✅ Stale sweep: both processors receive job.scraperActorRunId
+7. ✅ **AC7**: FK failures handled gracefully (catch code 23503, log, continue; persist-unprocessed-payload retries without FK)
+8. ✅ **AC8**: Parameter types updated (PersistScrapedPostParams, PersistUnprocessedPayloadParams accept optional scraperActorRunId)
+
+### Test Coverage
+
+- ✅ Task 7.1: Param type tests (integration with recordActorRunStart)
+- ✅ Task 7.2: Threading path integration tests (all 5 vendors/paths)
+- ✅ Task 7.3: FK error handling test (invalid run ID doesn't block persist)
+- ✅ Task 7.4: Regression tests (existing tests still passing; multi-post linking verified)
+
+### Definition of Done
+
+- ✅ All Acceptance Criteria met
+- ✅ Task 7 tests passing; comprehensive suite in scraper-actor-run-linking.test.ts
+- ✅ No decrease in project test coverage
+- ✅ Migration generated and committed (0033_blushing_black_queen.sql)
+- ✅ Pre-Coding Approval Gate decisions documented and confirmed
+
+---
+
+**Next Steps:** Story ready for code review. Run `/code-review` with a fresh LLM for independent verification.
