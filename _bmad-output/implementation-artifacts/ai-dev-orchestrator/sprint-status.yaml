@@ -1,0 +1,102 @@
+# generated: 2026-08-21T00:00:00Z
+# last_updated: 2026-08-21T00:00:00Z
+# project: ai-dev-orchestrator
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts/ai-dev-orchestrator
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; sprint-status surfaces open ones
+# - NOTE: this file is deliberately namespaced under implementation-artifacts/ai-dev-orchestrator/,
+#   separate from festgrid's own real sprint-status.yaml, since this tracks a standalone initiative
+
+generated: 2026-08-21T00:00:00Z
+last_updated: 2026-08-21T00:00:00Z
+project: ai-dev-orchestrator
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts/ai-dev-orchestrator
+
+development_status:
+  epic-0: backlog
+  0-1-initialize-the-orchestrator-project-scaffold: backlog
+  0-2-define-core-types-and-graphstate: backlog
+  0-3-define-the-four-port-interfaces-and-the-shared-error-type: backlog
+  0-4-build-the-fail-fast-config-loader: backlog
+  0-5-build-the-audit-logger: backlog
+  0-6-build-the-9router-llm-adapter: backlog
+  0-7-build-the-local-exec-adapter: backlog
+  0-8-build-fake-llmport-and-execport-adapters-for-testing: backlog
+  0-9-resolve-and-validate-the-target-bmad-project: backlog
+  0-10-wire-the-composition-root-and-cli-entrypoint-stub: backlog
+  0-11-define-the-nodecontext-dependency-pattern: backlog
+  epic-0-retrospective: optional
+
+  epic-1: backlog
+  1-1-build-the-story-file-parser-serializer: backlog
+  1-2-build-the-sprint-status-yaml-parser-serializer: backlog
+  1-3-speed-worker-implements-a-storys-task-checklist: backlog
+  1-4-complex-worker-implements-complex-work-and-performs-tier-1-review: backlog
+  1-5-tester-runs-real-build-test-and-classifies-failures: backlog
+  1-6-auto-fix-retry-loop-with-shared-ceiling-enforced-attempts: backlog
+  1-7-tier-2-deep-code-review-gates-checkpoint: backlog
+  1-8-git-checkpoint-commits-a-completed-story: backlog
+  1-9-wire-the-single-story-pipeline-end-to-end: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-build-the-resend-notifyport-adapter: backlog
+  2-2-build-the-readline-hitlport-adapter: backlog
+  2-3-build-the-hitl-node-timeout-race-and-single-escalation: backlog
+  2-4-wire-hitl-as-the-real-needs-human-blocking-failure-destination: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-build-the-epics-md-parser-read: backlog
+  3-2-planner-materializes-a-story-file-just-in-time-phase-b: backlog
+  3-3-sqlite-checkpointer-for-crash-resume: backlog
+  3-4-wire-the-dev-an-epic-multi-story-loop: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-1-extend-epics-md-parser-with-positional-insert-build-the-readiness-report-parser: backlog
+  4-2-epic-readiness-check-gate-1-gate-3-sweep: backlog
+  4-3-planner-drafts-a-brand-new-epic-decomposition-with-hitl-confirmation-phase-a: backlog
+  4-4-correct-course-escalation-on-a-flagged-hitl-response: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-wire-the-manual-review-command: backlog
+  epic-5-retrospective: optional

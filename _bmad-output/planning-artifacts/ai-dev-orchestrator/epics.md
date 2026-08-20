@@ -60,7 +60,7 @@ This document provides the complete epic and story breakdown for the AI Dev Orch
 - Port method signatures are fixed, not just named: `LLMPort.complete` is role-scoped (not model-pre-bound); `ExecPort.run` takes an argv array, never an interpolated shell string; every port throws a typed `OrchestratorError { message, recoverable, cause }` that the calling node — never the adapter — decides how to handle (AD-1).
 - `ReviewVerdict` is a single shared enum produced by both the Tier-1 Reviewer and the Tier-2 Deep Code Review node; Tier-2 only runs on a Tier-1 `APPROVE` (AD-2).
 - The `AUTO_FIX` retry counter increments on every applied patch, tier-agnostic, regardless of the following Tester outcome — a single authoritative rule shared verbatim between the architecture spine and `state-machines.md` (AD-3).
-- Checkpoint commit staging (`git add -A`) is only safe because of the dirty-tree pre-flight gate that refuses to start a run on an unclean working tree (AD-4).
+- Checkpoint commit staging is scoped to `ExecPort.getWrittenPaths()` — never `git add -A` — combined with the dirty-tree pre-flight gate that refuses to start a run on an unclean working tree (AD-4).
 - Real BMad artifacts (`epics.md`, story files, `sprint-status.yaml`, readiness reports) are canonical; the SQLite checkpointer holds only ephemeral run-state (`autoFixAttempts`, which story was mid-flight) (AD-5).
 - Model resolution is alias-indirect via env vars per node role: `ORCH_MODEL_PLANNER`/`_COMPLEX`/`_SPEED`/`_TESTER` (AD-6).
 - Config is fail-fast and centralized via a single `env.ts`, validated once at process start (AD-7).
@@ -97,8 +97,8 @@ FR16: Epic 4 - correct-course: flagged HITL response forces a re-sweep
 ## Epic List
 
 ### Epic 0: Orchestrator Project Foundation
-Establish the hexagonal core skeleton (ports, adapters, composition root), 9Router-routed LLM adapter, local exec adapter, config loading, audit logging, and target-project validation/path-resolution that every subsequent epic builds on. No end-user-observable behavior on its own — matches this repo's own Epic 0 precedent for irreducible technical setup on a greenfield project.
-**Additional Requirements covered:** AD-1 (ports/adapters/composition root), AD-6 (alias-indirect model resolution), AD-7 (fail-fast centralized config), AD-8 (append-only audit log), `stack.md`'s Target repo assumptions (BMad-managed validation, `_bmad/bmm/config.yaml` path resolution), Stack (Node 22, pnpm, TypeScript, ESLint, `@langchain/langgraph`, core dependencies)
+Establish the hexagonal core skeleton (ports, adapters, composition root, node dependency pattern), 9Router-routed LLM adapter, local exec adapter, config loading, audit logging, and target-project validation/path-resolution that every subsequent epic builds on. No end-user-observable behavior on its own — matches this repo's own Epic 0 precedent for irreducible technical setup on a greenfield project.
+**Additional Requirements covered:** AD-1 (ports/adapters/composition root), AD-6 (alias-indirect model resolution), AD-7 (fail-fast centralized config), AD-8 (append-only audit log), `stack.md`'s Target repo assumptions (BMad-managed validation, `_bmad/bmm/config.yaml` path resolution), Stack (Node 22, pnpm, TypeScript, ESLint, `@langchain/langgraph`, Vitest test runner, core dependencies). Story 0.11 (added during the Epic 0 readiness sweep) establishes the `NodeContext` dependency-injection pattern every node from Epic 1 onward relies on.
 
 ### Epic 1: Autonomous Single-Story Pipeline
 A user can point the orchestrator at one already-materialized story in a target BMad project and watch it autonomously implement, test, run both review tiers, retry within a bounded budget, and checkpoint that story — the first time the tool does real unattended work end to end.
@@ -138,7 +138,8 @@ So that every subsequent story has somewhere correct to add code.
 **When** the scaffold story is complete
 **Then** `package.json` pins `packageManager: "pnpm@9.15.4"` and `engines.node: ">=22.0.0"`, `tsconfig.json` targets TypeScript 6.0.3 in strict mode, and `eslint.config.js` is a standalone flat config (not `@festgrid/eslint-config`)
 **And** the `src/core/`, `src/adapters/`, `src/config/`, `src/logging/` directory skeleton from the architecture spine's Structural Seed exists with empty/placeholder files
-**And** `pnpm install` and `pnpm build` both succeed with zero source files beyond placeholders
+**And** `vitest` is installed with a `vitest.config.ts`, and `package.json` has `test`/`lint`/`build` scripts wired to it, ESLint, and `tsc` respectively — every story from 0.2 onward writes a Vitest test, so the runner must exist before any of them can
+**And** `pnpm install` and `pnpm build` both succeed with zero source files beyond placeholders, and `pnpm test` succeeds (trivially, with zero test files)
 
 ### Story 0.2: Define core types and GraphState
 
@@ -164,7 +165,8 @@ So that core never depends on anything but these interfaces (AD-1).
 
 **Given** `core/ports/`
 **When** all four interface files are implemented
-**Then** `LLMPort.complete` takes `{ role, systemPrompt, messages }` (role-scoped, no pre-bound model), `ExecPort.run` takes `{ cmd, args: string[], cwd? }` (argv array, never a shell string) for build/test/git commands, `ExecPort.readFile`/`writeFile` take a path relative to `TARGET_REPO_PATH` and content, using `node:fs` directly (not shelling out through `run()`) for every parser's actual file I/O, `NotifyPort.send` takes `{ to, subject, body }`, and `HITLPort.prompt` takes `{ summary, expand }` and resolves with a string
+**Then** `LLMPort.complete` takes `{ role, systemPrompt, messages }` (role-scoped, no pre-bound model), `ExecPort.run` takes `{ cmd, args: string[], cwd? }` (argv array, never a shell string) for build/test/git commands, `NotifyPort.send` takes `{ to, subject, body }`, and `HITLPort.prompt` takes `{ summary, expand }` and resolves with a string
+**And** `ExecPort`'s file-content methods are declared with their full, final signatures — not a placeholder `readFile`/`writeFile` pair — matching exactly what Story 0.7 implements: `readFile(path): Promise<{ content: string; fingerprint: string }>` and `writeIfUnchanged(path, content, fingerprint): Promise<void>` (throws on a stale fingerprint), plus `getWrittenPaths(): string[]` and `resetWrittenPaths(): void` for `GitCheckpoint`'s scoped staging (Story 1.8) — every method any later story calls through the port must appear here first, or core code would be calling something the interface never declared
 **And** `OrchestratorError { message, recoverable: boolean, cause }` is defined once and is the only error type any port signature declares as thrown
 **And** the shared retry policy is documented here as the canonical rule every node story references rather than re-defining: a node's own top-level port call (not a review verdict) that throws `recoverable: true` gets exactly one retry; a second failure, or any `recoverable: false` failure, routes to HITL with the error as the reason — never an invisible retry loop, a crash, or silent continuation
 **And** nothing outside `core/ports/` is imported by these files — they have zero runtime dependencies
@@ -181,6 +183,7 @@ So that a misconfiguration fails immediately instead of mid-epic.
 **When** the orchestrator process starts with a missing or invalid required env var (e.g. `NINE_ROUTER_API_KEY` unset)
 **Then** the process throws and exits before any graph is built, with a message naming the specific missing/invalid variable
 **And** given all required env vars are present and valid, `env.ts` exports a single parsed, typed config object every other module reads from
+**And** the full validated env surface includes `RESEND_API_KEY` (required, Story 2.1) and `EXEC_TIMEOUT_MS` (optional, default 600000/10min, Story 0.7's bounded-timeout value) — every env var any later story's port/adapter reads is named here, not introduced ad hoc in that later story
 **And** given `MAX_AUTO_FIX_ATTEMPTS` is `0`, that's a valid value meaning "never AUTO_FIX, the first non-`APPROVE` verdict always escalates" — it is not a config error; given it's negative, that **is** rejected as a config error
 **And** a Vitest suite covers at least: missing required var, invalid `HITL_TIMEOUT_MS` (non-numeric), `MAX_AUTO_FIX_ATTEMPTS` at `0` (valid) and negative (rejected), and the all-valid success path
 
@@ -225,25 +228,26 @@ So that node file/shell operations actually touch the target repo safely and nev
 **Then** the command executes via `child_process` with `args` passed as an argv array (never string-interpolated into a shell), `cwd` defaulting to `TARGET_REPO_PATH`, and `{ stdout, stderr, exitCode }` is returned
 **And** given the command doesn't exist or the process fails to spawn, the adapter throws `OrchestratorError` with `recoverable: false`
 **And** given `cwd` (or a resolved file-path argument) would resolve outside `TARGET_REPO_PATH` (e.g. via `../` traversal or an absolute path elsewhere), the adapter rejects the call with `OrchestratorError { recoverable: false }` before spawning anything — no command ever runs outside the target repo boundary
-**And** given the command doesn't exit within a bounded timeout (default e.g. 10 minutes, configurable), the adapter kills the process and throws `OrchestratorError { recoverable: true }` rather than hanging forever — a hung `npm test` cannot block an unattended run indefinitely
+**And** given the command doesn't exit within `EXEC_TIMEOUT_MS` (Story 0.4, default 600000/10min), the adapter kills the process and throws `OrchestratorError { recoverable: true }` rather than hanging forever — a hung `npm test` cannot block an unattended run indefinitely
 **And** `readFile(path)` returns the file's content plus a fingerprint (mtime + content hash) via `node:fs`, scoped to and boundary-checked against `TARGET_REPO_PATH` the same way `run()` is
 **And** `writeIfUnchanged(path, content, fingerprint)` re-reads the file's current fingerprint immediately before writing; given it no longer matches the fingerprint from the original `readFile()` call, it throws `OrchestratorError { recoverable: false, message: 'external change detected' }` instead of overwriting — every node that reads-then-writes a real BMad artifact (Stories 1.1, 1.2, 3.1, 4.1's callers) uses this pair, never a bare write, so a human hand-editing the same file mid-run is never silently clobbered
 **And** every successful `writeIfUnchanged()`/`writeFile()` call records its path into an in-memory written-paths set; `getWrittenPaths()` returns the current set and `resetWrittenPaths()` clears it — this is what lets `GitCheckpoint` (Story 1.8) stage only what the orchestrator itself actually wrote for the current story, instead of trusting the whole working tree to be clean for the run's entire duration
 **And** a Vitest suite covers: a real trivial command and a real failing one, a hung command hitting the timeout, a path-escape rejection, a `writeIfUnchanged` call that correctly detects a file changed by another process between read and write, and `getWrittenPaths()`/`resetWrittenPaths()` correctly scoping writes across two sequential "stories" in one test — no mocking of `child_process` itself for the command-execution assertions, since this adapter's whole job is real execution
 
-### Story 0.8: Build fake LLMPort and ExecPort adapters for testing
+### Story 0.8: Build fake adapters for all four ports
 
 As a developer testing core node logic,
-I want fake implementations of `LLMPort` and `ExecPort`,
-So that node decision logic can be tested without a real 9Router call or a real shell command.
+I want fake implementations of `LLMPort`, `ExecPort`, `NotifyPort`, and `HITLPort`,
+So that node decision logic — including HITL/escalation logic in later epics — can be tested without a real 9Router call, shell command, email send, or terminal prompt.
 
 **Acceptance Criteria:**
 
-**Given** `adapters/fakes/fake-llm-port.ts` and `adapters/fakes/fake-exec-port.ts`
-**When** a test configures a fake's canned response (or a queue of responses) and calls it
-**Then** the fake returns the configured response without any real network/process call, and records every call it received for assertion
-**And** both fakes implement their port interface exactly (type-checked against `core/ports/`) — a node under test cannot tell it's talking to a fake versus the real adapter
-**And** a Vitest test demonstrates using both fakes together to drive one node function to a deterministic outcome
+**Given** `adapters/fakes/fake-llm-port.ts`, `fake-exec-port.ts`, `fake-notify-port.ts`, and `fake-hitl-port.ts`
+**When** a test configures a fake's canned response (or a queue of responses, or a scripted failure) and calls it
+**Then** the fake returns the configured response without any real network/process/terminal call, and records every call it received for assertion
+**And** `fake-notify-port.ts` can be configured to fail (throw `OrchestratorError`) a specified number of times before succeeding — Story 2.3 needs this to test "escalation send fails twice" without a real Resend call
+**And** all four fakes implement their port interface exactly (type-checked against `core/ports/`) — a node under test cannot tell it's talking to a fake versus the real adapter
+**And** a Vitest test demonstrates using all four fakes together to drive one node function to a deterministic outcome
 
 ### Story 0.9: Resolve and validate the target BMad project
 
@@ -271,9 +275,24 @@ So that `node cli.js` actually starts something, even before any graph nodes exi
 
 **Given** `bootstrap.ts` and `cli.ts`
 **When** the orchestrator is invoked with no subcommand
-**Then** `bootstrap.ts` loads config (Story 0.4), validates and resolves the target project (Story 0.9), constructs the real `NineRouterLLMAdapter`/`LocalExecAdapter`, and exits cleanly with a "no command given, nothing to run yet" message — since no graph exists until Epic 1
+**Then** `bootstrap.ts` loads config (Story 0.4), validates and resolves the target project (Story 0.9), constructs the real `NineRouterLLMAdapter`/`LocalExecAdapter`, assembles them into a `NodeContext` (Story 0.11), and exits cleanly with a "no command given, nothing to run yet" message — since no graph exists until Epic 1
 **And** given an unset required env var, the same fail-fast behavior from Story 0.4 surfaces before any adapter is constructed
 **And** this is the first point where Stories 0.1–0.9 are exercised together as one process, not just in isolated unit tests
+
+### Story 0.11: Define the NodeContext dependency pattern
+
+As a developer implementing any graph node from Epic 1 onward,
+I want a single `NodeContext` object bundling the four ports, resolved target-project paths, the run's audit logger, and config, plus a documented node-factory convention for receiving it,
+So that every node gets its dependencies the same way instead of each epic inventing its own wiring.
+
+**Acceptance Criteria:**
+
+**Given** `core/node-context.ts`
+**When** it's implemented
+**Then** it defines `NodeContext = { ports: { llm: LLMPort; exec: ExecPort; notify: NotifyPort; hitl: HITLPort }; paths: { planningArtifacts, implementationArtifacts, epicsFile, sprintStatus, readinessDir, prdRef }; runId: string; logger: AuditLogger; config: OrchestratorConfig }` — the resolved paths are exactly what Story 0.9 produces, `config` is Story 0.4's parsed object
+**And** the documented convention is a node-factory function per node: `createPlannerNode(ctx: NodeContext) => (state: GraphState) => Promise<Partial<GraphState>>` — `bootstrap.ts` (Story 0.10) builds one `NodeContext` and passes it to every node factory when constructing the graph (Story 1.9), so no node reaches for a port, path, or the logger any way other than through its closure over `ctx`
+**And** `GraphState` itself is unchanged (still exactly six fields, SPEC.md Constraints) — `NodeContext` is graph-construction-time wiring, never part of the state that flows through the graph
+**And** a Vitest test builds a fake `NodeContext` (using Story 0.8's fakes) and constructs one node factory from it, asserting the returned node function only ever calls the fakes it was given, never a real adapter
 
 ---
 
@@ -415,7 +434,7 @@ So that Epic 1's value is actually usable, not just unit-tested in isolation.
 **When** the orchestrator is invoked against that specific story
 **Then** before dispatching to any node, it makes one trivial smoke-test `LLMPort.complete()` call per configured model role (`ORCH_MODEL_PLANNER`/`_COMPLEX`/`_SPEED`/`_TESTER`) and fails fast with a clear "alias X failed to resolve" message if any one of them errors — surfacing a misconfigured or unconfirmed Vertex AI provider (SPEC.md's open question) immediately, not mid-run on whichever node happens to need it first
 **And** given `TARGET_REPO_PATH` has no `node_modules` (a fresh clone), this same pre-flight step runs the project's install command once before Tester ever runs, rather than Tester failing confusingly on a missing-dependency error it was never meant to diagnose
-**Then** `core/graph.ts` uses `@langchain/langgraph`'s `StateGraph` to wire the nodes from Stories 1.3–1.8 as real graph nodes and edges (not ad hoc function calls), routing to Speed or Complex Worker by the story's tag, through Tester, Tier-1 review, Tier-2 review, and GitCheckpoint
+**Then** `core/graph.ts` uses `@langchain/langgraph`'s `StateGraph` to wire the nodes from Stories 1.3–1.8 as real graph nodes and edges (not ad hoc function calls) — each built from its node-factory function called with the single `NodeContext` `bootstrap.ts` assembled (Story 0.11), never reaching for a port/path/logger any other way — routing to Speed or Complex Worker by the story's tag, through Tester, Tier-1 review, Tier-2 review, and GitCheckpoint
 **And** running it against a small real fixture BMad repo produces one real commit for a real trivial story, end to end, with no mocks
 **And** the audit logger (Story 0.5) captures every step of this real run as JSONL, including the smoke-test calls
 

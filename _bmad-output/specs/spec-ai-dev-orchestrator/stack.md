@@ -32,8 +32,9 @@ Companion to [SPEC.md](SPEC.md). Holds HOW-level detail the kernel intentionally
 - `TARGET_REPO_PATH` — local git repo the orchestrator reads/writes/executes against
 - `HITL_NOTIFY_EMAIL` — destination address for timeout escalation
 - `HITL_TIMEOUT_MS` (default 300000 / 5 minutes)
-- `MAX_AUTO_FIX_ATTEMPTS` (default 1) — AUTO_FIX retries on a story before forcing NEEDS_HUMAN
-- Transactional email API key (e.g. Resend/Postmark/SES) — **decided**: HITL timeout escalation sends via a transactional email API (HTTP POST + API key), not raw SMTP
+- `MAX_AUTO_FIX_ATTEMPTS` (default 1, `0` is valid and means fail-fast on the first non-`APPROVE`) — AUTO_FIX retries on a story before forcing NEEDS_HUMAN
+- `RESEND_API_KEY` — decided provider (see below); HITL timeout escalation sends via this transactional email API (HTTP POST + API key), not raw SMTP
+- `EXEC_TIMEOUT_MS` (default 600000 / 10 minutes) — bounds how long any single `ExecPort.run()` command may run before being killed, so a hung build/test command can't block an unattended run indefinitely
 
 ## Target repo assumptions
 

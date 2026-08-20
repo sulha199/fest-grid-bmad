@@ -22,6 +22,7 @@ companions: ['../../../specs/spec-ai-dev-orchestrator/SPEC.md']
 - Core → `src/core/` (graph wiring, node decision logic, entity types, port interfaces)
 - Adapters → `src/adapters/` (real implementations + `fakes/` test doubles)
 - Composition root → `src/bootstrap.ts`
+- Dependency wiring → a single `NodeContext` (`core/node-context.ts`: the four ports, resolved target-project paths, run-scoped audit logger, config) assembled once by `bootstrap.ts` and closed over by each node's factory function (`createPlannerNode(ctx) => (state) => ...`) — no node reaches for a port, path, or the logger any other way (found missing during the Epic 0 readiness sweep; `GraphState` stays exactly six fields, this is graph-construction-time wiring, never part of the state that flows through the graph)
 
 ## Invariants & Rules
 
@@ -171,6 +172,7 @@ ai-dev-orchestrator/
       graph.ts              # StateGraph wiring: nodes + edges
       state.ts              # GraphState (spec, tasks_queue, current_code, terminal_output, error_status, human_feedback)
       types.ts              # Epic, Story, ReviewVerdict
+      node-context.ts        # NodeContext (ports, resolved paths, runId, logger, config) -- graph-construction-time wiring, not GraphState
       bmad-artifacts/        # pure parse/serialize functions, no I/O (bytes come in/out via ExecPort)
         parse-epics.ts        # epics.md -> Epic[] / Epic[] -> epics.md (positional insert, never blind-append)
         parse-story-file.ts   # story .md (frontmatter + ACs + tasks + dev notes) <-> Story detail
