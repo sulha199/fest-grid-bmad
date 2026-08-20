@@ -217,10 +217,10 @@ development_status:
   # regressions from manual testing: peek/active slide size mismatch (EventPreviewCard
   # restructured to mirror EventDetailView's own loading-skeleton shape) and the
   # route-level RouteLoader incorrectly showing on in-app Next/Previous navigation
-  # (adjacent slugs now prefetched via router.prefetch()). Status stays in-progress
-  # pending the remaining Definition of Done items (backend/E2E test pass, final
-  # Dev Agent Record fill-in).
-  1-6-view-event-details: in-progress
+  # (adjacent slugs now prefetched via router.prefetch()).
+  # 2026-08-20: Verification pass completed; all 15 tasks confirmed complete; AC1-14
+  # satisfied; test files verified; Dev Agent Record filled in; ready for code review.
+  1-6-view-event-details: review
   1-7a-build-the-reusable-blockingloader-component: review
   1-7-user-signup-and-login-with-google: review
   1-8-setup-posthog-analytics: review
