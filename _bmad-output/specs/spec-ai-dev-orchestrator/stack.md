@@ -4,9 +4,10 @@ Companion to [SPEC.md](SPEC.md). Holds HOW-level detail the kernel intentionally
 
 ## Runtime
 
-- Node.js 20+, TypeScript, run locally (VS Code terminal or standalone CLI).
+- Node.js 22 (matches this repo's `engines: {node: ">=22.0.0"}` and the actual installed version — not 24), TypeScript, run locally (VS Code terminal or standalone CLI). Package manager: pnpm (matches this repo's pinned `packageManager`). Own standalone ESLint 9.x flat config for linting the orchestrator's own source.
 - Core dependency: `@langchain/langgraph` for the state machine; `openai` SDK (or any OpenAI-SDK-compatible client) pointed at 9Router.
 - Local capabilities: `node:fs` for spec/code read-write, `node:child_process` for shell command execution (build/test/lint), `node:readline` (or similar) for terminal HITL prompts, `fetch`/`http`-based email send for timeout escalation.
+- A YAML parser/serializer (e.g. `yaml`) is required to read and write `sprint-status.yaml` in place — the parse/write round-trip must preserve the file's existing comments and key order (this repo's real `sprint-status.yaml` carries inline comments like `# reset from review to ready-for-dev 2026-08-05 — ...`), so a comment-preserving YAML library is required, not a naive parse-then-stringify that would silently drop them. Exact library choice (`yaml` package's document/CST API vs. an alternative) is left to the architecture phase.
 
 ## 9Router integration
 
@@ -36,5 +37,7 @@ Companion to [SPEC.md](SPEC.md). Holds HOW-level detail the kernel intentionally
 
 ## Target repo assumptions
 
-- `TARGET_REPO_PATH` points at an existing local git repository the user chooses per run (config-pointed, not a bundled fixture).
+- `TARGET_REPO_PATH` points at an existing local git repository the user chooses per run (config-pointed) that is **BMad-managed** (has `_bmad/` and `_bmad-output/`) — this is now a hard requirement, not an assumption, since the orchestrator reads/writes real BMad artifacts. It may be this repo (`festgrid/bmad`) itself.
 - The orchestrator reads whatever stack that repo already uses rather than assuming a fixed tech stack — "current stacks" in the original brief means the target repo's stack, detected at runtime, not a stack fixed by this spec.
+- Path resolution (`planning_artifacts`, `implementation_artifacts`, the PRD/architecture reference) is read from the target project's own **`_bmad/bmm/config.yaml`** (not `_bmad/core/config.yaml` — that file lacks these keys; confirmed against the real `bmad-epic-readiness-check` skill's own path resolution) and `_bmad-output/project-context.md` at run start, not hardcoded — so the orchestrator works against any BMad project, not only festgrid.
+- **Decided (previously open):** the orchestrator refuses to run when `TARGET_REPO_PATH` has uncommitted changes at run start (`git status --porcelain` pre-flight gate) — see `state-machines.md`'s Dirty-tree pre-flight gate section. This directly protects a live repo (this one included) from having unrelated human work folded into an autonomous commit.
