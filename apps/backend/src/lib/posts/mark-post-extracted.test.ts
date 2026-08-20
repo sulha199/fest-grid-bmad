@@ -22,6 +22,7 @@ test('markPostExtracted integration tests', async (t) => {
     .insert(posts)
     .values({
       accountId: profile.id,
+      platform: 'instagram',
       content: 'Extract test post',
       postUrl: 'https://instagram.com/p/test_mark_post_' + Date.now(),
       isExtracted: false,

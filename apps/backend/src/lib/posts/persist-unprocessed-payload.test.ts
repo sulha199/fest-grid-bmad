@@ -1,16 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import test from 'node:test';
+import * as assert from 'node:assert';
 import { persistUnprocessedPayload } from './persist-unprocessed-payload.js';
 import { db } from '../../db/client.js';
 import { unprocessedScraperPayloads } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 
-describe('persistUnprocessedPayload', () => {
-  beforeEach(async () => {
-    // Clean up test data
-    await db.delete(unprocessedScraperPayloads);
-  });
-
-  it('persists unprocessed payload to database', async () => {
+test('persistUnprocessedPayload', async (t) => {
+  await t.test('persists unprocessed payload to database', async () => {
     const testPayload = {
       rawPayload: { content: 'test', url: 'https://example.com/post' },
       validationError: [
@@ -33,16 +29,16 @@ describe('persistUnprocessedPayload', () => {
 
     const result = await persistUnprocessedPayload(testPayload);
 
-    expect(result).toBeDefined();
-    expect(result.id).toBeDefined();
-    expect(result.rawPayload).toEqual(testPayload.rawPayload);
-    expect(result.validationError).toEqual(testPayload.validationError);
-    expect(result.context).toEqual(testPayload.context);
-    expect(result.createdAt).toBeDefined();
-    expect(result.deletedAt).toBeNull();
+    assert.ok(result);
+    assert.ok((result as any).id);
+    assert.deepStrictEqual((result as any).rawPayload, testPayload.rawPayload);
+    assert.deepStrictEqual((result as any).validationError, testPayload.validationError);
+    assert.deepStrictEqual((result as any).context, testPayload.context);
+    assert.ok((result as any).createdAt);
+    assert.strictEqual((result as any).deletedAt, null);
   });
 
-  it('persists payload with null optional context fields', async () => {
+  await t.test('persists payload with null optional context fields', async () => {
     const testPayload = {
       rawPayload: { error: 'not_found' },
       validationError: [
@@ -65,13 +61,13 @@ describe('persistUnprocessedPayload', () => {
 
     const result = await persistUnprocessedPayload(testPayload);
 
-    expect(result).toBeDefined();
-    expect(result.context.scraperVendor).toBeNull();
-    expect(result.context.accountId).toBeNull();
-    expect(result.context.postUrl).toBeNull();
+    assert.ok(result);
+    assert.strictEqual((result as any).context.scraperVendor, null);
+    assert.strictEqual((result as any).context.accountId, null);
+    assert.strictEqual((result as any).context.postUrl, null);
   });
 
-  it('can query persisted payload by ID', async () => {
+  await t.test('can query persisted payload by ID', async () => {
     const testPayload = {
       rawPayload: { content: 'test' },
       validationError: [{ keyword: 'required', message: 'field required' }],
@@ -90,12 +86,12 @@ describe('persistUnprocessedPayload', () => {
     const queried = await db
       .select()
       .from(unprocessedScraperPayloads)
-      .where(eq(unprocessedScraperPayloads.id, inserted.id))
+      .where(eq(unprocessedScraperPayloads.id, (inserted as any).id))
       .limit(1)
       .then((rows) => rows[0]);
 
-    expect(queried).toBeDefined();
-    expect(queried.id).toBe(inserted.id);
-    expect(queried.rawPayload).toEqual(testPayload.rawPayload);
+    assert.ok(queried);
+    assert.strictEqual((queried as any).id, (inserted as any).id);
+    assert.deepStrictEqual((queried as any).rawPayload, testPayload.rawPayload);
   });
 });

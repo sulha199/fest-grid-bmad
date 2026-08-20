@@ -34,6 +34,7 @@ test('processIngestionJob integration tests', async (t) => {
     .insert(posts)
     .values({
       accountId: profile.id,
+      platform: 'instagram',
       content: 'Check out this awesome music festival!',
       postUrl: 'https://instagram.com/p/' + postId1,
       publishedAt: new Date(),
@@ -46,6 +47,7 @@ test('processIngestionJob integration tests', async (t) => {
     .insert(posts)
     .values({
       accountId: profile.id,
+      platform: 'instagram',
       content: 'Another event without a location details',
       postUrl: 'https://instagram.com/p/' + postId2,
       publishedAt: new Date(),

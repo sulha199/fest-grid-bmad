@@ -73,6 +73,7 @@ test('sendQuotaWarningEmails orchestration integration and mock tests', async (t
       .insert(posts)
       .values({
         accountId: profileId,
+        platform: 'instagram',
         content: `Post content ${suffix}`,
         postUrl: `https://instagram.com/p/${testRunId}_${suffix}`,
         isExtracted: false,

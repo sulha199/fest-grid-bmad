@@ -33,6 +33,7 @@ test("enqueuePostForProcessing integration tests", async (t) => {
       .insert(posts)
       .values({
         accountId: profile.id,
+        platform: 'instagram',
         content: "Test event post content",
         imageUrl: "https://test.com/image.png",
         postUrl: "https://instagram.com/p/test_enqueue_" + Date.now(),
@@ -87,6 +88,7 @@ test("enqueuePostForProcessing integration tests", async (t) => {
       .insert(posts)
       .values({
         accountId: profile.id,
+        platform: 'instagram',
         content: "Already extracted event post content",
         imageUrl: "https://test.com/image.png",
         postUrl: "https://instagram.com/p/test_already_extracted_" + Date.now(),

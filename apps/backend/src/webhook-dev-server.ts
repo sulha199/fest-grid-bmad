@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { handler } from './lambdas/webhook.js';
-import type { APIGatewayProxyEvent } from 'aws-lambda';
+import type { APIGatewayProxyEvent, Context } from 'aws-lambda';
 
 const PORT = process.env.WEBHOOK_DEV_PORT ?? 4001;
 
@@ -19,7 +19,18 @@ const server = createServer(async (req, res) => {
     isBase64Encoded: false,
   } as unknown as APIGatewayProxyEvent;
 
-  const result = await handler(event);
+  const mockContext: Partial<Context> = {
+    functionName: 'webhook-dev',
+    functionVersion: '$LATEST',
+    invokedFunctionArn: 'arn:aws:lambda:local:123456789:function:webhook',
+    memoryLimitInMB: '128',
+    awsRequestId: Date.now().toString(),
+    logGroupName: '/aws/lambda/webhook',
+    logStreamName: 'dev',
+    getRemainingTimeInMillis: () => 30000,
+  };
+
+  const result = await handler(event, mockContext as Context);
   // result.headers may be undefined; ensure object
   const headers = (result as any).headers || {};
   res.writeHead(result.statusCode, headers);

@@ -29,6 +29,45 @@ export type AccountVote = {
   userId: Scalars['ID']['output'];
 };
 
+export type ActorRunConnection = {
+  __typename?: 'ActorRunConnection';
+  edges: Array<ActorRunEdge>;
+  pageInfo: PageInfo;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type ActorRunEdge = {
+  __typename?: 'ActorRunEdge';
+  cursor: Scalars['String']['output'];
+  node: ScraperActorRun;
+};
+
+export type ActorRunFilters = {
+  createdAfter?: InputMaybe<Scalars['DateTime']['input']>;
+  createdBefore?: InputMaybe<Scalars['DateTime']['input']>;
+  profileId?: InputMaybe<Scalars['ID']['input']>;
+  status?: InputMaybe<ActorRunStatus>;
+  vendor?: InputMaybe<ActorRunVendor>;
+};
+
+export enum ActorRunStatus {
+  Aborted = 'ABORTED',
+  Failed = 'FAILED',
+  Pending = 'PENDING',
+  Succeeded = 'SUCCEEDED',
+  TimedOut = 'TIMED_OUT'
+}
+
+export enum ActorRunTriggerMode {
+  Async = 'ASYNC',
+  Sync = 'SYNC'
+}
+
+export enum ActorRunVendor {
+  Apify = 'APIFY',
+  Brightdata = 'BRIGHTDATA'
+}
+
 export type AddressSuggestion = {
   __typename?: 'AddressSuggestion';
   description: Scalars['String']['output'];
@@ -270,6 +309,7 @@ export type Mutation = {
   registerEmbedDomain: EmbedDomain;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
+  replayActorRun: ReplayActorRunResult;
   reportSystemError: Scalars['Boolean']['output'];
   reprocessPayload: ReprocessResult;
   resolveDefaultLocationChange: DefaultLocationChangeRequest;
@@ -284,6 +324,7 @@ export type Mutation = {
   subscribeToAccount: SubscribeToAccountResult;
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
+  triggerAccountScrape: TriggerAccountScrapeResult;
   unregisterFcmToken: Scalars['Boolean']['output'];
   updateUserLocation: UserLocation;
   updateUserSettings: UserSettings;
@@ -385,6 +426,11 @@ export type MutationRemoveSubscriptionArgs = {
 };
 
 
+export type MutationReplayActorRunArgs = {
+  actorRunId: Scalars['ID']['input'];
+};
+
+
 export type MutationReportSystemErrorArgs = {
   input: ReportSystemErrorInput;
 };
@@ -463,6 +509,11 @@ export type MutationToggleCalendarAdditionArgs = {
 
 export type MutationToggleFavoriteArgs = {
   eventId: Scalars['ID']['input'];
+};
+
+
+export type MutationTriggerAccountScrapeArgs = {
+  accountId: Scalars['ID']['input'];
 };
 
 
@@ -615,6 +666,7 @@ export type Query = {
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
+  queryActorRuns: ActorRunConnection;
   queryUnprocessedPayloads: UnprocessedPayloadConnection;
   rankedVoteAccounts: Array<RankedAccountVote>;
   reportedEvents: Array<Report>;
@@ -681,6 +733,13 @@ export type QueryPreviewLocationArgs = {
 };
 
 
+export type QueryQueryActorRunsArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  filters?: InputMaybe<ActorRunFilters>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
 export type QueryQueryUnprocessedPayloadsArgs = {
   after?: InputMaybe<Scalars['String']['input']>;
   filters?: InputMaybe<UnprocessedPayloadFilters>;
@@ -731,6 +790,13 @@ export type RegionVoteBucket = {
   __typename?: 'RegionVoteBucket';
   label: Scalars['String']['output'];
   voterCount: Scalars['Int']['output'];
+};
+
+export type ReplayActorRunResult = {
+  __typename?: 'ReplayActorRunResult';
+  message: Scalars['String']['output'];
+  postsPersisted: Scalars['Int']['output'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type Report = {
@@ -812,6 +878,25 @@ export enum ScheduleTimezoneStatus {
   Resolved = 'RESOLVED'
 }
 
+export type ScraperActorRun = {
+  __typename?: 'ScraperActorRun';
+  completedAt?: Maybe<Scalars['DateTime']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  itemCount?: Maybe<Scalars['Int']['output']>;
+  pendingJobId?: Maybe<Scalars['String']['output']>;
+  profileId: Scalars['ID']['output'];
+  rawInput: Scalars['JSON']['output'];
+  rawOutput?: Maybe<Scalars['JSON']['output']>;
+  runId: Scalars['String']['output'];
+  startedAt: Scalars['DateTime']['output'];
+  status: ActorRunStatus;
+  triggerMode: ActorRunTriggerMode;
+  updatedAt: Scalars['DateTime']['output'];
+  vendor: ActorRunVendor;
+};
+
 export type SetAccountDefaultLocationInput = {
   latitude?: InputMaybe<Scalars['Float']['input']>;
   longitude?: InputMaybe<Scalars['Float']['input']>;
@@ -826,7 +911,9 @@ export type SocialMediaAccountProfile = {
   displayName: Scalars['String']['output'];
   hasPendingDefaultLocationReview: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
+  isScrapeInProgress: Scalars['Boolean']['output'];
   lastPostDate?: Maybe<Scalars['String']['output']>;
+  lastScrapedAt?: Maybe<Scalars['String']['output']>;
   platform: Scalars['String']['output'];
   profileImageUrl?: Maybe<Scalars['String']['output']>;
   username: Scalars['String']['output'];
@@ -872,6 +959,12 @@ export type ToggleFavoriteResult = {
   __typename?: 'ToggleFavoriteResult';
   eventId: Scalars['ID']['output'];
   isFavorited: Scalars['Boolean']['output'];
+};
+
+export type TriggerAccountScrapeResult = {
+  __typename?: 'TriggerAccountScrapeResult';
+  isInitialScrape: Scalars['Boolean']['output'];
+  triggered: Scalars['Boolean']['output'];
 };
 
 export type UnprocessedPayloadConnection = {
@@ -1058,6 +1151,12 @@ export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
   AccountVote: ResolverTypeWrapper<AccountVote>;
+  ActorRunConnection: ResolverTypeWrapper<ActorRunConnection>;
+  ActorRunEdge: ResolverTypeWrapper<ActorRunEdge>;
+  ActorRunFilters: ActorRunFilters;
+  ActorRunStatus: ActorRunStatus;
+  ActorRunTriggerMode: ActorRunTriggerMode;
+  ActorRunVendor: ActorRunVendor;
   AddressSuggestion: ResolverTypeWrapper<AddressSuggestion>;
   ApiKey: ResolverTypeWrapper<ApiKey>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
@@ -1102,6 +1201,7 @@ export type ResolversTypes = ResolversObject<{
   Query: ResolverTypeWrapper<{}>;
   RankedAccountVote: ResolverTypeWrapper<RankedAccountVote>;
   RegionVoteBucket: ResolverTypeWrapper<RegionVoteBucket>;
+  ReplayActorRunResult: ResolverTypeWrapper<ReplayActorRunResult>;
   Report: ResolverTypeWrapper<Report>;
   ReportOutcome: ReportOutcome;
   ReportReason: ReportReason;
@@ -1111,6 +1211,7 @@ export type ResolversTypes = ResolversObject<{
   ResolveScheduleTimezoneResult: ResolverTypeWrapper<ResolveScheduleTimezoneResult>;
   Schedule: ResolverTypeWrapper<Schedule>;
   ScheduleTimezoneStatus: ScheduleTimezoneStatus;
+  ScraperActorRun: ResolverTypeWrapper<ScraperActorRun>;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
   SocialMediaAccountProfile: ResolverTypeWrapper<SocialMediaAccountProfile>;
   SoftDeleteAction: SoftDeleteAction;
@@ -1120,6 +1221,7 @@ export type ResolversTypes = ResolversObject<{
   Subscription: ResolverTypeWrapper<{}>;
   ToggleCalendarAdditionResult: ResolverTypeWrapper<ToggleCalendarAdditionResult>;
   ToggleFavoriteResult: ResolverTypeWrapper<ToggleFavoriteResult>;
+  TriggerAccountScrapeResult: ResolverTypeWrapper<TriggerAccountScrapeResult>;
   UnprocessedPayloadConnection: ResolverTypeWrapper<UnprocessedPayloadConnection>;
   UnprocessedPayloadEdge: ResolverTypeWrapper<UnprocessedPayloadEdge>;
   UnprocessedPayloadFilters: UnprocessedPayloadFilters;
@@ -1140,6 +1242,9 @@ export type ResolversTypes = ResolversObject<{
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
   AccountVote: AccountVote;
+  ActorRunConnection: ActorRunConnection;
+  ActorRunEdge: ActorRunEdge;
+  ActorRunFilters: ActorRunFilters;
   AddressSuggestion: AddressSuggestion;
   ApiKey: ApiKey;
   Boolean: Scalars['Boolean']['output'];
@@ -1176,11 +1281,13 @@ export type ResolversParentTypes = ResolversObject<{
   Query: {};
   RankedAccountVote: RankedAccountVote;
   RegionVoteBucket: RegionVoteBucket;
+  ReplayActorRunResult: ReplayActorRunResult;
   Report: Report;
   ReportSystemErrorInput: ReportSystemErrorInput;
   ReprocessResult: ReprocessResult;
   ResolveScheduleTimezoneResult: ResolveScheduleTimezoneResult;
   Schedule: Schedule;
+  ScraperActorRun: ScraperActorRun;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
   SocialMediaAccountProfile: SocialMediaAccountProfile;
   String: Scalars['String']['output'];
@@ -1189,6 +1296,7 @@ export type ResolversParentTypes = ResolversObject<{
   Subscription: {};
   ToggleCalendarAdditionResult: ToggleCalendarAdditionResult;
   ToggleFavoriteResult: ToggleFavoriteResult;
+  TriggerAccountScrapeResult: TriggerAccountScrapeResult;
   UnprocessedPayloadConnection: UnprocessedPayloadConnection;
   UnprocessedPayloadEdge: UnprocessedPayloadEdge;
   UnprocessedPayloadFilters: UnprocessedPayloadFilters;
@@ -1209,6 +1317,19 @@ export type AccountVoteResolvers<ContextType = GraphQLContext, ParentType extend
   deletedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   userId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ActorRunConnectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ActorRunConnection'] = ResolversParentTypes['ActorRunConnection']> = ResolversObject<{
+  edges?: Resolver<Array<ResolversTypes['ActorRunEdge']>, ParentType, ContextType>;
+  pageInfo?: Resolver<ResolversTypes['PageInfo'], ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ActorRunEdgeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ActorRunEdge'] = ResolversParentTypes['ActorRunEdge']> = ResolversObject<{
+  cursor?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  node?: Resolver<ResolversTypes['ScraperActorRun'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1361,6 +1482,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   registerEmbedDomain?: Resolver<ResolversTypes['EmbedDomain'], ParentType, ContextType, RequireFields<MutationRegisterEmbedDomainArgs, 'pattern' | 'widgetId'>>;
   registerFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRegisterFcmTokenArgs, 'token'>>;
   removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
+  replayActorRun?: Resolver<ResolversTypes['ReplayActorRunResult'], ParentType, ContextType, RequireFields<MutationReplayActorRunArgs, 'actorRunId'>>;
   reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
   reprocessPayload?: Resolver<ResolversTypes['ReprocessResult'], ParentType, ContextType, RequireFields<MutationReprocessPayloadArgs, 'parserVersion' | 'payloadId'>>;
   resolveDefaultLocationChange?: Resolver<ResolversTypes['DefaultLocationChangeRequest'], ParentType, ContextType, RequireFields<MutationResolveDefaultLocationChangeArgs, 'action' | 'id'>>;
@@ -1375,6 +1497,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   subscribeToAccount?: Resolver<ResolversTypes['SubscribeToAccountResult'], ParentType, ContextType, RequireFields<MutationSubscribeToAccountArgs, 'input'>>;
   toggleCalendarAddition?: Resolver<ResolversTypes['ToggleCalendarAdditionResult'], ParentType, ContextType, RequireFields<MutationToggleCalendarAdditionArgs, 'eventId' | 'scheduleId'>>;
   toggleFavorite?: Resolver<ResolversTypes['ToggleFavoriteResult'], ParentType, ContextType, RequireFields<MutationToggleFavoriteArgs, 'eventId'>>;
+  triggerAccountScrape?: Resolver<ResolversTypes['TriggerAccountScrapeResult'], ParentType, ContextType, RequireFields<MutationTriggerAccountScrapeArgs, 'accountId'>>;
   unregisterFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationUnregisterFcmTokenArgs, 'token'>>;
   updateUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationUpdateUserLocationArgs, 'id' | 'input'>>;
   updateUserSettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType, RequireFields<MutationUpdateUserSettingsArgs, 'input'>>;
@@ -1475,6 +1598,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   pendingDefaultLocationChanges?: Resolver<Array<ResolversTypes['DefaultLocationChangeRequest']>, ParentType, ContextType>;
   postsByAccount?: Resolver<ResolversTypes['PostConnection'], ParentType, ContextType, RequireFields<QueryPostsByAccountArgs, 'accountId'>>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
+  queryActorRuns?: Resolver<ResolversTypes['ActorRunConnection'], ParentType, ContextType, Partial<QueryQueryActorRunsArgs>>;
   queryUnprocessedPayloads?: Resolver<ResolversTypes['UnprocessedPayloadConnection'], ParentType, ContextType, Partial<QueryQueryUnprocessedPayloadsArgs>>;
   rankedVoteAccounts?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryRankedVoteAccountsArgs>>;
   reportedEvents?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, Partial<QueryReportedEventsArgs>>;
@@ -1494,6 +1618,13 @@ export type RankedAccountVoteResolvers<ContextType = GraphQLContext, ParentType 
 export type RegionVoteBucketResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RegionVoteBucket'] = ResolversParentTypes['RegionVoteBucket']> = ResolversObject<{
   label?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   voterCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ReplayActorRunResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ReplayActorRunResult'] = ResolversParentTypes['ReplayActorRunResult']> = ResolversObject<{
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  postsPersisted?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1548,6 +1679,25 @@ export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends R
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type ScraperActorRunResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ScraperActorRun'] = ResolversParentTypes['ScraperActorRun']> = ResolversObject<{
+  completedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  errorMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  itemCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  pendingJobId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  profileId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  rawInput?: Resolver<ResolversTypes['JSON'], ParentType, ContextType>;
+  rawOutput?: Resolver<Maybe<ResolversTypes['JSON']>, ParentType, ContextType>;
+  runId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  startedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['ActorRunStatus'], ParentType, ContextType>;
+  triggerMode?: Resolver<ResolversTypes['ActorRunTriggerMode'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  vendor?: Resolver<ResolversTypes['ActorRunVendor'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type SocialMediaAccountProfileResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SocialMediaAccountProfile'] = ResolversParentTypes['SocialMediaAccountProfile']> = ResolversObject<{
   accountId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   defaultLocation?: Resolver<Maybe<ResolversTypes['LocationDetails']>, ParentType, ContextType>;
@@ -1555,7 +1705,9 @@ export type SocialMediaAccountProfileResolvers<ContextType = GraphQLContext, Par
   displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   hasPendingDefaultLocationReview?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  isScrapeInProgress?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   lastPostDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  lastScrapedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   platform?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   profileImageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   username?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -1588,6 +1740,12 @@ export type ToggleCalendarAdditionResultResolvers<ContextType = GraphQLContext, 
 export type ToggleFavoriteResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ToggleFavoriteResult'] = ResolversParentTypes['ToggleFavoriteResult']> = ResolversObject<{
   eventId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   isFavorited?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type TriggerAccountScrapeResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['TriggerAccountScrapeResult'] = ResolversParentTypes['TriggerAccountScrapeResult']> = ResolversObject<{
+  isInitialScrape?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  triggered?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1661,6 +1819,8 @@ export type WidgetResolvers<ContextType = GraphQLContext, ParentType extends Res
 
 export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   AccountVote?: AccountVoteResolvers<ContextType>;
+  ActorRunConnection?: ActorRunConnectionResolvers<ContextType>;
+  ActorRunEdge?: ActorRunEdgeResolvers<ContextType>;
   AddressSuggestion?: AddressSuggestionResolvers<ContextType>;
   ApiKey?: ApiKeyResolvers<ContextType>;
   Coordinates?: CoordinatesResolvers<ContextType>;
@@ -1686,15 +1846,18 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Query?: QueryResolvers<ContextType>;
   RankedAccountVote?: RankedAccountVoteResolvers<ContextType>;
   RegionVoteBucket?: RegionVoteBucketResolvers<ContextType>;
+  ReplayActorRunResult?: ReplayActorRunResultResolvers<ContextType>;
   Report?: ReportResolvers<ContextType>;
   ReprocessResult?: ReprocessResultResolvers<ContextType>;
   ResolveScheduleTimezoneResult?: ResolveScheduleTimezoneResultResolvers<ContextType>;
   Schedule?: ScheduleResolvers<ContextType>;
+  ScraperActorRun?: ScraperActorRunResolvers<ContextType>;
   SocialMediaAccountProfile?: SocialMediaAccountProfileResolvers<ContextType>;
   SubscribeToAccountResult?: SubscribeToAccountResultResolvers<ContextType>;
   Subscription?: SubscriptionResolvers<ContextType>;
   ToggleCalendarAdditionResult?: ToggleCalendarAdditionResultResolvers<ContextType>;
   ToggleFavoriteResult?: ToggleFavoriteResultResolvers<ContextType>;
+  TriggerAccountScrapeResult?: TriggerAccountScrapeResultResolvers<ContextType>;
   UnprocessedPayloadConnection?: UnprocessedPayloadConnectionResolvers<ContextType>;
   UnprocessedPayloadEdge?: UnprocessedPayloadEdgeResolvers<ContextType>;
   UnprocessedScraperPayload?: UnprocessedScraperPayloadResolvers<ContextType>;
