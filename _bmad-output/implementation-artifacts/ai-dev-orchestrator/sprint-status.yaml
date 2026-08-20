@@ -56,7 +56,7 @@ development_status:
   0-3-define-the-four-port-interfaces-and-the-shared-error-type: ready-for-dev
   0-4-build-the-fail-fast-config-loader: ready-for-dev
   0-5-build-the-audit-logger: ready-for-dev
-  0-6-build-the-9router-llm-adapter: backlog
+  0-6-build-the-9router-llm-adapter: ready-for-dev
   0-7-build-the-local-exec-adapter: backlog
   0-8-build-fake-llmport-and-execport-adapters-for-testing: backlog
   0-9-resolve-and-validate-the-target-bmad-project: backlog
@@ -100,3 +100,4 @@ development_status:
   epic-5: backlog
   5-1-wire-the-manual-review-command: backlog
   epic-5-retrospective: optional
+
