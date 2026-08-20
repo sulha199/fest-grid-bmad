@@ -9,6 +9,8 @@ import {
 import { ScraperAdapter, ScraperAccountRef, ScrapedPost, AccountProfileLookupResult } from "./types.js";
 
 class FakeScraperAdapter implements ScraperAdapter {
+  supportsNewerThanAndLimitFiltering = true;
+
   constructor(
     private profileResult: AccountProfileLookupResult | null = null,
     private postsResult: ScrapedPost[] = []

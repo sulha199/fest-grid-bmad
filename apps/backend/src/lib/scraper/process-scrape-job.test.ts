@@ -35,6 +35,7 @@ test('process-scrape-job integration tests', async (t) => {
     let computedNewerThan: string | undefined = undefined;
 
     const fakeAdapter: ScraperAdapter = {
+      supportsNewerThanAndLimitFiltering: true,
       async getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]> {
         computedNewerThan = options?.newerThan;
         return [
@@ -98,6 +99,7 @@ test('process-scrape-job integration tests', async (t) => {
     let computedNewerThan: string | undefined = undefined;
 
     const fakeAdapter: ScraperAdapter = {
+      supportsNewerThanAndLimitFiltering: true,
       async getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]> {
         computedNewerThan = options?.newerThan;
         return [];
@@ -127,6 +129,7 @@ test('process-scrape-job integration tests', async (t) => {
 
     const [existingPost] = await db.insert(posts).values({
       accountId: profile.id,
+      platform: mockPlatform,
       content: 'Existing post',
       postUrl: 'https://fake.com/p/existing',
       publishedAt,
@@ -147,12 +150,13 @@ test('process-scrape-job integration tests', async (t) => {
     assert.strictEqual(new Date(computedNewerThan).toISOString(), publishedAt.toISOString(), 'newerThan should equal existing post publishedAt');
   });
 
-  await t.test('retries with wider windows for a brand-new subscription until thresholds are met', async () => {
+  await t.test('retries with wider windows for a brand-new subscription when the adapter cannot filter by newerThan+limit in one call', async () => {
     const mockPlatform = 'test-fake-platform-3' as any;
     const uniqueUrlBase = `https://fake.com/${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const seenWindows: string[] = [];
 
     const fakeAdapter: ScraperAdapter = {
+      supportsNewerThanAndLimitFiltering: false,
       async getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]> {
         seenWindows.push(options?.newerThan ?? '');
         if (seenWindows.length === 1) {
@@ -213,10 +217,67 @@ test('process-scrape-job integration tests', async (t) => {
     createdPosts.push(...dbPosts.map((post) => post.id));
   });
 
+  await t.test('fetches once with the widest lookback window for a brand-new subscription when the adapter supports newerThan+limit filtering', async () => {
+    const mockPlatform = 'test-fake-platform-5' as any;
+    const uniqueUrlBase = `https://fake.com/${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    let callCount = 0;
+    let seenNewerThan: string | undefined;
+
+    const fakeAdapter: ScraperAdapter = {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]> {
+        callCount += 1;
+        seenNewerThan = options?.newerThan;
+        return Array.from({ length: 3 }, (_, index) => ({
+          content: `Single-shot post ${index + 1}`,
+          postUrl: `${uniqueUrlBase}/single/p${index + 1}`,
+          publishedAt: new Date(Date.now() - (index + 1) * 60 * 60 * 1000).toISOString(),
+        }));
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getPostByUrl(url: string): Promise<ScrapedPost | null> {
+        return null;
+      },
+    };
+
+    registerScraperAdapter(mockPlatform, fakeAdapter);
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-5-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Account 5',
+      username: 'fake_acc_5',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    const job = {
+      profileId: profile.id,
+      platform: mockPlatform,
+      accountId: profile.accountId,
+      username: profile.username,
+      isInitialNewSubscription: true,
+    };
+
+    await processScrapeJob(job);
+
+    assert.strictEqual(callCount, 1, 'single-call-capable adapter should be fetched exactly once, not retried across windows');
+
+    assert.ok(seenNewerThan);
+    const diffDays = (Date.now() - new Date(seenNewerThan).getTime()) / (1000 * 60 * 60 * 24);
+    assert.ok(diffDays >= 29.9 && diffDays <= 30.1, 'newerThan should use the widest configured retry window (30 days)');
+
+    const dbPosts = await db.select().from(posts).where(eq(posts.accountId, profile.id));
+    assert.strictEqual(dbPosts.length, 3);
+    createdPosts.push(...dbPosts.map((post) => post.id));
+  });
+
   await t.test('handles adapter throw without propagating error (AC7)', async () => {
     const mockPlatform = 'test-fake-platform-4' as any;
 
     const throwingAdapter: ScraperAdapter = {
+      supportsNewerThanAndLimitFiltering: true,
       async getNewestPosts(): Promise<ScrapedPost[]> {
         throw new Error('Fake adapter failure');
       },

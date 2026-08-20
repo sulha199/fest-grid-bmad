@@ -274,6 +274,10 @@ function isNotFoundItem(item: any, kind: 'post' | 'profile'): boolean {
 }
 
 export const instagramScraperAdapter: ScraperAdapter = {
+  // apify/instagram-post-scraper filters server-side on both onlyPostsNewerThan and
+  // resultsLimit, so the new-subscribe path can fetch once instead of retrying windows.
+  supportsNewerThanAndLimitFiltering: true,
+
   async getPostByUrl(url: string): Promise<ScrapedPost | null> {
     await assertProviderCapacityAvailable('apify', `URL ${url}`);
 

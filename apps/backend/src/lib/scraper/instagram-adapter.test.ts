@@ -178,10 +178,9 @@ test('instagram-adapter tests', async (t) => {
       calledActor = actorId;
       await new Promise((resolve) => setTimeout(resolve, 50));
       return [{
-        id: '98765',
-        username: 'test_username',
-        fullName: 'Test Display Name',
-        profilePicUrl: 'https://img.com/pic.jpg',
+        url: 'https://www.instagram.com/p/test/',
+        caption: 'Test post caption',
+        timestamp: '2026-08-08T00:00:00Z',
       }];
     });
 
@@ -226,7 +225,7 @@ test('instagram-adapter tests', async (t) => {
       timestamp: '2026-08-08T00:00:00Z',
     };
 
-    const result = mapApifyItemToScrapedPost(invalidItem);
+    const result = await mapApifyItemToScrapedPost(invalidItem);
     assert.strictEqual(result, null);
   });
 
@@ -237,7 +236,7 @@ test('instagram-adapter tests', async (t) => {
       timestamp: 12345, // number instead of string
     };
 
-    const result = mapApifyItemToScrapedPost(invalidItem);
+    const result = await mapApifyItemToScrapedPost(invalidItem);
     assert.strictEqual(result, null);
   });
 

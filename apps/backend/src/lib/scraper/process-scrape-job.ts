@@ -45,6 +45,29 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
     const adapter = getScraperAdapter(job.platform);
 
     if (job.isInitialNewSubscription) {
+      if (adapter.supportsNewerThanAndLimitFiltering) {
+        // Actor filters by newerThan and result count server-side, so one call with the
+        // widest lookback window returns everything the retry loop would otherwise need
+        // multiple actor runs to accumulate.
+        const widestWindowDays = Math.max(...NEW_SUBSCRIBE_RETRY_WINDOWS_DAYS);
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - widestWindowDays);
+        const newerThan = cutoffDate.toISOString();
+
+        setApifyAuditContext(job.profileId, 'sync');
+        try {
+          const scrapedPosts = await adapter.getNewestPosts(
+            { accountId: job.accountId, username: job.username },
+            { newerThan }
+          );
+          await persistScrapedPosts(job, scrapedPosts, apifyAuditContext?.runId);
+        } finally {
+          clearApifyAuditContext();
+        }
+
+        return;
+      }
+
       const uniquePostUrls = new Set<string>();
       let totalReturned = 0;
 
