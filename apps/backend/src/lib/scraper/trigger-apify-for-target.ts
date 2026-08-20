@@ -53,14 +53,8 @@ export let attemptApifyAsyncTrigger = async (
       }
     );
 
-    // Create pending job row (with the pre-generated token and now-known runId)
-    const pendingJob = await createPendingJob({
-      profileId: target.profileId,
-      runId: run.id,
-    });
-
-    // Record audit trail at trigger time
-    await recordActorRunStart({
+    // Record audit trail at trigger time (without pendingJobId initially)
+    const auditRunId = await recordActorRunStart({
       vendor: 'apify',
       triggerMode: 'async',
       profileId: target.profileId,
@@ -71,8 +65,14 @@ export let attemptApifyAsyncTrigger = async (
         resultsLimit: env.scrapeResultsLimit,
         onlyPostsNewerThan: newerThan,
       },
-      pendingJobId: pendingJob.id,
       status: 'PENDING',
+    });
+
+    // Create pending job row (with the audit run ID so it can be threaded through the webhook)
+    const pendingJob = await createPendingJob({
+      profileId: target.profileId,
+      runId: run.id,
+      scraperActorRunId: auditRunId || undefined,
     });
 
     // Record usage (nominal trigger-time accounting)

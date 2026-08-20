@@ -123,8 +123,8 @@ export function getApifyClient(): ApifyClient {
   return new ApifyClient({ token: env.apifyApiToken });
 }
 
-// Context for audit recording (set by callers that have profileId)
-export let apifyAuditContext: { profileId: string; triggerMode: 'sync' | 'async' } | undefined;
+// Context for audit recording and run ID threading (set by callers that have profileId)
+export let apifyAuditContext: { profileId: string; triggerMode: 'sync' | 'async'; runId?: string } | undefined;
 
 export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorInputFor<T>): Promise<ActorOutputFor<T>> => {
   const client = getApifyClient();
@@ -137,7 +137,7 @@ export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorIn
 
   // Record audit trail if context is set (sync path with profileId available)
   if (apifyAuditContext?.profileId) {
-    await recordSyncActorRun({
+    const auditRunId = await recordSyncActorRun({
       vendor: 'apify',
       profileId: apifyAuditContext.profileId,
       runId: run.id,
@@ -147,6 +147,10 @@ export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorIn
       itemCount: items.length,
       errorMessage: run.status === 'SUCCEEDED' ? undefined : `Run status: ${run.status}`,
     });
+    // Store the recorded run ID in context for callers to thread to persist functions
+    if (auditRunId && apifyAuditContext) {
+      apifyAuditContext.runId = auditRunId;
+    }
   }
 
   return items;
@@ -229,6 +233,7 @@ export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost 
           timestamp: new Date().toISOString(),
           parserVersion: APIFY_PARSER_VERSION,
         },
+        scraperActorRunId: apifyAuditContext?.runId,
       });
     } catch (err) {
       console.error('Failed to persist unprocessed Apify payload:', err);

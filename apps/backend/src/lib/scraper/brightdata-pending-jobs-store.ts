@@ -10,6 +10,7 @@ export interface BrightdataPendingJob {
   webhookToken: string;
   status: 'PENDING' | 'COMPLETED' | 'EXPIRED';
   expiresAt: Date;
+  scraperActorRunId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,9 +18,11 @@ export interface BrightdataPendingJob {
 export async function createPendingJob({
   profileId,
   snapshotId,
+  scraperActorRunId,
 }: {
   profileId: string;
   snapshotId: string;
+  scraperActorRunId?: string;
 }): Promise<{ webhookToken: string; id: string }> {
   const webhookToken = randomBytes(24).toString('hex');
   const { BRIGHTDATA_JOB_TIMEOUT_MINUTES = 180 } = process.env;
@@ -34,6 +37,7 @@ export async function createPendingJob({
       webhookToken,
       status: 'PENDING',
       expiresAt,
+      scraperActorRunId,
     })
     .returning({ id: brightdataPendingJobs.id, webhookToken: brightdataPendingJobs.webhookToken });
 

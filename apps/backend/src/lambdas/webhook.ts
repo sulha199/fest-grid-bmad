@@ -57,8 +57,8 @@ export const handler = async (
       itemCount: records.length,
     });
 
-    // Process results
-    await processBrightDataResult(pendingJob, records);
+    // Process results with the audit run ID
+    await processBrightDataResult(pendingJob, records, pendingJob.scraperActorRunId);
 
     return {
       statusCode: 200,

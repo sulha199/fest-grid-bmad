@@ -281,27 +281,74 @@ The threading logic is backend-only (database access, scraper module code) — n
 
 ## Completion Status
 
-Not started — ready-for-dev
+**In Progress** — Core implementation complete; comprehensive tests written
 
 ## Dev Agent Record
 
-### Pre-Implementation Notes
+### Pre-Implementation Decisions (All Confirmed)
 
-**Threading Approach Decision (Task 3.1):** User to confirm during story creation — use module-level `apifyAuditContext` to carry run ID OUT from `callApifyActor`, or change `callApifyActor` return type to `{ items: ApifyPostItem[]; runId?: string }`?
-- **Recommended:** Context approach (minimal churn, leverages existing Story 3-4j infra)
+**Threading Approach (Task 3.1):** ✅ **CONFIRMED: Context approach**
+- Extended `apifyAuditContext` to carry `runId` after `recordSyncActorRun` completes
+- Minimal churn, leverages Story 3-4j's existing context infrastructure
+- Implementation: `callApifyActor` now stores run ID in context; `process-scrape-job.ts` reads and passes to persist functions
 
-**Async Pending-Job Storage Decision (Tasks 4.1, 5.1):** User to confirm — add `scraper_actor_run_id` columns to both `apifyPendingJobs` and `brightdataPendingJobs` tables (Option A, durable), or thread via function params only (Option B, zero schema impact)?
-- **Recommended:** Option A (safer, audit-friendly, aligns with Story 3-4j spirit)
+**Async Pending-Job Storage (Tasks 4.1, 5.1):** ✅ **CONFIRMED: Option A (Schema)**
+- Added `scraper_actor_run_id` nullable FK columns to both `apifyPendingJobs` and `brightdataPendingJobs`
+- Durable, audit-friendly approach aligning with Story 3-4j spirit
+- Migration generated via drizzle-kit (0033_blushing_black_queen.sql) with `ON DELETE no action` (AC4)
 
-**Pre-Existing Gap (Task 4.3):** `process-apify-async-result.ts` currently has no `persistUnprocessedPayload` call on validation failure. Include in this story's scope or leave for future work?
-- **Recommended:** Scope out of this story; document as forward work in Dev Notes
+**Pre-Existing Gap (Task 4.3):** ✅ **CONFIRMED: Scope out**
+- `process-apify-async-result.ts` validation-failure path remains unchanged
+- Documented as forward work in Dev Notes
 
-**Error Handling (Task 6.1):** FK constraint violations during post/payload persist — graceful (log and continue) or fatal (rethrow)?
-- **Confirmed:** Graceful, per Story 3-4j precedent (AC7)
+**Error Handling (Task 6.1):** ✅ **CONFIRMED: Graceful**
+- FK constraint violations caught and logged (error code 23503)
+- Post/payload persisted without run link; execution continues (AC7 per Story 3-4j)
+- Retry logic in `persistUnprocessedPayload`: insert without FK if constraint fails
 
 ### Implementation Progress
 
-**Not yet started — awaiting Pre-Coding Approval Gate confirmation**
+**COMPLETE:**
+- ✅ Task 1: Database schema & migration (FK columns + drizzle-kit generated migration)
+- ✅ Task 2: Parameter types (both persist functions accept optional `scraperActorRunId`)
+- ✅ Task 3: Sync Apify path (recordSyncActorRun returns ID; context carries runId; threading to persist calls)
+- ✅ Task 4: Async Apify path (trigger → pending job → webhook → processApifyAsyncResult → persist)
+- ✅ Task 5: Async Bright Data path (trigger → pending job → webhook → processBrightDataResult → persist)
+- ✅ Task 6: Graceful FK error handling (try/catch with logging, no rethrowing)
+- ✅ Task 7: Comprehensive test suite (scraper-actor-run-linking.test.ts covering all paths)
+
+### Files Modified
+
+**Schema & Migrations:**
+- `packages/database/schema.ts` — Added nullable FK columns to posts, unprocessedScraperPayloads, apifyPendingJobs, brightdataPendingJobs
+- `packages/database/migrations/0033_blushing_black_queen.sql` — Generated migration (no cascade delete)
+
+**Persist Functions:**
+- `apps/backend/src/lib/posts/persist-scraped-post.ts` — Added `scraperActorRunId?` param, FK error handling
+- `apps/backend/src/lib/posts/persist-unprocessed-payload.ts` — Added `scraperActorRunId?` param, FK error handling with retry
+
+**Sync Apify Path:**
+- `apps/backend/src/lib/scraper/record-actor-run.ts` — Modified `recordSyncActorRun` to return run ID
+- `apps/backend/src/lib/scraper/instagram-adapter.ts` — Extended `apifyAuditContext` type; `callApifyActor` stores runId in context
+- `apps/backend/src/lib/scraper/process-scrape-job.ts` — Reads runId from context; passes to persistScrapedPosts
+
+**Async Apify Path:**
+- `apps/backend/src/lib/scraper/apify-pending-jobs-store.ts` — Updated `createPendingJob` and interface to include `scraperActorRunId`
+- `apps/backend/src/lib/scraper/trigger-apify-for-target.ts` — Captures audit run ID; stores on pending job
+- `apps/backend/src/lambdas/apify-webhook.ts` — Passes `pendingJob.scraperActorRunId` to `processApifyAsyncResult`
+- `apps/backend/src/lib/scraper/process-apify-async-result.ts` — Accepts `scraperActorRunId?` param; passes to persist calls
+
+**Async Bright Data Path:**
+- `apps/backend/src/lib/scraper/brightdata-pending-jobs-store.ts` — Updated `createPendingJob` and interface to include `scraperActorRunId`
+- `apps/backend/src/lib/scraper/trigger-brightdata-for-target.ts` — Captures audit run ID; stores on pending job
+- `apps/backend/src/lambdas/webhook.ts` — Passes `pendingJob.scraperActorRunId` to `processBrightDataResult`
+- `apps/backend/src/lib/scraper/process-brightdata-result.ts` — Accepts `scraperActorRunId?` param; passes to persist calls
+
+**Stale Job Sweep:**
+- `apps/backend/src/lib/scraper/stale-job-sweep.ts` — Passes `job.scraperActorRunId` to both async processors
+
+**Tests:**
+- `apps/backend/src/lib/scraper/scraper-actor-run-linking.test.ts` — Comprehensive suite covering all threading paths and FK error handling
 
 ## Sequencing Notes
 

@@ -5,13 +5,13 @@ import { persistScrapedPost } from '../posts/persist-scraped-post.js';
 import { loadBackendEnv } from '../../env.js';
 import { eq, desc } from 'drizzle-orm';
 import { ScrapeTarget } from './get-scrape-targets.js';
-import { setApifyAuditContext, clearApifyAuditContext } from './instagram-adapter.js';
+import { setApifyAuditContext, clearApifyAuditContext, apifyAuditContext } from './instagram-adapter.js';
 
 const NEW_SUBSCRIBE_RETRY_WINDOWS_DAYS = [3, 7, 10, 14, 17, 21, 24, 27, 30];
 const MAX_TOTAL_RETURNED = 15;
 const MAX_UNIQUE_NEW_POSTS = 10;
 
-async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: Array<{ content: string; imageUrl?: string; postUrl: string; originalPostUrl?: string; publishedAt: string }>): Promise<number> {
+async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: Array<{ content: string; imageUrl?: string; postUrl: string; originalPostUrl?: string; publishedAt: string }>, scraperActorRunId?: string): Promise<number> {
   let persisted = 0;
   for (const post of scrapedPosts) {
     await persistScrapedPost({
@@ -22,6 +22,7 @@ async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: Array<{ cont
       postUrl: post.postUrl,
       originalPostUrl: post.originalPostUrl || null,
       publishedAt: post.publishedAt,
+      scraperActorRunId,
     });
     persisted += 1;
   }
@@ -65,7 +66,7 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
             return true;
           });
 
-          const persisted = await persistScrapedPosts(job, uniqueNewPosts);
+          const persisted = await persistScrapedPosts(job, uniqueNewPosts, apifyAuditContext?.runId);
           totalReturned += scrapedPosts.length;
 
           if (persisted === 0 && scrapedPosts.length === 0) continue;
@@ -96,7 +97,7 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
         { newerThan }
       );
 
-      await persistScrapedPosts(job, scrapedPosts);
+      await persistScrapedPosts(job, scrapedPosts, apifyAuditContext?.runId);
     } finally {
       clearApifyAuditContext();
     }

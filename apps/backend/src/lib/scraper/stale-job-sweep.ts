@@ -45,7 +45,7 @@ async function processSingleExpiredBrightDataJob(job: any): Promise<void> {
         rawOutput: output.items,
         itemCount: output.items.length,
       });
-      await processBrightDataResult(job, output.items);
+      await processBrightDataResult(job, output.items, job.scraperActorRunId);
     } else {
       // Job failed or still not ready - record and mark as expired
       await recordActorRunResult({
@@ -94,7 +94,7 @@ async function processSingleExpiredApifyJob(job: any): Promise<void> {
         rawOutput: output.items,
         itemCount: output.items.length,
       });
-      await processApifyAsyncResult(job, output.items as any[]);
+      await processApifyAsyncResult(job, output.items as any[], job.scraperActorRunId);
     } else {
       // Job failed/timed out/aborted - record and mark as expired
       await recordActorRunResult({

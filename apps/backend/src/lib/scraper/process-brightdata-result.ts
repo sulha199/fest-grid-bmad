@@ -14,7 +14,8 @@ const validateScrapedPost = compileValidator<ScrapedPost>(scrapedPostSchema);
 
 export async function processBrightDataResult(
   pendingJob: BrightdataPendingJob,
-  records: unknown[]
+  records: unknown[],
+  scraperActorRunId?: string
 ): Promise<void> {
   // Map Bright Data records to ScrapedPost format and persist each
   for (const record of records) {
@@ -59,6 +60,7 @@ export async function processBrightDataResult(
               timestamp: new Date().toISOString(),
               parserVersion: '3.4g',
             },
+            scraperActorRunId,
           });
         } catch (err) {
           console.error('Failed to persist unprocessed Bright Data payload:', err);
@@ -73,6 +75,7 @@ export async function processBrightDataResult(
         imageUrl: candidate.imageUrl || null,
         content: candidate.content,
         publishedAt: candidate.publishedAt,
+        scraperActorRunId,
       });
     } catch (error) {
       console.error(`Failed to persist post from Bright Data: ${postUrl}`, error);

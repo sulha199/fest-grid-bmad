@@ -8,7 +8,8 @@ import type { ApifyPendingJob } from './apify-pending-jobs-store.js';
 
 export async function processApifyAsyncResult(
   pendingJob: ApifyPendingJob,
-  items: any[]
+  items: any[],
+  scraperActorRunId?: string
 ): Promise<void> {
   // Map Apify items to ScrapedPost format and persist each
   for (const item of items) {
@@ -26,6 +27,7 @@ export async function processApifyAsyncResult(
         imageUrl: post.imageUrl || null,
         content: post.content,
         publishedAt: post.publishedAt,
+        scraperActorRunId,
       });
     } catch (error) {
       console.error(`Failed to persist post from Apify item: ${item?.postUrl || item?.url}`, error);

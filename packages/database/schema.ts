@@ -48,6 +48,7 @@ export const brightdataPendingJobs = pgTable('brightdata_pending_jobs', {
   webhookToken: text('webhook_token').notNull().unique(),
   status: brightdataJobStatusEnum('status').default('PENDING').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  scraperActorRunId: uuid('scraper_actor_run_id').references(() => scraperActorRuns.id),
   ...timestamps,
 }, (t) => ({
   statusExpiresIdx: index('idx_brightdata_pending_jobs_status_expires').on(t.status, t.expiresAt)
@@ -62,6 +63,7 @@ export const apifyPendingJobs = pgTable('apify_pending_jobs', {
   webhookToken: text('webhook_token').notNull().unique(),
   status: apifyJobStatusEnum('status').default('PENDING').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  scraperActorRunId: uuid('scraper_actor_run_id').references(() => scraperActorRuns.id),
   ...timestamps,
 }, (t) => ({
   statusExpiresIdx: index('idx_apify_pending_jobs_status_expires').on(t.status, t.expiresAt)
@@ -176,11 +178,13 @@ export const posts = pgTable('posts', {
   originalPostUrl: text('original_post_url'),
   isExtracted: boolean('is_extracted').default(false).notNull(),
   publishedAt: timestamp('published_at', { withTimezone: true }).notNull(),
+  scraperActorRunId: uuid('scraper_actor_run_id').references(() => scraperActorRuns.id),
   ...timestamps,
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),
   publishedAtIdx: index('published_at_idx').on(t.publishedAt),
   postUrlUnq: unique().on(t.postUrl),
+  scraperActorRunIdIdx: index('idx_posts_scraper_actor_run_id').on(t.scraperActorRunId),
 }));
 
 export const scraperActorRuns = pgTable('scraper_actor_runs', {
@@ -550,6 +554,7 @@ export const unprocessedScraperPayloads = pgTable('unprocessed_scraper_payloads'
   rawPayload: jsonb('raw_payload').notNull(),
   validationError: jsonb('validation_error').notNull(),
   context: jsonb('context').notNull(),
+  scraperActorRunId: uuid('scraper_actor_run_id').references(() => scraperActorRuns.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 }, (t) => ({
@@ -563,6 +568,7 @@ export const unprocessedScraperPayloads = pgTable('unprocessed_scraper_payloads'
   idxCleanup: index('idx_unprocessed_payloads_cleanup')
     .on(t.createdAt)
     .where(sql`deleted_at IS NULL`),
+  scraperActorRunIdIdx: index('idx_unprocessed_payloads_scraper_actor_run_id').on(t.scraperActorRunId),
 }));
 
 export const parserVersionRegistry = pgTable('parser_version_registry', {

@@ -102,6 +102,7 @@ export async function recordActorRunResult(input: RecordActorRunResultInput): Pr
 /**
  * Convenience wrapper for sync-path audit recording.
  * Combines the full run lifecycle (from input to output) into a single insert.
+ * Returns the recorded run's ID if successful, null otherwise.
  * This function catches and logs any DB errors; it never throws or blocks the caller.
  */
 export async function recordSyncActorRun(input: {
@@ -113,9 +114,9 @@ export async function recordSyncActorRun(input: {
   rawOutput?: unknown;
   itemCount?: number;
   errorMessage?: string;
-}): Promise<void> {
+}): Promise<string | null> {
   try {
-    await db
+    const [result] = await db
       .insert(scraperActorRuns)
       .values({
         vendor: input.vendor as any,
@@ -132,12 +133,15 @@ export async function recordSyncActorRun(input: {
       })
       .onConflictDoNothing({
         target: [scraperActorRuns.vendor, scraperActorRuns.runId],
-      });
+      })
+      .returning({ id: scraperActorRuns.id });
+
+    return result?.id || null;
   } catch (err) {
     console.error(
       `Failed to record sync actor run for ${input.vendor} run ${input.runId}:`,
       err
     );
-    // Errors are swallowed intentionally - audit recording never blocks the caller
+    return null;
   }
 }

@@ -31,19 +31,8 @@ export async function attemptBrightDataTrigger(
       webhookUrl
     );
 
-    // Create pending job row
-    const pendingJob = await createPendingJob({
-      profileId: target.profileId,
-      snapshotId: triggerResult.snapshotId,
-    });
-
-    // Verify the webhook token matches what we created
-    if (pendingJob.webhookToken !== webhookToken) {
-      console.error('Webhook token mismatch - this should not happen');
-    }
-
-    // Record audit trail at trigger time
-    await recordActorRunStart({
+    // Record audit trail at trigger time (without pendingJobId initially)
+    const auditRunId = await recordActorRunStart({
       vendor: 'brightdata',
       triggerMode: 'async',
       profileId: target.profileId,
@@ -53,9 +42,20 @@ export async function attemptBrightDataTrigger(
         numOfPosts: env.scrapeResultsLimit || 10,
         startDate,
       },
-      pendingJobId: pendingJob.id,
       status: 'PENDING',
     });
+
+    // Create pending job row (with the audit run ID so it can be threaded through the webhook)
+    const pendingJob = await createPendingJob({
+      profileId: target.profileId,
+      snapshotId: triggerResult.snapshotId,
+      scraperActorRunId: auditRunId || undefined,
+    });
+
+    // Verify the webhook token matches what we created
+    if (pendingJob.webhookToken !== webhookToken) {
+      console.error('Webhook token mismatch - this should not happen');
+    }
 
     // Record usage
     await recordProviderUsage('brightdata', 1);

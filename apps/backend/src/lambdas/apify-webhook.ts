@@ -96,8 +96,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         itemCount: items.length,
       });
 
-      // Process results
-      await processApifyAsyncResult(pendingJob, items as any[]);
+      // Process results with the audit run ID
+      await processApifyAsyncResult(pendingJob, items as any[], pendingJob.scraperActorRunId);
     } else {
       // Job failed/timed out/aborted - record failure and mark as expired
       const statusMap: Record<string, 'FAILED' | 'TIMED_OUT' | 'ABORTED'> = {

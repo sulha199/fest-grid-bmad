@@ -10,6 +10,7 @@ interface PersistScrapedPostParams {
   postUrl: string;
   originalPostUrl?: string | null;
   publishedAt: string;
+  scraperActorRunId?: string;
 }
 
 export async function persistScrapedPost({
@@ -20,6 +21,7 @@ export async function persistScrapedPost({
   postUrl,
   originalPostUrl,
   publishedAt,
+  scraperActorRunId,
 }: PersistScrapedPostParams) {
   // 1. Try to find the existing post using the dual-lookup logic
   const conditions = originalPostUrl
@@ -41,20 +43,34 @@ export async function persistScrapedPost({
   }
 
   // 2. If absent, insert a new row with onConflictDoNothing
-  await db
-    .insert(posts)
-    .values({
-      accountId,
-      platform,
-      content,
-      imageUrl,
-      postUrl,
-      originalPostUrl,
-      publishedAt: new Date(publishedAt),
-    })
-    .onConflictDoNothing({
-      target: [posts.postUrl],
-    });
+  try {
+    await db
+      .insert(posts)
+      .values({
+        accountId,
+        platform,
+        content,
+        imageUrl,
+        postUrl,
+        originalPostUrl,
+        publishedAt: new Date(publishedAt),
+        scraperActorRunId,
+      })
+      .onConflictDoNothing({
+        target: [posts.postUrl],
+      });
+  } catch (err) {
+    // Graceful FK error handling (AC7 per Story 3-4j): catch FK violations and log without rethrowing
+    const dbErr = err as any;
+    if (dbErr?.code === '23503') {
+      console.warn(
+        `FK constraint violation inserting post ${postUrl} with runId ${scraperActorRunId}; post will be persisted without run link`,
+        err
+      );
+    } else {
+      throw err;
+    }
+  }
 
   // Re-select to get the inserted row (race-safe)
   post = await db

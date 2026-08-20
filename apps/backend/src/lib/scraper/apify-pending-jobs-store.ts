@@ -10,6 +10,7 @@ export interface ApifyPendingJob {
   webhookToken: string;
   status: 'PENDING' | 'COMPLETED' | 'EXPIRED';
   expiresAt: Date;
+  scraperActorRunId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,9 +18,11 @@ export interface ApifyPendingJob {
 export async function createPendingJob({
   profileId,
   runId,
+  scraperActorRunId,
 }: {
   profileId: string;
   runId: string;
+  scraperActorRunId?: string;
 }): Promise<{ webhookToken: string; id: string }> {
   const webhookToken = randomBytes(24).toString('hex');
   const { APIFY_JOB_TIMEOUT_MINUTES = 180 } = process.env;
@@ -34,6 +37,7 @@ export async function createPendingJob({
       webhookToken,
       status: 'PENDING',
       expiresAt,
+      scraperActorRunId,
     })
     .returning({ id: apifyPendingJobs.id, webhookToken: apifyPendingJobs.webhookToken });
 
