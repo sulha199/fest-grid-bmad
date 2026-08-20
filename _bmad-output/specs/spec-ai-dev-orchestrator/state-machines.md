@@ -75,7 +75,7 @@ stateDiagram-v2
 
 ## Dirty-tree pre-flight gate
 
-Resolves what was previously an open question. `AD-4`'s `git add -A` safety depends on the working tree containing only the orchestrator's own in-flight changes at commit time — nothing enforced that before this fix. At run start, before anything else, the orchestrator runs `git status --porcelain` against `TARGET_REPO_PATH`. Any pre-existing uncommitted or untracked change **refuses the run** (hard error, not a warning) with a message asking the user to commit or stash first. This matters most exactly when `TARGET_REPO_PATH` is a live repo a human actively works in (explicitly permitted, SPEC.md Constraints) — without this gate, an unrelated in-progress human edit would be silently folded into the next story's "done" commit.
+Resolves what was previously an open question. At run start, before anything else, the orchestrator runs `git status --porcelain` against `TARGET_REPO_PATH`. Any pre-existing uncommitted or untracked change **refuses the run** (hard error, not a warning) with a message asking the user to commit or stash first — this catches a dirty tree at the moment the run begins. The complementary, longer-lived protection is `AD-4`'s tracked-writes staging: `GitCheckpoint` stages only what `ExecPort` recorded as written for that story, never `git add -A`, so a human edit made *later* in a long multi-story run — after this gate already passed — still can't be folded into a commit. This matters most exactly when `TARGET_REPO_PATH` is a live repo a human actively works in (explicitly permitted, SPEC.md Constraints).
 
 ## Foreign-work policy
 
@@ -168,7 +168,7 @@ Correct-course reuses CAP-12's machinery entirely rather than being a separate i
 
 ## Git checkpoint policy
 
-- Depends on the dirty-tree pre-flight gate having already refused a dirty starting tree — `git add -A` is only safe because the working tree contains nothing but the orchestrator's own changes from run start onward.
+- The dirty-tree pre-flight gate refuses a dirty starting tree once, at run start. It is not the sole safety mechanism for the whole run after that: staging is scoped to exactly what `ExecPort` tracked as written for this story (`getWrittenPaths()`), never `git add -A` — a human editing an unrelated file elsewhere in `TARGET_REPO_PATH` at any point later in a long multi-story run is structurally excluded from the commit, not just protected by the initial check. `ExecPort.resetWrittenPaths()` runs after each commit so the next story tracks from empty.
 - One commit per completed story, created immediately after that story clears **both** review tiers — not after every node/state transition, so intermediate AUTO_FIX iterations (from either tier) don't pollute history.
 - The commit includes the story's code changes, its updated story file (task checkboxes, review findings), and its `sprint-status.yaml` entry (flipped to `done`) together.
 - Commit message references the story/epic key (e.g. `1.3a`) so history stays traceable back to `epics.md`.

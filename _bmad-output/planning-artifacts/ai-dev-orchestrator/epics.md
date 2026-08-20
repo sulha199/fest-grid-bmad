@@ -1,5 +1,5 @@
 ---
-stepsCompleted: ["step-01-validate-prerequisites", "step-02-design-epics", "step-03-create-stories"]
+stepsCompleted: ["step-01-validate-prerequisites", "step-02-design-epics", "step-03-create-stories", "step-04-final-validation"]
 inputDocuments: [
   "_bmad-output/specs/spec-ai-dev-orchestrator/SPEC.md",
   "_bmad-output/specs/spec-ai-dev-orchestrator/stack.md",
@@ -164,8 +164,9 @@ So that core never depends on anything but these interfaces (AD-1).
 
 **Given** `core/ports/`
 **When** all four interface files are implemented
-**Then** `LLMPort.complete` takes `{ role, systemPrompt, messages }` (role-scoped, no pre-bound model), `ExecPort.run` takes `{ cmd, args: string[], cwd? }` (argv array, never a shell string), `NotifyPort.send` takes `{ to, subject, body }`, and `HITLPort.prompt` takes `{ summary, expand }` and resolves with a string
+**Then** `LLMPort.complete` takes `{ role, systemPrompt, messages }` (role-scoped, no pre-bound model), `ExecPort.run` takes `{ cmd, args: string[], cwd? }` (argv array, never a shell string) for build/test/git commands, `ExecPort.readFile`/`writeFile` take a path relative to `TARGET_REPO_PATH` and content, using `node:fs` directly (not shelling out through `run()`) for every parser's actual file I/O, `NotifyPort.send` takes `{ to, subject, body }`, and `HITLPort.prompt` takes `{ summary, expand }` and resolves with a string
 **And** `OrchestratorError { message, recoverable: boolean, cause }` is defined once and is the only error type any port signature declares as thrown
+**And** the shared retry policy is documented here as the canonical rule every node story references rather than re-defining: a node's own top-level port call (not a review verdict) that throws `recoverable: true` gets exactly one retry; a second failure, or any `recoverable: false` failure, routes to HITL with the error as the reason — never an invisible retry loop, a crash, or silent continuation
 **And** nothing outside `core/ports/` is imported by these files — they have zero runtime dependencies
 
 ### Story 0.4: Build the fail-fast config loader
@@ -180,7 +181,8 @@ So that a misconfiguration fails immediately instead of mid-epic.
 **When** the orchestrator process starts with a missing or invalid required env var (e.g. `NINE_ROUTER_API_KEY` unset)
 **Then** the process throws and exits before any graph is built, with a message naming the specific missing/invalid variable
 **And** given all required env vars are present and valid, `env.ts` exports a single parsed, typed config object every other module reads from
-**And** a Vitest suite covers at least: missing required var, invalid `HITL_TIMEOUT_MS` (non-numeric), and the all-valid success path
+**And** given `MAX_AUTO_FIX_ATTEMPTS` is `0`, that's a valid value meaning "never AUTO_FIX, the first non-`APPROVE` verdict always escalates" — it is not a config error; given it's negative, that **is** rejected as a config error
+**And** a Vitest suite covers at least: missing required var, invalid `HITL_TIMEOUT_MS` (non-numeric), `MAX_AUTO_FIX_ATTEMPTS` at `0` (valid) and negative (rejected), and the all-valid success path
 
 ### Story 0.5: Build the audit logger
 
@@ -212,9 +214,9 @@ So that node LLM calls actually work end to end.
 
 ### Story 0.7: Build the local exec adapter
 
-As a developer running the Tester/GitCheckpoint nodes,
-I want an `ExecPort` implementation that reads/writes files and runs shell commands scoped to `TARGET_REPO_PATH`,
-So that node file/shell operations actually touch the target repo safely.
+As a developer running any node that touches the target repo,
+I want an `ExecPort` implementation that reads/writes file content directly, runs shell commands, and detects a stale read-modify-write, all scoped to `TARGET_REPO_PATH`,
+So that node file/shell operations actually touch the target repo safely and never silently clobber a concurrent external edit.
 
 **Acceptance Criteria:**
 
@@ -222,7 +224,12 @@ So that node file/shell operations actually touch the target repo safely.
 **When** `run({ cmd: 'npm', args: ['test'], cwd })` is called
 **Then** the command executes via `child_process` with `args` passed as an argv array (never string-interpolated into a shell), `cwd` defaulting to `TARGET_REPO_PATH`, and `{ stdout, stderr, exitCode }` is returned
 **And** given the command doesn't exist or the process fails to spawn, the adapter throws `OrchestratorError` with `recoverable: false`
-**And** a Vitest suite runs a real trivial command (e.g. `node -e "process.exit(0)"`) and a real failing one, asserting `exitCode` and error behavior — no mocking of `child_process` itself, since this adapter's whole job is real execution
+**And** given `cwd` (or a resolved file-path argument) would resolve outside `TARGET_REPO_PATH` (e.g. via `../` traversal or an absolute path elsewhere), the adapter rejects the call with `OrchestratorError { recoverable: false }` before spawning anything — no command ever runs outside the target repo boundary
+**And** given the command doesn't exit within a bounded timeout (default e.g. 10 minutes, configurable), the adapter kills the process and throws `OrchestratorError { recoverable: true }` rather than hanging forever — a hung `npm test` cannot block an unattended run indefinitely
+**And** `readFile(path)` returns the file's content plus a fingerprint (mtime + content hash) via `node:fs`, scoped to and boundary-checked against `TARGET_REPO_PATH` the same way `run()` is
+**And** `writeIfUnchanged(path, content, fingerprint)` re-reads the file's current fingerprint immediately before writing; given it no longer matches the fingerprint from the original `readFile()` call, it throws `OrchestratorError { recoverable: false, message: 'external change detected' }` instead of overwriting — every node that reads-then-writes a real BMad artifact (Stories 1.1, 1.2, 3.1, 4.1's callers) uses this pair, never a bare write, so a human hand-editing the same file mid-run is never silently clobbered
+**And** every successful `writeIfUnchanged()`/`writeFile()` call records its path into an in-memory written-paths set; `getWrittenPaths()` returns the current set and `resetWrittenPaths()` clears it — this is what lets `GitCheckpoint` (Story 1.8) stage only what the orchestrator itself actually wrote for the current story, instead of trusting the whole working tree to be clean for the run's entire duration
+**And** a Vitest suite covers: a real trivial command and a real failing one, a hung command hitting the timeout, a path-escape rejection, a `writeIfUnchanged` call that correctly detects a file changed by another process between read and write, and `getWrittenPaths()`/`resetWrittenPaths()` correctly scoping writes across two sequential "stories" in one test — no mocking of `child_process` itself for the command-execution assertions, since this adapter's whole job is real execution
 
 ### Story 0.8: Build fake LLMPort and ExecPort adapters for testing
 
@@ -285,7 +292,7 @@ So that every node reads and writes story files through one consistent, tested m
 **Given** a real story file matching this repo's actual format (frontmatter-free markdown with `**Acceptance Criteria:**` and `- [ ] Task N:` checklist lines, e.g. as seen in `_bmad-output/implementation-artifacts/0-15-set-up-outbound-email-adapter.md`)
 **When** `parseStoryFile()` reads it
 **Then** it returns the story's acceptance criteria list and task list (each with its checked/unchecked state) as structured data, and `checkOffTask()`/`appendReviewFinding()` write back only the targeted line(s), leaving the rest of the file byte-identical
-**And** this module lives in `core/bmad-artifacts/`, has no I/O of its own (it operates on strings `ExecPort` already fetched/will write, per AD-1)
+**And** this module lives in `core/bmad-artifacts/`, has no I/O of its own (it operates on strings `ExecPort` already fetched/will write, per AD-1) — callers write the serialized result back via `ExecPort.writeIfUnchanged()` (Story 0.7), never a bare write, so a concurrent external edit to the story file is never silently lost
 **And** a Vitest test round-trips a real story file from this repo through parse → check off one task → serialize, asserting only that one line changed
 
 ### Story 1.2: Build the sprint-status.yaml parser/serializer
@@ -300,6 +307,7 @@ So that the orchestrator can read and write real status transitions without dest
 **When** `parseSprintStatus()` reads it and `setStoryStatus()` writes a new status for one key
 **Then** the `yaml` package's Document API is used (not a parse-then-stringify round trip), and re-serializing preserves every existing comment and key order untouched except the one status value that changed
 **And** given `setStoryStatus()` is called with a value outside BMad's real enum (`backlog`/`ready-for-dev`/`in-progress`/`review`/`done` for stories), it throws rather than writing an invented status
+**And** callers write the serialized result back via `ExecPort.writeIfUnchanged()` (Story 0.7), never a bare write — a human hand-editing `sprint-status.yaml` mid-run is detected, not clobbered
 **And** a Vitest test round-trips this repo's real `sprint-status.yaml` through parse → change one story's status → serialize, asserting the file's comments and every other entry are byte-identical
 
 ### Story 1.3: Speed Worker implements a story's task checklist
@@ -328,7 +336,8 @@ So that both roles share the deepest-reasoning model.
 **When** the Complex Worker node runs in implementation mode
 **Then** it calls `LLMPort.complete({ role: 'complex', ... })` and writes code changes via `ExecPort`
 **And** given it runs in review mode against a finished diff, it returns exactly one of `APPROVE`/`AUTO_FIX`/`NEEDS_HUMAN` per the Tier-1 rubric (architecture deviation, ambiguous ACs, security-sensitive surface, or attempt-ceiling reached)
-**And** a Vitest suite covers all three verdict paths using the fake LLM adapter
+**And** given the LLM's response can't be parsed into exactly one of those three values (hallucinated wording, truncated output, extra prose around the verdict), the node treats it as `NEEDS_HUMAN` with a reason of "could not parse review verdict" — never silently defaults to `APPROVE`, retries invisibly, or crashes the run
+**And** a Vitest suite covers all three verdict paths plus the unparseable-response path, using the fake LLM adapter
 
 ### Story 1.5: Tester runs real build/test and classifies failures
 
@@ -338,7 +347,7 @@ So that a failure is understood, not just dumped as raw logs.
 
 **Acceptance Criteria:**
 
-**Given** `TARGET_REPO_PATH` has a real `package.json` with `build`/`test` scripts
+**Given** `TARGET_REPO_PATH` has a real `package.json` with `build`/`test` scripts and dependencies already installed (fresh-clone dependency install is a pre-flight concern, see Story 1.9 — Tester assumes a ready-to-run repo, it doesn't install anything itself)
 **When** the Tester node runs after an implementation step
 **Then** it invokes those scripts via `ExecPort.run`, and given the run fails, calls `LLMPort.complete({ role: 'tester', ... })` with the raw output to classify it into a structured report (`pass`, or `fail` with the specific failing test/lint rule identified — never a raw log dump handed upstream)
 **And** given the failure is a trivial lint issue, it auto-fixes it (e.g. via the project's own lint `--fix`) and re-runs without escalation, without necessarily needing the LLM call for that mechanical case
@@ -368,11 +377,12 @@ So that a story isn't checkpointed on a shallow first pass.
 **Acceptance Criteria:**
 
 **Given** a Tier-1 verdict of `APPROVE`
-**When** the `DeepCodeReviewNode` runs its three parallel lenses (correctness, edge-case coverage, acceptance-criteria coverage) against `current_code`
+**When** the `DeepCodeReviewNode` runs its three parallel lenses (correctness, edge-case coverage, acceptance-criteria coverage) against `current_code` — deliberately the same `ORCH_MODEL_COMPLEX` model as Tier-1/implementation for complex stories (confirmed decision, not an oversight: independence comes from differentiated adversarial prompts/personas per lens, matching real `bmad-code-review`'s approach, not from a different model; revisit only if complex-story reviews prove to rubber-stamp in practice)
 **Then** it returns one of the same `APPROVE`/`AUTO_FIX`/`NEEDS_HUMAN` values, appending its findings to the story file
 **And** given it returns `AUTO_FIX`, it applies its own patch in the same call and the graph transitions to Tester, consuming the same shared `autoFixAttempts` budget as Tier-1 (Story 1.6)
 **And** given it returns `APPROVE`, the graph transitions to `GitCheckpoint`
-**And** a Vitest test confirms Tier-2 never runs when Tier-1 returned `AUTO_FIX` or `NEEDS_HUMAN`
+**And** given any of the three lenses' responses can't be parsed into a valid verdict, that lens is treated as `NEEDS_HUMAN` (same handling as Story 1.4's Tier-1 parse failure) rather than silently excluded from the aggregate
+**And** a Vitest test confirms Tier-2 never runs when Tier-1 returned `AUTO_FIX` or `NEEDS_HUMAN`, and a second test covers one lens returning an unparseable response
 
 ### Story 1.8: Git Checkpoint commits a completed story
 
@@ -387,8 +397,11 @@ So that its autonomous commits are safe and traceable.
 **Then** it refuses to start (hard error), naming the dirty paths, before touching anything
 **And** given both review tiers return `APPROVE` for a story
 **When** `GitCheckpoint` runs
-**Then** it issues `git add -A` then `git commit` (message references the story's `epics.md` key) via `ExecPort`, including the code changes, the updated story file, and the `sprint-status.yaml` entry flipped to `done` — and never `git push`
-**And** a Vitest test against a real scratch git repo confirms exactly one commit is created containing all three
+**Then** it calls `ExecPort.getWrittenPaths()` (Story 0.7) and issues `git add <those paths>` — never `git add -A` — then `git commit` (message references the story's `epics.md` key) via `ExecPort`, covering the code changes, the updated story file, and the `sprint-status.yaml` entry flipped to `done`, and never `git push`
+**And** staging only the tracked paths (not the whole tree) means a human editing an unrelated file elsewhere in `TARGET_REPO_PATH` at any point during a long-running multi-story epic is never swept into the commit — the dirty-tree gate (Story 1.9) only needs to hold at run start, not for the run's entire duration
+**And** after a successful commit, it calls `ExecPort.resetWrittenPaths()` so the next story starts tracking from empty
+**And** given `git commit` itself exits non-zero (a pre-commit hook rejects it, disk full — distinct from `ExecPort`'s spawn-failure case), `GitCheckpoint` does not retry or guess at a resolution: it routes to `NEEDS_HUMAN`, leaving the staged-but-uncommitted state exactly as git left it for the human to inspect
+**And** a Vitest test against a real scratch git repo confirms exactly one commit is created containing only the tracked paths — asserting a file manually added to the repo outside the tracked set is **not** included — and a second test with a rejecting pre-commit hook confirms the `NEEDS_HUMAN` route instead of a silent failure or a retry loop
 
 ### Story 1.9: Wire the single-story pipeline end to end
 
@@ -400,9 +413,11 @@ So that Epic 1's value is actually usable, not just unit-tested in isolation.
 
 **Given** a target BMad repo with one story already at `ready-for-dev` in `sprint-status.yaml`
 **When** the orchestrator is invoked against that specific story
+**Then** before dispatching to any node, it makes one trivial smoke-test `LLMPort.complete()` call per configured model role (`ORCH_MODEL_PLANNER`/`_COMPLEX`/`_SPEED`/`_TESTER`) and fails fast with a clear "alias X failed to resolve" message if any one of them errors — surfacing a misconfigured or unconfirmed Vertex AI provider (SPEC.md's open question) immediately, not mid-run on whichever node happens to need it first
+**And** given `TARGET_REPO_PATH` has no `node_modules` (a fresh clone), this same pre-flight step runs the project's install command once before Tester ever runs, rather than Tester failing confusingly on a missing-dependency error it was never meant to diagnose
 **Then** `core/graph.ts` uses `@langchain/langgraph`'s `StateGraph` to wire the nodes from Stories 1.3–1.8 as real graph nodes and edges (not ad hoc function calls), routing to Speed or Complex Worker by the story's tag, through Tester, Tier-1 review, Tier-2 review, and GitCheckpoint
 **And** running it against a small real fixture BMad repo produces one real commit for a real trivial story, end to end, with no mocks
-**And** the audit logger (Story 0.5) captures every step of this real run as JSONL
+**And** the audit logger (Story 0.5) captures every step of this real run as JSONL, including the smoke-test calls
 
 ---
 
@@ -452,7 +467,8 @@ So that I find out even if I'm not watching.
 **Then** it calls `HITLPort.prompt()` and starts a `setTimeout(HITL_TIMEOUT_MS)` (default 300000ms) in parallel
 **And** given the terminal responds before the timeout, the timer is cleared, `human_feedback` is populated, and the node resolves — no email is sent
 **And** given the timeout fires first, exactly one `NotifyPort.send()` call goes out describing the pending decision, and the terminal prompt remains open and still resolves normally whenever answered afterward (no repeating alarm)
-**And** a Vitest test uses fake timers to drive both the fast-response and timeout-then-late-response paths
+**And** given that `NotifyPort.send()` call itself throws, it is retried exactly once (Story 0.3's shared retry policy); if the retry also fails, the failure is logged prominently via the audit logger (Story 0.5) so it's visible after the fact — the terminal prompt keeps waiting regardless, this failure never crashes the run or silently vanishes
+**And** a Vitest test uses fake timers to drive both the fast-response and timeout-then-late-response paths, plus a third test where the escalation send fails twice and asserts the audit log captures it
 
 ### Story 2.4: Wire HITL as the real NEEDS_HUMAN/blocking-failure destination
 
@@ -501,7 +517,8 @@ So that I don't have to pre-write every story by hand.
 **Then** it calls `LLMPort.complete({ role: 'planner', ... })` to draft acceptance criteria, tasks, and dev notes, runs a Gate 2 check as part of that same call, and writes the result via `parse-story-file.ts` (Story 1.1)
 **And** `sprint-status.yaml`'s entry for that story flips from `backlog` to `ready-for-dev` (Story 1.2)
 **And** Planner chooses the story's dash-slug filename itself (LLM judgment, not a mechanical title transform) — see `state-machines.md`'s story-key-format note
-**And** a Vitest test drives this against a fake LLM and asserts the resulting story file and `sprint-status.yaml` entry
+**And** given the chosen slug collides with an existing filename in `implementation_artifacts`, Planner disambiguates (e.g. appends a numeric suffix) rather than silently overwriting an unrelated file
+**And** a Vitest test drives this against a fake LLM and asserts the resulting story file and `sprint-status.yaml` entry, plus a second test asserts a colliding slug is disambiguated, not overwritten
 
 ### Story 3.3: SQLite checkpointer for crash-resume
 
@@ -515,7 +532,8 @@ So that a killed process resumes instead of restarting the whole epic.
 **When** the process is killed mid-story and `dev an epic <name>` is re-invoked
 **Then** it resumes from the last checkpoint (correct mid-flight story and `autoFixAttempts`) rather than restarting the epic
 **And** the checkpoint never stores epic/story content itself — only `autoFixAttempts` and which story was mid-flight (AD-5)
-**And** a Vitest test simulates a kill-and-resume cycle against a real `.checkpoints/` SQLite file
+**And** given a second `dev an epic <name>` invocation starts against the same `TARGET_REPO_PATH` + epic while a first one is still actively running, the second refuses to start (hard error naming the conflicting run) rather than racing the first on the same checkpoint and the same git commits — a lock file (or equivalent) alongside `.checkpoints/` records an active run and is cleared on clean exit
+**And** a Vitest test simulates a kill-and-resume cycle against a real `.checkpoints/` SQLite file, and a second test asserts a concurrent second invocation is refused while the lock is held
 
 ### Story 3.4: Wire the dev-an-epic multi-story loop
 
@@ -529,7 +547,8 @@ So that I don't invoke the orchestrator once per story.
 **When** `dev an epic <name>` runs
 **Then** Planner iterates the epic's stories in `epics.md` order, materializing (Story 3.2) and driving each through the Epic 1 pipeline in sequence, checkpointing resume state (Story 3.3) as it goes, until every story is `done` or the run halts at HITL
 **And** given a story is already `in-progress`/`review`/`done` with no record in the current run's checkpoint, Planner leaves it untouched and advances to the next `backlog`/`ready-for-dev` story instead of reprocessing it
-**And** a Vitest test drives a 3-story fake epic end to end, asserting story order and that a pre-seeded foreign-work story is skipped, not touched
+**And** given an epic has zero stories, or every story is foreign work with nothing left to dispatch, the run completes cleanly with a clear "nothing to do" message — not an error, and not a hang
+**And** a Vitest test drives a 3-story fake epic end to end, asserting story order and that a pre-seeded foreign-work story is skipped, not touched; a second test drives an all-foreign-work epic to a clean no-op completion
 
 ---
 
@@ -548,6 +567,7 @@ So that prerequisite stories and readiness findings can actually be persisted co
 **Given** `parse-epics.ts` (read-only from Story 3.1)
 **When** `insertStory()` is called with a new story section and its anchor position
 **Then** it inserts the full section immediately adjacent to its anchor story (never blind-appended to the end), preserving every other existing section byte-identical
+**And** the caller writes the result back via `ExecPort.writeIfUnchanged()` (Story 0.7), never a bare write — a human hand-editing `epics.md` mid-run (e.g. running the real `bmad-create-epics-and-stories` in parallel) is detected, not clobbered
 **And** given `parse-readiness-report.ts`
 **When** it reads a real report (e.g. this repo's own `epic-1-readiness.md`)
 **Then** it returns `{ epic, swept, date, addenda[], stories_covered, findings }` matching the real shape, and a write call **appends** a new `addenda` entry rather than overwriting `date`/`stories_covered`/prior findings
