@@ -18,6 +18,8 @@ node_modules
 coverage
 playwright-report/
 test-results/
+/e2e/.auth/
+/apps/web/e2e/.auth
 
 # Turbo
 .turbo
@@ -31,6 +33,7 @@ out/
 build
 dist
 cdk.out/
+/apps/infrastructure/cdk.out/
 
 
 # Debug
@@ -48,4 +51,3 @@ yarn-error.log*
 
 # Claude Code local settings (personal/machine-specific, not shared)
 .claude/settings.local.json
-apps/infrastructure/cdk.out/
