@@ -62,7 +62,7 @@ development_status:
   0-9-resolve-and-validate-the-target-bmad-project: review
   0-10-wire-the-composition-root-and-cli-entrypoint-stub: review
   0-11-define-the-nodecontext-dependency-pattern: review
-  0-12-build-the-shared-review-verdict-parser-and-error-handling-utility: ready-for-dev
+  0-12-build-the-shared-review-verdict-parser-and-error-handling-utility: review
   epic-0-retrospective: optional
 
   epic-1: backlog
