@@ -58,7 +58,7 @@ development_status:
   0-5-build-the-audit-logger: review
   0-6-build-the-9router-llm-adapter: review
   0-7-build-the-local-exec-adapter: review
-  0-8-build-fake-llmport-and-execport-adapters-for-testing: ready-for-dev
+  0-8-build-fake-llmport-and-execport-adapters-for-testing: review
   0-9-resolve-and-validate-the-target-bmad-project: ready-for-dev
   0-10-wire-the-composition-root-and-cli-entrypoint-stub: ready-for-dev
   0-11-define-the-nodecontext-dependency-pattern: ready-for-dev
