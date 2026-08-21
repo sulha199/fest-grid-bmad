@@ -4,7 +4,7 @@
 
 - Epic: 0
 - Story ID: 0.11
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -21,11 +21,11 @@ so that every node gets its dependencies the same way instead of each epic inven
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `ai-dev-orchestrator/src/core/node-context.ts` containing the `NodeContext` interface definition. (AC: 1, 3)
-- [ ] Task 2: Document node-factory function signature conventions and types in `ai-dev-orchestrator/src/core/node-context.ts`. (AC: 2)
-- [ ] Task 3: In `bootstrap.ts`, update the bootstrap process to return a complete, valid `NodeContext` with real/mock adapters as required. (AC: 1, 2)
-- [ ] Task 4: Write unit and integration tests in `ai-dev-orchestrator/src/core/node-context.test.ts` using Vitest to verify dependency injection behavior and mock isolation. (AC: 4)
-- [ ] Task 5: Verify type-safety with TypeScript compile check and run the test suite to confirm everything passes. (AC: 3, 4)
+- [x] Task 1: Create `ai-dev-orchestrator/src/core/node-context.ts` containing the `NodeContext` interface definition. (AC: 1, 3)
+- [x] Task 2: Document node-factory function signature conventions and types in `ai-dev-orchestrator/src/core/node-context.ts`. (AC: 2)
+- [x] Task 3: In `bootstrap.ts`, update the bootstrap process to return a complete, valid `NodeContext` with real/mock adapters as required. (AC: 1, 2)
+- [x] Task 4: Write unit and integration tests in `ai-dev-orchestrator/src/core/node-context.test.ts` using Vitest to verify dependency injection behavior and mock isolation. (AC: 4)
+- [x] Task 5: Verify type-safety with TypeScript compile check and run the test suite to confirm everything passes. (AC: 3, 4)
 
 ## Dev Notes
 
@@ -86,8 +86,14 @@ so that every node gets its dependencies the same way instead of each epic inven
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed (Ready for Review)
 
 ## Dev Agent Record
 
 - Initialized by: specialized bmad-create-story developer subagent
+- Completed by: Senior Software Engineer (Cline)
+  - Date: 2026-08-21
+  - Notes:
+    - Successfully documented `NodeFactory` and `NodeFunction` pattern in `node-context.ts`.
+    - Created unit and integration tests in `node-context.test.ts` verifying perfect dependency injection isolation via fakes.
+    - Verified build compile and test suites pass 100% cleanly.
