@@ -8,8 +8,8 @@
   "scripts": {
     "build": "turbo run build --filter=!@festgrid/ai-dev-orchestrator",
     "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "test": "turbo run test"
+    "lint": "turbo run lint --filter=!@festgrid/ai-dev-orchestrator",
+    "test": "turbo run test --filter=!@festgrid/ai-dev-orchestrator"
   },
   "devDependencies": {
     "@festgrid/eslint-config": "workspace:*",
