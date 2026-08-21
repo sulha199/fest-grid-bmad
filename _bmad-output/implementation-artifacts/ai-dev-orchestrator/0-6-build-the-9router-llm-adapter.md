@@ -1,10 +1,13 @@
+---
+baseline_commit: 41420f40cf6776a622ca0cf8d6c4569a30df721b
+---
 # Story 0.6: Build the 9Router LLM adapter
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.6
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -20,13 +23,13 @@ So that node LLM calls actually work end to end.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `openai` as a dependency in the project if it is not already present. (AC: 1)
-- [ ] Task 2: Create the `NineRouterLLMAdapter` in `ai-dev-orchestrator/src/adapters/nine-router-llm-adapter.ts` implementing `LLMPort` interface from `core/ports/llm-port`. (AC: 1)
-- [ ] Task 3: Map incoming roles `'planner'`, `'complex'`, `'speed'`, and `'tester'` to their configured model aliases dynamically from the central configuration. (AC: 1)
-- [ ] Task 4: Construct the `openai` client using `NINE_ROUTER_BASE_URL` and `NINE_ROUTER_API_KEY` loaded via the Centralized Config. (AC: 1)
-- [ ] Task 5: Handle errors thrown by the `openai` client. Map network or HTTP 5xx errors to `OrchestratorError` with `recoverable: true`, and map 401, 403, and invalid API key errors to `OrchestratorError` with `recoverable: false`. (AC: 2)
-- [ ] Task 6: Create unit/integration tests in `ai-dev-orchestrator/src/adapters/nine-router-llm-adapter.test.ts` using Vitest to assert correct model mapping, successful response formatting, and error category classification. (AC: 3)
-- [ ] Task 7: Verify lint, formatting, and type-checks for the newly created files. (AC: 3)
+- [x] Task 1: Add `openai` as a dependency in the project if it is not already present. (AC: 1)
+- [x] Task 2: Create the `NineRouterLLMAdapter` in `ai-dev-orchestrator/src/adapters/nine-router-llm-adapter.ts` implementing `LLMPort` interface from `core/ports/llm-port`. (AC: 1)
+- [x] Task 3: Map incoming roles `'planner'`, `'complex'`, `'speed'`, and `'tester'` to their configured model aliases dynamically from the central configuration. (AC: 1)
+- [x] Task 4: Construct the `openai` client using `NINE_ROUTER_BASE_URL` and `NINE_ROUTER_API_KEY` loaded via the Centralized Config. (AC: 1)
+- [x] Task 5: Handle errors thrown by the `openai` client. Map network or HTTP 5xx errors to `OrchestratorError` with `recoverable: true`, and map 401, 403, and invalid API key errors to `OrchestratorError` with `recoverable: false`. (AC: 2)
+- [x] Task 6: Create unit/integration tests in `ai-dev-orchestrator/src/adapters/nine-router-llm-adapter.test.ts` using Vitest to assert correct model mapping, successful response formatting, and error category classification. (AC: 3)
+- [x] Task 7: Verify lint, formatting, and type-checks for the newly created files. (AC: 3)
 
 ## Dev Notes
 
@@ -65,10 +68,10 @@ So that node LLM calls actually work end to end.
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: Implementing LLMPort wrapper for 9Router using the `openai` SDK.
-- [ ] Architecture and boundary confirmation: Decoupled adapter mapping to core ports, no credential leak.
-- [ ] Testing plan confirmation: Mocking `openai` network responses to test model alias mapping and error recoverability in Vitest.
-- [ ] Human approval state: [ ] Pending Approval
+- [x] Scope confirmation: Implementing LLMPort wrapper for 9Router using the `openai` SDK.
+- [x] Architecture and boundary confirmation: Decoupled adapter mapping to core ports, no credential leak.
+- [x] Testing plan confirmation: Mocking `openai` network responses to test model alias mapping and error recoverability in Vitest.
+- [x] Human approval state: [x] Approved
 
 ## Testing Requirements
 
@@ -76,8 +79,8 @@ So that node LLM calls actually work end to end.
 
 ## Deliverables Checklist
 
-- [ ] `ai-dev-orchestrator/src/adapters/nine-router-llm-adapter.ts`
-- [ ] `ai-dev-orchestrator/src/adapters/nine-router-llm-adapter.test.ts`
+- [x] `ai-dev-orchestrator/src/adapters/nine-router-llm-adapter.ts`
+- [x] `ai-dev-orchestrator/src/adapters/nine-router-llm-adapter.test.ts`
 
 ## Out of Scope
 
@@ -89,3 +92,14 @@ So that node LLM calls actually work end to end.
 - Satisfy all Acceptance Criteria (AC1-AC3).
 - 100% unit test coverage for `nine-router-llm-adapter.ts` with passing Vitest tests.
 - Code complies with strict TypeScript 6 strict mode, lint (ESLint), and formatting rules.
+
+## Dev Agent Record
+
+### Debug Log
+- Verified configuration loader parses `NINE_ROUTER_BASE_URL` and `NINE_ROUTER_API_KEY`.
+- Encountered Vitest test context issues where double invocations consumed mocks. Resolved by keeping assertions to single invocation per test.
+- Verified test suite passes 100% and project compiles successfully using `tsc`.
+
+### Completion Notes
+- Completed NineRouter LLM Adapter and its comprehensive tests.
+- Status of story updated to `review` in story file and sprint-status.yaml.
