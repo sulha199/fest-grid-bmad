@@ -401,7 +401,9 @@ export function createSqlClient(connectionString: string) {
   });
 }
 
-async function migrateEnumTypes(sqlClient: any): Promise<void> {
+type SqlClient = ReturnType<typeof postgres>;
+
+async function migrateEnumTypes(sqlClient: SqlClient): Promise<void> {
   console.log('Starting enum type migrations...');
   try {
     // Check if the enum values are already in the correct case
@@ -447,10 +449,9 @@ async function migrateEnumTypes(sqlClient: any): Promise<void> {
     await sqlClient`CREATE INDEX idx_scraper_actor_runs_vendor_status ON scraper_actor_runs (vendor, status)`;
 
     console.log('✓ Scraper actor run enum types migrated to uppercase');
-  } catch (err) {
-    console.warn('Could not migrate scraper enums (may already be correct):', (err as any).message);
+  } catch (err: unknown) {
+    console.warn('Could not migrate scraper enums (may already be correct):', (err as { message?: string }).message);
   }
-
 }
 
 export async function seedDatabase(connectionString?: string): Promise<void> {

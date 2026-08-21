@@ -66,14 +66,14 @@ export function buildDrizzleWhere(
       if (isArrayColumn) {
         // If the column is an array, "in" means there's an intersection between the column array and the value array.
         // Drizzle provides overlap operator `&&`. Array must be constructed safely to avoid comma expansion.
-        const elements = value.map((v: any) => sql`${v}`);
+        const elements = value.map((v) => sql`${v}`);
         return sql`${column} && ARRAY[${sql.join(elements, sql`, `)}]`;
       }
       return inArray(column, value);
     case "notIn":
       if (!Array.isArray(value) || value.length === 0) return sql`true`; // Not in empty array is always true
       if (isArrayColumn) {
-        const elements = value.map((v: any) => sql`${v}`);
+        const elements = value.map((v) => sql`${v}`);
         return sql`NOT (${column} && ARRAY[${sql.join(elements, sql`, `)}])`;
       }
       return notInArray(column, value);

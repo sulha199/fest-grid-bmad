@@ -17,8 +17,8 @@ describe('isValidIanaTimezone', () => {
   });
 
   it('returns false for non-string inputs', () => {
-    assert.equal(isValidIanaTimezone(null as any), false);
-    assert.equal(isValidIanaTimezone(undefined as any), false);
-    assert.equal(isValidIanaTimezone(123 as any), false);
+    assert.equal(isValidIanaTimezone(null as unknown as string), false);
+    assert.equal(isValidIanaTimezone(undefined as unknown as string), false);
+    assert.equal(isValidIanaTimezone(123 as unknown as string), false);
   });
 });
