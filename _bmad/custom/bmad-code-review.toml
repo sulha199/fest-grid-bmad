@@ -1,0 +1,6 @@
+[workflow]
+persistent_facts = [
+  "Scope guard: `_bmad-output/project-context.md` (loaded via Step 4's `project_context` config key) and the FestGrid PRD describe the FestGrid/FestDaily product (`apps/web`, `apps/backend`) only — its Next.js/React/GraphQL/Drizzle ORM/Tailwind-Shadcn/PostHog/next-intl/Firebase stack, package-boundary rules, and UI/UX invariants. When the diff/PR under review is scoped to `ai-dev-orchestrator/` (its own standalone initiative — see `_bmad-output/specs/spec-ai-dev-orchestrator/` and `_bmad-output/planning-artifacts/architecture/architecture-ai-dev-orchestrator-2026-08-20/`), none of project-context.md's or the FestGrid PRD's stack/package/UI rules apply — do not raise findings against ai-dev-orchestrator code for violating them. Ground review findings instead in ai-dev-orchestrator's own SPEC and architecture spine, plus general code-quality/correctness concerns.",
+]
+
+on_complete = ""
