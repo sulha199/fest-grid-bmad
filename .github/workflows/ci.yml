@@ -3,10 +3,10 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
     branches:
-      - main
+      - master
 
 jobs:
   ci:
@@ -51,8 +51,8 @@ jobs:
     name: Database Migrations
     needs: ci
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    concurrency: 
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    concurrency:
       group: db-migrate
       cancel-in-progress: false
     steps:
@@ -92,7 +92,7 @@ jobs:
     name: Deploy Infrastructure to AWS
     needs: ci
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     concurrency:
       group: deploy-infrastructure
       cancel-in-progress: false
