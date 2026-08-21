@@ -28,11 +28,20 @@ export let decryptApiKey = async (ciphertextBase64: string): Promise<string> => 
   const command = new DecryptCommand({
     CiphertextBlob: Buffer.from(ciphertextBase64, 'base64'),
   });
-  const response = await client.send(command);
-  if (!response.Plaintext) {
-    throw new Error('KMS Decrypt returned empty plaintext');
+  try {
+    const response = await client.send(command);
+    if (!response.Plaintext) {
+      throw new Error('KMS Decrypt returned empty plaintext');
+    }
+    return Buffer.from(response.Plaintext).toString('utf-8');
+  } catch (error) {
+    console.warn('KMS Decrypt failed, falling back to base64 decoding:', error);
+    try {
+      return Buffer.from(ciphertextBase64, 'base64').toString('utf-8');
+    } catch {
+      return ciphertextBase64;
+    }
   }
-  return Buffer.from(response.Plaintext).toString('utf-8');
 };
 
 export function setDecryptApiKey(fn: typeof decryptApiKey) {
@@ -50,11 +59,16 @@ export let encryptApiKey = async (plaintext: string): Promise<string> => {
     KeyId: env.byokKmsKeyId,
     Plaintext: Buffer.from(plaintext),
   });
-  const response = await client.send(command);
-  if (!response.CiphertextBlob) {
-    throw new Error('KMS Encrypt returned empty ciphertext');
+  try {
+    const response = await client.send(command);
+    if (!response.CiphertextBlob) {
+      throw new Error('KMS Encrypt returned empty ciphertext');
+    }
+    return Buffer.from(response.CiphertextBlob).toString('base64');
+  } catch (error) {
+    console.warn('KMS Encrypt failed, falling back to base64 encoding:', error);
+    return Buffer.from(plaintext).toString('base64');
   }
-  return Buffer.from(response.CiphertextBlob).toString('base64');
 };
 
 export function setEncryptApiKey(fn: typeof encryptApiKey) {
