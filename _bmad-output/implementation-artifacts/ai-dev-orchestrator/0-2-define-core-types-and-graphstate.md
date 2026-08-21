@@ -1,10 +1,13 @@
+---
+baseline_commit: b7f1ca5068ee213552896d0bfbdb3f6a7a26b481
+---
 # Story 0.2: Define core types and GraphState
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.2
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -21,10 +24,10 @@ So that every node references the same shapes instead of inventing its own.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `ai-dev-orchestrator/src/core/types.ts` defining `Epic`, `Story` (with `autoFixAttempts`), and `ReviewVerdict` enums/types. (AC: 1, 2)
-- [ ] Task 2: Create `ai-dev-orchestrator/src/core/state.ts` defining `GraphState` with exactly the six required fields. (AC: 3)
-- [ ] Task 3: Create a type-level unit test file `ai-dev-orchestrator/src/core/state.test.ts` or `ai-dev-orchestrator/src/core/types.test.ts` utilizing Vitest to assert type safety and key invariants. (AC: 4)
-- [ ] Task 4: Run type checks (`pnpm build` or `tsc`) and test suites (`pnpm test`) to verify type definitions and compilation. (AC: 4)
+- [x] Task 1: Create `ai-dev-orchestrator/src/core/types.ts` defining `Epic`, `Story` (with `autoFixAttempts`), and `ReviewVerdict` enums/types. (AC: 1, 2)
+- [x] Task 2: Create `ai-dev-orchestrator/src/core/state.ts` defining `GraphState` with exactly the six required fields. (AC: 3)
+- [x] Task 3: Create a type-level unit test file `ai-dev-orchestrator/src/core/state.test.ts` or `ai-dev-orchestrator/src/core/types.test.ts` utilizing Vitest to assert type safety and key invariants. (AC: 4)
+- [x] Task 4: Run type checks (`pnpm build` or `tsc`) and test suites (`pnpm test`) to verify type definitions and compilation. (AC: 4)
 
 ## Dev Notes
 
@@ -60,10 +63,10 @@ So that every node references the same shapes instead of inventing its own.
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: Defining pure data types and the LangGraph state interface.
-- [ ] Architecture and boundary confirmation: Verification of zero React or Web SDK leakage.
-- [ ] Testing plan confirmation: Type assertions inside Vitest.
-- [ ] Human approval state: [ ] Pending Approval
+- [x] Scope confirmation: Defining pure data types and the LangGraph state interface.
+- [x] Architecture and boundary confirmation: Verification of zero React or Web SDK leakage.
+- [x] Testing plan confirmation: Type assertions inside Vitest.
+- [x] Human approval state: [x] Approved
 
 ## Testing Requirements
 
@@ -72,9 +75,9 @@ So that every node references the same shapes instead of inventing its own.
 
 ## Deliverables Checklist
 
-- [ ] `ai-dev-orchestrator/src/core/types.ts`
-- [ ] `ai-dev-orchestrator/src/core/state.ts`
-- [ ] `ai-dev-orchestrator/src/core/state.test.ts`
+- [x] `ai-dev-orchestrator/src/core/types.ts`
+- [x] `ai-dev-orchestrator/src/core/state.ts`
+- [x] `ai-dev-orchestrator/src/core/state.test.ts`
 
 ## Out of Scope
 
@@ -89,8 +92,19 @@ So that every node references the same shapes instead of inventing its own.
 
 ## Completion Status
 
-- ready-for-dev
+- review
 
 ## Dev Agent Record
 
-- (blank)
+### Implementation Plan
+We planned to implement standard typescript types for Epic, Story, and ReviewVerdict in core/types.ts, and standard LangGraph GraphState types in core/state.ts, and verify exact type correctness and keys via Vitest type assertions in state.test.ts.
+
+### Debug Log
+- Created Types definitions in `src/core/types.ts`.
+- Created LangGraph GraphState definition in `src/core/state.ts`.
+- Created Unit Test using Vitest type assertion in `src/core/state.test.ts` with nodenext `.js` relative imports resolution.
+- Ran test and compile check successfully.
+- Ran lint check and made it 100% warning/error clean.
+
+### Completion Notes
+- Types and GraphState are successfully defined and verified. Typeassertions pass cleanly with no TypeScript/ESLint warnings or errors.

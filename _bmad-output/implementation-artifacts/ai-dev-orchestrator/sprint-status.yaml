@@ -52,7 +52,7 @@ story_location: _bmad-output/implementation-artifacts/ai-dev-orchestrator
 development_status:
   epic-0: in-progress
   0-1-initialize-the-orchestrator-project-scaffold: done
-  0-2-define-core-types-and-graphstate: ready-for-dev
+  0-2-define-core-types-and-graphstate: review
   0-3-define-the-four-port-interfaces-and-the-shared-error-type: ready-for-dev
   0-4-build-the-fail-fast-config-loader: ready-for-dev
   0-5-build-the-audit-logger: ready-for-dev
