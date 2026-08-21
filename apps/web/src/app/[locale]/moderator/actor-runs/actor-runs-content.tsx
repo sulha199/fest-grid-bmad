@@ -259,7 +259,7 @@ export function ActorRunsContent() {
           </div>
         </div>
 
-        {runsError && (
+        {!!runsError && (
           <div className="mt-8 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
             <div className="flex items-center gap-3">
               <div className="text-destructive">✕</div>
