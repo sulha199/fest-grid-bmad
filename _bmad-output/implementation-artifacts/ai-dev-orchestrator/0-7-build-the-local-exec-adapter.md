@@ -4,7 +4,7 @@
 
 - Epic: 0
 - Story ID: 0.7
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -25,13 +25,13 @@ So that node file/shell operations actually touch the target repo safely and nev
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `ai-dev-orchestrator/src/adapters/local-exec-adapter.ts` implementing `ExecPort` interface from `core/ports/exec-port.ts`. (AC: 1, 5, 6, 7)
-- [ ] Task 2: Implement `run` with absolute path and escape-check resolution against `TARGET_REPO_PATH`. Ensure args are array, shell is false, and timeout is handled by `EXEC_TIMEOUT_MS`. (AC: 1, 2, 3, 4)
-- [ ] Task 3: Implement `readFile(path)` using `node:fs`. Return content and fingerprint computed as `mtime` + SHA256 content hash. Perform escape-check resolution. (AC: 5)
-- [ ] Task 4: Implement `writeIfUnchanged(path, content, fingerprint)` to check current fingerprint and write via `node:fs` or throw `OrchestratorError` with `recoverable: false`. Support `writeFile(path, content)` as needed, and ensure all writes record their paths. (AC: 6, 7)
-- [ ] Task 5: Implement `getWrittenPaths()` and `resetWrittenPaths()` for path-tracking. (AC: 7)
-- [ ] Task 6: Create unit/integration tests in `ai-dev-orchestrator/src/adapters/local-exec-adapter.test.ts` to assert command execution, failures, escaping boundary checks, timeout killing, file tracking, and fingerprint mismatch detection. (AC: 8)
-- [ ] Task 7: Verify lint, build, formatting, and type-checks for the newly created files. (AC: 8)
+- [x] Task 1: Create `ai-dev-orchestrator/src/adapters/local-exec-adapter.ts` implementing `ExecPort` interface from `core/ports/exec-port.ts`. (AC: 1, 5, 6, 7)
+- [x] Task 2: Implement `run` with absolute path and escape-check resolution against `TARGET_REPO_PATH`. Ensure args are array, shell is false, and timeout is handled by `EXEC_TIMEOUT_MS`. (AC: 1, 2, 3, 4)
+- [x] Task 3: Implement `readFile(path)` using `node:fs`. Return content and fingerprint computed as `mtime` + SHA256 content hash. Perform escape-check resolution. (AC: 5)
+- [x] Task 4: Implement `writeIfUnchanged(path, content, fingerprint)` to check current fingerprint and write via `node:fs` or throw `OrchestratorError` with `recoverable: false`. Support `writeFile(path, content)` as needed, and ensure all writes record their paths. (AC: 6, 7)
+- [x] Task 5: Implement `getWrittenPaths()` and `resetWrittenPaths()` for path-tracking. (AC: 7)
+- [x] Task 6: Create unit/integration tests in `ai-dev-orchestrator/src/adapters/local-exec-adapter.test.ts` to assert command execution, failures, escaping boundary checks, timeout killing, file tracking, and fingerprint mismatch detection. (AC: 8)
+- [x] Task 7: Verify lint, build, formatting, and type-checks for the newly created files. (AC: 8)
 
 ## Dev Notes
 
@@ -70,10 +70,10 @@ So that node file/shell operations actually touch the target repo safely and nev
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: Implementing ExecPort wrapper for target repo file/shell operations using child_process and node:fs.
-- [ ] Architecture and boundary confirmation: Decoupled adapter mapping to core ports, path-escape validation.
-- [ ] Testing plan confirmation: Writing real integration tests running trivial/failing/long-running commands and file updates.
-- [ ] Human approval state: [ ] Pending Approval
+- [x] Scope confirmation: Implementing ExecPort wrapper for target repo file/shell operations using child_process and node:fs.
+- [x] Architecture and boundary confirmation: Decoupled adapter mapping to core ports, path-escape validation.
+- [x] Testing plan confirmation: Writing real integration tests running trivial/failing/long-running commands and file updates.
+- [x] Human approval state: [x] Approved
 
 ## Testing Requirements
 
@@ -86,8 +86,8 @@ So that node file/shell operations actually touch the target repo safely and nev
 
 ## Deliverables Checklist
 
-- [ ] `ai-dev-orchestrator/src/adapters/local-exec-adapter.ts`
-- [ ] `ai-dev-orchestrator/src/adapters/local-exec-adapter.test.ts`
+- [x] `ai-dev-orchestrator/src/adapters/local-exec-adapter.ts`
+- [x] `ai-dev-orchestrator/src/adapters/local-exec-adapter.test.ts`
 
 ## Out of Scope
 
@@ -102,8 +102,9 @@ So that node file/shell operations actually touch the target repo safely and nev
 
 ## Completion Status
 
-- ready-for-dev
+- review
 
 ## Dev Agent Record
 
-- (leave blank or standard placeholders)
+- Adapter: LocalExecAdapter successfully implemented and thoroughly tested with Vitest integration tests.
+- Date: 2026-08-21
