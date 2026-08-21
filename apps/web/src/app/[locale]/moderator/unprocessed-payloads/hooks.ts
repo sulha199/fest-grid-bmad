@@ -62,7 +62,7 @@ export function useUnprocessedPayloadsQuery(
   limit?: number,
   enabled: boolean = true
 ) {
-  return useQuery<{ queryUnprocessedPayloads?: UnprocessedPayloadConnection }>({
+  return useQuery({
     queryKey: ["unprocessedPayloads", filters, cursor, limit],
     queryFn: async () => {
       return graphqlClient.request(QUERY_UNPROCESSED_PAYLOADS, {

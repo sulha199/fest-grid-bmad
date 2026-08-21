@@ -35,8 +35,16 @@ export function PayloadDetail({ payload, onReprocess, isReprocessing }: PayloadD
     <div className="mt-6 space-y-6 border-t border-border pt-6">
       <div className="space-y-3">
         <h3 className="text-sm font-semibold">{t("validationErrorLabel")}</h3>
-        <div className="rounded-md bg-destructive/10 p-4">
-          <div className="text-sm font-medium text-destructive">{payload.validationError.message}</div>
+        <div className="rounded-md bg-destructive/10 p-4 space-y-1">
+          {payload.validationError.length > 0 ? (
+            payload.validationError.map((error, idx) => (
+              <div key={idx} className="text-sm font-medium text-destructive">
+                {error.message}
+              </div>
+            ))
+          ) : (
+            <div className="text-sm font-medium text-destructive">Unknown validation error</div>
+          )}
         </div>
       </div>
 

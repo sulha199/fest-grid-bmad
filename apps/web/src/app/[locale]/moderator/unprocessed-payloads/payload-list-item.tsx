@@ -30,8 +30,9 @@ export function PayloadListItem({ payload, onReprocess, onDelete, isReprocessing
     timeStyle: "medium",
   }).format(new Date(payload.context.timestamp))
 
-  const errorSummary = payload.validationError.message.substring(0, 80)
-  const hasMoreError = payload.validationError.message.length > 80
+  const errorMessage = payload.validationError?.[0]?.message || "Unknown validation error"
+  const errorSummary = errorMessage.substring(0, 80)
+  const hasMoreError = errorMessage.length > 80
 
   return (
     <div className={`rounded-lg border transition-opacity ${isDeleting ? "opacity-60 line-through" : "opacity-100"}`}>

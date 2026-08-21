@@ -17,7 +17,7 @@ export type UnprocessedPayloadContext = {
 export type UnprocessedScraperPayload = {
   id: string;
   rawPayload: string;
-  validationError: ValidationError;
+  validationError: ValidationError[];
   context: UnprocessedPayloadContext;
   createdAt: string;
   deletedAt?: string | null;
