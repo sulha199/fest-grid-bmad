@@ -16,6 +16,7 @@ import {
   useRemoveSubscriptionMutation,
   useTriggerAccountScrapeMutation,
   SoftDeleteAction,
+  Subscription,
 } from '@/generated/graphql';
 import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo } from '@festgrid/ui';
 import { AlertCircle, TriangleAlert } from 'lucide-react';
@@ -194,7 +195,7 @@ export function PostsSelectContent() {
     data: postsData,
     isLoading: postsLoading,
     error: postsError,
-    refetch: refetchPosts,
+    refetch,
   } = useGetPostsByAccountQuery(
     graphqlClient,
     {
@@ -205,6 +206,8 @@ export function PostsSelectContent() {
       enabled: !!activeAccountId,
     }
   );
+
+  const refetchPosts = () => refetch();
 
   const posts = postsData?.postsByAccount?.items || [];
 
@@ -248,7 +251,7 @@ export function PostsSelectContent() {
     }
   };
 
-  const handleDeleteSubscription = async (sub: any) => {
+  const handleDeleteSubscription = async (sub: Pick<Subscription, 'id'>) => {
     try {
       await removeSubscription({
         id: sub.id,
@@ -269,7 +272,9 @@ export function PostsSelectContent() {
             throw err;
           }
         },
-        t('removeSuccess') || 'Subscription removed successfully'
+        {
+          message: t('removeSuccess') || 'Subscription removed successfully' 
+        }
       );
     } catch (err: any) {
       toast.error(err?.message || 'Failed to remove subscription.');
@@ -393,7 +398,7 @@ export function PostsSelectContent() {
                 {sub.isInactive && (
                   <AlertCircle
                     className="h-4 w-4 text-yellow-500"
-                    title={t('inactiveWarningTitle') || 'Inactive Account'}
+                    xlinkTitle={t('inactiveWarningTitle') || 'Inactive Account'}
                   />
                 )}
               </button>

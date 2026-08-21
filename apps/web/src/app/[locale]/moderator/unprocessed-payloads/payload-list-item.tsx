@@ -23,7 +23,7 @@ export function PayloadListItem({ payload, onReprocess, onDelete, isReprocessing
   }
 
   const sourceLabel =
-    payload.context.source === "APIFY" ? t("sourceApify") : payload.context.source === "BRIGHT_DATA" ? t("sourceBrightData") : t("sourceGemini")
+    payload.context.source === "APIFY" ? t("sourceApify") : payload.context.source === "BRIGHTDATA" ? t("sourceBrightData") : t("sourceGemini")
 
   const timestamp = new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",

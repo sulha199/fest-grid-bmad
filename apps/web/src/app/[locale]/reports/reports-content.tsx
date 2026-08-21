@@ -76,7 +76,7 @@ export function ReportsContent() {
       {status === "error" && (
         <div className="text-center py-12 border border-destructive/20 bg-destructive/5 rounded-xl text-destructive">
           <p className="font-semibold">{t("errorState")}</p>
-          {error && <p className="text-xs mt-2 text-muted-foreground">{error.message}</p>}
+          {!!error && <p className="text-xs mt-2 text-muted-foreground">{error.message}</p>}
         </div>
       )}
 

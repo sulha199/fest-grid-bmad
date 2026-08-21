@@ -2981,7 +2981,7 @@ export const MyReportsDocument = new TypedDocumentString(`
 
 export const useMyReportsQuery = <
       TData = MyReportsQuery,
-      TError = unknown
+      TError = Record<string, any>
     >(
       client: GraphQLClient,
       variables?: MyReportsQueryVariables,

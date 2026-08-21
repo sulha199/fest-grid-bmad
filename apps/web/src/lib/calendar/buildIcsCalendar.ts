@@ -2,6 +2,8 @@ import { createEvents, EventAttributes, DateArray } from 'ics';
 import { fromZonedTime } from 'date-fns-tz';
 import { IcsEventInput, IcsScheduleInput } from './types';
 
+export * from './types';
+
 export function buildIcsCalendar(event: IcsEventInput, schedules: IcsScheduleInput[]): string {
   const events: EventAttributes[] = schedules.map((schedule) => {
     const title = schedule.title ? `${event.eventName}: ${schedule.title}` : event.eventName;
