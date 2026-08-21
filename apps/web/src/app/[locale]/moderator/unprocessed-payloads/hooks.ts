@@ -1,5 +1,5 @@
 // Hooks for Unprocessed Payloads GraphQL operations (Story 3-4i)
-import { useQuery, useMutation } from "@tanstack/react-query"
+import { useQuery, useMutation, queryOptions } from "@tanstack/react-query"
 import { graphqlClient } from "@/lib/graphql-client"
 import { gql } from "graphql-request"
 import type {
@@ -8,6 +8,10 @@ import type {
   ReprocessResult,
   DeleteUnprocessedPayloadResult,
 } from "./types"
+
+type QueryUnprocessedPayloadsResponse = {
+  queryUnprocessedPayloads: UnprocessedPayloadConnection
+}
 
 const QUERY_UNPROCESSED_PAYLOADS = gql`
   query queryUnprocessedPayloads($filters: UnprocessedPayloadFilters, $cursor: String, $limit: Int) {
@@ -56,16 +60,16 @@ const MUTATION_DELETE_UNPROCESSED_PAYLOAD = gql`
   }
 `
 
-export function useUnprocessedPayloadsQuery(
+function unprocessedPayloadsQueryOptions(
   filters?: UnprocessedPayloadFilters,
   cursor?: string,
   limit?: number,
   enabled: boolean = true
 ) {
-  return useQuery({
-    queryKey: ["unprocessedPayloads", filters, cursor, limit],
+  return queryOptions({
+    queryKey: ["unprocessedPayloads", filters, cursor, limit] as const,
     queryFn: async () => {
-      return graphqlClient.request(QUERY_UNPROCESSED_PAYLOADS, {
+      return graphqlClient.request<QueryUnprocessedPayloadsResponse>(QUERY_UNPROCESSED_PAYLOADS, {
         filters: filters || {},
         cursor: cursor || undefined,
         limit: limit || 20,
@@ -73,6 +77,15 @@ export function useUnprocessedPayloadsQuery(
     },
     enabled,
   })
+}
+
+export function useUnprocessedPayloadsQuery(
+  filters?: UnprocessedPayloadFilters,
+  cursor?: string,
+  limit?: number,
+  enabled: boolean = true
+) {
+  return useQuery(unprocessedPayloadsQueryOptions(filters, cursor, limit, enabled))
 }
 
 export function useReprocessPayloadMutation() {
