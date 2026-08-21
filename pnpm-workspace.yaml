@@ -1,6 +1,7 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'ai-dev-orchestrator'
 allowBuilds:
   es5-ext: true
   esbuild: true

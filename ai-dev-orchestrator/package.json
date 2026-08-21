@@ -1,0 +1,31 @@
+{
+  "name": "@festgrid/ai-dev-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "main": "dist/cli.js",
+  "types": "dist/cli.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@langchain/langgraph": "^0.2.20",
+    "@langchain/langgraph-checkpoint-sqlite": "^1.0.4",
+    "openai": "^4.56.0",
+    "resend": "^3.5.0",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "eslint": "^9.9.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "^8.50.0",
+    "vitest": "^4.1.11"
+  }
+}
