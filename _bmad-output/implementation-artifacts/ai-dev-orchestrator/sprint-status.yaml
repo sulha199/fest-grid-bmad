@@ -43,7 +43,7 @@
 #   separate from festgrid's own real sprint-status.yaml, since this tracks a standalone initiative
 
 generated: 2026-08-21T00:00:00Z
-last_updated: 2026-08-21T09:13:00Z
+last_updated: 2026-08-21T09:18:00Z
 project: ai-dev-orchestrator
 project_key: NOKEY
 tracking_system: file-system
@@ -54,7 +54,7 @@ development_status:
   0-1-initialize-the-orchestrator-project-scaffold: done
   0-2-define-core-types-and-graphstate: review
   0-3-define-the-four-port-interfaces-and-the-shared-error-type: review
-  0-4-build-the-fail-fast-config-loader: ready-for-dev
+  0-4-build-the-fail-fast-config-loader: review
   0-5-build-the-audit-logger: ready-for-dev
   0-6-build-the-9router-llm-adapter: ready-for-dev
   0-7-build-the-local-exec-adapter: ready-for-dev
