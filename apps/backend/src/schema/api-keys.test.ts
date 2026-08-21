@@ -131,6 +131,8 @@ test('api keys resolvers integration', async (t) => {
     const resultDuplicate = await resDuplicate.json();
     assert.ok(resultDuplicate.errors, 'duplicate key should be rejected');
     assert.strictEqual(resultDuplicate.errors[0].extensions?.code, 'DUPLICATE_API_KEY');
+
+    await db.delete(apiKeys).where(eq(apiKeys.id, resultCreate.data.createApiKey.id));
   });
 
   await t.test('createApiKey, myApiKeys, deleteApiKey flow', async () => {

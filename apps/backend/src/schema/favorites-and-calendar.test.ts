@@ -42,19 +42,36 @@ test('favorites and calendar additions resolvers integration', async (t) => {
     if (seededUsers.length > 0) {
       testUser = seededUsers[0];
     }
-    
-    const seededEvents = await db.select({ id: events.id }).from(events).limit(1);
-    if (seededEvents.length > 0) {
-      testEventId = seededEvents[0].id;
-      const seededSchedules = await db.select({ id: schedules.id }).from(schedules).where(eq(schedules.eventId, testEventId)).limit(1);
-      if (seededSchedules.length > 0) {
-        testScheduleId = seededSchedules[0].id;
-      }
-    }
+
+    const [insertedEvent] = await db.insert(events).values({
+      eventName: `Favorites/Calendar Test Event ${Date.now()}`,
+      slug: `favorites-calendar-test-event-${Date.now()}`,
+      location: 'Integration Test, US',
+    }).returning();
+    testEventId = insertedEvent.id;
+
+    const [insertedSchedule] = await db.insert(schedules).values({
+      eventId: testEventId,
+      isMainSchedule: true,
+      eventStartDate: new Date().toISOString().slice(0, 10),
+      location: 'Integration Test, US',
+    }).returning();
+    testScheduleId = insertedSchedule.id;
 
     if (testUser && testEventId) {
       await db.delete(favorites).where(eq(favorites.userId, testUser.id));
       await db.delete(calendarAdditions).where(eq(calendarAdditions.userId, testUser.id));
+    }
+  });
+
+  t.after(async () => {
+    if (testUser) {
+      await db.delete(favorites).where(eq(favorites.userId, testUser.id));
+      await db.delete(calendarAdditions).where(eq(calendarAdditions.userId, testUser.id));
+    }
+    if (testEventId) {
+      await db.delete(schedules).where(eq(schedules.eventId, testEventId));
+      await db.delete(events).where(eq(events.id, testEventId));
     }
   });
 

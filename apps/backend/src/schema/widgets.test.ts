@@ -5,8 +5,8 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, widgets } from '@festgrid/database';
-import { eq, and, isNull } from 'drizzle-orm';
+import { users, widgets, embedDomains } from '@festgrid/database';
+import { eq, inArray } from 'drizzle-orm';
 
 // Read all required schema fragments dynamically from the schema directory
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -36,6 +36,16 @@ test('widgets resolvers integration', async (t) => {
     assert.ok(seededUsers.length >= 2, 'Should have at least 2 users');
     testUser = seededUsers[0];
     anotherUser = seededUsers[1];
+
+    const staleWidgets = await db
+      .select({ id: widgets.id })
+      .from(widgets)
+      .where(inArray(widgets.ownerUserId, [testUser.id, anotherUser.id]));
+    const staleWidgetIds = staleWidgets.map((w) => w.id);
+
+    if (staleWidgetIds.length > 0) {
+      await db.delete(embedDomains).where(inArray(embedDomains.widgetId, staleWidgetIds));
+    }
 
     await db.delete(widgets).where(eq(widgets.ownerUserId, testUser.id));
     await db.delete(widgets).where(eq(widgets.ownerUserId, anotherUser.id));

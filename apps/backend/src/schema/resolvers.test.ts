@@ -299,7 +299,7 @@ test('events resolver integration via Yoga', async (t) => {
     const allReq = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: `{ events(limit: 1) { items { id slug } } }` })
+      body: JSON.stringify({ query: `{ events(limit: 1) { items { id slug originalPostUrl } } }` })
     });
     const allRes = await allReq.json();
 
@@ -336,7 +336,7 @@ test('events resolver integration via Yoga', async (t) => {
     assert.strictEqual(result.data.eventBySlug.slug, firstEvent.slug);
     assert.ok(result.data.eventBySlug.eventName);
     assert.ok(Array.isArray(result.data.eventBySlug.schedules));
-    assert.strictEqual(result.data.eventBySlug.originalPostUrl, null);
+    assert.strictEqual(result.data.eventBySlug.originalPostUrl, firstEvent.originalPostUrl);
   });
 
   await t.test('eventBySlug - return null for non-existent slug', async () => {
@@ -658,6 +658,10 @@ test('events resolver integration via Yoga', async (t) => {
         role: 'user'
       }).returning();
       settingsTestUser = u;
+    });
+
+    t.afterEach(async () => {
+      await db.delete(users).where(eq(users.id, settingsTestUser.id));
     });
 
     await t.test('mySettings - throws UNAUTHENTICATED error when not authenticated (AC4)', async () => {
@@ -1158,11 +1162,27 @@ test('events resolver integration via Yoga', async (t) => {
       assert.ok(!ids.has(event2.id), 'Event 2 should be excluded');
       assert.ok(!ids.has(event3.id), 'Event 3 should be excluded');
 
-      // Check totalCount is correct as well
-      const countRes = await db.select({ count: count() }).from(events).where(sql`${events.deletedAt} IS NULL`);
-      const totalActiveEventsInDb = countRes[0]?.count ?? 0;
-      // totalCount should be total active minus the three excluded reported events
-      assert.strictEqual(result.data.events.totalCount, totalActiveEventsInDb - 3);
+      // Check totalCount is correct as well: compare against the same query as an
+      // unaffected caller (same visibility/date filtering, but none of these 3 events
+      // are reported by them) rather than a raw DB count that ignores those filters.
+      mockUser = null;
+      const baselineResponse = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              events(limit: 1000) {
+                totalCount
+              }
+            }
+          `
+        })
+      });
+      const baselineResult = await baselineResponse.json();
+      assert.ok(!baselineResult.errors, 'GraphQL errors returned for baseline query');
+      // totalCount should be the baseline (unaffected caller) minus the three excluded reported events
+      assert.strictEqual(result.data.events.totalCount, baselineResult.data.events.totalCount - 3);
     });
 
     await t.test('2. reported events remain visible to a different authenticated user', async () => {
@@ -1581,6 +1601,17 @@ test('events resolver integration via Yoga', async (t) => {
 });
 
 test('Story 4.4a - Soft Delete and Moderator Mutations integration', async (t) => {
+  // Real users for role-gating checks (getOrCreateUserSettings requires a real users.id FK)
+  const [regularTestUser] = await db.insert(users).values({
+    email: `soft-delete-regular-${Date.now()}@test.com`,
+    role: 'user',
+  }).returning();
+
+  const [moderatorTestUser] = await db.insert(users).values({
+    email: `soft-delete-moderator-${Date.now()}@test.com`,
+    role: 'moderator',
+  }).returning();
+
   // Let's seed an active event and a soft-deleted event
   const [activeEvent] = await db.insert(events).values({
     eventName: '4.4a Active Event',
@@ -1603,6 +1634,7 @@ test('Story 4.4a - Soft Delete and Moderator Mutations integration', async (t) =
     // Cleanup
     await db.delete(schedules).where(inArray(schedules.eventId, [activeEvent.id, deletedEvent.id]));
     await db.delete(events).where(inArray(events.id, [activeEvent.id, deletedEvent.id]));
+    await db.delete(users).where(inArray(users.id, [regularTestUser.id, moderatorTestUser.id]));
   });
 
   await t.test('events - default query excludes soft-deleted events', async () => {
@@ -1650,7 +1682,7 @@ test('Story 4.4a - Soft Delete and Moderator Mutations integration', async (t) =
     assert.strictEqual(result.errors[0].extensions?.code, 'UNAUTHENTICATED');
 
     // Authenticated regular user
-    mockUser = { userId: '00000000-0000-0000-0000-000000000001', role: 'user' };
+    mockUser = { userId: regularTestUser.id, role: regularTestUser.role };
     response = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1669,7 +1701,7 @@ test('Story 4.4a - Soft Delete and Moderator Mutations integration', async (t) =
     assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
 
     // Authenticated moderator
-    mockUser = { userId: '00000000-0000-0000-0000-000000000002', role: 'moderator' };
+    mockUser = { userId: moderatorTestUser.id, role: moderatorTestUser.role };
     response = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

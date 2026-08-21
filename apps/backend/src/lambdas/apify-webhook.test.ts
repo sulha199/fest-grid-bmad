@@ -8,15 +8,20 @@ import { eq } from 'drizzle-orm';
 import { createPendingJob } from '../lib/scraper/apify-pending-jobs-store.js';
 
 test('apify-webhook tests', async (t) => {
-  const testProfileId = 'profile-' + Date.now();
+  const testAccountId = 'profile-' + Date.now();
+  let testProfileId: string;
 
   t.beforeEach(async () => {
-    await db.insert(socialMediaAccountProfiles).values({
-      accountId: testProfileId,
-      platform: 'instagram',
-      username: 'test_user',
-      displayName: 'Test User',
-    });
+    const [profile] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({
+        accountId: testAccountId,
+        platform: 'instagram',
+        username: 'test_user',
+        displayName: 'Test User',
+      })
+      .returning({ id: socialMediaAccountProfiles.id });
+    testProfileId = profile.id;
   });
 
   t.afterEach(async () => {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { apifyPendingJobs } from '@festgrid/database';
+import { apifyPendingJobs, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import {
   createPendingJob,
@@ -12,7 +12,24 @@ import {
 } from './apify-pending-jobs-store.js';
 
 test('apify-pending-jobs-store tests', async (t) => {
-  const testProfileId = 'test-profile-id-' + Date.now();
+  let testProfileId: string;
+
+  t.before(async () => {
+    const [profile] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({
+        accountId: 'test-profile-id-' + Date.now(),
+        platform: 'instagram',
+        username: 'test_user',
+        displayName: 'Test User',
+      })
+      .returning({ id: socialMediaAccountProfiles.id });
+    testProfileId = profile.id;
+  });
+
+  t.after(async () => {
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId));
+  });
 
   t.afterEach(async () => {
     await db.delete(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));

@@ -561,8 +561,8 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
 
     const [schedule] = await db.insert(schedules).values({
       eventId: event.id,
-      eventStartDate: '2026-08-11',
-      eventEndDate: '2026-08-12',
+      eventStartDate: new Date().toISOString().slice(0, 10),
+      eventEndDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
       isMainSchedule: true,
       performers: ['Test Performer'],
     }).returning();
@@ -688,8 +688,8 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
 
     const [schedule] = await db.insert(schedules).values({
       eventId: event.id,
-      eventStartDate: '2026-08-11',
-      eventEndDate: '2026-08-12',
+      eventStartDate: new Date().toISOString().slice(0, 10),
+      eventEndDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
       isMainSchedule: true,
       performers: ['Test Performer 2'],
     }).returning();
@@ -932,6 +932,11 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     await t.test('triggerAccountScrape - has-posts account returns isInitialScrape: false', async () => {
       mockUser = { userId: testUser.id, role: testUser.role };
 
+      // Clear in-progress state left by the previous trigger (no real queue completes it locally)
+      await db.update(socialMediaAccountProfiles)
+        .set({ scrapeTriggeredAt: null })
+        .where(eq(socialMediaAccountProfiles.id, testProfile.id));
+
       // Insert a post so it's not zero-posts
       const [post] = await db.insert(posts).values({
         accountId: testProfile.id,
@@ -999,6 +1004,7 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
             query {
               mySubscriptions {
                 account {
+                  id
                   isScrapeInProgress
                 }
               }

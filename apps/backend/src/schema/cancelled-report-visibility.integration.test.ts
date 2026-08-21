@@ -88,7 +88,7 @@ test('Story 4.4: Cancelled Report Visibility and Soft-Delete Flow', async (t) =>
       const [sch] = await db.insert(schedules).values({
         eventId: testEvent.id,
         isMainSchedule: true,
-        eventStartDate: '2026-08-12',
+        eventStartDate: new Date().toISOString().slice(0, 10),
         location: 'Integration Test, US',
       }).returning();
       testSchedule = sch;

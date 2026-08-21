@@ -9,7 +9,7 @@
     "start": "node dist/src/index.js",
     "lint": "eslint . --report-unused-disable-directives",
     "codegen": "graphql-codegen --config codegen.ts",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "cross-env NODE_ENV=test tsx --test --test-concurrency=1 src/**/*.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.1058.0",

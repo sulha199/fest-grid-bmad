@@ -15,7 +15,7 @@ const typeDefs = files.map(f => fs.readFileSync(path.join(schemaDir, f), 'utf8')
 
 const schema = createSchema({
   typeDefs: `
-    $${typeDefs}
+    ${typeDefs}
     type Query {
       health: Boolean
     }
@@ -128,7 +128,7 @@ test('resolveScheduleTimezone resolver integration', async (t) => {
             }
           }
         `,
-        variables: { scheduleId: 'nonexistent-id', timezone: 'UTC' }
+        variables: { scheduleId: '00000000-0000-0000-0000-000000000000', timezone: 'UTC' }
       })
     });
 
