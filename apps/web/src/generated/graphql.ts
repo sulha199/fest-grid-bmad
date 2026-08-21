@@ -2981,7 +2981,7 @@ export const MyReportsDocument = new TypedDocumentString(`
 
 export const useMyReportsQuery = <
       TData = MyReportsQuery,
-      TError = Record<string, any>
+      TError extends Record<string, any> = Record<string, any>
     >(
       client: GraphQLClient,
       variables?: MyReportsQueryVariables,
@@ -2991,10 +2991,10 @@ export const useMyReportsQuery = <
     
     return useQuery<MyReportsQuery, TError, TData>(
       {
-    queryKey: variables === undefined ? ['myReports'] : ['myReports', variables],
-    queryFn: fetcher<MyReportsQuery, MyReportsQueryVariables>(client, MyReportsDocument, variables, headers),
-    ...options
-  }
+        queryKey: variables === undefined ? ['myReports'] : ['myReports', variables],
+        queryFn: fetcher<MyReportsQuery, MyReportsQueryVariables>(client, MyReportsDocument, variables, headers),
+        ...options
+      }
     )};
 
 export const DeleteApiKeyDocument = new TypedDocumentString(`
