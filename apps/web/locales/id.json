@@ -38,6 +38,7 @@
     "moderatorItemsDescription": "Tinjau acara yang dilaporkan dan perubahan lokasi default yang tertunda.",
     "manualPostSelectionTitle": "Ekstrak Acara | FestDaily",
     "manualPostSelectionDescription": "Pilih postingan dari akun media sosial yang Anda ikuti untuk mengekstrak acara festival musik.",
+    "unprocessedPayloadsTitle": "Payload Belum Diproses | Moderator FestDaily",
     "unprocessedPayloadsDescription": "Telusuri dan proses ulang payload yang belum diproses dari vendor scraper",
     "actorRunsTitle": "Jalankan Scraper | Moderator FestDaily",
     "actorRunsDescription": "Jelajahi dan putar ulang jalankan aktor scraper"
