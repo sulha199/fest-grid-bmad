@@ -1,27 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import test from 'node:test';
+import assert from 'node:assert';
 import { recordActorRunStart, recordActorRunResult, recordSyncActorRun } from './record-actor-run.js';
-import { replayActorRun } from './replay-actor-run.js';
 import { db } from '../../db/client.js';
-import { scraperActorRuns } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
 
-// Mock database calls
-vi.mock('../../db/client.js');
-
-describe('Scraper Audit Integration', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  describe('Audit Recording Flow', () => {
-    it('should record sync actor run with complete lifecycle', async () => {
-      const mockInsert = vi.fn().mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+test('Scraper Audit Integration', async (t) => {
+  await t.test('Audit Recording Flow', async (t) => {
+    await t.test('should record sync actor run with complete lifecycle', async (t) => {
+      const insertMock = t.mock.method(db, 'insert', () => ({
+        values: () => ({
+          onConflictDoNothing: async () => undefined,
         }),
-      });
-
-      (db.insert as any).mockReturnValue(mockInsert());
+      }) as any);
 
       await recordSyncActorRun({
         vendor: 'APIFY',
@@ -33,17 +22,15 @@ describe('Scraper Audit Integration', () => {
         itemCount: 1,
       });
 
-      expect(mockInsert).toHaveBeenCalled();
+      assert.ok(insertMock.mock.callCount() > 0);
     });
 
-    it('should record async run start with pending status', async () => {
-      const mockInsert = vi.fn().mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: 'audit-123' }]),
+    await t.test('should record async run start with pending status', async (t) => {
+      t.mock.method(db, 'insert', () => ({
+        values: () => ({
+          returning: async () => [{ id: 'audit-123' }],
         }),
-      });
-
-      (db.insert as any).mockReturnValue(mockInsert());
+      }) as any);
 
       const result = await recordActorRunStart({
         vendor: 'BRIGHTDATA',
@@ -55,17 +42,15 @@ describe('Scraper Audit Integration', () => {
         status: 'PENDING',
       });
 
-      expect(result).toBe('audit-123');
+      assert.strictEqual(result, 'audit-123');
     });
 
-    it('should update run result with output and status', async () => {
-      const mockUpdate = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
+    await t.test('should update run result with output and status', async (t) => {
+      const updateMock = t.mock.method(db, 'update', () => ({
+        set: () => ({
+          where: async () => undefined,
         }),
-      });
-
-      (db.update as any).mockReturnValue(mockUpdate());
+      }) as any);
 
       await recordActorRunResult({
         vendor: 'APIFY',
@@ -75,59 +60,30 @@ describe('Scraper Audit Integration', () => {
         itemCount: 1,
       });
 
-      expect(mockUpdate).toHaveBeenCalled();
+      assert.ok(updateMock.mock.callCount() > 0);
     });
   });
 
-  describe('Replay Mutation', () => {
-    it('should replay run with stored output', async () => {
-      const mockSelect = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([
-            {
-              id: 'audit-123',
-              vendor: 'APIFY',
-              profileId: 'profile-123',
-              runId: 'run-456',
-              rawOutput: [{ url: 'https://instagram.com/p/1', caption: 'Test' }],
-              status: 'SUCCEEDED',
-            },
-          ]),
-        }),
-      });
-
-      (db.select as any).mockReturnValue(mockSelect());
-
-      // Mock additional selects for profile lookup and persistScrapedPost
-      const mockSelectProfile = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([
-            { id: 'profile-123', platform: 'instagram' },
-          ]),
-        }),
-      });
-
-      (db.select as any).mockReturnValueOnce(mockSelect()).mockReturnValueOnce(mockSelectProfile());
-
+  await t.test('Replay Mutation', async (t) => {
+    await t.test('should replay run with stored output', async () => {
       // Note: Full replay test requires extensive mocking of persistScrapedPost
       // This is a simplified version showing the structure
-      expect(recordActorRunStart).toBeDefined();
+      assert.ok(recordActorRunStart);
     });
 
-    it('should return accurate post count on second replay', async () => {
+    await t.test('should return accurate post count on second replay', async () => {
       // When replaying, onConflictDoNothing ensures no duplicates are inserted
       // so postsPersisted count should be 0 on second replay
-      expect(recordSyncActorRun).toBeDefined();
+      assert.ok(recordSyncActorRun);
     });
   });
 
-  describe('Error Handling', () => {
-    it('should not throw on database errors during audit recording', async () => {
-      (db.insert as any).mockImplementation(() => {
+  await t.test('Error Handling', async (t) => {
+    await t.test('should not throw on database errors during audit recording', async (t) => {
+      const consoleErrorMock = t.mock.method(console, 'error', () => {});
+      t.mock.method(db, 'insert', () => {
         throw new Error('DB connection failed');
       });
-
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       // Should not throw
       await recordSyncActorRun({
@@ -138,18 +94,15 @@ describe('Scraper Audit Integration', () => {
         status: 'SUCCEEDED',
       });
 
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
+      assert.ok(consoleErrorMock.mock.callCount() > 0);
     });
 
-    it('should record errors in audit trail', async () => {
-      const mockUpdate = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
+    await t.test('should record errors in audit trail', async (t) => {
+      const updateMock = t.mock.method(db, 'update', () => ({
+        set: () => ({
+          where: async () => undefined,
         }),
-      });
-
-      (db.update as any).mockReturnValue(mockUpdate());
+      }) as any);
 
       await recordActorRunResult({
         vendor: 'APIFY',
@@ -158,19 +111,17 @@ describe('Scraper Audit Integration', () => {
         errorMessage: 'Run timed out after 30 seconds',
       });
 
-      expect(mockUpdate).toHaveBeenCalled();
+      assert.ok(updateMock.mock.callCount() > 0);
     });
   });
 
-  describe('Idempotency', () => {
-    it('should handle duplicate run ID via onConflictDoNothing', async () => {
-      const mockInsert = vi.fn().mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+  await t.test('Idempotency', async (t) => {
+    await t.test('should handle duplicate run ID via onConflictDoNothing', async (t) => {
+      const insertMock = t.mock.method(db, 'insert', () => ({
+        values: () => ({
+          onConflictDoNothing: async () => undefined,
         }),
-      });
-
-      (db.insert as any).mockReturnValue(mockInsert());
+      }) as any);
 
       // First insert
       await recordSyncActorRun({
@@ -190,7 +141,7 @@ describe('Scraper Audit Integration', () => {
         status: 'SUCCEEDED',
       });
 
-      expect(mockInsert).toHaveBeenCalledTimes(2);
+      assert.strictEqual(insertMock.mock.callCount(), 2);
     });
   });
 });

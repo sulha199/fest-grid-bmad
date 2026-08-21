@@ -1,6 +1,6 @@
 import { db } from '../../db/client.js';
 import { brightdataPendingJobs } from '@festgrid/database';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 
 export interface BrightdataPendingJob {
@@ -10,7 +10,7 @@ export interface BrightdataPendingJob {
   webhookToken: string;
   status: 'PENDING' | 'COMPLETED' | 'EXPIRED';
   expiresAt: Date;
-  scraperActorRunId?: string;
+  scraperActorRunId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,7 +22,7 @@ export async function createPendingJob({
 }: {
   profileId: string;
   snapshotId: string;
-  scraperActorRunId?: string;
+  scraperActorRunId?: string | null;
 }): Promise<{ webhookToken: string; id: string }> {
   const webhookToken = randomBytes(24).toString('hex');
   const { BRIGHTDATA_JOB_TIMEOUT_MINUTES = 180 } = process.env;
@@ -74,12 +74,7 @@ export async function findExpiredPendingJobs(): Promise<BrightdataPendingJob[]> 
   return db
     .select()
     .from(brightdataPendingJobs)
-    .where(
-      and(
-        eq(brightdataPendingJobs.status, 'PENDING'),
-        isNull(brightdataPendingJobs.deletedAt) // Only active rows, but this table has no deletedAt, so we skip this in actual use
-      )
-    )
+    .where(eq(brightdataPendingJobs.status, 'PENDING'))
     .then((rows) =>
       rows.filter((row) => row.expiresAt < now)
     );

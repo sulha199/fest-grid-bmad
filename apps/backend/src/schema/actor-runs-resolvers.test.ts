@@ -1,18 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import test from 'node:test';
+import assert from 'node:assert';
 import { db } from '../db/client.js';
 import { scraperActorRuns } from '@festgrid/database';
-import { eq, and, desc, count } from 'drizzle-orm';
+import { desc, count } from 'drizzle-orm';
 
-// Mock database
-vi.mock('../db/client.js');
-
-describe('Actor Runs GraphQL Resolvers', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  describe('queryActorRuns', () => {
-    it('should return paginated actor runs', async () => {
+test('Actor Runs GraphQL Resolvers', async (t) => {
+  await t.test('queryActorRuns', async (t) => {
+    await t.test('should return paginated actor runs', async (t) => {
       const mockRuns = [
         {
           id: 'audit-1',
@@ -33,27 +27,23 @@ describe('Actor Runs GraphQL Resolvers', () => {
         },
       ];
 
-      const mockSelect = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi.fn().mockReturnValue({
-                offset: vi.fn().mockResolvedValue(mockRuns),
+      const selectMock = t.mock.method(db, 'select');
+      selectMock.mock.mockImplementationOnce(() => ({
+        from: () => ({
+          where: () => ({
+            orderBy: () => ({
+              limit: () => ({
+                offset: async () => mockRuns,
               }),
             }),
           }),
         }),
-      });
-
-      const mockCountSelect = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([{ count: 1 }]),
+      }) as any);
+      selectMock.mock.mockImplementationOnce(() => ({
+        from: () => ({
+          where: async () => [{ count: 1 }],
         }),
-      });
-
-      (db.select as any)
-        .mockReturnValueOnce(mockSelect())
-        .mockReturnValueOnce(mockCountSelect());
+      }) as any);
 
       // queryActorRuns should:
       // 1. Require moderator role
@@ -61,69 +51,69 @@ describe('Actor Runs GraphQL Resolvers', () => {
       // 3. Query with pagination
       // 4. Return edges and pageInfo
 
-      expect(mockSelect).toBeDefined();
+      assert.ok(selectMock);
     });
 
-    it('should filter by vendor', async () => {
+    await t.test('should filter by vendor', async () => {
       // When filters.vendor = 'BRIGHTDATA', query should include that condition
-      expect(scraperActorRuns).toBeDefined();
+      assert.ok(scraperActorRuns);
     });
 
-    it('should filter by status', async () => {
+    await t.test('should filter by status', async () => {
       // When filters.status = 'PENDING', query should include that condition
-      expect(scraperActorRuns).toBeDefined();
+      assert.ok(scraperActorRuns);
     });
 
-    it('should filter by profileId', async () => {
+    await t.test('should filter by profileId', async () => {
       // When filters.profileId is provided, query should filter by it
-      expect(scraperActorRuns).toBeDefined();
+      assert.ok(scraperActorRuns);
     });
 
-    it('should filter by date range', async () => {
+    await t.test('should filter by date range', async () => {
       // When createdAfter/createdBefore provided, query should include date conditions
-      expect(scraperActorRuns).toBeDefined();
+      assert.ok(scraperActorRuns);
     });
 
-    it('should return newest-first by default', async () => {
+    await t.test('should return newest-first by default', async () => {
       // Results should be ordered by desc(createdAt)
-      expect(desc).toBeDefined();
+      assert.ok(desc);
     });
 
-    it('should detect hasNextPage correctly', async () => {
+    await t.test('should detect hasNextPage correctly', async () => {
       // Query limit+1, if results > limit, hasNextPage = true
       // Otherwise hasNextPage = false
-      expect(count).toBeDefined();
+      assert.ok(count);
     });
 
-    it('should encode cursor as base64', async () => {
+    await t.test('should encode cursor as base64', async () => {
       // Cursor should be Buffer.from(offset.toString()).toString('base64')
       // After cursor should decode it back to offset
       const offset = 10;
       const cursor = Buffer.from(offset.toString()).toString('base64');
       const decoded = parseInt(Buffer.from(cursor, 'base64').toString(), 10);
-      expect(decoded).toBe(offset);
+      assert.strictEqual(decoded, offset);
     });
 
-    it('should include totalCount in response', async () => {
+    await t.test('should include totalCount in response', async () => {
       // Should run parallel count query for totalCount
-      expect(count).toBeDefined();
+      assert.ok(count);
     });
   });
 
-  describe('replayActorRun', () => {
-    it('should require moderator role', async () => {
+  await t.test('replayActorRun', async (t) => {
+    await t.test('should require moderator role', async () => {
       // replayActorRun should check requireModerator(context)
       // If not moderator, should throw GraphQLError
-      expect(scraperActorRuns).toBeDefined();
+      assert.ok(scraperActorRuns);
     });
 
-    it('should delegate to replayActorRun function', async () => {
+    await t.test('should delegate to replayActorRun function', async () => {
       // replayActorRun resolver should call lib/scraper/replay-actor-run.ts replayActorRun()
       // and return its result as-is
-      expect(scraperActorRuns).toBeDefined();
+      assert.ok(scraperActorRuns);
     });
 
-    it('should return ReplayActorRunResult', async () => {
+    await t.test('should return ReplayActorRunResult', async () => {
       // Result should have: { success, postsPersisted, message }
       const mockResult = {
         success: true,
@@ -131,12 +121,12 @@ describe('Actor Runs GraphQL Resolvers', () => {
         message: 'Replay completed: 5 new post(s) persisted',
       };
 
-      expect(mockResult).toHaveProperty('success');
-      expect(mockResult).toHaveProperty('postsPersisted');
-      expect(mockResult).toHaveProperty('message');
+      assert.ok('success' in mockResult);
+      assert.ok('postsPersisted' in mockResult);
+      assert.ok('message' in mockResult);
     });
 
-    it('should handle replay not found', async () => {
+    await t.test('should handle replay not found', async () => {
       // When actorRunId not found, should return success: false
       const notFoundResult = {
         success: false,
@@ -144,10 +134,10 @@ describe('Actor Runs GraphQL Resolvers', () => {
         message: 'Actor run not found: invalid-id',
       };
 
-      expect(notFoundResult.success).toBe(false);
+      assert.strictEqual(notFoundResult.success, false);
     });
 
-    it('should handle vendor fetch failure', async () => {
+    await t.test('should handle vendor fetch failure', async () => {
       // When vendor API call fails, should return success: false
       const failureResult = {
         success: false,
@@ -155,10 +145,10 @@ describe('Actor Runs GraphQL Resolvers', () => {
         message: 'Vendor run fetch failed with status: FAILED',
       };
 
-      expect(failureResult.success).toBe(false);
+      assert.strictEqual(failureResult.success, false);
     });
 
-    it('should correctly count new posts on replay', async () => {
+    await t.test('should correctly count new posts on replay', async () => {
       // Second replay should report 0 new posts due to postUrl dedup
       const secondReplay = {
         success: true,
@@ -166,20 +156,20 @@ describe('Actor Runs GraphQL Resolvers', () => {
         message: 'Replay completed: no new posts (already existed)',
       };
 
-      expect(secondReplay.postsPersisted).toBe(0);
+      assert.strictEqual(secondReplay.postsPersisted, 0);
     });
   });
 
-  describe('Authorization', () => {
-    it('should enforce moderator gate on queryActorRuns', async () => {
+  await t.test('Authorization', async (t) => {
+    await t.test('should enforce moderator gate on queryActorRuns', async () => {
       // Both queryActorRuns and replayActorRun require moderator role
       // Regular users should not see actor run history
-      expect(scraperActorRuns).toBeDefined();
+      assert.ok(scraperActorRuns);
     });
 
-    it('should enforce moderator gate on replayActorRun', async () => {
+    await t.test('should enforce moderator gate on replayActorRun', async () => {
       // Only moderators can trigger replay
-      expect(scraperActorRuns).toBeDefined();
+      assert.ok(scraperActorRuns);
     });
   });
 });

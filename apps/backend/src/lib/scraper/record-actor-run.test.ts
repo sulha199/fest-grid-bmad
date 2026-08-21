@@ -1,23 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import test from 'node:test';
+import assert from 'node:assert';
 import { recordActorRunStart, recordActorRunResult, recordSyncActorRun } from './record-actor-run.js';
 import { db } from '../../db/client.js';
 
-vi.mock('../../db/client.js');
-
-describe('record-actor-run', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  describe('recordActorRunStart', () => {
-    it('should insert a new pending actor run', async () => {
-      const mockInsert = vi.fn().mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: 'run-123' }]),
+test('record-actor-run', async (t) => {
+  await t.test('recordActorRunStart', async (t) => {
+    await t.test('should insert a new pending actor run', async (t) => {
+      t.mock.method(db, 'insert', () => ({
+        values: () => ({
+          returning: async () => [{ id: 'run-123' }],
         }),
-      });
-
-      (db.insert as any).mockReturnValue(mockInsert());
+      }) as any);
 
       const result = await recordActorRunStart({
         vendor: 'APIFY',
@@ -27,13 +20,12 @@ describe('record-actor-run', () => {
         rawInput: { username: 'testuser' },
       });
 
-      expect(result).toBe('run-123');
+      assert.strictEqual(result, 'run-123');
     });
 
-    it('should catch and log database errors without throwing', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      (db.insert as any).mockImplementation(() => {
+    await t.test('should catch and log database errors without throwing', async (t) => {
+      const consoleErrorMock = t.mock.method(console, 'error', () => {});
+      t.mock.method(db, 'insert', () => {
         throw new Error('DB error');
       });
 
@@ -45,21 +37,18 @@ describe('record-actor-run', () => {
         rawInput: { username: 'testuser' },
       });
 
-      expect(result).toBeNull();
-      expect(consoleErrorSpy).toHaveBeenCalled();
-      consoleErrorSpy.mockRestore();
+      assert.strictEqual(result, null);
+      assert.ok(consoleErrorMock.mock.callCount() > 0);
     });
   });
 
-  describe('recordActorRunResult', () => {
-    it('should update actor run result by id', async () => {
-      const mockUpdate = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
+  await t.test('recordActorRunResult', async (t) => {
+    await t.test('should update actor run result by id', async (t) => {
+      const updateMock = t.mock.method(db, 'update', () => ({
+        set: () => ({
+          where: async () => undefined,
         }),
-      });
-
-      (db.update as any).mockReturnValue(mockUpdate());
+      }) as any);
 
       await recordActorRunResult({
         id: 'run-123',
@@ -70,13 +59,12 @@ describe('record-actor-run', () => {
         itemCount: 1,
       });
 
-      expect(mockUpdate).toHaveBeenCalled();
+      assert.ok(updateMock.mock.callCount() > 0);
     });
 
-    it('should catch and log database errors without throwing', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      (db.update as any).mockImplementation(() => {
+    await t.test('should catch and log database errors without throwing', async (t) => {
+      const consoleErrorMock = t.mock.method(console, 'error', () => {});
+      t.mock.method(db, 'update', () => {
         throw new Error('DB error');
       });
 
@@ -87,20 +75,17 @@ describe('record-actor-run', () => {
         status: 'SUCCEEDED',
       });
 
-      expect(consoleErrorSpy).toHaveBeenCalled();
-      consoleErrorSpy.mockRestore();
+      assert.ok(consoleErrorMock.mock.callCount() > 0);
     });
   });
 
-  describe('recordSyncActorRun', () => {
-    it('should insert a complete sync actor run', async () => {
-      const mockInsert = vi.fn().mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+  await t.test('recordSyncActorRun', async (t) => {
+    await t.test('should insert a complete sync actor run', async (t) => {
+      const insertMock = t.mock.method(db, 'insert', () => ({
+        values: () => ({
+          onConflictDoNothing: async () => undefined,
         }),
-      });
-
-      (db.insert as any).mockReturnValue(mockInsert());
+      }) as any);
 
       await recordSyncActorRun({
         vendor: 'APIFY',
@@ -112,17 +97,15 @@ describe('record-actor-run', () => {
         itemCount: 1,
       });
 
-      expect(mockInsert).toHaveBeenCalled();
+      assert.ok(insertMock.mock.callCount() > 0);
     });
 
-    it('should handle conflicts gracefully', async () => {
-      const mockInsert = vi.fn().mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+    await t.test('should handle conflicts gracefully', async (t) => {
+      const insertMock = t.mock.method(db, 'insert', () => ({
+        values: () => ({
+          onConflictDoNothing: async () => undefined,
         }),
-      });
-
-      (db.insert as any).mockReturnValue(mockInsert());
+      }) as any);
 
       await recordSyncActorRun({
         vendor: 'APIFY',
@@ -133,13 +116,12 @@ describe('record-actor-run', () => {
         errorMessage: 'Timeout',
       });
 
-      expect(mockInsert).toHaveBeenCalled();
+      assert.ok(insertMock.mock.callCount() > 0);
     });
 
-    it('should catch and log database errors without throwing', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      (db.insert as any).mockImplementation(() => {
+    await t.test('should catch and log database errors without throwing', async (t) => {
+      const consoleErrorMock = t.mock.method(console, 'error', () => {});
+      t.mock.method(db, 'insert', () => {
         throw new Error('DB error');
       });
 
@@ -151,8 +133,7 @@ describe('record-actor-run', () => {
         status: 'SUCCEEDED',
       });
 
-      expect(consoleErrorSpy).toHaveBeenCalled();
-      consoleErrorSpy.mockRestore();
+      assert.ok(consoleErrorMock.mock.callCount() > 0);
     });
   });
 });

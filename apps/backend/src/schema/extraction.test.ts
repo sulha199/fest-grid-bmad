@@ -64,6 +64,7 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
     // 2. Insert/Get an existing post to test existing post path
     const [insertedPost] = await db.insert(posts).values({
       accountId: profileId,
+      platform: 'instagram',
       content: 'This is a mock post with event details for existing path.',
       postUrl: 'https://instagram.com/p/existing123',
       originalPostUrl: 'https://instagram.com/p/existing_original123',
@@ -377,6 +378,7 @@ test('manual post selection & extraction integration tests', async (t) => {
     const thirtyFiveDaysAgo = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000);
     const [insertedOldPost] = await db.insert(posts).values({
       accountId: testProfile.id,
+      platform: 'instagram',
       content: 'This is an old post',
       postUrl: `https://instagram.com/p/old123-${Date.now()}-${Math.random()}`,
       publishedAt: thirtyFiveDaysAgo,
@@ -445,6 +447,7 @@ test('manual post selection & extraction integration tests', async (t) => {
     // Insert recent post
     const [insertedRecentPost] = await db.insert(posts).values({
       accountId: testProfile.id,
+      platform: 'instagram',
       content: 'This is a recent post',
       postUrl: `https://instagram.com/p/recent123-${Date.now()}-${Math.random()}`,
       publishedAt: new Date(),
@@ -575,6 +578,7 @@ test('manual post selection & extraction integration tests', async (t) => {
 
     const [insertedOtherPost] = await db.insert(posts).values({
       accountId: testProfile.id, // they are not subscribed to this profile
+      platform: 'instagram',
       content: 'unsubscribed post content',
       postUrl: `https://instagram.com/p/unsub123-${Date.now()}-${Math.random()}`,
       publishedAt: new Date(),

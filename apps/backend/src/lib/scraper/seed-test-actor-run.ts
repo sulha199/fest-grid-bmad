@@ -1,5 +1,6 @@
 import { db } from '../../db/client.js';
 import { scraperActorRuns, socialMediaAccountProfiles, posts } from '@festgrid/database';
+import { and, eq } from 'drizzle-orm';
 
 /**
  * Seed test data: a completed Apify actor run with output but no persisted posts.
@@ -13,7 +14,7 @@ export async function seedTestActorRun() {
   const profile = await db
     .select()
     .from(socialMediaAccountProfiles)
-    .where((t) => t.username === username)
+    .where(eq(socialMediaAccountProfiles.username, username))
     .limit(1)
     .then((rows) => rows[0]);
 
@@ -25,7 +26,7 @@ export async function seedTestActorRun() {
   const existing = await db
     .select()
     .from(scraperActorRuns)
-    .where((t) => t.runId === runId && t.vendor === 'APIFY')
+    .where(and(eq(scraperActorRuns.runId, runId), eq(scraperActorRuns.vendor, 'APIFY')))
     .limit(1)
     .then((rows) => rows[0]);
 
@@ -117,7 +118,7 @@ export async function seedTestActorRun() {
       startedAt: new Date('2026-08-19T10:00:00Z'),
       completedAt: new Date('2026-08-19T10:00:58Z'),
     })
-    .returning((t) => t.id)
+    .returning({ id: scraperActorRuns.id })
     .then((rows) => rows[0].id);
 
   console.log(`✅ Seeded actor run ${runId} (ID: ${actorRunId})`);
@@ -130,7 +131,7 @@ export async function seedTestActorRun() {
 }
 
 // Run if invoked directly: `npx tsx src/lib/scraper/seed-test-actor-run.ts`
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (require.main === module) {
   seedTestActorRun()
     .then(() => {
       console.log('\n✅ Seed complete');

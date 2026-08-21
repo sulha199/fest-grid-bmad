@@ -54,7 +54,7 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
         cutoffDate.setDate(cutoffDate.getDate() - widestWindowDays);
         const newerThan = cutoffDate.toISOString();
 
-        setApifyAuditContext(job.profileId, 'sync');
+        setApifyAuditContext(job.profileId, 'SYNC');
         try {
           const scrapedPosts = await adapter.getNewestPosts(
             { accountId: job.accountId, username: job.username },
@@ -76,7 +76,7 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
         cutoffDate.setDate(cutoffDate.getDate() - days);
         const newerThan = cutoffDate.toISOString();
 
-        setApifyAuditContext(job.profileId, 'sync');
+        setApifyAuditContext(job.profileId, 'SYNC');
         try {
           const scrapedPosts = await adapter.getNewestPosts(
             { accountId: job.accountId, username: job.username },
@@ -113,7 +113,7 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
       newerThan = lookbackDate.toISOString();
     }
 
-    setApifyAuditContext(job.profileId, 'sync');
+    setApifyAuditContext(job.profileId, 'SYNC');
     try {
       const scrapedPosts = await adapter.getNewestPosts(
         { accountId: job.accountId, username: job.username },

@@ -3,8 +3,9 @@ import * as assert from 'node:assert';
 import { generateKeyPairSync } from 'crypto';
 
 // Generate a valid dummy private key so firebase-admin initializes successfully in tests
-const { privateKey } = generateKeyPairSync('rsa' as const, {
+const { privateKey } = generateKeyPairSync('rsa', {
   modulusLength: 2048,
+  publicKeyEncoding: { type: 'spki', format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
 });
 

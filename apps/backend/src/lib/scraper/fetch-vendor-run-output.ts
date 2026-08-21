@@ -16,6 +16,10 @@ export async function fetchApifyRunOutput(runId: string): Promise<VendorRunOutpu
   try {
     const run = await client.run(runId).get();
 
+    if (!run) {
+      throw new Error(`Apify run not found: ${runId}`);
+    }
+
     if (run.status === 'SUCCEEDED') {
       const { items } = await client.dataset(run.defaultDatasetId).listItems({
         clean: true,

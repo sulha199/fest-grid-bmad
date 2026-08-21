@@ -3,11 +3,9 @@ import { createPendingJob } from './apify-pending-jobs-store.js';
 import { recordProviderUsage, isProviderCapacityAvailable } from './usage-store.js';
 import { loadBackendEnv } from '../../env.js';
 import { recordActorRunStart } from './record-actor-run.js';
+import type { ScrapeTarget as FullScrapeTarget } from './get-scrape-targets.js';
 
-export interface ScrapeTarget {
-  profileId: string;
-  username: string;
-}
+export type ScrapeTarget = Pick<FullScrapeTarget, 'profileId' | 'username'>;
 
 export let attemptApifyAsyncTrigger = async (
   target: ScrapeTarget,
@@ -17,7 +15,7 @@ export let attemptApifyAsyncTrigger = async (
 
   // Check capacity availability
   try {
-    await isProviderCapacityAvailable('apify', `account ${target.username}`);
+    await isProviderCapacityAvailable('apify');
   } catch {
     // Capacity exhausted, fall back to sync path
     return false;

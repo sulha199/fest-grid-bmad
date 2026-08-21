@@ -391,7 +391,7 @@ export const resolvers: Resolvers = {
       // 5. Build ScrapeTarget and trigger the cascade
       const scrapeTarget = {
         profileId: profile.id,
-        platform: profile.platform,
+        platform: profile.platform as any,
         accountId: profile.accountId,
         username: profile.username,
         isInitialNewSubscription: isInitialScrape,
@@ -901,8 +901,8 @@ export const resolvers: Resolvers = {
 
       return {
         scheduleId: updated.id,
-        timezone: updated.timezone,
-        timezoneStatus: updated.timezoneStatus,
+        timezone,
+        timezoneStatus: 'RESOLVED' as const,
       };
     },
     registerFcmToken: async (_: any, { token }: any, context: any) => {
@@ -1644,7 +1644,6 @@ export const resolvers: Resolvers = {
             username: lookupResult.username,
             displayName: lookupResult.displayName,
             profileImageUrl: lookupResult.profileImageUrl || null,
-            description: lookupResult.description || null,
           })
           .onConflictDoUpdate({
             target: [socialMediaAccountProfiles.platform, socialMediaAccountProfiles.accountId],
@@ -1652,7 +1651,6 @@ export const resolvers: Resolvers = {
               username: lookupResult.username,
               displayName: lookupResult.displayName,
               profileImageUrl: lookupResult.profileImageUrl || null,
-              description: lookupResult.description || null,
               updatedAt: new Date(),
             }
           })
@@ -1668,7 +1666,7 @@ export const resolvers: Resolvers = {
       
       const existingVote = await db.select().from(accountVotes)
         .where(and(eq(accountVotes.userId, authUser.userId), eq(accountVotes.accountId, accountId)));
-        
+
       if (existingVote.length > 0) {
         const vote = existingVote[0];
         if (vote.deletedAt !== null) {
@@ -1676,19 +1674,19 @@ export const resolvers: Resolvers = {
             .set({ deletedAt: null, createdAt: new Date() })
             .where(eq(accountVotes.id, vote.id))
             .returning();
-          return updated;
+          return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: null };
         }
-        return vote;
+        return { ...vote, createdAt: vote.createdAt.toISOString(), deletedAt: null };
       }
-      
+
       const [newVote] = await db.insert(accountVotes)
         .values({
           userId: authUser.userId,
           accountId: accountId,
         })
         .returning();
-        
-      return newVote;
+
+      return { ...newVote, createdAt: newVote.createdAt.toISOString(), deletedAt: null };
     },
     withdrawVote: async (_: any, { id, action }: any, context: any) => {
       const authUser = requireAuth(context);
@@ -1709,7 +1707,7 @@ export const resolvers: Resolvers = {
           .set({ deletedAt: new Date() })
           .where(eq(accountVotes.id, id))
           .returning();
-        return updated;
+        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null };
       } else if (action === 'RESTORE') {
         if (vote.deletedAt === null) {
           throw new GraphQLError('Vote is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
@@ -1718,7 +1716,7 @@ export const resolvers: Resolvers = {
           .set({ deletedAt: null })
           .where(eq(accountVotes.id, id))
           .returning();
-        return updated;
+        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: null };
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
@@ -1735,7 +1733,7 @@ export const resolvers: Resolvers = {
         displayMode: input.displayMode || 'CARD',
         theme: input.theme || 'LIGHT',
       }).returning();
-      return inserted;
+      return { ...inserted, createdAt: inserted.createdAt.toISOString(), deletedAt: null };
     },
     updateWidget: async (_: any, { id, input }: any, context: any) => {
       const authUser = requireAuth(context);
@@ -1766,7 +1764,7 @@ export const resolvers: Resolvers = {
         .set(updateFields)
         .where(eq(widgets.id, id))
         .returning();
-      return updated;
+      return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null };
     },
     deleteWidget: async (_: any, { id, action }: any, context: any) => {
       const authUser = requireAuth(context);
@@ -1783,7 +1781,7 @@ export const resolvers: Resolvers = {
           .set({ deletedAt: new Date() })
           .where(eq(widgets.id, id))
           .returning();
-        return updated;
+        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null };
       } else if (action === 'RESTORE') {
         if (existing.deletedAt === null) {
           throw new GraphQLError('Widget is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
@@ -1792,7 +1790,7 @@ export const resolvers: Resolvers = {
           .set({ deletedAt: null })
           .where(eq(widgets.id, id))
           .returning();
-        return updated;
+        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: null };
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
@@ -1836,7 +1834,7 @@ export const resolvers: Resolvers = {
           }
         })
         .returning();
-      return inserted;
+      return { ...inserted, createdAt: inserted.createdAt.toISOString(), deletedAt: null };
     },
     deregisterEmbedDomain: async (_: any, { id, action }: any, context: any) => {
       const authUser = requireAuth(context);
@@ -1864,7 +1862,7 @@ export const resolvers: Resolvers = {
           .set({ deletedAt: new Date() })
           .where(eq(embedDomains.id, id))
           .returning();
-        return updated;
+        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null };
       } else if (action === 'RESTORE') {
         if (existing.deletedAt === null) {
           throw new GraphQLError('Embed domain is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
@@ -1873,7 +1871,7 @@ export const resolvers: Resolvers = {
           .set({ deletedAt: null })
           .where(eq(embedDomains.id, id))
           .returning();
-        return updated;
+        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: null };
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
@@ -1923,9 +1921,10 @@ export const resolvers: Resolvers = {
             eq(unprocessedScraperPayloads.id, payloadId),
             isNull(unprocessedScraperPayloads.deletedAt)
           )
-        );
+        )
+        .returning({ id: unprocessedScraperPayloads.id });
 
-      return result.rowCount > 0;
+      return result.length > 0;
     },
     replayActorRun: async (_: any, { actorRunId }: any, context: any) => {
       requireModerator(context);
@@ -2200,7 +2199,7 @@ export const resolvers: Resolvers = {
           accountId: accountVotes.accountId,
           voteCount: sql<number>`count(${accountVotes.id})::int`,
           weightedScore: sql<number>`SUM(COALESCE(${voterWeights.weight}, 1))::int`,
-          userVoteId: userId ? sql<string | null>`MAX(CASE WHEN ${accountVotes.userId} = ${userId} THEN ${accountVotes.id}::text ELSE NULL END)` : sql`NULL`,
+          userVoteId: userId ? sql<string | null>`MAX(CASE WHEN ${accountVotes.userId} = ${userId} THEN ${accountVotes.id}::text ELSE NULL END)` : sql<string | null>`NULL`,
         })
         .from(accountVotes)
         .leftJoin(voterWeights, eq(accountVotes.userId, voterWeights.userId))
@@ -2211,7 +2210,7 @@ export const resolvers: Resolvers = {
         rows = await db.select({
           accountId: accountVotes.accountId,
           voteCount: sql<number>`count(${accountVotes.id})::int`,
-          userVoteId: userId ? sql<string | null>`MAX(CASE WHEN ${accountVotes.userId} = ${userId} THEN ${accountVotes.id}::text ELSE NULL END)` : sql`NULL`,
+          userVoteId: userId ? sql<string | null>`MAX(CASE WHEN ${accountVotes.userId} = ${userId} THEN ${accountVotes.id}::text ELSE NULL END)` : sql<string | null>`NULL`,
         })
         .from(accountVotes)
         .where(and(...conditions))
@@ -2342,11 +2341,12 @@ export const resolvers: Resolvers = {
     },
     myWidgets: async (_: any, __: any, context: any) => {
       const authUser = requireAuth(context);
-      return await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      const rows = await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
     },
     widgetById: async (_: any, { id }: any, context: any) => {
       const [row] = await db.select().from(widgets).where(and(eq(widgets.id, id), isNull(widgets.deletedAt)));
-      return row || null;
+      return row ? { ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null } : null;
     },
     embedDomainsForWidget: async (_: any, { widgetId }: any, context: any) => {
       const authUser = requireAuth(context);
@@ -2354,7 +2354,8 @@ export const resolvers: Resolvers = {
       if (!widget) {
         throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
       }
-      return await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
+      const rows = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
+      return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
     },
     isOriginAllowedForWidget: async (_: any, { widgetId, origin }: any) => {
       const cleanOrigin = origin.toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
@@ -2820,7 +2821,7 @@ export const resolvers: Resolvers = {
         edges,
         pageInfo: { hasNextPage, endCursor },
         totalCount: totalCountRows[0]?.count || 0,
-      };
+      } as any;
     },
     parserVersions: async (_: any, { onlyActive }: any, context: any) => {
       requireModerator(context);

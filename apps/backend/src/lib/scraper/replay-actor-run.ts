@@ -62,7 +62,7 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
       // Missing output path: fetch fresh from vendor
       try {
         const output =
-          run.vendor === 'apify'
+          run.vendor === 'APIFY'
             ? await fetchApifyRunOutput(run.runId)
             : await fetchBrightDataRunOutput(run.runId);
 
@@ -98,7 +98,7 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
     // Re-process items through post-persistence pipeline
     let newPostsCount = 0;
 
-    if (run.vendor === 'apify') {
+    if (run.vendor === 'APIFY') {
       // Process as Apify items
       for (const item of outputItems) {
         try {

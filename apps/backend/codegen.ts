@@ -12,6 +12,7 @@ const config: CodegenConfig = {
       config: {
         useIndexSignature: true,
         contextType: '../lib/auth/context.js#GraphQLContext',
+        enumsAsTypes: true,
       },
     },
   },

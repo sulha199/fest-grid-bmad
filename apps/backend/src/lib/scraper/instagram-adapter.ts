@@ -115,12 +115,16 @@ function normalizeApifyError(err: unknown, context: string): Error {
   return new Error(`Apify request failed while ${context}`);
 }
 
-export function getApifyClient(): ApifyClient {
+export let getApifyClient = (): ApifyClient => {
   const env = loadBackendEnv();
   if (!env.apifyApiToken) {
     throw new Error('APIFY_API_TOKEN is not configured');
   }
   return new ApifyClient({ token: env.apifyApiToken });
+};
+
+export function setGetApifyClient(fn: typeof getApifyClient) {
+  getApifyClient = fn;
 }
 
 // Context for audit recording and run ID threading (set by callers that have profileId)

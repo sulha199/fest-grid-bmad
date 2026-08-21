@@ -1,153 +1,125 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import test from 'node:test';
+import assert from 'node:assert';
 import { fetchApifyRunOutput, fetchBrightDataRunOutput } from './fetch-vendor-run-output.js';
-import { getApifyClient } from './instagram-adapter.js';
-import { getBrightDataProgress, getBrightDataSnapshot } from './brightdata-client.js';
+import { setGetApifyClient } from './instagram-adapter.js';
+import { setGetBrightDataProgress, setGetBrightDataSnapshot } from './brightdata-client.js';
 
-vi.mock('./instagram-adapter.js');
-vi.mock('./brightdata-client.js');
-
-describe('fetch-vendor-run-output', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  describe('fetchApifyRunOutput', () => {
-    it('should fetch successful run output', async () => {
-      const mockClient = {
-        run: vi.fn().mockReturnValue({
-          get: vi.fn().mockResolvedValue({
+test('fetch-vendor-run-output', async (t) => {
+  await t.test('fetchApifyRunOutput', async (t) => {
+    await t.test('should fetch successful run output', async () => {
+      setGetApifyClient(() => ({
+        run: () => ({
+          get: async () => ({
             id: 'run-123',
             status: 'SUCCEEDED',
             defaultDatasetId: 'dataset-123',
           }),
         }),
-        dataset: vi.fn().mockReturnValue({
-          listItems: vi.fn().mockResolvedValue({
+        dataset: () => ({
+          listItems: async () => ({
             items: [
               { url: 'https://instagram.com/p/123', caption: 'Test post' },
             ],
           }),
         }),
-      };
-
-      (getApifyClient as any).mockReturnValue(mockClient);
+      } as any));
 
       const result = await fetchApifyRunOutput('run-123');
 
-      expect(result.status).toBe('SUCCEEDED');
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0]).toEqual({
+      assert.strictEqual(result.status, 'SUCCEEDED');
+      assert.strictEqual(result.items.length, 1);
+      assert.deepStrictEqual(result.items[0], {
         url: 'https://instagram.com/p/123',
         caption: 'Test post',
       });
     });
 
-    it('should handle failed runs', async () => {
-      const mockClient = {
-        run: vi.fn().mockReturnValue({
-          get: vi.fn().mockResolvedValue({
-            id: 'run-123',
-            status: 'FAILED',
-          }),
+    await t.test('should handle failed runs', async () => {
+      setGetApifyClient(() => ({
+        run: () => ({
+          get: async () => ({ id: 'run-123', status: 'FAILED' }),
         }),
-      };
-
-      (getApifyClient as any).mockReturnValue(mockClient);
+      } as any));
 
       const result = await fetchApifyRunOutput('run-123');
 
-      expect(result.status).toBe('FAILED');
-      expect(result.items).toHaveLength(0);
+      assert.strictEqual(result.status, 'FAILED');
+      assert.strictEqual(result.items.length, 0);
     });
 
-    it('should handle timeout status', async () => {
-      const mockClient = {
-        run: vi.fn().mockReturnValue({
-          get: vi.fn().mockResolvedValue({
-            id: 'run-123',
-            status: 'TIMED_OUT',
-          }),
+    await t.test('should handle timeout status', async () => {
+      setGetApifyClient(() => ({
+        run: () => ({
+          get: async () => ({ id: 'run-123', status: 'TIMED_OUT' }),
         }),
-      };
-
-      (getApifyClient as any).mockReturnValue(mockClient);
+      } as any));
 
       const result = await fetchApifyRunOutput('run-123');
 
-      expect(result.status).toBe('TIMED_OUT');
+      assert.strictEqual(result.status, 'TIMED_OUT');
     });
 
-    it('should handle aborted status', async () => {
-      const mockClient = {
-        run: vi.fn().mockReturnValue({
-          get: vi.fn().mockResolvedValue({
-            id: 'run-123',
-            status: 'ABORTED',
-          }),
+    await t.test('should handle aborted status', async () => {
+      setGetApifyClient(() => ({
+        run: () => ({
+          get: async () => ({ id: 'run-123', status: 'ABORTED' }),
         }),
-      };
-
-      (getApifyClient as any).mockReturnValue(mockClient);
+      } as any));
 
       const result = await fetchApifyRunOutput('run-123');
 
-      expect(result.status).toBe('ABORTED');
+      assert.strictEqual(result.status, 'ABORTED');
     });
 
-    it('should throw on API error', async () => {
-      const mockClient = {
-        run: vi.fn().mockReturnValue({
-          get: vi.fn().mockRejectedValue(new Error('API error')),
+    await t.test('should throw on API error', async () => {
+      setGetApifyClient(() => ({
+        run: () => ({
+          get: async () => {
+            throw new Error('API error');
+          },
         }),
-      };
+      } as any));
 
-      (getApifyClient as any).mockReturnValue(mockClient);
-
-      await expect(fetchApifyRunOutput('run-123')).rejects.toThrow('API error');
+      await assert.rejects(() => fetchApifyRunOutput('run-123'), /API error/);
     });
   });
 
-  describe('fetchBrightDataRunOutput', () => {
-    it('should fetch successful snapshot output', async () => {
-      (getBrightDataProgress as any).mockResolvedValue({
-        status: 'ready',
-      });
-
-      (getBrightDataSnapshot as any).mockResolvedValue([
+  await t.test('fetchBrightDataRunOutput', async (t) => {
+    await t.test('should fetch successful snapshot output', async () => {
+      setGetBrightDataProgress(async () => ({ status: 'ready' }));
+      setGetBrightDataSnapshot(async () => [
         { url: 'https://instagram.com/p/456', image_url: 'img.jpg' },
       ]);
 
       const result = await fetchBrightDataRunOutput('snapshot-456');
 
-      expect(result.status).toBe('SUCCEEDED');
-      expect(result.items).toHaveLength(1);
+      assert.strictEqual(result.status, 'SUCCEEDED');
+      assert.strictEqual(result.items.length, 1);
     });
 
-    it('should map pending status', async () => {
-      (getBrightDataProgress as any).mockResolvedValue({
-        status: 'running',
-      });
+    await t.test('should map pending status', async () => {
+      setGetBrightDataProgress(async () => ({ status: 'running' }));
 
       const result = await fetchBrightDataRunOutput('snapshot-456');
 
-      expect(result.status).toBe('PENDING');
-      expect(result.items).toHaveLength(0);
+      assert.strictEqual(result.status, 'PENDING');
+      assert.strictEqual(result.items.length, 0);
     });
 
-    it('should map failed status', async () => {
-      (getBrightDataProgress as any).mockResolvedValue({
-        status: 'failed',
-      });
+    await t.test('should map failed status', async () => {
+      setGetBrightDataProgress(async () => ({ status: 'failed' }));
 
       const result = await fetchBrightDataRunOutput('snapshot-456');
 
-      expect(result.status).toBe('FAILED');
+      assert.strictEqual(result.status, 'FAILED');
     });
 
-    it('should throw on API error', async () => {
-      (getBrightDataProgress as any).mockRejectedValue(new Error('API error'));
+    await t.test('should throw on API error', async () => {
+      setGetBrightDataProgress(async () => {
+        throw new Error('API error');
+      });
 
-      await expect(fetchBrightDataRunOutput('snapshot-456')).rejects.toThrow('API error');
+      await assert.rejects(() => fetchBrightDataRunOutput('snapshot-456'), /API error/);
     });
   });
 });

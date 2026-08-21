@@ -1333,7 +1333,7 @@ test('events resolver integration via Yoga', async (t) => {
       // Create a test post
       const [post] = await db.insert(posts).values({
         accountId: testProfile.id,
-        platformPostId: 'resolver_test_post_1',
+        platform: 'instagram',
         postUrl: 'https://instagram.com/p/resolver_test_post_1',
         originalPostUrl: 'https://instagram.com/p/resolver_test_post_1',
         content: 'This is a test post',

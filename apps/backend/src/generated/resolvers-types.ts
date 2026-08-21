@@ -50,23 +50,20 @@ export type ActorRunFilters = {
   vendor?: InputMaybe<ActorRunVendor>;
 };
 
-export enum ActorRunStatus {
-  Aborted = 'ABORTED',
-  Failed = 'FAILED',
-  Pending = 'PENDING',
-  Succeeded = 'SUCCEEDED',
-  TimedOut = 'TIMED_OUT'
-}
+export type ActorRunStatus =
+  | 'ABORTED'
+  | 'FAILED'
+  | 'PENDING'
+  | 'SUCCEEDED'
+  | 'TIMED_OUT';
 
-export enum ActorRunTriggerMode {
-  Async = 'ASYNC',
-  Sync = 'SYNC'
-}
+export type ActorRunTriggerMode =
+  | 'ASYNC'
+  | 'SYNC';
 
-export enum ActorRunVendor {
-  Apify = 'APIFY',
-  Brightdata = 'BRIGHTDATA'
-}
+export type ActorRunVendor =
+  | 'APIFY'
+  | 'BRIGHTDATA';
 
 export type AddressSuggestion = {
   __typename?: 'AddressSuggestion';
@@ -109,16 +106,14 @@ export type Correction = {
   validationErrors?: Maybe<Array<ValidationError>>;
 };
 
-export enum CorrectionSource {
-  AiAssisted = 'ai_assisted',
-  Manual = 'manual'
-}
+export type CorrectionSource =
+  | 'ai_assisted'
+  | 'manual';
 
-export enum CorrectionStatus {
-  Applied = 'applied',
-  Pending = 'pending',
-  Rejected = 'rejected'
-}
+export type CorrectionStatus =
+  | 'applied'
+  | 'pending'
+  | 'rejected';
 
 export type CreateApiKeyInput = {
   key: Scalars['String']['input'];
@@ -140,10 +135,9 @@ export type CreateWidgetInput = {
   theme?: InputMaybe<WidgetTheme>;
 };
 
-export enum DefaultLocationChangeAction {
-  Accept = 'ACCEPT',
-  Revert = 'REVERT'
-}
+export type DefaultLocationChangeAction =
+  | 'ACCEPT'
+  | 'REVERT';
 
 export type DefaultLocationChangeRequest = {
   __typename?: 'DefaultLocationChangeRequest';
@@ -159,11 +153,10 @@ export type DefaultLocationChangeRequest = {
   status: DefaultLocationChangeRequestStatus;
 };
 
-export enum DefaultLocationChangeRequestStatus {
-  Accepted = 'ACCEPTED',
-  PendingReview = 'PENDING_REVIEW',
-  Reverted = 'REVERTED'
-}
+export type DefaultLocationChangeRequestStatus =
+  | 'ACCEPTED'
+  | 'PENDING_REVIEW'
+  | 'REVERTED';
 
 export type EmbedDomain = {
   __typename?: 'EmbedDomain';
@@ -201,21 +194,20 @@ export type Event = {
   updatedAt: Scalars['String']['output'];
 };
 
-export enum EventCategory {
-  ArtsAndCulture = 'ARTS_AND_CULTURE',
-  BusinessAndNetworking = 'BUSINESS_AND_NETWORKING',
-  CharityAndCauses = 'CHARITY_AND_CAUSES',
-  CivicAndCommunity = 'CIVIC_AND_COMMUNITY',
-  FamilyAndKids = 'FAMILY_AND_KIDS',
-  FoodAndDrink = 'FOOD_AND_DRINK',
-  HealthAndWellness = 'HEALTH_AND_WELLNESS',
-  HobbiesAndInterests = 'HOBBIES_AND_INTERESTS',
-  Holiday = 'HOLIDAY',
-  Music = 'MUSIC',
-  Other = 'OTHER',
-  ReligionAndSpirituality = 'RELIGION_AND_SPIRITUALITY',
-  SportsAndFitness = 'SPORTS_AND_FITNESS'
-}
+export type EventCategory =
+  | 'ARTS_AND_CULTURE'
+  | 'BUSINESS_AND_NETWORKING'
+  | 'CHARITY_AND_CAUSES'
+  | 'CIVIC_AND_COMMUNITY'
+  | 'FAMILY_AND_KIDS'
+  | 'FOOD_AND_DRINK'
+  | 'HEALTH_AND_WELLNESS'
+  | 'HOBBIES_AND_INTERESTS'
+  | 'HOLIDAY'
+  | 'MUSIC'
+  | 'OTHER'
+  | 'RELIGION_AND_SPIRITUALITY'
+  | 'SPORTS_AND_FITNESS';
 
 export type EventConnection = {
   __typename?: 'EventConnection';
@@ -231,20 +223,19 @@ export type EventQueryConditionInput = {
   value?: InputMaybe<Scalars['JSON']['input']>;
 };
 
-export enum EventType {
-  Civic = 'CIVIC',
-  Competition = 'COMPETITION',
-  Exhibition = 'EXHIBITION',
-  Festival = 'FESTIVAL',
-  Fundraiser = 'FUNDRAISER',
-  Gathering = 'GATHERING',
-  Market = 'MARKET',
-  Other = 'OTHER',
-  Performance = 'PERFORMANCE',
-  Promotion = 'PROMOTION',
-  Seminar = 'SEMINAR',
-  Workshop = 'WORKSHOP'
-}
+export type EventType =
+  | 'CIVIC'
+  | 'COMPETITION'
+  | 'EXHIBITION'
+  | 'FESTIVAL'
+  | 'FUNDRAISER'
+  | 'GATHERING'
+  | 'MARKET'
+  | 'OTHER'
+  | 'PERFORMANCE'
+  | 'PROMOTION'
+  | 'SEMINAR'
+  | 'WORKSHOP';
 
 export type ExtractEventDataFromUrlResult = {
   __typename?: 'ExtractEventDataFromUrlResult';
@@ -253,14 +244,13 @@ export type ExtractEventDataFromUrlResult = {
   errorMessage?: Maybe<Scalars['String']['output']>;
 };
 
-export enum ExtractionErrorCode {
-  ExtractionFailed = 'EXTRACTION_FAILED',
-  NotFound = 'NOT_FOUND',
-  NoApiKey = 'NO_API_KEY',
-  QuotaExhausted = 'QUOTA_EXHAUSTED',
-  ScrapeFailed = 'SCRAPE_FAILED',
-  UnsupportedPlatform = 'UNSUPPORTED_PLATFORM'
-}
+export type ExtractionErrorCode =
+  | 'EXTRACTION_FAILED'
+  | 'NOT_FOUND'
+  | 'NO_API_KEY'
+  | 'QUOTA_EXHAUSTED'
+  | 'SCRAPE_FAILED'
+  | 'UNSUPPORTED_PLATFORM';
 
 export type ExtractionQuota = {
   __typename?: 'ExtractionQuota';
@@ -269,9 +259,8 @@ export type ExtractionQuota = {
   used: Scalars['Int']['output'];
 };
 
-export enum GeolocationProvider {
-  Geoapify = 'GEOAPIFY'
-}
+export type GeolocationProvider =
+  | 'GEOAPIFY';
 
 export type LocationDetails = {
   __typename?: 'LocationDetails';
@@ -814,22 +803,19 @@ export type Report = {
   status: ReportStatus;
 };
 
-export enum ReportOutcome {
-  Dismissed = 'dismissed',
-  Upheld = 'upheld'
-}
+export type ReportOutcome =
+  | 'dismissed'
+  | 'upheld';
 
-export enum ReportReason {
-  Cancelled = 'cancelled',
-  Dangerous = 'dangerous',
-  Personal = 'personal'
-}
+export type ReportReason =
+  | 'cancelled'
+  | 'dangerous'
+  | 'personal';
 
-export enum ReportStatus {
-  Dismissed = 'dismissed',
-  Pending = 'pending',
-  Upheld = 'upheld'
-}
+export type ReportStatus =
+  | 'dismissed'
+  | 'pending'
+  | 'upheld';
 
 export type ReportSystemErrorInput = {
   context?: InputMaybe<Scalars['String']['input']>;
@@ -873,10 +859,9 @@ export type Schedule = {
   updatedAt: Scalars['String']['output'];
 };
 
-export enum ScheduleTimezoneStatus {
-  NeedsClarification = 'NEEDS_CLARIFICATION',
-  Resolved = 'RESOLVED'
-}
+export type ScheduleTimezoneStatus =
+  | 'NEEDS_CLARIFICATION'
+  | 'RESOLVED';
 
 export type ScraperActorRun = {
   __typename?: 'ScraperActorRun';
@@ -919,10 +904,9 @@ export type SocialMediaAccountProfile = {
   username: Scalars['String']['output'];
 };
 
-export enum SoftDeleteAction {
-  Delete = 'DELETE',
-  Restore = 'RESTORE'
-}
+export type SoftDeleteAction =
+  | 'DELETE'
+  | 'RESTORE';
 
 export type SubscribeToAccountInput = {
   accountId: Scalars['String']['input'];
@@ -987,11 +971,10 @@ export type UnprocessedPayloadFilters = {
   source?: InputMaybe<UnprocessedPayloadSource>;
 };
 
-export enum UnprocessedPayloadSource {
-  Apify = 'APIFY',
-  Brightdata = 'BRIGHTDATA',
-  Gemini = 'GEMINI'
-}
+export type UnprocessedPayloadSource =
+  | 'APIFY'
+  | 'BRIGHTDATA'
+  | 'GEMINI';
 
 export type UnprocessedScraperPayload = {
   __typename?: 'UnprocessedScraperPayload';
@@ -1068,15 +1051,13 @@ export type Widget = {
   theme: WidgetTheme;
 };
 
-export enum WidgetDisplayMode {
-  Calendar = 'CALENDAR',
-  Card = 'CARD'
-}
+export type WidgetDisplayMode =
+  | 'CALENDAR'
+  | 'CARD';
 
-export enum WidgetTheme {
-  Dark = 'DARK',
-  Light = 'LIGHT'
-}
+export type WidgetTheme =
+  | 'DARK'
+  | 'LIGHT';
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
 export type ResolversObject<TObject> = WithIndex<TObject>;

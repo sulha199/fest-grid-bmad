@@ -7,7 +7,6 @@ import { fetchApifyRunOutput, fetchBrightDataRunOutput } from './fetch-vendor-ru
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
-import { getScraperAdapter } from './register-adapters.js';
 import { enqueueScrapeJob } from './enqueue-scrape-job.js';
 import { recordActorRunResult } from './record-actor-run.js';
 
@@ -67,6 +66,7 @@ async function processSingleExpiredBrightDataJob(job: any): Promise<void> {
           // Fall back to SQS queue
           await enqueueScrapeJob({
             profileId: profile.id,
+            accountId: profile.accountId,
             username: profile.username,
             platform: profile.platform,
           });
@@ -116,6 +116,7 @@ async function processSingleExpiredApifyJob(job: any): Promise<void> {
           // Fall back to SQS queue
           await enqueueScrapeJob({
             profileId: profile.id,
+            accountId: profile.accountId,
             username: profile.username,
             platform: profile.platform,
           });
