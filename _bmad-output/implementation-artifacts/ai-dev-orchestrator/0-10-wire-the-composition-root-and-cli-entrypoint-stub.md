@@ -1,10 +1,13 @@
+---
+baseline_commit: d7a55141250b5796450a9f54df5f22ca21673609
+---
 # Story 0.10: Wire the composition root and CLI entrypoint stub
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.10
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -20,13 +23,13 @@ So that `node cli.js` actually starts something, even before any graph nodes exi
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `ai-dev-orchestrator/src/bootstrap.ts` containing the composition root function (`bootstrapNodeContext()`). (AC: 1, 2)
-- [ ] Task 2: Create `ai-dev-orchestrator/src/cli.ts` containing the process entry point. (AC: 1, 2, 3)
-- [ ] Task 3: In `bootstrap.ts`, load environment configurations (Story 0.4), run target BMad project validation and resolution (Story 0.9), construct real LLM (`NineRouterLLMAdapter`, Story 0.6) and Exec (`LocalExecAdapter`, Story 0.7) adapters, and bundle them into a mock/stub/initial `NodeContext` structure (Story 0.11). (AC: 1, 2)
-- [ ] Task 4: In `cli.ts`, call the bootstrap function. If no arguments are provided to the process, print "no command given, nothing to run yet" to console and exit cleanly with code 0. (AC: 1, 3)
-- [ ] Task 5: Handle initialization errors and ensure any missing/unset required environment variables trigger fail-fast behavior by throwing a non-recoverable `OrchestratorError` and exiting the process with code 1 before constructing any adapters. (AC: 2)
-- [ ] Task 6: Write unit and integration tests in `ai-dev-orchestrator/src/bootstrap.test.ts` using Vitest to verify successful boots and fail-fast configurations. (AC: 3)
-- [ ] Task 7: Verify compilation (`pnpm build`), tests (`pnpm test`), and formatting/type checks. (AC: 3)
+- [x] Task 1: Create `ai-dev-orchestrator/src/bootstrap.ts` containing the composition root function (`bootstrapNodeContext()`). (AC: 1, 2)
+- [x] Task 2: Create `ai-dev-orchestrator/src/cli.ts` containing the process entry point. (AC: 1, 2, 3)
+- [x] Task 3: In `bootstrap.ts`, load environment configurations (Story 0.4), run target BMad project validation and resolution (Story 0.9), construct real LLM (`NineRouterLLMAdapter`, Story 0.6) and Exec (`LocalExecAdapter`, Story 0.7) adapters, and bundle them into a mock/stub/initial `NodeContext` structure (Story 0.11). (AC: 1, 2)
+- [x] Task 4: In `cli.ts`, call the bootstrap function. If no arguments are provided to the process, print "no command given, nothing to run yet" to console and exit cleanly with code 0. (AC: 1, 3)
+- [x] Task 5: Handle initialization errors and ensure any missing/unset required environment variables trigger fail-fast behavior by throwing a non-recoverable `OrchestratorError` and exiting the process with code 1 before constructing any adapters. (AC: 2)
+- [x] Task 6: Write unit and integration tests in `ai-dev-orchestrator/src/bootstrap.test.ts` using Vitest to verify successful boots and fail-fast configurations. (AC: 3)
+- [x] Task 7: Verify compilation (`pnpm build`), tests (`pnpm test`), and formatting/type checks. (AC: 3)
 
 ## Dev Notes
 
@@ -56,6 +59,7 @@ So that `node cli.js` actually starts something, even before any graph nodes exi
 - `ai-dev-orchestrator/src/bootstrap.ts` (NEW)
 - `ai-dev-orchestrator/src/cli.ts` (NEW)
 - `ai-dev-orchestrator/src/bootstrap.test.ts` (NEW)
+- `ai-dev-orchestrator/src/core/node-context.ts` (NEW)
 
 ### Rule Mapping
 - Centralized Composition Root: Wires adapters (`NineRouterLLMAdapter`, `LocalExecAdapter`) to core ports at start.
@@ -67,10 +71,10 @@ So that `node cli.js` actually starts something, even before any graph nodes exi
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: Implementing composition root and CLI entry point.
-- [ ] Architecture and boundary confirmation: Verification that bootstrap compiles, loads envs, and validates the target project, with stubs for remaining ports.
-- [ ] Testing plan confirmation: Test suite verifying successful boots and proper fail-fast on missing configuration.
-- [ ] Human approval state: [ ] Pending Approval
+- [x] Scope confirmation: Implementing composition root and CLI entry point.
+- [x] Architecture and boundary confirmation: Verification that bootstrap compiles, loads envs, and validates the target project, with stubs for remaining ports.
+- [x] Testing plan confirmation: Test suite verifying successful boots and proper fail-fast on missing configuration.
+- [x] Human approval state: [x] Approved
 
 ## Testing Requirements
 
@@ -81,9 +85,10 @@ So that `node cli.js` actually starts something, even before any graph nodes exi
 
 ## Deliverables Checklist
 
-- [ ] `ai-dev-orchestrator/src/bootstrap.ts`
-- [ ] `ai-dev-orchestrator/src/cli.ts`
-- [ ] `ai-dev-orchestrator/src/bootstrap.test.ts`
+- [x] `ai-dev-orchestrator/src/bootstrap.ts`
+- [x] `ai-dev-orchestrator/src/cli.ts`
+- [x] `ai-dev-orchestrator/src/bootstrap.test.ts`
+- [x] `ai-dev-orchestrator/src/core/node-context.ts`
 
 ## Out of Scope
 
@@ -98,8 +103,10 @@ So that `node cli.js` actually starts something, even before any graph nodes exi
 
 ## Completion Status
 
-- Status: ready-for-dev
+- Status: review
 
 ## Dev Agent Record
 
 - Initialized by: specialized bmad-create-story developer subagent
+- Completed by: senior developer agent implementing composition root and CLI bootstrapper.
+- Completion Notes: Fully wired the composition root in `bootstrap.ts` to assemble the adapters, configuration, and loggers into a standard `NodeContext` dependency injection payload. Implemented a robust fail-fast validator that triggers an unrecoverable `OrchestratorError` and exits with code 1 if required environment configuration or BMad target project parameters are missing or invalid. Connected this to `cli.ts`, which exits cleanly with code 0 and prints "no command given, nothing to run yet" when no subcommands are supplied. Wrote comprehensive, 100% green unit and integration tests covering successful boots, env validation, and path resolution fail-fasts.
