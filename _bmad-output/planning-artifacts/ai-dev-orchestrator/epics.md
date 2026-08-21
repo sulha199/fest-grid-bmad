@@ -98,7 +98,7 @@ FR16: Epic 4 - correct-course: flagged HITL response forces a re-sweep
 
 ### Epic 0: Orchestrator Project Foundation
 Establish the hexagonal core skeleton (ports, adapters, composition root, node dependency pattern), 9Router-routed LLM adapter, local exec adapter, config loading, audit logging, and target-project validation/path-resolution that every subsequent epic builds on. No end-user-observable behavior on its own — matches this repo's own Epic 0 precedent for irreducible technical setup on a greenfield project.
-**Additional Requirements covered:** AD-1 (ports/adapters/composition root), AD-6 (alias-indirect model resolution), AD-7 (fail-fast centralized config), AD-8 (append-only audit log), `stack.md`'s Target repo assumptions (BMad-managed validation, `_bmad/bmm/config.yaml` path resolution), Stack (Node 22, pnpm, TypeScript, ESLint, `@langchain/langgraph`, Vitest test runner, core dependencies). Story 0.11 (added during the Epic 0 readiness sweep) establishes the `NodeContext` dependency-injection pattern every node from Epic 1 onward relies on.
+**Additional Requirements covered:** AD-1 (ports/adapters/composition root), AD-6 (alias-indirect model resolution), AD-7 (fail-fast centralized config), AD-8 (append-only audit log), `stack.md`'s Target repo assumptions (BMad-managed validation, `_bmad/bmm/config.yaml` path resolution), Stack (Node 22, pnpm, TypeScript, ESLint, `@langchain/langgraph`, Vitest test runner, core dependencies). Story 0.11 (added during the Epic 0 readiness sweep) establishes the `NodeContext` dependency-injection pattern every node from Epic 1 onward relies on. Story 0.12 (added during the Epic 1 readiness sweep) provides a centralized review-verdict parser and error-handling utility that both Tier-1 (Story 1.4) and Tier-2 (Story 1.7) review nodes rely on.
 
 ### Epic 1: Autonomous Single-Story Pipeline
 A user can point the orchestrator at one already-materialized story in a target BMad project and watch it autonomously implement, test, run both review tiers, retry within a bounded budget, and checkpoint that story — the first time the tool does real unattended work end to end.
@@ -293,6 +293,22 @@ So that every node gets its dependencies the same way instead of each epic inven
 **And** the documented convention is a node-factory function per node: `createPlannerNode(ctx: NodeContext) => (state: GraphState) => Promise<Partial<GraphState>>` — `bootstrap.ts` (Story 0.10) builds one `NodeContext` and passes it to every node factory when constructing the graph (Story 1.9), so no node reaches for a port, path, or the logger any way other than through its closure over `ctx`
 **And** `GraphState` itself is unchanged (still exactly six fields, SPEC.md Constraints) — `NodeContext` is graph-construction-time wiring, never part of the state that flows through the graph
 **And** a Vitest test builds a fake `NodeContext` (using Story 0.8's fakes) and constructs one node factory from it, asserting the returned node function only ever calls the fakes it was given, never a real adapter
+
+### Story 0.12: Build the shared review-verdict parser and error-handling utility
+
+As a developer writing review nodes,
+I want a centralized, robust `parseReviewVerdict` function that extracts exactly one of `APPROVE`/`AUTO_FIX`/`NEEDS_HUMAN` from LLM outputs and applies consistent fallback/escalation formatting,
+So that both Tier-1 and Tier-2 review nodes share the same robust validation logic instead of writing duplicate ad-hoc regex/parsing blocks.
+
+**Acceptance Criteria:**
+
+**Given** a raw string response from an LLM review completion
+**When** `parseReviewVerdict(response)` is called
+**Then** it cleanly extracts and returns one of `'APPROVE' | 'AUTO_FIX' | 'NEEDS_HUMAN'`, matching case-insensitively, ignoring surrounding prose or whitespace, and ignoring trailing punctuation
+**And** given the response is ambiguous, truncated, or does not contain a clean verdict, it returns `'NEEDS_HUMAN'` with a structured reason of `"could not parse review verdict"` instead of throwing, defaulting to `'APPROVE'`, or crashing
+**And** the parser lives in `core/utils/` (or `core/review-verdict-parser.ts`) and is fully tested with a Vitest suite covering valid cases (various casing and extra text), empty string, and completely invalid prose
+**And** both Story 1.4 (Tier-1 Reviewer) and Story 1.7 (Tier-2 Reviewer) are updated to explicitly import and use this shared utility rather than implementing their own ad-hoc parsers
+**Note:** Surfaced during the Epic 1 readiness sweep to satisfy Gate 3 (Foundational/Cross-Cutting Dependency Completeness) and avoid duplicate byproduct parsing implementations across different review nodes.
 
 ---
 
