@@ -89,6 +89,11 @@ export const resolvers: Resolvers = {
     lat: (parent: any) => parent.lat ?? parent.latitude,
     lng: (parent: any) => parent.lng ?? parent.longitude,
   },
+  PayloadContext: {
+    // context.source is persisted lowercase (see persist-unprocessed-payload.ts) but the
+    // UnprocessedPayloadSource enum values are uppercase; normalize on the way out.
+    source: (parent: any) => parent.source?.toUpperCase(),
+  },
   Subscription: {
     account: async (parent: any, _: any, context: any, info: any) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);

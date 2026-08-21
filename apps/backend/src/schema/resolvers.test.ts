@@ -5,7 +5,7 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, unprocessedScraperPayloads } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
 
 // read the generated schema for the yoga server
@@ -1888,6 +1888,54 @@ test('Story 4.4a - Soft Delete and Moderator Mutations integration', async (t) =
 
     // Clean up temp user
     await db.delete(users).where(eq(users.id, tempUser.id));
+  });
+});
+
+test('queryUnprocessedPayloads resolver integration via Yoga', async (t) => {
+  await t.test('serializes lowercase-stored context.source back to the uppercase enum', async () => {
+    const [payload] = await db.insert(unprocessedScraperPayloads).values({
+      rawPayload: { content: 'test' },
+      validationError: [{ keyword: 'required', message: 'field required' }],
+      context: {
+        source: 'apify',
+        scraperVendor: 'instagram',
+        accountId: null,
+        postUrl: 'https://example.com/post',
+        timestamp: new Date().toISOString(),
+        parserVersion: '3.4g',
+      },
+    }).returning();
+
+    mockUser = { userId: '00000000-0000-0000-0000-000000000005', role: 'moderator' };
+
+    // Not using filters.source here: it goes through a separate context->>'source' raw SQL
+    // comparison that returns no matches regardless of enum casing (pre-existing, unrelated bug).
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            queryUnprocessedPayloads(first: 5) {
+              edges {
+                node {
+                  id
+                  context { source }
+                }
+              }
+            }
+          }
+        `
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    const node = result.data.queryUnprocessedPayloads.edges.find((e: any) => e.node.id === payload.id)?.node;
+    assert.ok(node, 'inserted payload should be present in the result set');
+    assert.strictEqual(node.context.source, 'APIFY');
+
+    await db.delete(unprocessedScraperPayloads).where(eq(unprocessedScraperPayloads.id, payload.id));
   });
 });
 
