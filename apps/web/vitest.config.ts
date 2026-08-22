@@ -14,6 +14,19 @@ const merged = mergeConfig(
         'next/headers': 'next/headers.js',
       },
     },
+    test: {
+      // Without this, Vitest externalizes next-intl and imports it via
+      // Node's native ESM loader, which bypasses the resolve.alias above
+      // (Node ESM has no automatic extension resolution, unlike CJS) and
+      // fails to resolve next-intl's bare `next/navigation` import.
+      // Inlining forces it through Vite's transform pipeline instead,
+      // where the alias applies.
+      server: {
+        deps: {
+          inline: [/next-intl/],
+        },
+      },
+    },
   })
 );
 
