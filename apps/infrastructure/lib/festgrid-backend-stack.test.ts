@@ -11,9 +11,9 @@ test('FestgridBackendStack provisions correct resources', () => {
 
   const template = Template.fromStack(stack);
 
-  // 1. Assert exactly 6 Lambda functions are created (API, Scraper, AIProcessor,
-  // Ingestor, Webhook, ApifyWebhook)
-  template.resourceCountIs('AWS::Lambda::Function', 6);
+  // 1. Assert exactly 7 Lambda functions are created (API, Scraper, AIProcessor,
+  // Ingestor, Webhook, ApifyWebhook, Notifier)
+  template.resourceCountIs('AWS::Lambda::Function', 7);
 
   // 2. Assert exactly 6 SQS queues exist (3 main + 3 DLQs)
   template.resourceCountIs('AWS::SQS::Queue', 6);
@@ -28,13 +28,25 @@ test('FestgridBackendStack provisions correct resources', () => {
   template.resourceCountIs('AWS::ApiGateway::RestApi', 1);
 
   // 5. Assert the EventBridge scheduled rules exist with the correct rates
-  // (daily scraper seed run + hourly stale-job sweep)
-  template.resourceCountIs('AWS::Events::Rule', 2);
+  // (daily scraper seed run + hourly stale-job sweep + daily notifier sweep)
+  template.resourceCountIs('AWS::Events::Rule', 3);
   template.hasResourceProperties('AWS::Events::Rule', {
     ScheduleExpression: 'rate(1 day)',
   });
   template.hasResourceProperties('AWS::Events::Rule', {
     ScheduleExpression: 'rate(1 hour)',
+  });
+
+  // 5b. Assert one of the rate(1 day) rules targets the NotifierLambda specifically
+  template.hasResourceProperties('AWS::Events::Rule', {
+    ScheduleExpression: 'rate(1 day)',
+    Targets: Match.arrayWith([
+      Match.objectLike({
+        Arn: {
+          'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('^NotifierLambda')]),
+        },
+      }),
+    ]),
   });
 
   // 6. Assert Key Policy exists
@@ -66,6 +78,27 @@ test('FestgridBackendStack provisions correct resources', () => {
         APIFY_API_TOKEN: Match.anyValue(),
         BRIGHTDATA_API_TOKEN: Match.anyValue(),
         BRIGHTDATA_WEBHOOK_SECRET: Match.anyValue(),
+      }),
+    },
+  });
+
+  // 9b. Assert L_Notifier Lambda environment variables are present (full AC5 var set).
+  // Combined with Timeout: 300 to disambiguate from L_API (Timeout 25) and the other
+  // batch Lambdas (Scraper/AIProcessor/Ingestor), which don't carry SES_FROM_EMAIL_ADDRESS/
+  // WEB_APP_BASE_URL/QUEUE_NOTIFICATION_* in their environment.
+  template.hasResourceProperties('AWS::Lambda::Function', {
+    Timeout: 300,
+    Environment: {
+      Variables: Match.objectLike({
+        STAGE: 'dev',
+        STAGE_NAME: 'dev',
+        BACKEND_PORT: '4000',
+        DATABASE_URL: Match.anyValue(),
+        SES_FROM_EMAIL_ADDRESS: Match.anyValue(),
+        WEB_APP_BASE_URL: Match.anyValue(),
+        QUEUE_NOTIFICATION_THRESHOLD_DAYS: Match.anyValue(),
+        QUEUE_NOTIFICATION_THRESHOLD_COUNT: Match.anyValue(),
+        QUEUE_NOTIFICATION_COOLDOWN_DAYS: Match.anyValue(),
       }),
     },
   });

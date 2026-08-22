@@ -227,6 +227,25 @@ export class FestgridBackendStack extends cdk.Stack {
       },
     });
 
+    // L_Notifier
+    const notifierLambda = new nodejs.NodejsFunction(this, `NotifierLambda-${stageName}`, {
+      entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/notifier.ts'),
+      handler: 'handler',
+      ...sharedLambdaProps,
+      timeout: cdk.Duration.seconds(300),
+      environment: {
+        STAGE: stageName,
+        STAGE_NAME: stageName,
+        BACKEND_PORT: '4000',
+        DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
+        SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
+        WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
+        QUEUE_NOTIFICATION_THRESHOLD_DAYS: process.env.QUEUE_NOTIFICATION_THRESHOLD_DAYS || '3',
+        QUEUE_NOTIFICATION_THRESHOLD_COUNT: process.env.QUEUE_NOTIFICATION_THRESHOLD_COUNT || '3',
+        QUEUE_NOTIFICATION_COOLDOWN_DAYS: process.env.QUEUE_NOTIFICATION_COOLDOWN_DAYS || '7',
+      },
+    });
+
     // 4. Trigger Wiring
     // ScrapingQueue -> L_Scrape
     scraperLambda.addEventSource(new eventSources.SqsEventSource(scrapingQueue));
@@ -236,6 +255,12 @@ export class FestgridBackendStack extends cdk.Stack {
       schedule: events.Schedule.rate(cdk.Duration.days(1)),
     });
     scraperScheduleRule.addTarget(new targets.LambdaFunction(scraperLambda));
+
+    // EventBridge Schedule -> L_Notifier (daily quota-exhaustion warning sweep)
+    const notifierScheduleRule = new events.Rule(this, `NotifierScheduleRule-${stageName}`, {
+      schedule: events.Schedule.rate(cdk.Duration.days(1)),
+    });
+    notifierScheduleRule.addTarget(new targets.LambdaFunction(notifierLambda));
 
     // AIProcessingQueue -> L_AI
     aiProcessorLambda.addEventSource(new eventSources.SqsEventSource(aiProcessingQueue, {
@@ -261,12 +286,14 @@ export class FestgridBackendStack extends cdk.Stack {
 
     // SES Send Email Identity Grant
     emailIdentity.grantSendEmail(apiLambda);
+    emailIdentity.grantSendEmail(notifierLambda);
 
     // Secrets Manager Grants
     dbUrlSecret.grantRead(apiLambda);
     dbUrlSecret.grantRead(scraperLambda);
     dbUrlSecret.grantRead(aiProcessorLambda);
     dbUrlSecret.grantRead(ingestorLambda);
+    dbUrlSecret.grantRead(notifierLambda);
 
     geoapifyApiKeySecret.grantRead(apiLambda);
     geoapifyApiKeySecret.grantRead(aiProcessorLambda);

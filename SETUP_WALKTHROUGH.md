@@ -111,6 +111,8 @@ The following table summarizes the classification used in our application archit
 | `SYSTEM_ERROR_ALERT_EMAIL` | Plain Environment Property | Configured destination address for alerts, not a credential. |
 | `BYOK_KMS_KEY_ID` | Plain Environment Property | Handled via direct KMS Key construct attribute reference (`kmsKey.keyId`). |
 
+> **Note:** `L_Notifier` (the daily quota-exhaustion warning Lambda) reuses the exact same `dbUrlSecret` and `emailIdentity` constructs listed above — it introduces no new Secrets Manager entry and no new SES identity.
+
 #### One-Time Manual Secrets Population Steps
 
 Since `FestgridBackendStack` creates the AWS Secrets Manager placeholders during the initial deployment, you must manually populate the actual secret values. For each environment stage (`dev`, `staging`, `prod`), run the following AWS CLI command to set the secret values:
