@@ -69,6 +69,7 @@ jobs:
       - name: Run tests
         env:
           BACKEND_PORT: '4001'
+          GEOAPIFY_API_KEY: 'test-geoapify-key'
         run: pnpm run test
 
   db-migrate:
