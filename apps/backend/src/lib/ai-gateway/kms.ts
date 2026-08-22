@@ -15,13 +15,32 @@ export function getKmsClient(): KMSClient {
 
 export let decryptApiKey = async (ciphertextBase64: string): Promise<string> => {
   const env = loadBackendEnv();
+
+  const isPrintableAscii = (str: string): boolean => {
+    for (let i = 0; i < str.length; i++) {
+      const code = str.charCodeAt(i);
+      if (code < 32 || code > 126) {
+        return false;
+      }
+    }
+    return str.length > 0;
+  };
+
+  const decodeBase64Fallback = (input: string): string => {
+    try {
+      const decoded = Buffer.from(input, 'base64').toString('utf-8');
+      if (isPrintableAscii(decoded)) {
+        return decoded;
+      }
+    } catch {
+      // Ignore and fallback
+    }
+    return input;
+  };
+
   // Local/test mock bypass if key is not set or in test mode
   if (!env.byokKmsKeyId || process.env.NODE_ENV === 'test') {
-    try {
-      return Buffer.from(ciphertextBase64, 'base64').toString('utf-8');
-    } catch {
-      return ciphertextBase64;
-    }
+    return decodeBase64Fallback(ciphertextBase64);
   }
 
   const client = getKmsClient();
@@ -36,11 +55,7 @@ export let decryptApiKey = async (ciphertextBase64: string): Promise<string> => 
     return Buffer.from(response.Plaintext).toString('utf-8');
   } catch (error) {
     console.warn('KMS Decrypt failed, falling back to base64 decoding:', error);
-    try {
-      return Buffer.from(ciphertextBase64, 'base64').toString('utf-8');
-    } catch {
-      return ciphertextBase64;
-    }
+    return decodeBase64Fallback(ciphertextBase64);
   }
 };
 
