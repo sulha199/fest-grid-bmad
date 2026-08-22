@@ -60,6 +60,7 @@
       "dependsOn": ["^build"],
       "env": [
         "BACKEND_PORT",
+        "DATABASE_URL",
         "NEXT_PUBLIC_POSTHOG_KEY",
         "NEXT_PUBLIC_POSTHOG_HOST",
         "NEXT_PUBLIC_POSTHOG_DEFAULTS",

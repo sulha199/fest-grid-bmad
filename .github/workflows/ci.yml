@@ -12,6 +12,22 @@ jobs:
   ci:
     name: Continuous Integration
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: festgrid
+          POSTGRES_PASSWORD: festgrid
+          POSTGRES_DB: festgrid_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://festgrid:festgrid@localhost:5432/festgrid_test
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -43,6 +59,9 @@ jobs:
 
       - name: Run build
         run: pnpm run build
+
+      - name: Run Database Migrations (test DB)
+        run: pnpm --filter @festgrid/database run migrate
 
       - name: Run tests
         env:
