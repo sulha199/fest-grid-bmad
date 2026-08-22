@@ -88,6 +88,63 @@ The backend is built with TypeScript on a serverless architecture using AWS and 
    * `AWS_SECRET_ACCESS_KEY`: Your AWS secret access key.
    * `DATABASE_URL`: The production Supabase database connection string (injected into `L_API` and `L_Ingest` at deployment time).
 
+### 5. Credentials & Secrets Configuration (AWS Secrets Manager)
+
+To adhere to strict credential security practices and avoid raw strings in IaC/CloudFormation templates, sensitive environment variables are stored in AWS Secrets Manager. 
+
+#### Secrets vs. Plain Variables Classification
+
+The following table summarizes the classification used in our application architecture:
+
+| Environment Variable | Sourcing Mechanism | Rationale / Detail |
+|---|---|---|
+| `DATABASE_URL` | AWS Secrets Manager | Postgres connection string including user password — a credential. |
+| `GEOAPIFY_API_KEY` | AWS Secrets Manager | Third-party geocoding API key — a credential. |
+| `FIREBASE_PRIVATE_KEY` | AWS Secrets Manager | Firebase Admin service-account PEM private key — a sensitive private key. |
+| `APIFY_API_TOKEN` | AWS Secrets Manager | Personal API token for Instagram scraping — a credential. |
+| `BRIGHTDATA_API_TOKEN` | AWS Secrets Manager | Personal API token for Bright Data dataset scraping — a credential. |
+| `BRIGHTDATA_WEBHOOK_SECRET` | AWS Secrets Manager | Secret used to sign incoming Bright Data webhook requests — a sensitive key. |
+| `SUPABASE_URL` | Plain Environment Property | Public database identifier, not a credential. |
+| `FIREBASE_CLIENT_EMAIL` | Plain Environment Property | Public service-account email identifier, not a secret by itself. |
+| `FIREBASE_PROJECT_ID` | Plain Environment Property | Public project identifier, not a credential. |
+| `SES_FROM_EMAIL_ADDRESS` | Plain Environment Property | Configured sender address, not a credential. |
+| `SYSTEM_ERROR_ALERT_EMAIL` | Plain Environment Property | Configured destination address for alerts, not a credential. |
+| `BYOK_KMS_KEY_ID` | Plain Environment Property | Handled via direct KMS Key construct attribute reference (`kmsKey.keyId`). |
+
+#### One-Time Manual Secrets Population Steps
+
+Since `FestgridBackendStack` creates the AWS Secrets Manager placeholders during the initial deployment, you must manually populate the actual secret values. For each environment stage (`dev`, `staging`, `prod`), run the following AWS CLI command to set the secret values:
+
+```bash
+# Populate Database URL
+aws secretsmanager put-secret-value --secret-id festgrid-database-url-<stage> --secret-string "your_database_url"
+
+# Populate Geoapify API Key
+aws secretsmanager put-secret-value --secret-id festgrid-geoapify-api-key-<stage> --secret-string "your_geoapify_api_key"
+
+# Populate Firebase Private Key
+aws secretsmanager put-secret-value --secret-id festgrid-firebase-private-key-<stage> --secret-string "your_firebase_private_key"
+
+# Populate Apify API Token
+aws secretsmanager put-secret-value --secret-id festgrid-apify-api-token-<stage> --secret-string "your_apify_api_token"
+
+# Populate Bright Data API Token
+aws secretsmanager put-secret-value --secret-id festgrid-brightdata-api-token-<stage> --secret-string "your_brightdata_api_token"
+
+# Populate Bright Data Webhook Secret
+aws secretsmanager put-secret-value --secret-id festgrid-brightdata-webhook-secret-<stage> --secret-string "your_brightdata_webhook_secret"
+```
+
+### 6. Legacy Stack Cleanup
+
+Story 0.25 reconciles the old, standalone `FestgridEmailStack` into `FestgridBackendStack`. If you have previously deployed the legacy `FestgridEmailStack` in any of your environments, you must destroy it first to avoid IAM Role resource collisions:
+
+```bash
+pnpm --filter infrastructure exec cdk destroy FestgridEmailStack
+```
+
+After doing so, proceed to deploy `FestgridBackendStack` normally.
+
 ## 3. Database (Drizzle ORM, Local Postgres & Supabase)
 
 The database schemas are managed code-first using Drizzle ORM in the `packages/database` workspace. The project utilizes a dual environment setup:

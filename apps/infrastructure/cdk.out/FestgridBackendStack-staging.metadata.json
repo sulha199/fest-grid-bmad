@@ -17,7 +17,7 @@
     {
       "type": "aws:cdk:creationStack",
       "data": [
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:254:5)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:365:5)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -59,7 +59,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new Key2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:26:20)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:29:20)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -75,7 +75,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new Queue2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:33:25)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:36:25)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -91,7 +91,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new Queue2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:37:27)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:40:27)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -107,7 +107,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new Queue2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:47:29)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:50:29)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -123,7 +123,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new Queue2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:51:31)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:54:31)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -139,7 +139,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new Queue2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:61:30)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:64:30)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -155,7 +155,119 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new Queue2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:65:32)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:68:32)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/DatabaseUrlSecret-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DatabaseUrlSecretstagingE9D9FDD6"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Secret2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:79:25)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/GeoapifyApiKeySecret-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "GeoapifyApiKeySecretstagingB4DBC786"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Secret2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:83:34)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/FirebasePrivateKeySecret-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "FirebasePrivateKeySecretstagingFA8FB519"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Secret2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:87:38)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApifyApiTokenSecret-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApifyApiTokenSecretstaging27E7E038"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Secret2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:91:33)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/BrightdataApiTokenSecret-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BrightdataApiTokenSecretstaging64DB914A"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Secret2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:95:38)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/BrightdataWebhookSecretSecret-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BrightdataWebhookSecretSecretstaging0FF112D3"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Secret2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:99:43)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/FestgridEmailIdentity-staging/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "FestgridEmailIdentitystaging27C20BC9"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new EmailIdentity2 in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:106:27)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -171,7 +283,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new NodejsFunction in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:91:23)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:129:23)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -187,7 +299,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new NodejsFunction in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:108:27)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:182:27)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -203,7 +315,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new NodejsFunction in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:124:31)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:200:31)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -219,7 +331,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new NodejsFunction in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:139:28)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:217:28)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -235,7 +347,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new Rule2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:155:33)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:235:33)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -251,7 +363,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.<anonymous> in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:158:25)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:238:25)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -267,7 +379,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new RestApi2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:183:17)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:285:17)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -283,7 +395,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new RestApi2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:183:17)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:285:17)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -299,7 +411,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new NodejsFunction in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:217:27)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:319:27)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -315,7 +427,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new NodejsFunction in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:227:32)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:333:32)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -331,7 +443,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new Rule2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:261:31)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:372:31)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -347,7 +459,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.<anonymous> in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:264:23)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:375:23)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -376,7 +488,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new Key2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:26:20)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:29:20)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -392,7 +504,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new NodejsFunction in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:91:23)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:129:23)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -408,7 +520,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new NodejsFunction in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:108:27)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:182:27)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -424,7 +536,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...NodejsFunction.addEventSource in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:152:19)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:232:19)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -440,7 +552,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new NodejsFunction in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:124:31)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:200:31)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -456,7 +568,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...NodejsFunction.addEventSource in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:161:23)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:241:23)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -472,7 +584,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new NodejsFunction in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:139:28)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:217:28)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -488,7 +600,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...NodejsFunction.addEventSource in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:166:20)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:246:20)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -504,7 +616,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new RestApi2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:183:17)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:285:17)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals..."
@@ -520,7 +632,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new RestApi2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:183:17)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:285:17)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals..."
@@ -536,7 +648,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addUsagePlan in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:204:27)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:306:27)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -552,7 +664,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new NodejsFunction in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:217:27)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:319:27)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -568,7 +680,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new NodejsFunction in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:227:32)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:333:32)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -636,7 +748,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new RestApi2 in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:183:17)"
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:285:17)"
       ]
     }
   ],
@@ -649,7 +761,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...RootResource.addResource in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:197:36)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:299:36)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -665,7 +777,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...RootResource.addMethod in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:201:14)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:303:14)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals..."
@@ -681,7 +793,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...RootResource.addMethod in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:201:14)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:303:14)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals..."
@@ -697,7 +809,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...RootResource.addMethod in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:201:14)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:303:14)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -713,10 +825,38 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...RootResource.addResource in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:239:39)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:350:39)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/Webhook-staging/ServiceRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "WebhookstagingServiceRoleDefaultPolicyB5DE2341"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.grantRead in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:331:17)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)"
+      ]
+    }
+  ],
+  "/FestgridBackendStack-staging/ApifyWebhook-staging/ServiceRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApifyWebhookstagingServiceRoleDefaultPolicy3761794A"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.grantRead in .pnpm...",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:346:17)",
+        "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)"
       ]
     }
   ],
@@ -729,7 +869,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...RootResource.addResource in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:197:36)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:299:36)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)"
       ]
     }
@@ -743,7 +883,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addMethod in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:198:19)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:300:19)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals..."
@@ -759,7 +899,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addMethod in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:198:19)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:300:19)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals..."
@@ -775,7 +915,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addMethod in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:198:19)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:300:19)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -791,7 +931,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...RootResource.addResource in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:239:39)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:350:39)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)"
       ]
     }
@@ -805,7 +945,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addResource in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:240:22)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:351:22)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -821,7 +961,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addResource in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:241:22)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:352:22)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -837,7 +977,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addResource in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:240:22)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:351:22)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)"
       ]
     }
@@ -851,7 +991,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addMethod in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:240:43)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:351:43)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals..."
@@ -867,7 +1007,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addMethod in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:240:43)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:351:43)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals..."
@@ -883,7 +1023,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addMethod in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:240:43)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:351:43)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."
@@ -899,7 +1039,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addResource in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:241:22)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:352:22)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)"
       ]
     }
@@ -913,7 +1053,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addMethod in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:241:48)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:352:48)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals..."
@@ -929,7 +1069,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addMethod in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:241:48)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:352:48)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals..."
@@ -945,7 +1085,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...WrappedClass.addMethod in .pnpm...",
-        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:241:48)",
+        "new FestgridBackendStack (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\lib\\festgrid-backend-stack.ts:352:48)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:22:3)",
         "<anonymous> (C:\\projects\\portfolio\\festgrid\\bmad\\apps\\infrastructure\\bin\\infrastructure.ts:33:1)",
         "...node internals, .pnpm..."

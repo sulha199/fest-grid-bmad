@@ -9,6 +9,9 @@ import * as eventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as ses from 'aws-cdk-lib/aws-ses';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 export interface FestgridBackendStackProps extends cdk.StackProps {
@@ -72,6 +75,41 @@ export class FestgridBackendStack extends cdk.Stack {
       removalPolicy,
     });
 
+    // 2.5 Secrets Manager Secrets for Credentials
+    const dbUrlSecret = new secretsmanager.Secret(this, `DatabaseUrlSecret-${stageName}`, {
+      secretName: `festgrid-database-url-${stageName}`,
+      removalPolicy,
+    });
+    const geoapifyApiKeySecret = new secretsmanager.Secret(this, `GeoapifyApiKeySecret-${stageName}`, {
+      secretName: `festgrid-geoapify-api-key-${stageName}`,
+      removalPolicy,
+    });
+    const firebasePrivateKeySecret = new secretsmanager.Secret(this, `FirebasePrivateKeySecret-${stageName}`, {
+      secretName: `festgrid-firebase-private-key-${stageName}`,
+      removalPolicy,
+    });
+    const apifyApiTokenSecret = new secretsmanager.Secret(this, `ApifyApiTokenSecret-${stageName}`, {
+      secretName: `festgrid-apify-api-token-${stageName}`,
+      removalPolicy,
+    });
+    const brightdataApiTokenSecret = new secretsmanager.Secret(this, `BrightdataApiTokenSecret-${stageName}`, {
+      secretName: `festgrid-brightdata-api-token-${stageName}`,
+      removalPolicy,
+    });
+    const brightdataWebhookSecretSecret = new secretsmanager.Secret(this, `BrightdataWebhookSecretSecret-${stageName}`, {
+      secretName: `festgrid-brightdata-webhook-secret-${stageName}`,
+      removalPolicy,
+    });
+
+    // 2.6 SES Domain Identity for outgoing emails (Reconciled from FestgridEmailStack)
+    const domainName = process.env.SES_SENDING_DOMAIN || 'festdaily.app';
+    const emailIdentity = new ses.EmailIdentity(this, `FestgridEmailIdentity-${stageName}`, {
+      identity: ses.Identity.domain(domainName),
+      dkimIdentity: ses.DkimIdentity.easyDkim(
+        ses.EasyDkimSigningKeyLength.RSA_1024_BIT
+      ),
+    });
+
     // 3. Lambda Functions
     const projectRoot = process.cwd().endsWith(path.join('apps', 'infrastructure'))
       ? path.resolve(process.cwd(), '../..')
@@ -95,12 +133,48 @@ export class FestgridBackendStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(25),
       environment: {
         STAGE: stageName,
+        STAGE_NAME: stageName,
+        BACKEND_PORT: '4000',
+        SUPABASE_URL: process.env.SUPABASE_URL || '',
+        DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
+        GEOAPIFY_API_KEY: geoapifyApiKeySecret.secretValue.unsafeUnwrap(),
+        FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || '',
+        FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || '',
+        FIREBASE_PRIVATE_KEY: firebasePrivateKeySecret.secretValue.unsafeUnwrap(),
+        SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
+        SYSTEM_ERROR_ALERT_EMAIL: process.env.SYSTEM_ERROR_ALERT_EMAIL || '',
         BYOK_KMS_KEY_ID: kmsKey.keyId,
-        DATABASE_URL: process.env.DATABASE_URL || '',
+        GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
+        API_KEY_INVALID_ATTEMPTS_THRESHOLD: process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD || '5',
+        API_KEY_USAGE_CYCLE_DAYS: process.env.API_KEY_USAGE_CYCLE_DAYS || '30',
+        WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
         SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
-        GEOAPIFY_API_KEY: process.env.GEOAPIFY_API_KEY || '',
-        BRIGHTDATA_API_TOKEN: process.env.BRIGHTDATA_API_TOKEN || '',
+        SCRAPE_INLINE_FALLBACK_ENABLED: process.env.SCRAPE_INLINE_FALLBACK_ENABLED || 'false',
+        AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
+        AI_PROCESSING_INLINE_FALLBACK_ENABLED: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED || 'false',
+        DATA_INGESTION_QUEUE_URL: dataIngestionQueue.queueUrl,
+        DATA_INGESTION_INLINE_FALLBACK_ENABLED: process.env.DATA_INGESTION_INLINE_FALLBACK_ENABLED || 'false',
+        APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),
+        SCRAPE_RESULTS_LIMIT: process.env.SCRAPE_RESULTS_LIMIT || '10',
+        SCRAPE_INITIAL_LOOKBACK_DAYS: process.env.SCRAPE_INITIAL_LOOKBACK_DAYS || '7',
+        SCRAPE_SKIP_RECENT_HOURS: process.env.SCRAPE_SKIP_RECENT_HOURS || '20',
+        SCRAPER_MONTHLY_BUDGET_USD: process.env.SCRAPER_MONTHLY_BUDGET_USD || '5.00',
+        SCRAPER_PRICE_PER_1000_ITEMS_USD: process.env.SCRAPER_PRICE_PER_1000_ITEMS_USD || '2.70',
+        SCRAPER_CAPACITY_THRESHOLD_RATIO: process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO || '0.9',
+        SCRAPER_USAGE_CYCLE_DAYS: process.env.SCRAPER_USAGE_CYCLE_DAYS || '30',
+        QUEUE_NOTIFICATION_THRESHOLD_DAYS: process.env.QUEUE_NOTIFICATION_THRESHOLD_DAYS || '3',
+        QUEUE_NOTIFICATION_THRESHOLD_COUNT: process.env.QUEUE_NOTIFICATION_THRESHOLD_COUNT || '3',
+        QUEUE_NOTIFICATION_COOLDOWN_DAYS: process.env.QUEUE_NOTIFICATION_COOLDOWN_DAYS || '7',
+        BRIGHTDATA_API_TOKEN: brightdataApiTokenSecret.secretValue.unsafeUnwrap(),
         BRIGHTDATA_DATASET_ID: process.env.BRIGHTDATA_DATASET_ID || 'gd_lk5ns7kz21pck8jpis',
+        BRIGHTDATA_WEBHOOK_SECRET: brightdataWebhookSecretSecret.secretValue.unsafeUnwrap(),
+        BRIGHTDATA_JOB_TIMEOUT_MINUTES: process.env.BRIGHTDATA_JOB_TIMEOUT_MINUTES || '180',
+        BRIGHTDATA_PRICE_PER_1000_ITEMS_USD: process.env.BRIGHTDATA_PRICE_PER_1000_ITEMS_USD || '1.50',
+        BRIGHTDATA_MONTHLY_BUDGET_USD: process.env.BRIGHTDATA_MONTHLY_BUDGET_USD || '7.50',
+        BRIGHTDATA_WEBHOOK_DLQ_ARN: process.env.BRIGHTDATA_WEBHOOK_DLQ_ARN || '',
+        APIFY_JOB_TIMEOUT_MINUTES: process.env.APIFY_JOB_TIMEOUT_MINUTES || '180',
+        UNPROCESSED_PAYLOAD_RETENTION_DAYS: process.env.UNPROCESSED_PAYLOAD_RETENTION_DAYS || '30',
+        SCRAPE_IN_PROGRESS_TIMEOUT_HOURS: process.env.SCRAPE_IN_PROGRESS_TIMEOUT_HOURS || '3',
       },
     });
 
@@ -112,10 +186,12 @@ export class FestgridBackendStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(300),
       environment: {
         STAGE: stageName,
-        DATABASE_URL: process.env.DATABASE_URL || '',
+        STAGE_NAME: stageName,
+        BACKEND_PORT: '4000',
+        DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
-        APIFY_API_TOKEN: process.env.APIFY_API_TOKEN || '',
-        BRIGHTDATA_API_TOKEN: process.env.BRIGHTDATA_API_TOKEN || '',
+        APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),
+        BRIGHTDATA_API_TOKEN: brightdataApiTokenSecret.secretValue.unsafeUnwrap(),
         BRIGHTDATA_DATASET_ID: process.env.BRIGHTDATA_DATASET_ID || 'gd_lk5ns7kz21pck8jpis',
       },
     });
@@ -128,10 +204,12 @@ export class FestgridBackendStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(300),
       environment: {
         STAGE: stageName,
+        STAGE_NAME: stageName,
+        BACKEND_PORT: '4000',
         BYOK_KMS_KEY_ID: kmsKey.keyId,
-        DATABASE_URL: process.env.DATABASE_URL || '',
+        DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         DATA_INGESTION_QUEUE_URL: dataIngestionQueue.queueUrl,
-        GEOAPIFY_API_KEY: process.env.GEOAPIFY_API_KEY || '',
+        GEOAPIFY_API_KEY: geoapifyApiKeySecret.secretValue.unsafeUnwrap(),
       },
     });
 
@@ -143,7 +221,9 @@ export class FestgridBackendStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(300),
       environment: {
         STAGE: stageName,
-        DATABASE_URL: process.env.DATABASE_URL || '',
+        STAGE_NAME: stageName,
+        BACKEND_PORT: '4000',
+        DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
       },
     });
 
@@ -178,6 +258,28 @@ export class FestgridBackendStack extends cdk.Stack {
     // KMS Encrypt/Decrypt grants only to API Lambda and AI Processor Lambda
     kmsKey.grantEncryptDecrypt(apiLambda);
     kmsKey.grantEncryptDecrypt(aiProcessorLambda);
+
+    // SES Send Email Identity Grant
+    emailIdentity.grantSendEmail(apiLambda);
+
+    // Secrets Manager Grants
+    dbUrlSecret.grantRead(apiLambda);
+    dbUrlSecret.grantRead(scraperLambda);
+    dbUrlSecret.grantRead(aiProcessorLambda);
+    dbUrlSecret.grantRead(ingestorLambda);
+
+    geoapifyApiKeySecret.grantRead(apiLambda);
+    geoapifyApiKeySecret.grantRead(aiProcessorLambda);
+
+    firebasePrivateKeySecret.grantRead(apiLambda);
+
+    apifyApiTokenSecret.grantRead(apiLambda);
+    apifyApiTokenSecret.grantRead(scraperLambda);
+
+    brightdataApiTokenSecret.grantRead(apiLambda);
+    brightdataApiTokenSecret.grantRead(scraperLambda);
+
+    brightdataWebhookSecretSecret.grantRead(apiLambda);
 
     // 6. API Gateway Configuration
     const api = new apigateway.RestApi(this, `ApiGateway-${stageName}`, {
@@ -220,9 +322,13 @@ export class FestgridBackendStack extends cdk.Stack {
       ...sharedLambdaProps,
       environment: {
         STAGE: stageName,
-        DATABASE_URL: process.env.DATABASE_URL || '',
+        STAGE_NAME: stageName,
+        BACKEND_PORT: '4000',
+        DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
       },
     });
+
+    dbUrlSecret.grantRead(webhookLambda);
 
     const apifyWebhookLambda = new nodejs.NodejsFunction(this, `ApifyWebhook-${stageName}`, {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/apify-webhook.ts'),
@@ -230,10 +336,15 @@ export class FestgridBackendStack extends cdk.Stack {
       ...sharedLambdaProps,
       environment: {
         STAGE: stageName,
-        DATABASE_URL: process.env.DATABASE_URL || '',
-        APIFY_API_TOKEN: process.env.APIFY_API_TOKEN || '',
+        STAGE_NAME: stageName,
+        BACKEND_PORT: '4000',
+        DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
+        APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),
       },
     });
+
+    dbUrlSecret.grantRead(apifyWebhookLambda);
+    apifyApiTokenSecret.grantRead(apifyWebhookLambda);
 
     // Create webhooks resource and add webhook endpoints
     const webhooksResource = api.root.addResource('webhooks');

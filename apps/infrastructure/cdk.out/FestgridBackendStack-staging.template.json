@@ -135,6 +135,90 @@
     "aws:cdk:path": "FestgridBackendStack-staging/DataIngestionQueue-staging/Resource"
    }
   },
+  "DatabaseUrlSecretstagingE9D9FDD6": {
+   "Type": "AWS::SecretsManager::Secret",
+   "Properties": {
+    "GenerateSecretString": {},
+    "Name": "festgrid-database-url-staging"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/DatabaseUrlSecret-staging/Resource"
+   }
+  },
+  "GeoapifyApiKeySecretstagingB4DBC786": {
+   "Type": "AWS::SecretsManager::Secret",
+   "Properties": {
+    "GenerateSecretString": {},
+    "Name": "festgrid-geoapify-api-key-staging"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/GeoapifyApiKeySecret-staging/Resource"
+   }
+  },
+  "FirebasePrivateKeySecretstagingFA8FB519": {
+   "Type": "AWS::SecretsManager::Secret",
+   "Properties": {
+    "GenerateSecretString": {},
+    "Name": "festgrid-firebase-private-key-staging"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/FirebasePrivateKeySecret-staging/Resource"
+   }
+  },
+  "ApifyApiTokenSecretstaging27E7E038": {
+   "Type": "AWS::SecretsManager::Secret",
+   "Properties": {
+    "GenerateSecretString": {},
+    "Name": "festgrid-apify-api-token-staging"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApifyApiTokenSecret-staging/Resource"
+   }
+  },
+  "BrightdataApiTokenSecretstaging64DB914A": {
+   "Type": "AWS::SecretsManager::Secret",
+   "Properties": {
+    "GenerateSecretString": {},
+    "Name": "festgrid-brightdata-api-token-staging"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/BrightdataApiTokenSecret-staging/Resource"
+   }
+  },
+  "BrightdataWebhookSecretSecretstaging0FF112D3": {
+   "Type": "AWS::SecretsManager::Secret",
+   "Properties": {
+    "GenerateSecretString": {},
+    "Name": "festgrid-brightdata-webhook-secret-staging"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/BrightdataWebhookSecretSecret-staging/Resource"
+   }
+  },
+  "FestgridEmailIdentitystaging27C20BC9": {
+   "Type": "AWS::SES::EmailIdentity",
+   "Properties": {
+    "DkimSigningAttributes": {
+     "NextSigningKeyLength": "RSA_1024_BIT"
+    },
+    "EmailIdentity": "festdaily.app"
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/FestgridEmailIdentity-staging/Resource"
+   }
+  },
   "ApiLambdastagingServiceRoleF3932138": {
    "Type": "AWS::IAM::Role",
    "Properties": {
@@ -202,6 +286,51 @@
          "Arn"
         ]
        }
+      },
+      {
+       "Action": [
+        "ses:SendEmail",
+        "ses:SendRawEmail"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          "arn:aws:ses:us-east-1:944921953880:identity/",
+          {
+           "Ref": "FestgridEmailIdentitystaging27C20BC9"
+          }
+         ]
+        ]
+       }
+      },
+      {
+       "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Ref": "ApifyApiTokenSecretstaging27E7E038"
+        },
+        {
+         "Ref": "BrightdataApiTokenSecretstaging64DB914A"
+        },
+        {
+         "Ref": "BrightdataWebhookSecretSecretstaging0FF112D3"
+        },
+        {
+         "Ref": "DatabaseUrlSecretstagingE9D9FDD6"
+        },
+        {
+         "Ref": "FirebasePrivateKeySecretstagingFA8FB519"
+        },
+        {
+         "Ref": "GeoapifyApiKeySecretstagingB4DBC786"
+        }
+       ]
       }
      ],
      "Version": "2012-10-17"
@@ -222,21 +351,127 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-944921953880-us-east-1",
-     "S3Key": "f948f614c3e05f1aace73b3e37bc0f1cbdbdcbd9a7159427d33bddc887787f47.zip"
+     "S3Key": "c8951a8492fd47830ba05318d67655f43a63c8e18e7b81dbd3b67f9571eb7361.zip"
     },
     "Environment": {
      "Variables": {
       "STAGE": "staging",
+      "STAGE_NAME": "staging",
+      "BACKEND_PORT": "4000",
+      "SUPABASE_URL": "",
+      "DATABASE_URL": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseUrlSecretstagingE9D9FDD6"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      },
+      "GEOAPIFY_API_KEY": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "GeoapifyApiKeySecretstagingB4DBC786"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      },
+      "FIREBASE_PROJECT_ID": "",
+      "FIREBASE_CLIENT_EMAIL": "",
+      "FIREBASE_PRIVATE_KEY": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "FirebasePrivateKeySecretstagingFA8FB519"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      },
+      "SES_FROM_EMAIL_ADDRESS": "",
+      "SYSTEM_ERROR_ALERT_EMAIL": "",
       "BYOK_KMS_KEY_ID": {
        "Ref": "KmsKeystaging0C0573F0"
       },
-      "DATABASE_URL": "",
+      "GEMINI_MODEL": "gemini-3.5-flash-lite",
+      "API_KEY_INVALID_ATTEMPTS_THRESHOLD": "5",
+      "API_KEY_USAGE_CYCLE_DAYS": "30",
+      "WEB_APP_BASE_URL": "http://localhost:3000",
       "SCRAPING_QUEUE_URL": {
        "Ref": "ScrapingQueuestaging32D3E6CB"
       },
-      "GEOAPIFY_API_KEY": "",
-      "BRIGHTDATA_API_TOKEN": "",
+      "SCRAPE_INLINE_FALLBACK_ENABLED": "false",
+      "AI_PROCESSING_QUEUE_URL": {
+       "Ref": "AIProcessingQueuestaging9DE39A58"
+      },
+      "AI_PROCESSING_INLINE_FALLBACK_ENABLED": "false",
+      "DATA_INGESTION_QUEUE_URL": {
+       "Ref": "DataIngestionQueuestagingC59D6420"
+      },
+      "DATA_INGESTION_INLINE_FALLBACK_ENABLED": "false",
+      "APIFY_API_TOKEN": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "ApifyApiTokenSecretstaging27E7E038"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      },
+      "SCRAPE_RESULTS_LIMIT": "10",
+      "SCRAPE_INITIAL_LOOKBACK_DAYS": "7",
+      "SCRAPE_SKIP_RECENT_HOURS": "20",
+      "SCRAPER_MONTHLY_BUDGET_USD": "5.00",
+      "SCRAPER_PRICE_PER_1000_ITEMS_USD": "2.70",
+      "SCRAPER_CAPACITY_THRESHOLD_RATIO": "0.9",
+      "SCRAPER_USAGE_CYCLE_DAYS": "30",
+      "QUEUE_NOTIFICATION_THRESHOLD_DAYS": "3",
+      "QUEUE_NOTIFICATION_THRESHOLD_COUNT": "3",
+      "QUEUE_NOTIFICATION_COOLDOWN_DAYS": "7",
+      "BRIGHTDATA_API_TOKEN": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "BrightdataApiTokenSecretstaging64DB914A"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      },
       "BRIGHTDATA_DATASET_ID": "gd_lk5ns7kz21pck8jpis",
+      "BRIGHTDATA_WEBHOOK_SECRET": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "BrightdataWebhookSecretSecretstaging0FF112D3"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      },
+      "BRIGHTDATA_JOB_TIMEOUT_MINUTES": "180",
+      "BRIGHTDATA_PRICE_PER_1000_ITEMS_USD": "1.50",
+      "BRIGHTDATA_MONTHLY_BUDGET_USD": "7.50",
+      "BRIGHTDATA_WEBHOOK_DLQ_ARN": "",
+      "APIFY_JOB_TIMEOUT_MINUTES": "180",
+      "UNPROCESSED_PAYLOAD_RETENTION_DAYS": "30",
+      "SCRAPE_IN_PROGRESS_TIMEOUT_HOURS": "3",
       "APIFY_WEBHOOK_BASE_URL": {
        "Fn::Join": [
         "",
@@ -291,7 +526,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/ApiLambda-staging/Resource",
-    "aws:asset:path": "asset.f948f614c3e05f1aace73b3e37bc0f1cbdbdcbd9a7159427d33bddc887787f47",
+    "aws:asset:path": "asset.c8951a8492fd47830ba05318d67655f43a63c8e18e7b81dbd3b67f9571eb7361",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -351,6 +586,24 @@
          "Arn"
         ]
        }
+      },
+      {
+       "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Ref": "ApifyApiTokenSecretstaging27E7E038"
+        },
+        {
+         "Ref": "BrightdataApiTokenSecretstaging64DB914A"
+        },
+        {
+         "Ref": "DatabaseUrlSecretstagingE9D9FDD6"
+        }
+       ]
       }
      ],
      "Version": "2012-10-17"
@@ -371,17 +624,52 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-944921953880-us-east-1",
-     "S3Key": "8910fe05885ee147acfc888d9d5430330e53d54f6f947c6393cdc8222d3cf3e6.zip"
+     "S3Key": "3ad3946711e063032b710a73023ede32945b2123a78faa04671af1fb1e05ce9d.zip"
     },
     "Environment": {
      "Variables": {
       "STAGE": "staging",
-      "DATABASE_URL": "",
+      "STAGE_NAME": "staging",
+      "BACKEND_PORT": "4000",
+      "DATABASE_URL": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseUrlSecretstagingE9D9FDD6"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      },
       "SCRAPING_QUEUE_URL": {
        "Ref": "ScrapingQueuestaging32D3E6CB"
       },
-      "APIFY_API_TOKEN": "",
-      "BRIGHTDATA_API_TOKEN": "",
+      "APIFY_API_TOKEN": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "ApifyApiTokenSecretstaging27E7E038"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      },
+      "BRIGHTDATA_API_TOKEN": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "BrightdataApiTokenSecretstaging64DB914A"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      },
       "BRIGHTDATA_DATASET_ID": "gd_lk5ns7kz21pck8jpis",
       "APIFY_WEBHOOK_BASE_URL": {
        "Fn::Join": [
@@ -437,7 +725,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/ScraperLambda-staging/Resource",
-    "aws:asset:path": "asset.8910fe05885ee147acfc888d9d5430330e53d54f6f947c6393cdc8222d3cf3e6",
+    "aws:asset:path": "asset.3ad3946711e063032b710a73023ede32945b2123a78faa04671af1fb1e05ce9d",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -542,6 +830,21 @@
          "Arn"
         ]
        }
+      },
+      {
+       "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Ref": "DatabaseUrlSecretstagingE9D9FDD6"
+        },
+        {
+         "Ref": "GeoapifyApiKeySecretstagingB4DBC786"
+        }
+       ]
       }
      ],
      "Version": "2012-10-17"
@@ -562,19 +865,43 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-944921953880-us-east-1",
-     "S3Key": "19e261ddd686b3da1c23d69fe14db22da07d41260cdaf584c6c5b118398e7ea2.zip"
+     "S3Key": "e8a26635076fe50dc093eb904051068de97b7ee69de5b983023b7890556c8947.zip"
     },
     "Environment": {
      "Variables": {
       "STAGE": "staging",
+      "STAGE_NAME": "staging",
+      "BACKEND_PORT": "4000",
       "BYOK_KMS_KEY_ID": {
        "Ref": "KmsKeystaging0C0573F0"
       },
-      "DATABASE_URL": "",
+      "DATABASE_URL": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseUrlSecretstagingE9D9FDD6"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      },
       "DATA_INGESTION_QUEUE_URL": {
        "Ref": "DataIngestionQueuestagingC59D6420"
       },
-      "GEOAPIFY_API_KEY": ""
+      "GEOAPIFY_API_KEY": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "GeoapifyApiKeySecretstagingB4DBC786"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      }
      }
     },
     "Handler": "index.handler",
@@ -593,7 +920,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/AIProcessorLambda-staging/Resource",
-    "aws:asset:path": "asset.19e261ddd686b3da1c23d69fe14db22da07d41260cdaf584c6c5b118398e7ea2",
+    "aws:asset:path": "asset.e8a26635076fe50dc093eb904051068de97b7ee69de5b983023b7890556c8947",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -672,6 +999,16 @@
          "Arn"
         ]
        }
+      },
+      {
+       "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "DatabaseUrlSecretstagingE9D9FDD6"
+       }
       }
      ],
      "Version": "2012-10-17"
@@ -692,12 +1029,25 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-944921953880-us-east-1",
-     "S3Key": "a391b46c58872dde8488c2ddf9329c0be51f080b29ac092602393d995c33d79e.zip"
+     "S3Key": "6a139071451bff26ccc3a876bd043508de6fd2bcca9be95eec6558c290fe3734.zip"
     },
     "Environment": {
      "Variables": {
       "STAGE": "staging",
-      "DATABASE_URL": ""
+      "STAGE_NAME": "staging",
+      "BACKEND_PORT": "4000",
+      "DATABASE_URL": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseUrlSecretstagingE9D9FDD6"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      }
      }
     },
     "Handler": "index.handler",
@@ -716,7 +1066,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/IngestorLambda-staging/Resource",
-    "aws:asset:path": "asset.a391b46c58872dde8488c2ddf9329c0be51f080b29ac092602393d995c33d79e",
+    "aws:asset:path": "asset.6a139071451bff26ccc3a876bd043508de6fd2bcca9be95eec6558c290fe3734",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -1562,17 +1912,59 @@
     "aws:cdk:path": "FestgridBackendStack-staging/Webhook-staging/ServiceRole/Resource"
    }
   },
+  "WebhookstagingServiceRoleDefaultPolicyB5DE2341": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "DatabaseUrlSecretstagingE9D9FDD6"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "WebhookstagingServiceRoleDefaultPolicyB5DE2341",
+    "Roles": [
+     {
+      "Ref": "WebhookstagingServiceRole4D8753EE"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/Webhook-staging/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
   "WebhookstagingEFFDF279": {
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-944921953880-us-east-1",
-     "S3Key": "5b2977f51f011a3facbd0b631caed3fb50f1bdefd966139761983799feac2af8.zip"
+     "S3Key": "62fd5b39813a97c94f7a49cd8a04ffdbe4a9056ac134138544aeb609ef8d7b2d.zip"
     },
     "Environment": {
      "Variables": {
       "STAGE": "staging",
-      "DATABASE_URL": ""
+      "STAGE_NAME": "staging",
+      "BACKEND_PORT": "4000",
+      "DATABASE_URL": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseUrlSecretstagingE9D9FDD6"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      }
      }
     },
     "Handler": "index.handler",
@@ -1586,11 +1978,12 @@
     "Timeout": 30
    },
    "DependsOn": [
+    "WebhookstagingServiceRoleDefaultPolicyB5DE2341",
     "WebhookstagingServiceRole4D8753EE"
    ],
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/Webhook-staging/Resource",
-    "aws:asset:path": "asset.5b2977f51f011a3facbd0b631caed3fb50f1bdefd966139761983799feac2af8",
+    "aws:asset:path": "asset.62fd5b39813a97c94f7a49cd8a04ffdbe4a9056ac134138544aeb609ef8d7b2d",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -1629,18 +2022,76 @@
     "aws:cdk:path": "FestgridBackendStack-staging/ApifyWebhook-staging/ServiceRole/Resource"
    }
   },
+  "ApifyWebhookstagingServiceRoleDefaultPolicy3761794A": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Ref": "ApifyApiTokenSecretstaging27E7E038"
+        },
+        {
+         "Ref": "DatabaseUrlSecretstagingE9D9FDD6"
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ApifyWebhookstagingServiceRoleDefaultPolicy3761794A",
+    "Roles": [
+     {
+      "Ref": "ApifyWebhookstagingServiceRole8A539231"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FestgridBackendStack-staging/ApifyWebhook-staging/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
   "ApifyWebhookstagingC8D994BA": {
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-944921953880-us-east-1",
-     "S3Key": "d30a4064ca4932cfd88e4dfb7919f1346129c720291a0a379aaebbfaf955a475.zip"
+     "S3Key": "55e5578f2fdb8a94c74ae2ee76c5e2992a03401f4b5c9cede52fb5bb0b25c66f.zip"
     },
     "Environment": {
      "Variables": {
       "STAGE": "staging",
-      "DATABASE_URL": "",
-      "APIFY_API_TOKEN": ""
+      "STAGE_NAME": "staging",
+      "BACKEND_PORT": "4000",
+      "DATABASE_URL": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "DatabaseUrlSecretstagingE9D9FDD6"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      },
+      "APIFY_API_TOKEN": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:secretsmanager:",
+         {
+          "Ref": "ApifyApiTokenSecretstaging27E7E038"
+         },
+         ":SecretString:::}}"
+        ]
+       ]
+      }
      }
     },
     "Handler": "index.handler",
@@ -1654,11 +2105,12 @@
     "Timeout": 30
    },
    "DependsOn": [
+    "ApifyWebhookstagingServiceRoleDefaultPolicy3761794A",
     "ApifyWebhookstagingServiceRole8A539231"
    ],
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/ApifyWebhook-staging/Resource",
-    "aws:asset:path": "asset.d30a4064ca4932cfd88e4dfb7919f1346129c720291a0a379aaebbfaf955a475",
+    "aws:asset:path": "asset.55e5578f2fdb8a94c74ae2ee76c5e2992a03401f4b5c9cede52fb5bb0b25c66f",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -1710,7 +2162,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/22QQU/DMAyFfwv3zLBW4r4NuKDB6MR58lqveE2TMiebpij/HSUtEwdO7/Nz8uykgOKxhIc7vMisbrqZ5j2ErcO6U3iRXeh6gfBKV7U6mCQLzSipyBCVfAuED0+ekpkhKo39vsGdsQ0dBd6yvHhTO7ZGMfYQKqvzhawbq7nOE0aKSsodipATWCRRUsLS1x25JQpN8RBWB3NLfT6TcVvrTzWtcRjYtCnvf3dDp55F2JqoKJ0QCJWfFvKaosKBW3R0wSuEisQtBs7NCZ9o0Pbak3HJ/VNtHbY5ZoSKJM/OW6/JfdkmNSf67U7JI38KtrTRaJJ7K2JU+SNS7PSId+8G76JKnwxHuT8XBcxLmN8dhXl28sZxT1CN+gOCRtYs5gEAAA=="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/21Q207DMAz9lr1nhrUS79sYEkKD0YrnyWu9kjVJS51smqL8O0paJpB4Ohdbx5cMsocc7md44XlVt3MlD+BLi1Ur8MJ732oG/0JXsT6aCEslkaNIJAj+YvDvjhxFM5EgmKqBLGs02NAAvkw6NowsdjD4jUapnmsyVto04I8RhEJ9qHFvuppODK8JnpyprOyMkKjBF51KcxPuOiWrlDOyIDjfIzNZhmUEwTmsXNWSXSHTFA9+fTS31M2ZjC07N1S0xb6Xpkl7/evuaNCSWXYmCIodDL5w00JOURDYywYtXfAKviC2y16m4kQfqVfdVZNJr/mlSotNihlJQZxmp623ZD+7OhYn9lOdkkf+wdjQTqGJ7k2EINIjYux0xJuzvbNBxCfDie/OWQaLHBazE0s5H5yxUhMUI34DH8ykii0CAAA="
    },
    "Metadata": {
     "aws:cdk:path": "FestgridBackendStack-staging/CDKMetadata/Default"
