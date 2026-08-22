@@ -74,7 +74,7 @@ development_status:
   1-6-auto-fix-retry-loop-with-shared-ceiling-enforced-attempts: ready-for-dev
   1-7-tier-2-deep-code-review-gates-checkpoint: ready-for-dev
   1-8-git-checkpoint-commits-a-completed-story: ready-for-dev
-  1-9-wire-the-single-story-pipeline-end-to-end: backlog
+  1-9-wire-the-single-story-pipeline-end-to-end: ready-for-dev
   epic-1-retrospective: optional
 
   epic-2: backlog
