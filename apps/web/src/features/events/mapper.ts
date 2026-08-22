@@ -56,6 +56,8 @@ export function mapGraphQLEventToDetailViewProps(
       eventEndDate: s.eventEndDate,
       eventStartTime: s.eventStartTime,
       eventEndTime: s.eventEndTime,
+      timezone: s.timezone,
+      timezoneStatus: s.timezoneStatus,
       title: null,
       performers: s.performers?.join(', ') || null,
       location: s.location?.trim() ? s.location : null,

@@ -6,7 +6,6 @@ import { setupServer } from 'msw/node';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { server as globalServer } from '@festgrid/testing-config/vitest.setup';
 
 import { HomeContent as Home } from './home-content';
 import { generateMetadata } from './page';
@@ -200,7 +199,6 @@ const mswServer = setupServer(
 );
 
 beforeAll(() => {
-  globalServer.close();
   mswServer.listen({ onUnhandledRequest: 'bypass' });
 });
 
@@ -214,7 +212,6 @@ afterEach(() => {
 });
 afterAll(() => {
   mswServer.close();
-  globalServer.listen({ onUnhandledRequest: 'error' });
 });
 
 // Reuse the real locale file rather than a hand-duplicated copy, so a key

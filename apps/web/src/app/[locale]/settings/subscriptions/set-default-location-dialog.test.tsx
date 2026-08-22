@@ -45,7 +45,6 @@ vi.mock('@festgrid/ui', async () => {
 });
 
 import { SetDefaultLocationDialog } from './set-default-location-dialog';
-import { server as globalServer } from '../../../../../../../packages/testing-config/vitest.setup';
 
 let mutationVariables: any = null;
 let mutationShouldFail = false;
@@ -128,7 +127,6 @@ const server = setupServer(
 );
 
 beforeAll(() => {
-  globalServer.close();
   server.listen({ onUnhandledRequest: 'bypass' });
 });
 afterEach(() => {
@@ -140,7 +138,6 @@ afterEach(() => {
 });
 afterAll(() => {
   server.close();
-  globalServer.listen({ onUnhandledRequest: 'error' });
 });
 
 function renderWithProviders(ui: React.ReactElement) {

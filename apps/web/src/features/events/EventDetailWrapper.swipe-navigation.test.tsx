@@ -1,6 +1,6 @@
 import React from "react"
 import { render, screen, waitFor, cleanup } from "@testing-library/react"
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest"
 import { EventDetailWrapper } from "./EventDetailWrapper"
 
 class MockResizeObserver {
@@ -33,7 +33,7 @@ Object.defineProperty(window, "matchMedia", {
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { graphql, HttpResponse } from "msw"
-import { server as globalServer } from "../../../../../packages/testing-config/vitest.setup"
+import { setupServer } from "msw/node"
 import { NuqsTestingAdapter } from "nuqs/adapters/testing"
 
 const mockRouterPush = vi.fn()
@@ -146,13 +146,29 @@ const handlers = [
       data: { events: { items: rows, hasMore: false, totalCount: rows.length } },
     })
   }),
+  api.query("me", () => {
+    return HttpResponse.json({
+      data: {
+        me: {
+          id: "u_1",
+          email: "test@example.com",
+          role: "user",
+        },
+      },
+    })
+  }),
 ]
+
+const server = setupServer()
 
 describe("EventDetailWrapper — swipe-gesture navigation", () => {
   let queryClient: QueryClient
 
+  beforeAll(() => server.listen())
+  afterAll(() => server.close())
+
   beforeEach(() => {
-    globalServer.use(...handlers)
+    server.use(...handlers)
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     mockSearchParams = new URLSearchParams("fromList=favorites&favoriteIds=evt_1,evt_2,evt_3")
     mockRouterReplace.mockClear()
@@ -165,6 +181,7 @@ describe("EventDetailWrapper — swipe-gesture navigation", () => {
     // useEffect cleanup runs and deregisters its "select" listener from
     // fakeEmblaApi — otherwise stale listeners from prior tests would pile up
     // on the module-level fake instance and fire alongside the current test's.
+    server.resetHandlers()
     cleanup()
     queryClient.clear()
   })

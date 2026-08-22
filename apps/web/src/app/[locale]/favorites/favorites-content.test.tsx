@@ -269,7 +269,10 @@ describe('FavoritesContent', () => {
       expect(snapshotCalls.length).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Festival' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Type' }));
+
+    const festivalOption = await screen.findByRole('button', { name: 'Festival' });
+    fireEvent.click(festivalOption);
 
     await waitFor(() => {
       expect(snapshotCalls.length).toBeGreaterThan(1);

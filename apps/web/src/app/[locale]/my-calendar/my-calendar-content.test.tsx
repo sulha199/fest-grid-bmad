@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { graphql, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { NuqsTestingAdapter } from 'nuqs/adapters/testing';
-import { server as globalServer } from '@festgrid/testing-config/vitest.setup';
 
 const mockRouterPush = vi.fn();
 vi.mock('@/i18n/navigation', () => ({
@@ -115,15 +114,21 @@ describe('MyCalendarContent', () => {
   let queryClient: QueryClient;
 
   beforeAll(() => {
-    globalServer.close();
     server.listen({ onUnhandledRequest: 'error' });
   });
   afterAll(() => {
     server.close();
-    globalServer.listen({ onUnhandledRequest: 'error' });
   });
 
   beforeEach(() => {
+    // The component defaults its displayed week to "today". Freeze the clock
+    // to a date inside the same Monday-Sunday week as the fixture events'
+    // eventStartDate values (2026-08-10 and 2026-08-11, i.e. the week of
+    // 2026-08-10 to 2026-08-16) so the fixtures actually fall within the
+    // rendered week regardless of the real-world current date.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-08-11T12:00:00Z'));
+
     queryClient = new QueryClient({
       defaultOptions: {
         queries: {
@@ -140,6 +145,7 @@ describe('MyCalendarContent', () => {
 
   afterEach(() => {
     server.resetHandlers();
+    vi.useRealTimers();
   });
 
   it('redirects unauthenticated users to login', async () => {

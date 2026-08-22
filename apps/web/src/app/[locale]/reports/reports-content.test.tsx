@@ -4,7 +4,6 @@ import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll, afterEach, afterAll } from "vitest";
 import { graphql, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { server as globalServer } from "../../../../../../packages/testing-config/vitest.setup";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import enMessages from "../../../../locales/en.json";
@@ -98,7 +97,6 @@ describe("ReportsContent Integration", () => {
   let queryClient: QueryClient;
 
   beforeAll(() => {
-    globalServer.close();
     server.listen({ onUnhandledRequest: "bypass" });
   });
 
@@ -115,7 +113,6 @@ describe("ReportsContent Integration", () => {
 
   afterAll(() => {
     server.close();
-    globalServer.listen({ onUnhandledRequest: "error" });
   });
 
   const renderWithProviders = () => {

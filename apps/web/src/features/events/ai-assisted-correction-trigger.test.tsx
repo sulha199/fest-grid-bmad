@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } 
 import { AiAssistedCorrectionTrigger, AiAssistedCorrectionTriggerLabels } from "./ai-assisted-correction-trigger";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { graphql, HttpResponse } from "msw";
-import { server as globalServer } from "../../../../../packages/testing-config/vitest.setup";
 import { setupServer } from "msw/node";
 import { ExtractionErrorCode } from "@/generated/graphql";
 
@@ -68,13 +67,11 @@ describe("AiAssistedCorrectionTrigger", () => {
   const handleExtracted = vi.fn();
 
   beforeAll(() => {
-    globalServer.close();
     server.listen({ onUnhandledRequest: "bypass" });
   });
 
   afterAll(() => {
     server.close();
-    globalServer.listen({ onUnhandledRequest: "error" });
   });
 
   beforeEach(() => {

@@ -1,9 +1,43 @@
+import type { ReactElement } from 'react';
 import { describe, it, expect, vi, beforeAll, afterEach, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { graphql, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthSessionProvider } from './auth-session-provider';
 import { Session } from '@supabase/supabase-js';
+
+const { mockGetSession, mockOnAuthStateChange } = vi.hoisted(() => ({
+  mockGetSession: vi.fn(),
+  mockOnAuthStateChange: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/client', () => ({
+  getSupabaseBrowserClient: () => ({
+    auth: {
+      getSession: mockGetSession,
+      onAuthStateChange: mockOnAuthStateChange,
+    },
+  }),
+}));
+
+vi.mock('@/lib/graphql-client', async () => {
+  const { GraphQLClient } = await import('graphql-request');
+  return {
+    graphqlClient: new GraphQLClient('http://localhost:4000/graphql'),
+  };
+});
+
+function renderWithProviders(ui: ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
 
 let updateUserTimezoneVariables: any = null;
 let updateUserTimezoneCallCount = 0;
@@ -41,15 +75,9 @@ afterEach(() => {
 });
 
 describe('AuthSessionProvider timezone capture', () => {
-  let mockGetSession: any;
-  let mockOnAuthStateChange: any;
   let authStateChangeCallback: any;
 
   beforeEach(() => {
-    // Mock Supabase client
-    mockGetSession = vi.fn();
-    mockOnAuthStateChange = vi.fn();
-
     const mockSession: Session = {
       access_token: 'test-token',
       refresh_token: 'refresh-token',
@@ -86,28 +114,10 @@ describe('AuthSessionProvider timezone capture', () => {
         },
       };
     });
-
-    vi.mock('@/lib/supabase/client', () => ({
-      getSupabaseBrowserClient: () => ({
-        auth: {
-          getSession: mockGetSession,
-          onAuthStateChange: mockOnAuthStateChange,
-        },
-      }),
-    }));
   });
 
   it('should capture timezone on initial session establishment', async () => {
-    vi.doMock('@/lib/supabase/client', () => ({
-      getSupabaseBrowserClient: () => ({
-        auth: {
-          getSession: mockGetSession,
-          onAuthStateChange: mockOnAuthStateChange,
-        },
-      }),
-    }));
-
-    render(
+    renderWithProviders(
       <AuthSessionProvider>
         <div>Test</div>
       </AuthSessionProvider>
@@ -146,16 +156,7 @@ describe('AuthSessionProvider timezone capture', () => {
       },
     };
 
-    vi.doMock('@/lib/supabase/client', () => ({
-      getSupabaseBrowserClient: () => ({
-        auth: {
-          getSession: mockGetSession,
-          onAuthStateChange: mockOnAuthStateChange,
-        },
-      }),
-    }));
-
-    render(
+    renderWithProviders(
       <AuthSessionProvider>
         <div>Test</div>
       </AuthSessionProvider>
@@ -187,23 +188,17 @@ describe('AuthSessionProvider timezone capture', () => {
 
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    vi.doMock('@/lib/supabase/client', () => ({
-      getSupabaseBrowserClient: () => ({
-        auth: {
-          getSession: mockGetSession,
-          onAuthStateChange: mockOnAuthStateChange,
-        },
-      }),
-    }));
-
-    render(
+    renderWithProviders(
       <AuthSessionProvider>
         <div>Test</div>
       </AuthSessionProvider>
     );
 
     await waitFor(() => {
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Timezone capture failed'));
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Timezone capture failed'),
+        expect.anything()
+      );
     });
 
     consoleWarnSpy.mockRestore();
@@ -236,19 +231,19 @@ describe('AuthSessionProvider timezone capture', () => {
 
     mockGetSession.mockResolvedValue({ data: { session: mockSession } });
 
-    vi.doMock('@/lib/supabase/client', () => ({
-      getSupabaseBrowserClient: () => ({
-        auth: {
-          getSession: mockGetSession,
-          onAuthStateChange: mockOnAuthStateChange,
-        },
-      }),
-    }));
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
 
     const { rerender } = render(
-      <AuthSessionProvider>
-        <div>Test</div>
-      </AuthSessionProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthSessionProvider>
+          <div>Test</div>
+        </AuthSessionProvider>
+      </QueryClientProvider>
     );
 
     await waitFor(() => {
@@ -259,9 +254,11 @@ describe('AuthSessionProvider timezone capture', () => {
 
     // Force re-render by rendering the same component again
     rerender(
-      <AuthSessionProvider>
-        <div>Test</div>
-      </AuthSessionProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthSessionProvider>
+          <div>Test</div>
+        </AuthSessionProvider>
+      </QueryClientProvider>
     );
 
     // Wait a moment to allow any spurious effect runs to occur

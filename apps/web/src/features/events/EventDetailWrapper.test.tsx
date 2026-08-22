@@ -32,7 +32,7 @@ Object.defineProperty(window, "matchMedia", {
 })
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { graphql, HttpResponse } from "msw"
-import { server as globalServer } from "../../../../../packages/testing-config/vitest.setup"
+import { setupServer } from "msw/node"
 import { NuqsTestingAdapter } from "nuqs/adapters/testing"
 
 // Mock router and auth session
@@ -189,13 +189,29 @@ const handlers = [
       },
     })
   }),
+  api.query("me", () => {
+    return HttpResponse.json({
+      data: {
+        me: {
+          id: "u_1",
+          email: "test@example.com",
+          role: "user",
+        },
+      },
+    })
+  }),
 ]
+
+const server = setupServer()
 
 describe("EventDetailWrapper", () => {
   let queryClient: QueryClient
 
+  beforeAll(() => server.listen())
+  afterAll(() => server.close())
+
   beforeEach(() => {
-    globalServer.use(...handlers)
+    server.use(...handlers)
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
@@ -257,6 +273,7 @@ describe("EventDetailWrapper", () => {
   })
 
   afterEach(() => {
+    server.resetHandlers()
     queryClient.clear()
     vi.clearAllMocks()
     document.body.innerHTML = ""
@@ -614,7 +631,7 @@ describe("EventDetailWrapper", () => {
 
   it("timezone submit failure shows error message and rolls back optimistic update", async () => {
     // Override handler for this test to return error
-    globalServer.use(
+    server.use(
       graphql.link("*/api/graphql").mutation("resolveScheduleTimezone", () => {
         return HttpResponse.json({ errors: [{ message: "Mutation failed" }] })
       })

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
+import { render, screen, cleanup } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { FilterPanel } from "./filter-panel"
 
@@ -34,6 +34,10 @@ describe("FilterPanel", () => {
     mockOnFilterChange.mockClear()
   })
 
+  afterEach(() => {
+    cleanup()
+  })
+
   it("renders filter controls", () => {
     render(<FilterPanel filters={defaultFilters} onFilterChange={mockOnFilterChange} />)
     expect(screen.getByText("Source")).toBeInTheDocument()
@@ -46,7 +50,7 @@ describe("FilterPanel", () => {
     render(<FilterPanel filters={defaultFilters} onFilterChange={mockOnFilterChange} />)
 
     const sourceSelect = screen.getByDisplayValue("All Sources")
-    await user.selectOption(sourceSelect, "APIFY")
+    await user.selectOptions(sourceSelect, "APIFY")
 
     expect(mockOnFilterChange).toHaveBeenCalledWith({ source: "APIFY" })
   })
@@ -71,7 +75,7 @@ describe("FilterPanel", () => {
     render(<FilterPanel filters={defaultFilters} onFilterChange={mockOnFilterChange} />)
 
     const sortSelect = screen.getByDisplayValue("Newest first")
-    await user.selectOption(sortSelect, "oldest")
+    await user.selectOptions(sortSelect, "oldest")
 
     expect(mockOnFilterChange).toHaveBeenCalledWith({ sortOrder: "oldest" })
   })

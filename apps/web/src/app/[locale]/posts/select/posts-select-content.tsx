@@ -173,6 +173,15 @@ export function PostsSelectContent() {
   const pollTimeElapsed = scrapePollingStartTime ? Date.now() - scrapePollingStartTime : 0;
   const shouldStopPolling = pollTimeElapsed > pollTimeoutMs;
 
+  // Start tracking poll elapsed time as soon as a scrape is observed to be in
+  // progress, even if it wasn't triggered from this session (e.g. on page load
+  // or after a tab switch while a scrape kicked off elsewhere is still running).
+  useEffect(() => {
+    if (activeSub?.account?.isScrapeInProgress && scrapePollingStartTime === null) {
+      setScrapePollingStartTime(Date.now())
+    }
+  }, [activeSub?.account?.isScrapeInProgress, scrapePollingStartTime])
+
   // Set up polling interval for subscription updates
   useEffect(() => {
     if (!shouldPoll || shouldStopPolling) return;
@@ -429,7 +438,7 @@ export function PostsSelectContent() {
 
       {/* Tab Content */}
       <div className="mt-6">
-        {postsLoading ? (
+        {postsLoading || !activeAccountId ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <PostCardSkeleton key={i} />

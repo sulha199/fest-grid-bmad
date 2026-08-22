@@ -199,6 +199,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.useRealTimers();
   mockSession = { user: { id: 'user-1', email: 'user@test.dev' } };
   mockAuthLoading = false;
 });
@@ -459,8 +460,6 @@ describe('PostsSelectContent integration', () => {
     });
 
     it('shows timeout message when polling exceeds 60 seconds', async () => {
-      vi.useFakeTimers();
-
       mockSubscriptions = [
         {
           ...mockSubscriptions[0],
@@ -472,15 +471,36 @@ describe('PostsSelectContent integration', () => {
         },
       ];
 
-      renderComponent();
+      // Build the tree directly (rather than via renderComponent()) so we can
+      // rerender it later with the same QueryClient instance, preserving the
+      // already-loaded cache instead of resetting to a loading state. A fresh
+      // element is built on each call (not a reused const) because React bails
+      // out of re-rendering a subtree when the exact same element reference is
+      // passed to rerender again.
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const buildTree = () => (
+        <QueryClientProvider client={queryClient}>
+          <NextIntlClientProvider locale="en" messages={enMessages}>
+            <PostsSelectContent />
+          </NextIntlClientProvider>
+        </QueryClientProvider>
+      );
+      const { rerender } = render(buildTree());
 
-      // Advance time past 60 seconds
-      vi.advanceTimersByTime(61000);
+      await screen.findByText(/Scraping for new posts/);
 
-      const timeoutMsg = await screen.findByText(/Still processing/);
-      expect(timeoutMsg).toBeInTheDocument();
-
-      vi.useRealTimers();
+      // hasTimedOut is computed from Date.now() at render time, so jumping the
+      // clock forward and forcing a rerender is enough to exercise it, without
+      // depending on the polling interval's refetch promise actually
+      // completing while fake timers are active.
+      const futureTime = Date.now() + 61000;
+      const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(futureTime);
+      try {
+        rerender(buildTree());
+        expect(screen.getByText(/Still processing/)).toBeInTheDocument();
+      } finally {
+        dateNowSpy.mockRestore();
+      }
     });
 
     it('refetches posts when isScrapeInProgress transitions from true to false', async () => {
@@ -543,7 +563,22 @@ describe('PostsSelectContent integration', () => {
         errors: [{ extensions: { code: 'SCRAPE_ALREADY_IN_PROGRESS' } }],
       };
 
-      vi.mocked(graphqlClient.request).mockRejectedValueOnce(mockError);
+      // Only reject the triggerAccountScrape call, not whichever query happens
+      // to fire first on mount (mockRejectedValueOnce would break initial load
+      // since it intercepts the very next request regardless of which one it is).
+      const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+      vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
+        const docStr =
+          arg1 && typeof arg1 === 'object' && 'document' in arg1
+            ? arg1.document.toString()
+            : arg1
+            ? arg1.toString()
+            : '';
+        if (docStr.includes('triggerAccountScrape')) {
+          throw mockError;
+        }
+        return baseImpl(arg1, arg2);
+      });
 
       renderComponent();
 
@@ -561,7 +596,22 @@ describe('PostsSelectContent integration', () => {
         errors: [{ extensions: { code: 'SCRAPER_CAPACITY_EXCEEDED' } }],
       };
 
-      vi.mocked(graphqlClient.request).mockRejectedValueOnce(mockError);
+      // Only reject the triggerAccountScrape call; see the comment in the
+      // SCRAPE_ALREADY_IN_PROGRESS test above for why mockRejectedValueOnce
+      // isn't targeted enough here.
+      const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+      vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
+        const docStr =
+          arg1 && typeof arg1 === 'object' && 'document' in arg1
+            ? arg1.document.toString()
+            : arg1
+            ? arg1.toString()
+            : '';
+        if (docStr.includes('triggerAccountScrape')) {
+          throw mockError;
+        }
+        return baseImpl(arg1, arg2);
+      });
 
       renderComponent();
 

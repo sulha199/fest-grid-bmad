@@ -1,9 +1,9 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { graphql, HttpResponse } from 'msw';
-import { server } from '@festgrid/testing-config/vitest.setup';
+import { setupServer } from 'msw/node';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import enMessages from '../../../../locales/en.json';
@@ -62,6 +62,11 @@ const archivedEventsCalls: any[] = [];
 
 let mockForceEmpty = false;
 let mockForceError = false;
+
+const server = setupServer();
+
+beforeAll(() => server.listen());
+afterAll(() => server.close());
 
 beforeEach(() => {
   server.use(
@@ -164,6 +169,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  server.resetHandlers();
   vi.clearAllMocks();
   cleanup();
   archivedEventsCalls.length = 0;

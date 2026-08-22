@@ -45,7 +45,6 @@ vi.mock('../../../../lib/graphql-client', async () => {
 });
 
 import { SubscriptionsContent } from './subscriptions-content';
-import { server as globalServer } from '../../../../../../../packages/testing-config/vitest.setup';
 
 const mockSubscriptions = [
   {
@@ -130,7 +129,6 @@ const server = setupServer(
 );
 
 beforeAll(() => {
-  globalServer.close();
   server.listen({ onUnhandledRequest: 'bypass' });
 });
 afterEach(() => {
@@ -143,7 +141,6 @@ afterEach(() => {
 });
 afterAll(() => {
   server.close();
-  globalServer.listen({ onUnhandledRequest: 'error' });
 });
 
 function renderWithProviders(ui: React.ReactElement) {
