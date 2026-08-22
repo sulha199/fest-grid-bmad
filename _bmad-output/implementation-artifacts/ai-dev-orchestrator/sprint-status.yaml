@@ -68,7 +68,7 @@ development_status:
   epic-1: in-progress
   1-1-build-the-story-file-parser-serializer: ready-for-dev
   1-2-build-the-sprint-status-yaml-parser-serializer: ready-for-dev
-  1-3-speed-worker-implements-a-storys-task-checklist: backlog
+  1-3-speed-worker-implements-a-storys-task-checklist: ready-for-dev
   1-4-complex-worker-implements-complex-work-and-performs-tier-1-review: backlog
   1-5-tester-runs-real-build-test-and-classifies-failures: backlog
   1-6-auto-fix-retry-loop-with-shared-ceiling-enforced-attempts: backlog
