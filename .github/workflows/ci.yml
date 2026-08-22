@@ -63,6 +63,9 @@ jobs:
       - name: Run Database Migrations (test DB)
         run: pnpm --filter @festgrid/database run migrate
 
+      - name: Seed test DB
+        run: pnpm --filter @festgrid/database run seed
+
       - name: Run tests
         env:
           BACKEND_PORT: '4001'
