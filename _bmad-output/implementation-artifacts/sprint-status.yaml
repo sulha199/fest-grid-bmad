@@ -125,7 +125,7 @@ development_status:
   # Story 0.14 predates this need and Story 0.25's SES reconciliation is scoped only
   # to L_API. User confirmed via AskUserQuestion to split this off narrowly rather
   # than fold it into Story 3.10. See epics.md Story 0.27 note.
-  0-27-provision-the-notifier-lambda-s-infrastructure-and-ses-send-permission: backlog
+  0-27-provision-the-notifier-lambda-s-infrastructure-and-ses-send-permission: ready-for-dev
   # added 2026-08-15 via bmad-create-story Gate 3 finding while reopening Story 1.3g
   # for AC13 (sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md
   # Section 4.4, AD-9): packages/ui has no shadcn/Radix setup at all, but AD-9
