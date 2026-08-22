@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, cleanup } from "@testing-library/react";
 import { useCurrentLocationCapture } from "./useCurrentLocationCapture";
 
 describe("useCurrentLocationCapture", () => {
@@ -16,6 +16,7 @@ describe("useCurrentLocationCapture", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
     if (originalGeolocation) {
       vi.stubGlobal("navigator", { geolocation: originalGeolocation });

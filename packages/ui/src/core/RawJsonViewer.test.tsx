@@ -1,8 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, afterEach } from 'vitest';
+import { render, screen, cleanup } from '@testing-library/react';
 import { RawJsonViewer } from './RawJsonViewer';
 
 describe('RawJsonViewer', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it('renders valid JSON in pretty-printed format', () => {
     const testData = { key: 'value', nested: { count: 42 } };
     const { container } = render(<RawJsonViewer value={testData} />);
