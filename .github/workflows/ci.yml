@@ -45,6 +45,8 @@ jobs:
         run: pnpm run build
 
       - name: Run tests
+        env:
+          BACKEND_PORT: '4001'
         run: pnpm run test
 
   db-migrate:
