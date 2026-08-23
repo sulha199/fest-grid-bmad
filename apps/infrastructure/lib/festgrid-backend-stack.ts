@@ -125,12 +125,41 @@ export class FestgridBackendStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
     };
 
+    // Secrets Manager values are embedded as CloudFormation dynamic references
+    // (via unsafeUnwrap() below), which CloudFormation only re-resolves when it
+    // detects an actual property diff on the resource. Rotating a secret's value
+    // in Secrets Manager doesn't change this template's literal text, so a plain
+    // `cdk deploy` (even with --force) would otherwise silently no-op and leave
+    // Lambdas running stale secret values. Stamping every secret-consuming
+    // Lambda's environment with a fresh synth-time timestamp guarantees a real
+    // diff on every deploy, forcing all dynamic references to re-resolve.
+    const secretsSyncedAt = new Date().toISOString();
+
     // L_API
     const apiLambda = new nodejs.NodejsFunction(this, `ApiLambda-${stageName}`, {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/api.ts'),
       handler: 'handler',
       ...sharedLambdaProps,
       timeout: cdk.Duration.seconds(25),
+      bundling: {
+        format: nodejs.OutputFormat.CJS,
+        commandHooks: {
+          beforeBundling(): string[] {
+            return [];
+          },
+          beforeInstall(): string[] {
+            return [];
+          },
+          // server.ts's createSchema() reads apps/backend/src/schema/*.graphql
+          // via readdirSync at runtime; esbuild won't bundle non-JS assets, so
+          // copy them into the deployment package alongside the compiled code.
+          afterBundling(inputDir: string, outputDir: string): string[] {
+            return [
+              `node "${path.resolve(projectRoot, 'apps/infrastructure/scripts/copy-graphql-schema.cjs')}" "${inputDir}" "${outputDir}"`,
+            ];
+          },
+        },
+      },
       environment: {
         STAGE: stageName,
         STAGE_NAME: stageName,
@@ -175,6 +204,7 @@ export class FestgridBackendStack extends cdk.Stack {
         APIFY_JOB_TIMEOUT_MINUTES: process.env.APIFY_JOB_TIMEOUT_MINUTES || '180',
         UNPROCESSED_PAYLOAD_RETENTION_DAYS: process.env.UNPROCESSED_PAYLOAD_RETENTION_DAYS || '30',
         SCRAPE_IN_PROGRESS_TIMEOUT_HOURS: process.env.SCRAPE_IN_PROGRESS_TIMEOUT_HOURS || '3',
+        SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
 
@@ -193,6 +223,7 @@ export class FestgridBackendStack extends cdk.Stack {
         APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),
         BRIGHTDATA_API_TOKEN: brightdataApiTokenSecret.secretValue.unsafeUnwrap(),
         BRIGHTDATA_DATASET_ID: process.env.BRIGHTDATA_DATASET_ID || 'gd_lk5ns7kz21pck8jpis',
+        SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
 
@@ -210,6 +241,7 @@ export class FestgridBackendStack extends cdk.Stack {
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         DATA_INGESTION_QUEUE_URL: dataIngestionQueue.queueUrl,
         GEOAPIFY_API_KEY: geoapifyApiKeySecret.secretValue.unsafeUnwrap(),
+        SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
 
@@ -224,6 +256,7 @@ export class FestgridBackendStack extends cdk.Stack {
         STAGE_NAME: stageName,
         BACKEND_PORT: '4000',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
+        SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
 
@@ -243,6 +276,7 @@ export class FestgridBackendStack extends cdk.Stack {
         QUEUE_NOTIFICATION_THRESHOLD_DAYS: process.env.QUEUE_NOTIFICATION_THRESHOLD_DAYS || '3',
         QUEUE_NOTIFICATION_THRESHOLD_COUNT: process.env.QUEUE_NOTIFICATION_THRESHOLD_COUNT || '3',
         QUEUE_NOTIFICATION_COOLDOWN_DAYS: process.env.QUEUE_NOTIFICATION_COOLDOWN_DAYS || '7',
+        SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
 
@@ -352,6 +386,7 @@ export class FestgridBackendStack extends cdk.Stack {
         STAGE_NAME: stageName,
         BACKEND_PORT: '4000',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
+        SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
 
@@ -367,6 +402,7 @@ export class FestgridBackendStack extends cdk.Stack {
         BACKEND_PORT: '4000',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),
+        SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
 
