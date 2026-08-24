@@ -409,7 +409,10 @@ test('editAccountDefaultLocation mutation resolver integration', async (t) => {
   });
 
   await t.test('2. rejects with NOT_FOUND when caller is not subscribed', async () => {
-    mockUser = { userId: anotherUser.id, role: anotherUser.role };
+    // Force role: 'user' (not anotherUser.role) so this AC15 regression guard can't be
+    // silently defeated by the moderator-bypass path if the seeded fixture user happens
+    // to hold the 'moderator' role in a given test-DB state.
+    mockUser = { userId: anotherUser.id, role: 'user' };
 
     const response = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
@@ -499,7 +502,6 @@ test('editAccountDefaultLocation mutation resolver integration', async (t) => {
     });
 
     const body = await response.json();
-    console.log('TEST 4 BODY:', JSON.stringify(body, null, 2));
     assert.ok(!body.errors, JSON.stringify(body.errors));
     assert.ok(body.data.editAccountDefaultLocation.defaultLocation, 'Should return defaultLocation');
     assert.equal(body.data.editAccountDefaultLocation.hasPendingDefaultLocationReview, true);

@@ -1,6 +1,6 @@
 export interface AccountLocationFieldLabels {
-  editLabel?: string;
-  pendingReviewLabel?: string;
+  editLabel: string;
+  pendingReviewLabel: string;
 }
 
 export interface AccountLocationFieldProps {
@@ -10,5 +10,5 @@ export interface AccountLocationFieldProps {
   } | null;
   isPendingReview?: boolean;
   onEdit: () => void;
-  labels?: AccountLocationFieldLabels;
+  labels: AccountLocationFieldLabels;
 }
