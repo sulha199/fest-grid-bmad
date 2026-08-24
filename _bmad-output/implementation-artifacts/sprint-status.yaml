@@ -222,7 +222,8 @@ development_status:
   # UPDATE 2026-08-24 (same day): AC14 revised to compose the new
   # GridContainer primitive (Story 0.31, baseCols=1 colsStep=1) instead of a
   # hand-written literal className. Blocked on Story 0.31.
-  1-3d-build-the-reusable-eventlistview-component: ready-for-dev
+  # DONE 2026-08-24: AC14 merged (Wave 2, story/wave2-page-grid-adoption).
+  1-3d-build-the-reusable-eventlistview-component: done
   # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
   # home-content.tsx and favorites-content.tsx still duplicate the SearchBar/FilterHub
   # row above the shell Story 1.3d already extracted. Positioned as a 1.3-family
@@ -278,7 +279,8 @@ development_status:
   # instead of a one-file w-full change. Blocked on Story 0.30. The original
   # narrow implementation (story/1-3-ac9-full-width worktree, already coded
   # and tested) is superseded -- do not merge that branch.
-  1-3-display-a-list-of-events-on-the-main-page: ready-for-dev
+  # DONE 2026-08-24: AC9 merged (Wave 2, story/wave2-page-grid-adoption).
+  1-3-display-a-list-of-events-on-the-main-page: done
   1-4-search-for-events: done
   1-5a-build-the-reusable-multiselect-component: done
   # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-
@@ -328,7 +330,8 @@ development_status:
   # PageContainer primitive (Story 0.30), full-width instead of max-w-7xl.
   # Blocked on Story 0.30 landing first. See sprint-change-proposal-2026-08-24-
   # ux-rework-batch.md.
-  2-2-view-favorited-events: ready-for-dev
+  # DONE 2026-08-24: AC14 merged (Wave 2, story/wave2-page-grid-adoption).
+  2-2-view-favorited-events: done
   # Reopened 2026-08-06 via bmad-correct-course: AC5/AC6 revised (hard delete ->
   # AD-8 soft delete via new SoftDeleteAction-param mutation contract), Task 1b
   # (deletedAt migration) added. See sprint-change-proposal-2026-08-06.md.
@@ -395,7 +398,8 @@ development_status:
   # column-count rule N/A (WeeklyCalendarView is a fixed 7-col days-of-week
   # grid). Blocked on Story 0.30. See sprint-change-proposal-2026-08-24-ux-
   # rework-batch.md.
-  2-6-view-and-manage-events-on-a-calendar: ready-for-dev
+  # DONE 2026-08-24: AC10 merged (Wave 2, story/wave2-page-grid-adoption).
+  2-6-view-and-manage-events-on-a-calendar: done
   2-6a-create-user-settings-table-and-settings-query-mutation-resolvers: review
   # regenerated 2026-08-06 via bmad-create-story: user broadened scope from
   # personal-lists-only to a global default across every event view, requested a
@@ -841,7 +845,8 @@ development_status:
   # PageContainer primitive (Story 0.30), full-width instead of max-w-7xl.
   # Blocked on Story 0.30. See sprint-change-proposal-2026-08-24-ux-rework-
   # batch.md.
-  3-7-display-extracted-events-to-the-user: ready-for-dev
+  # DONE 2026-08-24: AC11 merged (Wave 2, story/wave2-page-grid-adoption).
+  3-7-display-extracted-events-to-the-user: done
   # added 2026-08-10 via bmad-create-story while drafting Story 3.7: the UX scenario
   # doc (design-artifacts/C-UX-Scenarios/03-alex-discovers-his-feed/03.4-viewing-the-feed.md)
   # softly describes an optional per-subscription filter on the Feed page, but
@@ -897,7 +902,8 @@ development_status:
   # PageContainer primitive (Story 0.30), full-width instead of max-w-7xl.
   # Blocked on Story 0.30. See sprint-change-proposal-2026-08-24-ux-rework-
   # batch.md.
-  3-11-view-events-for-a-social-media-account: ready-for-dev
+  # DONE 2026-08-24: AC10 merged (Wave 2, story/wave2-page-grid-adoption).
+  3-11-view-events-for-a-social-media-account: done
   # added 2026-08-24 via bmad-correct-course: wraps Stories 3.1b (API Keys),
   # 3.2 (Subscribed Accounts), 5.1 (Posts), 2.9 (Notifications) as tab content
   # in Story 0.29's TabbedShell primitive. The Posts tab's content (Story 5.1)
@@ -1164,7 +1170,8 @@ development_status:
   # PageContainer primitive (Story 0.30), full-width instead of max-w-7xl.
   # Blocked on Story 0.30. See sprint-change-proposal-2026-08-24-ux-rework-
   # batch.md.
-  4-8-view-archived-hidden-personal-events: ready-for-dev
+  # DONE 2026-08-24: AC8 merged (Wave 2, story/wave2-page-grid-adoption).
+  4-8-view-archived-hidden-personal-events: done
   epic-4-retrospective: optional
   epic-5: in-progress
   5-1a-build-the-manual-post-selection-and-extraction-graphql-api-layer: review
@@ -1192,6 +1199,8 @@ development_status:
   # UPDATE 2026-08-24 (later same day): AC12's grid-unification half now
   # composes GridContainer (Story 0.31, baseCols=1 colsStep=1) instead of a
   # hand-written literal className. Also blocked on Story 0.31.
+  # DONE 2026-08-24: AC12 merged (Wave 2, story/wave2-page-grid-adoption).
+  # AC11 (nested-tabs styling) NOT part of this wave -- still open.
   5-1-manual-post-selection-screen: ready-for-dev
   5-2-select-posts-for-extraction: review
   # Reopened 2026-08-24 via bmad-correct-course: added AC6 -- SummaryBar's
@@ -1203,7 +1212,8 @@ development_status:
   # UserMenu's mobile sheet are legitimate). Fix: bottom-14 md:bottom-0
   # instead of bottom-0 (ux-rework-2026-08-24.md item #15, a second note
   # appended after the original file was archived). AC1-AC5 unaffected.
-  5-3-display-and-enforce-api-quota: ready-for-dev
+  # DONE 2026-08-24: AC6 merged (Wave 2, story/wave2-page-grid-adoption).
+  5-3-display-and-enforce-api-quota: done
   5-4-inactive-account-warning: review
   # Reopened 2026-08-24 via bmad-correct-course: wizard steps extended with a
   # push-notification opt-in step (reusing Story 2.9's toggle), exitPath changed
