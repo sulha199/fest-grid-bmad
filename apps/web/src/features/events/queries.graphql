@@ -55,6 +55,7 @@ query getEventBySlug($slug: String!) {
     schedules {
       id
       isMainSchedule
+      title
       eventStartDate
       isAddedToCalendar
       eventEndDate

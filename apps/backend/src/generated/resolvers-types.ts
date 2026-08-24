@@ -856,6 +856,7 @@ export type Schedule = {
   ticketUrl?: Maybe<Scalars['String']['output']>;
   timezone?: Maybe<Scalars['String']['output']>;
   timezoneStatus?: Maybe<ScheduleTimezoneStatus>;
+  title?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['String']['output'];
 };
 
@@ -1656,6 +1657,7 @@ export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends R
   ticketUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   timezone?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   timezoneStatus?: Resolver<Maybe<ResolversTypes['ScheduleTimezoneStatus']>, ParentType, ContextType>;
+  title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;

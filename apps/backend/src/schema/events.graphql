@@ -53,6 +53,7 @@ type Schedule {
   id: ID!
   eventId: ID!
   isMainSchedule: Boolean!
+  title: String
   eventStartDate: String!
   eventEndDate: String
   eventStartTime: String

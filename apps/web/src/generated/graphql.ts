@@ -874,6 +874,7 @@ export type Schedule = {
   ticketUrl?: Maybe<Scalars['String']['output']>;
   timezone?: Maybe<Scalars['String']['output']>;
   timezoneStatus?: Maybe<ScheduleTimezoneStatus>;
+  title?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['String']['output'];
 };
 
@@ -1207,7 +1208,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, isFavorited: boolean, isHiddenForCurrentUser: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, displayName: string, profileImageUrl: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, isFavorited: boolean, isHiddenForCurrentUser: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, displayName: string, profileImageUrl: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetEventForIcsExportQueryVariables = Exact<{
   id: string | number;
@@ -2013,6 +2014,7 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
     schedules {
       id
       isMainSchedule
+      title
       eventStartDate
       isAddedToCalendar
       eventEndDate
@@ -2981,7 +2983,7 @@ export const MyReportsDocument = new TypedDocumentString(`
 
 export const useMyReportsQuery = <
       TData = MyReportsQuery,
-      TError extends Record<string, any> = Record<string, any>
+      TError = unknown
     >(
       client: GraphQLClient,
       variables?: MyReportsQueryVariables,
@@ -2991,10 +2993,10 @@ export const useMyReportsQuery = <
     
     return useQuery<MyReportsQuery, TError, TData>(
       {
-        queryKey: variables === undefined ? ['myReports'] : ['myReports', variables],
-        queryFn: fetcher<MyReportsQuery, MyReportsQueryVariables>(client, MyReportsDocument, variables, headers),
-        ...options
-      }
+    queryKey: variables === undefined ? ['myReports'] : ['myReports', variables],
+    queryFn: fetcher<MyReportsQuery, MyReportsQueryVariables>(client, MyReportsDocument, variables, headers),
+    ...options
+  }
     )};
 
 export const DeleteApiKeyDocument = new TypedDocumentString(`
