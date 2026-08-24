@@ -194,7 +194,7 @@ Applies to Stories 1.3b (cards) and indirectly informs, but does not require cha
 
 **Scope:** Major overall, split by track:
 
-- **Track A (PM/Architect first):** Items #14 (system key + `changedByUserId` schema gap) and #4/#5 (IA restructuring + nested-tabs question). Route to **Product Manager** (`bmad-prd`, to formally amend §3.7/§4.5/§4.14/§6) and **Architect** (`bmad-architecture`, for the system-key addendum), then a scoped **`bmad-ux`** pass for the Posts-tab nesting question and Item #11's multi-day spanning, before any of these become stories via `bmad-create-story`.
+- **Track A (PM/Architect first):** Items #14 (system key + `changedByUserId` schema gap) and #4/#5 (IA restructuring + nested-tabs question). Route to **Product Manager** (`bmad-prd`, to formally amend §3.7/§4.5/§4.14) and **Architect** (`bmad-architecture`, for the system-key addendum), then a scoped **`bmad-ux`** pass for Item #11's multi-day spanning (the Posts-tab nesting question was separately resolved directly, see the first addendum below), before any of these become stories via `bmad-create-story`. **PM half done 2026-08-24** — §3.7/§4.5/§4.14 amended (`.memlog.md` entries in the PRD's own workspace); §6 needed no edit, just careful wording in §3.7 so the system-key exception doesn't read as Phase 2 launching early. Architect half (system-key addendum) still open.
 - **Track B (PO/Dev, ready once Track A's docs land):** Items #10, #12, #2, #3, #4.9 (date rule), and the favorite-count addition — additive, non-conflicting, can be drafted into stories immediately via `bmad-create-story` referencing the story IDs listed in Section 2's impact table.
 
 **Deliverables:**

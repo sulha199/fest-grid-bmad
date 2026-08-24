@@ -730,6 +730,12 @@ development_status:
   # fallback tier), Story 0.16/2.4b (geocode Gemini's place description into
   # real LocationDetails -- never trust an LLM for coordinates directly). See
   # sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.1.
+  # UPDATE 2026-08-24 (bmad-prd): PRD amended -- Section 3.7 AI-Assisted
+  # Location Inference/Account Profile Backfill, Section 4.14 changedByUserId
+  # now optional + new changeSource enum, Section 4.5 cross-reference. PRD is
+  # no longer a blocker. Still blocked on the architecture-spine addendum
+  # (system-key storage/scope, Track A's second half, not yet done) before
+  # bmad-create-story.
   3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: backlog
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3

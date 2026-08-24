@@ -7,7 +7,7 @@ status: "final"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-08-08T00:00:00Z"
+updated: "2026-08-24T00:00:00Z"
 
 ---
 
@@ -71,6 +71,9 @@ This feature allows users to curate their event feed by subscribing to specific 
     *   **Default Location for Subscriptions:** To handle cases where an event's location is implicit (e.g., an event at a mall posted on the mall's social media), users can optionally set a "Default Location" when subscribing to an account. If the AI agent does not find an explicit location in a post, it will use this default location for the event.
         *   **Shared, Account-Level Setting:** A "Default Location" belongs to the social media account, not to an individual subscriber — because AI extraction runs once per post for accounts with multiple subscribers, a per-subscriber default would be ambiguous about which value applies to the resulting event. Any subscriber may set it if unset.
         *   **Immediate Apply with Moderator Oversight:** Editing a "Default Location" takes effect immediately, with no pre-approval gate — extraction is not blocked waiting on review. When a change is made, moderators are notified by email and can, from Moderator Tools (Section 3.9.3), accept the change or revert the account to its previous default location.
+        *   **AI-Assisted Location Inference (added 2026-08-24):** If a "Default Location" is still unset when a post is scraped, the system infers one automatically rather than leaving the account without a fallback. The AI agent is given only the post's own scraped metadata (its caption and any location name attached to the post itself) — never a subscriber's saved location preference (Section 3.3), which exists for a different, already-consented purpose (finding nearby events) and must not be repurposed to label an account, per the Location Data Reuse Boundary (Section 5). The agent's inferred place description is then resolved into full location details (coordinates, formatted address) via the standard geolocation lookup, and the result is written to "Default Location" exactly as a human edit would be — going through the same immediate-apply-with-moderator-oversight flow above, so moderators review an AI-inferred value the same way they review a human one. Which of the two produced a given change is recorded (Section 4.14) so moderators can tell them apart.
+        *   **Key Used for Inference (added 2026-08-24):** This inference call prefers a contributing subscriber's own BYOK Gemini key (the same fairness/rotation approach as regular extraction, above). Only when no subscriber of the account has a usable key does the system fall back to a platform-funded key, held centrally for this purpose. This system key is used exclusively for default-location inference on accounts with no subscriber-contributed key; it does not extend to general post-extraction processing, which remains BYOK-only until the managed-key-pool phase of the platform's rollout (Section 6).
+*   **Account Profile Backfill from Scraped Posts (added 2026-08-24):** Every scraped post also carries the publishing account's own profile information (its current display name and username). When this differs from what is stored, the system updates the account's stored profile to match — keeping subscriber-facing account details current without requiring a subscriber to notice and re-enter them.
 *   **Quota Management & Notifications:**
 *   **Email Notifications:** Users will receive email notifications if `X` of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
 *   **In-App Queue Status:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user, providing transparency on API key performance and quota impact.
@@ -502,7 +505,9 @@ interface SocialMediaAccountProfile {
    * per post for shared accounts, so a per-subscriber value would be ambiguous
    * about which one applies. Changing it applies immediately; see Section 3.7
    * for the moderator notify/accept/revert flow, and `DefaultLocationChangeRequest`
-   * (Section 4.14) for the audit trail.
+   * (Section 4.14) for the audit trail. May be set by a human subscriber or,
+   * when left unset, by the AI-assisted inference described in Section 3.7 —
+   * `DefaultLocationChangeRequest.changeSource` (Section 4.14) records which.
    */
   defaultLocation?: LocationDetails;
 }
@@ -801,6 +806,11 @@ enum DefaultLocationChangeStatus {
   REVERTED,
 }
 
+enum DefaultLocationChangeSource {
+  USER,          // a subscriber explicitly set or edited the value
+  AI_INFERENCE,  // the system inferred it automatically (Section 3.7 AI-Assisted Location Inference) — added 2026-08-24
+}
+
 /**
  * Audit and moderation-queue record for edits to
  * `SocialMediaAccountProfile.defaultLocation` (Section 4.5). The change applies
@@ -815,9 +825,18 @@ interface DefaultLocationChangeRequest {
    */
   accountId: string;
   /**
-   * The ID of the `User` (Section 4.8) who made the change.
+   * The ID of the `User` (Section 4.8) who made the change. Absent when
+   * `changeSource` is `AI_INFERENCE` — an automated change has no human
+   * subscriber to attribute it to. (Field made optional 2026-08-24; was
+   * previously required, back when every change was a human edit.)
    */
-  changedByUserId: string;
+  changedByUserId?: string;
+  /**
+   * Whether a subscriber or the system produced this change (added 2026-08-24)
+   * — lets Moderator Tools show an AI-inferred value distinctly from a human
+   * edit, since the two carry different confidence.
+   */
+  changeSource: DefaultLocationChangeSource;
   previousLocation?: LocationDetails;
   newLocation: LocationDetails;
   status: DefaultLocationChangeStatus;
