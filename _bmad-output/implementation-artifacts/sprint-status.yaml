@@ -1258,6 +1258,10 @@ development_status:
   # must scope to status: PENDING so auto-resolved personal reports (Story 4.3a's
   # 2026-08-12 correction) never appear in the attention queue. Story is unstarted,
   # so no rework caused. See sprint-change-proposal-2026-08-12.md.
+  # Approved 2026-08-25: AC10-15 amendment Pre-Coding Approval Gate signed off by
+  # user (all confirmation items + escape-hatch acknowledgment). Hard dependency on
+  # Story 3.3b's AC15-19 amendment is cleared -- 3.3b merged to master (c134f0f),
+  # independently verified. bmad-dev-story cleared to proceed on Tasks 13-17.
   4-7-moderator-items-page: ready-for-dev
   # added 2026-08-24 via bmad-correct-course: new tabbed shell (Story 0.29)
   # wrapping Stories 3-4k (actor-runs) and 3-4i (unprocessed-payloads), reusing
