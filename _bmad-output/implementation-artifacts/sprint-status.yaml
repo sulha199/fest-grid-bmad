@@ -582,6 +582,10 @@ development_status:
   # moderators; AC9's moderator-alert email is not suppressed for self-resolved writes.
   # AC1-14 unaffected, subscriber-path regression required (AC15). See
   # sprint-change-proposal-2026-08-24-moderator-location-override.md.
+  # Approved 2026-08-25: AC15-19 amendment Pre-Coding Approval Gate signed off by
+  # user (all confirmation items + escape-hatch acknowledgment). bmad-dev-story
+  # cleared to proceed on Tasks 1-2, 10 (the AD-11 amendment scope). Story 4.7's
+  # own AC10-15 amendment stays hard-blocked on this landing first, per its own gate.
   3-3b-edit-an-accounts-default-location: ready-for-dev
   # regenerated 2026-08-08 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (this story is itself that sweep's own Gate 3
