@@ -97,9 +97,10 @@ The main view is centered around a filterable, dynamic grid of events that can b
 
 - **Default Location for a Subscribed Account:**
   1. User navigates to the "Manage Subscribed Accounts" page (`/settings/subscriptions`).
-  2. Each subscribed account's row shows its current default location, if any, and a "Set/Edit Default Location" action, following the In-Table Add Form pattern.
+  2. Each subscribed account's row renders `{components.account_location_field}` (Component Patterns § Account Location Field), showing its current default location, if any, and a "Set/Edit Default Location" action, following the In-Table Add Form pattern.
   3. **First time set (no default location on the account yet):** clicking the action reveals a text input field; the user types a location (e.g., "Grand Indonesia Mall, Jakarta") and saves. The location is persisted immediately and associated with the *account* — not the individual subscription — so every other subscriber to that account inherits it too.
-  4. **Editing an already-set default location:** the field shows the existing value, editable. Saving is never blocked — the change applies immediately — but it triggers the "Default Location Pending Review" state (see State Patterns), since an edit here silently changes what every other subscriber of the account sees.
+  4. **Editing an already-set default location:** the field shows the existing value, editable. Saving is never blocked — the change applies immediately — but it triggers the "Default Location Pending Review" state (see State Patterns), since an edit here silently changes what every other subscriber of the account sees. This is true even for a subscriber who also happens to hold the moderator role — this page always uses the standard review-required flow regardless of viewer role (Component Patterns § Account Location Field).
+- **Correcting an Account's Default Location (Moderator, added 2026-08-24):** A moderator reviewing pending "Default Location" changes on Moderator Items (`/moderator/items`, Story 4.7) is not limited to Accept/Revert on a bad value — the same `{components.account_location_field}` used on the subscriber settings page also renders inline on each pending-request row, letting the moderator set the value directly to the actually-correct one. Unlike a subscriber's edit, a moderator's edit from this page applies with no further review and automatically clears any other still-pending request for that account (see State Patterns § Default Location Pending Review).
 
 ## Voice and Tone
 
@@ -141,6 +142,17 @@ The feeling of using FestDaily should be one of exciting discovery. Microcopy sh
 
 **Interaction with the same-week-relative/`>`7-days-absolute date display rule.** No change needed. That rule (Section 4.9) is explicitly scoped to card/list *event* views, not the calendar — "calendar already positions items by absolute day column." The mobile list's day-row headers are themselves each day's absolute-date anchor (same `formatDayHeader` output the grid already uses, left-aligned per `{components.calendar.mobile_day_list.day_row_header}` instead of centered), so the relative-label rule simply does not apply inside the calendar at any breakpoint — confirmed non-conflicting, not extended here.
 
+### Account Location Field
+
+*Added via a targeted `bmad-ux` pass, 2026-08-24 — the shared component step of `sprint-change-proposal-2026-08-24-moderator-location-override.md`, following that proposal's PRD amendment (§3.7 "Moderator Override", §4.14 `changeSource: MODERATOR` / `status: SUPERSEDED`) and architecture amendment (AD-11). Extracted from `subscriptions-content.tsx`'s existing inline block — value, `{components.status_badge.pendingReview}` badge, and edit trigger — which today is hand-duplicated rather than shared, not a new interaction being invented.*
+
+**One component, two call sites, no role-branching inside it.** `AccountLocationField` displays an account's current default location, its `pendingReview` status if one is open (`{components.status_badge}`, existing `pendingReview` variant — this closes a pre-existing gap where the subscriber page hand-rolled its own badge styling instead of using the shared primitive), and an edit trigger that opens the existing `SetDefaultLocationDialog` (already generic — `accountId`/`mode`/`initialLocation` props, unchanged by this pass). The component itself does not check who's viewing it or branch on role; it only renders what it's given and calls back on edit. It composes into two contexts:
+
+- **Subscriber settings** (`/settings/subscriptions`, Story 3.2/3.3b): one instance per subscribed-account row, exactly as today's layout — this pass only extracts the existing inline markup into the shared component, no visual change.
+- **Moderator review** (`/moderator/items`, Story 4.7, not yet built): one instance per pending-request list item, rendered *alongside* — not replacing — the existing Accept/Revert actions (Information Architecture § `/moderator/items`). Accept, Revert, and directly editing via `AccountLocationField`'s trigger are three additive options on the same row, matching how a moderator actually thinks about a bad value: agree with it, discard it with no opinion on the right answer, or supply the right answer directly (State Patterns § Default Location Pending Review covers the resulting states).
+
+**Review-required vs. self-resolved is decided by the page, not the viewer's role.** A user who holds the moderator role and also personally subscribes to an account can reach `editAccountDefaultLocation` from either page. Resolved: mutation semantics follow which page is doing the calling, not an ambient check on the logged-in user's role. Editing from `/settings/subscriptions` always goes through the standard subscriber flow (`changeSource: USER`, creates a `PENDING_REVIEW` request) — even for a moderator — because that page's call site is deliberately wired to the ordinary subscriber path; only `/moderator/items`'s call site is wired to the moderator path (`changeSource: MODERATOR`, self-resolved, AD-11). This keeps "acting as moderator" a deliberate page you navigate to, not a silent capability upgrade on a page built for subscribers.
+
 ## State Patterns
 
 ### Soft Delete with Undo
@@ -172,7 +184,8 @@ This pattern applies only when a user edits an *already-set* default location on
     *   The new value saves and displays right away — the save is never blocked waiting on a moderator.
     *   A confirmation message acknowledges the save and briefly notes that the change affects every subscriber to this account and has been sent for moderator review — informative, not alarming (Voice and Tone).
     *   The row shows a "Pending Review" badge until a moderator resolves it.
-*   **Resolution (external):** A moderator accepts or reverts the change from Moderator Tools (Epic 4). On revert, the row's value reverts to the prior location and the badge clears; on accept, the badge simply clears.
+*   **Resolution (external):** A moderator accepts, reverts, or directly corrects the change from Moderator Tools (Epic 4) via `{components.account_location_field}` (Component Patterns § Account Location Field). On revert, the row's value reverts to the prior location and the badge clears; on accept, the badge simply clears; on a direct correction, the row's value updates to the moderator's input immediately and the badge clears with no further review needed — the moderator's edit *is* the review (added 2026-08-24, AD-11).
+*   **Superseded (added 2026-08-24):** If a *later* edit — by any subscriber or a moderator — completes while this request is still pending, this request is marked superseded rather than staying in the queue: its badge and any action affordance disappear from view (it is not actionable and not shown as a separate history item in this pattern's scope). The account row simply reflects whatever the newer edit produced. This prevents a moderator from acting on a stale before/after snapshot that a subsequent edit has already overtaken.
 
 ## Responsive & Platform
 
