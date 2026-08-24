@@ -4,7 +4,7 @@
 
 - Epic: 3
 - Story ID: 3.7
-- Status: review
+- Status: ready-for-dev (AC11 amendment; AC1-AC10 already delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -26,6 +26,7 @@ so that I can see the results of the event extraction process.
 8. **Given** a schedule belonging to one of my subscribed accounts' events has `timezoneStatus = 'NEEDS_CLARIFICATION'` (Story 3.6a, surfaced by Story 3.6d), **when** I view that event from a Feed-originated link, **then** Story 3.6d's clarification UI applies unchanged — this story does not duplicate, reimplement, or special-case that surface; Feed only needs to link into the same event detail view Story 3.6d augments.
 9. **Given** any Feed-page-specific string (page title, empty-state message and CTA label, error state, search placeholder, view-switcher labels), **when** the page renders in either supported locale, **then** the string resolves via `next-intl` from a new `FeedPage` i18n namespace (mirroring `FavoritesPage`/`DiscoveryPage`) — no hardcoded English strings — for both `en` and `id`.
 10. **Given** the backend `events` GraphQL query's `isFromSubscribedAccount` DSL field (new, this story), **when** it is evaluated for an unauthenticated request, **then** it behaves like `isFavorited`/`isAddedToCalendar` and excludes all events (`sql\`false\``); **when** evaluated for an authenticated user, **then** it includes only events whose source post's account the user has an active (non-soft-deleted) subscription to.
+11. **AC11 — Adopt shared `PageContainer` (added 2026-08-24 via `bmad-correct-course`, expanding `ux-rework-2026-08-24.md` item #1):** And Feed's root container div (the same `"p-4 sm:p-8 space-y-8 max-w-7xl mx-auto"` pattern as Discovery/Favorites) is replaced with `<PageContainer>` (`@festgrid/ui`, Story 0.30) — full viewport width plus the responsive `min-w-*` floor, per `project-context.md`'s "Grid/Calendar Page Containers" rule. Applies to both Feed's card-grid view and its calendar view (the latter via the container only — `WeeklyCalendarView`'s 7-column structure is unaffected). **Depends on Story 0.30.** No other behavior change.
 
 ## Tasks / Subtasks
 
@@ -179,7 +180,9 @@ so that I can see the results of the event extraction process.
 
 ## Completion Status
 
-- [x] Completed
+- [x] Completed (AC1-AC10, original)
+
+**2026-08-24 (`bmad-correct-course`):** Reopened for AC11 only (adopt `PageContainer`, blocked on Story 0.30 — see `sprint-change-proposal-2026-08-24-ux-rework-batch.md`). AC1-AC10 unaffected.
 
 ## Dev Agent Record
 

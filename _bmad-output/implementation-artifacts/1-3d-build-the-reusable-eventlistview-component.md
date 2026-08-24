@@ -7,7 +7,7 @@ baseline_commit: 704c86d15e26c66b94ea0695f36cba8f5e529955
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.3d
-- Status: review
+- Status: ready-for-dev (AC14 amendment; AC1-AC13 already delivered — this doc's own Dev Agent Record/Completion Notes/File List below were never filled in by whoever actually built it, a pre-existing doc-drift gap unrelated to this amendment)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,6 +32,7 @@ so that the Discovery feed (`home-content.tsx`, Story 1.3) and Favorites page (`
 11. **And** View Toggles (Card/Calendar) and Filter-by-Location — both named in `design-artifacts/D-Design-System/01-event-list-view.md` but implemented nowhere in the codebase today — are explicitly out of scope. `EventListView` renders Card View only; Calendar View remains Epic 2 Story 2.6's separate concern.
 12. **And** the component is documented and exported from `packages/ui`'s public entry point (`packages/ui/src/features/events/index.ts`) for reuse across features.
 13. **And** integration/unit tests verify: all four `status`/empty/success render branches, `getCardProps` merge behavior (including key-collision precedence), `mainSchedule` derivation (including the fallback-to-first-schedule case), infinite-scroll sentinel/spinner passthrough, and that existing `home-content`/`favorites-content` integration tests (`page.test.tsx`, `favorites-content.test.tsx`) still pass unmodified in their assertions (DOM output must not change).
+14. **AC14 — Grid column count scales past `lg:` (added 2026-08-24 via `bmad-correct-course`, expanding `ux-rework-2026-08-24.md` item #1):** And the default `className` (AC1) widens from `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6` (capped at 3 columns for any viewport ≥1024px, including ultra-wide monitors) to `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6`, matching `project-context.md`'s "Grid/Calendar Page Containers" rule and `DESIGN.md`'s `grid.base` token exactly. This is the default only — any caller already passing an explicit `className` override is unaffected. No change to `EventCard` itself, `getCardProps`, or any other AC.
 
 ## Tasks / Subtasks
 
@@ -55,8 +56,17 @@ so that the Discovery feed (`home-content.tsx`, Story 1.3) and Favorites page (`
   - [ ] If either test file breaks in a way that reveals an actual behavior drift (not a test-plumbing issue), treat that as a bug introduced by this refactor and fix `EventListView`/the page — never adjust the test's expected behavior to match a drifted implementation.
 - [ ] Task 5: Final checks
   - [ ] `pnpm build` / `pnpm lint` clean at the repo root.
+- [ ] **Task 6: Widen the default grid column count (AC14, added 2026-08-24)**
+  - [ ] Change `EventListView.tsx`'s default `className` parameter from `'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'` to `'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'`.
+  - [ ] Manually verify at 1280px (`xl`) and 1536px (`2xl`) that the grid shows 4 and 5 columns respectively, with no card-width distortion (cards should get narrower, not stretch/squash).
+  - [ ] Confirm no current call site (`home-content.tsx`, `favorites-content.tsx`, `archive-content.tsx`, `account-content.tsx`, `feed-content.tsx`) passes an explicit `className` override that would suppress this change — a grep across all 5 confirmed none do as of this amendment.
+  - [ ] **Not this task's scope:** the Pinterest/masonry view mode (a *different* className, `grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6`, per `project-context.md`) is separate, not-yet-built work — see Dev Notes → Masonry Forward Note. Do not build it as part of this task.
 
 ## Dev Notes
+
+### Masonry Forward Note (added 2026-08-24, not this story's scope to build)
+
+`ux-rework-2026-08-24.md` item #10 (a Pinterest-style 2-col-mobile masonry view mode, native poster aspect ratio, relative-day + like-count badges) is reopened against Stories 1.3b (`EventCard` `variant="masonry"`) and this story (the view-mode switcher + masonry grid className) but not yet detailed into concrete ACs here. When that work is picked up, its column-count progression is already locked in `project-context.md`'s "Grid/Calendar Page Containers" rule and `DESIGN.md`'s `grid.masonry` token — `grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6` — so that future `bmad-create-story` pass should consume that spec rather than re-deriving column counts.
 
 ### Architecture & UX Gate Findings
 
@@ -245,7 +255,9 @@ No changes required. This story adds no database columns, no GraphQL schema/reso
 
 ## Completion Status
 
-- [ ] Ready for review
+- [x] Ready for review (AC1-AC13, original)
+
+**2026-08-24 (`bmad-correct-course`):** Reopened for AC14 only (grid column count widened past `lg:`, `ux-rework-2026-08-24.md` item #1 expanded scope — see `sprint-change-proposal-2026-08-24-ux-rework-batch.md`). AC1-AC13 unaffected.
 
 ## Dev Agent Record
 

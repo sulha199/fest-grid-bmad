@@ -7,7 +7,7 @@ baseline_commit: 6bc344df103dfc8c9989c3496a30a0e049a40684
 
 - Epic: 2 - User Personalization
 - Story ID: 2.6
-- Status: review (validated via the app-level My Calendar test; AC9 is now backed by fresh green evidence)
+- Status: ready-for-dev (AC10 amendment; AC1-AC9 status unchanged, see AC9's own pending-validation note above)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,6 +32,8 @@ so that I can visualize my upcoming event schedule at a glance, per `EXPERIENCE.
 
 **AC9 — Week-picker pass-through (added 2026-08-13 via `bmad-correct-course`, Section 4.5; refined 2026-08-15 via `bmad-create-story`):**
 And this story's `my-calendar-content.tsx` wrapper passes Story 1.3g's `onSelectWeek` callback through to Story 3.7a's `handleSelectWeek`, and supplies the corresponding translated label(s), with no independent week-boundary logic introduced at this layer. **Already substantially true in the current code** (see Dev Notes → Current Implementation State) — the one genuinely outstanding piece is passing a new `getWeekRange: (date: Date) => { start: Date; end: Date }` prop through to `WeeklyCalendarView` once Story 1.3g's Task 14/15 (`WeekPicker.tsx`) lands, built from Story 3.7a's `getWeekStart`/`getWeekEnd` (already imported in this file).
+
+**AC10 — Adopt shared `PageContainer` (added 2026-08-24 via `bmad-correct-course`, expanding `ux-rework-2026-08-24.md` item #1):** And `my-calendar-content.tsx`'s root `<div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto">` is replaced with `<PageContainer>` (`@festgrid/ui`, Story 0.30) — full viewport width plus the responsive `min-w-*` floor, per `project-context.md`'s "Grid/Calendar Page Containers" rule. Column-count scaling does not apply here — `WeeklyCalendarView`'s 7-column (days-of-week) structure is unaffected by this AC, only the container's width. **Depends on Story 0.30.** No other behavior change.
 
 ## Tasks / Subtasks
 
@@ -277,6 +279,8 @@ Matches `CalendarView.tsx`'s existing classification exactly: the initial week f
 ## Completion Status
 
 **Rechecked 2026-08-15** — the `getWeekRange` pass-through is already implemented in `my-calendar-content.tsx`, but the repo-level app test still fails due to an unhandled MSW GraphQL request. The story remains in the pending validation state until that harness issue is resolved and the app test passes.
+
+**2026-08-24 (`bmad-correct-course`):** Reopened for AC10 only (adopt `PageContainer`, blocked on Story 0.30 — see `sprint-change-proposal-2026-08-24-ux-rework-batch.md`), independent of the pending AC9 validation above.
 
 ## Dev Agent Record
 

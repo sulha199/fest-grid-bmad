@@ -25,7 +25,7 @@ so that I can discover what is happening around me.
 6. **AC6 — Non-blocking initial skeleton:** And on initial load, a skeleton grid matching the card layout is shown (reducing layout shift) instead of a blank page or a full-screen spinner.
 7. **AC7 — i18n:** And all user-facing labels and loading/empty/error states on this page are localized using `next-intl`, with message keys present in both `en` and `id` locale files (AD-6, NFR23).
 8. **AC8 — Test coverage:** And integration tests verify the ongoing/upcoming default filter and the paginated append (not-replace) behavior, and one E2E happy-path test verifies initial render plus at least one infinite-scroll page append.
-9. **AC9 — Full-width root container (added 2026-08-24 via `bmad-create-story`, `ux-rework-2026-08-24.md` item #1):** And the page's root container consumes the available viewport width instead of being capped at `max-w-7xl` (1280px) — the current class (`p-4 sm:p-8 space-y-8 max-w-7xl mx-auto`, now living in `home-content.tsx`, see File Drift Note below) drops its `max-w-7xl` constraint in favor of full-width with the same responsive horizontal padding (`p-4 sm:p-8`) preserved, so content still has breathing room on the viewport edges. No change to the grid's column-count breakpoints (`packages/ui`'s `EventCard` grid classes) — only the outer container's width ceiling.
+9. **AC9 — Full-width root container via shared `PageContainer` (revised 2026-08-24, same day — see amendment note below):** And the page's root container consumes the available viewport width instead of being capped at `max-w-7xl` (1280px), using the shared `PageContainer` primitive (`packages/ui/src/core/page-container.tsx`, Story 0.30) rather than a page-local class string — `home-content.tsx`'s root `<div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">` (see File Drift Note below) is replaced with `<PageContainer>`. This supersedes this AC's original same-day version (a one-line `w-full` class change, implemented in the now-superseded `story/1-3-ac9-full-width` worktree — do not merge that branch) once a wider sweep found the identical container string duplicated across 7 pages, warranting a shared primitive instead of a per-file fix. See `project-context.md`'s "Grid/Calendar Page Containers" rule for the full spec (width, responsive min-width, and the column-count rule that Story 1.3d's `EventListView` amendment implements separately).
 
 ## Tasks / Subtasks
 
@@ -48,10 +48,12 @@ so that I can discover what is happening around me.
 - [x] Task 6: Tests (AC8)
 	- [x] Integration tests (Vitest + MSW, `@festgrid/testing-config`) covering: default ongoing/upcoming filter is sent/respected, second-page fetch appends without clearing the first page, skeleton/spinner/empty/error states render at the right times.
 	- [x] One E2E happy-path test (`apps/web/e2e/discovery.spec.ts`, Playwright) covering initial render of cards plus a scroll-triggered second-page append.
-- [ ] Task 7: Remove the root container's width cap (AC9)
-	- [ ] In `apps/web/src/app/[locale]/home-content.tsx` (the current file — see File Drift Note), change the root `<div>`'s className from `"p-4 sm:p-8 space-y-8 max-w-7xl mx-auto"` to `"p-4 sm:p-8 space-y-8 w-full"` — drop `max-w-7xl mx-auto`, keep the existing padding/spacing classes unchanged.
-	- [ ] Manually verify at a wide viewport (e.g. 1920px) that the grid now spans the available width and no horizontal scrollbar/overflow is introduced.
-	- [ ] Confirm no other component assumes this container's prior 1280px cap (e.g. an absolutely-positioned child relying on the old width) — direct code read of `home-content.tsx` during this story's creation found none.
+- [ ] Task 7: Adopt `PageContainer` (AC9, revised 2026-08-24)
+	- [ ] **Depends on Story 0.30** (`PageContainer` primitive) landing first.
+	- [ ] In `apps/web/src/app/[locale]/home-content.tsx` (the current file — see File Drift Note), replace the root `<div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">` with `<PageContainer>` (imported from `@festgrid/ui`), removing the now-redundant inline className.
+	- [ ] Manually verify at a wide viewport (e.g. 1920px) that the grid now spans the available width and no horizontal scrollbar/overflow is introduced; at a narrow viewport, confirm the responsive `min-w-*` floor doesn't itself introduce horizontal overflow on a genuinely narrow device (it shouldn't — each `min-w` step is paired to the breakpoint that guarantees that width already, per `project-context.md`).
+	- [ ] Confirm no other component assumes this container's prior 1280px cap — direct code read of `home-content.tsx` during this story's creation found none.
+	- [ ] **Superseded work, do not redo:** the `story/1-3-ac9-full-width` worktree branch already implemented this AC's prior narrower scope (a `w-full` class change, no shared primitive). That branch is not merged and should not be — this task's `PageContainer` adoption replaces it outright.
 
 ## Dev Notes
 
@@ -206,6 +208,8 @@ This story's original File List (below) names `apps/web/src/app/[locale]/page.ts
 ready-for-dev
 
 **2026-08-24 (`bmad-create-story`):** Reopened for AC9/Task 7 only (root container full-width, `ux-rework-2026-08-24.md` item #1 — see `sprint-change-proposal-2026-08-24-ux-rework-batch.md`). AC1-AC8 remain as originally delivered (`review`) and are unaffected by this amendment.
+
+**2026-08-24, later same day (`bmad-correct-course`):** AC9/Task 7 revised — a wider sweep found the same container pattern duplicated across 7 pages, so this now adopts a shared `PageContainer` primitive (Story 0.30) instead of a one-file `w-full` change. **Blocked on Story 0.30 landing first.** The original narrower implementation (`story/1-3-ac9-full-width` worktree) is superseded, not merged.
 
 ## Dev Agent Record
 

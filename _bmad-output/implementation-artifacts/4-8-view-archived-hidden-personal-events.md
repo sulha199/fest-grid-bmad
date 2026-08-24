@@ -7,7 +7,7 @@ baseline_commit: ff277ee70d49baea9ac7a4e4c821b1e1d08692de
 
 - Epic: 4
 - Story ID: 4.8
-- Status: in-progress
+- Status: ready-for-dev (AC8 amendment; AC1-AC7 already delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -26,6 +26,7 @@ so that I can still find and review events I have a personal connection to, even
 5. **And** Archive is a read-only browsing view for this story — no "un-hide"/restore/withdraw action exists yet for any of the three reasons, including "hidden by me" (deferred; see Out of Scope).
 6. **And** unauthenticated visitors to `/archive` are redirected to `/login`, mirroring the existing Favorites/My Calendar/Reports pattern.
 7. **And** the empty state and all locale-sensitive rendering (dates, enum labels, the three "why hidden" reason labels) follow `project-context.md`'s i18n rules — no raw/unformatted values.
+8. **AC8 — Adopt shared `PageContainer` (added 2026-08-24 via `bmad-correct-course`, expanding `ux-rework-2026-08-24.md` item #1):** And `archive-content.tsx`'s root `<div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">` is replaced with `<PageContainer>` (`@festgrid/ui`, Story 0.30) — full viewport width plus the responsive `min-w-*` floor, per `project-context.md`'s "Grid/Calendar Page Containers" rule. **Depends on Story 0.30.** No other behavior change.
 
 ## Tasks / Subtasks
 
@@ -205,7 +206,9 @@ Task 1's `isPastEvent` fragment and Task 2's `Event.isExpiredForCurrentUser` fie
 
 ## Completion Status
 
-- [x] Done
+- [x] Done (AC1-AC7, original)
+
+**2026-08-24 (`bmad-correct-course`):** Reopened for AC8 only (adopt `PageContainer`, blocked on Story 0.30 — see `sprint-change-proposal-2026-08-24-ux-rework-batch.md`). AC1-AC7 unaffected.
 
 ## Dev Agent Record
 

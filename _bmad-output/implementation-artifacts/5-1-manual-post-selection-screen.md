@@ -4,7 +4,7 @@
 
 - Epic: 5
 - Story ID: 5.1
-- Status: review
+- Status: ready-for-dev (AC11-AC12 amendments; AC1-AC10 already delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,6 +31,14 @@ so that I can choose which posts to process for event extraction.
 8.  **And** posts are displayed in a modern card-based grid layout, utilizing the reusable `PostCard` component (Story 5.1b, `packages/ui/src/features/posts/PostCard.tsx`).
 9.  **And** posts are loaded lazily using a non-blocking skeleton loader (`PostCardSkeleton` from Story 5.1b) to minimize Cumulative Layout Shift (CLS) during transitions and initial load.
 10. **And** the canonical route for this screen is `/posts/select`, and a redirection is configured from `/posts/extract` (used in older specs like Story 3.3) to `/posts/select` to prevent broken links.
+11. **AC11 — Per-account tab row is visually distinct from the future Account-Settings shell's outer tabs (added 2026-08-24 via `bmad-correct-course`, resolving the Story 3.12 Posts-tab nesting question):** And once this screen's per-account tab row (AC1-AC6) is nested inside Story 3.12's `TabbedShell`-based Account Settings page as its "Posts" tab, the two tab levels are visually distinct rather than reading as one continuous strip:
+    - The per-account row (currently `border-b-2` underline buttons in `posts-select-content.tsx`, the same visual language a top-level `Tabs` bar uses) changes to **rounded pill/chip style** (filled background when active, no bottom border).
+    - Each pill gains the account's `profileImageUrl` as a small avatar — already fetched in this component for `PostCard`'s `publisher` prop, just not rendered on the tab button itself.
+    - A text label ("Posts from:" or equivalent, sourced via next-intl) is added above the row — today there is no heading there at all.
+    - The row and its content are wrapped in the existing `card` design token (`rounded-lg shadow-md p-4`) so it reads as a box inside the Posts tab panel, not a continuation of the outer shell's page chrome.
+    - Mobile-only: the row changes from `flex flex-wrap` (can grow to multiple rows) to `flex-nowrap overflow-x-auto` (a single scrolling row), `sm:flex-wrap sm:overflow-visible` above the mobile breakpoint — a wrapped multi-row account list would grow tall enough to compete with the outer shell's tabs for vertical space.
+    - **Depends on Story 0.29** (`TabbedShell` primitive) and **Story 3.12** (Account Settings shell) existing, but this AC's five changes are all scoped to this component alone and can be implemented independently of when 3.12 actually nests it.
+12. **AC12 — Adopt shared `PageContainer` and unify the post grid's column progression (added 2026-08-24 via `bmad-correct-course`, expanding `ux-rework-2026-08-24.md` item #1):** And this screen's root `<div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">` is replaced with `<PageContainer>` (`@festgrid/ui`, Story 0.30). And its three inline `PostCard` grids (skeleton, empty-state, and real-posts grids in `posts-select-content.tsx`, currently `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4`) are unified onto the **standard** progression from `project-context.md`'s "Grid/Calendar Page Containers" rule — `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4` — dropping the current `sm:` step so this grid matches `EventListView`'s progression exactly rather than maintaining a third, slightly different scheme. **Depends on Story 0.30.**
 
 ## Tasks / Subtasks
 
@@ -158,7 +166,9 @@ so that I can choose which posts to process for event extraction.
 
 ## Completion Status
 
-- [x] Completed (All tasks implemented and 100% verified via integration tests)
+- [x] Completed (AC1-AC10, original — all tasks implemented and 100% verified via integration tests)
+
+**2026-08-24 (`bmad-correct-course`):** Reopened for AC11 (Posts-tab nesting resolution, superseding the earlier same-day sprint-status.yaml-only note with a real AC) and AC12 (adopt `PageContainer`, unify grid columns — blocked on Story 0.30). AC1-AC10 unaffected. See `sprint-change-proposal-2026-08-24-ux-rework-batch.md`.
 
 ### Change Log
 

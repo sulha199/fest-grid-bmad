@@ -7,7 +7,7 @@ baseline_commit: 9e402d99a2ac7ea5ee272b3d2f309d1dbb3d710a
 
 - Epic: 2 - User Personalization
 - Story ID: 2.2
-- Status: review
+- Status: ready-for-dev (AC14 amendment; AC1-AC13 already delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,6 +32,7 @@ so that I can easily keep track of them without losing my place while the list c
 11. **And** an empty-favorites state, a loading skeleton (matching `EventCard`'s existing `loading` prop, same pattern as `home-content.tsx`), and an error state are all shown as appropriate — none of these currently exist in any UX artifact for this page, so their copy is authored fresh in this story (see Dev Notes → i18n Keys Required).
 12. **And** all user-facing labels, empty/loading/error copy, and the toast/Undo strings are localized via next-intl (`en`/`id`) — no hardcoded user-facing strings.
 13. **And** integration tests (Vitest + msw) verify: auth redirect, snapshot fetch + local pagination, snapshot re-fetch on search/filter change, mark-pending-removal grey-out + toast, Undo cancels with no mutation call, unmount commits all still-pending unfavorites exactly once via `toggleFavorite`, and Next/Previous from a favorites-opened detail view walks the frozen array. One Playwright E2E test covers the authenticated happy path: open Favorites → see favorited events → unfavorite one → Undo → still present → unfavorite again → navigate away → revisit Favorites → event is gone.
+14. **AC14 — Adopt shared `PageContainer` (added 2026-08-24 via `bmad-correct-course`, expanding `ux-rework-2026-08-24.md` item #1):** And `favorites-content.tsx`'s root `<div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">` is replaced with `<PageContainer>` (`@festgrid/ui`, Story 0.30) — full viewport width instead of a `max-w-7xl` cap, plus the responsive `min-w-*` floor, per `project-context.md`'s "Grid/Calendar Page Containers" rule. **Depends on Story 0.30.** No other behavior change.
 
 **Note (AC correction vs. `epics.md`):** `epics.md`'s Story 2.2 AC only says "I can unfavorite an event directly from this page," with no mention of search/filter or the specific list-consistency mechanism. ACs 3, 5, 6-10 above were derived from extensive discussion with the user (2026-08-03) resolving concrete design questions the terse epics.md AC left open, and are authoritative for this story going forward.
 
@@ -266,7 +267,9 @@ New `FavoritesPage` namespace (both `en`/`id`):
 
 ## Completion Status
 
-- [x] Ready for review
+- [x] Ready for review (AC1-AC13, original)
+
+**2026-08-24 (`bmad-correct-course`):** Reopened for AC14 only (adopt `PageContainer`, blocked on Story 0.30 — see `sprint-change-proposal-2026-08-24-ux-rework-batch.md`). AC1-AC13 unaffected.
 
 ## Dev Agent Record
 

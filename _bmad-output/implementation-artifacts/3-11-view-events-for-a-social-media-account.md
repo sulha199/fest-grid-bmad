@@ -8,7 +8,7 @@ baseline_commit: 63afd766260139e0dac905796b87e45967f6536b
 
 - **Epic:** 3
 - **Story ID:** 3.11
-- **Status:** ready-for-dev
+- **Status:** ready-for-dev (AC10 amendment; AC1-AC9 already delivered despite this doc's stale header)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -29,6 +29,7 @@ baseline_commit: 63afd766260139e0dac905796b87e45967f6536b
 7. **And** the platform-to-slug mapping (e.g. Instagram -> `ig`) is defined once, in Story 3.3c's shared `packages/domain/src/scraper/platform-registry.ts` (`PLATFORM_SLUGS`, `getPlatformSlug`, `getPlatformByCode`), and reused for routing here — not hardcoded per-component. [epics.md AC7]
 8. **And** (end-to-end completeness, not a stated epics.md AC but required for the feature this story enables to actually work — see Dev Notes "Why AC8 exists"): Story 1.6a's `EventDetailView` account-attribution link (`accountName`/`accountPlatformIconUrl`/`accountHref`) is wired to real data end-to-end — clicking an event's account attribution on the event detail page navigates to this story's `/{platformSlug}/{accountId}` page for that event's source account. Where an event has no resolvable source account (`postId` is null, or the post's account was hard-deleted), the attribution block is simply omitted (existing `hasAccountAttribution` truthy-gate in `EventDetailView`), not shown broken.
 9. **And** all user-facing strings (page title fallback, search placeholder, empty/error states, calendar labels) are sourced through `next-intl` with both `en` and `id` locale entries — no user-facing English string is hardcoded (project-context.md i18n Core Principle).
+10. **AC10 — Adopt shared `PageContainer` (added 2026-08-24 via `bmad-correct-course`, expanding `ux-rework-2026-08-24.md` item #1):** And `account-content.tsx`'s root `<div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">` is replaced with `<PageContainer>` (`@festgrid/ui`, Story 0.30) — full viewport width plus the responsive `min-w-*` floor, per `project-context.md`'s "Grid/Calendar Page Containers" rule. This is the public, unauthenticated account page (PRD §3.7) — same container rule applies regardless of auth state. **Depends on Story 0.30.** No other behavior change.
 
 ## Tasks / Subtasks
 
@@ -195,7 +196,9 @@ baseline_commit: 63afd766260139e0dac905796b87e45967f6536b
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Done (AC1-AC9, original — despite this doc's own stale "Not started" checkbox; the route and its tests exist in the codebase)
+
+**2026-08-24 (`bmad-correct-course`):** Reopened for AC10 only (adopt `PageContainer`, blocked on Story 0.30 — see `sprint-change-proposal-2026-08-24-ux-rework-batch.md`). AC1-AC9 unaffected.
 
 ## Dev Agent Record
 
