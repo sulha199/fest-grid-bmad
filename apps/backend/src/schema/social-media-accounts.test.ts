@@ -467,7 +467,7 @@ test('editAccountDefaultLocation mutation resolver integration', async (t) => {
   });
 
   await t.test('4. happy path with placeId and default_location_change_requests logging', async () => {
-    mockUser = { userId: testUser.id, role: testUser.role };
+    mockUser = { userId: testUser.id, role: 'user' };
 
     const response = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
@@ -499,6 +499,7 @@ test('editAccountDefaultLocation mutation resolver integration', async (t) => {
     });
 
     const body = await response.json();
+    console.log('TEST 4 BODY:', JSON.stringify(body, null, 2));
     assert.ok(!body.errors, JSON.stringify(body.errors));
     assert.ok(body.data.editAccountDefaultLocation.defaultLocation, 'Should return defaultLocation');
     assert.equal(body.data.editAccountDefaultLocation.hasPendingDefaultLocationReview, true);
@@ -513,7 +514,7 @@ test('editAccountDefaultLocation mutation resolver integration', async (t) => {
   });
 
   await t.test('5. allows stacking concurrent edits', async () => {
-    mockUser = { userId: testUser.id, role: testUser.role };
+    mockUser = { userId: testUser.id, role: 'user' };
 
     // Trigger a second edit
     const response = await yoga.fetch('http://yoga/graphql', {
@@ -548,6 +549,108 @@ test('editAccountDefaultLocation mutation resolver integration', async (t) => {
       .where(eq(defaultLocationChangeRequests.accountId, accountProfileWithLocation.id))
       .orderBy(defaultLocationChangeRequests.createdAt);
     assert.equal(changeRequests.length, 2, 'Should have stacked 2 change requests');
+  });
+
+  await t.test('6. moderator path allows write without active subscription and writes auto-resolved status', async () => {
+    mockUser = { userId: testUser.id, role: 'moderator' };
+
+    // Clean any prior requests for a fresh assertions baseline
+    await db.delete(defaultLocationChangeRequests).where(eq(defaultLocationChangeRequests.accountId, accountProfileWithLocation.id));
+
+    // Moderator edits default location
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation EditAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
+            editAccountDefaultLocation(accountId: $accountId, input: $input) {
+              id
+              defaultLocation {
+                formattedAddress
+              }
+            }
+          }
+        `,
+        variables: {
+          accountId: accountProfileWithLocation.id,
+          input: {
+            placeId: 'moderator-place-id'
+          }
+        }
+      })
+    });
+
+    const body = await response.json();
+    assert.ok(!body.errors, JSON.stringify(body.errors));
+
+    // Verify moderator-specific db columns
+    const changeRequests = await db.select().from(defaultLocationChangeRequests)
+      .where(eq(defaultLocationChangeRequests.accountId, accountProfileWithLocation.id));
+    assert.equal(changeRequests.length, 1);
+    const req = changeRequests[0];
+    assert.equal(req.status, 'ACCEPTED');
+    assert.equal(req.changeSource, 'MODERATOR');
+    assert.equal(req.reviewedByModeratorId, testUser.id);
+    assert.ok(req.reviewedAt !== null);
+  });
+
+  await t.test('7. supersede on write', async () => {
+    await db.delete(defaultLocationChangeRequests).where(eq(defaultLocationChangeRequests.accountId, accountProfileWithLocation.id));
+
+    // 1. Regular user (subscriber) inserts a PENDING_REVIEW request
+    mockUser = { userId: testUser.id, role: 'user' };
+    const res1 = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation EditAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
+            editAccountDefaultLocation(accountId: $accountId, input: $input) {
+              id
+            }
+          }
+        `,
+        variables: {
+          accountId: accountProfileWithLocation.id,
+          input: { placeId: 'user-place-1' }
+        }
+      })
+    });
+    const body1 = await res1.json();
+    assert.ok(!body1.errors, JSON.stringify(body1.errors));
+
+    // 2. Regular user inserts a second PENDING_REVIEW request, which should supersede the first
+    const res2 = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation EditAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
+            editAccountDefaultLocation(accountId: $accountId, input: $input) {
+              id
+            }
+          }
+        `,
+        variables: {
+          accountId: accountProfileWithLocation.id,
+          input: { placeId: 'user-place-2' }
+        }
+      })
+    });
+    const body2 = await res2.json();
+    assert.ok(!body2.errors, JSON.stringify(body2.errors));
+
+    // Verify first request is SUPERSEDED, second is PENDING_REVIEW
+    const changeRequests = await db.select().from(defaultLocationChangeRequests)
+      .where(eq(defaultLocationChangeRequests.accountId, accountProfileWithLocation.id))
+      .orderBy(defaultLocationChangeRequests.createdAt);
+
+    assert.equal(changeRequests.length, 2);
+    assert.equal(changeRequests[0].status, 'SUPERSEDED');
+    assert.equal(changeRequests[0].changeSource, 'USER');
+    assert.equal(changeRequests[1].status, 'PENDING_REVIEW');
+    assert.equal(changeRequests[1].changeSource, 'USER');
   });
 
   await t.test('cleanup - delete all created test data', async () => {

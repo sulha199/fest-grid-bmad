@@ -582,7 +582,7 @@ development_status:
   # moderators; AC9's moderator-alert email is not suppressed for self-resolved writes.
   # AC1-14 unaffected, subscriber-path regression required (AC15). See
   # sprint-change-proposal-2026-08-24-moderator-location-override.md.
-  3-3b-edit-an-accounts-default-location: ready-for-dev
+  3-3b-edit-an-accounts-default-location: review
   # regenerated 2026-08-08 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (this story is itself that sweep's own Gate 3
   # finding); Gate 2 run fresh, no gap (zero UI surface). User confirmed via

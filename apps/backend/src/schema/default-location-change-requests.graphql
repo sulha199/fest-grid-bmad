@@ -2,6 +2,7 @@ enum DefaultLocationChangeRequestStatus {
   PENDING_REVIEW
   ACCEPTED
   REVERTED
+  SUPERSEDED
 }
 
 enum DefaultLocationChangeAction {
