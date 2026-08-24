@@ -18,6 +18,16 @@ export interface FestgridBackendStackProps extends cdk.StackProps {
   stageName: 'dev' | 'staging' | 'prod';
 }
 
+// Lambda enforces a hard 4KB cap on total environment variable bytes. Omitting a key
+// whose value would just re-bake apps/backend/src/env.ts's own runtime default is a
+// no-op behaviorally (the backend applies the identical fallback when the var is
+// absent) but keeps the deployed function under the limit as config keeps growing.
+function definedEnv(vars: Record<string, string | undefined>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(vars).filter((entry): entry is [string, string] => entry[1] !== undefined)
+  );
+}
+
 export class FestgridBackendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: FestgridBackendStackProps) {
     super(scope, id, props);
@@ -181,9 +191,8 @@ export class FestgridBackendStack extends cdk.Stack {
           },
         },
       },
-      environment: {
+      environment: definedEnv({
         STAGE: stageName,
-        STAGE_NAME: stageName,
         BACKEND_PORT: '4000',
         SUPABASE_URL: process.env.SUPABASE_URL || '',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
@@ -192,41 +201,41 @@ export class FestgridBackendStack extends cdk.Stack {
         FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || '',
         FIREBASE_PRIVATE_KEY: firebasePrivateKeySecret.secretValue.unsafeUnwrap(),
         SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
-        SYSTEM_ERROR_ALERT_EMAIL: process.env.SYSTEM_ERROR_ALERT_EMAIL || '',
+        SYSTEM_ERROR_ALERT_EMAIL: process.env.SYSTEM_ERROR_ALERT_EMAIL,
         BYOK_KMS_KEY_ID: kmsKey.keyId,
-        GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
-        API_KEY_INVALID_ATTEMPTS_THRESHOLD: process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD || '5',
-        API_KEY_USAGE_CYCLE_DAYS: process.env.API_KEY_USAGE_CYCLE_DAYS || '30',
+        GEMINI_MODEL: process.env.GEMINI_MODEL,
+        API_KEY_INVALID_ATTEMPTS_THRESHOLD: process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD,
+        API_KEY_USAGE_CYCLE_DAYS: process.env.API_KEY_USAGE_CYCLE_DAYS,
         WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
         SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
-        SCRAPE_INLINE_FALLBACK_ENABLED: process.env.SCRAPE_INLINE_FALLBACK_ENABLED || 'false',
+        SCRAPE_INLINE_FALLBACK_ENABLED: process.env.SCRAPE_INLINE_FALLBACK_ENABLED,
         AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
-        AI_PROCESSING_INLINE_FALLBACK_ENABLED: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED || 'false',
+        AI_PROCESSING_INLINE_FALLBACK_ENABLED: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED,
         DATA_INGESTION_QUEUE_URL: dataIngestionQueue.queueUrl,
-        DATA_INGESTION_INLINE_FALLBACK_ENABLED: process.env.DATA_INGESTION_INLINE_FALLBACK_ENABLED || 'false',
+        DATA_INGESTION_INLINE_FALLBACK_ENABLED: process.env.DATA_INGESTION_INLINE_FALLBACK_ENABLED,
         APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),
-        SCRAPE_RESULTS_LIMIT: process.env.SCRAPE_RESULTS_LIMIT || '10',
-        SCRAPE_INITIAL_LOOKBACK_DAYS: process.env.SCRAPE_INITIAL_LOOKBACK_DAYS || '7',
-        SCRAPE_SKIP_RECENT_HOURS: process.env.SCRAPE_SKIP_RECENT_HOURS || '20',
-        SCRAPER_MONTHLY_BUDGET_USD: process.env.SCRAPER_MONTHLY_BUDGET_USD || '5.00',
-        SCRAPER_PRICE_PER_1000_ITEMS_USD: process.env.SCRAPER_PRICE_PER_1000_ITEMS_USD || '2.70',
-        SCRAPER_CAPACITY_THRESHOLD_RATIO: process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO || '0.9',
-        SCRAPER_USAGE_CYCLE_DAYS: process.env.SCRAPER_USAGE_CYCLE_DAYS || '30',
-        QUEUE_NOTIFICATION_THRESHOLD_DAYS: process.env.QUEUE_NOTIFICATION_THRESHOLD_DAYS || '3',
-        QUEUE_NOTIFICATION_THRESHOLD_COUNT: process.env.QUEUE_NOTIFICATION_THRESHOLD_COUNT || '3',
-        QUEUE_NOTIFICATION_COOLDOWN_DAYS: process.env.QUEUE_NOTIFICATION_COOLDOWN_DAYS || '7',
+        SCRAPE_RESULTS_LIMIT: process.env.SCRAPE_RESULTS_LIMIT,
+        SCRAPE_INITIAL_LOOKBACK_DAYS: process.env.SCRAPE_INITIAL_LOOKBACK_DAYS,
+        SCRAPE_SKIP_RECENT_HOURS: process.env.SCRAPE_SKIP_RECENT_HOURS,
+        SCRAPER_MONTHLY_BUDGET_USD: process.env.SCRAPER_MONTHLY_BUDGET_USD,
+        SCRAPER_PRICE_PER_1000_ITEMS_USD: process.env.SCRAPER_PRICE_PER_1000_ITEMS_USD,
+        SCRAPER_CAPACITY_THRESHOLD_RATIO: process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO,
+        SCRAPER_USAGE_CYCLE_DAYS: process.env.SCRAPER_USAGE_CYCLE_DAYS,
+        QUEUE_NOTIFICATION_THRESHOLD_DAYS: process.env.QUEUE_NOTIFICATION_THRESHOLD_DAYS,
+        QUEUE_NOTIFICATION_THRESHOLD_COUNT: process.env.QUEUE_NOTIFICATION_THRESHOLD_COUNT,
+        QUEUE_NOTIFICATION_COOLDOWN_DAYS: process.env.QUEUE_NOTIFICATION_COOLDOWN_DAYS,
         BRIGHTDATA_API_TOKEN: brightdataApiTokenSecret.secretValue.unsafeUnwrap(),
-        BRIGHTDATA_DATASET_ID: process.env.BRIGHTDATA_DATASET_ID || 'gd_lk5ns7kz21pck8jpis',
+        BRIGHTDATA_DATASET_ID: process.env.BRIGHTDATA_DATASET_ID,
         BRIGHTDATA_WEBHOOK_SECRET: brightdataWebhookSecretSecret.secretValue.unsafeUnwrap(),
-        BRIGHTDATA_JOB_TIMEOUT_MINUTES: process.env.BRIGHTDATA_JOB_TIMEOUT_MINUTES || '180',
-        BRIGHTDATA_PRICE_PER_1000_ITEMS_USD: process.env.BRIGHTDATA_PRICE_PER_1000_ITEMS_USD || '1.50',
-        BRIGHTDATA_MONTHLY_BUDGET_USD: process.env.BRIGHTDATA_MONTHLY_BUDGET_USD || '7.50',
-        BRIGHTDATA_WEBHOOK_DLQ_ARN: process.env.BRIGHTDATA_WEBHOOK_DLQ_ARN || '',
-        APIFY_JOB_TIMEOUT_MINUTES: process.env.APIFY_JOB_TIMEOUT_MINUTES || '180',
-        UNPROCESSED_PAYLOAD_RETENTION_DAYS: process.env.UNPROCESSED_PAYLOAD_RETENTION_DAYS || '30',
-        SCRAPE_IN_PROGRESS_TIMEOUT_HOURS: process.env.SCRAPE_IN_PROGRESS_TIMEOUT_HOURS || '3',
+        BRIGHTDATA_JOB_TIMEOUT_MINUTES: process.env.BRIGHTDATA_JOB_TIMEOUT_MINUTES,
+        BRIGHTDATA_PRICE_PER_1000_ITEMS_USD: process.env.BRIGHTDATA_PRICE_PER_1000_ITEMS_USD,
+        BRIGHTDATA_MONTHLY_BUDGET_USD: process.env.BRIGHTDATA_MONTHLY_BUDGET_USD,
+        BRIGHTDATA_WEBHOOK_DLQ_ARN: process.env.BRIGHTDATA_WEBHOOK_DLQ_ARN,
+        APIFY_JOB_TIMEOUT_MINUTES: process.env.APIFY_JOB_TIMEOUT_MINUTES,
+        UNPROCESSED_PAYLOAD_RETENTION_DAYS: process.env.UNPROCESSED_PAYLOAD_RETENTION_DAYS,
+        SCRAPE_IN_PROGRESS_TIMEOUT_HOURS: process.env.SCRAPE_IN_PROGRESS_TIMEOUT_HOURS,
         SECRETS_SYNCED_AT: secretsSyncedAt,
-      },
+      }),
     });
 
     // L_Scrape
@@ -237,7 +246,6 @@ export class FestgridBackendStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(300),
       environment: {
         STAGE: stageName,
-        STAGE_NAME: stageName,
         BACKEND_PORT: '4000',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
@@ -256,7 +264,6 @@ export class FestgridBackendStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(300),
       environment: {
         STAGE: stageName,
-        STAGE_NAME: stageName,
         BACKEND_PORT: '4000',
         BYOK_KMS_KEY_ID: kmsKey.keyId,
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
@@ -274,7 +281,6 @@ export class FestgridBackendStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(300),
       environment: {
         STAGE: stageName,
-        STAGE_NAME: stageName,
         BACKEND_PORT: '4000',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         SECRETS_SYNCED_AT: secretsSyncedAt,
@@ -289,7 +295,6 @@ export class FestgridBackendStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(300),
       environment: {
         STAGE: stageName,
-        STAGE_NAME: stageName,
         BACKEND_PORT: '4000',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
@@ -404,7 +409,6 @@ export class FestgridBackendStack extends cdk.Stack {
       ...sharedLambdaProps,
       environment: {
         STAGE: stageName,
-        STAGE_NAME: stageName,
         BACKEND_PORT: '4000',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         SECRETS_SYNCED_AT: secretsSyncedAt,
@@ -419,7 +423,6 @@ export class FestgridBackendStack extends cdk.Stack {
       ...sharedLambdaProps,
       environment: {
         STAGE: stageName,
-        STAGE_NAME: stageName,
         BACKEND_PORT: '4000',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),

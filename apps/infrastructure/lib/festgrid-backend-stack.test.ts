@@ -63,7 +63,6 @@ test('FestgridBackendStack provisions correct resources', () => {
     Environment: {
       Variables: Match.objectLike({
         STAGE: 'dev',
-        STAGE_NAME: 'dev',
         BACKEND_PORT: '4000',
         SUPABASE_URL: Match.anyValue(),
         DATABASE_URL: Match.anyValue(),
@@ -72,9 +71,7 @@ test('FestgridBackendStack provisions correct resources', () => {
         FIREBASE_CLIENT_EMAIL: Match.anyValue(),
         FIREBASE_PRIVATE_KEY: Match.anyValue(),
         SES_FROM_EMAIL_ADDRESS: Match.anyValue(),
-        SYSTEM_ERROR_ALERT_EMAIL: Match.anyValue(),
         BYOK_KMS_KEY_ID: Match.anyValue(),
-        GEMINI_MODEL: Match.anyValue(),
         APIFY_API_TOKEN: Match.anyValue(),
         BRIGHTDATA_API_TOKEN: Match.anyValue(),
         BRIGHTDATA_WEBHOOK_SECRET: Match.anyValue(),
@@ -91,7 +88,6 @@ test('FestgridBackendStack provisions correct resources', () => {
     Environment: {
       Variables: Match.objectLike({
         STAGE: 'dev',
-        STAGE_NAME: 'dev',
         BACKEND_PORT: '4000',
         DATABASE_URL: Match.anyValue(),
         SES_FROM_EMAIL_ADDRESS: Match.anyValue(),
