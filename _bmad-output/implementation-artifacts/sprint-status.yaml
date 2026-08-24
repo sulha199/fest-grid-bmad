@@ -117,8 +117,12 @@ development_status:
   # obvious defect (<main>'s md:ps-16/xl:ps-56 should already offset correctly;
   # neither WizardNavigation nor WizardStepSummary sets fixed/sticky/z-index)
   # -- this story's own original Dev Notes admit the wizard chrome was never
-  # tested composed inside the app shell at any breakpoint, so Task 8 requires
-  # live browser reproduction before the fix is written. AC1-AC11 unaffected.
+  # tested composed inside the app shell at any breakpoint. AC1-AC11 unaffected.
+  # UPDATE 2026-08-24 (same day): live-verified via Playwright against the real
+  # app at 500/768/1024/1440px -- NOT reproduced at any width, no collision
+  # with the sidenav rail or mobile bottom tab bar. Not blocked, but needs more
+  # specific repro info (authenticated state? which step? mid-transition?)
+  # before a fix can be written against a bug that doesn't currently reproduce.
   # See sprint-change-proposal-2026-08-24-ux-rework-batch.md.
   0-24-build-the-reusable-wizard-page-primitive: ready-for-dev
   # added 2026-08-07 via bmad-create-story Gate 1 finding while drafting Story 0.23:
