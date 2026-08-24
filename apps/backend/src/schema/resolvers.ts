@@ -493,10 +493,16 @@ export const resolvers: Resolvers = {
         throw err;
       }
     },
-    editAccountDefaultLocation: async (_: any, { accountId, input }: any, context: any, info: any) => {
+    editAccountDefaultLocation: async (_: any, { accountId, input, asModeratorCorrection }: any, context: any, info: any) => {
       try {
         const authUser = requireAuth(context);
-        const isModerator = authUser.role === 'moderator';
+        // Which mutation semantics apply is decided by the calling page (via the explicit
+        // asModeratorCorrection intent flag), not by the caller's role alone -- a moderator
+        // editing their own subscription's default location from /settings/subscriptions
+        // (which never passes this flag) still goes through the ordinary subscriber/review
+        // flow below. Role is still required as a defense-in-depth check: a non-moderator
+        // caller cannot self-grant the moderator path just by passing the flag.
+        const isModerator = authUser.role === 'moderator' && asModeratorCorrection === true;
 
         // 1. Look up caller's active subscription to accountId only if not a moderator
         if (!isModerator) {

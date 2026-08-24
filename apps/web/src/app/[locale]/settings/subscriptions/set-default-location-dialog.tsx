@@ -23,6 +23,14 @@ interface SetDefaultLocationDialogProps {
   onClose: () => void
   mode?: "set" | "edit"
   initialLocation?: LocationDetails
+  /**
+   * Only the moderator review page (/moderator/items) passes true. This is the signal
+   * that decides editAccountDefaultLocation's write semantics (self-resolved vs.
+   * pending review) -- deciding it by the calling page, not the viewer's role alone,
+   * so a moderator editing their own subscription from /settings/subscriptions still
+   * goes through the ordinary review flow.
+   */
+  asModeratorCorrection?: boolean
 }
 
 const DEFAULT_CENTER: Coordinates = {
@@ -30,7 +38,7 @@ const DEFAULT_CENTER: Coordinates = {
   longitude: 106.8456,
 }
 
-export function SetDefaultLocationDialog({ accountId, isOpen, onClose, mode = "set", initialLocation }: SetDefaultLocationDialogProps) {
+export function SetDefaultLocationDialog({ accountId, isOpen, onClose, mode = "set", initialLocation, asModeratorCorrection }: SetDefaultLocationDialogProps) {
   const t = useTranslations("SubscriptionsPage")
   const queryClient = useQueryClient()
   const posthog = usePostHog()
@@ -259,7 +267,7 @@ export function SetDefaultLocationDialog({ accountId, isOpen, onClose, mode = "s
       }
 
       if (mode === "edit") {
-        await editAccountDefaultLocation({ accountId, input })
+        await editAccountDefaultLocation({ accountId, input, asModeratorCorrection })
         
         // Fire PostHog analytics event
         posthog.capture("subscription_default_location_edited", {

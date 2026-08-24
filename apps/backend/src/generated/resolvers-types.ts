@@ -380,6 +380,7 @@ export type MutationDeregisterEmbedDomainArgs = {
 
 export type MutationEditAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
+  asModeratorCorrection?: InputMaybe<Scalars['Boolean']['input']>;
   input: SetAccountDefaultLocationInput;
 };
 

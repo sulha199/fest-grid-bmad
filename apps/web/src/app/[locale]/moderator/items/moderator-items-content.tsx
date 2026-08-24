@@ -351,6 +351,7 @@ export function ModeratorItemsContent() {
           onClose={handleCloseEditDialog}
           mode="edit"
           initialLocation={mapToLocationDetails(editingChange.newLocation)}
+          asModeratorCorrection
         />
       )}
     </div>
