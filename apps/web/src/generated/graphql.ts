@@ -1329,7 +1329,7 @@ export type IgnoreSubsequentReportsMutation = { ignoreSubsequentReports: { id: s
 export type GetPendingDefaultLocationChangesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetPendingDefaultLocationChangesQuery = { pendingDefaultLocationChanges: Array<{ id: string, accountId: string, status: DefaultLocationChangeRequestStatus, createdAt: string, account: { id: string, displayName: string, platform: string, username: string, profileImageUrl: string | null }, previousLocation: { placeName: string | null, formattedAddress: string | null, coordinates: { lat: number, lng: number } } | null, newLocation: { placeName: string | null, formattedAddress: string | null, coordinates: { lat: number, lng: number } } }> };
+export type GetPendingDefaultLocationChangesQuery = { pendingDefaultLocationChanges: Array<{ id: string, accountId: string, status: DefaultLocationChangeRequestStatus, createdAt: string, account: { id: string, displayName: string, platform: string, username: string, profileImageUrl: string | null }, previousLocation: { placeName: string | null, formattedAddress: string | null, coordinates: { lat: number, lng: number } } | null, newLocation: { placeId: string | null, placeName: string | null, formattedAddress: string | null, coordinates: { lat: number, lng: number } } }> };
 
 export type ResolveDefaultLocationChangeMutationVariables = Exact<{
   id: string | number;
@@ -2602,6 +2602,7 @@ export const GetPendingDefaultLocationChangesDocument = new TypedDocumentString(
       }
     }
     newLocation {
+      placeId
       placeName
       formattedAddress
       coordinates {

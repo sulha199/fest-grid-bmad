@@ -23,6 +23,20 @@ vi.mock('@/i18n/navigation', () => ({
   ),
 }));
 
+vi.mock('../../settings/subscriptions/set-default-location-dialog', () => ({
+  SetDefaultLocationDialog: ({ accountId, isOpen, onClose, mode, initialLocation }: any) => (
+    isOpen ? (
+      <div data-testid="mock-set-default-location-dialog">
+        <span>Edit Default Location</span>
+        <span>Account: {accountId}</span>
+        <span>Mode: {mode}</span>
+        <span>Initial: {initialLocation?.placeName}</span>
+        <button onClick={onClose}>Close Dialog</button>
+      </div>
+    ) : null
+  ),
+}));
+
 let mockAuthStatus: 'loading' | 'unauthenticated' | 'unauthorized' | 'authorized' = 'authorized';
 
 vi.mock('@/features/auth/use-require-moderator', () => ({
@@ -276,6 +290,47 @@ describe('ModeratorItemsContent integration', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Test Event 1')).toBeInTheDocument();
+    });
+  });
+
+  it('renders AccountLocationField in place of static location and allows triggering edit', async () => {
+    renderComponent();
+
+    // Verify the edit button from AccountLocationField is rendered
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Correct Test Account's location directly/i)).toBeInTheDocument();
+    });
+
+    // Clicking the edit button should set editingChangeId, which opens SetDefaultLocationDialog
+    fireEvent.click(screen.getByLabelText(/Correct Test Account's location directly/i));
+
+    // Verify that SetDefaultLocationDialog is rendered
+    await waitFor(() => {
+      expect(screen.getByText('Edit Default Location')).toBeInTheDocument();
+      expect(screen.getByText('Account: account-1')).toBeInTheDocument();
+      expect(screen.getByText('Mode: edit')).toBeInTheDocument();
+    });
+  });
+
+  it('closes edit dialog if the pending change being edited is resolved', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Correct Test Account's location directly/i)).toBeInTheDocument();
+    });
+
+    // Open edit dialog
+    fireEvent.click(screen.getByLabelText(/Correct Test Account's location directly/i));
+    await waitFor(() => {
+      expect(screen.getByText('Edit Default Location')).toBeInTheDocument();
+    });
+
+    // Accept/resolve the location change
+    fireEvent.click(screen.getByText('Accept'));
+
+    // Mutual-exclusion guard should close the edit dialog
+    await waitFor(() => {
+      expect(screen.queryByText('Edit Default Location')).not.toBeInTheDocument();
     });
   });
 });

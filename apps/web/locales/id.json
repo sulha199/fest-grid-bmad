@@ -560,7 +560,9 @@
     "detailsLabel": "Detail",
     "statusLabel": "Status",
     "fromLabel": "Dari",
-    "toLabel": "Ke"
+    "toLabel": "Ke",
+    "correctLocationLabel": "Koreksi langsung lokasi {accountName}",
+    "moderatorLocationCorrectedToast": "Lokasi default berhasil dikoreksi"
   },
   "UnprocessedPayloadsPage": {
     "reprocessButton": "Proses Ulang",

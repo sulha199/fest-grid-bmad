@@ -560,7 +560,9 @@
     "detailsLabel": "Details",
     "statusLabel": "Status",
     "fromLabel": "From",
-    "toLabel": "To"
+    "toLabel": "To",
+    "correctLocationLabel": "Correct {accountName}'s location directly",
+    "moderatorLocationCorrectedToast": "Default location successfully corrected"
   },
   "UnprocessedPayloadsPage": {
     "rawJsonLabel": "Raw Payload (JSON)",

@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { StatusBadge } from "@festgrid/ui"
+import { StatusBadge, AccountLocationField } from "@festgrid/ui"
 import { useTranslations } from "next-intl"
 
 export interface PendingLocationChange {
@@ -17,6 +17,7 @@ export interface PendingLocationChange {
     profileImageUrl?: string | null
   }
   previousLocation?: {
+    placeId?: string | null
     placeName?: string | null
     formattedAddress?: string | null
     coordinates: {
@@ -25,6 +26,7 @@ export interface PendingLocationChange {
     }
   } | null
   newLocation: {
+    placeId?: string | null
     placeName?: string | null
     formattedAddress?: string | null
     coordinates: {
@@ -37,9 +39,10 @@ export interface PendingLocationChange {
 interface PendingLocationChangeRowProps {
   change: PendingLocationChange
   onResolve: (id: string, action: "ACCEPT" | "REVERT") => Promise<void>
+  onEditRequest: (changeId: string) => void
 }
 
-export function PendingLocationChangeRow({ change, onResolve }: PendingLocationChangeRowProps) {
+export function PendingLocationChangeRow({ change, onResolve, onEditRequest }: PendingLocationChangeRowProps) {
   const t = useTranslations("ModeratorItemsPage")
   const tStatus = useTranslations("DefaultLocationChangeStatus")
 
@@ -48,7 +51,6 @@ export function PendingLocationChangeRow({ change, onResolve }: PendingLocationC
   }
 
   const prevLocText = change.previousLocation?.formattedAddress || change.previousLocation?.placeName || "Unknown"
-  const newLocText = change.newLocation.formattedAddress || change.newLocation.placeName || "Unknown"
 
   return (
     <div className="p-4 sm:p-6 border rounded-lg bg-card shadow-sm space-y-4 flex flex-col md:flex-row md:items-center md:justify-between md:space-y-0 md:space-x-6">
@@ -82,14 +84,20 @@ export function PendingLocationChangeRow({ change, onResolve }: PendingLocationC
           </div>
           <div>
             <span className="text-xs text-muted-foreground block uppercase font-medium">{t("toLabel")}</span>
-            <span className="font-medium text-foreground">{newLocText}</span>
+            <AccountLocationField
+              location={change.newLocation}
+              isPendingReview={true}
+              onEdit={() => onEditRequest(change.id)}
+              labels={{
+                editLabel: t("correctLocationLabel", { accountName: change.account.displayName || change.account.username }),
+                pendingReviewLabel: tStatus("PENDING_REVIEW"),
+              }}
+            />
           </div>
         </div>
 
         <div className="flex items-center space-x-2 text-xs text-muted-foreground">
           <span>{t("reportedAtLabel")}: {new Date(change.createdAt).toLocaleDateString()}</span>
-          <span>•</span>
-          <StatusBadge variant="pendingReview" label={tStatus("PENDING_REVIEW")} />
         </div>
       </div>
 
