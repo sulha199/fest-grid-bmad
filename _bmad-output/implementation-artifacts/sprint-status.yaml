@@ -869,6 +869,11 @@ development_status:
   # full detail. changeSource enum values confirmed USER/AI_INFERENCE
   # (uppercase, matching the ratified PRD text and the existing
   # DefaultLocationChangeStatus convention).
+  # Approved 2026-08-25: Pre-Coding Approval Gate signed off by user, including
+  # the three flagged decisions (ScraperLambda placement + new IAM/env wiring,
+  # moderator-flow REVERT parity for null-previousLocation AI-inferred rows,
+  # editAccountDefaultLocation's applyDefaultLocationChange extraction).
+  # bmad-dev-story cleared to proceed.
   3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: ready-for-dev
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
