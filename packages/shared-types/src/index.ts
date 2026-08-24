@@ -148,6 +148,9 @@ export interface Post {
   originalPostUrl?: string;
   isExtracted?: boolean;
   publishedAt: DateTimeIso;
+  locationName?: string;
+  ownerDisplayName?: string;
+  ownerUsername?: string;
 }
 
 export interface Favorite {

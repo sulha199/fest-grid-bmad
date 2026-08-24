@@ -8,7 +8,10 @@ export const scrapedPostSchema: JSONSchemaType<ScrapedPost> = {
     imageUrl: { type: 'string', nullable: true },
     postUrl: { type: 'string' },
     originalPostUrl: { type: 'string', nullable: true },
-    publishedAt: { type: 'string' }
+    publishedAt: { type: 'string' },
+    locationName: { type: 'string', nullable: true },
+    ownerDisplayName: { type: 'string', nullable: true },
+    ownerUsername: { type: 'string', nullable: true }
   },
   required: ['content', 'postUrl', 'publishedAt'],
   additionalProperties: false

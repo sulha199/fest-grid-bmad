@@ -112,6 +112,9 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
             imageUrl: post.imageUrl || null,
             content: post.content,
             publishedAt: post.publishedAt,
+            locationName: post.locationName || null,
+            ownerDisplayName: post.ownerDisplayName || null,
+            ownerUsername: post.ownerUsername || null,
           });
 
           if (!result.alreadyExisted) {
@@ -158,6 +161,9 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
             imageUrl: candidate.imageUrl || null,
             content: candidate.content,
             publishedAt: candidate.publishedAt,
+            locationName: candidate.locationName || null,
+            ownerDisplayName: candidate.ownerDisplayName || null,
+            ownerUsername: candidate.ownerUsername || null,
           });
 
           if (!result.alreadyExisted) {

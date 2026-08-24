@@ -37,6 +37,7 @@ import { loadBackendEnv } from '../env.js';
 import { sendDangerousReportModeratorAlerts } from '../lib/notifications/send-dangerous-report-moderator-alerts.js';
 import { enqueuePostForProcessing } from '../lib/posts/enqueue-post-for-processing.js';
 import { replayActorRun } from '../lib/scraper/replay-actor-run.js';
+import { applyDefaultLocationChange } from '../lib/accounts/apply-default-location-change.js';
 
 const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema);
 const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);
@@ -558,68 +559,19 @@ export const resolvers: Resolvers = {
 
         const newLocation = resolved;
 
-        // 5. Update social_media_account_profiles set default_location = resolved
-        await db.update(socialMediaAccountProfiles)
-          .set({
-            defaultLocation: newLocation,
-          })
-          .where(eq(socialMediaAccountProfiles.id, accountId));
-
-        // 6. Insert into default_location_change_requests
-        const insertedRows = await db.insert(defaultLocationChangeRequests).values({
+        const result = await applyDefaultLocationChange({
           accountId,
-          changedByUserId: authUser.userId,
-          previousLocation,
           newLocation,
-          status: isModerator ? ('ACCEPTED' as any) : ('PENDING_REVIEW' as any),
-          changeSource: isModerator ? ('MODERATOR' as any) : ('USER' as any),
-          reviewedByModeratorId: isModerator ? authUser.userId : null,
-          reviewedAt: isModerator ? new Date() : null,
-        }).returning({ id: defaultLocationChangeRequests.id });
+          previousLocation,
+          changedByUserId: authUser.userId,
+          changeSource: isModerator ? 'MODERATOR' : 'USER',
+          accountDisplayName: profile.displayName,
+        });
 
-        const insertedId = insertedRows[0]?.id;
-
-        // 6a. Supersede prior pending requests on successful write
-        if (insertedId) {
-          await db.update(defaultLocationChangeRequests)
-            .set({ status: 'SUPERSEDED' as any })
-            .where(
-              and(
-                eq(defaultLocationChangeRequests.accountId, accountId),
-                eq(defaultLocationChangeRequests.status, 'PENDING_REVIEW' as any),
-                ne(defaultLocationChangeRequests.id, insertedId)
-              )
-            );
-        }
-
-        // 7. Get moderators and send notification emails (best effort, async, non-blocking)
-        try {
-          const moderators = await db.select().from(users).where(eq(users.role, 'moderator'));
-          if (moderators.length > 0) {
-            const previousLocationText = previousLocation.formattedAddress || previousLocation.placeName || 'Unknown';
-            const newLocationText = newLocation.formattedAddress || newLocation.placeName || 'Unknown';
-            const moderatorReviewUrl = `${loadBackendEnv().webAppBaseUrl}/moderator/items`;
-            
-            // Trigger best-effort email dispatch for each moderator in parallel
-            Promise.allSettled(
-              moderators.map((mod) => 
-                sendTemplatedEmail(
-                  'DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT',
-                  mod.email,
-                  {
-                    accountDisplayName: profile.displayName,
-                    previousLocationText,
-                    newLocationText,
-                    moderatorReviewUrl,
-                  }
-                )
-              )
-            ).catch((err) => {
-              console.error('Failed sending moderator emails:', err);
-            });
-          }
-        } catch (emailErr) {
-          console.error('Failed loading moderators or triggering email send:', emailErr);
+        if (!result.applied) {
+          throw new GraphQLError('Failed to apply default location change', {
+            extensions: { code: 'INVALID_STATE_TRANSITION' },
+          });
         }
 
         // 8. Return the updated profile with defaultLocation formatted via formatLocationDetails
@@ -1514,7 +1466,7 @@ export const resolvers: Resolvers = {
             .returning();
           return updated;
         } else if (action === 'REVERT') {
-          if (!reqRow.previousLocation) {
+          if (reqRow.previousLocation === null && reqRow.changeSource !== 'AI_INFERENCE') {
             throw new GraphQLError('Cannot revert change because previous location was not recorded', {
               extensions: { code: 'BAD_REQUEST' },
             });
@@ -1522,7 +1474,7 @@ export const resolvers: Resolvers = {
 
           await tx.update(socialMediaAccountProfiles)
             .set({
-              defaultLocation: reqRow.previousLocation,
+              defaultLocation: reqRow.previousLocation || null,
             })
             .where(eq(socialMediaAccountProfiles.id, reqRow.accountId));
 

@@ -143,7 +143,8 @@ export type DefaultLocationChangeRequest = {
   __typename?: 'DefaultLocationChangeRequest';
   account: SocialMediaAccountProfile;
   accountId: Scalars['ID']['output'];
-  changedByUserId: Scalars['ID']['output'];
+  changeSource: DefaultLocationChangeSource;
+  changedByUserId?: Maybe<Scalars['ID']['output']>;
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   newLocation: LocationDetails;
@@ -158,6 +159,11 @@ export type DefaultLocationChangeRequestStatus =
   | 'PENDING_REVIEW'
   | 'REVERTED'
   | 'SUPERSEDED';
+
+export type DefaultLocationChangeSource =
+  | 'AI_INFERENCE'
+  | 'MODERATOR'
+  | 'USER';
 
 export type EmbedDomain = {
   __typename?: 'EmbedDomain';
@@ -1156,6 +1162,7 @@ export type ResolversTypes = ResolversObject<{
   DefaultLocationChangeAction: DefaultLocationChangeAction;
   DefaultLocationChangeRequest: ResolverTypeWrapper<DefaultLocationChangeRequest>;
   DefaultLocationChangeRequestStatus: DefaultLocationChangeRequestStatus;
+  DefaultLocationChangeSource: DefaultLocationChangeSource;
   EmbedDomain: ResolverTypeWrapper<EmbedDomain>;
   Event: ResolverTypeWrapper<Event>;
   EventCategory: EventCategory;
@@ -1359,7 +1366,8 @@ export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversT
 export type DefaultLocationChangeRequestResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DefaultLocationChangeRequest'] = ResolversParentTypes['DefaultLocationChangeRequest']> = ResolversObject<{
   account?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType>;
   accountId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  changedByUserId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  changeSource?: Resolver<ResolversTypes['DefaultLocationChangeSource'], ParentType, ContextType>;
+  changedByUserId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   newLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType>;

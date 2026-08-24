@@ -159,7 +159,8 @@ export type DefaultLocationChangeRequest = {
   __typename?: 'DefaultLocationChangeRequest';
   account: SocialMediaAccountProfile;
   accountId: Scalars['ID']['output'];
-  changedByUserId: Scalars['ID']['output'];
+  changeSource: DefaultLocationChangeSource;
+  changedByUserId?: Maybe<Scalars['ID']['output']>;
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   newLocation: LocationDetails;
@@ -174,6 +175,12 @@ export enum DefaultLocationChangeRequestStatus {
   PendingReview = 'PENDING_REVIEW',
   Reverted = 'REVERTED',
   Superseded = 'SUPERSEDED'
+}
+
+export enum DefaultLocationChangeSource {
+  AiInference = 'AI_INFERENCE',
+  Moderator = 'MODERATOR',
+  User = 'USER'
 }
 
 export type EmbedDomain = {

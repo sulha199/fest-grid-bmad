@@ -115,6 +115,10 @@ export class FestgridBackendStack extends cdk.Stack {
       secretName: `festgrid-geoapify-api-key-${stageName}`,
       removalPolicy,
     });
+    const systemGeminiApiKeySecret = new secretsmanager.Secret(this, `SystemGeminiApiKeySecret-${stageName}`, {
+      secretName: `festgrid-system-gemini-api-key-${stageName}`,
+      removalPolicy,
+    });
     const firebasePrivateKeySecret = new secretsmanager.Secret(this, `FirebasePrivateKeySecret-${stageName}`, {
       secretName: `festgrid-firebase-private-key-${stageName}`,
       removalPolicy,
@@ -252,6 +256,11 @@ export class FestgridBackendStack extends cdk.Stack {
         APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),
         BRIGHTDATA_API_TOKEN: brightdataApiTokenSecret.secretValue.unsafeUnwrap(),
         BRIGHTDATA_DATASET_ID: process.env.BRIGHTDATA_DATASET_ID || 'gd_lk5ns7kz21pck8jpis',
+        BYOK_KMS_KEY_ID: kmsKey.keyId,
+        GEOAPIFY_API_KEY: geoapifyApiKeySecret.secretValue.unsafeUnwrap(),
+        SYSTEM_GEMINI_API_KEY: systemGeminiApiKeySecret.secretValue.unsafeUnwrap(),
+        SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
+        WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
@@ -343,10 +352,12 @@ export class FestgridBackendStack extends cdk.Stack {
     // KMS Encrypt/Decrypt grants only to API Lambda and AI Processor Lambda
     kmsKey.grantEncryptDecrypt(apiLambda);
     kmsKey.grantEncryptDecrypt(aiProcessorLambda);
+    kmsKey.grantEncryptDecrypt(scraperLambda);
 
     // SES Send Email Identity Grant
     emailIdentity.grantSendEmail(apiLambda);
     emailIdentity.grantSendEmail(notifierLambda);
+    emailIdentity.grantSendEmail(scraperLambda);
 
     // Secrets Manager Grants
     dbUrlSecret.grantRead(apiLambda);
@@ -357,6 +368,9 @@ export class FestgridBackendStack extends cdk.Stack {
 
     geoapifyApiKeySecret.grantRead(apiLambda);
     geoapifyApiKeySecret.grantRead(aiProcessorLambda);
+    geoapifyApiKeySecret.grantRead(scraperLambda);
+
+    systemGeminiApiKeySecret.grantRead(scraperLambda);
 
     firebasePrivateKeySecret.grantRead(apiLambda);
 

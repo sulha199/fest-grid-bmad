@@ -28,6 +28,9 @@ export async function processApifyAsyncResult(
         content: post.content,
         publishedAt: post.publishedAt,
         scraperActorRunId,
+        locationName: post.locationName || null,
+        ownerDisplayName: post.ownerDisplayName || null,
+        ownerUsername: post.ownerUsername || null,
       });
     } catch (error) {
       console.error(`Failed to persist post from Apify item: ${item?.postUrl || item?.url}`, error);

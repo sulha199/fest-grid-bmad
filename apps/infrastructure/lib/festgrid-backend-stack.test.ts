@@ -52,8 +52,8 @@ test('FestgridBackendStack provisions correct resources', () => {
   // 6. Assert Key Policy exists
   template.hasResource('AWS::KMS::Key', {});
 
-  // 7. Assert exactly 6 Secrets exist in Secrets Manager
-  template.resourceCountIs('AWS::SecretsManager::Secret', 6);
+  // 7. Assert exactly 7 Secrets exist in Secrets Manager
+  template.resourceCountIs('AWS::SecretsManager::Secret', 7);
 
   // 8. Assert exactly 1 SES Email Identity exists
   template.resourceCountIs('AWS::SES::EmailIdentity', 1);
@@ -95,6 +95,27 @@ test('FestgridBackendStack provisions correct resources', () => {
         QUEUE_NOTIFICATION_THRESHOLD_DAYS: Match.anyValue(),
         QUEUE_NOTIFICATION_THRESHOLD_COUNT: Match.anyValue(),
         QUEUE_NOTIFICATION_COOLDOWN_DAYS: Match.anyValue(),
+      }),
+    },
+  });
+
+  // 9c. Assert L_Scrape Lambda environment variables are present (Timeout: 300 to disambiguate from L_API and others)
+  template.hasResourceProperties('AWS::Lambda::Function', {
+    Timeout: 300,
+    Environment: {
+      Variables: Match.objectLike({
+        STAGE: 'dev',
+        BACKEND_PORT: '4000',
+        DATABASE_URL: Match.anyValue(),
+        SCRAPING_QUEUE_URL: Match.anyValue(),
+        APIFY_API_TOKEN: Match.anyValue(),
+        BRIGHTDATA_API_TOKEN: Match.anyValue(),
+        BRIGHTDATA_DATASET_ID: Match.anyValue(),
+        BYOK_KMS_KEY_ID: Match.anyValue(),
+        GEOAPIFY_API_KEY: Match.anyValue(),
+        SYSTEM_GEMINI_API_KEY: Match.anyValue(),
+        SES_FROM_EMAIL_ADDRESS: Match.anyValue(),
+        WEB_APP_BASE_URL: Match.anyValue(),
       }),
     },
   });
