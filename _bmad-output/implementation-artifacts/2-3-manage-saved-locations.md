@@ -262,6 +262,8 @@ New `SavedLocationsPage` namespace (both `en`/`id`), plus two new `Metadata` key
 
 **2026-08-24 (`bmad-correct-course`):** Reopened for AC14 only (adopt `PageContainer`/`PageHeader`, blocked on Stories 0.30/0.32). AC1-AC13 unaffected.
 
+**2026-08-24 (Wave 4):** AC14 delivered via Cline, independently verified (diff-scoped against base, `node_modules` confirmed present, lint clean, existing test suite passing) and merged to `master`.
+
 ## Dev Agent Record
 
 ### Agent Model Used

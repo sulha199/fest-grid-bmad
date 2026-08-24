@@ -231,6 +231,8 @@ so that I can fully manage which accounts I'm monitoring for events, not just ad
 
 **2026-08-24 (`bmad-correct-course`):** Reopened for AC14 only (adopt `PageContainer`/`PageHeader` — this is the exact header the user reviewed to request the pattern in the first place. Blocked on Stories 0.30/0.32). AC1-AC13 unaffected.
 
+**2026-08-24 (Wave 4):** AC14 delivered via Cline, independently verified (diff-scoped against base, `node_modules` confirmed present, lint clean, existing test suite passing) and merged to `master`.
+
 **Amended 2026-08-13:** when the user has zero active API keys **and** zero existing subscriptions, `/settings/subscriptions` now redirects to `/wizard/onboarding/api-key?redirect=%2Fsettings%2Fsubscriptions` on load (mirroring Story 5.1a's `/posts/select` pattern), instead of rendering the inline no-API-key prompt against an empty list. The inline prompt (linking to `/settings/api-keys`) is unchanged and still renders for users with zero keys but ≥1 existing subscription — AC4's "view/remove regardless of key possession" guarantee is preserved for that case. Implemented via a new `useApiKeyStatus()` export alongside the existing `useHasApiKey()` hook (`apps/web/src/features/onboarding/use-has-api-key.ts`), adding a loading flag `useHasApiKey()` never exposed.
 
 ## Dev Agent Record

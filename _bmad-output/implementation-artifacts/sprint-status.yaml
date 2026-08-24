@@ -374,7 +374,9 @@ development_status:
   # PageContainer(fullWidth=false) + PageHeader (icon+label action,
   # conditional on locations.length > 0, preserved exactly). Blocked on
   # Stories 0.30 (AC7)/0.32.
-  2-3-manage-saved-locations: ready-for-dev
+  # Wave 4 (2026-08-24): AC14 delivered via Cline, independently verified
+  # (diff-scoped, lint clean, action prop preserved correctly) and merged.
+  2-3-manage-saved-locations: done
   # Reopened 2026-08-06 via bmad-correct-course: AC2/AC5-AC8 revised, AC18-AC20 added
   # (shared map-picker continuity state across search/current-location/map-pick, an
   # embedded search inside the map sheet, zoom control + contextual initial zoom).
@@ -450,7 +452,9 @@ development_status:
   # PageContainer(fullWidth=false) + PageHeader (title-only, no action; drops
   # the border-b pb-4 divider for visual consistency). Blocked on Stories
   # 0.30 (AC7)/0.32.
-  2-9-manage-push-notification-settings: ready-for-dev
+  # Wave 4 (2026-08-24): AC10 delivered via Cline, independently verified
+  # (diff-scoped, lint clean) and merged.
+  2-9-manage-push-notification-settings: done
   2-10-service-worker-lifecycle-updates-and-database-self-healing: review
   epic-2-retrospective: optional
   epic-3: in-progress
@@ -482,7 +486,16 @@ development_status:
   # PageContainer(fullWidth=false) + PageHeader (title-only, no header
   # action -- add-key is via the in-table row). Blocked on Stories 0.30
   # (AC7)/0.32.
-  3-1b-manage-and-revoke-api-keys: ready-for-dev
+  # Wave 4 (2026-08-24): AC12 delivered via Cline, but the "no header action"
+  # premise above was wrong -- no in-table add-row exists or ever existed;
+  # that header button was the only trigger for the Add Key dialog, and
+  # removing it broke the flow (caught by this story's own existing test,
+  # api-keys-content.test.tsx, once actually run -- Cline's report never
+  # mentioned running tests). Fixed directly during verification: PageHeader
+  # now carries the action prop, same pattern as 2-3/3-2/6-5. AC12 text in
+  # the story file corrected to match. Verified (diff-scoped, lint clean,
+  # 4/4 tests passing) and merged.
+  3-1b-manage-and-revoke-api-keys: done
   # regenerated 2026-08-07 via bmad-create-story: full context engine pass. Scope
   # expanded from add-only to also own the full /settings/subscriptions list+remove
   # view (mySubscriptions query, removeSubscription mutation), resolving this
@@ -505,7 +518,10 @@ development_status:
   # conditional on hasApiKey && subscriptions.length > 0, preserved exactly)
   # -- this is the exact header the user reviewed to request the whole
   # PageHeader pattern. Blocked on Stories 0.30 (AC7)/0.32.
-  3-2-subscribe-to-a-social-media-account: ready-for-dev
+  # Wave 4 (2026-08-24): AC14 delivered via Cline, independently verified
+  # (diff-scoped, lint clean, action prop preserved correctly, existing
+  # tests passing) and merged.
+  3-2-subscribe-to-a-social-media-account: done
   # added 2026-08-08 via bmad-create-story Gate 2 finding while drafting Story 3.3:
   # the user confirmed (AskUserQuestion) reusing the full Saved-Locations-style
   # address-autocomplete/current-location/map-pick experience for the default-
@@ -1328,7 +1344,11 @@ development_status:
   # surfaced a pre-existing i18n gap: this page's title/description/button
   # label are hardcoded English, now must move to a WidgetsSettingsPage
   # locale namespace (en/id). Blocked on Stories 0.30 (AC7)/0.32.
-  6-5-configure-and-generate-a-widget-embed: ready-for-dev
+  # Wave 4 (2026-08-24): AC8 delivered via Cline, independently verified
+  # (diff-scoped, lint clean, i18n keys correctly added to both en/id.json,
+  # action + description preserved). No dedicated test file for this page
+  # (pre-existing gap, not introduced here). Merged.
+  6-5-configure-and-generate-a-widget-embed: done
   6-6a-build-the-embed-domain-backend-graphql-api-layer: review
   6-6-register-and-manage-embed-domains: review
   6-7a-build-the-widgets-dynamic-frame-ancestors-csp-middleware: review

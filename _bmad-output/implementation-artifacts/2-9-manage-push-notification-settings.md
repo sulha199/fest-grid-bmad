@@ -194,6 +194,8 @@ One real, non-mechanical tradeoff was surfaced via `AskUserQuestion` before draf
 
 **2026-08-24 (`bmad-correct-course`):** Reopened for AC10 only (adopt `PageContainer`/`PageHeader`, blocked on Stories 0.30/0.32). AC1-AC9 unaffected.
 
+**2026-08-24 (Wave 4):** AC10 delivered via Cline, independently verified (diff-scoped against base, `node_modules` confirmed present, lint clean, existing test suite passing) and merged to `master`.
+
 ## Dev Agent Record
 
 ### Agent Model Used

@@ -120,6 +120,8 @@ So that I can embed FestDaily's event discovery on another site and update it la
 
 **2026-08-24 (`bmad-correct-course`):** Reopened for AC8 only (adopt `PageContainer`/`PageHeader`; also surfaced a pre-existing i18n gap — this page's header strings were hardcoded English, now must move to a locale namespace. Blocked on Stories 0.30/0.32). AC1-AC7 unaffected.
 
+**2026-08-24 (Wave 4):** AC8 delivered via Cline, independently verified (diff-scoped against base, `node_modules` confirmed present, lint clean, i18n keys correctly added to `en.json`/`id.json`) and merged to `master`. No dedicated test file exists for this page (pre-existing gap, not introduced by this change).
+
 ## Dev Agent Record
 
 ### Agent Model Used
