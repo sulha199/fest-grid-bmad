@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-23T00:00:00Z
+last_updated: 2026-08-24T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -793,7 +793,30 @@ development_status:
   # fully done (PRD 0f48abe, FR89-92 backfill 68c99c4, architecture AD-10).
   # Ready for bmad-create-story -- still just a backlog placeholder, no full
   # story file yet.
-  3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: backlog
+  # UPDATE 2026-08-24 (bmad-create-story): full story file written. Note:
+  # the 0-13 entry's reopened comment above (line ~70-73, "selectApiKey gains
+  # a new final-fallback tier") predates and is superseded by AD-10's later,
+  # ratified sibling-function design (callGeminiForLocationInference, NOT a
+  # selectApiKey modification) -- this story follows AD-10, not that stale
+  # phrasing. Gate 1 (run fresh, Epic 3's readiness sweep predates this story
+  # by two weeks and doesn't cover it) raised a real finding -- routing the
+  # Gemini/geolocation calls through the existing AIProcessingQueue/AI
+  # Processor Lambda instead of the Scraper Lambda -- rejected with direct
+  # evidence: that queue only fires on Story 5.1a's manual post-selection
+  # mutation (still backlog, PRD SS3.10), not automatically per scrape, so it
+  # cannot satisfy FR90's "automatically" requirement; the Scraper Lambda
+  # (processScrapeJob) remains the only viable "on every scrape" call site.
+  # Also found and folded into this story's own scope (not split out, both
+  # story-local and required for its own ACs): default_location_change_-
+  # requests.changedByUserId is NOT NULL today with no changeSource column
+  # (schema/GraphQL amendment per PRD S4.14, ratified but not yet
+  # implemented), and resolveDefaultLocationChange's REVERT branch throws on
+  # a null previousLocation, which this story's AI-inference path makes
+  # newly reachable. See the story file's Architecture & UX Gate Findings for
+  # full detail. changeSource enum values confirmed USER/AI_INFERENCE
+  # (uppercase, matching the ratified PRD text and the existing
+  # DefaultLocationChangeStatus convention).
+  3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: ready-for-dev
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap); Gate 2 run fresh (no gap, zero UI
