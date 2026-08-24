@@ -174,7 +174,19 @@ development_status:
   # committed to the branch. Re-verified independently after a clean
   # `pnpm install`: 3/3 tests pass, lint clean, matches spec. Code itself was
   # correct; the reported verification process was not accurate as described.
-  0-30-build-the-reusable-pagecontainer-primitive: done
+  # Reopened 2026-08-24 (later same day) via bmad-correct-course: added AC7 --
+  # fullWidth?: boolean prop (default true, unchanged for existing 8
+  # consumers). fullWidth=false: "w-full max-w-5xl mx-auto lg:min-w-[768px]"
+  # for settings/table pages (never embedded, don't need the 5-step
+  # narrow-host-defense schedule), replacing their inconsistent max-w-3xl/
+  # max-w-4xl split. User confirmed a real max-width cap is wanted here
+  # (reversing the earlier "no cap" framing) -- max-w-5xl chosen as the common
+  # value, numerically aligned with the lg breakpoint where the floor kicks in.
+  # added 2026-08-24 via bmad-correct-course: new Story 0.32 PageHeader
+  # primitive -- h1+optional-action row, found duplicated across 18 files
+  # (drifting heading styles, inconsistent mobile-label hiding, no flex-wrap
+  # safety on some). See 0-32 below.
+  0-30-build-the-reusable-pagecontainer-primitive: ready-for-dev
   # added 2026-08-24 via bmad-correct-course, same day as 0-30: user asked for
   # a reusable grid-column-count component (baseCols/colsStep props, e.g.
   # baseCols=1 colsStep=1 for the standard grid, baseCols=2 colsStep=1 for the
@@ -192,6 +204,15 @@ development_status:
   # spec exactly (lookup-table approach, no runtime string interpolation).
   # Code itself was correct; the reported verification process was not.
   0-31-build-the-reusable-gridcontainer-primitive: done
+  # added 2026-08-24 via bmad-correct-course: PageHeader primitive (title +
+  # optional { label, icon, onClick, disabled? } action, flex-wrap row,
+  # standardized text-3xl font-bold h1, action label hidden below sm:).
+  # Blocks Stories 3.1b/2.3/2.9/3.2/6.5's own adoption ACs. Adoption scoped to
+  # the 6 settings pages this pass (queue-status excluded -- see 3-9a note,
+  # dissolved per Story 3.12, not worth adopting into a page being removed);
+  # the other ~12 pages using the old pattern are a cataloged follow-up, not
+  # dropped. See project-context.md "Page Headers".
+  0-32-build-the-reusable-pageheader-primitive: ready-for-dev
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
@@ -345,7 +366,11 @@ development_status:
   # immediately (DELETE action) instead of on unmount; Undo now calls a real
   # RESTORE mutation; timeout splices from local list, no unmount trigger.
   # New AC11a (delete-call failure path). See sprint-change-proposal-2026-08-06.md.
-  2-3-manage-saved-locations: review
+  # Reopened 2026-08-24 via bmad-correct-course: added AC14 -- adopt
+  # PageContainer(fullWidth=false) + PageHeader (icon+label action,
+  # conditional on locations.length > 0, preserved exactly). Blocked on
+  # Stories 0.30 (AC7)/0.32.
+  2-3-manage-saved-locations: ready-for-dev
   # Reopened 2026-08-06 via bmad-correct-course: AC2/AC5-AC8 revised, AC18-AC20 added
   # (shared map-picker continuity state across search/current-location/map-pick, an
   # embedded search inside the map sheet, zoom control + contextual initial zoom).
@@ -417,7 +442,11 @@ development_status:
   # change) amended alongside. See sprint-change-proposal-2026-08-24-ux-rework-
   # batch.md Section 4.2.
   2-8-user-menu: done
-  2-9-manage-push-notification-settings: review
+  # Reopened 2026-08-24 via bmad-correct-course: added AC10 -- adopt
+  # PageContainer(fullWidth=false) + PageHeader (title-only, no action; drops
+  # the border-b pb-4 divider for visual consistency). Blocked on Stories
+  # 0.30 (AC7)/0.32.
+  2-9-manage-push-notification-settings: ready-for-dev
   2-10-service-worker-lifecycle-updates-and-database-self-healing: review
   epic-2-retrospective: optional
   epic-3: in-progress
@@ -445,7 +474,11 @@ development_status:
   # Reopened 2026-08-24 via bmad-correct-course: becomes Account Settings tab
   # content (Story 0.29 shell); absorbs Story 3.9a's API-key-health banner.
   # See sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.2.
-  3-1b-manage-and-revoke-api-keys: review
+  # Reopened 2026-08-24 via bmad-correct-course: added AC12 -- adopt
+  # PageContainer(fullWidth=false) + PageHeader (title-only, no header
+  # action -- add-key is via the in-table row). Blocked on Stories 0.30
+  # (AC7)/0.32.
+  3-1b-manage-and-revoke-api-keys: ready-for-dev
   # regenerated 2026-08-07 via bmad-create-story: full context engine pass. Scope
   # expanded from add-only to also own the full /settings/subscriptions list+remove
   # view (mySubscriptions query, removeSubscription mutation), resolving this
@@ -463,7 +496,12 @@ development_status:
   # Account Settings tab content (Story 0.29 shell), absorbs Story 3.9a's
   # pending-extraction-count badge. See sprint-change-proposal-2026-08-24-ux-
   # rework-batch.md Sections 4.2/4.3.
-  3-2-subscribe-to-a-social-media-account: review
+  # Reopened 2026-08-24 (later same day) via bmad-correct-course: added AC14
+  # -- adopt PageContainer(fullWidth=false) + PageHeader (icon+label action,
+  # conditional on hasApiKey && subscriptions.length > 0, preserved exactly)
+  # -- this is the exact header the user reviewed to request the whole
+  # PageHeader pattern. Blocked on Stories 0.30 (AC7)/0.32.
+  3-2-subscribe-to-a-social-media-account: ready-for-dev
   # added 2026-08-08 via bmad-create-story Gate 2 finding while drafting Story 3.3:
   # the user confirmed (AskUserQuestion) reusing the full Saved-Locations-style
   # address-autocomplete/current-location/map-pick experience for the default-
@@ -871,6 +909,12 @@ development_status:
   # queue-status had no content of its own beyond those two data sources. Status
   # left 'done' (shipped code being relocated, not reverted). See sprint-change-
   # proposal-2026-08-24-ux-rework-batch.md Section 4.2.
+  # NOTE 2026-08-24: deliberately excluded from the PageContainer(fullWidth=
+  # false)/PageHeader adoption pass (0-30/0-32) despite matching the same
+  # max-w-3xl pattern -- this page is already DISSOLVED (see the block above,
+  # folded into Story 3.12's tabbed shell). Not worth adopting new primitives
+  # into a page being removed; still lives on max-w-3xl mx-auto until 3.12
+  # ships.
   3-9a-display-in-app-queue-status-and-api-key-health: done
   # created 2026-08-11 via bmad-create-story: full context engine pass. Gate 1
   # (fresh, since epic-3-readiness.md predates this story) found a real gap --
@@ -1251,7 +1295,13 @@ development_status:
   # stateless URL query params to a persisted entity (own id, editable post-
   # creation, embeds auto-update). See epics.md Story 6.5a note.
   6-5a-build-the-widget-config-backend-graphql-api-layer: review
-  6-5-configure-and-generate-a-widget-embed: review
+  # Reopened 2026-08-24 via bmad-correct-course: added AC8 -- adopt
+  # PageContainer(fullWidth=false) + PageHeader (icon+label action, plus a
+  # description subtitle -- this page is the only one with one today). Also
+  # surfaced a pre-existing i18n gap: this page's title/description/button
+  # label are hardcoded English, now must move to a WidgetsSettingsPage
+  # locale namespace (en/id). Blocked on Stories 0.30 (AC7)/0.32.
+  6-5-configure-and-generate-a-widget-embed: ready-for-dev
   6-6a-build-the-embed-domain-backend-graphql-api-layer: review
   6-6-register-and-manage-embed-domains: review
   6-7a-build-the-widgets-dynamic-frame-ancestors-csp-middleware: review

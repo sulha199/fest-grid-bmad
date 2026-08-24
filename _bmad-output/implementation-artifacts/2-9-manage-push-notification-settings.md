@@ -8,7 +8,7 @@ baseline_commit: ef2adf42e84ae2a4503e2fd4dce76b5c0dd052ec
 
 - Epic: 2
 - Story ID: 2.9
-- Status: review
+- Status: ready-for-dev (AC10 amendment; AC1-AC9 already delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,6 +31,7 @@ Expanded from epics.md's two-bullet AC into testable behavior, grounded in the a
 7. **Given** the `updateUserSettings` mutation fails (network/server error) for either direction, **When** I toggle the switch, **Then** the switch visually reverts to its pre-toggle state and a non-blocking error toast is shown; no analytics event fires for a failed save.
 8. **Given** any locale (`en`/`id`), **When** I view this page, **Then** all user-facing text (title, toggle label/description, toasts, metadata) is sourced via `next-intl` from a dedicated `NotificationsSettingsPage` (+ `Metadata`) locale namespace — never hardcoded.
 9. **Given** any locale, **When** the route resolves, **Then** the browser tab title/meta description are set via `generateMetadata` (Server Component `page.tsx`), per the Dynamic Page Title & Meta Tags invariant — never a static `metadata` export or client-side `document.title` mutation.
+10. **AC10 — Adopt `PageContainer(fullWidth=false)`/`PageHeader` (added 2026-08-24 via `bmad-correct-course`):** And `notifications-content.tsx`'s root `<div className="p-4 sm:p-8 space-y-8 max-w-3xl mx-auto">` (all 3 occurrences in this file — loading skeleton, error state, and success return) is replaced with `<PageContainer fullWidth={false}>` (`@festgrid/ui`, Story 0.30), and its `<div className="flex justify-between items-center border-b pb-4"><h1 className="text-3xl font-bold">{t("title")}</h1></div>` row is replaced with `<PageHeader title={t("title")} />` (Story 0.32) — no header action button today, so no `action` prop; the `border-b pb-4` divider styling is dropped for consistency with every other page's header (not preserved as a `className` override — a deliberate visual unification, not an oversight). **Depends on Story 0.30 (AC7) and Story 0.32.**
 
 ## Tasks / Subtasks
 
@@ -189,7 +190,9 @@ One real, non-mechanical tradeoff was surfaced via `AskUserQuestion` before draf
 
 ## Completion Status
 
-- [x] Done
+- [x] Done (AC1-AC9, original)
+
+**2026-08-24 (`bmad-correct-course`):** Reopened for AC10 only (adopt `PageContainer`/`PageHeader`, blocked on Stories 0.30/0.32). AC1-AC9 unaffected.
 
 ## Dev Agent Record
 

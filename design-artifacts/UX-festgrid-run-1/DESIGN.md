@@ -36,7 +36,12 @@ components:
     base: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4" # GridContainer(baseCols=1, colsStep=1)
     masonry: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4" # GridContainer(baseCols=2, colsStep=1), Story 1.3b/1.3d Pinterest/masonry view mode
   page_container:
-    base: "w-full min-w-[320px] sm:min-w-[640px] md:min-w-[768px] lg:min-w-[1024px] xl:min-w-[1280px] p-4 sm:p-8 space-y-8" # added 2026-08-24, replaces the per-page max-w-7xl mx-auto copy-paste -- see packages/ui/src/core/page-container.tsx (Story 0.30)
+    full_width: "w-full min-w-[320px] sm:min-w-[640px] md:min-w-[768px] lg:min-w-[1024px] xl:min-w-[1280px] p-4 sm:p-8 space-y-8" # fullWidth=true (default), added 2026-08-24, replaces the per-page max-w-7xl mx-auto copy-paste -- see packages/ui/src/core/page-container.tsx (Story 0.30)
+    contained: "w-full max-w-5xl mx-auto lg:min-w-[768px] p-4 sm:p-8 space-y-8" # fullWidth=false, added 2026-08-24, replaces the per-page max-w-3xl/max-w-4xl split on settings/table pages
+  page_header:
+    base: "flex justify-between items-center flex-wrap" # added 2026-08-24 -- see packages/ui/src/core/page-header.tsx (Story 0.32)
+    title: "text-3xl font-bold"
+    action_label: "hidden sm:inline" # action button's label hides below sm:, icon-only on mobile
   calendar:
     base: "border border-gray-200 rounded-lg"
     header: "flex items-center justify-between p-4 border-b border-gray-200"

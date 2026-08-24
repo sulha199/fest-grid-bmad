@@ -5,7 +5,7 @@
 - Epic: 0
 - Story ID: 0.30
 - Story Key: 0-30-build-the-reusable-pagecontainer-primitive
-- Status: done
+- Status: ready-for-dev (AC7 amendment; AC1-AC6 already delivered)
 
 ## Story
 
@@ -27,6 +27,7 @@ A prior narrow implementation of item #1 (Story 1.3's original AC9: drop `max-w-
 4. **And** `PageContainer` is exported from `packages/ui`'s public barrel (`packages/ui/src/index.ts`).
 5. **And** a `PageContainer.test.tsx` (Vitest + Testing Library) verifies: renders children, base className present, a passed `className` prop is merged (both base and custom classes present, neither silently dropped).
 6. **And** this story wires **zero** consuming pages — it ships the primitive only, reserved-slot pattern (mirrors Stories 0.7/0.8/0.13/0.23/0.24/0.29). Each consumer (Story 1.3, 2.2, 2.6, 3.7, 3.11, 4.8, 5.1 — see `sprint-status.yaml`) adopts it in its own amendment.
+7. **AC7 — `fullWidth` prop for contained (settings/table/form) pages (added 2026-08-24, same day, after the settings pages' `max-w-3xl`/`max-w-4xl` split was found):** And `PageContainer` accepts an optional `fullWidth?: boolean` prop, default `true` (existing behavior, AC2's className, unchanged for all 8 already-adopting consumers — zero prop needed for them). When `fullWidth={false}`, the className is instead `"w-full max-w-5xl mx-auto lg:min-w-[768px] p-4 sm:p-8 space-y-8"` (matching `DESIGN.md`'s new `page_container.contained` token) — a single floor at `lg` rather than the 5-step schedule (settings pages are never embedded in the widget, so they don't need `fullWidth={true}`'s narrow-host defense), capped at a common `max-w-5xl` replacing the inconsistent per-page `max-w-3xl`/`max-w-4xl` values found across 6 settings pages. `className` still merges on top of whichever variant is selected.
 
 ## Tasks / Subtasks
 
@@ -39,6 +40,10 @@ A prior narrow implementation of item #1 (Story 1.3's original AC9: drop `max-w-
 - [ ] **Task 3: Verification**
   - [ ] `pnpm --filter ui test` passes.
   - [ ] `pnpm build` / `pnpm lint` clean.
+- [ ] **Task 4: Add `fullWidth` prop (AC7, added 2026-08-24)**
+  - [ ] Add `fullWidth?: boolean` to `PageContainerProps` (`page-container.types.ts`), default `true`.
+  - [ ] Branch the base className string on `fullWidth`: the existing string (AC2) when `true`; `"w-full max-w-5xl mx-auto lg:min-w-[768px] p-4 sm:p-8 space-y-8"` when `false`.
+  - [ ] Update `page-container.test.tsx` with new cases: default (`fullWidth` omitted) still matches AC2's className exactly (no regression for the 8 existing consumers); `fullWidth={false}` matches AC7's className exactly; `className` merges correctly on top of either variant.
 
 ## Dev Notes
 
@@ -83,6 +88,8 @@ A prior narrow implementation of item #1 (Story 1.3's original AC9: drop `max-w-
 
 ## Completion Status
 
-done
+ready-for-dev
 
-**2026-08-24:** Implemented and merged (`c44ba15`). Independently re-verified after merge — 3/3 tests pass, lint clean. Note: the dev-agent's own report of the isolated-worktree verification (tests/lint/build/code-review) did not hold up on inspection — the worktree's `node_modules` was a broken symlink and the component files were never actually committed to the branch. Fixed directly (fresh `pnpm install`, staged and committed) rather than re-dispatched.
+**2026-08-24:** AC1-AC6 implemented and merged (`c44ba15`). Independently re-verified after merge — 3/3 tests pass, lint clean. Note: the dev-agent's own report of the isolated-worktree verification (tests/lint/build/code-review) did not hold up on inspection — the worktree's `node_modules` was a broken symlink and the component files were never actually committed to the branch. Fixed directly (fresh `pnpm install`, staged and committed) rather than re-dispatched.
+
+**2026-08-24, later same day:** Reopened for AC7 (`fullWidth` prop) — settings pages need a `max-w-5xl`-capped variant, not the grid pages' uncapped one. AC1-AC6 unaffected.

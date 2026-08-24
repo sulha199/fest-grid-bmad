@@ -4,7 +4,7 @@
 
 - Epic: 3
 - Story ID: 3.1b
-- Status: review
+- Status: ready-for-dev (AC12 amendment; AC1-AC11 already delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -27,6 +27,7 @@ so that I can control which of my BYOK keys the system is allowed to use for eve
 9. **And** the page is a `/settings/api-keys` route composed inside the app shell (Story 0.7), matching the pattern of the other `/settings/*` pages — a server `page.tsx` with `generateMetadata` (next-intl `getTranslations`, `Metadata` namespace, via `apps/web/src/lib/metadata.ts`'s `buildPageMetadata`) rendering a client `api-keys-content.tsx`, mirroring `settings/notifications/page.tsx` and `settings/locations/page.tsx` exactly. [epics.md AC]
 10. **And** all user-facing strings (page title, table headers, add-modal labels, toasts, error states) are sourced through next-intl from a new `ApiKeysSettingsPage` namespace (mirroring `SavedLocationsPage`/`NotificationsSettingsPage`), with entries added to both `apps/web/locales/en.json` and `apps/web/locales/id.json` — no hardcoded English strings in JSX. [project-context.md i18n rule, persistent fact]
 11. **And** `api_key_added` (`{ provider }`) and `api_key_revoked` (`{ provider }`) PostHog analytics events fire on successful create and successful immediate-commit revoke respectively (mirrors `saved_location_deleted`'s pattern of firing on the immediate commit, not on toast-expiry/undo). [persistent fact — AD-5]
+12. **AC12 — Adopt `PageContainer(fullWidth=false)`/`PageHeader` (added 2026-08-24 via `bmad-correct-course`):** And `api-keys-content.tsx`'s root `<div className="p-4 sm:p-8 space-y-8 max-w-3xl mx-auto">` (all 3 occurrences in this file — loading skeleton, error state, and success return — for visual consistency across all three render branches) is replaced with `<PageContainer fullWidth={false}>` (`@festgrid/ui`, Story 0.30), and its `<h1 className="text-3xl font-bold">{t("title")}</h1>` row is replaced with `<PageHeader title={t("title")} />` (Story 0.32) — this page has no header action button (adding a key is via the in-table add-row), so no `action` prop. **Depends on Story 0.30 (AC7) and Story 0.32.**
 
 ## Tasks / Subtasks
 
@@ -211,7 +212,9 @@ so that I can control which of my BYOK keys the system is allowed to use for eve
 
 ## Completion Status
 
-- [x] Complete
+- [x] Complete (AC1-AC11, original)
+
+**2026-08-24 (`bmad-correct-course`):** Reopened for AC12 only (adopt `PageContainer`/`PageHeader`, blocked on Stories 0.30/0.32). AC1-AC11 unaffected.
 
 ## Dev Agent Record
 

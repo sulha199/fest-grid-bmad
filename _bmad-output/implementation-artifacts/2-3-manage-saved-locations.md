@@ -7,7 +7,7 @@ baseline_commit: 94d87d4be32711f0ce433a82207955e97fd1a5c3
 
 - Epic: 2 - User Personalization
 - Story ID: 2.3
-- Status: review
+- Status: ready-for-dev (AC14 amendment; AC1-AC13 already delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,6 +33,7 @@ so that I can build up a small set of important places (Home, Work) to use later
 11a. **[NEW]** **And** if the AC9 `deleteUserLocation(DELETE)` call itself fails (network/server error), the row reverts to its normal state (the optimistic grey-out is rolled back), no toast/pending state is entered, and a distinct error toast is shown instead.
 12. **And** an empty state, a loading skeleton (matching row-shaped skeletons, not `EventCard`'s skeleton), and an error state are all shown as appropriate for the list load — none of these currently exist in any UX artifact for this page, so their copy is authored fresh in this story (see Dev Notes → i18n Keys Required).
 13. **And** all user-facing labels, the empty/loading/error copy, the modal form's field labels/placeholders, and the delete toast/Undo strings are localized via next-intl (`en`/`id`) — no hardcoded user-facing strings.
+14. **AC14 — Adopt `PageContainer(fullWidth=false)`/`PageHeader` (added 2026-08-24 via `bmad-correct-course`):** And `locations-content.tsx`'s root `<div className="p-4 sm:p-8 space-y-8 max-w-3xl mx-auto">` (all 3 occurrences in this file — loading skeleton, error state, and success return) is replaced with `<PageContainer fullWidth={false}>` (`@festgrid/ui`, Story 0.30), and its `<div className="flex justify-between items-center"><h1 className="text-3xl font-bold">{t("title")}</h1>{locations.length > 0 && (<button>...</button>)}</div>` row is replaced with `<PageHeader title={t("title")} action={locations.length > 0 ? { label: t("addButtonLabel"), icon: <Plus className="h-4 w-4" />, onClick: handleOpenAddDialog } : undefined} />` (Story 0.32) — preserves the existing conditional-on-`locations.length > 0` visibility exactly. **Depends on Story 0.30 (AC7) and Story 0.32.**
 14. **[REVISED 2026-08-06]** **And** integration tests (Vitest + msw) verify: auth redirect, list render (empty/populated/error), add flow (autocomplete search → select suggestion → save → appears in list, `BlockingLoader` shown), edit flow (pre-populated form; save with unchanged address omits `placeId`; save with a newly-selected address includes the new `placeId`), Save button disabled until a valid selection/radius exist, swipe/delete reveals the action, **delete click fires `deleteUserLocation(DELETE)` immediately (mocked) and greys out the row, Undo fires `deleteUserLocation(RESTORE)` and un-greys the row, a fake-timer-advanced 6s window with no Undo removes the row from the list with zero additional mutation calls, and a failed `DELETE` call reverts the optimistic grey-out and shows an error toast** (was: "mark-pending grey-out + toast, Undo cancels with no mutation call, and unmount commits all still-pending deletes exactly once"). One Playwright E2E test covers the authenticated happy path: open "My Locations" → add "Home" via autocomplete → see it in the list → edit its radius → save → swipe "Home" and delete (now-committed) → Undo (restores) → still present → delete again → revisit the page → "Home" is gone (no "navigate away to commit" step needed anymore — commit already happened at the delete click).
 
 **Note (AC correction vs. `epics.md`):** `epics.md`'s Story 2.3 AC text only covers add (name + address)/list/delete, with no mention of editing, the delete-interaction mechanism, or the address-input UX. ACs 3-11 above were derived from extensive discussion with the user (2026-08-03) resolving concrete design questions this terse AC text left open (see Dev Notes → Architecture & UX Gate Findings) and are authoritative for this story going forward — including a new backend dependency, Story 2.3b, this story's own creation originally surfaced and which now itself has a fully-drafted, contract-matching story file.
@@ -257,7 +258,9 @@ New `SavedLocationsPage` namespace (both `en`/`id`), plus two new `Metadata` key
 
 ## Completion Status
 
-- [x] Complete
+- [x] Complete (AC1-AC13, original)
+
+**2026-08-24 (`bmad-correct-course`):** Reopened for AC14 only (adopt `PageContainer`/`PageHeader`, blocked on Stories 0.30/0.32). AC1-AC13 unaffected.
 
 ## Dev Agent Record
 

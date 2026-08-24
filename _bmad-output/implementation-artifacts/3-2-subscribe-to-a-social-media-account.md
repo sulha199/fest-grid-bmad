@@ -8,7 +8,7 @@ baseline_commit: 92ab892459c9f2e595cc8a8e5215d16b78e1f9cc
 - Epic: 3
 - Story ID: 3.2
 - Story Key: 3-2-subscribe-to-a-social-media-account
-- Status: review
+- Status: ready-for-dev (AC14 amendment; AC1-AC13 already delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,6 +33,7 @@ so that I can fully manage which accounts I'm monitoring for events, not just ad
 11. **And** the page sets its browser tab title/meta description via `generateMetadata` (Server Component `page.tsx`, `getTranslations()` server-side, `apps/web/src/lib/metadata.ts`'s `buildPageMetadata` helper) — never a static `metadata` export or client-side `document.title` — matching `settings/locations/page.tsx`'s exact pattern, with new `Metadata.subscriptionsTitle`/`subscriptionsDescription` keys. [project-context.md Dynamic Page Title rule, persistent fact]
 12. **And** the "Subscribe" submit is wrapped in `BlockingLoader` (a critical, persisted mutation creating a subscription, matching `createUserLocation`/`createApiKey`'s convention); the remove/soft-delete action is **not** wrapped in `BlockingLoader` — it follows the Soft-Delete-with-Undo pattern's own instant-optimistic-feedback convention instead (matching `locations-content.tsx`, which does not use `BlockingLoader` for its delete action either). [project-context.md Loaders rule, persistent fact]
 13. **And** `subscription_added` (`{ platform }`) and `subscription_removed` (`{ subscriptionId }`) PostHog analytics events fire on successful subscribe and successful remove-commit respectively, via `usePostHog()` from `@festgrid/analytics` (the majority convention across `home-content.tsx`/`favorites-content.tsx`/`my-calendar-content.tsx`, not `locations-content.tsx`'s older `(window as any).posthog` pattern). [persistent fact — AD-5]
+14. **AC14 — Adopt `PageContainer(fullWidth=false)`/`PageHeader` (added 2026-08-24 via `bmad-correct-course`):** And `subscriptions-content.tsx`'s root `<div className="p-4 sm:p-8 space-y-8 max-w-3xl mx-auto">` (all 3 occurrences in this file — loading skeleton, error state, and success return) is replaced with `<PageContainer fullWidth={false}>` (`@festgrid/ui`, Story 0.30), and its `<div className="flex justify-between items-center"><h1 className="text-3xl font-bold">{t("title")}</h1>{hasApiKey && subscriptions.length > 0 && (<button>...</button>)}</div>` row is replaced with `<PageHeader title={t("title")} action={hasApiKey && subscriptions.length > 0 ? { label: t("addButtonLabel"), icon: <Plus className="h-4 w-4" />, onClick: handleOpenAddDialog } : undefined} />` (Story 0.32) — preserves the existing conditional-on-`hasApiKey && subscriptions.length > 0` visibility exactly (this is the exact header the user reviewed to request this pattern in the first place). **Depends on Story 0.30 (AC7) and Story 0.32.**
 
 ## Tasks / Subtasks
 
@@ -226,7 +227,9 @@ so that I can fully manage which accounts I'm monitoring for events, not just ad
 
 ## Completion Status
 
-- [ ] Not started
+- [ ] Not started (AC1-AC13, original)
+
+**2026-08-24 (`bmad-correct-course`):** Reopened for AC14 only (adopt `PageContainer`/`PageHeader` — this is the exact header the user reviewed to request the pattern in the first place. Blocked on Stories 0.30/0.32). AC1-AC13 unaffected.
 
 **Amended 2026-08-13:** when the user has zero active API keys **and** zero existing subscriptions, `/settings/subscriptions` now redirects to `/wizard/onboarding/api-key?redirect=%2Fsettings%2Fsubscriptions` on load (mirroring Story 5.1a's `/posts/select` pattern), instead of rendering the inline no-API-key prompt against an empty list. The inline prompt (linking to `/settings/api-keys`) is unchanged and still renders for users with zero keys but ≥1 existing subscription — AC4's "view/remove regardless of key possession" guarantee is preserved for that case. Implemented via a new `useApiKeyStatus()` export alongside the existing `useHasApiKey()` hook (`apps/web/src/features/onboarding/use-has-api-key.ts`), adding a loading flag `useHasApiKey()` never exposed.
 
