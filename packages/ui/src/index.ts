@@ -6,6 +6,7 @@ export * from './core/multi-select';
 export * from './core/checkbox';
 export * from './core/checkbox.types';
 export * from './core/blocking-loader';
+export * from './core/grid-container';
 export * from './core/route-loader';
 export * from './core/WeekPicker';
 export * from './core/soft-delete-toaster';
