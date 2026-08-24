@@ -156,7 +156,8 @@ export type DefaultLocationChangeRequest = {
 export type DefaultLocationChangeRequestStatus =
   | 'ACCEPTED'
   | 'PENDING_REVIEW'
-  | 'REVERTED';
+  | 'REVERTED'
+  | 'SUPERSEDED';
 
 export type EmbedDomain = {
   __typename?: 'EmbedDomain';

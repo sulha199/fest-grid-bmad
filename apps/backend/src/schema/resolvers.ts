@@ -4,7 +4,7 @@ import { db } from '../db/client.js';
 import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
-import { eq, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
+import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile } from '@festgrid/domain/scraper';
@@ -496,20 +496,23 @@ export const resolvers: Resolvers = {
     editAccountDefaultLocation: async (_: any, { accountId, input }: any, context: any, info: any) => {
       try {
         const authUser = requireAuth(context);
+        const isModerator = authUser.role === 'moderator';
 
-        // 1. Look up caller's active subscription to accountId
-        const activeSubRows = await db.select()
-          .from(subscriptions)
-          .where(
-            and(
-              eq(subscriptions.userId, authUser.userId),
-              eq(subscriptions.accountId, accountId),
-              activeOnly(subscriptions)
-            )
-          );
+        // 1. Look up caller's active subscription to accountId only if not a moderator
+        if (!isModerator) {
+          const activeSubRows = await db.select()
+            .from(subscriptions)
+            .where(
+              and(
+                eq(subscriptions.userId, authUser.userId),
+                eq(subscriptions.accountId, accountId),
+                activeOnly(subscriptions)
+              )
+            );
 
-        if (activeSubRows.length === 0) {
-          throw new GraphQLError('Subscription not found', { extensions: { code: 'NOT_FOUND' } });
+          if (activeSubRows.length === 0) {
+            throw new GraphQLError('Subscription not found', { extensions: { code: 'NOT_FOUND' } });
+          }
         }
 
         // 2. Look up the social_media_account_profiles row by id = accountId
@@ -557,13 +560,31 @@ export const resolvers: Resolvers = {
           .where(eq(socialMediaAccountProfiles.id, accountId));
 
         // 6. Insert into default_location_change_requests
-        await db.insert(defaultLocationChangeRequests).values({
+        const insertedRows = await db.insert(defaultLocationChangeRequests).values({
           accountId,
           changedByUserId: authUser.userId,
           previousLocation,
           newLocation,
-          status: 'PENDING_REVIEW' as any,
-        });
+          status: isModerator ? ('ACCEPTED' as any) : ('PENDING_REVIEW' as any),
+          changeSource: isModerator ? ('MODERATOR' as any) : ('USER' as any),
+          reviewedByModeratorId: isModerator ? authUser.userId : null,
+          reviewedAt: isModerator ? new Date() : null,
+        }).returning({ id: defaultLocationChangeRequests.id });
+
+        const insertedId = insertedRows[0]?.id;
+
+        // 6a. Supersede prior pending requests on successful write
+        if (insertedId) {
+          await db.update(defaultLocationChangeRequests)
+            .set({ status: 'SUPERSEDED' as any })
+            .where(
+              and(
+                eq(defaultLocationChangeRequests.accountId, accountId),
+                eq(defaultLocationChangeRequests.status, 'PENDING_REVIEW' as any),
+                ne(defaultLocationChangeRequests.id, insertedId)
+              )
+            );
+        }
 
         // 7. Get moderators and send notification emails (best effort, async, non-blocking)
         try {

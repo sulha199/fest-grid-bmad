@@ -172,7 +172,8 @@ export type DefaultLocationChangeRequest = {
 export enum DefaultLocationChangeRequestStatus {
   Accepted = 'ACCEPTED',
   PendingReview = 'PENDING_REVIEW',
-  Reverted = 'REVERTED'
+  Reverted = 'REVERTED',
+  Superseded = 'SUPERSEDED'
 }
 
 export type EmbedDomain = {

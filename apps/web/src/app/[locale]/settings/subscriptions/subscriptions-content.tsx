@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
-import { SwipeToReveal, useSoftDeleteWithUndo, PageContainer, PageHeader } from "@festgrid/ui"
+import { SwipeToReveal, useSoftDeleteWithUndo, PageContainer, PageHeader, AccountLocationField } from "@festgrid/ui"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
 import { useRouter, Link } from "@/i18n/navigation"
 import { graphqlClient } from "@/lib/graphql-client"
@@ -219,23 +219,15 @@ export function SubscriptionsContent() {
                       </p>
                       <div className="mt-1 text-xs">
                         {sub.account.defaultLocation ? (
-                          <div className="flex items-center gap-2 flex-wrap text-muted-foreground">
-                            <span>
-                              {sub.account.defaultLocation.formattedAddress || sub.account.defaultLocation.placeName}
-                            </span>
-                            {sub.account.hasPendingDefaultLocationReview && (
-                              <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 px-2 py-0.5 rounded font-medium shrink-0">
-                                {t("pendingReviewBadgeLabel") || "Pending Review"}
-                              </span>
-                            )}
-                            <button
-                              onClick={() => setEditingAccountId(sub.account.id)}
-                              className="text-muted-foreground hover:text-foreground transition-colors p-1"
-                              aria-label={t("editDefaultLocationLabel") || "Edit Default Location"}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
+                          <AccountLocationField
+                            location={sub.account.defaultLocation}
+                            isPendingReview={!!sub.account.hasPendingDefaultLocationReview}
+                            onEdit={() => setEditingAccountId(sub.account.id)}
+                            labels={{
+                              editLabel: t("editDefaultLocationLabel"),
+                              pendingReviewLabel: t("pendingReviewBadgeLabel"),
+                            }}
+                          />
                         ) : (
                           <button
                             onClick={() => setSelectedAccountId(sub.account.id)}

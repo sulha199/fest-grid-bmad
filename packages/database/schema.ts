@@ -29,7 +29,9 @@ export const userRoleEnum = pgEnum('user_role', ['user', 'moderator']);
 
 export const geolocationQueryTypeEnum = pgEnum('geolocation_query_type', ['GEOCODE', 'REVERSE_GEOCODE', 'PLACE_DETAILS']);
 
-export const defaultLocationChangeStatusEnum = pgEnum('default_location_change_status', ['PENDING_REVIEW', 'ACCEPTED', 'REVERTED']);
+export const defaultLocationChangeStatusEnum = pgEnum('default_location_change_status', ['PENDING_REVIEW', 'ACCEPTED', 'REVERTED', 'SUPERSEDED']);
+
+export const defaultLocationChangeSourceEnum = pgEnum('default_location_change_source', ['USER', 'AI_INFERENCE', 'MODERATOR']);
 
 export const scheduleTimezoneStatusEnum = pgEnum('schedule_timezone_status', ['RESOLVED', 'NEEDS_CLARIFICATION']);
 
@@ -409,6 +411,7 @@ export const defaultLocationChangeRequests = pgTable('default_location_change_re
   previousLocation: jsonb('previous_location').$type<LocationDetails>(),
   newLocation: jsonb('new_location').$type<LocationDetails>().notNull(),
   status: defaultLocationChangeStatusEnum('status').default('PENDING_REVIEW').notNull(),
+  changeSource: defaultLocationChangeSourceEnum('change_source').default('USER').notNull(),
   reviewedByModeratorId: uuid('reviewed_by_moderator_id').references(() => users.id),
   reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
