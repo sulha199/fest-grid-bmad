@@ -18,7 +18,7 @@ import {
   SoftDeleteAction,
   Subscription,
 } from '@/generated/graphql';
-import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo } from '@festgrid/ui';
+import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo, PageContainer, GridContainer } from '@festgrid/ui';
 import { AlertCircle, TriangleAlert } from 'lucide-react';
 import { usePostSelectionStore } from './post-selection-store';
 import { toast } from 'sonner';
@@ -342,11 +342,11 @@ export function PostsSelectContent() {
           <div className="h-8 w-32 bg-muted rounded" />
           <div className="h-8 w-32 bg-muted rounded" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <GridContainer baseCols={1} colsStep={1} gap="gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="h-64 bg-muted rounded-xl" />
           ))}
-        </div>
+        </GridContainer>
       </div>
     );
   }
@@ -381,7 +381,7 @@ export function PostsSelectContent() {
   }
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
+    <PageContainer>
       <BlockingLoader active={isExtracting} label="Extracting event data..." />
 
       <div>
@@ -439,11 +439,11 @@ export function PostsSelectContent() {
       {/* Tab Content */}
       <div className="mt-6">
         {postsLoading || !activeAccountId ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <GridContainer baseCols={1} colsStep={1} gap="gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <PostCardSkeleton key={i} />
             ))}
-          </div>
+          </GridContainer>
         ) : postsError ? (
           <div className="text-center p-8 border rounded-xl border-dashed">
             <p className="text-destructive font-medium mb-4">Failed to load posts for this account.</p>
@@ -460,7 +460,7 @@ export function PostsSelectContent() {
             {renderScrapeControl()}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <GridContainer baseCols={1} colsStep={1} gap="gap-4">
             {posts.map((post) => {
               const isSelected = selectedPostIds.includes(post.id as string);
               const isProcessed = post.isExtracted;
@@ -501,7 +501,7 @@ export function PostsSelectContent() {
                 </div>
               );
             })}
-          </div>
+          </GridContainer>
         )}
       </div>
 
@@ -512,6 +512,6 @@ export function PostsSelectContent() {
         isExtracting={isExtracting}
         onExtract={handleExtract}
       />
-    </div>
+    </PageContainer>
   );
 }

@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query"
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel } from "@festgrid/ui"
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
@@ -193,7 +193,7 @@ export function HomeContent() {
   }, [posthog]);
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
+    <PageContainer>
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{t('title')}</h1>
         <div>
@@ -296,6 +296,6 @@ export function HomeContent() {
           <LoginContent />
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }
