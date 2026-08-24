@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-08-14T00:00:00Z"
+updated: "2026-08-24T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -173,6 +173,17 @@ This document defines the core architectural invariants for the FestDaily applic
     1.  **Composition base:** every date-picker in FestGrid is `Button` (trigger) + `Popover` + `Calendar`, `mode="single"` unless a feature genuinely needs range/multi-select selection — never a hand-rolled grid or a new npm date-picker dependency.
     2.  **`WeekPicker` wrapper:** `packages/ui/src/core/WeekPicker.tsx` wraps `Calendar` with `modifiers`/`modifiersClassNames` to visually highlight the full selected week row (not just the clicked day) — chosen over a plain undecorated composition for the better picking affordance (user-confirmed 2026-08-14). It takes `onSelectWeek(date: string)` and a **required** `getWeekRange(date: Date): { start: Date; end: Date }` prop supplied by the caller from Story 3.7a's exported `getWeekStart`/`getWeekEnd` — `WeekPicker` never computes a boundary itself, so exactly one boundary implementation exists app-wide.
     3.  **Reuse before regeneralization:** future date-pickers reuse `WeekPicker` directly if week-range selection is needed again; otherwise compose `Button`+`Popover`+`Calendar` inline per rule 1. A pattern graduates into a new `packages/ui/src/core/` primitive only once a second real consumer exists, matching the project's existing `core/` (domain-agnostic, reused) vs. `features/<domain>/` (single-feature) placement convention.
+
+---
+
+### AD-10: System Gemini Key for Location Inference
+
+*   **Binds:** Story 3.4m's default-location-inference call only (PRD §3.7 "AI-Assisted Location Inference" / "Key Used for Inference", amended 2026-08-24).
+*   **Prevents:** This key being reachable from the general post-extraction path (Story 3.6's queue processor) or read anywhere outside Story 3.4m's own call site — an explicit scope fence, not just a naming convention, so it can't be casually widened into a general managed-key-pool (PRD §6's Phase 2, not yet built) without a deliberate future decision.
+*   **Rule:**
+    1.  **Storage:** a new `SYSTEM_GEMINI_API_KEY` env var, classified as a credential (AWS Secrets Manager SecureString) — matching `GEOAPIFY_API_KEY`'s existing classification (Story 0.25's Dev Notes table), not a plain environment property — wired into the deployed Lambda's environment configuration the same way Story 0.25 wired `GEOAPIFY_API_KEY`.
+    2.  **Selection:** a new sibling function, `callGeminiForLocationInference(request)`, alongside Story 0.13's existing `callGemini(request)` — **not** a modification to `callGemini`'s own tier logic. It first calls `callGemini` exactly as-is (reusing Tier 1/Tier 2 subscriber-key selection, backoff, and retry unchanged); only when that call throws `AiGatewayExhaustedError` does it fall back to one additional attempt against `SYSTEM_GEMINI_API_KEY`, decrypted/read directly — no `usage-store`/`selectApiKey` candidate lookup, since there is exactly one fixed key, not a pool to select from. This keeps the system key structurally unreachable from `callGemini`'s existing call sites (Story 3.6) — only code that explicitly calls the new sibling function can ever reach it.
+    3.  **Cost/quota posture (explicit MVP decision, not left implicit):** no additional rate-limiting is designed in for this key, because Story 3.4m's own design already bounds its call frequency — the inferred result persists to `defaultLocation` (PRD §3.7), so this call fires at most once per account that has no default location *and* no usable subscriber key, never once per post.
 
 ---
 

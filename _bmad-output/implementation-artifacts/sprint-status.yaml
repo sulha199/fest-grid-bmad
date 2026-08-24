@@ -737,6 +737,16 @@ development_status:
   # (system-key storage/scope, Track A's second half, not yet done) before
   # bmad-create-story. epics.md Requirements Inventory backfilled with
   # FR89-FR91 (this story) and FR92 (Epic 4, Moderator Tools display).
+  # UPDATE 2026-08-24 (bmad-architecture): AD-10 added to festgrid-architecture-
+  # spine.md -- SYSTEM_GEMINI_API_KEY (Secrets Manager credential, matching
+  # GEOAPIFY_API_KEY's classification), new sibling function
+  # callGeminiForLocationInference() (not a callGemini modification -- keeps
+  # the system key structurally unreachable from Story 3.6's general
+  # extraction path), no additional rate-limiting (call frequency already
+  # bounded by persisting the result to defaultLocation). Track A is now
+  # fully done (PRD 0f48abe, FR89-92 backfill 68c99c4, architecture AD-10).
+  # Ready for bmad-create-story -- still just a backlog placeholder, no full
+  # story file yet.
   3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: backlog
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
