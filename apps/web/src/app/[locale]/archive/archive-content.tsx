@@ -7,6 +7,7 @@ import {
   EventListView,
   useInfiniteScroll,
   StatusBadge,
+  PageContainer,
 } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
@@ -114,7 +115,7 @@ export function ArchiveContent() {
       : "success"
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
+    <PageContainer>
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{t("title")}</h1>
       </div>
@@ -167,6 +168,6 @@ export function ArchiveContent() {
         isFetchingNextPage={isFetchingNextPage}
         loadingMoreLabel={t("loadingMore")}
       />
-    </div>
+    </PageContainer>
   )
 }

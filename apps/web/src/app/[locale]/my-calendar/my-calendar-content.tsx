@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useGetEventsForMyCalendarQuery } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { buildMyCalendarQueryCondition } from '@festgrid/domain/events';
-import { WeeklyCalendarView, Checkbox, useWeeklyCalendarController, getWeekStart, getWeekEnd } from '@festgrid/ui';
+import { WeeklyCalendarView, Checkbox, useWeeklyCalendarController, getWeekStart, getWeekEnd, PageContainer } from '@festgrid/ui';
 import { useRouter } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import { usePostHog } from '@festgrid/analytics';
@@ -146,7 +146,7 @@ export function MyCalendarContent() {
   }
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto">
+    <PageContainer>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-3xl font-bold">{t('title')}</h1>
         
@@ -182,6 +182,6 @@ export function MyCalendarContent() {
         errorDetail={errorDetail}
         labels={labels}
       />
-    </div>
+    </PageContainer>
   );
 }

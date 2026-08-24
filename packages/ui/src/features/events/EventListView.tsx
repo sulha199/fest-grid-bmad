@@ -1,5 +1,6 @@
 import { EventCard } from './EventCard';
 import { EventListViewItem, EventListViewProps } from './EventListView.types';
+import { GridContainer } from '../../core/grid-container';
 
 export function EventListView<TEvent extends EventListViewItem>({
   status,
@@ -17,11 +18,11 @@ export function EventListView<TEvent extends EventListViewItem>({
 }: EventListViewProps<TEvent>) {
   if (status === 'loading') {
     return (
-      <div className={className}>
+      <GridContainer baseCols={1} colsStep={1} gap="gap-6" className={className}>
         {Array.from({ length: skeletonCount }).map((_, i) => (
           <EventCard key={i} eventName="" startDate="" loading={true} />
         ))}
-      </div>
+      </GridContainer>
     );
   }
 
@@ -45,7 +46,7 @@ export function EventListView<TEvent extends EventListViewItem>({
   if (status === 'success' && events.length > 0) {
     return (
       <>
-        <div className={className}>
+        <GridContainer baseCols={1} colsStep={1} gap="gap-6" className={className}>
           {events.map((event) => {
             const mainSchedule =
               event.schedules?.find((s) => s.isMainSchedule) ||
@@ -69,7 +70,7 @@ export function EventListView<TEvent extends EventListViewItem>({
 
             return <EventCard key={event.id} {...mergedProps} />;
           })}
-        </div>
+        </GridContainer>
 
         <div ref={sentinelRef} className="py-4 flex justify-center">
           {isFetchingNextPage && (

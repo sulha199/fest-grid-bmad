@@ -7,6 +7,7 @@ import {
   EventListView,
   useInfiniteScroll,
   EventDiscoveryPanel,
+  PageContainer,
 } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
@@ -297,7 +298,7 @@ export function FavoritesContent() {
       : "success"
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
+    <PageContainer>
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{t("title")}</h1>
       </div>
@@ -436,6 +437,6 @@ export function FavoritesContent() {
           }
         ]}
       />
-    </div>
+    </PageContainer>
   )
 }

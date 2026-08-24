@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel } from "@festgrid/ui";
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer } from "@festgrid/ui";
 import { EventCategory, EventType } from "@festgrid/shared-types";
 import { GetEventsDocument, GetEventsQuery, useToggleFavoriteMutation } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
@@ -206,7 +206,7 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
   );
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">
+    <PageContainer>
       {/* Account Profile Header */}
       <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 bg-slate-50 dark:bg-slate-900/50 p-6 rounded-2xl border border-slate-200/60 dark:border-slate-800">
         {profile.profileImageUrl && (
@@ -308,6 +308,6 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
           <LoginContent />
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }
