@@ -59,6 +59,7 @@ query getPendingDefaultLocationChanges {
       }
     }
     newLocation {
+      placeId
       placeName
       formattedAddress
       coordinates {

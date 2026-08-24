@@ -7,6 +7,8 @@ import { useRequireModerator } from "@/features/auth/use-require-moderator"
 import { graphqlClient } from "@/lib/graphql-client"
 import { usePostHog } from "@festgrid/analytics"
 import { toast } from "sonner"
+import { useQueryClient } from "@tanstack/react-query"
+import { SetDefaultLocationDialog } from "../../settings/subscriptions/set-default-location-dialog"
 import {
   useGetReportedEventsQuery,
   useResolveReportsForEventMutation,
@@ -27,6 +29,9 @@ export function ModeratorItemsContent() {
   const tReason = useTranslations("ReportReason")
   const { status: authStatus } = useRequireModerator()
   const posthog = usePostHog()
+  const queryClient = useQueryClient()
+
+  const [editingChangeId, setEditingChangeId] = useState<string | null>(null)
 
   // Filters for reported events
   const [statusFilter, setStatusFilter] = useState<ReportStatus | "ALL">(ReportStatus.Pending)
@@ -81,6 +86,31 @@ export function ModeratorItemsContent() {
       })
     }
   }, [authStatus, reportsLoading, changesLoading, reportsData, changesData, posthog])
+
+  // Intercept edit mutation success on queryClient mutation cache to fire PostHog event & Toast
+  useEffect(() => {
+    const unsubscribe = queryClient.getMutationCache().subscribe((event) => {
+      if (
+        event.type === "updated" &&
+        event.action.type === "success" &&
+        event.mutation.options.mutationKey?.[0] === "editAccountDefaultLocation"
+      ) {
+        const variables = event.mutation.state.variables as { accountId: string } | undefined
+        if (variables?.accountId) {
+          const changesListLocal = (changesData?.pendingDefaultLocationChanges || []) as PendingLocationChange[]
+          const supersededRequest = changesListLocal.find((c) => c.accountId === variables.accountId)
+          if (supersededRequest) {
+            posthog.capture("moderator_default_location_corrected", {
+              accountId: variables.accountId,
+              supersededRequestId: supersededRequest.id,
+            })
+            toast.success(t("moderatorLocationCorrectedToast"))
+          }
+        }
+      }
+    })
+    return () => unsubscribe()
+  }, [queryClient, changesData, posthog, t])
 
   if (authStatus === "loading" || authStatus === "unauthenticated" || authStatus === "unauthorized") {
     return <RouteLoader />
@@ -181,6 +211,9 @@ export function ModeratorItemsContent() {
 
   const handleResolveLocationChange = async (id: string, action: "ACCEPT" | "REVERT") => {
     try {
+      if (editingChangeId === id) {
+        setEditingChangeId(null)
+      }
       const actionEnum = action === "ACCEPT" ? DefaultLocationChangeAction.Accept : DefaultLocationChangeAction.Revert
       await resolveChange({ id, action: actionEnum })
       
@@ -195,6 +228,25 @@ export function ModeratorItemsContent() {
       toast.error("Failed to resolve location change")
     }
   }
+
+  const mapToLocationDetails = (newLocation: PendingLocationChange["newLocation"]) => {
+    return {
+      formattedAddress: newLocation.formattedAddress ?? undefined,
+      placeName: newLocation.placeName ?? undefined,
+      placeId: newLocation.placeId ?? undefined,
+      coordinates: {
+        latitude: newLocation.coordinates.lat,
+        longitude: newLocation.coordinates.lng,
+      },
+    }
+  }
+
+  const handleCloseEditDialog = () => {
+    setEditingChangeId(null)
+    refetchChanges()
+  }
+
+  const editingChange = changesList.find((c) => c.id === editingChangeId) ?? null
 
   const isMutating = isResolvingReports || isDeletingEvent || isIgnoringReporter || isResolvingChange
 
@@ -284,11 +336,23 @@ export function ModeratorItemsContent() {
                 key={change.id}
                 change={change}
                 onResolve={handleResolveLocationChange}
+                onEditRequest={setEditingChangeId}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Set Default Location Dialog */}
+      {editingChange && (
+        <SetDefaultLocationDialog
+          accountId={editingChange.accountId}
+          isOpen={!!editingChangeId}
+          onClose={handleCloseEditDialog}
+          mode="edit"
+          initialLocation={mapToLocationDetails(editingChange.newLocation)}
+        />
+      )}
     </div>
   )
 }

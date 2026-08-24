@@ -1262,7 +1262,7 @@ development_status:
   # user (all confirmation items + escape-hatch acknowledgment). Hard dependency on
   # Story 3.3b's AC15-19 amendment is cleared -- 3.3b merged to master (c134f0f),
   # independently verified. bmad-dev-story cleared to proceed on Tasks 13-17.
-  4-7-moderator-items-page: ready-for-dev
+  4-7-moderator-items-page: review
   # added 2026-08-24 via bmad-correct-course: new tabbed shell (Story 0.29)
   # wrapping Stories 3-4k (actor-runs) and 3-4i (unprocessed-payloads), reusing
   # Story 4.7a's route guard as-is. /moderator/items (this story) stays a
