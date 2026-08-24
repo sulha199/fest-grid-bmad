@@ -13,6 +13,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { usePostHog } from "@festgrid/analytics"
 import { requestPushPermissionAndRegister } from "@/lib/push-notifications"
+import { PageContainer, PageHeader } from "@festgrid/ui"
 
 export function NotificationsContent() {
   const t = useTranslations("NotificationsSettingsPage")
@@ -170,18 +171,18 @@ export function NotificationsContent() {
 
   if (authLoading || isLoading) {
     return (
-      <div className="p-4 sm:p-8 space-y-8 max-w-3xl mx-auto">
+      <PageContainer fullWidth={false}>
         <div className="h-10 w-48 bg-muted rounded animate-pulse" />
         <div className="space-y-4">
           <div className="h-24 w-full bg-muted rounded animate-pulse" />
         </div>
-      </div>
+      </PageContainer>
     )
   }
 
   if (error) {
     return (
-      <div className="p-4 sm:p-8 max-w-3xl mx-auto text-center space-y-4">
+      <PageContainer fullWidth={false} className="text-center space-y-4">
         <p className="text-destructive font-medium">{t("errorState")}</p>
         <button
           onClick={() => refetch()}
@@ -189,15 +190,13 @@ export function NotificationsContent() {
         >
           {t("retryButtonLabel")}
         </button>
-      </div>
+      </PageContainer>
     )
   }
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 max-w-3xl mx-auto">
-      <div className="flex justify-between items-center border-b pb-4">
-        <h1 className="text-3xl font-bold">{t("title")}</h1>
-      </div>
+    <PageContainer fullWidth={false}>
+      <PageHeader title={t("title")} />
 
       <div className="flex items-start justify-between p-6 rounded-lg border bg-card text-card-foreground shadow-sm">
         <div className="space-y-1.5 pr-4">
@@ -210,6 +209,6 @@ export function NotificationsContent() {
           aria-label={t("toggleLabel")}
         />
       </div>
-    </div>
+    </PageContainer>
   )
 }

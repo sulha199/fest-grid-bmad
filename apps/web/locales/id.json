@@ -496,6 +496,11 @@
     "undoLabel": "Urungkan",
     "restoreErrorToast": "Gagal mengembalikan kunci API."
   },
+  "WidgetsSettingsPage": {
+    "title": "Widget Sematan",
+    "description": "Atur, kelola, dan buat widget penemuan responsif untuk situs Anda!",
+    "createButtonLabel": "Buat Widget"
+  },
   "QueueStatusPage": {
     "title": "Status Antrean",
     "description": "Pantau status ekstraksi postingan dari akun berlangganan Anda dan periksa kesehatan kunci API Anda.",
