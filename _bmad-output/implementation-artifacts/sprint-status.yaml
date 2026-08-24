@@ -186,7 +186,9 @@ development_status:
   # primitive -- h1+optional-action row, found duplicated across 18 files
   # (drifting heading styles, inconsistent mobile-label hiding, no flex-wrap
   # safety on some). See 0-32 below.
-  0-30-build-the-reusable-pagecontainer-primitive: ready-for-dev
+  # DONE 2026-08-24: AC7 merged (be20e31 range, story/0-30-fullwidth-prop,
+  # 1db6b2c). Independently re-verified: 5/5 tests pass, lint clean.
+  0-30-build-the-reusable-pagecontainer-primitive: done
   # added 2026-08-24 via bmad-correct-course, same day as 0-30: user asked for
   # a reusable grid-column-count component (baseCols/colsStep props, e.g.
   # baseCols=1 colsStep=1 for the standard grid, baseCols=2 colsStep=1 for the
@@ -212,7 +214,9 @@ development_status:
   # dissolved per Story 3.12, not worth adopting into a page being removed);
   # the other ~12 pages using the old pattern are a cataloged follow-up, not
   # dropped. See project-context.md "Page Headers".
-  0-32-build-the-reusable-pageheader-primitive: ready-for-dev
+  # DONE 2026-08-24: merged (story/0-32-page-header, be20e31). Independently
+  # re-verified: 4/4 tests pass, lint clean.
+  0-32-build-the-reusable-pageheader-primitive: done
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
