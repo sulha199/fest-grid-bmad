@@ -129,7 +129,7 @@ export function ApiKeysContent() {
 
   return (
     <PageContainer fullWidth={false}>
-      <PageHeader title={t("title")} />
+      <PageHeader title={t("title")} action={{ label: t("addButtonLabel"), icon: <Plus className="h-4 w-4" />, onClick: () => setIsDialogOpen(true) }} />
 
       {apiKeysList.length === 0 ? (
         <div className="border border-dashed rounded-lg p-12 text-center text-muted-foreground">
