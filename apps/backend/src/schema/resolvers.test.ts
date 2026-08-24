@@ -1624,10 +1624,18 @@ test('Story 4.4a - Soft Delete and Moderator Mutations integration', async (t) =
     deletedAt: new Date(),
   }).returning();
 
+  // Use a date relative to "now" so this stays within the default past-event
+  // visibility window (Story 2.7) regardless of when the test suite runs.
+  const upcomingScheduleDate = (() => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().split('T')[0];
+  })();
+
   // Create a schedule for each so that they are sortable / queryable without crashes
   await db.insert(schedules).values([
-    { eventId: activeEvent.id, eventStartDate: '2026-08-15', isMainSchedule: true },
-    { eventId: deletedEvent.id, eventStartDate: '2026-08-15', isMainSchedule: true },
+    { eventId: activeEvent.id, eventStartDate: upcomingScheduleDate, isMainSchedule: true },
+    { eventId: deletedEvent.id, eventStartDate: upcomingScheduleDate, isMainSchedule: true },
   ]);
 
   t.after(async () => {
