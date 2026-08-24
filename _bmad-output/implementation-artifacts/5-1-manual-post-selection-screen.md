@@ -38,7 +38,7 @@ so that I can choose which posts to process for event extraction.
     - The row and its content are wrapped in the existing `card` design token (`rounded-lg shadow-md p-4`) so it reads as a box inside the Posts tab panel, not a continuation of the outer shell's page chrome.
     - Mobile-only: the row changes from `flex flex-wrap` (can grow to multiple rows) to `flex-nowrap overflow-x-auto` (a single scrolling row), `sm:flex-wrap sm:overflow-visible` above the mobile breakpoint — a wrapped multi-row account list would grow tall enough to compete with the outer shell's tabs for vertical space.
     - **Depends on Story 0.29** (`TabbedShell` primitive) and **Story 3.12** (Account Settings shell) existing, but this AC's five changes are all scoped to this component alone and can be implemented independently of when 3.12 actually nests it.
-12. **AC12 — Adopt shared `PageContainer` and unify the post grid's column progression (added 2026-08-24 via `bmad-correct-course`, expanding `ux-rework-2026-08-24.md` item #1):** And this screen's root `<div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">` is replaced with `<PageContainer>` (`@festgrid/ui`, Story 0.30). And its three inline `PostCard` grids (skeleton, empty-state, and real-posts grids in `posts-select-content.tsx`, currently `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4`) are unified onto the **standard** progression from `project-context.md`'s "Grid/Calendar Page Containers" rule — `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4` — dropping the current `sm:` step so this grid matches `EventListView`'s progression exactly rather than maintaining a third, slightly different scheme. **Depends on Story 0.30.**
+12. **AC12 — Adopt shared `PageContainer`/`GridContainer` (revised 2026-08-24, same day, superseding the version committed in `fe8a1af`):** And this screen's root `<div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto">` is replaced with `<PageContainer>` (`@festgrid/ui`, Story 0.30). And its three inline `PostCard` grids (skeleton, empty-state, and real-posts grids in `posts-select-content.tsx`, currently `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4`) are replaced with `<GridContainer baseCols={1} colsStep={1} gap="gap-4">` (`@festgrid/ui`, Story 0.31) — dropping the current `sm:` step so this grid matches `EventListView`'s progression exactly (same `GridContainer` primitive, same `baseCols`/`colsStep` values) rather than maintaining a second hand-written literal string. **Depends on Story 0.30 and Story 0.31.**
 
 ## Tasks / Subtasks
 
@@ -169,6 +169,8 @@ so that I can choose which posts to process for event extraction.
 - [x] Completed (AC1-AC10, original — all tasks implemented and 100% verified via integration tests)
 
 **2026-08-24 (`bmad-correct-course`):** Reopened for AC11 (Posts-tab nesting resolution, superseding the earlier same-day sprint-status.yaml-only note with a real AC) and AC12 (adopt `PageContainer`, unify grid columns — blocked on Story 0.30). AC1-AC10 unaffected. See `sprint-change-proposal-2026-08-24-ux-rework-batch.md`.
+
+**2026-08-24, later same day:** AC12 revised again — the grid-unification half now composes the new `GridContainer` primitive (Story 0.31) instead of a hand-written literal className. Now blocked on both Story 0.30 and Story 0.31. No code existed against the prior version (committed in `fe8a1af`); documentation correction only.
 
 ### Change Log
 

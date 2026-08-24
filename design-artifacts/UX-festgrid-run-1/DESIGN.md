@@ -31,8 +31,10 @@ components:
     primary: "bg-violet-600 text-white"
     secondary: "bg-gray-200 text-gray-800"
   grid:
-    base: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4" # widened 2026-08-24 (bmad-correct-course) -- see project-context.md "Grid/Calendar Page Containers"
-    masonry: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4" # added 2026-08-24, Story 1.3b/1.3d Pinterest/masonry view mode
+    # Both rows below are the *output* of GridContainer(baseCols, colsStep) (packages/ui/src/core/grid-container.tsx,
+    # Story 0.31), documented here for readability -- not hand-maintained separately from the component.
+    base: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4" # GridContainer(baseCols=1, colsStep=1)
+    masonry: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4" # GridContainer(baseCols=2, colsStep=1), Story 1.3b/1.3d Pinterest/masonry view mode
   page_container:
     base: "w-full min-w-[320px] sm:min-w-[640px] md:min-w-[768px] lg:min-w-[1024px] xl:min-w-[1280px] p-4 sm:p-8 space-y-8" # added 2026-08-24, replaces the per-page max-w-7xl mx-auto copy-paste -- see packages/ui/src/core/page-container.tsx (Story 0.30)
   calendar:
