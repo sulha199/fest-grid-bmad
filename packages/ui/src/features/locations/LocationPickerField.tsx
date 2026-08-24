@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import type { LocationPickerFieldProps } from './LocationPickerField.types';
 
@@ -21,6 +21,8 @@ export function LocationPickerField({
 }: LocationPickerFieldProps) {
   const [addressSearch, setAddressSearch] = useState(value ?? '');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   // Sync with value prop
   useEffect(() => {
@@ -43,6 +45,7 @@ export function LocationPickerField({
   // Manage dropdown open condition
   useEffect(() => {
     if (
+      !isDismissed &&
       !resolvedPreview &&
       addressSearch.length >= 3
     ) {
@@ -50,21 +53,41 @@ export function LocationPickerField({
     } else {
       setIsDropdownOpen(false);
     }
-  }, [addressSearch, resolvedPreview]);
+  }, [addressSearch, resolvedPreview, isDismissed]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
+    setIsDismissed(false);
     setAddressSearch(val);
     onSearchInputChange(val);
   };
 
   const handleSelect = (placeId: string, description: string) => {
     onSelectSuggestion(placeId, description);
+    setIsDismissed(true);
     setIsDropdownOpen(false);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setIsDismissed(true);
+    }
+  };
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (isDropdownOpen && rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setIsDismissed(true);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
   return (
-    <div className="space-y-2 relative">
+    <div ref={rootRef} className="space-y-2 relative">
       <label htmlFor="location-address" className="text-sm font-medium leading-none">
         {addressLabel}
       </label>
@@ -75,6 +98,7 @@ export function LocationPickerField({
           type="text"
           value={displayValue}
           onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
           placeholder={addressPlaceholder}
           className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           required

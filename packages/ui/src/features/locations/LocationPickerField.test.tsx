@@ -147,4 +147,76 @@ describe('LocationPickerField Component', () => {
 
     expect(input.value).toBe('Resolved Address from GPS');
   });
+
+  it('keeps suggestions closed after selecting a suggestion, even on subsequent renders (regression test #8)', () => {
+    const suggestions = [{ placeId: '1', description: 'Jakarta, Indonesia' }];
+    const { rerender } = render(
+      <LocationPickerField
+        {...defaultProps}
+        suggestions={suggestions}
+      />
+    );
+
+    const input = screen.getByLabelText('Address');
+    fireEvent.change(input, { target: { value: 'Jak' } });
+    expect(screen.getByText('Jakarta, Indonesia')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Jakarta, Indonesia'));
+    expect(screen.queryByText('Jakarta, Indonesia')).not.toBeInTheDocument();
+
+    // Rerender with same props and verify dropdown is still closed
+    rerender(
+      <LocationPickerField
+        {...defaultProps}
+        suggestions={suggestions}
+      />
+    );
+    expect(screen.queryByText('Jakarta, Indonesia')).not.toBeInTheDocument();
+  });
+
+  it('closes suggestions dropdown on Escape key press (regression test #7)', () => {
+    const suggestions = [{ placeId: '1', description: 'Jakarta, Indonesia' }];
+    render(<LocationPickerField {...defaultProps} suggestions={suggestions} />);
+
+    const input = screen.getByLabelText('Address');
+    fireEvent.change(input, { target: { value: 'Jak' } });
+    expect(screen.getByText('Jakarta, Indonesia')).toBeInTheDocument();
+
+    fireEvent.keyDown(input, { key: 'Escape', code: 'Escape' });
+    expect(screen.queryByText('Jakarta, Indonesia')).not.toBeInTheDocument();
+  });
+
+  it('closes suggestions dropdown on clicking outside (regression test #7)', () => {
+    const suggestions = [{ placeId: '1', description: 'Jakarta, Indonesia' }];
+    render(
+      <div>
+        <div data-testid="outside-element">Outside</div>
+        <LocationPickerField {...defaultProps} suggestions={suggestions} />
+      </div>
+    );
+
+    const input = screen.getByLabelText('Address');
+    fireEvent.change(input, { target: { value: 'Jak' } });
+    expect(screen.getByText('Jakarta, Indonesia')).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByTestId('outside-element'));
+    expect(screen.queryByText('Jakarta, Indonesia')).not.toBeInTheDocument();
+  });
+
+  it('re-opens suggestions dropdown on typing after dismiss', () => {
+    const suggestions = [{ placeId: '1', description: 'Jakarta, Indonesia' }];
+    render(<LocationPickerField {...defaultProps} suggestions={suggestions} />);
+
+    const input = screen.getByLabelText('Address');
+    fireEvent.change(input, { target: { value: 'Jak' } });
+    expect(screen.getByText('Jakarta, Indonesia')).toBeInTheDocument();
+
+    // Dismiss with Escape
+    fireEvent.keyDown(input, { key: 'Escape', code: 'Escape' });
+    expect(screen.queryByText('Jakarta, Indonesia')).not.toBeInTheDocument();
+
+    // Type more
+    fireEvent.change(input, { target: { value: 'Jakarta' } });
+    expect(screen.getByText('Jakarta, Indonesia')).toBeInTheDocument();
+  });
 });

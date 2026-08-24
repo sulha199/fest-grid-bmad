@@ -63,15 +63,15 @@ so that Story 3.3's "Set Default Location" action can offer the same location-ac
   - [x] `pnpm --filter @festgrid/ui test`, `pnpm --filter web test` pass, including all relocated/new/updated test files, with zero regression in any other existing suite.
   - [x] `pnpm build` and `pnpm lint` clean at the repo root. If `pnpm build` fails specifically on `packages/ui`'s new `maplibre-gl.css` import, add `'@festgrid/ui'` to that array as the fix.
   - [x] Manual smoke check (Completion Notes): open "My Locations" → "Add a New Location"; confirm address search/autocomplete-select, "Use my current location", and "Pick on map" (including in-sheet search) all behave identically to before the refactor.
-- [ ] **Task 9: Fix dropdown dismiss state (AC10)**
-  - [ ] In `packages/ui/src/features/locations/LocationPickerField.tsx`, add `const [isDismissed, setIsDismissed] = useState(false)`.
-  - [ ] `handleSelect`: set `isDismissed = true` alongside the existing `setIsDropdownOpen(false)` (line 63) — this is the actual fix for #8, since it survives the next `[addressSearch, resolvedPreview]` effect re-run.
-  - [ ] `handleInputChange`: set `isDismissed = false` (typing always re-enables suggestions).
-  - [ ] Add a click-outside handler: wrap the component's root `<div>` with a ref, add a `document.addEventListener('mousedown', ...)` effect (mirroring the standard React click-outside pattern — no existing shared hook to reuse, checked `packages/ui/src/hooks/`; per `project-context.md`'s "reuse before regeneralization" convention (AD-9), keep this inline since it has exactly one consumer today, don't create a new `core/` hook for it yet) that sets `isDismissed = true` when a mousedown occurs outside the ref'd element while the dropdown is open.
-  - [ ] Add an `Escape` keydown handler on the input (`onKeyDown`) that sets `isDismissed = true` — this fixes #7 for keyboard users too, not just click-outside.
-  - [ ] Change the dropdown-open effect (lines 44-53) to also require `!isDismissed`: `if (!isDismissed && !resolvedPreview && addressSearch.length >= 3) { setIsDropdownOpen(true) } else { setIsDropdownOpen(false) }`, and add `isDismissed` to its dependency array.
-  - [ ] Update `LocationPickerField.test.tsx` with new cases: selecting a suggestion keeps the dropdown closed on the next render (regression test for #8); an empty-results dropdown closes on click-outside and on `Escape` (regression tests for #7); typing after either re-opens suggestions normally.
-  - [ ] **Optional cleanup, same investigation area, not required for AC10:** `apps/web/src/app/[locale]/settings/locations/location-form-dialog.tsx` maintains its own `isDropdownOpen` state (~line 56) and a matching open/close `useEffect` (~lines 176-190) that are **entirely dead code** — `LocationPickerField` has never accepted an `isDropdownOpen` prop (confirmed against `LocationPickerField.types.ts`), so this parent-side state is computed but never read or passed anywhere. Likely a leftover from before Story 3.3d's extraction. Safe to delete in the same pass if convenient; not blocking.
+- [x] **Task 9: Fix dropdown dismiss state (AC10)**
+  - [x] In `packages/ui/src/features/locations/LocationPickerField.tsx`, add `const [isDismissed, setIsDismissed] = useState(false)`.
+  - [x] `handleSelect`: set `isDismissed = true` alongside the existing `setIsDropdownOpen(false)` (line 63) — this is the actual fix for #8, since it survives the next `[addressSearch, resolvedPreview]` effect re-run.
+  - [x] `handleInputChange`: set `isDismissed = false` (typing always re-enables suggestions).
+  - [x] Add a click-outside handler: wrap the component's root `<div>` with a ref, add a `document.addEventListener('mousedown', ...)` effect (mirroring the standard React click-outside pattern — no existing shared hook to reuse, checked `packages/ui/src/hooks/`; per `project-context.md`'s "reuse before regeneralization" convention (AD-9), keep this inline since it has exactly one consumer today, don't create a new `core/` hook for it yet) that sets `isDismissed = true` when a mousedown occurs outside the ref'd element while the dropdown is open.
+  - [x] Add an `Escape` keydown handler on the input (`onKeyDown`) that sets `isDismissed = true` — this fixes #7 for keyboard users too, not just click-outside.
+  - [x] Change the dropdown-open effect (lines 44-53) to also require `!isDismissed`: `if (!isDismissed && !resolvedPreview && addressSearch.length >= 3) { setIsDropdownOpen(true) } else { setIsDropdownOpen(false) }`, and add `isDismissed` to its dependency array.
+  - [x] Update `LocationPickerField.test.tsx` with new cases: selecting a suggestion keeps the dropdown closed on the next render (regression test for #8); an empty-results dropdown closes on click-outside and on `Escape` (regression tests for #7); typing after either re-opens suggestions normally.
+  - [x] **Optional cleanup, same investigation area, not required for AC10:** `apps/web/src/app/[locale]/settings/locations/location-form-dialog.tsx` maintains its own `isDropdownOpen` state (~line 56) and a matching open/close `useEffect` (~lines 176-190) that are **entirely dead code** — `LocationPickerField` has never accepted an `isDropdownOpen` prop (confirmed against `LocationPickerField.types.ts`), so this parent-side state is computed but never read or passed anywhere. Likely a leftover from before Story 3.3d's extraction. Safe to delete in the same pass if convenient; not blocking.
 
 ## Dev Notes
 
@@ -173,7 +173,7 @@ so that Story 3.3's "Set Default Location" action can offer the same location-ac
 - [ ] `location-form-dialog.tsx`/`map-picker-sheet.tsx` refactored to consume the new components with zero behavior change.
 - [ ] `location-form-dialog.test.tsx`/`locations-content.test.tsx` updated and passing.
 - [ ] `pnpm build`/`pnpm lint` clean, including the new `packages/ui` CSS import.
-- [ ] Suggestions dropdown has a real dismiss state — survives selection, closable via click-outside/`Escape` (AC10, added 2026-08-24).
+- [x] Suggestions dropdown has a real dismiss state — survives selection, closable via click-outside/`Escape` (AC10, added 2026-08-24).
 
 ## Out of Scope
 
@@ -192,7 +192,7 @@ so that Story 3.3's "Set Default Location" action can offer the same location-ac
 
 ## Completion Status
 
-ready-for-dev
+review
 
 **2026-08-24 (`bmad-create-story`):** Reopened for AC10 only (dropdown dismiss-state fix, `ux-rework-2026-08-24.md` items #7/#8 — see `sprint-change-proposal-2026-08-24-ux-rework-batch.md`). AC1-AC9 remain as originally delivered and are unaffected by this amendment.
 
