@@ -555,6 +555,20 @@ development_status:
   # PENDING_REVIEW row per edit, no server-side block) with a Forward Note binding
   # Story 4.7 to dedupe by accountId to the latest row when it's built. No new
   # prerequisite stories split off.
+  # Reopened 2026-08-24 via bmad-correct-course (sprint-change-proposal-2026-08-24-
+  # moderator-location-override.md, AD-11): confirmed this story's own (3) forward
+  # note above was never actually implemented in Story 4.7 -- moderator-items-content.tsx
+  # has no dedupe logic at all, so stacked PENDING_REVIEW rows for one account really
+  # do all surface today. New AC: extend editAccountDefaultLocation's auth to accept
+  # requireModerator OR the existing active-subscription check (additive, subscriber
+  # path unchanged); a moderator-sourced call writes changeSource: MODERATOR and
+  # inserts the request already resolved (no PENDING_REVIEW); any successful call
+  # (subscriber or moderator) marks every other still-PENDING_REVIEW request for that
+  # accountId as SUPERSEDED -- this both fixes the never-built dedupe note and enables
+  # the new moderator-override capability in one mechanism. Extract the account-row
+  # value+badge+edit-trigger block into shared AccountLocationField (packages/ui/src/
+  # features/locations/, see design-artifacts/UX-festgrid-run-1/EXPERIENCE.md
+  # Component Patterns > Account Location Field) for reuse by Story 4.7.
   3-3b-edit-an-accounts-default-location: review
   # regenerated 2026-08-08 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (this story is itself that sweep's own Gate 3
@@ -1228,6 +1242,17 @@ development_status:
   # separate, standalone page -- user decision, does not join this shell. See
   # sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.2.
   4-7b-moderator-tools-tabbed-shell: backlog
+  # Reopened 2026-08-24 via bmad-correct-course (sprint-change-proposal-2026-08-24-
+  # moderator-location-override.md, AD-11): moderator-items-content.tsx's pending-
+  # location-changes list gets AccountLocationField (see 3-3b's reopened note and
+  # design-artifacts/UX-festgrid-run-1/EXPERIENCE.md Component Patterns > Account
+  # Location Field) rendered per row alongside the existing handleResolveLocationChange
+  # ACCEPT/REVERT actions -- a third, additive "correct it directly" action, not a
+  # replacement. Also fixes a real live gap: this story's own original design assumed
+  # 3-3b's stacked-PENDING_REVIEW-rows forward note would be deduped here, but no
+  # dedupe logic was ever actually built (confirmed by reading the file directly) --
+  # AD-11's supersede-on-any-write rule fixes this at the source instead. Depends on
+  # 3-3b's amendment landing first (shared editAccountDefaultLocation auth/logic).
   # 4-7-moderator-items-page scope extended to include DefaultLocationChangeRequest review (see epics.md)
   # added 2026-08-06 via bmad-create-story at user's request while drafting Story 2.7:
   # 2.7 broadens past-event hiding to a global default and needs an escape hatch so users

@@ -27,7 +27,7 @@ updated: 2026-08-24
 
 **2.1/2.2 Epic 3 (Story 3.3b, `review` status — already implemented on `master`, not yet in final code review):** Fully completable, needs amendment: extend `editAccountDefaultLocation` auth to accept a moderator (`requireModerator`, Story 0.17/AD-7 rule 5 pattern) in addition to an active subscriber; add `changeSource: 'MODERATOR'`; when the caller is a moderator, insert the `DefaultLocationChangeRequest` already resolved (not `PENDING_REVIEW` — no redundant second review); on **any** successful call (subscriber or moderator), auto-supersede every other still-`PENDING_REVIEW` request for that `accountId` (new `SUPERSEDED` terminal status). [x] Done
 
-**2.2 Epic 4 (Story 4.7, `backlog`/not yet built — owns the moderator review page):** Needs its review-page design amended to surface the new shared "account-location" component (current location + moderation status + moderator-only override-edit action) rather than only an `ACCEPT`/`REVERT` action list on each pending request. [x] Done
+**2.2 Epic 4 (Story 4.7, `done` — corrected during implementation, was mischaracterized as `backlog` earlier in this proposal; the moderator review page is already shipped code, `apps/web/.../moderator/items/moderator-items-content.tsx`, with a real `handleResolveLocationChange` ACCEPT/REVERT handler):** Needs its already-shipped review page amended to also render the new shared `AccountLocationField` component per pending row, alongside — not replacing — the existing `ACCEPT`/`REVERT` actions. Also closes a real, confirmed-live gap: Story 3.3b's original design (`sprint-status.yaml`) left a forward note asking 4.7 to dedupe stacked pending requests per account, which was never actually implemented — `moderator-items-content.tsx` has no dedupe logic at all today. [x] Done
 
 **2.3-2.5 Other epics:** No other epic touches `DefaultLocationChangeRequest`/`editAccountDefaultLocation`. No resequencing needed — 3.3b is already built (amendment layers on top, doesn't unwind it); 4.7 hasn't started, so this shapes it before any wasted build effort. [x] Done
 
@@ -68,12 +68,12 @@ updated: 2026-08-24
 - New shared component: account current-location + moderation-status display, with a moderator-only override-edit trigger, reused by Story 3.2/3.3b's subscriber settings page and Story 4.7's moderator review page.
 
 ### Stories
-- **Story 3.3b** (amend, already `review`): new AC for moderator-callable auth, `changeSource: MODERATOR`, self-resolved insert, supersede-on-write logic + new tests. Routes to `bmad-create-story` after PRD/architecture land.
-- **Story 4.7** (shape before drafting, currently `backlog`): incorporate the shared component instead of a bare `ACCEPT`/`REVERT` action list.
+- **Story 3.3b** (amend, already `review`, real shipped code): new AC for moderator-callable auth, `changeSource: MODERATOR`, self-resolved insert, supersede-on-write logic + new tests. Reopened in `sprint-status.yaml`. Routes to `bmad-create-story` next.
+- **Story 4.7** (amend, already `done`, real shipped code — corrected from this proposal's earlier `backlog` mischaracterization): new AC to render `AccountLocationField` per pending-request row alongside existing `ACCEPT`/`REVERT`, and to actually implement the never-built stacked-request dedupe its own original design assumed. Reopened in `sprint-status.yaml`, depends on 3.3b's amendment landing first.
 - **Story 3.4m**: no change needed — its own Pre-Coding Gate Decision 2 (`ACCEPT`/`REVERT` only) stands as designed; the correction capability lives in 3.3b/4.7, not duplicated into 3.4m.
 
 ## Implementation Handoff
 
-**Scope classification: Major** — touches PRD, architecture, and UX. Routes to PM/Architect (this session, via `bmad-prd` → `bmad-architecture` → `bmad-ux`), then story-level updates via `bmad-create-story` on 3.3b, with 4.7 shaped for its own future drafting pass.
+**Scope classification: Major** — touches PRD, architecture, and UX. Routed through PM/Architect (this session, via `bmad-prd` → `bmad-architecture` → `bmad-ux`, all committed); next is story-level updates via `bmad-create-story` on 3.3b, then 4.7.
 
-**Success criteria:** PRD §3.7/§4.14 amended; new `AD-11` logged; UX component spec exists; Story 3.3b reopened with the new AC; Story 4.7's backlog note reflects the shared-component design; `sprint-status.yaml` updated.
+**Success criteria:** PRD §3.7/§4.14 amended ✓; `AD-11` logged ✓; UX component spec exists ✓; `sprint-status.yaml` updated (Stories 3.3b/4.7 reopened) ✓. Remaining: `bmad-create-story` on 3.3b, then 4.7.
