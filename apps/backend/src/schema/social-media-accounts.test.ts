@@ -559,14 +559,14 @@ test('editAccountDefaultLocation mutation resolver integration', async (t) => {
     // Clean any prior requests for a fresh assertions baseline
     await db.delete(defaultLocationChangeRequests).where(eq(defaultLocationChangeRequests.accountId, accountProfileWithLocation.id));
 
-    // Moderator edits default location
+    // Moderator edits default location, with the moderator-review page's asModeratorCorrection intent flag set
     const response = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         query: `
-          mutation EditAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
-            editAccountDefaultLocation(accountId: $accountId, input: $input) {
+          mutation EditAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!, $asModeratorCorrection: Boolean) {
+            editAccountDefaultLocation(accountId: $accountId, input: $input, asModeratorCorrection: $asModeratorCorrection) {
               id
               defaultLocation {
                 formattedAddress
@@ -578,7 +578,8 @@ test('editAccountDefaultLocation mutation resolver integration', async (t) => {
           accountId: accountProfileWithLocation.id,
           input: {
             placeId: 'moderator-place-id'
-          }
+          },
+          asModeratorCorrection: true
         }
       })
     });
@@ -595,6 +596,38 @@ test('editAccountDefaultLocation mutation resolver integration', async (t) => {
     assert.equal(req.changeSource, 'MODERATOR');
     assert.equal(req.reviewedByModeratorId, testUser.id);
     assert.ok(req.reviewedAt !== null);
+  });
+
+  await t.test('6b. moderator role alone (no asModeratorCorrection flag) does not bypass the subscriber check -- AC19 fix', async () => {
+    // A caller holding the moderator role but with no active subscription (anotherUser,
+    // per Test 2's precedent), and no asModeratorCorrection flag (as /settings/subscriptions's
+    // call site never sends it), must still be rejected exactly like any other non-subscriber --
+    // proving mutation semantics are decided by the calling page's explicit intent, not the
+    // caller's role.
+    mockUser = { userId: anotherUser.id, role: 'moderator' };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation EditAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
+            editAccountDefaultLocation(accountId: $accountId, input: $input) {
+              id
+            }
+          }
+        `,
+        variables: {
+          accountId: accountProfileWithLocation.id,
+          input: { placeId: 'moderator-no-flag-place-id' }
+        }
+      })
+    });
+
+    const body = await response.json();
+    assert.ok(body.errors, 'Should have error');
+    assert.equal(body.errors[0].extensions?.code, 'NOT_FOUND');
+    assert.equal(body.errors[0].message, 'Subscription not found');
   });
 
   await t.test('7. supersede on write', async () => {

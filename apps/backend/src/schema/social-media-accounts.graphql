@@ -28,5 +28,5 @@ input SetAccountDefaultLocationInput {
 
 extend type Mutation {
   setAccountDefaultLocation(accountId: ID!, input: SetAccountDefaultLocationInput!): SocialMediaAccountProfile!
-  editAccountDefaultLocation(accountId: ID!, input: SetAccountDefaultLocationInput!): SocialMediaAccountProfile!
+  editAccountDefaultLocation(accountId: ID!, input: SetAccountDefaultLocationInput!, asModeratorCorrection: Boolean): SocialMediaAccountProfile!
 }

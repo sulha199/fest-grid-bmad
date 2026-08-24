@@ -335,6 +335,8 @@ review (AC1-19, AD-11 amendment)
 
 **2026-08-24 (`bmad-create-story`):** Reopened for AC15-19 (moderator override, `AD-11` — `sprint-change-proposal-2026-08-24-moderator-location-override.md`, approved). AC1-14 remain as originally delivered and are unaffected by this amendment; the subscriber path's existing behavior and tests must stay byte-for-byte unchanged (AC15). Gate 1/3 sourced from the still-valid swept `epic-3-readiness.md` (no fresh gap); Gate 2 run fresh via subagent (Freya persona) specifically against the new `AccountLocationField` extraction — verdict: no gap, proceeds as a task (Task 10) inside this amendment. Two items surfaced during drafting were resolved without altering behavior and left as flagged escape-hatch notes rather than silently absorbed or changed: AC7's guard is not relaxed for moderators, and AC9's moderator-alert email is not suppressed for self-resolved writes — see Dev Notes → Architecture & UX Gate Findings → Amendment.
 
+**2026-08-25 (post-merge fix):** AC19's "decided by page, not role" claim was implemented as `authUser.role === 'moderator'` alone (Task 2's actual code), with no caller-supplied signal distinguishing which page was calling — a moderator editing their own subscription from `/settings/subscriptions` would, as literally shipped, still have silently taken the self-resolved moderator branch. Flagged as a known, out-of-scope discrepancy in both this story's and Story 4.7's Pre-Coding Approval Gates at merge time; fixed directly afterward, not via a new `bmad-create-story` cycle (a bug fix, not new scope). Fix: `editAccountDefaultLocation` gained a new optional `asModeratorCorrection: Boolean` argument — the auth check is now `authUser.role === 'moderator' && asModeratorCorrection === true` (role alone no longer sufficient; role is still required as defense-in-depth so a non-moderator can't self-grant the path by passing the flag). `SetDefaultLocationDialog` gained a matching `asModeratorCorrection?: boolean` prop, threaded through to the mutation call; `/settings/subscriptions`'s call site is unchanged (never passes it, so AC19's "no code change" claim now holds for real, not just by omission) and `/moderator/items`'s call site (Story 4.7) now explicitly passes `asModeratorCorrection`. New backend regression test added (`social-media-accounts.test.ts`, "6b. moderator role alone... does not bypass the subscriber check") proving a moderator-role caller with no active subscription and no flag is still rejected `NOT_FOUND`, exactly like any other non-subscriber. Backend 264/264, `packages/ui` unaffected, `apps/web` 268/268, full build/lint clean.
+
 ## Dev Agent Record
 
 ### Agent Model Used
@@ -370,3 +372,13 @@ Completed via CLI. Verified build and ran full test suites across packages/ui, a
 - packages/ui/src/features/locations/index.ts
 - apps/web/src/app/[locale]/settings/subscriptions/subscriptions-content.tsx
 - apps/web/src/app/[locale]/settings/subscriptions/subscriptions-content.test.tsx
+
+**2026-08-25 post-merge fix (AC19):**
+- apps/backend/src/schema/social-media-accounts.graphql
+- apps/backend/src/schema/resolvers.ts
+- apps/backend/src/generated/resolvers-types.ts
+- apps/backend/src/schema/social-media-accounts.test.ts
+- apps/web/src/features/subscriptions/mutations.graphql
+- apps/web/src/generated/graphql.ts
+- apps/web/src/app/[locale]/settings/subscriptions/set-default-location-dialog.tsx
+- apps/web/src/app/[locale]/moderator/items/moderator-items-content.tsx

@@ -395,6 +395,7 @@ export type MutationDeregisterEmbedDomainArgs = {
 
 export type MutationEditAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
+  asModeratorCorrection?: InputMaybe<Scalars['Boolean']['input']>;
   input: SetAccountDefaultLocationInput;
 };
 
@@ -1461,6 +1462,7 @@ export type SetAccountDefaultLocationMutation = { setAccountDefaultLocation: { i
 export type EditAccountDefaultLocationMutationVariables = Exact<{
   accountId: string | number;
   input: SetAccountDefaultLocationInput;
+  asModeratorCorrection?: boolean | null | undefined;
 }>;
 
 
@@ -3171,8 +3173,12 @@ export const useSetAccountDefaultLocationMutation = <
     )};
 
 export const EditAccountDefaultLocationDocument = new TypedDocumentString(`
-    mutation editAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
-  editAccountDefaultLocation(accountId: $accountId, input: $input) {
+    mutation editAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!, $asModeratorCorrection: Boolean) {
+  editAccountDefaultLocation(
+    accountId: $accountId
+    input: $input
+    asModeratorCorrection: $asModeratorCorrection
+  ) {
     id
     defaultLocation {
       coordinates {

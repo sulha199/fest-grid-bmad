@@ -18,8 +18,8 @@ mutation setAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLoc
   }
 }
 
-mutation editAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
-  editAccountDefaultLocation(accountId: $accountId, input: $input) {
+mutation editAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!, $asModeratorCorrection: Boolean) {
+  editAccountDefaultLocation(accountId: $accountId, input: $input, asModeratorCorrection: $asModeratorCorrection) {
     id
     defaultLocation {
       coordinates {
