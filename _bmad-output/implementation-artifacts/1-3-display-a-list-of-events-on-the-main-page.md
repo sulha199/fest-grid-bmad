@@ -7,7 +7,7 @@ baseline_commit: 8a65a540bf295bede62af03c0fd66e23427df2ae
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.3
-- Status: in-progress
+- Status: ready-for-dev (AC9 amendment; AC1-AC8 already `review`)
 
 ## Story
 
@@ -25,6 +25,7 @@ so that I can discover what is happening around me.
 6. **AC6 — Non-blocking initial skeleton:** And on initial load, a skeleton grid matching the card layout is shown (reducing layout shift) instead of a blank page or a full-screen spinner.
 7. **AC7 — i18n:** And all user-facing labels and loading/empty/error states on this page are localized using `next-intl`, with message keys present in both `en` and `id` locale files (AD-6, NFR23).
 8. **AC8 — Test coverage:** And integration tests verify the ongoing/upcoming default filter and the paginated append (not-replace) behavior, and one E2E happy-path test verifies initial render plus at least one infinite-scroll page append.
+9. **AC9 — Full-width root container (added 2026-08-24 via `bmad-create-story`, `ux-rework-2026-08-24.md` item #1):** And the page's root container consumes the available viewport width instead of being capped at `max-w-7xl` (1280px) — the current class (`p-4 sm:p-8 space-y-8 max-w-7xl mx-auto`, now living in `home-content.tsx`, see File Drift Note below) drops its `max-w-7xl` constraint in favor of full-width with the same responsive horizontal padding (`p-4 sm:p-8`) preserved, so content still has breathing room on the viewport edges. No change to the grid's column-count breakpoints (`packages/ui`'s `EventCard` grid classes) — only the outer container's width ceiling.
 
 ## Tasks / Subtasks
 
@@ -47,16 +48,29 @@ so that I can discover what is happening around me.
 - [x] Task 6: Tests (AC8)
 	- [x] Integration tests (Vitest + MSW, `@festgrid/testing-config`) covering: default ongoing/upcoming filter is sent/respected, second-page fetch appends without clearing the first page, skeleton/spinner/empty/error states render at the right times.
 	- [x] One E2E happy-path test (`apps/web/e2e/discovery.spec.ts`, Playwright) covering initial render of cards plus a scroll-triggered second-page append.
+- [ ] Task 7: Remove the root container's width cap (AC9)
+	- [ ] In `apps/web/src/app/[locale]/home-content.tsx` (the current file — see File Drift Note), change the root `<div>`'s className from `"p-4 sm:p-8 space-y-8 max-w-7xl mx-auto"` to `"p-4 sm:p-8 space-y-8 w-full"` — drop `max-w-7xl mx-auto`, keep the existing padding/spacing classes unchanged.
+	- [ ] Manually verify at a wide viewport (e.g. 1920px) that the grid now spans the available width and no horizontal scrollbar/overflow is introduced.
+	- [ ] Confirm no other component assumes this container's prior 1280px cap (e.g. an absolutely-positioned child relying on the old width) — direct code read of `home-content.tsx` during this story's creation found none.
 
 ## Dev Notes
 
-### Architecture & UX Gate Findings
+### File Drift Note (added 2026-08-24 via `bmad-create-story`)
+
+This story's original File List (below) names `apps/web/src/app/[locale]/page.tsx` as the discovery page's content file. As of this amendment, the codebase has since split it into a Server Component `page.tsx` (metadata only) plus a colocated Client Component `home-content.tsx` — the Server/Client split pattern `project-context.md`'s "Dynamic Page Title & Meta Tags" rule establishes project-wide (a convention that postdates this story's original 2026-08-01 draft). AC9/Task 7 target `home-content.tsx` — the real current location of the root container div — not the stale `page.tsx` reference. No other story or AC in this file is affected by the split; noted here only so a future reader isn't misled by the original File List.
+
+### Architecture & UX Gate Findings (AC1-AC8, original)
 
 - **Gate 1 & Gate 3 (Architecture/Infra + Foundational Dependency Completeness):** Sourced from `_bmad-output/planning-artifacts/epic-readiness/epic-1-readiness.md` (`swept: true`, `1.3` explicitly listed in `stories_covered`). The sweep's one finding — no GraphQL authenticated-context layer — was already split into Story 0.17 and does not apply here: this page is an unauthenticated/public discovery view (no per-user data, no `context.user` dependency). No new Gate 1/3 gap for this story.
 - **Gate 2 (UI Complexity & Reusability) — re-run fresh via subagent persona Freya on this regeneration pass (2026-08-01):** **No gap found.** Confirmed that everything remaining in this story's scope (grid rendering via `EventCard`, GraphQL fetch via generated `useInfiniteQuery`, sentinel wiring to `useInfiniteScroll`, non-blocking spinner, skeleton via `EventCard`'s `loading` prop, localized empty/error copy, i18n keys) is either owned by another story (1.3a/1.3b/1.3c) or is trivial page-local JSX/copy — not complex or reused enough to warrant its own story. The prior gap this same gate previously found (the infinite-scroll mechanism) has already been resolved by splitting off Story 1.3c, which is now itself `ready-for-dev`; this story only consumes it.
   - Cross-checked `design-artifacts/D-Design-System/01-event-list-view.md`'s full Event List View spec (view toggles, Filter Hub, "Nearby" default, Quick Favorite) against `epics.md`: search (1.4), type/category filters (1.5), and saved-location/"nearby" filtering (2.5) are all homed; this story's ongoing/upcoming default is explicitly sanctioned by that doc's own "Implementation Note" allowing context-specific page defaults to override "Nearby". Card/Calendar view toggling is owned by Story 3.7 (Feed page), not this page — `EXPERIENCE.md`'s more generic phrasing of a toggle is a documentation-consistency note for a future pass, not a Gate 2 gap in this story's actual approved scope (a plain `EventCard` grid, no toggle). Quick Favorite is owned by Story 2.1, whose current AC wording is detail-view-scoped rather than explicitly card-scoped — also a note for Epic 2's own gate review, not this story's gap, since this story doesn't own `EventCard`'s internals.
   - Other Gate 2 findings evaluated and resolved as **no gap**: the skeleton/loading grid is page-layout-specific and not reused elsewhere (build inline); the fuller "Event List View" component is correctly and already split across Stories 1.4 (search), 1.5 (filter), 2.1/2.1a (favorite), 2.5/2.5a (nearby/geo) — nothing here lacks a home.
 - **Lightweight escape-hatch guard (no subagent):** Re-checked this story's specific scope against the swept report and the fresh Gate 2 pass above for anything neither anticipated. Nothing new found.
+
+### Architecture & UX Gate Findings (AC9, this amendment)
+
+- **Gates 1/2/3 — lightweight guard only, no subagent (user-approved for this small batch, `sprint-change-proposal-2026-08-24-ux-rework-batch.md` companion story-creation pass):** A one-class CSS change to an already-shipped, already-Gate-cleared page (no new component, no new data flow, no new external dependency, no new reusable pattern) — reasoned directly rather than run through Architect/UX persona subagents. No gap found: this doesn't touch the backend/API layer (Gate 1), doesn't introduce a new reusable UI pattern needing its own story (Gate 2 — it's a one-line utility-class edit on an existing page-local container, not a component), and doesn't depend on any unbuilt foundational infrastructure (Gate 3).
+- **Scope note:** the specific replacement width (`w-full`, i.e. no cap) is this story's own default choice, not an explicit user-specified value — `ux-rework-2026-08-24.md`'s original note ("should be wide consuming the space") didn't specify a target width. Flagged to the user alongside this story's creation; trivially reversible to a wider-but-still-capped value (e.g. `max-w-screen-2xl`) if a hard ceiling turns out to be preferred after visual review.
 
 ### Data Type Compatibility & Migration Requirements
 
@@ -125,6 +139,7 @@ so that I can discover what is happening around me.
 - NEW integration test(s) (Vitest + MSW): covering default filter, pagination append, and loading/empty/error states for the discovery page.
 - NEW `apps/web/e2e/discovery.spec.ts` (Playwright): happy-path initial render + infinite-scroll append, alongside the existing `apps/web/e2e/home.spec.ts`.
 - **Consumed, not modified by this story:** `packages/ui` (`EventCard` from 1.3b, `useInfiniteScroll` from 1.3c), `apps/backend` (events resolver from 1.3a).
+- **AC9 amendment (2026-08-24):** UPDATE `apps/web/src/app/[locale]/home-content.tsx` — drop `max-w-7xl mx-auto` from the root container's className (see File Drift Note in Dev Notes for why this file, not `page.tsx`, is the real target).
 
 ### Rule Mapping
 
@@ -168,6 +183,7 @@ so that I can discover what is happening around me.
 - [x] Localized empty and error states.
 - [x] `en`/`id` message keys added for all new page copy.
 - [x] Integration and E2E tests written and passing.
+- [ ] Root container consumes full available width (AC9, added 2026-08-24).
 
 ## Out of Scope
 
@@ -180,14 +196,16 @@ so that I can discover what is happening around me.
 
 ## Definition of Done
 
-- Acceptance criteria (AC1-AC8) satisfied.
+- Acceptance criteria (AC1-AC9) satisfied.
 - Required integration and E2E tests pass.
 - Lint and type checks pass for `apps/web` and any touched shared packages.
 - `en`/`id` locale files updated with all new message keys (AD-6).
 
 ## Completion Status
 
-review
+ready-for-dev
+
+**2026-08-24 (`bmad-create-story`):** Reopened for AC9/Task 7 only (root container full-width, `ux-rework-2026-08-24.md` item #1 — see `sprint-change-proposal-2026-08-24-ux-rework-batch.md`). AC1-AC8 remain as originally delivered (`review`) and are unaffected by this amendment.
 
 ## Dev Agent Record
 

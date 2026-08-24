@@ -8,7 +8,7 @@ baseline_commit: bc6c044b26689041a8ec7c6c9fba4dd36cda01db
 - Epic: 0
 - Story ID: 0.24
 - Story Key: 0-24-build-the-reusable-wizard-page-primitive
-- Status: review
+- Status: ready-for-dev (AC12 amendment; AC1-AC11 already delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,6 +31,7 @@ so that any current or future multi-step flow (Story 3.1's onboarding wizard now
 9. **And** the page's top-level `<Suspense>` boundary (required because the wizard content reads `useSearchParams()` for the `redirect` param) supplies `fallback={<RouteLoader />}` (`@festgrid/ui`, Story 0.26 — now `review`/implemented) per `project-context.md`'s Route-Level Suspense Fallback rule. No forward dependency: `RouteLoader` already exists in the codebase at this story's creation.
 10. **And** the `redirect` search-param value is validated as a safe, same-origin relative path (starts with a single `/`, not `//`, and contains no `://`) before being used as a navigation target; an invalid/absent value falls back to the wizard's `defaultExitPath`. This guards against an open-redirect vector, since `redirect` is an attacker-influenceable, shareable URL query parameter — not part of epics.md's literal AC text, but a required security-correctness addition given the parameter's user-facing, unauthenticated exposure.
 11. **And** this story registers the chrome/hook/route mechanism only, with zero wizard entries wired to a real consumer yet — the first real registry entry (`onboarding`, its steps, its i18n content) is Story 3.1's scope, mirroring the "reserved slot" pattern already used by Stories 0.7/0.8/0.13/0.23.
+12. **AC12 — Wizard chrome never visually collides with the persistent sidenav rail (added 2026-08-24 via `bmad-create-story`, `ux-rework-2026-08-24.md` item #9):** And `WizardNavigation`'s bottom bar (and the rest of the wizard page's content column) never renders on top of, or visually overlapping, `AppShell`'s fixed sidenav rail (`packages/ui/src/core/app-shell/AppShell.tsx`) at any breakpoint where the rail is visible (the `md:flex`/768px+ tablet-rail and `xl:`/1280px+ expanded-rail tiers). See Dev Notes — this could not be conclusively root-caused by static code review alone; Task 1 below requires live browser reproduction before the fix is finalized.
 
 ## Tasks / Subtasks
 
@@ -65,6 +66,10 @@ so that any current or future multi-step flow (Story 3.1's onboarding wizard now
   - [x] `pnpm --filter ui test`, `pnpm --filter web test` pass, including all new test files, with no regression in existing suites (including `locales.test.ts`'s key-parity check).
   - [x] `pnpm build` and `pnpm lint` clean at the repo root.
   - [x] Manual smoke check (Completion Notes): with a temporary 2-step test entry added locally to `wizardRegistry` (removed before commit, or added via a throwaway dev-only registration), navigate `/wizard/<key>/<step1>` → confirm Step Summary/Navigation render correctly, `RouteLoader` flashes briefly on first paint, Next is disabled until the step's content calls `setStepCompleted(true)`, Previous/Next preserve an appended `?redirect=` param, and an unknown `wizardKey` 404s.
+- [ ] **Task 8: Fix wizard-chrome/sidenav-rail visual collision (AC12)**
+  - [ ] **Reproduce first, do not guess the fix.** Static code review during this story's amendment found no obvious defect: `AppShell.tsx`'s `<main>` already carries `md:ps-16 xl:ps-56` (logical padding-inline-start matching the fixed rail's own `w-16`/`xl:w-56`), and neither `WizardNavigation` nor `WizardStepSummary` sets any `fixed`/`sticky`/explicit `z-index` of their own — geometrically this should already offset correctly. Use the `run` skill (or `pnpm --filter web dev`) to open `/wizard/onboarding/api-key` live and actually observe the reported overlap at both rail tiers (768–1279px icon-only tablet rail, ≥1280px expanded rail) and during a step transition (`RouteLoader` flash) before writing any fix — this story's own original Dev Notes explicitly disclaim ever testing the wizard chrome against the app shell's responsive layout at all ("Desktop-only... this story does not implement or test a mobile/responsive layout for the wizard chrome"), so this is a genuinely untested interaction, not a regression of something previously verified.
+  - [ ] Once reproduced, identify the actual cause (candidates to check first, in order: a stacking-context side-effect from a CSS `transform`/`opacity`/`filter` on an ancestor of `WizardNavigation` that would place it in a new stacking context above the rail's `z-40` regardless of paint order; the wizard content column's `max-w-4xl` overflowing available width at a specific viewport and the browser's reflow behavior at that breakpoint; or a genuine missing offset if `<main>`'s padding is for some reason not applying to this specific route) and fix at the actual source rather than papering over it with an arbitrarily higher `z-index` on the rail.
+  - [ ] Add a regression check appropriate to what's found — a Playwright viewport-specific visual/layout assertion if the bug is geometry-based (e.g. asserting `WizardNavigation`'s bounding box never intersects the rail's bounding box at the tablet-rail breakpoint), since Vitest/Testing Library (jsdom) cannot meaningfully assert real layout/paint-order bugs.
 
 ## Dev Notes
 
@@ -75,6 +80,7 @@ so that any current or future multi-step flow (Story 3.1's onboarding wizard now
 - **No shared `Button` primitive exists in `packages/ui` yet** (only a local, non-reusable `apps/web/src/components/ui/button.tsx` from an earlier Shadcn scaffold) — `WizardNavigation` uses raw `<button>` + Tailwind classes, exactly like the existing `NavRailItem.tsx` precedent, rather than importing the app-local Shadcn button (which would invert the dependency direction) or inventing a new shared Button component (out of scope — no other `packages/ui` core primitive does this today, and one apparent 2nd-need doesn't yet justify extracting it, per the project's own established bar, see Story 0.22's `activeOnly()` precedent: extract shared abstractions once ≥2 real call sites exist, not speculatively).
 - **Open-redirect guard on the `redirect` search param (AC10):** `redirect` is a plain, unauthenticated, user/attacker-visible URL query parameter (e.g. shareable in a phishing link). Nothing in `epics.md`'s literal AC text calls for validating it, but using an unvalidated value as a client-side navigation target is a real, avoidable open-redirect exposure — `isSafeRedirectPath` (same-origin relative path only) closes it at negligible cost and matches how `redirect` is actually always used by every currently-known consumer (Story 3.1's own `redirect=/settings/subscriptions`). This is a security-correctness addition, not scope creep.
 - **Desktop-only, no responsive/mobile requirement.** `EXPERIENCE.md`'s Foundation section states `Platform: Web (Desktop)` — this story does not implement or test a mobile/responsive layout for the wizard chrome; a future story would need to extend this scope explicitly if mobile support is later required.
+- **AC12 addendum (2026-08-24) — this is exactly the gap the line above flagged, now surfaced as a real bug report.** This story was built and verified against the wizard chrome in isolation (per the manual smoke check in Task 7, which never mentions the app shell/sidenav rail at all) — it was never checked composed inside `AppShellWrapper`'s actual sidenav rail at any breakpoint, despite `[locale]/layout.tsx` wrapping every route (including `/wizard/...`) in that shell. The "Desktop-only" framing above turns out to have meant "no mobile *tab-bar* breakpoint considered," not "verified against the desktop *rail* breakpoints either." See AC12/Task 8.
 
 ### Architecture & UX Gate Findings
 
@@ -87,6 +93,8 @@ so that any current or future multi-step flow (Story 3.1's onboarding wizard now
 
 - **Compatibility finding: No changes required.** This story introduces no database schema, no migration, and no new GraphQL contract — it is a pure frontend mechanism (a React Context/hook, two presentational components, an in-memory TypeScript registry object, and a Next.js route).
 - **Impacted fields/contracts:** New, purely additive TypeScript types only: `WizardStepDefinition`/`WizardDefinition` (`apps/web/src/features/wizard/wizard-registry.types.ts`), `WizardStepSummaryProps`/`WizardNavigationProps` (`packages/ui/src/core/wizard/*.types.ts`). No existing type's shape changes.
+- **AC12 amendment (2026-08-24):** no data/schema impact — a layout/CSS-only fix, exact file(s) TBD pending Task 8's live reproduction step.
+- **AC12 amendment Gate note (lightweight guard only, no subagent — user-approved for this small batch, `sprint-change-proposal-2026-08-24-ux-rework-batch.md` companion story-creation pass):** a visual layout fix confined to existing, already-shipped chrome components — no new component, no new data flow. No gap found for Gates 1/3 (no backend/infra touch). Gate 2 is intentionally *not* waved through the same way — Task 8 itself requires live browser verification before the fix is written, which is a stronger check than a persona subagent would provide for a bug that static review couldn't fully diagnose.
 - **Required DB migration changes:** None.
 - **Required TypeScript type changes:** None beyond the new additive types above.
 - **Backward compatibility and rollout notes:** Greenfield addition; `wizardRegistry` ships empty, so no existing route or component is affected by this story landing. Story 3.1 is the first to add a registry entry.
@@ -131,6 +139,7 @@ so that any current or future multi-step flow (Story 3.1's onboarding wizard now
 
 - **New (`packages/ui`):** `src/hooks/useWizardStep.tsx` + `.test.tsx`; `src/core/wizard/WizardStepSummary.tsx` + `.types.ts` + `.test.tsx`; `src/core/wizard/WizardNavigation.tsx` + `.types.ts` + `.test.tsx`; `src/core/wizard/index.ts`.
 - **New (`apps/web`):** `src/features/wizard/wizard-registry.ts` + `.types.ts`; `src/features/wizard/metadata-key.ts` + `.test.ts`; `src/features/wizard/is-safe-redirect-path.ts` + `.test.ts`; `src/app/[locale]/wizard/[wizardKey]/[stepSlug]/page.tsx`; `src/app/[locale]/wizard/[wizardKey]/[stepSlug]/wizard-page-content.tsx` + `.test.tsx`.
+- **AC12 amendment (2026-08-24):** file(s) to change determined by Task 8's live-reproduction step — likely one of `wizard-page-content.tsx`, `WizardNavigation.tsx`, or `AppShell.tsx`, not predetermined.
 - **Modified:** `packages/ui/src/index.ts`; `packages/ui/src/hooks/index.ts`; `apps/web/locales/en.json`; `apps/web/locales/id.json`.
 
 ### Rule Mapping
@@ -170,6 +179,7 @@ so that any current or future multi-step flow (Story 3.1's onboarding wizard now
 
 - [ ] `useWizardStep()` hook + `WizardStepProvider` (`packages/ui/src/hooks/useWizardStep.tsx`), exported from `packages/ui`.
 - [ ] `WizardStepSummary` and `WizardNavigation` components (`packages/ui/src/core/wizard/`), exported from `packages/ui`.
+- [ ] Wizard chrome verified live against `AppShell`'s sidenav rail at both rail breakpoints (768–1279px, ≥1280px) with no visual overlap (AC12, added 2026-08-24).
 - [ ] Empty, correctly-typed `wizardRegistry` (`apps/web/src/features/wizard/wizard-registry.ts`) matching Story 3.1's expected entry shape.
 - [ ] `buildWizardMetadataKeys` and `isSafeRedirectPath` helpers with 100%-equivalent test coverage.
 - [ ] `/wizard/[wizardKey]/[stepSlug]` route (`page.tsx` + `wizard-page-content.tsx`) with `generateMetadata`, `notFound()` handling, and `<RouteLoader />` Suspense fallback.
@@ -193,7 +203,9 @@ so that any current or future multi-step flow (Story 3.1's onboarding wizard now
 
 ## Completion Status
 
-- [x] Completed and ready for review
+ready-for-dev
+
+**2026-08-24 (`bmad-create-story`):** Reopened for AC12 only (wizard chrome vs. sidenav rail visual collision, `ux-rework-2026-08-24.md` item #9 — see `sprint-change-proposal-2026-08-24-ux-rework-batch.md`). AC1-AC11 remain as originally delivered. Unlike this batch's other three stories, the root cause could not be pinned down by static review alone — Task 8 requires live reproduction first.
 
 ## Dev Agent Record
 

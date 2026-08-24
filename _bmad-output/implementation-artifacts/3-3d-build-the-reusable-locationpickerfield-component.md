@@ -5,7 +5,7 @@
 - Epic: 3
 - Story ID: 3.3d
 - Story Key: 3-3d-build-the-reusable-locationpickerfield-component
-- Status: review
+- Status: ready-for-dev (AC10 amendment; AC1-AC9 already delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -26,6 +26,9 @@ so that Story 3.3's "Set Default Location" action can offer the same location-ac
 7. **And** `location-form-dialog.test.tsx`'s and `locations-content.test.tsx`'s existing assertion suites (Vitest + Testing Library) still pass, unmodified in outcome, after this refactor. Both currently mock `MapView` directly via `vi.mock('@/components/ui/map', ...)` — since no `apps/web` file imports `MapView` directly anymore post-relocation (only `LocationPickerMapPanel`, internal to `packages/ui`, does, via a relative import), that mock must be replaced with one targeting `LocationPickerMapPanel` itself (see Dev Notes guardrail — mocking `MapView` via `@festgrid/ui` would **not** intercept `LocationPickerMapPanel`'s internal relative import of it). [Derived — testing continuity]
 8. **And** `packages/ui`'s production build path continues to succeed after `MapView`'s `import 'maplibre-gl/dist/maplibre-gl.css'` moves into `packages/ui` — the first direct CSS import anywhere in that package. `apps/web/next.config.ts` currently lists only `@festgrid/domain` in `transpilePackages`, not `@festgrid/ui`. If `pnpm build` fails specifically on this import, add `'@festgrid/ui'` to that array as the fix. [Derived — build-verification guardrail]
 9. **And** new `packages/ui` component tests exist for `LocationPickerField` and `LocationPickerMapPanel` (Vitest + Testing Library) covering: suggestions loading/populated/empty dropdown states, suggestion-selection callback, current-location button disabled/spinner/error states, pick-on-map callback, `resolvedPreview` loading/resolved/error text display, and `labels` overrides; `map.test.tsx` relocates with its existing assertions unchanged (still mocks `maplibre-gl` directly, unaffected by the file's new location). [epics.md AC — testing]
+10. **AC10 — Suggestions dropdown has real dismiss state (added 2026-08-24 via `bmad-create-story`, `ux-rework-2026-08-24.md` items #7/#8):** And the dropdown's open/closed state is no longer *entirely* re-derived every render from `(resolvedPreview, addressSearch.length >= 3)` — a new internal `isDismissed` boolean is introduced, explicitly `true` after (a) the user selects a suggestion, or (b) the user explicitly dismisses the dropdown (click-outside or `Escape`), and explicitly reset to `false` when the user types (`onSearchInputChange` fires). The dropdown renders when `!isDismissed && !resolvedPreview && addressSearch.length >= 3`. This fixes two concrete, related bugs both traced to the same root cause during this story's creation:
+    - **#7 — can't close an empty-results dropdown:** today there is no click-outside handler, no `Escape` handler, and no close affordance of any kind — once `addressSearch.length >= 3` with zero results, the "No addresses found" dropdown is permanently open until the input is cleared below 3 characters. `isDismissed` (via click-outside/`Escape`) fixes this directly.
+    - **#8 — selecting a suggestion doesn't visibly "take" (non-map mode):** `handleSelect`'s existing `setIsDropdownOpen(false)` (line 63) is silently clobbered on the very next render by the open/close `useEffect` (lines 44-53), which re-fires because the parent's `value` prop round-trips back down (`onSelectSuggestion` → parent sets its own `addressSearch` state → new `value` prop → this component's own value-sync effect updates its internal `addressSearch` → the effect watching `[addressSearch, resolvedPreview]` sees `addressSearch.length >= 3` and `resolvedPreview` still `null` for a plain autocomplete pick (only the map/current-location paths set `resolvedPreview` truthy) — and reopens the dropdown immediately after `handleSelect` just closed it. The dropdown briefly (or not-so-briefly) snaps back open right after picking, reading to the user as "my selection didn't work," even though `selectedPlaceId` is in fact correctly captured by the parent (`location-form-dialog.tsx`'s `handleSelectSuggestion`) for save purposes — this is a display/perception bug, not a data-loss bug, confirmed by direct trace of both files' state during this story's creation.
 
 ## Tasks / Subtasks
 
@@ -60,6 +63,15 @@ so that Story 3.3's "Set Default Location" action can offer the same location-ac
   - [x] `pnpm --filter @festgrid/ui test`, `pnpm --filter web test` pass, including all relocated/new/updated test files, with zero regression in any other existing suite.
   - [x] `pnpm build` and `pnpm lint` clean at the repo root. If `pnpm build` fails specifically on `packages/ui`'s new `maplibre-gl.css` import, add `'@festgrid/ui'` to that array as the fix.
   - [x] Manual smoke check (Completion Notes): open "My Locations" → "Add a New Location"; confirm address search/autocomplete-select, "Use my current location", and "Pick on map" (including in-sheet search) all behave identically to before the refactor.
+- [ ] **Task 9: Fix dropdown dismiss state (AC10)**
+  - [ ] In `packages/ui/src/features/locations/LocationPickerField.tsx`, add `const [isDismissed, setIsDismissed] = useState(false)`.
+  - [ ] `handleSelect`: set `isDismissed = true` alongside the existing `setIsDropdownOpen(false)` (line 63) — this is the actual fix for #8, since it survives the next `[addressSearch, resolvedPreview]` effect re-run.
+  - [ ] `handleInputChange`: set `isDismissed = false` (typing always re-enables suggestions).
+  - [ ] Add a click-outside handler: wrap the component's root `<div>` with a ref, add a `document.addEventListener('mousedown', ...)` effect (mirroring the standard React click-outside pattern — no existing shared hook to reuse, checked `packages/ui/src/hooks/`; per `project-context.md`'s "reuse before regeneralization" convention (AD-9), keep this inline since it has exactly one consumer today, don't create a new `core/` hook for it yet) that sets `isDismissed = true` when a mousedown occurs outside the ref'd element while the dropdown is open.
+  - [ ] Add an `Escape` keydown handler on the input (`onKeyDown`) that sets `isDismissed = true` — this fixes #7 for keyboard users too, not just click-outside.
+  - [ ] Change the dropdown-open effect (lines 44-53) to also require `!isDismissed`: `if (!isDismissed && !resolvedPreview && addressSearch.length >= 3) { setIsDropdownOpen(true) } else { setIsDropdownOpen(false) }`, and add `isDismissed` to its dependency array.
+  - [ ] Update `LocationPickerField.test.tsx` with new cases: selecting a suggestion keeps the dropdown closed on the next render (regression test for #8); an empty-results dropdown closes on click-outside and on `Escape` (regression tests for #7); typing after either re-opens suggestions normally.
+  - [ ] **Optional cleanup, same investigation area, not required for AC10:** `apps/web/src/app/[locale]/settings/locations/location-form-dialog.tsx` maintains its own `isDropdownOpen` state (~line 56) and a matching open/close `useEffect` (~lines 176-190) that are **entirely dead code** — `LocationPickerField` has never accepted an `isDropdownOpen` prop (confirmed against `LocationPickerField.types.ts`), so this parent-side state is computed but never read or passed anywhere. Likely a leftover from before Story 3.3d's extraction. Safe to delete in the same pass if convenient; not blocking.
 
 ## Dev Notes
 
@@ -71,6 +83,10 @@ so that Story 3.3's "Set Default Location" action can offer the same location-ac
   - Also confirmed by the same pass: all existing UI states (loading spinner text, inline geolocation error, empty-suggestions text, `MapView`'s own documented pointer-only-a11y contract) are preserved by the AC1/AC2/AC9 prop contract — none are at risk of being silently dropped by the extraction.
   - Also confirmed: `packages/ui` has no shadcn `Dialog`/`Sheet` primitive today — those live locally in `apps/web/src/components/ui/`, a pre-existing architectural gap that predates and is unrelated to this story. `LocationPickerMapPanel` is therefore correctly scoped as sheet *content* only (AC2); `apps/web`'s `map-picker-sheet.tsx` keeps owning the actual `<Sheet>` wrapper, mirroring how `location-form-dialog.tsx` keeps owning its own `<Dialog>` wrapper around `LocationPickerField`.
 - **Reversal note:** Story 2.4a's own Dev Notes record that `MapView` was originally planned for `packages/ui/src/core/map.tsx` but shipped instead at `apps/web/src/components/ui/map.tsx` as a "user-directed Gate 2 deviation" during Story 2.4's implementation — at that time it had exactly one consumer and no forcing function to centralize it. This story reverses that deviation: `packages/ui` cannot import from `apps/web`, so `LocationPickerMapPanel` (a `packages/ui` component per AC2) cannot render a `MapView` still living in `apps/web`. This is a forced, non-optional consequence of the extraction, not a re-litigation of that earlier decision.
+
+### Architecture & UX Gate Findings (AC10, this amendment)
+
+- **Gates 1/2/3 — lightweight guard only, no subagent (user-approved for this small batch, `sprint-change-proposal-2026-08-24-ux-rework-batch.md` companion story-creation pass):** A bug fix confined entirely to `LocationPickerField`'s own internal state machine (plus an optional dead-code removal in its one consumer) — no new component, no new data flow, no new external dependency. No gap found: no backend/API surface touched (Gate 1), no new reusable UI pattern needing its own story — this is a correctness fix to an existing component's existing responsibility, not new complexity (Gate 2), and no dependency on unbuilt foundational infrastructure (Gate 3).
 
 ### Data Type Compatibility & Migration Requirements
 
@@ -115,6 +131,7 @@ so that Story 3.3's "Set Default Location" action can offer the same location-ac
 - **Modified:** `packages/ui/src/index.ts`; `apps/web/src/app/[locale]/settings/locations/{location-form-dialog.tsx, location-form-dialog.test.tsx, map-picker-sheet.tsx, locations-content.test.tsx}`.
 - **Deleted:** `apps/web/src/components/ui/{map.tsx, map.types.ts, map.test.tsx}`.
 - **Not modified:** `packages/ui/package.json`; `apps/web/locales/{en,id}.json`; `packages/database`; `packages/domain`; `apps/backend`; `.env`/`.env.example`/`turbo.json`/`docs/infrastructure/*`/`SETUP_WALKTHROUGH.md`.
+- **AC10 amendment (2026-08-24):** UPDATE `packages/ui/src/features/locations/{LocationPickerField.tsx, LocationPickerField.test.tsx}`; optionally UPDATE `apps/web/src/app/[locale]/settings/locations/location-form-dialog.tsx` (dead-code removal, not required).
 
 ### Rule Mapping
 
@@ -156,6 +173,7 @@ so that Story 3.3's "Set Default Location" action can offer the same location-ac
 - [ ] `location-form-dialog.tsx`/`map-picker-sheet.tsx` refactored to consume the new components with zero behavior change.
 - [ ] `location-form-dialog.test.tsx`/`locations-content.test.tsx` updated and passing.
 - [ ] `pnpm build`/`pnpm lint` clean, including the new `packages/ui` CSS import.
+- [ ] Suggestions dropdown has a real dismiss state — survives selection, closable via click-outside/`Escape` (AC10, added 2026-08-24).
 
 ## Out of Scope
 
@@ -174,7 +192,9 @@ so that Story 3.3's "Set Default Location" action can offer the same location-ac
 
 ## Completion Status
 
-- [x] Completed (and ready for code review)
+ready-for-dev
+
+**2026-08-24 (`bmad-create-story`):** Reopened for AC10 only (dropdown dismiss-state fix, `ux-rework-2026-08-24.md` items #7/#8 — see `sprint-change-proposal-2026-08-24-ux-rework-batch.md`). AC1-AC9 remain as originally delivered and are unaffected by this amendment.
 
 ## Dev Agent Record
 
