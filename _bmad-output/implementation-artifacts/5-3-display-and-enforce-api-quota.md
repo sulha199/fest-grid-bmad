@@ -4,7 +4,7 @@
 
 - Epic: 5
 - Story ID: 5.3
-- Status: review
+- Status: ready-for-dev (AC6 amendment; AC1-AC5 already delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -21,6 +21,7 @@ so that I can manage my API usage effectively and avoid redundant extractions.
 3. **Disable Already Processed (AC3):** Posts that have already been processed are visually disabled and cannot be selected, using each post's `isExtracted` field from the `postsByAccount` query (Story 5.1a).
 4. **Quota Tooltip Warning (AC4):** If the user tries to select more posts than their remaining quota allows, the checkbox for the additional post is disabled, and a tooltip appears on hover, saying "You have reached your quota limit."
 5. **Red Text Over Quota (AC5):** The text in the summary bar is colored red if the selected count exceeds the quota.
+6. **AC6 — SummaryBar no longer traps mobile users behind it (added 2026-08-24 via `bmad-correct-course`, from a fresh `ux-rework.md` note: "any element with `fixed` & `bottom-0` class always overlap the navbar/sidebar... when user in posts/select page, they cannot escape the page"):** And `SummaryBar`'s `fixed bottom-0 ... z-50` no longer occupies the exact same screen position as the app's mobile bottom tab bar (`AppShell`'s `nav.bottom_tab_bar`, `fixed inset-x-0 bottom-0`, visible `<768px`). Confirmed root cause by direct code read: `SummaryBar` (`summary-bar.tsx`) is the **only** offender of this pattern anywhere in the app (`packages/ui`'s two other `fixed .. bottom-0` uses — `AppShell`'s own nav bar and `UserMenu`'s mobile bottom sheet — are the legitimate owners of that position, not bugs) — and it renders **unconditionally** on `/posts/select` (not gated on `selectedCount > 0`), so on any mobile viewport the bottom tab bar is permanently covered by `SummaryBar`'s higher `z-50`, with no way to tap Discover/Feed/Favorites/Calendar/Log In to leave the page. Fix: `SummaryBar`'s className changes from `fixed bottom-0 left-0 right-0 ...` to `fixed bottom-14 md:bottom-0 inset-x-0 ...` — `bottom-14` (matching `AppShell`'s own `<main>` `pb-14` reservation for the mobile tab bar's height) lifts it clear of the tab bar below `md:`; at `md:` and above the mobile tab bar doesn't exist, so `bottom-0` is correct there.
 
 ## Tasks / Subtasks
 
@@ -39,6 +40,11 @@ so that I can manage my API usage effectively and avoid redundant extractions.
 - [x] Task 4 (AC: 1-5) — Unit & Integration tests:
   - [x] Write tests in `apps/web/src/features/post-selection/components/summary-bar.test.tsx` to verify standard rendering, red text styling when over-quota, and standard states.
   - [x] Write integration tests for the post selection container (or wizard step) to verify that selecting more items than allowed by `myExtractionQuota` is blocked, and tooltips are displayed correctly.
+- [ ] **Task 5 (AC: 6, added 2026-08-24) — Fix mobile bottom-tab-bar overlap:**
+  - [ ] In `summary-bar.tsx`, change the root `<div>`'s className from `"fixed bottom-0 left-0 right-0 ..."` to `"fixed bottom-14 md:bottom-0 inset-x-0 ..."`.
+  - [ ] Manually verify on a mobile viewport (`<768px`) on `/posts/select`: the mobile bottom tab bar (Discover/Feed/Favorites/Calendar/Log In) is fully visible and tappable below `SummaryBar`, with no visual gap or overlap between the two bars.
+  - [ ] Manually verify at `md:` and above: `SummaryBar` sits flush at the viewport bottom exactly as before (no regression for desktop/tablet, where the mobile tab bar doesn't render).
+  - [ ] Add/update a `summary-bar.test.tsx` case asserting the className contains `bottom-14` and `md:bottom-0` (a plain class-string assertion — real cross-element overlap can't be meaningfully asserted in jsdom, this is a regression guard against the className being reverted, not a layout test).
 
 ## Dev Notes
 
@@ -117,7 +123,9 @@ so that I can manage my API usage effectively and avoid redundant extractions.
 
 ## Completion Status
 
-- [x] Completed (All tasks implemented and 100% verified via unit and integration tests)
+- [x] Completed (AC1-AC5, original — all tasks implemented and 100% verified via unit and integration tests)
+
+**2026-08-24 (`bmad-correct-course`):** Reopened for AC6 only (mobile bottom-tab-bar overlap fix, sole real repro found for a fresh `ux-rework.md` note — see Section below in the batch proposal). AC1-AC5 unaffected. This item was small/self-contained enough to root-cause and spec directly rather than route through a separate `bmad-help` triage pass.
 
 ### Change Log
 
