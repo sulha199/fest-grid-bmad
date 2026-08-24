@@ -333,6 +333,49 @@ test('default location change requests resolver integration', async (t) => {
     assert.strictEqual(profile.defaultLocation, null);
   });
 
+  await t.test('pendingDefaultLocationChanges - query request with MODERATOR change source', async () => {
+    // Insert a pending request with changeSource: 'MODERATOR'
+    const [modRequest] = await db.insert(defaultLocationChangeRequests).values({
+      accountId: testAccount.id,
+      changedByUserId: moderatorUser.id,
+      changeSource: 'MODERATOR',
+      previousLocation: {
+        coordinates: { latitude: -6.2, longitude: 106.81 },
+        placeName: 'Jakarta, ID',
+        formattedAddress: 'Jakarta, Indonesia',
+      },
+      newLocation: {
+        coordinates: { latitude: -6.17, longitude: 106.82 },
+        placeName: 'Monas, ID',
+        formattedAddress: 'Monumen Nasional, Jakarta, Indonesia',
+      },
+      status: 'PENDING_REVIEW',
+    }).returning();
+
+    mockUser = { userId: moderatorUser.id, role: moderatorUser.role };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query PendingDefaultLocationChanges {
+            pendingDefaultLocationChanges {
+              id
+              changeSource
+            }
+          }
+        `,
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    const requests = result.data.pendingDefaultLocationChanges;
+    const req = requests.find((r: any) => r.id === modRequest.id);
+    assert.ok(req, 'Expected to find the created request');
+    assert.strictEqual(req.changeSource, 'MODERATOR');
+  });
+
   await t.test('cleanup', async () => {
     await db.delete(defaultLocationChangeRequests);
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testAccount.id));

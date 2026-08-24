@@ -13,6 +13,7 @@ enum DefaultLocationChangeAction {
 enum DefaultLocationChangeSource {
   USER
   AI_INFERENCE
+  MODERATOR
 }
 
 type DefaultLocationChangeRequest {

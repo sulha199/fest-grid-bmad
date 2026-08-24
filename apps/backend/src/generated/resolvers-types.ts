@@ -162,6 +162,7 @@ export type DefaultLocationChangeRequestStatus =
 
 export type DefaultLocationChangeSource =
   | 'AI_INFERENCE'
+  | 'MODERATOR'
   | 'USER';
 
 export type EmbedDomain = {

@@ -255,6 +255,7 @@ Gemini CLI YOLO Agent
 ### Completion Notes List
 
 - Story 3.4m fully implemented. Extended scraper adapter, added pure `packages/domain` account-enrichment logic, implemented `system-key-adapter` with platform key failover, refactored `editAccountDefaultLocation` to use extracted shared `applyDefaultLocationChange` helper with racing transaction guard, integrated fallback REVERT logic for AI-inferred changes, and wired automated enrichment/inference into `processScrapeJob`. Added and verified comprehensive CDK infrastructure secret and IAM grants. All 265 unit/integration tests passing 100% clean.
+- Post-implementation fix: Added 'MODERATOR' to the DefaultLocationChangeSource enum declaration in default-location-change-requests.graphql to resolve schema discrepancy with pre-existing database enum. Regenerated GraphQL resolvers types for backend (resolvers-types.ts) and web frontend (graphql.ts). Added integration/regression test case to default-location-change-requests.test.ts querying pending change requests with MODERATOR source, verifying successful serialization and response. All backend and monorepo checks passing completely.
 
 ### File List
 
