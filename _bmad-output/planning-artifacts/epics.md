@@ -107,6 +107,10 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **FR86:** Users can deregister an embed domain pattern they registered, immediately revoking its embedding access for that widget.
 - **FR87:** A widget's domain whitelist entries are exact hostnames or explicit wildcard patterns (never implicit subdomain inclusion); wildcard patterns are validated against a Public Suffix List and rejected if they'd cover a shared-hosting domain.
 - **FR88:** The embed snippet is a script tag plus a placeholder element (supporting multiple different widgets on one page from a single script include); a raw iframe URL is offered as a fallback for embedding contexts that strip script tags.
+- **FR89 (added 2026-08-24):** Every scraped post's embedded account information is used to keep the source account's stored display name/username current when they differ from what is stored.
+- **FR90 (added 2026-08-24):** If an account has no "Default Location" set, the system infers one automatically from the post's own scraped metadata (caption, attached location name) — never a subscriber's saved location preference — and resolves it into full location details via the existing geolocation lookup before saving it.
+- **FR91 (added 2026-08-24):** The location-inference call prefers a contributing subscriber's own BYOK Gemini key, falling back to a platform-funded system key scoped exclusively to this inference use case when no subscriber key is available.
+- **FR92 (added 2026-08-24):** Each `DefaultLocationChangeRequest` records whether a subscriber or the system produced the change, so Moderator Tools can distinguish an AI-inferred value from a human edit.
 
 ### NonFunctional Requirements
 - **NFR1:** Event discovery page should load in under 2 seconds on a standard 4G connection.
@@ -256,6 +260,10 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR86: Epic 6 - Community Voting and Embeddable Distribution
 - FR87: Epic 6 - Community Voting and Embeddable Distribution
 - FR88: Epic 6 - Community Voting and Embeddable Distribution
+- FR89: Epic 3 - Social Media Event Integration (Story 3.4m, added 2026-08-24)
+- FR90: Epic 3 - Social Media Event Integration (Story 3.4m, added 2026-08-24)
+- FR91: Epic 3 - Social Media Event Integration (Story 3.4m, added 2026-08-24)
+- FR92: Epic 4 - Data Quality and Moderation (surfaced in Moderator Tools per FR67's precedent, added 2026-08-24)
 
 ## Epic List
 

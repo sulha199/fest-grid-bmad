@@ -735,7 +735,8 @@ development_status:
   # now optional + new changeSource enum, Section 4.5 cross-reference. PRD is
   # no longer a blocker. Still blocked on the architecture-spine addendum
   # (system-key storage/scope, Track A's second half, not yet done) before
-  # bmad-create-story.
+  # bmad-create-story. epics.md Requirements Inventory backfilled with
+  # FR89-FR91 (this story) and FR92 (Epic 4, Moderator Tools display).
   3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: backlog
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
