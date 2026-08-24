@@ -9,6 +9,9 @@ export interface ScrapedPost {
   postUrl: string;
   originalPostUrl?: string;
   publishedAt: string;
+  locationName?: string;
+  ownerDisplayName?: string;
+  ownerUsername?: string;
 }
 
 export interface AccountProfileLookupResult {

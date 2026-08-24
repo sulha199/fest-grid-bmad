@@ -315,4 +315,82 @@ test('process-scrape-job integration tests', async (t) => {
     const [updatedProfile] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
     assert.ok(updatedProfile.lastScrapedAt);
   });
+
+  await t.test('calls backfillAccountProfileAndInferDefaultLocationSeam on successful scrape and handles throw gracefully', async (subT) => {
+    const {
+      backfillAccountProfileAndInferDefaultLocationSeam,
+      setBackfillAccountProfileAndInferDefaultLocationSeam,
+    } = await import('./process-scrape-job.js');
+
+    subT.after(() => {
+      // Restore original seam
+      setBackfillAccountProfileAndInferDefaultLocationSeam(backfillAccountProfileAndInferDefaultLocationSeam);
+    });
+
+    const mockPlatform = 'test-fake-platform-backfill' as any;
+    const fakeAdapter: ScraperAdapter = {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        return [
+          {
+            content: 'Fake post with backfill',
+            postUrl: 'https://fake-url/1',
+            publishedAt: '2026-08-08T12:00:00Z',
+            ownerDisplayName: 'New Display Name',
+          },
+        ];
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getPostByUrl(url: string): Promise<ScrapedPost | null> {
+        return null;
+      },
+    };
+
+    registerScraperAdapter(mockPlatform, fakeAdapter);
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-backfill-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Account Backfill',
+      username: 'fake_acc_backfill',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    const job = {
+      profileId: profile.id,
+      platform: mockPlatform,
+      accountId: profile.accountId,
+      username: profile.username,
+    };
+
+    // Subtest 1: Verify it calls the seam with correct posts list
+    let calledWithPosts: any = null;
+    let calledWithAccountId: string | null = null;
+
+    setBackfillAccountProfileAndInferDefaultLocationSeam(async (accountId, posts) => {
+      calledWithAccountId = accountId;
+      calledWithPosts = posts;
+    });
+
+    await processScrapeJob(job);
+
+    assert.strictEqual(calledWithAccountId, profile.id);
+    assert.ok(calledWithPosts);
+    assert.strictEqual(calledWithPosts.length, 1);
+    assert.strictEqual(calledWithPosts[0].content, 'Fake post with backfill');
+
+    // Subtest 2: Verify it catches and swallows if backfill throws, still completes successfully
+    setBackfillAccountProfileAndInferDefaultLocationSeam(async () => {
+      throw new Error('Seam thrown error');
+    });
+
+    await assert.doesNotReject(async () => {
+      await processScrapeJob(job);
+    });
+
+    const [updatedProfile] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    assert.ok(updatedProfile.lastScrapedAt);
+  });
 });

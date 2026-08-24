@@ -10,6 +10,11 @@ enum DefaultLocationChangeAction {
   REVERT
 }
 
+enum DefaultLocationChangeSource {
+  USER
+  AI_INFERENCE
+}
+
 type DefaultLocationChangeRequest {
   id: ID!
   accountId: ID!
@@ -17,7 +22,8 @@ type DefaultLocationChangeRequest {
   previousLocation: LocationDetails
   newLocation: LocationDetails!
   status: DefaultLocationChangeRequestStatus!
-  changedByUserId: ID!
+  changedByUserId: ID
+  changeSource: DefaultLocationChangeSource!
   createdAt: String!
   reviewedByModeratorId: ID
   reviewedAt: String

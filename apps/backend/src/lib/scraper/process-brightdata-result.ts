@@ -76,6 +76,9 @@ export async function processBrightDataResult(
         content: candidate.content,
         publishedAt: candidate.publishedAt,
         scraperActorRunId,
+        locationName: candidate.locationName || null,
+        ownerDisplayName: candidate.ownerDisplayName || null,
+        ownerUsername: candidate.ownerUsername || null,
       });
     } catch (error) {
       console.error(`Failed to persist post from Bright Data: ${postUrl}`, error);

@@ -11,6 +11,9 @@ interface PersistScrapedPostParams {
   originalPostUrl?: string | null;
   publishedAt: string;
   scraperActorRunId?: string;
+  locationName?: string | null;
+  ownerDisplayName?: string | null;
+  ownerUsername?: string | null;
 }
 
 export async function persistScrapedPost({
@@ -22,6 +25,9 @@ export async function persistScrapedPost({
   originalPostUrl,
   publishedAt,
   scraperActorRunId,
+  locationName,
+  ownerDisplayName,
+  ownerUsername,
 }: PersistScrapedPostParams) {
   // 1. Try to find the existing post using the dual-lookup logic
   const conditions = originalPostUrl
@@ -55,6 +61,9 @@ export async function persistScrapedPost({
         originalPostUrl,
         publishedAt: new Date(publishedAt),
         scraperActorRunId,
+        locationName,
+        ownerDisplayName,
+        ownerUsername,
       })
       .onConflictDoNothing({
         target: [posts.postUrl],

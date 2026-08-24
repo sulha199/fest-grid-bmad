@@ -100,6 +100,7 @@ The following table summarizes the classification used in our application archit
 |---|---|---|
 | `DATABASE_URL` | AWS Secrets Manager | Postgres connection string including user password — a credential. |
 | `GEOAPIFY_API_KEY` | AWS Secrets Manager | Third-party geocoding API key — a credential. |
+| `SYSTEM_GEMINI_API_KEY` | AWS Secrets Manager | Platform-funded fallback Gemini key for Story 3.4m's default-location inference only (AD-10) — a credential, classified identically to GEOAPIFY_API_KEY. |
 | `FIREBASE_PRIVATE_KEY` | AWS Secrets Manager | Firebase Admin service-account PEM private key — a sensitive private key. |
 | `APIFY_API_TOKEN` | AWS Secrets Manager | Personal API token for Instagram scraping — a credential. |
 | `BRIGHTDATA_API_TOKEN` | AWS Secrets Manager | Personal API token for Bright Data dataset scraping — a credential. |
@@ -123,6 +124,9 @@ aws secretsmanager put-secret-value --secret-id festgrid-database-url-<stage> --
 
 # Populate Geoapify API Key
 aws secretsmanager put-secret-value --secret-id festgrid-geoapify-api-key-<stage> --secret-string "your_geoapify_api_key"
+
+# Populate System Gemini API Key
+aws secretsmanager put-secret-value --secret-id festgrid-system-gemini-api-key-<stage> --secret-string "your_system_gemini_api_key"
 
 # Populate Firebase Private Key
 aws secretsmanager put-secret-value --secret-id festgrid-firebase-private-key-<stage> --secret-string "your_firebase_private_key"
@@ -304,6 +308,10 @@ The AI Gateway wraps all outbound Google Gemini API calls behind a single Adapte
         API_KEY_USAGE_CYCLE_DAYS="30"
         ```
     *   *Note: Decryption in `kms.ts` is lazily initialized and mocked locally/in test environments if `BYOK_KMS_KEY_ID` is omitted or when `NODE_ENV === 'test'`.*
+
+#### Fallback System Key (`SYSTEM_GEMINI_API_KEY`)
+
+To support automated default-location inference when scraping social media accounts, the application requires a platform-owned fallback key (`SYSTEM_GEMINI_API_KEY`) classified identically to `GEOAPIFY_API_KEY`. This key is obtained the same way as the personal test key described above, but is funded by the platform and used exclusively as the final fallback for default-location inference when no subscriber has a valid, unexhausted key. It is structurally isolated and never used for general post extraction.
 
 ## 9. Scraper Adapter (Apify)
 

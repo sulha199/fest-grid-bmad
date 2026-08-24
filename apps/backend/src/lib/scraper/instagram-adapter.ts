@@ -51,6 +51,9 @@ interface ApifyPostItem {
   // Error response fields
   error?: string;
   errorDescription?: string;
+  locationName?: string;
+  ownerFullName?: string;
+  ownerUsername?: string;
 }
 
 // Raw profile item from Apify
@@ -90,7 +93,7 @@ type ActorInputFor<T extends ActorId> = ActorRegistry[T]['input'];
 type ActorOutputFor<T extends ActorId> = ActorRegistry[T]['output'];
 
 // Parser version — increment when output types change (tracks data schema evolution)
-const APIFY_PARSER_VERSION = '3.4g';
+const APIFY_PARSER_VERSION = '3.4m';
 
 const GET_POST_BY_URL_ACTOR = 'apify/instagram-post-scraper';
 const LOOKUP_ACCOUNT_PROFILE_ACTOR = 'apify/instagram-post-scraper';
@@ -219,6 +222,9 @@ export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost 
     // Only include optional fields if they have values (avoid undefined, which fails nullable check)
     ...(imageUrl && { imageUrl }),
     ...(originalPostUrl && { originalPostUrl }),
+    ...(item.locationName && { locationName: item.locationName }),
+    ...(item.ownerFullName && { ownerDisplayName: item.ownerFullName }),
+    ...(item.ownerUsername && { ownerUsername: item.ownerUsername }),
   };
 
   const isValid = validateScrapedPost(candidate);

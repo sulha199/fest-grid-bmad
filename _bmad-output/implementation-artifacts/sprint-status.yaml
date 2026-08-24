@@ -874,7 +874,7 @@ development_status:
   # moderator-flow REVERT parity for null-previousLocation AI-inferred rows,
   # editAccountDefaultLocation's applyDefaultLocationChange extraction).
   # bmad-dev-story cleared to proceed.
-  3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: ready-for-dev
+  3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: in-progress
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap); Gate 2 run fresh (no gap, zero UI

@@ -280,6 +280,59 @@ test('default location change requests resolver integration', async (t) => {
     assert.strictEqual((profile.defaultLocation as any).placeName, 'Jakarta, ID');
   });
 
+  await t.test('resolveDefaultLocationChange - REVERT AI_INFERENCE with null previousLocation', async () => {
+    // Set a dummy defaultLocation first
+    await db.update(socialMediaAccountProfiles)
+      .set({
+        defaultLocation: {
+          placeName: 'Inferred Place',
+          formattedAddress: 'Inferred Place Address',
+          coordinates: { latitude: 0, longitude: 0 }
+        }
+      })
+      .where(eq(socialMediaAccountProfiles.id, testAccount.id));
+
+    // Create a new pending AI_INFERENCE request with previousLocation: null
+    const [aiRequest] = await db.insert(defaultLocationChangeRequests).values({
+      accountId: testAccount.id,
+      changedByUserId: null,
+      changeSource: 'AI_INFERENCE',
+      previousLocation: null,
+      newLocation: {
+        coordinates: { latitude: -6.17, longitude: 106.82 },
+        placeName: 'Inferred Place',
+        formattedAddress: 'Inferred Place, Jakarta, Indonesia',
+      },
+      status: 'PENDING_REVIEW',
+    }).returning();
+
+    // Revert it
+    mockUser = { userId: moderatorUser.id, role: moderatorUser.role };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation ResolveDefaultLocationChange($id: ID!, $action: DefaultLocationChangeAction!) {
+            resolveDefaultLocationChange(id: $id, action: $action) {
+              id
+              status
+            }
+          }
+        `,
+        variables: { id: aiRequest.id, action: 'REVERT' }
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.strictEqual(result.data.resolveDefaultLocationChange.status, 'REVERTED');
+
+    // Verify account profile location is reverted back to null
+    const [profile] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testAccount.id));
+    assert.strictEqual(profile.defaultLocation, null);
+  });
+
   await t.test('cleanup', async () => {
     await db.delete(defaultLocationChangeRequests);
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testAccount.id));

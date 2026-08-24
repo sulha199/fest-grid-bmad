@@ -181,6 +181,9 @@ export const posts = pgTable('posts', {
   isExtracted: boolean('is_extracted').default(false).notNull(),
   publishedAt: timestamp('published_at', { withTimezone: true }).notNull(),
   scraperActorRunId: uuid('scraper_actor_run_id').references(() => scraperActorRuns.id),
+  locationName: text('location_name'),
+  ownerDisplayName: text('owner_display_name'),
+  ownerUsername: text('owner_username'),
   ...timestamps,
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),
@@ -407,7 +410,7 @@ export const fcmTokensRelations = relations(fcmTokens, ({ one }) => ({
 export const defaultLocationChangeRequests = pgTable('default_location_change_requests', {
   id: uuid('id').defaultRandom().primaryKey(),
   accountId: uuid('account_id').references(() => socialMediaAccountProfiles.id).notNull(),
-  changedByUserId: uuid('changed_by_user_id').references(() => users.id).notNull(),
+  changedByUserId: uuid('changed_by_user_id').references(() => users.id),
   previousLocation: jsonb('previous_location').$type<LocationDetails>(),
   newLocation: jsonb('new_location').$type<LocationDetails>().notNull(),
   status: defaultLocationChangeStatusEnum('status').default('PENDING_REVIEW').notNull(),

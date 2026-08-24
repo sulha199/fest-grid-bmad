@@ -1,17 +1,23 @@
 import { db } from '../../db/client.js';
 import { posts, socialMediaAccountProfiles } from '@festgrid/database';
-import { getScraperAdapter } from '@festgrid/domain';
+import { getScraperAdapter, ScrapedPost } from '@festgrid/domain';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
 import { loadBackendEnv } from '../../env.js';
 import { eq, desc } from 'drizzle-orm';
 import { ScrapeTarget } from './get-scrape-targets.js';
 import { setApifyAuditContext, clearApifyAuditContext, apifyAuditContext } from './instagram-adapter.js';
+import { backfillAccountProfileAndInferDefaultLocation } from '../accounts/backfill-account-profile-and-infer-location.js';
+
+export let backfillAccountProfileAndInferDefaultLocationSeam = backfillAccountProfileAndInferDefaultLocation;
+export function setBackfillAccountProfileAndInferDefaultLocationSeam(fn: typeof backfillAccountProfileAndInferDefaultLocation) {
+  backfillAccountProfileAndInferDefaultLocationSeam = fn;
+}
 
 const NEW_SUBSCRIBE_RETRY_WINDOWS_DAYS = [3, 7, 10, 14, 17, 21, 24, 27, 30];
 const MAX_TOTAL_RETURNED = 15;
 const MAX_UNIQUE_NEW_POSTS = 10;
 
-async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: Array<{ content: string; imageUrl?: string; postUrl: string; originalPostUrl?: string; publishedAt: string }>, scraperActorRunId?: string): Promise<number> {
+async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: ScrapedPost[], scraperActorRunId?: string): Promise<number> {
   let persisted = 0;
   for (const post of scrapedPosts) {
     await persistScrapedPost({
@@ -23,6 +29,9 @@ async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: Array<{ cont
       originalPostUrl: post.originalPostUrl || null,
       publishedAt: post.publishedAt,
       scraperActorRunId,
+      locationName: post.locationName || null,
+      ownerDisplayName: post.ownerDisplayName || null,
+      ownerUsername: post.ownerUsername || null,
     });
     persisted += 1;
   }
@@ -31,6 +40,15 @@ async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: Array<{ cont
 
 export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
   const env = loadBackendEnv();
+  const allScrapedPostsThisJob: ScrapedPost[] = [];
+
+  async function runBackfill() {
+    try {
+      await backfillAccountProfileAndInferDefaultLocationSeam(job.profileId, allScrapedPostsThisJob);
+    } catch (backfillErr) {
+      console.error(`[processScrapeJob] backfillAccountProfileAndInferDefaultLocation failed for ${job.profileId}:`, backfillErr);
+    }
+  }
 
   try {
     const [newestPost] = await db
@@ -60,11 +78,13 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
             { accountId: job.accountId, username: job.username },
             { newerThan }
           );
+          allScrapedPostsThisJob.push(...scrapedPosts);
           await persistScrapedPosts(job, scrapedPosts, apifyAuditContext?.runId);
         } finally {
           clearApifyAuditContext();
         }
 
+        await runBackfill();
         return;
       }
 
@@ -82,6 +102,7 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
             { accountId: job.accountId, username: job.username },
             { newerThan }
           );
+          allScrapedPostsThisJob.push(...scrapedPosts);
 
           const uniqueNewPosts = scrapedPosts.filter((post) => {
             if (uniquePostUrls.has(post.postUrl)) return false;
@@ -101,6 +122,7 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
         }
       }
 
+      await runBackfill();
       return;
     }
 
@@ -119,11 +141,14 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
         { accountId: job.accountId, username: job.username },
         { newerThan }
       );
+      allScrapedPostsThisJob.push(...scrapedPosts);
 
       await persistScrapedPosts(job, scrapedPosts, apifyAuditContext?.runId);
     } finally {
       clearApifyAuditContext();
     }
+
+    await runBackfill();
   } catch (err) {
     console.error(`Error processing scrape job for account ${job.username} (${job.profileId}):`, err);
     // AC7: catch and log, but do not rethrow to prevent failing other jobs in SQS batch
