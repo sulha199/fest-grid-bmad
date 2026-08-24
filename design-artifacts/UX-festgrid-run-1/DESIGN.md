@@ -47,21 +47,41 @@ components:
     header: "flex items-center justify-between p-4 border-b border-gray-200"
     date_range: "text-lg font-semibold"
     nav_button: "py-1 px-3 rounded-md bg-gray-100 text-gray-700"
-    grid_weekly: "grid grid-cols-7 divide-x divide-gray-200"
-    day_cell: "p-2 h-32"
-    day_header: "text-sm text-center font-medium"
+    grid_weekly: "grid grid-cols-7 divide-x divide-gray-200" # >= md: (768px) only, see mobile_day_list below
+    day_cell: "p-2 h-32" # >= md: only
+    day_header: "text-sm text-center font-medium" # >= md: only
     event_rendering:
       discovery_view:
         max_events_per_day: 5
       personal_view:
         max_events_per_day: -1 # Show all events
-      more_link: "text-xs text-center text-violet-600 hover:underline"
+      more_link: "text-xs text-center text-violet-600 hover:underline" # >= md: only -- mobile_day_list never caps/pops over, see below
       multi_day_event: "w-full bg-violet-50 border border-violet-200 rounded-md p-1 relative"
       title_formatting:
         main_schedule: "font-bold"
         sub_schedule: "font-normal"
       time_indicator_bar: "absolute bottom-0 left-0 h-1 bg-violet-400"
-      hover_tooltip: "absolute z-10 p-2 text-sm bg-gray-800 text-white rounded-md shadow-lg"
+      hover_tooltip: "absolute z-10 p-2 text-sm bg-gray-800 text-white rounded-md shadow-lg" # >= md: only, see mobile_day_list.time_range_inline for the < md: equivalent
+    # Added <bmad-ux pass, 2026-08-24>: vertical day-list layout below md: (768px), replacing
+    # grid_weekly/day_cell/day_header/hover_tooltip/more_link at that breakpoint. Both this and
+    # grid_weekly render in the DOM, CSS-toggled by breakpoint (hidden / md:hidden pairing) so
+    # only the active one is ever in the accessibility tree (display:none), matching
+    # EXPERIENCE.md's Global Navigation "one variant in the a11y tree" precedent. See
+    # EXPERIENCE.md Component Patterns > Mobile Multi-Day Calendar Spanning for the full
+    # behavioral spec this token block backs -- this pass adds only what's needed to render
+    # that spec; the base day-list shape (vertical, skip-empty-days) was decided at
+    # sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.8 but not yet
+    # token-specified elsewhere, so it's specified here alongside the multi-day answer it exists
+    # to support, rather than left partially undefined.
+    mobile_day_list:
+      breakpoint: "md:hidden" # grid_weekly's counterpart is "hidden md:grid" at the same breakpoint
+      container: "flex flex-col divide-y divide-gray-200"
+      day_row: "flex flex-col gap-1 py-3"
+      day_row_header: "text-sm font-medium text-left px-1" # left-aligned variant of day_header -- day_header's text-center reads oddly on a full-width row; same formatDayHeader() weekday+date output, no new formatting logic
+      event_stack: "flex flex-col gap-2 px-1" # a day row's own compact-card list -- full width, natural (non-h-32-capped) height, always shows every schedule for that day (no cap/popover, unlike grid_weekly's day_cell)
+      time_range_inline: "text-[11px] text-gray-500 mt-0.5" # always-visible time text -- mobile has no hover, and hover_tooltip's existing handlers already no-op on touch pointers, so this replaces tooltip-gating for every card on this breakpoint, not multi-day segments only
+      favorite_count_line: "text-[11px] text-gray-500 flex items-center gap-1 mt-0.5" # EventInfo.favoriteCount as its own line, per sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.5
+      multi_day_badge: "text-[10px] text-violet-600 flex items-center gap-1 mt-0.5" # "Day X of N" + a small calendar-range icon (e.g. lucide-react's CalendarRange -- confirm the exact icon name against the installed lucide-react version at implementation time), repeated on every day_row segment of a multi-day schedule; X/N computed from the schedule's true eventStartDate/eventEndDate, not clamped to the visible week (same convention as isFirstSegment/isLastSegment)
   event_card_compact:
     base: "rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200"
     image: "w-full h-12 object-cover rounded-t-md"
