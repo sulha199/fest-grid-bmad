@@ -12,4 +12,9 @@ export interface PageContainerProps {
    * Optional additional class name to merge into the base container classes.
    */
   className?: string;
+  /**
+   * Optional prop to scale the page to full-width or contain it (e.g. settings pages).
+   * @default true
+   */
+  fullWidth?: boolean;
 }
