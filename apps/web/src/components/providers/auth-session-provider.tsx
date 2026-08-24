@@ -97,10 +97,14 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
     };
   }, [posthog, captureTimezone]);
 
-  // Set up me query
+  // Set up me query. Variables must be `undefined` (not `{}`) to share the ['me']
+  // cache key with AppShellWrapper/useRequireModerator/EventDetailWrapper — passing
+  // `{}` here previously produced a distinct ['me', {}] key, so this provider (mounted
+  // for the whole app) fetched `me` a second time on every page that also renders one
+  // of those, independently of React Query's normal caching.
   const { refetch } = useMeQuery(
     graphqlClient,
-    {},
+    undefined,
     {
       enabled: !!session,
       retry: false,
