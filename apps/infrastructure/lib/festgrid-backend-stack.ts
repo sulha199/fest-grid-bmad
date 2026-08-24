@@ -25,6 +25,27 @@ export class FestgridBackendStack extends cdk.Stack {
     const { stageName } = props;
     const removalPolicy = stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY;
 
+    // These are baked into the Lambda as literal env values (unlike DATABASE_URL etc.,
+    // which resolve from Secrets Manager at runtime), so a missing CI secret here would
+    // otherwise silently ship as an empty string and only surface when application code
+    // hits the code path that needs it (e.g. an authenticated GraphQL request 500ing).
+    // Failing the deploy here catches it before a broken build ever reaches prod.
+    if (stageName === 'prod') {
+      const required = [
+        'SUPABASE_URL',
+        'FIREBASE_PROJECT_ID',
+        'FIREBASE_CLIENT_EMAIL',
+        'SES_FROM_EMAIL_ADDRESS',
+        'WEB_APP_BASE_URL',
+      ] as const;
+      const missing = required.filter((key) => !process.env[key]);
+      if (missing.length > 0) {
+        throw new Error(
+          `Missing required environment variables for prod deploy: ${missing.join(', ')}`
+        );
+      }
+    }
+
     // 1. KMS Key for BYOK
     const kmsKey = new kms.Key(this, `KmsKey-${stageName}`, {
       enableKeyRotation: true,

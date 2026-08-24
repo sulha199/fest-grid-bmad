@@ -163,4 +163,10 @@ jobs:
         env:
           DEPLOY_STAGE: prod
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ vars.FIREBASE_CLIENT_EMAIL }}
+          SES_FROM_EMAIL_ADDRESS: ${{ vars.SES_FROM_EMAIL_ADDRESS }}
+          SYSTEM_ERROR_ALERT_EMAIL: ${{ vars.SYSTEM_ERROR_ALERT_EMAIL }}
+          WEB_APP_BASE_URL: ${{ vars.WEB_APP_BASE_URL }}
         run: pnpm --filter infrastructure exec cdk deploy FestgridBackendStack-prod --require-approval never
