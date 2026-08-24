@@ -187,6 +187,17 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+### AD-11: Moderator Override on Subscriber-Scoped Mutations
+
+*   **Binds:** `editAccountDefaultLocation` (`apps/backend/src/schema/resolvers.ts:496`) — today subscriber-only, gated on an active subscription to the account (PRD §3.7 "Moderator Override", §4.14, amended 2026-08-24).
+*   **Prevents:** A separate moderator-only fork of this (or any future) subscriber-facing edit mutation; a second moderator being required to review a moderator's own correction (a redundant loop rejected during design); stale `PENDING_REVIEW` rows accumulating unnoticed once a later edit has already overtaken them.
+*   **Rule:**
+    1.  **Additive auth, not a replacement:** `requireModerator(context)` (AD-7 rule 3) OR the existing active-subscription check satisfies authorization — either path grants access; the subscriber path is unchanged. This is the first mutation in the codebase where a moderator gains access to an otherwise subscriber-scoped write via a second, independent auth path rather than a dedicated moderator-only mutation — the sanctioned shape for any future case with the same need.
+    2.  **Moderator writes are self-resolved:** when the caller is identified as a moderator (not a subscriber), the resolver sets `changeSource: 'MODERATOR'` and inserts the `DefaultLocationChangeRequest` already resolved — never `PENDING_REVIEW` — since the moderator's own edit *is* the review.
+    3.  **Any successful write supersedes stale pending requests:** on every successful call to this mutation, regardless of `changeSource`, every other still-`PENDING_REVIEW` `DefaultLocationChangeRequest` for that same `accountId` is marked `SUPERSEDED`. Not moderator-specific — the mutation has no existing pending-request de-duplication, so a subscriber alone can already stack multiple pending rows for one account before any are reviewed; a later successful edit (by anyone) makes every earlier pending snapshot's `previousLocation`/`newLocation` stale.
+
+---
+
 ## Related Documents
 
 - [Infrastructure](../../docs/infrastructure/index.md)
