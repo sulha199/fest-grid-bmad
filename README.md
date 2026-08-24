@@ -1,3 +1,4 @@
+<!-- This is the main README for FestDaily -->
 # FestDaily
 
 **Discover, save, and never miss the local events you'd actually want to go to.**
