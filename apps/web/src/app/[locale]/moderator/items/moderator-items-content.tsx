@@ -229,7 +229,7 @@ export function ModeratorItemsContent() {
     }
   }
 
-  const mapToLocationDetails = (newLocation: any) => {
+  const mapToLocationDetails = (newLocation: PendingLocationChange["newLocation"]) => {
     return {
       formattedAddress: newLocation.formattedAddress ?? undefined,
       placeName: newLocation.placeName ?? undefined,
