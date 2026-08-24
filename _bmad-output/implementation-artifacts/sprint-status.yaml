@@ -1248,7 +1248,7 @@ development_status:
   # must scope to status: PENDING so auto-resolved personal reports (Story 4.3a's
   # 2026-08-12 correction) never appear in the attention queue. Story is unstarted,
   # so no rework caused. See sprint-change-proposal-2026-08-12.md.
-  4-7-moderator-items-page: done
+  4-7-moderator-items-page: ready-for-dev
   # added 2026-08-24 via bmad-correct-course: new tabbed shell (Story 0.29)
   # wrapping Stories 3-4k (actor-runs) and 3-4i (unprocessed-payloads), reusing
   # Story 4.7a's route guard as-is. /moderator/items (this story) stays a
@@ -1266,6 +1266,16 @@ development_status:
   # dedupe logic was ever actually built (confirmed by reading the file directly) --
   # AD-11's supersede-on-any-write rule fixes this at the source instead. Depends on
   # 3-3b's amendment landing first (shared editAccountDefaultLocation auth/logic).
+  # bmad-create-story (2026-08-24): amended with AC10-15 (AccountLocationField +
+  # SetDefaultLocationDialog wired into pending-location-change-row.tsx/moderator-
+  # items-content.tsx as a third additive action alongside Accept/Revert; mutual-
+  # exclusion guard; distinguishable per-row accessible names). Hard implementation
+  # dependency on 3-3b's AC15-19 landing first, confirmed by direct code search
+  # (changeSource/SUPERSEDED/AccountLocationField do not exist in code yet). A real
+  # discrepancy was found in 3-3b's own spec during drafting (AC19 claims mutation
+  # semantics are decided by page, but its Task 2 code checks role alone) -- flagged
+  # as 3-3b's own item to fix, not silently absorbed here; does not affect this
+  # story's own correctness since /moderator/items is fully role-gated already.
   # 4-7-moderator-items-page scope extended to include DefaultLocationChangeRequest review (see epics.md)
   # added 2026-08-06 via bmad-create-story at user's request while drafting Story 2.7:
   # 2.7 broadens past-event hiding to a global default and needs an escape hatch so users
