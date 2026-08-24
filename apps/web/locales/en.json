@@ -496,6 +496,11 @@
     "undoLabel": "Undo",
     "restoreErrorToast": "Failed to restore API key."
   },
+  "WidgetsSettingsPage": {
+    "title": "Embeddable Widgets",
+    "description": "Configure, manage and generate responsive discovery widgets for your site!",
+    "createButtonLabel": "Create Widget"
+  },
   "QueueStatusPage": {
     "title": "Queue Status",
     "description": "Monitor extraction status of posts from your subscribed accounts and check your API key health.",

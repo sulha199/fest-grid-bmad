@@ -7,10 +7,13 @@ import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BlockingLoader } from "@festgrid/ui"
+import { BlockingLoader, PageContainer, PageHeader } from "@festgrid/ui"
+import { useTranslations } from "next-intl"
+import { Plus } from "lucide-react"
 import { EmbedDomainsDialog } from "@/components/widgets/EmbedDomainsDialog"
 
 export default function WidgetsPage() {
+  const t = useTranslations("WidgetsSettingsPage")
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
   const [editingWidget, setEditingWidget] = useState<any>(null)
@@ -102,23 +105,10 @@ export default function WidgetsPage() {
   const origin = typeof window !== "undefined" ? window.location.origin : ""
 
   return (
-    <div className="max-w-4xl mx-auto py-10 px-4 space-y-8">
+    <PageContainer fullWidth={false}>
       <BlockingLoader active={isCreating || isUpdating || isDeleting} label="Saving..." />
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Embeddable Widgets</h1>
-          <p className="text-muted-foreground mt-1">
-            Configure, manage and generate responsive discovery widgets for your site!
-          </p>
-        </div>
-        <button
-          onClick={handleOpenCreate}
-          className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-        >
-          Create Widget
-        </button>
-      </div>
+      <PageHeader title={t("title")} description={t("description")} action={{ label: t("createButtonLabel"), icon: <Plus className="h-4 w-4" />, onClick: handleOpenCreate }} />
 
       {isLoading ? (
         <div className="space-y-4">
@@ -280,6 +270,6 @@ export default function WidgetsPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }

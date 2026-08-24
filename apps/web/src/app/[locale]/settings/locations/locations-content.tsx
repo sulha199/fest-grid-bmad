@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
-import { SwipeToReveal, useSoftDeleteWithUndo } from "@festgrid/ui"
+import { SwipeToReveal, useSoftDeleteWithUndo, PageContainer, PageHeader } from "@festgrid/ui"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
 import { useRouter } from "@/i18n/navigation"
 import { graphqlClient } from "@/lib/graphql-client"
@@ -107,20 +107,20 @@ export function LocationsContent() {
 
   if (authLoading || isLoading) {
     return (
-      <div className="p-4 sm:p-8 space-y-8 max-w-3xl mx-auto">
+      <PageContainer fullWidth={false}>
         <div className="h-10 w-48 bg-muted rounded animate-pulse" />
         <div className="space-y-4">
           <div className="h-20 w-full bg-muted rounded animate-pulse" />
           <div className="h-20 w-full bg-muted rounded animate-pulse" />
           <div className="h-20 w-full bg-muted rounded animate-pulse" />
         </div>
-      </div>
+      </PageContainer>
     )
   }
 
   if (error) {
     return (
-      <div className="p-4 sm:p-8 max-w-3xl mx-auto text-center space-y-4">
+      <PageContainer fullWidth={false} className="text-center space-y-4">
         <p className="text-destructive font-medium">{t("errorState")}</p>
         <button
           onClick={() => refetch()}
@@ -128,24 +128,13 @@ export function LocationsContent() {
         >
           Retry
         </button>
-      </div>
+      </PageContainer>
     )
   }
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 max-w-3xl mx-auto">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">{t("title")}</h1>
-        {locations.length > 0 && (
-          <button
-            onClick={handleOpenAddDialog}
-            className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">{t("addButtonLabel")}</span>
-          </button>
-        )}
-      </div>
+    <PageContainer fullWidth={false}>
+      <PageHeader title={t("title")} action={locations.length > 0 ? { label: t("addButtonLabel"), icon: <Plus className="h-4 w-4" />, onClick: handleOpenAddDialog } : undefined} />
 
       {locations.length === 0 ? (
         <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 text-center space-y-4">
@@ -223,6 +212,6 @@ export function LocationsContent() {
         onClose={() => setIsDropdownOpen(false)}
         location={editingLocation}
       />
-    </div>
+    </PageContainer>
   )
 }
