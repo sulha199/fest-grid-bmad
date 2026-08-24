@@ -67,6 +67,10 @@ development_status:
   0-10-set-up-testing-frameworks-foundation: review
   0-11-set-up-runtime-schema-validation: review
   0-12-set-up-firebase-cloud-messaging-foundation: review
+  # Reopened 2026-08-24 via bmad-correct-course: selectApiKey gains a new final-
+  # fallback tier (platform-funded system key, env-var-stored) for Story 3.4m's
+  # AI-assisted default-location inference only -- not a general Phase 2 managed-
+  # key pool. See sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.1.
   0-13-set-up-ai-gateway-adapter-layer-for-gemini: review
   0-14-set-up-aws-iac-for-lambda-sqs-eventbridge-and-kms: review
   0-15-set-up-outbound-email-adapter: done
@@ -135,12 +139,23 @@ development_status:
   # into a new Epic 0 story rather than absorb into either 1.3g or 1.5. See
   # epics.md Story 0.28 note.
   0-28-set-up-shadcn-ui-component-generation-for-packages-ui: review
+  # added 2026-08-24 via bmad-correct-course: user wants API Keys/Subscribed
+  # Accounts/Posts/Notifications collapsed into one tabbed page (like Story 0.24's
+  # wizard) and moderator's actor-runs/unprocessed-payloads into a second tabbed
+  # shell. Free-navigation tabs (no isStepCompleted gating, unlike the wizard) --
+  # a new primitive, not a reuse of wizardRegistry. See sprint-change-proposal-
+  # 2026-08-24-ux-rework-batch.md Section 4.2.
+  0-29-build-the-reusable-tabbedshell-primitive: backlog
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
   1-2-seed-database-with-mock-data: done
   1-2a-create-posts-table-and-link-seeded-events-to-their-source-post: done
   1-3a-build-the-events-backend-graphql-api-layer: done
+  # Reopened 2026-08-24 via bmad-correct-course: new `variant="masonry"` prop
+  # (2-col Pinterest-style layout, native poster aspect ratio), relative-day badge,
+  # and favoriteCount badge. See sprint-change-proposal-2026-08-24-ux-rework-
+  # batch.md Sections 4.4/4.5/4.9.
   1-3b-build-the-reusable-eventcard-component: done
   1-3c-build-the-reusable-infinite-scroll-hook: done
   # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
@@ -148,6 +163,9 @@ development_status:
   # found to duplicate an identical loading/error/empty/grid/infinite-scroll shell below
   # their SearchBar/FilterHub row. Positioned as a 1.3-family lettered suffix per user
   # decision (see story Dev Notes → Retroactive Extraction Rationale).
+  # Reopened 2026-08-24 via bmad-correct-course: new view-mode switcher (1-col /
+  # masonry), following the same pattern as Story 1.3f's card/calendar switcher.
+  # See sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.4.
   1-3d-build-the-reusable-eventlistview-component: review
   # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
   # home-content.tsx and favorites-content.tsx still duplicate the SearchBar/FilterHub
@@ -167,6 +185,11 @@ development_status:
   # are BLOCKED on new prerequisite Story 0.28 (packages/ui shadcn/Radix setup, a
   # Gate 3 finding also needed by Story 1.5 -- not absorbed into this story per
   # AskUserQuestion). Depends on updated to add Story 3.7a, Story 0.28.
+  # Reopened 2026-08-24 via bmad-correct-course: favoriteCount rendered on calendar
+  # items (confirmed OK to grow to two lines); mobile breakpoint gets a vertical
+  # day list skipping empty days -- multi-day-span rendering still undecided,
+  # deferred to a scoped bmad-ux pass. See sprint-change-proposal-2026-08-24-ux-
+  # rework-batch.md Sections 4.5/4.8.
   1-3g-build-the-reusable-weeklycalendarview-component: review
   # added 2026-08-05 via bmad-create-story Gate 1 finding while drafting Story 1.3f —
   # the events resolver's main-schedule-only join can't correctly date-range-filter
@@ -227,6 +250,10 @@ development_status:
   1-9-dynamic-browser-title-and-meta-tags: review
   epic-1-retrospective: optional
   epic-2: in-progress
+  # Reopened 2026-08-24 via bmad-correct-course: new favoriteCount field, a
+  # correlated-subquery COUNT sibling to the existing isFavorited EXISTS pattern
+  # (same activeOnly(favorites) scoping). See sprint-change-proposal-2026-08-24-
+  # ux-rework-batch.md Section 4.5.
   2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: review
   2-1-favorite-an-event: review
   2-1b-build-the-ics-route-handler-and-generator-utility: review
@@ -275,6 +302,10 @@ development_status:
   # just a saved locationPreferenceId), needed by 2.5's no-saved-location fallback.
   # Not yet implemented, so amended in place rather than splitting a new story.
   2-5a-extend-the-events-graphql-api-with-geo-distance-query-support: review
+  # Reopened 2026-08-24 via bmad-correct-course: compact/inline presentation
+  # variant for FilterHub's location filter, reusing the collapsed-trigger-plus-
+  # popover pattern from Story 1.5's AC9/AC10. See sprint-change-proposal-2026-
+  # 08-24-ux-rework-batch.md Section 4.7.
   2-5-find-nearby-events: review
   # added 2026-08-06 via bmad-create-story Gate 2/escape-hatch finding while drafting
   # Story 2.6 — no story wires the "Add to Calendar" trigger UI (flagged but deferred
@@ -296,6 +327,15 @@ development_status:
   # with an open-ended to:null), and requested a new Archive page escape hatch
   # (Story 4.8, Epic 4). All confirmed via AskUserQuestion; epics.md AC revised.
   2-7-automatically-hide-past-events: review
+  # Reopened 2026-08-24 via bmad-correct-course: registry rewritten for a two-
+  # shell settings IA -- Locations/Widgets stay standalone menu items; API Keys/
+  # Subscribed Accounts/Posts/Notifications collapse into one tabbed shell
+  # (Story 0.29); Queue Status entry removed (Story 3.9a dissolved). Moderator
+  # Items stays a separate, standalone entry (user decision) -- does not join the
+  # new moderator actor-runs/unprocessed-payloads tabbed shell. EXPERIENCE.md's
+  # User Menu registry (also stale on queue-status/widgets independent of this
+  # change) amended alongside. See sprint-change-proposal-2026-08-24-ux-rework-
+  # batch.md Section 4.2.
   2-8-user-menu: done
   2-9-manage-push-notification-settings: review
   2-10-service-worker-lifecycle-updates-and-database-self-healing: review
@@ -322,6 +362,9 @@ development_status:
   # longer needed — this story is now self-sufficient for create+revoke). Cross-amended
   # Story 0.13's fetchCandidateKeys task with an activeOnly(apiKeys) filter requirement.
   # See epics.md Story 3.1b's Amendment note.
+  # Reopened 2026-08-24 via bmad-correct-course: becomes Account Settings tab
+  # content (Story 0.29 shell); absorbs Story 3.9a's API-key-health banner.
+  # See sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.2.
   3-1b-manage-and-revoke-api-keys: review
   # regenerated 2026-08-07 via bmad-create-story: full context engine pass. Scope
   # expanded from add-only to also own the full /settings/subscriptions list+remove
@@ -333,6 +376,13 @@ development_status:
   # reuse removeSubscription as-is. Verified subscriptions.is_newly_added already
   # exists in the DB (Story 3.1a's actual migration 0013) despite epics.md's AC
   # text for 3.1a never listing it -- a doc-only gap, not a schema gap.
+  # Reopened 2026-08-24 via bmad-correct-course: (1) remove 'twitter' from
+  # SUPPORTED_PLATFORMS (packages/domain/src/subscriptions/platforms.ts) --
+  # blocks both new subscriptions and new account votes, register-adapters.ts
+  # untouched so existing Twitter subscriptions keep scraping; (2) becomes
+  # Account Settings tab content (Story 0.29 shell), absorbs Story 3.9a's
+  # pending-extraction-count badge. See sprint-change-proposal-2026-08-24-ux-
+  # rework-batch.md Sections 4.2/4.3.
   3-2-subscribe-to-a-social-media-account: review
   # added 2026-08-08 via bmad-create-story Gate 2 finding while drafting Story 3.3:
   # the user confirmed (AskUserQuestion) reusing the full Saved-Locations-style
@@ -372,6 +422,11 @@ development_status:
   # subscriptions-content.tsx) -- an initial Grep-tool read of those files looked like
   # a "Twitter\X" escape-sequence bug, corrected after a direct Read confirmed no bug,
   # only duplication. No new prerequisite stories split off.
+  # Reopened 2026-08-24 via bmad-correct-course: normalized post shape gains
+  # optional locationName/ownerDisplayName/ownerUsername fields -- present in
+  # the raw Apify payload today (apify-runs/run-fKvCBvXjZ7w9R9nFN...md:52-55) but
+  # currently discarded before reaching Post/SocialMediaAccountProfile. Feeds
+  # Story 3.4m. See sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.1.
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: review
   3-4-scrape-new-posts-from-subscribed-accounts: review
   # added 2026-08-08 via bmad-create-story Gate 1 split while drafting Story 3.4:
@@ -579,6 +634,21 @@ development_status:
   # (apifyAuditContext infrastructure, recordActorRunResult return value). Does not block 3-4k
   # (UI can ship anytime, but will show incomplete data until this story ships).
   3-4l-link-scraper-actor-runs-to-posts-and-unprocessed-payloads: review
+  # added 2026-08-24 via bmad-correct-course: PRD Section 5's "Location Data
+  # Reuse Boundary" forbids using a subscriber's own saved location to label an
+  # unrelated account -- user confirmed Gemini is fed only the post/account's own
+  # scraped metadata (locationName/ownerFullName/ownerUsername), never
+  # UserLocationPreference, so no PRD conflict. Persists to defaultLocation
+  # (triggers the existing DefaultLocationChangeRequest moderator flow, PRD
+  # Section 3.7) -- open schema question: DefaultLocationChangeRequest.
+  # changedByUserId has no slot for an AI-driven change; add a nullable
+  # changedByUserId + new changeSource: 'user' | 'ai_inference' discriminator
+  # (user-approved direction, needs formal PRD Section 4.14 amendment before
+  # dev-story). Depends on Story 3.3c (new fields), Story 0.13 (system-key
+  # fallback tier), Story 0.16/2.4b (geocode Gemini's place description into
+  # real LocationDetails -- never trust an LLM for coordinates directly). See
+  # sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.1.
+  3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: backlog
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap); Gate 2 run fresh (no gap, zero UI
@@ -686,6 +756,13 @@ development_status:
   # readiness sweep's Gate 1 correction, orphaning FR23. User confirmed via
   # AskUserQuestion to split it off rather than re-absorb or silently drop. See
   # epics.md Story 3.9a note.
+  # DISSOLVED 2026-08-24 via bmad-correct-course: this standalone page/route is
+  # removed. Its API-key-health banner moves into Story 3.1b's tab content and
+  # its per-subscription pending-extraction-count badge moves into Story 3.2's
+  # tab content, inside the new Account Settings tabbed shell (Story 0.29) --
+  # queue-status had no content of its own beyond those two data sources. Status
+  # left 'done' (shipped code being relocated, not reverted). See sprint-change-
+  # proposal-2026-08-24-ux-rework-batch.md Section 4.2.
   3-9a-display-in-app-queue-status-and-api-key-health: done
   # created 2026-08-11 via bmad-create-story: full context engine pass. Gate 1
   # (fresh, since epic-3-readiness.md predates this story) found a real gap --
@@ -714,6 +791,16 @@ development_status:
   # schedules resolver pattern) rather than split into a new story or leave deferred.
   # No new prerequisite stories split off.
   3-11-view-events-for-a-social-media-account: review
+  # added 2026-08-24 via bmad-correct-course: wraps Stories 3.1b (API Keys),
+  # 3.2 (Subscribed Accounts), 5.1 (Posts), 2.9 (Notifications) as tab content
+  # in Story 0.29's TabbedShell primitive. The Posts tab's content (Story 5.1)
+  # already has its own internal per-account tab bar (PRD Section 3.10), so this
+  # nests tabs-within-tabs -- user confirmed 2026-08-24 that's acceptable as
+  # long as the two levels are visually distinct; resolved via Story 5.1's own
+  # reopening (pill-style inner tabs, avatars, label, card containment, mobile
+  # horizontal scroll) rather than a separate bmad-ux pass. See sprint-change-
+  # proposal-2026-08-24-ux-rework-batch.md Section 4.2.
+  3-12-consolidate-account-settings-into-a-tabbed-shell: backlog
   epic-3-retrospective: optional
   epic-4: in-progress
   # regenerated 2026-08-11 via bmad-create-story: full context engine pass. Gate 1/3
@@ -935,6 +1022,12 @@ development_status:
   # 2026-08-12 correction) never appear in the attention queue. Story is unstarted,
   # so no rework caused. See sprint-change-proposal-2026-08-12.md.
   4-7-moderator-items-page: done
+  # added 2026-08-24 via bmad-correct-course: new tabbed shell (Story 0.29)
+  # wrapping Stories 3-4k (actor-runs) and 3-4i (unprocessed-payloads), reusing
+  # Story 4.7a's route guard as-is. /moderator/items (this story) stays a
+  # separate, standalone page -- user decision, does not join this shell. See
+  # sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.2.
+  4-7b-moderator-tools-tabbed-shell: backlog
   # 4-7-moderator-items-page scope extended to include DefaultLocationChangeRequest review (see epics.md)
   # added 2026-08-06 via bmad-create-story at user's request while drafting Story 2.7:
   # 2.7 broadens past-event hiding to a global default and needs an escape hatch so users
@@ -965,10 +1058,28 @@ development_status:
   epic-5: in-progress
   5-1a-build-the-manual-post-selection-and-extraction-graphql-api-layer: review
   5-1b-build-the-reusable-postcard-component: review
+  # Reopened 2026-08-24 via bmad-correct-course: resolves Story 3.12's Posts-tab
+  # nesting question (nested tabs OK per user, but need clear visual separation
+  # from Shell A's outer tabs). posts-select-content.tsx's account-tab row
+  # (currently `border-b-2` underline buttons, same visual language as a
+  # top-level Tabs bar) changes to: (1) rounded pill/chip style instead of
+  # underline, (2) each pill gets the account's profileImageUrl as a small
+  # avatar (already fetched for PostCard's publisher prop, just not rendered on
+  # the tab itself), (3) a text label ("Posts from:") added above the row --
+  # currently no heading there at all, (4) the row + its content wrapped in the
+  # existing `card` token (rounded-lg shadow-md p-4, DESIGN.md) so it reads as a
+  # box inside the Posts tab, (5) mobile-only: `flex-wrap` -> `flex-nowrap
+  # overflow-x-auto` (single scrolling row instead of wrapping to multiple rows,
+  # `sm:flex-wrap sm:overflow-visible` above the mobile breakpoint). No new
+  # primitives needed. See sprint-change-proposal-2026-08-24-ux-rework-batch.md
+  # Section 4.2.
   5-1-manual-post-selection-screen: review
   5-2-select-posts-for-extraction: review
   5-3-display-and-enforce-api-quota: review
   5-4-inactive-account-warning: review
+  # Reopened 2026-08-24 via bmad-correct-course: wizard steps extended with a
+  # push-notification opt-in step (reusing Story 2.9's toggle), exitPath changed
+  # to /feed. See sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.6.
   5-5-integrate-manual-post-selection-into-the-getting-started-wizard: review
   # added 2026-08-19 via bmad-create-story at user request: "Scrape Posts" button on
   # /posts/select for both the zero-posts (reuses Story 3.1/3.2's initial-scrape
