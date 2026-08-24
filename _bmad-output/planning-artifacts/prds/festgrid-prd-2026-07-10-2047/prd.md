@@ -73,6 +73,7 @@ This feature allows users to curate their event feed by subscribing to specific 
         *   **Immediate Apply with Moderator Oversight:** Editing a "Default Location" takes effect immediately, with no pre-approval gate — extraction is not blocked waiting on review. When a change is made, moderators are notified by email and can, from Moderator Tools (Section 3.9.3), accept the change or revert the account to its previous default location.
         *   **AI-Assisted Location Inference (added 2026-08-24):** If a "Default Location" is still unset when a post is scraped, the system infers one automatically rather than leaving the account without a fallback. The AI agent is given only the post's own scraped metadata (its caption and any location name attached to the post itself) — never a subscriber's saved location preference (Section 3.3), which exists for a different, already-consented purpose (finding nearby events) and must not be repurposed to label an account, per the Location Data Reuse Boundary (Section 5). The agent's inferred place description is then resolved into full location details (coordinates, formatted address) via the standard geolocation lookup, and the result is written to "Default Location" exactly as a human edit would be — going through the same immediate-apply-with-moderator-oversight flow above, so moderators review an AI-inferred value the same way they review a human one. Which of the two produced a given change is recorded (Section 4.14) so moderators can tell them apart.
         *   **Key Used for Inference (added 2026-08-24):** This inference call prefers a contributing subscriber's own BYOK Gemini key (the same fairness/rotation approach as regular extraction, above). Only when no subscriber of the account has a usable key does the system fall back to a platform-funded key, held centrally for this purpose. This system key is used exclusively for default-location inference on accounts with no subscriber-contributed key; it does not extend to general post-extraction processing, which remains BYOK-only until the managed-key-pool phase of the platform's rollout (Section 6).
+        *   **Moderator Override (added 2026-08-24):** A moderator reviewing a pending change is not limited to accepting or reverting it as-is — they may also set "Default Location" directly to a corrected value, using the same mechanism a subscriber uses. This closes a gap the AI-inference feature above makes routine: reverting a wrong AI guess only blanks the value (Section 3.9.3), it does not let a moderator supply the value that should have been inferred. A moderator-sourced change requires no further review — the moderator's own edit *is* the review — and is recorded with `changeSource: MODERATOR` (Section 4.14). Setting a new value this way, by a subscriber or a moderator, automatically supersedes any other still-pending `DefaultLocationChangeRequest` for that account, since an earlier pending record's captured before/after values are no longer accurate once a later edit has overtaken it.
 *   **Account Profile Backfill from Scraped Posts (added 2026-08-24):** Every scraped post also carries the publishing account's own profile information (its current display name and username). When this differs from what is stored, the system updates the account's stored profile to match — keeping subscriber-facing account details current without requiring a subscriber to notice and re-enter them.
 *   **Quota Management & Notifications:**
 *   **Email Notifications:** Users will receive email notifications if `X` of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
@@ -505,9 +506,11 @@ interface SocialMediaAccountProfile {
    * per post for shared accounts, so a per-subscriber value would be ambiguous
    * about which one applies. Changing it applies immediately; see Section 3.7
    * for the moderator notify/accept/revert flow, and `DefaultLocationChangeRequest`
-   * (Section 4.14) for the audit trail. May be set by a human subscriber or,
-   * when left unset, by the AI-assisted inference described in Section 3.7 —
-   * `DefaultLocationChangeRequest.changeSource` (Section 4.14) records which.
+   * (Section 4.14) for the audit trail. May be set by a human subscriber, by
+   * the AI-assisted inference described in Section 3.7 when left unset, or
+   * directly by a moderator correcting a value (Section 3.7 Moderator
+   * Override) — `DefaultLocationChangeRequest.changeSource` (Section 4.14)
+   * records which.
    */
   defaultLocation?: LocationDetails;
 }
@@ -804,11 +807,13 @@ enum DefaultLocationChangeStatus {
   PENDING_REVIEW,
   ACCEPTED,
   REVERTED,
+  SUPERSEDED,  // a later edit (by anyone) overtook this request before it was reviewed — not actionable (added 2026-08-24)
 }
 
 enum DefaultLocationChangeSource {
   USER,          // a subscriber explicitly set or edited the value
   AI_INFERENCE,  // the system inferred it automatically (Section 3.7 AI-Assisted Location Inference) — added 2026-08-24
+  MODERATOR,     // a moderator directly corrected the value (Section 3.7 Moderator Override) — requires no further review — added 2026-08-24
 }
 
 /**
@@ -816,7 +821,10 @@ enum DefaultLocationChangeSource {
  * `SocialMediaAccountProfile.defaultLocation` (Section 4.5). The change applies
  * immediately on write; this record is what a moderator reviews and acts on —
  * accepting keeps `newLocation`, reverting restores `previousLocation`
- * (Section 3.7, Section 3.9.3).
+ * (Section 3.7, Section 3.9.3). A `MODERATOR`-sourced record is created already
+ * resolved, never `PENDING_REVIEW` (the moderator's own edit is the review).
+ * Any successful edit — by a subscriber or a moderator — marks every other
+ * still-`PENDING_REVIEW` record for the same `accountId` as `SUPERSEDED`.
  */
 interface DefaultLocationChangeRequest {
   id: string;
