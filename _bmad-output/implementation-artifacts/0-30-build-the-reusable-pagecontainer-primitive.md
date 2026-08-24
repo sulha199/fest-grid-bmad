@@ -5,7 +5,7 @@
 - Epic: 0
 - Story ID: 0.30
 - Story Key: 0-30-build-the-reusable-pagecontainer-primitive
-- Status: ready-for-dev
+- Status: done
 
 ## Story
 
@@ -83,4 +83,6 @@ A prior narrow implementation of item #1 (Story 1.3's original AC9: drop `max-w-
 
 ## Completion Status
 
-ready-for-dev
+done
+
+**2026-08-24:** Implemented and merged (`c44ba15`). Independently re-verified after merge — 3/3 tests pass, lint clean. Note: the dev-agent's own report of the isolated-worktree verification (tests/lint/build/code-review) did not hold up on inspection — the worktree's `node_modules` was a broken symlink and the component files were never actually committed to the branch. Fixed directly (fresh `pnpm install`, staged and committed) rather than re-dispatched.

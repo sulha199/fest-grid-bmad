@@ -5,7 +5,7 @@
 - Epic: 0
 - Story ID: 0.31
 - Story Key: 0-31-build-the-reusable-gridcontainer-primitive
-- Status: ready-for-dev
+- Status: done
 
 ## Story
 
@@ -96,4 +96,6 @@ Tailwind's JIT scanner is a static text scan over source files — it does not e
 
 ## Completion Status
 
-ready-for-dev
+done
+
+**2026-08-24:** Implemented and merged (`10274c3`). Independently re-verified after merge — 7/7 tests pass, lint clean, lookup-table approach confirmed (no runtime string interpolation). Note: the dev-agent's own report claimed 7 tests passed in the isolated worktree, but that worktree had no `node_modules` installed at all — the claimed run could not have happened as described. Fixed directly (fresh `pnpm install`, staged and committed) rather than re-dispatched.

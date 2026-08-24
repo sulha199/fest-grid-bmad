@@ -167,7 +167,14 @@ development_status:
   # project-context.md's new "Grid/Calendar Page Containers" rule. Blocks
   # Stories 1.3/1.3d/2.2/2.6/3.7/3.11/4.8/5.1's own PageContainer-adoption
   # ACs. See sprint-change-proposal-2026-08-24-ux-rework-batch.md.
-  0-30-build-the-reusable-pagecontainer-primitive: ready-for-dev
+  # DONE 2026-08-24: implemented, merged (c44ba15). Verification note: the
+  # dev-agent report claimed tests/lint/build/code-review all passed in the
+  # isolated worktree, but the worktree's node_modules symlink was actually
+  # broken (module-not-found on vitest.setup.ts) -- files were also never
+  # committed to the branch. Re-verified independently after a clean
+  # `pnpm install`: 3/3 tests pass, lint clean, matches spec. Code itself was
+  # correct; the reported verification process was not accurate as described.
+  0-30-build-the-reusable-pagecontainer-primitive: done
   # added 2026-08-24 via bmad-correct-course, same day as 0-30: user asked for
   # a reusable grid-column-count component (baseCols/colsStep props, e.g.
   # baseCols=1 colsStep=1 for the standard grid, baseCols=2 colsStep=1 for the
@@ -178,7 +185,13 @@ development_status:
   # 1.3d's AC14 and Story 5.1's AC12 committed in fe8a1af -- no code existed
   # against those yet, documentation correction only. Blocks both stories'
   # revised ACs. See sprint-change-proposal-2026-08-24-ux-rework-batch.md.
-  0-31-build-the-reusable-gridcontainer-primitive: ready-for-dev
+  # DONE 2026-08-24: implemented, merged (10274c3). Verification note: the
+  # worktree had NO node_modules installed at all -- the reported "7 unit
+  # tests passed" could not have run there as described. Re-verified
+  # independently after `pnpm install`: 7/7 tests pass, lint clean, matches
+  # spec exactly (lookup-table approach, no runtime string interpolation).
+  # Code itself was correct; the reported verification process was not.
+  0-31-build-the-reusable-gridcontainer-primitive: done
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
