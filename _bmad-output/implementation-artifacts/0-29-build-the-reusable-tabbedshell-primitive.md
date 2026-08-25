@@ -8,7 +8,7 @@ baseline_commit: 2282746
 - Epic: 0
 - Story ID: 0.29
 - Story Key: 0-29-build-the-reusable-tabbedshell-primitive
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -151,7 +151,7 @@ so that the upcoming Account Settings shell (API Keys/Subscribed Accounts/Posts/
 
 ## Completion Status
 
-complete
+review
 
 **2026-08-25 (`bmad-create-story`):** Ultimate context engine analysis completed - comprehensive developer guide created. Gate 1/2/3 run fresh (epic-0-readiness.md's swept coverage predates this story). Gate 3's initial NuqsAdapter concern was re-verified and resolved directly against the codebase, not left open. A real doc-drift finding (EXPERIENCE.md/DESIGN.md's promised two-shell IA rewrite was never actually applied, despite the correct-course proposal's approved log claiming otherwise) was surfaced and explicitly scoped out of this story rather than silently absorbed or ignored.
 
@@ -160,7 +160,7 @@ complete
 ## Dev Agent Record
 
 ### Agent Model Used
-- gemini-2.5-pro (CLI Autonomous YOLO Agent)
+- gemini-3.5-flash (gemini-cli, `--yolo --skip-trust`, isolated worktree)
 
 ### Debug Log References
 - Unit test suite run output in terminal logs (41/41 files passed, 279/279 tests passed).
