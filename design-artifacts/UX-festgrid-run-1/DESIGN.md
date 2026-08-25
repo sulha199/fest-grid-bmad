@@ -2,7 +2,7 @@
 title: "DESIGN.md: festgrid"
 status: "draft"
 created: "2026-07-13T22:33:00Z"
-updated: "2026-08-06T00:00:00Z"
+updated: "2026-08-25T00:00:00Z"
 sources:
   - "_bmad-output/planning-artifacts/prfaq-festgrid.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -86,6 +86,17 @@ components:
     base: "rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200"
     image: "w-full h-12 object-cover rounded-t-md"
     title: "text-xs font-bold truncate"
+  event_card_masonry:
+    # Added 2026-08-25 -- Story 1.3b's variant="masonry" prop, sprint-change-proposal-2026-08-24-ux-rework-batch.md
+    # Section 4.4/4.5. Distinct from event_card_compact above, which is the calendar view's per-schedule
+    # mini-card, not a card-grid mode. Reference: user-provided screenshot, 2-col grid, native-aspect-ratio
+    # poster image, relative-day pill top-left, heart+count badge top-right, title/venue caption below.
+    image: "w-full aspect-[3/4] object-cover" # native aspect ratio, no fixed h-48 like the standard variant
+    caption: "p-2 flex flex-col gap-0.5" # tighter than the standard variant's p-4 -- denser Pinterest-grid density
+  event_card_relative_day_pill:
+    base: "absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full text-xs font-semibold bg-background/80 backdrop-blur-sm shadow-sm text-foreground" # same glassmorphism treatment as the existing favorite-toggle button, mirrored to the opposite corner
+  event_card_favorite_count_badge:
+    base: "flex items-center gap-1 text-xs font-medium" # count text rendered inline next to the existing Heart icon inside the favorite-toggle button, not a separate element -- reuses EventCard's existing top-right slot rather than adding a third overlay
   modal:
     overlay: "fixed inset-0 bg-black bg-opacity-50"
     dialog: "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 w-full max-w-md"
