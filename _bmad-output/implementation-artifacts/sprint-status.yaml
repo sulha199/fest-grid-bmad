@@ -874,7 +874,13 @@ development_status:
   # moderator-flow REVERT parity for null-previousLocation AI-inferred rows,
   # editAccountDefaultLocation's applyDefaultLocationChange extraction).
   # bmad-dev-story cleared to proceed.
-  3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: in-progress
+  # Corrected 2026-08-25: gemini-cli's dev-story run (commit 98d2757, merged
+  # 5accdde) left this at in-progress despite its own completion summary
+  # claiming sprint-status.yaml was updated to review -- the story file's own
+  # Status header WAS correctly set to review, only this tracking file lagged.
+  # Independently verified merged and complete: backend 266/266, packages/domain
+  # 147/147 (100% coverage), apps/web 268/268, infra 1/1, build/lint clean.
+  3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: review
   3-5-add-new-posts-to-a-processing-queue: review
   # regenerated 2026-08-10 via bmad-create-story: full context engine pass. Gate 1/3
   # cited from swept epic-3-readiness.md (no gap); Gate 2 run fresh (no gap, zero UI
