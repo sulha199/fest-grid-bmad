@@ -51,6 +51,7 @@ This document outlines the product requirements for FestDaily, a platform design
 *   **3.3.2. Event Details Centralization:** Consolidate all relevant event information in one place.
 *   **3.3.3. Source Attribution:** The event details view will display attribution for, and links back to, the social media post the event was extracted from: the original-platform post (`Post.originalPostUrl`, when the scraper adapter was able to derive it) and/or the source post actually scraped (`Post.postUrl`, which may be a proxy/mirror site — see Section 3.7). Whichever of the two is unavailable for a given post is simply omitted, not shown broken. These are read-only informational links, not editable/correctable fields (see Section 3.9 for corrections).
 *   **3.3.4. Account Attribution:** The event details view will also display the source account's name and platform icon (from `SocialMediaAccountProfile`, Section 4.5). Clicking it navigates to that account's public event page (Section 3.7). This is separate from the source-post attribution links (3.3.3), which point to the original post rather than the account.
+*   **3.3.5. Video Prioritization:** When the source post has an associated video (`Post.videoUrl`, e.g. an Instagram Reel/clip), the event details view plays the video in place of the static poster image, autoplaying muted and looped (no manual controls for v1). The poster image (`Post.imageUrl`) remains the skeleton-loader placeholder shown while the video loads, and is also the fallback shown if video playback fails — in that case the view additionally surfaces the existing source-attribution link (Section 3.3.3) so the user can view the video on the original post.
 
 ### 3.5 Global View Rules
 
@@ -326,9 +327,10 @@ interface EventInfo {
   sourceSocialMediaAccountId?: string;
   /**
    * The ID of the `Post` (see the `Post` interface, Section 4.7) this event was extracted from, if any.
-   * EventInfo intentionally has no image field of its own — an event's image is resolved via this
-   * relation, from the source post's `imageUrl`. The event details view also uses this relation to
-   * surface attribution and links back to the source post's `postUrl`/`originalPostUrl` (Section 3.3.3).
+   * EventInfo intentionally has no image or video field of its own — an event's image and video are
+   * resolved via this relation, from the source post's `imageUrl`/`videoUrl`. The event details view
+   * also uses this relation to surface attribution and links back to the source post's `postUrl`/
+   * `originalPostUrl` (Section 3.3.3).
    */
   postId?: string;
   /**
@@ -571,9 +573,15 @@ interface Post {
    */
   content: string;
   /**
-   * The URL of the image in the post, if any.
+   * The URL of the image in the post, if any. Also used as the skeleton-loader placeholder
+   * and playback-failure fallback when `videoUrl` is present (Section 3.3.5).
    */
   imageUrl?: string;
+  /**
+   * The URL of the video in the post, if any (e.g. an Instagram Reel/clip). When present, the
+   * event details view prioritizes video playback over the poster image (Section 3.3.5).
+   */
+  videoUrl?: string;
   /**
    * The URL the scraper adapter actually fetched this post from. For platforms scraped via a
    * proxy/mirror (e.g. Instagram via `imginn.com`), this is the proxy URL, not the original

@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-25T00:00:00Z
+last_updated: 2026-08-25T01:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -326,6 +326,12 @@ development_status:
   # not re-split here) plus this story's own shadcn badge addition (single-consumer,
   # added directly in this story rather than expanding 0.28's shared scope).
   1-5-filter-events-by-type-and-category: review
+  # Reopened 2026-08-25 via bmad-correct-course: EventDetailViewProps gains
+  # videoUrl/videoAlt; EventImage gains a video-capable sibling/variant
+  # (<video autoPlay muted loop playsInline>) rendered in place of the image
+  # when videoUrl is present; on playback failure, falls back to EventImage
+  # and surfaces the existing originalPostUrl/sourcePostUrl attribution link.
+  # See sprint-change-proposal-2026-08-25-video-priority-display.md.
   1-6a-build-the-reusable-event-detail-view-component: done
   1-6b-build-the-context-aware-list-navigation-hook: done
   # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-
@@ -346,6 +352,9 @@ development_status:
   # (adjacent slugs now prefetched via router.prefetch()).
   # 2026-08-20: Verification pass completed; all 15 tasks confirmed complete; AC1-14
   # satisfied; test files verified; Dev Agent Record filled in; ready for code review.
+  # Reopened 2026-08-25 via bmad-correct-course: wires the new videoUrl field
+  # from the GraphQL query through to EventDetailView (Story 1.6a's amendment).
+  # See sprint-change-proposal-2026-08-25-video-priority-display.md.
   1-6-view-event-details: review
   1-7a-build-the-reusable-blockingloader-component: review
   1-7-user-signup-and-login-with-google: review
@@ -623,6 +632,14 @@ development_status:
   # the raw Apify payload today (apify-runs/run-fKvCBvXjZ7w9R9nFN...md:52-55) but
   # currently discarded before reaching Post/SocialMediaAccountProfile. Feeds
   # Story 3.4m. See sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.1.
+  # Reopened again 2026-08-25 via bmad-correct-course: normalized post shape
+  # gains optional videoUrl, sourced from Apify's raw videoUrl field
+  # (confirmed present for Reel/clip posts, apify-runs/run-fKvCBvXjZ7w9R9nFN...
+  # md:146,154) but currently discarded, same pattern as the locationName/
+  # ownerDisplayName/ownerUsername fields above. Also needs a new posts.
+  # video_url DB column/migration and a videoUrl GraphQL field (fold into this
+  # story's consumer or a small new story, PO's call at story-creation time).
+  # See sprint-change-proposal-2026-08-25-video-priority-display.md.
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: review
   3-4-scrape-new-posts-from-subscribed-accounts: review
   # added 2026-08-08 via bmad-create-story Gate 1 split while drafting Story 3.4:

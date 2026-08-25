@@ -1,0 +1,4 @@
+- store post's reel/video, and prioritize video in event detail rather than the image. The image will still be the skeleton loader.
+- correct the image/video aspect-ratio in the image detail
+- fix user avatar that looks narrow, show as rounded image
+- remove login button in discovery page
