@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-24T00:00:00Z
+last_updated: 2026-08-25T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -158,7 +158,16 @@ development_status:
   # shell. Free-navigation tabs (no isStepCompleted gating, unlike the wizard) --
   # a new primitive, not a reuse of wizardRegistry. See sprint-change-proposal-
   # 2026-08-24-ux-rework-batch.md Section 4.2.
-  0-29-build-the-reusable-tabbedshell-primitive: backlog
+  # Story drafted 2026-08-25 via bmad-create-story: TabbedShell is scoped as a
+  # props-driven packages/ui primitive only (no apps/web registry, unlike
+  # Story 0.24's wizardRegistry -- its two consumers are fixed, not dynamic).
+  # Gate 1/2/3 run fresh; Gate 3's initial NuqsAdapter concern re-verified
+  # resolved (already wired in apps/web/src/app/[locale]/layout.tsx). Found
+  # and flagged (not fixed here) a real doc-drift gap: EXPERIENCE.md/DESIGN.md
+  # were never actually rewritten for the two-shell IA despite the 2026-08-24
+  # correct-course proposal's approved log claiming it was done -- see the
+  # story's Dev Notes. See 0-29-build-the-reusable-tabbedshell-primitive.md.
+  0-29-build-the-reusable-tabbedshell-primitive: ready-for-dev
   # added 2026-08-24 via bmad-correct-course: the same p-4 sm:p-8 space-y-8
   # max-w-7xl mx-auto container className found copy-pasted across 7 pages
   # (home, favorites, feed, my-calendar, archive, account-content, posts-

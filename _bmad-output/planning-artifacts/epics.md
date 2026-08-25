@@ -808,6 +808,24 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Depends on:** None.
 
+### Story 0.29: Build the reusable TabbedShell primitive
+
+**As a** developer,
+**I want** a generic, reusable `TabbedShell` component (`packages/ui/src/core/tabbed-shell/`) — a tab bar + content panel wrapping a shadcn/Radix `Tabs` primitive, driven entirely by props (`tabs`, `activeKey`, `onTabChange`) with **free navigation** (no completion-gating, unlike Story 0.24's wizard chrome),
+**So that** the upcoming Account Settings shell (API Keys/Subscribed Accounts/Posts/Notifications tabs) and Moderator Tools shell (actor-runs/unprocessed-payloads tabs) each register their existing page-content components as tabs once, instead of hand-building their own tab chrome.
+
+**Acceptance Criteria:**
+
+*   **Given** no shadcn/Radix `Tabs` primitive exists yet in `packages/ui/src/core/ui/` (only `button.tsx`/`popover.tsx`/`calendar.tsx`/`badge.tsx` are generated there today, via Story 0.28's scaffold),
+*   **When** this story generates `Tabs`/`TabsList`/`TabsTrigger`/`TabsContent` into `packages/ui/src/core/ui/tabs.tsx` via that same scaffold, and builds `TabbedShell` as a presentational wrapper around it (no `next/navigation`/`next-intl`/`nuqs` import — mirrors `WizardNavigation`'s framework-agnostic boundary),
+*   **Then** clicking any tab calls `onTabChange(key)` immediately with no gating of any kind (no `useWizardStep()`/`WizardStepProvider` involvement), only the active tab's `Component` is mounted at a time (Radix's default no-`forceMount` behavior — required so inactive tabs' data-fetching hooks don't fire), and the tab bar exposes standard `tablist`/`tab`/`tabpanel` ARIA roles plus roving-tabindex arrow-key navigation via Radix's own defaults.
+*   **And** this story ships zero real tab entries and no `apps/web`-level registry file (unlike Story 0.24's `wizardRegistry`) — each future consumer instantiates `<TabbedShell>` directly with its own local tabs array; `?tab=` URL-state wiring (`nuqs`) belongs to each consumer page, not this primitive (`NuqsAdapter` is already wired at `apps/web/src/app/[locale]/layout.tsx`, so no new foundational nuqs story is needed).
+*   **And** active/inactive styling uses a 2-state model (not `WizardStepSummary`'s 3-state Completed/Current/Upcoming) since free-navigation tabs have no linear-progress concept.
+
+**Note:** Added 2026-08-24 via `bmad-correct-course` (`sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.2, items #4/#5 settings-IA restructuring), full ACs backfilled 2026-08-25 via `bmad-create-story` (this section did not exist yet despite `sprint-status.yaml` carrying a `0-29` entry since 2026-08-24 — a tracking gap in the same family as Stories 3.3d/3.4m's, now corrected). During story creation, a further real gap was found and flagged (not fixed by this story): `EXPERIENCE.md`/`DESIGN.md`'s two-shell IA rewrite, which the correct-course proposal's own approved log claims was completed 2026-08-24, was never actually applied to either file — both still show the old flat six-route settings menu. See `0-29-build-the-reusable-tabbedshell-primitive.md` Dev Notes for the full finding; the actual rewrite is recommended before/alongside whichever story builds the Account Settings/Moderator Tools shells next.
+
+**Depends on:** Story 0.28.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
