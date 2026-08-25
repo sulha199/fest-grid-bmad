@@ -126,4 +126,43 @@ describe('TabbedShell', () => {
     await user.keyboard('{ArrowRight}');
     expect(tabs[2]).toHaveFocus();
   });
+
+
+  it('keeps keepMounted tabs in the DOM but hidden when inactive', () => {
+    const mockTabsWithKeepMounted: TabbedShellTab[] = [
+      { key: 'tab1', label: 'Tab One', Component: TabOne },
+      { key: 'tab2', label: 'Tab Two', Component: TabTwo, keepMounted: true },
+      { key: 'tab3', label: 'Tab Three', Component: TabThree },
+    ];
+
+    const { rerender } = render(
+      <TabbedShell
+        tabs={mockTabsWithKeepMounted}
+        activeKey="tab2"
+        onTabChange={vi.fn()}
+      />
+    );
+
+    // active tab (tab2) content is in DOM and active
+    expect(screen.getByTestId('tab-two-content')).toBeInTheDocument();
+    
+    // Switch activeKey to tab1
+    rerender(
+      <TabbedShell
+        tabs={mockTabsWithKeepMounted}
+        activeKey="tab1"
+        onTabChange={vi.fn()}
+      />
+    );
+
+    // tab2 (keepMounted: true) should STILL be in DOM
+    expect(screen.getByTestId('tab-two-content')).toBeInTheDocument();
+    // Verify it has the hidden class on its parent tabpanel (TabsContent)
+    const tab2Panel = screen.getByTestId('tab-two-content').closest('[role="tabpanel"]');
+    expect(tab2Panel).toHaveClass('data-[state=inactive]:hidden');
+    expect(tab2Panel).toHaveAttribute('data-state', 'inactive');
+
+    // tab3 (no keepMounted) should NOT be in DOM
+    expect(screen.queryByTestId('tab-three-content')).not.toBeInTheDocument();
+  });
 });
