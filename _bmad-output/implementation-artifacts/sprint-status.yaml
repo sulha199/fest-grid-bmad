@@ -167,7 +167,7 @@ development_status:
   # were never actually rewritten for the two-shell IA despite the 2026-08-24
   # correct-course proposal's approved log claiming it was done -- see the
   # story's Dev Notes. See 0-29-build-the-reusable-tabbedshell-primitive.md.
-  0-29-build-the-reusable-tabbedshell-primitive: ready-for-dev
+  0-29-build-the-reusable-tabbedshell-primitive: review
   # added 2026-08-24 via bmad-correct-course: the same p-4 sm:p-8 space-y-8
   # max-w-7xl mx-auto container className found copy-pasted across 7 pages
   # (home, favorites, feed, my-calendar, archive, account-content, posts-
