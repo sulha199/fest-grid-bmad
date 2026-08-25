@@ -3,10 +3,10 @@ import { db } from '../src/db/client.js';
 import { posts, socialMediaAccountProfiles } from '@festgrid/database';
 import { and, desc, eq } from 'drizzle-orm';
 import { processScrapeJob } from '../src/lib/scraper/process-scrape-job.js';
-import { SupportedPlatform } from '@festgrid/domain';
+import { ScrapablePlatform } from '@festgrid/domain';
 
 const USERNAME = process.argv[2] ?? 'pakuwonmall.jogja';
-const PLATFORM = (process.argv[3] ?? 'instagram') as SupportedPlatform;
+const PLATFORM = (process.argv[3] ?? 'instagram') as ScrapablePlatform;
 
 async function main() {
   const profile = await db

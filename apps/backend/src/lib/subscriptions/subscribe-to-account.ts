@@ -2,7 +2,7 @@ import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
 import { and, eq } from 'drizzle-orm';
 import { activeOnly } from '@festgrid/graphql-select';
-import { ScraperCapacityExceededError, SupportedPlatform } from '@festgrid/domain';
+import { ScraperCapacityExceededError, ScrapablePlatform } from '@festgrid/domain';
 import { isProviderCapacityAvailable } from '../scraper/usage-store.js';
 import { triggerScrapeForAccount } from '../scraper/trigger-scrape-for-account.js';
 
@@ -78,7 +78,7 @@ export async function subscribeToAccount({
     if (accountProfile) {
       const scrapeTarget = {
         profileId: accountProfile.id,
-        platform: accountProfile.platform as SupportedPlatform,
+        platform: accountProfile.platform as ScrapablePlatform,
         accountId: accountProfile.accountId,
         username: accountProfile.username,
         isInitialNewSubscription: true,
