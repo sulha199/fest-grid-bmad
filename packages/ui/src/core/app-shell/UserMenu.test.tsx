@@ -25,9 +25,7 @@ describe('UserMenu component', () => {
     labels: {
       profile: 'Profile',
       locations: 'Locations',
-      subscriptions: 'Subscribed Accounts',
-      apiKeys: 'API Keys',
-      notifications: 'Notifications',
+      accountSettings: 'Account Settings',
       reports: 'Reports',
       moderatorItems: 'Moderator Items',
       logout: 'Log Out',
@@ -51,9 +49,7 @@ describe('UserMenu component', () => {
     // Verify links exist
     expect(screen.getByTestId('menu-link-/settings')).toBeInTheDocument();
     expect(screen.getByTestId('menu-link-/settings/locations')).toBeInTheDocument();
-    expect(screen.getByTestId('menu-link-/settings/subscriptions')).toBeInTheDocument();
-    expect(screen.getByTestId('menu-link-/settings/api-keys')).toBeInTheDocument();
-    expect(screen.getByTestId('menu-link-/settings/notifications')).toBeInTheDocument();
+    expect(screen.getByTestId('menu-link-/settings/account')).toBeInTheDocument();
     expect(screen.getByTestId('menu-link-/reports')).toBeInTheDocument();
 
     // Verify Moderator Items is NOT rendered for a regular user
