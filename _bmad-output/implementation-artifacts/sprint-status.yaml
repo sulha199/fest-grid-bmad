@@ -366,6 +366,12 @@ development_status:
   # correlated-subquery COUNT sibling to the existing isFavorited EXISTS pattern
   # (same activeOnly(favorites) scoping). See sprint-change-proposal-2026-08-24-
   # ux-rework-batch.md Section 4.5.
+  # Reopened 2026-08-25 via bmad-correct-course/bmad-create-story: added AC5 --
+  # Event.favoriteCount computed field, exact isFavorited pattern (COUNT not
+  # EXISTS), no auth scoping (public aggregate). AC1-4 confirmed already
+  # implemented via direct code inspection during this amendment -- the story
+  # file's own header previously said "Not started," now corrected. See
+  # sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.5.
   2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: review
   2-1-favorite-an-event: review
   2-1b-build-the-ics-route-handler-and-generator-utility: review

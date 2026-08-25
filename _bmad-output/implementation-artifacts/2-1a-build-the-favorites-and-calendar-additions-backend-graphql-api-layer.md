@@ -7,7 +7,7 @@ baseline_commit: 6148b785468af3dfe53a075aff08ab6f89bba7c0
 
 - Epic: 2 - User Personalization
 - Story ID: 2.1a
-- Status: ready-for-dev
+- Status: ready-for-dev (AC5 amendment; AC1-AC4 already delivered — see Amendment note in Dev Notes)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -26,6 +26,7 @@ so that Stories 2.1, 2.2, 2.6, and 2.7 have a real backend write/read path inste
    - `Event.isFavorited: Boolean!` and `Event.isAddedToCalendar: Boolean!` are added as computed field resolvers (mirroring the existing `Event.imageUrl` field-resolver pattern) returning `false` for unauthenticated callers and the correlated existence check otherwise. `Event.isAddedToCalendar` is an aggregate ("has **any** schedule of this event been added"), using the denormalized `calendar_additions.event_id`.
    - `Schedule.isAddedToCalendar: Boolean!` is added as its own computed field resolver (per-schedule granularity — see Dev Notes / Gate 2 finding), since a user adds specific schedules, not whole events, to their calendar.
 4. **And** no package outside `apps/backend` writes to these tables directly — `apps/web` only mutates favorite/calendar state through these two mutations.
+5. **(Added 2026-08-25, `bmad-correct-course`/`bmad-create-story` amendment)** **And** `Event.favoriteCount: Int!` is added as a computed field resolver, following the **exact pattern already used for `Event.isFavorited`** (AC3's `resolvers.ts` field-resolver, line ~2965) — a query against `favorites` scoped with `activeOnly(favorites)` (`packages/graphql-select`), `COUNT` instead of `EXISTS`/row-length-check. Unlike `isFavorited`, `favoriteCount` is a **public aggregate, not scoped to the calling user** — it counts every active favorite from every user, so it does **not** call `requireAuth` and returns the real count for unauthenticated callers too (there is nothing user-specific to hide). It is a display-only field, not a DSL filter condition — no `Query.events` fieldMap entry is added (unlike `isFavorited`/`isAddedToCalendar`, `favoriteCount` is never filtered/sorted on by this story's consumers).
 
 **Note:** This story exists because of Gate 1 (`story-split-gate.md`), surfaced by the Epic 2 readiness sweep (`bmad-epic-readiness-check`) — Story 1.3a is query-only with no mutations, and no story anywhere creates the favorites/calendar-additions data AD-2 assumes already exists. Classified as a shared data-ownership gap (consumed by Stories 2.1, 2.2, 2.6, and 2.7, all within Epic 2), positioned immediately before Story 2.1, the first consumer — mirroring the Story 1.3/1.3a split.
 
@@ -53,13 +54,20 @@ so that Stories 2.1, 2.2, 2.6, and 2.7 have a real backend write/read path inste
 - [ ] 10. Write unit tests for the upsert-toggle logic and the derive-eventId-from-schedule integrity check — if any pure/derivable logic can be isolated without a DB/ORM import, put it in `packages/domain`; otherwise these stay as `apps/backend` integration tests (AC2) — see Dev Notes on why this story adds no new `packages/domain` files.
 - [ ] 11. Write integration tests (`apps/backend`, `tsx --test` against a local/test DB, mirroring Story 1.3a's `resolvers.test.ts` pattern) covering: toggle-on/toggle-off/re-toggle idempotency for both mutations, unauthenticated mutation calls rejected (`UNAUTHENTICATED`), `events` query filtering by `isFavorited`/`isAddedToCalendar` (including the unauthenticated-returns-empty case), `Event.isFavorited`/`Event.isAddedToCalendar`/`Schedule.isAddedToCalendar` field resolver correctness, and the calendar-addition schedule/event mismatch integrity check (AC1, AC2, AC3, AC4).
 - [ ] 12. Manual verification: run the backend, exercise `toggleFavorite`/`toggleCalendarAddition`/filtered `events` queries via GraphiQL/`curl`; confirm `pnpm build`/`pnpm lint`/`pnpm run codegen` stay clean at the repo root.
+- [ ] 13. **(Added 2026-08-25 — AC5 amendment.)** Add `favoriteCount: Int!` to `type Event` in `apps/backend/src/schema/events.graphql`, and add the `Event.favoriteCount` field resolver in `resolvers.ts` — a `db.select({ count: count() }).from(favorites).where(and(eq(favorites.eventId, parent.id), activeOnly(favorites)))` (or equivalent Drizzle `count()`/`sql\`count(*)\`` aggregate), returning the numeric result directly (no auth check, no try/catch-to-false — see AC5). Run `pnpm run codegen` again so both generated GraphQL type files pick up the new field. Add an integration test asserting the count reflects the true number of active (non-soft-deleted) favorites across multiple users, and that toggling a favorite off decrements it correctly (exercising the same upsert/soft-delete path Task 11's existing tests already cover for `isFavorited`).
 
 ## Dev Notes
+
+### Amendment (2026-08-25, `bmad-correct-course` / `bmad-create-story`)
+
+- **AC5 (`favoriteCount`) is new** — added per `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.5, to support the favorite-count badge on `EventCard` (Story 1.3b) and `WeeklyCalendarView` (Story 1.3g). Task 13 above is its only implementation task; AC1-AC4/Tasks 1-12 are unchanged from the original story.
+- **Status correction, not new information:** this story file's own header previously read `Status: ready-for-dev` and `## Completion Status` read `- [ ] Not started`, despite `sprint-status.yaml` tracking it as `review`. Direct code verification during this amendment (2026-08-25) confirmed AC1-AC4 are genuinely implemented and correct: `favorites`/`calendar_additions` tables exist in `packages/database/schema.ts` (`export const favorites = pgTable('favorites', ...)` etc.), `toggleFavorite`/`toggleCalendarAddition` mutations exist in `resolvers.ts`, and `Event.isFavorited`/`Event.isAddedToCalendar`/`Schedule.isAddedToCalendar` field resolvers and the `Query.events` fieldMap entries all exist exactly as this story's original ACs specified. This story file's own tracking was simply never updated after implementation — `sprint-status.yaml`'s `review` status was the accurate one. The header above has been corrected to reflect this rather than silently left wrong.
 
 ### Architecture & UX Gate Findings
 
 - **Gate 1 & Gate 3 (Architecture/Infra + Foundational Dependency Completeness):** Sourced from `_bmad-output/planning-artifacts/epic-readiness/epic-2-readiness.md` (`swept: true`, `2.1a` explicitly listed in `stories_covered`). The sweep found **no new gaps** for Epic 2 — Story 2.1a itself *is* the previously-identified Gate 1 gap-filling story (query-only 1.3a had no mutations), already correctly positioned in `epics.md`/`sprint-status.yaml`. No further prerequisite split needed.
 - **Lightweight escape-hatch guard (no subagent, per Epic-Level Sweep Mode):** Re-checked this specific story's scope against the swept report for anything epic-wide sweep didn't anticipate — nothing new. The schema/naming corrections below (schedule-level uniqueness, `packages/shared-types` gap) are data-type-compatibility findings, not architecture/infra-layer gaps, and are handled in this story rather than split out.
+- **AC5 amendment Gate note (2026-08-25, lightweight guard only, no subagent — mirrors Story 0.24's AC12 amendment precedent for a small, pattern-matching addition):** `favoriteCount` is a single computed field resolver copying `Event.isFavorited`'s exact existing structure (COUNT instead of EXISTS/existence-check), consumed by two already-existing UI stories (1.3b, 1.3g) rather than introducing any new consumer or architectural surface. No gap found for Gates 1/3 (no backend/infra touch beyond the established field-resolver pattern). No further UI split — this is a pure backend field, no UI scope of its own.
 - **Gate 2 (UI Complexity & Reusability):** Run fresh via subagent persona Freya against `design-artifacts/UX-festgrid-run-1/EXPERIENCE.md` and `design-artifacts/C-UX-Scenarios/01-sarahs-weekend-rescue/01.2-event-detail/01.2-event-detail.md`. **No gap found** — this story ships zero React components/hooks/pages. Two concrete findings folded into the ACs/tasks above instead of a new story:
   1. EXPERIENCE.md's "Soft Delete with Undo" pattern (unfavoriting from a list) is a purely frontend-side deferred-mutation-call timing concern — the backend call fires exactly once, only when the user navigates away and doesn't hit "Undo". A plain idempotent `toggleFavorite` mutation already satisfies this; no "pending"/grace-period state is needed backend-side.
   2. `01.2-event-detail.md` establishes that "Add to Calendar" is a **per-schedule** action (a multi-schedule event shows each schedule independently addable) — this is why `isAddedToCalendar` must be exposed on `Schedule` (per-instance), not only aggregated on `Event`, and both mutations return the resulting boolean directly (not a bare success flag) so a future optimistic-update hook has authoritative state without a refetch.
@@ -165,6 +173,7 @@ Recent commits (`6148b78`, `f612609`, `59f5c15`, `2a45f2c`, `bcdbb86`) are all f
 - [ ] `type Mutation` root declared for the first time, with `toggleFavorite`/`toggleCalendarAddition` implemented, transactional, and auth-scoped.
 - [ ] `Event.isFavorited`, `Event.isAddedToCalendar`, `Schedule.isAddedToCalendar` computed field resolvers implemented.
 - [ ] `Query.events`'s DSL fieldMap accepts `isFavorited`/`isAddedToCalendar` conditions.
+- [ ] `Event.favoriteCount: Int!` computed field resolver implemented (AC5, Task 13 — new 2026-08-25).
 - [ ] Integration tests written and passing; `pnpm build`/`pnpm lint`/`pnpm run codegen` clean at the repo root.
 
 ## Out of Scope
@@ -177,13 +186,16 @@ Recent commits (`6148b78`, `f612609`, `59f5c15`, `2a45f2c`, `bcdbb86`) are all f
 
 ## Definition of Done
 
-- [ ] AC1-AC4 satisfied.
-- [ ] Required tests passing (`apps/backend` integration tests for both mutations and the extended `events` resolver).
+- [x] AC1-AC4 satisfied (verified 2026-08-25 via direct code inspection — already implemented).
+- [ ] AC5 satisfied (`favoriteCount`, new 2026-08-25).
+- [ ] Required tests passing (`apps/backend` integration tests for both mutations, the extended `events` resolver, and the new `favoriteCount` test).
 - [ ] Lint and type checks passing for `apps/backend`, `packages/database`, `packages/shared-types`, and any touched packages.
 
 ## Completion Status
 
-- [ ] Not started
+review (AC1-AC4) / ready-for-dev (AC5 amendment)
+
+**2026-08-25:** AC1-AC4 confirmed already implemented via direct code inspection (see Amendment note in Dev Notes) — this file's own tracking was simply stale. AC5 (`favoriteCount`) is new, unimplemented, ready for dev.
 
 ## Dev Agent Record
 
