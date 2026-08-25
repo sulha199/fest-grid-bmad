@@ -2633,6 +2633,24 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Depends on:** Story 4.3a, Story 4.4a, Story 3.3b, Story 0.17, Story 4.7a.
 
+### Story 4.7b: Moderator Tools tabbed shell
+
+**As a** moderator,
+**I want** Actor Runs and Unprocessed Payloads consolidated into one tabbed "Moderator Tools" page (`/moderator/tools`),
+**So that** I manage scraper operations in one place instead of navigating between two separate pages.
+
+**Acceptance Criteria:**
+
+*   **Given** the existing `TabbedShell` primitive (`packages/ui/src/core/tabbed-shell/`, Story 0.29),
+*   **When** `/moderator/tools` is built, **then** it renders two tabs — **Actor Runs** and **Unprocessed Payloads** — each the existing, already-implemented content component remounted as a tab panel, active tab tracked via a `?tab=` URL param (`nuqs`).
+*   **And** both absorbed components keep calling `useRequireModerator()` (Story 4.7a) internally, exactly as they do today — no new shared guard/layout is introduced.
+*   **And** the two former standalone routes (`/moderator/actor-runs`, `/moderator/unprocessed-payloads`) are removed. `/moderator/items` (Story 4.7) is **not** touched — it stays a fully separate, standalone page.
+*   **And** neither tab uses `TabbedShell`'s `keepMounted` option (added by sibling Story 3.12) — the tab-switch state loss (local filters/pagination/expanded rows) is an accepted, documented tradeoff, confirmed lower-stakes than Story 3.12's Notifications-tab hazard.
+
+**Note:** Added 2026-08-24 via `bmad-correct-course` (`sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.2, items #4/#5 settings-IA restructuring), full ACs backfilled 2026-08-25 via `bmad-create-story` (this section did not exist yet despite `sprint-status.yaml` carrying a `4-7b` entry since 2026-08-24 — the same tracking gap already found and corrected for Stories 3.3d/3.4m/0.29/3.12). Simpler than sibling Story 3.12 — no data absorption, no nested-tabs, no `AskUserQuestion`-worthy tradeoff (Gate 3 confirmed the state-loss risk here doesn't rise to Story 3.12's bar). `EXPERIENCE.md`'s Shell B description (Component Patterns § Account Settings & Moderator Tools Shells), rewritten alongside Shell A in the same session, is this story's authoritative UX source.
+
+**Depends on:** Story 0.29, Story 4.7a, Story 3.12 (for the `TabbedShell.keepMounted` prop's existence, not required to be used here — sequencing only, no hard blocking dependency).
+
 ### Story 4.8: View archived (hidden) personal events
 
 **As a** user,
