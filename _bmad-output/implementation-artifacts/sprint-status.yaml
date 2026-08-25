@@ -261,7 +261,12 @@ development_status:
   # GridContainer primitive (Story 0.31, baseCols=1 colsStep=1) instead of a
   # hand-written literal className. Blocked on Story 0.31.
   # DONE 2026-08-24: AC14 merged (Wave 2, story/wave2-page-grid-adoption).
-  1-3d-build-the-reusable-eventlistview-component: done
+  # Reopened 2026-08-25 via bmad-create-story: AC15 masonry viewMode switcher
+  # backfilled with real AC/task (only a forward-note existed). Depends on
+  # Story 1.3b's variant="masonry" prop. Does not build the toggle-button UI
+  # itself -- that's the apps/web call site's job. See sprint-change-proposal-
+  # 2026-08-24-ux-rework-batch.md Section 4.4.
+  1-3d-build-the-reusable-eventlistview-component: ready-for-dev
   # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
   # home-content.tsx and favorites-content.tsx still duplicate the SearchBar/FilterHub
   # row above the shell Story 1.3d already extracted. Positioned as a 1.3-family

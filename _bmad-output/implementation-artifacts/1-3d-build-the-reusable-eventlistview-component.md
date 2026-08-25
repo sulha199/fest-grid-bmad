@@ -7,7 +7,7 @@ baseline_commit: 704c86d15e26c66b94ea0695f36cba8f5e529955
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.3d
-- Status: ready-for-dev (AC14 amendment; AC1-AC13 already delivered — this doc's own Dev Agent Record/Completion Notes/File List below were never filled in by whoever actually built it, a pre-existing doc-drift gap unrelated to this amendment)
+- Status: ready-for-dev (AC15 amendment; AC1-AC14 already delivered — this doc's own Dev Agent Record/Completion Notes/File List below were never filled in by whoever actually built it, a pre-existing doc-drift gap unrelated to this amendment)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,6 +33,8 @@ so that the Discovery feed (`home-content.tsx`, Story 1.3) and Favorites page (`
 12. **And** the component is documented and exported from `packages/ui`'s public entry point (`packages/ui/src/features/events/index.ts`) for reuse across features.
 13. **And** integration/unit tests verify: all four `status`/empty/success render branches, `getCardProps` merge behavior (including key-collision precedence), `mainSchedule` derivation (including the fallback-to-first-schedule case), infinite-scroll sentinel/spinner passthrough, and that existing `home-content`/`favorites-content` integration tests (`page.test.tsx`, `favorites-content.test.tsx`) still pass unmodified in their assertions (DOM output must not change).
 14. **AC14 — Grid column count scales past `lg:`, via `GridContainer` (revised 2026-08-24, same day, superseding the version committed in `fe8a1af`):** And the two `<div className={className}>` wrappers (AC1's skeleton grid, AC4's success grid) are replaced with `<GridContainer baseCols={1} colsStep={1} gap="gap-6">` (`@festgrid/ui`, Story 0.31) — `gap="gap-6"` preserves this component's already-shipped spacing exactly (`GridContainer`'s own default is `gap-4`, matching `DESIGN.md`'s token; `EventListView` overrides it explicitly rather than silently inheriting a spacing change). This produces the same five-breakpoint column progression the original (now-superseded) version of this AC specified — `1/2/3/4/5` at base/md/lg/xl/2xl — but via the shared primitive instead of a second hand-written literal string (`posts-select-content.tsx`'s `PostCard` grid, Story 5.1 AC12, is the other consumer). The `className` prop (AC1's `EventListViewProps`) is repurposed: it now passes through to `GridContainer`'s own `className` merge slot rather than replacing the whole grid className outright — any caller needing a one-off tweak appends via that prop instead of overriding the full grid string. **Depends on Story 0.31.** No change to `EventCard` itself, `getCardProps`, or any other AC.
+
+15. **AC15 — Masonry view-mode switcher (added 2026-08-25, `bmad-correct-course`/`bmad-create-story` amendment, `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.4; fulfills the Masonry Forward Note below):** `EventListView` accepts a new optional `viewMode?: 'list' | 'masonry'` prop, defaulting to `'list'` (today's existing single-column-progression grid, AC14, unchanged). `EventListView` itself owns no toggle UI and no view-mode state — matching every other prop on this component (a purely controlled presentational shell; the caller decides how/where to render the actual switch control, mirroring how `EventDiscoveryPanel`'s own `views` mechanism, not `EventListView`, owns the Card/Calendar switcher one level up). When `viewMode === 'masonry'`: both grid wrappers (AC14's skeleton and success grids) use `<GridContainer baseCols={2} colsStep={1} gap="gap-6">` instead of `baseCols={1}`; every rendered `EventCard` (including skeleton-state cards) receives `variant="masonry"` (Story 1.3b's AC11) as a base prop, shallow-merged with `getCardProps(event)`'s output using the exact same precedence AC5 already establishes (`getCardProps` wins on key collision) — `viewMode`-derived props are not a new merge mechanism, just another source feeding the same merge AC5 already defines.
 
 ## Tasks / Subtasks
 
@@ -61,11 +63,21 @@ so that the Discovery feed (`home-content.tsx`, Story 1.3) and Favorites page (`
   - [ ] In `EventListView.tsx`, replace both `<div className={className}>` wrappers (skeleton grid, success grid) with `<GridContainer baseCols={1} colsStep={1} gap="gap-6" className={className}>` (`className` here is the caller-supplied override prop, now passed through rather than replacing the whole grid string — see AC14).
   - [ ] Manually verify at 1280px (`xl`) and 1536px (`2xl`) that the grid shows 4 and 5 columns respectively, with no card-width distortion (cards should get narrower, not stretch/squash).
   - [ ] Confirm no current call site (`home-content.tsx`, `favorites-content.tsx`, `archive-content.tsx`, `account-content.tsx`, `feed-content.tsx`) passes an explicit `className` override that would suppress this change — a grep across all 5 confirmed none do as of this amendment.
-  - [ ] **Not this task's scope:** the Pinterest/masonry view mode (`GridContainer baseCols={2} colsStep={1}`, per `project-context.md`) is separate, not-yet-built work — see Dev Notes → Masonry Forward Note. Do not build it as part of this task.
+  - [ ] **Not this task's scope:** the Pinterest/masonry view mode (`GridContainer baseCols={2} colsStep={1}`, per `project-context.md`) is separate, not-yet-built work — see Dev Notes → Amendment. Do not build it as part of this task.
+- [ ] **Task 7 (AC15, added 2026-08-25) — Masonry `viewMode` support:**
+  - [ ] Add `viewMode?: 'list' | 'masonry'` to `EventListViewProps` (default `'list'`).
+  - [ ] In `EventListView.tsx`, branch `GridContainer`'s `baseCols` prop (`1` for `'list'`, `2` for `'masonry'`) on both the skeleton grid (AC1) and success grid (AC4) — `colsStep={1}` unchanged in both cases.
+  - [ ] Compute each rendered `EventCard`'s `variant` prop as `viewMode === 'masonry' ? 'masonry' : 'standard'`, shallow-merged with that event's `getCardProps(event)` result (`getCardProps` wins on collision, same as every other merged prop per AC5) — apply this to skeleton-state cards too (a fixed, uniform `variant`, not per-event, so no `getCardProps` call is needed for skeleton cards specifically).
+  - [ ] Extend `EventListView.test.tsx`: `viewMode="masonry"` renders `GridContainer` with `baseCols=2`; every `EventCard` (including skeleton state) receives `variant="masonry"`; `viewMode="list"` (and the default, omitted case) renders `baseCols=1`/`variant="standard"` unchanged from today; a `getCardProps` result that explicitly sets `variant` overrides the `viewMode`-derived value.
+  - [ ] This story does **not** build the actual toggle-button UI (the control a user clicks to switch `viewMode`) — that is the `apps/web` call site's responsibility (`home-content.tsx`/`feed-content.tsx`/wherever Card view is rendered), analogous to how `EventDiscoveryPanel`'s Card/Calendar switcher UI lives one level up from `EventListView` too. Not building it here is a scope boundary, not an oversight — flagged explicitly so the dev agent doesn't invent a toggle control inside `packages/ui`.
 
 ## Dev Notes
 
-### Masonry Forward Note (added 2026-08-24, not this story's scope to build)
+### Amendment (2026-08-25, `bmad-correct-course` / `bmad-create-story`)
+
+AC15/Task 7 fulfill the Masonry Forward Note below, per `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.4. `EventListView` stays a purely controlled component (no owned toggle UI/state) per its own established pattern — every other prop on this component (`status`, `events`, `getCardProps`, etc.) is caller-driven, and `viewMode` follows the same rule rather than becoming the one exception. AC1-AC14/Tasks 1-6 are unchanged and confirmed already implemented via direct code inspection.
+
+### Masonry Forward Note (added 2026-08-24; fulfilled 2026-08-25 by AC15/Task 7 above — kept for history)
 
 `ux-rework-2026-08-24.md` item #10 (a Pinterest-style 2-col-mobile masonry view mode, native poster aspect ratio, relative-day + like-count badges) is reopened against Stories 1.3b (`EventCard` `variant="masonry"`) and this story (the view-mode switcher + masonry grid) but not yet detailed into concrete ACs here. When that work is picked up, its column-count progression is already locked in `project-context.md`'s "Grid/Calendar Page Containers" rule — `<GridContainer baseCols={2} colsStep={1}>` (Story 0.31), same primitive AC14 already composes for the standard grid, just a different `baseCols` — so that future `bmad-create-story` pass should consume the existing primitive rather than hand-writing a third literal className.
 
@@ -261,6 +273,8 @@ No changes required. This story adds no database columns, no GraphQL schema/reso
 **2026-08-24 (`bmad-correct-course`):** Reopened for AC14 only (grid column count widened past `lg:`, `ux-rework-2026-08-24.md` item #1 expanded scope — see `sprint-change-proposal-2026-08-24-ux-rework-batch.md`). AC1-AC13 unaffected.
 
 **2026-08-24, later same day:** AC14 revised again — now composes the new `GridContainer` primitive (Story 0.31, `baseCols`/`colsStep` props) instead of hand-writing the literal className. No code existed against the prior version (committed in `fe8a1af`); this is a documentation correction, not a rework.
+
+**2026-08-25:** AC15 (masonry `viewMode` switcher) backfilled with real AC/task — only a forward-note existed before. AC1-AC14 confirmed already implemented via direct code inspection, unaffected.
 
 ## Dev Agent Record
 
