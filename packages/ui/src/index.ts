@@ -13,6 +13,7 @@ export * from './core/route-loader';
 export * from './core/WeekPicker';
 export * from './core/soft-delete-toaster';
 export * from './core/swipe-to-reveal';
+export * from './core/tabbed-shell';
 export * from './core/wizard';
 export * from './core/map';
 export * from './core/map.types';
