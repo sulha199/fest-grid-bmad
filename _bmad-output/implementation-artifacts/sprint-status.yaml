@@ -285,7 +285,12 @@ development_status:
   # day list skipping empty days -- multi-day-span rendering still undecided,
   # deferred to a scoped bmad-ux pass. See sprint-change-proposal-2026-08-24-ux-
   # rework-batch.md Sections 4.5/4.8.
-  1-3g-build-the-reusable-weeklycalendarview-component: review
+  # Full AC14 (favoriteCount, desktop grid) backfilled 2026-08-25 via
+  # bmad-create-story -- only a reopening comment existed before, no real AC.
+  # Also found AC13 (WeekPicker) was already implemented and unblocked, despite
+  # this file's stale "blocked on Story 0.28" header. Depends on Story 2.1a's
+  # favoriteCount GraphQL field.
+  1-3g-build-the-reusable-weeklycalendarview-component: ready-for-dev
   # added 2026-08-05 via bmad-create-story Gate 1 finding while drafting Story 1.3f —
   # the events resolver's main-schedule-only join can't correctly date-range-filter
   # sub-schedules; needs its own EXISTS-subquery DSL field + GiST index migration.

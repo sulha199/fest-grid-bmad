@@ -7,7 +7,7 @@ baseline_commit: 0f3eddb9163f6755e9e5aae7b5f8db6da61d8149
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.3g
-- Status: review (reopened; AC13's `WeekPicker.tsx` work is blocked on Story 0.28 — see Dev Notes → Current Implementation State)
+- Status: ready-for-dev (AC14 amendment; AC1-AC13 already delivered — AC13's `WeekPicker.tsx` was confirmed no longer blocked, and already implemented, during this amendment; see Dev Notes → Amendment)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -34,6 +34,8 @@ so that the Discovery feed's Calendar View (Story 1.3f) and the future "My Calen
 
 **AC13 — Manual week-picker control (added 2026-08-13 via `bmad-correct-course`, Section 4.4; refined 2026-08-15 via `bmad-create-story`):**
 And the header row (AC1, AC2) gains a new week-picker trigger — a `Button` opening a `Popover` containing a `Calendar` (shadcn date picker, per `festgrid-architecture-spine.md` AD-9) — alongside the existing prev/next/Today controls. Selecting a date calls a new caller-supplied `onSelectWeek(date: string)` callback. Per AD-9, the picker itself is `packages/ui/src/core/WeekPicker.tsx` — a reusable wrapper around shadcn's `Calendar` (`mode="single"`) that highlights the full selected week row via `modifiers`/`modifiersClassNames`, not a plain undecorated date composition — taking `onSelectWeek(date: string)` and a **required** `getWeekRange(date: Date): { start: Date; end: Date }` prop; `WeekPicker` computes no boundary itself. `WeeklyCalendarView` therefore gains a new required `getWeekRange` prop (alongside the existing optional `onSelectWeek`) that it passes straight through to `WeekPicker` — the actual boundary source is Story 3.7a's exported `getWeekStart`/`getWeekEnd`, supplied by whichever `apps/web` wrapper renders this component, so exactly one boundary implementation exists app-wide.
+
+**AC14 — Favorite count on calendar items (added 2026-08-25, `bmad-correct-course`/`bmad-create-story` amendment, `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.5):** And each compact schedule card (desktop grid, Task 3) optionally renders a favorite count. The card's schedule shape gains `favoriteCount?: number`; when present **and greater than 0**, the card grows from its current single truncated line to two lines — line 1 unchanged (favorited-heart icon / added-to-calendar icon / event name, all still on one truncated row), line 2 a new row showing a small heart icon + the count (mirroring `DESIGN.md`'s existing `calendar.mobile_day_list.favorite_count_line` token, which already covers the mobile vertical-day-list layout for this same field — this AC is the desktop `grid_weekly` counterpart that token's own comment anticipated but didn't yet specify). A `favoriteCount` of `0` or `undefined` renders no second line — cards stay single-line by default, only growing when there's a real count to show, so the common case (a brand-new or unfavorited event) doesn't waste vertical space in an already-dense `h-32` day cell.
 
 ## Tasks / Subtasks
 
@@ -72,6 +74,10 @@ And the header row (AC1, AC2) gains a new week-picker trigger — a `Button` ope
   - [x] Accessibility assertions: tooltip has `role="tooltip"`; popover trigger has correct `aria-expanded`/`aria-haspopup`; day cells/cards are reachable via keyboard alone (no mouse-only interaction path).
 - [x] Task 12: Final checks
   - [x] `pnpm build` / `pnpm lint` clean at the repo root (`packages/ui` and its consumers).
+- [ ] Task 13 (AC14, added 2026-08-25) — Favorite count second line:
+  - [ ] Add `favoriteCount?: number` to `WeeklyCalendarViewScheduleShape` (`WeeklyCalendarView.types.ts`).
+  - [ ] In the compact card's render (`WeeklyCalendarView.tsx`, the `<button>` around line 731 wrapping the `isFavorited`/`isAddedToCalendar`/`eventName` row), wrap the existing single `<span className="flex items-center gap-1 w-full truncate text-left">...</span>` row in an outer `flex flex-col` container, and — only when `schedule.favoriteCount` is a number `> 0` — add a second `<span>` below it: a small `Heart` icon (reuse the same icon import, sized down, e.g. `w-2.5 h-2.5 text-rose-500`) + the count as text, styled to match `DESIGN.md`'s `mobile_day_list.favorite_count_line` token's visual weight (`text-[11px] text-gray-500` equivalent) even though this is the desktop grid, not the mobile list — same information, consistent smallness. Remove `truncate` from the outer wrapper if needed so the two-line layout doesn't get clipped, but keep `truncate` on the first line's own span (title truncation is still wanted).
+  - [ ] Extend `WeeklyCalendarView.test.tsx`: a schedule with `favoriteCount: 5` renders a second line with the count; a schedule with `favoriteCount: 0` or `favoriteCount: undefined` renders only the single existing line (no regression to the current single-line layout for the common case).
 - [ ] **Task 13 (AC13) — Blocked on Story 0.28:** Do not start Task 14 until Story 0.28 ("Set up shadcn/ui component generation for `packages/ui`") is done — it establishes `packages/ui`'s `components.json` and installs the underlying `popover`/`calendar` shadcn primitives this task's `WeekPicker.tsx` wraps. Confirm `packages/ui/src/core/ui/popover.tsx` and `packages/ui/src/core/ui/calendar.tsx` exist before proceeding.
 - [ ] **Task 14 (AC13) — Build `WeekPicker.tsx` (`packages/ui/src/core/`):**
   - Create `packages/ui/src/core/WeekPicker.tsx`: `Button` (trigger) + `Popover` + `Calendar` (`mode="single"`) composition per AD-9. Props: `selectedDate: string | undefined` (or similar, for controlled display), `onSelectWeek: (date: string) => void`, and a **required** `getWeekRange: (date: Date) => { start: Date; end: Date }`.
@@ -89,6 +95,12 @@ And the header row (AC1, AC2) gains a new week-picker trigger — a `Button` ope
   - Add/update a `WeeklyCalendarView.test.tsx` case asserting that a non-Sunday `weekStart` (e.g. a Monday, matching Story 3.7a's corrected output) renders that exact date as the first visible day — not silently shifted to the preceding Sunday.
 
 ## Dev Notes
+
+### Amendment (2026-08-25, `bmad-correct-course` / `bmad-create-story`)
+
+- **AC14 is new** — added per `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.5 ("Show on all card views and calendar view; calendar items may grow to two lines to fit it"). Depends on Story 2.1a's new `Event.favoriteCount` GraphQL field (`favoriteCount` amendment, 2026-08-25) for real data — this story's own scope is presentational only, the caller (Story 1.3f/2.6's wrapper) is responsible for threading the resolved count into each schedule object.
+- **Status correction:** this story's header previously read "blocked on Story 0.28." Direct verification during this amendment found Story 0.28 has since landed and AC13 is **already fully implemented** — `packages/ui/src/core/WeekPicker.tsx` exists and is wired into `WeeklyCalendarView.tsx` (`import { WeekPicker } from '../../core/WeekPicker';`, used in the header row). AC1-AC13 are confirmed complete; only AC14 (Task 13) is new/pending.
+- **Why the second line only appears conditionally (favoriteCount > 0), not always:** the desktop grid's `day_cell` is a fixed `h-32` box (Story 1.3g's own earlier Dev Notes on the "+N more" overflow mechanism) — unconditionally reserving two lines for every card, including the common zero-favorites case, would either shrink how many cards fit per cell or force earlier overflow into the "+N more" popover than today. Matching the mobile list's own `favorite_count_line` precedent (which also only renders "when present"), the count is additive, not a fixed layout reservation.
 
 ### Current Implementation State (AC13, added 2026-08-15 — read before starting Task 13+)
 
@@ -359,6 +371,8 @@ None. This is a pure presentational `packages/ui` component with no analytics/tr
 ## Completion Status
 
 **Reopened 2026-08-15** — AC1-AC12 previously complete (`review` status). AC13 outstanding, blocked on Story 0.28 (Tasks 13-16 above). A prior partial `bmad-quick-dev` attempt (commit `519f822`) already added a functional-but-non-AD-9-compliant native-input stopgap for `onSelectWeek` — see Dev Notes → Current Implementation State for the precise starting point and why it doesn't satisfy AC13 as-is.
+
+**2026-08-25:** AC13 confirmed complete via direct code inspection (`WeekPicker.tsx` exists and is wired in) — the "blocked" framing above is stale. AC14 (favorite count, Task 13) is new and pending.
 
 ## Dev Agent Record
 
