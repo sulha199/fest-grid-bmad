@@ -1,13 +1,13 @@
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions, brightdataPendingJobs } from '@festgrid/database';
 import { activeOnly } from '@festgrid/graphql-select';
-import { SUPPORTED_PLATFORMS, SupportedPlatform } from '@festgrid/domain';
+import { ScrapablePlatform, isAdapterRegistered } from '@festgrid/domain';
 import { loadBackendEnv } from '../../env.js';
 import { and, eq, isNull, lt, or } from 'drizzle-orm';
 
 export interface ScrapeTarget {
   profileId: string;
-  platform: SupportedPlatform;
+  platform: ScrapablePlatform;
   accountId: string;
   username: string;
   isInitialNewSubscription?: boolean;
@@ -45,13 +45,15 @@ export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {
 
   const targets: ScrapeTarget[] = [];
   for (const row of distinctRows) {
-    if (!SUPPORTED_PLATFORMS.includes(row.platform as any) && row.platform !== 'twitter') {
-      console.warn(`Skipping scrape target with unsupported platform: ${row.platform} (profile: ${row.profileId})`);
+    // Only scrape platforms that have a registered scraper adapter (e.g., both 'instagram' and legacy 'twitter').
+    // Existing Twitter subscriptions keep scraping even though new subscriptions/votes for Twitter are disabled.
+    if (!isAdapterRegistered(row.platform)) {
+      console.warn(`Skipping scrape target with unregistered platform: ${row.platform} (profile: ${row.profileId})`);
       continue;
     }
     targets.push({
       profileId: row.profileId,
-      platform: row.platform as SupportedPlatform,
+      platform: row.platform as ScrapablePlatform,
       accountId: row.accountId,
       username: row.username,
     });

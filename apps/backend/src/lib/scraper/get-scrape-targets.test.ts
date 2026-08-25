@@ -4,6 +4,7 @@ import { db } from '../../db/client.js';
 import { users, socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
 import { getBatchScrapeTargets } from './get-scrape-targets.js';
 import { eq, inArray } from 'drizzle-orm';
+import './register-adapters.js';
 
 test('get-scrape-targets batch targeting tests', async (t) => {
   let user1: any;
