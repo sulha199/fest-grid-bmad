@@ -2,7 +2,7 @@
 title: "EXPERIENCE.md: festgrid"
 status: "draft"
 created: "2026-07-20T10:59:00Z"
-updated: "2026-08-06T00:00:00Z"
+updated: "2026-08-25T00:00:00Z"
 sources:
   - "design-artifacts/UX-festgrid-run-1/DESIGN.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -26,12 +26,12 @@ The application's structure is as follows:
 *   **/my-calendar:** A dedicated page showing events the user has added to their calendar.
 *   **/feed:** The page where a user views events from their subscribed accounts.
 *   **/settings:** A parent page for all user settings.
-*   **/settings/locations:** The "Manage Locations" screen.
-*   **/settings/subscriptions:** The "Manage Subscribed Accounts" screen.
-*   **/settings/api-keys:** The "Manage API Keys" screen.
-*   **/settings/notifications:** The screen for configuring push notifications.
+*   **/settings/account:** *(rewritten 2026-08-25, `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.2 — see Component Patterns § Account Settings & Moderator Tools Shells)* The "Account Settings" tabbed shell — collapses the four routes below into tabs of one page: **API Keys**, **Subscribed Accounts**, **Posts** (manual post selection, Story 5.1), **Notifications**. Replaces the four former standalone routes `/settings/api-keys`, `/settings/subscriptions`, `/settings/notifications`, and `/settings/queue-status` (dissolved — its pending-extraction count moves into the Subscribed Accounts tab, its API-key-health banner moves into the API Keys tab).
+*   **/settings/locations:** The "Manage Locations" screen. Stays a standalone route — not part of the Account Settings shell.
+*   **/settings/widgets:** The "Manage Widgets" (embeddable calendar widget) screen. Stays a standalone route — not part of the Account Settings shell. *(Added 2026-08-25 — this route was already shipped but missing from this list; a pre-existing documentation gap, unrelated to the shell rewrite, corrected while touching this section.)*
 *   **/reports:** The "User Reports" page — status and history of the user's own submitted reports (PRD 3.9.3). Reachable only via the Profile menu, not part of the primary 5-item nav.
-*   **/moderator/items:** The "Moderator Items" page — visible only to users with `role === MODERATOR` (PRD 3.9.3, AD-7.4). Surfaces user reports and pending "Default Location" changes (see State Patterns § Default Location Pending Review) for a moderator to accept or revert. Reachable only via the Profile menu.
+*   **/moderator/tools:** *(new 2026-08-25, Section 4.2)* The "Moderator Tools" tabbed shell — collapses the two routes below into tabs of one page: **Actor Runs**, **Unprocessed Payloads**. Visible only to `role === MODERATOR` (reuses Story 4.7a's route guard as-is). Replaces the two former standalone routes `/moderator/actor-runs` and `/moderator/unprocessed-payloads`.
+*   **/moderator/items:** The "Moderator Items" page — visible only to users with `role === MODERATOR` (PRD 3.9.3, AD-7.4). Surfaces user reports and pending "Default Location" changes (see State Patterns § Default Location Pending Review) for a moderator to accept or revert. Reachable only via the Profile menu. **Deliberately stays a separate, standalone page — does not join the Moderator Tools shell** (user decision, Section 4.2).
 
 ### Global Navigation
 
@@ -67,19 +67,18 @@ The Profile item is the only nav entry with two distinct states:
 
   **Icon-only rail tier (768–1279px) interaction:** Profile is **excluded** from the generic "tap navigates and flashes label" rule that applies to the other 4 items at this tier (see Responsive & Platform) — since Profile's target is a disclosure trigger, not a navigation link, a tap/click here opens the menu directly, with no separate flash-then-second-tap step. Opening the menu (by click, tap, `Enter`, or `Space`) always dismisses Profile's *own* hover tooltip immediately, independent of hover/focus-out state (mouse `:hover` can persist after a click while the cursor stays over the icon).
 
-  Menu contents, top to bottom:
+  Menu contents, top to bottom *(rewritten 2026-08-25, `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.2 — collapses the four-route settings block plus Queue Status into one Account Settings entry, adds Moderator Tools; see Component Patterns § Account Settings & Moderator Tools Shells)*:
   1. Header (non-interactive): avatar + display name.
   2. **Profile** → `/settings`
   3. **Locations** → `/settings/locations`
-  4. **Subscribed Accounts** → `/settings/subscriptions`
-  5. **API Keys** → `/settings/api-keys`
-  6. **Queue Status** → `/settings/queue-status` — per-subscription pending-extraction counts and API key health (Active/Invalid), with a warning link to API Keys if any key is Invalid.
-  7. **Notifications** → `/settings/notifications`
-  8. **Reports** → `/reports`
-  9. **Moderator Items** → `/moderator/items`, *preceded and followed by a divider* — rendered only when the authenticated user's `role === MODERATOR` (PRD 3.9.3, AD-7.4's role model); the item **and both of its surrounding dividers** are absent entirely (not disabled/greyed) for regular users, so a non-moderator sees exactly one divider directly before Log Out, never two adjacent dividers.
-  10. **Log Out** — action, not a navigation.
+  4. **Widgets** → `/settings/widgets` *(added 2026-08-25 — pre-existing gap: this route was already shipped but never registered here; unrelated to the shell rewrite, corrected while touching this section)*
+  5. **Account Settings** → `/settings/account` — the tabbed shell (API Keys / Subscribed Accounts / Posts / Notifications); replaces the four former separate entries below it in this list's pre-2026-08-25 version.
+  6. **Reports** → `/reports`
+  7. **Moderator Tools** → `/moderator/tools` — the tabbed shell (Actor Runs / Unprocessed Payloads), *preceded by a divider*, rendered only for `role === MODERATOR`.
+  8. **Moderator Items** → `/moderator/items`, rendered only for `role === MODERATOR`, *followed by a divider* — stays separate from the Moderator Tools shell (Section 4.2 decision). Items 7-8 together form one moderator-only block: **both its surrounding dividers** (before item 7, after item 8) are absent entirely (not disabled/greyed) for regular users, so a non-moderator sees exactly one divider directly before Log Out, never two adjacent dividers — same rule as before, now spanning two items instead of one.
+  9. **Log Out** — action, not a navigation.
 
-  This formalizes Story 2.8's existing (loose) AC plus PRD 3.9.3's intent ("a dedicated 'Reports' page under their user menu"; "a 'Moderator Items' page will be available under the user menu") into a concrete interaction spec. It **supersedes** Story 2.8's original item list (`epics.md`, pre-2026-08-05: "My Favorites", "My Calendar", "My Locations", "Settings", "Logout") — "My Favorites"/"My Calendar" are dropped as redundant now that both are first-class items in the primary 5-item nav (Story 0.7); "My Locations"/"Settings" are expanded into the full settings-registry set above. Reports and Moderator Items are registered by Stories 4.6 and 4.7 respectively (Epic 4, which already reference "the user menu" generically); Locations/Subscribed Accounts/API Keys/Notifications are registered by Stories 2.3/3.2/3.9/2.9 respectively — Story 2.8 owns the menu *mechanism* and its registry, not the content of every entry. **Queue Status is registered by Story 3.9a** (added 2026-08-11, resolving FR23's previously-orphaned in-app queue-status requirement — see `_bmad-output/implementation-artifacts/3-9a-display-in-app-queue-status-and-api-key-health.md`).
+  This formalizes Story 2.8's existing (loose) AC plus PRD 3.9.3's intent ("a dedicated 'Reports' page under their user menu"; "a 'Moderator Items' page will be available under the user menu") into a concrete interaction spec. It **supersedes** Story 2.8's original item list (`epics.md`, pre-2026-08-05: "My Favorites", "My Calendar", "My Locations", "Settings", "Logout") — "My Favorites"/"My Calendar" are dropped as redundant now that both are first-class items in the primary 5-item nav (Story 0.7); "My Locations"/"Settings" are expanded into the settings-registry set above. Reports and Moderator Items are registered by Stories 4.6 and 4.7 respectively (Epic 4, which already reference "the user menu" generically); Locations/Widgets are registered by Stories 2.3/6.5 respectively — Story 2.8 owns the menu *mechanism* and its registry, not the content of every entry. **Account Settings is registered by Story 3.12** (new, Epic 3, absorbs the former API Keys/Subscribed Accounts/Notifications entries — Stories 3.1b/3.2/2.9 — and Queue Status, Story 3.9a, now dissolved). **Moderator Tools is registered by Story 4.7b** (new, Epic 4, absorbs the former standalone Actor Runs/Unprocessed Payloads pages).
 
 The main view is centered around a filterable, dynamic grid of events that can be viewed as either a card-grid or a weekly calendar. This provides flexibility for users to discover events in their preferred format.
 
@@ -152,6 +151,23 @@ The feeling of using FestDaily should be one of exciting discovery. Microcopy sh
 - **Moderator review** (`/moderator/items`, Story 4.7, not yet built): one instance per pending-request list item, rendered *alongside* — not replacing — the existing Accept/Revert actions (Information Architecture § `/moderator/items`). Accept, Revert, and directly editing via `AccountLocationField`'s trigger are three additive options on the same row, matching how a moderator actually thinks about a bad value: agree with it, discard it with no opinion on the right answer, or supply the right answer directly (State Patterns § Default Location Pending Review covers the resulting states).
 
 **Review-required vs. self-resolved is decided by the page, not the viewer's role.** A user who holds the moderator role and also personally subscribes to an account can reach `editAccountDefaultLocation` from either page. Resolved: mutation semantics follow which page is doing the calling, not an ambient check on the logged-in user's role. Editing from `/settings/subscriptions` always goes through the standard subscriber flow (`changeSource: USER`, creates a `PENDING_REVIEW` request) — even for a moderator — because that page's call site is deliberately wired to the ordinary subscriber path; only `/moderator/items`'s call site is wired to the moderator path (`changeSource: MODERATOR`, self-resolved, AD-11). This keeps "acting as moderator" a deliberate page you navigate to, not a silent capability upgrade on a page built for subscribers.
+
+### Account Settings & Moderator Tools Shells
+
+*Added 2026-08-25, `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.2 — the authoritative source Stories 3.12 (Account Settings) and 4.7b (Moderator Tools) are built against. Both shells are instances of `TabbedShell` (`packages/ui/src/core/tabbed-shell/`, Story 0.29 — free navigation, no step-gating, unlike the wizard chrome it's a sibling of), each with its own local, hardcoded tabs array — there is no shared registry between the two shells, and neither shell is itself a new primitive.*
+
+**Shell A — Account Settings (`/settings/account?tab=...`).** Tabs, left to right: **API Keys**, **Subscribed Accounts**, **Posts**, **Notifications**. Each tab's content is an existing, already-built page-content component remounted as a tab panel — `api-keys-content.tsx` (Story 3.1b, absorbs the API-key-health banner formerly on `/settings/queue-status`), `subscriptions-content.tsx` (Story 3.2, absorbs the pending-extraction-count badge formerly on `/settings/queue-status`), `posts-select-content.tsx` (Story 5.1, see the nesting note below), `notifications-content.tsx` (Story 2.9). `/settings/queue-status` is removed as a standalone route once both its pieces have moved. Active tab is tracked via a `?tab=` URL query param (`nuqs`, per `project-context.md`'s URL State rule) owned by the shell's own page component — `TabbedShell` itself has no `nuqs`/`next/navigation` dependency (Story 0.29 Dev Notes).
+
+**Nested tabs inside the Posts tab.** `posts-select-content.tsx` (Story 5.1) already has its own internal per-account tab bar (PRD §3.10) — nesting it inside Shell A's own tabs is an accepted tabs-within-tabs situation, resolved (not deferred) directly against that one component, five changes, no new primitive:
+1. **Shape differentiation:** inner row becomes rounded pill/chip buttons (filled background when active, no bottom border) instead of underline buttons, so it doesn't read as a continuation of Shell A's own tab strip.
+2. **Avatars on the inner tabs:** each pill gets the account's `profileImageUrl` (already fetched in this component) as a small circular avatar — a real signal distinct from Shell A's plain-text outer tabs.
+3. **Section label:** a "Posts from:" text heading above the inner row (previously absent).
+4. **Visual containment:** the inner row + its content wrapped in the existing `card` token (`rounded-lg shadow-md p-4`, `DESIGN.md`) so it reads as a box inside the Posts tab panel.
+5. **Mobile single-row scroll:** `flex-wrap` → `flex-nowrap overflow-x-auto` below the mobile breakpoint (`sm:flex-wrap sm:overflow-visible` above it).
+
+**Shell B — Moderator Tools (`/moderator/tools?tab=...`).** Tabs, left to right: **Actor Runs**, **Unprocessed Payloads** — the existing `actor-runs-content.tsx`/`unprocessed-payloads-content.tsx` components remounted as tab panels, reusing Story 4.7a's route guard as-is (no new auth logic). `/moderator/items` (Information Architecture) is a deliberately separate page, not a third tab here.
+
+**Chrome/tokens.** Both shells reuse `DESIGN.md`'s existing `nav.profile_menu`-adjacent chrome conventions and button primary/secondary tokens (`#1E293B`/`#6366F1`, `bg-violet-600 text-white` / `bg-gray-200 text-gray-800`) for the tab bar's active/inactive states — a 2-state model, not `WizardStepSummary`'s 3-state Completed/Current/Upcoming (free navigation has no linear-progress concept; see Story 0.29 Dev Notes). No new component tokens are introduced by this pass beyond what `TabbedShell` itself already ships with.
 
 ## State Patterns
 
