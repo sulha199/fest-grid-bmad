@@ -1450,7 +1450,12 @@ development_status:
   # Reopened 2026-08-24 via bmad-correct-course: wizard steps extended with a
   # push-notification opt-in step (reusing Story 2.9's toggle), exitPath changed
   # to /feed. See sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.6.
-  5-5-integrate-manual-post-selection-into-the-getting-started-wizard: review
+  # Full AC6-7 backfilled 2026-08-25 via bmad-create-story -- only a reopening
+  # comment existed before. Also found AC1-5 (this story's ENTIRE original
+  # scope) already implemented despite the story file's own header saying "Not
+  # started" -- confirmed via direct code inspection (wizard-registry.ts,
+  # posts-select-content.tsx both already correct).
+  5-5-integrate-manual-post-selection-into-the-getting-started-wizard: ready-for-dev
   # added 2026-08-19 via bmad-create-story at user request: "Scrape Posts" button on
   # /posts/select for both the zero-posts (reuses Story 3.1/3.2's initial-scrape
   # cascade) and has-posts (newerThan = MAX(posts.publishedAt)) cases. Postdates
