@@ -45,7 +45,7 @@ export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {
 
   const targets: ScrapeTarget[] = [];
   for (const row of distinctRows) {
-    if (!SUPPORTED_PLATFORMS.includes(row.platform as any)) {
+    if (!SUPPORTED_PLATFORMS.includes(row.platform as any) && row.platform !== 'twitter') {
       console.warn(`Skipping scrape target with unsupported platform: ${row.platform} (profile: ${row.profileId})`);
       continue;
     }

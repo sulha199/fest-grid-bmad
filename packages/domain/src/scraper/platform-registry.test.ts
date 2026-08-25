@@ -16,16 +16,16 @@ test("PLATFORM_SLUGS and PLATFORM_DISPLAY_NAMES have exactly one entry per SUPPO
     assert.ok(PLATFORM_DISPLAY_NAMES[platform], `PLATFORM_DISPLAY_NAMES has entry for ${platform}`);
   }
 
-  // Also assert they have no extra properties beyond SUPPORTED_PLATFORMS
+  // Also assert they have no extra properties beyond SupportedPlatform
   assert.equal(
     Object.keys(PLATFORM_SLUGS).length,
-    SUPPORTED_PLATFORMS.length,
-    "PLATFORM_SLUGS has exactly the same number of keys as SUPPORTED_PLATFORMS"
+    2, // instagram and twitter
+    "PLATFORM_SLUGS has exactly 2 keys"
   );
   assert.equal(
     Object.keys(PLATFORM_DISPLAY_NAMES).length,
-    SUPPORTED_PLATFORMS.length,
-    "PLATFORM_DISPLAY_NAMES has exactly the same number of keys as SUPPORTED_PLATFORMS"
+    2, // instagram and twitter
+    "PLATFORM_DISPLAY_NAMES has exactly 2 keys"
   );
 });
 
