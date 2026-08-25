@@ -17,6 +17,7 @@ import { usePostHog } from "@festgrid/analytics"
 
 export function SubscriptionsContent() {
   const t = useTranslations("SubscriptionsPage")
+  const tQueue = useTranslations("QueueStatusPage")
   const router = useRouter()
   const queryClient = useQueryClient()
   const posthog = usePostHog()
@@ -153,7 +154,7 @@ export function SubscriptionsContent() {
       {!hasApiKey && (
         <div className="p-4 border rounded-md bg-yellow-50 dark:bg-yellow-950/20 text-yellow-800 dark:text-yellow-200 text-sm">
           {t("noApiKeyPrompt")}{" "}
-          <Link href="/settings/api-keys" className="underline font-semibold text-yellow-900 dark:text-yellow-100 hover:text-yellow-950">
+          <Link href="/settings/account?tab=api-keys" className="underline font-semibold text-yellow-900 dark:text-yellow-100 hover:text-yellow-950">
             {t("noApiKeyLinkLabel")}
           </Link>
         </div>
@@ -240,7 +241,12 @@ export function SubscriptionsContent() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-4 shrink-0">
+                    {sub.pendingExtractionCount > 0 && (
+                      <span className="text-xs font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-900/50 px-2.5 py-1 rounded-full">
+                        {tQueue("pendingCountLabel", { count: sub.pendingExtractionCount })}
+                      </span>
+                    )}
                     <button
                       onClick={() => handleDelete(sub)}
                       disabled={pending}
