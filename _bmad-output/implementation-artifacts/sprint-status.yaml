@@ -1080,7 +1080,19 @@ development_status:
   # reopening (pill-style inner tabs, avatars, label, card containment, mobile
   # horizontal scroll) rather than a separate bmad-ux pass. See sprint-change-
   # proposal-2026-08-24-ux-rework-batch.md Section 4.2.
-  3-12-consolidate-account-settings-into-a-tabbed-shell: backlog
+  # Story drafted 2026-08-25 via bmad-create-story: consolidates API Keys/
+  # Subscribed Accounts/Posts/Notifications into one TabbedShell (Story 0.29)
+  # instance at /settings/account, absorbs queue-status's two pieces (API-key-
+  # health banner, pending-extraction count), fully dissolves Story 3.9a.
+  # Extends TabbedShell with a new optional keepMounted-per-tab prop (backward
+  # compatible) to fix two real tab-switch state-loss hazards found during
+  # creation (Notifications' FCM-registration effect, Posts' inner-account-tab
+  # selection) -- resolved via AskUserQuestion with the user before drafting,
+  # not a default the dev agent picked unilaterally. EXPERIENCE.md's two-shell
+  # IA rewrite (a Gate 2 prerequisite) was applied immediately before this
+  # story's creation in the same session. See 3-12-consolidate-account-
+  # settings-into-a-tabbed-shell.md.
+  3-12-consolidate-account-settings-into-a-tabbed-shell: ready-for-dev
   epic-3-retrospective: optional
   epic-4: in-progress
   # regenerated 2026-08-11 via bmad-create-story: full context engine pass. Gate 1/3

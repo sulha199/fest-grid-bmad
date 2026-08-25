@@ -2309,6 +2309,25 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.1a, Story 1.3a, Story 1.3b, Story 1.3c, Story 1.5a, Story 2.6, Story 3.3c.
 
+### Story 3.12: Consolidate Account Settings into a tabbed shell
+
+**As a** subscriber,
+**I want** API Keys, Subscribed Accounts, Posts, and Notifications consolidated into one tabbed "Account Settings" page (`/settings/account`), with the queue-status page's API-key-health banner and pending-extraction counts absorbed into the relevant tabs,
+**So that** I manage my account in one place instead of navigating between five separate settings pages.
+
+**Acceptance Criteria:**
+
+*   **Given** the existing `TabbedShell` primitive (`packages/ui/src/core/tabbed-shell/`, Story 0.29 — free navigation, no step-gating),
+*   **When** `/settings/account` is built, **then** it renders four tabs — **API Keys**, **Subscribed Accounts**, **Posts**, **Notifications** — each the existing, already-implemented content component (`ApiKeysContent`, `SubscriptionsContent`, `PostsSelectContent`, `NotificationsContent`) remounted as a tab panel, active tab tracked via a `?tab=` URL param (`nuqs`).
+*   **And** the four former standalone routes (`/settings/api-keys`, `/settings/subscriptions`, `/settings/notifications`, `/settings/queue-status`) are removed; `/posts/select` stays a separate, un-removed route in parallel with the new Posts tab.
+*   **And** `queue-status-content.tsx`'s two pieces are absorbed rather than lost: the API-key-health banner moves into the API Keys tab, the per-subscription pending-extraction count moves into the Subscribed Accounts tab — Story 3.9a is fully dissolved.
+*   **And** `TabbedShell` gains one new optional per-tab `keepMounted?: boolean` prop (backward-compatible, default preserves today's unmount-on-switch behavior) to fix two real state-loss hazards: Notifications' FCM-token-registration effect re-firing on every tab-switch-back, and Posts' internal per-account-tab selection resetting on outer-tab switch. Both tabs set `keepMounted: true`; API Keys/Subscribed Accounts stay on the default lazy behavior.
+*   **And** the User Menu's registry is updated to point its consolidated Account Settings entry at `/settings/account`, removing the four former separate entries plus Queue Status.
+
+**Note:** Added 2026-08-24 via `bmad-correct-course` (`sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.2, items #4/#5 settings-IA restructuring), full ACs backfilled 2026-08-25 via `bmad-create-story` (this section did not exist yet despite `sprint-status.yaml` carrying a `3-12` entry since 2026-08-24 — a tracking gap in the same family as Stories 3.3d/3.4m/0.29's). A real, non-mechanical tab-switch state-loss tradeoff (not anticipated by the original proposal) was found during this story's creation and resolved directly with the user via `AskUserQuestion` — see the implementation-artifact story file's Dev Notes for the full analysis and the `keepMounted` design. `EXPERIENCE.md`'s two-shell IA rewrite, itself claimed complete by the 2026-08-24 proposal's own approved log but never actually applied, was corrected immediately before this story's creation in the same session (Component Patterns § Account Settings & Moderator Tools Shells is this story's authoritative UX source).
+
+**Depends on:** Story 0.29, Story 3.1b, Story 3.2, Story 3.9a, Story 5.1, Story 2.9, Story 2.8.
+
 ### Epic 4: Data Quality and Moderation
 
 Users can contribute to data quality by correcting event details and reporting issues.
