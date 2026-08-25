@@ -7,7 +7,7 @@ baseline_commit: 552561c4e4c958dcd681ca8d3c015b5a0619359c
 
 - Epic: 2 - User Personalization
 - Story ID: 2.5
-- Status: review
+- Status: ready-for-dev (AC13 amendment; AC1-AC12 already delivered — see Dev Notes → Amendment)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,6 +31,7 @@ so that I can easily discover events happening close to me.
 10. **And (Filter Hub placement)** the Nearby filter is exposed as a third filter inside the existing shared Filter Hub (alongside Type and Category), per `D-Design-System/01-event-list-view.md`, and its selection flows into both Card View and Calendar View identically via the existing shared query-building composition.
 11. **And (i18n)** all new user-facing strings — filter label, "Current location"/"All locations" options, radius label/unit, loading/permission-denied/unavailable/error messages, and the "no saved locations" hint — resolve through next-intl translations (`en`, `id`) under a new `NearbyFilter` namespace; none are hardcoded.
 12. **And (accessibility)** the filter's location `<select>` and radius `<input type="range">` are keyboard-operable and labelled (associated `<label htmlFor>`), and the transient "Detecting your location..." state is announced via an `aria-live="polite"` region, matching this page's existing `liveMessage` pattern for the view-switcher announcement.
+13. **(Added 2026-08-25, `bmad-correct-course`/`bmad-create-story` amendment, `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.7)** **And (compact inline presentation)** `LocationRadiusFilter` is collapsed behind a Popover trigger inside `FilterHub`, matching the exact collapsed-trigger-with-popover pattern `FilterHub.tsx`'s Type/Category facets already use (`renderFacet`'s `Popover`/`PopoverTrigger`/`Button` composition) — not a third, visually distinct filter-chrome style. The trigger button shows `labels.filterLabel` (e.g. "Nearby") when off, or the active selection's summary (the selected saved location's `name`, or `labels.currentLocationOptionLabel`, plus the current radius, e.g. `"Home · 10km"`) when active, styled `variant={isNearbyActive ? 'default' : 'outline'}` identically to how Type/Category's trigger switches variant on `selectedValues.length > 0`. Opening the popover reveals `LocationRadiusFilter`'s full existing content (select + conditional radius slider + status regions, AC1-AC9) unchanged — this AC changes only the collapsed/expanded chrome around it, not any of its internal behavior, states, or accessibility properties (AC12 unaffected).
 
 ## Tasks / Subtasks
 
@@ -146,7 +147,17 @@ so that I can easily discover events happening close to me.
 - [ ] Task 9: Manual verification
   - [ ] Run the app locally with a real saved location; confirm auto-default nearby filtering on first load, confirm radius pre-fill from the location's own radius, confirm switching to "All locations" persists across a reload, confirm Calendar View reflects the same filter. With a fresh account (zero saved locations), confirm the browser geolocation prompt appears once, confirm deny/allow both degrade gracefully. Confirm `pnpm build`/`pnpm lint` clean at the repo root.
 
+- [ ] Task 10 (AC13, added 2026-08-25) — Compact/collapsed presentation:
+  - [ ] Strip `LocationRadiusFilter.tsx`'s hardcoded outer card styling (`p-4 border rounded-lg bg-card text-card-foreground shadow-sm`) — it will now always render inside a `PopoverContent`, which already supplies that visual treatment; double-boxing would look wrong. Keep the `className` prop for any exceptional future non-popover use, just drop the hardcoded defaults.
+  - [ ] In `FilterHub.tsx`, wrap `<LocationRadiusFilter ... />` in a `Popover`/`PopoverTrigger asChild`/`PopoverContent` composition, mirroring `renderFacet`'s exact structure. Trigger `<Button variant={isNearbyActive ? 'default' : 'outline'}>` renders `labels.filterLabel` when `selectedValue === 'off' || selectedValue === null`, or a summary string (`{selectedLocationName} · {radiusKm}{labels.radiusUnit-equivalent-short-form}`) when active — derive `selectedLocationName` from `savedLocations.find(l => l.id === selectedValue)?.name`, falling back to `labels.currentLocationOptionLabel` when `selectedValue === 'current'`.
+  - [ ] Add any new label(s) needed for the compact trigger summary (if the existing `NearbyFilter` i18n namespace doesn't already have a short-form radius unit suitable for inline trigger text) to both `en.json`/`id.json`.
+  - [ ] Extend `FilterHub.test.tsx`: the Nearby trigger renders `labels.filterLabel` when off; renders the active-selection summary when a location/current-location is selected; clicking it opens a popover containing `LocationRadiusFilter`'s existing controls (select + radius slider when applicable); `variant` switches from `outline` to `default` when active, matching Type/Category's existing test pattern for the same behavior.
+
 ## Dev Notes
+
+### Amendment (2026-08-25, `bmad-correct-course` / `bmad-create-story`)
+
+AC13/Task 10 is new — added per `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.7. **This is distinct from AC1-AC12**, which is the original "Find Nearby Events" feature build (the saved-location/radius/geolocation filter itself) — confirmed already implemented via direct code inspection (`LocationRadiusFilter.tsx`/`FilterHub.tsx` both exist and match AC1-AC12's spec). AC13 only changes *how that existing filter is presented* inside `FilterHub` (collapsed-trigger-with-popover, matching Type/Category's established chrome) — it does not touch any of the filter's actual logic, states, or data flow.
 
 ### Architecture & UX Gate Findings
 
@@ -284,6 +295,7 @@ Recent commits (`dbf1f80`, `2af58dc`, `767ff1d`, `d8792a9`, `0169949`) show the 
 - [ ] `NearbyFilter` i18n namespace added to `en.json`/`id.json` with no hardcoded strings (AC11).
 - [ ] Analytics events `nearby_filter_applied`/`nearby_geolocation_denied` fire per Dev Notes → Analytics.
 - [ ] `pnpm build`/`pnpm lint` clean at the repo root.
+- [ ] Nearby filter collapses behind a Popover trigger in `FilterHub`, matching Type/Category's chrome (AC13, new 2026-08-25).
 
 ## Out of Scope
 
@@ -296,7 +308,8 @@ Recent commits (`dbf1f80`, `2af58dc`, `767ff1d`, `d8792a9`, `0169949`) show the 
 
 ## Definition of Done
 
-- [ ] AC1-AC12 satisfied.
+- [x] AC1-AC12 satisfied (confirmed already implemented via direct code inspection, 2026-08-25).
+- [ ] AC13 satisfied (compact/collapsed presentation, new 2026-08-25).
 - [ ] Required tests passing: `packages/domain` (100% coverage), `packages/ui` component tests, `apps/web` integration tests (happy + unhappy path), one E2E happy-path test.
 - [ ] Lint and type checks passing for `packages/domain`, `packages/ui`, `apps/web`.
 - [ ] Story 2.5a implemented and its migration applied before this story's E2E test is expected to pass against real data (sequencing note, not a gate on writing this story's own code).
@@ -305,6 +318,8 @@ Recent commits (`dbf1f80`, `2af58dc`, `767ff1d`, `d8792a9`, `0169949`) show the 
 ## Completion Status
 
 - [/] In progress
+
+**2026-08-25:** AC1-AC12 confirmed already implemented via direct code inspection. AC13 (compact/collapsed presentation) is new, unimplemented, ready for dev.
 
 ## Dev Agent Record
 
