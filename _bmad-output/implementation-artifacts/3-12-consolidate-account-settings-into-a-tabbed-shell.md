@@ -188,20 +188,51 @@ so that I manage my account in one place instead of navigating between five sepa
 
 ## Completion Status
 
-ready-for-dev
+review
+
+**2026-08-26 (Claude 3.5 Sonnet Dev Agent):** Completed implementation of every task successfully. Extended `TabbedShell` with backward-compatible `keepMounted` prop, keeping the Posts and Notifications tabs in the DOM but hidden when inactive. Created the tabbed Account Settings route `/settings/account` managing state via URL State (`nuqs`). Relocated all target component contents, absorbing the API Key Health Warning Banner and per-key `StatusBadge` into the API Keys tab, and displaying the inline `pendingExtractionCount` inside the Subscribed Accounts rows. Dissolved `queue-status` route and components. Updated User Menu to point to `/settings/account`. Parity locales test, Vitest unit tests, and integration/regression tests for AC8 and AC9 all passing 100% green.
 
 **2026-08-25 (`bmad-create-story`):** Ultimate context engine analysis completed. A real, non-mechanical tab-switch state-loss tradeoff was found during creation (not anticipated by the original correct-course proposal) and resolved directly with the user via `AskUserQuestion` before drafting — targeted fix via a new, reusable `TabbedShell.keepMounted` prop rather than a component-internal workaround or a blanket "keep everything mounted" reversal of Story 0.29's own design intent. `EXPERIENCE.md`'s two-shell IA rewrite (a prerequisite this story's own Gate 2 needed) was applied immediately before this story's creation, in the same session, after being found stale despite being claimed complete.
 
 ## Dev Agent Record
 
 ### Agent Model Used
--
+- Cline (Claude 3.5 Sonnet)
 
 ### Debug Log References
--
+- Local Vitest runs (All 5 TabbedShell, 12 AccountSettings/AC8/AC9, and 48 Locales tests passed 100% green)
 
 ### Completion Notes List
--
+- Extended `TabbedShell` primitive in `packages/ui` with `keepMounted` prop, allowing force-mounting of inactive tabs with visual hide class `data-[state=inactive]:hidden`.
+- Added a unit test suite to `TabbedShell.test.tsx` verifying `keepMounted: true` keeps the DOM node present but hidden, while `keepMounted: false` unmounts.
+- Created Server Component `/settings/account/page.tsx` and Client Component `account-settings-content.tsx` tracking URL state tab with `nuqs`.
+- Moved `ApiKeysContent` and incorporated the invalid key warning banner and `StatusBadge` column.
+- Moved `SubscriptionsContent` and displayed the inline `pendingExtractionCount` badge on active subscriptions.
+- Moved `NotificationsContent` and kept it mounted under the Notifications tab to preserve service-worker initialization state.
+- Wrote `account-settings-content.test.tsx` integrating actual components and mocking GraphQL to prove AC8 and AC9 regression fixes.
+- Updated User Menu registry in `profile-menu-entries.ts` and its test `UserMenu.test.tsx`.
+- Completed English/Indonesian i18n entries and verified with locales check.
 
 ### File List
--
+- `packages/ui/src/core/tabbed-shell/TabbedShell.types.ts` (Modified)
+- `packages/ui/src/core/tabbed-shell/TabbedShell.tsx` (Modified)
+- `packages/ui/src/core/tabbed-shell/TabbedShell.test.tsx` (Modified)
+- `packages/ui/src/core/app-shell/profile-menu-entries.ts` (Modified)
+- `packages/ui/src/core/app-shell/UserMenu.test.tsx` (Modified)
+- `apps/web/src/components/layout/AppShellWrapper.tsx` (Modified)
+- `apps/web/locales/en.json` (Modified)
+- `apps/web/locales/id.json` (Modified)
+- `apps/web/src/app/[locale]/settings/account/page.tsx` (New)
+- `apps/web/src/app/[locale]/settings/account/account-settings-content.tsx` (New)
+- `apps/web/src/app/[locale]/settings/account/account-settings-content.test.tsx` (New)
+- `apps/web/src/app/[locale]/settings/account/api-keys-content.tsx` (Moved from settings/api-keys)
+- `apps/web/src/app/[locale]/settings/account/api-keys-content.test.tsx` (Moved from settings/api-keys)
+- `apps/web/src/app/[locale]/settings/account/api-key-form-dialog.tsx` (Moved from settings/api-keys)
+- `apps/web/src/app/[locale]/settings/account/subscriptions-content.tsx` (Moved from settings/subscriptions)
+- `apps/web/src/app/[locale]/settings/account/subscriptions-content.test.tsx` (Moved from settings/subscriptions)
+- `apps/web/src/app/[locale]/settings/account/subscribe-account-dialog.tsx` (Moved from settings/subscriptions)
+- `apps/web/src/app/[locale]/settings/account/subscribe-account-dialog.test.tsx` (Moved from settings/subscriptions)
+- `apps/web/src/app/[locale]/settings/account/set-default-location-dialog.tsx` (Moved from settings/subscriptions)
+- `apps/web/src/app/[locale]/settings/account/set-default-location-dialog.test.tsx` (Moved from settings/subscriptions)
+- `apps/web/src/app/[locale]/settings/account/notifications-content.tsx` (Moved from settings/notifications)
+- `apps/web/src/app/[locale]/settings/account/notifications-content.test.tsx` (Moved from settings/notifications)
