@@ -681,6 +681,24 @@ development_status:
   # video_url DB column/migration and a videoUrl GraphQL field (fold into this
   # story's consumer or a small new story, PO's call at story-creation time).
   # See sprint-change-proposal-2026-08-25-video-priority-display.md.
+  # Amended 2026-08-26 via bmad-create-story: the DB/GraphQL work above was
+  # resolved as "fold in" -- new AC9-12 + Tasks 8-13 added directly to this
+  # story file (not split into a separate story), absorbing ScrapedPost's
+  # videoUrl mapping (AC9), the AJV schema update (AC10), the posts.video_url
+  # column/migration + persist-scraped-post.ts threading (AC11), and the
+  # events.graphql Event.videoUrl field + resolver flattening across 5 select
+  # sites + codegen (AC12) into one end-to-end plumbing change per the
+  # proposal's own framing. AC1-8 remain delivered/unaffected. Gate 1/2/3: no
+  # gap on any gate (lightweight guard -- every change mirrors an
+  # already-shipped pattern 1:1, no new architecture/infra/foundational
+  # dependency). Pre-Coding Approval Gate marked approved (inherited from the
+  # already-approved Sprint Change Proposal). Dispatched next for
+  # implementation via an isolated worktree + gemini-cli/cline-cli per this
+  # project's established delegation convention, independently verified
+  # before merge. Status intentionally left at "review" (not reset to
+  # ready-for-dev) since AC1-8 are already delivered and only the amendment's
+  # new AC9-12 scope is pending -- see the story file's own Completion Status
+  # for the AC-level breakdown.
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: review
   3-4-scrape-new-posts-from-subscribed-accounts: review
   # added 2026-08-08 via bmad-create-story Gate 1 split while drafting Story 3.4:
