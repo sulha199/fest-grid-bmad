@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -82,7 +83,8 @@ describe('ModeratorToolsContent Integration', () => {
     expect(screen.queryByTestId('unprocessed-payloads-content')).not.toBeInTheDocument();
 
     // Click unprocessed payloads trigger
-    fireEvent.click(unprocessedTrigger);
+    const user = userEvent.setup();
+    await user.click(unprocessedTrigger);
 
     // Expect mockSetTab to have been called to update query param
     expect(mockSetTab).toHaveBeenCalledWith('unprocessed-payloads');
