@@ -240,7 +240,8 @@ development_status:
   # existed but no real ACs/tasks were ever drafted for it -- same tracking gap
   # found across this batch). AC1-10 confirmed already implemented, unaffected.
   # depends on Story 2.1a's new favoriteCount GraphQL field for real data.
-  1-3b-build-the-reusable-eventcard-component: ready-for-dev
+  # AC11-13 implemented 2026-08-26 via cline: 288/288 packages/ui tests pass.
+  1-3b-build-the-reusable-eventcard-component: review
   1-3c-build-the-reusable-infinite-scroll-hook: done
   # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
   # home-content.tsx (this story's sibling 1.3) and favorites-content.tsx (Story 2.2) were
