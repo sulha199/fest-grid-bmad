@@ -81,10 +81,12 @@ let currentMockEvent = {
   location: "Test Location",
   types: [],
   categories: [],
-  imageUrl: null,
+  imageUrl: null as string | null,
+  videoUrl: null as string | null,
   sourcePostUrl: null,
   originalPostUrl: null,
   isFavorited: false,
+  isHiddenForCurrentUser: false,
   schedules: [],
 }
 
@@ -226,9 +228,11 @@ describe("EventDetailWrapper", () => {
       types: [],
       categories: [],
       imageUrl: null,
+      videoUrl: null,
       sourcePostUrl: null,
       originalPostUrl: null,
       isFavorited: false,
+      isHiddenForCurrentUser: false,
       schedules: [
         {
           id: "sched_1",
@@ -652,5 +656,17 @@ describe("EventDetailWrapper", () => {
     await waitFor(() => {
       expect(liveRegion?.textContent).toContain("EventDetailsPage.timezoneSubmitErrorAnnouncement")
     })
+  })
+
+  it("renders a video when videoUrl is provided", async () => {
+    currentMockEvent.videoUrl = "https://example.com/video.mp4"
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const videoEl = screen.getByTestId("event-video") as HTMLVideoElement
+    expect(videoEl).toBeInTheDocument()
+    expect(videoEl).toHaveAttribute("src", "https://example.com/video.mp4")
   })
 })

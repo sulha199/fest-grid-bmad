@@ -92,6 +92,8 @@ export function mapGraphQLEventToDetailViewProps(
     categories: mappedCategories,
     imageUrl: event.imageUrl,
     imageAlt: event.eventName,
+    videoUrl: event.videoUrl,
+    videoAlt: event.eventName,
     originalPostUrl: event.originalPostUrl,
     sourcePostUrl: event.sourcePostUrl,
     isFavorited: event.isFavorited,
