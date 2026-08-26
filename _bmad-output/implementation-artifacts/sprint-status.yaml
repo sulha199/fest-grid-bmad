@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-26T13:20:00Z
+last_updated: 2026-08-26T15:05:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -226,6 +226,15 @@ development_status:
   # DONE 2026-08-24: merged (story/0-32-page-header, be20e31). Independently
   # re-verified: 4/4 tests pass, lint clean.
   0-32-build-the-reusable-pageheader-primitive: done
+  # New 2026-08-25 via bmad-correct-course: first object-storage/CDN resource
+  # in the project. CDK construct for a private S3 bucket (Origin Access
+  # Control, no public bucket access) fronted by a CloudFront distribution
+  # (Cache-Control: immutable on served objects), plus IAM permissions for
+  # the AI-extraction Lambda to write to it. Feeds Stories 3.6's re-hosting
+  # amendment and the Event resolver's original-vs-durable serving logic.
+  # See sprint-change-proposal-2026-08-25-video-priority-display.md
+  # (Architecture Spine AD-12).
+  0-33-provision-s3-cloudfront-infrastructure-for-post-media: ready-for-dev
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
