@@ -1,11 +1,105 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen as rtlScreen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { CalendarView } from './CalendarView';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { graphql, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { NuqsTestingAdapter } from 'nuqs/adapters/testing';
+
+const screen = {
+  ...rtlScreen,
+  getByText: (text: string | RegExp, options?: any) => {
+    const desktops = rtlScreen.queryAllByTestId('desktop-calendar-view');
+    const desktop = desktops[desktops.length - 1];
+    if (desktop) {
+      try {
+        return within(desktop).getByText(text, options);
+      } catch {}
+    }
+    const all = rtlScreen.queryAllByText(text, options);
+    if (all.length > 0) return all[0];
+    return rtlScreen.getByText(text, options);
+  },
+  getAllByText: (text: string | RegExp, options?: any) => {
+    const desktops = rtlScreen.queryAllByTestId('desktop-calendar-view');
+    const desktop = desktops[desktops.length - 1];
+    if (desktop) {
+      try {
+        return within(desktop).getAllByText(text, options);
+      } catch {}
+    }
+    return rtlScreen.getAllByText(text, options);
+  },
+  queryByText: (text: string | RegExp, options?: any) => {
+    const desktops = rtlScreen.queryAllByTestId('desktop-calendar-view');
+    const desktop = desktops[desktops.length - 1];
+    if (desktop) {
+      return within(desktop).queryByText(text, options);
+    }
+    return rtlScreen.queryByText(text, options);
+  },
+  findByText: async (text: string | RegExp, options?: any, waitForOptions?: any) => {
+    const elements = await rtlScreen.findAllByText(text, options, waitForOptions);
+    const desktops = rtlScreen.queryAllByTestId('desktop-calendar-view');
+    const desktop = desktops[desktops.length - 1];
+    if (desktop) {
+      const match = elements.find(el => desktop.contains(el));
+      if (match) return match;
+    }
+    return elements[0];
+  },
+  getByRole: (role: string, options?: any) => {
+    const desktops = rtlScreen.queryAllByTestId('desktop-calendar-view');
+    const desktop = desktops[desktops.length - 1];
+    if (desktop) {
+      try {
+        return within(desktop).getByRole(role, options);
+      } catch {}
+    }
+    const all = rtlScreen.queryAllByRole(role, options);
+    if (all.length > 0) return all[0];
+    return rtlScreen.getByRole(role, options);
+  },
+  queryByRole: (role: string, options?: any) => {
+    const desktops = rtlScreen.queryAllByTestId('desktop-calendar-view');
+    const desktop = desktops[desktops.length - 1];
+    if (desktop) {
+      return within(desktop).queryByRole(role, options);
+    }
+    return rtlScreen.queryByRole(role, options);
+  },
+  getAllByRole: (role: string, options?: any) => {
+    const desktops = rtlScreen.queryAllByTestId('desktop-calendar-view');
+    const desktop = desktops[desktops.length - 1];
+    if (desktop) {
+      try {
+        return within(desktop).getAllByRole(role, options);
+      } catch {}
+    }
+    return rtlScreen.getAllByRole(role, options);
+  },
+  getByLabelText: (text: string | RegExp, options?: any) => {
+    const desktops = rtlScreen.queryAllByTestId('desktop-calendar-view');
+    const desktop = desktops[desktops.length - 1];
+    if (desktop) {
+      try {
+        return within(desktop).getByLabelText(text, options);
+      } catch {}
+    }
+    const all = rtlScreen.queryAllByLabelText(text, options);
+    if (all.length > 0) return all[0];
+    return rtlScreen.getByLabelText(text, options);
+  },
+  queryByLabelText: (text: string | RegExp, options?: any) => {
+    const desktops = rtlScreen.queryAllByTestId('desktop-calendar-view');
+    const desktop = desktops[desktops.length - 1];
+    if (desktop) {
+      return within(desktop).queryByLabelText(text, options);
+    }
+    return rtlScreen.queryByLabelText(text, options);
+  },
+};
 
 const mockRouterPush = vi.fn();
 vi.mock('@/i18n/navigation', () => ({

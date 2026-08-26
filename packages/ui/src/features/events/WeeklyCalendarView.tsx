@@ -230,8 +230,6 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     return days;
   }, [weekStart]);
 
-  const weekEnd = visibleDays[6];
-
   // 2. Bucketing schedules/segments into visible days
   const dayBuckets = useMemo(() => {
     const buckets: Segment<TSchedule>[][] = Array.from({ length: 7 }, () => []);
