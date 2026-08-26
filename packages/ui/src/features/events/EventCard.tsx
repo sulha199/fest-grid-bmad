@@ -139,6 +139,7 @@ export function EventCard({
   priceFrom,
   pendingRemoval = false,
   isFavorited = false,
+  favoriteCount,
   onFavoriteToggle,
   href,
   onClick,
@@ -212,12 +213,19 @@ export function EventCard({
             onFavoriteToggle(e);
           }}
           aria-label={defaultLabels.favoriteToggle}
-          className="absolute top-3 right-3 z-10 p-2 rounded-full bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors"
+          className={`absolute top-3 right-3 z-10 rounded-full bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors flex items-center justify-center ${
+            favoriteCount !== undefined ? 'px-2.5 py-1.5 gap-1.5' : 'p-2'
+          }`}
         >
           <Heart
             className={`w-5 h-5 ${isFavorited ? 'fill-red-600 text-red-600' : 'text-black'}`}
             fill={isFavorited ? 'currentColor' : 'none'}
           />
+          {favoriteCount !== undefined && (
+            <span className="text-xs font-semibold text-black pr-0.5 select-none">
+              {favoriteCount}
+            </span>
+          )}
         </button>
       )}
 

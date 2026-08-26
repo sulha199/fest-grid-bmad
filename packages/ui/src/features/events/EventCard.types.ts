@@ -57,6 +57,9 @@ export interface EventCardProps {
   /** Reserved slot for favorite state. When onFavoriteToggle is provided, a heart icon/button is rendered */
   isFavorited?: boolean;
 
+  /** Optional count of favorites for the event */
+  favoriteCount?: number;
+
   isGreyedOut?: boolean;
 
   /** Callback when the favorite button is toggled. Must be provided to render the favorite control */
