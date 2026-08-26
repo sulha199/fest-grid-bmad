@@ -267,7 +267,7 @@ development_status:
   # Story 1.3b's variant="masonry" prop. Does not build the toggle-button UI
   # itself -- that's the apps/web call site's job. See sprint-change-proposal-
   # 2026-08-24-ux-rework-batch.md Section 4.4.
-  1-3d-build-the-reusable-eventlistview-component: ready-for-dev
+  1-3d-build-the-reusable-eventlistview-component: review
   # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
   # home-content.tsx and favorites-content.tsx still duplicate the SearchBar/FilterHub
   # row above the shell Story 1.3d already extracted. Positioned as a 1.3-family
