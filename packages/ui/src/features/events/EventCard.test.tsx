@@ -259,4 +259,110 @@ describe('EventCard', () => {
     expect(screen.getByText('Archived')).toBeInTheDocument();
   });
 
+  it('renders masonry variant with aspect-ratio image class and reduced caption', () => {
+    render(
+      <EventCard
+        {...defaultProps}
+        variant="masonry"
+        imageUrl="http://example.com/image.jpg"
+        locationName="Great Hall"
+        categories={['MUSIC']}
+        types={['CONCERT']}
+        priceFrom="$20"
+      />
+    );
+
+    const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+    expect(img).toBeInTheDocument();
+    
+    const imgContainer = img.parentElement;
+    expect(imgContainer).toHaveClass('aspect-[3/4]');
+    expect(imgContainer).not.toHaveClass('h-48');
+
+    expect(screen.getByText('Summer Music Festival')).toBeInTheDocument();
+    expect(screen.getByText('Great Hall')).toBeInTheDocument();
+
+    expect(screen.queryByText('MUSIC')).not.toBeInTheDocument();
+    expect(screen.queryByText('CONCERT')).not.toBeInTheDocument();
+    expect(screen.queryByText('$20')).not.toBeInTheDocument();
+  });
+
+  describe('Relative-day date display', () => {
+    it('renders "Today" for dates 0 days out', () => {
+      const today = new Date();
+      render(<EventCard eventName="Today Event" startDate={today} locale="en-US" />);
+      expect(screen.getByText('Today')).toBeInTheDocument();
+    });
+
+    it('renders "Tomorrow" for dates 1 day out', () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      render(<EventCard eventName="Tomorrow Event" startDate={tomorrow} locale="en-US" />);
+      expect(screen.getByText('Tomorrow')).toBeInTheDocument();
+    });
+
+    it('renders weekday name for dates 2-6 days out', () => {
+      const day2 = new Date();
+      day2.setDate(day2.getDate() + 2);
+      const expectedWeekday = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(day2);
+
+      render(<EventCard eventName="Weekday Event" startDate={day2} locale="en-US" />);
+      expect(screen.getByText(expectedWeekday)).toBeInTheDocument();
+    });
+
+    it('falls back to standard absolute format for dates exactly 7 days out', () => {
+      const day7 = new Date();
+      day7.setDate(day7.getDate() + 7);
+      const expectedAbsDate = expectedDate('en-US', day7);
+
+      render(<EventCard eventName="Future Event" startDate={day7} locale="en-US" />);
+      expect(screen.getByText(expectedAbsDate)).toBeInTheDocument();
+    });
+
+    it('renders as top-left pill overlay in masonry variant only', () => {
+      const today = new Date();
+      render(
+        <EventCard
+          eventName="Masonry Today"
+          startDate={today}
+          variant="masonry"
+          locale="en-US"
+        />
+      );
+
+      const pill = screen.getByText('Today');
+      expect(pill).toBeInTheDocument();
+      expect(pill).toHaveClass('absolute', 'top-3', 'left-3', 'rounded-full');
+    });
+  });
+
+  describe('Favorite count rendering', () => {
+    it('renders count next to the heart icon when both favoriteCount and onFavoriteToggle are provided', () => {
+      const onFavoriteToggle = vi.fn();
+      render(
+        <EventCard
+          {...defaultProps}
+          onFavoriteToggle={onFavoriteToggle}
+          favoriteCount={42}
+        />
+      );
+
+      const btn = screen.getByLabelText(/favorite/i);
+      expect(btn).toBeInTheDocument();
+      expect(btn).toHaveTextContent('42');
+    });
+
+    it('does not render favorite count button when onFavoriteToggle is absent even if favoriteCount is provided', () => {
+      render(
+        <EventCard
+          {...defaultProps}
+          favoriteCount={42}
+        />
+      );
+
+      expect(screen.queryByLabelText(/favorite/i)).not.toBeInTheDocument();
+      expect(screen.queryByText('42')).not.toBeInTheDocument();
+    });
+  });
+
 });
