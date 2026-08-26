@@ -4,6 +4,7 @@ export interface TabbedShellTab {
   key: string;
   label: string;
   Component: React.ComponentType;
+  keepMounted?: boolean;
 }
 
 export interface TabbedShellProps {

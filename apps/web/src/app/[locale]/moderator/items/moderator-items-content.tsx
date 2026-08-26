@@ -8,7 +8,7 @@ import { graphqlClient } from "@/lib/graphql-client"
 import { usePostHog } from "@festgrid/analytics"
 import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
-import { SetDefaultLocationDialog } from "../../settings/subscriptions/set-default-location-dialog"
+import { SetDefaultLocationDialog } from "../../settings/account/set-default-location-dialog"
 import {
   useGetReportedEventsQuery,
   useResolveReportsForEventMutation,

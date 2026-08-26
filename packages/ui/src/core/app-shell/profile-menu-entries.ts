@@ -23,35 +23,16 @@ export const profileMenuEntries: ProfileMenuEntry[] = [
     icon: MapPin,
   },
   {
-    id: 'subscriptions',
-    labelKey: 'subscriptions',
-    href: '/settings/subscriptions',
+    id: 'account-settings',
+    labelKey: 'accountSettings',
+    href: '/settings/account',
     icon: Radio,
-    requiresApiKey: true,
   },
   {
     id: 'manual-post-selection',
     labelKey: 'manualPostSelection',
     href: '/posts/select',
     icon: Sparkles,
-  },
-  {
-    id: 'api-keys',
-    labelKey: 'api-keys',
-    href: '/settings/api-keys',
-    icon: Key,
-  },
-  {
-    id: 'queue-status',
-    labelKey: 'queueStatus',
-    href: '/settings/queue-status',
-    icon: ListChecks,
-  },
-  {
-    id: 'notifications',
-    labelKey: 'notifications',
-    href: '/settings/notifications',
-    icon: Bell,
   },
   {
     id: 'reports',

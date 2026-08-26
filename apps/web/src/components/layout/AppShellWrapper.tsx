@@ -48,10 +48,7 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
   const userMenuLabels = {
     profile: tUserMenu('profile'),
     locations: tUserMenu('locations'),
-    subscriptions: tUserMenu('subscriptions'),
-    apiKeys: tUserMenu('apiKeys'),
-    queueStatus: tUserMenu('queueStatus'),
-    notifications: tUserMenu('notifications'),
+    accountSettings: tUserMenu('accountSettings'),
     reports: tUserMenu('reports'),
     moderatorItems: tUserMenu('moderatorItems'),
     unprocessedPayloads: tUserMenu('unprocessedPayloads'),

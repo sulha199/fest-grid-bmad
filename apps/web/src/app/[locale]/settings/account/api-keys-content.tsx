@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
-import { useSoftDeleteWithUndo, PageContainer, PageHeader } from "@festgrid/ui"
+import { useSoftDeleteWithUndo, PageContainer, PageHeader, StatusBadge } from "@festgrid/ui"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
-import { useRouter } from "@/i18n/navigation"
+import { useRouter, Link } from "@/i18n/navigation"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useGetMyApiKeysQuery, useDeleteApiKeyMutation, SoftDeleteAction } from "@/generated/graphql"
 import { ApiKeyFormDialog } from "./api-key-form-dialog"
@@ -22,6 +22,7 @@ import {
 
 export function ApiKeysContent() {
   const t = useTranslations("ApiKeysSettingsPage")
+  const tQueue = useTranslations("QueueStatusPage")
   const router = useRouter()
   const queryClient = useQueryClient()
   const { session, isLoading: authLoading } = useAuthSession()
@@ -60,6 +61,7 @@ export function ApiKeysContent() {
   })
 
   const apiKeysList = data?.myApiKeys || []
+  const hasInvalidKey = apiKeysList.some((key: any) => !key.isValid)
 
   const handleDelete = async (key: any) => {
     try {
@@ -131,6 +133,18 @@ export function ApiKeysContent() {
     <PageContainer fullWidth={false}>
       <PageHeader title={t("title")} action={{ label: t("addButtonLabel"), icon: <Plus className="h-4 w-4" />, onClick: () => setIsDialogOpen(true) }} />
 
+      {hasInvalidKey && (
+        <div className="p-4 mb-6 border rounded-md bg-yellow-50 dark:bg-yellow-950/20 text-yellow-800 dark:text-yellow-200 text-sm">
+          {tQueue("invalidKeyWarningPrompt")}{" "}
+          <Link
+            href="/settings/account?tab=api-keys"
+            className="underline font-semibold text-yellow-900 dark:text-yellow-100 hover:text-yellow-950"
+          >
+            {tQueue("invalidKeyWarningLinkLabel")}
+          </Link>
+        </div>
+      )}
+
       {apiKeysList.length === 0 ? (
         <div className="border border-dashed rounded-lg p-12 text-center text-muted-foreground">
           {t("emptyState")}
@@ -142,6 +156,7 @@ export function ApiKeysContent() {
               <TableRow>
                 <TableHead>{t("providerColumnLabel")}</TableHead>
                 <TableHead>{t("keyColumnLabel")}</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">{t("actionsColumnLabel")}</TableHead>
               </TableRow>
             </TableHeader>
@@ -152,6 +167,16 @@ export function ApiKeysContent() {
                   <TableRow key={key.id} className={pending ? "opacity-50" : ""}>
                     <TableCell className="font-medium capitalize">{key.provider}</TableCell>
                     <TableCell className="font-mono">{key.maskedKey}</TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        variant={key.isValid ? "active" : "invalid"}
+                        label={
+                          key.isValid
+                            ? tQueue("activeStatusLabel") || "Active"
+                            : tQueue("invalidStatusLabel") || "Invalid"
+                        }
+                      />
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"

@@ -23,7 +23,7 @@ vi.mock('@/i18n/navigation', () => ({
   ),
 }));
 
-vi.mock('../../settings/subscriptions/set-default-location-dialog', () => ({
+vi.mock('../../settings/account/set-default-location-dialog', () => ({
   SetDefaultLocationDialog: ({ accountId, isOpen, onClose, mode, initialLocation }: any) => (
     isOpen ? (
       <div data-testid="mock-set-default-location-dialog">

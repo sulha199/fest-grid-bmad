@@ -37,7 +37,12 @@ export function TabbedShell({ tabs, activeKey, onTabChange, className }: TabbedS
       {tabs.map((tab) => {
         const Component = tab.Component;
         return (
-          <TabsContent key={tab.key} value={tab.key} className="outline-none mt-4">
+          <TabsContent
+            key={tab.key}
+            value={tab.key}
+            forceMount={tab.keepMounted || undefined}
+            className={cn('outline-none mt-4', tab.keepMounted && 'data-[state=inactive]:hidden')}
+          >
             <Component />
           </TabsContent>
         );
