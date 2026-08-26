@@ -14,13 +14,20 @@ export function EventListView<TEvent extends EventListViewItem>({
   isFetchingNextPage,
   loadingMoreLabel,
   skeletonCount = 6,
-  className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6',
+  className,
+  viewMode = 'list',
 }: EventListViewProps<TEvent>) {
   if (status === 'loading') {
     return (
-      <GridContainer baseCols={1} colsStep={1} gap="gap-6" className={className}>
+      <GridContainer baseCols={viewMode === 'masonry' ? 2 : 1} colsStep={1} gap="gap-6" className={className}>
         {Array.from({ length: skeletonCount }).map((_, i) => (
-          <EventCard key={i} eventName="" startDate="" loading={true} />
+          <EventCard
+            key={i}
+            eventName=""
+            startDate=""
+            loading={true}
+            variant={viewMode === 'masonry' ? 'masonry' : 'standard'}
+          />
         ))}
       </GridContainer>
     );
@@ -46,7 +53,7 @@ export function EventListView<TEvent extends EventListViewItem>({
   if (status === 'success' && events.length > 0) {
     return (
       <>
-        <GridContainer baseCols={1} colsStep={1} gap="gap-6" className={className}>
+        <GridContainer baseCols={viewMode === 'masonry' ? 2 : 1} colsStep={1} gap="gap-6" className={className}>
           {events.map((event) => {
             const mainSchedule =
               event.schedules?.find((s) => s.isMainSchedule) ||
@@ -61,6 +68,7 @@ export function EventListView<TEvent extends EventListViewItem>({
               types: event.types ?? [],
               priceFrom: mainSchedule?.ticketPrice ?? undefined,
               labels: cardLabels,
+              variant: (viewMode === 'masonry' ? 'masonry' : 'standard') as 'standard' | 'masonry',
             };
 
             const mergedProps = {

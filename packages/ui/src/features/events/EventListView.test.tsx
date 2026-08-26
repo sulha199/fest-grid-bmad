@@ -160,4 +160,101 @@ describe('EventListView', () => {
     expect(sentinelRef).toHaveBeenCalled();
     expect(screen.getByText('Loading more...')).toBeInTheDocument();
   });
+
+  describe('viewMode and variant behaviors (AC15 / Task 7)', () => {
+    it('defaults to list viewMode and renders standard EventCards and GridContainer with baseCols=1', () => {
+      const { container } = render(
+        <EventListView
+          status="success"
+          events={mockEvents}
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({})}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      const grid = container.querySelector('.grid');
+      expect(grid).toBeInTheDocument();
+      expect(grid).toHaveClass('grid-cols-1');
+      expect(grid).toHaveClass('md:grid-cols-2');
+
+      const cardTitle = screen.getByText('Summer Fest');
+      const cardContainer = cardTitle.closest('.p-4');
+      expect(cardContainer).toBeInTheDocument();
+    });
+
+    it('renders masonry viewMode with baseCols=2 and variant="masonry" for Success state', () => {
+      const { container } = render(
+        <EventListView
+          status="success"
+          events={mockEvents}
+          viewMode="masonry"
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({})}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      const grid = container.querySelector('.grid');
+      expect(grid).toBeInTheDocument();
+      expect(grid).toHaveClass('grid-cols-2');
+      expect(grid).toHaveClass('md:grid-cols-3');
+
+      const cardTitle = screen.getByText('Summer Fest');
+      const cardContainer = cardTitle.closest('.p-3');
+      expect(cardContainer).toBeInTheDocument();
+    });
+
+    it('renders masonry viewMode with baseCols=2 and variant="masonry" for Loading skeleton state', () => {
+      const { container } = render(
+        <EventListView
+          status="loading"
+          events={[]}
+          viewMode="masonry"
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({})}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      const grid = container.querySelector('.grid');
+      expect(grid).toBeInTheDocument();
+      expect(grid).toHaveClass('grid-cols-2');
+      expect(grid).toHaveClass('md:grid-cols-3');
+
+      const skeletonImages = container.querySelectorAll('.aspect-\\[3\\/4\\]');
+      expect(skeletonImages.length).toBe(6);
+      const standardImages = container.querySelectorAll('.h-48');
+      expect(standardImages.length).toBe(0);
+    });
+
+    it('allows overriding viewMode-derived variant via getCardProps', () => {
+      render(
+        <EventListView
+          status="success"
+          events={[mockEvents[0]!]}
+          viewMode="masonry"
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({
+            variant: 'standard',
+          })}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      const cardTitle = screen.getByText('Summer Fest');
+      const cardContainer = cardTitle.closest('.p-4');
+      expect(cardContainer).toBeInTheDocument();
+      const masonryContainer = cardTitle.closest('.p-3');
+      expect(masonryContainer).not.toBeInTheDocument();
+    });
+  });
 });

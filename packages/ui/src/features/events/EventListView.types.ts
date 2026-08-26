@@ -31,4 +31,5 @@ export interface EventListViewProps<TEvent extends EventListViewItem> {
   loadingMoreLabel: string;
   skeletonCount?: number; // default 6
   className?: string;
+  viewMode?: 'list' | 'masonry';
 }
