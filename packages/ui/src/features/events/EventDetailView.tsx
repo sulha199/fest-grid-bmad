@@ -264,6 +264,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
         originalPostUrl={originalPostUrl}
         sourcePostUrl={sourcePostUrl}
         videoUnavailableLabel={labels.videoUnavailableLabel}
+        viewOriginalPostLabel={labels.viewOriginalPostLabel}
+        viewSourceLabel={labels.viewSourceLabel}
       />
 
       <header className="flex flex-col gap-3">

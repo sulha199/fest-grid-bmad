@@ -13,6 +13,8 @@ export interface EventImageProps {
   originalPostUrl?: string | null;
   sourcePostUrl?: string | null;
   videoUnavailableLabel?: string | null;
+  viewOriginalPostLabel?: string | null;
+  viewSourceLabel?: string | null;
 }
 
 export const EventImage: React.FC<EventImageProps> = ({
@@ -25,6 +27,8 @@ export const EventImage: React.FC<EventImageProps> = ({
   originalPostUrl,
   sourcePostUrl,
   videoUnavailableLabel,
+  viewOriginalPostLabel,
+  viewSourceLabel,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [currentImgSrc, setCurrentImgSrc] = useState<string | null | undefined>(imageUrl);
@@ -56,6 +60,9 @@ export const EventImage: React.FC<EventImageProps> = ({
 
   const showVideo = !!(videoUrl && !videoError);
   const targetLink = originalPostUrl || sourcePostUrl;
+  const targetLinkLabel = originalPostUrl
+    ? (viewOriginalPostLabel || 'View original post')
+    : (viewSourceLabel || 'View source');
   const showVideoErrorNote = !!(videoError && targetLink);
 
   const mediaContent = (
@@ -113,7 +120,7 @@ export const EventImage: React.FC<EventImageProps> = ({
           rel="noopener noreferrer"
           className="text-primary hover:underline font-medium inline-flex items-center gap-0.5"
         >
-          <span>Original Post</span>
+          <span>{targetLinkLabel}</span>
           <ExternalLink className="w-3.5 h-3.5" />
         </a>
       </div>

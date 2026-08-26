@@ -149,7 +149,7 @@ describe('EventDetailView', () => {
     expect((video as HTMLVideoElement).autoplay).toBe(true);
     expect((video as HTMLVideoElement).muted).toBe(true);
     expect((video as HTMLVideoElement).loop).toBe(true);
-    expect((video as any).playsInline || (video as any).playsinline || video.getAttribute('playsinline')).toBeTruthy();
+    expect((video as HTMLVideoElement).playsInline || video.getAttribute('playsinline')).toBeTruthy();
   });
 
   it('falls back to poster image and shows unavailable note on video error', () => {
