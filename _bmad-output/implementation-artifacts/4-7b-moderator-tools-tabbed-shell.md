@@ -8,7 +8,7 @@ baseline_commit: 1a14948
 - Epic: 4
 - Story ID: 4.7b
 - Story Key: 4-7b-moderator-tools-tabbed-shell
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
