@@ -90,6 +90,7 @@ type Event {
   createdAt: String!
   schedules: [Schedule!]!
   isFavorited: Boolean!
+  favoriteCount: Int!
   isAddedToCalendar: Boolean!
   isHiddenForCurrentUser: Boolean!
   sourceSocialMediaAccountProfile: SocialMediaAccountProfile

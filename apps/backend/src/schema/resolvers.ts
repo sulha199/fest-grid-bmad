@@ -2977,6 +2977,15 @@ export const resolvers: Resolvers = {
         return false;
       }
     },
+    favoriteCount: async (parent: any) => {
+      const rows = await db.select({ count: count() })
+        .from(favorites)
+        .where(and(
+          eq(favorites.eventId, parent.id),
+          activeOnly(favorites)
+        ));
+      return rows[0]?.count ?? 0;
+    },
     isAddedToCalendar: async (parent: any, _: any, context: any) => {
       try {
         const authUser = requireAuth(context);
