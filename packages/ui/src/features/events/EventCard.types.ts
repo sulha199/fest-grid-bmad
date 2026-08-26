@@ -13,6 +13,9 @@ export interface EventCardLabels {
 }
 
 export interface EventCardProps {
+  /** Optional layout variant */
+  variant?: 'standard' | 'masonry';
+
   /** The name of the event (required) */
   eventName: string;
   

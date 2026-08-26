@@ -56,6 +56,7 @@ function formatEventDate(locale: string, timezone: string | undefined, dateObj: 
  * ```
  */
 export function EventCard({
+  variant = 'standard',
   isGreyedOut = false,
   eventName,
   startDate,
@@ -95,16 +96,18 @@ export function EventCard({
   const activeTimezone = timezone || contextTimezone;
 
   if (loading) {
+    const isMasonry = variant === 'masonry';
     return (
       <article
         aria-busy="true"
         aria-label={defaultLabels.loading}
         className={`w-full max-w-sm rounded-xl overflow-hidden shadow-sm border border-border bg-card animate-pulse ${isGreyedOut ? 'opacity-50 grayscale' : ''}`}
       >
-        <div className="h-48 bg-gray-200 w-full" />
-        <div className="p-4 flex flex-col gap-4">
+        <div className={`${isMasonry ? 'aspect-[3/4]' : 'h-48'} bg-gray-200 w-full`} />
+        <div className={isMasonry ? 'p-3 flex flex-col gap-2' : 'p-4 flex flex-col gap-4'}>
           <div className="h-6 bg-gray-200 rounded w-3/4" />
-          <div className="h-4 bg-gray-200 rounded w-1/2" />
+          {!isMasonry && <div className="h-4 bg-gray-200 rounded w-1/2" />}
+          <div className="h-4 bg-gray-200 rounded w-5/6" />
         </div>
       </article>
     );
@@ -152,7 +155,7 @@ export function EventCard({
         {...interactiveProps} 
         className="flex-1 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <div className="relative h-48 w-full bg-muted overflow-hidden flex items-center justify-center">
+        <div className={`relative ${variant === 'masonry' ? 'aspect-[3/4]' : 'h-48'} w-full bg-muted overflow-hidden flex items-center justify-center`}>
           {statusBadge && (
             <div className="absolute top-2 right-2 z-10">{statusBadge}</div>
           )}
@@ -170,51 +173,65 @@ export function EventCard({
           )}
         </div>
 
-        <div className="p-4 flex-1 flex flex-col gap-3">
-          <div className="space-y-1">
+        {variant === 'masonry' ? (
+          <div className="p-3 flex-1 flex flex-col gap-2">
             <h3 className="text-xl font-semibold leading-tight tracking-tight text-card-foreground line-clamp-2">
               {eventName}
             </h3>
-            <p className="text-sm font-medium text-primary">
-              {formattedDate}
-            </p>
+            {locationName && (
+              <div className="flex items-center text-sm text-muted-foreground gap-1.5">
+                <MapPin className="w-4 h-4 shrink-0" />
+                <span className="line-clamp-1">{locationName}</span>
+              </div>
+            )}
           </div>
-
-          {locationName && (
-            <div className="flex items-center text-sm text-muted-foreground gap-1.5">
-              <MapPin className="w-4 h-4 shrink-0" />
-              <span className="line-clamp-1">{locationName}</span>
+        ) : (
+          <div className="p-4 flex-1 flex flex-col gap-3">
+            <div className="space-y-1">
+              <h3 className="text-xl font-semibold leading-tight tracking-tight text-card-foreground line-clamp-2">
+                {eventName}
+              </h3>
+              <p className="text-sm font-medium text-primary">
+                {formattedDate}
+              </p>
             </div>
-          )}
 
-          {(categories.length > 0 || types.length > 0) && (
-            <div className="flex flex-wrap gap-1.5 mt-auto pt-2">
-              {types.map((type) => (
-                <span
-                  key={type}
-                  className="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground"
-                >
-                  {defaultLabels.typeLabels[type] ?? type}
-                </span>
-              ))}
-              {categories.map((cat) => (
-                <span
-                  key={cat}
-                  className="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground"
-                >
-                  {defaultLabels.categoryLabels[cat] ?? cat}
-                </span>
-              ))}
-            </div>
-          )}
+            {locationName && (
+              <div className="flex items-center text-sm text-muted-foreground gap-1.5">
+                <MapPin className="w-4 h-4 shrink-0" />
+                <span className="line-clamp-1">{locationName}</span>
+              </div>
+            )}
 
-          {priceFrom !== undefined && (
-            <div className="flex items-center justify-between mt-2 pt-3 border-t">
-              <span className="text-sm font-medium">{defaultLabels.priceFrom}</span>
-              <span className="text-sm font-semibold">{priceFrom}</span>
-            </div>
-          )}
-        </div>
+            {(categories.length > 0 || types.length > 0) && (
+              <div className="flex flex-wrap gap-1.5 mt-auto pt-2">
+                {types.map((type) => (
+                  <span
+                    key={type}
+                    className="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground"
+                  >
+                    {defaultLabels.typeLabels[type] ?? type}
+                  </span>
+                ))}
+                {categories.map((cat) => (
+                  <span
+                    key={cat}
+                    className="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground"
+                  >
+                    {defaultLabels.categoryLabels[cat] ?? cat}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {priceFrom !== undefined && (
+              <div className="flex items-center justify-between mt-2 pt-3 border-t">
+                <span className="text-sm font-medium">{defaultLabels.priceFrom}</span>
+                <span className="text-sm font-semibold">{priceFrom}</span>
+              </div>
+            )}
+          </div>
+        )}
       </RootTag>
     </article>
   );
