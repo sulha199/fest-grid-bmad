@@ -11,6 +11,7 @@ import { markPostExtracted as defaultMarkPostExtracted } from '../posts/mark-pos
 import { sendSqsMessage } from '../aws/send-sqs-message.js';
 import { processIngestionJob } from '../ingestor/process-ingestion-job.js';
 import { loadBackendEnv } from '../../env.js';
+import { rehostPostImage as defaultRehostPostImage } from './rehost-post-image.js';
 
 export let callGeminiSeam = defaultCallGemini;
 export function setCallGeminiSeam(fn: typeof defaultCallGemini) {
@@ -22,6 +23,11 @@ export function setMarkPostExtractedSeam(fn: typeof defaultMarkPostExtracted) {
   markPostExtractedSeam = fn;
 }
 
+export let rehostPostImageSeam = defaultRehostPostImage;
+export function setRehostPostImageSeam(fn: typeof defaultRehostPostImage) {
+  rehostPostImageSeam = fn;
+}
+
 export async function processAiJob(message: ProcessingJobMessage): Promise<void> {
   const env = loadBackendEnv();
 
@@ -29,7 +35,7 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
   const subscriberUserIds = await getActiveSubscriberUserIds(message.accountId);
 
   // 2. Build Gemini extraction request
-  const request = await buildGeminiExtractionRequest(message);
+  const { request, imageBytes, imageContentType } = await buildGeminiExtractionRequest(message);
 
   // 3. Call Gemini via AI Gateway
   const result = await callGeminiSeam({
@@ -83,6 +89,18 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     resolvedScheduleLocations,
     scheduleTimezoneResolutions
   });
+
+  // 7.5. Best-effort image rehosting to durable S3
+  if (imageBytes && imageContentType) {
+    try {
+      await rehostPostImageSeam(message.postId, imageBytes, imageContentType, env);
+    } catch (rehostError) {
+      console.error(
+        `Post image re-hosting defensive wrapper caught an unexpected error for post ${message.postId}:`,
+        rehostError
+      );
+    }
+  }
 
   // 8. Enqueue to DataIngestionQueue (or process inline in local dev)
   if (env.dataIngestionQueueUrl) {

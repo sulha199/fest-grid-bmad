@@ -1,6 +1,7 @@
 import { db } from '../../db/client.js';
 import { posts } from '@festgrid/database';
 import { eq, or } from 'drizzle-orm';
+import { parseImageUrlExpiry } from '@festgrid/domain/scraper';
 
 interface PersistScrapedPostParams {
   accountId: string;
@@ -52,6 +53,7 @@ export async function persistScrapedPost({
 
   // 2. If absent, insert a new row with onConflictDoNothing
   try {
+    const imageUrlExpiresAt = parseImageUrlExpiry(imageUrl);
     await db
       .insert(posts)
       .values({
@@ -67,6 +69,7 @@ export async function persistScrapedPost({
         locationName,
         ownerDisplayName,
         ownerUsername,
+        imageUrlExpiresAt,
       })
       .onConflictDoNothing({
         target: [posts.postUrl],

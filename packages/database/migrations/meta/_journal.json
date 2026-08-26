@@ -260,6 +260,13 @@
       "when": 1787754720357,
       "tag": "0036_mute_turbo",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1787780322738,
+      "tag": "0037_square_anthem",
+      "breakpoints": true
     }
   ]
 }

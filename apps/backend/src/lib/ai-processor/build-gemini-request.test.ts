@@ -19,11 +19,13 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
       publishedAt: '2026-08-10T12:00:00Z'
     };
 
-    const request = await buildGeminiExtractionRequest(message);
+    const result = await buildGeminiExtractionRequest(message);
 
-    assert.strictEqual(request.contents, message.content);
-    assert.strictEqual(request.responseMimeType, 'application/json');
-    assert.ok(request.systemInstruction?.includes('PERFORMANCE')); // verify systemInstruction exists and lists types
+    assert.strictEqual(result.request.contents, message.content);
+    assert.strictEqual(result.request.responseMimeType, 'application/json');
+    assert.ok(result.request.systemInstruction?.includes('PERFORMANCE')); // verify systemInstruction exists and lists types
+    assert.strictEqual(result.imageBytes, undefined);
+    assert.strictEqual(result.imageContentType, undefined);
   });
 
   await t.test('Case B: image-present success path uses multi-part contents with base64 data', async () => {
@@ -47,13 +49,15 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
       } as any;
     };
 
-    const request = await buildGeminiExtractionRequest(message);
+    const result = await buildGeminiExtractionRequest(message);
 
-    assert.ok(Array.isArray(request.contents));
-    assert.strictEqual(request.contents.length, 2);
-    assert.strictEqual(request.contents[0].text, message.content);
-    assert.strictEqual(request.contents[1].inlineData.mimeType, 'image/png');
-    assert.strictEqual(request.contents[1].inlineData.data, Buffer.from('fake-image-bytes').toString('base64'));
+    assert.ok(Array.isArray(result.request.contents));
+    assert.strictEqual(result.request.contents.length, 2);
+    assert.strictEqual(result.request.contents[0].text, message.content);
+    assert.strictEqual(result.request.contents[1].inlineData.mimeType, 'image/png');
+    assert.strictEqual(result.request.contents[1].inlineData.data, Buffer.from('fake-image-bytes').toString('base64'));
+    assert.deepEqual(result.imageBytes, Buffer.from('fake-image-bytes'));
+    assert.strictEqual(result.imageContentType, 'image/png');
   });
 
   await t.test('Case C: image-fetch-failure path falls back to text-only contents', async () => {
@@ -74,8 +78,10 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
       } as any;
     };
 
-    const request = await buildGeminiExtractionRequest(message);
+    const result = await buildGeminiExtractionRequest(message);
 
-    assert.strictEqual(request.contents, message.content);
+    assert.strictEqual(result.request.contents, message.content);
+    assert.strictEqual(result.imageBytes, undefined);
+    assert.strictEqual(result.imageContentType, undefined);
   });
 });

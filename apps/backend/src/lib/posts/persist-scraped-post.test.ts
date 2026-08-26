@@ -180,4 +180,49 @@ test('persistScrapedPost integration tests', async (t) => {
       .where(eq(posts.id, resultNoVideo.post.id));
     assert.strictEqual(dbPostNoVideo.videoUrl, null);
   });
+
+  await t.test('(f) imageUrlExpiresAt is set on insert according to imageUrl format', async () => {
+    // 1. With valid expiry parameter (oe)
+    const postUrlWithExpiry = 'https://instagram.com/p/expiry_post_' + Date.now();
+    const resultWithExpiry = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Test content with image expiry',
+      imageUrl: 'https://test.com/image.png?oe=64F373FF',
+      postUrl: postUrlWithExpiry,
+      publishedAt: new Date().toISOString(),
+    });
+
+    assert.strictEqual(resultWithExpiry.alreadyExisted, false);
+    assert.ok(resultWithExpiry.post.imageUrlExpiresAt instanceof Date);
+    assert.strictEqual(resultWithExpiry.post.imageUrlExpiresAt.getTime(), 1693676543000);
+
+    // 2. With no expiry parameter
+    const postUrlNoExpiry = 'https://instagram.com/p/no_expiry_post_' + Date.now();
+    const resultNoExpiry = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Test content without image expiry',
+      imageUrl: 'https://test.com/image.png',
+      postUrl: postUrlNoExpiry,
+      publishedAt: new Date().toISOString(),
+    });
+
+    assert.strictEqual(resultNoExpiry.alreadyExisted, false);
+    assert.strictEqual(resultNoExpiry.post.imageUrlExpiresAt, null);
+
+    // 3. With null imageUrl
+    const postUrlNullImage = 'https://instagram.com/p/null_image_post_' + Date.now();
+    const resultNullImage = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Test content with null image',
+      imageUrl: null,
+      postUrl: postUrlNullImage,
+      publishedAt: new Date().toISOString(),
+    });
+
+    assert.strictEqual(resultNullImage.alreadyExisted, false);
+    assert.strictEqual(resultNullImage.post.imageUrlExpiresAt, null);
+  });
 });
