@@ -8,7 +8,7 @@ baseline_commit: ef6e5e029c5592c70912d1cde7e4d9e5d10c29ba
 
 - Epic: 3
 - Story ID: 3.6e
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -35,7 +35,7 @@ so that I don't see a broken image on an event I favorited or added to my calend
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: DB migration — `durableImageUrl`/`imageUrlExpiresAt`** (AC: 1) — `packages/database/schema.ts`, `packages/database/migrations/`
+- [x] **Task 1: DB migration — `durableImageUrl`/`imageUrlExpiresAt`** (AC: 1) — `packages/database/schema.ts`, `packages/database/migrations/`
   - [ ] In `schema.ts`'s `posts` table (alongside the existing `imageUrl`/`videoUrl` columns, line ~178-179), add:
     ```ts
     durableImageUrl: text('durable_image_url'),
@@ -45,7 +45,7 @@ so that I don't see a broken image on an event I favorited or added to my calend
   - [ ] Do **not** hand-edit for a partial-index `WHERE` clause (AD-8 rule 3's known drizzle-kit limitation) — these two columns are plain nullable additions with no index, that limitation doesn't apply here.
   - [ ] Apply the migration locally and confirm it runs cleanly against the local Postgres instance.
 
-- [ ] **Task 2: `parseImageUrlExpiry` pure function** (AC: 2, 3) — `packages/domain/src/scraper/`
+- [x] **Task 2: `parseImageUrlExpiry` pure function** (AC: 2, 3) — `packages/domain/src/scraper/`
   - [ ] Create `packages/domain/src/scraper/parse-image-url-expiry.ts` exporting `parseImageUrlExpiry(url: string | null | undefined, paramName = 'oe'): Date | null`:
     - Return `null` immediately if `url` is falsy or fails to parse as a URL (wrap `new URL(url)` in try/catch — scraped data is untrusted).
     - Read `paramName`'s value from the URL's query string (`URLSearchParams`/`URL.searchParams`). Return `null` if absent.
@@ -55,28 +55,28 @@ so that I don't see a broken image on an event I favorited or added to my calend
   - [ ] Add `packages/domain/src/scraper/parse-image-url-expiry.test.ts` with 100% coverage: (a) a URL with a valid `oe=` hex value returns the correct `Date`; (b) a URL with no `oe=` param returns `null`; (c) a URL with a malformed/non-hex `oe=` value (e.g. `oe=zzz`, `oe=`) returns `null`; (d) an unparseable URL string returns `null`; (e) `url` is `null`/`undefined` returns `null`.
   - [ ] Export it from `packages/domain/src/scraper/index.ts` (existing barrel file — add `export * from './parse-image-url-expiry.js';` alongside the existing exports).
 
-- [ ] **Task 3: Wire expiry parsing into `persistScrapedPost`** (AC: 4) — `apps/backend/src/lib/posts/persist-scraped-post.ts`
+- [x] **Task 3: Wire expiry parsing into `persistScrapedPost`** (AC: 4) — `apps/backend/src/lib/posts/persist-scraped-post.ts`
   - [ ] Import `parseImageUrlExpiry` from `@festgrid/domain` (or `@festgrid/domain/scraper` if that's the package's existing subpath-export convention — check `packages/domain/package.json`'s `exports` map for how `./scraper` is currently exposed, matching whatever pattern the existing `ScraperAdapter`/`ScrapedPost` imports from `@festgrid/domain` already use).
   - [ ] Inside `persistScrapedPost`, before the `db.insert(posts).values({...})` call, compute `const imageUrlExpiresAt = parseImageUrlExpiry(imageUrl ?? null);` and add `imageUrlExpiresAt` to the inserted `.values({...})` object, alongside the existing `imageUrl` field.
   - [ ] Do **not** change any of `persistScrapedPost`'s ~5 existing callers (`process-apify-async-result.ts`, `process-brightdata-result.ts`, `process-scrape-job.ts`, `replay-actor-run.ts` x2) — they already pass `imageUrl` through; this is a single internal call site, no signature change to `persistScrapedPost`'s own parameters.
   - [ ] Note: the existing "already exists" early-return path (when `persistScrapedPost` finds a matching row by `postUrl`/`originalPostUrl` and returns early without inserting) does **not** re-parse or update `imageUrlExpiresAt` on the existing row — this story only sets it at first-insert time, matching how `imageUrl` itself is also only ever set once on insert, never updated on a re-scrape of an already-known post.
 
-- [ ] **Task 4: Expose fetched image bytes from `buildGeminiExtractionRequest`** (AC: 5, 10) — `apps/backend/src/lib/ai-processor/build-gemini-request.ts`
+- [x] **Task 4: Expose fetched image bytes from `buildGeminiExtractionRequest`** (AC: 5, 10) — `apps/backend/src/lib/ai-processor/build-gemini-request.ts`
   - [ ] Change the return type from bare `Promise<GeminiCallRequest>` to `Promise<{ request: GeminiCallRequest; imageBytes?: Buffer; imageContentType?: string }>`.
   - [ ] Inside the existing `if (message.imageUrl)` block: after `const arrayBuffer = await response.arrayBuffer();`, set `imageBytes = Buffer.from(arrayBuffer)` and `imageContentType = contentType` (both declared in the outer function scope, `undefined` by default) — reuse the same `Buffer` for both the `base64Data` encoding (unchanged) and the returned `imageBytes` (no duplicate work).
   - [ ] In the existing `catch` block (image-fetch failure → text-only fallback), leave `imageBytes`/`imageContentType` as `undefined` — this is AC10's "no bytes to re-host" case, already naturally satisfied by not setting them before the throw.
   - [ ] Change the final `return { contents, systemInstruction, ... }` to `return { request: { contents, systemInstruction, responseSchema: geminiExtractionResponseSchema, responseMimeType: 'application/json' }, imageBytes, imageContentType };`.
   - [ ] Update `build-gemini-request.test.ts` for the new return shape (destructure `.request` for existing assertions against the Gemini call shape; add new assertions that `imageBytes`/`imageContentType` are populated on the happy path and `undefined` on the fetch-failure fallback path).
 
-- [ ] **Task 5: Add `@aws-sdk/client-s3` dependency** (AC: 5) — `apps/backend/package.json`
+- [x] **Task 5: Add `@aws-sdk/client-s3` dependency** (AC: 5) — `apps/backend/package.json`
   - [ ] Add `@aws-sdk/client-s3` at a version consistent with the other already-installed `@aws-sdk/*` packages (`^3.1058.0`–`^3.1100.0` range — check the latest compatible `3.x` release at install time, matching this monorepo's existing per-package pinning style rather than blindly copying one exact version).
   - [ ] `pnpm install` inside `apps/backend` (or from repo root) to update the lockfile.
 
-- [ ] **Task 6: `postMediaBucketName`/`postMediaCdnDomain` env plumbing** (AC: 5, 6) — `apps/backend/src/env.ts`
+- [x] **Task 6: `postMediaBucketName`/`postMediaCdnDomain` env plumbing** (AC: 5, 6) — `apps/backend/src/env.ts`
   - [ ] Add `postMediaBucketName?: string;` and `postMediaCdnDomain?: string;` to the `BackendEnv` interface.
   - [ ] In `loadBackendEnv()`, read them: `postMediaBucketName: process.env.POST_MEDIA_BUCKET_NAME,` and `postMediaCdnDomain: process.env.POST_MEDIA_CDN_DOMAIN,` (with the same `// eslint-disable-next-line turbo/no-undeclared-env-vars` comment pattern every other `process.env.*` read in this file already uses). These env vars are **already** set on `aiProcessorLambda`'s environment by Story 0.33's CDK stack (`apps/infrastructure/lib/festgrid-backend-stack.ts:321-322`) — this task only closes the gap where `env.ts` itself never read them.
 
-- [ ] **Task 7: S3 upload helper** (AC: 5, 6, 7) — new `apps/backend/src/lib/ai-processor/rehost-post-image.ts`
+- [x] **Task 7: S3 upload helper** (AC: 5, 6, 7) — new `apps/backend/src/lib/ai-processor/rehost-post-image.ts`
   - [ ] Export `async function rehostPostImage(postId: string, imageBytes: Buffer, contentType: string | undefined, env: BackendEnv): Promise<string | null>`:
     - If `env.postMediaBucketName`/`env.postMediaCdnDomain` are both set, build a deterministic key (e.g. `` `posts/${postId}` `` — a stable, extension-free key is sufficient since CloudFront serves purely by key and the object's `Content-Type` metadata, not by URL extension; set `ContentType: contentType || 'image/jpeg'` on the `PutObjectCommand` so the CDN/browser render it correctly).
     - `new S3Client({})` (matching `send-sqs-message.ts`'s `new SQSClient({})` construction-with-no-explicit-config style — Lambda's execution role supplies credentials/region implicitly).
@@ -85,12 +85,12 @@ so that I don't see a broken image on an event I favorited or added to my calend
     - Wrap the whole body in try/catch: on any thrown error (including missing env vars — log a distinct warning and return `null` rather than throwing, since a misconfigured env is also a "can't re-host, don't block extraction" case, not a crash), `console.error`/`console.warn` with the `postId` and the error, then return `null`. Never rethrow.
   - [ ] Add a small `markPostDurableImageUrl(postId: string, durableImageUrl: string)` helper in `apps/backend/src/lib/posts/` (mirroring `mark-post-extracted.ts`'s exact shape: `db.update(posts).set({ durableImageUrl }).where(eq(posts.id, postId)).returning()`), or fold the `db.update` directly into Task 8's call site — PO/dev discretion, whichever keeps `process-ai-job.ts` least cluttered; if folded inline, still keep it as a one-line, easily-testable statement guarded by `if (durableImageUrl) { ... }`.
 
-- [ ] **Task 8: Wire re-hosting into `process-ai-job.ts`** (AC: 5, 6, 7, 8, 9) — `apps/backend/src/lib/ai-processor/process-ai-job.ts`
+- [x] **Task 8: Wire re-hosting into `process-ai-job.ts`** (AC: 5, 6, 7, 8, 9) — `apps/backend/src/lib/ai-processor/process-ai-job.ts`
   - [ ] Update the step-2 call site: `const { request, imageBytes, imageContentType } = await buildGeminiExtractionRequest(message);` and pass `request` (not the old bare object) into `callGeminiSeam({ ...request, provider: 'gemini', subscriberUserIds })`.
   - [ ] After step 7 (`transformGeminiResponseToEventInfo`, i.e. once `payload.isEvent === true` and AJV validation has already passed — the two early-return paths for `isEvent === false` and AJV failure sit *before* this point in the existing function and are therefore automatically excluded, satisfying AC8 with no extra guard needed) and before step 8's enqueue, add: `if (imageBytes) { const durableImageUrl = await rehostPostImage(message.postId, imageBytes, imageContentType, env); if (durableImageUrl) { await markPostDurableImageUrl(message.postId, durableImageUrl); } }` — wrapped so a thrown error from either call (shouldn't happen given Task 7's internal try/catch, but defensive) is also caught/logged here and does not propagate, preserving AC7's "never blocks extraction" guarantee at this call site too.
   - [ ] Export a `rehostPostImageSeam`-style override hook (mirroring this file's existing `callGeminiSeam`/`markPostExtractedSeam` seam pattern) if the chosen test strategy (Task 9) needs to mock `rehostPostImage` at this level rather than mocking the S3 client directly — dev's call based on which is cleaner given `rehostPostImage`'s own internal S3-client construction.
 
-- [ ] **Task 9: Tests** (AC: all)
+- [x] **Task 9: Tests** (AC: all)
   - [ ] `packages/domain/src/scraper/parse-image-url-expiry.test.ts` — Task 2's 5 cases, 100% coverage.
   - [ ] `apps/backend/src/lib/posts/persist-scraped-post.test.ts` (existing file, extend) — add a case asserting `imageUrlExpiresAt` is populated from a URL with a valid `oe=` param, and stays `null` for a URL without one / when `imageUrl` is absent.
   - [ ] `apps/backend/src/lib/ai-processor/build-gemini-request.test.ts` (existing file, update per Task 4) — assert `imageBytes`/`imageContentType` are returned on the happy path and `undefined` on the fetch-failure fallback path, alongside the existing request-shape assertions (now under `.request`).
@@ -200,19 +200,19 @@ AD-12 Rule 1 names `build-gemini-request.ts`'s fetch as the byte source, but doe
 
 ## Testing Requirements
 
-- [ ] Unit tests: `packages/domain/src/scraper/parse-image-url-expiry.test.ts` (100% coverage — valid `oe=`, missing param, malformed/non-hex value, unparseable URL, null/undefined input).
-- [ ] Integration tests: `persist-scraped-post.test.ts` (expiry populated/null cases); `build-gemini-request.test.ts` (bytes returned on success, `undefined` on fetch-failure fallback); `rehost-post-image.test.ts` (mocked S3 — success, rejection, missing-env-config, all non-throwing); `process-ai-job.test.ts` (re-hosting invoked only on successful extraction; a re-hosting failure never blocks `markPostExtractedSeam`/enqueue).
+- [x] Unit tests: `packages/domain/src/scraper/parse-image-url-expiry.test.ts` (100% coverage — valid `oe=`, missing param, malformed/non-hex value, unparseable URL, null/undefined input).
+- [x] Integration tests: `persist-scraped-post.test.ts` (expiry populated/null cases); `build-gemini-request.test.ts` (bytes returned on success, `undefined` on fetch-failure fallback); `rehost-post-image.test.ts` (mocked S3 — success, rejection, missing-env-config, all non-throwing); `process-ai-job.test.ts` (re-hosting invoked only on successful extraction; a re-hosting failure never blocks `markPostExtractedSeam`/enqueue).
 - [ ] E2E tests: **not added** — this is a backend data-durability side effect with no directly observable UI change in this story (the durable URL isn't served anywhere yet — that's Story 3.6f); matches this project's testing-trophy philosophy and the precedent of prior backend-plumbing-only stories (e.g. 3.6b/3.6c) shipping without a dedicated E2E spec.
 
 ## Deliverables Checklist
 
-- [ ] `posts.durable_image_url`/`posts.image_url_expires_at` columns added via a committed Drizzle-kit migration.
-- [ ] `parseImageUrlExpiry` implemented in `packages/domain/src/scraper/`, 100%-covered, exported from the package barrel.
-- [ ] `persistScrapedPost` populates `imageUrlExpiresAt` on insert; `imageUrl` itself never modified.
-- [ ] `buildGeminiExtractionRequest` returns the already-fetched image bytes/content-type alongside the Gemini request, with zero second fetch anywhere.
-- [ ] `process-ai-job.ts` uploads those bytes to the durable bucket and writes `durableImageUrl` on successful extraction only; S3 failures are caught, logged, and never block extraction.
-- [ ] `@aws-sdk/client-s3` added as an `apps/backend` dependency.
-- [ ] `POST_MEDIA_BUCKET_NAME`/`POST_MEDIA_CDN_DOMAIN` read into `BackendEnv`.
+- [x] `posts.durable_image_url`/`posts.image_url_expires_at` columns added via a committed Drizzle-kit migration.
+- [x] `parseImageUrlExpiry` implemented in `packages/domain/src/scraper/`, 100%-covered, exported from the package barrel.
+- [x] `persistScrapedPost` populates `imageUrlExpiresAt` on insert; `imageUrl` itself never modified.
+- [x] `buildGeminiExtractionRequest` returns the already-fetched image bytes/content-type alongside the Gemini request, with zero second fetch anywhere.
+- [x] `process-ai-job.ts` uploads those bytes to the durable bucket and writes `durableImageUrl` on successful extraction only; S3 failures are caught, logged, and never block extraction.
+- [x] `@aws-sdk/client-s3` added as an `apps/backend` dependency.
+- [x] `POST_MEDIA_BUCKET_NAME`/`POST_MEDIA_CDN_DOMAIN` read into `BackendEnv`.
 
 ## Out of Scope
 
@@ -226,30 +226,53 @@ AD-12 Rule 1 names `build-gemini-request.ts`'s fetch as the byte source, but doe
 
 ## Definition of Done
 
-- [ ] AC1-12 satisfied.
-- [ ] All required tests passing (domain unit — 100% coverage; backend integration — persist-scraped-post, build-gemini-request, rehost-post-image, process-ai-job).
-- [ ] Lint and type checks passing for `packages/database`, `packages/domain`, `apps/backend`.
-- [ ] Migration generated, committed, and confirmed to apply cleanly against a local Postgres instance.
-- [ ] `pnpm build`, `pnpm lint`, `pnpm test` (root) pass with no regressions to any existing suite.
+- [x] AC1-12 satisfied.
+- [x] All required tests passing (domain unit — 100% coverage; backend integration — persist-scraped-post, build-gemini-request, rehost-post-image, process-ai-job).
+- [x] Lint and type checks passing for `packages/database`, `packages/domain`, `apps/backend`.
+- [x] Migration generated, committed, and confirmed to apply cleanly against a local Postgres instance.
+- [x] `pnpm build`, `pnpm lint`, `pnpm test` (root) pass with no regressions to any existing suite.
 
 ## Completion Status
 
-- [ ] Not started.
+- [x] Complete (2026-08-27, implemented via `cline-cli` in isolated worktree `.claude/worktrees/3-6e` on branch `3-6e-rehost-images`, independently reviewed and verified before merge to `master` at commit `610cd9b`).
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-TBD
+`cline-cli` (`cline --auto-approve true`, prompt piped via stdin/promptfile), dispatched into an isolated git worktree. Independently reviewed, verified, and one small type-tightening fix applied (`rehost-post-image.ts`'s `setS3ClientInstance` parameter narrowed from `any` to `S3Client`) by the orchestrating agent before merge.
 
 ### Debug Log References
 
-TBD
+`cline-3-6e-run.log` (repo root, gitignored dispatch transcript) — full tool-call transcript of the `cline-cli` implementation run.
 
 ### Completion Notes List
 
-TBD
+- All 9 Tasks implemented as specified; diff footprint independently confirmed scoped to `packages/database`, `packages/domain`, `apps/backend` only — no touches to `apps/web`, `packages/ui`, `apps/infrastructure`, or `posts.imageUrl` itself.
+- `apps/backend/src/schema/resolvers.ts`'s two `extractEventDataFromUrl`/manual-URL-extraction call sites of `buildGeminiExtractionRequest` were updated to destructure the new `{ request }` return shape (required for compilation after Task 4's signature change) — deliberately given **no** re-hosting behavior, correctly matching AD-12 Rule 4's Manual Post Selection/moderator-triage exclusion (verified by reading the surrounding resolver code: this is the on-demand manual-URL-extraction path, not Story 3.6's queue-driven pipeline).
+- Independent verification performed by the orchestrating agent (not just trusting the dispatch's own self-report): `pnpm --filter @festgrid/domain test` — 153/153 pass; `pnpm --filter backend test` — 267/267 pass (run twice, before and after the type-tightening fix); `pnpm --filter backend build` (`tsc`) — 0 errors; `pnpm --filter backend lint` — 0 errors, only pre-existing warnings plus 2 residual `any`-typed mock-argument warnings in `rehost-post-image.test.ts` (acceptable, matches existing codebase convention for test mocks); `pnpm --filter @festgrid/database migrate` — migration `0037_square_anthem.sql` applied cleanly against the local Postgres instance.
+- Merge to `master` was a clean, conflict-free `--no-ff` merge (`610cd9b`) — the concurrent sibling story (1.6 AC15 videoUrl wiring) touched only `apps/web`/`packages/ui`/`sprint-status.yaml`, a fully disjoint file set from this story's backend/domain/database footprint.
+- One stray pre-existing uncommitted change to `packages/database/schema.ts` was found in the main repo's working tree immediately before the merge (present since before this session's work began); confirmed byte-identical to this story's own `schema.ts` change and discarded (`git checkout --`) as a safe no-op, since the merge immediately restored the same content.
 
 ### File List
 
-TBD
+**New:**
+- `apps/backend/src/lib/ai-processor/rehost-post-image.ts`
+- `apps/backend/src/lib/ai-processor/rehost-post-image.test.ts`
+- `packages/database/migrations/0037_square_anthem.sql`
+- `packages/database/migrations/meta/0037_snapshot.json`
+- `packages/domain/src/scraper/parse-image-url-expiry.ts`
+- `packages/domain/src/scraper/parse-image-url-expiry.test.ts`
+
+**Modified:**
+- `apps/backend/package.json` (`@aws-sdk/client-s3` dependency)
+- `apps/backend/src/env.ts` (`postMediaBucketName`/`postMediaCdnDomain`)
+- `apps/backend/src/lib/ai-processor/build-gemini-request.ts` / `.test.ts` (return-shape change)
+- `apps/backend/src/lib/ai-processor/process-ai-job.ts` / `.test.ts` (re-hosting step wiring)
+- `apps/backend/src/lib/posts/persist-scraped-post.ts` / `.test.ts` (expiry parsing on insert)
+- `apps/backend/src/schema/resolvers.ts` (destructuring fix at two call sites, no behavior change)
+- `packages/database/migrations/meta/_journal.json`
+- `packages/database/schema.ts` (`durableImageUrl`/`imageUrlExpiresAt` columns)
+- `packages/domain/src/scraper/index.ts` (new export)
+- `pnpm-lock.yaml`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (`3-6e` entry: `backlog` → `ready-for-dev` → `review`)
