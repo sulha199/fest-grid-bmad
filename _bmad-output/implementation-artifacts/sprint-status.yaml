@@ -234,7 +234,20 @@ development_status:
   # amendment and the Event resolver's original-vs-durable serving logic.
   # See sprint-change-proposal-2026-08-25-video-priority-display.md
   # (Architecture Spine AD-12).
-  0-33-provision-s3-cloudfront-infrastructure-for-post-media: ready-for-dev
+  # DONE 2026-08-26: merged to master (5b049f7). CDK-construct-only (no
+  # apps/backend code touched). Independently re-verified after merge:
+  # `pnpm exec tsx --test lib/**/*.test.ts` in apps/infrastructure -- 1/1
+  # pass, directly on master (not just the worktree). `cdk synth` succeeded
+  # for all 3 stages; inspected the synthesized dev template directly --
+  # bucket policy grants s3:GetObject only to the CloudFront distribution
+  # (OAC SourceArn-scoped), only aiProcessorLambda's IAM policy references
+  # s3:PutObject, PublicAccessBlockConfiguration fully blocked. No cdk
+  # deploy performed (explicit task boundary). Two gemini-cli delegation
+  # attempts stalled/hung (wrong model, then a missing-ripgrep-driven slow
+  # fallback, then a hang mid-verification with only 3 import lines written)
+  # before implementation was completed directly; see story file's Dev
+  # Agent Record for full detail.
+  0-33-provision-s3-cloudfront-infrastructure-for-post-media: review
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-create-initial-database-tables: done
