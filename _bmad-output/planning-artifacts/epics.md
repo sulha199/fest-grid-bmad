@@ -1007,6 +1007,10 @@ Users can discover and browse events.
 
 **Amendment (2026-08-15, added via `bmad-create-story` while reopening this story for AC13):** Added AC13 (manual week-picker control, `sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md` Section 4.4, AD-9) — see the implementation-artifact story file for the full AC text and `WeekPicker.tsx`'s contract. `Depends on` updated to add Story 3.7a (boundary-resolution exports) and Story 0.28 (shadcn/Radix setup for `packages/ui` — new prerequisite, see that story's Note).
 
+**Amendment (2026-08-25):** Added AC14 (favorite count second line on calendar items, `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.5) — see the implementation-artifact story file for the full AC text.
+
+**Amendment (2026-08-26, added via `bmad-create-story`):** Added AC15 (mobile vertical day-list layout with multi-day-span "Day X of N" badge, `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.8 item #11) — design fully resolved by a targeted `bmad-ux` pass on 2026-08-24 (`design-artifacts/UX-festgrid-run-1/EXPERIENCE.md` § "Mobile Multi-Day Calendar Spanning", `DESIGN.md`'s `calendar.mobile_day_list.*` tokens), translated into implementable ACs/Tasks in this amendment. No Gate 1/2/3 gap found — see the implementation-artifact story file for the full AC text.
+
 **Depends on:** Story 3.7a, Story 0.28 (added 2026-08-15; originally none).
 
 ### Story 1.3h: Extend the events GraphQL API with schedule-level date-range query support
