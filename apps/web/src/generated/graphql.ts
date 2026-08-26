@@ -200,6 +200,7 @@ export type Event = {
   deletedAt?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
+  favoriteCount: Scalars['Int']['output'];
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   isAddedToCalendar: Scalars['Boolean']['output'];
