@@ -7,6 +7,7 @@ interface PersistScrapedPostParams {
   platform: string;
   content: string;
   imageUrl?: string | null;
+  videoUrl?: string | null;
   postUrl: string;
   originalPostUrl?: string | null;
   publishedAt: string;
@@ -21,6 +22,7 @@ export async function persistScrapedPost({
   platform,
   content,
   imageUrl,
+  videoUrl,
   postUrl,
   originalPostUrl,
   publishedAt,
@@ -57,6 +59,7 @@ export async function persistScrapedPost({
         platform,
         content,
         imageUrl,
+        videoUrl,
         postUrl,
         originalPostUrl,
         publishedAt: new Date(publishedAt),

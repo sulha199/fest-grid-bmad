@@ -253,6 +253,13 @@
       "when": 1787600151650,
       "tag": "0035_petite_black_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1787754720357,
+      "tag": "0036_mute_turbo",
+      "breakpoints": true
     }
   ]
 }

@@ -176,6 +176,7 @@ export const posts = pgTable('posts', {
   platform: text('platform').notNull(),
   content: text('content').notNull(),
   imageUrl: text('image_url'),
+  videoUrl: text('video_url'),
   postUrl: text('post_url').notNull(),
   originalPostUrl: text('original_post_url'),
   isExtracted: boolean('is_extracted').default(false).notNull(),

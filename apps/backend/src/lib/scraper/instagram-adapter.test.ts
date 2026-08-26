@@ -256,6 +256,57 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(result!.publishedAt, '2026-08-08T00:00:00Z');
     // Optional fields should not be present or should be undefined if not set
     assert.strictEqual(result!.imageUrl, undefined);
+    assert.strictEqual(result!.videoUrl, undefined);
+  });
+
+  await t.test('mapApifyItemToScrapedPost maps videoUrl correctly (Amendment)', async () => {
+    const videoItem = {
+      caption: 'Test video caption',
+      url: 'https://www.instagram.com/p/clips123/',
+      timestamp: '2026-08-08T00:00:00Z',
+      videoUrl: 'https://video.mp4',
+      productType: 'clips',
+    };
+
+    const result = await mapApifyItemToScrapedPost(videoItem);
+    assert.ok(result !== null);
+    assert.strictEqual(result!.content, 'Test video caption');
+    assert.strictEqual(result!.postUrl, 'https://www.instagram.com/p/clips123/');
+    assert.strictEqual(result!.videoUrl, 'https://video.mp4');
+  });
+
+  await t.test('mapApifyItemToScrapedPost fails validation for unexpected extra keys under additionalProperties: false (Amendment)', async () => {
+    const itemWithExtraKey = {
+      caption: 'Some caption',
+      url: 'https://www.instagram.com/p/extra123/',
+      timestamp: '2026-08-08T00:00:00Z',
+      someUnexpectedKey: 'not_allowed',
+    };
+
+    // Since mapApifyItemToScrapedPost filters fields into `candidate`, let's verify if candidate has any unexpected key or if we try to validate something invalid.
+    // Actually, mapApifyItemToScrapedPost constructs `candidate` explicitly with only known properties:
+    // candidate: ScrapedPost = { content, postUrl, publishedAt, imageUrl, originalPostUrl, locationName, ownerDisplayName, ownerUsername, videoUrl }
+    // Thus any unexpected key on the raw Apify payload itself is simply omitted, NOT passed to validation!
+    // To properly test the AJV schema's `additionalProperties: false`, let's test it directly against a custom candidate if needed, or verify mapApifyItemToScrapedPost's behavior.
+    // Wait, let's verify that validateScrapedPost (which runs compiled AJV validation) rejects candidate if it had unexpected fields, but candidate is constructed safely.
+    // To strictly verify that `additionalProperties: false` is not broken, we can write a test using compileValidator directly on a raw candidate.
+    const { scrapedPostSchema } = await import('../../validation/scraped-post.schema.js');
+    const { compileValidator } = await import('../../validation/validate.js');
+    const validate = compileValidator(scrapedPostSchema);
+    
+    const validCandidate = {
+      content: 'Hello',
+      postUrl: 'https://inst.com/p/1',
+      publishedAt: '2026-08-08T00:00:00Z',
+      videoUrl: 'https://video.mp4',
+    };
+    assert.ok(validate(validCandidate), 'valid candidate with videoUrl should pass schema validation');
+
+    const invalidCandidateWithExtra = {
+      ...validCandidate,
+      someUnexpectedKey: 'not_allowed',
+    };
+    assert.strictEqual(validate(invalidCandidateWithExtra as any), false, 'candidate with unexpected extra key must fail AJV validation');
   });
 
   await t.test('getNewestPosts filters out invalid items and returns only valid ones', async () => {

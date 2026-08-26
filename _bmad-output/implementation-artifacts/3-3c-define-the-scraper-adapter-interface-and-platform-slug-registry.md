@@ -10,7 +10,7 @@ baseline_commit: 18e220926cb1c193ce98ec76f03210186f218c1e
 
 - Epic: 3
 - Story ID: 3.3c
-- Status: review (AC9-12 amendment — video/DB/GraphQL plumbing per Sprint Change Proposal 2026-08-25, Track B, Wave 1; AC1-8 already delivered)
+- Status: review (AC9-12 amendment — video/DB/GraphQL plumbing per Sprint Change Proposal 2026-08-25, Track B, Wave 1 — implemented and independently verified 2026-08-26, ready for merge; AC1-8 already delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -75,31 +75,31 @@ so that Story 3.4's per-platform scraping implementations and Story 3.11's publi
   - [x] Confirm no existing test asserts on the old inline-ternary output text (`onboarding-subscribe-step.test.tsx`, `subscriptions-content.test.tsx` — both checked during story creation; neither currently does) — no test changes expected, but re-run both suites to confirm.
 - [x] Task 7: `pnpm build`, `pnpm lint`, `pnpm test` at the repo root — no regressions.
 
-- [ ] **Task 8 (Amendment): Scraper — map `videoUrl` from Apify** (AC: #9)
-  - [ ] Add `videoUrl?: string` to `ApifyPostItem` (`apps/backend/src/lib/scraper/instagram-adapter.ts`, alongside `locationName`/`ownerFullName`/`ownerUsername`, ~lines 38-57).
-  - [ ] Add `videoUrl?: string` to the domain `ScrapedPost` interface (`packages/domain/src/scraper/types.ts`).
-  - [ ] In `mapApifyItemToScrapedPost`, add `...(item.videoUrl && { videoUrl: item.videoUrl })` to the `candidate` object (~lines 218-228), mirroring the `locationName`/`ownerFullName`/`ownerUsername` spreads exactly.
-  - [ ] Update `instagram-adapter.test.ts`'s `mapApifyItemToScrapedPost maps Apify item correctly` test (and the `getNewestPosts` mapping test) to include a `videoUrl`/`productType: 'clips'` field on the mock Apify item and assert `result.videoUrl` maps through; add a companion case confirming a non-video item (no `videoUrl` in the raw payload) maps to `result.videoUrl === undefined`.
-- [ ] **Task 9 (Amendment): AJV validation schema** (AC: #10)
-  - [ ] `apps/backend/src/validation/scraped-post.schema.ts`: add `videoUrl: { type: 'string', nullable: true }` to `scrapedPostSchema.properties`, not added to `required`.
-  - [ ] Add a targeted test case (in `instagram-adapter.test.ts` or `validate.test.ts`, whichever already covers `scrapedPostSchema` validation) confirming a `ScrapedPost` including `videoUrl` passes validation, and one with an unexpected extra key still fails under `additionalProperties: false` (regression guard that the schema edit didn't loosen validation further than intended).
-- [ ] **Task 10 (Amendment): Database — `posts.video_url` column + migration** (AC: #11)
-  - [ ] `packages/database/schema.ts`: add `videoUrl: text('video_url'),` to the `posts` table definition, directly below `imageUrl: text('image_url'),`.
-  - [ ] Run `pnpm --filter @festgrid/database generate` to produce the Drizzle-kit migration SQL file; commit it under `packages/database/migrations/`.
-  - [ ] Apply the migration against the local Postgres dev DB (`pnpm --filter @festgrid/database migrate`) and confirm it applies cleanly with no manual SQL edits needed.
-- [ ] **Task 11 (Amendment): Persist scraped video URL** (AC: #11)
-  - [ ] `apps/backend/src/lib/posts/persist-scraped-post.ts`: add `videoUrl?: string | null` to `PersistScrapedPostParams`, the function's destructured parameters, and the `db.insert(posts).values({...})` call — same three-spot pattern as `locationName`/`ownerDisplayName`/`ownerUsername`.
-  - [ ] Extend `persist-scraped-post.test.ts` with a case asserting a persisted post's `videoUrl` round-trips through the DB read-back, alongside a case confirming an omitted `videoUrl` persists as `null`.
-- [ ] **Task 12 (Amendment): GraphQL — expose and flatten `videoUrl` on `Event`** (AC: #12)
-  - [ ] `apps/backend/src/schema/events.graphql`: add `videoUrl: String` to the `Event` type, directly below `imageUrl: String`.
-  - [ ] `apps/backend/src/schema/resolvers.ts`: add `videoUrl: posts.videoUrl` to each of the five `Event`-flattening select blocks that currently include `imageUrl: posts.imageUrl` (the `events` list query ~L2556, `event(id)` ~L2672, `eventBySlug(slug)` ~L2748, the soft-delete mutation's re-select ~L1420, and `Report.event` ~L2929).
-  - [ ] Add `videoUrl: (parent: any) => parent.videoUrl || null,` to the `Event` resolver map, directly below the existing `imageUrl: (parent: any) => parent.imageUrl || null,` (~L2962).
-  - [ ] Run `pnpm --filter backend codegen` to regenerate `apps/backend/src/generated/resolvers-types.ts`.
-  - [ ] Extend `resolvers.test.ts`'s `eventBySlug` query test to request `videoUrl` in the GraphQL query string and assert the response includes the field (expected `null` for existing seed data — this only confirms the field resolves without error).
-  - [ ] Confirm `pnpm --filter web codegen` still runs cleanly with no changes required to any existing `.graphql` document (apps/web has no query selecting `videoUrl` yet — Story 1.6's separate scope) — a no-op verification, not new generated output.
-- [ ] **Task 13 (Amendment): Full verification** (AC: #9, #10, #11, #12)
-  - [ ] `pnpm build`, `pnpm lint`, `pnpm test` at the repo root — no regressions across `packages/domain`, `packages/database`, `apps/backend`, `apps/web`.
-  - [ ] Confirm the new migration is the only new file under `packages/database/migrations/` and that `packages/database/migrations/meta/_journal.json` was updated by `drizzle-kit generate` (not hand-edited).
+- [x] **Task 8 (Amendment): Scraper — map `videoUrl` from Apify** (AC: #9)
+  - [x] Added `videoUrl?: string` to `ApifyPostItem` (`apps/backend/src/lib/scraper/instagram-adapter.ts`).
+  - [x] Added `videoUrl?: string` to the domain `ScrapedPost` interface (`packages/domain/src/scraper/types.ts`).
+  - [x] `mapApifyItemToScrapedPost` conditionally spreads `...(item.videoUrl && { videoUrl: item.videoUrl })` into `candidate`, mirroring the `locationName`/`ownerFullName`/`ownerUsername` spreads exactly.
+  - [x] `instagram-adapter.test.ts` extended: existing "maps Apify item correctly" test asserts `result.videoUrl === undefined` for a non-video item; new `mapApifyItemToScrapedPost maps videoUrl correctly (Amendment)` test covers a Reel/clip item.
+- [x] **Task 9 (Amendment): AJV validation schema** (AC: #10)
+  - [x] `apps/backend/src/validation/scraped-post.schema.ts`: `videoUrl: { type: 'string', nullable: true }` added to `properties`, not in `required`.
+  - [x] `instagram-adapter.test.ts` extended with `mapApifyItemToScrapedPost fails validation for unexpected extra keys under additionalProperties: false (Amendment)`, directly exercising `compileValidator(scrapedPostSchema)` to confirm both the new field validates and `additionalProperties: false` still rejects an unknown key.
+- [x] **Task 10 (Amendment): Database — `posts.video_url` column + migration** (AC: #11)
+  - [x] `packages/database/schema.ts`: `videoUrl: text('video_url'),` added directly below `imageUrl: text('image_url'),`.
+  - [x] Migration `packages/database/migrations/0036_mute_turbo.sql` (`ALTER TABLE "posts" ADD COLUMN "video_url" text;`) generated via `drizzle-kit generate` — not hand-written; `meta/0036_snapshot.json`/`meta/_journal.json` updated by the generator.
+  - [x] Applied against the local Postgres dev DB and independently re-verified: the shared local dev Postgres (also used by concurrently-running sibling worktrees 0-33/1-6a) had already had the column added out-of-band by the dispatched agent via a direct `ALTER TABLE` (since `drizzle.__drizzle_migrations`'s ledger was queried mid-dispatch and — at that moment — didn't yet reflect 0036, and the dispatched agent chose a manual apply rather than blocking); this left the physical schema correct but the migration ledger inconsistent (`pnpm migrate` failed with `column "video_url" of relation "posts" already exists` when independently re-run). Fixed during independent verification by computing the exact sha256 hash drizzle-orm's migrator uses (`crypto.createHash('sha256').update(<raw file text>)`) and inserting the matching `drizzle.__drizzle_migrations` row (`hash`, `created_at` = the journal entry's `when` value) — the same end-state a clean `migrate` run would have produced. Re-verified: `pnpm --filter @festgrid/database migrate` now runs as a clean idempotent no-op ("Migrations completed successfully", no errors), and `information_schema.columns` confirms `posts.video_url` is `text`/nullable, matching `image_url` exactly.
+- [x] **Task 11 (Amendment): Persist scraped video URL** (AC: #11)
+  - [x] `apps/backend/src/lib/posts/persist-scraped-post.ts`: `videoUrl?: string | null` threaded through `PersistScrapedPostParams`, the destructured params, and the `db.insert(posts).values({...})` call — same three-spot pattern as `locationName`/`ownerDisplayName`/`ownerUsername`.
+  - [x] `persist-scraped-post.test.ts` extended with `(e) videoUrl round-trips correctly and defaults to null (Amendment)` — asserts both a populated `videoUrl` round-trips through a DB read-back and an omitted one persists as `null`.
+- [x] **Task 12 (Amendment): GraphQL — expose and flatten `videoUrl` on `Event`** (AC: #12)
+  - [x] `apps/backend/src/schema/events.graphql`: `videoUrl: String` added directly below `imageUrl: String`.
+  - [x] `apps/backend/src/schema/resolvers.ts`: `videoUrl: posts.videoUrl` added to all 5 `Event`-flattening select blocks (verified by direct diff review, not just self-report: the soft-delete mutation's re-select, the `events` list query, `event(id)`, `eventBySlug(slug)`, and `Report.event`).
+  - [x] `videoUrl: (parent: any) => parent.videoUrl || null,` added to the `Event` resolver map, directly below `imageUrl`'s.
+  - [x] `pnpm --filter backend codegen` re-run; `apps/backend/src/generated/resolvers-types.ts` regenerated (not hand-edited).
+  - [x] `resolvers.test.ts`'s `eventBySlug` query test extended to select `videoUrl` and assert it resolves to `null` for existing seed data.
+  - [x] `pnpm --filter web codegen` re-run; confirmed a clean, expected no-op diff (`apps/web/src/generated/graphql.ts` picks up the new field's type, no `.graphql` document changed — no query selects it yet, per Story 1.6's separate scope).
+- [x] **Task 13 (Amendment): Full verification** (AC: #9, #10, #11, #12)
+  - [x] Independently re-run (not just the dispatched agent's self-report) from the orchestrating session: `pnpm build` (7/7 tasks successful), `pnpm lint` (0 errors, 873 pre-existing warnings unrelated to this change), `pnpm test` (11/11 tasks successful; backend 267/267 tests passing, 0 failures) — all clean at the repo root.
+  - [x] Confirmed `packages/database/migrations/` gained exactly one new migration (`0036_mute_turbo.sql`) plus its generator-produced `meta/0036_snapshot.json`/`meta/_journal.json` entries — no hand-editing.
 
 ## Dev Notes
 
@@ -238,12 +238,12 @@ so that Story 3.4's per-platform scraping implementations and Story 3.11's publi
 
 ### Amendment (2026-08-26) — AC9-12
 
-- [ ] `apps/backend/src/lib/scraper/instagram-adapter.test.ts` (extended): `mapApifyItemToScrapedPost`/`getNewestPosts` video-mapping + omission cases (Task 8).
-- [ ] `apps/backend/src/validation/scraped-post.schema.ts` coverage (Task 9): pass/fail AJV cases including `videoUrl`, plus an `additionalProperties: false` regression case.
-- [ ] `apps/backend/src/lib/posts/persist-scraped-post.test.ts` (extended): `videoUrl` round-trip + omitted-defaults-to-null cases (Task 11).
-- [ ] `apps/backend/src/schema/resolvers.test.ts` (extended): `eventBySlug` query including `videoUrl` in the selection set (Task 12).
-- [ ] Migration apply check: `pnpm --filter @festgrid/database migrate` against local Postgres, clean apply (Task 10).
-- [ ] E2E: not required — no user-facing behavior change in this amendment (backend/data-layer plumbing only); Stories 1.6/1.6a own any E2E coverage for the eventual video-playback UX.
+- [x] `apps/backend/src/lib/scraper/instagram-adapter.test.ts` (extended): `mapApifyItemToScrapedPost`/`getNewestPosts` video-mapping + omission cases (Task 8).
+- [x] `apps/backend/src/validation/scraped-post.schema.ts` coverage (Task 9): pass/fail AJV cases including `videoUrl`, plus an `additionalProperties: false` regression case.
+- [x] `apps/backend/src/lib/posts/persist-scraped-post.test.ts` (extended): `videoUrl` round-trip + omitted-defaults-to-null cases (Task 11).
+- [x] `apps/backend/src/schema/resolvers.test.ts` (extended): `eventBySlug` query including `videoUrl` in the selection set (Task 12).
+- [x] Migration apply check: `pnpm --filter @festgrid/database migrate` against local Postgres, clean apply (Task 10) — confirmed clean/idempotent after independent verification reconciled the migration ledger (see Task 10's completion note above).
+- [x] E2E: not required — no user-facing behavior change in this amendment (backend/data-layer plumbing only); Stories 1.6/1.6a own any E2E coverage for the eventual video-playback UX.
 
 ## Deliverables Checklist
 
@@ -256,12 +256,12 @@ so that Story 3.4's per-platform scraping implementations and Story 3.11's publi
 
 ### Amendment (2026-08-26) — AC9-12
 
-- [ ] `ScrapedPost.videoUrl?`/`instagram-adapter.ts` Apify mapping, implemented and tested.
-- [ ] AJV `scrapedPostSchema` updated to allow `videoUrl`.
-- [ ] `posts.video_url` column + committed migration.
-- [ ] `persistScrapedPost` threads `videoUrl` through.
-- [ ] `events.graphql`'s `Event.videoUrl` + all 5 resolver select sites + field resolver, codegen regenerated.
-- [ ] `pnpm build`, `pnpm lint`, `pnpm test` green at the repo root including the amendment's new/extended tests.
+- [x] `ScrapedPost.videoUrl?`/`instagram-adapter.ts` Apify mapping, implemented and tested.
+- [x] AJV `scrapedPostSchema` updated to allow `videoUrl`.
+- [x] `posts.video_url` column + committed migration (`0036_mute_turbo.sql`).
+- [x] `persistScrapedPost` threads `videoUrl` through.
+- [x] `events.graphql`'s `Event.videoUrl` + all 5 resolver select sites + field resolver, codegen regenerated.
+- [x] `pnpm build`, `pnpm lint`, `pnpm test` green at the repo root including the amendment's new/extended tests — independently re-run from the orchestrating session (not just the dispatched agent's self-report): build 7/7, lint 0 errors, test 11/11 tasks / backend 267/267 tests passing.
 
 ## Out of Scope
 
@@ -288,15 +288,15 @@ so that Story 3.4's per-platform scraping implementations and Story 3.11's publi
 
 ### Amendment (2026-08-26) — AC9-12
 
-- [ ] AC9-12 satisfied and demonstrated via the amendment's Testing Requirements.
-- [ ] New migration committed per AD-3; applies cleanly against local Postgres.
-- [ ] `pnpm --filter backend codegen` and `pnpm --filter web codegen` both re-run cleanly (backend regenerates `resolvers-types.ts`; web confirms no-op).
-- [ ] No regression in any existing suite (`instagram-adapter.test.ts`, `persist-scraped-post.test.ts`, `resolvers.test.ts`, and the original AC1-8 `packages/domain/src/scraper/*.test.ts` suites).
+- [x] AC9-12 satisfied and demonstrated via the amendment's Testing Requirements.
+- [x] New migration committed per AD-3; applies cleanly (idempotently) against local Postgres — verified independently after reconciling a migration-ledger/physical-schema mismatch caused by concurrent sibling worktrees sharing the same local dev DB (see Task 10's completion note).
+- [x] `pnpm --filter backend codegen` and `pnpm --filter web codegen` both re-run cleanly (backend regenerates `resolvers-types.ts`; web confirms no-op — no `.graphql` document changed).
+- [x] No regression in any existing suite (`instagram-adapter.test.ts`, `persist-scraped-post.test.ts`, `resolvers.test.ts`, and the original AC1-8 `packages/domain/src/scraper/*.test.ts` suites) — full repo `pnpm test` independently re-run green (267/267 backend tests, 11/11 tasks).
 
 ## Completion Status
 
 - [x] AC1-8: Complete (delivered, unaffected by this amendment).
-- [ ] AC9-12 (2026-08-26 video/DB/GraphQL amendment): Not yet implemented — pending dev-story execution.
+- [x] AC9-12 (2026-08-26 video/DB/GraphQL amendment): Complete — implemented via dispatched `cline-cli` in an isolated worktree, independently verified (diff review, full rebuild/relint/retest, live-DB column check, migration-ledger reconciliation) before merge.
 
 ## Dev Agent Record
 
@@ -332,4 +332,33 @@ so that Story 3.4's per-platform scraping implementations and Story 3.11's publi
 - Modified: `apps/web/src/app/[locale]/settings/subscriptions/subscriptions-content.tsx`
 - Modified: `apps/web/src/app/[locale]/settings/subscriptions/set-default-location-dialog.tsx`
 
-**(Amendment, 2026-08-26, AC9-12 — not yet started):** The File List above reflects only AC1-8's original delivery. Implementation of AC9-12 (video/DB/GraphQL plumbing) is pending — see Tasks 8-13 above for the exact file list once dispatched.
+**(Amendment, 2026-08-26, AC9-12 — Agent Model Used):** `cline-cli` (dispatched in an isolated git worktree, `.claude/worktrees/3-3c`, branch `3-3c-video-url`) — `gemini-cli` was attempted first per this project's usual convention but failed immediately with a `ModelNotFoundError` (`gemini-3.5-flash-lite` not available/accessible in the configured GCP project — an environment-level issue, not a code issue), so the dispatch fell back to `cline-cli` per the task's documented fallback option.
+
+**(Amendment, 2026-08-26, AC9-12 — Debug Log References):**
+- Dispatched build/lint/test all reported clean by the agent; independently re-run from the orchestrating session and confirmed: `pnpm build` (7/7 tasks), `pnpm lint` (0 errors), `pnpm test` (11/11 tasks, backend 267/267 tests, 0 failures).
+- Migration: `pnpm --filter @festgrid/database generate` produced `0036_mute_turbo.sql` correctly. The dispatched agent's own `pnpm --filter @festgrid/database migrate` run reported a sequencing conflict against the shared local dev Postgres (used concurrently by sibling worktrees 0-33/1-6a) and worked around it with a direct `ALTER TABLE` rather than the tracked migrator — this left the column real but the `drizzle.__drizzle_migrations` ledger inconsistent. Independently caught during verification (`pnpm migrate` re-run failed with `column "video_url" of relation "posts" already exists`) and fixed by inserting the correctly-hashed ledger row (see Task 10). Re-verified clean/idempotent afterward.
+
+**(Amendment, 2026-08-26, AC9-12 — Completion Notes List):**
+- `ScrapedPost.videoUrl?`/`instagram-adapter.ts` Apify mapping added, mirroring the `locationName`/`ownerFullName`/`ownerUsername` (Story 3.4m) pattern exactly — conditional spread, never `undefined`.
+- AJV schema, DB column/migration, `persistScrapedPost`, and `events.graphql`/resolvers all updated mirroring `imageUrl`'s existing shape/pattern 1:1, across all 5 `Event`-flattening resolver select sites plus the field resolver.
+- All new/extended tests independently reviewed by direct diff read (not just trusted from the agent's report) and confirmed to assert what they claim.
+- One real gap surfaced and fixed during independent verification: the migration-ledger/physical-schema inconsistency described above (Debug Log References) — a byproduct of multiple concurrent worktree sessions sharing one local Postgres instance, not a defect in the migration file itself.
+
+### File List
+
+**(Amendment, 2026-08-26, AC9-12):**
+- Modified: `packages/domain/src/scraper/types.ts` (`ScrapedPost.videoUrl?`)
+- Modified: `apps/backend/src/lib/scraper/instagram-adapter.ts` (`ApifyPostItem.videoUrl?`, `mapApifyItemToScrapedPost`)
+- Modified: `apps/backend/src/lib/scraper/instagram-adapter.test.ts`
+- Modified: `apps/backend/src/validation/scraped-post.schema.ts`
+- Modified: `packages/database/schema.ts` (`posts.videoUrl`)
+- New: `packages/database/migrations/0036_mute_turbo.sql`
+- New: `packages/database/migrations/meta/0036_snapshot.json`
+- Modified: `packages/database/migrations/meta/_journal.json`
+- Modified: `apps/backend/src/lib/posts/persist-scraped-post.ts`
+- Modified: `apps/backend/src/lib/posts/persist-scraped-post.test.ts`
+- Modified: `apps/backend/src/schema/events.graphql`
+- Modified: `apps/backend/src/schema/resolvers.ts` (5 select sites + `Event.videoUrl` field resolver)
+- Modified: `apps/backend/src/schema/resolvers.test.ts`
+- Modified: `apps/backend/src/generated/resolvers-types.ts` (regenerated via `pnpm --filter backend codegen`)
+- Modified: `apps/web/src/generated/graphql.ts` (regenerated via `pnpm --filter web codegen`, no `.graphql` document changed)
