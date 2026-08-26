@@ -73,7 +73,7 @@ describe('FilterHub', () => {
     (nuqs as unknown as { __reset: () => void }).__reset();
   });
 
-  it('renders pre-existing filters and passes props to LocationRadiusFilter', () => {
+  it('renders pre-existing filters and passes props to LocationRadiusFilter when opened', () => {
     const onSelectLocation = vi.fn();
     const onRadiusChange = vi.fn();
 
@@ -99,7 +99,18 @@ describe('FilterHub', () => {
     expect(screen.getByText('Types')).toBeInTheDocument();
     expect(screen.getByText('Categories')).toBeInTheDocument();
 
-    // Verify nearby filter renders
+    // Verify nearby filter trigger renders and is outline variant
+    const trigger = screen.getByRole('button', { name: 'Nearby' });
+    expect(trigger).toBeInTheDocument();
+    expect(trigger).toHaveClass('border-input'); // outline variant
+
+    // Popover is closed initially, so content is not in the document
+    expect(screen.queryByLabelText('Nearby')).not.toBeInTheDocument();
+
+    // Click trigger to open popover
+    fireEvent.click(trigger);
+
+    // Verify nearby filter contents render after open
     expect(screen.getByLabelText('Nearby')).toBeInTheDocument();
   });
 
@@ -188,5 +199,61 @@ describe('FilterHub', () => {
 
     expect(screen.getByRole('button', { name: 'Types' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Categories' })).toBeInTheDocument();
+  });
+
+  it('renders the active-selection summary when a location/current-location is selected and variant is default', () => {
+    const onSelectLocation = vi.fn();
+    const onRadiusChange = vi.fn();
+    const savedLocations = [
+      { id: 'loc-1', name: 'Home', latitude: 12.34, longitude: 56.78, radius: 1000 },
+      { id: 'loc-2', name: 'Work', latitude: 23.45, longitude: 67.89, radius: 2000 },
+    ];
+
+    const { rerender } = render(
+      <FilterHub
+        labels={defaultLabels}
+        types={mockTypes}
+        categories={mockCategories}
+        isAuthenticated={true}
+        isLoadingLocations={false}
+        locationsError={false}
+        savedLocations={savedLocations}
+        selectedValue="current"
+        radiusKm={10}
+        isCapturingCurrentLocation={false}
+        currentLocationError={null}
+        onSelectLocation={onSelectLocation}
+        onRadiusChange={onRadiusChange}
+      />
+    );
+
+    // Active summary for 'current'
+    const currentTrigger = screen.getByRole('button', { name: 'Current location · 10 km' });
+    expect(currentTrigger).toBeInTheDocument();
+    expect(currentTrigger).toHaveClass('bg-primary'); // default variant when active
+
+    // Rerender with a saved location selected
+    rerender(
+      <FilterHub
+        labels={defaultLabels}
+        types={mockTypes}
+        categories={mockCategories}
+        isAuthenticated={true}
+        isLoadingLocations={false}
+        locationsError={false}
+        savedLocations={savedLocations}
+        selectedValue="loc-1"
+        radiusKm={25}
+        isCapturingCurrentLocation={false}
+        currentLocationError={null}
+        onSelectLocation={onSelectLocation}
+        onRadiusChange={onRadiusChange}
+      />
+    );
+
+    // Active summary for saved location 'loc-1' ("Home")
+    const locationTrigger = screen.getByRole('button', { name: 'Home · 25 km' });
+    expect(locationTrigger).toBeInTheDocument();
+    expect(locationTrigger).toHaveClass('bg-primary'); // default variant when active
   });
 });

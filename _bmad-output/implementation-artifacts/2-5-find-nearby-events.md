@@ -7,7 +7,7 @@ baseline_commit: 552561c4e4c958dcd681ca8d3c015b5a0619359c
 
 - Epic: 2 - User Personalization
 - Story ID: 2.5
-- Status: ready-for-dev (AC13 amendment; AC1-AC12 already delivered — see Dev Notes → Amendment)
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -147,11 +147,11 @@ so that I can easily discover events happening close to me.
 - [ ] Task 9: Manual verification
   - [ ] Run the app locally with a real saved location; confirm auto-default nearby filtering on first load, confirm radius pre-fill from the location's own radius, confirm switching to "All locations" persists across a reload, confirm Calendar View reflects the same filter. With a fresh account (zero saved locations), confirm the browser geolocation prompt appears once, confirm deny/allow both degrade gracefully. Confirm `pnpm build`/`pnpm lint` clean at the repo root.
 
-- [ ] Task 10 (AC13, added 2026-08-25) — Compact/collapsed presentation:
-  - [ ] Strip `LocationRadiusFilter.tsx`'s hardcoded outer card styling (`p-4 border rounded-lg bg-card text-card-foreground shadow-sm`) — it will now always render inside a `PopoverContent`, which already supplies that visual treatment; double-boxing would look wrong. Keep the `className` prop for any exceptional future non-popover use, just drop the hardcoded defaults.
-  - [ ] In `FilterHub.tsx`, wrap `<LocationRadiusFilter ... />` in a `Popover`/`PopoverTrigger asChild`/`PopoverContent` composition, mirroring `renderFacet`'s exact structure. Trigger `<Button variant={isNearbyActive ? 'default' : 'outline'}>` renders `labels.filterLabel` when `selectedValue === 'off' || selectedValue === null`, or a summary string (`{selectedLocationName} · {radiusKm}{labels.radiusUnit-equivalent-short-form}`) when active — derive `selectedLocationName` from `savedLocations.find(l => l.id === selectedValue)?.name`, falling back to `labels.currentLocationOptionLabel` when `selectedValue === 'current'`.
-  - [ ] Add any new label(s) needed for the compact trigger summary (if the existing `NearbyFilter` i18n namespace doesn't already have a short-form radius unit suitable for inline trigger text) to both `en.json`/`id.json`.
-  - [ ] Extend `FilterHub.test.tsx`: the Nearby trigger renders `labels.filterLabel` when off; renders the active-selection summary when a location/current-location is selected; clicking it opens a popover containing `LocationRadiusFilter`'s existing controls (select + radius slider when applicable); `variant` switches from `outline` to `default` when active, matching Type/Category's existing test pattern for the same behavior.
+- [x] Task 10 (AC13, added 2026-08-25) — Compact/collapsed presentation:
+  - [x] Strip `LocationRadiusFilter.tsx`'s hardcoded outer card styling (`p-4 border rounded-lg bg-card text-card-foreground shadow-sm`) — it will now always render inside a `PopoverContent`, which already supplies that visual treatment; double-boxing would look wrong. Keep the `className` prop for any exceptional future non-popover use, just drop the hardcoded defaults.
+  - [x] In `FilterHub.tsx`, wrap `<LocationRadiusFilter ... />` in a `Popover`/`PopoverTrigger asChild`/`PopoverContent` composition, mirroring `renderFacet`'s exact structure. Trigger `<Button variant={isNearbyActive ? 'default' : 'outline'}>` renders `labels.filterLabel` when `selectedValue === 'off' || selectedValue === null`, or a summary string (`{selectedLocationName} · {radiusKm}{labels.radiusUnit-equivalent-short-form}`) when active — derive `selectedLocationName` from `savedLocations.find(l => l.id === selectedValue)?.name`, falling back to `labels.currentLocationOptionLabel` when `selectedValue === 'current'`.
+  - [x] Add any new label(s) needed for the compact trigger summary (if the existing `NearbyFilter` i18n namespace doesn't already have a short-form radius unit suitable for inline trigger text) to both `en.json`/`id.json`.
+  - [x] Extend `FilterHub.test.tsx`: the Nearby trigger renders `labels.filterLabel` when off; renders the active-selection summary when a location/current-location is selected; clicking it opens a popover containing `LocationRadiusFilter`'s existing controls (select + radius slider when applicable); `variant` switches from `outline` to `default` when active, matching Type/Category's existing test pattern for the same behavior.
 
 ## Dev Notes
 
@@ -295,7 +295,7 @@ Recent commits (`dbf1f80`, `2af58dc`, `767ff1d`, `d8792a9`, `0169949`) show the 
 - [ ] `NearbyFilter` i18n namespace added to `en.json`/`id.json` with no hardcoded strings (AC11).
 - [ ] Analytics events `nearby_filter_applied`/`nearby_geolocation_denied` fire per Dev Notes → Analytics.
 - [ ] `pnpm build`/`pnpm lint` clean at the repo root.
-- [ ] Nearby filter collapses behind a Popover trigger in `FilterHub`, matching Type/Category's chrome (AC13, new 2026-08-25).
+- [x] Nearby filter collapses behind a Popover trigger in `FilterHub`, matching Type/Category's chrome (AC13, new 2026-08-25).
 
 ## Out of Scope
 
@@ -309,7 +309,7 @@ Recent commits (`dbf1f80`, `2af58dc`, `767ff1d`, `d8792a9`, `0169949`) show the 
 ## Definition of Done
 
 - [x] AC1-AC12 satisfied (confirmed already implemented via direct code inspection, 2026-08-25).
-- [ ] AC13 satisfied (compact/collapsed presentation, new 2026-08-25).
+- [x] AC13 satisfied (compact/collapsed presentation, new 2026-08-25).
 - [ ] Required tests passing: `packages/domain` (100% coverage), `packages/ui` component tests, `apps/web` integration tests (happy + unhappy path), one E2E happy-path test.
 - [ ] Lint and type checks passing for `packages/domain`, `packages/ui`, `apps/web`.
 - [ ] Story 2.5a implemented and its migration applied before this story's E2E test is expected to pass against real data (sequencing note, not a gate on writing this story's own code).
@@ -317,9 +317,10 @@ Recent commits (`dbf1f80`, `2af58dc`, `767ff1d`, `d8792a9`, `0169949`) show the 
 
 ## Completion Status
 
-- [/] In progress
+- [x] In review
 
 **2026-08-25:** AC1-AC12 confirmed already implemented via direct code inspection. AC13 (compact/collapsed presentation) is new, unimplemented, ready for dev.
+**2026-08-26:** AC13 (compact/collapsed presentation) fully implemented. Stripped hardcoded outer card styles from `LocationRadiusFilter.tsx`. Composed `LocationRadiusFilter` inside a Radix Popover with a custom summary-displaying Trigger Button inside `FilterHub.tsx` that changes variant based on filter activity. Extended unit tests in `FilterHub.test.tsx` to verify trigger, popover open, summary text formats, and variant toggle behavior. Verified clean build and lint across repo.
 
 ## Dev Agent Record
 
@@ -335,6 +336,11 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 
 ### Completion Notes List
 
+- **Task 10 (AC13) Implementation:** Implemented compact inline presentation for the nearby filter inside FilterHub. LocationRadiusFilter now renders collapsed inside a Radix Popover.
+- Stripped double-boxing default card styles (`p-4 border rounded-lg bg-card text-card-foreground shadow-sm`) from LocationRadiusFilter wrapper, allowing PopoverContent's native styling to render cleanly.
+- Implemented summary string for active Nearby filter: Shows `"Home · 10 km"` or `"Current location · 5 km"` inside the Trigger Button depending on selection, using the existing `labels.locationFilterLabels.radiusUnit` resolver inline.
+- Extended unit tests in `FilterHub.test.tsx` to verify trigger, popover open, summary text formats, and variant toggle behavior. All tests passed.
+
 ### File List
 
 - `packages/domain/src/events/buildEventsQueryCondition.ts` (Modified)
@@ -345,11 +351,11 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 - `packages/ui/src/hooks/useCurrentLocationCapture.ts` (New - Relocated)
 - `packages/ui/src/hooks/useCurrentLocationCapture.test.ts` (New - Relocated)
 - `packages/ui/src/hooks/index.ts` (Modified)
-- `packages/ui/src/features/events/LocationRadiusFilter.tsx` (New)
+- `packages/ui/src/features/events/LocationRadiusFilter.tsx` (Modified)
 - `packages/ui/src/features/events/LocationRadiusFilter.types.ts` (New)
 - `packages/ui/src/features/events/LocationRadiusFilter.test.tsx` (New)
 - `packages/ui/src/features/events/FilterHub.tsx` (Modified)
-- `packages/ui/src/features/events/FilterHub.test.tsx` (New)
+- `packages/ui/src/features/events/FilterHub.test.tsx` (Modified)
 - `packages/ui/src/features/events/EventDiscoveryPanel.tsx` (Modified)
 - `packages/ui/src/features/events/EventDiscoveryPanel.types.ts` (Modified)
 - `packages/ui/src/features/events/index.ts` (Modified)

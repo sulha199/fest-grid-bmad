@@ -76,6 +76,15 @@ export function FilterHub({
   const isNearbyActive = selectedValue !== null && selectedValue !== 'off';
   const hasSelection = selectedTypes.length > 0 || selectedCategories.length > 0 || isNearbyActive;
 
+  let nearbyTriggerText = labels.locationFilterLabels.filterLabel;
+  if (isNearbyActive) {
+    const locationName =
+      selectedValue === 'current'
+        ? labels.locationFilterLabels.currentLocationOptionLabel
+        : savedLocations.find((l) => l.id === selectedValue)?.name || labels.locationFilterLabels.filterLabel;
+    nearbyTriggerText = `${locationName} · ${labels.locationFilterLabels.radiusUnit(radiusKm)}`;
+  }
+
   const renderFacet = (
     label: string,
     options: { value: string; label: string }[],
@@ -113,19 +122,30 @@ export function FilterHub({
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       {renderFacet(labels.typeLabel, types, selectedTypes, handleTypeChange)}
       {renderFacet(labels.categoryLabel, categories, selectedCategories, handleCategoryChange)}
-      <LocationRadiusFilter
-        isAuthenticated={isAuthenticated}
-        isLoadingLocations={isLoadingLocations}
-        locationsError={locationsError}
-        savedLocations={savedLocations}
-        selectedValue={selectedValue}
-        radiusKm={radiusKm}
-        isCapturingCurrentLocation={isCapturingCurrentLocation}
-        currentLocationError={currentLocationError}
-        onSelectLocation={onSelectLocation}
-        onRadiusChange={onRadiusChange}
-        labels={labels.locationFilterLabels}
-      />
+      {isAuthenticated && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant={isNearbyActive ? 'default' : 'outline'}>
+              {nearbyTriggerText}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80">
+            <LocationRadiusFilter
+              isAuthenticated={isAuthenticated}
+              isLoadingLocations={isLoadingLocations}
+              locationsError={locationsError}
+              savedLocations={savedLocations}
+              selectedValue={selectedValue}
+              radiusKm={radiusKm}
+              isCapturingCurrentLocation={isCapturingCurrentLocation}
+              currentLocationError={currentLocationError}
+              onSelectLocation={onSelectLocation}
+              onRadiusChange={onRadiusChange}
+              labels={labels.locationFilterLabels}
+            />
+          </PopoverContent>
+        </Popover>
+      )}
       {hasSelection && (
         <button
           type="button"
