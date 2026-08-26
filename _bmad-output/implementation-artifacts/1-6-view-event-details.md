@@ -7,7 +7,7 @@ baseline_commit: d669ab27eb32c0364f9526ab722ab8404aedae71
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.6
-- Status: review (all tasks complete; AC1-14 satisfied; ready for code review)
+- Status: ready-for-dev (reopened for AC15 — videoUrl wiring; AC1-14 previously complete and unaffected)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -38,6 +38,9 @@ And the Next/Previous controls specified in AC5 are presented using shadcn `Caro
 **AC14 — Icon-only modal close (added 2026-08-13 via `bmad-correct-course`):**
 And the modal-mode close control (rendered when accessed via the intercepted route) displays only an icon (no visible text label), with an `aria-label` and screen-reader-only text retained for accessibility — matching the existing icon-only pattern already used by `apps/web/src/components/ui/dialog.tsx`'s `DialogClose`. **Already implemented** (see Dev Notes → Current Implementation State) — no further work needed for this AC.
 
+**AC15 — Wire `videoUrl` through to `EventDetailView` (added 2026-08-26 via `bmad-correct-course`, `sprint-change-proposal-2026-08-25-video-priority-display.md` Section 4.5, Wave 2 of that proposal's wave plan):**
+Given the source post behind an event has an associated video (`Post.videoUrl`, already exposed as `Event.videoUrl: String` on the GraphQL schema since Story 3.3c, already merged), when this story's `getEventBySlug` query fetches that event, then `videoUrl` is selected alongside the existing `imageUrl` and mapped onto `EventDetailView`'s `videoUrl`/`videoAlt` props (already present on `EventDetailViewProps` since Story 1.6a, already merged) — `videoAlt` following the exact same convention already used for `imageAlt` (derived from `event.eventName`), so `EventDetailView`'s existing video-capable rendering (autoplay/muted/loop, image fallback on failure) receives real data instead of always being `undefined`. Pure wiring: no new component, no new design decision — both the GraphQL field and the presentation-layer video path already exist and are independently tested; this AC only connects them. `imageFallbackUrl` is explicitly **not** wired here (forward-compat prop reserved for a future Story 3-6f's `durableImageUrl` field, not yet built — leave unset/`undefined`).
+
 ## Tasks / Subtasks
 
 - [x] 1. Wire `apps/backend/src/schema/events.graphql` into the actual runtime schema and codegen input (AC4) — **pre-existing gap, not introduced by this story:** confirmed by direct read that `apps/backend/src/server.ts` (`readFileSync(.../src/schema/typeDefs.graphql')`) and `apps/backend/codegen.ts` (`schema: 'src/schema/typeDefs.graphql'`) both reference *only* `typeDefs.graphql` (`type Query { health: Boolean! }`), while `events.graphql`'s `Event`/`Schedule`/`events`/`event` definitions are never merged in. Point both at a glob/merge of `src/schema/*.graphql` (mirroring `apps/web/codegen.ts`'s own `schema: '../backend/src/schema/**/*.graphql'`, which already assumes multiple files) so this story's new fields are actually reachable at runtime.
@@ -66,6 +69,12 @@ And the modal-mode close control (rendered when accessed via the intercepted rou
     - **(Correction, 2026-08-17):** The `router.prefetch()` fix above did not actually stop the beating-logo flash on the modal route — the real fix was removing `@modal/(.)events/[slug]/loading.tsx` entirely. That file could only ever be reached via an in-app client-side transition (interception never applies to a cold/direct-URL open, typed address, or refresh — those always resolve `events/[slug]/page.tsx` instead), so it structurally never served a legitimate cold-open case. Removing it lets Next.js's default behavior (keep the current content mounted and interactive during a dynamic-segment transition, swap in once ready) take over instead of flashing a fallback — exactly matching the requirement that the loader only ever appear for a genuine direct-URL open. See `project-context.md`'s Route-Level Suspense Fallback rule addendum for the corrected pattern.
   - `EventDetailWrapper.test.tsx`, `EventDetailWrapper.swipe-navigation.test.tsx`, and `event-preview-card.test.tsx` cover: button-click and swipe-commit navigation, peek-preview rendering (both real-image and boundary/no-context cases), and the new skeleton shape.
   - `en.json`/`id.json`'s `EventDetailsPage.previous`/`.next` keys unchanged — no locale key changes needed for AC13.
+- [ ] **Task 16 (AC15) — Wire `videoUrl` through the query, codegen, and mapper (`apps/web`):**
+  - Add `videoUrl` to the `getEventBySlug` query in `apps/web/src/features/events/queries.graphql`, directly alongside the existing `imageUrl` selection (same query, same level — no new operation document).
+  - Regenerate the web codegen output: `pnpm --filter web codegen` (runs `graphql-codegen --config codegen.ts && node fix-codegen.js` per `apps/web/package.json`). Commit the regenerated `apps/web/src/generated/graphql.ts` — do not hand-edit it, and do not leave it as uncommitted local drift.
+  - In `apps/web/src/features/events/mapper.ts`'s `mapGraphQLEventToDetailViewProps`, add `videoUrl: event.videoUrl` and `videoAlt: event.eventName` to the returned prop object, immediately next to the existing `imageUrl: event.imageUrl, imageAlt: event.eventName` lines — `videoAlt` reuses `event.eventName` following the exact same derivation `imageAlt` already uses (no separate video-caption field exists or is needed).
+  - Do **not** set `imageFallbackUrl` — leave it unset/`undefined` (forward-compat prop for a future story, per AC15's Out of Scope note).
+  - Extend `apps/web/src/features/events/EventDetailWrapper.test.tsx`: add `videoUrl: null` to the module-level `currentMockEvent` fixture (both its initial declaration and the `beforeEach` reset) so existing assertions stay explicit about the image-only path, and add one new test case that sets `currentMockEvent.videoUrl` to a real URL before rendering and asserts the rendered output takes the video path (e.g. a `<video>` element is present, sourced from that URL) rather than the plain `<img>` path — reusing `EventImage`'s already-built-and-tested video rendering (Story 1.6a), not re-testing its internals here. Confirm all pre-existing test cases (image-only, `videoUrl` absent) still pass unmodified.
 
 ## Dev Notes
 
@@ -84,6 +93,8 @@ Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-c
 - **Gate 2 finding corrected, then reinstated via `bmad-correct-course` (both 2026-08-01):** the previous (pre-split-gate-era) draft of this story required "a link to the original social media post" and "a link to a proxy-platform post URL," asserting "full source URLs are not stored in the database." At Gate 2 time, the subagent and independent verification against `epics.md`'s Story 1.6/1.6a ACs, the PRD, and the UX scenario found **zero grounding** for this requirement and dropped it — the premise was also factually wrong against the schema as it stood (`posts.postUrl` is already stored, and no `platformId`/generic "proxy" concept existed). The user then confirmed the underlying need is real: FestGrid's Instagram scraper is blocked from direct access and scrapes via a proxy/mirror site (`imginn.com`), which happens to preserve Instagram's own post ID, making the original URL derivable for this specific adapter. A `bmad-correct-course` pass (2026-08-01) properly grounded this in PRD §3.3.3/§3.7/§4.7 (`Post.originalPostUrl`, new nullable field/column — see Story 1.2a's amendment) and reinstated it as **AC11** above. The corrected version differs from the stale draft in two ways: (1) no generic `platformId` field is needed — the two URLs (`postUrl`, `originalPostUrl`) are both plain stored strings; (2) derivation of `originalPostUrl` is an adapter-specific concern owned by the scraper (Story 3.4, not yet detailed), not a per-request "read/render time" construction in this story's resolver — this story's `eventBySlug` resolver only needs to select and return both already-stored columns.
 - **Lightweight guard — gap found, resolved inline (not split):** Confirmed by direct read of `apps/backend/src/server.ts` and `apps/backend/codegen.ts` that `events.graphql` (already written by Story 1.3a) is not actually merged into the runtime schema or codegen input (both reference only `typeDefs.graphql`, currently `type Query { health: Boolean! }`). This is a completeness gap in Story 1.3a's own already-approved scope, not a new architectural layer this story is bypassing or absorbing — per the "a story must leave the system working end-to-end" rule, Task 1 fixes the wiring so this story's own `eventBySlug` addition (and 1.3a's pre-existing `events`/`event` fields) are actually reachable. No new prerequisite story warranted; this is a one-line schema-loading fix co-located with the files this story already touches.
 
+**Fresh Gate check (2026-08-26, this reopening for AC15 — videoUrl wiring):** Gate 1/3 re-cited from `epic-1-readiness.md` (`swept: true`, `1.6` in `stories_covered`) — no new infra/foundational dependency: `videoUrl` reuses the identical GraphQL/codegen/mapper pattern `imageUrl` already established in this exact story, no new layer is bypassed. Gate 2 (UI complexity/reusability) — no gap: this AC adds zero new UI. The video-capable rendering already exists and was already independently built+tested in Story 1.6a (`EventImage`'s `<video autoPlay muted loop playsInline>` path, `imageReady`/`videoError` state, fallback-to-image-and-attribution-link on failure) — this story only supplies the real `videoUrl` value into an already-wired prop, the same shape of change as this story's own AC11 (`sourcePostUrl`/`originalPostUrl`, also "select an existing column, map it to an existing prop"). No prerequisite split, no subagent dispatch needed for a change this mechanical — consistent with this file's own "lightweight guard" precedent for the Task 1 schema-wiring fix.
+
 **Fresh Gate check (2026-08-15, this reopening for AC13/AC14) — no gap found, no prerequisite needed.** Unlike Story 1.3g's `WeekPicker.tsx` and Story 1.5's `FilterHub` popover (both `packages/ui` components requiring the new Story 0.28 prerequisite), `EventDetailWrapper.tsx` lives in `apps/web`, which already has its own shadcn `components.json`/`cn()`/`@/*` alias (in active use by `apps/web/src/components/ui/dialog.tsx` already). Adding shadcn `carousel` (Task 15) is a same-package, no-new-tooling addition — no Gate 3 finding, no split.
 
 ### Data Type Compatibility & Migration Requirements
@@ -93,6 +104,8 @@ Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-c
 - **Required TypeScript/schema changes:** Add `slug: String!` to `events.graphql`'s `Event` type (Task 2); no `packages/shared-types` changes needed (`EventInfo.slug` already correct). Add `eventBySlug(slug: String!): Event` to the `Query` type (Task 3). Both are additive, non-breaking schema changes.
 - **Backward compatibility and rollout notes:** Purely additive (new field, new query) — no existing consumer of `events.graphql` is broken. The wiring fix (Task 1) is also purely additive (it starts merging a file that was already written but inert; nothing currently depends on it staying disconnected).
 - **Verification checks:** Integration tests (Task 4) confirm `eventBySlug` returns the correct row, returns `null` for an unknown slug, and only selects GraphQL-requested fields (via `buildOptimizedDrizzleSelect`, same mechanism `event(id)` already uses).
+
+**Amendment (2026-08-26, AC15 — videoUrl wiring):** No new compatibility gap — `Event.videoUrl: String` already exists on the GraphQL schema and in both apps' generated types (Story 3.3c, merged). `EventDetailViewProps.videoUrl?`/`videoAlt?` already exist (Story 1.6a, merged). This amendment only adds a field selection to an existing query, a codegen re-run, and two lines in an existing mapper — no DB migration, no new GraphQL field, no new TypeScript type.
 
 **Amendment (2026-08-01, source-attribution requirement):** `Event.sourcePostUrl`/`Event.originalPostUrl` (Task 14) depend on Story 1.2a's AC7/Task 13 (`posts.original_post_url` nullable column, not yet implemented as of this amendment — see Story 1.2a's Completion Status). `sourcePostUrl` (from the existing `posts.post_url`) has no such dependency and can be implemented immediately. `originalPostUrl` will simply resolve to `null` for every event until both Story 1.2a's migration lands and a scraper adapter (Story 3.4, not yet built) actually populates it for real scraped posts — `EventDetailView`'s AC15 contract already handles an absent value gracefully (link omitted, not broken).
 
@@ -142,6 +155,7 @@ Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-c
 - `apps/web/locales/en.json`, `apps/web/locales/id.json` — UPDATE: new `EventDetailsPage.*` keys.
 - `apps/web/e2e/event-details.spec.ts` — NEW.
 - **Consumed, not modified by this story:** `EventDetailView` (`packages/ui`, Story 1.6a), the context-aware list navigation hook (`packages/ui`, Story 1.6b), `EventCard` (`packages/ui`, Story 1.3b — only its existing `onClick` prop is used).
+- **(AC15, added 2026-08-26):** `apps/web/src/features/events/queries.graphql` — UPDATE: add `videoUrl` to `getEventBySlug`. `apps/web/src/generated/graphql.ts` — regenerated via `pnpm --filter web codegen` (not hand-edited). `apps/web/src/features/events/mapper.ts` — UPDATE: `mapGraphQLEventToDetailViewProps` adds `videoUrl`/`videoAlt`. `apps/web/src/features/events/EventDetailWrapper.test.tsx` — UPDATE: `currentMockEvent` fixture gains `videoUrl`, new video-path test case added. **Out of scope for this amendment:** anything under `apps/backend` or `packages/database` (already-merged Story 3.3c scope; also a concurrently-running sibling story, 3-6e, touches those paths right now).
 
 ### Project Context Reference
 
@@ -174,6 +188,7 @@ Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-c
 - UPDATE `apps/web/locales/en.json`, `apps/web/locales/id.json`: `EventDetailsPage.*` keys.
 - NEW `apps/web/e2e/event-details.spec.ts`.
 - **(AC13, Task 15, added 2026-08-15):** NEW `apps/web/src/components/ui/carousel.tsx` (shadcn CLI output, `apps/web`'s own existing setup). UPDATE `apps/web/src/features/events/EventDetailWrapper.tsx` — Next/Previous restyled as `Carousel` chrome, wired to existing `handleNext`/`handlePrevious`.
+- **(AC15, Task 16, added 2026-08-26):** UPDATE `apps/web/src/features/events/queries.graphql` (add `videoUrl` to `getEventBySlug`), regenerate `apps/web/src/generated/graphql.ts` (`pnpm --filter web codegen`), UPDATE `apps/web/src/features/events/mapper.ts` (add `videoUrl`/`videoAlt`), UPDATE `apps/web/src/features/events/EventDetailWrapper.test.tsx` (fixture + new video-path test case).
 - **Consumed, not modified:** `EventDetailView` (1.6a), context-aware list navigation hook (1.6b), `EventCard` (1.3b).
 
 ### Rule Mapping
@@ -186,6 +201,7 @@ Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-c
 - Interception correctness (AC1, AC7) → `onClick`/`router.push` instead of `EventCard`'s `href`, and `@modal`/`(.)events/[slug]` parallel+intercepting route structure.
 - Dynamic page title & meta tags (AC12, `project-context.md`) → both routes split into Server Component `page.tsx` (`generateMetadata` + `buildPageMetadata`, Story 1.9's helper) + colocated `"use client"` content file, per Story 1.9's established convention.
 - *AD-9-adjacent consistency (AC13)* → `Carousel` chrome sourced via `apps/web`'s own shadcn setup (no `packages/ui`/Story 0.28 dependency, since this component isn't a `packages/ui` primitive); the single-slide usage explicitly keeps Story 1.6b's async navigation as the sole source of "what's next," never Embla's own index state.
+- Reuse boundaries (AC15) → `EventDetailView`'s video rendering (1.6a) and `Event.videoUrl` (3.3c) are consumed, not reimplemented; this story only supplies the field selection + prop mapping connecting the two, mirroring AC11's `sourcePostUrl`/`originalPostUrl` pattern.
 
 ### Verification Plan
 
@@ -195,6 +211,7 @@ Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-c
 - Manual/automated check: refreshing the browser while the modal is open still resolves to the full-page route (proves interception is client-nav-only, not a workaround).
 - `pnpm --filter backend test`, `pnpm --filter backend lint`, `pnpm --filter web lint`, `pnpm --filter web build` (type-check), `pnpm --filter web test`, `pnpm --filter web test:e2e` all clean.
 - **(AC13)** Next/Previous still call the existing `handleNext`/`handlePrevious` under the new `Carousel` chrome; disabled/loading states preserved; keyboard operability of the new controls.
+- **(AC15, added 2026-08-26)** `EventDetailWrapper.test.tsx`: a video-bearing event (`currentMockEvent.videoUrl` set) renders `EventDetailView`'s video path; existing image-only test cases (no `videoUrl`) pass unmodified — regression, not new scope. `pnpm --filter web codegen` re-run cleanly and its output committed. `pnpm --filter web lint`/`build`/`test` all clean.
 
 ## Pre-Coding Approval Gate
 
@@ -208,6 +225,7 @@ Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-c
 - [x] Testing plan reviewed (backend integration tests + Playwright E2E for modal-open and deep-link-fallback).
 - [x] Human approval to start coding granted (approved)
 - [x] **(2026-08-15 reopening) AC13/AC14 scope confirmed:** AC14 (icon-only close) is already implemented — verification only (Task 15a). AC13 (`Carousel` chrome) is genuinely outstanding (Task 15); no `packages/ui`/Story 0.28 dependency, since `EventDetailWrapper.tsx` uses `apps/web`'s own existing shadcn setup. The original checklist items above (AC1-12) predate this reopening and reflect the story's original pending-approval state at creation — Tasks 1-14 are separately confirmed already implemented in the running app (see Dev Notes → Current Implementation State), not re-litigated here.
+- [x] **(2026-08-26 reopening) AC15 scope confirmed:** pure wiring — `Event.videoUrl` (Story 3.3c) and `EventDetailViewProps.videoUrl`/`videoAlt` (Story 1.6a) both already exist and are merged to master; this amendment only adds a query field, a codegen re-run, and a two-line mapper addition (Task 16). `imageFallbackUrl` explicitly not wired (reserved for future Story 3-6f). No new prerequisite story; no Gate 1/2/3 subagent dispatch warranted for a change this mechanical (see Architecture & UX Gate Findings). Scoped strictly to `apps/web` — no changes to `apps/backend` or `packages/database`, which a concurrently-running sibling story (3-6e) is touching in a separate worktree.
 
 ## Testing Requirements
 
@@ -218,6 +236,7 @@ Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-c
 - [ ] 100% coverage is not mandated here — that requirement is scoped to `packages/domain` only; this story introduces no `packages/domain` logic.
 - [ ] Use `@festgrid/testing-config` conventions already established by sibling stories (Story 0.10) — no ad hoc test setup.
 - [ ] **(AC13, added 2026-08-15)** Next/Previous under the new `Carousel` chrome still call `handleNext`/`handlePrevious` correctly; disabled/loading states preserved; keyboard operability of the new controls.
+- [ ] **(AC15, added 2026-08-26)** `EventDetailWrapper.test.tsx` covers a video-bearing event rendering the video path; all pre-existing image-only cases still pass unmodified.
 
 ## Deliverables Checklist
 
@@ -232,6 +251,7 @@ Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-c
 - [ ] **(Amendment, 2026-08-01)** Both the full-page route and the intercepted modal route export `generateMetadata` (via `buildPageMetadata`/next-intl `getTranslations()`) with an event-specific title/description, per the `page.tsx` + colocated client-content-file split (AC12).
 - [x] **(AC14, added 2026-08-13, already shipped)** Modal-mode close control is icon-only with `aria-label`/`sr-only` text.
 - [x] **(AC13, added 2026-08-13, amended 2026-08-16, corrected 2026-08-17)** Next/Previous presented with shadcn `Carousel` chrome and 3-slide peek previews, wired to the existing async navigation (Task 15); peek shape mirrors `EventDetailView`'s skeleton (including the header-controls row); the modal route's `RouteLoader` no longer flashes on in-app navigation (fixed by removing `@modal/(.)events/[slug]/loading.tsx`, not by prefetching — see Task 15's 2026-08-17 correction note).
+- [ ] **(AC15, added 2026-08-26)** `getEventBySlug` selects `videoUrl`; `mapGraphQLEventToDetailViewProps` maps `videoUrl`/`videoAlt` onto `EventDetailView`; codegen regenerated and committed; test coverage added for the video-bearing path.
 
 ### Review Findings
 
@@ -251,6 +271,9 @@ Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-c
 - The `posts.original_post_url` migration itself — Story 1.2a's AC7/Task 13, not this story's.
 - **A second full `EventDetailView` mounted at once** — AC13 keeps exactly one `EventDetailView` mounted; adjacent slides are lightweight `EventPreviewCard` peeks (image + skeleton), never a second full detail fetch. *(Supersedes the prior "no true multi-slide carousel" bullet now that peek previews are in scope, per `sprint-change-proposal-2026-08-16-detail-carousel-ux-fixes.md`.)*
 - **Story 0.28** (`packages/ui`'s shadcn/Radix setup) — not a dependency of this story; `EventDetailWrapper.tsx` uses `apps/web`'s own separate, already-existing shadcn setup.
+- **`imageFallbackUrl` wiring (AC15's explicit non-scope)** — forward-compat prop on `EventDetailViewProps`, reserved for a future Story 3-6f which will add a `durableImageUrl` GraphQL field (Wave 3 of `sprint-change-proposal-2026-08-25-video-priority-display.md`, not yet built). Left unset/`undefined` here.
+- **Backend `Event.videoUrl` field / resolver / DB column** — already built and merged, Story 3.3c's scope, not this story's.
+- **`EventDetailView`'s video-capable rendering internals** (autoplay/muted/loop, failure fallback, attribution link) — already built and merged, Story 1.6a's scope, not this story's.
 
 ## Definition of Done
 
@@ -262,7 +285,9 @@ Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-c
 
 ## Completion Status
 
-**✅ COMPLETE — Ready for Review (2026-08-20)**
+**Reopened 2026-08-26 — ready-for-dev, AC15 (videoUrl wiring) outstanding.** AC1-14 remain complete and unaffected (see below). Scope: `apps/web/src/features/events/queries.graphql` (add `videoUrl` to `getEventBySlug`), codegen re-run, `apps/web/src/features/events/mapper.ts` (`videoUrl`/`videoAlt` mapping), `EventDetailWrapper.test.tsx` (video-path test case). Pure wiring against two already-merged endpoints (Story 3.3c's `Event.videoUrl`, Story 1.6a's `EventDetailViewProps.videoUrl`/`videoAlt`) — no new design decisions, per `sprint-change-proposal-2026-08-25-video-priority-display.md` Section 4.5/Section 7 (Wave 2).
+
+**✅ COMPLETE — Ready for Review (2026-08-20)** *(AC1-14, predates the 2026-08-26 AC15 reopening above)*
 
 **Reopened 2026-08-15** — AC1-12 previously complete (`Done` status, though this file's own Pre-Coding Approval Gate checkboxes and Dev Agent Record were never filled in — a bookkeeping gap, not evidence of missing implementation; `EventDetailWrapper.tsx` on disk confirms AC1-12 are built). AC14 (icon-only close) already shipped via the failed `bmad-quick-dev` run's final commit. AC13 (`Carousel` chrome) shipped 2026-08-16, including a user-requested scope amendment to 3-slide peek previews and swipe-gesture navigation beyond the original single-slide text, followed by a same-day `bmad-correct-course` pass (`sprint-change-proposal-2026-08-16-detail-carousel-ux-fixes.md`) fixing two UX regressions surfaced during manual testing: peek/active slide size mismatch, and the route-level `RouteLoader` incorrectly showing on in-app Next/Previous navigation.
 

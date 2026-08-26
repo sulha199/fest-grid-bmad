@@ -408,7 +408,15 @@ development_status:
   # Reopened 2026-08-25 via bmad-correct-course: wires the new videoUrl field
   # from the GraphQL query through to EventDetailView (Story 1.6a's amendment).
   # See sprint-change-proposal-2026-08-25-video-priority-display.md.
-  1-6-view-event-details: review
+  # Story drafted 2026-08-26/27 via bmad-create-story: added AC15/Task 16 --
+  # pure wiring against two already-merged endpoints (Story 3.3c's
+  # Event.videoUrl, Story 1.6a's EventDetailViewProps.videoUrl/videoAlt). No
+  # Gate 1/2/3 subagent dispatch (epic-1-readiness.md already swept and covers
+  # 1.6; change is mechanical, same shape as this story's own AC11). Scoped to
+  # apps/web only (queries.graphql, generated codegen, mapper.ts,
+  # EventDetailWrapper.test.tsx) -- does not touch apps/backend/packages/
+  # database, where sibling Story 3-6e is concurrently working.
+  1-6-view-event-details: ready-for-dev
   1-7a-build-the-reusable-blockingloader-component: review
   1-7-user-signup-and-login-with-google: review
   1-8-setup-posthog-analytics: review
