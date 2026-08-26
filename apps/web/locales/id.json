@@ -451,6 +451,10 @@
         "subscribe": {
           "title": "Berlangganan",
           "description": "Berlangganan akun media sosial pertama Anda."
+        },
+        "notifications": {
+          "title": "Aktifkan Notifikasi",
+          "description": "Tetap terperbarui dengan notifikasi push."
         }
       }
     }
@@ -472,7 +476,11 @@
     "subscribeSuccessToast": "Berhasil berlangganan akun!",
     "alreadySubscribedToast": "Anda sudah berlangganan akun ini.",
     "subscribeErrorToast": "Gagal berlangganan akun. Silakan coba lagi.",
-    "invalidHandleError": "Silakan masukkan handle atau tautan profil yang valid."
+    "invalidHandleError": "Silakan masukkan handle atau tautan profil yang valid.",
+    "notificationToggleLabel": "Aktifkan notifikasi push",
+    "notificationToggleDescription": "Terima notifikasi untuk acara festival musik dan pengumuman baru.",
+    "notificationPermissionDeniedToast": "Silakan aktifkan izin notifikasi di pengaturan browser Anda untuk menerima notifikasi di perangkat ini.",
+    "notificationSaveErrorToast": "Gagal memperbarui pengaturan notifikasi. Silakan coba lagi."
   },
   "ApiKeysSettingsPage": {
     "title": "Kunci API Saya",
