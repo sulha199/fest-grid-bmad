@@ -456,7 +456,7 @@ development_status:
   # already-implemented feature: the original nearby-filter build itself, not
   # the compact-presentation ask). Confirmed via direct code inspection: AC13
   # mirrors FilterHub.tsx's existing Type/Category renderFacet pattern exactly.
-  2-5-find-nearby-events: ready-for-dev
+  2-5-find-nearby-events: review
   # added 2026-08-06 via bmad-create-story Gate 2/escape-hatch finding while drafting
   # Story 2.6 — no story wires the "Add to Calendar" trigger UI (flagged but deferred
   # by epic-2-readiness.md's "Anticipated Gate 2 note" and Stories 2.1/2.1b's own

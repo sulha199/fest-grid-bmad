@@ -22,7 +22,7 @@ export function LocationRadiusFilter({
   const showRadiusSlider = selectedValue !== "off" && selectedValue !== null;
 
   return (
-    <div className={`flex flex-col gap-4 p-4 border rounded-lg bg-card text-card-foreground shadow-sm ${className}`}>
+    <div className={`flex flex-col gap-4 ${className}`}>
       <div className="flex flex-col gap-2">
         <label htmlFor="nearby-location-select" className="text-sm font-medium">
           {labels.filterLabel}
