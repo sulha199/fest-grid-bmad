@@ -9,6 +9,7 @@ export interface WeeklyCalendarViewScheduleShape {
   eventEndTime?: string | null;
   isFavorited?: boolean;
   isAddedToCalendar?: boolean;
+  favoriteCount?: number;
 }
 
 export interface WeeklyCalendarViewLabels {

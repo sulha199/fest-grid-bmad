@@ -732,7 +732,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
         id={elementId}
         type="button"
         tabIndex={cardIdx >= 0 ? (isRovingActive ? 0 : -1) : 0}
-        className={`${baseButtonClass} ${multiDayRoundingClass} w-full truncate block`}
+        className={`${baseButtonClass} ${multiDayRoundingClass} w-full block`}
         onClick={() => onScheduleClick(schedule)}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
@@ -741,14 +741,22 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
         onKeyDown={handleKeyDownLocal}
         aria-describedby={tooltipVisible ? `tooltip-${dayIdx}-${schedule.id}` : undefined}
       >
-        <span className="flex items-center gap-1 w-full truncate text-left">
-          {schedule.isFavorited && (
-            <Heart className="w-3 h-3 text-rose-500 fill-rose-500 shrink-0 inline" aria-label={favoritedBadgeLabel || 'Favorited'} data-testid="heart-icon" />
+        <span className="flex flex-col w-full text-left">
+          <span className="flex items-center gap-1 w-full truncate text-left">
+            {schedule.isFavorited && (
+              <Heart className="w-3 h-3 text-rose-500 fill-rose-500 shrink-0 inline" aria-label={favoritedBadgeLabel || 'Favorited'} data-testid="heart-icon" />
+            )}
+            {schedule.isAddedToCalendar && (
+              <CalendarPlus className="w-3 h-3 text-emerald-600 shrink-0 inline" aria-label={addedToCalendarBadgeLabel || 'Added to calendar'} data-testid="calendar-plus-icon" />
+            )}
+            <span className={`${weightClass} truncate block`}>{schedule.eventName}</span>
+          </span>
+          {schedule.favoriteCount !== undefined && schedule.favoriteCount > 0 && (
+            <span className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5" data-testid="favorite-count-line">
+              <Heart className="w-2.5 h-2.5 text-rose-500 shrink-0 inline" aria-label="Favorites" />
+              <span>{schedule.favoriteCount}</span>
+            </span>
           )}
-          {schedule.isAddedToCalendar && (
-            <CalendarPlus className="w-3 h-3 text-emerald-600 shrink-0 inline" aria-label={addedToCalendarBadgeLabel || 'Added to calendar'} data-testid="calendar-plus-icon" />
-          )}
-          <span className={`${weightClass} truncate block`}>{schedule.eventName}</span>
         </span>
       </button>
 

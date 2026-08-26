@@ -296,7 +296,7 @@ development_status:
   # Also found AC13 (WeekPicker) was already implemented and unblocked, despite
   # this file's stale "blocked on Story 0.28" header. Depends on Story 2.1a's
   # favoriteCount GraphQL field.
-  1-3g-build-the-reusable-weeklycalendarview-component: ready-for-dev
+  1-3g-build-the-reusable-weeklycalendarview-component: review
   # added 2026-08-05 via bmad-create-story Gate 1 finding while drafting Story 1.3f —
   # the events resolver's main-schedule-only join can't correctly date-range-filter
   # sub-schedules; needs its own EXISTS-subquery DSL field + GiST index migration.
