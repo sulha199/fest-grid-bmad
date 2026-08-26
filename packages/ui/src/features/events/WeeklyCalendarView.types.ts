@@ -36,6 +36,14 @@ export interface WeeklyCalendarViewLabels {
    * Falls back to a plain `+${count} more` if omitted.
    */
   moreLabel?: (count: number) => string;
+  /**
+   * Mobile list-view segment text for multi-day schedules, showing the day number and total days.
+   * A resolver FUNCTION, not a static string, because the day offset and total days are only known
+   * after this component's own day-segment logic runs — the caller (Story 1.3f's `CalendarView`)
+   * wraps its next-intl translation message: `(dayNumber, totalDays) => t('calendarMultiDaySegmentLabel', { dayNumber, totalDays })`.
+   * Falls back to `Day ${dayNumber} of ${totalDays}` if omitted.
+   */
+  multiDaySegmentLabel?: (dayNumber: number, totalDays: number) => string;
   /** aria-label for the "+N more" popover's dismiss control */
   closePopoverLabel?: string;
   /** Shown while `status === 'loading'` (aria-label on the skeleton grid) */

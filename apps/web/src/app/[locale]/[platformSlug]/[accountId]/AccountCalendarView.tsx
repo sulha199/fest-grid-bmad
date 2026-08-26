@@ -97,6 +97,7 @@ export default function AccountCalendarView({ q, types, categories, profile }: A
     selectWeekLabel: t('calendarSelectWeekLabel'),
     chooseWeekLabel: t('calendarChooseWeekLabel'),
     moreLabel: (count: number) => t('calendarMoreLabel', { count }),
+    multiDaySegmentLabel: (dayNumber: number, totalDays: number) => t('calendarMultiDaySegmentLabel', { dayNumber, totalDays }),
     closePopoverLabel: t('calendarClosePopoverLabel'),
   };
 

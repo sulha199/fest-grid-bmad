@@ -92,6 +92,7 @@ export function FeedCalendarView({ q, types, categories, subscriptions }: FeedCa
     selectWeekLabel: t('calendarSelectWeekLabel'),
     chooseWeekLabel: t('calendarChooseWeekLabel'),
     moreLabel: (count: number) => t('calendarMoreLabel', { count }),
+    multiDaySegmentLabel: (dayNumber: number, totalDays: number) => t('calendarMultiDaySegmentLabel', { dayNumber, totalDays }),
     closePopoverLabel: t('calendarClosePopoverLabel'),
   };
 

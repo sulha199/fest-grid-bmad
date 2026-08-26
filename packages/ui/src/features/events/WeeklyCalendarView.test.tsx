@@ -1,9 +1,71 @@
 /// <reference types="@testing-library/jest-dom" />
 import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen as rtlScreen, fireEvent, cleanup, within } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { WeeklyCalendarView } from './WeeklyCalendarView';
 import { ScopedLocaleProvider } from '../../hooks/useScopedLocale';
+
+// Custom screen wrapper to automatically scope existing desktop-grid assertions
+const screen = {
+  ...rtlScreen,
+  getByText: (text: string | RegExp, options?: any) => {
+    const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
+    if (desktop) {
+      try {
+        return within(desktop).getByText(text, options);
+      } catch {}
+    }
+    return rtlScreen.getByText(text, options);
+  },
+  getAllByText: (text: string | RegExp, options?: any) => {
+    const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
+    if (desktop) {
+      try {
+        return within(desktop).getAllByText(text, options);
+      } catch {}
+    }
+    return rtlScreen.getAllByText(text, options);
+  },
+  queryByText: (text: string | RegExp, options?: any) => {
+    const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
+    if (desktop) {
+      return within(desktop).queryByText(text, options);
+    }
+    return rtlScreen.queryByText(text, options);
+  },
+  getByRole: (role: string, options?: any) => {
+    const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
+    if (desktop) {
+      try {
+        return within(desktop).getByRole(role, options);
+      } catch {}
+    }
+    return rtlScreen.getByRole(role, options);
+  },
+  queryByRole: (role: string, options?: any) => {
+    const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
+    if (desktop) {
+      return within(desktop).queryByRole(role, options);
+    }
+    return rtlScreen.queryByRole(role, options);
+  },
+  getByLabelText: (text: string | RegExp, options?: any) => {
+    const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
+    if (desktop) {
+      try {
+        return within(desktop).getByLabelText(text, options);
+      } catch {}
+    }
+    return rtlScreen.getByLabelText(text, options);
+  },
+  queryByLabelText: (text: string | RegExp, options?: any) => {
+    const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
+    if (desktop) {
+      return within(desktop).queryByLabelText(text, options);
+    }
+    return rtlScreen.queryByLabelText(text, options);
+  },
+};
 
 describe('WeeklyCalendarView', () => {
   afterEach(() => {
@@ -290,7 +352,6 @@ describe('WeeklyCalendarView', () => {
     const wed0 = screen.getAllByText('Tech Workshop')[0].closest('button')!;
     const wed1 = screen.getByText('Main Stage Concert').closest('button')!;
     const thu0 = screen.getAllByText('Tech Workshop')[1].closest('button')!;
-    const thu1 = screen.getByText('Gallery Tour').closest('button')!;
 
     // Initial roving tabIndex=0 is wed0 (Tech Workshop, since it sorts before Main Stage Concert as 09:00:00 vs 18:00:00)
     expect(wed0).toHaveAttribute('tabIndex', '0');
@@ -330,7 +391,7 @@ describe('WeeklyCalendarView', () => {
 
   it('loading and error state status rendering behaves correctly', () => {
     // Loading State
-    const { rerender } = render(<WeeklyCalendarView {...defaultProps} status="loading" />);
+    render(<WeeklyCalendarView {...defaultProps} status="loading" />);
     expect(screen.getByLabelText('Loading calendar view...')).toBeInTheDocument();
     expect(screen.queryByText('Main Stage Concert')).not.toBeInTheDocument();
 
@@ -464,5 +525,165 @@ describe('WeeklyCalendarView', () => {
     // Event with Undefined Favorites should NOT have favorite-count-line
     const cardWithUndefined = screen.getByText('Event with Undefined Favorites').closest('button');
     expect(cardWithUndefined?.querySelector('[data-testid="favorite-count-line"]')).not.toBeInTheDocument();
+  });
+
+  describe('Mobile Vertical List View (AC15)', () => {
+    it('renders one row per non-empty day and omits empty days entirely', () => {
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const rows = within(mobileView).getAllByTestId('mobile-day-row');
+      expect(rows).toHaveLength(3);
+      expect(within(mobileView).getByText('5 Wed')).toBeInTheDocument();
+      expect(within(mobileView).getByText('6 Thu')).toBeInTheDocument();
+      expect(within(mobileView).getByText('7 Fri')).toBeInTheDocument();
+      expect(within(mobileView).queryByText('8 Sat')).not.toBeInTheDocument();
+    });
+
+    it('renders a multi-day schedule with cross-week Day X of N badges and single-day without badges', () => {
+      const longSchedule = [
+        {
+          id: 'long-1',
+          eventSlug: 'long-fest',
+          eventName: 'Long Festival',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-02', // Sun
+          eventEndDate: '2026-08-11', // Tue (10 days total)
+        },
+        {
+          id: 'single-1',
+          eventSlug: 'music-fest',
+          eventName: 'Single Day Event',
+          isMainSchedule: false,
+          eventStartDate: '2026-08-05', // Wed
+        }
+      ];
+
+      const multiDaySegmentLabel = vi.fn((dayNumber: number, totalDays: number) => `Day ${dayNumber}/${totalDays} customized`);
+
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={longSchedule}
+            labels={{ multiDaySegmentLabel }}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      expect(multiDaySegmentLabel).toHaveBeenCalledWith(4, 10);
+      expect(multiDaySegmentLabel).toHaveBeenCalledWith(5, 10);
+
+      const customizedBadges = within(mobileView).getAllByText(/customized/);
+      expect(customizedBadges[0]).toHaveTextContent('Day 4/10 customized');
+
+      const singleDayCard = within(mobileView).getByText('Single Day Event').closest('button');
+      expect(singleDayCard?.querySelector('[data-testid="multi-day-badge"]')).not.toBeInTheDocument();
+    });
+
+    it('falls back to default string when multiDaySegmentLabel is omitted', () => {
+      const longSchedule = [
+        {
+          id: 'long-1',
+          eventSlug: 'long-fest',
+          eventName: 'Long Festival',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-02',
+          eventEndDate: '2026-08-11',
+        }
+      ];
+
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={longSchedule}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      expect(within(mobileView).getByText('Day 4 of 10')).toBeInTheDocument();
+    });
+
+    it('never caps events or shows a popover trigger, rendering all schedules', () => {
+      const threeEvents = [
+        { id: '1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
+        { id: '2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
+        { id: '3', eventName: 'Event 3', isMainSchedule: true, eventStartDate: '2026-08-05' },
+      ];
+
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={threeEvents}
+            maxEventsPerDay={1} // Cap desktop but NOT mobile
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      expect(within(mobileView).getByText('Event 1')).toBeInTheDocument();
+      expect(within(mobileView).getByText('Event 2')).toBeInTheDocument();
+      expect(within(mobileView).getByText('Event 3')).toBeInTheDocument();
+      expect(within(mobileView).queryByText(/\+.*more/)).not.toBeInTheDocument();
+    });
+
+    it('renders always-visible time range inline text and favorite count inside list-variant', () => {
+      const schedule = [
+        {
+          id: '1',
+          eventSlug: 'test',
+          eventName: 'Time and Fav Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+          eventStartTime: '18:00:00',
+          eventEndTime: '21:00:00',
+          favoriteCount: 15,
+        }
+      ];
+
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={schedule}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      
+      // Inline time range text
+      const inlineTime = within(mobileView).getByTestId('time-range-inline');
+      expect(inlineTime).toBeInTheDocument();
+      expect(inlineTime).toHaveTextContent(/18:00|6:00/);
+
+      // Favorite count line
+      const favLine = within(mobileView).getByTestId('favorite-count-line');
+      expect(favLine).toBeInTheDocument();
+      expect(favLine).toHaveTextContent('15');
+    });
+
+    it('uses plain linear Tab stops with tabIndex=0 and no roving attributes in list-variant', () => {
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const cards = within(mobileView).getAllByRole('button');
+
+      cards.forEach((card) => {
+        expect(card).toHaveAttribute('tabIndex', '0');
+      });
+    });
   });
 });

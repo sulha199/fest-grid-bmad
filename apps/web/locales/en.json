@@ -62,6 +62,7 @@
     "calendarSelectWeekLabel": "Select week",
     "calendarChooseWeekLabel": "Choose a week",
     "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
+    "calendarMultiDaySegmentLabel": "Day {dayNumber} of {totalDays}",
     "calendarErrorState": "Failed to load calendar events.",
     "calendarClosePopoverLabel": "Close popover"
   },
@@ -201,6 +202,7 @@
     "calendarSelectWeekLabel": "Select week",
     "calendarChooseWeekLabel": "Choose a week",
     "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
+    "calendarMultiDaySegmentLabel": "Day {dayNumber} of {totalDays}",
     "calendarErrorState": "Failed to load calendar events.",
     "calendarClosePopoverLabel": "Close popover"
   },
@@ -223,6 +225,7 @@
     "calendarSelectWeekLabel": "Select week",
     "calendarChooseWeekLabel": "Choose a week",
     "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
+    "calendarMultiDaySegmentLabel": "Day {dayNumber} of {totalDays}",
     "calendarErrorState": "Failed to load calendar events.",
     "calendarClosePopoverLabel": "Close popover"
   },
@@ -423,6 +426,7 @@
     "calendarSelectWeekLabel": "Select week",
     "calendarChooseWeekLabel": "Choose a week",
     "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
+    "calendarMultiDaySegmentLabel": "Day {dayNumber} of {totalDays}",
     "calendarErrorState": "Failed to load calendar events.",
     "calendarClosePopoverLabel": "Close popover",
     "showFavoritedLabel": "Show favorited",

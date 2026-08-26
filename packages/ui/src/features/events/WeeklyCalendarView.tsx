@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, X, Heart, CalendarPlus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Heart, CalendarPlus, CalendarRange } from 'lucide-react';
 import { WeekPicker } from '../../core/WeekPicker';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type {
@@ -50,6 +50,26 @@ function formatWeekRange(
     }
   }
 }
+
+/**
+ * Helper to normalize a date object to YYYY-MM-DD for reliable string comparisons.
+ */
+const toISODateString = (d: Date) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Helper to calculate absolute days difference between two ISO-8601 date strings.
+ */
+const diffInDays = (startStr: string, endStr: string) => {
+  const start = new Date(`${startStr}T12:00:00Z`);
+  const end = new Date(`${endStr}T12:00:00Z`);
+  const diffMs = end.getTime() - start.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+};
 
 /**
  * Format day header helper with graceful degradation.
@@ -209,16 +229,6 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     }
     return days;
   }, [weekStart]);
-
-  const weekEnd = visibleDays[6];
-
-  // Helper to normalize a date object to YYYY-MM-DD for reliable string comparisons
-  const toISODateString = (d: Date) => {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
 
   // 2. Bucketing schedules/segments into visible days
   const dayBuckets = useMemo(() => {
@@ -438,7 +448,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
             <div className="h-8 w-10 bg-gray-200 rounded" />
           </div>
         </div>
-        <div className={GRID_WEEKLY_CLASS}>
+        {/* Desktop Skeleton */}
+        <div className={`${GRID_WEEKLY_CLASS} hidden md:grid`}>
           {Array.from({ length: 7 }).map((_, i) => (
             <div key={i} className="flex flex-col">
               <div className="h-10 bg-gray-100 border-b border-gray-200 flex items-center justify-center">
@@ -447,6 +458,17 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
               <div className={`${DAY_CELL_CLASS} bg-white`}>
                 <div className="h-6 w-full bg-gray-200 rounded mt-1" />
                 <div className="h-6 w-full bg-gray-200 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Mobile Skeleton */}
+        <div className="flex flex-col divide-y divide-gray-200 md:hidden p-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex flex-col gap-1 py-3">
+              <div className="h-4 w-24 bg-gray-200 rounded px-1 mb-2" />
+              <div className="flex flex-col gap-2 px-1">
+                <div className="h-12 w-full bg-gray-200 rounded" />
               </div>
             </div>
           ))}
@@ -515,8 +537,10 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
         </div>
       </div>
 
-      {/* Day Headers */}
-      <div className={GRID_WEEKLY_CLASS}>
+      {/* Desktop layout */}
+      <div className="hidden md:block" data-testid="desktop-calendar-view">
+        {/* Day Headers */}
+        <div className={GRID_WEEKLY_CLASS}>
         {visibleDays.map((day, idx) => {
           const headerStr = formatDayHeader(activeLocale, activeTimezone, day);
           return (
@@ -619,6 +643,43 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
         })}
       </div>
     </div>
+
+    {/* Mobile Vertical Day List (AC15) */}
+    <div className="md:hidden flex flex-col divide-y divide-gray-200 p-4" data-testid="mobile-calendar-view">
+      {dayBuckets
+        .map((bucket, dayIdx) => ({ bucket, dayIdx, dayDate: visibleDays[dayIdx] }))
+        .filter(({ bucket }) => bucket.length > 0)
+        .map(({ bucket, dayIdx, dayDate }) => {
+          const headerStr = formatDayHeader(activeLocale, activeTimezone, dayDate);
+          return (
+            <div key={dayIdx} className="flex flex-col gap-1 py-3" data-testid="mobile-day-row">
+              <div className="text-sm font-medium text-left px-1 mb-1">
+                {headerStr}
+              </div>
+              <div className="flex flex-col gap-2 px-1">
+                {bucket.map((seg) => (
+                  <CalendarCard
+                    key={seg.schedule.id}
+                    segment={seg}
+                    dayIdx={dayIdx}
+                    cardIdx={-1} // Non-grid / plain Tab stop
+                    isRovingActive={false}
+                    locale={activeLocale}
+                    timezone={activeTimezone}
+                    onScheduleClick={onScheduleClick}
+                    variant="list"
+                    currentDayStr={toISODateString(dayDate)}
+                    multiDaySegmentLabel={labels?.multiDaySegmentLabel}
+                    favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
+                    addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+    </div>
+  </div>
   );
 }
 
@@ -634,6 +695,9 @@ interface CalendarCardProps<TSchedule> {
   onFocus?: () => void;
   favoritedBadgeLabel?: string;
   addedToCalendarBadgeLabel?: string;
+  variant?: 'grid' | 'list';
+  currentDayStr?: string;
+  multiDaySegmentLabel?: (dayNumber: number, totalDays: number) => string;
 }
 
 /**
@@ -651,6 +715,9 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   onFocus,
   favoritedBadgeLabel,
   addedToCalendarBadgeLabel,
+  variant = 'grid',
+  currentDayStr,
+  multiDaySegmentLabel,
 }: CalendarCardProps<TSchedule>) {
   const { schedule, isFirstSegment, isLastSegment } = segment;
 
@@ -659,7 +726,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   const [isFocused, setIsFocused] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
-  const tooltipVisible = (isHovered || isFocused) && !isDismissed;
+  const tooltipVisible = variant === 'grid' && (isHovered || isFocused) && !isDismissed;
 
   const tooltipText = useMemo(() => {
     return formatTooltipTimeRange(
@@ -688,7 +755,9 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   const handleFocus = () => {
     setIsDismissed(false);
     setIsFocused(true);
-    onFocus?.();
+    if (variant === 'grid') {
+      onFocus?.();
+    }
   };
 
   const handleBlur = () => {
@@ -699,7 +768,9 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
     if (e.key === 'Escape') {
       setIsDismissed(true);
     }
-    onKeyDown?.(e);
+    if (variant === 'grid') {
+      onKeyDown?.(e);
+    }
   };
 
   const isMultiDay = schedule.eventEndDate && schedule.eventEndDate !== schedule.eventStartDate;
@@ -712,26 +783,39 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   // Rounded corners styling for multi day clamping segments
   let multiDayRoundingClass = "";
   if (isMultiDay) {
-    if (isFirstSegment && isLastSegment) {
+    if (variant === 'list') {
       multiDayRoundingClass = "rounded-md";
-    } else if (isFirstSegment) {
-      multiDayRoundingClass = "rounded-l-md border-r-0";
-    } else if (isLastSegment) {
-      multiDayRoundingClass = "rounded-r-md border-l-0";
     } else {
-      multiDayRoundingClass = "rounded-none border-x-0";
+      if (isFirstSegment && isLastSegment) {
+        multiDayRoundingClass = "rounded-md";
+      } else if (isFirstSegment) {
+        multiDayRoundingClass = "rounded-l-md border-r-0";
+      } else if (isLastSegment) {
+        multiDayRoundingClass = "rounded-r-md border-l-0";
+      } else {
+        multiDayRoundingClass = "rounded-none border-x-0";
+      }
     }
   }
 
   const baseButtonClass = isMultiDay ? MULTI_DAY_EVENT_CLASS : EVENT_CARD_COMPACT_CLASS;
   const elementId = cardIdx >= 0 ? `calendar-card-${dayIdx}-${cardIdx}` : undefined;
 
+  const multiDayBadgeText = useMemo(() => {
+    if (variant !== 'list' || !isMultiDay) return null;
+    const dayNumber = currentDayStr ? diffInDays(schedule.eventStartDate, currentDayStr) + 1 : 1;
+    const totalDays = schedule.eventEndDate ? diffInDays(schedule.eventStartDate, schedule.eventEndDate) + 1 : 1;
+    return multiDaySegmentLabel
+      ? multiDaySegmentLabel(dayNumber, totalDays)
+      : `Day ${dayNumber} of ${totalDays}`;
+  }, [variant, isMultiDay, currentDayStr, schedule.eventStartDate, schedule.eventEndDate, multiDaySegmentLabel]);
+
   return (
     <div className="relative w-full">
       <button
         id={elementId}
         type="button"
-        tabIndex={cardIdx >= 0 ? (isRovingActive ? 0 : -1) : 0}
+        tabIndex={variant === 'list' ? 0 : (cardIdx >= 0 ? (isRovingActive ? 0 : -1) : 0)}
         className={`${baseButtonClass} ${multiDayRoundingClass} w-full block`}
         onClick={() => onScheduleClick(schedule)}
         onPointerEnter={handlePointerEnter}
@@ -751,10 +835,21 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
             )}
             <span className={`${weightClass} truncate block`}>{schedule.eventName}</span>
           </span>
+          {variant === 'list' && (
+            <span className="text-[11px] text-gray-500 mt-0.5" data-testid="time-range-inline">
+              {tooltipText}
+            </span>
+          )}
           {schedule.favoriteCount !== undefined && schedule.favoriteCount > 0 && (
             <span className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5" data-testid="favorite-count-line">
               <Heart className="w-2.5 h-2.5 text-rose-500 shrink-0 inline" aria-label="Favorites" />
               <span>{schedule.favoriteCount}</span>
+            </span>
+          )}
+          {variant === 'list' && isMultiDay && multiDayBadgeText && (
+            <span className="text-[10px] text-violet-600 flex items-center gap-1 mt-0.5" data-testid="multi-day-badge">
+              <CalendarRange className="w-3 h-3 shrink-0 inline" aria-hidden="true" />
+              <span>{multiDayBadgeText}</span>
             </span>
           )}
         </span>

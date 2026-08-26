@@ -129,6 +129,7 @@ export function MyCalendarContent() {
     selectWeekLabel: t('calendarSelectWeekLabel'),
     chooseWeekLabel: t('calendarChooseWeekLabel'),
     moreLabel: (count: number) => t('calendarMoreLabel', { count }),
+    multiDaySegmentLabel: (dayNumber: number, totalDays: number) => t('calendarMultiDaySegmentLabel', { dayNumber, totalDays }),
     closePopoverLabel: t('calendarClosePopoverLabel'),
     favoritedBadgeLabel: t('favoritedBadgeLabel'),
     addedToCalendarBadgeLabel: t('addedToCalendarBadgeLabel'),
