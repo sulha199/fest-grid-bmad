@@ -163,6 +163,7 @@
   },
   "ManualPostSelectionPage": {
     "title": "Ekstrak Acara",
+    "postsFromLabel": "Postingan dari:",
     "noSubscriptionsEmptyState": "Anda belum berlangganan akun apa pun. Berlanggananlah ke akun untuk mengekstrak acara dari postingan mereka.",
     "noSubscriptionsCta": "Kelola Langganan",
     "noPostsEmptyState": "Tidak ada postingan terbaru untuk akun ini.",

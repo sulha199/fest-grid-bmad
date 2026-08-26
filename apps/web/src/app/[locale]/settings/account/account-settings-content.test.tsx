@@ -150,6 +150,8 @@ describe('AccountSettingsContent Integration', () => {
         </NextIntlClientProvider>
       </QueryClientProvider>
     );
-    await waitFor(() => { expect(screen.getByText('Second Info').closest('button')).toHaveClass('border-primary'); });
+    // Story 5.1 AC11 restyled the per-account tab from an underline (border-primary)
+    // to a filled pill (bg-primary) - update the active-state assertion to match.
+    await waitFor(() => { expect(screen.getByText('Second Info').closest('button')).toHaveClass('bg-primary'); });
   });
 });

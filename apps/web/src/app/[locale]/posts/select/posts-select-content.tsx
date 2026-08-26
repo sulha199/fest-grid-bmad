@@ -19,7 +19,7 @@ import {
   Subscription,
 } from '@/generated/graphql';
 import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo, PageContainer, GridContainer } from '@festgrid/ui';
-import { AlertCircle, TriangleAlert } from 'lucide-react';
+import { AlertCircle, TriangleAlert, User } from 'lucide-react';
 import { usePostSelectionStore } from './post-selection-store';
 import { toast } from 'sonner';
 import { SummaryBar } from '@/features/post-selection/components/summary-bar';
@@ -388,35 +388,6 @@ export function PostsSelectContent() {
         <h1 className="text-3xl font-bold">{t('title')}</h1>
       </div>
 
-      {/* Tabs list */}
-      <div className="border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-        <div className="flex flex-wrap gap-2 -mb-px">
-          {subscriptions.map((sub) => {
-            const isActive = activeAccountId === sub.account.id;
-            return (
-              <button
-                key={sub.account.id}
-                onClick={() => setActiveAccountId(sub.account.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all ${
-                  isActive
-                    ? 'border-primary text-primary font-semibold'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <span>{sub.account.displayName}</span>
-                {sub.isInactive && (
-                  <AlertCircle
-                    className="h-4 w-4 text-yellow-500"
-                    xlinkTitle={t('inactiveWarningTitle') || 'Inactive Account'}
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
-        {activeSub && posts.length > 0 && renderScrapeControl()}
-      </div>
-
       {/* Inactive Account Warning Banner */}
       {activeSub?.isInactive && (
         <div className="p-4 border rounded-xl bg-yellow-50 dark:bg-yellow-950/20 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -435,6 +406,56 @@ export function PostsSelectContent() {
           </button>
         </div>
       )}
+
+      {/* Card wrapper */}
+      <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 mt-6">
+        <p className="text-sm font-medium text-muted-foreground mb-2">{t('postsFromLabel')}</p>
+
+        {/* Tabs list */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap sm:overflow-visible gap-2">
+            {subscriptions.map((sub) => {
+              const isActive = activeAccountId === sub.account.id;
+              return (
+                <button
+                  key={sub.account.id}
+                  onClick={() => setActiveAccountId(sub.account.id)}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-all shrink-0 ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  {/* Account Avatar */}
+                  {sub.account.profileImageUrl ? (
+                    <img
+                      src={sub.account.profileImageUrl}
+                      alt={sub.account.displayName}
+                      className="w-5 h-5 rounded-full object-cover border border-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-background/50 flex items-center justify-center border border-border text-muted-foreground shrink-0">
+                      <User className="w-3 h-3" />
+                    </div>
+                  )}
+
+                  <span>{sub.account.displayName}</span>
+                  {sub.isInactive && (
+                    <AlertCircle
+                      className="h-4 w-4 text-yellow-500 shrink-0"
+                      xlinkTitle={t('inactiveWarningTitle') || 'Inactive Account'}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {activeSub && posts.length > 0 && (
+            <div className="shrink-0">
+              {renderScrapeControl()}
+            </div>
+          )}
+        </div>
 
       {/* Tab Content */}
       <div className="mt-6">
@@ -503,6 +524,7 @@ export function PostsSelectContent() {
             })}
           </GridContainer>
         )}
+      </div>
       </div>
 
       {/* Summary Bar */}
