@@ -69,6 +69,15 @@ so that I can choose which posts to process for event extraction.
   - [x] Write integration tests in `apps/web/src/app/[locale]/posts/select/posts-select-content.test.tsx` using Vitest and MSW.
   - [x] Mock the GraphQL queries `mySubscriptions`, `postsByAccount`, and mutation `markSubscriptionViewed` to assert correct tab rendering, newly-added auto-activation, inactive alerts, and skeleton displays.
   - [x] Mock the empty states to verify correct redirection paths are constructed and sent to `/wizard`.
+- [ ] **Task 6 (AC11, added 2026-08-26) — Pill-style per-account tab row:**
+  - [ ] In `posts-select-content.tsx`'s tab row (currently `border-b-2` underline buttons, ~line 392-418), change each tab button's styling from underline to a rounded pill/chip (filled background when active, no bottom border) — no `border-b-2`/`border-primary` classes, replace with e.g. `rounded-full px-4 py-2` and an active-state filled background (`bg-primary text-primary-foreground` when active, `bg-muted text-muted-foreground hover:bg-muted/80` otherwise), matching this codebase's other pill/chip precedents (e.g. `Badge`).
+  - [ ] Add each account's `profileImageUrl` as a small avatar inside its pill (already available on `sub.account.profileImageUrl`, already fetched for `PostCard`'s `publisher` prop) — mirror `PostCard.tsx`'s existing avatar pattern (`w-10 h-10 rounded-full object-cover` image when present, a `User`-icon fallback circle when absent), sized down for a tab pill (e.g. `w-5 h-5`).
+  - [ ] Add a text label above the tab row ("Posts from:" or equivalent) via a new `postsFromLabel` key in the `ManualPostSelectionPage` next-intl namespace (`apps/web/locales/en.json`/`id.json`) — there is currently no heading there at all.
+  - [ ] Wrap the tab row and its content (the tabs + the tab-content grid below it) in the existing `card` design token (`rounded-lg shadow-md p-4`) so it reads as a box inside the Posts tab panel, not a continuation of outer page chrome.
+  - [ ] Mobile-only: change the tab row's container from `flex flex-wrap` to `flex-nowrap overflow-x-auto` below the `sm:` breakpoint, `sm:flex-wrap sm:overflow-visible` at/above it — a single scrolling row on mobile, wrapping normally on larger screens.
+  - [ ] Extend `posts-select-content.test.tsx`: tab pills render each account's avatar (or fallback icon), the "Posts from:" label is present, and the tab row/content is wrapped in the card container.
+- [x] **Task 7 (AC12) — Adopt shared `PageContainer`/`GridContainer` — already implemented, tracking-only:**
+  - [x] Confirmed via direct code inspection (2026-08-26): `posts-select-content.tsx`'s main return already uses `<PageContainer>` (line 384) and all three grids (loading skeleton, tab-content skeleton, real-posts grid) already use `<GridContainer baseCols={1} colsStep={1} gap="gap-4">` (lines 345, 442, 463) — this was implemented in an earlier pass (`fe8a1af` and its revision) but never reflected in this story file's own checkboxes/Deliverables. No new code required for AC12.
 
 ## Dev Notes
 
@@ -144,12 +153,14 @@ so that I can choose which posts to process for event extraction.
 
 ## Deliverables Checklist
 
-- [ ] Navigation link "Extract Events" registered in `profileMenuEntries` with key `manual-post-selection` and Lucide icon.
-- [ ] next-intl translations in English and Indonesian JSON files for `manualPostSelection` menu label and page metadata.
-- [ ] Canonical `/posts/select` Server Component page with locale-aware Metadata generation and RouteLoader fallback.
-- [ ] Client component rendering subscribed account tabs, showing alert icons, lazy-loading 20 recent posts per account using `PostCard` and `PostCardSkeleton`.
-- [ ] Next.js config redirection from `/posts/extract` to `/posts/select`.
-- [ ] Complete Vitest integration test file passing.
+- [x] Navigation link "Extract Events" registered in `profileMenuEntries` with key `manual-post-selection` and Lucide icon.
+- [x] next-intl translations in English and Indonesian JSON files for `manualPostSelection` menu label and page metadata.
+- [x] Canonical `/posts/select` Server Component page with locale-aware Metadata generation and RouteLoader fallback.
+- [x] Client component rendering subscribed account tabs, showing alert icons, lazy-loading 20 recent posts per account using `PostCard` and `PostCardSkeleton`.
+- [x] Next.js config redirection from `/posts/extract` to `/posts/select`.
+- [x] Complete Vitest integration test file passing.
+- [ ] Per-account tab row uses pill/chip styling with avatars, a "Posts from:" label, card-token wrapping, and mobile single-row scroll (AC11, new 2026-08-26).
+- [x] Root container and post grids adopt `PageContainer`/`GridContainer` (AC12) — confirmed already implemented, 2026-08-26.
 
 ## Out of Scope
 
