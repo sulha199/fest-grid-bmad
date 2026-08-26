@@ -114,6 +114,8 @@ The following table summarizes the classification used in our application archit
 
 > **Note:** `L_Notifier` (the daily quota-exhaustion warning Lambda) reuses the exact same `dbUrlSecret` and `emailIdentity` constructs listed above — it introduces no new Secrets Manager entry and no new SES identity.
 
+> **Note (Story 0.33 — post media hosting, Architecture Spine AD-12):** `PostMediaBucket`/`PostMediaDistribution` (a private S3 bucket + Origin Access Control-fronted CloudFront distribution for durably re-hosted post images/video, first S3/CDN resource in the project) are fully CDK-managed — no manual AWS console setup is required, and no new Secrets Manager entry is introduced. Their generated values are wired into `L_AI` (`aiProcessorLambda`) as plain (non-secret) environment variables: `POST_MEDIA_BUCKET_NAME` and `POST_MEDIA_CDN_DOMAIN`.
+
 #### One-Time Manual Secrets Population Steps
 
 Since `FestgridBackendStack` creates the AWS Secrets Manager placeholders during the initial deployment, you must manually populate the actual secret values. For each environment stage (`dev`, `staging`, `prod`), run the following AWS CLI command to set the secret values:

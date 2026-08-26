@@ -7,7 +7,7 @@ baseline_commit: 753f5b5
 
 - Epic: 0
 - Story ID: 0.33
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,29 +32,29 @@ so that a later story (the durable-image-rehosting pipeline step, Architecture S
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Confirm current state before starting (AC: 1, 9)
-  - [ ] Confirm `apps/infrastructure/lib/festgrid-backend-stack.ts` still matches this story's read (7 Lambdas incl. `aiProcessorLambda`, `definedEnv`/`removalPolicy` helpers, no existing S3/CloudFront construct — `grep -c "aws-s3\|aws-cloudfront"` returns 0 imports today).
-  - [ ] Confirm `apps/backend/src/lib/ai-processor/build-gemini-request.ts` still performs the `fetch(message.imageUrl)` byte-fetch this story's env wiring will eventually feed (read-only confirmation, no edit).
-- [ ] Task 2: Provision the private S3 bucket (AC: 2, 3)
-  - [ ] Add `import * as s3 from 'aws-cdk-lib/aws-s3';` and provision `postMediaBucket` (`PostMediaBucket-${stageName}`), positioned near the other resource-provisioning blocks (after the Secrets Manager section, before the Lambda definitions, since `aiProcessorLambda`'s `environment` needs to reference it).
-  - [ ] `blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL`, no explicit `bucketName`, `encryption: s3.BucketEncryption.S3_MANAGED`, `removalPolicy`/`autoDeleteObjects: stageName !== 'prod'` following the file's existing `removalPolicy` const.
-- [ ] Task 3: Provision the CloudFront distribution + cache-control response headers policy (AC: 4, 5)
-  - [ ] Add `import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';` and `import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';`.
-  - [ ] Provision `postMediaCacheHeadersPolicy` (`cloudfront.ResponseHeadersPolicy`, `PostMediaCacheHeadersPolicy-${stageName}`) with a custom `Cache-Control: public, max-age=31536000, immutable` header, `override: true`.
-  - [ ] Provision `postMediaDistribution` (`cloudfront.Distribution`, `PostMediaDistribution-${stageName}`), `defaultBehavior.origin: origins.S3BucketOrigin.withOriginAccessControl(postMediaBucket)`, `viewerProtocolPolicy: REDIRECT_TO_HTTPS`, `cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED`, `responseHeadersPolicy: postMediaCacheHeadersPolicy`.
-- [ ] Task 4: Wire IAM write grant + Lambda environment (AC: 6, 7)
-  - [ ] `postMediaBucket.grantPut(aiProcessorLambda);` in the existing "5. IAM Permissions" section, alongside the other scoped grants.
-  - [ ] Add `POST_MEDIA_BUCKET_NAME: postMediaBucket.bucketName` and `POST_MEDIA_CDN_DOMAIN: postMediaDistribution.distributionDomainName` to `aiProcessorLambda`'s existing `environment: {...}` object.
-- [ ] Task 5: Add CDK infrastructure assertion tests (AC: 8)
-  - [ ] Extend `apps/infrastructure/lib/festgrid-backend-stack.test.ts`: assert `AWS::S3::Bucket` count is 1 with `PublicAccessBlockConfiguration` all-`true`; assert `AWS::CloudFront::Distribution` count is 1; assert `AWS::CloudFront::OriginAccessControl` count is 1; assert an `AWS::IAM::Policy` statement with `Action` including `s3:PutObject` and `Effect: Allow` exists (scoped, via `Match.objectLike`); assert `aiProcessorLambda`'s `AWS::Lambda::Function` resource's `Environment.Variables` includes `POST_MEDIA_BUCKET_NAME`/`POST_MEDIA_CDN_DOMAIN` (`Match.anyValue()`), disambiguated from the other Lambdas by combining with `DATA_INGESTION_QUEUE_URL` (a var already unique to `aiProcessorLambda`'s environment).
-- [ ] Task 6: Update `SETUP_WALKTHROUGH.md` (persistent fact: cloud/external service setup) (AC: 2-7)
-  - [ ] Add a short note (mirroring Story 0.25/0.27's precedent) under the `## 2. Backend (AWS Serverless)` section: this story provisions its own new resources (an S3 bucket + CloudFront distribution) rather than reusing an existing Secrets Manager/SES construct — no manual console setup is required (fully CDK-managed), and no new Secrets Manager entry is introduced (the bucket name/CDN domain are plain, non-secret CDK-generated values).
-- [ ] Task 7: Verification (AC: 1-10)
-  - [ ] `pnpm --filter infrastructure exec cdk synth` succeeds for all three stage instances with the new bucket/distribution/grants included.
-  - [ ] `pnpm exec tsx --test lib/**/*.test.ts` (in `apps/infrastructure`) passes, including the new Task 5 assertions.
-  - [ ] `pnpm build --filter=infrastructure` and `pnpm lint --filter=infrastructure` at the repo root both complete cleanly.
-  - [ ] Confirm `apps/backend/src/lambdas/ai-processor.ts`, `apps/backend/src/lib/ai-processor/*`, `apps/backend/src/env.ts`, `packages/database/schema.ts` are byte-for-byte unchanged (`git diff --stat` against each returns empty).
-  - [ ] Record in Completion Notes that a real `cdk deploy` against a live AWS account is **not** performed as part of this story's automated verification, mirroring Stories 0.14/0.25/0.27's own precedent.
+- [x] Task 1: Confirm current state before starting (AC: 1, 9)
+  - [x] Confirmed `apps/infrastructure/lib/festgrid-backend-stack.ts` matched this story's read (7 Lambdas incl. `aiProcessorLambda`, `definedEnv`/`removalPolicy` helpers, no existing S3/CloudFront import) before editing.
+  - [x] Confirmed `apps/backend/src/lib/ai-processor/build-gemini-request.ts` still performs the `fetch(message.imageUrl)` byte-fetch this story's env wiring will eventually feed (read-only, unmodified).
+- [x] Task 2: Provision the private S3 bucket (AC: 2, 3)
+  - [x] Added `import * as s3 from 'aws-cdk-lib/aws-s3';` and provisioned `postMediaBucket` (`PostMediaBucket-${stageName}`), positioned after the Secrets Manager section, before the Lambda definitions.
+  - [x] `blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL`, no explicit `bucketName`, `encryption: s3.BucketEncryption.S3_MANAGED`, `removalPolicy`/`autoDeleteObjects: stageName !== 'prod'`.
+- [x] Task 3: Provision the CloudFront distribution + cache-control response headers policy (AC: 4, 5)
+  - [x] Added `import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';` and `import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';`.
+  - [x] Provisioned `postMediaCacheHeadersPolicy` (`cloudfront.ResponseHeadersPolicy`, `PostMediaCacheHeadersPolicy-${stageName}`) with the custom `Cache-Control: public, max-age=31536000, immutable` header, `override: true`.
+  - [x] Provisioned `postMediaDistribution` (`cloudfront.Distribution`, `PostMediaDistribution-${stageName}`), `defaultBehavior.origin: origins.S3BucketOrigin.withOriginAccessControl(postMediaBucket)`, `viewerProtocolPolicy: REDIRECT_TO_HTTPS`, `cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED`, `responseHeadersPolicy: postMediaCacheHeadersPolicy`.
+- [x] Task 4: Wire IAM write grant + Lambda environment (AC: 6, 7)
+  - [x] `postMediaBucket.grantPut(aiProcessorLambda);` added in the "5. IAM Permissions" section.
+  - [x] Added `POST_MEDIA_BUCKET_NAME: postMediaBucket.bucketName` and `POST_MEDIA_CDN_DOMAIN: postMediaDistribution.distributionDomainName` to `aiProcessorLambda`'s `environment: {...}` object.
+- [x] Task 5: Add CDK infrastructure assertion tests (AC: 8)
+  - [x] Extended `apps/infrastructure/lib/festgrid-backend-stack.test.ts`: `AWS::S3::Bucket` count is 1 with `PublicAccessBlockConfiguration` all-`true`; `AWS::CloudFront::Distribution` count is 1; `AWS::CloudFront::OriginAccessControl` count is 1; an `AWS::IAM::Policy` statement with `Action` including `s3:PutObject`/`Effect: Allow` exists; `aiProcessorLambda`'s environment contains `POST_MEDIA_BUCKET_NAME`/`POST_MEDIA_CDN_DOMAIN`, disambiguated via `Timeout: 300` + `DATA_INGESTION_QUEUE_URL`. Also bumped the pre-existing Lambda-count assertion 7→8 (see Dev Notes: "Lambda count bumped to 8" below — a discovered, not planned, CDK side effect).
+- [x] Task 6: Update `SETUP_WALKTHROUGH.md` (persistent fact: cloud/external service setup) (AC: 2-7)
+  - [x] Added a short note under the `## 2. Backend (AWS Serverless)` → Credentials & Secrets Configuration section: `PostMediaBucket`/`PostMediaDistribution` are fully CDK-managed, no manual console setup, no new Secrets Manager entry.
+- [x] Task 7: Verification (AC: 1-10)
+  - [x] `pnpm --filter infrastructure exec cdk synth` succeeded for all three stage instances with the new bucket/distribution/grants included (see Dev Notes: "cdk synth env var gap" below for the local-verification env vars needed).
+  - [x] `pnpm exec tsx --test lib/**/*.test.ts` (in `apps/infrastructure`) passed: 1/1, including the new Task 5 assertions.
+  - [x] `pnpm build --filter=infrastructure` and `pnpm lint --filter=infrastructure` at the repo root both completed cleanly (0 tasks — package defines neither script, matching Story 0.27's identical precedent).
+  - [x] Confirmed `apps/backend/src/lambdas/ai-processor.ts`, `apps/backend/src/lib/ai-processor/*`, `apps/backend/src/env.ts`, `packages/database/schema.ts` are byte-for-byte unchanged (`git diff --stat` against each returned empty).
+  - [x] Recorded in Completion Notes: a real `cdk deploy` against a live AWS account is **not** performed as part of this story's automated verification, mirroring Stories 0.14/0.25/0.27's own precedent.
 
 ## Dev Notes
 
@@ -75,6 +75,14 @@ This story is explicitly infra-construct-only (the sprint-change-proposal's Sect
 - **Gate 1 (Architecture/Infrastructure Completeness) — run fresh** (`epic-0-readiness.md`'s `swept: true` report is dated 2026-08-03, `stories_covered` starts at `0.1` and predates this story by three weeks — same escape-hatch situation Stories 0.23/0.24/0.25/0.27 already recorded for themselves). **Verdict: No gap found.** This is a fully self-contained CDK construct — bucket, distribution, OAC, a scoped IAM grant, and env-var wiring into an already-existing Lambda. No application layer is bypassed, no direct-from-frontend external call is introduced, no new API surface is added. Ran a Gate-1-lens subagent check explicitly against this story's exact scope (bucket/distribution/IAM/env wiring only, no app-code changes) — confirmed no missing architectural layer, with one implementation-detail note folded directly into AC8: "structurally correct" needed a concrete assertion bar (public-access-block proof, OAC-scoped bucket policy, `aiProcessorLambda`-only `s3:PutObject` grant), now made explicit rather than left to interpretation.
 - **Gate 3 (Foundational/Cross-Cutting Dependency Completeness) — run fresh, same reason.** **Verdict: No gap found — inline, don't abstract.** This is the first S3/CloudFront resource in the project; there is no second known consumer of an "S3 + CloudFront + OAC" pattern anywhere in the proposal (the later re-hosting story reuses this exact bucket/distribution, not a sibling instance). Rule-of-three fails for extracting a generic reusable "CDN-fronted bucket" construct/helper — building one now would be premature abstraction with no second consumer to validate its shape against. Inlining directly into `festgrid-backend-stack.ts`, matching how every other resource in that file (KMS, queues, secrets, SES, all 7 Lambdas) is already inlined rather than factored into shared constructs, is the right call and keeps the file's existing convention consistent. Also confirmed: this repo's pinned `aws-cdk-lib@^2.262.0` (`apps/infrastructure/package.json`) supports the L2 `origins.S3BucketOrigin.withOriginAccessControl` / OAC constructs used in Task 3 (available since ~2.170) — no L1 `CfnOriginAccessControl` fallback needed.
 - **Gate 2 (UI Complexity & Reusability) — no subagent dispatched.** This story has **zero UI surface** — pure AWS IaC (CDK stack changes only), no React component, page, hook, or util. Mirrors Story 0.27's identical justification for its own zero-UI infra scope; no grep of `design-artifacts/` is needed since nothing in this story's scope (bucket/distribution/IAM/env var) could plausibly appear in a UX spec. **Verdict: No gap found.**
+
+### Discovered at implementation time: Lambda count bumped to 8, not 7
+
+`s3.Bucket`'s `autoDeleteObjects: stageName !== 'prod'` (Task 2) is a CDK convenience that, under the hood, provisions a singleton `Custom::S3AutoDeleteObjects` custom-resource **Lambda** (shared across the whole CDK app, created once) to empty the bucket before deletion in non-prod stages. This was not anticipated when AC8's test-assertion bar was written and surfaced only when running the test suite: `dev`/`staging` synthesize with 8 `AWS::Lambda::Function` resources (7 application Lambdas + this 1 CDK-internal one), while `prod` (where `autoDeleteObjects` is `false`, matching `removalPolicy: RETAIN`) still synthesizes with exactly 7 — confirmed directly by inspecting all three stage templates' resource-type counts. The pre-existing `template.resourceCountIs('AWS::Lambda::Function', 7)` assertion (written against `stageName: 'dev'`) was updated to 8 with an inline comment explaining why, rather than silently left inconsistent with the actual synthesized template.
+
+### Discovered at implementation time: `cdk synth` requires prod env vars even for local verification
+
+`festgrid-backend-stack.ts`'s existing prod-only required-env-var guard (`SUPABASE_URL`/`FIREBASE_PROJECT_ID`/`FIREBASE_CLIENT_EMAIL`/`SES_FROM_EMAIL_ADDRESS`/`WEB_APP_BASE_URL`) throws at synth time — before any AWS credentials are ever needed — if any are unset, since `bin/infrastructure.ts` instantiates all three stages (including `prod`) in one CDK app and `apps/infrastructure`'s `synth` script (`cdk synth`, no `dotenv` loading) does not automatically read the repo's `.env`. This is **pre-existing behavior, unrelated to this story's own changes** — confirmed directly by stashing this story's diff and reproducing the identical failure against the unmodified `master` stack file. `SES_FROM_EMAIL_ADDRESS`/`WEB_APP_BASE_URL` specifically were absent from this worktree's copied `.env`. Verification `cdk synth` was run with the repo's `.env` sourced into the shell plus two placeholder values for the missing pair (`SES_FROM_EMAIL_ADDRESS=noreply@festdaily.app`, `WEB_APP_BASE_URL=https://festdaily.app` — synth-time-only, never used for a real deploy) — this is a pure presence-check gate, not a value-correctness check, so placeholders are sufficient to prove the template synthesizes correctly. No code change was made to relax or work around this guard; it is orthogonal to this story's scope.
 
 ### Design decision: no explicit `bucketName`
 
@@ -158,21 +166,21 @@ AD-12 Rule 2 says objects are "served with `Cache-Control: public, max-age=31536
 
 ## Testing Requirements
 
-- [ ] Infrastructure assertion tests (required): extended `apps/infrastructure/lib/festgrid-backend-stack.test.ts` via `node:test`/`tsx --test` and `aws-cdk-lib/assertions`, proving the new bucket/distribution/OAC/IAM-grant/env-var wiring (Task 5).
-- [ ] Synth verification (required): `cdk synth` succeeds for all three stage instances with the new resources included (Task 7).
-- [ ] Integration tests: Not applicable — no application logic changes in `apps/backend` (Task 7 confirms zero diff on the relevant application files).
-- [ ] E2E tests: Not applicable — no UI in this story.
+- [x] Infrastructure assertion tests (required): extended `apps/infrastructure/lib/festgrid-backend-stack.test.ts` via `node:test`/`tsx --test` and `aws-cdk-lib/assertions`, proving the new bucket/distribution/OAC/IAM-grant/env-var wiring (Task 5). Result: 1 pass, 0 fail.
+- [x] Synth verification (required): `cdk synth` succeeded for all three stage instances with the new resources included (Task 7).
+- [x] Integration tests: Not applicable — no application logic changes in `apps/backend` (Task 7 confirmed zero diff on the relevant application files).
+- [x] E2E tests: Not applicable — no UI in this story.
 - [ ] Manual verification (deferred, tracked): a real `cdk deploy` plus an actual `PutObject`/CloudFront-response-header check against a live AWS account, verified the first time CI's deploy job runs and the later upload-logic story lands (no AWS credentials available in this development environment).
 
 ## Deliverables Checklist
 
-- [ ] `FestgridBackendStack` provisions `postMediaBucket` (private, `BLOCK_ALL`, no explicit `bucketName`) and `postMediaDistribution` (OAC origin, `Cache-Control` response headers policy).
-- [ ] `postMediaBucket.grantPut(aiProcessorLambda)` added, and confirmed no other Lambda receives a grant on this bucket.
-- [ ] `aiProcessorLambda`'s environment gains `POST_MEDIA_BUCKET_NAME`/`POST_MEDIA_CDN_DOMAIN`.
-- [ ] Extended `festgrid-backend-stack.test.ts` assertions passing.
-- [ ] `SETUP_WALKTHROUGH.md` updated with the brief no-manual-setup/no-new-secret note.
-- [ ] `pnpm build`/`pnpm lint` pass at the repo root for `apps/infrastructure`.
-- [ ] `ai-processor.ts`/`build-gemini-request.ts`/`process-ai-job.ts`/`env.ts`/`schema.ts` confirmed byte-for-byte unchanged.
+- [x] `FestgridBackendStack` provisions `postMediaBucket` (private, `BLOCK_ALL`, no explicit `bucketName`) and `postMediaDistribution` (OAC origin, `Cache-Control` response headers policy).
+- [x] `postMediaBucket.grantPut(aiProcessorLambda)` added, and confirmed (via the synthesized template's IAM policies) no other Lambda receives a grant on this bucket.
+- [x] `aiProcessorLambda`'s environment gains `POST_MEDIA_BUCKET_NAME`/`POST_MEDIA_CDN_DOMAIN`.
+- [x] Extended `festgrid-backend-stack.test.ts` assertions passing.
+- [x] `SETUP_WALKTHROUGH.md` updated with the brief no-manual-setup/no-new-secret note.
+- [x] `pnpm build`/`pnpm lint` pass at the repo root for `apps/infrastructure` (0 tasks — no scripts defined, matching Story 0.27's precedent).
+- [x] `ai-processor.ts`/`build-gemini-request.ts`/`process-ai-job.ts`/`env.ts`/`schema.ts` confirmed byte-for-byte unchanged.
 
 ## Out of Scope
 
@@ -186,32 +194,43 @@ AD-12 Rule 2 says objects are "served with `Cache-Control: public, max-age=31536
 
 ## Definition of Done
 
-- [ ] AC 1-10 satisfied.
-- [ ] `cdk synth` succeeds for all three stage instances with the new bucket/distribution/grants included (Task 7).
-- [ ] `apps/infrastructure` assertion tests passing, including the new bucket/distribution/OAC/IAM/env-var assertions (Task 5/7).
-- [ ] `pnpm lint` and `pnpm build` passing for `apps/infrastructure`.
-- [ ] `SETUP_WALKTHROUGH.md` updated (Task 6).
-- [ ] `ai-processor.ts`/`build-gemini-request.ts`/`process-ai-job.ts`/`env.ts`/`schema.ts` confirmed unmodified.
-- [ ] Pre-Coding Approval Gate explicitly recorded above, including the write-grant-scope decision and the pre-authorization basis.
+- [x] AC 1-10 satisfied.
+- [x] `cdk synth` succeeds for all three stage instances with the new bucket/distribution/grants included (Task 7).
+- [x] `apps/infrastructure` assertion tests passing, including the new bucket/distribution/OAC/IAM/env-var assertions (Task 5/7).
+- [x] `pnpm lint` and `pnpm build` passing for `apps/infrastructure`.
+- [x] `SETUP_WALKTHROUGH.md` updated (Task 6).
+- [x] `ai-processor.ts`/`build-gemini-request.ts`/`process-ai-job.ts`/`env.ts`/`schema.ts` confirmed unmodified.
+- [x] Pre-Coding Approval Gate explicitly recorded above, including the write-grant-scope decision and the pre-authorization basis.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — ready for review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled in by the implementing agent._
+Claude Sonnet 5 (claude-sonnet-5), via Claude Code, implementing directly. (Two delegated dispatches to `gemini-cli` were attempted first per this project's usual coding-delegation convention — `gemini-2.5-pro`/the account's default model were unavailable under this Vertex AI project/region, `gemini-2.5-flash` initially hung for ~23 minutes with zero file changes tracing to a missing `ripgrep` binary forcing gemini-cli's slow JS-based grep fallback over this worktree's full `node_modules`, and a second attempt after installing `ripgrep` made real progress — adding the three CDK imports — before hanging again for 13+ minutes mid-verification with no further file changes. Given the cumulative delegation time already spent and the story's own fully-specified design, the remaining implementation was completed directly rather than continuing to retry the delegation.)
 
 ### Debug Log References
 
-_To be filled in by the implementing agent._
+- `pnpm exec tsx --test lib/**/*.test.ts` (apps/infrastructure): 1 pass, 0 fail — confirmed the new S3/CloudFront/IAM/env-var assertions (and the updated 8-Lambda count) all pass.
+- `pnpm exec cdk synth` (apps/infrastructure, with `.env` sourced + `SES_FROM_EMAIL_ADDRESS`/`WEB_APP_BASE_URL` placeholders set for this pre-existing local-verification gap — see Dev Notes): succeeded, producing `FestgridBackendStack-dev.template.json`, `FestgridBackendStack-staging.template.json`, `FestgridBackendStack-prod.template.json` in `cdk.out/` — all three contain exactly 1 `AWS::S3::Bucket` (public access fully blocked), 1 `AWS::CloudFront::Distribution`, 1 `AWS::CloudFront::OriginAccessControl`; dev/staging show 8 Lambdas, prod shows 7 (no `autoDeleteObjects` custom-resource Lambda in prod, matching `removalPolicy: RETAIN`).
+- Inspected the synthesized `FestgridBackendStack-dev.template.json` directly: confirmed the bucket policy grants `s3:GetObject` only to the CloudFront service principal, condition-scoped to this specific distribution's `SourceArn`; confirmed only `AIProcessorLambdadevServiceRoleDefaultPolicy` references `s3:PutObject` (no other Lambda's policy does); confirmed the `ResponseHeadersPolicy`'s `CustomHeadersConfig` carries exactly `Cache-Control: public, max-age=31536000, immutable` with `Override: true`.
+- `pnpm build --filter=infrastructure` and `pnpm lint --filter=infrastructure` (repo root): both "0 tasks" (package defines no build/lint scripts) — clean, no failures, matching Story 0.27's identical precedent.
+- `git diff --stat -- apps/backend/src/lambdas/ai-processor.ts apps/backend/src/lib/ai-processor/ apps/backend/src/env.ts packages/database/schema.ts`: empty — confirmed byte-for-byte unchanged.
 
 ### Completion Notes List
 
-_To be filled in by the implementing agent._
+- Reused the 3 import lines (`aws-s3`, `aws-cloudfront`, `aws-cloudfront-origins`) already added by the first, partially-productive `gemini-cli` dispatch before it hung; reverted that dispatch's out-of-scope side effects (a root-level `pnpm build` it ran as part of "confirming baseline" modified generated files outside this story's scope — `apps/backend/src/generated/resolvers-types.ts`, `apps/web/public/maplibre-gl-{shared,worker}.mjs`, `apps/web/src/generated/graphql.ts` — all reverted via `git checkout --` before continuing).
+- Implemented `postMediaBucket`/`postMediaCacheHeadersPolicy`/`postMediaDistribution` (Tasks 2/3), the `grantPut` IAM grant + two Lambda env vars (Task 4), and the CDK assertion tests (Task 5) directly.
+- Discovered mid-verification (not anticipated when AC8 was drafted) that `autoDeleteObjects: true` on the new bucket provisions a shared CDK-internal `Custom::S3AutoDeleteObjects` Lambda in non-prod stages, bumping the pre-existing Lambda-count assertion from 7 to 8 (`prod` stays at 7) — documented in Dev Notes, test updated accordingly with an explanatory comment.
+- Discovered mid-verification that `cdk synth` fails on missing prod-required env vars (`SES_FROM_EMAIL_ADDRESS`/`WEB_APP_BASE_URL` absent from this worktree's copied `.env`) even for a synth-only, no-deploy check — confirmed via a stash-and-reproduce test that this is pre-existing `master` behavior, unrelated to this story's own diff. Verified `cdk synth` with those two vars set to synth-time-only placeholders; no code change made to the guard itself (out of this story's scope).
+- Deferred (not a failure, mirrors Stories 0.14/0.25/0.27's own precedent): an actual `cdk deploy` plus a real `PutObject` call against a live bucket and a real CloudFront-served response-header check — no AWS credentials available in this development environment.
 
 ### File List
 
-_To be filled in by the implementing agent._
+- Modified: `apps/infrastructure/lib/festgrid-backend-stack.ts`
+- Modified: `apps/infrastructure/lib/festgrid-backend-stack.test.ts`
+- Modified: `SETUP_WALKTHROUGH.md`
+- Modified: `_bmad-output/implementation-artifacts/0-33-provision-s3-cloudfront-infrastructure-for-post-media.md` (this story file — Tasks/Subtasks, Dev Notes, Testing Requirements, Deliverables Checklist, Definition of Done, Completion Status, Dev Agent Record, Status)

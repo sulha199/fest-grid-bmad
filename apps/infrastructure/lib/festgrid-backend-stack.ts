@@ -12,6 +12,9 @@ import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as ses from 'aws-cdk-lib/aws-ses';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Construct } from 'constructs';
 
 export interface FestgridBackendStackProps extends cdk.StackProps {
@@ -134,6 +137,43 @@ export class FestgridBackendStack extends cdk.Stack {
     const brightdataWebhookSecretSecret = new secretsmanager.Secret(this, `BrightdataWebhookSecretSecret-${stageName}`, {
       secretName: `festgrid-brightdata-webhook-secret-${stageName}`,
       removalPolicy,
+    });
+
+    // 2.7 S3 + CloudFront for durable post-media hosting (Story 0.33, Architecture Spine AD-12)
+    // Private bucket (Origin Access Control only, no public S3 access) fronted by a CloudFront
+    // distribution. No explicit bucketName: unlike this file's queueName/secretName conventions
+    // (only unique per-account), S3 bucket names must be globally unique across ALL AWS accounts,
+    // so an explicit literal name risks a hard deploy failure on a collision. CloudFormation
+    // auto-generates a collision-safe name instead; postMediaBucket.bucketName below is still the
+    // real, resolvable value threaded into the Lambda's environment.
+    const postMediaBucket = new s3.Bucket(this, `PostMediaBucket-${stageName}`, {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      removalPolicy,
+      autoDeleteObjects: stageName !== 'prod',
+    });
+
+    // Cache-Control is enforced centrally at the CDN layer (not left to whatever metadata a
+    // future uploader sets on PutObject) so the AD-12 guarantee ("Cache-Control: public,
+    // max-age=31536000, immutable" on every response, since each object is a unique, write-once
+    // file) holds regardless of upload-time behavior.
+    const postMediaCacheHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, `PostMediaCacheHeadersPolicy-${stageName}`, {
+      responseHeadersPolicyName: `festgrid-post-media-cache-headers-${stageName}`,
+      customHeadersBehavior: {
+        customHeaders: [
+          { header: 'Cache-Control', value: 'public, max-age=31536000, immutable', override: true },
+        ],
+      },
+    });
+
+    const postMediaDistribution = new cloudfront.Distribution(this, `PostMediaDistribution-${stageName}`, {
+      comment: `FestGrid post media CDN (${stageName})`,
+      defaultBehavior: {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(postMediaBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        responseHeadersPolicy: postMediaCacheHeadersPolicy,
+      },
     });
 
     // 2.6 SES Domain Identity for outgoing emails (Reconciled from FestgridEmailStack)
@@ -278,6 +318,8 @@ export class FestgridBackendStack extends cdk.Stack {
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         DATA_INGESTION_QUEUE_URL: dataIngestionQueue.queueUrl,
         GEOAPIFY_API_KEY: geoapifyApiKeySecret.secretValue.unsafeUnwrap(),
+        POST_MEDIA_BUCKET_NAME: postMediaBucket.bucketName,
+        POST_MEDIA_CDN_DOMAIN: postMediaDistribution.distributionDomainName,
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
@@ -353,6 +395,12 @@ export class FestgridBackendStack extends cdk.Stack {
     kmsKey.grantEncryptDecrypt(apiLambda);
     kmsKey.grantEncryptDecrypt(aiProcessorLambda);
     kmsKey.grantEncryptDecrypt(scraperLambda);
+
+    // Post Media Bucket: write-only, scoped exclusively to the AI-extraction Lambda (Story 0.33,
+    // Architecture Spine AD-12 Rule 1). No other Lambda receives any grant on this bucket — the
+    // only read path is CloudFront's OAC-backed origin access (auto-wired by
+    // S3BucketOrigin.withOriginAccessControl above).
+    postMediaBucket.grantPut(aiProcessorLambda);
 
     // SES Send Email Identity Grant
     emailIdentity.grantSendEmail(apiLambda);

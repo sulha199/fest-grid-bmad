@@ -11,9 +11,11 @@ test('FestgridBackendStack provisions correct resources', () => {
 
   const template = Template.fromStack(stack);
 
-  // 1. Assert exactly 7 Lambda functions are created (API, Scraper, AIProcessor,
-  // Ingestor, Webhook, ApifyWebhook, Notifier)
-  template.resourceCountIs('AWS::Lambda::Function', 7);
+  // 1. Assert exactly 8 Lambda functions are created (API, Scraper, AIProcessor, Ingestor,
+  // Webhook, ApifyWebhook, Notifier, plus CDK's own internal `Custom::S3AutoDeleteObjects`
+  // singleton Lambda — an automatic side effect of the post-media bucket's
+  // `autoDeleteObjects: true` in non-prod stages (Story 0.33), not an application Lambda).
+  template.resourceCountIs('AWS::Lambda::Function', 8);
 
   // 2. Assert exactly 6 SQS queues exist (3 main + 3 DLQs)
   template.resourceCountIs('AWS::SQS::Queue', 6);
@@ -130,6 +132,51 @@ test('FestgridBackendStack provisions correct resources', () => {
           Resource: Match.anyValue(),
         }),
       ]),
+    },
+  });
+
+  // 11. Story 0.33 / Architecture Spine AD-12: exactly 1 private S3 bucket for post media,
+  // with public access fully blocked.
+  template.resourceCountIs('AWS::S3::Bucket', 1);
+  template.hasResourceProperties('AWS::S3::Bucket', {
+    PublicAccessBlockConfiguration: {
+      BlockPublicAcls: true,
+      BlockPublicPolicy: true,
+      IgnorePublicAcls: true,
+      RestrictPublicBuckets: true,
+    },
+  });
+
+  // 12. Exactly 1 CloudFront distribution and 1 Origin Access Control fronting the bucket.
+  template.resourceCountIs('AWS::CloudFront::Distribution', 1);
+  template.resourceCountIs('AWS::CloudFront::OriginAccessControl', 1);
+
+  // 13. Assert an IAM policy statement grants s3:PutObject (the AI-extraction Lambda's scoped
+  // write permission on the post-media bucket) — no read/list/delete action is asserted here,
+  // since grantPut() only ever produces write-adjacent actions.
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Action: Match.arrayWith(['s3:PutObject']),
+          Effect: 'Allow',
+        }),
+      ]),
+    },
+  });
+
+  // 14. Assert L_AI (aiProcessorLambda) environment contains the two new post-media vars.
+  // Combined with Timeout: 300 + DATA_INGESTION_QUEUE_URL (already unique to this Lambda's
+  // environment) to disambiguate it from the other 300s batch Lambdas (Scraper/Ingestor), which
+  // don't carry DATA_INGESTION_QUEUE_URL/POST_MEDIA_* vars.
+  template.hasResourceProperties('AWS::Lambda::Function', {
+    Timeout: 300,
+    Environment: {
+      Variables: Match.objectLike({
+        DATA_INGESTION_QUEUE_URL: Match.anyValue(),
+        POST_MEDIA_BUCKET_NAME: Match.anyValue(),
+        POST_MEDIA_CDN_DOMAIN: Match.anyValue(),
+      }),
     },
   });
 });
