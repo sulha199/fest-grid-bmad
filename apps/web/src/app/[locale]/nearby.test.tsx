@@ -234,6 +234,12 @@ describe('Nearby Filter Integration', () => {
   it('automatically defaults to earliest created location preference and radius when authenticated (AC4)', async () => {
     renderWithProviders(<Home />);
 
+    // Story 2.5 AC13 collapsed the filter behind a Popover trigger — open it first.
+    // Match either the idle "Nearby" label or the already-auto-resolved "{location} · {radius}"
+    // summary text, since the auto-default (AC4) may resolve before this query runs.
+    const trigger = await screen.findByRole('button', { name: /Nearby|km$/ });
+    fireEvent.click(trigger);
+
     // Verify it loads locations and defaults selection
     await waitFor(() => {
       expect(screen.getByLabelText('Nearby')).toBeInTheDocument();
