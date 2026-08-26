@@ -1077,7 +1077,7 @@ development_status:
   # specific; null if unparseable, treated as already-expired). posts.imageUrl
   # itself is never modified. Depends on Story 0.33. See sprint-change-
   # proposal-2026-08-25-video-priority-display.md (Architecture Spine AD-12).
-  3-6e-re-host-extracted-event-images-to-durable-storage: backlog
+  3-6e-re-host-extracted-event-images-to-durable-storage: ready-for-dev
   # New 2026-08-25 via bmad-correct-course: Event GraphQL resolver computes
   # the served imageUrl per AD-12 Rule 3 -- original while
   # now < imageUrlExpiresAt, else durableImageUrl, else original as a last

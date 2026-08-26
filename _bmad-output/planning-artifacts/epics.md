@@ -2170,6 +2170,28 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.6a, Story 3.6b, Story 3.7.
 
+### Story 3.6e: Re-host extracted-event images to durable storage
+
+**As a** subscriber,
+**I want** an extracted event's image to keep working long after Instagram's own signed CDN URL expires,
+**So that** I don't see a broken image on an event I favorited or added to my calendar days after it was scraped.
+
+**Acceptance Criteria:**
+
+*   **Given** a scraped post is persisted (Story 3.3a's `persistScrapedPost`),
+*   **When** its raw `imageUrl` is written to `posts.image_url`,
+*   **Then** the post's new `imageUrlExpiresAt` column is populated by parsing the URL's own embedded expiry (e.g. Instagram's `oe=` hex-Unix-timestamp query parameter) — null if the URL carries no parseable expiry, never assumed valid indefinitely.
+*   **And** `posts.imageUrl` itself is never modified or overwritten by this parsing step.
+*   **Given** a post reaches successful AI extraction (Story 3.6's pipeline, an `EventInfo` is about to be created),
+*   **When** the already-fetched image bytes used for Gemini's vision call are available,
+*   **Then** those same bytes (no second fetch) are uploaded to the durable post-media bucket (Story 0.33) and the resulting CloudFront URL is written to the post's new `durableImageUrl` column.
+*   **And** if the upload fails, the failure is caught and logged; `durableImageUrl` stays null and extraction/ingestion proceeds unaffected (best-effort, not a hard requirement).
+*   **And** posts that do not reach successful extraction (rejected by Gemini, or still awaiting triage in Manual Post Selection) are never re-hosted — `durableImageUrl` stays null for them.
+
+**Note (2026-08-25, added via `bmad-correct-course`):** Surfaced by `sprint-change-proposal-2026-08-25-video-priority-display.md` (Track A) alongside the video-priority-display feature (Track B) — investigating video storage found that `posts.imageUrl` itself is a raw, ~4-day-lived Instagram CDN URL with no re-hosting today, a pre-existing bug independent of video. Architecture Spine AD-12 records the binding design (private S3 bucket + CloudFront, Rule 2, built by Story 0.33; re-hosting trigger/scope, Rules 1/3/4/5, built here). Positioned as a lettered suffix directly off Story 3.6, matching the existing 3.6a-3.6d sibling family, since it extends Story 3.6's own AI-extraction pipeline. This story does **not** build the resolver's original-vs-durable serving logic or the `durableImageUrl` GraphQL field/frontend retry — that is **Story 3.6f**, blocked on this one.
+
+**Depends on:** Story 0.33, Story 3.3a, Story 3.6.
+
 ### Story 3.7: Display extracted events to the user
 
 **As a** user,
