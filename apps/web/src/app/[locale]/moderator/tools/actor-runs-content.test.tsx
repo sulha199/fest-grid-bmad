@@ -6,10 +6,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import enMessages from '../../../../../locales/en.json';
 import { ActorRunsContent } from './actor-runs-content';
-import { useQueryActorRuns, useReplayActorRunMutation } from './hooks';
+import { useQueryActorRuns, useReplayActorRunMutation } from './actor-runs-hooks';
 import { useRequireModerator } from '@/features/auth/use-require-moderator';
 
-vi.mock('./hooks');
+vi.mock('./actor-runs-hooks');
 vi.mock('@/features/auth/use-require-moderator');
 vi.mock('sonner', () => ({
   toast: {

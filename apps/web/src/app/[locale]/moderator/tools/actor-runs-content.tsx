@@ -6,7 +6,7 @@ import { useLocale } from 'next-intl';
 import { RouteLoader, BlockingLoader, RawJsonViewer } from '@festgrid/ui';
 import { useRequireModerator } from '@/features/auth/use-require-moderator';
 import { toast } from 'sonner';
-import { useQueryActorRuns, useReplayActorRunMutation } from './hooks';
+import { useQueryActorRuns, useReplayActorRunMutation } from './actor-runs-hooks';
 import type { ActorRunFilters } from '@/gql/graphql';
 import { Button } from '@festgrid/ui';
 import { ChevronDown, ChevronUp } from 'lucide-react';
