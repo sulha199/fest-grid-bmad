@@ -38,10 +38,14 @@
     "moderatorItemsDescription": "Review reported events and pending location changes.",
     "manualPostSelectionTitle": "Extract Events | FestDaily",
     "manualPostSelectionDescription": "Select posts from your subscribed social media accounts to extract music festival events.",
-    "unprocessedPayloadsTitle": "Unprocessed Payloads | FestDaily Moderator",
-    "unprocessedPayloadsDescription": "Browse and re-process unprocessed payloads from scraper vendors",
-    "actorRunsTitle": "Scraper Runs | FestDaily Moderator",
-    "actorRunsDescription": "Browse and replay scraper actor runs"
+    "moderatorToolsTitle": "Moderator Tools | FestDaily Moderator",
+    "moderatorToolsDescription": "Manage scraper operations, runs, and payloads"
+  },
+  "ModeratorToolsPage": {
+    "actorRunsTabLabel": "Actor Runs",
+    "unprocessedPayloadsTabLabel": "Unprocessed Payloads",
+    "pageHeading": "Moderator Tools",
+    "pageDescription": "Manage scraper operations, runs, and payloads"
   },
   "AccountPage": {
     "errorState": "Failed to load events. Please try again later.",
@@ -406,8 +410,7 @@
     "reports": "Reports",
     "archive": "Archive",
     "moderatorItems": "Moderator Items",
-    "unprocessedPayloads": "Unprocessed Payloads",
-    "actorRuns": "Scraper Runs",
+    "moderatorTools": "Moderator Tools",
     "logout": "Log Out",
     "close": "Close"
   },

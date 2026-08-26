@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { RouteLoader } from '@festgrid/ui';
 import { getTranslations } from 'next-intl/server';
 import { buildPageMetadata } from '@/lib/metadata';
-import { ActorRunsContent } from './actor-runs-content';
+import { ModeratorToolsContent } from './moderator-tools-content';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,15 +11,15 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const t = await getTranslations({ locale: resolvedParams.locale, namespace: 'Metadata' });
 
   return buildPageMetadata({
-    title: t('actorRunsTitle'),
-    description: t('actorRunsDescription'),
+    title: t('moderatorToolsTitle'),
+    description: t('moderatorToolsDescription'),
   });
 }
 
-export default function ActorRunsPage() {
+export default function ModeratorToolsPage() {
   return (
     <Suspense fallback={<RouteLoader />}>
-      <ActorRunsContent />
+      <ModeratorToolsContent />
     </Suspense>
   );
 }

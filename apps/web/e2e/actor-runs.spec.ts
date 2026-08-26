@@ -15,11 +15,11 @@ test.describe('Moderator actor runs', () => {
     await expect(profileTrigger).toBeVisible();
     await profileTrigger.click();
 
-    const actorRunsLink = page.getByRole('link', { name: 'Scraper Runs' });
-    await expect(actorRunsLink).toHaveAttribute('href', '/en/moderator/actor-runs');
+    const actorRunsLink = page.getByRole('link', { name: 'Moderator Tools' });
+    await expect(actorRunsLink).toHaveAttribute('href', '/en/moderator/tools');
     await page.goto(await actorRunsLink.getAttribute('href')!);
-    await expect(page).toHaveURL(/\/en\/moderator\/actor-runs$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Scraper Actor Runs' })).toBeVisible();
+    await expect(page).toHaveURL(/\/en\/moderator\/tools$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Moderator Tools' })).toBeVisible();
 
     await page.locator('select').first().selectOption('APIFY');
     await expect(page.getByText(/E2E-ACTOR-RUN-001/)).toBeVisible();

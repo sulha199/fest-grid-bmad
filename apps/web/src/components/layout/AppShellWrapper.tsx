@@ -51,8 +51,7 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
     accountSettings: tUserMenu('accountSettings'),
     reports: tUserMenu('reports'),
     moderatorItems: tUserMenu('moderatorItems'),
-    unprocessedPayloads: tUserMenu('unprocessedPayloads'),
-    actorRuns: tUserMenu('actorRuns'),
+    moderatorTools: tUserMenu('moderatorTools'),
     logout: tUserMenu('logout'),
     close: tUserMenu('close'),
   };

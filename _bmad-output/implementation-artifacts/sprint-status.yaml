@@ -1356,7 +1356,7 @@ development_status:
   # candidate tab-switch state-loss tradeoff here is lower-stakes than 3.12's
   # Notifications hazard, so it's documented as accepted rather than escalated.
   # See 4-7b-moderator-tools-tabbed-shell.md.
-  4-7b-moderator-tools-tabbed-shell: ready-for-dev
+  4-7b-moderator-tools-tabbed-shell: review
   # Reopened 2026-08-24 via bmad-correct-course (sprint-change-proposal-2026-08-24-
   # moderator-location-override.md, AD-11): moderator-items-content.tsx's pending-
   # location-changes list gets AccountLocationField (see 3-3b's reopened note and
