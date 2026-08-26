@@ -44,7 +44,7 @@ export function AccountSettingsContent() {
       <TabbedShell
         tabs={tabs}
         activeKey={tab}
-        onTabChange={setTab}
+        onTabChange={(key) => { void setTab(key as typeof tab); }}
       />
     </div>
   )
