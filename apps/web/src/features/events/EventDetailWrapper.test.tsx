@@ -82,6 +82,7 @@ let currentMockEvent = {
   types: [],
   categories: [],
   imageUrl: null as string | null,
+  durableImageUrl: null as string | null,
   videoUrl: null as string | null,
   sourcePostUrl: null,
   originalPostUrl: null,
@@ -228,6 +229,7 @@ describe("EventDetailWrapper", () => {
       types: [],
       categories: [],
       imageUrl: null,
+      durableImageUrl: null,
       videoUrl: null,
       sourcePostUrl: null,
       originalPostUrl: null,
@@ -668,5 +670,23 @@ describe("EventDetailWrapper", () => {
     const videoEl = screen.getByTestId("event-video") as HTMLVideoElement
     expect(videoEl).toBeInTheDocument()
     expect(videoEl).toHaveAttribute("src", "https://example.com/video.mp4")
+  })
+
+  it("swaps image source to durableImageUrl when imageUrl fails to load", async () => {
+    currentMockEvent.imageUrl = "https://example.com/original.jpg"
+    currentMockEvent.durableImageUrl = "https://example.com/durable.jpg"
+
+    renderComponent()
+
+    // Wait for the event to load and find the image
+    const img = await screen.findByRole("img", { name: "Test Event" })
+    expect(img).toBeInTheDocument()
+    expect(img).toHaveAttribute("src", "https://example.com/original.jpg")
+
+    // Fire error on the img element to trigger fallback
+    fireEvent.error(img)
+
+    // Assert that the img src has changed to the durableImageUrl
+    expect(img).toHaveAttribute("src", "https://example.com/durable.jpg")
   })
 })

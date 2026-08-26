@@ -91,6 +91,7 @@ export function mapGraphQLEventToDetailViewProps(
     types: mappedTypes,
     categories: mappedCategories,
     imageUrl: event.imageUrl,
+    imageFallbackUrl: event.durableImageUrl,
     imageAlt: event.eventName,
     videoUrl: event.videoUrl,
     videoAlt: event.eventName,

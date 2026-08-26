@@ -22,7 +22,7 @@ import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user
 import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../lib/geolocation/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
-import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS } from '@festgrid/domain/events';
+import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl } from '@festgrid/domain/events';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError } from '@festgrid/domain/posts';
@@ -1418,6 +1418,8 @@ export const resolvers: Resolvers = {
         id: events.id,
         postId: events.postId,
         imageUrl: posts.imageUrl,
+        durableImageUrl: posts.durableImageUrl,
+        imageUrlExpiresAt: posts.imageUrlExpiresAt,
         videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
@@ -2555,6 +2557,8 @@ export const resolvers: Resolvers = {
         id: events.id,
         postId: events.postId,
         imageUrl: posts.imageUrl,
+        durableImageUrl: posts.durableImageUrl,
+        imageUrlExpiresAt: posts.imageUrlExpiresAt,
         videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
@@ -2672,6 +2676,8 @@ export const resolvers: Resolvers = {
         id: events.id,
         postId: events.postId,
         imageUrl: posts.imageUrl,
+        durableImageUrl: posts.durableImageUrl,
+        imageUrlExpiresAt: posts.imageUrlExpiresAt,
         videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
@@ -2749,6 +2755,8 @@ export const resolvers: Resolvers = {
         postId: events.postId,
         slug: events.slug,
         imageUrl: posts.imageUrl,
+        durableImageUrl: posts.durableImageUrl,
+        imageUrlExpiresAt: posts.imageUrlExpiresAt,
         videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
@@ -2931,6 +2939,8 @@ export const resolvers: Resolvers = {
         postId: events.postId,
         slug: events.slug,
         imageUrl: posts.imageUrl,
+        durableImageUrl: posts.durableImageUrl,
+        imageUrlExpiresAt: posts.imageUrlExpiresAt,
         videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
@@ -2964,7 +2974,12 @@ export const resolvers: Resolvers = {
       }).from(schedules).where(eq(schedules.eventId, parent.id));
       return rows as any;
     },
-    imageUrl: (parent: any) => parent.imageUrl || null,
+    imageUrl: (parent: any) => resolveServedImageUrl({
+      imageUrl: parent.imageUrl,
+      durableImageUrl: parent.durableImageUrl,
+      imageUrlExpiresAt: parent.imageUrlExpiresAt,
+    }),
+    durableImageUrl: (parent: any) => parent.durableImageUrl || null,
     videoUrl: (parent: any) => parent.videoUrl || null,
     sourcePostUrl: (parent: any) => parent.sourcePostUrl || null,
     originalPostUrl: (parent: any) => parent.originalPostUrl || null,
