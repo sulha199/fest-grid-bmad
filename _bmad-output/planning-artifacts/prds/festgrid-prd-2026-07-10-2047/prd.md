@@ -574,12 +574,16 @@ interface Post {
   content: string;
   /**
    * The URL of the image in the post, if any. Also used as the skeleton-loader placeholder
-   * and playback-failure fallback when `videoUrl` is present (Section 3.3.5).
+   * and playback-failure fallback when `videoUrl` is present (Section 3.3.5). For posts that
+   * yield an extracted event, the image actually served to clients may transparently switch to
+   * a durably-hosted copy once this URL's own lifetime elapses — this field's meaning doesn't
+   * change, only what's served over time (Architecture Spine AD-12).
    */
   imageUrl?: string;
   /**
    * The URL of the video in the post, if any (e.g. an Instagram Reel/clip). When present, the
-   * event details view prioritizes video playback over the poster image (Section 3.3.5).
+   * event details view prioritizes video playback over the poster image (Section 3.3.5). Not
+   * re-hosted — accepted as ephemeral (Architecture Spine AD-12).
    */
   videoUrl?: string;
   /**

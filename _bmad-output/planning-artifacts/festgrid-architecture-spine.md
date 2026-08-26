@@ -198,6 +198,99 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+### AD-12: Durable Media Re-hosting for Scraped Post Images
+
+*   **Binds:** `posts.durableImageUrl`/`posts.imageUrlExpiresAt` (new columns) and how the Event
+    GraphQL resolver computes the `imageUrl` it serves, for posts that yield a
+    successfully-extracted `EventInfo` (PRD §4.1/§4.7, amended 2026-08-25). `posts.imageUrl`
+    itself is unaffected — it keeps meaning "the raw scraper-source URL," never overwritten. Does
+    not bind `posts.videoUrl` — video is explicitly accepted as ephemeral (see Rule 3).
+*   **Prevents:** Building a new/duplicate media-download step — this reuses the byte fetch the
+    AI-extraction path already performs for Gemini's vision call; serving media directly from a
+    public S3 bucket, which would tie this project's media-serving cost/limits to S3's own
+    account-age-dependent free-tier allowance instead of CloudFront's permanent one (Rule 2);
+    scope creep into re-hosting non-extracted posts (Manual Post Selection, moderator triage) or
+    backfilling already-broken existing images — both explicitly deferred, not silently expanded
+    later without a fresh decision.
+*   **Rule:**
+    1.  **Trigger & source of bytes:** on successful AI extraction (Story 3.6's pipeline,
+        `build-gemini-request.ts`'s existing `fetch(message.imageUrl)` call), the same
+        already-fetched image bytes are uploaded to the new media bucket and written to
+        `posts.durableImageUrl`. No second fetch of the source image is performed, and
+        `posts.imageUrl` is left untouched.
+    2.  **Storage & serving:** a new, private S3 bucket (Origin Access Control, no public bucket
+        access) fronted by a CloudFront distribution; only the CloudFront URL is ever written to
+        `durableImageUrl`. Objects are served with `Cache-Control: public, max-age=31536000,
+        immutable` — each is a unique file, never mutated once uploaded, so this is safe and lets
+        the browser's normal HTTP cache do the rest with no custom code. This is a deliberate
+        choice over serving S3 URLs directly: CloudFront's Always-Free tier (1 TB data transfer
+        out + 10M requests/month) is permanent and account-age-independent, unlike S3's own free
+        allowances, which per AWS's 2025-07-15 Free Tier restructuring only apply to legacy
+        accounts within their first 12 months. Verified negligible cost at current project scale
+        regardless of tier status (`sprint-change-proposal-2026-08-25-video-priority-display.md`
+        Section 1.4).
+    3.  **Original-preferred serving, computed per request:** `posts.imageUrlExpiresAt` is parsed
+        once at scrape time from the raw URL's own embedded expiry (e.g. Instagram's `oe=` query
+        param) and stored — parsed at write time, not read time, so a future change to a
+        platform's URL format fails loudly once at ingestion rather than silently on every read.
+        Adapters whose URL format has no parseable expiry leave this null, treated as
+        "already expired" (never assumed valid indefinitely). The Event resolver then serves
+        `posts.imageUrl` while `now < imageUrlExpiresAt`, else `durableImageUrl` (falling back to
+        `imageUrl` regardless of expiry if `durableImageUrl` isn't populated yet — a maybe-stale
+        link beats no link, and `EventImage`'s existing `onError` fallback already covers total
+        failure). `durableImageUrl` is additionally exposed as a secondary field so the frontend
+        can retry it via the same `onError` pattern if the served choice fails earlier than its
+        nominal expiry. This offloads an event's freshest, highest-traffic window onto Instagram's
+        own CDN at the cost of one extra stored timestamp — a real reduction in CloudFront usage,
+        unlike the client-side approach considered and rejected below.
+    4.  **Scope boundary (explicit MVP decision):** only posts that reach a successful extraction
+        are re-hosted. Posts that never extract (rejected, or awaiting triage in Manual Post
+        Selection) keep their raw, time-limited scraper-source `imageUrl` — acceptable given
+        their short, near-real-time usage window, well inside the source URL's ~4-day lifetime.
+        `posts.videoUrl` is never re-hosted — accepted as ephemeral; on playback failure the
+        product falls back to the (durable, once extracted) image and links to the original post
+        (PRD §3.3.5).
+    5.  **No backfill:** already-persisted posts/events with a raw (likely already-expired)
+        `imageUrl` are not retroactively re-hosted in this pass — fix-going-forward only, an
+        explicit decision, not an oversight.
+    6.  **No expiry-triggered deletion:** hosted images are never deleted when their event
+        "expires" (its schedules pass). Checked directly, not assumed: `events.postId` is a
+        strict 1:1 unique constraint (`packages/database/schema.ts:243`, no shared-image risk
+        either way), but "expired" is not "deleted" anywhere in this product — PRD §3.4.2 only
+        hides expired events from personalized *list* views, `Post` is explicitly excluded from
+        the soft-delete convention (AD-8), and Story 4.8 (Archived/Hidden Personal Events, done)
+        plus any direct slug deep-link keep an expired event's detail page — and therefore its
+        image — reachable indefinitely. Deleting on expiry would reintroduce this exact AD's
+        problem on a delay. The cost case is also nil: even accumulating every extracted event's
+        image with zero deletion for a full year is single-digit GB (Section 1.4 of the sprint
+        change proposal above) — there is no storage-cost problem to solve. If storage hygiene is
+        ever wanted, the right tool is a no-code **S3 Lifecycle rule** keyed to object age (e.g.
+        transition/delete after 2+ years), not application logic keyed to event-expiry semantics.
+*   **Considered and rejected:** a Service Worker persisting the *original* (cross-origin,
+    Instagram-hosted) image client-side past its own expiry, using the Cache Storage API to
+    intercept the browser's request and replay a stored copy. Rejected because (a) Instagram's
+    CDN won't grant CORS, so a page-script `fetch` only yields an opaque response whose body JS
+    cannot read/reconstruct into a usable `Blob` — reliably replaying it requires a Service
+    Worker's `fetch`-event `respondWith`, not a simple client-side cache check; (b) once Rule 3's
+    original-vs-durable switch exists, the benefit shrinks to avoiding one already-fast,
+    already-free CloudFront request, and only for a repeat visitor on the *same device* — a new
+    device or cleared cache gets no benefit either way; (c) real ongoing complexity independent of
+    this decision — SW registration/scope, cache versioning so deploys don't serve stale content,
+    no automatic eviction, and SW bugs are notoriously hard to debug once stuck on a client. The
+    complexity-to-benefit ratio doesn't clear the bar this project's other infra decisions do.
+*   **Open for future discussion (not decided, not built):** whether push-notification delivery
+    (FCM, Story 2.9) should trigger proactive cache-warming of a post's image/video, so the media
+    is already loaded by the time a subscriber taps the notification — e.g. a push-event-triggered
+    Service Worker warm, and/or ensuring server-side re-hosting has completed before the push is
+    sent. This is a narrower, more targeted trigger than the general "cache every image for repeat
+    visits" case rejected above (Push API's `push` event handler is the standard place for
+    background work triggered by a notification, not by browsing), and could also bear on whether
+    `videoUrl` re-hosting is worth revisiting for the push-triggered case specifically, since a
+    push fired soon after extraction would land well inside video's ~25-hour window. Deliberately
+    left open, not designed here.
+
+---
+
 ## Related Documents
 
 - [Infrastructure](../../docs/infrastructure/index.md)
