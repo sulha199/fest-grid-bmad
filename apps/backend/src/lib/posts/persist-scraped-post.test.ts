@@ -140,4 +140,44 @@ test('persistScrapedPost integration tests', async (t) => {
     assert.strictEqual(result2.post.id, result1.post.id);
     assert.strictEqual(result2.post.content, 'Test content D1');
   });
+
+  await t.test('(e) videoUrl round-trips correctly and defaults to null (Amendment)', async () => {
+    const postUrlWithVideo = 'https://instagram.com/p/video_post_' + Date.now();
+    const resultWithVideo = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Test content with video',
+      videoUrl: 'https://test.com/my-video.mp4',
+      postUrl: postUrlWithVideo,
+      publishedAt: new Date().toISOString(),
+    });
+
+    assert.strictEqual(resultWithVideo.alreadyExisted, false);
+    assert.strictEqual(resultWithVideo.post.videoUrl, 'https://test.com/my-video.mp4');
+
+    // Fetch directly from DB to verify raw storage
+    const [dbPostWithVideo] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, resultWithVideo.post.id));
+    assert.strictEqual(dbPostWithVideo.videoUrl, 'https://test.com/my-video.mp4');
+
+    const postUrlNoVideo = 'https://instagram.com/p/no_video_post_' + Date.now();
+    const resultNoVideo = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Test content without video',
+      postUrl: postUrlNoVideo,
+      publishedAt: new Date().toISOString(),
+    });
+
+    assert.strictEqual(resultNoVideo.alreadyExisted, false);
+    assert.strictEqual(resultNoVideo.post.videoUrl, null, 'omitted videoUrl should persist as null in the DB');
+
+    const [dbPostNoVideo] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, resultNoVideo.post.id));
+    assert.strictEqual(dbPostNoVideo.videoUrl, null);
+  });
 });

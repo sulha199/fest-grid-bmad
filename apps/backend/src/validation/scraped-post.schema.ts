@@ -6,6 +6,7 @@ export const scrapedPostSchema: JSONSchemaType<ScrapedPost> = {
   properties: {
     content: { type: 'string', minLength: 1 },
     imageUrl: { type: 'string', nullable: true },
+    videoUrl: { type: 'string', nullable: true },
     postUrl: { type: 'string' },
     originalPostUrl: { type: 'string', nullable: true },
     publishedAt: { type: 'string' },

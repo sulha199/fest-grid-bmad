@@ -200,6 +200,7 @@ export type Event = {
   sourceSocialMediaAccountProfile?: Maybe<SocialMediaAccountProfile>;
   types?: Maybe<Array<EventType>>;
   updatedAt: Scalars['String']['output'];
+  videoUrl?: Maybe<Scalars['String']['output']>;
 };
 
 export type EventCategory =
@@ -1413,6 +1414,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   sourceSocialMediaAccountProfile?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType>;
   types?: Resolver<Maybe<Array<ResolversTypes['EventType']>>, ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  videoUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 

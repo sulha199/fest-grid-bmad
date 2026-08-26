@@ -1418,6 +1418,7 @@ export const resolvers: Resolvers = {
         id: events.id,
         postId: events.postId,
         imageUrl: posts.imageUrl,
+        videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
       }).from(events)
@@ -2554,6 +2555,7 @@ export const resolvers: Resolvers = {
         id: events.id,
         postId: events.postId,
         imageUrl: posts.imageUrl,
+        videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
       }).from(events)
@@ -2670,6 +2672,7 @@ export const resolvers: Resolvers = {
         id: events.id,
         postId: events.postId,
         imageUrl: posts.imageUrl,
+        videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
       }).from(events)
@@ -2746,6 +2749,7 @@ export const resolvers: Resolvers = {
         postId: events.postId,
         slug: events.slug,
         imageUrl: posts.imageUrl,
+        videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
       }).from(events)
@@ -2927,6 +2931,7 @@ export const resolvers: Resolvers = {
         postId: events.postId,
         slug: events.slug,
         imageUrl: posts.imageUrl,
+        videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
       }).from(events)
@@ -2960,6 +2965,7 @@ export const resolvers: Resolvers = {
       return rows as any;
     },
     imageUrl: (parent: any) => parent.imageUrl || null,
+    videoUrl: (parent: any) => parent.videoUrl || null,
     sourcePostUrl: (parent: any) => parent.sourcePostUrl || null,
     originalPostUrl: (parent: any) => parent.originalPostUrl || null,
     isFavorited: async (parent: any, _: any, context: any) => {

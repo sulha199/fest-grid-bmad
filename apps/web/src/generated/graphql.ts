@@ -218,6 +218,7 @@ export type Event = {
   sourceSocialMediaAccountProfile?: Maybe<SocialMediaAccountProfile>;
   types?: Maybe<Array<EventType>>;
   updatedAt: Scalars['String']['output'];
+  videoUrl?: Maybe<Scalars['String']['output']>;
 };
 
 export enum EventCategory {

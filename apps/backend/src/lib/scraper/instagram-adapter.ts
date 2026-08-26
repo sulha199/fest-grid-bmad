@@ -48,6 +48,7 @@ interface ApifyPostItem {
   publishedAt?: string;
   displayUrl?: string;
   imageUrl?: string;
+  videoUrl?: string;
   // Error response fields
   error?: string;
   errorDescription?: string;
@@ -221,6 +222,7 @@ export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost 
     publishedAt,
     // Only include optional fields if they have values (avoid undefined, which fails nullable check)
     ...(imageUrl && { imageUrl }),
+    ...(item.videoUrl && { videoUrl: item.videoUrl }),
     ...(originalPostUrl && { originalPostUrl }),
     ...(item.locationName && { locationName: item.locationName }),
     ...(item.ownerFullName && { ownerDisplayName: item.ownerFullName }),

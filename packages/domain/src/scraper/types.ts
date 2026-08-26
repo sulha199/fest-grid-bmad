@@ -6,6 +6,7 @@ export interface ScraperAccountRef {
 export interface ScrapedPost {
   content: string;
   imageUrl?: string;
+  videoUrl?: string;
   postUrl: string;
   originalPostUrl?: string;
   publishedAt: string;

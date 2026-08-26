@@ -82,6 +82,7 @@ type Event {
   sourceSocialMediaAccountId: ID
   postId: ID
   imageUrl: String
+  videoUrl: String
   sourcePostUrl: String
   originalPostUrl: String
   organizerName: String
