@@ -10,9 +10,14 @@ export interface EventCardLabels {
   typeLabels?: Record<string, string>;
   /** Translated display label per event category enum member, keyed by the raw enum value (e.g. { MUSIC: 'Music' }). Falls back to the raw value if a key is missing. */
   categoryLabels?: Record<string, string>;
+  today?: string;
+  tomorrow?: string;
 }
 
 export interface EventCardProps {
+  /** Optional layout variant */
+  variant?: 'standard' | 'masonry';
+
   /** The name of the event (required) */
   eventName: string;
   
@@ -51,6 +56,9 @@ export interface EventCardProps {
 
   /** Reserved slot for favorite state. When onFavoriteToggle is provided, a heart icon/button is rendered */
   isFavorited?: boolean;
+
+  /** Optional count of favorites for the event */
+  favoriteCount?: number;
 
   isGreyedOut?: boolean;
 

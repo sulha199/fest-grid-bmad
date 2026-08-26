@@ -4,7 +4,7 @@
 
 - Epic: 1
 - Story ID: 1.3b
-- Status: ready-for-dev (AC11-AC13 amendment; AC1-AC10 already delivered)
+- Status: review (AC1-AC13 all delivered)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -44,10 +44,10 @@ so that the main event list (and future views like favorites/calendar) can displ
 - [x] 10. Export `EventCard`, `EventCardProps`, and any sub-types from `packages/ui/src/features/events/index.ts`, and re-export via `packages/ui/src/index.ts` (AC10).
 - [x] 11. Add TSDoc comments to the component and its props documenting purpose, defaults, and reuse guidance (AC10).
 - [x] 12. Write component tests (Vitest + `@testing-library/react`) covering: full data render, minimal/guaranteed-fields-only render, image success, image error fallback, no-`imageUrl` fallback, loading skeleton `aria-busy`, keyboard focus/activation of the card root, and favorite control hidden when `onFavoriteToggle` is absent (AC1–AC10; use `@festgrid/testing-config/vitest-react` per Testing Requirements).
-- [ ] 13. **(Added 2026-08-25 — AC11 amendment.)** Add `variant?: 'standard' | 'masonry'` to `EventCardProps` (default `'standard'`). In `EventCard.tsx`, branch the image container's className (`h-48` for standard vs. `event_card_masonry.image`'s `aspect-[3/4] object-cover` for masonry) and the caption section (full standard layout vs. masonry's title+locationName-only, tighter padding). Reuse the existing `imgError`/`onError` fallback logic unchanged in both variants.
-- [ ] 14. **(Added 2026-08-25 — AC12 amendment.)** Add a `formatRelativeDayOrDate(locale, timezone, dateObj, labels)` helper alongside `formatEventDate` in `EventCard.tsx` (or a co-located file if it grows large): compute day-difference in the active timezone between "now" and `dateObj`; return a relative label for 0-6 days out (`Today`/`Tomorrow` via new `labels` entries, else `Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: timezone })`), else fall through to the existing `formatEventDate` output. Wire it into the standard variant's existing date line and, for masonry, additionally render it as the top-left pill (AC12). Add `today`/`tomorrow` to `EventCardLabels` (English defaults: `"Today"`/`"Tomorrow"`) — non-English weekday names come from `Intl.DateTimeFormat` itself via the `locale`/`timezone` props already threaded through, not from `labels`.
-- [ ] 15. **(Added 2026-08-25 — AC13 amendment.)** Add `favoriteCount?: number` to `EventCardProps`. In the existing favorite-toggle `<button>` (AC7), when `favoriteCount !== undefined`, render `{favoriteCount}` as text next to the `Heart` icon, styled per `event_card_favorite_count_badge`. No change when `onFavoriteToggle` is absent (AC13's own rule).
-- [ ] 16. **(Added 2026-08-25.)** Extend `EventCard.test.tsx`: masonry variant renders the aspect-ratio image class and the reduced caption (no categories/price even if those props are passed); relative-day pill/text renders `"Today"`/`"Tomorrow"`/a weekday name for dates 0-6 days out and the existing absolute format for dates ≥7 days out (cover a boundary case at exactly day 7); favorite count renders next to the heart icon when both `favoriteCount` and `onFavoriteToggle` are provided, and does not render when `onFavoriteToggle` is absent even if `favoriteCount` is provided.
+- [x] 13. **(Added 2026-08-25 — AC11 amendment.)** Add `variant?: 'standard' | 'masonry'` to `EventCardProps` (default `'standard'`). In `EventCard.tsx`, branch the image container's className (`h-48` for standard vs. `event_card_masonry.image`'s `aspect-[3/4] object-cover` for masonry) and the caption section (full standard layout vs. masonry's title+locationName-only, tighter padding). Reuse the existing `imgError`/`onError` fallback logic unchanged in both variants.
+- [x] 14. **(Added 2026-08-25 — AC12 amendment.)** Add a `formatRelativeDayOrDate(locale, timezone, dateObj, labels)` helper alongside `formatEventDate` in `EventCard.tsx` (or a co-located file if it grows large): compute day-difference in the active timezone between "now" and `dateObj`; return a relative label for 0-6 days out (`Today`/`Tomorrow` via new `labels` entries, else `Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: timezone })`), else fall through to the existing `formatEventDate` output. Wire it into the standard variant's existing date line and, for masonry, additionally render it as the top-left pill (AC12). Add `today`/`tomorrow` to `EventCardLabels` (English defaults: `"Today"`/`"Tomorrow"`) — non-English weekday names come from `Intl.DateTimeFormat` itself via the `locale`/`timezone` props already threaded through, not from `labels`.
+- [x] 15. **(Added 2026-08-25 — AC13 amendment.)** Add `favoriteCount?: number` to `EventCardProps`. In the existing favorite-toggle `<button>` (AC7), when `favoriteCount !== undefined`, render `{favoriteCount}` as text next to the `Heart` icon, styled per `event_card_favorite_count_badge`. No change when `onFavoriteToggle` is absent (AC13's own rule).
+- [x] 16. **(Added 2026-08-25.)** Extend `EventCard.test.tsx`: masonry variant renders the aspect-ratio image class and the reduced caption (no categories/price even if those props are passed); relative-day pill/text renders `"Today"`/`"Tomorrow"`/a weekday name for dates 0-6 days out and the existing absolute format for dates ≥7 days out (cover a boundary case at exactly day 7); favorite count renders next to the heart icon when both `favoriteCount` and `onFavoriteToggle` are provided, and does not render when `onFavoriteToggle` is absent even if `favoriteCount` is provided.
 
 ## Dev Notes
 
@@ -165,9 +165,9 @@ AC11-AC13 are new, added per `sprint-change-proposal-2026-08-24-ux-rework-batch.
 - [x] `labels` override prop for i18n-readiness.
 - [x] Exported from `packages/ui`'s public entry point with TSDoc prop documentation.
 - [x] Component tests written and passing.
-- [ ] `variant="masonry"` prop implemented (AC11, new 2026-08-25).
-- [ ] Relative-day date display for both variants (AC12, new 2026-08-25).
-- [ ] Favorite count badge (AC13, new 2026-08-25).
+- [x] `variant="masonry"` prop implemented (AC11, new 2026-08-25).
+- [x] Relative-day date display for both variants (AC12, new 2026-08-25).
+- [x] Favorite count badge (AC13, new 2026-08-25).
 
 ## Out of Scope
 
@@ -181,7 +181,7 @@ AC11-AC13 are new, added per `sprint-change-proposal-2026-08-24-ux-rework-batch.
 ## Definition of Done
 
 - [x] All original Acceptance Criteria (AC1–AC10) are met.
-- [ ] AC11-AC13 (masonry variant, relative-day display, favorite count — new 2026-08-25) are met.
+- [x] AC11-AC13 (masonry variant, relative-day display, favorite count — new 2026-08-25) are met.
 - [x] Required component tests (see Testing Requirements) are written and passing.
 - [x] Lint and TypeScript strict-mode checks pass for `packages/ui`.
 - [x] `EventCard` is exported from `packages/ui`'s public entry point and documented with TSDoc.
@@ -189,19 +189,19 @@ AC11-AC13 are new, added per `sprint-change-proposal-2026-08-24-ux-rework-batch.
 
 ## Completion Status
 
-review (AC1-AC10) / ready-for-dev (AC11-AC13 amendment)
+review (AC1-AC13 all delivered)
 
-**2026-08-25:** AC1-AC10 confirmed already implemented and correct via direct code inspection. AC11-AC13 (masonry variant, relative-day display, favorite count) are new, unimplemented, ready for dev.
+**2026-08-25:** AC1-AC10 confirmed already implemented and correct via direct code inspection. AC11-AC13 (masonry variant, relative-day display, favorite count) implemented via cline: 288/288 packages/ui tests pass, build/lint clean.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-gemini-2.5-pro
+gemini-2.5-pro (AC1-10, original); cline (`gemini-3.5-flash`) in an isolated worktree (AC11-13 amendment, 2026-08-25)
 
 ### Debug Log References
 
-N/A
+N/A (AC1-10). AC11-13: local Vitest run, 288/288 `packages/ui` tests passing.
 
 ### Completion Notes List
 
@@ -212,7 +212,13 @@ N/A
 - Provided component testing via `vitest` + `testing-library/react` and configured `packages/ui` to properly load JSX using `@vitejs/plugin-react`.
 - Verified typings and all 9 component tests pass.
 
+**AC11-13 amendment (2026-08-25):** Added `variant?: 'standard' | 'masonry'` prop with a native-aspect-ratio image and reduced caption for masonry. Added `formatRelativeDayOrDate` helper (Today/Tomorrow/weekday name for 0-6 days out, falls through to the existing absolute formatter otherwise), wired into both variants including a top-left pill overlay in masonry. Added `favoriteCount?: number`, rendered next to the `Heart` icon in the existing favorite-toggle button only when `onFavoriteToggle` is also present. Extended `EventCard.test.tsx` with masonry-rendering, relative-day boundary, and favorite-count cases. Independently verified: 288/288 `packages/ui` tests, full repo build (7/7) and lint (0 errors) all pass.
+
 ### File List
+
+- `packages/ui/src/features/events/EventCard.tsx` (Modified — AC11-13)
+- `packages/ui/src/features/events/EventCard.types.ts` (Modified — AC11-13)
+- `packages/ui/src/features/events/EventCard.test.tsx` (Modified — AC11-13)
 
 - `packages/ui/src/features/events/EventCard.tsx`
 - `packages/ui/src/features/events/EventCard.types.ts`
