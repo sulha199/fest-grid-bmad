@@ -21,6 +21,9 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   categories,
   imageUrl,
   imageAlt,
+  videoUrl,
+  videoAlt,
+  imageFallbackUrl,
   originalPostUrl,
   sourcePostUrl,
   accountName,
@@ -251,7 +254,17 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
       )}
 
       {/* Image */}
-      <EventImage imageUrl={imageUrl} imageAlt={imageAlt} eventName={eventName} />
+      <EventImage
+        imageUrl={imageUrl}
+        imageAlt={imageAlt}
+        eventName={eventName}
+        videoUrl={videoUrl}
+        videoAlt={videoAlt}
+        imageFallbackUrl={imageFallbackUrl}
+        originalPostUrl={originalPostUrl}
+        sourcePostUrl={sourcePostUrl}
+        videoUnavailableLabel={labels.videoUnavailableLabel}
+      />
 
       <header className="flex flex-col gap-3">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{eventName}</h1>

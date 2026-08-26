@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { EventDetailView } from './EventDetailView';
@@ -132,6 +132,76 @@ describe('EventDetailView', () => {
   it('renders no-imageUrl fallback', () => {
     render(<EventDetailView {...minimalProps} />);
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+
+  it('renders video when videoUrl is present', () => {
+    const props = {
+      ...fullProps,
+      videoUrl: 'https://example.com/video.mp4',
+      videoAlt: 'Test Video Alt',
+    };
+    render(<EventDetailView {...props} />);
+
+    // Assert video element exists
+    const video = screen.getByTestId('event-video');
+    expect(video).toBeInTheDocument();
+    expect(video).toHaveAttribute('src', 'https://example.com/video.mp4');
+    expect((video as HTMLVideoElement).autoplay).toBe(true);
+    expect((video as HTMLVideoElement).muted).toBe(true);
+    expect((video as HTMLVideoElement).loop).toBe(true);
+    expect((video as any).playsInline || (video as any).playsinline || video.getAttribute('playsinline')).toBeTruthy();
+  });
+
+  it('falls back to poster image and shows unavailable note on video error', () => {
+    const props = {
+      ...fullProps,
+      videoUrl: 'https://example.com/video.mp4',
+      videoAlt: 'Test Video Alt',
+      labels: {
+        ...fullProps.labels,
+        videoUnavailableLabel: 'Custom Video Unavailable Label',
+      },
+    };
+    render(<EventDetailView {...props} />);
+
+    const video = screen.getByTestId('event-video');
+    expect(video).toBeInTheDocument();
+
+    // Trigger video load error
+    fireEvent.error(video);
+
+    // It should fall back to showing the poster image
+    const img = screen.getByRole('img', { name: 'Custom Alt Text' });
+    expect(img).toBeInTheDocument();
+
+    // And since originalPostUrl / sourcePostUrl are present in fullProps, the video-unavailable note+link appears
+    const note = screen.getByTestId('video-unavailable-note');
+    expect(note).toBeInTheDocument();
+    expect(screen.getByText('Custom Video Unavailable Label')).toBeInTheDocument();
+    
+    const link = within(note).getByRole('link');
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', 'https://instagram.com/p/123'); // prioritized originalPostUrl from fullProps
+  });
+
+  it('image fallback URL retry on image load failure', () => {
+    const props = {
+      ...fullProps,
+      imageFallbackUrl: 'https://example.com/fallback.jpg',
+    };
+    render(<EventDetailView {...props} />);
+
+    const img = screen.getByRole('img', { name: 'Custom Alt Text' });
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute('src', 'https://example.com/image.jpg');
+
+    // First error: should swap to imageFallbackUrl
+    fireEvent.error(img);
+    expect(img).toHaveAttribute('src', 'https://example.com/fallback.jpg');
+
+    // Second error: should render placeholder icon and remove the img element
+    fireEvent.error(img);
+    expect(screen.queryByRole('img', { name: 'Custom Alt Text' })).not.toBeInTheDocument();
   });
 
   it('renders loading skeleton with aria-busy', () => {

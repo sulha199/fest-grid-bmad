@@ -49,6 +49,7 @@ export interface EventDetailViewLabels {
   timezoneSubmitLabel: string;
   timezoneSubmitSuccessAnnouncement: string;
   timezoneSubmitErrorAnnouncement: string;
+  videoUnavailableLabel?: string;
 }
 
 /**
@@ -68,6 +69,9 @@ export interface EventDetailViewProps {
   categories?: string[];
   imageUrl?: string | null;
   imageAlt?: string | null;
+  videoUrl?: string | null;
+  videoAlt?: string | null;
+  imageFallbackUrl?: string | null;
 
   // External URLs (AC15, AC16)
   originalPostUrl?: string | null;
