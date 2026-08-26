@@ -451,6 +451,10 @@
         "subscribe": {
           "title": "Subscribe",
           "description": "Subscribe to your first social media account."
+        },
+        "notifications": {
+          "title": "Enable Notifications",
+          "description": "Stay updated with push notifications."
         }
       }
     }
@@ -472,7 +476,11 @@
     "subscribeSuccessToast": "Successfully subscribed to the account!",
     "alreadySubscribedToast": "You are already subscribed to this account.",
     "subscribeErrorToast": "Failed to subscribe to the account. Please try again.",
-    "invalidHandleError": "Please enter a valid handle or profile link."
+    "invalidHandleError": "Please enter a valid handle or profile link.",
+    "notificationToggleLabel": "Enable push notifications",
+    "notificationToggleDescription": "Receive notifications for new music festival events and announcements.",
+    "notificationPermissionDeniedToast": "Please enable notification permissions in your browser settings to receive notifications on this device.",
+    "notificationSaveErrorToast": "Failed to update notification settings. Please try again."
   },
   "ApiKeysSettingsPage": {
     "title": "My API Keys",
