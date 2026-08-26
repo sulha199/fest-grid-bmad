@@ -361,6 +361,17 @@ development_status:
   # when videoUrl is present; on playback failure, falls back to EventImage
   # and surfaces the existing originalPostUrl/sourcePostUrl attribution link.
   # See sprint-change-proposal-2026-08-25-video-priority-display.md.
+  # DONE 2026-08-26: AC17-19 implemented in an isolated worktree (cline-cli,
+  # story/1-6a-video-component) -- EventImage.tsx extended in place with
+  # video autoplay/muted/loop/playsInline, videoReady/videoError state,
+  # imageFallbackUrl onError retry, and video-failure attribution note.
+  # Independently re-verified: 303/303 packages/ui tests pass (incl. 3 new
+  # video/fallback cases), lint clean, no new TS errors in any touched file
+  # (checked via apps/web's own tsc --noEmit as a real consumer). One real
+  # issue found and fixed during verification: the failure-note link text
+  # was hardcoded English instead of reusing labels.viewOriginalPostLabel/
+  # viewSourceLabel (i18n-rule violation, same category as Story 3.3b's
+  # AccountLocationField fix) -- corrected before merge.
   1-6a-build-the-reusable-event-detail-view-component: done
   1-6b-build-the-context-aware-list-navigation-hook: done
   # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-

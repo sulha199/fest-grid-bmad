@@ -7,7 +7,7 @@ baseline_commit: 162af179d0baa285d8680991f04ed9bcff4b14ee
 
 - Epic: 1
 - Story ID: 1.6a
-- Status: ready-for-dev
+- Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -35,6 +35,9 @@ so that the event name, description, all schedules (date/time/performers/price/l
 14. **AC14 — Documented & exported for reuse:** `EventDetailView` (and its prop types) is exported from `packages/ui`'s public entry point with prop-level documentation (TSDoc), and has component tests proving the loading / error / image-success / image-fallback / multi-schedule / minimal-data states, so it is discoverable and reusable across both the modal and full-page consumers in Story 1.6.
 15. **AC15 — Source-post attribution links (added 2026-08-01 via `bmad-correct-course`):** `EventDetailView` accepts two independent, optional caller-supplied URL props — `originalPostUrl` (the canonical original-platform post, e.g. Instagram, when the caller was able to derive it) and `sourcePostUrl` (the post as actually scraped, which may be a proxy/mirror site, e.g. `imginn.com`) — and renders an attribution link for whichever is present; when both are absent, no attribution section renders (not an empty block); when only one is present, only that one renders. `packages/ui` does not construct or validate these URLs itself (same decoupling as `mapUrl`, AC4) — the caller resolves and passes them in.
 16. **AC16 — Account attribution link (added 2026-08-02 via `bmad-correct-course`):** `EventDetailView` accepts optional caller-supplied `accountName`, `accountPlatformIconUrl` (or equivalent platform-icon identifier), and `accountHref` props (a pre-built `/{platformSlug}/{accountId}` URL, Story 3.11 — the caller resolves this, mirroring the `mapUrl`/AC4 and attribution-link/AC15 decoupling pattern); when all three are present, it renders the account's platform icon and display name as a link to `accountHref`; when any are absent, the account-attribution section is omitted entirely (not a broken/partial render). This is independent of, and renders alongside, the AC15 source-post attribution links — the two point to different destinations (account page vs. original post) and either may be present without the other.
+17. **AC17 — Video priority display (added 2026-08-26 via `bmad-correct-course`, `sprint-change-proposal-2026-08-25-video-priority-display.md` §1.3/§4.5):** `EventDetailViewProps` gains optional `videoUrl`/`videoAlt` props. When `videoUrl` is present, `EventDetailView` renders a `<video autoPlay muted loop playsInline>` in place of the static image, with no manual playback controls (v1 decision, no player library). The poster image (`imageUrl`) remains the visible content (a) before the video has started playing — reusing whichever skeleton/loading convention `EventImage` already establishes for its own container — and (b) as the fallback if the video fails to load or play, via the same graceful-degradation `onError` pattern `EventImage` already uses for a broken `imageUrl` (AC7). When `videoUrl` is absent, rendering is byte-for-byte unchanged from the existing image-only path (AC6/AC7) — no regression for non-video posts.
+18. **AC18 — Video failure attribution (added 2026-08-26 via `bmad-correct-course`):** When video playback fails specifically (the `onError`/failure path only — not the initial pre-ready loading state covered by AC17), and at least one of `originalPostUrl`/`sourcePostUrl` (AC15) is present, `EventDetailView` surfaces those existing attribution links with copy explaining that the video can be viewed on the original post, in addition to falling back to the poster image per AC17. No new URL-resolution props are introduced — this reuses the AC15 props as-is.
+19. **AC19 — Forward-compatible image fallback URL (added 2026-08-26 via `bmad-correct-course`):** `EventDetailViewProps` gains an optional `imageFallbackUrl` prop, wired into the image's existing `onError` handler as a secondary retry attempted before giving up to the placeholder icon. This story only adds and wires the prop for a later, separate story (Track A's original-vs-durable image switch, `sprint-change-proposal-2026-08-25-video-priority-display.md` AD-12) to populate — no URL-selection/expiry logic is implemented here, and no existing behavior changes when `imageFallbackUrl` is absent.
 
 ## Tasks / Subtasks
 
@@ -55,6 +58,12 @@ so that the event name, description, all schedules (date/time/performers/price/l
 - [x] 15. Write component tests (Vitest + `@testing-library/react`) covering: full-data render with multiple schedules, minimal/guaranteed-fields-only render, image success, image error fallback, no-`imageUrl` fallback, loading skeleton `aria-busy`, error state, map link present/absent, tag rendering present/absent, and favorite/calendar controls hidden when their handlers are absent (AC1–AC14; use `@festgrid/testing-config/vitest-react` per Testing Requirements).
 - [x] 16. **(Added 2026-08-01, source-attribution amendment, AC15):** Implement the `originalPostUrl`/`sourcePostUrl` optional props on `EventDetailViewProps`; render an attribution link for each one present, omit the section entirely when both are absent. Add component tests: both links present, only `originalPostUrl` present, only `sourcePostUrl` present, neither present (no broken/empty section rendered).
 - [x] 17. **(Added 2026-08-02, account-attribution amendment, AC16):** Implement the `accountName`/`accountPlatformIconUrl`/`accountHref` optional props on `EventDetailViewProps`; render the account's platform icon + name as a link to `accountHref` when all three are present, omit the section entirely otherwise. Add component tests: all three present (renders link), any one missing (section omitted), and confirm this section renders independently alongside AC15's source-post attribution links (both present simultaneously).
+- [x] 18. **(Added 2026-08-26, video amendment, AC17/AC18/AC19):** Add `videoUrl?: string | null`, `videoAlt?: string | null`, and `imageFallbackUrl?: string | null` to `EventDetailViewProps` (`EventDetailView.types.ts`). Add an optional `videoUnavailableLabel?: string` to `EventDetailViewLabels` with a sensible English default (mirroring the `reportMenuItemLabel` optional-with-default precedent), used for AC18's explanatory copy.
+- [x] 19. **(Added 2026-08-26, video amendment, AC17):** Give `EventImage.tsx` (the single existing owner of the media slot — extend it rather than build a parallel sibling component, to avoid duplicating the skeleton/placeholder container) a video-capable rendering path: when `videoUrl` is passed, mount a `<video autoPlay muted loop playsInline>` sized/positioned identically to the existing `<img>` (`w-full h-full object-cover` inside the existing `aspect-video` container). Track a `videoReady` state (set via the video element's `onCanPlay`/`onLoadedData`) so the poster `<img>` stays the visible content until the video is actually ready to play, and a `videoError` state (set via the video element's `onError`) so a failed video falls back to the poster-image render path (AC7's existing fallback chain) rather than showing a broken player.
+- [x] 20. **(Added 2026-08-26, video amendment, AC19):** Wire `imageFallbackUrl` into `EventImage`'s existing image `onError` handler as a secondary retry: on the image's first `onError`, if `imageFallbackUrl` is present and hasn't been tried yet, swap the rendered `src` to it instead of immediately showing the placeholder icon; only show the placeholder icon if the fallback also errors (or no `imageFallbackUrl` was provided).
+- [x] 21. **(Added 2026-08-26, video amendment, AC18):** When `videoError` becomes true and at least one of `originalPostUrl`/`sourcePostUrl` is present, render the `videoUnavailableLabel` copy plus the existing AC15 attribution link(s) inline near the media element (not only in the page-level attribution footer at lines ~396-405, which already renders unconditionally when those props are present) — this is the failure-specific surfacing the AC requires, reusing the AC15 props with no new URL plumbing. **Note (see Dev Agent Record):** the inline link's own visible text also reuses `labels.viewOriginalPostLabel`/`labels.viewSourceLabel` (matching which of `originalPostUrl`/`sourcePostUrl` is present) rather than a hardcoded string — fixed during independent verification, see below.
+- [x] 22. **(Added 2026-08-26, video amendment, AC17):** Wire `EventDetailView.tsx`'s render call (currently `<EventImage imageUrl={imageUrl} imageAlt={imageAlt} eventName={eventName} />` at line ~254) to also pass `videoUrl`, `videoAlt`, `imageFallbackUrl`, `originalPostUrl`, `sourcePostUrl`, and the resolved `videoUnavailableLabel` through to `EventImage` — `EventImage` needs all of these to implement AC17/AC18 itself, since the media rendering (including the failure-attribution note) lives there, not in `EventDetailView.tsx` directly.
+- [x] 23. **(Added 2026-08-26, video amendment, AC17/AC18/AC19):** Add component tests (following the existing `EventDetailView.test.tsx` image-success/image-fallback pattern at lines 117-135): video renders (`<video>` present with `autoPlay`/`muted`/`loop`/`playsInline`, `src`/matching `videoUrl`) when `videoUrl` is provided; on video error, falls back to the poster image and shows the AC18 attribution note+link when `originalPostUrl`/`sourcePostUrl` is present; image-only path (no `videoUrl`) is unchanged from the existing AC6/AC7 tests; `imageFallbackUrl` retry — image `onError` swaps to the fallback URL, and only shows the placeholder icon if the fallback also errors.
 
 ## Dev Notes
 
@@ -62,6 +71,15 @@ so that the event name, description, all schedules (date/time/performers/price/l
 - Previous story in sequence (by story-number ordering within Epic 1, `1-5-filter-events-by-type-and-category.md`) is `apps/web`-side (Filter Hub wiring, `nuqs` URL state, DSL query-building) with zero file overlap with this `packages/ui`-only story — no dev-notes/learnings carry over, matching the same "no overlap" conclusion Story 1.3b reached against its own predecessor.
 - The stale, pre-split `1-6-view-event-details.md` story file (written before this Gate-2 split existed) still describes building an `EventDetails` component directly at `apps/web/components/events/EventDetails.tsx`. That plan is now superseded by this story: the reusable display component belongs in `packages/ui/src/features/events/EventDetailView.tsx` per `project-context.md`'s "Domain Features" rule, and Story 1.6 (not this story) is responsible for wiring `EventDetailView` into the modal/full-page routes, GraphQL data fetching, and `ContextAwareNavigation`. This story does not update `1-6-view-event-details.md` — that reconciliation happens if/when Story 1.6 is next touched.
 - Recent commit history (`0.16`, `0.17`, `0.9`, `1.2a` implementation artifacts) shows a consistent pattern of small, tightly-scoped packages/adapters — the only frontend-component precedent to reuse is `packages/ui/src/core/app-shell/AppShell.tsx` and, by convention, the (not-yet-implemented) `EventCard` plan from Story 1.3b.
+
+### Amendment 2026-08-26 — Video Priority Display (Track B, Wave 1 of `sprint-change-proposal-2026-08-25-video-priority-display.md`)
+
+- **Trigger:** Reopened via `bmad-correct-course` — Instagram Reels/clips carry a video that should be the primary media in the event detail view when present, per the SCP's Section 1.3 decisions (already resolved, not open questions for this story): autoplay/muted/looped, no controls for v1, fallback to the poster image plus a link to the original post on failure.
+- **Scope boundary — presentation-only, no real backend data yet:** This amendment builds against a `videoUrl` prop contract only. The real GraphQL `videoUrl` field does **not** exist yet — that's the SCP's independent, parallel-running sibling amendment (Story 3.3c + a new DB/GraphQL story, same Wave 1). This story does not wait on it, does not touch any GraphQL query/resolver, and does not touch `EventDetailView`'s data-fetching wrapper (that wiring is Story 1.6's own amendment, Wave 2, blocked on both this story and the GraphQL field). Also independent of Story 0.33's S3/CloudFront infra work (Track A) — this story does not touch `imageFallbackUrl`'s eventual real value, only adds and wires the prop.
+- **Component ownership decision:** Extend `EventImage.tsx` in place with conditional video rendering rather than build a new adjacent component. `EventImage` already owns the single media slot (the `aspect-video` container, the poster `<img>`, and the existing `onError`→placeholder-icon fallback) — duplicating that container/skeleton logic in a new sibling component would create two divergent poster-image implementations to keep in sync. `EventDetailView.tsx` continues to render one `<EventImage>` call site (line ~254); `EventImage` internally decides whether to show the poster only, poster-then-video, or poster-plus-failure-note based on the new props.
+- **State machine inside `EventImage`:** three independent failure/readiness signals, not one — (1) `imageError` (existing, from AC7) for the poster image itself; (2) `videoReady` (new) for whether the video has become playable (`onCanPlay`/`onLoadedData`), gating when the video visually replaces the poster; (3) `videoError` (new) for whether the video failed, which reverts to the poster-image path and (per AC18) surfaces the attribution note. `videoReady`/`videoError` only matter when `videoUrl` is present; when it's absent, the component's behavior is identical to before this amendment (AC17's explicit no-regression requirement).
+- **Labels:** `videoUnavailableLabel` is added as an *optional* field on `EventDetailViewLabels` (not required) with a hardcoded English default inside the component, following the exact precedent already set by `reportMenuItemLabel` (optional, `labels.reportMenuItemLabel || 'Report'`) — this avoids forcing every existing call site/test (including Story 1.6's real consumer, not yet updated) to supply a new required field just to keep compiling.
+- **No fresh Gate 1/2/3 run required:** the SCP (`sprint-change-proposal-2026-08-25-video-priority-display.md` Section 1.3) already resolved the only genuinely open UX/architecture questions for this scope (playback behavior, failure fallback) via `AskUserQuestion` during its own drafting — there is no undecided UI-complexity or architecture-completeness question left for Gate 1/2 to surface. Gate 3 (cross-cutting foundational dependency): none introduced — no new external service, shared infra, or tooling gap; this reuses `EventImage`'s existing container/fallback pattern and the AC15 attribution props verbatim.
 
 ### Architecture & UX Gate Findings
 
@@ -84,12 +102,14 @@ so that the event name, description, all schedules (date/time/performers/price/l
 - **Required TypeScript type changes:** No changes required to `packages/shared-types`. This story defines its own local, decoupled `EventDetailViewProps`/`ScheduleDetail` prop types in `packages/ui` (not a re-export of `EventInfo`/`Schedule`), so `packages/ui` never takes a compile-time dependency on `@festgrid/shared-types`' backend-oriented shape — consistent with `EventCard`'s approach.
 - **Backward compatibility and rollout notes:** Not applicable — net-new component, no existing consumers to break. Story 1.6 will be the first real caller and is responsible for mapping fetched `EventInfo`/`Schedule` GraphQL data onto this component's prop shape (including resolving `mapUrl` from `Schedule.locationDetails.coordinates` if/when that mapping is implemented — out of scope here, see Out of Scope).
 - **Verification checks:** This story's own component tests cover both the full data shape (multiple schedules, all optional fields present) and the minimal guaranteed shape (AC10). End-to-end verification against real event/schedule data is not possible until Story 1.6 wires live GraphQL data into this component; track that separately when Story 1.6 is picked up.
+- **(Amendment 2026-08-26) Compatibility finding:** No mismatch. `videoUrl`/`videoAlt`/`imageFallbackUrl` are added as optional, decoupled prop fields on `EventDetailViewProps` — same pattern as `imageUrl`/`mapUrl`/the AC15/AC16 attribution props — not a re-export of any `packages/shared-types` interface. This story does not depend on and does not wait on the real `Post.videoUrl` GraphQL field (a parallel, independent Story 3.3c + new-DB/GraphQL-story amendment in the same SCP Wave 1) — it builds and tests entirely against the prop contract. No DB schema or shared-type changes are made by this story.
 
 ### Project Structure Notes
 
 - New files live under `packages/ui/src/features/events/`, per `project-context.md`'s "Domain Features" convention (`packages/ui/src/features/<domain>/...`), alongside the (not-yet-implemented) `EventCard.tsx` from Story 1.3b.
 - Only existing files potentially touched: `packages/ui/src/index.ts` (barrel re-export) and, if it already exists from a sibling events-feature story, `packages/ui/src/features/events/index.ts` — otherwise this story creates it. No conflicts with `apps/backend` or `apps/web` work (different package entirely).
 - `packages/ui`'s existing component (`AppShell.tsx`) establishes the pattern this story must follow: plain Tailwind classes, native HTML elements, `lucide-react` for icons, no Next.js-specific APIs (`next/link`, `next/image`), no `next-intl` — labels/URLs are passed in as already-resolved props by the consuming `apps/web` app. `EventCard` (Story 1.3b, not yet implemented but already specced) establishes the same pattern for event-domain components specifically and should be treated as the closest sibling precedent when Story 1.3b lands.
+- **(Amendment 2026-08-26)** `EventImage.tsx` (`packages/ui/src/features/events/EventImage.tsx`, already implemented) is a file being MODIFIED by this amendment — read it in full before touching it. Current state: a `"use client"` component with a single `imageError` boolean state, rendering either the poster `<img>` with `onError={() => setImageError(true)}`, or a centered `ImageIcon` placeholder, inside a `w-full relative aspect-video bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden flex items-center justify-center` container. Current props: `imageUrl?`, `imageAlt?`, `eventName` (required). What this amendment changes: adds `videoUrl?`, `videoAlt?`, `imageFallbackUrl?`, `originalPostUrl?`, `sourcePostUrl?`, `videoUnavailableLabel?`, `viewOriginalPostLabel?`, `viewSourceLabel?` props and the `videoReady`/`videoError` state machine (see the Amendment Dev Notes above). What must be preserved: the existing `imageError` behavior and placeholder-icon fallback exactly as-is when `videoUrl` is absent (AC17's no-regression requirement).
 
 ### References
 
@@ -107,6 +127,9 @@ so that the event name, description, all schedules (date/time/performers/price/l
 - [Source: packages/shared-types/src/index.ts] — confirmed current `EventInfo`/`Schedule` field shapes, no mismatch.
 - [Source: packages/ui/src/core/app-shell/AppShell.tsx] — established `packages/ui` component conventions (plain Tailwind, no Next.js coupling).
 - [Source: _bmad-output/planning-artifacts/epics.md#Story-3.1a] and [#Story-3.11] — `SocialMediaAccountProfile.accountId`/`platform` fields and the public account page (`/{platformSlug}/{accountId}`) this story's AC16 links to, added via `bmad-correct-course` (2026-08-02).
+- [Source: _bmad-output/planning-artifacts/sprint-change-proposal-2026-08-25-video-priority-display.md] — Section 1.3 (decisions: autoplay/muted/looped, fallback-to-image-plus-link-on-failure), Section 4.5 (this story's exact scope), Section 4.4/AD-12 (the parallel, independent image-durability track this story does not build against, only forward-compatibly wires the `imageFallbackUrl` prop for).
+- [Source: _bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md#3.4] — bullet 3.3.5 (Video Prioritization requirement, added by the SCP above).
+- [Source: packages/ui/src/features/events/EventImage.tsx] — the file this amendment modifies; current implementation read in full during story creation (see Project Structure Notes above).
 
 ## Global Rules References
 
@@ -127,6 +150,10 @@ so that the event name, description, all schedules (date/time/performers/price/l
   - UPDATE `packages/ui/src/index.ts` — add `export * from './features/events';` if not already present.
   - NEW-OR-VERIFY `packages/ui/vitest.config.ts` — `mergeConfig(reactConfig, defineConfig({}))` importing `@festgrid/testing-config/vitest-react`, matching the pattern already used by `packages/analytics/vitest.config.ts` and `apps/web/vitest.config.ts` (Story 0.10's `@festgrid/testing-config` package exists with `vitest-react.ts`/`msw-handlers.ts`); create only if Story 1.3b/1.3c/1.4/1.5a hasn't already added it.
   - NEW-OR-VERIFY `packages/ui/package.json` — `"test": "vitest run"` script and devDependencies `@festgrid/testing-config` (workspace), `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/jest-dom`; add only if not already present from a sibling `packages/ui` story.
+  - **(Amendment 2026-08-26)** UPDATE `packages/ui/src/features/events/EventImage.tsx` — add `videoUrl`/`videoAlt`/`imageFallbackUrl`/`originalPostUrl`/`sourcePostUrl`/`videoUnavailableLabel`/`viewOriginalPostLabel`/`viewSourceLabel` props and the video-capable rendering path (AC17-AC19). No new file — extends the existing single media-slot owner (see Dev Notes decision above).
+  - **(Amendment 2026-08-26)** UPDATE `packages/ui/src/features/events/EventDetailView.types.ts` — add `videoUrl?`, `videoAlt?`, `imageFallbackUrl?` to `EventDetailViewProps`; add `videoUnavailableLabel?` to `EventDetailViewLabels`.
+  - **(Amendment 2026-08-26)** UPDATE `packages/ui/src/features/events/EventDetailView.tsx` — pass the new props through to `EventImage` at the existing render call site (~line 254).
+  - **(Amendment 2026-08-26)** UPDATE `packages/ui/src/features/events/EventDetailView.test.tsx` — new tests per Task 23.
 - **Rule Mapping:**
   - *UI Components & Scalability (Domain Features)* → component placed in `packages/ui/src/features/events/`.
   - *i18n foundational principle (AD-6)* → `labels` override prop pattern, no direct `next-intl` dependency inside `packages/ui`.
@@ -152,6 +179,7 @@ so that the event name, description, all schedules (date/time/performers/price/l
 - [x] No E2E test required for this story (no live page or modal consumes `EventDetailView` yet; E2E coverage arrives with Story 1.6's modal-open and deep-link fallback flows).
 - [x] 100% coverage is not mandated here — that requirement is scoped to `packages/domain` only per project-context.md; `packages/ui` follows the "testing trophy" integration-style approach.
 - [x] Note: Use `@festgrid/testing-config/vitest-react` (Story 0.10, already available) for `packages/ui/vitest.config.ts` — do not create a parallel/ad hoc testing-config setup.
+- [x] **(Amendment 2026-08-26)** Component tests for: video renders when `videoUrl` present (correct `<video>` attributes); video falls back to poster image on `onError`; video-failure attribution note+link appears when `originalPostUrl`/`sourcePostUrl` present; image-only path unchanged when `videoUrl` absent (existing tests still pass); `imageFallbackUrl` `onError`-retry chain (fallback tried before placeholder icon).
 
 ## Deliverables Checklist
 
@@ -170,6 +198,10 @@ so that the event name, description, all schedules (date/time/performers/price/l
 - [x] Component tests written and passing.
 - [x] **(Amendment, AC15)** Optional `originalPostUrl`/`sourcePostUrl` attribution links, each independently omittable, with component tests for all four presence/absence combinations.
 - [x] **(Amendment, AC16)** Optional `accountName`/`accountPlatformIconUrl`/`accountHref` account-attribution link (all-or-nothing), rendering independently alongside the AC15 source-post links, with component tests covering both present-together and each-missing cases.
+- [x] **(Amendment 2026-08-26, AC17)** Optional `videoUrl`/`videoAlt` props; video-capable rendering (`<video autoPlay muted loop playsInline>`) in `EventImage`, poster image as pre-ready loading state and as failure fallback, no regression to the image-only path.
+- [x] **(Amendment 2026-08-26, AC18)** Video-failure-specific attribution note + AC15 link(s) surfaced near the media element, link text sourced from `labels.viewOriginalPostLabel`/`labels.viewSourceLabel` (i18n-ready, fixed during independent verification).
+- [x] **(Amendment 2026-08-26, AC19)** Optional `imageFallbackUrl` prop wired into the image's existing `onError` as a secondary retry before the placeholder icon.
+- [x] **(Amendment 2026-08-26)** Component tests for all three items above, plus confirmation the existing image-only tests still pass unmodified (all 303 `packages/ui` tests pass, no regressions).
 
 ## Out of Scope
 
@@ -181,6 +213,10 @@ so that the event name, description, all schedules (date/time/performers/price/l
 - Next/Previous context-aware navigation (`ContextAwareNavigation`) — handled by Story 1.6 per its own Dev Notes.
 - Reconciling or rewriting the stale `1-6-view-event-details.md` story file's outdated component-location plan — not this story's responsibility; noted for awareness only.
 - Storybook, visual-regression, or design-token tooling — not set up anywhere in this project yet.
+- **(Amendment 2026-08-26)** The real GraphQL `videoUrl`/`durableImageUrl` fields, and any resolver logic that computes/populates them — Story 3.3c's amendment and the SCP's new DB/GraphQL story (Wave 1, running in parallel) own that; this story only builds against the prop contract.
+- **(Amendment 2026-08-26)** Wiring `videoUrl`/`imageFallbackUrl` from real fetched data into `EventDetailView`'s consumer — Story 1.6's own amendment (Wave 2, blocked on this story landing plus the GraphQL field existing).
+- **(Amendment 2026-08-26)** Any AWS/S3/CloudFront infrastructure, image re-hosting pipeline logic, or expiry-computation logic (Track A / Story 0.33 / AD-12) — fully independent of and not built by this story.
+- **(Amendment 2026-08-26)** Manual video playback controls (play/pause/scrub/volume) — explicitly deferred past v1 per the SCP's decision; no player library is introduced.
 
 ## Definition of Done
 
@@ -189,28 +225,36 @@ so that the event name, description, all schedules (date/time/performers/price/l
 - [x] Lint and TypeScript strict-mode checks pass for `packages/ui`.
 - [x] `EventDetailView` is exported from `packages/ui`'s public entry point and documented with TSDoc.
 - [x] Pre-Coding Approval Gate has moved from pending to explicitly approved before implementation began.
+- [x] **(Amendment 2026-08-26)** All Acceptance Criteria (AC17–AC19) are met.
+- [x] **(Amendment 2026-08-26)** New component tests (Task 23) are written and passing, and the existing full test suite (`pnpm --filter @festgrid/ui test`) still passes with no regressions.
+- [x] **(Amendment 2026-08-26)** Lint and TypeScript strict-mode checks pass for `packages/ui` after the amendment.
 
 ## Completion Status
 
-- [x] Completed
+- [x] Completed. **Reopened 2026-08-26** via `bmad-correct-course` (`sprint-change-proposal-2026-08-25-video-priority-display.md`) for the AC17-AC19 video-priority-display amendment, implemented and independently verified same day. AC1-AC16 (everything above this amendment) were already implemented and unaffected.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-Claude 3.5 Sonnet (claude-3-5-sonnet-20241022)
+Claude 3.5 Sonnet (claude-3-5-sonnet-20241022) — original AC1-16 build.
+**(Amendment 2026-08-26)** Cline CLI (dispatched implementation in an isolated git worktree, `.claude/worktrees/1-6a`, branch `1-6a-video-component`) for AC17-19, with independent verification and two fixes applied directly afterward by the orchestrating session (Claude Sonnet 5).
 
 ### Debug Log References
 
 - Tests run successfully using `pnpm --filter @festgrid/ui test`.
 - TS typechecks passed.
+- **(Amendment 2026-08-26)** Full `packages/ui` suite independently re-run after the amendment: 41 test files, 303 tests, all passing (includes the 3 new video/fallback test cases). `eslint` on the 4 changed files: 0 errors, 2 pre-existing warnings (both predate this amendment, in unrelated lines of `EventDetailView.tsx`). `apps/web` full-project `tsc --noEmit` run as an additional consumer-side check: pre-existing errors only, confined to unrelated test/mock files (auth-session-provider tests, MSW resolver signature mismatches, posts-select tests) — zero errors in any file this amendment touched.
 
 ### Completion Notes List
 
-- ✅ Developed `EventDetailView` per all AC requirements.
-- ✅ Implemented multi-schedule rendering and optional attribution links (AC15, AC16).
-- ✅ Tests verified full functionality and component state handling.
-- ✅ Used Tailwind classes, `lucide-react`, standard HTML elements.
+- Developed `EventDetailView` per all AC requirements.
+- Implemented multi-schedule rendering and optional attribution links (AC15, AC16).
+- Tests verified full functionality and component state handling.
+- Used Tailwind classes, `lucide-react`, standard HTML elements.
+- **(Amendment 2026-08-26)** Extended `EventImage.tsx` in place (not a new sibling component) with a `videoReady`/`videoError` state machine, a `<video autoPlay muted loop playsInline>` render path, the `imageFallbackUrl` two-strike `onError` retry, and an inline video-failure attribution note.
+- **(Amendment 2026-08-26)** Independent verification found one real issue in the first-pass implementation: the video-failure note's link text was hardcoded (`"Original Post"`) instead of reusing the existing `labels.viewOriginalPostLabel`/`labels.viewSourceLabel` i18n props — a violation of this project's labels-prop i18n pattern (AC13/AD-6), same category as a prior fix on Story 3.3b's `AccountLocationField`. Fixed by threading `viewOriginalPostLabel`/`viewSourceLabel` through to `EventImage` and selecting the correct one based on which of `originalPostUrl`/`sourcePostUrl` is present. Also replaced two `as any` casts in the new video-attributes test with a proper `HTMLVideoElement` cast, clearing the only two new lint warnings the amendment had introduced. Both fixes verified not to break any existing or new test (303/303 still pass).
+- **(Amendment 2026-08-26)** Process note for future amendments: the amended story file and `sprint-status.yaml` edits were initially made in the main repo's working tree before the dedicated worktree existed, so the isolated worktree's initial checkout did not carry them — the dispatched implementer worked from the dispatch prompt's inlined spec (self-contained) plus the SCP directly instead. The story file itself was not affected in substance (the dispatch prompt mirrored it closely), but going forward: create the worktree first, or copy any in-flight doc edits into it explicitly before dispatch, rather than relying on `git worktree add` to pick up uncommitted main-repo changes (it only checks out committed refs).
 
 ### File List
 
@@ -218,3 +262,4 @@ Claude 3.5 Sonnet (claude-3-5-sonnet-20241022)
 - `packages/ui/src/features/events/EventDetailView.types.ts`
 - `packages/ui/src/features/events/EventDetailView.test.tsx`
 - `packages/ui/src/features/events/index.ts`
+- **(Amendment 2026-08-26)** `packages/ui/src/features/events/EventImage.tsx` (extended, not new)
