@@ -7,7 +7,7 @@ baseline_commit: d669ab27eb32c0364f9526ab722ab8404aedae71
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.6
-- Status: ready-for-dev (reopened for AC15 — videoUrl wiring; AC1-14 previously complete and unaffected)
+- Status: review (AC15 implemented and merged 2026-08-27, commit f27ee0e; AC1-14 previously complete and unaffected)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -285,7 +285,11 @@ Unlike Story 1.5 (untouched clean slate) but similar in spirit to the calendar-c
 
 ## Completion Status
 
-**Reopened 2026-08-26 — ready-for-dev, AC15 (videoUrl wiring) outstanding.** AC1-14 remain complete and unaffected (see below). Scope: `apps/web/src/features/events/queries.graphql` (add `videoUrl` to `getEventBySlug`), codegen re-run, `apps/web/src/features/events/mapper.ts` (`videoUrl`/`videoAlt` mapping), `EventDetailWrapper.test.tsx` (video-path test case). Pure wiring against two already-merged endpoints (Story 3.3c's `Event.videoUrl`, Story 1.6a's `EventDetailViewProps.videoUrl`/`videoAlt`) — no new design decisions, per `sprint-change-proposal-2026-08-25-video-priority-display.md` Section 4.5/Section 7 (Wave 2).
+**AC15 implemented and merged 2026-08-27 (commit `f27ee0e`, isolated worktree `.claude/worktrees/1-6`, `cline-cli`).** `apps/web/src/features/events/queries.graphql`'s `getEventBySlug` now selects `videoUrl`; `apps/web/src/generated/graphql.ts` regenerated via `pnpm --filter web codegen` (a real regenerated diff, not hand-edited); `mapper.ts`'s `mapGraphQLEventToDetailViewProps` maps `videoUrl: event.videoUrl` / `videoAlt: event.eventName` (same derivation convention as `imageAlt`); `imageFallbackUrl` left unset per scope. `EventDetailWrapper.test.tsx` gained one new test asserting the video-rendering path (a real `<video src=...>` element via `EventImage`'s existing `data-testid="event-video"`, Story 1.6a's markup) plus a `videoUrl: null` addition to the `currentMockEvent` fixture; all 18 pre-existing tests in that file continue to pass unmodified.
+
+Independently re-verified after merge, directly on master (not just the worktree): 19/19 `EventDetailWrapper.test.tsx` tests pass; `pnpm --filter web lint` clean (pre-existing warnings only, none new); `tsc --noEmit` shows zero new errors in any file this amendment touched (pre-existing unrelated errors in other test files, e.g. `posts-select-content.test.tsx`, `auth-session-provider.test.tsx`, confirmed untouched by this change). Diff scoped to exactly 4 files under `apps/web` — no changes to `apps/backend`, `packages/database`, or `packages/ui`; the concurrently-running sibling Story 3-6e's uncommitted `packages/database/schema.ts` work-in-progress in the main repo's working tree was confirmed untouched throughout (merge required stashing only a pre-existing CRLF-normalization no-op on `apps/web/src/generated/graphql.ts`, unrelated to any real content).
+
+**Reopened 2026-08-26 — ready-for-dev, AC15 (videoUrl wiring) outstanding** *(historical — see above for final state).* AC1-14 remain complete and unaffected (see below). Scope: `apps/web/src/features/events/queries.graphql` (add `videoUrl` to `getEventBySlug`), codegen re-run, `apps/web/src/features/events/mapper.ts` (`videoUrl`/`videoAlt` mapping), `EventDetailWrapper.test.tsx` (video-path test case). Pure wiring against two already-merged endpoints (Story 3.3c's `Event.videoUrl`, Story 1.6a's `EventDetailViewProps.videoUrl`/`videoAlt`) — no new design decisions, per `sprint-change-proposal-2026-08-25-video-priority-display.md` Section 4.5/Section 7 (Wave 2).
 
 **✅ COMPLETE — Ready for Review (2026-08-20)** *(AC1-14, predates the 2026-08-26 AC15 reopening above)*
 

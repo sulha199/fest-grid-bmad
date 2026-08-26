@@ -416,7 +416,23 @@ development_status:
   # apps/web only (queries.graphql, generated codegen, mapper.ts,
   # EventDetailWrapper.test.tsx) -- does not touch apps/backend/packages/
   # database, where sibling Story 3-6e is concurrently working.
-  1-6-view-event-details: ready-for-dev
+  # AC15 implemented and merged 2026-08-27 (commit f27ee0e, isolated worktree
+  # .claude/worktrees/1-6, cline-cli): getEventBySlug now selects videoUrl,
+  # apps/web/src/generated/graphql.ts regenerated via `pnpm --filter web
+  # codegen` (real regen diff, not hand-edited), mapper.ts maps
+  # videoUrl/videoAlt (videoAlt = event.eventName, same convention as
+  # imageAlt), imageFallbackUrl left unset per scope. Independently
+  # re-verified after merge, directly on master: 19/19
+  # EventDetailWrapper.test.tsx tests pass (18 pre-existing + 1 new
+  # video-rendering case asserting a real <video src=...> element via
+  # EventImage's existing data-testid="event-video", Story 1.6a's markup);
+  # `pnpm --filter web lint` clean (warnings only, none new); `tsc --noEmit`
+  # shows zero new errors in any touched file (pre-existing unrelated errors
+  # in other test files untouched by this change). Diff scoped to exactly 4
+  # files under apps/web, no apps/backend/packages/database/packages/ui
+  # changes -- sibling Story 3-6e's concurrent packages/database/schema.ts
+  # WIP in the main repo's working tree confirmed untouched throughout.
+  1-6-view-event-details: review
   1-7a-build-the-reusable-blockingloader-component: review
   1-7-user-signup-and-login-with-google: review
   1-8-setup-posthog-analytics: review
