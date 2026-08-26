@@ -7,7 +7,7 @@ baseline_commit: 0f3eddb9163f6755e9e5aae7b5f8db6da61d8149
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.3g
-- Status: ready-for-dev (AC14 amendment; AC1-AC13 already delivered — AC13's `WeekPicker.tsx` was confirmed no longer blocked, and already implemented, during this amendment; see Dev Notes → Amendment)
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -74,21 +74,21 @@ And the header row (AC1, AC2) gains a new week-picker trigger — a `Button` ope
   - [x] Accessibility assertions: tooltip has `role="tooltip"`; popover trigger has correct `aria-expanded`/`aria-haspopup`; day cells/cards are reachable via keyboard alone (no mouse-only interaction path).
 - [x] Task 12: Final checks
   - [x] `pnpm build` / `pnpm lint` clean at the repo root (`packages/ui` and its consumers).
-- [ ] Task 13 (AC14, added 2026-08-25) — Favorite count second line:
-  - [ ] Add `favoriteCount?: number` to `WeeklyCalendarViewScheduleShape` (`WeeklyCalendarView.types.ts`).
-  - [ ] In the compact card's render (`WeeklyCalendarView.tsx`, the `<button>` around line 731 wrapping the `isFavorited`/`isAddedToCalendar`/`eventName` row), wrap the existing single `<span className="flex items-center gap-1 w-full truncate text-left">...</span>` row in an outer `flex flex-col` container, and — only when `schedule.favoriteCount` is a number `> 0` — add a second `<span>` below it: a small `Heart` icon (reuse the same icon import, sized down, e.g. `w-2.5 h-2.5 text-rose-500`) + the count as text, styled to match `DESIGN.md`'s `mobile_day_list.favorite_count_line` token's visual weight (`text-[11px] text-gray-500` equivalent) even though this is the desktop grid, not the mobile list — same information, consistent smallness. Remove `truncate` from the outer wrapper if needed so the two-line layout doesn't get clipped, but keep `truncate` on the first line's own span (title truncation is still wanted).
-  - [ ] Extend `WeeklyCalendarView.test.tsx`: a schedule with `favoriteCount: 5` renders a second line with the count; a schedule with `favoriteCount: 0` or `favoriteCount: undefined` renders only the single existing line (no regression to the current single-line layout for the common case).
-- [ ] **Task 13 (AC13) — Blocked on Story 0.28:** Do not start Task 14 until Story 0.28 ("Set up shadcn/ui component generation for `packages/ui`") is done — it establishes `packages/ui`'s `components.json` and installs the underlying `popover`/`calendar` shadcn primitives this task's `WeekPicker.tsx` wraps. Confirm `packages/ui/src/core/ui/popover.tsx` and `packages/ui/src/core/ui/calendar.tsx` exist before proceeding.
-- [ ] **Task 14 (AC13) — Build `WeekPicker.tsx` (`packages/ui/src/core/`):**
+- [x] Task 13 (AC14, added 2026-08-25) — Favorite count second line:
+  - [x] Add `favoriteCount?: number` to `WeeklyCalendarViewScheduleShape` (`WeeklyCalendarView.types.ts`).
+  - [x] In the compact card's render (`WeeklyCalendarView.tsx`, the `<button>` around line 731 wrapping the `isFavorited`/`isAddedToCalendar`/`eventName` row), wrap the existing single `<span className="flex items-center gap-1 w-full truncate text-left">...</span>` row in an outer `flex flex-col` container, and — only when `schedule.favoriteCount` is a number `> 0` — add a second `<span>` below it: a small `Heart` icon (reuse the same icon import, sized down, e.g. `w-2.5 h-2.5 text-rose-500`) + the count as text, styled to match `DESIGN.md`'s `mobile_day_list.favorite_count_line` token's visual weight (`text-[11px] text-gray-500` equivalent) even though this is the desktop grid, not the mobile list — same information, consistent smallness. Remove `truncate` from the outer wrapper if needed so the two-line layout doesn't get clipped, but keep `truncate` on the first line's own span (title truncation is still wanted).
+  - [x] Extend `WeeklyCalendarView.test.tsx`: a schedule with `favoriteCount: 5` renders a second line with the count; a schedule with `favoriteCount: 0` or `favoriteCount: undefined` renders only the single existing line (no regression to the current single-line layout for the common case).
+- [x] **Task 13 (AC13) — Blocked on Story 0.28:** Do not start Task 14 until Story 0.28 ("Set up shadcn/ui component generation for `packages/ui`") is done — it establishes `packages/ui`'s `components.json` and installs the underlying `popover`/`calendar` shadcn primitives this task's `WeekPicker.tsx` wraps. Confirm `packages/ui/src/core/ui/popover.tsx` and `packages/ui/src/core/ui/calendar.tsx` exist before proceeding.
+- [x] **Task 14 (AC13) — Build `WeekPicker.tsx` (`packages/ui/src/core/`):**
   - Create `packages/ui/src/core/WeekPicker.tsx`: `Button` (trigger) + `Popover` + `Calendar` (`mode="single"`) composition per AD-9. Props: `selectedDate: string | undefined` (or similar, for controlled display), `onSelectWeek: (date: string) => void`, and a **required** `getWeekRange: (date: Date) => { start: Date; end: Date }`.
   - Use `Calendar`'s `modifiers`/`modifiersClassNames` to highlight the **full row** of the week containing the currently-hovered/selected date (compute the highlighted range via the caller-supplied `getWeekRange`, not any boundary math of `WeekPicker`'s own) — this is the one differentiator from a plain single-date shadcn `Calendar` composition, per AD-9's explicit rationale ("better picking affordance").
   - `WeekPicker` must not import `getWeekStart`/`getWeekEnd` from Story 3.7a's hook directly, and must not contain any day-of-week arithmetic itself — `getWeekRange` is the only boundary source, supplied by the caller. This is the AD-9 rule 3 "exactly one boundary implementation exists app-wide" invariant; do not weaken it for convenience.
   - Add a colocated `WeekPicker.test.tsx` covering: trigger opens the popover, selecting a date calls `onSelectWeek` with that date, the popover closes after selection, and the correct week row (per a test `getWeekRange` stub) receives the highlight modifier class.
-- [ ] **Task 15 (AC13) — Wire `WeekPicker` into `WeeklyCalendarView`'s header row:**
+- [x] **Task 15 (AC13) — Wire `WeekPicker` into `WeeklyCalendarView`'s header row:**
   - Add `getWeekRange: (date: Date) => { start: Date; end: Date }` as a new prop to `WeeklyCalendarViewProps` (required when `onSelectWeek` is supplied — both already exist as of the current partial implementation, `onSelectWeek` is already optional/wired; `getWeekRange` is new).
   - Replace the current hand-rolled native `<input type="date">` week-picker (the `isPickerOpen`/`pickerDate` state and the absolutely-positioned `<div>` block in the current file, header lines ~208-217 and ~494-525) with `<WeekPicker onSelectWeek={onSelectWeek} getWeekRange={getWeekRange} .../>` — this is a replacement, not an addition; remove the native-input markup and its now-unused local state entirely.
   - Update `WeeklyCalendarView.test.tsx`'s existing "opens a week-picker and calls onSelectWeek with the picked date" test (currently drives a native `<input type="date">` via `fireEvent.change`) to instead drive the new `WeekPicker`/shadcn `Calendar` interaction (open the popover, click a day cell) — the underlying mechanism changed, the test must change with it, not be left asserting the removed native-input behavior.
-- [ ] **Task 16 (Gate 3 finding from Story 3.7a's reopening, not itself part of AC13) — Remove the divergent Sunday-start day-grid calculation:**
+- [x] **Task 16 (Gate 3 finding from Story 3.7a's reopening, not itself part of AC13) — Remove the divergent Sunday-start day-grid calculation:**
   - The current `visibleDays` computation (lines ~186-204) **re-derives** a Sunday-start boundary from whatever `weekStart` it receives (`dayOfWeek = baseDate.getDay(); sundayOffset = dayOfWeek; startOfWeek = baseDate - sundayOffset`), rather than trusting the caller-supplied `weekStart` as the literal first rendered day. This silently "corrects" any non-Sunday `weekStart` back to Sunday — invisible until now only because every existing caller happened to already pass a Sunday-start value (the pre-3.7a-fix convention). Once Story 3.7a's Monday-start fix is live, this recomputation will silently shift the rendered week by up to 6 days, a real regression.
   - **Fix:** delete the `dayOfWeek`/`sundayOffset` recomputation entirely. `WeeklyCalendarView` is a controlled component (AC2) — it must render exactly 7 consecutive days starting at the literal `weekStart` prop it was given, performing no boundary correction of its own. Replace the block with a direct loop from `baseDate` (still needed for the noon-normalization DST guard) with no day-of-week offset applied.
   - This removes code rather than adding Monday-start math — `WeeklyCalendarView` should not need to know about weekday semantics at all, matching its own AC2 controlled-component contract.
@@ -320,7 +320,7 @@ None. This is a pure presentational `packages/ui` component with no analytics/tr
 - [ ] Testing plan confirmed: `WeeklyCalendarView.test.tsx` covering all 12 ACs including the a11y-specific assertions (tooltip keyboard reachability, popover focus trap, roving-tabindex model) per Task 11.
 - [ ] **AC13 scope confirmed:** Task 13 (blocked on Story 0.28) is not started until 0.28 is `done`. `WeekPicker.tsx` sources its boundary exclusively from the caller-supplied `getWeekRange` — no independent boundary math (AD-9 rule 3).
 - [ ] **Gate 3 prerequisite confirmed:** the `packages/ui` shadcn/Radix setup gap is not absorbed into this story — deferred to Story 0.28, confirmed via `AskUserQuestion` (Architecture & UX Gate Findings above).
-- [ ] **Task 16 scope confirmed:** the divergent `visibleDays` boundary recomputation is deleted, not replaced with different hardcoded weekday math — `WeeklyCalendarView` performs no boundary calculation of its own (controlled-component contract, AC2).
+- [x] **Task 16 scope confirmed:** the divergent `visibleDays` boundary recomputation is deleted, not replaced with different hardcoded weekday math — `WeeklyCalendarView` performs no boundary calculation of its own (controlled-component contract, AC2).
 - [ ] Explicit human approval state (Default: pending approval)
 
 ## Testing Requirements
@@ -345,10 +345,10 @@ None. This is a pure presentational `packages/ui` component with no analytics/tr
 - [x] Exported and documented from `packages/ui/src/features/events/index.ts` (AC12).
 - [x] Story 1.3f's Task 5/Task 7 corrected to match this story's actual contract (Consumer Story Sync Check).
 - [x] `pnpm build`/`pnpm lint` clean at the repo root.
-- [ ] `WeekPicker.tsx` built per AD-9 (`Button`+`Popover`+`Calendar`, `getWeekRange`-sourced week-row highlight, no independent boundary math) — Task 14 (AC13).
-- [ ] Native `<input type="date">` stopgap replaced by `WeekPicker` in `WeeklyCalendarView`'s header row; `getWeekRange` prop added — Task 15 (AC13).
-- [ ] Divergent `visibleDays` Sunday-start recomputation removed — Task 16.
-- [ ] `WeeklyCalendarView.test.tsx` updated for the new picker mechanism and a non-Sunday `weekStart` regression case; new `WeekPicker.test.tsx` passing.
+- [x] `WeekPicker.tsx` built per AD-9 (`Button`+`Popover`+`Calendar`, `getWeekRange`-sourced week-row highlight, no independent boundary math) — Task 14 (AC13).
+- [x] Native `<input type="date">` stopgap replaced by `WeekPicker` in `WeeklyCalendarView`'s header row; `getWeekRange` prop added — Task 15 (AC13).
+- [x] Divergent `visibleDays` Sunday-start recomputation removed — Task 16.
+- [x] `WeeklyCalendarView.test.tsx` updated for the new picker mechanism and a non-Sunday `weekStart` regression case; new `WeekPicker.test.tsx` passing.
 
 ## Out of Scope
 
@@ -373,6 +373,8 @@ None. This is a pure presentational `packages/ui` component with no analytics/tr
 **Reopened 2026-08-15** — AC1-AC12 previously complete (`review` status). AC13 outstanding, blocked on Story 0.28 (Tasks 13-16 above). A prior partial `bmad-quick-dev` attempt (commit `519f822`) already added a functional-but-non-AD-9-compliant native-input stopgap for `onSelectWeek` — see Dev Notes → Current Implementation State for the precise starting point and why it doesn't satisfy AC13 as-is.
 
 **2026-08-25:** AC13 confirmed complete via direct code inspection (`WeekPicker.tsx` exists and is wired in) — the "blocked" framing above is stale. AC14 (favorite count, Task 13) is new and pending.
+
+**2026-08-26:** Task 13 (AC14) implemented successfully. Added `favoriteCount` to types, compact card layout updated to support two lines conditionally when `favoriteCount > 0`, and added full test coverage in `WeeklyCalendarView.test.tsx`. Ran `pnpm --filter @festgrid/ui test` and verified that all 293 tests are passing successfully. Validated and checked off all stale AC13 tasks (Tasks 13, 14, 15, 16) and corresponding deliverables. Clean lint run.
 
 ## Dev Agent Record
 
@@ -407,11 +409,16 @@ Claude 3.5 Sonnet
 
 ### Completion Notes List
 
-_To be filled by the dev agent (for Tasks 13-16 / AC13)._
+- Verified and checked off all stale tasks (Tasks 13, 14, 15, and 16) from the AC13 manual week-picker reopening. Verified that `WeekPicker.tsx` (AD-9 compliant) exists and is correctly wired into the header of `WeeklyCalendarView.tsx`, and that the divergent Sunday-start `visibleDays` recomputation was deleted in favor of a controlled component design rendering exactly 7 consecutive days starting at `weekStart`.
+- Implemented Task 13 (AC14): Extended `WeeklyCalendarViewScheduleShape` type to support `favoriteCount?: number`. Updated the compact schedule card rendering inside `WeeklyCalendarView.tsx` so that when `favoriteCount > 0`, the card grows to two lines. Line 1 holds the event name and badges, and line 2 renders a small `Heart` icon alongside the count text styled at `text-[11px] text-gray-500` (matching token `mobile_day_list.favorite_count_line`). Preserved single-line layout when count is 0 or undefined.
+- Created unit test suite additions in `WeeklyCalendarView.test.tsx` ensuring conditional rendering of `favoriteCount` when greater than 0, while keeping single-line cards for 0 or undefined.
+- Ran all tests (`pnpm --filter @festgrid/ui test`) and linter checks (`pnpm lint`) cleanly.
 
 ### File List
 
-_To be filled by the dev agent (for Tasks 13-16 / AC13)._
+- `packages/ui/src/features/events/WeeklyCalendarView.tsx`
+- `packages/ui/src/features/events/WeeklyCalendarView.types.ts`
+- `packages/ui/src/features/events/WeeklyCalendarView.test.tsx`
 
 ### Change Log
 

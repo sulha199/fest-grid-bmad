@@ -414,4 +414,55 @@ describe('WeeklyCalendarView', () => {
     expect(noneCard?.querySelector('[data-testid="heart-icon"]')).not.toBeInTheDocument();
     expect(noneCard?.querySelector('[data-testid="calendar-plus-icon"]')).not.toBeInTheDocument();
   });
+
+  it('renders favoriteCount conditionally when greater than 0', () => {
+    const customizedSchedules = [
+      {
+        id: 'sched-fav-5',
+        eventSlug: 'music-fest',
+        eventName: 'Event with 5 Favorites',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        favoriteCount: 5,
+      },
+      {
+        id: 'sched-fav-0',
+        eventSlug: 'music-fest',
+        eventName: 'Event with 0 Favorites',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        favoriteCount: 0,
+      },
+      {
+        id: 'sched-fav-undefined',
+        eventSlug: 'music-fest',
+        eventName: 'Event with Undefined Favorites',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        favoriteCount: undefined,
+      },
+    ];
+
+    render(
+      <WeeklyCalendarView
+        {...defaultProps}
+        schedules={customizedSchedules}
+        locale="en-US"
+      />
+    );
+
+    // Event with 5 Favorites should have the favorite-count-line with text '5'
+    const cardWith5 = screen.getByText('Event with 5 Favorites').closest('button');
+    const favCountLine = cardWith5?.querySelector('[data-testid="favorite-count-line"]');
+    expect(favCountLine).toBeInTheDocument();
+    expect(favCountLine).toHaveTextContent('5');
+
+    // Event with 0 Favorites should NOT have favorite-count-line
+    const cardWith0 = screen.getByText('Event with 0 Favorites').closest('button');
+    expect(cardWith0?.querySelector('[data-testid="favorite-count-line"]')).not.toBeInTheDocument();
+
+    // Event with Undefined Favorites should NOT have favorite-count-line
+    const cardWithUndefined = screen.getByText('Event with Undefined Favorites').closest('button');
+    expect(cardWithUndefined?.querySelector('[data-testid="favorite-count-line"]')).not.toBeInTheDocument();
+  });
 });
