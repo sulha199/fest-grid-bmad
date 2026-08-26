@@ -34,13 +34,25 @@ const yoga = createYoga({
 
 test('favorites and calendar additions resolvers integration', async (t) => {
   let testUser: any;
+  let testUser2: any;
+  let createdTestUser2 = false;
   let testEventId: string;
   let testScheduleId: string;
   
   await t.test('setup - get test user and event', async () => {
-    const seededUsers = await db.select().from(users).limit(1);
+    const seededUsers = await db.select().from(users).limit(2);
     if (seededUsers.length > 0) {
       testUser = seededUsers[0];
+    }
+    if (seededUsers.length > 1) {
+      testUser2 = seededUsers[1];
+    } else {
+      const [insertedUser] = await db.insert(users).values({
+        email: `favorites-test-user-2-${Date.now()}@test.com`,
+        role: 'user',
+      }).returning();
+      testUser2 = insertedUser;
+      createdTestUser2 = true;
     }
 
     const [insertedEvent] = await db.insert(events).values({
@@ -62,6 +74,10 @@ test('favorites and calendar additions resolvers integration', async (t) => {
       await db.delete(favorites).where(eq(favorites.userId, testUser.id));
       await db.delete(calendarAdditions).where(eq(calendarAdditions.userId, testUser.id));
     }
+    if (testUser2 && testEventId) {
+      await db.delete(favorites).where(eq(favorites.userId, testUser2.id));
+      await db.delete(calendarAdditions).where(eq(calendarAdditions.userId, testUser2.id));
+    }
   });
 
   t.after(async () => {
@@ -69,9 +85,16 @@ test('favorites and calendar additions resolvers integration', async (t) => {
       await db.delete(favorites).where(eq(favorites.userId, testUser.id));
       await db.delete(calendarAdditions).where(eq(calendarAdditions.userId, testUser.id));
     }
+    if (testUser2) {
+      await db.delete(favorites).where(eq(favorites.userId, testUser2.id));
+      await db.delete(calendarAdditions).where(eq(calendarAdditions.userId, testUser2.id));
+    }
     if (testEventId) {
       await db.delete(schedules).where(eq(schedules.eventId, testEventId));
       await db.delete(events).where(eq(events.id, testEventId));
+    }
+    if (createdTestUser2 && testUser2) {
+      await db.delete(users).where(eq(users.id, testUser2.id));
     }
   });
 
@@ -350,5 +373,76 @@ test('favorites and calendar additions resolvers integration', async (t) => {
     const result2 = await response2.json();
     assert.ok(!result2.errors);
     assert.strictEqual(result2.data.events.items.length, 0);
+  });
+
+  await t.test('favoriteCount - aggregates across multiple users correctly', async () => {
+    if (!testUser || !testUser2 || !testEventId) return;
+
+    // Initially, favoriteCount should be 0
+    const queryRes0 = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ event(id: "${testEventId}") { favoriteCount } }` })
+    });
+    const queryResult0 = await queryRes0.json();
+    assert.ok(!queryResult0.errors);
+    assert.strictEqual(queryResult0.data.event.favoriteCount, 0);
+
+    // 1. User 1 favorites the event
+    mockUser = { userId: testUser.id, role: testUser.role };
+    await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { toggleFavorite(eventId: "${testEventId}") { isFavorited } }`
+      })
+    });
+
+    // Count should be 1
+    const queryRes1 = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ event(id: "${testEventId}") { favoriteCount } }` })
+    });
+    const queryResult1 = await queryRes1.json();
+    assert.strictEqual(queryResult1.data.event.favoriteCount, 1);
+
+    // 2. User 2 also favorites the event
+    mockUser = { userId: testUser2.id, role: testUser2.role };
+    await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { toggleFavorite(eventId: "${testEventId}") { isFavorited } }`
+      })
+    });
+
+    // Count should be 2
+    const queryRes2 = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ event(id: "${testEventId}") { favoriteCount } }` })
+    });
+    const queryResult2 = await queryRes2.json();
+    assert.strictEqual(queryResult2.data.event.favoriteCount, 2);
+
+    // 3. User 1 unfavorites (toggles off) the event
+    mockUser = { userId: testUser.id, role: testUser.role };
+    await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { toggleFavorite(eventId: "${testEventId}") { isFavorited } }`
+      })
+    });
+
+    // Count should decrement back to 1
+    const queryRes3 = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ event(id: "${testEventId}") { favoriteCount } }` })
+    });
+    const queryResult3 = await queryRes3.json();
+    assert.strictEqual(queryResult3.data.event.favoriteCount, 1);
   });
 });
