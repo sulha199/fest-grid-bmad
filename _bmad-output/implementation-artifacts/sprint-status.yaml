@@ -386,6 +386,7 @@ development_status:
   # implemented via direct code inspection during this amendment -- the story
   # file's own header previously said "Not started," now corrected. See
   # sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.5.
+  # AC5 (favoriteCount) implemented and verified 2026-08-26.
   2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: review
   2-1-favorite-an-event: review
   2-1b-build-the-ics-route-handler-and-generator-utility: review
