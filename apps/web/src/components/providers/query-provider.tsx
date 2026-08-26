@@ -14,7 +14,7 @@ export function QueryProvider({
   // layout but re-triggered by focus/reconnect events during normal browsing). 30s
   // keeps that data reasonably fresh without refetching on every tab switch. Callers
   // that need tighter freshness already override this per-query (see
-  // app/[locale]/moderator/actor-runs/hooks.ts's explicit staleTime: 0).
+  // app/[locale]/moderator/tools/actor-runs-hooks.ts's explicit staleTime: 0).
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
