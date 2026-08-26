@@ -1462,7 +1462,7 @@ development_status:
   # scope) already implemented despite the story file's own header saying "Not
   # started" -- confirmed via direct code inspection (wizard-registry.ts,
   # posts-select-content.tsx both already correct).
-  5-5-integrate-manual-post-selection-into-the-getting-started-wizard: ready-for-dev
+  5-5-integrate-manual-post-selection-into-the-getting-started-wizard: review
   # added 2026-08-19 via bmad-create-story at user request: "Scrape Posts" button on
   # /posts/select for both the zero-posts (reuses Story 3.1/3.2's initial-scrape
   # cascade) and has-posts (newerThan = MAX(posts.publishedAt)) cases. Postdates
