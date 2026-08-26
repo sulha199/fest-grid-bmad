@@ -7,7 +7,7 @@ baseline_commit: 6148b785468af3dfe53a075aff08ab6f89bba7c0
 
 - Epic: 2 - User Personalization
 - Story ID: 2.1a
-- Status: ready-for-dev (AC5 amendment; AC1-AC4 already delivered — see Amendment note in Dev Notes)
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -54,7 +54,7 @@ so that Stories 2.1, 2.2, 2.6, and 2.7 have a real backend write/read path inste
 - [ ] 10. Write unit tests for the upsert-toggle logic and the derive-eventId-from-schedule integrity check — if any pure/derivable logic can be isolated without a DB/ORM import, put it in `packages/domain`; otherwise these stay as `apps/backend` integration tests (AC2) — see Dev Notes on why this story adds no new `packages/domain` files.
 - [ ] 11. Write integration tests (`apps/backend`, `tsx --test` against a local/test DB, mirroring Story 1.3a's `resolvers.test.ts` pattern) covering: toggle-on/toggle-off/re-toggle idempotency for both mutations, unauthenticated mutation calls rejected (`UNAUTHENTICATED`), `events` query filtering by `isFavorited`/`isAddedToCalendar` (including the unauthenticated-returns-empty case), `Event.isFavorited`/`Event.isAddedToCalendar`/`Schedule.isAddedToCalendar` field resolver correctness, and the calendar-addition schedule/event mismatch integrity check (AC1, AC2, AC3, AC4).
 - [ ] 12. Manual verification: run the backend, exercise `toggleFavorite`/`toggleCalendarAddition`/filtered `events` queries via GraphiQL/`curl`; confirm `pnpm build`/`pnpm lint`/`pnpm run codegen` stay clean at the repo root.
-- [ ] 13. **(Added 2026-08-25 — AC5 amendment.)** Add `favoriteCount: Int!` to `type Event` in `apps/backend/src/schema/events.graphql`, and add the `Event.favoriteCount` field resolver in `resolvers.ts` — a `db.select({ count: count() }).from(favorites).where(and(eq(favorites.eventId, parent.id), activeOnly(favorites)))` (or equivalent Drizzle `count()`/`sql\`count(*)\`` aggregate), returning the numeric result directly (no auth check, no try/catch-to-false — see AC5). Run `pnpm run codegen` again so both generated GraphQL type files pick up the new field. Add an integration test asserting the count reflects the true number of active (non-soft-deleted) favorites across multiple users, and that toggling a favorite off decrements it correctly (exercising the same upsert/soft-delete path Task 11's existing tests already cover for `isFavorited`).
+- [x] 13. **(Added 2026-08-25 — AC5 amendment.)** Add `favoriteCount: Int!` to `type Event` in `apps/backend/src/schema/events.graphql`, and add the `Event.favoriteCount` field resolver in `resolvers.ts` — a `db.select({ count: count() }).from(favorites).where(and(eq(favorites.eventId, parent.id), activeOnly(favorites)))` (or equivalent Drizzle `count()`/`sql\`count(*)\`` aggregate), returning the numeric result directly (no auth check, no try/catch-to-false — see AC5). Run `pnpm run codegen` again so both generated GraphQL type files pick up the new field. Add an integration test asserting the count reflects the true number of active (non-soft-deleted) favorites across multiple users, and that toggling a favorite off decrements it correctly (exercising the same upsert/soft-delete path Task 11's existing tests already cover for `isFavorited`).
 
 ## Dev Notes
 
@@ -168,13 +168,13 @@ Recent commits (`6148b78`, `f612609`, `59f5c15`, `2a45f2c`, `bcdbb86`) are all f
 
 ## Deliverables Checklist
 
-- [ ] `favorites`/`calendar_additions` tables added to `packages/database/schema.ts` with relations, unique constraints, and AD-8 partial indexes; migration generated and committed.
-- [ ] `Favorite`/`CalendarEntry` interfaces added to `packages/shared-types`.
-- [ ] `type Mutation` root declared for the first time, with `toggleFavorite`/`toggleCalendarAddition` implemented, transactional, and auth-scoped.
-- [ ] `Event.isFavorited`, `Event.isAddedToCalendar`, `Schedule.isAddedToCalendar` computed field resolvers implemented.
-- [ ] `Query.events`'s DSL fieldMap accepts `isFavorited`/`isAddedToCalendar` conditions.
-- [ ] `Event.favoriteCount: Int!` computed field resolver implemented (AC5, Task 13 — new 2026-08-25).
-- [ ] Integration tests written and passing; `pnpm build`/`pnpm lint`/`pnpm run codegen` clean at the repo root.
+- [x] `favorites`/`calendar_additions` tables added to `packages/database/schema.ts` with relations, unique constraints, and AD-8 partial indexes; migration generated and committed.
+- [x] `Favorite`/`CalendarEntry` interfaces added to `packages/shared-types`.
+- [x] `type Mutation` root declared for the first time, with `toggleFavorite`/`toggleCalendarAddition` implemented, transactional, and auth-scoped.
+- [x] `Event.isFavorited`, `Event.isAddedToCalendar`, `Schedule.isAddedToCalendar` computed field resolvers implemented.
+- [x] `Query.events`'s DSL fieldMap accepts `isFavorited`/`isAddedToCalendar` conditions.
+- [x] `Event.favoriteCount: Int!` computed field resolver implemented (AC5, Task 13 — new 2026-08-25).
+- [x] Integration tests written and passing; `pnpm build`/`pnpm lint`/`pnpm run codegen` clean at the repo root.
 
 ## Out of Scope
 
@@ -187,22 +187,34 @@ Recent commits (`6148b78`, `f612609`, `59f5c15`, `2a45f2c`, `bcdbb86`) are all f
 ## Definition of Done
 
 - [x] AC1-AC4 satisfied (verified 2026-08-25 via direct code inspection — already implemented).
-- [ ] AC5 satisfied (`favoriteCount`, new 2026-08-25).
-- [ ] Required tests passing (`apps/backend` integration tests for both mutations, the extended `events` resolver, and the new `favoriteCount` test).
-- [ ] Lint and type checks passing for `apps/backend`, `packages/database`, `packages/shared-types`, and any touched packages.
+- [x] AC5 satisfied (`favoriteCount`, new 2026-08-25).
+- [x] Required tests passing (`apps/backend` integration tests for both mutations, the extended `events` resolver, and the new `favoriteCount` test).
+- [x] Lint and type checks passing for `apps/backend`, `packages/database`, `packages/shared-types`, and any touched packages.
 
 ## Completion Status
 
-review (AC1-AC4) / ready-for-dev (AC5 amendment)
+review
 
-**2026-08-25:** AC1-AC4 confirmed already implemented via direct code inspection (see Amendment note in Dev Notes) — this file's own tracking was simply stale. AC5 (`favoriteCount`) is new, unimplemented, ready for dev.
+**2026-08-26:** AC5 (`favoriteCount`) implemented backend-only, verified with GraphQL codegen and integration tests. Full story now verified and ready for review.
 
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude 3.5 Sonnet / Cline
 
 ### Debug Log References
+Integration test run and verified with all 10 subtests passing.
 
 ### Completion Notes List
+- Implemented `Event.favoriteCount: Int!` field in GraphQL events.graphql schema.
+- Added `favoriteCount` resolver in resolvers.ts calculating count aggregate against `favorites` scoped with `activeOnly`.
+- Ran GraphQL codegen updating TS generated files for backend and frontend.
+- Added integration test to `favorites-and-calendar.test.ts` asserting count logic across multiple users and soft-delete/deactivation.
+- Ran project-wide build, lint, and test validating clean code hygiene.
 
 ### File List
+- `apps/backend/src/schema/events.graphql`
+- `apps/backend/src/schema/resolvers.ts`
+- `apps/backend/src/schema/favorites-and-calendar.test.ts`
+- `apps/backend/src/generated/resolvers-types.ts`
+- `apps/web/src/generated/graphql.ts`
