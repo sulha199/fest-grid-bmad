@@ -34,6 +34,74 @@ function formatEventDate(locale: string, timezone: string | undefined, dateObj: 
   }
 }
 
+function getLocalDateInTimezone(date: Date, timeZone: string | undefined): { year: number; month: number; day: number } {
+  try {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      ...(timeZone ? { timeZone } : {}),
+    });
+    const parts = dtf.formatToParts(date);
+    const year = parseInt(parts.find(p => p.type === 'year')?.value || '0', 10);
+    const month = parseInt(parts.find(p => p.type === 'month')?.value || '0', 10);
+    const day = parseInt(parts.find(p => p.type === 'day')?.value || '0', 10);
+    return { year, month, day };
+  } catch {
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate(),
+    };
+  }
+}
+
+function getCalendarDayDifference(nowParts: { year: number; month: number; day: number }, eventParts: { year: number; month: number; day: number }): number {
+  const utcNow = Date.UTC(nowParts.year, nowParts.month - 1, nowParts.day);
+  const utcEvent = Date.UTC(eventParts.year, eventParts.month - 1, eventParts.day);
+  const diffMs = utcEvent - utcNow;
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+function formatWeekday(locale: string, timezone: string | undefined, dateObj: Date): string {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      weekday: 'long',
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(dateObj);
+  } catch {
+    try {
+      return new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(dateObj);
+    } catch {
+      return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(dateObj);
+    }
+  }
+}
+
+function formatRelativeDayOrDate(
+  locale: string,
+  timezone: string | undefined,
+  dateObj: Date,
+  labels?: { today?: string; tomorrow?: string }
+): string {
+  const now = new Date();
+  const nowParts = getLocalDateInTimezone(now, timezone);
+  const eventParts = getLocalDateInTimezone(dateObj, timezone);
+  const dayDiff = getCalendarDayDifference(nowParts, eventParts);
+
+  if (dayDiff >= 0 && dayDiff <= 6) {
+    if (dayDiff === 0) {
+      return labels?.today || 'Today';
+    }
+    if (dayDiff === 1) {
+      return labels?.tomorrow || 'Tomorrow';
+    }
+    return formatWeekday(locale, timezone, dateObj);
+  }
+
+  return formatEventDate(locale, timezone, dateObj);
+}
+
 /**
  * EventCard is a reusable, framework-agnostic presentation component for displaying
  * an event's summary information, including its image, name, date, and optional
@@ -82,6 +150,8 @@ export function EventCard({
     loading: 'Loading event details',
     favoriteToggle: 'Toggle favorite',
     priceFrom: 'From',
+    today: 'Today',
+    tomorrow: 'Tomorrow',
     ...labels,
     typeLabels: labels.typeLabels ?? {},
     categoryLabels: labels.categoryLabels ?? {},
@@ -114,7 +184,7 @@ export function EventCard({
   }
 
   const dateObj = typeof startDate === 'string' ? new Date(startDate) : startDate;
-  const formattedDate = formatEventDate(activeLocale, activeTimezone, dateObj);
+  const formattedDate = formatRelativeDayOrDate(activeLocale, activeTimezone, dateObj, defaultLabels);
 
   const fallbackAlt = defaultLabels.imageFallbackAlt;
   const finalImageAlt = imageAlt || eventName;
@@ -158,6 +228,11 @@ export function EventCard({
         <div className={`relative ${variant === 'masonry' ? 'aspect-[3/4]' : 'h-48'} w-full bg-muted overflow-hidden flex items-center justify-center`}>
           {statusBadge && (
             <div className="absolute top-2 right-2 z-10">{statusBadge}</div>
+          )}
+          {variant === 'masonry' && (
+            <div className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground">
+              {formattedDate}
+            </div>
           )}
           {!imgError && imageUrl ? (
             <img 

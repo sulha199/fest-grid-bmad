@@ -10,6 +10,8 @@ export interface EventCardLabels {
   typeLabels?: Record<string, string>;
   /** Translated display label per event category enum member, keyed by the raw enum value (e.g. { MUSIC: 'Music' }). Falls back to the raw value if a key is missing. */
   categoryLabels?: Record<string, string>;
+  today?: string;
+  tomorrow?: string;
 }
 
 export interface EventCardProps {
