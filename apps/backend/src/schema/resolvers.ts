@@ -1112,7 +1112,7 @@ export const resolvers: Resolvers = {
           publishedAt: post.publishedAt.toISOString(),
         };
 
-        const request = await buildGeminiExtractionRequest(message);
+        const { request } = await buildGeminiExtractionRequest(message);
 
         try {
           const result = await callGemini({
@@ -1192,7 +1192,7 @@ export const resolvers: Resolvers = {
           publishedAt: scrapedPost.publishedAt,
         };
 
-        const request = await buildGeminiExtractionRequest(message);
+        const { request } = await buildGeminiExtractionRequest(message);
 
         try {
           const result = await callGemini({

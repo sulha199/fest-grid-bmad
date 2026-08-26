@@ -185,6 +185,8 @@ export const posts = pgTable('posts', {
   locationName: text('location_name'),
   ownerDisplayName: text('owner_display_name'),
   ownerUsername: text('owner_username'),
+  durableImageUrl: text('durable_image_url'),
+  imageUrlExpiresAt: timestamp('image_url_expires_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),

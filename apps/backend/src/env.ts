@@ -50,6 +50,8 @@ export interface BackendEnv {
   // Scrape in-progress timeout
   scrapeInProgressTimeoutHours?: string;
   systemGeminiApiKey?: string;
+  postMediaBucketName?: string;
+  postMediaCdnDomain?: string;
 }
 
 /** Validate that required Bright Data vars are present */
@@ -176,6 +178,10 @@ export function loadBackendEnv(): BackendEnv {
     scrapeInProgressTimeoutHours: process.env.SCRAPE_IN_PROGRESS_TIMEOUT_HOURS || '3',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     systemGeminiApiKey: process.env.SYSTEM_GEMINI_API_KEY,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    postMediaBucketName: process.env.POST_MEDIA_BUCKET_NAME,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    postMediaCdnDomain: process.env.POST_MEDIA_CDN_DOMAIN,
   };
 
   // Ensure required Bright Data variables are present (webhook base URL is set post-deploy by CDK)

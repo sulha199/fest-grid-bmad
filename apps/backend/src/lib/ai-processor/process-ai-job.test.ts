@@ -3,7 +3,7 @@ import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions, users } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
-import { processAiJob, setCallGeminiSeam, setMarkPostExtractedSeam } from './process-ai-job.js';
+import { processAiJob, setCallGeminiSeam, setMarkPostExtractedSeam, setRehostPostImageSeam } from './process-ai-job.js';
 import { setResolveLocationSeam } from './resolve-account-and-locations.js';
 import { setSendSqsMessage } from '../aws/send-sqs-message.js';
 import { type ProcessingJobMessage } from '@festgrid/domain/posts';
@@ -61,6 +61,7 @@ test('processAiJob orchestrator tests', async (t) => {
     setMarkPostExtractedSeam(async () => ({}) as any);
     setResolveLocationSeam(async () => ({}) as any);
     setSendSqsMessage(async () => {});
+    setRehostPostImageSeam(async () => null);
   });
 
   await t.test('Case A: happy path (event extracted, enqueued, marked)', async () => {
@@ -405,4 +406,236 @@ test('processAiJob orchestrator tests', async (t) => {
       /DATA_INGESTION_QUEUE_URL is not configured/
     );
   });
+
+  await t.test('Case G-1: successful event extraction rehosts image bytes', async () => {
+    const originalFetch = globalThis.fetch;
+    t.after(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    globalThis.fetch = async () => {
+      return {
+        ok: true,
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null)
+        },
+        arrayBuffer: async () => Buffer.from('mock-bytes-123')
+      } as any;
+    };
+
+    const message: ProcessingJobMessage = {
+      postId: 'post-rehost-g1',
+      accountId: profile.id,
+      content: 'Epic Concert Tonight!',
+      imageUrl: 'https://test.com/img.png',
+      postUrl: 'https://test.com/pg1',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let rehostCalledWith: any = null;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          eventName: 'Epic Concert',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: '2026-08-15'
+            }
+          ],
+          confidenceScore: 0.95
+        })
+      };
+    });
+
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    setRehostPostImageSeam(async (postId, imageBytes, imageContentType) => {
+      rehostCalledWith = { postId, imageBytes, imageContentType };
+      return 'https://cdn.test.com/posts/post-rehost-g1';
+    });
+
+    await processAiJob(message);
+
+    assert.ok(rehostCalledWith);
+    assert.strictEqual(rehostCalledWith.postId, 'post-rehost-g1');
+    assert.deepEqual(rehostCalledWith.imageBytes, Buffer.from('mock-bytes-123'));
+    assert.strictEqual(rehostCalledWith.imageContentType, 'image/png');
+  });
+
+  await t.test('Case G-2: rehost failure does NOT block extraction or enqueuing (graceful fallback)', async () => {
+    const originalFetch = globalThis.fetch;
+    t.after(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    globalThis.fetch = async () => {
+      return {
+        ok: true,
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null)
+        },
+        arrayBuffer: async () => Buffer.from('mock-bytes-123')
+      } as any;
+    };
+
+    const message: ProcessingJobMessage = {
+      postId: 'post-rehost-g2',
+      accountId: profile.id,
+      content: 'Epic Concert Tonight!',
+      imageUrl: 'https://test.com/img.png',
+      postUrl: 'https://test.com/pg2',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let rehostCalled = false;
+    let markPostExtractedCalled = false;
+    let sendSqsMessageCalled = false;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          eventName: 'Epic Concert',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: '2026-08-15'
+            }
+          ],
+          confidenceScore: 0.95
+        })
+      };
+    });
+
+    setSendSqsMessage(async () => {
+      sendSqsMessageCalled = true;
+    });
+    setMarkPostExtractedSeam(async () => {
+      markPostExtractedCalled = true;
+      return {} as any;
+    });
+
+    setRehostPostImageSeam(async () => {
+      rehostCalled = true;
+      throw new Error('Mock S3 upload failure');
+    });
+
+    // Should NOT throw or reject
+    await processAiJob(message);
+
+    assert.ok(rehostCalled);
+    assert.ok(sendSqsMessageCalled);
+    assert.ok(markPostExtractedCalled);
+  });
+
+  await t.test('Case H: isEvent: false does NOT attempt rehosting', async () => {
+    const originalFetch = globalThis.fetch;
+    t.after(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    globalThis.fetch = async () => {
+      return {
+        ok: true,
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null)
+        },
+        arrayBuffer: async () => Buffer.from('mock-bytes-123')
+      } as any;
+    };
+
+    const message: ProcessingJobMessage = {
+      postId: 'post-rehost-h',
+      accountId: profile.id,
+      content: 'Just chilling at home!',
+      imageUrl: 'https://test.com/img.png',
+      postUrl: 'https://test.com/ph',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let rehostCalled = false;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: false,
+          eventName: '',
+          types: [],
+          categories: [],
+          schedules: [],
+          confidenceScore: 0.99
+        })
+      };
+    });
+
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    setRehostPostImageSeam(async () => {
+      rehostCalled = true;
+      return null;
+    });
+
+    await processAiJob(message);
+
+    assert.strictEqual(rehostCalled, false, 'Should not attempt re-hosting when isEvent is false');
+  });
+
+  await t.test('Case I: AJV validation failure does NOT attempt rehosting', async () => {
+    const originalFetch = globalThis.fetch;
+    t.after(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    globalThis.fetch = async () => {
+      return {
+        ok: true,
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null)
+        },
+        arrayBuffer: async () => Buffer.from('mock-bytes-123')
+      } as any;
+    };
+
+    const message: ProcessingJobMessage = {
+      postId: 'post-rehost-i',
+      accountId: profile.id,
+      content: 'Invalid AJV caption',
+      imageUrl: 'https://test.com/img.png',
+      postUrl: 'https://test.com/pi',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let rehostCalled = false;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          // missing required fields triggers validation failure
+        })
+      };
+    });
+
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    setRehostPostImageSeam(async () => {
+      rehostCalled = true;
+      return null;
+    });
+
+    await processAiJob(message);
+
+    assert.strictEqual(rehostCalled, false, 'Should not attempt re-hosting when AJV validation fails');
+  });
 });
+

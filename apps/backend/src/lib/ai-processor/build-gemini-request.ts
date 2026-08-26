@@ -45,9 +45,15 @@ export const geminiExtractionResponseSchema = {
   required: ['isEvent', 'eventName', 'types', 'categories', 'schedules', 'confidenceScore']
 };
 
+export interface BuildGeminiExtractionRequestResult {
+  request: GeminiCallRequest;
+  imageBytes?: Buffer;
+  imageContentType?: string;
+}
+
 export async function buildGeminiExtractionRequest(
   message: ProcessingJobMessage
-): Promise<GeminiCallRequest> {
+): Promise<BuildGeminiExtractionRequestResult> {
   const allowedTypes = Object.values(EventType).join(', ');
   const allowedCategories = Object.values(EventCategory).join(', ');
 
@@ -63,6 +69,8 @@ export async function buildGeminiExtractionRequest(
 Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate information. If a field is absent, leave it null or undefined.`;
 
   let contents: any = message.content;
+  let imageBytes: Buffer | undefined;
+  let imageContentType: string | undefined;
 
   if (message.imageUrl) {
     try {
@@ -75,7 +83,11 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
         throw new Error(`Fetch response content-type is not an image: ${contentType}`);
       }
       const arrayBuffer = await response.arrayBuffer();
-      const base64Data = Buffer.from(arrayBuffer).toString('base64');
+      const buffer = Buffer.from(arrayBuffer);
+      const base64Data = buffer.toString('base64');
+
+      imageBytes = buffer;
+      imageContentType = contentType;
 
       contents = [
         { text: message.content },
@@ -93,10 +105,16 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     }
   }
 
-  return {
+  const request: GeminiCallRequest = {
     contents,
     systemInstruction,
     responseSchema: geminiExtractionResponseSchema,
     responseMimeType: 'application/json'
+  };
+
+  return {
+    request,
+    imageBytes,
+    imageContentType
   };
 }
