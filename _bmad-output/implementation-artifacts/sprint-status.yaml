@@ -703,13 +703,26 @@ development_status:
   # gap on any gate (lightweight guard -- every change mirrors an
   # already-shipped pattern 1:1, no new architecture/infra/foundational
   # dependency). Pre-Coding Approval Gate marked approved (inherited from the
-  # already-approved Sprint Change Proposal). Dispatched next for
-  # implementation via an isolated worktree + gemini-cli/cline-cli per this
-  # project's established delegation convention, independently verified
-  # before merge. Status intentionally left at "review" (not reset to
-  # ready-for-dev) since AC1-8 are already delivered and only the amendment's
-  # new AC9-12 scope is pending -- see the story file's own Completion Status
-  # for the AC-level breakdown.
+  # already-approved Sprint Change Proposal).
+  # AC9-12 implemented and merged 2026-08-26: gemini-cli was tried first
+  # (project convention) but failed immediately with a ModelNotFoundError
+  # (GCP project/model access issue, unrelated to this story); fell back to
+  # cline-cli in an isolated worktree (.claude/worktrees/3-3c, branch
+  # 3-3c-video-url) per this task's documented fallback option. Independently
+  # verified before merge: full diff read against the actual branch-point
+  # commit (not a moved master), full repo build/lint/test re-run clean
+  # (267/267 backend tests), a live-DB column-existence check, and a real
+  # migration-ledger/physical-schema inconsistency caught and fixed (the
+  # shared local dev Postgres -- also used by concurrent sibling worktrees
+  # 0-33/1-6a -- already had video_url added out-of-band by the dispatched
+  # agent when drizzle's own migrate command hit a sequencing conflict;
+  # reconciled by inserting the correctly-hashed drizzle.__drizzle_migrations
+  # row so `pnpm migrate` is now a clean idempotent no-op). Merged to master
+  # (--no-ff); worktree and branch cleaned up. Status left at "review" (not
+  # "done") pending this project's separate code-review workflow step,
+  # matching this file's own STATUS DEFINITIONS and the precedent of other
+  # implemented-but-not-yet-code-reviewed entries (e.g. 3-3b). See the story
+  # file's own Completion Status/Dev Agent Record for full detail.
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: review
   3-4-scrape-new-posts-from-subscribed-accounts: review
   # added 2026-08-08 via bmad-create-story Gate 1 split while drafting Story 3.4:
