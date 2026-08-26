@@ -163,6 +163,7 @@
   },
   "ManualPostSelectionPage": {
     "title": "Extract Events",
+    "postsFromLabel": "Posts from:",
     "noSubscriptionsEmptyState": "You are not subscribed to any accounts yet. Subscribe to accounts to extract events from their posts.",
     "noSubscriptionsCta": "Manage Subscriptions",
     "noPostsEmptyState": "No recent posts found for this account.",

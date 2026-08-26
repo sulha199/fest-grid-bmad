@@ -4,7 +4,7 @@
 
 - Epic: 5
 - Story ID: 5.1
-- Status: ready-for-dev (AC11-AC12 amendments; AC1-AC10 already delivered)
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -69,13 +69,13 @@ so that I can choose which posts to process for event extraction.
   - [x] Write integration tests in `apps/web/src/app/[locale]/posts/select/posts-select-content.test.tsx` using Vitest and MSW.
   - [x] Mock the GraphQL queries `mySubscriptions`, `postsByAccount`, and mutation `markSubscriptionViewed` to assert correct tab rendering, newly-added auto-activation, inactive alerts, and skeleton displays.
   - [x] Mock the empty states to verify correct redirection paths are constructed and sent to `/wizard`.
-- [ ] **Task 6 (AC11, added 2026-08-26) — Pill-style per-account tab row:**
-  - [ ] In `posts-select-content.tsx`'s tab row (currently `border-b-2` underline buttons, ~line 392-418), change each tab button's styling from underline to a rounded pill/chip (filled background when active, no bottom border) — no `border-b-2`/`border-primary` classes, replace with e.g. `rounded-full px-4 py-2` and an active-state filled background (`bg-primary text-primary-foreground` when active, `bg-muted text-muted-foreground hover:bg-muted/80` otherwise), matching this codebase's other pill/chip precedents (e.g. `Badge`).
-  - [ ] Add each account's `profileImageUrl` as a small avatar inside its pill (already available on `sub.account.profileImageUrl`, already fetched for `PostCard`'s `publisher` prop) — mirror `PostCard.tsx`'s existing avatar pattern (`w-10 h-10 rounded-full object-cover` image when present, a `User`-icon fallback circle when absent), sized down for a tab pill (e.g. `w-5 h-5`).
-  - [ ] Add a text label above the tab row ("Posts from:" or equivalent) via a new `postsFromLabel` key in the `ManualPostSelectionPage` next-intl namespace (`apps/web/locales/en.json`/`id.json`) — there is currently no heading there at all.
-  - [ ] Wrap the tab row and its content (the tabs + the tab-content grid below it) in the existing `card` design token (`rounded-lg shadow-md p-4`) so it reads as a box inside the Posts tab panel, not a continuation of outer page chrome.
-  - [ ] Mobile-only: change the tab row's container from `flex flex-wrap` to `flex-nowrap overflow-x-auto` below the `sm:` breakpoint, `sm:flex-wrap sm:overflow-visible` at/above it — a single scrolling row on mobile, wrapping normally on larger screens.
-  - [ ] Extend `posts-select-content.test.tsx`: tab pills render each account's avatar (or fallback icon), the "Posts from:" label is present, and the tab row/content is wrapped in the card container.
+- [x] **Task 6 (AC11, added 2026-08-26) — Pill-style per-account tab row:**
+  - [x] In `posts-select-content.tsx`'s tab row (currently `border-b-2` underline buttons, ~line 392-418), change each tab button's styling from underline to a rounded pill/chip (filled background when active, no bottom border) — no `border-b-2`/`border-primary` classes, replace with e.g. `rounded-full px-4 py-2` and an active-state filled background (`bg-primary text-primary-foreground` when active, `bg-muted text-muted-foreground hover:bg-muted/80` otherwise), matching this codebase's other pill/chip precedents (e.g. `Badge`).
+  - [x] Add each account's `profileImageUrl` as a small avatar inside its pill (already available on `sub.account.profileImageUrl`, already fetched for `PostCard`'s `publisher` prop) — mirror `PostCard.tsx`'s existing avatar pattern (`w-10 h-10 rounded-full object-cover` image when present, a `User`-icon fallback circle when absent), sized down for a tab pill (e.g. `w-5 h-5`).
+  - [x] Add a text label above the tab row ("Posts from:" or equivalent) via a new `postsFromLabel` key in the `ManualPostSelectionPage` next-intl namespace (`apps/web/locales/en.json`/`id.json`) — there is currently no heading there at all.
+  - [x] Wrap the tab row and its content (the tabs + the tab-content grid below it) in the existing `card` design token (`rounded-lg shadow-md p-4`) so it reads as a box inside the Posts tab panel, not a continuation of outer page chrome.
+  - [x] Mobile-only: change the tab row's container from `flex flex-wrap` to `flex-nowrap overflow-x-auto` below the `sm:` breakpoint, `sm:flex-wrap sm:overflow-visible` at/above it — a single scrolling row on mobile, wrapping normally on larger screens.
+  - [x] Extend `posts-select-content.test.tsx`: tab pills render each account's avatar (or fallback icon), the "Posts from:" label is present, and the tab row/content is wrapped in the card container.
 - [x] **Task 7 (AC12) — Adopt shared `PageContainer`/`GridContainer` — already implemented, tracking-only:**
   - [x] Confirmed via direct code inspection (2026-08-26): `posts-select-content.tsx`'s main return already uses `<PageContainer>` (line 384) and all three grids (loading skeleton, tab-content skeleton, real-posts grid) already use `<GridContainer baseCols={1} colsStep={1} gap="gap-4">` (lines 345, 442, 463) — this was implemented in an earlier pass (`fe8a1af` and its revision) but never reflected in this story file's own checkboxes/Deliverables. No new code required for AC12.
 
@@ -159,7 +159,7 @@ so that I can choose which posts to process for event extraction.
 - [x] Client component rendering subscribed account tabs, showing alert icons, lazy-loading 20 recent posts per account using `PostCard` and `PostCardSkeleton`.
 - [x] Next.js config redirection from `/posts/extract` to `/posts/select`.
 - [x] Complete Vitest integration test file passing.
-- [ ] Per-account tab row uses pill/chip styling with avatars, a "Posts from:" label, card-token wrapping, and mobile single-row scroll (AC11, new 2026-08-26).
+- [x] Per-account tab row uses pill/chip styling with avatars, a "Posts from:" label, card-token wrapping, and mobile single-row scroll (AC11, new 2026-08-26).
 - [x] Root container and post grids adopt `PageContainer`/`GridContainer` (AC12) — confirmed already implemented, 2026-08-26.
 
 ## Out of Scope
@@ -182,6 +182,8 @@ so that I can choose which posts to process for event extraction.
 **2026-08-24 (`bmad-correct-course`):** Reopened for AC11 (Posts-tab nesting resolution, superseding the earlier same-day sprint-status.yaml-only note with a real AC) and AC12 (adopt `PageContainer`, unify grid columns — blocked on Story 0.30). AC1-AC10 unaffected. See `sprint-change-proposal-2026-08-24-ux-rework-batch.md`.
 
 **2026-08-24, later same day:** AC12 revised again — the grid-unification half now composes the new `GridContainer` primitive (Story 0.31) instead of a hand-written literal className. Now blocked on both Story 0.30 and Story 0.31. No code existed against the prior version (committed in `fe8a1af`); documentation correction only.
+
+**2026-08-26 (Cline):** Completed Task 6 (AC11). Restyled the per-account tab buttons to pill/chip style, added "Posts from:" translations and label above the tab row, implemented profile image avatars and fallback User icons for subscribers on each tab button, applied mobile single-row horizontal scrolling classes, and wrapped the entire secondary selector row and posts grid layout in a container styled matching the codebase's existing Card design token. Updated integration tests inside `posts-select-content.test.tsx` to completely verify these elements. Verified all tests, builds, and ESLint checks are passing. Marked story as ready for review.
 
 ### Change Log
 
@@ -221,9 +223,14 @@ Gemini 1.5 Pro (Auto-Edit Specialization)
 - Comprehensive ultimate context engine analysis completed.
 - Reusable `PostCard` split off into prerequisite Story `5.1b` in strict compliance with Gate 2.
 - Wizard redirection and `/posts/select` routing tradeoffs successfully resolved with the user.
+- Cline (2026-08-26): Restyled per-account tab buttons to use pill style, added subscriber avatars with fallbacks, a "Posts from:" label above the row, wrapped both within the Card design token, added mobile-only scrolling classes, and fully verified using Vitest integration tests, TS compiler, and ESLint checks.
 
 ### File List
 
 - NEW: `_bmad-output/implementation-artifacts/5-1-manual-post-selection-screen.md`
 - UPDATE: `_bmad-output/planning-artifacts/epics.md`
 - UPDATE: `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- UPDATE: `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx`
+- UPDATE: `apps/web/src/app/[locale]/posts/select/posts-select-content.test.tsx`
+- UPDATE: `apps/web/locales/en.json`
+- UPDATE: `apps/web/locales/id.json`

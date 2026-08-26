@@ -1440,7 +1440,7 @@ development_status:
   # hand-written literal className. Also blocked on Story 0.31.
   # DONE 2026-08-24: AC12 merged (Wave 2, story/wave2-page-grid-adoption).
   # AC11 (nested-tabs styling) NOT part of this wave -- still open.
-  5-1-manual-post-selection-screen: ready-for-dev
+  5-1-manual-post-selection-screen: review
   5-2-select-posts-for-extraction: review
   # Reopened 2026-08-24 via bmad-correct-course: added AC6 -- SummaryBar's
   # fixed bottom-0 z-50 shares the exact screen position (and a higher

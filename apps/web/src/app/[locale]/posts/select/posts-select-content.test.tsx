@@ -268,6 +268,33 @@ describe('PostsSelectContent integration', () => {
     const postContent = await screen.findByText('Post 1 content');
     expect(postContent).toBeInTheDocument();
   });
+  it('renders "Posts from:" label, card containment, and avatars (images & fallback icons) on tab pills (AC11 / Task 6)', async () => {
+    mockSubscriptions[0].account.profileImageUrl = 'https://example.com/avatar1.png';
+    mockSubscriptions[1].account.profileImageUrl = null;
+
+    renderComponent();
+
+    const label = await screen.findByText('Posts from:');
+    expect(label).toBeInTheDocument();
+
+    const cardWrapper = label.parentElement;
+    expect(cardWrapper).toHaveClass('rounded-lg', 'border', 'bg-card', 'p-4');
+
+    const avatarImg = await screen.findByAltText('Jakarta Festival Info');
+    expect(avatarImg).toBeInTheDocument();
+    expect(avatarImg).toHaveAttribute('src', 'https://example.com/avatar1.png');
+    expect(avatarImg).toHaveClass('rounded-full', 'w-5', 'h-5');
+
+    const tab2Button = screen.getByRole('button', { name: /Inactive Sub/i });
+    expect(tab2Button).toBeInTheDocument();
+
+    const fallbackDiv = tab2Button.querySelector('div');
+    expect(fallbackDiv).toHaveClass('w-5', 'h-5', 'rounded-full');
+
+    const userIcon = fallbackDiv?.querySelector('svg');
+    expect(userIcon).toBeInTheDocument();
+  });
+
 
   it('handles tab click to switch active account', async () => {
     renderComponent();
