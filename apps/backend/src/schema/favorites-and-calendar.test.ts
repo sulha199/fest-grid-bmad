@@ -378,6 +378,9 @@ test('favorites and calendar additions resolvers integration', async (t) => {
   await t.test('favoriteCount - aggregates across multiple users correctly', async () => {
     if (!testUser || !testUser2 || !testEventId) return;
 
+    // Reset favorites for this event to ensure clean test state
+    await db.delete(favorites).where(eq(favorites.eventId, testEventId));
+
     // Initially, favoriteCount should be 0
     const queryRes0 = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
