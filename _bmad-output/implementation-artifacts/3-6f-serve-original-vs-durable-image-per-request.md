@@ -8,7 +8,7 @@ baseline_commit: 2d7e80201bdbf6d78750624540285f5787310ba5
 
 - Epic: 3
 - Story ID: 3.6f
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,8 +32,8 @@ so that I never see a broken image on an event, while the product still gets the
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: `resolveServedImageUrl` pure function** (AC: 1, 2, 3, 4, 5) — `packages/domain/src/events/`
-  - [ ] Create `packages/domain/src/events/resolveServedImageUrl.ts`, matching the existing `now`-injectable object-param style already used by `getCancelledReportWindowCutoff.ts`/`shouldSoftDeleteFromCancelledReports.ts` in this same folder (not `parse-image-url-expiry.ts`'s positional-args style — that one takes 2 simple args, this one takes 3 nullable inputs + an optional clock, which is exactly the shape the `events/` folder's existing `now`-default convention was built for):
+- [x] **Task 1: `resolveServedImageUrl` pure function** (AC: 1, 2, 3, 4, 5) — `packages/domain/src/events/`
+  - [x] Create `packages/domain/src/events/resolveServedImageUrl.ts`, matching the existing `now`-injectable object-param style already used by `getCancelledReportWindowCutoff.ts`/`shouldSoftDeleteFromCancelledReports.ts` in this same folder (not `parse-image-url-expiry.ts`'s positional-args style — that one takes 2 simple args, this one takes 3 nullable inputs + an optional clock, which is exactly the shape the `events/` folder's existing `now`-default convention was built for):
     ```ts
     export interface ResolveServedImageUrlInput {
       imageUrl: string | null | undefined;
@@ -55,24 +55,24 @@ so that I never see a broken image on an event, while the product still gets the
       return durableImageUrl || imageUrl || null;
     }
     ```
-  - [ ] Zero DB/Node-runtime dependencies — plain `Date` comparisons only, matching `packages/domain`'s frontend-safety constraint (even though the only current caller is backend-only, same posture as `parseImageUrlExpiry`).
-  - [ ] Add `packages/domain/src/events/resolveServedImageUrl.test.ts` with 100% coverage, covering at minimum: (a) valid original + durable present → serves original (AC1); (b) expired original + durable present → serves durable (AC2); (c) expired original + durable `null` → serves original anyway (AC3); (d) `imageUrlExpiresAt` is `null` + durable present → serves durable, i.e. null-expiry is NOT treated as valid-indefinitely (AC4); (e) `imageUrlExpiresAt` is `null` + durable `null` → serves original anyway (AC3+AC4 combined); (f) `imageUrl` is `null` + durable `null` → returns `null` (AC5); (g) `imageUrl` is `null` + durable present (defensive/unexpected-shape case) → still returns durable, doesn't throw; (h) `now` exactly equal to `imageUrlExpiresAt` → treated as expired (`now < imageUrlExpiresAt` is strict, matching AC2's "in the past **or exactly equal to now**" wording).
-  - [ ] Export it from `packages/domain/src/events/index.ts` (existing barrel — add `export * from './resolveServedImageUrl.js';` alongside the existing exports).
+  - [x] Zero DB/Node-runtime dependencies — plain `Date` comparisons only, matching `packages/domain`'s frontend-safety constraint (even though the only current caller is backend-only, same posture as `parseImageUrlExpiry`).
+  - [x] Add `packages/domain/src/events/resolveServedImageUrl.test.ts` with 100% coverage, covering at minimum: (a) valid original + durable present → serves original (AC1); (b) expired original + durable present → serves durable (AC2); (c) expired original + durable `null` → serves original anyway (AC3); (d) `imageUrlExpiresAt` is `null` + durable present → serves durable, i.e. null-expiry is NOT treated as valid-indefinitely (AC4); (e) `imageUrlExpiresAt` is `null` + durable `null` → serves original anyway (AC3+AC4 combined); (f) `imageUrl` is `null` + durable `null` → returns `null` (AC5); (g) `imageUrl` is `null` + durable present (defensive/unexpected-shape case) → still returns durable, doesn't throw; (h) `now` exactly equal to `imageUrlExpiresAt` → treated as expired (`now < imageUrlExpiresAt` is strict, matching AC2's "in the past **or exactly equal to now**" wording).
+  - [x] Export it from `packages/domain/src/events/index.ts` (existing barrel — add `export * from './resolveServedImageUrl.js';` alongside the existing exports).
 
-- [ ] **Task 2: GraphQL schema — `Event.durableImageUrl`** (AC: 7) — `apps/backend/src/schema/events.graphql`
-  - [ ] In the `Event` type, immediately after the existing `imageUrl: String` line (and before `videoUrl: String`, or after it — either ordering is fine, match whichever reads more naturally alongside the existing `imageUrl`/`videoUrl` pair), add:
+- [x] **Task 2: GraphQL schema — `Event.durableImageUrl`** (AC: 7) — `apps/backend/src/schema/events.graphql`
+  - [x] In the `Event` type, immediately after the existing `imageUrl: String` line (and before `videoUrl: String`, or after it — either ordering is fine, match whichever reads more naturally alongside the existing `imageUrl`/`videoUrl` pair), add:
     ```graphql
     durableImageUrl: String
     ```
 
-- [ ] **Task 3: Wire `durableImageUrl`/`imageUrlExpiresAt` into all 5 resolver select sites, compute `imageUrl` via the shared field resolver** (AC: 1-7) — `apps/backend/src/schema/resolvers.ts`
-  - [ ] At each of the 5 `select({ ...requestedFields, ..., imageUrl: posts.imageUrl, videoUrl: posts.videoUrl, ... })` call sites (grep `imageUrl: posts.imageUrl,` to find all 5 — currently at approximately lines 1420 (`restoreEvent` mutation), 2557 (`events` list query), 2674 (`event(id)` query), 2751 (`eventBySlug` query), 2933 (`Report.event` field resolver)), add two lines immediately after `imageUrl: posts.imageUrl,`:
+- [x] **Task 3: Wire `durableImageUrl`/`imageUrlExpiresAt` into all 5 resolver select sites, compute `imageUrl` via the shared field resolver** (AC: 1-7) — `apps/backend/src/schema/resolvers.ts`
+  - [x] At each of the 5 `select({ ...requestedFields, ..., imageUrl: posts.imageUrl, videoUrl: posts.videoUrl, ... })` call sites (grep `imageUrl: posts.imageUrl,` to find all 5 — currently at approximately lines 1420 (`restoreEvent` mutation), 2557 (`events` list query), 2674 (`event(id)` query), 2751 (`eventBySlug` query), 2933 (`Report.event` field resolver)), add two lines immediately after `imageUrl: posts.imageUrl,`:
     ```ts
     durableImageUrl: posts.durableImageUrl,
     imageUrlExpiresAt: posts.imageUrlExpiresAt,
     ```
-  - [ ] Import `resolveServedImageUrl` from `@festgrid/domain/events` (matching this file's existing `@festgrid/domain/events` import at the top, which already pulls in `mapExtractionPayloadToProposedCorrection`/`buildDefaultEventVisibilityConditions`/etc. — add `resolveServedImageUrl` to that same import line's named-import list rather than adding a second import from the same module).
-  - [ ] In the `Event: { ... }` resolver map, replace the existing `imageUrl: (parent: any) => parent.imageUrl || null,` with a computed version:
+  - [x] Import `resolveServedImageUrl` from `@festgrid/domain/events` (matching this file's existing `@festgrid/domain/events` import at the top, which already pulls in `mapExtractionPayloadToProposedCorrection`/`buildDefaultEventVisibilityConditions`/etc. — add `resolveServedImageUrl` to that same import line's named-import list rather than adding a second import from the same module).
+  - [x] In the `Event: { ... }` resolver map, replace the existing `imageUrl: (parent: any) => parent.imageUrl || null,` with a computed version:
     ```ts
     imageUrl: (parent: any) => resolveServedImageUrl({
       imageUrl: parent.imageUrl,
@@ -82,27 +82,27 @@ so that I never see a broken image on an event, while the product still gets the
     durableImageUrl: (parent: any) => parent.durableImageUrl || null,
     ```
     (letting `resolveServedImageUrl`'s own `now = new Date()` default supply the request-time clock — do not thread a `now` through the resolver call; the injectable-`now` param exists purely for the pure function's own unit tests.)
-  - [ ] Do **not** touch the `videoUrl: (parent: any) => parent.videoUrl || null,` line or any of the 5 `videoUrl: posts.videoUrl,` select entries already present — those are Story 3.3c's, out of scope here (AC9).
-  - [ ] `buildOptimizedDrizzleSelect(events, info)`'s spread (`...requestedFields`) is unaffected — it only inspects the `events` table/GraphQL selection set for optimization hints and has no `durableImageUrl`/`imageUrlExpiresAt` keys of its own to conflict with (those live only on `posts`); the explicit `durableImageUrl`/`imageUrlExpiresAt` keys added above simply extend the same explicit-override pattern `imageUrl`/`videoUrl`/`sourcePostUrl`/`originalPostUrl` already use at every one of these 5 sites.
+  - [x] Do **not** touch the `videoUrl: (parent: any) => parent.videoUrl || null,` line or any of the 5 `videoUrl: posts.videoUrl,` select entries already present — those are Story 3.3c's, out of scope here (AC9).
+  - [x] `buildOptimizedDrizzleSelect(events, info)`'s spread (`...requestedFields`) is unaffected — it only inspects the `events` table/GraphQL selection set for optimization hints and has no `durableImageUrl`/`imageUrlExpiresAt` keys of its own to conflict with (those live only on `posts`); the explicit `durableImageUrl`/`imageUrlExpiresAt` keys added above simply extend the same explicit-override pattern `imageUrl`/`videoUrl`/`sourcePostUrl`/`originalPostUrl` already use at every one of these 5 sites.
 
-- [ ] **Task 4: Regenerate backend GraphQL codegen** (AC: 7) — `apps/backend`
-  - [ ] Run `pnpm --filter backend codegen` (or the equivalent script name confirmed in `apps/backend/package.json`) to regenerate `apps/backend/src/generated/resolvers-types.ts` with the new `durableImageUrl` field on `Event`/`EventResolvers`, matching how `videoUrl` appears there today (lines ~203, ~1417). Commit the regenerated file.
+- [x] **Task 4: Regenerate backend GraphQL codegen** (AC: 7) — `apps/backend`
+  - [x] Run `pnpm --filter backend codegen` (or the equivalent script name confirmed in `apps/backend/package.json`) to regenerate `apps/backend/src/generated/resolvers-types.ts` with the new `durableImageUrl` field on `Event`/`EventResolvers`, matching how `videoUrl` appears there today (lines ~203, ~1417). Commit the regenerated file.
 
-- [ ] **Task 5: `apps/web` query + mapper wiring** (AC: 8) — `apps/web/src/features/events/queries.graphql`, `mapper.ts`
-  - [ ] In `getEventBySlug`'s selection set, add `durableImageUrl` immediately after the existing `imageUrl` line (before `videoUrl`, matching Task 2's schema ordering choice for consistency).
-  - [ ] Run `pnpm --filter web codegen` (per `apps/web/package.json`'s `codegen` script, which also runs `fix-codegen.js` afterward — do not skip that step) to regenerate `apps/web/src/generated/graphql.ts` with `durableImageUrl` added to `GetEventBySlugQuery`'s shape. Commit the regenerated file.
-  - [ ] In `mapper.ts`'s `mapGraphQLEventToDetailViewProps`, add one line immediately after the existing `imageUrl: event.imageUrl,`:
+- [x] **Task 5: `apps/web` query + mapper wiring** (AC: 8) — `apps/web/src/features/events/queries.graphql`, `mapper.ts`
+  - [x] In `getEventBySlug`'s selection set, add `durableImageUrl` immediately after the existing `imageUrl` line (before `videoUrl`, matching Task 2's schema ordering choice for consistency).
+  - [x] Run `pnpm --filter web codegen` (per `apps/web/package.json`'s `codegen` script, which also runs `fix-codegen.js` afterward — do not skip that step) to regenerate `apps/web/src/generated/graphql.ts` with `durableImageUrl` added to `GetEventBySlugQuery`'s shape. Commit the regenerated file.
+  - [x] In `mapper.ts`'s `mapGraphQLEventToDetailViewProps`, add one line immediately after the existing `imageUrl: event.imageUrl,`:
     ```ts
     imageFallbackUrl: event.durableImageUrl,
     ```
     (the prop name is `imageFallbackUrl`, not `durableImageUrl` — confirmed from `EventDetailViewProps`/`EventImageProps` in `packages/ui/src/features/events/EventDetailView.types.ts:74` and `EventImage.tsx:12`, both already accepting `imageFallbackUrl?: string | null` since Story 1.6a; do not rename either side to match).
-  - [ ] Do **not** touch the `videoUrl: event.videoUrl,`/`videoAlt: event.eventName,` lines already present in `mapper.ts` — Story 1.6's, out of scope here (AC9).
+  - [x] Do **not** touch the `videoUrl: event.videoUrl,`/`videoAlt: event.eventName,` lines already present in `mapper.ts` — Story 1.6's, out of scope here (AC9).
 
-- [ ] **Task 6: Tests** (AC: all)
-  - [ ] `packages/domain/src/events/resolveServedImageUrl.test.ts` — Task 1's 8 cases, 100% coverage.
-  - [ ] `apps/backend/src/schema/resolvers.test.ts` (existing file, extend near the existing `eventBySlug - fetch single event by slug with schedules` test, ~line 298) — add `durableImageUrl` to that test's query selection and assert it resolves (even if `null` for existing seed data, following the exact precedent the `videoUrl` assertion at line 341 already set: `assert.strictEqual(result.data.eventBySlug.videoUrl, null, ...)`). Because this project's resolver integration tests run against seeded Postgres data rather than fabricated rows (see the file's existing structure), the three-way branch itself (valid-original / expired-with-durable / expired-without-durable) is **not** re-proven at the integration level here — it is already 100%-unit-tested by Task 1's pure function, and the resolver wiring is proven end-to-end simply by confirming `durableImageUrl` resolves through GraphQL without error. If a seeded row happens to already carry non-null `durableImageUrl`/`imageUrlExpiresAt`/expired data, additionally assert `imageUrl` matches what `resolveServedImageUrl` would compute for that row's actual column values (call the same domain function in the test to compute the expected value — do not hardcode) so the wiring, not just presence, is checked when the data allows it.
-  - [ ] `apps/web/src/features/events/EventDetailWrapper.test.tsx` (existing file, extend `currentMockEvent`/both mock-event object literals with `durableImageUrl: null as string | null` alongside the existing `videoUrl: null as string | null`, matching Story 1.6's precedent for adding `videoUrl` at lines 85/231) — add a new test proving the wrapper→mapper→`EventDetailView`→`EventImage` chain actually threads `durableImageUrl` into `imageFallbackUrl`: set `currentMockEvent.imageUrl` and `currentMockEvent.durableImageUrl` to two different URLs, render, `fireEvent.error` on the rendered `<img>` (same technique `packages/ui/src/features/events/EventDetailView.test.tsx`'s existing `'image fallback URL retry on image load failure'` test already uses at the component level), and assert the `<img>`'s `src` swaps to the `durableImageUrl` value — this is what actually proves *this* story's wiring, distinct from Story 1.6a's already-existing lower-level `EventDetailView.test.tsx` coverage of the retry mechanism itself.
-  - [ ] Full verification: `pnpm --filter @festgrid/domain build && pnpm --filter @festgrid/domain test` (100% coverage maintained); `pnpm --filter backend test`; `pnpm --filter web test`; `pnpm build`, `pnpm lint`, `pnpm test` (root, full suite, no regressions); confirm both regenerated codegen files (`apps/backend/src/generated/resolvers-types.ts`, `apps/web/src/generated/graphql.ts`) are committed.
+- [x] **Task 6: Tests** (AC: all)
+  - [x] `packages/domain/src/events/resolveServedImageUrl.test.ts` — Task 1's 8 cases, 100% coverage.
+  - [x] `apps/backend/src/schema/resolvers.test.ts` (existing file, extend near the existing `eventBySlug - fetch single event by slug with schedules` test, ~line 298) — add `durableImageUrl` to that test's query selection and assert it resolves (even if `null` for existing seed data, following the exact precedent the `videoUrl` assertion at line 341 already set: `assert.strictEqual(result.data.eventBySlug.videoUrl, null, ...)`). Because this project's resolver integration tests run against seeded Postgres data rather than fabricated rows (see the file's existing structure), the three-way branch itself (valid-original / expired-with-durable / expired-without-durable) is **not** re-proven at the integration level here — it is already 100%-unit-tested by Task 1's pure function, and the resolver wiring is proven end-to-end simply by confirming `durableImageUrl` resolves through GraphQL without error. If a seeded row happens to already carry non-null `durableImageUrl`/`imageUrlExpiresAt`/expired data, additionally assert `imageUrl` matches what `resolveServedImageUrl` would compute for that row's actual column values (call the same domain function in the test to compute the expected value — do not hardcode) so the wiring, not just presence, is checked when the data allows it.
+  - [x] `apps/web/src/features/events/EventDetailWrapper.test.tsx` (existing file, extend `currentMockEvent`/both mock-event object literals with `durableImageUrl: null as string | null` alongside the existing `videoUrl: null as string | null`, matching Story 1.6's precedent for adding `videoUrl` at lines 85/231) — add a new test proving the wrapper→mapper→`EventDetailView`→`EventImage` chain actually threads `durableImageUrl` into `imageFallbackUrl`: set `currentMockEvent.imageUrl` and `currentMockEvent.durableImageUrl` to two different URLs, render, `fireEvent.error` on the rendered `<img>` (same technique `packages/ui/src/features/events/EventDetailView.test.tsx`'s existing `'image fallback URL retry on image load failure'` test already uses at the component level), and assert the `<img>`'s `src` swaps to the `durableImageUrl` value — this is what actually proves *this* story's wiring, distinct from Story 1.6a's already-existing lower-level `EventDetailView.test.tsx` coverage of the retry mechanism itself.
+  - [x] Full verification: `pnpm --filter @festgrid/domain build && pnpm --filter @festgrid/domain test` (100% coverage maintained); `pnpm --filter backend test`; `pnpm --filter web test`; `pnpm build`, `pnpm lint`, `pnpm test` (root, full suite, no regressions); confirm both regenerated codegen files (`apps/backend/src/generated/resolvers-types.ts`, `apps/web/src/generated/graphql.ts`) are committed.
 
 ## Dev Notes
 
@@ -204,18 +204,18 @@ AD-12 Rule 3's three-way branch (original-if-valid / durable-if-present / origin
 
 ## Testing Requirements
 
-- [ ] Unit tests: `packages/domain/src/events/resolveServedImageUrl.test.ts` (100% coverage — the 8 cases listed under Task 1, including both null-expiry sub-cases and the strict-inequality boundary at `now === imageUrlExpiresAt`).
-- [ ] Integration tests: `apps/backend/src/schema/resolvers.test.ts`'s extended `eventBySlug` test (confirms `durableImageUrl` resolves via GraphQL, and that `imageUrl` matches `resolveServedImageUrl`'s own computation against whatever seed data exists); `apps/web/src/features/events/EventDetailWrapper.test.tsx`'s new test (confirms `durableImageUrl` → `imageFallbackUrl` → actual `<img src>` swap on load failure, proving the full chain).
-- [ ] E2E tests: **not added** — this is a data-serving-correctness change with no new user-visible interaction (the existing image-with-fallback UI was already E2E-relevant, if at all, as of Story 1.6a/1.6; this story only changes which URL is served, not how the UI behaves), matching this project's testing-trophy philosophy and the precedent of prior backend-plumbing-plus-thin-frontend-wiring stories (3.3c, 1.6) shipping without a dedicated E2E spec.
+- [x] Unit tests: `packages/domain/src/events/resolveServedImageUrl.test.ts` (100% coverage — the 8 cases listed under Task 1, including both null-expiry sub-cases and the strict-inequality boundary at `now === imageUrlExpiresAt`).
+- [x] Integration tests: `apps/backend/src/schema/resolvers.test.ts`'s extended `eventBySlug` test (confirms `durableImageUrl` resolves via GraphQL, and that `imageUrl` matches `resolveServedImageUrl`'s own computation against whatever seed data exists); `apps/web/src/features/events/EventDetailWrapper.test.tsx`'s new test (confirms `durableImageUrl` → `imageFallbackUrl` → actual `<img src>` swap on load failure, proving the full chain).
+- [x] E2E tests: **not added** — this is a data-serving-correctness change with no new user-visible interaction (the existing image-with-fallback UI was already E2E-relevant, if at all, as of Story 1.6a/1.6; this story only changes which URL is served, not how the UI behaves), matching this project's testing-trophy philosophy and the precedent of prior backend-plumbing-plus-thin-frontend-wiring stories (3.3c, 1.6) shipping without a dedicated E2E spec.
 
 ## Deliverables Checklist
 
-- [ ] `resolveServedImageUrl` implemented in `packages/domain/src/events/`, 100%-covered, exported from the package barrel.
-- [ ] `Event.durableImageUrl: String` added to the GraphQL schema.
-- [ ] All 5 resolver select sites select `durableImageUrl`/`imageUrlExpiresAt` alongside the existing `imageUrl`; `Event.imageUrl`'s field resolver computes via `resolveServedImageUrl`; `Event.durableImageUrl`'s field resolver passes the raw column through.
-- [ ] Backend and frontend GraphQL codegen regenerated and committed.
-- [ ] `apps/web`'s `getEventBySlug` query includes `durableImageUrl`; `mapper.ts` maps it into `imageFallbackUrl`.
-- [ ] `videoUrl` and its rendering path untouched anywhere in the diff.
+- [x] `resolveServedImageUrl` implemented in `packages/domain/src/events/`, 100%-covered, exported from the package barrel.
+- [x] `Event.durableImageUrl: String` added to the GraphQL schema.
+- [x] All 5 resolver select sites select `durableImageUrl`/`imageUrlExpiresAt` alongside the existing `imageUrl`; `Event.imageUrl`'s field resolver computes via `resolveServedImageUrl`; `Event.durableImageUrl`'s field resolver passes the raw column through.
+- [x] Backend and frontend GraphQL codegen regenerated and committed.
+- [x] `apps/web`'s `getEventBySlug` query includes `durableImageUrl`; `mapper.ts` maps it into `imageFallbackUrl`.
+- [x] `videoUrl` and its rendering path untouched anywhere in the diff.
 
 ## Out of Scope
 
@@ -227,22 +227,52 @@ AD-12 Rule 3's three-way branch (original-if-valid / durable-if-present / origin
 
 ## Definition of Done
 
-- [ ] AC1-9 satisfied.
-- [ ] All required tests passing (domain unit — 100% coverage; backend integration; frontend wiring test).
-- [ ] Lint and type checks passing for `packages/domain`, `apps/backend`, `apps/web`.
-- [ ] Both apps' GraphQL codegen regenerated and committed, with no drift versus a fresh run.
-- [ ] `pnpm build`, `pnpm lint`, `pnpm test` (root) pass with no regressions to any existing suite.
+- [x] AC1-9 satisfied.
+- [x] All required tests passing (domain unit — 100% coverage; backend integration; frontend wiring test).
+- [x] Lint and type checks passing for `packages/domain`, `apps/backend`, `apps/web`.
+- [x] Both apps' GraphQL codegen regenerated and committed, with no drift versus a fresh run.
+- [x] `pnpm build`, `pnpm lint`, `pnpm test` (root) pass with no regressions to any existing suite.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete (2026-08-27, implemented via cline-cli in isolated worktree `.claude/worktrees/3-6f` on branch `3-6f-original-vs-durable`, independently reviewed and verified before merge to `master`).
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+`cline-cli` (`cline --auto-approve true`, prompt piped via stdin/promptfile), dispatched into an isolated git worktree (`.claude/worktrees/3-6f`, branch `3-6f-original-vs-durable`). The orchestrating session was interrupted mid-dispatch (device/process exit, same class of issue that hit the Story 3.6e dispatch); on resumption the worktree's actual git state was checked directly (`git log`/`git status`) rather than assuming nothing survived — `cline-cli`'s implementation commit (`654242a`) was already present and complete. Independently reviewed, tested, and verified by the orchestrating agent before merge; no further code changes were needed beyond what `cline-cli` produced.
+
 ### Debug Log References
+
+`cline-3-6f-run.log` (scratchpad-directory dispatch transcript, gitignored/not committed) — full tool-call transcript of the `cline-cli` implementation run.
 
 ### Completion Notes List
 
+- All 6 Tasks implemented exactly as specified in this story; diff footprint independently confirmed scoped to `packages/domain/src/events`, `apps/backend/src/schema`, `apps/web/src/features/events`, both apps' generated codegen output, and `pnpm-lock.yaml` — no touches to `packages/ui`, `apps/infrastructure`, or anything `videoUrl`-related.
+- `apps/backend/src/lib/ai-processor/rehost-post-image.test.ts` picked up two incidental `as any` type-cast additions (on two mocked `S3Client`-shaped objects passed to `setS3ClientInstance`) as a side effect of `pnpm --filter backend build` surfacing a pre-existing type-strictness gap while `cline-cli` was verifying its own work; harmless, test-only, and outside this story's own file-change plan, but left in since it doesn't touch any of this story's actual logic and fixes a real (if minor) type error.
+- Two stray edits leaked from `cline-cli`'s editor tool into the **main repository's working tree** (outside the isolated worktree) during the dispatch: `packages/domain/src/events/index.ts` (the same barrel-export line correctly added inside the worktree) and `apps/web/tsconfig.tsbuildinfo` (a build-cache artifact). Neither was ever committed; both were discovered and discarded (`git checkout --`) by the orchestrating agent during independent verification, before any commit or merge touched the main repo. Root cause not fully diagnosed (worktrees should keep working directories fully isolated); noted here in case the same leakage recurs on a future dispatch.
+- `apps/web/public/maplibre-gl-shared.mjs`/`maplibre-gl-worker.mjs` showed as modified after every `pnpm --filter web build`/`pnpm build` run (both in the worktree and later independently reproduced) but `git diff --numstat` confirmed zero actual content change — pure CRLF/LF line-ending touch noise from the build step. Discarded each time via `git checkout --`; never part of the merged commit.
+- One transient test failure during independent verification: a full `pnpm --filter backend test` run reported 2/263 failing, including `src/validation/validate.test.ts` crashing with a Windows `STATUS_DLL_NOT_FOUND`-class exit code (3221226091) — a classic native-module-loading flake under load, not a real assertion failure. Confirmed non-reproducible two ways: (a) `validate.test.ts` run in isolation passed 3/3 cleanly (and is unrelated to this story's scope — AJV schema validation, no image/post logic); (b) a full clean rerun of `pnpm --filter backend test` passed 267/267 with exit code 0.
+- Independent verification performed by the orchestrating agent (not just trusting the dispatch's own self-report): `pnpm --filter @festgrid/domain build && pnpm --filter @festgrid/domain test` — 162/162 pass (100% coverage on the new `resolveServedImageUrl.ts`); `pnpm --filter backend build` — 0 type errors; `pnpm --filter backend lint` — 0 errors, only pre-existing warnings; `pnpm --filter backend test` — 267/267 pass (after ruling out the transient flake above); `pnpm --filter web test` — 276/276 pass; `pnpm --filter web build` — clean; `pnpm --filter web lint` — 0 errors, only pre-existing warnings; root `pnpm build` — 7/7 turbo tasks successful; root `pnpm lint` — 6/6 turbo tasks successful, 0 errors.
+- Merge to `master` was a clean, conflict-free `--no-ff` merge, on top of this story's own draft commit (`c900b3f`) with no other work landing on `master` concurrently.
+
 ### File List
+
+**New:**
+- `packages/domain/src/events/resolveServedImageUrl.ts`
+- `packages/domain/src/events/resolveServedImageUrl.test.ts`
+
+**Modified:**
+- `packages/domain/src/events/index.ts` (new export)
+- `apps/backend/src/schema/events.graphql` (`Event.durableImageUrl: String`)
+- `apps/backend/src/schema/resolvers.ts` (5 select sites + `Event.imageUrl`/`Event.durableImageUrl` field resolvers)
+- `apps/backend/src/schema/resolvers.test.ts` (extended `eventBySlug` test)
+- `apps/backend/src/generated/resolvers-types.ts` (codegen)
+- `apps/backend/src/lib/ai-processor/rehost-post-image.test.ts` (2 incidental `as any` type-cast fixes, unrelated to this story's own scope — see Completion Notes)
+- `apps/web/src/features/events/queries.graphql` (`durableImageUrl` on `getEventBySlug`)
+- `apps/web/src/features/events/mapper.ts` (`imageFallbackUrl: event.durableImageUrl`)
+- `apps/web/src/generated/graphql.ts` (codegen)
+- `apps/web/src/features/events/EventDetailWrapper.test.tsx` (mock event shape + new wiring test)
+- `pnpm-lock.yaml` (routine transitive patch-version churn plus a pre-existing `@aws-sdk/client-s3` lockfile/`package.json` specifier drift corrected by a fresh install)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (`3-6f` entry: `backlog` → `ready-for-dev` → `review`)
