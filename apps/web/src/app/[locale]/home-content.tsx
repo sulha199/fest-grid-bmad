@@ -197,7 +197,7 @@ export function HomeContent() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{t('title')}</h1>
         <div>
-          {session ? (
+          {session && (
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground hidden sm:inline">
                 {session.user.email}
@@ -209,13 +209,6 @@ export function HomeContent() {
                 Sign Out
               </button>
             </div>
-          ) : (
-            <button
-              onClick={() => router.push('/login')}
-              className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors shadow-sm"
-            >
-              Sign In
-            </button>
           )}
         </div>
       </div>
