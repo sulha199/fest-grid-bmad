@@ -78,7 +78,7 @@ export const EventImage: React.FC<EventImageProps> = ({
           onCanPlay={() => setVideoReady(true)}
           onLoadedData={() => setVideoReady(true)}
           onError={() => setVideoError(true)}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
           data-testid="event-video"
         />
       )}
@@ -89,7 +89,7 @@ export const EventImage: React.FC<EventImageProps> = ({
           src={currentImgSrc}
           alt={imageAlt || eventName}
           onError={handleImageError}
-          className={`${showVideo ? 'absolute inset-0' : ''} w-full h-full object-cover`}
+          className={`${showVideo ? 'absolute inset-0' : ''} w-full h-full object-contain`}
         />
       )}
 

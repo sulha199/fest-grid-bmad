@@ -51,7 +51,7 @@ baseline_commit: 'e41913d32a147fb70501c5b4df97608bae0e34ae'
 
 - [x] GraphQL queries updated (`favoriteCount`/`isFavorited` added to the 3 queries) and `pnpm run codegen` run successfully
 - [x] `favoriteCount` wired through `feed-content.tsx`, `useWeeklyCalendarController.ts`, and the downstream calendar view files listed in the Code Map
-- [ ] `EventImage.tsx` aspect-ratio fix applied (object-cover -> object-contain on both video and img)
+- [x] `EventImage.tsx` aspect-ratio fix applied (object-cover -> object-contain on both video and img)
 - [ ] Navbar avatar sizing fixed in `AppShell.tsx` and `UserMenu.tsx`
 - [ ] `AppShellWrapper.tsx` userMenuLabels gets the 3 missing keys
 - [ ] Widgets nav entry added (`profile-menu-entries.ts`, `en.json`, `id.json`)
