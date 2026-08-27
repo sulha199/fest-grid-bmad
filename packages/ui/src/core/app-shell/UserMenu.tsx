@@ -129,7 +129,7 @@ export function UserMenu({
         {/* Desktop Header */}
         <div className="hidden md:flex items-center gap-3 px-4 py-3 border-b border-border mb-1">
           {avatarUrl ? (
-            <img src={avatarUrl} alt="" referrerPolicy="no-referrer" className="h-8 w-8 rounded-full object-cover" />
+            <img src={avatarUrl} alt="" referrerPolicy="no-referrer" className="h-8 w-8 rounded-full object-cover flex-shrink-0" />
           ) : (
             <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground font-medium">
               {(displayName || 'U')[0].toUpperCase()}
