@@ -131,11 +131,11 @@ export function UserMenu({
           {avatarUrl ? (
             <img src={avatarUrl} alt="" referrerPolicy="no-referrer" className="h-8 w-8 rounded-full object-cover flex-shrink-0" />
           ) : (
-            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground font-medium">
+            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground font-medium flex-shrink-0">
               {(displayName || 'U')[0].toUpperCase()}
             </div>
           )}
-          <span className="font-semibold text-sm truncate">{displayName || 'User'}</span>
+          <span className="font-semibold text-sm truncate min-w-0">{displayName || 'User'}</span>
         </div>
 
         {/* Links List */}

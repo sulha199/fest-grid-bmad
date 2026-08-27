@@ -102,17 +102,25 @@ export function FilterHub({
           {selectedValues.length > 0 && (
             <span className="flex items-center gap-1">
               <Badge variant="secondary" className="px-1 text-[10px]">{selectedValues.length}</Badge>
-              <button
-                type="button"
+              <span
+                role="button"
+                tabIndex={0}
                 onClick={(e) => {
                   e.stopPropagation();
                   onChange([]);
                 }}
-                className="hover:bg-primary-foreground/20 rounded-full p-0.5 transition-colors text-primary-foreground shrink-0 inline-flex items-center justify-center"
-                aria-label={`Clear ${label} filter`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onChange([]);
+                  }
+                }}
+                className="hover:bg-primary-foreground/20 rounded-full p-0.5 transition-colors text-primary-foreground shrink-0 inline-flex items-center justify-center cursor-pointer"
+                aria-label={`${labels.clearLabel} ${label}`}
               >
                 <X className="w-3 h-3" />
-              </button>
+              </span>
             </span>
           )}
         </Button>
@@ -150,17 +158,25 @@ export function FilterHub({
             >
               <span>{nearbyTriggerText}</span>
               {isNearbyActive && (
-                <button
-                  type="button"
+                <span
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelectLocation('off');
                   }}
-                  className="hover:bg-primary-foreground/20 rounded-full p-0.5 transition-colors text-primary-foreground shrink-0 inline-flex items-center justify-center ml-1.5"
-                  aria-label="Clear nearby filter"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onSelectLocation('off');
+                    }
+                  }}
+                  className="hover:bg-primary-foreground/20 rounded-full p-0.5 transition-colors text-primary-foreground shrink-0 inline-flex items-center justify-center ml-1.5 cursor-pointer"
+                  aria-label={labels.clearLabel}
                 >
                   <X className="w-3 h-3" />
-                </button>
+                </span>
               )}
             </Button>
           </PopoverTrigger>

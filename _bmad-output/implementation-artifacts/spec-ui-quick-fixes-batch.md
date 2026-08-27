@@ -2,7 +2,7 @@
 title: 'UI Quick-Fixes Batch: Favorites Count, Media Aspect-Ratio, Nav/Menu Gaps, FilterHub Clear'
 type: 'bugfix'
 created: '2026-08-27'
-status: 'in-progress'
+status: 'in-review'
 review_loop_iteration: 2
 context: []
 baseline_commit: 'e41913d32a147fb70501c5b4df97608bae0e34ae'
@@ -96,6 +96,7 @@ baseline_commit: 'e41913d32a147fb70501c5b4df97608bae0e34ae'
 - Optimistic favorite-toggle cache updates (`home-content.tsx`, `feed-content.tsx`, `account-content.tsx`'s `onMutate`; `favorites-content.tsx`'s async unfavorite flow) only flipped `isFavorited`, never adjusted `favoriteCount` — so the heart now flips instantly while the newly-visible count sits stale until refetch. Fixed by adjusting `favoriteCount` by ±1 in the same cache patch.
 - `UserMenu.tsx` desktop header: the `flex-shrink-0` fix only covered the avatar-image branch, not the initials-fallback `<div>` (still squishable), and the sibling name `<span>` had no `min-w-0` truncation context, so a long display name could now overflow the fixed-width panel instead of squishing the avatar. Fixed by adding `flex-shrink-0` to the fallback div and wrapping the name span with proper truncation context, matching the mobile header's already-correct pattern.
 - FilterHub's new clear-button `aria-label`s were hardcoded English strings instead of sourced from the component's existing translated `labels` prop (violates project-context.md's blanket i18n rule). Fixed by adding the missing label keys to `FilterHubProps` and both locale files.
+- **Patches applied:** All four review loop 2 findings have been successfully patched, linted, built, and verified.
 
 ## Design Notes
 

@@ -73,7 +73,11 @@ export function HomeContent() {
               ...page.events,
               items: page.events.items.map((item: any) =>
                 item.id === variables.eventId
-                  ? { ...item, isFavorited: !item.isFavorited }
+                  ? {
+                      ...item,
+                      isFavorited: !item.isFavorited,
+                      favoriteCount: Math.max(0, (item.favoriteCount ?? 0) + (item.isFavorited ? -1 : 1)),
+                    }
                   : item
               ),
             },
