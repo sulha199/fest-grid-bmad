@@ -116,7 +116,7 @@ jobs:
 
   deploy-infrastructure:
     name: Deploy Infrastructure to AWS
-    needs: ci
+    needs: [ci, db-migrate]
     runs-on: ubuntu-latest
     environment: production
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
