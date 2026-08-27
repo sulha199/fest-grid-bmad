@@ -2,8 +2,8 @@
 title: 'UI Quick-Fixes Batch: Favorites Count, Media Aspect-Ratio, Nav/Menu Gaps, FilterHub Clear'
 type: 'bugfix'
 created: '2026-08-27'
-status: 'in-review'
-review_loop_iteration: 1
+status: 'in-progress'
+review_loop_iteration: 2
 context: []
 baseline_commit: 'e41913d32a147fb70501c5b4df97608bae0e34ae'
 ---
@@ -64,10 +64,10 @@ baseline_commit: 'e41913d32a147fb70501c5b4df97608bae0e34ae'
 **Execution:**
 - [x] `queries.graphql` -- add `favoriteCount`/`isFavorited` to the three event queries; run `pnpm run codegen` -- unblocks count display everywhere
 - [x] `feed-content.tsx`, `useWeeklyCalendarController.ts` + downstream calendar view files -- wire `favoriteCount` into existing props -- EventCard/WeeklyCalendarView already render it once populated
-- [x] `home-content.tsx`, `favorites-content.tsx`, `account-content.tsx` -- wire `favoriteCount` into `getCardProps` (same one-line pattern already proven in `feed-content.tsx`) -- these 3 pages also render `EventCard` with the favorite toggle and were missed in the first pass (see Spec Change Log)
+- [ ] `home-content.tsx`, `favorites-content.tsx`, `account-content.tsx` -- wire `favoriteCount` into `getCardProps` (same one-line pattern already proven in `feed-content.tsx`) -- these 3 pages also render `EventCard` with the favorite toggle and were missed in the first pass (see Spec Change Log)
 - [x] `EventImage.tsx` -- swap `object-cover` → `object-contain` -- stops cropping portrait/square media
 - [x] `AppShell.tsx` -- fix avatar sizing classes -- resolves squished-avatar rendering inside the fixed 20px `NavRailItem` slot (primary root cause)
-- [x] `UserMenu.tsx` (line ~132) -- add `shrink-0` to desktop-header avatar for consistency with the already-fixed mobile-header avatar at line 111 -- lower risk (menu panel is wide, not a fixed-size slot) but still in original scope
+- [ ] `UserMenu.tsx` (line ~132) -- add `shrink-0` to desktop-header avatar for consistency with the already-fixed mobile-header avatar at line 111 -- lower risk (menu panel is wide, not a fixed-size slot) but still in original scope
 - [x] `AppShellWrapper.tsx` -- add 3 missing keys to `userMenuLabels` -- stops raw-key fallback, enables widgets label
 - [x] `profile-menu-entries.ts`, `en.json`, `id.json` -- add widgets nav entry + translation -- makes Story 6.5's page reachable
 - [x] `home-content.tsx` (Sign In removal) -- remove unauthenticated "Sign In" header CTA -- login modal for favorite-gating stays untouched
@@ -90,6 +90,12 @@ baseline_commit: 'e41913d32a147fb70501c5b4df97608bae0e34ae'
   - **Amendment:** Code Map and Tasks & Acceptance above updated to list all 4 consumer files. Fix is mechanical — identical one-line `favoriteCount: event.favoriteCount` addition, same pattern already proven correct in the merged `feed-content.tsx` change.
   - **KEEP:** All other 7 tasks (GraphQL query updates, calendar wiring via `useWeeklyCalendarController.ts`, `EventImage.tsx` aspect-ratio, `AppShellWrapper.tsx` labels, widgets nav entry, Discovery Sign In removal, FilterHub inline clear) were independently verified correct against the real codebase (diffed at actual file paths, `lint`/`build` rerun independently) — preserved as-is, not reverted. Deviating from the standard full-revert-and-rederive bad_spec protocol here: the gap is additive and isolated to one task with zero coupling to the other 7, so only the missing wiring is being dispatched as a scoped follow-up rather than re-deriving the whole batch.
 - **Process note (not a spec content issue, recorded for traceability):** the isolated worktree (`C:/wt/uiqf`) was created via `git worktree add ... master` while this spec file was still untracked/uncommitted in the main repo — `git worktree add` only materializes committed files, so the new worktree never actually received this spec file. The implementing agent (cline-cli) could not find it and reconstructed a replacement spec file from the dispatch prompt alone, which came out with fabricated/incorrect file paths in its own Code Map (e.g. `apps/web/src/components/layout/AppShell.tsx` instead of the real `packages/ui/src/core/app-shell/AppShell.tsx`) and dropped several sections (I/O Matrix, Design Notes, Ask First). The actual code edits were unaffected (cline located the real files itself via search), but the fabricated spec file was overwritten with this restored, amended version before merging. Future dispatches to a fresh worktree from this workflow should copy the spec file in explicitly, the same way `.env` files are already copied.
+
+**2026-08-27, review loop 2 (patch — adversarial review):** Blind Hunter + Edge Case Hunter ran in parallel on the full diff (independently, no shared context, per workflow). Four findings confirmed real against actual code (a fifth — "generated graphql.ts never regenerated" — was a false positive from Blind Hunter checking the main repo instead of the worktree branch; refuted directly, favoriteCount confirmed present in the worktree's generated types). All four are `patch`-category (caused by this diff, trivially fixable, no spec renegotiation) and were auto-fixed without reverting the 10 already-verified tasks above:
+- FilterHub's inline `X` clear button is a native `<button>` nested inside the `Popover`-trigger `Button`'s own `<button>` (invalid HTML, hydration-mismatch risk) — both type/category and nearby triggers. Fixed by making the clear control a `<span role="button" tabIndex={0}>` with keyboard handling instead of a nested `<button>`.
+- Optimistic favorite-toggle cache updates (`home-content.tsx`, `feed-content.tsx`, `account-content.tsx`'s `onMutate`; `favorites-content.tsx`'s async unfavorite flow) only flipped `isFavorited`, never adjusted `favoriteCount` — so the heart now flips instantly while the newly-visible count sits stale until refetch. Fixed by adjusting `favoriteCount` by ±1 in the same cache patch.
+- `UserMenu.tsx` desktop header: the `flex-shrink-0` fix only covered the avatar-image branch, not the initials-fallback `<div>` (still squishable), and the sibling name `<span>` had no `min-w-0` truncation context, so a long display name could now overflow the fixed-width panel instead of squishing the avatar. Fixed by adding `flex-shrink-0` to the fallback div and wrapping the name span with proper truncation context, matching the mobile header's already-correct pattern.
+- FilterHub's new clear-button `aria-label`s were hardcoded English strings instead of sourced from the component's existing translated `labels` prop (violates project-context.md's blanket i18n rule). Fixed by adding the missing label keys to `FilterHubProps` and both locale files.
 
 ## Design Notes
 
