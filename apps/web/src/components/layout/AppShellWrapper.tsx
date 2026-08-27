@@ -49,9 +49,12 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
     profile: tUserMenu('profile'),
     locations: tUserMenu('locations'),
     accountSettings: tUserMenu('accountSettings'),
+    manualPostSelection: tUserMenu('manualPostSelection'),
     reports: tUserMenu('reports'),
+    archive: tUserMenu('archive'),
     moderatorItems: tUserMenu('moderatorItems'),
     moderatorTools: tUserMenu('moderatorTools'),
+    widgets: tUserMenu('widgets'),
     logout: tUserMenu('logout'),
     close: tUserMenu('close'),
   };
