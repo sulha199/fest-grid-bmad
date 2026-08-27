@@ -2,7 +2,7 @@
 title: UI Quick Fixes Batch
 type: 'bugfix'
 created: '2026-08-27'
-status: 'in-progress'
+status: 'in-review'
 review_loop_iteration: 0
 context: []
 baseline_commit: 'e41913d32a147fb70501c5b4df97608bae0e34ae'
