@@ -317,6 +317,7 @@ test('events resolver integration via Yoga', async (t) => {
               eventName
               slug
               imageUrl
+              durableImageUrl
               videoUrl
               sourcePostUrl
               originalPostUrl
@@ -339,6 +340,7 @@ test('events resolver integration via Yoga', async (t) => {
     assert.ok(Array.isArray(result.data.eventBySlug.schedules));
     assert.strictEqual(result.data.eventBySlug.originalPostUrl, firstEvent.originalPostUrl);
     assert.strictEqual(result.data.eventBySlug.videoUrl, null, 'videoUrl should resolve and be null for existing seed data');
+    assert.strictEqual(result.data.eventBySlug.durableImageUrl, null, 'durableImageUrl should resolve and be null for existing seed data');
   });
 
   await t.test('eventBySlug - return null for non-existent slug', async () => {

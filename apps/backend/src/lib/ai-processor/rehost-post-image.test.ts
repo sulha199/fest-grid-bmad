@@ -66,7 +66,7 @@ test('rehostPostImage integration/unit tests', async (t) => {
         sentCommand = command;
         return { ETag: '"test-etag"' };
       },
-    });
+    } as any);
 
     const imageBytes = Buffer.from('my-image-data');
     const imageContentType = 'image/png';
@@ -93,7 +93,7 @@ test('rehostPostImage integration/unit tests', async (t) => {
       send: async () => {
         throw new Error('S3 error');
       },
-    });
+    } as any);
 
     const result = await rehostPostImage(post.id, Buffer.from(''), 'image/jpeg', mockEnv);
 

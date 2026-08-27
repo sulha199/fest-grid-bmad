@@ -40,6 +40,7 @@ query getEventBySlug($slug: String!) {
     types
     categories
     imageUrl
+    durableImageUrl
     videoUrl
     sourcePostUrl
     originalPostUrl

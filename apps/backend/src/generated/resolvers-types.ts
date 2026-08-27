@@ -181,6 +181,7 @@ export type Event = {
   createdAt: Scalars['String']['output'];
   deletedAt?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
+  durableImageUrl?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
   favoriteCount: Scalars['Int']['output'];
   id: Scalars['ID']['output'];
@@ -1395,6 +1396,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   deletedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  durableImageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   favoriteCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
