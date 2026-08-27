@@ -2,7 +2,7 @@
 title: 'UI Quick-Fixes Batch: Favorites Count, Media Aspect-Ratio, Nav/Menu Gaps, FilterHub Clear'
 type: 'bugfix'
 created: '2026-08-27'
-status: 'in-review'
+status: 'done'
 review_loop_iteration: 2
 context: []
 baseline_commit: 'e41913d32a147fb70501c5b4df97608bae0e34ae'
@@ -64,10 +64,10 @@ baseline_commit: 'e41913d32a147fb70501c5b4df97608bae0e34ae'
 **Execution:**
 - [x] `queries.graphql` -- add `favoriteCount`/`isFavorited` to the three event queries; run `pnpm run codegen` -- unblocks count display everywhere
 - [x] `feed-content.tsx`, `useWeeklyCalendarController.ts` + downstream calendar view files -- wire `favoriteCount` into existing props -- EventCard/WeeklyCalendarView already render it once populated
-- [ ] `home-content.tsx`, `favorites-content.tsx`, `account-content.tsx` -- wire `favoriteCount` into `getCardProps` (same one-line pattern already proven in `feed-content.tsx`) -- these 3 pages also render `EventCard` with the favorite toggle and were missed in the first pass (see Spec Change Log)
+- [x] `home-content.tsx`, `favorites-content.tsx`, `account-content.tsx` -- wire `favoriteCount` into `getCardProps` (same one-line pattern already proven in `feed-content.tsx`) -- these 3 pages also render `EventCard` with the favorite toggle and were missed in the first pass (see Spec Change Log)
 - [x] `EventImage.tsx` -- swap `object-cover` → `object-contain` -- stops cropping portrait/square media
 - [x] `AppShell.tsx` -- fix avatar sizing classes -- resolves squished-avatar rendering inside the fixed 20px `NavRailItem` slot (primary root cause)
-- [ ] `UserMenu.tsx` (line ~132) -- add `shrink-0` to desktop-header avatar for consistency with the already-fixed mobile-header avatar at line 111 -- lower risk (menu panel is wide, not a fixed-size slot) but still in original scope
+- [x] `UserMenu.tsx` (line ~132) -- add `shrink-0` to desktop-header avatar for consistency with the already-fixed mobile-header avatar at line 111 -- lower risk (menu panel is wide, not a fixed-size slot) but still in original scope
 - [x] `AppShellWrapper.tsx` -- add 3 missing keys to `userMenuLabels` -- stops raw-key fallback, enables widgets label
 - [x] `profile-menu-entries.ts`, `en.json`, `id.json` -- add widgets nav entry + translation -- makes Story 6.5's page reachable
 - [x] `home-content.tsx` (Sign In removal) -- remove unauthenticated "Sign In" header CTA -- login modal for favorite-gating stays untouched
@@ -115,3 +115,58 @@ Aspect-ratio fix keeps the existing fixed `aspect-video` container (letterbox vi
 - User menu: Archive / Manual Post Selection / Widgets show correct labels; Widgets navigates correctly.
 - Discovery: no Sign In button while logged out; favorite-toggle still opens the login modal.
 - FilterHub: clicking `x` on an active Type filter clears it without opening the popover.
+
+## Suggested Review Order
+
+**Favorites count (schema through render, including 2 review-loop fixes)**
+
+- Root: 3 event queries now select the aggregate field that already existed server-side.
+  [`queries.graphql:8`](../../apps/web/src/features/events/queries.graphql#L8)
+
+- Shared calendar controller maps it once for all 4 calendar-view consumers (no per-view edits needed).
+  [`useWeeklyCalendarController.ts:66`](../../packages/ui/src/hooks/useWeeklyCalendarController.ts#L66)
+
+- Discovery page wiring — same 1-line pattern repeated in feed/account/favorites `getCardProps`.
+  [`home-content.tsx:259`](../../apps/web/src/app/[locale]/home-content.tsx#L259)
+
+- Optimistic toggle now adjusts the count ±1 instead of leaving it stale (review-loop-2 fix).
+  [`home-content.tsx:79`](../../apps/web/src/app/[locale]/home-content.tsx#L79)
+
+- Favorites page needed a bespoke fix — it uses local optimistic state, not react-query cache, plus a server-confirmed cache patch after the mutation resolves.
+  [`favorites-content.tsx:350`](../../apps/web/src/app/[locale]/favorites/favorites-content.tsx#L350)
+  [`favorites-content.tsx:391`](../../apps/web/src/app/[locale]/favorites/favorites-content.tsx#L391)
+
+**FilterHub inline clear (largest single-component change, 2 review-loop fixes)**
+
+- Clear control is a `role="button"` span with keyboard handling, not a nested `<button>` — HTML5 forbids `<button>` inside `<button>`, which the first pass introduced and review caught.
+  [`FilterHub.tsx:106`](../../packages/ui/src/features/events/FilterHub.tsx#L106)
+
+- `aria-label` reuses the existing translated `clearLabel` instead of a hardcoded English string (review-loop-2 fix).
+  [`FilterHub.tsx:120`](../../packages/ui/src/features/events/FilterHub.tsx#L120)
+
+- Same pattern repeated for the nearby-location filter's clear control.
+  [`FilterHub.tsx:162`](../../packages/ui/src/features/events/FilterHub.tsx#L162)
+
+**Navbar/user-menu avatar sizing**
+
+- Primary root cause: avatar was sized for its own content (32px) inside a fixed 20px nav-rail icon slot.
+  [`AppShell.tsx:63`](../../packages/ui/src/core/app-shell/AppShell.tsx#L63)
+
+- Desktop dropdown header: both avatar branches now `shrink-0`, and the name gets a `min-w-0` truncation context so a long name can't overflow now that the avatar no longer will (review-loop-2 fix).
+  [`UserMenu.tsx:132`](../../packages/ui/src/core/app-shell/UserMenu.tsx#L132)
+
+**Nav/menu gaps**
+
+- 3 missing translation keys were a manual label-map omission, not an i18n gap — the keys already existed in the locale files.
+  [`AppShellWrapper.tsx:52`](../../apps/web/src/components/layout/AppShellWrapper.tsx#L52)
+
+- Widgets entry makes Story 6.5's already-built settings page reachable for the first time.
+  [`profile-menu-entries.ts:50`](../../packages/ui/src/core/app-shell/profile-menu-entries.ts#L50)
+
+**Peripherals**
+
+- Media letterboxed instead of cropped; both video and image share the same className pattern.
+  [`EventImage.tsx:81`](../../packages/ui/src/features/events/EventImage.tsx#L81)
+
+- Redundant unauthenticated "Sign In" header CTA removed; Sign Out branch and login modal untouched.
+  [`home-content.tsx:204`](../../apps/web/src/app/[locale]/home-content.tsx#L204)
