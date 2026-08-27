@@ -268,6 +268,7 @@ export function FeedContent() {
                 }}
                 getCardProps={(event) => ({
                   isFavorited: event.isFavorited,
+                  favoriteCount: event.favoriteCount,
                   onFavoriteToggle: () => toggleFavorite({ eventId: event.id }),
                   onClick: () => {
                     const params = new URLSearchParams(searchParams.toString());
