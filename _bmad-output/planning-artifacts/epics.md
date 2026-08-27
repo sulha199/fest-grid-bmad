@@ -1051,6 +1051,23 @@ Users can discover and browse events.
 
 **Depends on:** Story 1.3e (`EventDiscoveryPanel`'s `views` seam — contract extended by this story), Story 1.3g (`WeeklyCalendarView`), Story 1.3h (schedule-level date-range query support).
 
+### Story 1.3i: Wire the list/masonry view-mode toggle into apps/web
+
+**As a** user,
+**I want** a control that switches the event grid between the standard list layout and the denser masonry layout,
+**So that** I can actually reach the masonry browsing experience that Stories 1.3b/1.3d already built the rendering for, on every page that lists events.
+
+**Acceptance Criteria:**
+
+*   **Given** the masonry rendering (`EventCard variant="masonry"`, Story 1.3b) and the `EventListView viewMode="masonry"` prop (Story 1.3d, AC15) both already ship, but no page ever calls either, **when** this story is implemented, **then** a new standalone `ViewModeToggle` component (`packages/ui`) offers a compact icon-pair control (not a tab-strip like `EventDiscoveryPanel`'s Card/Calendar switcher — a display-density preference, not a content-type decision) to switch between `'list'` and `'masonry'`.
+*   **And** each of the 5 pages rendering `EventListView` (`home-content.tsx`, `[platformSlug]/[accountId]/account-content.tsx`, `archive-content.tsx`, `favorites-content.tsx`, `feed-content.tsx`) owns its own `layout` `nuqs` URL param (AD-4), default `'list'`, and passes `viewMode={layout}` to its `EventListView` — the first real caller of that prop.
+*   **And** on the 4 pages using `EventDiscoveryPanel`, the toggle renders only inside the `"card"` view's content, above the grid it controls; on `archive-content.tsx` (no `EventDiscoveryPanel`), it renders directly above `EventListView`.
+*   **And** switching layout announces the change via `aria-live="polite"` (mirroring Story 1.3f's Card/Calendar announcement pattern) and fires a `layout_switched` PostHog event (AD-5), matching the existing `view_switched` convention.
+
+**Note:** This story exists because Stories 1.3b/1.3d each deliberately scoped the actual toggle-button UI out ("that's the apps/web call site's job") and no story ever picked it up — confirmed via direct code inspection (a grep across all 5 call sites found zero `viewMode` usage) during a 2026-08-27 `bmad-help` session, not a stale-tracking-note case. Gate 2 (Freya lens, run fresh) recommended the icon-pair visual treatment over reusing the tab-strip idiom, and confirmed the standalone-component boundary over baking the toggle into `EventDiscoveryPanel` (the `archive-content.tsx` exception, which has no `EventDiscoveryPanel` at all, is the tiebreaker). Two product decisions were confirmed with the user via `AskUserQuestion` before drafting: per-page `nuqs` URL state (not a global `zustand`/`localStorage` preference) and a `'list'` default on all 5 pages (masonry stays opt-in).
+
+**Depends on:** Story 1.3b (`EventCard` `variant="masonry"`), Story 1.3d (`EventListView` `viewMode` prop).
+
 ### Story 1.3: Display a list of events on the main page
 
 **As a** user,

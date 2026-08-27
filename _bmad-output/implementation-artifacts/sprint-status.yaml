@@ -344,6 +344,17 @@ development_status:
   # shipped in CalendarView.tsx; only a new getWeekRange prop is outstanding (Task 11,
   # blocked on Story 1.3g's Task 14-15).
   1-3f-build-the-discovery-weekly-calendar-view-and-view-switcher: review
+  # added 2026-08-27 via bmad-create-story at user's request, surfaced during a
+  # bmad-help session: Stories 1.3b/1.3d both already ship masonry variant/viewMode
+  # support but each deliberately declined to build the toggle-button UI itself --
+  # confirmed via grep that all 5 apps/web call sites omit `viewMode`, making masonry
+  # mode unreachable. New standalone `ViewModeToggle` component + per-page `layout`
+  # nuqs param. Gate 2 (Freya lens) resolved visual treatment (icon-pair, not a
+  # tab-strip) and component boundary (standalone, not baked into EventDiscoveryPanel
+  # -- archive-content.tsx has no EventDiscoveryPanel, tiebreaker). Persistence
+  # (per-page URL state, not global) and default ('list') confirmed with user via
+  # AskUserQuestion. See epics.md Story 1.3i.
+  1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web: ready-for-dev
   # Reopened 2026-08-24 via bmad-create-story: added AC9/Task 7 -- root
   # container drops its max-w-7xl cap in favor of full width
   # (ux-rework-2026-08-24.md item #1, missed by the original bmad-correct-
