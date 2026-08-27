@@ -2,7 +2,7 @@
 title: 'UI Quick-Fixes Batch: Favorites Count, Media Aspect-Ratio, Nav/Menu Gaps, FilterHub Clear'
 type: 'bugfix'
 created: '2026-08-27'
-status: 'in-progress'
+status: 'in-review'
 review_loop_iteration: 1
 context: []
 baseline_commit: 'e41913d32a147fb70501c5b4df97608bae0e34ae'
@@ -64,10 +64,10 @@ baseline_commit: 'e41913d32a147fb70501c5b4df97608bae0e34ae'
 **Execution:**
 - [x] `queries.graphql` -- add `favoriteCount`/`isFavorited` to the three event queries; run `pnpm run codegen` -- unblocks count display everywhere
 - [x] `feed-content.tsx`, `useWeeklyCalendarController.ts` + downstream calendar view files -- wire `favoriteCount` into existing props -- EventCard/WeeklyCalendarView already render it once populated
-- [ ] `home-content.tsx`, `favorites-content.tsx`, `account-content.tsx` -- wire `favoriteCount` into `getCardProps` (same one-line pattern already proven in `feed-content.tsx`) -- these 3 pages also render `EventCard` with the favorite toggle and were missed in the first pass (see Spec Change Log)
+- [x] `home-content.tsx`, `favorites-content.tsx`, `account-content.tsx` -- wire `favoriteCount` into `getCardProps` (same one-line pattern already proven in `feed-content.tsx`) -- these 3 pages also render `EventCard` with the favorite toggle and were missed in the first pass (see Spec Change Log)
 - [x] `EventImage.tsx` -- swap `object-cover` → `object-contain` -- stops cropping portrait/square media
 - [x] `AppShell.tsx` -- fix avatar sizing classes -- resolves squished-avatar rendering inside the fixed 20px `NavRailItem` slot (primary root cause)
-- [ ] `UserMenu.tsx` (line ~132) -- add `shrink-0` to desktop-header avatar for consistency with the already-fixed mobile-header avatar at line 111 -- lower risk (menu panel is wide, not a fixed-size slot) but still in original scope
+- [x] `UserMenu.tsx` (line ~132) -- add `shrink-0` to desktop-header avatar for consistency with the already-fixed mobile-header avatar at line 111 -- lower risk (menu panel is wide, not a fixed-size slot) but still in original scope
 - [x] `AppShellWrapper.tsx` -- add 3 missing keys to `userMenuLabels` -- stops raw-key fallback, enables widgets label
 - [x] `profile-menu-entries.ts`, `en.json`, `id.json` -- add widgets nav entry + translation -- makes Story 6.5's page reachable
 - [x] `home-content.tsx` (Sign In removal) -- remove unauthenticated "Sign In" header CTA -- login modal for favorite-gating stays untouched
