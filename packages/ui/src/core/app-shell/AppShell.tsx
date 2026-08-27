@@ -60,7 +60,7 @@ export function AppShell({
 
   // Determine Profile icon
   const profileIcon = isAuthenticated && avatarUrl ? (
-    <img src={avatarUrl} alt="" referrerPolicy="no-referrer" className="h-8 w-8 rounded-full object-cover" />
+    <img src={avatarUrl} alt="" referrerPolicy="no-referrer" className="h-5 w-5 rounded-full object-cover" />
   ) : isAuthenticated ? (
     <UserCircle className="h-5 w-5" />
   ) : (
