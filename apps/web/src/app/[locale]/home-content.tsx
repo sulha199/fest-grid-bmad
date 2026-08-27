@@ -252,6 +252,7 @@ export function HomeContent() {
                 cardLabels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
                 getCardProps={(event) => ({
                   isFavorited: event.isFavorited,
+                  favoriteCount: event.favoriteCount,
                   onFavoriteToggle: () => {
                     if (!session) {
                       setIsLoginModalOpen(true)

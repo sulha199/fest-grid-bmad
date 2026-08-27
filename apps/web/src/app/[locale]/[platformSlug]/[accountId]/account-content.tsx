@@ -269,6 +269,7 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
                 }}
                 getCardProps={(event) => ({
                   isFavorited: event.isFavorited,
+                  favoriteCount: event.favoriteCount,
                   onFavoriteToggle: () => {
                     if (!session) {
                       setIsLoginModalOpen(true);

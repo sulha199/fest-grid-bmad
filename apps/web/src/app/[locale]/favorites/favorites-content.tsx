@@ -413,6 +413,7 @@ export function FavoritesContent() {
                   return {
                     isGreyedOut: isCardGreyedOut,
                     isFavorited: isCardFavorited,
+                    favoriteCount: event.favoriteCount,
                     pendingRemoval: isOptimisticallyUnfavorited,
                     onFavoriteToggle: () => {
                       if (isOptimisticallyUnfavorited) {
