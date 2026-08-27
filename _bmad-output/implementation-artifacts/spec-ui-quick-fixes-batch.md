@@ -56,7 +56,7 @@ baseline_commit: 'e41913d32a147fb70501c5b4df97608bae0e34ae'
 - [x] `AppShellWrapper.tsx` userMenuLabels gets the 3 missing keys
 - [x] Widgets nav entry added (`profile-menu-entries.ts`, `en.json`, `id.json`)
 - [x] Discovery "Sign In" header button removed in `home-content.tsx`, Sign Out branch and login modal left untouched
-- [ ] FilterHub inline `X` clear buttons added for type/category/nearby
+- [x] FilterHub inline `X` clear buttons added for type/category/nearby
 
 ## Verification
 
