@@ -33,16 +33,16 @@ export const EventPreviewCard: React.FC<EventPreviewCardProps> = ({ imageUrl, im
         <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-800" />
         <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-800" />
       </div>
-      {/* Same aspect-video sizing as EventImage (packages/ui/src/features/events/EventImage.tsx),
-          the real component this peek image is replaced by once the slide becomes current —
-          keeps the swap from causing a visible resize. */}
-      <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+      {/* Intentionally keeps a fixed aspect-video shape as a reasonable skeleton estimate
+          (since the real image's actual aspect ratio isn't known until it loads),
+          capped at max-h-[70vh] to match the real component's outer bound. */}
+      <div className="relative w-full aspect-video max-h-[70vh] rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
         {!imgError && imageUrl && (
           <img
             src={imageUrl}
             alt={imageAlt}
             onError={() => setImgError(true)}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
         )}
       </div>
