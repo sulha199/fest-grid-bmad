@@ -84,4 +84,20 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.strictEqual(result.imageBytes, undefined);
     assert.strictEqual(result.imageContentType, undefined);
   });
+
+  await t.test('Case D: systemInstruction contains the publish-date anchor and instructions', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-4',
+      accountId: 'account-4',
+      content: 'Get up to 20% off all your beauty faves from 27-30 Aug.',
+      postUrl: 'https://test.com/post4',
+      publishedAt: '2026-08-27T15:30:00Z'
+    };
+
+    const result = await buildGeminiExtractionRequest(message);
+
+    assert.ok(result.request.systemInstruction?.includes('2026-08-27'));
+    assert.ok(result.request.systemInstruction?.includes('anchor for date and year inference'));
+    assert.ok(result.request.systemInstruction?.includes('never infer a year that would place the event further in the past'));
+  });
 });
