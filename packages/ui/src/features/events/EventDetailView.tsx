@@ -200,68 +200,6 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
 
   return (
     <article className="flex flex-col gap-6">
-      {/* Header controls */}
-      {(onFavoriteToggle || onAddToCalendar || menuActions.length > 0) && (
-        <div className="flex justify-end gap-3 mb-2">
-          {onFavoriteToggle && (
-            <button
-              onClick={onFavoriteToggle}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              aria-label={isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}
-              aria-pressed={isFavorited}
-            >
-              <Heart className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
-            </button>
-          )}
-          {onAddToCalendar && (
-            <button
-              ref={triggerRef}
-              onClick={handleTriggerClick}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              aria-label={labels.addToCalendarButtonLabel}
-              aria-pressed={isAddedToCalendar}
-            >
-              <CalendarPlus className={`w-6 h-6 ${isAddedToCalendar ? 'fill-primary text-primary' : 'text-gray-500'}`} />
-            </button>
-          )}
-          {menuActions.length > 0 && (
-            <div className="relative" ref={menuContainerRef}>
-              <button
-                ref={menuTriggerRef}
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                aria-label={labels.moreActionsButtonLabel}
-                aria-haspopup="menu"
-                aria-expanded={isMenuOpen}
-              >
-                <MoreVertical className="w-6 h-6 text-gray-500" />
-              </button>
-              {isMenuOpen && (
-                <div
-                  className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md shadow-lg py-1 z-50 focus:outline-none"
-                  role="menu"
-                  aria-orientation="vertical"
-                >
-                  {menuActions.map((action, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        action.onClick();
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      role="menuitem"
-                    >
-                      {action.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
         {/* Left Column: Media */}
         <div className="lg:col-span-3 flex flex-col gap-6">
@@ -282,6 +220,68 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
 
         {/* Right Column: Details & Content */}
         <div className="lg:col-span-2 flex flex-col gap-6">
+          {/* Header controls */}
+          {(onFavoriteToggle || onAddToCalendar || menuActions.length > 0) && (
+            <div className="flex justify-end gap-3 mb-2">
+              {onFavoriteToggle && (
+                <button
+                  onClick={onFavoriteToggle}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label={isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}
+                  aria-pressed={isFavorited}
+                >
+                  <Heart className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+                </button>
+              )}
+              {onAddToCalendar && (
+                <button
+                  ref={triggerRef}
+                  onClick={handleTriggerClick}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label={labels.addToCalendarButtonLabel}
+                  aria-pressed={isAddedToCalendar}
+                >
+                  <CalendarPlus className={`w-6 h-6 ${isAddedToCalendar ? 'fill-primary text-primary' : 'text-gray-500'}`} />
+                </button>
+              )}
+              {menuActions.length > 0 && (
+                <div className="relative" ref={menuContainerRef}>
+                  <button
+                    ref={menuTriggerRef}
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    aria-label={labels.moreActionsButtonLabel}
+                    aria-haspopup="menu"
+                    aria-expanded={isMenuOpen}
+                  >
+                    <MoreVertical className="w-6 h-6 text-gray-500" />
+                  </button>
+                  {isMenuOpen && (
+                    <div
+                      className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md shadow-lg py-1 z-50 focus:outline-none"
+                      role="menu"
+                      aria-orientation="vertical"
+                    >
+                      {menuActions.map((action, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            action.onClick();
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          role="menuitem"
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <header className="flex flex-col gap-3">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{eventName}</h1>
         
