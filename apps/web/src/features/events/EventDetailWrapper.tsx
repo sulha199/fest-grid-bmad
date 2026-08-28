@@ -5,7 +5,7 @@ import { useGetEventBySlugQuery, useToggleFavoriteMutation, useToggleCalendarAdd
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
-import { EventDetailView } from "@festgrid/ui"
+import { EventDetailView, PageContainer } from "@festgrid/ui"
 import { mapGraphQLEventToDetailViewProps, useEventDetailViewLabels } from "./mapper"
 import { useListNavigationForEvent } from "./navigation-hook"
 import { useRouter } from "@/i18n/navigation"
@@ -537,23 +537,25 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4 sm:p-8 bg-background border border-gray-100 dark:border-gray-800 rounded-xl my-6 shadow-sm">
-      {detailViewContent}
-      {isCorrectionDialogOpen && data?.eventBySlug && (
-        <CorrectionDialog
-          isOpen={isCorrectionDialogOpen}
-          onClose={() => setIsCorrectionDialogOpen(false)}
-          event={data.eventBySlug as any}
-        />
-      )}
-      {isReportDialogOpen && eventId && (
-        <ReportDialog
-          isOpen={isReportDialogOpen}
-          onClose={() => setIsReportDialogOpen(false)}
-          eventId={eventId}
-          onReported={() => setIsHiddenAfterReport(true)}
-        />
-      )}
-    </div>
+    <PageContainer fullWidth={true}>
+      <div className="bg-background border border-gray-100 dark:border-gray-800 rounded-xl my-6 shadow-sm p-4 sm:p-8">
+        {detailViewContent}
+        {isCorrectionDialogOpen && data?.eventBySlug && (
+          <CorrectionDialog
+            isOpen={isCorrectionDialogOpen}
+            onClose={() => setIsCorrectionDialogOpen(false)}
+            event={data.eventBySlug as any}
+          />
+        )}
+        {isReportDialogOpen && eventId && (
+          <ReportDialog
+            isOpen={isReportDialogOpen}
+            onClose={() => setIsReportDialogOpen(false)}
+            eventId={eventId}
+            onReported={() => setIsHiddenAfterReport(true)}
+          />
+        )}
+      </div>
+    </PageContainer>
   )
 }
