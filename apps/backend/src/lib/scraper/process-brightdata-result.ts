@@ -27,10 +27,27 @@ export async function processBrightDataResult(
     const caption = brightDataRecord.caption as string;
     const datePosted = brightDataRecord.date_posted;
     const videos = brightDataRecord.videos as unknown[] | null | undefined;
-    const videoUrl = Array.isArray(videos) && videos.length > 0 ? (videos[0] as string) : undefined;
+    const videoUrl = Array.isArray(videos) && videos.length > 0 && typeof videos[0] === 'string' ? videos[0] : undefined;
 
     if (datePosted !== undefined && datePosted !== null && typeof datePosted !== 'string') {
       console.warn('Bright Data record date_posted is not a string, skipping');
+      try {
+        await persistUnprocessedPayload({
+          rawPayload: brightDataRecord,
+          validationError: { message: 'date_posted is not a string or null/undefined', receivedType: typeof datePosted },
+          context: {
+            source: 'brightdata',
+            scraperVendor: null,
+            accountId: null,
+            postUrl,
+            timestamp: new Date().toISOString(),
+            parserVersion: '3.4g',
+          },
+          scraperActorRunId,
+        });
+      } catch (err) {
+        console.error('Failed to persist unprocessed Bright Data payload:', err);
+      }
       continue;
     }
 
@@ -49,6 +66,7 @@ export async function processBrightDataResult(
         // Only include optional fields if they have values
         ...(imageUrl && { imageUrl }),
         ...(videoUrl && { videoUrl }),
+        // Always set: postUrl is guaranteed non-empty by the earlier guard above
         originalPostUrl: postUrl,
       };
 

@@ -55,23 +55,30 @@ export async function persistScrapedPost({
   let imageUrlExpiresAt: Date | null = null;
   try {
     imageUrlExpiresAt = parseImageUrlExpiry(imageUrl);
+  } catch (err) {
+    // Keep exact error handling behavior if parseImageUrlExpiry threw (though it's outside the original block, we can still parse inside or outside)
+  }
+
+  const insertValues = {
+    accountId,
+    platform,
+    content,
+    imageUrl,
+    videoUrl,
+    postUrl,
+    originalPostUrl,
+    publishedAt: new Date(publishedAt),
+    scraperActorRunId,
+    locationName,
+    ownerDisplayName,
+    ownerUsername,
+    imageUrlExpiresAt,
+  };
+
+  try {
     await db
       .insert(posts)
-      .values({
-        accountId,
-        platform,
-        content,
-        imageUrl,
-        videoUrl,
-        postUrl,
-        originalPostUrl,
-        publishedAt: new Date(publishedAt),
-        scraperActorRunId,
-        locationName,
-        ownerDisplayName,
-        ownerUsername,
-        imageUrlExpiresAt,
-      })
+      .values(insertValues)
       .onConflictDoNothing({
         target: [posts.postUrl],
       });
@@ -80,26 +87,15 @@ export async function persistScrapedPost({
     const dbErr = err as any;
     if (dbErr?.code === '23503') {
       console.warn(
-        `FK constraint violation inserting post ${postUrl} with runId ${scraperActorRunId}; post will be persisted without run link`,
+        `FK constraint violation inserting post ${postUrl} with runId ${scraperActorRunId}; retrying without run link`,
         err
       );
       try {
         await db
           .insert(posts)
           .values({
-            accountId,
-            platform,
-            content,
-            imageUrl,
-            videoUrl,
-            postUrl,
-            originalPostUrl,
-            publishedAt: new Date(publishedAt),
+            ...insertValues,
             scraperActorRunId: null,
-            locationName,
-            ownerDisplayName,
-            ownerUsername,
-            imageUrlExpiresAt,
           })
           .onConflictDoNothing({
             target: [posts.postUrl],

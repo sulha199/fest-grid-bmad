@@ -233,4 +233,49 @@ test('process-brightdata-result tests', async (t) => {
 
     assert.strictEqual(job.status, 'COMPLETED');
   });
+
+  await t.test('malformed video array element still persists the post (with null videoUrl)', async () => {
+    const snapshotId = 'snapshot-malformed-video-' + Date.now();
+    const { id, webhookToken } = await createPendingJob({
+      profileId: testProfileId,
+      snapshotId,
+    });
+
+    const pendingJob: BrightdataPendingJob = {
+      id,
+      profileId: testProfileId,
+      snapshotId,
+      webhookToken,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 3600000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const records = [
+      {
+        url: 'https://www.instagram.com/p/malformed-video/',
+        caption: 'Test post with malformed videos',
+        date_posted: '2026-08-08T00:00:00Z',
+        image_url: 'https://example.com/img.jpg',
+        videos: [12345], // non-string element
+      },
+    ];
+
+    await processBrightDataResult(pendingJob, records);
+
+    // Verify post IS persisted (not diverted to unprocessed payloads)
+    const persistedPosts = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.accountId, testProfileId));
+
+    assert.strictEqual(persistedPosts.length, 1);
+    const post = persistedPosts[0];
+    assert.strictEqual(post.content, 'Test post with malformed videos');
+    assert.strictEqual(post.postUrl, 'https://www.instagram.com/p/malformed-video/');
+    assert.strictEqual(post.imageUrl, 'https://example.com/img.jpg');
+    // videoUrl on the persisted post is null (skipped malformed element)
+    assert.strictEqual(post.videoUrl, null);
+  });
 });
