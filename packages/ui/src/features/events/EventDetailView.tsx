@@ -1,5 +1,6 @@
 import React from 'react';
-import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus, MoreVertical, AlertCircle } from 'lucide-react';
+import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus, MoreVertical, AlertCircle, Instagram } from 'lucide-react';
+import { detectPlatformFromUrl } from '@festgrid/domain';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from './EventDetailView.types';
 import { EventImage } from './EventImage';
 
@@ -426,10 +427,11 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
             <div className="flex items-center gap-4 flex-wrap">
               {originalPostUrl && (
                 <a href={originalPostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
+                  <Instagram className="w-3 h-3 text-pink-600 dark:text-pink-400" />
                   {labels.viewOriginalPostLabel} <ExternalLink className="w-3 h-3" />
                 </a>
               )}
-              {sourcePostUrl && (
+              {sourcePostUrl && !(originalPostUrl && detectPlatformFromUrl(sourcePostUrl) === 'instagram') && (
                 <a href={sourcePostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
                   {labels.viewSourceLabel} <ExternalLink className="w-3 h-3" />
                 </a>
