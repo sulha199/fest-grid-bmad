@@ -1,5 +1,6 @@
 import React from 'react';
-import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus, MoreVertical, AlertCircle } from 'lucide-react';
+import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus, MoreVertical, AlertCircle, Instagram } from 'lucide-react';
+import { detectPlatformFromUrl } from '@festgrid/domain';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from './EventDetailView.types';
 import { EventImage } from './EventImage';
 
@@ -127,16 +128,25 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   if (loading) {
     return (
       <div className="animate-pulse flex flex-col gap-6" aria-busy="true" aria-label={labels.loadingText}>
-        <div className="w-full h-64 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
-        <div className="flex flex-col gap-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
-          <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/2"></div>
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
+          {/* Left Column: Image Skeleton */}
+          <div className="lg:col-span-3 min-w-0">
+            <div className="w-full aspect-video max-h-[70vh] bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
+          </div>
+
+          {/* Right Column: Content Skeleton */}
+          <div className="lg:col-span-2 min-w-0 flex flex-col gap-6">
+            <div className="flex flex-col gap-4">
+              <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/2"></div>
+            </div>
+            <div className="flex gap-2">
+              <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded w-20"></div>
+              <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded w-24"></div>
+            </div>
+            <div className="h-24 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded w-20"></div>
-          <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded w-24"></div>
-        </div>
-        <div className="h-24 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
       </div>
     );
   }
@@ -191,85 +201,90 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
 
   return (
     <article className="flex flex-col gap-6">
-      {/* Header controls */}
-      {(onFavoriteToggle || onAddToCalendar || menuActions.length > 0) && (
-        <div className="flex justify-end gap-3 mb-2">
-          {onFavoriteToggle && (
-            <button
-              onClick={onFavoriteToggle}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              aria-label={isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}
-              aria-pressed={isFavorited}
-            >
-              <Heart className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
-            </button>
-          )}
-          {onAddToCalendar && (
-            <button
-              ref={triggerRef}
-              onClick={handleTriggerClick}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              aria-label={labels.addToCalendarButtonLabel}
-              aria-pressed={isAddedToCalendar}
-            >
-              <CalendarPlus className={`w-6 h-6 ${isAddedToCalendar ? 'fill-primary text-primary' : 'text-gray-500'}`} />
-            </button>
-          )}
-          {menuActions.length > 0 && (
-            <div className="relative" ref={menuContainerRef}>
-              <button
-                ref={menuTriggerRef}
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                aria-label={labels.moreActionsButtonLabel}
-                aria-haspopup="menu"
-                aria-expanded={isMenuOpen}
-              >
-                <MoreVertical className="w-6 h-6 text-gray-500" />
-              </button>
-              {isMenuOpen && (
-                <div
-                  className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md shadow-lg py-1 z-50 focus:outline-none"
-                  role="menu"
-                  aria-orientation="vertical"
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
+        {/* Left Column: Media */}
+        <div className="lg:col-span-3 min-w-0 flex flex-col gap-6">
+          <EventImage
+            imageUrl={imageUrl}
+            imageAlt={imageAlt}
+            eventName={eventName}
+            videoUrl={videoUrl}
+            videoAlt={videoAlt}
+            imageFallbackUrl={imageFallbackUrl}
+            originalPostUrl={originalPostUrl}
+            sourcePostUrl={sourcePostUrl}
+            videoUnavailableLabel={labels.videoUnavailableLabel}
+            viewOriginalPostLabel={labels.viewOriginalPostLabel}
+            viewSourceLabel={labels.viewSourceLabel}
+          />
+        </div>
+
+        {/* Right Column: Details & Content */}
+        <div className="lg:col-span-2 min-w-0 flex flex-col gap-6">
+          {/* Header controls */}
+          {(onFavoriteToggle || onAddToCalendar || menuActions.length > 0) && (
+            <div className="flex justify-end gap-3 mb-2">
+              {onFavoriteToggle && (
+                <button
+                  onClick={onFavoriteToggle}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label={isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}
+                  aria-pressed={isFavorited}
                 >
-                  {menuActions.map((action, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        action.onClick();
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      role="menuitem"
+                  <Heart className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+                </button>
+              )}
+              {onAddToCalendar && (
+                <button
+                  ref={triggerRef}
+                  onClick={handleTriggerClick}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label={labels.addToCalendarButtonLabel}
+                  aria-pressed={isAddedToCalendar}
+                >
+                  <CalendarPlus className={`w-6 h-6 ${isAddedToCalendar ? 'fill-primary text-primary' : 'text-gray-500'}`} />
+                </button>
+              )}
+              {menuActions.length > 0 && (
+                <div className="relative" ref={menuContainerRef}>
+                  <button
+                    ref={menuTriggerRef}
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    aria-label={labels.moreActionsButtonLabel}
+                    aria-haspopup="menu"
+                    aria-expanded={isMenuOpen}
+                  >
+                    <MoreVertical className="w-6 h-6 text-gray-500" />
+                  </button>
+                  {isMenuOpen && (
+                    <div
+                      className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md shadow-lg py-1 z-50 focus:outline-none"
+                      role="menu"
+                      aria-orientation="vertical"
                     >
-                      {action.label}
-                    </button>
-                  ))}
+                      {menuActions.map((action, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            action.onClick();
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          role="menuitem"
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Image */}
-      <EventImage
-        imageUrl={imageUrl}
-        imageAlt={imageAlt}
-        eventName={eventName}
-        videoUrl={videoUrl}
-        videoAlt={videoAlt}
-        imageFallbackUrl={imageFallbackUrl}
-        originalPostUrl={originalPostUrl}
-        sourcePostUrl={sourcePostUrl}
-        videoUnavailableLabel={labels.videoUnavailableLabel}
-        viewOriginalPostLabel={labels.viewOriginalPostLabel}
-        viewSourceLabel={labels.viewSourceLabel}
-      />
-
-      <header className="flex flex-col gap-3">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{eventName}</h1>
+          <header className="flex flex-col gap-3">
+        <h1 className="text-3xl font-bold break-words text-gray-900 dark:text-gray-100">{eventName}</h1>
         
         {hasTags && (
           <ul className="flex flex-wrap gap-2" aria-label="Event categories and types">
@@ -290,7 +305,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
       {/* Description */}
       {description && (
         <section>
-          <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{description}</p>
+          <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words leading-relaxed">{description}</p>
         </section>
       )}
 
@@ -412,10 +427,11 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
             <div className="flex items-center gap-4 flex-wrap">
               {originalPostUrl && (
                 <a href={originalPostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
+                  <Instagram className="w-3 h-3 text-pink-600 dark:text-pink-400" />
                   {labels.viewOriginalPostLabel} <ExternalLink className="w-3 h-3" />
                 </a>
               )}
-              {sourcePostUrl && (
+              {sourcePostUrl && !(originalPostUrl && detectPlatformFromUrl(sourcePostUrl) === 'instagram') && (
                 <a href={sourcePostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
                   {labels.viewSourceLabel} <ExternalLink className="w-3 h-3" />
                 </a>
@@ -424,6 +440,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
           )}
         </section>
       )}
+        </div>
+      </div>
 
       {onAddToCalendar && (
         <AddToCalendarDialog

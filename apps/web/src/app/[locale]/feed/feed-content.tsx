@@ -159,7 +159,11 @@ export function FeedContent() {
               ...page.events,
               items: page.events.items.map((item: any) =>
                 item.id === variables.eventId
-                  ? { ...item, isFavorited: !item.isFavorited }
+                  ? {
+                      ...item,
+                      isFavorited: !item.isFavorited,
+                      favoriteCount: Math.max(0, (item.favoriteCount ?? 0) + (item.isFavorited ? -1 : 1)),
+                    }
                   : item
               ),
             },
@@ -268,6 +272,7 @@ export function FeedContent() {
                 }}
                 getCardProps={(event) => ({
                   isFavorited: event.isFavorited,
+                  favoriteCount: event.favoriteCount,
                   onFavoriteToggle: () => toggleFavorite({ eventId: event.id }),
                   onClick: () => {
                     const params = new URLSearchParams(searchParams.toString());

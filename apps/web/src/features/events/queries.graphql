@@ -5,6 +5,7 @@ query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
       eventName
       slug
       isFavorited
+      favoriteCount
       imageUrl
       location
       types
@@ -116,6 +117,8 @@ query getEventsForCalendar($limit: Int, $offset: Int, $query: EventQueryConditio
       location
       types
       categories
+      isFavorited
+      favoriteCount
       schedules {
         id
         isMainSchedule
@@ -142,6 +145,7 @@ query getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryCondit
       types
       categories
       isFavorited
+      favoriteCount
       schedules {
         id
         isMainSchedule

@@ -5,6 +5,7 @@ import { useQueryState, parseAsArrayOf, parseAsString } from 'nuqs';
 import { MultiSelect } from '../../core/multi-select';
 import { Badge } from '../../core/ui/badge';
 import { Button } from '../../core/ui/button';
+import { X } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -93,9 +94,35 @@ export function FilterHub({
   ) => (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant={selectedValues.length > 0 ? 'default' : 'outline'}>
-          {label}
-          {selectedValues.length > 0 && <Badge>{selectedValues.length}</Badge>}
+        <Button
+          variant={selectedValues.length > 0 ? 'default' : 'outline'}
+          className={selectedValues.length > 0 ? "pr-1.5 gap-1.5" : ""}
+        >
+          <span>{label}</span>
+          {selectedValues.length > 0 && (
+            <span className="flex items-center gap-1">
+              <Badge variant="secondary" className="px-1 text-[10px]">{selectedValues.length}</Badge>
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange([]);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onChange([]);
+                  }
+                }}
+                className="hover:bg-primary-foreground/20 rounded-full p-0.5 transition-colors text-primary-foreground shrink-0 inline-flex items-center justify-center cursor-pointer"
+                aria-label={`${labels.clearLabel} ${label}`}
+              >
+                <X className="w-3 h-3" />
+              </span>
+            </span>
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent>
@@ -125,8 +152,32 @@ export function FilterHub({
       {isAuthenticated && (
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant={isNearbyActive ? 'default' : 'outline'}>
-              {nearbyTriggerText}
+            <Button
+              variant={isNearbyActive ? 'default' : 'outline'}
+              className={isNearbyActive ? "pr-1.5 gap-1.5" : ""}
+            >
+              <span>{nearbyTriggerText}</span>
+              {isNearbyActive && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectLocation('off');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onSelectLocation('off');
+                    }
+                  }}
+                  className="hover:bg-primary-foreground/20 rounded-full p-0.5 transition-colors text-primary-foreground shrink-0 inline-flex items-center justify-center ml-1.5 cursor-pointer"
+                  aria-label={labels.clearLabel}
+                >
+                  <X className="w-3 h-3" />
+                </span>
+              )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-80">

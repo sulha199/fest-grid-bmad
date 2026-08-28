@@ -1,4 +1,4 @@
-import { LucideIcon, User, MapPin, Radio, Key, ListChecks, Bell, FileText, ShieldAlert, Archive, Sparkles, Activity, AlertCircle } from 'lucide-react';
+import { LucideIcon, User, MapPin, Radio, Key, ListChecks, Bell, FileText, ShieldAlert, Archive, Sparkles, Activity, AlertCircle, Puzzle } from 'lucide-react';
 
 export interface ProfileMenuEntry {
   id: string;
@@ -45,6 +45,12 @@ export const profileMenuEntries: ProfileMenuEntry[] = [
     labelKey: 'archive',
     href: '/archive',
     icon: Archive,
+  },
+  {
+    id: 'widgets',
+    labelKey: 'widgets',
+    href: '/settings/widgets',
+    icon: Puzzle,
   },
   {
     id: 'moderator-items',

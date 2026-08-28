@@ -63,6 +63,7 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
         eventStartTime: schedule.eventStartTime,
         eventEndTime: schedule.eventEndTime,
         isFavorited: !!event.isFavorited,
+        favoriteCount: event.favoriteCount,
         isAddedToCalendar: !!schedule.isAddedToCalendar,
       }));
     });

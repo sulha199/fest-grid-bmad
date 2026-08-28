@@ -37,9 +37,8 @@ function buildEnumLabels(values: string[], translate: (key: string) => string) {
 export function HomeContent() {
   const t = useTranslations('DiscoveryPage')
   const posthog = usePostHog()
-  const tAuth = useTranslations('Auth')
   const tNearby = useTranslations('NearbyFilter')
-  const { session, signOut } = useAuthSession()
+  const { session } = useAuthSession()
   const nearbyFilter = useNearbyFilter()
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
   const [types] = useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))
@@ -73,7 +72,11 @@ export function HomeContent() {
               ...page.events,
               items: page.events.items.map((item: any) =>
                 item.id === variables.eventId
-                  ? { ...item, isFavorited: !item.isFavorited }
+                  ? {
+                      ...item,
+                      isFavorited: !item.isFavorited,
+                      favoriteCount: Math.max(0, (item.favoriteCount ?? 0) + (item.isFavorited ? -1 : 1)),
+                    }
                   : item
               ),
             },
@@ -143,12 +146,6 @@ export function HomeContent() {
     posthog.capture('filter_applied', { types: newTypes, categories: newCategories })
   }
 
-  const handleSignOut = async () => {
-    await signOut()
-    alert(tAuth('logoutSuccess'))
-    router.push('/')
-  }
-
   const resolvedNearby = nearbyFilter.resolvedFilter;
 
   const {
@@ -196,28 +193,6 @@ export function HomeContent() {
     <PageContainer>
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{t('title')}</h1>
-        <div>
-          {session ? (
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground hidden sm:inline">
-                {session.user.email}
-              </span>
-              <button
-                onClick={handleSignOut}
-                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors shadow-sm"
-              >
-                Sign Out
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => router.push('/login')}
-              className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors shadow-sm"
-            >
-              Sign In
-            </button>
-          )}
-        </div>
       </div>
 
       <EventDiscoveryPanel
@@ -259,6 +234,7 @@ export function HomeContent() {
                 cardLabels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
                 getCardProps={(event) => ({
                   isFavorited: event.isFavorited,
+                  favoriteCount: event.favoriteCount,
                   onFavoriteToggle: () => {
                     if (!session) {
                       setIsLoginModalOpen(true)

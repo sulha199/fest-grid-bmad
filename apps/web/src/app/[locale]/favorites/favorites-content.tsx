@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
-import { useInfiniteQuery, useQuery, InfiniteData } from "@tanstack/react-query"
+import { useInfiniteQuery, useQuery, InfiniteData, useQueryClient } from "@tanstack/react-query"
 import {
   EventListView,
   useInfiniteScroll,
@@ -17,8 +17,6 @@ import {
   GetFavoritedEventIdsDocument,
   GetFavoritedEventIdsQuery,
   useToggleFavoriteMutation,
-  ToggleFavoriteDocument,
-  ToggleFavoriteMutation,
 } from "@/generated/graphql"
 import { toast } from "sonner"
 import { graphqlClient } from "@/lib/graphql-client"
@@ -88,6 +86,7 @@ export function FavoritesContent() {
   const { session, isLoading } = useAuthSession()
   const [unfavoritedIds, setUnfavoritedIds] = useState<Set<string>>(new Set())
   const { mutateAsync: toggleFavoriteAsync } = useToggleFavoriteMutation(graphqlClient)
+  const queryClient = useQueryClient()
 
   const categoryLabels = useMemo(
     () => buildEnumLabels(Object.values(EventCategory), tCategory),
@@ -348,6 +347,11 @@ export function FavoritesContent() {
                   const isOptimisticallyUnfavorited = unfavoritedIds.has(event.id)
                   const isCardFavorited = event.isFavorited && !isOptimisticallyUnfavorited
                   const isCardGreyedOut = !event.isFavorited || isOptimisticallyUnfavorited
+                  const displayFavoriteCount = Math.max(
+                    0,
+                    (event.favoriteCount ?? 0) +
+                      (isCardFavorited === event.isFavorited ? 0 : isCardFavorited ? 1 : -1)
+                  )
 
                   const handleToggle = async (forceFavorited?: boolean) => {
                     const targetFavorited = forceFavorited !== undefined ? forceFavorited : isOptimisticallyUnfavorited
@@ -383,6 +387,29 @@ export function FavoritesContent() {
                         return next
                       })
 
+                      // Adjust favoriteCount in cache using server's confirmed result
+                      queryClient.setQueriesData({ queryKey: ["favoriteEvents"] }, (old: any) => {
+                        if (!old) return old
+                        return {
+                          ...old,
+                          pages: old.pages.map((page: any) => ({
+                            ...page,
+                            events: {
+                              ...page.events,
+                              items: page.events.items.map((item: any) =>
+                                item.id === event.id
+                                  ? {
+                                      ...item,
+                                      isFavorited: isFavoritedOnServer,
+                                      favoriteCount: Math.max(0, (item.favoriteCount ?? 0) + (isFavoritedOnServer ? 1 : -1))
+                                    }
+                                  : item
+                              ),
+                            },
+                          })),
+                        }
+                      })
+
                       if (!isFavoritedOnServer) {
                         toast(t("pendingRemovalToastMessage"), {
                           action: {
@@ -413,6 +440,7 @@ export function FavoritesContent() {
                   return {
                     isGreyedOut: isCardGreyedOut,
                     isFavorited: isCardFavorited,
+                    favoriteCount: displayFavoriteCount,
                     pendingRemoval: isOptimisticallyUnfavorited,
                     onFavoriteToggle: () => {
                       if (isOptimisticallyUnfavorited) {

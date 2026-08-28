@@ -66,7 +66,7 @@ export const EventImage: React.FC<EventImageProps> = ({
   const showVideoErrorNote = !!(videoError && targetLink);
 
   const mediaContent = (
-    <div className="w-full relative aspect-video bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden flex items-center justify-center">
+    <div className="w-full relative bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden max-h-[70vh] min-h-[200px]">
       {showVideo && (
         <video
           src={videoUrl || undefined}
@@ -78,7 +78,7 @@ export const EventImage: React.FC<EventImageProps> = ({
           onCanPlay={() => setVideoReady(true)}
           onLoadedData={() => setVideoReady(true)}
           onError={() => setVideoError(true)}
-          className="w-full h-full object-cover"
+          className="w-full h-auto max-h-[70vh] object-contain"
           data-testid="event-video"
         />
       )}
@@ -89,13 +89,13 @@ export const EventImage: React.FC<EventImageProps> = ({
           src={currentImgSrc}
           alt={imageAlt || eventName}
           onError={handleImageError}
-          className={`${showVideo ? 'absolute inset-0' : ''} w-full h-full object-cover`}
+          className={`${showVideo ? 'absolute inset-0' : ''} w-full h-auto max-h-[70vh] object-contain`}
         />
       )}
 
       {/* Render placeholder icon if we have no video and (no image src or image errored) */}
       {(!showVideo || (showVideo && videoReady && imageError)) && (!currentImgSrc || imageError) && (
-        <div className="flex flex-col items-center justify-center text-gray-400">
+        <div className="flex flex-col items-center justify-center text-gray-400 min-h-[200px] w-full">
           <ImageIcon className="w-12 h-12 mb-2 opacity-50" />
         </div>
       )}
