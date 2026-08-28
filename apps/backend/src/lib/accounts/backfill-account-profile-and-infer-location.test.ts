@@ -98,6 +98,7 @@ test('backfillAccountProfileAndInferDefaultLocation orchestration', async (t) =>
         text: JSON.stringify({
           locationFound: true,
           placeDescription: 'Central Park, NY',
+          confidence: 0.8,
         }),
       };
     });
@@ -153,6 +154,7 @@ test('backfillAccountProfileAndInferDefaultLocation orchestration', async (t) =>
         text: JSON.stringify({
           locationFound: true,
           placeDescription: 'Sydney Opera House',
+          confidence: 0.8,
         }),
       };
     });

@@ -100,4 +100,42 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok(result.request.systemInstruction?.includes('anchor for date and year inference'));
     assert.ok(result.request.systemInstruction?.includes('never infer a year that would place the event further in the past'));
   });
+
+  await t.test('Case E: uses ownerDisplayName as account name metadata in prompt', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-5',
+      accountId: 'account-5',
+      content: 'Event announcement!',
+      postUrl: 'https://test.com/post5',
+      publishedAt: '2026-08-27T15:30:00Z',
+      ownerDisplayName: 'Fest Daily Plaza',
+      ownerUsername: 'fest.daily'
+    };
+
+    const result = await buildGeminiExtractionRequest(message);
+
+    assert.strictEqual(
+      result.request.contents,
+      'Account Name Metadata: "Fest Daily Plaza"\nPost Content:\n"Event announcement!"'
+    );
+    assert.ok(result.request.systemInstruction?.includes('8. Use the provided account name metadata (if present) to help disambiguate'));
+  });
+
+  await t.test('Case F: uses ownerUsername as account name metadata fallback in prompt', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-6',
+      accountId: 'account-6',
+      content: 'Event announcement 2!',
+      postUrl: 'https://test.com/post6',
+      publishedAt: '2026-08-27T15:30:00Z',
+      ownerUsername: 'fest.daily'
+    };
+
+    const result = await buildGeminiExtractionRequest(message);
+
+    assert.strictEqual(
+      result.request.contents,
+      'Account Name Metadata: "fest.daily"\nPost Content:\n"Event announcement 2!"'
+    );
+  });
 });

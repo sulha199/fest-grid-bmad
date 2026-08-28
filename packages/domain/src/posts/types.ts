@@ -5,6 +5,8 @@ export interface ProcessingJobMessage {
   imageUrl?: string;
   postUrl: string;
   publishedAt: string;
+  ownerDisplayName?: string;
+  ownerUsername?: string;
 }
 
 export class PostNotFoundError extends Error {

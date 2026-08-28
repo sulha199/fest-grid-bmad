@@ -67,6 +67,7 @@ export async function buildGeminiExtractionRequest(
 5. Extract schedule(s) under schedules. For each schedule, isMainSchedule (boolean) and eventStartDate (YYYY-MM-DD) are required. Extract title, eventEndDate (YYYY-MM-DD), eventStartTime (HH:MM:SS), eventEndTime (HH:MM:SS), performers (array), location, and ticketPrice if available.
 6. Extract the top-level location, organizerName, contactInfo, and description if present.
 7. Assign a confidenceScore between 0 and 1 indicating your confidence in the extraction.
+8. Use the provided account name metadata (if present) to help disambiguate ambiguous location or venue references in the post text.
 
 The social media post was published on ${publishDate}. Use this publish date as an explicit anchor for date and year inference:
 - When a schedule's date text (in the caption or image) does not state an explicit year, infer the year using this publish date as the anchor, assuming the event is happening at or after the publish date. Prefer the current or next real-world occurrence over defaulting to any other year, and never infer a year that would place the event further in the past than the publish date itself unless the source text explicitly states a past year.
@@ -74,7 +75,12 @@ The social media post was published on ${publishDate}. Use this publish date as 
 
 Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate information. If a field is absent, leave it null or undefined.`;
 
-  let contents: any = message.content;
+  const accountName = message.ownerDisplayName?.trim() || message.ownerUsername?.trim() || '';
+  const captionWithAccountContext = accountName
+    ? `Account Name Metadata: "${accountName}"\nPost Content:\n"${message.content}"`
+    : message.content;
+
+  let contents: any = captionWithAccountContext;
   let imageBytes: Buffer | undefined;
   let imageContentType: string | undefined;
 
@@ -96,7 +102,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
       imageContentType = contentType;
 
       contents = [
-        { text: message.content },
+        { text: captionWithAccountContext },
         {
           inlineData: {
             mimeType: contentType,
@@ -107,7 +113,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     } catch (error) {
       console.error(`Multimodal extraction image-fetch failed for post ${message.postId}:`, error);
       // Fallback to text-only caption extraction
-      contents = message.content;
+      contents = captionWithAccountContext;
     }
   }
 
