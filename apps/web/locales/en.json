@@ -32,6 +32,8 @@
     "wizardOnboardingApiKeyDescription": "Add your Gemini API key to get started.",
     "wizardOnboardingSubscribeTitle": "Subscribe",
     "wizardOnboardingSubscribeDescription": "Subscribe to your first social media account.",
+    "wizardOnboardingNotificationsTitle": "Enable Notifications",
+    "wizardOnboardingNotificationsDescription": "Enable push notifications to stay updated on event schedules.",
     "accountPageTitle": "{displayName} | FestDaily",
     "accountPageDescription": "Browse events from {displayName} on FestDaily.",
     "moderatorItemsTitle": "Moderator Items | FestDaily",

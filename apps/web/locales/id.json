@@ -32,6 +32,8 @@
     "wizardOnboardingApiKeyDescription": "Tambahkan kunci API Gemini Anda untuk memulai.",
     "wizardOnboardingSubscribeTitle": "Berlangganan",
     "wizardOnboardingSubscribeDescription": "Berlangganan akun media sosial pertama Anda.",
+    "wizardOnboardingNotificationsTitle": "Aktifkan Notifikasi",
+    "wizardOnboardingNotificationsDescription": "Aktifkan notifikasi push untuk mendapatkan informasi terbaru tentang jadwal acara.",
     "accountPageTitle": "{displayName} | FestDaily",
     "accountPageDescription": "Jelajahi acara dari {displayName} di FestDaily.",
     "moderatorItemsTitle": "Item Moderator | FestDaily",
