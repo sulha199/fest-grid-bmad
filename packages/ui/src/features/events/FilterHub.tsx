@@ -173,7 +173,7 @@ export function FilterHub({
                     }
                   }}
                   className="hover:bg-primary-foreground/20 rounded-full p-0.5 transition-colors text-primary-foreground shrink-0 inline-flex items-center justify-center ml-1.5 cursor-pointer"
-                  aria-label={labels.clearLabel}
+                  aria-label={`${labels.clearLabel} ${labels.locationFilterLabels.filterLabel}`}
                 >
                   <X className="w-3 h-3" />
                 </span>
