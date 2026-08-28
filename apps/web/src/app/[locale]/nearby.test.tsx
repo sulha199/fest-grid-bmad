@@ -237,8 +237,10 @@ describe('Nearby Filter Integration', () => {
     // Story 2.5 AC13 collapsed the filter behind a Popover trigger — open it first.
     // Match either the idle "Nearby" label or the already-auto-resolved "{location} · {radius}"
     // summary text, since the auto-default (AC4) may resolve before this query runs.
-    const trigger = await screen.findByRole('button', { name: /Nearby|km$/ });
-    fireEvent.click(trigger);
+    const triggers = await screen.findAllByRole('button', { name: /Nearby|km$/ });
+    const trigger = triggers.find((btn) => btn.getAttribute('aria-haspopup') === 'dialog');
+    expect(trigger).toBeDefined();
+    fireEvent.click(trigger!);
 
     // Verify it loads locations and defaults selection
     await waitFor(() => {
