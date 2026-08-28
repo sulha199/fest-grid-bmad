@@ -36,7 +36,12 @@ export const locationInferenceResponseSchema = {
 } as const;
 
 export function buildLocationInferenceRequest(
-  post: { locationName?: string; content?: string }
+  post: {
+    locationName?: string;
+    content?: string;
+    ownerDisplayName?: string;
+    ownerUsername?: string;
+  }
 ): {
   systemInstruction: string;
   contents: string;
@@ -50,6 +55,8 @@ export function buildLocationInferenceRequest(
     return null;
   }
 
+  const accountNameMetadataTrimmed = (post.ownerDisplayName?.trim() || post.ownerUsername?.trim() || '');
+
   const systemInstruction =
     `You are an AI assistant designed to extract or infer a general geographic location or venue description from a social media post.\n` +
     `Your goal is to identify a place, city, neighborhood, or specific venue where the post's events or activities take place.\n` +
@@ -59,9 +66,10 @@ export function buildLocationInferenceRequest(
     `3. If you can confidently identify or infer a location description, set 'locationFound' to true and provide the location in 'placeDescription'.\n` +
     `4. If the post content and metadata do not contain enough specific information to confidently identify or infer a location description, you MUST set 'locationFound' to false and omit 'placeDescription' (or set it to null).\n` +
     `5. When 'locationFound' is true, also set 'confidence' to a number from 0.0 to 1.0 reflecting how certain you are that 'placeDescription' correctly identifies the real-world venue -- lower it when the only signal is a generic or ambiguous term (e.g. a single common word with no city/region qualifier), and raise it when the post and location metadata agree on a specific, unambiguous place.\n` +
-    `6. Return the result strictly in the JSON format matching the specified response schema.`;
+    `6. Use the provided account name metadata as a general-purpose disambiguation signal (representing the profile that published the post) to help resolve ambiguous or generic place references in the post content.\n` +
+    `7. Return the result strictly in the JSON format matching the specified response schema.`;
 
-  const contents = `Location Name Metadata: "${locationNameTrimmed}"\nPost Content text:\n"${contentTrimmed}"`;
+  const contents = `Account Name Metadata: "${accountNameMetadataTrimmed}"\nLocation Name Metadata: "${locationNameTrimmed}"\nPost Content text:\n"${contentTrimmed}"`;
 
   return {
     systemInstruction,

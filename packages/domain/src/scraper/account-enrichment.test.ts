@@ -54,8 +54,29 @@ test("buildLocationInferenceRequest: returns request when both locationName and 
   assert.ok(req);
   assert.equal(req.responseMimeType, "application/json");
   assert.equal(req.responseSchema, locationInferenceResponseSchema);
+  assert.match(req.contents, /Account Name Metadata: ""/);
   assert.match(req.contents, /Central Park/);
   assert.match(req.contents, /Great concert today!/);
+  assert.match(req.systemInstruction, /6\. Use the provided account name metadata/);
+  assert.match(req.systemInstruction, /7\. Return the result/);
+});
+
+test("buildLocationInferenceRequest: returns request with ownerDisplayName as account name metadata", () => {
+  const post = { locationName: "Central Park", content: "Great concert today!", ownerDisplayName: "Park Admin", ownerUsername: "park_admin" };
+  const req = buildLocationInferenceRequest(post);
+
+  assert.ok(req);
+  assert.match(req.contents, /Account Name Metadata: "Park Admin"/);
+  assert.match(req.contents, /Central Park/);
+});
+
+test("buildLocationInferenceRequest: returns request with ownerUsername as fallback account name metadata", () => {
+  const post = { locationName: "Central Park", content: "Great concert today!", ownerUsername: "park_admin" };
+  const req = buildLocationInferenceRequest(post);
+
+  assert.ok(req);
+  assert.match(req.contents, /Account Name Metadata: "park_admin"/);
+  assert.match(req.contents, /Central Park/);
 });
 
 test("buildLocationInferenceRequest: returns request when only locationName is present", () => {
