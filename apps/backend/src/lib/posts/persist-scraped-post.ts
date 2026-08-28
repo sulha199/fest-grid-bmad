@@ -52,12 +52,7 @@ export async function persistScrapedPost({
   }
 
   // 2. If absent, insert a new row with onConflictDoNothing
-  let imageUrlExpiresAt: Date | null = null;
-  try {
-    imageUrlExpiresAt = parseImageUrlExpiry(imageUrl);
-  } catch (err) {
-    // Keep exact error handling behavior if parseImageUrlExpiry threw (though it's outside the original block, we can still parse inside or outside)
-  }
+  const imageUrlExpiresAt = parseImageUrlExpiry(imageUrl);
 
   const insertValues = {
     accountId,
