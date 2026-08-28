@@ -131,7 +131,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
           {/* Left Column: Image Skeleton */}
           <div className="lg:col-span-3 min-w-0">
-            <div className="w-full h-64 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
+            <div className="w-full aspect-video max-h-[70vh] bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
           </div>
 
           {/* Right Column: Content Skeleton */}
