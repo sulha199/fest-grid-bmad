@@ -354,7 +354,15 @@ development_status:
   # -- archive-content.tsx has no EventDiscoveryPanel, tiebreaker). Persistence
   # (per-page URL state, not global) and default ('list') confirmed with user via
   # AskUserQuestion. See epics.md Story 1.3i.
-  1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web: review
+  # Implemented 2026-08-28 via cline (vertex:gemini-3.5-flash) in an isolated worktree.
+  # Independently verified by Claude before merge: found and reverted an out-of-scope
+  # regression to FilterHub.tsx's aria-label (unrelated to this story, from a separate
+  # already-merged fix); diagnosed an apparent nearby.test.tsx failure as the worktree
+  # being branched from a stale master predating that same fix, not a real regression
+  # (confirmed via merge-base ancestry + swap testing). Merged onto current master
+  # (4448d61). Post-merge: packages/ui 309/309 tests pass, all 5 touched pages' tests
+  # + nearby.test.tsx pass (29/29), web lint clean (only pre-existing warnings).
+  1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web: done
   # Reopened 2026-08-24 via bmad-create-story: added AC9/Task 7 -- root
   # container drops its max-w-7xl cap in favor of full width
   # (ux-rework-2026-08-24.md item #1, missed by the original bmad-correct-
