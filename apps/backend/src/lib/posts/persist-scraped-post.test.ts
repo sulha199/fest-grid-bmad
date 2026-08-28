@@ -1,5 +1,6 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
+import { randomUUID } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { posts, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
@@ -224,5 +225,31 @@ test('persistScrapedPost integration tests', async (t) => {
 
     assert.strictEqual(resultNullImage.alreadyExisted, false);
     assert.strictEqual(resultNullImage.post.imageUrlExpiresAt, null);
+  });
+
+  await t.test('(g) FK retry correctly rethrows when the retry insert also fails (unrelated FK constraint violation on accountId)', async () => {
+    // Generate non-existent UUIDs for scraperActorRunId and accountId to force FK failures
+    const nonExistentRunId = randomUUID();
+    const nonExistentAccountId = randomUUID();
+    const postUrl = 'https://instagram.com/p/fk_retry_fail_' + Date.now();
+
+    // Call persistScrapedPost expecting it to throw because accountId is invalid, 
+    // even though we triggered the scraperActorRunId retry path first
+    await assert.rejects(
+      async () => {
+        await persistScrapedPost({
+          accountId: nonExistentAccountId, // Invalid accountId causes retry insert to fail with FK violation
+          platform: 'instagram',
+          content: 'Test content triggering dual FK fail',
+          postUrl,
+          publishedAt: new Date().toISOString(),
+          scraperActorRunId: nonExistentRunId, // Invalid runId triggers the first FK violation
+        });
+      },
+      (err: any) => {
+        // Confirm it threw an FK violation error (code 23503)
+        return err?.code === '23503';
+      }
+    );
   });
 });

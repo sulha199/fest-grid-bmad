@@ -138,9 +138,10 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
           const caption = brightDataRecord.caption as string;
           const datePosted = brightDataRecord.date_posted;
           const videos = brightDataRecord.videos as unknown[] | null | undefined;
-          const videoUrl = Array.isArray(videos) && videos.length > 0 ? (videos[0] as string) : undefined;
+          const videoUrl = Array.isArray(videos) && videos.length > 0 && typeof videos[0] === 'string' ? videos[0] : undefined;
 
           if (datePosted !== undefined && datePosted !== null && typeof datePosted !== 'string') {
+            console.warn(`Replayed Bright Data record date_posted is not a string, skipping`);
             continue;
           }
 
@@ -156,6 +157,7 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
             publishedAt: publishedAtStr,
             ...(imageUrl && { imageUrl }),
             ...(videoUrl && { videoUrl }),
+            // Always set: postUrl is guaranteed non-empty by the earlier guard above
             originalPostUrl: postUrl,
           };
 

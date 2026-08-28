@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { posts, unprocessedScraperPayloads, socialMediaAccountProfiles, scraperActorRuns } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
+import { eq, sql, or } from 'drizzle-orm';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
 import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
 import { recordActorRunStart } from './record-actor-run.js';
@@ -11,7 +11,6 @@ import { replayActorRun } from './replay-actor-run.js';
 
 test('scraper actor run linking (Story 3-4l)', async (t) => {
   let testProfileId: string;
-  const testRunId = 'run-' + Date.now();
 
   t.beforeEach(async () => {
     testProfileId = randomUUID();
@@ -26,7 +25,15 @@ test('scraper actor run linking (Story 3-4l)', async (t) => {
 
   t.afterEach(async () => {
     await db.delete(posts).where(eq(posts.accountId, testProfileId));
-    await db.delete(unprocessedScraperPayloads);
+    // `context` is jsonb, but the driver double-encodes it on write (confirmed: stored as a
+    // JSON-string scalar, not an object) — match both shapes defensively until that's fixed at
+    // the source (see deferred-work.md).
+    await db.delete(unprocessedScraperPayloads).where(
+      or(
+        sql`context->>'accountId' = ${testProfileId}`,
+        sql`(("context"#>>'{}')::jsonb)->>'accountId' = ${testProfileId}`
+      )
+    );
     await db.delete(scraperActorRuns).where(eq(scraperActorRuns.profileId, testProfileId));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId));
   });
@@ -37,7 +44,7 @@ test('scraper actor run linking (Story 3-4l)', async (t) => {
       vendor: 'APIFY',
       triggerMode: 'SYNC',
       profileId: testProfileId,
-      runId: testRunId,
+      runId: 'run-' + randomUUID(),
       rawInput: { test: true },
     });
 
@@ -93,7 +100,7 @@ test('scraper actor run linking (Story 3-4l)', async (t) => {
       vendor: 'APIFY',
       triggerMode: 'SYNC',
       profileId: testProfileId,
-      runId: testRunId,
+      runId: 'run-' + randomUUID(),
       rawInput: { test: true },
     });
 
@@ -189,7 +196,7 @@ test('scraper actor run linking (Story 3-4l)', async (t) => {
       vendor: 'APIFY',
       triggerMode: 'SYNC',
       profileId: testProfileId,
-      runId: testRunId,
+      runId: 'run-' + randomUUID(),
       rawInput: { test: true },
     });
 
