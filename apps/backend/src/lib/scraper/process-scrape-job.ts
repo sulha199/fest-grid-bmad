@@ -25,6 +25,7 @@ async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: ScrapedPost[
       platform: job.platform,
       content: post.content,
       imageUrl: post.imageUrl || null,
+      videoUrl: post.videoUrl || null,
       postUrl: post.postUrl,
       originalPostUrl: post.originalPostUrl || null,
       publishedAt: post.publishedAt,

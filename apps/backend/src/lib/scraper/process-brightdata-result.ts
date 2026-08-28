@@ -25,7 +25,14 @@ export async function processBrightDataResult(
     const postUrl = brightDataRecord.url as string;
     const imageUrl = brightDataRecord.image_url as string;
     const caption = brightDataRecord.caption as string;
-    const datePosted = brightDataRecord.date_posted as string;
+    const datePosted = brightDataRecord.date_posted;
+    const videos = brightDataRecord.videos as unknown[] | null | undefined;
+    const videoUrl = Array.isArray(videos) && videos.length > 0 ? (videos[0] as string) : undefined;
+
+    if (datePosted !== undefined && datePosted !== null && typeof datePosted !== 'string') {
+      console.warn('Bright Data record date_posted is not a string, skipping');
+      continue;
+    }
 
     if (!postUrl) {
       console.warn('Bright Data record missing URL, skipping');
@@ -41,6 +48,8 @@ export async function processBrightDataResult(
         publishedAt: publishedAtStr,
         // Only include optional fields if they have values
         ...(imageUrl && { imageUrl }),
+        ...(videoUrl && { videoUrl }),
+        originalPostUrl: postUrl,
       };
 
       // Validate against schema
@@ -73,6 +82,8 @@ export async function processBrightDataResult(
         platform: 'instagram', // Bright Data adapter only handles Instagram today
         postUrl: candidate.postUrl,
         imageUrl: candidate.imageUrl || null,
+        videoUrl: candidate.videoUrl || null,
+        originalPostUrl: candidate.originalPostUrl || null,
         content: candidate.content,
         publishedAt: candidate.publishedAt,
         scraperActorRunId,

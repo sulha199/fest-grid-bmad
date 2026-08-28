@@ -25,6 +25,8 @@ export async function processApifyAsyncResult(
         platform: 'instagram', // Apify adapter only handles Instagram today
         postUrl: post.postUrl,
         imageUrl: post.imageUrl || null,
+        videoUrl: post.videoUrl || null,
+        originalPostUrl: post.originalPostUrl || null,
         content: post.content,
         publishedAt: post.publishedAt,
         scraperActorRunId,

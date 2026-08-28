@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { randomUUID } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, apifyPendingJobs, posts } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
@@ -7,12 +8,14 @@ import { processApifyAsyncResult } from './process-apify-async-result.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
 
 test('process-apify-async-result tests', async (t) => {
-  const testProfileId = 'profile-' + Date.now();
+  let testProfileId: string;
 
   t.beforeEach(async () => {
+    testProfileId = randomUUID();
     // Create a test profile
     await db.insert(socialMediaAccountProfiles).values({
-      accountId: testProfileId,
+      id: testProfileId,
+      accountId: 'acct-' + Date.now(),
       platform: 'instagram',
       username: 'test_user',
       displayName: 'Test User',
@@ -54,6 +57,7 @@ test('process-apify-async-result tests', async (t) => {
         caption: 'Second post',
         timestamp: '2026-08-09T00:00:00Z',
         displayUrl: 'https://example.com/img2.jpg',
+        videoUrl: 'https://example.com/video2.mp4',
       },
     ];
 
@@ -68,8 +72,12 @@ test('process-apify-async-result tests', async (t) => {
     assert.strictEqual(persistedPosts.length, 2);
     assert.strictEqual(persistedPosts[0].content, 'First post');
     assert.strictEqual(persistedPosts[0].postUrl, 'https://www.instagram.com/p/abc123/');
+    assert.strictEqual(persistedPosts[0].videoUrl, null);
+    assert.strictEqual(persistedPosts[0].originalPostUrl, 'https://www.instagram.com/p/abc123/');
     assert.strictEqual(persistedPosts[1].content, 'Second post');
     assert.strictEqual(persistedPosts[1].postUrl, 'https://www.instagram.com/p/def456/');
+    assert.strictEqual(persistedPosts[1].videoUrl, 'https://example.com/video2.mp4');
+    assert.strictEqual(persistedPosts[1].originalPostUrl, 'https://www.instagram.com/p/def456/');
 
     // Verify lastScrapedAt stamped
     const [profile] = await db

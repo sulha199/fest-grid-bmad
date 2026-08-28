@@ -110,6 +110,8 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
             platform: profile.platform,
             postUrl: post.postUrl,
             imageUrl: post.imageUrl || null,
+            videoUrl: post.videoUrl || null,
+            originalPostUrl: post.originalPostUrl || null,
             content: post.content,
             publishedAt: post.publishedAt,
             locationName: post.locationName || null,
@@ -134,7 +136,13 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
           const postUrl = brightDataRecord.url as string;
           const imageUrl = brightDataRecord.image_url as string;
           const caption = brightDataRecord.caption as string;
-          const datePosted = brightDataRecord.date_posted as string;
+          const datePosted = brightDataRecord.date_posted;
+          const videos = brightDataRecord.videos as unknown[] | null | undefined;
+          const videoUrl = Array.isArray(videos) && videos.length > 0 ? (videos[0] as string) : undefined;
+
+          if (datePosted !== undefined && datePosted !== null && typeof datePosted !== 'string') {
+            continue;
+          }
 
           if (!postUrl) continue;
 
@@ -147,6 +155,8 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
             postUrl,
             publishedAt: publishedAtStr,
             ...(imageUrl && { imageUrl }),
+            ...(videoUrl && { videoUrl }),
+            originalPostUrl: postUrl,
           };
 
           if (!validateScrapedPost(candidate)) {
@@ -159,6 +169,8 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
             platform: profile.platform,
             postUrl: candidate.postUrl,
             imageUrl: candidate.imageUrl || null,
+            videoUrl: candidate.videoUrl || null,
+            originalPostUrl: candidate.originalPostUrl || null,
             content: candidate.content,
             publishedAt: candidate.publishedAt,
             locationName: candidate.locationName || null,
