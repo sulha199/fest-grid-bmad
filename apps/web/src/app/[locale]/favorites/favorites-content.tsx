@@ -8,6 +8,7 @@ import {
   useInfiniteScroll,
   EventDiscoveryPanel,
   PageContainer,
+  ViewModeToggle,
 } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
@@ -20,7 +21,7 @@ import {
 } from "@/generated/graphql"
 import { toast } from "sonner"
 import { graphqlClient } from "@/lib/graphql-client"
-import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs"
+import { useQueryState, parseAsString, parseAsArrayOf, parseAsStringLiteral } from "nuqs"
 import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
@@ -80,6 +81,11 @@ export function FavoritesContent() {
   const [q, setQ] = useQueryState("q", parseAsString.withDefault(""))
   const [types] = useQueryState("types", parseAsArrayOf(parseAsString).withDefault([]))
   const [categories] = useQueryState("categories", parseAsArrayOf(parseAsString).withDefault([]))
+  const [layout, setLayout] = useQueryState(
+    "layout",
+    parseAsStringLiteral(["list", "masonry"]).withDefault("list")
+  )
+  const [liveMessage, setLiveMessage] = useState("")
   const posthog = usePostHog()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -87,6 +93,14 @@ export function FavoritesContent() {
   const [unfavoritedIds, setUnfavoritedIds] = useState<Set<string>>(new Set())
   const { mutateAsync: toggleFavoriteAsync } = useToggleFavoriteMutation(graphqlClient)
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (layout) {
+      const layoutLabel = layout === 'masonry' ? t('layoutSwitcherMasonryLabel') : t('layoutSwitcherListLabel')
+      setLiveMessage(t('layoutSwitcherAnnouncement', { layout: layoutLabel }))
+      posthog.capture('layout_switched', { layout })
+    }
+  }, [layout, t, posthog])
 
   const categoryLabels = useMemo(
     () => buildEnumLabels(Object.values(EventCategory), tCategory),
@@ -325,8 +339,20 @@ export function FavoritesContent() {
             id: "card",
             label: "Card View",
             content: (
-              <EventListView
-                status={listStatus}
+              <div className="flex flex-col gap-4">
+                <div className="flex justify-end">
+                  <ViewModeToggle
+                    viewMode={layout}
+                    onViewModeChange={setLayout}
+                    labels={{
+                      list: t('layoutSwitcherListLabel'),
+                      masonry: t('layoutSwitcherMasonryLabel'),
+                    }}
+                  />
+                </div>
+                <EventListView
+                  viewMode={layout}
+                  status={listStatus}
                 events={events}
                 errorMessage={t("errorState")}
                 errorDetail={idSnapshotError?.message || error?.message || "Unknown error"}
@@ -461,10 +487,15 @@ export function FavoritesContent() {
                 isFetchingNextPage={isFetchingNextPage}
                 loadingMoreLabel={t("loadingMore")}
               />
+              </div>
             )
           }
         ]}
       />
+
+      <div aria-live="polite" className="sr-only">
+        {liveMessage}
+      </div>
     </PageContainer>
   )
 }
