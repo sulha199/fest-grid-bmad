@@ -6,7 +6,7 @@ import { usePathname, useRouter, Link } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuthSession } from '@/components/providers/auth-session-provider';
 import { AppShell, NavKey } from '@festgrid/ui';
-import { useMeQuery } from '@/generated/graphql';
+import { useMeQuery, useModeratorPendingItemCountQuery } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { useHasApiKey } from '@/features/onboarding/use-has-api-key';
 
@@ -32,6 +32,15 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
     enabled: isAuthenticated,
   });
   const role = meData?.me?.role || undefined;
+  const isModerator = role?.toLowerCase() === 'moderator';
+
+  // Kept reasonably current, not instantaneous (PRD Section 3.9.3) -- a 60s poll rather than a
+  // push mechanism, matching this app's lack of any existing realtime/subscription plumbing.
+  const { data: pendingItemData } = useModeratorPendingItemCountQuery(graphqlClient, undefined, {
+    enabled: isAuthenticated && isModerator,
+    refetchInterval: 60_000,
+  });
+  const moderatorPendingItemCount = pendingItemData?.moderatorPendingItemCount ?? 0;
 
   React.useEffect(() => {
     router.prefetch(`/events/${MODAL_PREFETCH_WARMUP_SLUG}`);
@@ -68,6 +77,7 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
       renderLink={Link}
       labels={labels}
       role={role}
+      moderatorPendingItemCount={moderatorPendingItemCount}
       onSignOut={signOut}
       userMenuLabels={userMenuLabels}
       resolveHref={(entry) => (entry.requiresApiKey && !hasApiKey ? `/wizard/onboarding/api-key?redirect=${encodeURIComponent(entry.href || '/')}` : entry.href || '/')}

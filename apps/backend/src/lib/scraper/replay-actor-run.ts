@@ -117,6 +117,7 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
             locationName: post.locationName || null,
             ownerDisplayName: post.ownerDisplayName || null,
             ownerUsername: post.ownerUsername || null,
+            hashtags: post.hashtags || null,
           });
 
           if (!result.alreadyExisted) {

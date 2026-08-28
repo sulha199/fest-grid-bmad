@@ -55,6 +55,7 @@ interface ApifyPostItem {
   locationName?: string;
   ownerFullName?: string;
   ownerUsername?: string;
+  hashtags?: string[];
 }
 
 // Raw profile item from Apify
@@ -227,6 +228,11 @@ export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost 
     ...(item.locationName && { locationName: item.locationName }),
     ...(item.ownerFullName && { ownerDisplayName: item.ownerFullName }),
     ...(item.ownerUsername && { ownerUsername: item.ownerUsername }),
+    // Lowercased for case-insensitive exact-match hashtag search (Sections 3.1/3.7) -- a hashtag
+    // is functionally the same regardless of how a user or the source post cased it.
+    ...(Array.isArray(item.hashtags) && item.hashtags.length > 0 && {
+      hashtags: item.hashtags.map((tag: string) => tag.toLowerCase()),
+    }),
   };
 
   const isValid = validateScrapedPost(candidate);

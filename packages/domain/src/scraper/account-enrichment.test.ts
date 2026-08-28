@@ -82,11 +82,26 @@ test("buildLocationInferenceRequest: returns null when both are empty", () => {
   assert.equal(req2, null);
 });
 
-test("parseLocationInferenceResponse: returns trimmed description when locationFound is true and description is non-empty", () => {
-  const rawText = JSON.stringify({ locationFound: true, placeDescription: "  Madison Square Garden  " });
-  const place = parseLocationInferenceResponse(rawText);
+test("parseLocationInferenceResponse: returns trimmed description and confidence when locationFound is true and description is non-empty", () => {
+  const rawText = JSON.stringify({ locationFound: true, placeDescription: "  Madison Square Garden  ", confidence: 0.85 });
+  const result = parseLocationInferenceResponse(rawText);
 
-  assert.equal(place, "Madison Square Garden");
+  assert.deepEqual(result, { placeDescription: "Madison Square Garden", confidence: 0.85 });
+});
+
+test("parseLocationInferenceResponse: defaults confidence to 0 when the model omits it", () => {
+  const rawText = JSON.stringify({ locationFound: true, placeDescription: "Madison Square Garden" });
+  const result = parseLocationInferenceResponse(rawText);
+
+  assert.deepEqual(result, { placeDescription: "Madison Square Garden", confidence: 0 });
+});
+
+test("parseLocationInferenceResponse: clamps an out-of-range confidence to [0, 1]", () => {
+  const over = parseLocationInferenceResponse(JSON.stringify({ locationFound: true, placeDescription: "X", confidence: 1.5 }));
+  const under = parseLocationInferenceResponse(JSON.stringify({ locationFound: true, placeDescription: "X", confidence: -0.2 }));
+
+  assert.equal(over?.confidence, 1);
+  assert.equal(under?.confidence, 0);
 });
 
 test("parseLocationInferenceResponse: returns null when locationFound is false", () => {

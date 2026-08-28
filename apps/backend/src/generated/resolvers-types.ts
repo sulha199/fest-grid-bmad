@@ -137,6 +137,8 @@ export type CreateWidgetInput = {
 
 export type DefaultLocationChangeAction =
   | 'ACCEPT'
+  | 'APPROVE'
+  | 'REJECT'
   | 'REVERT';
 
 export type DefaultLocationChangeRequest = {
@@ -145,6 +147,7 @@ export type DefaultLocationChangeRequest = {
   accountId: Scalars['ID']['output'];
   changeSource: DefaultLocationChangeSource;
   changedByUserId?: Maybe<Scalars['ID']['output']>;
+  confidenceScore?: Maybe<Scalars['Float']['output']>;
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   newLocation: LocationDetails;
@@ -156,7 +159,9 @@ export type DefaultLocationChangeRequest = {
 
 export type DefaultLocationChangeRequestStatus =
   | 'ACCEPTED'
+  | 'AWAITING_APPROVAL'
   | 'PENDING_REVIEW'
+  | 'REJECTED'
   | 'REVERTED'
   | 'SUPERSEDED';
 
@@ -660,6 +665,16 @@ export type Query = {
   health: Scalars['Boolean']['output'];
   isOriginAllowedForWidget: Scalars['Boolean']['output'];
   me: Me;
+  /**
+   * Combined count of items awaiting moderator action across Moderator Items
+   * (Section 3.9.3): pending Reports plus Default Location changes in
+   * PENDING_REVIEW or AWAITING_APPROVAL status (Section 3.7/4.14). Powers the
+   * Moderator Pending-Item Badge (added 2026-08-28). Moderator-gated like every
+   * other Moderator Items query -- the frontend must already know to only call
+   * this for a moderator (the same `me.role` check that gates the nav entry
+   * itself, Story 0.7/2.8), not rely on this query to answer that question.
+   */
+  moderatorPendingItemCount: Scalars['Int']['output'];
   myApiKeys: Array<ApiKey>;
   myExtractionQuota: ExtractionQuota;
   myLocations: Array<UserLocation>;
@@ -1376,6 +1391,7 @@ export type DefaultLocationChangeRequestResolvers<ContextType = GraphQLContext, 
   accountId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   changeSource?: Resolver<ResolversTypes['DefaultLocationChangeSource'], ParentType, ContextType>;
   changedByUserId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  confidenceScore?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   newLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType>;
@@ -1590,6 +1606,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   health?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isOriginAllowedForWidget?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryIsOriginAllowedForWidgetArgs, 'origin' | 'widgetId'>>;
   me?: Resolver<ResolversTypes['Me'], ParentType, ContextType>;
+  moderatorPendingItemCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   myApiKeys?: Resolver<Array<ResolversTypes['ApiKey']>, ParentType, ContextType>;
   myExtractionQuota?: Resolver<ResolversTypes['ExtractionQuota'], ParentType, ContextType>;
   myLocations?: Resolver<Array<ResolversTypes['UserLocation']>, ParentType, ContextType>;

@@ -152,6 +152,8 @@ export type CreateWidgetInput = {
 
 export enum DefaultLocationChangeAction {
   Accept = 'ACCEPT',
+  Approve = 'APPROVE',
+  Reject = 'REJECT',
   Revert = 'REVERT'
 }
 
@@ -161,6 +163,7 @@ export type DefaultLocationChangeRequest = {
   accountId: Scalars['ID']['output'];
   changeSource: DefaultLocationChangeSource;
   changedByUserId?: Maybe<Scalars['ID']['output']>;
+  confidenceScore?: Maybe<Scalars['Float']['output']>;
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   newLocation: LocationDetails;
@@ -172,7 +175,9 @@ export type DefaultLocationChangeRequest = {
 
 export enum DefaultLocationChangeRequestStatus {
   Accepted = 'ACCEPTED',
+  AwaitingApproval = 'AWAITING_APPROVAL',
   PendingReview = 'PENDING_REVIEW',
+  Rejected = 'REJECTED',
   Reverted = 'REVERTED',
   Superseded = 'SUPERSEDED'
 }
@@ -676,6 +681,16 @@ export type Query = {
   health: Scalars['Boolean']['output'];
   isOriginAllowedForWidget: Scalars['Boolean']['output'];
   me: Me;
+  /**
+   * Combined count of items awaiting moderator action across Moderator Items
+   * (Section 3.9.3): pending Reports plus Default Location changes in
+   * PENDING_REVIEW or AWAITING_APPROVAL status (Section 3.7/4.14). Powers the
+   * Moderator Pending-Item Badge (added 2026-08-28). Moderator-gated like every
+   * other Moderator Items query -- the frontend must already know to only call
+   * this for a moderator (the same `me.role` check that gates the nav entry
+   * itself, Story 0.7/2.8), not rely on this query to answer that question.
+   */
+  moderatorPendingItemCount: Scalars['Int']['output'];
   myApiKeys: Array<ApiKey>;
   myExtractionQuota: ExtractionQuota;
   myLocations: Array<UserLocation>;
@@ -1144,6 +1159,11 @@ export type ReplayActorRunMutationVariables = Exact<{
 
 
 export type ReplayActorRunMutation = { replayActorRun: { success: boolean, postsPersisted: number, message: string } };
+
+export type ModeratorPendingItemCountQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ModeratorPendingItemCountQuery = { moderatorPendingItemCount: number };
 
 export type GetSocialMediaAccountProfileByAccountIdQueryVariables = Exact<{
   platform: string;
@@ -1687,6 +1707,30 @@ export const useReplayActorRunMutation = <
       {
     mutationKey: ['replayActorRun'],
     mutationFn: (variables?: ReplayActorRunMutationVariables) => fetcher<ReplayActorRunMutation, ReplayActorRunMutationVariables>(client, ReplayActorRunDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const ModeratorPendingItemCountDocument = new TypedDocumentString(`
+    query moderatorPendingItemCount {
+  moderatorPendingItemCount
+}
+    `);
+
+export const useModeratorPendingItemCountQuery = <
+      TData = ModeratorPendingItemCountQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: ModeratorPendingItemCountQueryVariables,
+      options?: Omit<UseQueryOptions<ModeratorPendingItemCountQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ModeratorPendingItemCountQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ModeratorPendingItemCountQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['moderatorPendingItemCount'] : ['moderatorPendingItemCount', variables],
+    queryFn: fetcher<ModeratorPendingItemCountQuery, ModeratorPendingItemCountQueryVariables>(client, ModeratorPendingItemCountDocument, variables, headers),
     ...options
   }
     )};

@@ -1,9 +1,11 @@
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, defaultLocationChangeRequests, users } from '@festgrid/database';
-import { eq, and, ne, isNull } from 'drizzle-orm';
+import { eq, and, ne, isNull, inArray } from 'drizzle-orm';
 import { sendTemplatedEmail } from '../email/adapter.js';
 import { loadBackendEnv } from '../../env.js';
 import { LocationDetails } from '@festgrid/shared-types';
+
+const OPEN_STATUSES = ['PENDING_REVIEW', 'AWAITING_APPROVAL'] as const;
 
 export async function applyDefaultLocationChange(params: {
   accountId: string;
@@ -11,20 +13,57 @@ export async function applyDefaultLocationChange(params: {
   previousLocation: LocationDetails | null;
   changedByUserId: string | null;
   changeSource: 'USER' | 'AI_INFERENCE' | 'MODERATOR';
+  /** Only meaningful when changeSource is 'AI_INFERENCE'; gates immediate-apply vs AWAITING_APPROVAL. */
+  confidenceScore?: number;
   accountDisplayName: string;
   onlyIfCurrentlyNull?: boolean;
-}): Promise<{ applied: boolean }> {
+}): Promise<{ applied: boolean; awaitingApproval?: boolean }> {
   const {
     accountId,
     newLocation,
     previousLocation,
     changedByUserId,
     changeSource,
+    confidenceScore,
     accountDisplayName,
     onlyIfCurrentlyNull = false,
   } = params;
 
+  const requiresApproval =
+    changeSource === 'AI_INFERENCE' &&
+    typeof confidenceScore === 'number' &&
+    confidenceScore < loadBackendEnv().locationInferenceConfidenceThreshold;
+
   const result = await db.transaction(async (tx) => {
+    if (requiresApproval) {
+      // Low-confidence AI inference: never touches socialMediaAccountProfiles.defaultLocation.
+      // The account keeps whatever it had (unset or a prior value) until a moderator decides.
+      const insertedRequests = await tx.insert(defaultLocationChangeRequests).values({
+        accountId,
+        changedByUserId,
+        previousLocation,
+        newLocation,
+        status: 'AWAITING_APPROVAL' as any,
+        changeSource: changeSource as any,
+        confidenceScore,
+      }).returning({ id: defaultLocationChangeRequests.id });
+
+      const insertedId = insertedRequests[0]?.id;
+      if (insertedId) {
+        await tx.update(defaultLocationChangeRequests)
+          .set({ status: 'SUPERSEDED' as any })
+          .where(
+            and(
+              eq(defaultLocationChangeRequests.accountId, accountId),
+              inArray(defaultLocationChangeRequests.status, [...OPEN_STATUSES]),
+              ne(defaultLocationChangeRequests.id, insertedId)
+            )
+          );
+      }
+
+      return { applied: false, awaitingApproval: true };
+    }
+
     const condition = onlyIfCurrentlyNull
       ? and(
           eq(socialMediaAccountProfiles.id, accountId),
@@ -53,6 +92,7 @@ export async function applyDefaultLocationChange(params: {
       newLocation,
       status: requestStatus as any,
       changeSource: changeSource as any,
+      confidenceScore,
       reviewedByModeratorId: isModerator ? changedByUserId : null,
       reviewedAt: isModerator ? new Date() : null,
     }).returning({ id: defaultLocationChangeRequests.id });
@@ -65,7 +105,7 @@ export async function applyDefaultLocationChange(params: {
         .where(
           and(
             eq(defaultLocationChangeRequests.accountId, accountId),
-            eq(defaultLocationChangeRequests.status, 'PENDING_REVIEW' as any),
+            inArray(defaultLocationChangeRequests.status, [...OPEN_STATUSES]),
             ne(defaultLocationChangeRequests.id, insertedId)
           )
         );
@@ -73,6 +113,13 @@ export async function applyDefaultLocationChange(params: {
 
     return { applied: true };
   });
+
+  if (result.awaitingApproval) {
+    // TODO(2026-08-28): notify moderators of a pending AWAITING_APPROVAL item the same way the
+    // block below does for an already-applied change -- deferred, tracked alongside the
+    // Moderator Pending-Item Badge work (PRD Section 3.9.3) rather than duplicated here.
+    return result;
+  }
 
   if (!result.applied) {
     return { applied: false };

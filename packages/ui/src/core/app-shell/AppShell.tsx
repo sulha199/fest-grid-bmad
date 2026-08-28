@@ -10,6 +10,7 @@ import { NavRailItem } from './NavRailItem';
 export type NavKey = 'discover' | 'feed' | 'favorites' | 'calendar' | 'login';
 
 import { UserMenu } from './UserMenu';
+import { CountBadge } from '../count-badge';
 
 export interface AppShellProps {
   children: ReactNode;
@@ -27,6 +28,8 @@ export interface AppShellProps {
   }>;
   labels: Record<NavKey, string>;
   role?: string;
+  /** Combined pending-item count (PRD Section 3.9.3) -- badges the avatar when closed, and the "Moderator Items" entry when open. */
+  moderatorPendingItemCount?: number;
   onSignOut?: () => void;
   userMenuLabels?: Record<string, string>;
   resolveHref?: (entry: import('./profile-menu-entries').ProfileMenuEntry) => string;
@@ -42,6 +45,7 @@ export function AppShell({
   renderLink,
   labels,
   role,
+  moderatorPendingItemCount = 0,
   onSignOut,
   userMenuLabels,
   resolveHref,
@@ -59,13 +63,25 @@ export function AppShell({
   };
 
   // Determine Profile icon
-  const profileIcon = isAuthenticated && avatarUrl ? (
+  const bareProfileIcon = isAuthenticated && avatarUrl ? (
     <img src={avatarUrl} alt="" referrerPolicy="no-referrer" className="h-5 w-5 rounded-full object-cover" />
   ) : isAuthenticated ? (
     <UserCircle className="h-5 w-5" />
   ) : (
     <LogIn className="h-5 w-5" />
   );
+
+  // Badges the avatar only while the menu is closed (PRD Section 3.9.3) -- once open, the count
+  // moves to sit next to the "Moderator Items" entry itself (UserMenu), never shown in both places.
+  const profileIcon = moderatorPendingItemCount > 0 && !isOpen ? (
+    <span className="relative inline-flex">
+      {bareProfileIcon}
+      <CountBadge
+        count={moderatorPendingItemCount}
+        className="absolute -top-1 -end-1"
+      />
+    </span>
+  ) : bareProfileIcon;
 
   // Determine Profile label
   const profileLabel = isAuthenticated ? (displayName || 'User') : labels.login;
@@ -132,6 +148,7 @@ export function AppShell({
           avatarUrl={avatarUrl}
           displayName={displayName}
           role={role}
+          moderatorPendingItemCount={moderatorPendingItemCount}
           onSignOut={onSignOut || (() => {})}
           renderLink={renderLink}
           labels={userMenuLabels || {}}

@@ -147,7 +147,7 @@ export const resolvers: Resolvers = {
         .where(
           and(
             eq(defaultLocationChangeRequests.accountId, parent.id),
-            eq(defaultLocationChangeRequests.status, "PENDING_REVIEW")
+            inArray(defaultLocationChangeRequests.status, ['PENDING_REVIEW', 'AWAITING_APPROVAL'])
           )
         )
         .limit(1);
@@ -1451,8 +1451,19 @@ export const resolvers: Resolvers = {
         });
       }
 
-      if (reqRow.status !== 'PENDING_REVIEW') {
+      if (reqRow.status !== 'PENDING_REVIEW' && reqRow.status !== 'AWAITING_APPROVAL') {
         throw new GraphQLError('DefaultLocationChangeRequest is already resolved', {
+          extensions: { code: 'INVALID_STATE_TRANSITION' },
+        });
+      }
+
+      if (reqRow.status === 'AWAITING_APPROVAL' && action !== 'APPROVE' && action !== 'REJECT') {
+        throw new GraphQLError('An AWAITING_APPROVAL request must be APPROVEd or REJECTed, not ACCEPTed/REVERTed', {
+          extensions: { code: 'INVALID_STATE_TRANSITION' },
+        });
+      }
+      if (reqRow.status === 'PENDING_REVIEW' && (action === 'APPROVE' || action === 'REJECT')) {
+        throw new GraphQLError('A PENDING_REVIEW request must be ACCEPTed or REVERTed, not APPROVEd/REJECTed', {
           extensions: { code: 'INVALID_STATE_TRANSITION' },
         });
       }
@@ -1484,6 +1495,49 @@ export const resolvers: Resolvers = {
           const [updated] = await tx.update(defaultLocationChangeRequests)
             .set({
               status: 'REVERTED',
+              reviewedByModeratorId: moderator.userId,
+              reviewedAt: new Date(),
+            })
+            .where(eq(defaultLocationChangeRequests.id, id))
+            .returning();
+          return updated;
+        } else if (action === 'APPROVE') {
+          // AWAITING_APPROVAL -> ACCEPTED is the one transition that actually applies newLocation
+          // for the first time (PENDING_REVIEW's ACCEPTED above just keeps an already-applied value).
+          await tx.update(socialMediaAccountProfiles)
+            .set({ defaultLocation: reqRow.newLocation })
+            .where(
+              and(
+                eq(socialMediaAccountProfiles.id, reqRow.accountId),
+                isNull(socialMediaAccountProfiles.defaultLocation)
+              )
+            );
+
+          const [updated] = await tx.update(defaultLocationChangeRequests)
+            .set({
+              status: 'ACCEPTED',
+              reviewedByModeratorId: moderator.userId,
+              reviewedAt: new Date(),
+            })
+            .where(eq(defaultLocationChangeRequests.id, id))
+            .returning();
+
+          await tx.update(defaultLocationChangeRequests)
+            .set({ status: 'SUPERSEDED' })
+            .where(
+              and(
+                eq(defaultLocationChangeRequests.accountId, reqRow.accountId),
+                inArray(defaultLocationChangeRequests.status, ['PENDING_REVIEW', 'AWAITING_APPROVAL']),
+                ne(defaultLocationChangeRequests.id, id)
+              )
+            );
+
+          return updated;
+        } else if (action === 'REJECT') {
+          // Never applied -- socialMediaAccountProfiles.defaultLocation is untouched.
+          const [updated] = await tx.update(defaultLocationChangeRequests)
+            .set({
+              status: 'REJECTED',
               reviewedByModeratorId: moderator.userId,
               reviewedAt: new Date(),
             })
@@ -1945,11 +1999,23 @@ export const resolvers: Resolvers = {
         resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
       }));
     },
+    moderatorPendingItemCount: async (_: any, __: any, context: any): Promise<number> => {
+      requireModerator(context);
+      const [[{ pendingReportCount }], [{ pendingLocationChangeCount }]] = await Promise.all([
+        db.select({ pendingReportCount: count() })
+          .from(reports)
+          .where(eq(reports.status, 'pending')),
+        db.select({ pendingLocationChangeCount: count() })
+          .from(defaultLocationChangeRequests)
+          .where(inArray(defaultLocationChangeRequests.status, ['PENDING_REVIEW', 'AWAITING_APPROVAL'])),
+      ]);
+      return Number(pendingReportCount) + Number(pendingLocationChangeCount);
+    },
     pendingDefaultLocationChanges: async (_: any, __: any, context: any): Promise<any> => {
       requireModerator(context);
       const rows = await db.select()
         .from(defaultLocationChangeRequests)
-        .where(eq(defaultLocationChangeRequests.status, 'PENDING_REVIEW'))
+        .where(inArray(defaultLocationChangeRequests.status, ['PENDING_REVIEW', 'AWAITING_APPROVAL']))
         .orderBy(asc(defaultLocationChangeRequests.createdAt));
 
       return rows.map((r) => ({
@@ -2439,6 +2505,7 @@ export const resolvers: Resolvers = {
         sourceSocialMediaAccountId: events.sourceSocialMediaAccountId,
         postId: events.postId,
         socialMediaAccountProfileId: posts.accountId,
+        hashtags: posts.hashtags, // mapped to joined table, #-prefixed search (added 2026-08-28)
         performers: schedules.performers, // mapped to joined table
         scheduleLocation: schedules.location, // to support filtering by schedule location
         scheduleCoordinates: { latColumn: schedules.latitude, lngColumn: schedules.longitude },

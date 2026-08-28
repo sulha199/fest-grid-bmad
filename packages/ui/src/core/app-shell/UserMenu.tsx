@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { LogOut, X } from 'lucide-react';
 import { profileMenuEntries, ProfileMenuEntry } from './profile-menu-entries';
+import { CountBadge } from '../count-badge';
 
 export interface UserMenuProps {
   isOpen: boolean;
@@ -11,6 +12,8 @@ export interface UserMenuProps {
   avatarUrl?: string;
   displayName?: string;
   role?: string;
+  /** Combined pending-item count (PRD Section 3.9.3), shown next to "Moderator Items" only. */
+  moderatorPendingItemCount?: number;
   onSignOut: () => void;
   renderLink: React.ComponentType<{
     href: string;
@@ -30,6 +33,7 @@ export function UserMenu({
   avatarUrl,
   displayName,
   role,
+  moderatorPendingItemCount = 0,
   onSignOut,
   renderLink: Link,
   labels,
@@ -162,7 +166,10 @@ export function UserMenu({
                     <Icon
                       className="h-4 w-4 text-muted-foreground"
                     />
-                    <span>{labels[entry.labelKey] || entry.labelKey}</span>
+                    <span className="flex-1">{labels[entry.labelKey] || entry.labelKey}</span>
+                    {entry.id === 'moderator-items' && (
+                      <CountBadge count={moderatorPendingItemCount} />
+                    )}
                   </Link>
                 </li>
               </React.Fragment>

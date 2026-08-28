@@ -19,13 +19,22 @@ export function buildEventsQueryCondition({
 }: BuildEventsQueryConditionInput): QueryCondition | undefined {
   const conditions: QueryCondition[] = [];
 
-  if (search.trim()) {
+  const trimmedSearch = search.trim();
+  if (trimmedSearch.startsWith('#')) {
+    // Hashtag mode: exact match against a post's hashtags, not a substring match against
+    // event-name/performers/location (Sections 3.1, 3.7, added 2026-08-28). Lowercased to match
+    // the case-insensitive normalization hashtags are stored with.
+    const hashtag = trimmedSearch.slice(1).trim().toLowerCase();
+    if (hashtag) {
+      conditions.push({ field: 'hashtags', operator: 'in', value: [hashtag] });
+    }
+  } else if (trimmedSearch) {
     conditions.push({
       operator: 'or',
       conditions: [
-        { field: 'eventName', operator: 'contains', value: search },
-        { field: 'performers', operator: 'contains', value: search },
-        { field: 'location', operator: 'contains', value: search },
+        { field: 'eventName', operator: 'contains', value: trimmedSearch },
+        { field: 'performers', operator: 'contains', value: trimmedSearch },
+        { field: 'location', operator: 'contains', value: trimmedSearch },
       ],
     });
   }

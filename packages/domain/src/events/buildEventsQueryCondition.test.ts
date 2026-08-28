@@ -35,6 +35,31 @@ describe('buildEventsQueryCondition', () => {
     });
   });
 
+  it('routes a #-prefixed search to an exact hashtag match instead of the name/performers/location OR-group', () => {
+    const result = buildEventsQueryCondition({
+      search: '#JogjaEvent',
+      types: [],
+      categories: [],
+    });
+
+    assert.deepEqual(result, {
+      operator: 'and',
+      conditions: [
+        { field: 'hashtags', operator: 'in', value: ['jogjaevent'] },
+      ],
+    });
+  });
+
+  it('treats a bare "#" with nothing after it as no search filter', () => {
+    const result = buildEventsQueryCondition({
+      search: '#',
+      types: [],
+      categories: [],
+    });
+
+    assert.equal(result, undefined);
+  });
+
   it('builds in-conditions for types and categories', () => {
     const result = buildEventsQueryCondition({
       search: '',

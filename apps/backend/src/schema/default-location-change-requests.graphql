@@ -1,6 +1,8 @@
 enum DefaultLocationChangeRequestStatus {
+  AWAITING_APPROVAL # not yet applied -- a low-confidence AI inference awaiting a moderator decision (added 2026-08-28)
   PENDING_REVIEW
   ACCEPTED
+  REJECTED # a moderator rejected an AWAITING_APPROVAL request -- never applied, distinct from REVERTED (added 2026-08-28)
   REVERTED
   SUPERSEDED
 }
@@ -8,6 +10,8 @@ enum DefaultLocationChangeRequestStatus {
 enum DefaultLocationChangeAction {
   ACCEPT
   REVERT
+  APPROVE # for an AWAITING_APPROVAL request: applies newLocation (added 2026-08-28)
+  REJECT  # for an AWAITING_APPROVAL request: discards without ever applying (added 2026-08-28)
 }
 
 enum DefaultLocationChangeSource {
@@ -25,6 +29,7 @@ type DefaultLocationChangeRequest {
   status: DefaultLocationChangeRequestStatus!
   changedByUserId: ID
   changeSource: DefaultLocationChangeSource!
+  confidenceScore: Float
   createdAt: String!
   reviewedByModeratorId: ID
   reviewedAt: String

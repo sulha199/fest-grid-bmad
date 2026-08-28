@@ -33,6 +33,7 @@ export async function processApifyAsyncResult(
         locationName: post.locationName || null,
         ownerDisplayName: post.ownerDisplayName || null,
         ownerUsername: post.ownerUsername || null,
+        hashtags: post.hashtags || null,
       });
     } catch (error) {
       console.error(`Failed to persist post from Apify item: ${item?.postUrl || item?.url}`, error);

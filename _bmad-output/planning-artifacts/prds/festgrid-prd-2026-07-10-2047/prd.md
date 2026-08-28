@@ -29,7 +29,7 @@ This document outlines the product requirements for FestDaily, a platform design
 ### 3.1 Event Discovery
 
 *   **Curated Listings:** Display a curated selection of local events.
-*   **Search and Filter (FilterHub):** A free-text search bar will allow users to search by event-name, performers, and location name, using partial matching for performance. Users can also filter events by type and category. This filter bar is referred to elsewhere in this document as "FilterHub." See Section 3.15 for a free-text, AI prompt-based alternative to operating it manually.
+*   **Search and Filter (FilterHub):** A free-text search bar will allow users to search by event-name, performers, and location name, using partial matching for performance. Users can also filter events by type and category. This filter bar is referred to elsewhere in this document as "FilterHub." When a search phrase starts with `#`, it matches exactly against a post's hashtags (Section 4.7) instead of event-name/performers/location — e.g. `#jogjaevent` matches the literal hashtag, not a substring. Hashtag search combines with type/category filters the same way normal search does (added 2026-08-28). See Section 3.15 for a free-text, AI prompt-based alternative to operating it manually.
 *   **Default View:** By default, the event discovery page will only display ongoing and upcoming events.
 
 ### 3.2 Personalization Features
@@ -71,8 +71,8 @@ This feature allows users to curate their event feed by subscribing to specific 
 *   **Account Subscription:** Users can subscribe to desired social media accounts by providing their own Gemini API Key (BYOK). Event data from these subscribed accounts will be processed by an AI agent to extract event details. For accounts subscribed to by multiple users, the system will intelligently utilize any valid API key from contributing users to optimize data extraction and distribute quota usage.
     *   **Default Location for Subscriptions:** To handle cases where an event's location is implicit (e.g., an event at a mall posted on the mall's social media), users can optionally set a "Default Location" when subscribing to an account. If the AI agent does not find an explicit location in a post, it will use this default location for the event.
         *   **Shared, Account-Level Setting:** A "Default Location" belongs to the social media account, not to an individual subscriber — because AI extraction runs once per post for accounts with multiple subscribers, a per-subscriber default would be ambiguous about which value applies to the resulting event. Any subscriber may set it if unset.
-        *   **Immediate Apply with Moderator Oversight:** Editing a "Default Location" takes effect immediately, with no pre-approval gate — extraction is not blocked waiting on review. When a change is made, moderators are notified by email and can, from Moderator Tools (Section 3.9.3), accept the change or revert the account to its previous default location.
-        *   **AI-Assisted Location Inference (added 2026-08-24):** If a "Default Location" is still unset when a post is scraped, the system infers one automatically rather than leaving the account without a fallback. The AI agent is given only the post's own scraped metadata (its caption and any location name attached to the post itself) — never a subscriber's saved location preference (Section 3.3), which exists for a different, already-consented purpose (finding nearby events) and must not be repurposed to label an account, per the Location Data Reuse Boundary (Section 5). The agent's inferred place description is then resolved into full location details (coordinates, formatted address) via the standard geolocation lookup, and the result is written to "Default Location" exactly as a human edit would be — going through the same immediate-apply-with-moderator-oversight flow above, so moderators review an AI-inferred value the same way they review a human one. Which of the two produced a given change is recorded (Section 4.14) so moderators can tell them apart.
+        *   **Immediate Apply with Moderator Oversight:** Editing a "Default Location" takes effect immediately, with no pre-approval gate — extraction is not blocked waiting on review. When a change is made, moderators are notified by email and can, from Moderator Tools (Section 3.9.3), accept the change or revert the account to its previous default location. This is the default posture for a human edit and for a high-confidence AI inference (see below); a low-confidence AI inference instead requires moderator pre-approval before it applies.
+        *   **AI-Assisted Location Inference (added 2026-08-24; confidence gate added 2026-08-28):** If a "Default Location" is still unset when a post is scraped, the system infers one automatically rather than leaving the account without a fallback. The AI agent is given only the post's own scraped metadata (its caption and any location name attached to the post itself) — never a subscriber's saved location preference (Section 3.3), which exists for a different, already-consented purpose (finding nearby events) and must not be repurposed to label an account, per the Location Data Reuse Boundary (Section 5). The agent's inferred place description is then resolved into full location details (coordinates, formatted address) via the standard geolocation lookup. The inference call also returns a confidence score (0.0–1.0, same scale as `EventInfo.confidenceScore`, Section 4.1). When the score meets or exceeds `LOCATION_INFERENCE_CONFIDENCE_THRESHOLD` (default `0.5`, environment-variable configurable), the result is written to "Default Location" immediately, going through the same immediate-apply-with-moderator-oversight flow above. When the score falls below the threshold, the inferred value is **not** applied — it is held as an `AWAITING_APPROVAL` request (Section 4.14) that a moderator must explicitly approve or reject from Moderator Tools (Section 3.9.3) before it ever reaches `SocialMediaAccountProfile.defaultLocation`; the account's Default Location stays unset (or keeps its prior value) in the meantime, so extraction never runs against an unvetted guess. Which of the two produced a given change, and whether it required pre-approval, is recorded (Section 4.14) so moderators can tell them apart.
         *   **Key Used for Inference (added 2026-08-24):** This inference call prefers a contributing subscriber's own BYOK Gemini key (the same fairness/rotation approach as regular extraction, above). Only when no subscriber of the account has a usable key does the system fall back to a platform-funded key, held centrally for this purpose. This system key is used exclusively for default-location inference on accounts with no subscriber-contributed key; it does not extend to general post-extraction processing, which remains BYOK-only until the managed-key-pool phase of the platform's rollout (Section 6).
         *   **Moderator Override (added 2026-08-24):** A moderator reviewing a pending change is not limited to accepting or reverting it as-is — they may also set "Default Location" directly to a corrected value, using the same mechanism a subscriber uses. This closes a gap the AI-inference feature above makes routine: reverting a wrong AI guess only blanks the value (Section 3.9.3), it does not let a moderator supply the value that should have been inferred. A moderator-sourced change requires no further review — the moderator's own edit *is* the review — and is recorded with `changeSource: MODERATOR` (Section 4.14). Setting a new value this way, by a subscriber or a moderator, automatically supersedes any other still-pending `DefaultLocationChangeRequest` for that account, since an earlier pending record's captured before/after values are no longer accurate once a later edit has overtaken it.
 *   **Account Profile Backfill from Scraped Posts (added 2026-08-24):** Every scraped post also carries the publishing account's own profile information (its current display name and username). When this differs from what is stored, the system updates the account's stored profile to match — keeping subscriber-facing account details current without requiring a subscriber to notice and re-enter them.
@@ -80,7 +80,7 @@ This feature allows users to curate their event feed by subscribing to specific 
 *   **Email Notifications:** Users will receive email notifications if `X` of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
 *   **In-App Queue Status:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user, providing transparency on API key performance and quota impact.
 
-> **Note:** The thresholds for notifications and event cancellation are configurable via environment variables. The default values are: `X=3` (posts) and `Y=3` (days) for queue notifications; `N=5` (attempts) for invalid API key notifications; and 3 users reporting within 7 days for event cancellation.
+> **Note:** The thresholds for notifications and event cancellation are configurable via environment variables. The default values are: `X=3` (posts) and `Y=3` (days) for queue notifications; `N=5` (attempts) for invalid API key notifications; 3 users reporting within 7 days for event cancellation; and `LOCATION_INFERENCE_CONFIDENCE_THRESHOLD=0.5` (score 0.0–1.0) for gating low-confidence AI-inferred Default Location changes to pre-approval.
 
 *   **Quota Management Algorithm:** To maximize the number of processed requests and ensure fairness, the following algorithm will be implemented:
     *   **Internal Quota Tracking:** The system will internally track the usage of each API key to inform the fairness algorithm. This tracking will be reset at the beginning of each billing cycle.
@@ -96,7 +96,7 @@ This feature allows users to curate their event feed by subscribing to specific 
                 *   If `isMainSchedule` is `true`, the title will be the `eventName`.
                 *   If `isMainSchedule` is `false`, the title will be a combination of the event name and the schedule title, in the format: `eventName - schedule.title`.
             *   Clicking on any schedule item in the calendar will open a detail view for the entire event, with all its schedules listed. The selected schedule may be highlighted for context.
-*   **Search and Filter:** A free-text search bar will allow users to search events from their subscribed accounts by event name, performers, and location name. Users can also filter events by type, category, and the specific social media account source.
+*   **Search and Filter:** A free-text search bar will allow users to search events from their subscribed accounts by event name, performers, and location name. Users can also filter events by type, category, and the specific social media account source. As with Section 3.1's search, a `#`-prefixed phrase matches exactly against a post's hashtags (Section 4.7) instead (added 2026-08-28).
 *   **Public Account Page:** Each social media account has its own public, unauthenticated page at `/{platform-slug}/{accountId}` (e.g. an Instagram account at `/ig/{accountId}`), showing every event sourced from that account. This page offers the same card view, calendar view, search, and filtering behavior as the main event discovery page (Section 3.1), reusing its components. Unlike "Display Subscribed Events" above, this page requires no subscription or login — it is a shareable, public view scoped to a single account. `{platform-slug}` is a short, stable slug derived from `SocialMediaAccountProfile.platform` (e.g. `ig` for Instagram); `{accountId}` is `SocialMediaAccountProfile.accountId` (Section 4.5) — the account's platform-native identifier — not the application's internal database id.
 *   **Personalized Reminders:** Event data processed from subscribed accounts will be used to generate personalized event reminders.
 *   **Timezone Inference:** When an event's timezone is not explicitly provided, the system will infer it using the following strategies, in order of preference:
@@ -160,7 +160,8 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 #### 3.9.3 User and Moderator Interfaces
 
 *   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
-*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database. In addition to user reports, this page surfaces pending "Default Location" changes (Section 3.7) for a moderator to accept or revert.
+*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database. In addition to user reports, this page surfaces pending "Default Location" changes (Section 3.7): post-hoc `PENDING_REVIEW` items to accept or revert, and pre-hoc `AWAITING_APPROVAL` items (low-confidence AI inferences awaiting a decision before they ever apply) to approve or reject, visually distinguished from each other.
+*   **Moderator Pending-Item Badge (added 2026-08-28):** For users with moderator access, a numeric badge shows the combined count of items awaiting moderator action — pending reports above, and Default Location changes in `PENDING_REVIEW` or `AWAITING_APPROVAL` status (Section 3.7/4.14) — in two places: next to the "Moderator Items" entry inside the opened user menu, and on the user's avatar in the navbar when the menu is closed. The badge shows one combined total, not a per-category breakdown; opening Moderator Items itself provides that detail. The count is kept reasonably current (refreshed periodically or on relevant navigation), not necessarily instantaneous.
 
 ### 3.10 Manual Post Selection for Event Extraction
 
@@ -656,6 +657,13 @@ interface Post {
    * The ID of the `SocialMediaAccountProfile` (Section 4.5) that published this post.
    */
   accountId: string;
+  /**
+   * The hashtags attached to the post, as returned by the scraper adapter
+   * (added 2026-08-28). Used for `#`-prefixed hashtag search (Sections 3.1,
+   * 3.7); may also inform AI extraction as a secondary location/category
+   * signal in a future pass.
+   */
+  hashtags?: string[];
 }
 ```
 
@@ -866,9 +874,11 @@ interface ApiKey {
 
 ```typescript
 enum DefaultLocationChangeStatus {
+  AWAITING_APPROVAL, // not yet applied -- a low-confidence AI inference (Section 3.7) sits here until a moderator acts (added 2026-08-28)
   PENDING_REVIEW,
   ACCEPTED,
-  REVERTED,
+  REJECTED,    // a moderator rejected an AWAITING_APPROVAL request -- never applied, distinct from REVERTED below (added 2026-08-28)
+  REVERTED,    // undoes a change that WAS already applied, restoring previousLocation
   SUPERSEDED,  // a later edit (by anyone) overtook this request before it was reviewed — not actionable (added 2026-08-24)
 }
 
@@ -880,13 +890,18 @@ enum DefaultLocationChangeSource {
 
 /**
  * Audit and moderation-queue record for edits to
- * `SocialMediaAccountProfile.defaultLocation` (Section 4.5). The change applies
- * immediately on write; this record is what a moderator reviews and acts on —
- * accepting keeps `newLocation`, reverting restores `previousLocation`
- * (Section 3.7, Section 3.9.3). A `MODERATOR`-sourced record is created already
- * resolved, never `PENDING_REVIEW` (the moderator's own edit is the review).
- * Any successful edit — by a subscriber or a moderator — marks every other
- * still-`PENDING_REVIEW` record for the same `accountId` as `SUPERSEDED`.
+ * `SocialMediaAccountProfile.defaultLocation` (Section 4.5). For every status
+ * except `AWAITING_APPROVAL`, the change has already applied on write; this
+ * record is what a moderator reviews after the fact — accepting keeps
+ * `newLocation`, reverting restores `previousLocation` (Section 3.7, Section
+ * 3.9.3). An `AWAITING_APPROVAL` record is the exception: `newLocation` is only
+ * a proposal (a low-confidence AI inference, Section 3.7) until a moderator
+ * approves it (→ `ACCEPTED`, applies `newLocation`) or rejects it (→
+ * `REJECTED`, never applied). A `MODERATOR`-sourced record is created already
+ * resolved, never `PENDING_REVIEW` or `AWAITING_APPROVAL` (the moderator's own
+ * edit is the review). Any successful edit — by a subscriber or a moderator —
+ * marks every other still-`PENDING_REVIEW` or still-`AWAITING_APPROVAL` record
+ * for the same `accountId` as `SUPERSEDED`.
  */
 interface DefaultLocationChangeRequest {
   id: string;
@@ -907,6 +922,14 @@ interface DefaultLocationChangeRequest {
    * edit, since the two carry different confidence.
    */
   changeSource: DefaultLocationChangeSource;
+  /**
+   * The AI's confidence in this inference, 0.0–1.0 (same scale as
+   * `EventInfo.confidenceScore`, Section 4.1). Populated only when
+   * `changeSource` is `AI_INFERENCE`; determines whether the record starts at
+   * `AWAITING_APPROVAL` (below `LOCATION_INFERENCE_CONFIDENCE_THRESHOLD`,
+   * Section 3.7) or is applied immediately (added 2026-08-28).
+   */
+  confidenceScore?: number;
   previousLocation?: LocationDetails;
   newLocation: LocationDetails;
   status: DefaultLocationChangeStatus;

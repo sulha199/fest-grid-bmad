@@ -13,6 +13,7 @@ export interface ScrapedPost {
   locationName?: string;
   ownerDisplayName?: string;
   ownerUsername?: string;
+  hashtags?: string[];
 }
 
 export interface AccountProfileLookupResult {

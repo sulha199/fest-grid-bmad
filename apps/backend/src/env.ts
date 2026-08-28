@@ -52,6 +52,9 @@ export interface BackendEnv {
   systemGeminiApiKey?: string;
   postMediaBucketName?: string;
   postMediaCdnDomain?: string;
+  // Below this AI-inference confidence score (0.0-1.0), a Default Location change is held as
+  // AWAITING_APPROVAL instead of applying immediately (added 2026-08-28)
+  locationInferenceConfidenceThreshold: number;
 }
 
 /** Validate that required Bright Data vars are present */
@@ -152,6 +155,8 @@ export function loadBackendEnv(): BackendEnv {
     queueNotificationThresholdCount: parseInt(process.env.QUEUE_NOTIFICATION_THRESHOLD_COUNT || '3', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     queueNotificationCooldownDays: parseInt(process.env.QUEUE_NOTIFICATION_COOLDOWN_DAYS || '7', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    locationInferenceConfidenceThreshold: parseFloat(process.env.LOCATION_INFERENCE_CONFIDENCE_THRESHOLD || '0.5'),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     brightdataApiToken: process.env.BRIGHTDATA_API_TOKEN,
     // eslint-disable-next-line turbo/no-undeclared-env-vars

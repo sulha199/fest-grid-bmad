@@ -29,7 +29,8 @@ export const locationInferenceResponseSchema = {
   type: 'OBJECT',
   properties: {
     locationFound: { type: 'BOOLEAN' },
-    placeDescription: { type: 'STRING' }
+    placeDescription: { type: 'STRING' },
+    confidence: { type: 'NUMBER' }
   },
   required: ['locationFound']
 } as const;
@@ -57,7 +58,8 @@ export function buildLocationInferenceRequest(
     `2. Infer a description of the venue or location based ONLY on clues, names, addresses, or references in the post. Do not fabricate any information.\n` +
     `3. If you can confidently identify or infer a location description, set 'locationFound' to true and provide the location in 'placeDescription'.\n` +
     `4. If the post content and metadata do not contain enough specific information to confidently identify or infer a location description, you MUST set 'locationFound' to false and omit 'placeDescription' (or set it to null).\n` +
-    `5. Return the result strictly in the JSON format matching the specified response schema.`;
+    `5. When 'locationFound' is true, also set 'confidence' to a number from 0.0 to 1.0 reflecting how certain you are that 'placeDescription' correctly identifies the real-world venue -- lower it when the only signal is a generic or ambiguous term (e.g. a single common word with no city/region qualifier), and raise it when the post and location metadata agree on a specific, unambiguous place.\n` +
+    `6. Return the result strictly in the JSON format matching the specified response schema.`;
 
   const contents = `Location Name Metadata: "${locationNameTrimmed}"\nPost Content text:\n"${contentTrimmed}"`;
 
@@ -69,7 +71,17 @@ export function buildLocationInferenceRequest(
   };
 }
 
-export function parseLocationInferenceResponse(rawText: string): string | null {
+export interface LocationInferenceResult {
+  placeDescription: string;
+  /**
+   * The AI's confidence in this inference, 0.0-1.0. Defaults to 0 (treated as
+   * low-confidence, gated to AWAITING_APPROVAL) when the model omits it,
+   * rather than assuming a confident result it never actually claimed.
+   */
+  confidence: number;
+}
+
+export function parseLocationInferenceResponse(rawText: string): LocationInferenceResult | null {
   try {
     const parsed = JSON.parse(rawText);
     if (parsed && typeof parsed === 'object' && parsed.locationFound === true) {
@@ -77,7 +89,10 @@ export function parseLocationInferenceResponse(rawText: string): string | null {
       if (typeof place === 'string') {
         const trimmed = place.trim();
         if (trimmed) {
-          return trimmed;
+          const confidence = typeof parsed.confidence === 'number' && Number.isFinite(parsed.confidence)
+            ? Math.min(1, Math.max(0, parsed.confidence))
+            : 0;
+          return { placeDescription: trimmed, confidence };
         }
       }
     }

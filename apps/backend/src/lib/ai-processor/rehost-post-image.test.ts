@@ -43,6 +43,7 @@ test('rehostPostImage integration/unit tests', async (t) => {
     apiKeyInvalidAttemptsThreshold: 5,
     apiKeyUsageCycleDays: 30,
     webAppBaseUrl: 'http://localhost:3000',
+    locationInferenceConfidenceThreshold: 0.5,
     scrapeResultsLimit: 10,
     scrapeInitialLookbackDays: 7,
     scrapeSkipRecentHours: 20,

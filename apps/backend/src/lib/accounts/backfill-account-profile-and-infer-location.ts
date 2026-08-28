@@ -94,18 +94,19 @@ export async function backfillAccountProfileAndInferDefaultLocation(
       subscriberUserIds,
     });
 
-    const placeDescription = parseLocationInferenceResponse(result.text);
-    if (!placeDescription) {
+    const inference = parseLocationInferenceResponse(result.text);
+    if (!inference) {
       return; // Gemini found nothing, not an error
     }
 
-    const resolved = await resolveLocationSeam({ kind: 'ADDRESS', address: placeDescription });
+    const resolved = await resolveLocationSeam({ kind: 'ADDRESS', address: inference.placeDescription });
     await applyDefaultLocationChange({
       accountId,
       newLocation: resolved,
       previousLocation: null,
       changedByUserId: null,
       changeSource: 'AI_INFERENCE',
+      confidenceScore: inference.confidence,
       accountDisplayName: profile.displayName,
       onlyIfCurrentlyNull: true,
     });

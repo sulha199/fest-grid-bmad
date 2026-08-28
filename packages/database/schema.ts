@@ -35,7 +35,8 @@ export const userRoleEnum = pgEnum('user_role', ['user', 'moderator']);
 
 export const geolocationQueryTypeEnum = pgEnum('geolocation_query_type', ['GEOCODE', 'REVERSE_GEOCODE', 'PLACE_DETAILS']);
 
-export const defaultLocationChangeStatusEnum = pgEnum('default_location_change_status', ['PENDING_REVIEW', 'ACCEPTED', 'REVERTED', 'SUPERSEDED']);
+// AWAITING_APPROVAL and REJECTED added 2026-08-28 (confidence-gated moderation, see AWAITING_APPROVAL doc comment on the table below)
+export const defaultLocationChangeStatusEnum = pgEnum('default_location_change_status', ['AWAITING_APPROVAL', 'PENDING_REVIEW', 'ACCEPTED', 'REJECTED', 'REVERTED', 'SUPERSEDED']);
 
 export const defaultLocationChangeSourceEnum = pgEnum('default_location_change_source', ['USER', 'AI_INFERENCE', 'MODERATOR']);
 
@@ -193,12 +194,20 @@ export const posts = pgTable('posts', {
   ownerUsername: text('owner_username'),
   durableImageUrl: text('durable_image_url'),
   imageUrlExpiresAt: timestamp('image_url_expires_at', { withTimezone: true }),
+  // Hashtags from the scraper adapter (Instagram/Apify today); powers #-prefixed hashtag search (added 2026-08-28)
+  hashtags: text('hashtags').array(),
   ...timestamps,
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),
   publishedAtIdx: index('published_at_idx').on(t.publishedAt),
   postUrlUnq: unique().on(t.postUrl),
   scraperActorRunIdIdx: index('idx_posts_scraper_actor_run_id').on(t.scraperActorRunId),
+  // GIN, not the default btree: hashtag search is array-containment (&&) on an exact value, not
+  // equality. The installed drizzle-kit (0.21.4) doesn't serialize `.using()` into its
+  // snapshot/generated SQL (same class of gap as AD-8 rule 3's WHERE-clause drop) -- the actual
+  // migration hand-adds `USING gin`; this builder call only documents intent for drizzle-orm's
+  // own runtime/type-checking, it does not by itself produce the GIN index.
+  hashtagsIdx: index('post_hashtags_idx').on(t.hashtags).using(sql`gin`),
 }));
 
 export const scraperActorRuns = pgTable('scraper_actor_runs', {
@@ -424,6 +433,8 @@ export const defaultLocationChangeRequests = pgTable('default_location_change_re
   newLocation: jsonb('new_location').$type<LocationDetails>().notNull(),
   status: defaultLocationChangeStatusEnum('status').default('PENDING_REVIEW').notNull(),
   changeSource: defaultLocationChangeSourceEnum('change_source').default('USER').notNull(),
+  // Populated only when changeSource is AI_INFERENCE; gates AWAITING_APPROVAL vs immediate apply (added 2026-08-28)
+  confidenceScore: doublePrecision('confidence_score'),
   reviewedByModeratorId: uuid('reviewed_by_moderator_id').references(() => users.id),
   reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

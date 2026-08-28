@@ -274,6 +274,20 @@
       "when": 1787928209670,
       "tag": "0038_smooth_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1787936638204,
+      "tag": "0039_luxuriant_sauron",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1787936850304,
+      "tag": "0040_aspiring_mongoose",
+      "breakpoints": true
     }
   ]
 }

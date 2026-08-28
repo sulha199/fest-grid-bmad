@@ -2,6 +2,7 @@
 
 export * from './core/app-shell';
 export * from './core/status-badge';
+export * from './core/count-badge';
 export * from './core/multi-select';
 export * from './core/checkbox';
 export * from './core/checkbox.types';
