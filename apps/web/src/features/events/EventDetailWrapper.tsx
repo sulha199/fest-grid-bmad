@@ -537,8 +537,8 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   }
 
   return (
-    <PageContainer fullWidth={true}>
-      <div className="bg-background border border-gray-100 dark:border-gray-800 rounded-xl my-6 shadow-sm p-4 sm:p-8">
+    <PageContainer fullWidth={true} className="max-w-6xl mx-auto">
+      <div className="bg-background border border-gray-100 dark:border-gray-800 rounded-xl my-6 shadow-sm">
         {detailViewContent}
         {isCorrectionDialogOpen && data?.eventBySlug && (
           <CorrectionDialog
