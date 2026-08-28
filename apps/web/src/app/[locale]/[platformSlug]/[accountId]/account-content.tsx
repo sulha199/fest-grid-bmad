@@ -3,11 +3,11 @@
 import { useMemo, useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer } from "@festgrid/ui";
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, ViewModeToggle } from "@festgrid/ui";
 import { EventCategory, EventType } from "@festgrid/shared-types";
 import { GetEventsDocument, GetEventsQuery, useToggleFavoriteMutation } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
-import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs";
+import { useQueryState, parseAsString, parseAsArrayOf, parseAsStringLiteral } from "nuqs";
 import { usePostHog } from "@festgrid/analytics";
 import { useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
@@ -59,13 +59,26 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
   const [types] = useQueryState("types", parseAsArrayOf(parseAsString).withDefault([]));
   const [categories] = useQueryState("categories", parseAsArrayOf(parseAsString).withDefault([]));
   const [view] = useQueryState("view", parseAsString.withDefault("card"));
+  const [layout, setLayout] = useQueryState(
+    "layout",
+    parseAsStringLiteral(["list", "masonry"]).withDefault("list")
+  );
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [liveMessage, setLiveMessage] = useState("");
 
   useEffect(() => {
     if (view) {
       posthog.capture("view_switched", { view });
     }
   }, [view, posthog]);
+
+  useEffect(() => {
+    if (layout) {
+      const layoutLabel = layout === 'masonry' ? t('layoutSwitcherMasonryLabel') : t('layoutSwitcherListLabel');
+      setLiveMessage(t('layoutSwitcherAnnouncement', { layout: layoutLabel }));
+      posthog.capture('layout_switched', { layout });
+    }
+  }, [layout, t, posthog]);
 
   const categoryLabels = useMemo(
     () => buildEnumLabels(Object.values(EventCategory), tCategory),
@@ -251,46 +264,59 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
             id: "card",
             label: "Card View",
             content: (
-              <EventListView
-                status={listStatus === "pending" ? "loading" : listStatus}
-                events={events}
-                errorMessage={t("errorState")}
-                errorDetail={error?.message || "Unknown error"}
-                emptyState={
-                  <div className="text-center py-10 space-y-4">
-                    <p className="text-muted-foreground">
-                      {q.trim() || types.length > 0 || categories.length > 0
-                        ? t("searchEmptyState")
-                        : t("emptyState")}
-                    </p>
-                  </div>
-                }
-                cardLabels={{
-                  favoriteToggle: t("favoriteButtonLabel") || "Toggle Favorite",
-                  priceFrom: t("priceFrom") || "From",
-                  categoryLabels,
-                  typeLabels,
-                }}
-                getCardProps={(event) => ({
-                  isFavorited: event.isFavorited,
-                  favoriteCount: event.favoriteCount,
-                  onFavoriteToggle: () => {
-                    if (!session) {
-                      setIsLoginModalOpen(true);
-                    } else {
-                      toggleFavorite({ eventId: event.id });
-                    }
-                  },
-                  onClick: () => {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.set("fromList", "account");
-                    router.push(`/events/${event.slug}?${params.toString()}`);
-                  },
-                })}
-                sentinelRef={sentinelRef}
-                isFetchingNextPage={isFetchingNextPage}
-                loadingMoreLabel={t("loadingMore")}
-              />
+              <div className="flex flex-col gap-4">
+                <div className="flex justify-end">
+                  <ViewModeToggle
+                    viewMode={layout}
+                    onViewModeChange={setLayout}
+                    labels={{
+                      list: t('layoutSwitcherListLabel'),
+                      masonry: t('layoutSwitcherMasonryLabel'),
+                    }}
+                  />
+                </div>
+                <EventListView
+                  viewMode={layout}
+                  status={listStatus === "pending" ? "loading" : listStatus}
+                  events={events}
+                  errorMessage={t("errorState")}
+                  errorDetail={error?.message || "Unknown error"}
+                  emptyState={
+                    <div className="text-center py-10 space-y-4">
+                      <p className="text-muted-foreground">
+                        {q.trim() || types.length > 0 || categories.length > 0
+                          ? t("searchEmptyState")
+                          : t("emptyState")}
+                      </p>
+                    </div>
+                  }
+                  cardLabels={{
+                    favoriteToggle: t("favoriteButtonLabel") || "Toggle Favorite",
+                    priceFrom: t("priceFrom") || "From",
+                    categoryLabels,
+                    typeLabels,
+                  }}
+                  getCardProps={(event) => ({
+                    isFavorited: event.isFavorited,
+                    favoriteCount: event.favoriteCount,
+                    onFavoriteToggle: () => {
+                      if (!session) {
+                        setIsLoginModalOpen(true);
+                      } else {
+                        toggleFavorite({ eventId: event.id });
+                      }
+                    },
+                    onClick: () => {
+                      const params = new URLSearchParams(searchParams.toString());
+                      params.set("fromList", "account");
+                      router.push(`/events/${event.slug}?${params.toString()}`);
+                    },
+                  })}
+                  sentinelRef={sentinelRef}
+                  isFetchingNextPage={isFetchingNextPage}
+                  loadingMoreLabel={t("loadingMore")}
+                />
+              </div>
             ),
           },
           {
@@ -313,6 +339,9 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
           <LoginContent />
         </DialogContent>
       </Dialog>
+      <div aria-live="polite" className="sr-only">
+        {liveMessage}
+      </div>
     </PageContainer>
   );
 }

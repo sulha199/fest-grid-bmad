@@ -58,6 +58,9 @@
     "searchPlaceholder": "Search by name, performer, or location...",
     "searchClearLabel": "Clear search",
     "favoriteButtonLabel": "Toggle Favorite",
+    "layoutSwitcherListLabel": "List View",
+    "layoutSwitcherMasonryLabel": "Masonry View",
+    "layoutSwitcherAnnouncement": "Switched to {layout}",
     "calendarPrevWeekLabel": "Previous week",
     "calendarNextWeekLabel": "Next week",
     "calendarTodayLabel": "Today",
@@ -198,6 +201,9 @@
     "viewSwitcherCardLabel": "Card View",
     "viewSwitcherCalendarLabel": "Calendar View",
     "viewSwitcherAnnouncement": "Switched to {view}",
+    "layoutSwitcherListLabel": "List View",
+    "layoutSwitcherMasonryLabel": "Masonry View",
+    "layoutSwitcherAnnouncement": "Switched to {layout}",
     "calendarPrevWeekLabel": "Previous week",
     "calendarNextWeekLabel": "Next week",
     "calendarTodayLabel": "Today",
@@ -221,6 +227,9 @@
     "searchPlaceholder": "Search in your feed...",
     "searchClearLabel": "Clear search",
     "favoriteButtonLabel": "Remove from Favorites",
+    "layoutSwitcherListLabel": "List View",
+    "layoutSwitcherMasonryLabel": "Masonry View",
+    "layoutSwitcherAnnouncement": "Switched to {layout}",
     "calendarPrevWeekLabel": "Previous week",
     "calendarNextWeekLabel": "Next week",
     "calendarTodayLabel": "Today",
@@ -242,7 +251,10 @@
     "searchClearLabel": "Clear search",
     "favoriteButtonLabel": "Remove from Favorites",
     "pendingRemovalToastMessage": "Event marked for removal",
-    "undoLabel": "Undo"
+    "undoLabel": "Undo",
+    "layoutSwitcherListLabel": "List View",
+    "layoutSwitcherMasonryLabel": "Masonry View",
+    "layoutSwitcherAnnouncement": "Switched to {layout}"
   },
   "ArchivePage": {
     "title": "My Archive",
@@ -252,7 +264,10 @@
     "loadingMore": "Loading more archived events...",
     "reasonExpired": "Expired",
     "reasonRemoved": "Removed by Moderation",
-    "reasonHiddenByMe": "Hidden by Me"
+    "reasonHiddenByMe": "Hidden by Me",
+    "layoutSwitcherListLabel": "List View",
+    "layoutSwitcherMasonryLabel": "Masonry View",
+    "layoutSwitcherAnnouncement": "Switched to {layout}"
   },
   "ReportsPage": {
     "title": "My Reports",

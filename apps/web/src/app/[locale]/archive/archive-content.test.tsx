@@ -35,6 +35,52 @@ vi.mock('@/components/providers/auth-session-provider', () => ({
     isLoading: mockAuthLoading,
   }),
 }));
+vi.mock('nuqs', () => {
+  const React = require('react');
+  const store: Record<string, any> = {};
+  const listeners: Record<string, Set<Function>> = {};
+
+  (global as any).__resetNuqsStore = () => {
+    for (const key in store) delete store[key];
+    for (const key in listeners) listeners[key].clear();
+  };
+
+  return {
+    useQueryState: (key: string, options?: any) => {
+      const defaultValue = options?.defaultValue ?? '';
+      if (!(key in store)) {
+        store[key] = defaultValue;
+      }
+      const [state, setState] = React.useState(store[key]);
+
+      React.useEffect(() => {
+        if (!listeners[key]) listeners[key] = new Set();
+        listeners[key].add(setState);
+        return () => {
+          listeners[key].delete(setState);
+        };
+      }, [key]);
+
+      const setSharedState = React.useCallback(
+        (val: any) => {
+          const newValue = typeof val === 'function' ? val(store[key]) : val;
+          const resolvedValue = newValue === null ? defaultValue : newValue;
+          store[key] = resolvedValue;
+          if (listeners[key]) {
+            listeners[key].forEach((listener: any) => listener(resolvedValue));
+          }
+        },
+        [key, defaultValue]
+      );
+
+      return [state, setSharedState];
+    },
+    parseAsString: { withDefault: (val: any) => ({ defaultValue: val }) },
+    parseAsArrayOf: () => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
+    parseAsStringLiteral: (allowed: any) => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
+  };
+});
+
 
 vi.mock('@/lib/graphql-client', async () => {
   const { GraphQLClient } = await import('graphql-request');
@@ -263,5 +309,29 @@ describe('ArchiveContent', () => {
     await waitFor(() => {
       expect(screen.getByText('Failed to load archived events. Please try again later.')).toBeInTheDocument();
     });
+  });
+
+  it('layout switcher integration: default list mode, click switches to masonry, triggers PostHog capture', async () => {
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Moderated Event')).toBeInTheDocument();
+    });
+
+    const listToggle = screen.getByRole('button', { name: 'List View' });
+    const masonryToggle = screen.getByRole('button', { name: 'Masonry View' });
+
+    expect(listToggle.getAttribute('aria-pressed')).toBe('true');
+    expect(masonryToggle.getAttribute('aria-pressed')).toBe('false');
+
+    // Click masonry toggle
+    fireEvent.click(masonryToggle);
+
+    await waitFor(() => {
+      expect(listToggle.getAttribute('aria-pressed')).toBe('false');
+      expect(masonryToggle.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    expect(mockPosthogCapture).toHaveBeenCalledWith('layout_switched', { layout: 'masonry' });
   });
 });

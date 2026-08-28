@@ -29,34 +29,34 @@ so that I can actually reach the masonry browsing experience that Stories 1.3b/1
 
 ## Tasks / Subtasks
 
-- [ ] 1. Build `ViewModeToggle` in `packages/ui` (AC1, AC2)
-  - [ ] Create `packages/ui/src/features/events/ViewModeToggle.types.ts`: `ViewModeToggleProps` (`viewMode`, `onViewModeChange`, `labels`, optional `className`).
-  - [ ] Create `packages/ui/src/features/events/ViewModeToggle.tsx`: two-button icon toggle (`lucide-react` `List`/`LayoutGrid` or equivalent pair distinct from the icons `home-content.tsx` already uses for its Card/Calendar switcher), `aria-pressed`, `labels`-driven `aria-label`/visible text, no-op on clicking the already-active button.
-  - [ ] Add exports to `packages/ui/src/features/events/index.ts` (already barrels `export * from './EventListView'` etc. — add matching `ViewModeToggle`/`ViewModeToggle.types` lines).
-  - [ ] `packages/ui/src/features/events/ViewModeToggle.test.tsx`: both states render correctly with `aria-pressed`, click-to-switch, no-op on active click, keyboard activation.
-- [ ] 2. Wire `home-content.tsx` (AC3-AC9)
-  - [ ] Add `useQueryState('layout', parseAsStringLiteral(['list', 'masonry']).withDefault('list'))`.
-  - [ ] Render `<ViewModeToggle viewMode={layout} onViewModeChange={setLayout} labels={{...}} />` inside the `"card"` view's `content`, above `<EventListView>`.
-  - [ ] Pass `viewMode={layout}` to `<EventListView>`.
-  - [ ] Extend the existing `view`-watching `useEffect`/`liveMessage` pattern (lines ~53-59) to also announce on `layout` change and fire `posthog.capture('layout_switched', { layout })`.
-  - [ ] Add `layoutSwitcherListLabel`/`layoutSwitcherMasonryLabel`/`layoutSwitcherAnnouncement` to `DiscoveryPage` namespace in `en.json`/`id.json`.
-- [ ] 3. Wire `account-content.tsx`, `favorites-content.tsx`, `feed-content.tsx` (AC3-AC9)
-  - [ ] Same `layout` `useQueryState` + `ViewModeToggle` placement inside each page's single-entry `"card"` view content, above `<EventListView>`.
-  - [ ] Pass `viewMode={layout}` to each page's `<EventListView>`.
-  - [ ] Add a new minimal `aria-live="polite"` region (none of these 3 pages has one today) plus `layout_switched` analytics call, matching `home-content.tsx`'s pattern.
-  - [ ] Add the same 3 i18n keys to each page's own namespace (`AccountPage`, `FavoritesPage`, `FeedPage`) in `en.json`/`id.json`.
-- [ ] 4. Wire `archive-content.tsx` (AC3, AC4, AC6-AC9)
-  - [ ] Same `layout` `useQueryState`; render `<ViewModeToggle>` directly above `<EventListView>` (below the `<h1>` title, no `EventDiscoveryPanel` involved).
-  - [ ] Pass `viewMode={layout}` to `<EventListView>`.
-  - [ ] Add `aria-live="polite"` region + `layout_switched` analytics call.
-  - [ ] Add the 3 i18n keys to `ArchivePage` namespace in `en.json`/`id.json`.
-- [ ] 5. Tests (AC10)
-  - [ ] `home-content.tsx`/`page.test.tsx`: default-list assertion, click-to-masonry assertion, `EventListView` receives updated `viewMode`, existing Card/Calendar-switch assertions still pass unmodified.
-  - [ ] `archive-content.tsx`/its test file: same default/click/prop-passthrough assertions for the no-`EventDiscoveryPanel` case.
-  - [ ] Spot-check (not full new test suites) that `account-content.tsx`/`favorites-content.tsx`/`feed-content.tsx`'s existing tests still pass after the addition.
-- [ ] 6. Final checks
-  - [ ] `pnpm build` / `pnpm lint` clean at the repo root.
-  - [ ] `pnpm --filter @festgrid/ui test` and relevant `apps/web` test files green.
+- [x] 1. Build `ViewModeToggle` in `packages/ui` (AC1, AC2)
+  - [x] Create `packages/ui/src/features/events/ViewModeToggle.types.ts`: `ViewModeToggleProps` (`viewMode`, `onViewModeChange`, `labels`, optional `className`).
+  - [x] Create `packages/ui/src/features/events/ViewModeToggle.tsx`: two-button icon toggle (`lucide-react` `List`/`LayoutGrid` or equivalent pair distinct from the icons `home-content.tsx` already uses for its Card/Calendar switcher), `aria-pressed`, `labels`-driven `aria-label`/visible text, no-op on clicking the already-active button.
+  - [x] Add exports to `packages/ui/src/features/events/index.ts` (already barrels `export * from './EventListView'` etc. — add matching `ViewModeToggle`/`ViewModeToggle.types` lines).
+  - [x] `packages/ui/src/features/events/ViewModeToggle.test.tsx`: both states render correctly with `aria-pressed`, click-to-switch, no-op on active click, keyboard activation.
+- [x] 2. Wire `home-content.tsx` (AC3-AC9)
+  - [x] Add `useQueryState('layout', parseAsStringLiteral(['list', 'masonry']).withDefault('list'))`.
+  - [x] Render `<ViewModeToggle viewMode={layout} onViewModeChange={setLayout} labels={{...}} />` inside the `"card"` view's `content`, above `<EventListView>`.
+  - [x] Pass `viewMode={layout}` to `<EventListView>`.
+  - [x] Extend the existing `view`-watching `useEffect`/`liveMessage` pattern (lines ~53-59) to also announce on `layout` change and fire `posthog.capture('layout_switched', { layout })`.
+  - [x] Add `layoutSwitcherListLabel`/`layoutSwitcherMasonryLabel`/`layoutSwitcherAnnouncement` to `DiscoveryPage` namespace in `en.json`/`id.json`.
+- [x] 3. Wire `account-content.tsx`, `favorites-content.tsx`, `feed-content.tsx` (AC3-AC9)
+  - [x] Same `layout` `useQueryState` + `ViewModeToggle` placement inside each page's single-entry `"card"` view content, above `<EventListView>`.
+  - [x] Pass `viewMode={layout}` to each page's `<EventListView>`.
+  - [x] Add a new minimal `aria-live="polite"` region (none of these 3 pages has one today) plus `layout_switched` analytics call, matching `home-content.tsx`'s pattern.
+  - [x] Add the same 3 i18n keys to each page's own namespace (`AccountPage`, `FavoritesPage`, `FeedPage`) in `en.json`/`id.json`.
+- [x] 4. Wire `archive-content.tsx` (AC3, AC4, AC6-AC9)
+  - [x] Same `layout` `useQueryState`; render `<ViewModeToggle>` directly above `<EventListView>` (below the `<h1>` title, no `EventDiscoveryPanel` involved).
+  - [x] Pass `viewMode={layout}` to `<EventListView>`.
+  - [x] Add `aria-live="polite"` region + `layout_switched` analytics call.
+  - [x] Add the 3 i18n keys to `ArchivePage` namespace in `en.json`/`id.json`.
+- [x] 5. Tests (AC10)
+  - [x] `home-content.tsx`/`page.test.tsx`: default-list assertion, click-to-masonry assertion, `EventListView` receives updated `viewMode`, existing Card/Calendar-switch assertions still pass unmodified.
+  - [x] `archive-content.tsx`/its test file: same default/click/prop-passthrough assertions for the no-`EventDiscoveryPanel` case.
+  - [x] Spot-check (not full new test suites) that `account-content.tsx`/`favorites-content.tsx`/`feed-content.tsx`'s existing tests still pass after the addition.
+- [x] 6. Final checks
+  - [x] `pnpm build` / `pnpm lint` clean at the repo root.
+  - [x] `pnpm --filter @festgrid/ui test` and relevant `apps/web` test files green.
 
 ## Dev Notes
 
@@ -209,13 +209,13 @@ No changes required. This story touches no database schema, no GraphQL resolver/
 
 ## Completion Status
 
-ready-for-dev
+review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-N/A (story not yet implemented)
+cline / gemini-3.5-flash
 
 ### Debug Log References
 
@@ -223,8 +223,31 @@ N/A
 
 ### Completion Notes List
 
-N/A
+- Implemented standard presentational `ViewModeToggle` component in `packages/ui` inside the events feature. It displays standard List and LayoutGrid icons for compact density-preference layout toggling.
+- Registered type definitions for `ViewModeToggleProps` and exported both files via events barrel index and the UI library's public export list.
+- Implemented robust unit tests for `ViewModeToggle` in packages/ui covering both rendering states, click actions, active no-ops, and keyboard accessibility.
+- Integrated the `layout` state (using `parseAsStringLiteral`) inside all 5 event-listing content pages in `apps/web`: `home-content`, `account-content`, `favorites-content`, `feed-content`, and `archive-content`.
+- Wired layout state into `EventListView` across all 5 pages.
+- Extended or added `aria-live` polite live messages and PostHog `layout_switched` events on state changes across all 5 pages.
+- Added localization translations in English and Indonesian for the layout switcher labels and screen reader announcements in `en.json` and `id.json` for all 5 namespaces (`DiscoveryPage`, `AccountPage`, `ArchivePage`, `FavoritesPage`, `FeedPage`).
+- Implemented integration tests validating layout toggling in `page.test.tsx` and `archive-content.test.tsx`.
 
 ### File List
 
-N/A
+- packages/ui/src/features/events/ViewModeToggle.types.ts
+- packages/ui/src/features/events/ViewModeToggle.tsx
+- packages/ui/src/features/events/ViewModeToggle.test.tsx
+- packages/ui/src/features/events/index.ts
+- apps/web/src/app/[locale]/home-content.tsx
+- apps/web/src/app/[locale]/[platformSlug]/[accountId]/account-content.tsx
+- apps/web/src/app/[locale]/favorites/favorites-content.tsx
+- apps/web/src/app/[locale]/feed/feed-content.tsx
+- apps/web/src/app/[locale]/archive/archive-content.tsx
+- apps/web/locales/en.json
+- apps/web/locales/id.json
+- apps/web/src/app/[locale]/page.test.tsx
+- apps/web/src/app/[locale]/[platformSlug]/[accountId]/account-content.test.tsx
+- apps/web/src/app/[locale]/favorites/favorites-content.test.tsx
+- apps/web/src/app/[locale]/feed/feed-content.test.tsx
+- apps/web/src/app/[locale]/nearby.test.tsx
+- apps/web/src/app/[locale]/archive/archive-content.test.tsx

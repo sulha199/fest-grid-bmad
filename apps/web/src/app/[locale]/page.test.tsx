@@ -89,6 +89,7 @@ vi.mock('nuqs', () => {
     },
     parseAsString: { withDefault: (val: any) => ({ defaultValue: val }) },
     parseAsArrayOf: () => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
+    parseAsStringLiteral: (allowed: any) => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
     parseAsInteger: { withDefault: (val: any) => ({ defaultValue: val }) },
   };
 });
@@ -502,3 +503,32 @@ test('filter integration: clearing filters restores default query', async () => 
     expect(lastQueryVariables.query).toBeUndefined();
   });
 });
+
+test('layout switcher integration: default list mode, click switches to masonry, triggers PostHog capture', async () => {
+  renderWithProviders(<Home />);
+
+  // Wait for initial load
+  await waitFor(() => {
+    expect(screen.getByText('Test Event 1')).toBeInTheDocument();
+  });
+
+  // Default is list mode
+  const listToggle = screen.getByRole('button', { name: 'List View' });
+  const masonryToggle = screen.getByRole('button', { name: 'Masonry View' });
+
+  expect(listToggle.getAttribute('aria-pressed')).toBe('true');
+  expect(masonryToggle.getAttribute('aria-pressed')).toBe('false');
+
+  // Click masonry toggle
+  fireEvent.click(masonryToggle);
+
+  // Expect layout state to update
+  await waitFor(() => {
+    expect(listToggle.getAttribute('aria-pressed')).toBe('false');
+    expect(masonryToggle.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  // Verify PostHog analytics captures 'layout_switched' with { layout: 'masonry' }
+  expect(mockPostHog.capture).toHaveBeenCalledWith('layout_switched', { layout: 'masonry' });
+});
+

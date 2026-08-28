@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer } from "@festgrid/ui";
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, ViewModeToggle } from "@festgrid/ui";
 import { EventCategory, EventType } from "@festgrid/shared-types";
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation, useGetMySubscriptionsQuery } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
-import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs";
+import { useQueryState, parseAsString, parseAsArrayOf, parseAsStringLiteral } from "nuqs";
 import { usePostHog } from "@festgrid/analytics";
 import { useRouter, Link } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
@@ -44,6 +44,19 @@ export function FeedContent() {
   const [types] = useQueryState("types", parseAsArrayOf(parseAsString).withDefault([]));
   const [categories] = useQueryState("categories", parseAsArrayOf(parseAsString).withDefault([]));
   const [view] = useQueryState("view", parseAsString.withDefault("card"));
+  const [layout, setLayout] = useQueryState(
+    "layout",
+    parseAsStringLiteral(["list", "masonry"]).withDefault("list")
+  );
+  const [liveMessage, setLiveMessage] = useState("");
+
+  useEffect(() => {
+    if (layout) {
+      const layoutLabel = layout === 'masonry' ? t('layoutSwitcherMasonryLabel') : t('layoutSwitcherListLabel');
+      setLiveMessage(t('layoutSwitcherAnnouncement', { layout: layoutLabel }));
+      posthog.capture('layout_switched', { layout });
+    }
+  }, [layout, t, posthog]);
   const [subscriptionsQuery, setSubscriptionsQuery] = useQueryState(
     "subscriptions",
     parseAsArrayOf(parseAsString, ",").withDefault([])
@@ -242,8 +255,20 @@ export function FeedContent() {
             id: "card",
             label: "Card View",
             content: (
-              <EventListView
-                status={listStatus === "pending" ? "loading" : listStatus}
+              <div className="flex flex-col gap-4">
+                <div className="flex justify-end">
+                  <ViewModeToggle
+                    viewMode={layout}
+                    onViewModeChange={setLayout}
+                    labels={{
+                      list: t('layoutSwitcherListLabel'),
+                      masonry: t('layoutSwitcherMasonryLabel'),
+                    }}
+                  />
+                </div>
+                <EventListView
+                  viewMode={layout}
+                  status={listStatus === "pending" ? "loading" : listStatus}
                 events={events}
                 errorMessage={t("errorState")}
                 errorDetail={error?.message || "Unknown error"}
@@ -284,6 +309,7 @@ export function FeedContent() {
                 isFetchingNextPage={isFetchingNextPage}
                 loadingMoreLabel={t("loadingMore")}
               />
+              </div>
             ),
           },
           {
@@ -295,6 +321,10 @@ export function FeedContent() {
           },
         ]}
       />
+
+      <div aria-live="polite" className="sr-only">
+        {liveMessage}
+      </div>
     </PageContainer>
   );
 }

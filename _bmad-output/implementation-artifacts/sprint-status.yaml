@@ -354,7 +354,7 @@ development_status:
   # -- archive-content.tsx has no EventDiscoveryPanel, tiebreaker). Persistence
   # (per-page URL state, not global) and default ('list') confirmed with user via
   # AskUserQuestion. See epics.md Story 1.3i.
-  1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web: ready-for-dev
+  1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web: review
   # Reopened 2026-08-24 via bmad-create-story: added AC9/Task 7 -- root
   # container drops its max-w-7xl cap in favor of full width
   # (ux-rework-2026-08-24.md item #1, missed by the original bmad-correct-
