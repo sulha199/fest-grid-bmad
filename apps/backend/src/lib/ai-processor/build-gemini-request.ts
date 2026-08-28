@@ -57,6 +57,8 @@ export async function buildGeminiExtractionRequest(
   const allowedTypes = Object.values(EventType).join(', ');
   const allowedCategories = Object.values(EventCategory).join(', ');
 
+  const publishDate = message.publishedAt.substring(0, 10);
+
   const systemInstruction = `You are an expert event information extraction system. Your task is to analyze the social media post caption and/or image (such as an event poster) to:
 1. Determine if it describes or advertises a specific event (set isEvent to true if the post/image is indeed an event poster or event advertisement, false otherwise).
 2. Extract the eventName (required if isEvent is true).
@@ -65,6 +67,10 @@ export async function buildGeminiExtractionRequest(
 5. Extract schedule(s) under schedules. For each schedule, isMainSchedule (boolean) and eventStartDate (YYYY-MM-DD) are required. Extract title, eventEndDate (YYYY-MM-DD), eventStartTime (HH:MM:SS), eventEndTime (HH:MM:SS), performers (array), location, and ticketPrice if available.
 6. Extract the top-level location, organizerName, contactInfo, and description if present.
 7. Assign a confidenceScore between 0 and 1 indicating your confidence in the extraction.
+
+The social media post was published on ${publishDate}. Use this publish date as an explicit anchor for date and year inference:
+- When a schedule's date text (in the caption or image) does not state an explicit year, infer the year using this publish date as the anchor, assuming the event is happening at or after the publish date. Prefer the current or next real-world occurrence over defaulting to any other year, and never infer a year that would place the event further in the past than the publish date itself unless the source text explicitly states a past year.
+- If the schedule's source text explicitly states a year, you must respect and use that stated year and do not override it.
 
 Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate information. If a field is absent, leave it null or undefined.`;
 
