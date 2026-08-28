@@ -7,7 +7,7 @@ status: "final"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-08-24T00:00:00Z"
+updated: "2026-08-28T00:00:00Z"
 
 ---
 
@@ -29,7 +29,7 @@ This document outlines the product requirements for FestDaily, a platform design
 ### 3.1 Event Discovery
 
 *   **Curated Listings:** Display a curated selection of local events.
-*   **Search and Filter:** A free-text search bar will allow users to search by event-name, performers, and location name, using partial matching for performance. Users can also filter events by type and category.
+*   **Search and Filter (FilterHub):** A free-text search bar will allow users to search by event-name, performers, and location name, using partial matching for performance. Users can also filter events by type and category. This filter bar is referred to elsewhere in this document as "FilterHub." See Section 3.15 for a free-text, AI prompt-based alternative to operating it manually.
 *   **Default View:** By default, the event discovery page will only display ongoing and upcoming events.
 
 ### 3.2 Personalization Features
@@ -220,7 +220,7 @@ For users who do not have (or do not wish to provide) a BYOK Gemini API key, Fes
 
 FestDaily's event discovery can be embedded as a public, unauthenticated iframe widget on third-party sites — a distribution channel that puts FestDaily events wherever a partner site's audience already is, serving the User Acquisition goal (Section 2). It is free and ungated for MVP: a growth channel, not a monetized surface.
 
-*   **Widget as a Persisted Entity:** Unlike a stateless, filters-in-the-URL page, a widget is a saved `Widget` record (Section 4.16) with its own stable `id`, owned by the user who created it. Any registered user, `contributing_user` or `free_user` alike (Section 4.8), can create any number of widgets through an in-app generator, each configured independently with its own filter combination — social media account, event type, category, keyword, and location/coordinates + radius (Sections 3.1, 3.5, 3.7) — display mode (card or calendar, reusing Section 3.7's components as-is), and theme (dark or light, chosen explicitly at generation time, never auto-detected from the host page). The widget always renders with a fully transparent background so the embedding site can style around it. Editing a widget's configuration later updates every embed of it automatically — the embedder never has to re-paste anything.
+*   **Widget as a Persisted Entity:** Unlike a stateless, filters-in-the-URL page, a widget is a saved `Widget` record (Section 4.16) with its own stable `id`, owned by the user who created it. Any registered user, `contributing_user` or `free_user` alike (Section 4.8), can create any number of widgets through an in-app generator, each configured independently with its own filter combination — social media account, event type, category, keyword, and location/coordinates + radius (Sections 3.1, 3.5, 3.7) — display mode (card or calendar, reusing Section 3.7's components as-is), and theme (dark or light, chosen explicitly at generation time, never auto-detected from the host page). The widget's `filters` field now shares the fuller `EventFilterInput` type (Section 4.18) introduced for AI Event Filters (Section 3.15), but the generator UI exposes only the dimensions listed above for MVP — the type's additional fields (date range, day-of-week, venue type, `isFree`) aren't populated by this generator — reserved for future exposure. The widget always renders with a fully transparent background so the embedding site can style around it. Editing a widget's configuration later updates every embed of it automatically — the embedder never has to re-paste anything.
 *   **Interaction Scope:** Unlike the full app, clicking an event inside the widget does not open a detail view or navigate away — the only interaction available is adding the event to the viewer's own calendar via one-way `.ics` export (Section 3.3.1, same one-way behavior as the rest of the app). A small "Powered by FestDaily" button is always present and opens the main FestDaily app — not optional branding, but the widget's path back to the product.
 *   **Embedding Mechanism:** The generator produces two ways to embed a widget, both ultimately rendering the same public iframe route so the domain-whitelist enforcement below applies identically either way:
     *   **Script + placeholder (recommended):** a small `data-festdaily-widget-id`-tagged `<div>` plus one shared `<script>` tag. The script locates every such `<div>` on the page (supporting multiple different widgets on one page from a single script include), waits for the DOM to be ready, and inserts an iframe into each, wiring up the `postMessage` auto-resize handshake below automatically. This is the primary recommended snippet — shorter to paste, and the only form that gets automatic config updates without re-pasting.
@@ -230,6 +230,23 @@ FestDaily's event discovery can be embedded as a public, unauthenticated iframe 
 *   **MVP Traffic Posture:** No rate limiting is applied to widget traffic for MVP; usage is monitored via PostHog (Section 5, Analytics), and rate limiting/caching is revisited if abuse or cost impact is observed.
 
 > **Deferred to implementation:** whether domain *ownership* verification (proving the registrant actually controls a given domain, e.g. via DNS TXT record) is required in addition to the Public Suffix List check above — the PSL check prevents the shared-hosting whitelisting failure mode, but does not by itself confirm the registrant owns the specific domain they typed.
+
+### 3.15 AI Prompt-Based Custom Event Filter
+
+As a faster alternative to operating FilterHub's manual controls (Section 3.1), a user can describe what they're looking for in a free-text prompt — e.g. "free jazz events in Kota Yogyakarta next week" — and immediately see matching Discovery results, serving the Engagement goal (Section 2) by lowering the effort to reach a precise result. This is an on-demand, single-shot capability: each prompt is extracted and applied independently, with no conversation memory, no follow-up refinement turn, and no chat interface. A recurring digest evaluated against a saved filter is deferred to Post-MVP (Section 8.4).
+
+*   **Access and Funding:** Prompt extraction is a third Gemini-consuming code path alongside event extraction and Default Location inference (both Section 3.7). Like event extraction, it is BYOK-only, drawing on a `contributing_user`'s own saved Gemini API key (Section 3.11). A user with no BYOK key on file — including an unauthenticated Discovery visitor — does not see the AI filter entry point; they use FilterHub's manual controls instead. This intentionally does not extend the narrowly-scoped system-key fallback that exists solely for Default Location inference (Section 3.7).
+*   **Locked Filter Vocabulary:** A prompt can populate any combination of: social media account, event type, category, keyword, date range or day-of-week recurrence, admin-area/region text match, venue type, and a "free"/"gratis" exact-text match (`isFree`) — a deliberately narrow exception to the numeric price-threshold filtering deferred to Post-MVP (Section 8.5), not a first step toward it. These map onto the shared `EventFilterInput` shape (Section 4.18) — the same structure FilterHub's manual controls and the Embeddable Widget's filters (Section 3.14) use. `EventFilterInput`'s proximity-radius field (reused unchanged from Section 3.3) is not itself prompt-extracted — a prompt cannot productively set precise coordinates — so it stays populated only via FilterHub's existing manual location control, same as today.
+*   **Degrading Gracefully:** A prompt fragment outside the locked vocabulary above — a numeric price threshold, a floor/room-level location detail, a compound date expression that the closed grammar has no single anchor for (e.g. "this weekend"), or off-topic content unrelated to filtering — is never guessed at or silently dropped; it is always surfaced as an explicit caveat in the rendered summary below. This single degrade mechanism was validated against the price, floor, and off-topic cases specifically, and is intended to generalize the same way to any other unsupported fragment.
+*   **Venue Type Source:** Venue type is extracted by the existing Gemini AI processing pipeline from the source post itself (Section 3.7), not looked up from the geolocation provider — informal local venue names are not reliably identifiable that way. It is stored on the event's location details (Section 4.3) alongside the new admin-area field, and is included whenever a schedule inherits its account's Default Location (Section 3.7) — a partial inherit would leave venue-type filtering broken specifically for the accounts that rely on that fallback.
+*   **Region Matching, a Known Limitation:** Admin-area/region matching (e.g. distinguishing "Kota Yogyakarta" from "Kabupaten Sleman") relies on the existing geolocation provider's administrative-area data (Section 4.3). Because that data is community-sourced (OpenStreetMap), address matching near a city/regency boundary may occasionally be imprecise. This is an accepted v1 limitation, not a blocking defect — true polygon/point-in-polygon geographic filtering was considered and rejected as new infrastructure not justified by current use cases.
+*   **Summary Is the Only Transparency Layer:** The resulting filter — whether just-extracted or loaded from a save — is described to the user solely by a deterministic, template-rendered summary sentence built from its current field values and any caveats (never an AI-generated or frozen caption). There is no edit UI for a filter, ever: the only way to change one is to re-prompt. This single mechanism is deliberately the entire trust/transparency layer.
+*   **Saving and Reuse:** A user can save a resolved filter from a dedicated "My AI Filters" list page (same pattern as the Favorites and Subscribed Accounts list pages, Sections 3.2 and 3.7). Loading a saved filter into Discovery and then adjusting a FilterHub manual control (Section 3.1) changes only that browsing session's query state — it never mutates the saved filter itself.
+*   **FilterHub Entry Point:** The prompt entry point is a small icon-only trigger (no permanent label) that opens the prompt as an overlay, adding no permanent width to FilterHub. While a prompt is being resolved, the overlay uses Section 3.12's existing blocking full-screen-overlay pattern (the same one used for other data-extraction actions), not a lighter-weight spinner. When an AI filter is active, it replaces FilterHub's manual controls with a single collapsed row showing the live summary plus clear/expand actions — the two are never shown stacked together.
+
+> **Considered and rejected:** a general-purpose, open-dialogue chatbot — this would let a user's own BYOK Gemini API key (Section 3.11) be used as a free chat proxy through the app, an abuse vector the constrained, structured-output-only extraction task above avoids. Also rejected: a dedicated "AI mode" toggle that hides FilterHub entirely — the icon-only trigger above was chosen instead so manual and AI-driven filtering coexist without an app-wide mode switch.
+
+> **Deferred to implementation:** whether a future revision of the closed date grammar (Section 4.18) should add compound-day support (e.g. a `WEEKEND` anchor, or a set-valued day-of-week) so phrasing like "this weekend" resolves to a real filter instead of a caveat — not addressed in this pass since the grammar was deliberately locked closed during discovery.
 
 ## 4. Event Data Schema
 
@@ -391,6 +408,34 @@ interface LocationDetails {
    * The IANA time zone name for this location (e.g., "Europe/Paris").
    */
   timezone?: string;
+  /**
+   * The city name from the geolocation provider's response, when present.
+   */
+  city?: string;
+  /**
+   * The province/state/administrative-region name from the geolocation
+   * provider's response, when present.
+   */
+  province?: string;
+  /**
+   * A normalized administrative-area label used for region-mode filtering
+   * (Section 3.15) — e.g. distinguishing "Yogyakarta" (city) from "Sleman
+   * Regency". Derived from the geolocation provider's most granular reliable
+   * admin-area field (falling back to `city` when unavailable). Because the
+   * underlying provider data is community-sourced, this occasionally
+   * misattributes an address near a city/regency boundary — an accepted
+   * limitation (Section 3.15).
+   */
+  adminArea?: string;
+  /**
+   * The type of venue (e.g., "Mall", "Concert Hall", "Park"), from a
+   * controlled vocabulary maintained by the AI extraction pipeline
+   * (Section 3.7) — not sourced from the geolocation provider. Used for
+   * venue-type filtering (Section 3.15). When a `Schedule` inherits its
+   * account's Default Location (Section 3.7), this field is inherited along
+   * with the rest of `LocationDetails`.
+   */
+  venueType?: string;
 }
 ```
 
@@ -927,13 +972,12 @@ interface Widget {
    */
   ownerUserId: string;
   /**
-   * The filter combination this widget renders — any combination of the main
-   * discovery experience's filters (Sections 3.1, 3.5, 3.7): social media
-   * account, event type, category, keyword, and location/coordinates + radius.
-   * Structurally the same filter shape the main discovery page's URL query
-   * params already express, persisted here instead of re-encoded per embed.
+   * The filter combination this widget renders. Uses the shared
+   * `EventFilterInput` shape (Section 4.18) — the same typed structure
+   * FilterHub's manual controls and AI Event Filters (Section 3.15) use,
+   * rather than an untyped, unvalidated bag of fields.
    */
-  filters: Record<string, unknown>;
+  filters: EventFilterInput;
   displayMode: WidgetDisplayMode;
   theme: WidgetTheme;
   createdAt: string;
@@ -978,6 +1022,122 @@ interface EmbedDomain {
    * Timestamp of a soft-delete. Deregistering a pattern sets this instead of
    * removing the row, consistent with the project's soft-delete convention
    * (AD-8); the widget route's domain check excludes soft-deleted rows.
+   */
+  deletedAt?: string;
+}
+```
+
+### 4.18. EventFilterInput Interface
+
+```typescript
+enum DateAnchor {
+  TODAY,
+  THIS_WEEK,
+  THIS_MONTH
+}
+
+enum DateOffsetUnit {
+  DAY,
+  WEEK,
+  MONTH
+}
+
+enum DayOfWeek {
+  MON, TUE, WED, THU, FRI, SAT, SUN
+}
+
+/**
+ * A closed, composable date-range expression — e.g. {THIS_WEEK, +1, WEEK}
+ * for "next week". Resolved fresh against the current date whenever the
+ * filter is applied; never stored or matched as a frozen absolute date.
+ */
+interface DateRangeFilter {
+  anchor: DateAnchor;
+  offsetAmount: number;
+  offsetUnit: DateOffsetUnit;
+}
+
+/**
+ * Either proximity mode (existing coordinates + radius, Section 3.3) or
+ * region mode (new admin-area text match, Section 3.15) — not both at once.
+ */
+interface LocationFilter {
+  coordinates?: Coordinates;
+  radiusMeters?: number;
+  /**
+   * Matched against `LocationDetails.adminArea` (Section 4.3).
+   */
+  adminArea?: string;
+}
+
+/**
+ * The shared filter shape used by FilterHub's manual controls (Section 3.1),
+ * the Embeddable Widget (Section 3.14, 4.16), and AI Event Filters
+ * (Section 3.15) alike — replacing what was previously an untyped,
+ * per-consumer shape. Every field is optional; an empty `EventFilterInput`
+ * matches the default unfiltered view (Section 3.5).
+ */
+interface EventFilterInput {
+  accountId?: string;
+  types?: EventType[];
+  categories?: EventCategory[];
+  keyword?: string;
+  /**
+   * Composes with `dayOfWeek` below (AND semantics) when both are present —
+   * e.g. {THIS_WEEK, +1, WEEK} + FRI for "next week, on Fridays" — unlike
+   * `LocationFilter`'s two modes, which are mutually exclusive.
+   */
+  dateRange?: DateRangeFilter;
+  dayOfWeek?: DayOfWeek;
+  location?: LocationFilter;
+  /**
+   * Matched against `LocationDetails.venueType` (Section 4.3).
+   */
+  venueType?: string;
+  /**
+   * Exact-text match against `Schedule.ticketPrice` for locked-vocabulary
+   * "free"/"gratis" phrasing (Section 3.15) — not a numeric price threshold.
+   */
+  isFree?: boolean;
+}
+```
+
+### 4.19. AIEventFilter Interface
+
+```typescript
+/**
+ * A saved AI Event Filter (Section 3.15), reachable from the "My AI Filters"
+ * list page. Has no dedicated edit UI — the only way to change one is to
+ * re-prompt and save the newly resolved filter over it.
+ */
+interface AIEventFilter {
+  id: string;
+  /**
+   * The ID of the `User` (Section 4.8) who owns this saved filter.
+   */
+  ownerUserId: string;
+  /**
+   * The structured filter this record resolved to.
+   */
+  resolvedFilter: EventFilterInput;
+  /**
+   * Human-readable notes for any prompt fragment that fell outside the
+   * locked vocabulary (Section 3.15) — e.g. a price threshold, a floor/room
+   * detail, or off-topic content — and so could not populate a field on
+   * `resolvedFilter` above. Captured at extraction time because this
+   * information has no other home once the fragment doesn't map to a field,
+   * and is surfaced verbatim every time by the rendered summary (Section
+   * 3.15), so a reloaded saved filter still shows what was excluded and why.
+   */
+  caveats: string[];
+  createdAt: string;
+  /**
+   * Bumped each time the user re-prompts and this record is overwritten with
+   * a newly resolved filter and caveats.
+   */
+  updatedAt: string;
+  /**
+   * Timestamp of a soft-delete (AD-8).
    */
   deletedAt?: string;
 }
@@ -1078,3 +1238,11 @@ Provide premium users with a user interface to view and modify their autogenerat
 ### 8.3 Hexagon-Based Spatial Indexing for Nearby Events
 
 Improve nearby event discovery performance by mapping coordinates into groups of hexagon areas (e.g., using Uber's H3 spatial index system). This avoids heavy runtime trigonometric/spatial coordinate calculations when querying nearby events.
+
+### 8.4 Recurring AI Filter Digests
+
+Recurring daily/weekly notifications evaluated against a user's saved AI Event Filters (Section 3.15), surfacing new matching events without the user needing to reopen the app and re-prompt. Requires a scheduler and quota-aware fan-out across saved filters, distinct from the on-demand, single-shot v1 capability.
+
+### 8.5 Cross-Currency Price-Threshold Filtering
+
+Extend the AI Event Filter's price vocabulary (Section 3.15) beyond v1's exact-match `isFree` field to a general numeric threshold (e.g. "under IDR 200K"), matching across currencies. Requires a `ticketPrice` extraction-schema change to capture a normalized, estimated numeric value plus a cached FX-rate source, since `Schedule.ticketPrice` today remains free-form scraped text (Section 4.4).

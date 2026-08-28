@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Forge Report — AI Prompt-Based Event Filter</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #f6f4ee;
+    --panel: #ffffff;
+    --ink: #201d17;
+    --muted: #6b6558;
+    --line: #e4ddcc;
+    --accent: #8a4b2f;
+    --accent-ink: #ffffff;
+    --lock: #2f6b4f;
+    --reject: #a3392f;
+    --note: #9c7c1f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17150f;
+      --panel: #211e17;
+      --ink: #f1ece0;
+      --muted: #a89f8b;
+      --line: #38332590;
+      --accent: #d98a5e;
+      --accent-ink: #201d17;
+      --lock: #7fd6ac;
+      --reject: #ff9b8f;
+      --note: #e8c96a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 840px; margin: 0 auto; padding: 48px 24px 96px; }
+  header { text-align: center; margin-bottom: 8px; }
+  .kicker { letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.72rem; color: var(--muted); font-family: 'Courier New', monospace; }
+  h1 { font-size: 1.9rem; margin: 8px 0 4px; }
+  .subtitle { color: var(--muted); font-size: 0.95rem; margin-bottom: 28px; }
+
+  .seal-row { display: flex; justify-content: center; margin: 20px 0 36px; }
+  .seal-row svg { width: 168px; height: 168px; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.25)); }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 22px 26px;
+    margin-bottom: 22px;
+  }
+  .panel h2 {
+    font-size: 1.02rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+    font-family: 'Courier New', monospace;
+    color: var(--accent);
+  }
+  .panel p.lead { margin-top: 0; }
+  ul { margin: 0; padding-left: 1.2em; }
+  li { margin-bottom: 8px; }
+  li b { color: var(--ink); }
+
+  .tag {
+    display: inline-block;
+    font-family: 'Courier New', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 1px 7px;
+    border-radius: 4px;
+    margin-right: 8px;
+    vertical-align: 1px;
+  }
+  .tag.lock { background: color-mix(in srgb, var(--lock) 20%, transparent); color: var(--lock); border: 1px solid var(--lock); }
+  .tag.reject { background: color-mix(in srgb, var(--reject) 18%, transparent); color: var(--reject); border: 1px solid var(--reject); }
+  .tag.note { background: color-mix(in srgb, var(--note) 20%, transparent); color: var(--note); border: 1px solid var(--note); }
+
+  .persona-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  .persona {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.86rem;
+  }
+  .persona .name { font-weight: 600; }
+  .persona .role { color: var(--muted); font-size: 0.78rem; }
+
+  footer { text-align: center; color: var(--muted); font-size: 0.78rem; margin-top: 36px; font-family: 'Courier New', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">BMad Forge Idea — Session Report</div>
+    <h1>AI Prompt-Based Event Filter</h1>
+    <div class="subtitle">FestDaily · a natural-language filter that translates a prompt into a stored, structured event query</div>
+  </header>
+
+  <div class="seal-row">
+    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <path id="sealCircle" d="M100,24 a76,76 0 1,1 -0.1,0" />
+      </defs>
+      <circle cx="100" cy="100" r="92" fill="none" stroke="#2f6b4f" stroke-width="2" opacity="0.5"/>
+      <circle cx="100" cy="100" r="78" fill="#2f6b4f" opacity="0.12"/>
+      <circle cx="100" cy="100" r="78" fill="none" stroke="#2f6b4f" stroke-width="2.5"/>
+      <circle cx="100" cy="100" r="70" fill="none" stroke="#2f6b4f" stroke-width="1" stroke-dasharray="2 3"/>
+      <text font-family="'Courier New', monospace" font-size="10.5" font-weight="700" letter-spacing="2.5" fill="#2f6b4f">
+        <textPath href="#sealCircle" startOffset="3%">HARDENED · IDEA FORGED · HARDENED · IDEA FORGED ·</textPath>
+      </text>
+      <g transform="translate(100,104)">
+        <path d="M-26,-4 L-8,16 L28,-22" fill="none" stroke="#2f6b4f" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <text x="100" y="140" text-anchor="middle" font-family="Georgia, serif" font-size="11" fill="#2f6b4f" opacity="0.75">v1 scoped &amp; buildable</text>
+    </svg>
+  </div>
+
+  <div class="panel">
+    <h2>Outcome</h2>
+    <p class="lead">Hardened. What began as "add a chatbot" turned into a scoped v1: a single-purpose, single-shot prompt-to-filter translator reusing the existing BYOK Gemini adapter, a formalized shared filter type, and one general mechanism for anything it can't do. The idea survived by shrinking — three things (the digest, price thresholds, multi-turn conversation) were deliberately cut to v2 rather than built into a first release, and one thing (an open chatbot) was rejected outright as an abuse vector.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Locked for v1</h2>
+    <ul>
+      <li><span class="tag lock">lock</span><b>On-demand only</b> — prompt → filter → results now. No scheduler, no digest, no quota fan-out.</li>
+      <li><span class="tag lock">lock</span><b>Single-shot prompts</b> — no conversation memory or follow-up refinement.</li>
+      <li><span class="tag lock">lock</span><b>No edit UI, ever</b> — a saved filter changes only by re-prompting.</li>
+      <li><span class="tag lock">lock</span><b>Deterministic, template-rendered summary</b> — never AI-generated, always a live render of current filter state, not a frozen caption. This is the entire trust/transparency layer.</li>
+      <li><span class="tag lock">lock</span><b>Date filter as a closed anchor+offset grammar</b> (TODAY/THIS_WEEK/THIS_MONTH ± N days/weeks/months), resolved fresh at read time. Day-of-week recurrence is a separate field.</li>
+      <li><span class="tag lock">lock</span><b>Location — region mode</b> via admin-area captured from the existing Geoapify response, indexed text match. No new geo infrastructure.</li>
+      <li><span class="tag lock">lock</span><b>Venue type sourced from the Gemini extraction pipeline</b>, not the geolocation provider — and inherited wholesale (with adminArea) whenever a schedule falls back to the account's Default Location.</li>
+      <li><span class="tag lock">lock</span><b>One general degrade rule</b>: anything outside the locked vocabulary is surfaced as an explicit caveat in the summary — never silently dropped, never fragile-guessed. Validated independently three times (price, floor-level location, off-topic prompts).</li>
+      <li><span class="tag lock">lock</span><b>Chatbot is a narrow extraction tool</b>, not an app-wide QnA assistant — constrained system prompt, structured output only.</li>
+      <li><span class="tag lock">lock</span><b>Compact FilterHub</b>: one icon-only trigger, saved filters live on their own "My AI Filters" list page, an active AI filter replaces (never stacks under) the manual control row.</li>
+      <li><span class="tag lock">lock</span><b>AI filter and manual FilterHub share one live state</b> — manual edits touch only the session, never the saved entity.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h2>Rejected</h2>
+    <ul>
+      <li><span class="tag reject">cut</span><b>True polygon / point-in-polygon geo queries (PostGIS)</b> — new geospatial infrastructure the current use cases (Sleman-vs-Kota-Yogyakarta) don't actually require; admin-area text matching solves it.</li>
+      <li><span class="tag reject">cut</span><b>Venue-type from the geolocation provider's POI database</b> — unverified capability, weak for informal local venue names; the Gemini extraction pipeline already does this reliably at zero extra cost.</li>
+      <li><span class="tag reject">cut</span><b>A full "AI mode" toggle</b> that hides the entire FilterHub — too hard a context switch; replaced with a compact collapsed summary row.</li>
+      <li><span class="tag reject">cut</span><b>An open, general-purpose chatbot</b> — creates a BYOK abuse vector (a user's own paid Gemini key used as a free chat proxy through the app).</li>
+      <li><span class="tag reject">cut</span><b>Fragile heuristic parsing</b> of free-text price or floor/wing details — unreliable, replaced by the one honest degrade-caveat mechanism.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h2>Deferred to v2</h2>
+    <ul>
+      <li>Recurring daily/weekly digest against saved filters (scheduler + per-user quota fan-out).</li>
+      <li>Global numeric <code>ticketPrice</code> normalization — estimated, cross-currency thresholds ("under IDR 200K" matching USD listings).</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h2>Weak points that survived scrutiny</h2>
+    <ul>
+      <li><span class="tag note">open</span>The shared <code>EventFilterInput</code> schema extension was proposed and built upon repeatedly, but <b>never given an explicit final yes</b> after the location tangent pulled focus. Everything downstream assumes it.</li>
+      <li><span class="tag note">open</span><b>Unverified:</b> whether Geoapify's response actually separates Kota Yogyakarta from Kabupaten Sleman as distinct admin values for real Indonesian addresses — a quick API check, not resolved in this session.</li>
+      <li><span class="tag note">open</span>Whether <b>"free"/"gratis"</b> deserves a cheap exact-text-match exception to the v2-deferred price filter — raised as a promising side discovery, never decided.</li>
+      <li><span class="tag note">open</span>How an account's Default Location first acquires its own <code>venueType</code> — "AI-classified from whichever post first gave enough context, or set explicitly during configuration" was proposed but not fully specified as a mechanism.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h2>Cast</h2>
+    <div class="persona-grid">
+      <div class="persona"><div class="name">📋 John</div><div class="role">Product Manager — pressed the "no edit UI" premise first</div></div>
+      <div class="persona"><div class="name">🎧 Priya</div><div class="role">generated — Support Lead, named the trust cost of opacity</div></div>
+      <div class="persona"><div class="name">🏗️ Winston</div><div class="role">System Architect — cost/feasibility forks, "boring technology"</div></div>
+      <div class="persona"><div class="name">💰 Ravi</div><div class="role">generated — Infra Cost Realist, quota math</div></div>
+      <div class="persona"><div class="name">🎨 Sally</div><div class="role">UX Designer — FilterHub compactness &amp; coexistence design</div></div>
+      <div class="persona"><div class="name">🎯 Yui</div><div class="role">Craftsman — reuse over reinvention, schema typing</div></div>
+      <div class="persona"><div class="name">🔧 Theo</div><div class="role">generated — maintainer, pure-function translator</div></div>
+      <div class="persona"><div class="name">🚢 Dana</div><div class="role">Pragmatist — forced the v1/v2 scope cuts</div></div>
+      <div class="persona"><div class="name">📏 Level</div><div class="role">Claim Checker — flagged the Geoapify assumption to verify</div></div>
+      <div class="persona"><div class="name">😤 Grumbal</div><div class="role">Adversary — attacked fragile price/text parsing</div></div>
+      <div class="persona"><div class="name">🌏 Wulan</div><div class="role">generated — local user, wanted honesty over silent failure</div></div>
+      <div class="persona"><div class="name">💻 Amelia</div><div class="role">Senior Software Engineer — venueType/backfill precision</div></div>
+      <div class="persona"><div class="name">🔧 Budi</div><div class="role">generated — extraction-pipeline engineer, capability checks</div></div>
+      <div class="persona"><div class="name">🔒 Vex</div><div class="role">Security Engineer — named the BYOK free-chat-proxy abuse vector</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Next</h2>
+    <p style="margin:0;">Feeds <code>bmad-spec</code> or <code>bmad-prd</code> directly — the vocabulary, schema shape, and degrade rule are concrete enough to write acceptance criteria against. Close the three open items above first; none are large, but each changes a downstream contract.</p>
+  </div>
+
+  <footer>_bmad-output/forge/ai-prompt-event-filter/ · forged 2026-08-28</footer>
+</div>
+</body>
+</html>
