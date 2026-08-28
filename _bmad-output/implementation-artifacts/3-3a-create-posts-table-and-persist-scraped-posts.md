@@ -167,6 +167,10 @@ so that the scraping/queuing/extraction pipeline (Stories 3.4-3.6) and the manua
 - Implemented idempotent `markPostExtracted` flag setting.
 - Added comprehensive integration tests using `node:test` covering all required scenarios and edge cases.
 - Guarded database seed fixtures from regression with a unique post_url check.
+
+### Known Issues (added 2026-08-28, found during `ui-quick-fixes-batch` dev testing)
+
+- The `alreadyExisted` dedupe short-circuit in `persistScrapedPost` (returns the existing row unchanged on re-scrape, tested at `persist-scraped-post.test.ts:46-67`) means any field added to the `posts` schema after a given post's first scrape never backfills onto already-persisted rows — confirmed for `posts.video_url` (added migration `0036`, 2026-08-25): posts first scraped before that column existed permanently have `video_url = NULL`, even though a fresh scrape of the same URL returns a populated value. Full write-up and fix options tracked in `_bmad-output/implementation-artifacts/deferred-work.md` ("Deferred from: quick-dev UI fixes batch (2026-08-28)"). Not fixed here — deliberately deferred to its own future story since a real fix requires deciding whether to selectively update null media fields on re-scrape vs. run a one-off backfill job, and must not risk overwriting human/AI-corrected data on other fields.
 - Verified and built the modified workspaces end-to-end.
 
 ### File List

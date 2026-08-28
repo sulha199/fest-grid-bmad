@@ -1,4 +1,10 @@
 - store post's reel/video, and prioritize video in event detail rather than the image. The image will still be the skeleton loader.
 - correct the image/video aspect-ratio in the image detail
-- fix user avatar that looks narrow, show as rounded image
+- fix user avatar that looks narrow in navbar, show as rounded image
 - remove login button in discovery page
+- missed favorites count beside favorite icon
+- missing label menu archive & manual post selection
+- manual post selection should be disabled when api keys are empty -> should be disabled via menu or use redirect to onboarding wizard
+- missing widget menu
+- calendar view item misses the favorite icon + count
+- filterhub button for type, category, nearby should have inline `x` button, so its easily cleared
