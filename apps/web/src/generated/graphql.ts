@@ -224,9 +224,12 @@ export type Event = {
 
 export enum EventCategory {
   ArtsAndCulture = 'ARTS_AND_CULTURE',
+  Automotive = 'AUTOMOTIVE',
   BusinessAndNetworking = 'BUSINESS_AND_NETWORKING',
+  Career = 'CAREER',
   CharityAndCauses = 'CHARITY_AND_CAUSES',
   CivicAndCommunity = 'CIVIC_AND_COMMUNITY',
+  Education = 'EDUCATION',
   FamilyAndKids = 'FAMILY_AND_KIDS',
   FoodAndDrink = 'FOOD_AND_DRINK',
   HealthAndWellness = 'HEALTH_AND_WELLNESS',
@@ -235,7 +238,9 @@ export enum EventCategory {
   Music = 'MUSIC',
   Other = 'OTHER',
   ReligionAndSpirituality = 'RELIGION_AND_SPIRITUALITY',
-  SportsAndFitness = 'SPORTS_AND_FITNESS'
+  SportsAndFitness = 'SPORTS_AND_FITNESS',
+  Technology = 'TECHNOLOGY',
+  TravelAndTourism = 'TRAVEL_AND_TOURISM'
 }
 
 export type EventConnection = {

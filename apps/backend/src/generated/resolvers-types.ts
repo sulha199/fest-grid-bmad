@@ -206,9 +206,12 @@ export type Event = {
 
 export type EventCategory =
   | 'ARTS_AND_CULTURE'
+  | 'AUTOMOTIVE'
   | 'BUSINESS_AND_NETWORKING'
+  | 'CAREER'
   | 'CHARITY_AND_CAUSES'
   | 'CIVIC_AND_COMMUNITY'
+  | 'EDUCATION'
   | 'FAMILY_AND_KIDS'
   | 'FOOD_AND_DRINK'
   | 'HEALTH_AND_WELLNESS'
@@ -217,7 +220,9 @@ export type EventCategory =
   | 'MUSIC'
   | 'OTHER'
   | 'RELIGION_AND_SPIRITUALITY'
-  | 'SPORTS_AND_FITNESS';
+  | 'SPORTS_AND_FITNESS'
+  | 'TECHNOLOGY'
+  | 'TRAVEL_AND_TOURISM';
 
 export type EventConnection = {
   __typename?: 'EventConnection';

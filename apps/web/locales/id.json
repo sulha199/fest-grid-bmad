@@ -303,6 +303,11 @@
     "CHARITY_AND_CAUSES": "Amal & Kepedulian",
     "CIVIC_AND_COMMUNITY": "Sipil & Komunitas",
     "RELIGION_AND_SPIRITUALITY": "Agama & Spiritualitas",
+    "TECHNOLOGY": "Teknologi",
+    "TRAVEL_AND_TOURISM": "Wisata & Pariwisata",
+    "EDUCATION": "Pendidikan",
+    "CAREER": "Karier",
+    "AUTOMOTIVE": "Otomotif",
     "OTHER": "Lainnya"
   },
   "ReportReason": {

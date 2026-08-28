@@ -283,6 +283,11 @@ enum EventCategory {
   CHARITY_AND_CAUSES,     // Fundraisers, non-profit events (New)
   CIVIC_AND_COMMUNITY,    // Town halls, local government, volunteering (New)
   RELIGION_AND_SPIRITUALITY, // Worship services, retreats, interfaith gatherings (New)
+  TECHNOLOGY,             // Tech product promos, hackathons, tech meetups/conferences (New)
+  TRAVEL_AND_TOURISM,     // Travel gear promos, travel fairs, tourism expos (New)
+  EDUCATION,              // Academic olympiads/competitions, school contests (New)
+  CAREER,                 // Job fairs, career workshops (New)
+  AUTOMOTIVE,             // Car and motorcycle fairs, exhibitions (New)
   OTHER
 }
 

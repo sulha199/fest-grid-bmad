@@ -303,6 +303,11 @@
     "CHARITY_AND_CAUSES": "Charity & Causes",
     "CIVIC_AND_COMMUNITY": "Civic & Community",
     "RELIGION_AND_SPIRITUALITY": "Religion & Spirituality",
+    "TECHNOLOGY": "Technology",
+    "TRAVEL_AND_TOURISM": "Travel & Tourism",
+    "EDUCATION": "Education",
+    "CAREER": "Career",
+    "AUTOMOTIVE": "Automotive",
     "OTHER": "Other"
   },
   "ReportReason": {

@@ -28,6 +28,11 @@ enum EventCategory {
   CHARITY_AND_CAUSES
   CIVIC_AND_COMMUNITY
   RELIGION_AND_SPIRITUALITY # Worship services, retreats, interfaith gatherings
+  TECHNOLOGY # Tech product promos, hackathons, tech meetups/conferences
+  TRAVEL_AND_TOURISM # Travel gear promos, travel fairs, tourism expos
+  EDUCATION # Academic olympiads/competitions, school contests
+  CAREER # Job fairs, career workshops
+  AUTOMOTIVE # Car and motorcycle fairs, exhibitions
   OTHER
 }
 
