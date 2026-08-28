@@ -1,17 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { randomUUID } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { posts, unprocessedScraperPayloads, socialMediaAccountProfiles, scraperActorRuns } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
 import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
 import { recordActorRunStart } from './record-actor-run.js';
+import { replayActorRun } from './replay-actor-run.js';
 
 test('scraper actor run linking (Story 3-4l)', async (t) => {
-  const testProfileId = 'profile-' + Date.now();
+  let testProfileId: string;
   const testRunId = 'run-' + Date.now();
 
   t.beforeEach(async () => {
+    testProfileId = randomUUID();
     await db.insert(socialMediaAccountProfiles).values({
       id: testProfileId,
       accountId: 'acct-' + Date.now(),
@@ -23,7 +26,7 @@ test('scraper actor run linking (Story 3-4l)', async (t) => {
 
   t.afterEach(async () => {
     await db.delete(posts).where(eq(posts.accountId, testProfileId));
-    await db.delete(unprocessedScraperPayloads).where(eq(unprocessedScraperPayloads.id, 'any'));
+    await db.delete(unprocessedScraperPayloads);
     await db.delete(scraperActorRuns).where(eq(scraperActorRuns.profileId, testProfileId));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId));
   });
@@ -177,7 +180,7 @@ test('scraper actor run linking (Story 3-4l)', async (t) => {
 
     assert.ok(recorded, 'Run should exist in database');
     assert.strictEqual(recorded.vendor, 'APIFY');
-    assert.strictEqual(recorded.triggerMode, 'SYNC');
+    assert.strictEqual(recorded.triggerMode, 'ASYNC');
   });
 
   await t.test('Multiple posts from same run are linked correctly', async () => {
@@ -223,5 +226,91 @@ test('scraper actor run linking (Story 3-4l)', async (t) => {
       postsFromRun.every((p) => p.scraperActorRunId === auditRunId),
       'All posts should link to the same run ID'
     );
+  });
+
+  await t.test('replayActorRun Apify branch passes videoUrl and originalPostUrl', async () => {
+    const auditRunId = await recordActorRunStart({
+      vendor: 'APIFY',
+      triggerMode: 'SYNC',
+      profileId: testProfileId,
+      runId: 'apify-run-replay-' + Date.now(),
+      rawInput: { test: true },
+    });
+
+    assert.ok(auditRunId);
+
+    // Set stored output to bypass vendor API call
+    const rawOutput = [
+      {
+        url: 'https://instagram.com/p/apify-replay-url/',
+        caption: 'Apify replayed post caption',
+        timestamp: new Date().toISOString(),
+        displayUrl: 'https://example.com/apify-img.jpg',
+        videoUrl: 'https://example.com/apify-video.mp4',
+      }
+    ];
+
+    await db
+      .update(scraperActorRuns)
+      .set({ rawOutput, status: 'SUCCEEDED', itemCount: 1 })
+      .where(eq(scraperActorRuns.id, auditRunId));
+
+    const result = await replayActorRun(auditRunId);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.postsPersisted, 1);
+
+    // Verify post was inserted with videoUrl and originalPostUrl
+    const [persisted] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.postUrl, 'https://instagram.com/p/apify-replay-url/'))
+      .limit(1);
+
+    assert.ok(persisted);
+    assert.strictEqual(persisted.videoUrl, 'https://example.com/apify-video.mp4');
+    assert.strictEqual(persisted.originalPostUrl, 'https://instagram.com/p/apify-replay-url/');
+  });
+
+  await t.test('replayActorRun Bright Data branch passes videoUrl and originalPostUrl', async () => {
+    const auditRunId = await recordActorRunStart({
+      vendor: 'BRIGHTDATA',
+      triggerMode: 'SYNC',
+      profileId: testProfileId,
+      runId: 'bd-run-replay-' + Date.now(),
+      rawInput: { test: true },
+    });
+
+    assert.ok(auditRunId);
+
+    // Set stored output to bypass vendor API call
+    const rawOutput = [
+      {
+        url: 'https://instagram.com/p/bd-replay-url/',
+        caption: 'Bright Data replayed post caption',
+        date_posted: new Date().toISOString(),
+        image_url: 'https://example.com/bd-img.jpg',
+        videos: ['https://example.com/bd-video.mp4'],
+      }
+    ];
+
+    await db
+      .update(scraperActorRuns)
+      .set({ rawOutput, status: 'SUCCEEDED', itemCount: 1 })
+      .where(eq(scraperActorRuns.id, auditRunId));
+
+    const result = await replayActorRun(auditRunId);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.postsPersisted, 1);
+
+    // Verify post was inserted with videoUrl and originalPostUrl
+    const [persisted] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.postUrl, 'https://instagram.com/p/bd-replay-url/'))
+      .limit(1);
+
+    assert.ok(persisted);
+    assert.strictEqual(persisted.videoUrl, 'https://example.com/bd-video.mp4');
+    assert.strictEqual(persisted.originalPostUrl, 'https://instagram.com/p/bd-replay-url/');
   });
 });

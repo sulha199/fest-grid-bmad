@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { randomUUID } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, brightdataPendingJobs, posts } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
@@ -8,12 +9,14 @@ import { createPendingJob } from './brightdata-pending-jobs-store.js';
 import type { BrightdataPendingJob } from './brightdata-pending-jobs-store.js';
 
 test('process-brightdata-result tests', async (t) => {
-  const testProfileId = 'profile-' + Date.now();
+  let testProfileId: string;
 
   t.beforeEach(async () => {
+    testProfileId = randomUUID();
     // Create a test profile
     await db.insert(socialMediaAccountProfiles).values({
-      accountId: testProfileId,
+      id: testProfileId,
+      accountId: 'acct-' + Date.now(),
       platform: 'instagram',
       username: 'test_user',
       displayName: 'Test User',
@@ -83,6 +86,50 @@ test('process-brightdata-result tests', async (t) => {
       .where(eq(brightdataPendingJobs.id, id));
 
     assert.strictEqual(job.status, 'COMPLETED');
+  });
+
+  await t.test('persists Bright Data record with video and verifies videoUrl and originalPostUrl', async () => {
+    const snapshotId = 'snapshot-video-' + Date.now();
+    const { id, webhookToken } = await createPendingJob({
+      profileId: testProfileId,
+      snapshotId,
+    });
+
+    const pendingJob: BrightdataPendingJob = {
+      id,
+      profileId: testProfileId,
+      snapshotId,
+      webhookToken,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 3600000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const records = [
+      {
+        url: 'https://www.instagram.com/p/video123/',
+        caption: 'Test video post from Bright Data',
+        date_posted: '2026-08-08T00:00:00Z',
+        image_url: 'https://example.com/img.jpg',
+        videos: ['https://example.com/video.mp4'],
+      },
+    ];
+
+    await processBrightDataResult(pendingJob, records);
+
+    // Verify post persisted with videoUrl and originalPostUrl
+    const persistedPosts = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.accountId, testProfileId));
+
+    const post = persistedPosts.find(p => p.postUrl === 'https://www.instagram.com/p/video123/');
+    assert.ok(post);
+    assert.strictEqual(post.content, 'Test video post from Bright Data');
+    assert.strictEqual(post.imageUrl, 'https://example.com/img.jpg');
+    assert.strictEqual(post.videoUrl, 'https://example.com/video.mp4');
+    assert.strictEqual(post.originalPostUrl, 'https://www.instagram.com/p/video123/');
   });
 
   await t.test('skips invalid Bright Data record without throwing', async () => {

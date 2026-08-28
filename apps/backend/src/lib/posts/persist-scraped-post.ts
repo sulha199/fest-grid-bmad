@@ -52,8 +52,9 @@ export async function persistScrapedPost({
   }
 
   // 2. If absent, insert a new row with onConflictDoNothing
+  let imageUrlExpiresAt: Date | null = null;
   try {
-    const imageUrlExpiresAt = parseImageUrlExpiry(imageUrl);
+    imageUrlExpiresAt = parseImageUrlExpiry(imageUrl);
     await db
       .insert(posts)
       .values({
@@ -82,6 +83,31 @@ export async function persistScrapedPost({
         `FK constraint violation inserting post ${postUrl} with runId ${scraperActorRunId}; post will be persisted without run link`,
         err
       );
+      try {
+        await db
+          .insert(posts)
+          .values({
+            accountId,
+            platform,
+            content,
+            imageUrl,
+            videoUrl,
+            postUrl,
+            originalPostUrl,
+            publishedAt: new Date(publishedAt),
+            scraperActorRunId: null,
+            locationName,
+            ownerDisplayName,
+            ownerUsername,
+            imageUrlExpiresAt,
+          })
+          .onConflictDoNothing({
+            target: [posts.postUrl],
+          });
+      } catch (retryErr) {
+        console.error(`Failed to persist post ${postUrl} on fallback without run link`, retryErr);
+        throw retryErr;
+      }
     } else {
       throw err;
     }
