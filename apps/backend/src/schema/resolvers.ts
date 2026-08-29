@@ -3103,7 +3103,7 @@ Constraints and Guidelines:
       requireModerator(context);
 
       const limit = (first || 10) + 1; // +1 to detect hasNextPage
-      const offset = after ? parseInt(Buffer.from(after, 'base64').toString(), 10) : 0;
+      const offset = decodeActorRunCursor(after);
 
       const conditions = [isNull(unprocessedScraperPayloads.deletedAt)];
 
@@ -3114,7 +3114,7 @@ Constraints and Guidelines:
         conditions.push(gte(unprocessedScraperPayloads.createdAt, new Date(filters.createdAfter)));
       }
       if (filters?.createdBefore) {
-        conditions.push(sql`${unprocessedScraperPayloads.createdAt} <= ${new Date(filters.createdBefore)}`);
+        conditions.push(sql`${unprocessedScraperPayloads.createdAt} <= ${endOfUtcDay(new Date(filters.createdBefore))}`);
       }
       if (filters?.parserVersion) {
         conditions.push(sql`context->>'parserVersion' = ${filters.parserVersion}`);
