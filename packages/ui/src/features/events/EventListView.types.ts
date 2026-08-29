@@ -4,6 +4,7 @@ import { EventCardLabels, EventCardProps } from './EventCard.types';
 export interface EventListViewScheduleShape {
   isMainSchedule: boolean;
   eventStartDate: string;
+  eventStartTime?: string | null;
   ticketPrice?: string | number | null;
 }
 

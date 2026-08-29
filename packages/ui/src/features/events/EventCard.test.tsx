@@ -319,38 +319,112 @@ describe('EventCard', () => {
       expect(screen.getByText(expectedAbsDate)).toBeInTheDocument();
     });
 
-    it('shows the time (not the relative label) in the masonry pill when the event is today', () => {
-      const today = new Date();
-      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(today);
-      render(
-        <EventCard
-          eventName="Masonry Today"
-          startDate={today}
-          variant="masonry"
-          locale="en-US"
-        />
-      );
+    describe('Masonry badge display behavior', () => {
+      it('Today WITH a startTime provided -> badge shows the formatted time (via formatEventTime), with the Clock icon present', () => {
+        const today = new Date();
+        const dateWithTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 18, 0, 0);
+        const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(dateWithTime);
+        
+        const { container } = render(
+          <EventCard
+            eventName="Masonry Today with Time"
+            startDate={today}
+            startTime="18:00:00"
+            variant="masonry"
+            locale="en-US"
+          />
+        );
 
-      expect(screen.queryByText('Today')).not.toBeInTheDocument();
-      const pill = screen.getByText(expectedTime);
-      expect(pill.closest('div')).toHaveClass('absolute', 'top-3', 'left-3', 'rounded-full');
-    });
+        expect(screen.queryByText('Today')).not.toBeInTheDocument();
+        expect(screen.getByText(expectedTime)).toBeInTheDocument();
+        const clockIcon = container.querySelector('svg.lucide-clock');
+        expect(clockIcon).toBeInTheDocument();
+      });
 
-    it('shows the relative date label (not a time) in the masonry pill when the event is not today', () => {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      render(
-        <EventCard
-          eventName="Masonry Tomorrow"
-          startDate={tomorrow}
-          variant="masonry"
-          locale="en-US"
-        />
-      );
+      it('Today with NO startTime provided (startTime omitted/null) -> badge shows Today text, no Clock icon', () => {
+        const today = new Date();
+        const { container } = render(
+          <EventCard
+            eventName="Masonry Today no Time"
+            startDate={today}
+            variant="masonry"
+            locale="en-US"
+          />
+        );
 
-      const pill = screen.getByText('Tomorrow');
-      expect(pill).toBeInTheDocument();
-      expect(pill.closest('div')).toHaveClass('absolute', 'top-3', 'left-3', 'rounded-full');
+        expect(screen.getByText('Today')).toBeInTheDocument();
+        const clockIcon = container.querySelector('svg.lucide-clock');
+        expect(clockIcon).not.toBeInTheDocument();
+      });
+
+      it('Tomorrow (dayDiff===1) -> badge shows Tomorrow', () => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        render(
+          <EventCard
+            eventName="Masonry Tomorrow"
+            startDate={tomorrow}
+            variant="masonry"
+            locale="en-US"
+          />
+        );
+
+        expect(screen.getByText('Tomorrow')).toBeInTheDocument();
+      });
+
+      it('Yesterday (dayDiff===-1) -> badge shows Yesterday (new case)', () => {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        render(
+          <EventCard
+            eventName="Masonry Yesterday"
+            startDate={yesterday}
+            variant="masonry"
+            locale="en-US"
+          />
+        );
+
+        expect(screen.getByText('Yesterday')).toBeInTheDocument();
+      });
+
+      it('A date 3+ days in the future, SAME calendar year as today -> badge shows day+short-month only, no year, no time', () => {
+        const futureSameYear = new Date();
+        futureSameYear.setDate(futureSameYear.getDate() + 3);
+        const now = new Date();
+        futureSameYear.setFullYear(now.getFullYear());
+        
+        const expectedPillText = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short' }).format(futureSameYear);
+
+        render(
+          <EventCard
+            eventName="Masonry Future Same Year"
+            startDate={futureSameYear}
+            variant="masonry"
+            locale="en-US"
+          />
+        );
+
+        expect(screen.getByText(expectedPillText)).toBeInTheDocument();
+        expect(screen.queryByText(String(futureSameYear.getFullYear()))).not.toBeInTheDocument();
+      });
+
+      it('A date in a DIFFERENT calendar year than today -> badge shows day+short-month+2-digit-year, no time', () => {
+        const differentYearDate = new Date();
+        differentYearDate.setFullYear(differentYearDate.getFullYear() + 2);
+        
+        const expectedPillText = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: '2-digit' }).format(differentYearDate);
+
+        render(
+          <EventCard
+            eventName="Masonry Different Year"
+            startDate={differentYearDate}
+            variant="masonry"
+            locale="en-US"
+          />
+        );
+
+        expect(screen.getByText(expectedPillText)).toBeInTheDocument();
+      });
     });
   });
 

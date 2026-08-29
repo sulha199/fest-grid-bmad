@@ -62,6 +62,7 @@ export function EventListView<TEvent extends EventListViewItem>({
             const derivedProps = {
               eventName: event.eventName,
               startDate: mainSchedule?.eventStartDate || '',
+              startTime: mainSchedule?.eventStartTime ?? null,
               imageUrl: event.imageUrl ?? undefined,
               locationName: event.location ?? undefined,
               categories: event.categories ?? [],

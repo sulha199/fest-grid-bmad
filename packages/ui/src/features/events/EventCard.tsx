@@ -4,128 +4,11 @@ import React, { useState } from 'react';
 import { MapPin, Heart, Clock } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
-
-const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-};
-
-/**
- * Formats with graceful degradation: an invalid IANA timezone or locale tag
- * (e.g. bad/typo'd LocationDetails.timezone data, or an unrecognized locale)
- * throws a RangeError from Intl — retry without the timezone, then without
- * the custom locale, rather than crashing the whole card.
- */
-function formatEventDate(locale: string, timezone: string | undefined, dateObj: Date): string {
-  try {
-    return new Intl.DateTimeFormat(locale, {
-      ...DATE_FORMAT_OPTIONS,
-      ...(timezone ? { timeZone: timezone } : {}),
-    }).format(dateObj);
-  } catch {
-    try {
-      return new Intl.DateTimeFormat(locale, DATE_FORMAT_OPTIONS).format(dateObj);
-    } catch {
-      return new Intl.DateTimeFormat('en-US', DATE_FORMAT_OPTIONS).format(dateObj);
-    }
-  }
-}
-
-const TIME_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
-  hour: 'numeric',
-  minute: '2-digit',
-};
-
-function formatEventTime(locale: string, timezone: string | undefined, dateObj: Date): string {
-  try {
-    return new Intl.DateTimeFormat(locale, {
-      ...TIME_FORMAT_OPTIONS,
-      ...(timezone ? { timeZone: timezone } : {}),
-    }).format(dateObj);
-  } catch {
-    try {
-      return new Intl.DateTimeFormat(locale, TIME_FORMAT_OPTIONS).format(dateObj);
-    } catch {
-      return new Intl.DateTimeFormat('en-US', TIME_FORMAT_OPTIONS).format(dateObj);
-    }
-  }
-}
-
-function getLocalDateInTimezone(date: Date, timeZone: string | undefined): { year: number; month: number; day: number } {
-  try {
-    const dtf = new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      ...(timeZone ? { timeZone } : {}),
-    });
-    const parts = dtf.formatToParts(date);
-    const year = parseInt(parts.find(p => p.type === 'year')?.value || '0', 10);
-    const month = parseInt(parts.find(p => p.type === 'month')?.value || '0', 10);
-    const day = parseInt(parts.find(p => p.type === 'day')?.value || '0', 10);
-    return { year, month, day };
-  } catch {
-    return {
-      year: date.getFullYear(),
-      month: date.getMonth() + 1,
-      day: date.getDate(),
-    };
-  }
-}
-
-function getCalendarDayDifference(nowParts: { year: number; month: number; day: number }, eventParts: { year: number; month: number; day: number }): number {
-  const utcNow = Date.UTC(nowParts.year, nowParts.month - 1, nowParts.day);
-  const utcEvent = Date.UTC(eventParts.year, eventParts.month - 1, eventParts.day);
-  const diffMs = utcEvent - utcNow;
-  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
-}
-
-function formatWeekday(locale: string, timezone: string | undefined, dateObj: Date): string {
-  try {
-    return new Intl.DateTimeFormat(locale, {
-      weekday: 'long',
-      ...(timezone ? { timeZone: timezone } : {}),
-    }).format(dateObj);
-  } catch {
-    try {
-      return new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(dateObj);
-    } catch {
-      return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(dateObj);
-    }
-  }
-}
-
-function getEventDayDiff(dateObj: Date, timezone: string | undefined): number {
-  const now = new Date();
-  const nowParts = getLocalDateInTimezone(now, timezone);
-  const eventParts = getLocalDateInTimezone(dateObj, timezone);
-  return getCalendarDayDifference(nowParts, eventParts);
-}
-
-function formatRelativeDayOrDate(
-  locale: string,
-  timezone: string | undefined,
-  dateObj: Date,
-  labels?: { today?: string; tomorrow?: string },
-  precomputedDayDiff?: number
-): string {
-  const dayDiff = precomputedDayDiff ?? getEventDayDiff(dateObj, timezone);
-
-  if (dayDiff >= 0 && dayDiff <= 6) {
-    if (dayDiff === 0) {
-      return labels?.today || 'Today';
-    }
-    if (dayDiff === 1) {
-      return labels?.tomorrow || 'Tomorrow';
-    }
-    return formatWeekday(locale, timezone, dateObj);
-  }
-
-  return formatEventDate(locale, timezone, dateObj);
-}
+import {
+  getEventDayDiff,
+  formatRelativeDayOrDate,
+  formatShortEventDateTime,
+} from './format-event-date';
 
 /**
  * EventCard is a reusable, framework-agnostic presentation component for displaying
@@ -153,6 +36,7 @@ export function EventCard({
   isGreyedOut = false,
   eventName,
   startDate,
+  startTime,
   locale,
   timezone,
   imageUrl,
@@ -178,6 +62,7 @@ export function EventCard({
     priceFrom: 'From',
     today: 'Today',
     tomorrow: 'Tomorrow',
+    yesterday: 'Yesterday',
     ...labels,
     typeLabels: labels.typeLabels ?? {},
     categoryLabels: labels.categoryLabels ?? {},
@@ -209,7 +94,21 @@ export function EventCard({
     );
   }
 
-  const dateObj = typeof startDate === 'string' ? new Date(startDate) : startDate;
+  const dateStr = typeof startDate === 'string' ? startDate : startDate.toISOString();
+  const hasTime = !!startTime;
+
+  const parseDateTime = (dStr: string, tStr?: string | null): Date => {
+    if (tStr) {
+      // e.g. "2026-08-01T12:00:00" or similar
+      const datePart = dStr.split('T')[0];
+      const combined = `${datePart}T${tStr}`;
+      const d = new Date(combined);
+      if (!isNaN(d.getTime())) return d;
+    }
+    return new Date(dStr);
+  };
+
+  const dateObj = parseDateTime(dateStr, startTime);
   const dayDiff = getEventDayDiff(dateObj, activeTimezone);
   const formattedDate = formatRelativeDayOrDate(activeLocale, activeTimezone, dateObj, defaultLabels, dayDiff);
 
@@ -265,14 +164,8 @@ export function EventCard({
           )}
           {variant === 'masonry' && (
             <div className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground">
-              {dayDiff === 0 ? (
-                <>
-                  <Clock className="w-3 h-3" />
-                  {formatEventTime(activeLocale, activeTimezone, dateObj)}
-                </>
-              ) : (
-                formattedDate
-              )}
+              {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
+              {formatShortEventDateTime(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)}
             </div>
           )}
           {!imgError && imageUrl ? (

@@ -12,6 +12,7 @@ export interface EventCardLabels {
   categoryLabels?: Record<string, string>;
   today?: string;
   tomorrow?: string;
+  yesterday?: string;
 }
 
 export interface EventCardProps {
@@ -23,6 +24,9 @@ export interface EventCardProps {
   
   /** The primary schedule's start date/time (required) */
   startDate: Date | string;
+
+  /** Optional starting time of day */
+  startTime?: string | null;
 
   /** Optional explicit locale for formatting the date. If omitted, falls back to the nearest ancestor ScopedLocaleProvider's locale (see useScopedLocale/ScopedLocaleProvider in packages/ui/src/hooks), or that hook's default if none is present. */
   locale?: string;
