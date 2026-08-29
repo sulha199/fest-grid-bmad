@@ -389,6 +389,7 @@
     "noApiKeyPrompt": "Untuk berlangganan akun baru, Anda harus menambahkan Kunci API Gemini terlebih dahulu.",
     "noApiKeyLinkLabel": "Atur Kunci API",
     "removeButtonLabel": "Hapus",
+    "viewAccountLabel": "Lihat akun",
     "removedAnnouncement": "Langganan dihapus",
     "undoLabel": "Urungkan",
     "removeErrorAnnouncement": "Gagal menghapus langganan. Silakan coba lagi.",

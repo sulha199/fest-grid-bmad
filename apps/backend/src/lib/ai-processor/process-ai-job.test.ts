@@ -711,6 +711,12 @@ test('processAiJob orchestrator tests', async (t) => {
     assert.strictEqual(backfillAccountId, profile.id);
     assert.strictEqual(backfillPosts.length, 1);
     assert.strictEqual(backfillPosts[0].content, message.content);
+
+    // Clean up
+    await db
+      .update(socialMediaAccountProfiles)
+      .set({ defaultLocation: null })
+      .where(eq(socialMediaAccountProfiles.id, profile.id));
   });
 
   await t.test('Case K: does NOT call backfillAccountProfileAndInferDefaultLocationSeam when defaultLocation is truthy', async (t) => {
@@ -743,7 +749,8 @@ test('processAiJob orchestrator tests', async (t) => {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
-          ]
+          ],
+          confidenceScore: 0.99
         })
       };
     });
@@ -831,6 +838,12 @@ test('processAiJob orchestrator tests', async (t) => {
 
     assert.ok(backfillCalled, 'backfill should be called and throw');
     assert.ok(markPostExtractedCalled, 'extraction should still successfully complete');
+
+    // Clean up
+    await db
+      .update(socialMediaAccountProfiles)
+      .set({ defaultLocation: null })
+      .where(eq(socialMediaAccountProfiles.id, profile.id));
   });
 });
 

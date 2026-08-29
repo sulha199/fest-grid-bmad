@@ -109,9 +109,10 @@ function formatRelativeDayOrDate(
   locale: string,
   timezone: string | undefined,
   dateObj: Date,
-  labels?: { today?: string; tomorrow?: string }
+  labels?: { today?: string; tomorrow?: string },
+  precomputedDayDiff?: number
 ): string {
-  const dayDiff = getEventDayDiff(dateObj, timezone);
+  const dayDiff = precomputedDayDiff ?? getEventDayDiff(dateObj, timezone);
 
   if (dayDiff >= 0 && dayDiff <= 6) {
     if (dayDiff === 0) {
@@ -209,7 +210,8 @@ export function EventCard({
   }
 
   const dateObj = typeof startDate === 'string' ? new Date(startDate) : startDate;
-  const formattedDate = formatRelativeDayOrDate(activeLocale, activeTimezone, dateObj, defaultLabels);
+  const dayDiff = getEventDayDiff(dateObj, activeTimezone);
+  const formattedDate = formatRelativeDayOrDate(activeLocale, activeTimezone, dateObj, defaultLabels, dayDiff);
 
   const fallbackAlt = defaultLabels.imageFallbackAlt;
   const finalImageAlt = imageAlt || eventName;
@@ -263,7 +265,7 @@ export function EventCard({
           )}
           {variant === 'masonry' && (
             <div className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground">
-              {getEventDayDiff(dateObj, activeTimezone) === 0 ? (
+              {dayDiff === 0 ? (
                 <>
                   <Clock className="w-3 h-3" />
                   {formatEventTime(activeLocale, activeTimezone, dateObj)}

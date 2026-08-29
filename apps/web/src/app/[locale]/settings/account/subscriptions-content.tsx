@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { SwipeToReveal, useSoftDeleteWithUndo, PageContainer, PageHeader, AccountLocationField, AccountAvatar } from "@festgrid/ui"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
@@ -82,6 +82,41 @@ export function SubscriptionsContent() {
 
   const handleOpenAddDialog = () => {
     setIsDialogOpen(true)
+  }
+
+  // SwipeToReveal's drag is a plain pointer-move on this same content element, not a native
+  // drag gesture the browser suppresses click for — so a cancelled swipe (drag then release
+  // back to offset 0) still fires a normal click afterward. Track the pointerdown position and
+  // skip navigation if the release moved far enough horizontally to have been a swipe attempt.
+  const rowPointerDownXRef = useRef<number | null>(null)
+
+  const handleRowPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    rowPointerDownXRef.current = e.clientX
+  }
+
+  const navigateToAccount = (sub: any) => {
+    const slug = getPlatformSlug(sub.account.platform as any)
+    if (!slug) {
+      console.error("Cannot navigate: unknown platform for account", sub.account.platform)
+      return
+    }
+    router.push(`/${slug}/${sub.account.accountId}`)
+  }
+
+  const handleRowClick = (e: React.MouseEvent<HTMLDivElement>, sub: any) => {
+    const startX = rowPointerDownXRef.current
+    rowPointerDownXRef.current = null
+    if (startX !== null && Math.abs(e.clientX - startX) > 8) {
+      return
+    }
+    navigateToAccount(sub)
+  }
+
+  const handleRowKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, sub: any) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      navigateToAccount(sub)
+    }
   }
 
   const handleDelete = async (subscription: any) => {
@@ -191,8 +226,12 @@ export function SubscriptionsContent() {
                 onAction={() => handleDelete(sub)}
               >
                 <div
-                  onClick={() => router.push(`/${getPlatformSlug(sub.account.platform as any)}/${sub.account.accountId}`)}
-                  className={`flex items-center justify-between p-4 bg-background transition-colors cursor-pointer hover:bg-muted/50 ${
+                  tabIndex={0}
+                  aria-label={t("viewAccountLabel") || `View ${sub.account.displayName || sub.account.username}`}
+                  onPointerDown={handleRowPointerDown}
+                  onClick={(e) => handleRowClick(e, sub)}
+                  onKeyDown={(e) => handleRowKeyDown(e, sub)}
+                  className={`flex items-center justify-between p-4 bg-background transition-colors cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     pending ? "opacity-40 pointer-events-none" : ""
                   }`}
                 >

@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import React from 'react';
 import { AccountAvatar } from './account-avatar';
 
 describe('AccountAvatar', () => {
@@ -75,6 +76,31 @@ describe('AccountAvatar', () => {
     expect(screen.queryByTestId('avatar-image')).not.toBeInTheDocument();
     expect(screen.getByTestId('avatar-fallback-container')).toBeInTheDocument();
     expect(screen.getByTestId('avatar-fallback-placeholder')).toBeInTheDocument();
+  });
+
+  it('recovers from a broken image once a new profileImageUrl is provided', () => {
+    const { rerender } = render(
+      <AccountAvatar
+        profileImageUrl="https://example.com/broken.jpg"
+        displayName="Jane Doe"
+        username="janedoe"
+      />
+    );
+
+    fireEvent.error(screen.getByTestId('avatar-image'));
+    expect(screen.getByTestId('avatar-fallback-container')).toBeInTheDocument();
+
+    rerender(
+      <AccountAvatar
+        profileImageUrl="https://example.com/new-avatar.jpg"
+        displayName="Jane Doe"
+        username="janedoe"
+      />
+    );
+
+    const img = screen.getByTestId('avatar-image') as HTMLImageElement;
+    expect(img).toBeInTheDocument();
+    expect(img.src).toBe('https://example.com/new-avatar.jpg');
   });
 
   it('supports the lg size prop', () => {

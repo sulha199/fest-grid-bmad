@@ -124,7 +124,11 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     throw new Error('DATA_INGESTION_QUEUE_URL is not configured');
   }
 
-  // 8.5. If resolved defaultLocation is falsy, trigger location inference
+  // 8.5. If resolved defaultLocation is falsy, trigger location inference.
+  // Runs after this post's own event was already enqueued/ingested at step 8 using the
+  // falsy defaultLocation resolved at step 6, so a successful inference here can only
+  // benefit this account's *future* posts, never backfill the triggering event itself —
+  // mirrors the same after-the-fact pattern already used in process-scrape-job.ts.
   if (!defaultLocation) {
     try {
       const post: ScrapedPost = {

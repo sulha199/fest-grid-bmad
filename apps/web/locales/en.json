@@ -390,6 +390,7 @@
     "noApiKeyPrompt": "To subscribe to new accounts, you must first add a Gemini API Key.",
     "noApiKeyLinkLabel": "Configure API Keys",
     "removeButtonLabel": "Remove",
+    "viewAccountLabel": "View account",
     "removedAnnouncement": "Subscription removed",
     "undoLabel": "Undo",
     "removeErrorAnnouncement": "Failed to remove subscription. Please try again.",

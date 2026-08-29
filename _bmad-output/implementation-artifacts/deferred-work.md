@@ -117,6 +117,24 @@ This file tracks work deferred from development stories, code reviews, and plann
   summary: No email notification is sent to moderators when a new `AWAITING_APPROVAL` `DefaultLocationChangeRequest` is created (low-confidence AI-inferred location, FR94), unlike the existing "already applied, FYI" email sent for a `PENDING_REVIEW` item. A moderator only learns of it via the new Moderator Pending-Item Badge (FR96) — passive, not push — so a low-vigilance moderator could leave a subscriber's Default Location unset/stale for a while.
   evidence: `TODO(2026-08-28)` left in `apps/backend/src/lib/accounts/apply-default-location-change.ts:118-120`. Deliberately deferred rather than folded into this batch — a dedicated email needs new copy distinguishing "needs your decision" from the existing FYI template, a real (if small) product-copy decision out of scope for a direct PRD/schema amendment. Noted in the PRD's `.memlog.md` (`_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/.memlog.md`) but not previously logged here.
 
+## Deferred from: adversarial review of ux-rework2 batch (2026-08-29)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ux-rework2-batch.md`
+  summary: `backfillAccountProfileAndInferDefaultLocation`'s `defaultLocation !== null` guard has no lock — concurrent posts for the same account processed around the same time can all pass the null check before any of them persists a resolved location, triggering duplicate, billable Gemini calls per burst.
+  evidence: Pre-existing gap in `apps/backend/src/lib/accounts/backfill-account-profile-and-infer-location.ts`, already true of its original call site in `process-scrape-job.ts`; this batch only added a second call site (`process-ai-job.ts`) with the identical limitation. Surfaced by adversarial review (Blind Hunter).
+- source_spec: `_bmad-output/implementation-artifacts/spec-ux-rework2-batch.md`
+  summary: No backoff/circuit-breaker for a failed location inference — if `parseLocationInferenceResponse`/`resolveLocationSeam` fails once, `defaultLocation` stays null forever, so every subsequent post for that account re-triggers a fresh Gemini call indefinitely.
+  evidence: Pre-existing design gap in the same backfill function, not introduced by this batch's new call site. Surfaced by adversarial review (Blind Hunter).
+- source_spec: `_bmad-output/implementation-artifacts/spec-ux-rework2-batch.md`
+  summary: `createApiKey`'s fail-open verification logic is only as safe as `GeminiInvalidKeyError`'s error-shape classification (message/status sniffing in `gemini-client.ts`) — any mismatch silently accepts a bad key instead of rejecting it. The classifier itself predates this batch, but this batch is the first time its accuracy directly gates a security-relevant accept/reject decision rather than just a background job retry.
+  evidence: Surfaced by adversarial review (Blind Hunter). A dedicated accuracy review of the classifier (real invalid-key responses from the Gemini API, across error shapes) is out of scope for this quick-dev batch.
+- source_spec: `_bmad-output/implementation-artifacts/spec-ux-rework2-batch.md`
+  summary: No request-level timeout exists anywhere in the Gemini adapter (`callGeminiGenerateContent`/`callGemini`) — a hang on the underlying HTTP call blocks the caller indefinitely. This batch's new `verifyGeminiApiKey` call inside `createApiKey` is a new synchronous, user-facing path that inherits this gap (a hung Gemini call would hang the mutation with no timeout).
+  evidence: Pre-existing architectural gap across the whole adapter, not specific to this batch's new call site. Surfaced by adversarial review (Edge Case Hunter).
+- source_spec: `_bmad-output/implementation-artifacts/spec-ux-rework2-batch.md`
+  summary: `EventCard.tsx`'s date-formatting graceful-degradation chain (`formatEventDate`, and now the new `formatEventTime`) doesn't guard against an Invalid Date (`NaN` time value) input — all three `Intl.DateTimeFormat` fallback attempts throw identically on a `NaN` date, so the exception propagates uncaught instead of degrading.
+  evidence: Pre-existing gap in `formatEventDate`'s pattern; this batch's new `formatEventTime` copies the same (already-present) pattern verbatim, so the gap is now duplicated rather than newly introduced. Surfaced by adversarial review (Edge Case Hunter).
+
 ## Deferred from: quick-dev fix of scraper-provider-usage test pollution (2026-08-29)
 
 - source_spec: none

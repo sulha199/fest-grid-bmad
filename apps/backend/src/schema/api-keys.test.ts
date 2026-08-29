@@ -331,6 +331,8 @@ test('api keys resolvers integration', async (t) => {
 
     mockUser = { userId: testUser.id, role: testUser.role };
 
+    const keysBefore = await db.select().from(apiKeys).where(eq(apiKeys.userId, testUser.id));
+
     const res = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -349,10 +351,9 @@ test('api keys resolvers integration', async (t) => {
     assert.strictEqual(result.errors[0].message, 'Invalid Gemini API key');
     assert.strictEqual(result.errors[0].extensions?.code, 'INVALID_API_KEY');
 
-    // Confirm not inserted in DB
-    const keys = await db.select().from(apiKeys).where(eq(apiKeys.userId, testUser.id));
-    const invalidInserted = keys.find(k => k.keyLast4 === 'alue'); // 'invalid-key-value'.slice(-4) => 'alue'
-    assert.ok(!invalidInserted, 'should not be inserted in db');
+    // Confirm no new row was inserted for this user (count-based, not a coincidental keyLast4 match)
+    const keysAfter = await db.select().from(apiKeys).where(eq(apiKeys.userId, testUser.id));
+    assert.strictEqual(keysAfter.length, keysBefore.length, 'rejected key should not be inserted in db');
   });
 
   await t.test('createApiKey proceeds and persists when verification throws a non-invalid-key error (fail-open)', async () => {

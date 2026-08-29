@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export interface AccountAvatarProps {
   profileImageUrl?: string | null;
@@ -34,6 +34,11 @@ export function AccountAvatar({
   size = 'sm',
 }: AccountAvatarProps) {
   const [hasError, setHasError] = useState(false);
+
+  // A prior broken image must not permanently pin the fallback once a new URL comes in.
+  useEffect(() => {
+    setHasError(false);
+  }, [profileImageUrl]);
 
   // Construct fallback alt text or aria-label for accessibility
   const altText = displayName || (username ? `@${username}` : 'User avatar');
