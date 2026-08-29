@@ -1,14 +1,31 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { apifyPendingJobs, scraperProviderUsage } from '@festgrid/database';
+import { apifyPendingJobs, scraperProviderUsage, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { attemptApifyAsyncTrigger, setAttemptApifyAsyncTrigger } from './trigger-apify-for-target.js';
 import { ScraperCapacityExceededError } from '@festgrid/domain';
 import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test-helpers.js';
 
 test('trigger-apify-for-target tests', async (t) => {
-  const testProfileId = 'profile-' + Date.now();
+  let testProfileId: string;
+
+  t.before(async () => {
+    const [profile] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({
+        accountId: 'test-profile-id-' + Date.now(),
+        platform: 'instagram',
+        username: 'test_user',
+        displayName: 'Test User',
+      })
+      .returning({ id: socialMediaAccountProfiles.id });
+    testProfileId = profile.id;
+  });
+
+  t.after(async () => {
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId));
+  });
 
   await clearApifyProviderUsage();
 
