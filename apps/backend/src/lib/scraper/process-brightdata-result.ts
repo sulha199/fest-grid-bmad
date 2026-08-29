@@ -2,15 +2,9 @@ import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
-import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
 import { markPendingJobCompleted } from './brightdata-pending-jobs-store.js';
 import type { BrightdataPendingJob } from './brightdata-pending-jobs-store.js';
-import { compileValidator } from '../../validation/validate.js';
-import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
-import type { ScrapedPost } from '@festgrid/domain';
-
-// Compile validator once at module scope to avoid recompilation per record
-const validateScrapedPost = compileValidator<ScrapedPost>(scrapedPostSchema);
+import { mapBrightDataRecordToScrapedPost } from './brightdata-record-mapper.js';
 
 export async function processBrightDataResult(
   pendingJob: BrightdataPendingJob,
@@ -19,82 +13,10 @@ export async function processBrightDataResult(
 ): Promise<void> {
   // Map Bright Data records to ScrapedPost format and persist each
   for (const record of records) {
-    const brightDataRecord = record as Record<string, unknown>;
-
-    // Map Bright Data field names to our post structure
-    const postUrl = brightDataRecord.url as string;
-    const imageUrl = brightDataRecord.image_url as string;
-    const caption = brightDataRecord.caption as string;
-    const datePosted = brightDataRecord.date_posted;
-    const videos = brightDataRecord.videos as unknown[] | null | undefined;
-    const videoUrl = Array.isArray(videos) && videos.length > 0 && typeof videos[0] === 'string' ? videos[0] : undefined;
-
-    if (datePosted !== undefined && datePosted !== null && typeof datePosted !== 'string') {
-      console.warn('Bright Data record date_posted is not a string, skipping');
-      try {
-        await persistUnprocessedPayload({
-          rawPayload: brightDataRecord,
-          validationError: { message: 'date_posted is not a string or null/undefined', receivedType: typeof datePosted },
-          context: {
-            source: 'brightdata',
-            scraperVendor: null,
-            accountId: null,
-            postUrl,
-            timestamp: new Date().toISOString(),
-            parserVersion: '3.4g',
-          },
-          scraperActorRunId,
-        });
-      } catch (err) {
-        console.error('Failed to persist unprocessed Bright Data payload:', err);
-      }
-      continue;
-    }
-
-    if (!postUrl) {
-      console.warn('Bright Data record missing URL, skipping');
-      continue;
-    }
+    const candidate = await mapBrightDataRecordToScrapedPost(record, scraperActorRunId);
+    if (!candidate) continue;
 
     try {
-      // Build candidate ScrapedPost object, omitting optional fields if falsy
-      const publishedAtStr = datePosted ? new Date(datePosted).toISOString() : new Date().toISOString();
-      const candidate: ScrapedPost = {
-        content: caption || '',
-        postUrl,
-        publishedAt: publishedAtStr,
-        // Only include optional fields if they have values
-        ...(imageUrl && { imageUrl }),
-        ...(videoUrl && { videoUrl }),
-        // Always set: postUrl is guaranteed non-empty by the earlier guard above
-        originalPostUrl: postUrl,
-      };
-
-      // Validate against schema
-      const isValid = validateScrapedPost(candidate);
-      if (!isValid) {
-        console.warn(`Bright Data record failed AJV schema validation:`, validateScrapedPost.errors);
-        // Capture unprocessed payload before skipping
-        try {
-          await persistUnprocessedPayload({
-            rawPayload: candidate,
-            validationError: validateScrapedPost.errors,
-            context: {
-              source: 'brightdata',
-              scraperVendor: null,
-              accountId: null,
-              postUrl,
-              timestamp: new Date().toISOString(),
-              parserVersion: '3.4g',
-            },
-            scraperActorRunId,
-          });
-        } catch (err) {
-          console.error('Failed to persist unprocessed Bright Data payload:', err);
-        }
-        continue;
-      }
-
       await persistScrapedPost({
         accountId: pendingJob.profileId,
         platform: 'instagram', // Bright Data adapter only handles Instagram today
@@ -110,7 +32,7 @@ export async function processBrightDataResult(
         ownerUsername: candidate.ownerUsername || null,
       });
     } catch (error) {
-      console.error(`Failed to persist post from Bright Data: ${postUrl}`, error);
+      console.error(`Failed to persist post from Bright Data: ${candidate.postUrl}`, error);
       // Continue processing other records
     }
   }
