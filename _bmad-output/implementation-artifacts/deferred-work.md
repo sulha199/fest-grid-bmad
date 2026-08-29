@@ -168,3 +168,17 @@ This file tracks work deferred from development stories, code reviews, and plann
 - Unbounded Query Result Size: myAIEventFilters query returns a flat array and the resolver does not enforce pagination or a maximum limit.
 - No Limit on Maximum Filters per User: saveAIEventFilter indiscriminately inserts new rows into the database without a per-user quota check.
 - Unhandled Exceptions Bubbling to Client: Exceptions like database constraint violations are not mapped to predictable GraphQLError formats.
+-  
+ C a v e a t s  
+ e m p t y  
+ s t r i n g s  
+ h a n d l i n g  
+ [ p a c k a g e s / d o m a i n / s r c / a i - e v e n t - f i l t e r s / r e n d e r - a i - f i l t e r - s u m m a r y . t s : 1 3 4 ]  
+   
+ d e f e r r e d  
+ p r e - e x i s t i n g  
+ .  
+ 
+
+## Deferred from: code review of 7-3-build-the-reusable-ai-filter-summary-renderer.md (2026-08-29)
+- Caveats empty strings handling [packages/domain/src/ai-event-filters/render-ai-filter-summary.ts:134] — deferred, pre-existing (code joins empty strings verbatim, technically matching AC).
