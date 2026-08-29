@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-29T18:20:04Z
+last_updated: 2026-08-29T18:30:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1677,4 +1677,4 @@ development_status:
   7-2a-build-the-ai-event-filter-backend-graphql-api-layer: done
   7-3-build-the-reusable-ai-filter-summary-renderer: done
   7-4-add-the-ai-filter-prompt-entry-point-to-filterhub: done
-  7-5-my-ai-filters-list-page: review
+  7-5-my-ai-filters-list-page: done
