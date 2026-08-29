@@ -2,19 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getOrCreateUser } from './user-provisioning.js';
 import { users } from '@festgrid/database';
-import * as dotenv from 'dotenv';
-import postgres from 'postgres';
+import { db } from '../../db/client.js';
 import { eq, inArray } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import { resolve } from 'path';
-
-// Load DB env to get DATABASE_URL
-dotenv.config({ path: resolve(process.cwd(), '../../.env') });
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error('DATABASE_URL is not defined in environment variables.');
-
-const sqlClient = postgres(databaseUrl, { max: 1 });
-const db = drizzle(sqlClient);
 
 test('getOrCreateUser', async (t) => {
   // Ensure clean state before tests
@@ -80,6 +69,7 @@ test('getOrCreateUser', async (t) => {
   t.after(async () => {
     // Cleanup test users
     await db.delete(users).where(inArray(users.id, ['00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000004']));
-    await sqlClient.end();
   });
 });
+
+

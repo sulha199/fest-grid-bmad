@@ -1,27 +1,9 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
 import { users } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
-import { loadBackendEnv } from '../../env.js';
+import { db } from '../../db/client.js';
 import type { SupabaseJwtPayload } from './verify-jwt.js';
 
-let dbClient: ReturnType<typeof drizzle> | null = null;
-
-function getDb() {
-  if (!dbClient) {
-    const env = loadBackendEnv();
-    if (!env.databaseUrl) {
-      throw new Error('DATABASE_URL is not defined in environment variables.');
-    }
-    const sqlClient = postgres(env.databaseUrl, { max: 1 });
-    dbClient = drizzle(sqlClient);
-  }
-  return dbClient;
-}
-
 export async function getOrCreateUser(payload: SupabaseJwtPayload): Promise<{ id: string; role: 'user' | 'moderator' }> {
-  const db = getDb();
-
   // Try to find the user first
   const existingUser = await db.select({ id: users.id, role: users.role })
     .from(users)
@@ -63,3 +45,4 @@ export async function getOrCreateUser(payload: SupabaseJwtPayload): Promise<{ id
     role: finalUser[0].role as 'user' | 'moderator',
   };
 }
+

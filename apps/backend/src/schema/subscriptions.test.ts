@@ -7,6 +7,7 @@ import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, apiKeys, subscriptions, socialMediaAccountProfiles, posts, events, schedules } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
+import { setCallGeminiGenerateContent, callGeminiGenerateContent } from '../lib/ai-gateway/gemini-client.js';
 
 // Force off regardless of the developer's local .env: without a queue configured (the
 // default in this test env), subscribeToAccount would otherwise fire real Apify calls
@@ -36,6 +37,16 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
   let testUser: any;
   let anotherUser: any;
   let createdApiKeyId: string;
+
+  const originalCall = callGeminiGenerateContent;
+  t.after(() => {
+    setCallGeminiGenerateContent(originalCall);
+  });
+
+  // Stub Gemini validation to always succeed in non-verification tests
+  setCallGeminiGenerateContent(async () => {
+    return { text: 'ok' };
+  });
 
   await t.test('setup - get test users and clear existing data', async () => {
     const seededUsers = await db.select().from(users).limit(2);
