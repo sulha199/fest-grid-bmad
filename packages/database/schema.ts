@@ -1,10 +1,33 @@
-import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, pgEnum, index, unique, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, pgEnum, index, unique, uniqueIndex, customType as drizzleCustomType } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { LocationDetails } from '@festgrid/shared-types';
 import type { ProposedEventCorrection } from '@festgrid/domain/events';
 
 const generateSlug = () => randomBytes(6).toString('hex');
+
+// Reusable custom jsonb type to avoid double-encoding issues with postgres.js prepare: false
+export const customJsonb = <TData>(name: string) =>
+  drizzleCustomType<{ data: TData; driverData: unknown }>({
+    dataType() {
+      return 'jsonb';
+    },
+    toDriver(val: TData): unknown {
+      // Pass raw object instead of stringifying, because postgres.js handles the jsonb formatting
+      return val;
+    },
+    fromDriver(val: unknown): TData {
+      // If reading old double-encoded legacy data, it comes back as a string, parse it.
+      if (typeof val === 'string') {
+        try {
+          return JSON.parse(val) as TData;
+        } catch {
+          return val as TData;
+        }
+      }
+      return val as TData;
+    },
+  })(name);
 
 // Reusable timestamp columns for future tables to ensure correct timezone handling
 export const timestamps = {
@@ -578,9 +601,9 @@ export const embedDomainsRelations = relations(embedDomains, ({ one }) => ({
 
 export const unprocessedScraperPayloads = pgTable('unprocessed_scraper_payloads', {
   id: uuid('id').defaultRandom().primaryKey(),
-  rawPayload: jsonb('raw_payload').notNull(),
-  validationError: jsonb('validation_error').notNull(),
-  context: jsonb('context').notNull(),
+  rawPayload: customJsonb<unknown>('raw_payload').notNull(),
+  validationError: customJsonb<unknown>('validation_error').notNull(),
+  context: customJsonb<unknown>('context').notNull(),
   scraperActorRunId: uuid('scraper_actor_run_id').references(() => scraperActorRuns.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
