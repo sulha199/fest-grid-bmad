@@ -1352,6 +1352,13 @@ export type ResolveScheduleTimezoneMutationVariables = Exact<{
 
 export type ResolveScheduleTimezoneMutation = { resolveScheduleTimezone: { scheduleId: string, timezone: string, timezoneStatus: ScheduleTimezoneStatus } };
 
+export type ResolvePromptToEventFilterMutationVariables = Exact<{
+  prompt: string;
+}>;
+
+
+export type ResolvePromptToEventFilterMutation = { resolvePromptToEventFilter: { caveats: Array<string>, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } };
+
 export type GetEventsQueryVariables = Exact<{
   limit?: number | null | undefined;
   offset?: number | null | undefined;
@@ -2102,6 +2109,53 @@ export const useResolveScheduleTimezoneMutation = <
       {
     mutationKey: ['resolveScheduleTimezone'],
     mutationFn: (variables?: ResolveScheduleTimezoneMutationVariables) => fetcher<ResolveScheduleTimezoneMutation, ResolveScheduleTimezoneMutationVariables>(client, ResolveScheduleTimezoneDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const ResolvePromptToEventFilterDocument = new TypedDocumentString(`
+    mutation resolvePromptToEventFilter($prompt: String!) {
+  resolvePromptToEventFilter(prompt: $prompt) {
+    resolvedFilter {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
+    caveats
+  }
+}
+    `);
+
+export const useResolvePromptToEventFilterMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ResolvePromptToEventFilterMutation, TError, ResolvePromptToEventFilterMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ResolvePromptToEventFilterMutation, TError, ResolvePromptToEventFilterMutationVariables, TContext>(
+      {
+    mutationKey: ['resolvePromptToEventFilter'],
+    mutationFn: (variables?: ResolvePromptToEventFilterMutationVariables) => fetcher<ResolvePromptToEventFilterMutation, ResolvePromptToEventFilterMutationVariables>(client, ResolvePromptToEventFilterDocument, variables, headers)(),
     ...options
   }
     )};

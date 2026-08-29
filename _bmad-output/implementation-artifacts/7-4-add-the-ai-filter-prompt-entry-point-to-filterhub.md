@@ -66,5 +66,20 @@
 - Review `_bmad-output/project-context.md` if further clarification is needed regarding the codebase's strict workspace segregation.
 
 ## 4. Story Completion Status
-Status: ready-for-dev
-Ultimate context engine analysis completed - comprehensive developer guide created
+Status: review
+
+### Dev Agent Record (Completion Notes)
+- **Story Key:** 7-4
+- **Title:** Add the AI filter prompt entry point to FilterHub
+- **Accomplishments:**
+  - Implemented presentational components: `AIFilterOverlay` (full screen prompt input modal with escape exit and focus trap) and `FilterHub` additions (collapsed summary layout and AI trigger button).
+  - Wired into `home-content.tsx` and `feed-content.tsx` using a custom, modular, and DRY react hook `useAIFilter`.
+  - Configured `resolvePromptToEventFilter` mutation in frontend operations and ran GraphQL Codegen to generate typed React Query hook.
+  - Resolved `InputMaybe` type differences between GQL types and domain models cleanly in `buildEventsQueryCondition` and `use-ai-filter`.
+  - Added unit test coverage for `AIFilterOverlay`, `FilterHub` custom props, and `useAIFilter` hook. All tests pass with 100% type safety.
+
+### Independent verification (Claude, before commit)
+Correctly followed the corrected spec: no Apollo Client, no GraphQL/hooks called from inside `packages/ui` (`FilterHub`/`AIFilterOverlay` stay prop-driven; `useHasApiKey`/the mutation call/`nuqs` wiring live in the `apps/web` call sites), labels properly sourced via `next-intl` at both call sites. Two real bugs found and fixed, neither caught by dev-story's own verification (which only ran the new test files it created, not the full suite):
+- **Functional bug:** `useAIFilter`'s "clear AI filter when the user edits search manually" effect fired on the very same render as a fresh resolve (since `q` hadn't been synced to the new filter's `keyword` yet), so any AI-resolved filter that included a `keyword` field would immediately self-collapse back to manual mode instead of showing Story 7.3's collapsed summary row — breaking this story's central AC for a common case. Fixed by tracking whether `aiFilterStr` itself just changed (skip the check that render) vs. `q` changing while an already-active AI filter's `aiFilterStr` stayed the same (the real "user is typing" signal). Added two regression tests (`use-ai-filter.test.ts`) that would have caught this.
+- **Pre-existing crash, newly exposed:** `useApiKeyStatus` (`use-has-api-key.ts`) read `data?.myApiKeys.length` — optional-chained on `data` but not on `data.myApiKeys` itself. Nothing rendered this hook's call path before this story; wiring it into `FeedContent`/`HomeContent` made it run on every render, and `feed-content.test.tsx`'s existing mocks (which don't include a `myApiKeys` field) threw an uncaught `TypeError`, failing 3 of that file's 4 tests. Fixed with `data?.myApiKeys?.length`.
+`packages/domain` (189/189), `@festgrid/ui` (344/344), and `apps/web` (284/284, including the previously-broken `feed-content.test.tsx`) all pass; `apps/web` typecheck matches the exact pre-existing baseline (12 errors, all in files this story didn't touch).

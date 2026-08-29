@@ -1,11 +1,12 @@
 import { QueryCondition, isGroupCondition } from '../query/queryDsl.js';
-import { buildEventsQueryCondition } from './buildEventsQueryCondition.js';
+import { buildEventsQueryCondition, EventFilterInput } from './buildEventsQueryCondition.js';
 
 export interface BuildFeedQueryConditionInput {
-  search: string;
-  types: string[];
-  categories: string[];
+  search?: string;
+  types?: string[];
+  categories?: string[];
   subscriptions?: string[];
+  filter?: EventFilterInput;
 }
 
 export function buildFeedQueryCondition({
@@ -13,6 +14,7 @@ export function buildFeedQueryCondition({
   types,
   categories,
   subscriptions,
+  filter,
 }: BuildFeedQueryConditionInput): QueryCondition {
   const baseConditions: QueryCondition[] = [
     {
@@ -30,7 +32,9 @@ export function buildFeedQueryCondition({
     });
   }
 
-  const filterCondition = buildEventsQueryCondition({ search, types, categories });
+  const filterCondition = filter
+    ? buildEventsQueryCondition({ filter })
+    : buildEventsQueryCondition({ search, types, categories });
 
   if (!filterCondition) {
     return {

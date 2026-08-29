@@ -11,20 +11,20 @@ export interface DateRangeFilter {
   offsetUnit: DateOffsetUnit | 'DAY' | 'WEEK' | 'MONTH';
 }
 export interface LocationFilter {
-  coordinates?: { lat: number; lng: number };
-  radiusMeters?: number;
-  adminArea?: string;
+  coordinates?: { lat: number; lng: number } | null;
+  radiusMeters?: number | null;
+  adminArea?: string | null;
 }
 export interface EventFilterInput {
-  accountId?: string;
-  types?: string[];
-  categories?: string[];
-  keyword?: string;
-  dateRange?: DateRangeFilter;
-  dayOfWeek?: DayOfWeek | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN';
-  location?: LocationFilter;
-  venueType?: string;
-  isFree?: boolean;
+  accountId?: string | null;
+  types?: string[] | null;
+  categories?: string[] | null;
+  keyword?: string | null;
+  dateRange?: DateRangeFilter | null;
+  dayOfWeek?: DayOfWeek | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN' | null;
+  location?: LocationFilter | null;
+  venueType?: string | null;
+  isFree?: boolean | null;
 }
 export interface BuildEventsQueryConditionInput {
   search?: string; types?: string[]; categories?: string[]; nearby?: NearbyFilterInput;

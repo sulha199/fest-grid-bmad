@@ -104,7 +104,7 @@ export function renderAIFilterSummary(
       const area = adminArea.trim();
       clauses.push(labels.adminAreaTemplate ? labels.adminAreaTemplate.replace('{adminArea}', area) : (labels.adminAreaPrefix ?? 'in ') + area);
     } else if (coordinates) {
-      if (radiusMeters !== undefined) {
+      if (radiusMeters !== undefined && radiusMeters !== null) {
         const radiusKm = radiusMeters / 1000;
         clauses.push(labels.nearMeWithRadiusTemplate ? labels.nearMeWithRadiusTemplate.replace('{radius}', String(radiusKm)) : (labels.nearMeWithRadiusPrefix ?? 'within ') + radiusKm + 'km of me');
       } else {

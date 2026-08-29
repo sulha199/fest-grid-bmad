@@ -20,3 +20,32 @@ mutation resolveScheduleTimezone($scheduleId: ID!, $timezone: String!) {
     timezoneStatus
   }
 }
+
+mutation resolvePromptToEventFilter($prompt: String!) {
+  resolvePromptToEventFilter(prompt: $prompt) {
+    resolvedFilter {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
+    caveats
+  }
+}
+

@@ -5,7 +5,7 @@ import { useQueryState, parseAsArrayOf, parseAsString } from 'nuqs';
 import { MultiSelect } from '../../core/multi-select';
 import { Badge } from '../../core/ui/badge';
 import { Button } from '../../core/ui/button';
-import { X } from 'lucide-react';
+import { X, Sparkles } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -21,11 +21,23 @@ export interface FilterHubProps extends Omit<LocationRadiusFilterProps, 'labels'
     categoryLabel: string;
     clearLabel: string;
     locationFilterLabels: LocationRadiusFilterProps['labels'];
+    aiTriggerTooltip?: string;
+    aiClearLabel?: string;
+    aiExpandLabel?: string;
   };
   types: { value: string; label: string }[];
   categories: { value: string; label: string }[];
   onChange?: (types: string[], categories: string[]) => void;
   className?: string;
+  showAITrigger?: boolean;
+  onAITriggerClick?: () => void;
+  aiFilterSummary?: string;
+  aiCaveatsText?: string;
+  onAIClear?: () => void;
+  onAIExpand?: () => void;
+  aiTriggerTooltip?: string;
+  aiClearLabel?: string;
+  aiExpandLabel?: string;
 }
 
 export function FilterHub({
@@ -44,7 +56,54 @@ export function FilterHub({
   currentLocationError,
   onSelectLocation,
   onRadiusChange,
+  showAITrigger,
+  onAITriggerClick,
+  aiFilterSummary,
+  aiCaveatsText,
+  onAIClear,
+  onAIExpand,
+  aiTriggerTooltip,
+  aiClearLabel,
+  aiExpandLabel,
 }: FilterHubProps) {
+  if (aiFilterSummary) {
+    return (
+      <div className={`flex flex-wrap items-center gap-3 py-1.5 px-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900/50 text-sm ${className}`}>
+        <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-medium mr-auto">
+          <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 animate-pulse" />
+          <span className="sr-only">AI Filter active:</span>
+          <span className="leading-tight">{aiFilterSummary}</span>
+          {aiCaveatsText && (
+            <span className="text-xs text-muted-foreground ml-1 font-normal block mt-0.5">
+              ({aiCaveatsText})
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onAIExpand}
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 text-xs font-semibold h-8"
+          >
+            {aiExpandLabel || labels.aiExpandLabel || 'Edit / Expand'}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onAIClear}
+            className="text-muted-foreground hover:text-foreground hover:bg-muted text-xs font-semibold h-8"
+          >
+            {aiClearLabel || labels.aiClearLabel || 'Clear'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+
   const [selectedTypes, setSelectedTypes] = useQueryState(
     'types',
     parseAsArrayOf(parseAsString).withDefault([])
@@ -197,6 +256,20 @@ export function FilterHub({
           </PopoverContent>
         </Popover>
       )}
+      {showAITrigger && (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={onAITriggerClick}
+          className="w-10 h-10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 shrink-0"
+          title={aiTriggerTooltip || labels.aiTriggerTooltip || 'Filter with AI'}
+          aria-label={aiTriggerTooltip || labels.aiTriggerTooltip || 'Filter with AI'}
+        >
+          <Sparkles className="w-4 h-4" />
+        </Button>
+      )}
+
       {hasSelection && (
         <button
           type="button"

@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query"
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, ViewModeToggle } from "@festgrid/ui"
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, ViewModeToggle, AIFilterOverlay, BlockingLoader } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
@@ -18,6 +18,7 @@ import { buildEventsQueryCondition } from "@festgrid/domain/events"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { LoginContent } from "./login/login-content"
 import { useNearbyFilter } from "./use-nearby-filter"
+import { useAIFilter } from "@/features/events/use-ai-filter"
 
 // Falls back to the raw enum value if a translation key is missing, so a
 // locale file drifting out of sync with the enum degrades gracefully instead
@@ -40,6 +41,7 @@ export function HomeContent() {
   const tNearby = useTranslations('NearbyFilter')
   const { session } = useAuthSession()
   const nearbyFilter = useNearbyFilter()
+  const aiFilter = useAIFilter()
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
   const [types] = useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))
   const [categories] = useQueryState('categories', parseAsArrayOf(parseAsString).withDefault([]))
@@ -130,6 +132,9 @@ export function HomeContent() {
     typeLabel: tFilterHub('typeLabel'),
     categoryLabel: tFilterHub('categoryLabel'),
     clearLabel: tFilterHub('clearLabel'),
+    aiTriggerTooltip: tFilterHub('aiTriggerTooltip'),
+    aiClearLabel: tFilterHub('aiClearLabel'),
+    aiExpandLabel: tFilterHub('aiExpandLabel'),
     locationFilterLabels: {
       filterLabel: tNearby('filterLabel'),
       offOptionLabel: tNearby('offOptionLabel'),
@@ -168,12 +173,15 @@ export function HomeContent() {
     status,
     error
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ['events', { q, types, categories, nearby: resolvedNearby }],
+    queryKey: ['events', { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }],
     queryFn: async ({ pageParam }) => {
+      const condition = aiFilter.activeFilter
+        ? buildEventsQueryCondition({ filter: aiFilter.activeFilter })
+        : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby });
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
         offset: pageParam as number,
-        query: buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby }) as EventQueryConditionInput | undefined
+        query: condition as EventQueryConditionInput | undefined
       })
     },
     initialPageParam: 0,
@@ -227,6 +235,12 @@ export function HomeContent() {
         currentLocationError={nearbyFilter.currentLocationError}
         onSelectLocation={nearbyFilter.onSelectLocation}
         onRadiusChange={nearbyFilter.onRadiusChange}
+        showAITrigger={aiFilter.filterHubProps.showAITrigger}
+        onAITriggerClick={aiFilter.filterHubProps.onAITriggerClick}
+        aiFilterSummary={aiFilter.filterHubProps.aiFilterSummary}
+        aiCaveatsText={aiFilter.filterHubProps.aiCaveatsText}
+        onAIClear={aiFilter.filterHubProps.onAIClear}
+        onAIExpand={aiFilter.filterHubProps.onAIExpand}
         views={[
           {
             id: 'card',
@@ -297,6 +311,9 @@ export function HomeContent() {
           <LoginContent />
         </DialogContent>
       </Dialog>
+      <AIFilterOverlay {...aiFilter.overlayProps} />
+      <BlockingLoader active={aiFilter.isLoading} />
+
     </PageContainer>
   )
 }

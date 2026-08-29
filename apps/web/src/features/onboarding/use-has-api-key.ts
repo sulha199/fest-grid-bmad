@@ -9,7 +9,7 @@ export function useApiKeyStatus(): { hasApiKey: boolean; isLoading: boolean } {
   });
 
   return {
-    hasApiKey: (data?.myApiKeys.length ?? 0) > 0,
+    hasApiKey: (data?.myApiKeys?.length ?? 0) > 0,
     isLoading,
   };
 }

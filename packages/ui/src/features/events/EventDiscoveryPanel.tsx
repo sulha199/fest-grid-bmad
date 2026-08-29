@@ -28,6 +28,12 @@ export function EventDiscoveryPanel({
   currentLocationError,
   onSelectLocation,
   onRadiusChange,
+  showAITrigger,
+  onAITriggerClick,
+  aiFilterSummary,
+  aiCaveatsText,
+  onAIClear,
+  onAIExpand,
 }: EventDiscoveryPanelProps) {
   const [activeView, setActiveView] = useQueryState(
     'view',
@@ -66,6 +72,12 @@ export function EventDiscoveryPanel({
           currentLocationError={currentLocationError}
           onSelectLocation={onSelectLocation}
           onRadiusChange={onRadiusChange}
+          showAITrigger={showAITrigger}
+          onAITriggerClick={onAITriggerClick}
+          aiFilterSummary={aiFilterSummary}
+          aiCaveatsText={aiCaveatsText}
+          onAIClear={onAIClear}
+          onAIExpand={onAIExpand}
         />
       </div>
 

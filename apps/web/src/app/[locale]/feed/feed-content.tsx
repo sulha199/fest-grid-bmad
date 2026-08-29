@@ -3,7 +3,7 @@
 import { useMemo, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, ViewModeToggle } from "@festgrid/ui";
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, ViewModeToggle, AIFilterOverlay, BlockingLoader } from "@festgrid/ui";
 import { EventCategory, EventType } from "@festgrid/shared-types";
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation, useGetMySubscriptionsQuery } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
@@ -15,6 +15,7 @@ import { useAuthSession } from "@/components/providers/auth-session-provider";
 import { buildFeedQueryCondition } from "@festgrid/domain/events";
 import { FeedCalendarView } from "./FeedCalendarView";
 import { SubscriptionPicker } from "@festgrid/ui";
+import { useAIFilter } from "@/features/events/use-ai-filter";
 
 function buildEnumLabels(values: string[], translate: (key: string) => string) {
   return Object.fromEntries(
@@ -39,6 +40,7 @@ export function FeedContent() {
   const searchParams = useSearchParams();
   const { session, isLoading } = useAuthSession();
   const queryClient = useQueryClient();
+  const aiFilter = useAIFilter();
 
   const [q, setQ] = useQueryState("q", parseAsString.withDefault(""));
   const [types] = useQueryState("types", parseAsArrayOf(parseAsString).withDefault([]));
@@ -90,6 +92,9 @@ export function FeedContent() {
       typeLabel: tFilterHub("typeLabel"),
       categoryLabel: tFilterHub("categoryLabel"),
       clearLabel: tFilterHub("clearLabel"),
+      aiTriggerTooltip: tFilterHub("aiTriggerTooltip"),
+      aiClearLabel: tFilterHub("aiClearLabel"),
+      aiExpandLabel: tFilterHub("aiExpandLabel"),
       locationFilterLabels: {
         filterLabel: tNearby("filterLabel"),
         offOptionLabel: tNearby("offOptionLabel"),
@@ -125,8 +130,14 @@ export function FeedContent() {
   );
 
   const queryCondition = useMemo(() => {
-    return buildFeedQueryCondition({ search: q, types, categories, subscriptions: subscriptionsQuery });
-  }, [q, types, categories, subscriptionsQuery]);
+    return buildFeedQueryCondition({
+      search: q,
+      types,
+      categories,
+      subscriptions: subscriptionsQuery,
+      filter: aiFilter.activeFilter ?? undefined,
+    });
+  }, [q, types, categories, subscriptionsQuery, aiFilter.activeFilter]);
 
   const {
     data,
@@ -136,7 +147,7 @@ export function FeedContent() {
     status: listStatus,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery }],
+    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, aiFilter: aiFilter.activeFilter }],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
@@ -250,6 +261,12 @@ export function FeedContent() {
         currentLocationError={null}
         onSelectLocation={() => {}}
         onRadiusChange={() => {}}
+        showAITrigger={aiFilter.filterHubProps.showAITrigger}
+        onAITriggerClick={aiFilter.filterHubProps.onAITriggerClick}
+        aiFilterSummary={aiFilter.filterHubProps.aiFilterSummary}
+        aiCaveatsText={aiFilter.filterHubProps.aiCaveatsText}
+        onAIClear={aiFilter.filterHubProps.onAIClear}
+        onAIExpand={aiFilter.filterHubProps.onAIExpand}
         views={[
           {
             id: "card",
@@ -325,6 +342,9 @@ export function FeedContent() {
       <div aria-live="polite" className="sr-only">
         {liveMessage}
       </div>
+      <AIFilterOverlay {...aiFilter.overlayProps} />
+      <BlockingLoader active={aiFilter.isLoading} />
+
     </PageContainer>
   );
 }

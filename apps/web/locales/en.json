@@ -165,7 +165,50 @@
   "FilterHub": {
     "typeLabel": "Type",
     "categoryLabel": "Category",
-    "clearLabel": "Clear filters"
+    "clearLabel": "Clear filters",
+    "aiTriggerTooltip": "Filter with AI",
+    "aiClearLabel": "Clear",
+    "aiExpandLabel": "Edit / Expand",
+    "aiOverlayTitle": "Filter with AI",
+    "aiOverlayDescription": "Describe what events you are looking for in natural language, and we will find them for you instantly.",
+    "aiOverlayPlaceholder": "e.g., 'rock concerts in Berlin next weekend' or 'free art exhibitions'",
+    "aiOverlaySubmit": "Apply AI Filter",
+    "aiOverlayCancel": "Cancel",
+    "aiOverlayErrorTitle": "Could not resolve prompt"
+  },
+  "AIFilterSummary": {
+    "noFilter": "All events",
+    "accountIdTemplate": "events by {accountId}",
+    "typesPrefix": "types: ",
+    "categoriesPrefix": "categories: ",
+    "keywordTemplate": "about '{keyword}'",
+    "dateRangeTemplate": "{anchor} {sign} {amount} {unit}",
+    "nearMe": "near me",
+    "nearMeWithRadiusTemplate": "within {radius}km of me",
+    "venueTypeTemplate": "at {venueType}",
+    "freeEventsOnly": "free events only",
+    "paidEventsOnly": "paid events only",
+    "caveatPrefix": "- ",
+    "caveatSeparator": ", ",
+    "anchors": {
+      "TODAY": "today",
+      "THIS_WEEK": "this week",
+      "THIS_MONTH": "this month"
+    },
+    "units": {
+      "DAY": "days",
+      "WEEK": "weeks",
+      "MONTH": "months"
+    },
+    "daysOfWeek": {
+      "MON": "Mondays",
+      "TUE": "Tuesdays",
+      "WED": "Wednesdays",
+      "THU": "Thursdays",
+      "FRI": "Fridays",
+      "SAT": "Saturdays",
+      "SUN": "Sundays"
+    }
   },
   "ManualPostSelectionPage": {
     "title": "Extract Events",

@@ -22,6 +22,9 @@ export interface EventDiscoveryPanelProps extends Omit<FilterHubProps, 'labels' 
     categoryLabel: string;
     clearLabel: string;
     locationFilterLabels: LocationRadiusFilterProps['labels'];
+    aiTriggerTooltip?: string;
+    aiClearLabel?: string;
+    aiExpandLabel?: string;
   };
   types: { value: string; label: string }[];
   categories: { value: string; label: string }[];

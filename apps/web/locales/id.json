@@ -165,7 +165,50 @@
   "FilterHub": {
     "typeLabel": "Tipe",
     "categoryLabel": "Kategori",
-    "clearLabel": "Hapus filter"
+    "clearLabel": "Hapus filter",
+    "aiTriggerTooltip": "Filter dengan AI",
+    "aiClearLabel": "Hapus",
+    "aiExpandLabel": "Edit / Perluas",
+    "aiOverlayTitle": "Filter dengan AI",
+    "aiOverlayDescription": "Gambarkan acara apa yang Anda cari dalam bahasa sehari-hari, dan kami akan menemukannya untuk Anda secara instan.",
+    "aiOverlayPlaceholder": "misal, 'konser musik rock di Jakarta akhir pekan depan' atau 'pameran seni gratis'",
+    "aiOverlaySubmit": "Terapkan Filter AI",
+    "aiOverlayCancel": "Batal",
+    "aiOverlayErrorTitle": "Gagal menyelesaikan prompt"
+  },
+  "AIFilterSummary": {
+    "noFilter": "Semua acara",
+    "accountIdTemplate": "acara oleh {accountId}",
+    "typesPrefix": "tipe: ",
+    "categoriesPrefix": "kategori: ",
+    "keywordTemplate": "tentang '{keyword}'",
+    "dateRangeTemplate": "{anchor} {sign} {amount} {unit}",
+    "nearMe": "dekat saya",
+    "nearMeWithRadiusTemplate": "dalam {radius}km dari saya",
+    "venueTypeTemplate": "di {venueType}",
+    "freeEventsOnly": "hanya acara gratis",
+    "paidEventsOnly": "hanya acara berbayar",
+    "caveatPrefix": "- ",
+    "caveatSeparator": ", ",
+    "anchors": {
+      "TODAY": "hari ini",
+      "THIS_WEEK": "minggu ini",
+      "THIS_MONTH": "bulan ini"
+    },
+    "units": {
+      "DAY": "hari",
+      "WEEK": "minggu",
+      "MONTH": "bulan"
+    },
+    "daysOfWeek": {
+      "MON": "Senin",
+      "TUE": "Selasa",
+      "WED": "Rabu",
+      "THU": "Kamis",
+      "FRI": "Jumat",
+      "SAT": "Sabtu",
+      "SUN": "Minggu"
+    }
   },
   "ManualPostSelectionPage": {
     "title": "Ekstrak Acara",

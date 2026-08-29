@@ -256,4 +256,68 @@ describe('FilterHub', () => {
     expect(locationTrigger).toBeInTheDocument();
     expect(locationTrigger).toHaveClass('bg-primary'); // default variant when active
   });
+  it('renders the AI trigger button when showAITrigger is true and handles click', () => {
+    const onAITriggerClick = vi.fn();
+    render(
+      <FilterHub
+        labels={defaultLabels}
+        types={mockTypes}
+        categories={mockCategories}
+        isAuthenticated={false}
+        isLoadingLocations={false}
+        savedLocations={[]}
+        selectedValue="off"
+        radiusKm={5}
+        isCapturingCurrentLocation={false}
+        currentLocationError={null}
+        onSelectLocation={vi.fn()}
+        onRadiusChange={vi.fn()}
+        showAITrigger={true}
+        onAITriggerClick={onAITriggerClick}
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Filter with AI' });
+    expect(trigger).toBeInTheDocument();
+    fireEvent.click(trigger);
+    expect(onAITriggerClick).toHaveBeenCalled();
+  });
+
+  it('renders the collapsed AI filter summary layout when aiFilterSummary is active', () => {
+    const onAIClear = vi.fn();
+    const onAIExpand = vi.fn();
+    render(
+      <FilterHub
+        labels={defaultLabels}
+        types={mockTypes}
+        categories={mockCategories}
+        isAuthenticated={false}
+        isLoadingLocations={false}
+        savedLocations={[]}
+        selectedValue="off"
+        radiusKm={5}
+        isCapturingCurrentLocation={false}
+        currentLocationError={null}
+        onSelectLocation={vi.fn()}
+        onRadiusChange={vi.fn()}
+        aiFilterSummary="Events about jazz in Work"
+        aiCaveatsText="Missing ticket price"
+        onAIClear={onAIClear}
+        onAIExpand={onAIExpand}
+      />
+    );
+
+    expect(screen.getByText('Events about jazz in Work')).toBeInTheDocument();
+    expect(screen.getByText('(Missing ticket price)')).toBeInTheDocument();
+
+    const expandBtn = screen.getByRole('button', { name: 'Edit / Expand' });
+    const clearBtn = screen.getByRole('button', { name: 'Clear' });
+
+    fireEvent.click(expandBtn);
+    expect(onAIExpand).toHaveBeenCalled();
+
+    fireEvent.click(clearBtn);
+    expect(onAIClear).toHaveBeenCalled();
+  });
+
 });

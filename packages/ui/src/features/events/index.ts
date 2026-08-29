@@ -20,3 +20,5 @@ export * from './ViewModeToggle.types';
 
 export * from './format-event-date';
 
+export * from './AIFilterOverlay';
+
