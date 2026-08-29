@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useState } from 'react';
-import { Instagram, Link, ExternalLink, User } from 'lucide-react';
+import { Instagram, Link, ExternalLink } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import { Checkbox } from '../../core/checkbox';
 import { AccountAvatar } from '../../core/account-avatar';
