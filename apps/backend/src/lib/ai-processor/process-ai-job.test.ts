@@ -3,7 +3,13 @@ import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions, users } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
-import { processAiJob, setCallGeminiSeam, setMarkPostExtractedSeam, setRehostPostImageSeam } from './process-ai-job.js';
+import {
+  processAiJob,
+  setCallGeminiSeam,
+  setMarkPostExtractedSeam,
+  setRehostPostImageSeam,
+  setBackfillAccountProfileAndInferDefaultLocationSeam
+} from './process-ai-job.js';
 import { setResolveLocationSeam } from './resolve-account-and-locations.js';
 import { setSendSqsMessage } from '../aws/send-sqs-message.js';
 import { type ProcessingJobMessage } from '@festgrid/domain/posts';
@@ -16,6 +22,7 @@ process.env.DATA_INGESTION_INLINE_FALLBACK_ENABLED = 'false';
 
 test('processAiJob orchestrator tests', async (t) => {
   const originalEnvQueueUrl = process.env.DATA_INGESTION_QUEUE_URL;
+  setBackfillAccountProfileAndInferDefaultLocationSeam(async () => {});
 
   // Retrieve seeded users
   const seededUsers = await db.select().from(users).limit(1);
@@ -62,9 +69,17 @@ test('processAiJob orchestrator tests', async (t) => {
     setResolveLocationSeam(async () => ({}) as any);
     setSendSqsMessage(async () => {});
     setRehostPostImageSeam(async () => null);
+    setBackfillAccountProfileAndInferDefaultLocationSeam(async () => {});
   });
 
-  await t.test('Case A: happy path (event extracted, enqueued, marked)', async () => {
+  await t.test('Case A: happy path (event extracted, enqueued, marked)', async (t) => {
+    const originalTimezone = user.timezone;
+    await db.update(users).set({ timezone: null }).where(eq(users.id, user.id));
+
+    t.after(async () => {
+      await db.update(users).set({ timezone: originalTimezone }).where(eq(users.id, user.id));
+    });
+
     const message: ProcessingJobMessage = {
       postId: 'post-process-1',
       accountId: profile.id,
@@ -636,6 +651,186 @@ test('processAiJob orchestrator tests', async (t) => {
     await processAiJob(message);
 
     assert.strictEqual(rehostCalled, false, 'Should not attempt re-hosting when AJV validation fails');
+  });
+
+  await t.test('Case J: calls backfillAccountProfileAndInferDefaultLocationSeam when defaultLocation is falsy', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-process-j',
+      accountId: profile.id,
+      content: 'Epic Concert Tonight J!',
+      postUrl: 'https://test.com/pj',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let backfillCalled = false;
+    let backfillAccountId = '';
+    let backfillPosts: any[] = [];
+
+    await db
+      .update(socialMediaAccountProfiles)
+      .set({ defaultLocation: null })
+      .where(eq(socialMediaAccountProfiles.id, profile.id));
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          eventName: 'Epic Concert J',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: '2026-08-15'
+            }
+          ],
+          confidenceScore: 0.99
+        })
+      };
+    });
+
+    setResolveLocationSeam(async () => {
+      return {
+        id: 'loc-1',
+        name: 'Original Venue'
+      } as any;
+    });
+
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    setBackfillAccountProfileAndInferDefaultLocationSeam(async (accId, posts) => {
+      backfillCalled = true;
+      backfillAccountId = accId;
+      backfillPosts = posts;
+    });
+
+    await processAiJob(message);
+
+    assert.ok(backfillCalled, 'backfill should be called');
+    assert.strictEqual(backfillAccountId, profile.id);
+    assert.strictEqual(backfillPosts.length, 1);
+    assert.strictEqual(backfillPosts[0].content, message.content);
+  });
+
+  await t.test('Case K: does NOT call backfillAccountProfileAndInferDefaultLocationSeam when defaultLocation is truthy', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-process-k',
+      accountId: profile.id,
+      content: 'Epic Concert Tonight K!',
+      postUrl: 'https://test.com/pk',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let backfillCalled = false;
+
+    await db
+      .update(socialMediaAccountProfiles)
+      .set({
+        defaultLocation: { id: 'loc-k', name: 'Venue K' } as any
+      })
+      .where(eq(socialMediaAccountProfiles.id, profile.id));
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          eventName: 'Epic Concert K',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: '2026-08-15'
+            }
+          ]
+        })
+      };
+    });
+
+    setResolveLocationSeam(async () => {
+      return {
+        id: 'loc-1',
+        name: 'Original Venue'
+      } as any;
+    });
+
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    setBackfillAccountProfileAndInferDefaultLocationSeam(async () => {
+      backfillCalled = true;
+    });
+
+    await processAiJob(message);
+
+    assert.strictEqual(backfillCalled, false, 'backfill should not be called when default location is already set');
+
+    // Clean up
+    await db
+      .update(socialMediaAccountProfiles)
+      .set({ defaultLocation: null })
+      .where(eq(socialMediaAccountProfiles.id, profile.id));
+  });
+
+  await t.test('Case L: does not fail extraction when backfillAccountProfileAndInferDefaultLocationSeam throws', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-process-l',
+      accountId: profile.id,
+      content: 'Epic Concert Tonight L!',
+      postUrl: 'https://test.com/pl',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let backfillCalled = false;
+    let markPostExtractedCalled = false;
+
+    await db
+      .update(socialMediaAccountProfiles)
+      .set({ defaultLocation: null })
+      .where(eq(socialMediaAccountProfiles.id, profile.id));
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          eventName: 'Epic Concert L',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: '2026-08-15'
+            }
+          ],
+          confidenceScore: 0.99
+        })
+      };
+    });
+
+    setResolveLocationSeam(async () => {
+      return {
+        id: 'loc-1',
+        name: 'Original Venue'
+      } as any;
+    });
+
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => {
+      markPostExtractedCalled = true;
+      return {} as any;
+    });
+
+    setBackfillAccountProfileAndInferDefaultLocationSeam(async () => {
+      backfillCalled = true;
+      throw new Error('Inference service unavailable');
+    });
+
+    // Should not throw
+    await processAiJob(message);
+
+    assert.ok(backfillCalled, 'backfill should be called and throw');
+    assert.ok(markPostExtractedCalled, 'extraction should still successfully complete');
   });
 });
 

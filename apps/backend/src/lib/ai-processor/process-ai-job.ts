@@ -4,7 +4,7 @@ import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 import { callGemini as defaultCallGemini } from '../ai-gateway/adapter.js';
 import { compileValidator } from '../../validation/validate.js';
 import { extractedEventSchema } from '../../validation/extracted-event.schema.js';
-import { type GeminiExtractionPayload, transformGeminiResponseToEventInfo } from '@festgrid/domain';
+import { type GeminiExtractionPayload, transformGeminiResponseToEventInfo, type ScrapedPost } from '@festgrid/domain';
 import { resolveAccountAndLocations } from './resolve-account-and-locations.js';
 import { resolveScheduleTimezones } from './resolve-schedule-timezones.js';
 import { markPostExtracted as defaultMarkPostExtracted } from '../posts/mark-post-extracted.js';
@@ -12,6 +12,7 @@ import { sendSqsMessage } from '../aws/send-sqs-message.js';
 import { processIngestionJob } from '../ingestor/process-ingestion-job.js';
 import { loadBackendEnv } from '../../env.js';
 import { rehostPostImage as defaultRehostPostImage } from './rehost-post-image.js';
+import { backfillAccountProfileAndInferDefaultLocation } from '../accounts/backfill-account-profile-and-infer-location.js';
 
 export let callGeminiSeam = defaultCallGemini;
 export function setCallGeminiSeam(fn: typeof defaultCallGemini) {
@@ -26,6 +27,11 @@ export function setMarkPostExtractedSeam(fn: typeof defaultMarkPostExtracted) {
 export let rehostPostImageSeam = defaultRehostPostImage;
 export function setRehostPostImageSeam(fn: typeof defaultRehostPostImage) {
   rehostPostImageSeam = fn;
+}
+
+export let backfillAccountProfileAndInferDefaultLocationSeam = backfillAccountProfileAndInferDefaultLocation;
+export function setBackfillAccountProfileAndInferDefaultLocationSeam(fn: typeof backfillAccountProfileAndInferDefaultLocation) {
+  backfillAccountProfileAndInferDefaultLocationSeam = fn;
 }
 
 export async function processAiJob(message: ProcessingJobMessage): Promise<void> {
@@ -116,6 +122,26 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     });
   } else {
     throw new Error('DATA_INGESTION_QUEUE_URL is not configured');
+  }
+
+  // 8.5. If resolved defaultLocation is falsy, trigger location inference
+  if (!defaultLocation) {
+    try {
+      const post: ScrapedPost = {
+        content: message.content,
+        imageUrl: message.imageUrl,
+        postUrl: message.postUrl,
+        publishedAt: message.publishedAt,
+        ownerDisplayName: message.ownerDisplayName,
+        ownerUsername: message.ownerUsername,
+      };
+      await backfillAccountProfileAndInferDefaultLocationSeam(message.accountId, [post]);
+    } catch (backfillErr) {
+      console.warn(
+        `[processAiJob] backfillAccountProfileAndInferDefaultLocation failed for ${message.accountId}:`,
+        backfillErr
+      );
+    }
   }
 
   // 9. Mark post extracted on successful enqueue
