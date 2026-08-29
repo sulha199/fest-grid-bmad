@@ -112,6 +112,10 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **FR91 (added 2026-08-24):** The location-inference call prefers a contributing subscriber's own BYOK Gemini key, falling back to a platform-funded system key scoped exclusively to this inference use case when no subscriber key is available.
 - **FR92 (added 2026-08-24):** Each `DefaultLocationChangeRequest` records whether a subscriber or the system produced the change, so Moderator Tools can distinguish an AI-inferred value from a human edit.
 - **FR93 (added 2026-08-24):** A moderator may directly set an account's "Default Location" to a corrected value via the same mechanism a subscriber uses, rather than being limited to accepting or reverting a pending change as-is; a moderator-sourced change requires no further review and automatically supersedes any other still-pending change request for that account.
+- **FR94 (added 2026-08-29):** The AI location-inference call (FR90) also returns a confidence score (0.0–1.0). When the score meets or exceeds a configurable threshold (`LOCATION_INFERENCE_CONFIDENCE_THRESHOLD`, default `0.5`), the inferred value applies immediately per FR90's existing flow; below the threshold it is held as an `AWAITING_APPROVAL` change request instead of being written to the account.
+- **FR95 (added 2026-08-29):** From Moderator Tools, a moderator can approve or reject an `AWAITING_APPROVAL` Default Location change request — approving writes it to the account, rejecting discards it without applying — distinct from the existing accept/revert actions for a change that already applied.
+- **FR96 (added 2026-08-29):** For users with moderator access, a combined numeric badge (pending reports plus pending Default Location changes) is shown next to "Moderator Items" in the opened user menu and on the navbar avatar when the menu is closed, kept reasonably current via periodic refresh rather than instantaneous.
+- **FR97 (added 2026-08-29):** Each scraped post's hashtags are captured and stored. A search phrase beginning with `#` (Discovery per FR2, and the subscribed-events search bar per FR30) matches exactly against a post's hashtags instead of the existing event-name/performers/location substring match, and combines with type/category filters the same way normal search does.
 
 ### NonFunctional Requirements
 - **NFR1:** Event discovery page should load in under 2 seconds on a standard 4G connection.
@@ -266,6 +270,10 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR91: Epic 3 - Social Media Event Integration (Story 3.4m, added 2026-08-24)
 - FR92: Epic 4 - Data Quality and Moderation (surfaced in Moderator Tools per FR67's precedent, added 2026-08-24)
 - FR93: Epic 4 - Data Quality and Moderation (implemented via a Story 3.3b amendment, surfaced in Moderator Tools/Story 4.7 per FR92's precedent, added 2026-08-24)
+- FR94: Epic 3 - Social Media Event Integration (extends Story 3.4m's AI-inference flow; implemented directly per sprint-change-proposal-2026-08-28.md Item 1, commit a0fc985, added 2026-08-29)
+- FR95: Epic 4 - Data Quality and Moderation (extends Story 4.7's moderator review flow; implemented directly per sprint-change-proposal-2026-08-28.md Item 1, commit a0fc985, added 2026-08-29)
+- FR96: Epic 4 - Data Quality and Moderation (surfaced in Story 4.7's Moderator Items entry point; implemented directly per sprint-change-proposal-2026-08-28.md Item 2, commit a0fc985, added 2026-08-29)
+- FR97: Epic 1 - Core App and Event Discovery (extends Story 1.4's search per FR2; also covers the Feed search bar, FR30/Epic 3; implemented directly per sprint-change-proposal-2026-08-28.md Item 3, commit a0fc985, added 2026-08-29)
 
 ## Epic List
 
@@ -1100,6 +1108,8 @@ Users can discover and browse events.
 *   **And** the search is performed on the event name, performers, and location name.
 *   **And** the search supports partial matching.
 *   **And** the active search query is reflected in the URL as shareable/bookmarkable state (AD-4 URL State via `nuqs`).
+
+**Amendment (2026-08-29, FR97, implemented directly per `sprint-change-proposal-2026-08-28.md` Item 3, commit `a0fc985`, epics.md backfill only — not routed through `bmad-create-story`, matching Story 3.4m's precedent):** A search phrase beginning with `#` is routed to an exact array-containment match against `posts.hashtags` (new column + GIN index, migration `0039`) instead of the `contains` condition above, via `buildEventsQueryCondition`'s existing shared code path in `resolvers.ts` — so the same behavior applies to the Feed search bar (FR30, Epic 3) with no separate implementation. Hashtags are captured through the full Instagram/Apify scraper pipeline, lowercased for case-insensitive exact match.
 
 ### Story 1.5a: Build the reusable MultiSelect component
 
@@ -2673,6 +2683,8 @@ Users can contribute to data quality by correcting event details and reporting i
 **Correction (2026-08-12, amended via `bmad-create-story` while drafting this story):** The reported-events list was initially decided (via `AskUserQuestion`) to render one row per individual `Report`, matching `reportedEvents`' flat per-Report return shape. The user reconsidered and requested event-grouped display instead, where a single moderator action resolves every pending report on that event at once — the AC above reflects this reconsidered, final shape; the flat per-Report decision never shipped.
 
 **Correction (2026-08-12, via `bmad-correct-course`):** The moderator-attention `reportedEvents` query (Story 4.3a) accepts optional `status`/`reason` filters but has no enforced default. AC revised: this page's default (unfiltered-by-the-moderator) view must call `reportedEvents(status: PENDING)` explicitly, so `personal`-reason reports — which Story 4.3a's 2026-08-12 correction now auto-resolves to `auto_resolved` at submission — and any already-`upheld`/`dismissed` report never appear in the "requires my attention" list. A moderator may still explicitly filter by `reason: personal` or any `status` for audit/history purposes; only the default view is scoped. See `sprint-change-proposal-2026-08-12.md`.
+
+**Amendment (2026-08-29, implemented directly per `sprint-change-proposal-2026-08-28.md` Items 1–2, commit `a0fc985`, epics.md backfill only — not routed through `bmad-create-story`, matching Story 3.4m's precedent):** FR94/FR95 — a low-confidence AI-inferred Default Location change (below `LOCATION_INFERENCE_CONFIDENCE_THRESHOLD`, Story 3.4m) now lands as an `AWAITING_APPROVAL` `DefaultLocationChangeRequest` instead of applying immediately; this page's pending-change list shows both post-hoc `PENDING_REVIEW` items (existing accept/revert) and pre-hoc `AWAITING_APPROVAL` items (new approve/reject, via `resolveDefaultLocationChange`'s new `APPROVE`/`REJECT` actions), visually distinguished. FR96 — a combined numeric badge (pending reports + pending/awaiting-approval Default Location changes, via a new `moderatorPendingItemCount` query) is shown next to this page's "Moderator Items" entry in the user menu and on the navbar avatar, polled every 60s (new `CountBadge` primitive, `UserMenu.tsx`/`AppShell.tsx`) — the first polling-interval precedent in this codebase. **Deferred, not skipped:** no email notification for a new `AWAITING_APPROVAL` item (unlike the existing `PENDING_REVIEW` moderator-alert email) — the badge covers ongoing visibility instead; TODO left in `apply-default-location-change.ts`.
 
 **Depends on:** Story 4.3a, Story 4.4a, Story 3.3b, Story 0.17, Story 4.7a.
 

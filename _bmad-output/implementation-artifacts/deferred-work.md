@@ -111,6 +111,12 @@ This file tracks work deferred from development stories, code reviews, and plann
   summary: `seedDatabase()`'s cleanup transaction relies on a hand-maintained, manually-ordered list of `tx.delete(...)` calls with no automated check that the order matches the FK graph in `schema.ts` — this is the second time the list needed a reactive patch (the block comment used to say "these five," now a generic count) after a new table was added without updating deletion order. No generic/topological-sort delete mechanism exists to prevent a third recurrence.
   evidence: Surfaced by adversarial review. A generic fix (e.g. deriving delete order from `schema.ts`'s own `.references()` declarations, or a lint/test that fails when a new FK-bearing table is added without a corresponding seed cleanup entry) is a larger architectural change than this bug fix's scope.
 
+## Deferred from: sprint-change-proposal-2026-08-28.md Items 1-2 implementation (2026-08-29, commit a0fc985)
+
+- source_spec: `_bmad-output/planning-artifacts/sprint-change-proposal-2026-08-28.md`
+  summary: No email notification is sent to moderators when a new `AWAITING_APPROVAL` `DefaultLocationChangeRequest` is created (low-confidence AI-inferred location, FR94), unlike the existing "already applied, FYI" email sent for a `PENDING_REVIEW` item. A moderator only learns of it via the new Moderator Pending-Item Badge (FR96) — passive, not push — so a low-vigilance moderator could leave a subscriber's Default Location unset/stale for a while.
+  evidence: `TODO(2026-08-28)` left in `apps/backend/src/lib/accounts/apply-default-location-change.ts:118-120`. Deliberately deferred rather than folded into this batch — a dedicated email needs new copy distinguishing "needs your decision" from the existing FYI template, a real (if small) product-copy decision out of scope for a direct PRD/schema amendment. Noted in the PRD's `.memlog.md` (`_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/.memlog.md`) but not previously logged here.
+
 ## Deferred from: quick-dev fix of scraper-provider-usage test pollution (2026-08-29)
 
 - source_spec: none
