@@ -7,7 +7,7 @@
     "deploy": "cdk deploy --require-approval never",
     "diff": "cdk diff",
     "bootstrap": "cdk bootstrap",
-    "test": "tsx --test lib/**/*.test.ts"
+    "test": "tsx --test \"lib/**/*.test.ts\""
   },
   "dependencies": {
     "aws-cdk-lib": "^2.262.0",
