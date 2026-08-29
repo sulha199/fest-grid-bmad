@@ -10,12 +10,12 @@ A user with a saved Gemini API key can describe what they're looking for in a fr
 **So that** Story 7.4's live overlay result and Story 7.5's saved-filter list rows describe a filter identically, satisfying PRD §3.15's "summary is the only transparency layer" constraint from one implementation instead of two independently-drifting ones.
 
 ## 3. Acceptance Criteria
-- [ ] **Given** an `EventFilterInput` value and a `caveats: string[]` array,
-- [ ] **When** `renderAIFilterSummary(filter, caveats, labels)` is called,
-- [ ] **Then** it returns a single human-readable sentence assembling whichever fields are populated (account, type/category, keyword, date range/day-of-week, admin-area or "near me", venue type, "free events only") in a fixed, readable order, using a `labels` prop object for every piece of static text (matching `EventDetailViewLabels`/`CorrectionForm`'s i18n-decoupling precedent — no embedded strings, `apps/web` resolves `labels` via `next-intl`) — never an AI-generated or cached caption, always re-derived live from the current field values.
-- [ ] **And** when `caveats` is non-empty, the sentence is followed by a distinct, visually-separable caveat clause listing them verbatim — never merged into or paraphrasing the main summary sentence.
-- [ ] **And** an all-fields-empty `EventFilterInput` with no caveats renders a defined "no filter" sentence rather than an empty string.
-- [ ] **And** the function is pure (no network call, no React dependency beyond its return type being a plain string or a small serializable structure) so it is trivially unit-testable and usable from both a live-resolution result and a stored `AIEventFilter` row alike.
+- [x] **Given** an `EventFilterInput` value and a `caveats: string[]` array,
+- [x] **When** `renderAIFilterSummary(filter, caveats, labels)` is called,
+- [x] **Then** it returns a single human-readable sentence assembling whichever fields are populated (account, type/category, keyword, date range/day-of-week, admin-area or "near me", venue type, "free events only") in a fixed, readable order, using a `labels` prop object for every piece of static text (matching `EventDetailViewLabels`/`CorrectionForm`'s i18n-decoupling precedent — no embedded strings, `apps/web` resolves `labels` via `next-intl`) — never an AI-generated or cached caption, always re-derived live from the current field values.
+- [x] **And** when `caveats` is non-empty, the sentence is followed by a distinct, visually-separable caveat clause listing them verbatim — never merged into or paraphrasing the main summary sentence.
+- [x] **And** an all-fields-empty `EventFilterInput` with no caveats renders a defined "no filter" sentence rather than an empty string.
+- [x] **And** the function is pure (no network call, no React dependency beyond its return type being a plain string or a small serializable structure) so it is trivially unit-testable and usable from both a live-resolution result and a stored `AIEventFilter` row alike.
 
 ## 4. Developer Context & Guardrails
 - **File Structure Requirements:**
@@ -34,17 +34,31 @@ A user with a saved Gemini API key can describe what they're looking for in a fr
   - Write test cases for: all fields empty, single fields populated, multiple fields populated, `caveats` empty, `caveats` non-empty (verifying visual separation, like a newline or specific separator symbol provided in labels), and "near me" radius cases versus specific `adminArea`.
 
 ## 5. Tasks
-- [ ] 1. Define `AIFilterSummaryLabels` interface that captures all necessary static strings for building the sentence.
-- [ ] 2. Import `EventFilterInput` (and `DateAnchor`/`DateOffsetUnit`/`DayOfWeek`) from `../events/buildEventsQueryCondition.js` — do not redefine the filter shape.
-- [ ] 3. Implement `renderAIFilterSummary(filter, caveats, labels)` in `packages/domain/src/ai-event-filters/render-ai-filter-summary.ts`.
-- [ ] 4. Implement formatting logic to chain clauses in the AC-specified order: account, type/category, keyword, date range/day-of-week, admin-area-or-"near me", venue type, then "free events only" (e.g. "[accountId] [Types] [Categories] about '[keyword]' [dateRange/dayOfWeek] [location] [venueType] [Free]").
-- [ ] 5. Implement caveat appending logic (e.g. returning an object with `{ summary: string, caveatsText?: string }` or a formatted string block).
-- [ ] 6. Write comprehensive unit tests in `render-ai-filter-summary.test.ts` covering all branching and empty states to achieve 100% coverage.
-- [ ] 7. Export the function from `packages/domain/src/index.ts`.
+- [x] 1. Define `AIFilterSummaryLabels` interface that captures all necessary static strings for building the sentence.
+- [x] 2. Import `EventFilterInput` (and `DateAnchor`/`DateOffsetUnit`/`DayOfWeek`) from `../events/buildEventsQueryCondition.js` — do not redefine the filter shape.
+- [x] 3. Implement `renderAIFilterSummary(filter, caveats, labels)` in `packages/domain/src/ai-event-filters/render-ai-filter-summary.ts`.
+- [x] 4. Implement formatting logic to chain clauses in the AC-specified order: account, type/category, keyword, date range/day-of-week, admin-area-or-"near me", venue type, then "free events only" (e.g. "[accountId] [Types] [Categories] about '[keyword]' [dateRange/dayOfWeek] [location] [venueType] [Free]").
+- [x] 5. Implement caveat appending logic (e.g. returning an object with `{ summary: string, caveatsText?: string }` or a formatted string block).
+- [x] 6. Write comprehensive unit tests in `render-ai-filter-summary.test.ts` covering all branching and empty states to achieve 100% coverage.
+- [x] 7. Export the function from `packages/domain/src/index.ts`.
 
 ## 6. Project Context Reference
 - Consult `_bmad-output/project-context.md` for typescript strict rules, domain purity, and 100% test coverage rules for `packages/domain`.
 
 ## 7. Status Update
-- Status: ready-for-dev
+- Status: review
 - Ultimate context engine analysis completed - comprehensive developer guide created.
+
+## 8. Dev Agent Record
+- **Completion Notes**: Successfully implemented the pure summary renderer function with full i18n label decoupling, ordering verification, and caveats list representation. Built 11 comprehensive unit tests covering all edge cases, empty states, and combinations, passing with 100% code coverage.
+- **File List**:
+  - `packages/domain/src/ai-event-filters/render-ai-filter-summary.ts`
+  - `packages/domain/src/ai-event-filters/render-ai-filter-summary.test.ts`
+  - `packages/domain/src/ai-event-filters/index.ts`
+- **Change Log**:
+  - Created reusable pure function `renderAIFilterSummary` mapping `EventFilterInput` to user-friendly summary.
+  - Added native Node test suite asserting complete layout, order, location preferences, and caveats formatting.
+  - Added export to domain-level index.
+
+### Independent verification (Claude, before commit)
+Correctly followed the corrected spec: imports `EventFilterInput` from `buildEventsQueryCondition.js` (no duplicate type), clause order matches the AC exactly, no scope creep into other stories' files. One issue found and fixed: `packages/domain`'s `--max-warnings 0` lint failed on 3 unused imports (`DateAnchor`/`DateOffsetUnit`/`DayOfWeek` imported but never referenced as types — the function only needs their string values, already covered by `EventFilterInput`'s own field types). Removed the unused import. Domain build/lint/test (189/189) reverified clean after the fix.
