@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
-import { SwipeToReveal, useSoftDeleteWithUndo, PageContainer, PageHeader, AccountLocationField } from "@festgrid/ui"
+import { SwipeToReveal, useSoftDeleteWithUndo, PageContainer, PageHeader, AccountLocationField, AccountAvatar } from "@festgrid/ui"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
 import { useRouter, Link } from "@/i18n/navigation"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useGetMySubscriptionsQuery, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
-import { getPlatformDisplayName } from "@festgrid/domain/scraper"
+import { getPlatformDisplayName, getPlatformSlug } from "@festgrid/domain/scraper"
 import { useApiKeyStatus } from "@/features/onboarding/use-has-api-key"
 import { SubscribeAccountDialog } from "./subscribe-account-dialog"
 import { SetDefaultLocationDialog } from "./set-default-location-dialog"
@@ -38,7 +38,7 @@ export function SubscriptionsContent() {
   // Query subscriptions
   const { data, isLoading, error, refetch } = useGetMySubscriptionsQuery(
     graphqlClient,
-    {},
+    undefined,
     {
       enabled: !!session,
     }
@@ -191,22 +191,17 @@ export function SubscriptionsContent() {
                 onAction={() => handleDelete(sub)}
               >
                 <div
-                  className={`flex items-center justify-between p-4 bg-background transition-opacity ${
+                  onClick={() => router.push(`/${getPlatformSlug(sub.account.platform as any)}/${sub.account.accountId}`)}
+                  className={`flex items-center justify-between p-4 bg-background transition-colors cursor-pointer hover:bg-muted/50 ${
                     pending ? "opacity-40 pointer-events-none" : ""
                   }`}
                 >
                   <div className="flex items-center gap-4 flex-1 min-w-0 pr-4">
-                    {sub.account.profileImageUrl ? (
-                      <img
-                        src={sub.account.profileImageUrl}
-                        alt={sub.account.displayName || sub.account.username}
-                        className="h-10 w-10 rounded-full object-cover shrink-0 border"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center font-bold shrink-0">
-                        {sub.account.displayName?.charAt(0).toUpperCase() || sub.account.username?.charAt(0).toUpperCase() || "S"}
-                      </div>
-                    )}
+                    <AccountAvatar
+                      profileImageUrl={sub.account.profileImageUrl}
+                      displayName={sub.account.displayName}
+                      username={sub.account.username}
+                    />
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -220,18 +215,23 @@ export function SubscriptionsContent() {
                       </p>
                       <div className="mt-1 text-xs">
                         {sub.account.defaultLocation ? (
-                          <AccountLocationField
-                            location={sub.account.defaultLocation}
-                            isPendingReview={!!sub.account.hasPendingDefaultLocationReview}
-                            onEdit={() => setEditingAccountId(sub.account.id)}
-                            labels={{
-                              editLabel: t("editDefaultLocationLabel"),
-                              pendingReviewLabel: t("pendingReviewBadgeLabel"),
-                            }}
-                          />
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <AccountLocationField
+                              location={sub.account.defaultLocation}
+                              isPendingReview={!!sub.account.hasPendingDefaultLocationReview}
+                              onEdit={() => setEditingAccountId(sub.account.id)}
+                              labels={{
+                                editLabel: t("editDefaultLocationLabel"),
+                                pendingReviewLabel: t("pendingReviewBadgeLabel"),
+                              }}
+                            />
+                          </div>
                         ) : (
                           <button
-                            onClick={() => setSelectedAccountId(sub.account.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedAccountId(sub.account.id);
+                            }}
                             className="text-primary hover:underline font-medium"
                           >
                             {t("setDefaultLocationLabel") || "Set Default Location"}
@@ -248,7 +248,10 @@ export function SubscriptionsContent() {
                       </span>
                     )}
                     <button
-                      onClick={() => handleDelete(sub)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(sub);
+                      }}
                       disabled={pending}
                       className="p-2 hover:bg-accent text-destructive hover:text-destructive-foreground rounded-md transition-colors"
                       aria-label="Delete"

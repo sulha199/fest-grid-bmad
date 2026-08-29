@@ -43,7 +43,7 @@ export function PostsSelectContent() {
     refetch: refetchSubs,
   } = useGetMySubscriptionsQuery(
     graphqlClient,
-    {},
+    undefined,
     {
       enabled: !!session,
     }
@@ -57,7 +57,7 @@ export function PostsSelectContent() {
     refetch: refetchKeys,
   } = useGetMyApiKeysQuery(
     graphqlClient,
-    {},
+    undefined,
     {
       enabled: !!session,
     }

@@ -54,6 +54,7 @@ const mockSubscriptions = [
     createdAt: '2026-08-01',
     account: {
       id: 'acc-1',
+      accountId: 'acc-1',
       platform: 'instagram',
       displayName: 'Jakarta Festivals',
       username: 'jkt_festivals',
@@ -69,6 +70,7 @@ const mockSubscriptions = [
     createdAt: '2026-08-02',
     account: {
       id: 'acc-2',
+      accountId: 'acc-2',
       platform: 'twitter',
       displayName: 'Jakarta Culinary',
       username: 'jkt_culinary',
@@ -242,5 +244,28 @@ describe('SubscriptionsContent', () => {
     await waitFor(() => {
       expect(removeCalls).toContainEqual({ id: 'sub-1', action: 'RESTORE' });
     });
+  });
+
+  it('navigates to the platform/accountId page when the subscription row is clicked, but not when buttons are clicked', async () => {
+    mockSession = { user: { id: 'user-1' } };
+    mockHasApiKey = true;
+    renderWithProviders(<SubscriptionsContent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Jakarta Festivals')).toBeInTheDocument();
+    });
+
+    // Clicking the row text "Jakarta Festivals" should push to router
+    const rowText = screen.getByText('Jakarta Festivals');
+    fireEvent.click(rowText);
+    expect(mockRouterPush).toHaveBeenCalledWith('/ig/acc-1');
+
+    // Reset router push mock
+    mockRouterPush.mockClear();
+
+    // Clicking "Set Default Location" should open location modal and NOT trigger row navigation push
+    const setLocationBtn = screen.getByText('Set Default Location');
+    fireEvent.click(setLocationBtn);
+    expect(mockRouterPush).not.toHaveBeenCalled();
   });
 });
