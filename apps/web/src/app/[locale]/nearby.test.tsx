@@ -232,42 +232,65 @@ function renderWithProviders(ui: React.ReactElement) {
 }
 
 describe('Nearby Filter Integration', () => {
-  it('automatically defaults to earliest created location preference and radius when authenticated (AC4)', async () => {
+  it('does not auto-apply nearby filter on fresh Discovery visit with no nearby param', async () => {
     renderWithProviders(<Home />);
 
-    // Story 2.5 AC13 collapsed the filter behind a Popover trigger — open it first.
-    // Match either the idle "Nearby" label or the already-auto-resolved "{location} · {radius}"
-    // summary text, since the auto-default (AC4) may resolve before this query runs.
+    // Query should not contain scheduleCoordinates condition
+    await waitFor(() => {
+      expect(lastQueryVariables).not.toBeNull();
+    });
+    const nearbyCondition = lastQueryVariables?.query?.conditions?.find(
+      (c: any) => c.field === 'scheduleCoordinates'
+    );
+    expect(nearbyCondition).toBeUndefined();
+
+    // Open the FilterHub popover
     const triggers = await screen.findAllByRole('button', { name: /Nearby|km$/ });
     const trigger = triggers.find((btn) => btn.getAttribute('aria-haspopup') === 'dialog');
     expect(trigger).toBeDefined();
     fireEvent.click(trigger!);
 
-    // Verify it loads locations and defaults selection
+    // Verify select is 'off' by default
+    await waitFor(() => {
+      expect(screen.getByLabelText('Nearby')).toBeInTheDocument();
+    });
+    const select = screen.getByLabelText('Nearby') as HTMLSelectElement;
+    expect(select.value).toBe('off');
+  });
+
+  it('applies nearby filter upon manual selection', async () => {
+    renderWithProviders(<Home />);
+
+    const triggers = await screen.findAllByRole('button', { name: /Nearby|km$/ });
+    const trigger = triggers.find((btn) => btn.getAttribute('aria-haspopup') === 'dialog');
+    expect(trigger).toBeDefined();
+    fireEvent.click(trigger!);
+
+    // Verify it loads locations
     await waitFor(() => {
       expect(screen.getByLabelText('Nearby')).toBeInTheDocument();
     });
 
     const select = screen.getByLabelText('Nearby') as HTMLSelectElement;
-    await waitFor(() => {
-      expect(select.value).toBe('loc-1');
-    });
+    // Manually select loc-1
+    fireEvent.change(select, { target: { value: 'loc-1' } });
 
     // Slider should pre-fill with 10 km (10000m)
     const slider = screen.getByLabelText('Radius') as HTMLInputElement;
-    expect(slider.value).toBe('10');
+    await waitFor(() => {
+      expect(slider.value).toBe('10');
+    });
 
     // Query variables should contain nearby filter condition with correct shape
     await waitFor(() => {
-      expect(lastQueryVariables?.query?.conditions).toBeDefined();
-    });
-    const nearbyCondition = lastQueryVariables.query.conditions.find(
-      (c: any) => c.field === 'scheduleCoordinates'
-    );
-    expect(nearbyCondition).toBeDefined();
-    expect(nearbyCondition.value).toEqual({
-      locationPreferenceId: 'loc-1',
-      radiusKm: 10,
+      const nearbyCondition = lastQueryVariables?.query?.conditions?.find(
+        (c: any) => c.field === 'scheduleCoordinates'
+      );
+      expect(nearbyCondition).toBeDefined();
+      expect(nearbyCondition?.value).toEqual({
+        locationPreferenceId: 'loc-1',
+        radiusKm: 10,
+      });
     });
   });
 

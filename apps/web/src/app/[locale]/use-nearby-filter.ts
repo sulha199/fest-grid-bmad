@@ -5,7 +5,6 @@ import { graphqlClient } from "@/lib/graphql-client";
 import { useCurrentLocationCapture } from "@festgrid/ui";
 import { useAuthSession } from "@/components/providers/auth-session-provider";
 import { usePostHog } from "@festgrid/analytics";
-import { useSearchParams } from "next/navigation";
 
 export interface NearbyFilterInput {
   locationPreferenceId?: string;
@@ -17,7 +16,6 @@ export interface NearbyFilterInput {
 export function useNearbyFilter() {
   const { session } = useAuthSession();
   const posthog = usePostHog();
-  const searchParams = useSearchParams();
 
   const [nearby, setNearby] = useQueryState("nearby", parseAsString);
   const [nearbyRadiusKm, setNearbyRadiusKm] = useQueryState("nearbyRadiusKm", parseAsInteger);
@@ -55,52 +53,6 @@ export function useNearbyFilter() {
         radiusKm: Math.round(loc.radius / 1000),
       }));
   }, [locationsData]);
-
-  // Handle auto-defaulting on first visit
-  useEffect(() => {
-    if (!session || isLoadingLocations) return;
-
-    const hasNearbyParam = searchParams.has("nearby");
-    if (!hasNearbyParam && nearby === null) {
-      if (savedLocations.length > 0) {
-        // AC4: earliest created
-        const earliest = savedLocations[0];
-        setNearby(earliest.id);
-        setNearbyRadiusKm(earliest.radiusKm);
-        posthog.capture("nearby_filter_applied", {
-          mode: "saved_location",
-          locationId: earliest.id,
-          radiusKm: earliest.radiusKm,
-        });
-      } else {
-        // AC5: Fallback geolocation
-        const attempted = sessionStorage.getItem("festgrid.nearbyGeoAttempted");
-        if (!attempted) {
-          sessionStorage.setItem("festgrid.nearbyGeoAttempted", "true");
-          capture()
-            .then((coords) => {
-              setAdHocCoords(coords);
-              setNearby("current");
-              setNearbyRadiusKm(5);
-              posthog.capture("nearby_filter_applied", {
-                mode: "current_location",
-                radiusKm: 5,
-              });
-            })
-            .catch((err: any) => {
-              console.error("Auto geolocation capture failed:", err);
-              const reason = err.message || "unknown";
-              posthog.capture("nearby_geolocation_denied", { reason });
-              setNearby("off");
-              posthog.capture("nearby_filter_applied", { mode: "off" });
-            });
-        } else {
-          setNearby("off");
-          posthog.capture("nearby_filter_applied", { mode: "off" });
-        }
-      }
-    }
-  }, [session, isLoadingLocations, savedLocations, nearby, searchParams]);
 
   // Wrap setters to fire analytics
   const handleSelectLocation = async (value: string | "off" | "current") => {
