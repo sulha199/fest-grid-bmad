@@ -13,7 +13,7 @@ Item 4 is **already implemented and committed** (`f4ffc5c`) — included here fo
 
 ## 2. Impact Analysis
 
-- **Epics:** No epic-level restructuring. Items 1–3 land as amendments to existing Epic 3 (Social Media Account Subscription / Moderation) and Epic 1 (Discovery/Search) territory; epics.md FR backfill deliberately deferred to a follow-up `bmad-create-epics-and-stories` pass, matching this PRD's established precedent for prior small amendments.
+- **Epics:** No epic-level restructuring. Items 1–3 land as amendments to existing Epic 3 (Social Media Account Subscription / Moderation) and Epic 1 (Discovery/Search) territory; epics.md FR backfill deliberately deferred, consistent with this PRD's established precedent for prior small amendments. ✓ Done 2026-08-29 via direct edit (see Section 5) — `bmad-create-epics-and-stories` itself was skipped, not just deferred, since its Step 1 overwrites `epics.md` wholesale.
 - **PRD:** Sections 3.1, 3.7, 3.9.3, 4.7, 4.14 amended (items 1–3); Section 4.1 already amended (item 4, done).
 - **project-context.md:** Database Indexing rule needs `hashtags` added (item 3).
 - **Architecture/DB:** New `posts.hashtags` column + migration (item 3); no new architecture-spine invariant violated — reuses the existing `events` ⋈ `posts` join already present in the search query path.
@@ -83,6 +83,8 @@ NEW (replaces tail sentence):
 ## 5. Implementation Handoff
 
 - **Scope: Minor** for all three items — each is a direct PRD/schema amendment implementable without backlog reorganization, matching this project's precedent of folding small amendments straight into `prd.md` rather than a full `bmad-create-epics-and-stories` pass.
-- **Route to:** Developer agent (direct implementation), same pattern as item 4 and the `RELIGION_AND_SPIRITUALITY` precedent.
-- **Deferred, not skipped:** epics.md FR backfill for items 1–3 (new FR numbers), consistent with this PRD's established deferral pattern for amendments of this size.
-- **Success criteria:** PRD sections read coherently with the rest of the document (cross-references resolve, terminology matches); schema changes pass existing test suites; no regression in existing Moderator Items / search behavior.
+- **Route to:** Developer agent (direct implementation), same pattern as item 4 and the `RELIGION_AND_SPIRITUALITY` precedent. ✓ Done — commit `a0fc985` (2026-08-29).
+- **Deferred, not skipped:** epics.md FR backfill for items 1–3 (new FR numbers), consistent with this PRD's established deferral pattern for amendments of this size. ✓ Done 2026-08-29 — FR94–FR97 backfilled directly into `epics.md`'s Requirements Inventory/FR Coverage Map, with amendment notes on Story 4.7 (items 1–2) and Story 1.4 (item 3); `bmad-create-epics-and-stories` skipped (would overwrite `epics.md` wholesale), matching this project's established precedent for prior direct amendments (FR89-93).
+- **Success criteria:** PRD sections read coherently with the rest of the document (cross-references resolve, terminology matches) ✓; schema changes pass existing test suites ✓ (domain 166/166, ui 309/309, web 278/278, backend 265/267 — 2 pre-existing unrelated failures); no regression in existing Moderator Items / search behavior ✓. Verified per `.memlog.md` (2026-08-29 entry) and this backfill pass.
+
+**Open follow-up (not blocking):** no email notification for a new `AWAITING_APPROVAL` item (the Moderator Pending-Item Badge covers ongoing visibility instead) — tracked in `_bmad-output/implementation-artifacts/deferred-work.md` ("Deferred from: sprint-change-proposal-2026-08-28.md Items 1-2 implementation").
