@@ -29,6 +29,7 @@ import { PostAlreadyExtractedError, PostNotFoundError } from '@festgrid/domain/p
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
 import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
+import { verifyGeminiApiKey } from '../lib/ai-gateway/gemini-client.js';
 import { compileValidator } from '../validation/validate.js';
 import { reportSystemErrorSchema } from '../validation/report-system-error.schema.js';
 import { proposedEventCorrectionSchema } from '../validation/proposed-event-correction.schema.js';
@@ -206,6 +207,19 @@ export const resolvers: Resolvers = {
         if (plaintext.trim() === normalizedKey) {
           throw new GraphQLError('API key already exists', { extensions: { code: 'DUPLICATE_API_KEY' } });
         }
+      }
+
+      // Verify API key before encrypting and inserting
+      try {
+        const isValid = await verifyGeminiApiKey(normalizedKey);
+        if (!isValid) {
+          throw new GraphQLError('Invalid Gemini API key', { extensions: { code: 'INVALID_API_KEY' } });
+        }
+      } catch (err: any) {
+        if (err instanceof GraphQLError && err.extensions?.code === 'INVALID_API_KEY') {
+          throw err;
+        }
+        console.warn('[createApiKey] Transient error verifying key, failing open:', err);
       }
 
       const keyEncrypted = await encryptApiKey(normalizedKey);

@@ -95,3 +95,15 @@ export let callGeminiGenerateContent = async (
 export function setCallGeminiGenerateContent(fn: typeof callGeminiGenerateContent) {
   callGeminiGenerateContent = fn;
 }
+
+export async function verifyGeminiApiKey(apiKey: string): Promise<boolean> {
+  try {
+    await callGeminiGenerateContent(apiKey, { contents: 'ping' });
+    return true;
+  } catch (error) {
+    if (error instanceof GeminiInvalidKeyError) {
+      return false;
+    }
+    throw error;
+  }
+}
