@@ -3108,7 +3108,12 @@ Constraints and Guidelines:
       const conditions = [isNull(unprocessedScraperPayloads.deletedAt)];
 
       if (filters?.source) {
-        conditions.push(sql`context->>'source' = ${filters.source.toLowerCase()}`);
+        conditions.push(
+          or(
+            sql`context->>'source' = ${filters.source.toLowerCase()}`,
+            sql`(("context"#>>'{}')::jsonb)->>'source' = ${filters.source.toLowerCase()}`
+          )!
+        );
       }
       if (filters?.createdAfter) {
         conditions.push(gte(unprocessedScraperPayloads.createdAt, new Date(filters.createdAfter)));
@@ -3117,7 +3122,12 @@ Constraints and Guidelines:
         conditions.push(sql`${unprocessedScraperPayloads.createdAt} <= ${endOfUtcDay(new Date(filters.createdBefore))}`);
       }
       if (filters?.parserVersion) {
-        conditions.push(sql`context->>'parserVersion' = ${filters.parserVersion}`);
+        conditions.push(
+          or(
+            sql`context->>'parserVersion' = ${filters.parserVersion}`,
+            sql`(("context"#>>'{}')::jsonb)->>'parserVersion' = ${filters.parserVersion}`
+          )!
+        );
       }
 
       const rows = await db
