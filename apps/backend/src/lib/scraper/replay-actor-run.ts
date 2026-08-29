@@ -4,11 +4,7 @@ import { eq } from 'drizzle-orm';
 import { fetchApifyRunOutput, fetchBrightDataRunOutput } from './fetch-vendor-run-output.js';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
 import { mapApifyItemToScrapedPost } from './instagram-adapter.js';
-import { compileValidator } from '../../validation/validate.js';
-import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
-import type { ScrapedPost } from '@festgrid/domain';
-
-const validateScrapedPost = compileValidator<ScrapedPost>(scrapedPostSchema);
+import { mapBrightDataRecordToScrapedPost } from './brightdata-record-mapper.js';
 
 export interface ReplayActorRunResult {
   success: boolean;
@@ -132,40 +128,8 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
       // Process as Bright Data records
       for (const record of outputItems) {
         try {
-          const brightDataRecord = record as Record<string, unknown>;
-
-          const postUrl = brightDataRecord.url as string;
-          const imageUrl = brightDataRecord.image_url as string;
-          const caption = brightDataRecord.caption as string;
-          const datePosted = brightDataRecord.date_posted;
-          const videos = brightDataRecord.videos as unknown[] | null | undefined;
-          const videoUrl = Array.isArray(videos) && videos.length > 0 && typeof videos[0] === 'string' ? videos[0] : undefined;
-
-          if (datePosted !== undefined && datePosted !== null && typeof datePosted !== 'string') {
-            console.warn(`Replayed Bright Data record date_posted is not a string, skipping`);
-            continue;
-          }
-
-          if (!postUrl) continue;
-
-          const publishedAtStr = datePosted
-            ? new Date(datePosted).toISOString()
-            : new Date().toISOString();
-
-          const candidate: ScrapedPost = {
-            content: caption || '',
-            postUrl,
-            publishedAt: publishedAtStr,
-            ...(imageUrl && { imageUrl }),
-            ...(videoUrl && { videoUrl }),
-            // Always set: postUrl is guaranteed non-empty by the earlier guard above
-            originalPostUrl: postUrl,
-          };
-
-          if (!validateScrapedPost(candidate)) {
-            console.warn(`Replayed Bright Data record failed validation:`, validateScrapedPost.errors);
-            continue;
-          }
+          const candidate = await mapBrightDataRecordToScrapedPost(record, run.id);
+          if (!candidate) continue;
 
           const result = await persistScrapedPost({
             accountId: run.profileId,
