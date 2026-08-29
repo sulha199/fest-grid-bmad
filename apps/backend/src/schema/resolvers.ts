@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
@@ -23,6 +23,7 @@ import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../l
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
 import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl } from '@festgrid/domain/events';
+import { transformGeminiResponseToEventFilter } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError } from '@festgrid/domain/posts';
@@ -189,6 +190,186 @@ export const resolvers: Resolvers = {
     },
   } as any,
   Mutation: {
+    resolvePromptToEventFilter: async (_: any, { prompt }: any, context: any) => {
+      const authUser = requireAuth(context);
+
+      // Check if user has a saved API key (BYOK only)
+      const candidates = await fetchCandidateKeys('gemini', [authUser.userId]);
+      const chosenKey = selectApiKey(candidates, 'TIER_1_USER_SPECIFIC');
+      if (!chosenKey) {
+        throw new GraphQLError('Contribute your own Gemini API key to use this feature.', {
+          extensions: { code: 'NO_API_KEY' }
+        });
+      }
+
+      const systemInstruction = `You are an AI assistant that parses a free-text prompt from Indonesia (mainly Yogyakarta/Sleman) into a structured EventFilterInput JSON object.
+Follow this schema for the output object:
+{
+  "accountId": "optional social media account profile UUID string",
+  "types": ["optional array of EventType strings: EXHIBITION, COMPETITION, FESTIVAL, PERFORMANCE, WORKSHOP, SEMINAR, MARKET, GATHERING, PROMOTION, FUNDRAISER, CIVIC, OTHER"],
+  "categories": ["optional array of EventCategory strings: MUSIC, ARTS_AND_CULTURE, FOOD_AND_DRINK, SPORTS_AND_FITNESS, FAMILY_AND_KIDS, HOBBIES_AND_INTERESTS, BUSINESS_AND_NETWORKING, HEALTH_AND_WELLNESS, HOLIDAY, CHARITY_AND_CAUSES, CIVIC_AND_COMMUNITY, RELIGION_AND_SPIRITUALITY, TECHNOLOGY, TRAVEL_AND_TOURISM, EDUCATION, CAREER, AUTOMOTIVE, OTHER"],
+  "keyword": "optional search phrase string",
+  "dateRange": {
+    "anchor": "optional anchor string: TODAY, THIS_WEEK, THIS_MONTH",
+    "offsetAmount": "optional integer amount, can be positive/negative",
+    "offsetUnit": "optional offset unit string: DAY, WEEK, MONTH"
+  },
+  "dayOfWeek": "optional day of week string: MON, TUE, WED, THU, FRI, SAT, SUN",
+  "location": {
+    "coordinates": {
+      "lat": "optional number",
+      "lng": "optional number"
+    },
+    "radiusMeters": "optional integer",
+    "adminArea": "optional province/city/regency string, e.g. Yogyakarta, Sleman, Bantul, Jakarta"
+  },
+  "venueType": "optional string (e.g. CAFE, STADIUM, MALL)",
+  "isFree": "optional boolean"
+}
+
+Any part of the user's prompt that does not map to this schema MUST be explicitly listed as a caveat string in a parallel "caveats" field.
+Constraints and Guidelines:
+- If a specific location is named but no coordinates are known, set "location.adminArea".
+- Price thresholds, floor/room details, or complex unanchored date expressions should be returned as strings in the "caveats" array.
+- Output MUST be valid JSON matching:
+{
+  "resolvedFilter": <EventFilterInput object>,
+  "caveats": ["caveat 1", "caveat 2", ...]
+}
+`;
+
+      try {
+        const response = await callGemini({
+          contents: `Parse this prompt: "${prompt}"`,
+          systemInstruction,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              resolvedFilter: {
+                type: 'OBJECT',
+                properties: {
+                  accountId: { type: 'STRING' },
+                  types: {
+                    type: 'ARRAY',
+                    items: { type: 'STRING' }
+                  },
+                  categories: {
+                    type: 'ARRAY',
+                    items: { type: 'STRING' }
+                  },
+                  keyword: { type: 'STRING' },
+                  dateRange: {
+                    type: 'OBJECT',
+                    properties: {
+                      anchor: { type: 'STRING' },
+                      offsetAmount: { type: 'INTEGER' },
+                      offsetUnit: { type: 'STRING' }
+                    }
+                  },
+                  dayOfWeek: { type: 'STRING' },
+                  location: {
+                    type: 'OBJECT',
+                    properties: {
+                      coordinates: {
+                        type: 'OBJECT',
+                        properties: {
+                          lat: { type: 'NUMBER' },
+                          lng: { type: 'NUMBER' }
+                        }
+                      },
+                      radiusMeters: { type: 'INTEGER' },
+                      adminArea: { type: 'STRING' }
+                    }
+                  },
+                  venueType: { type: 'STRING' },
+                  isFree: { type: 'BOOLEAN' }
+                }
+              },
+              caveats: {
+                type: 'ARRAY',
+                items: { type: 'STRING' }
+              }
+            },
+            required: ['resolvedFilter', 'caveats']
+          },
+          provider: 'gemini',
+          subscriberUserIds: [authUser.userId],
+        });
+
+        const parsed = JSON.parse(response.text);
+        const resolvedFilter = transformGeminiResponseToEventFilter(parsed.resolvedFilter);
+        const caveats = Array.isArray(parsed.caveats) ? parsed.caveats.filter((c: any) => typeof c === 'string') : [];
+
+        return {
+          resolvedFilter: resolvedFilter as any,
+          caveats,
+        };
+      } catch (err: any) {
+        if (err instanceof AiGatewayExhaustedError) {
+          throw new GraphQLError('No available Gemini API key or quota exceeded.', {
+            extensions: { code: 'QUOTA_EXHAUSTED' }
+          });
+        }
+        throw err;
+      }
+    },
+    saveAIEventFilter: async (_: any, { prompt, resolvedFilter }: any, context: any) => {
+      const authUser = requireAuth(context);
+      
+      const [inserted] = await db.insert(aiEventFilters).values({
+        ownerUserId: authUser.userId,
+        prompt: prompt,
+        resolvedFilter: resolvedFilter,
+      }).returning();
+
+      return {
+        ...inserted,
+        createdAt: inserted.createdAt.toISOString(),
+        updatedAt: inserted.updatedAt.toISOString(),
+        deletedAt: inserted.deletedAt ? inserted.deletedAt.toISOString() : null,
+      } as any;
+    },
+    deleteAIEventFilter: async (_: any, { id, action }: any, context: any) => {
+      const authUser = requireAuth(context);
+      const existingRows = await db.select().from(aiEventFilters)
+        .where(and(eq(aiEventFilters.id, id), eq(aiEventFilters.ownerUserId, authUser.userId)));
+      
+      if (existingRows.length === 0) {
+        throw new GraphQLError('AIEventFilter not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const existing = existingRows[0];
+      if (action === 'DELETE') {
+        if (existing.deletedAt !== null) {
+          throw new GraphQLError('AIEventFilter is already deleted', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(aiEventFilters)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(eq(aiEventFilters.id, id))
+          .returning();
+        return {
+          ...updated,
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
+          deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null,
+        } as any;
+      } else {
+        if (existing.deletedAt === null) {
+          throw new GraphQLError('AIEventFilter is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        const [updated] = await db.update(aiEventFilters)
+          .set({ deletedAt: null, updatedAt: new Date() })
+          .where(eq(aiEventFilters.id, id))
+          .returning();
+        return {
+          ...updated,
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
+          deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null,
+        } as any;
+      }
+    },
     createApiKey: async (_: any, { input }: any, context: any) => {
       const authUser = requireAuth(context);
       const normalizedKey = input.key.trim();
@@ -1983,6 +2164,19 @@ export const resolvers: Resolvers = {
   },
   Query: {
     health: () => true,
+    myAIEventFilters: async (_: any, __: any, context: any) => {
+      const authUser = requireAuth(context);
+      const rows = await db.select().from(aiEventFilters)
+        .where(and(eq(aiEventFilters.ownerUserId, authUser.userId), activeOnly(aiEventFilters)))
+        .orderBy(desc(aiEventFilters.createdAt));
+      return rows.map((r) => ({
+        ...r,
+        resolvedFilter: r.resolvedFilter as any,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+        deletedAt: r.deletedAt ? r.deletedAt.toISOString() : null,
+      })) as any;
+    },
     myReports: async (_: any, __: any, context: any): Promise<any> => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(reports)

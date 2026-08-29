@@ -34,6 +34,10 @@
       "types": "./dist/email/index.d.ts",
       "default": "./dist/email/index.js"
     },
+    "./ai-event-filters": {
+      "types": "./dist/ai-event-filters/index.d.ts",
+      "default": "./dist/ai-event-filters/index.js"
+    },
     "./ai-gateway": {
       "types": "./dist/ai-gateway/index.d.ts",
       "default": "./dist/ai-gateway/index.js"

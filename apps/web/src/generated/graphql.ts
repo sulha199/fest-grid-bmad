@@ -30,6 +30,17 @@ export type Scalars = {
   JSON: { input: any; output: any; }
 };
 
+export type AiEventFilter = {
+  __typename?: 'AIEventFilter';
+  createdAt: Scalars['String']['output'];
+  deletedAt?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  ownerUserId: Scalars['ID']['output'];
+  prompt: Scalars['String']['output'];
+  resolvedFilter: EventFilter;
+  updatedAt: Scalars['String']['output'];
+};
+
 export type AccountVote = {
   __typename?: 'AccountVote';
   accountId: Scalars['ID']['output'];
@@ -403,6 +414,7 @@ export type Mutation = {
   createApiKey: ApiKey;
   createUserLocation: UserLocation;
   createWidget: Widget;
+  deleteAIEventFilter: AiEventFilter;
   deleteApiKey: ApiKey;
   deleteEventPermanently: Scalars['Boolean']['output'];
   deleteUnprocessedPayload: Scalars['Boolean']['output'];
@@ -420,10 +432,12 @@ export type Mutation = {
   reportSystemError: Scalars['Boolean']['output'];
   reprocessPayload: ReprocessResult;
   resolveDefaultLocationChange: DefaultLocationChangeRequest;
+  resolvePromptToEventFilter: ResolvedAiEventFilterResult;
   resolveReport: Report;
   resolveReportsForEvent: Array<Report>;
   resolveScheduleTimezone: ResolveScheduleTimezoneResult;
   restoreEvent: Event;
+  saveAIEventFilter: AiEventFilter;
   selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
   submitCorrection: Correction;
@@ -458,6 +472,12 @@ export type MutationCreateUserLocationArgs = {
 
 export type MutationCreateWidgetArgs = {
   input: CreateWidgetInput;
+};
+
+
+export type MutationDeleteAiEventFilterArgs = {
+  action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
 };
 
 
@@ -556,6 +576,11 @@ export type MutationResolveDefaultLocationChangeArgs = {
 };
 
 
+export type MutationResolvePromptToEventFilterArgs = {
+  prompt: Scalars['String']['input'];
+};
+
+
 export type MutationResolveReportArgs = {
   id: Scalars['ID']['input'];
   outcome: ReportOutcome;
@@ -576,6 +601,12 @@ export type MutationResolveScheduleTimezoneArgs = {
 export type MutationRestoreEventArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationSaveAiEventFilterArgs = {
+  prompt: Scalars['String']['input'];
+  resolvedFilter: EventFilterInput;
 };
 
 
@@ -773,6 +804,7 @@ export type Query = {
    * itself, Story 0.7/2.8), not rely on this query to answer that question.
    */
   moderatorPendingItemCount: Scalars['Int']['output'];
+  myAIEventFilters: Array<AiEventFilter>;
   myApiKeys: Array<ApiKey>;
   myExtractionQuota: ExtractionQuota;
   myLocations: Array<UserLocation>;
@@ -968,6 +1000,12 @@ export type ResolveScheduleTimezoneResult = {
   scheduleId: Scalars['ID']['output'];
   timezone: Scalars['String']['output'];
   timezoneStatus: ScheduleTimezoneStatus;
+};
+
+export type ResolvedAiEventFilterResult = {
+  __typename?: 'ResolvedAIEventFilterResult';
+  caveats: Array<Scalars['String']['output']>;
+  resolvedFilter: EventFilter;
 };
 
 export type Schedule = {

@@ -288,6 +288,13 @@
       "when": 1787936850304,
       "tag": "0040_aspiring_mongoose",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1787994466031,
+      "tag": "0041_pretty_joseph",
+      "breakpoints": true
     }
   ]
 }

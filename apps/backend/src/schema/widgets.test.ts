@@ -62,7 +62,7 @@ test('widgets resolvers integration', async (t) => {
         query: `
           mutation {
             createWidget(input: {
-              filters: { types: ["FESTIVAL"] },
+              filters: { types: [FESTIVAL] },
               displayMode: CARD,
               theme: DARK
             }) {
@@ -70,7 +70,7 @@ test('widgets resolvers integration', async (t) => {
               ownerUserId
               displayMode
               theme
-              filters
+              filters { types }
             }
           }
         `
@@ -100,7 +100,7 @@ test('widgets resolvers integration', async (t) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query: `{ widgetById(id: "${widget.id}") { id theme filters } }`
+        query: `{ widgetById(id: "${widget.id}") { id theme filters { types } } }`
       })
     });
     const resultById = await resById.json();

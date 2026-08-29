@@ -345,6 +345,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   calendarAdditions: many(calendarAdditions),
   userSettings: one(userSettings, { fields: [users.id], references: [userSettings.userId] }),
   fcmTokens: many(fcmTokens),
+  aiEventFilters: many(aiEventFilters),
 }));
 
 export const favoritesRelations = relations(favorites, ({ one }) => ({
@@ -608,4 +609,23 @@ export const parserVersionRegistry = pgTable('parser_version_registry', {
 }, (t) => ({
   idxVersion: uniqueIndex('idx_parser_versions_version').on(t.version),
   idxActive: index('idx_parser_versions_active').on(t.isActive, t.version),
+}));
+
+export const aiEventFilters = pgTable('ai_event_filters', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  ownerUserId: uuid('owner_user_id').references(() => users.id).notNull(),
+  prompt: text('prompt').notNull(),
+  resolvedFilter: jsonb('resolved_filter').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+}, (t) => ({
+  activeIdx: index('idx_ai_event_filters_active').on(t.ownerUserId).where(sql`deleted_at IS NULL`),
+}));
+
+export const aiEventFiltersRelations = relations(aiEventFilters, ({ one }) => ({
+  owner: one(users, {
+    fields: [aiEventFilters.ownerUserId],
+    references: [users.id],
+  }),
 }));

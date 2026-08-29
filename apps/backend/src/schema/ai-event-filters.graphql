@@ -1,0 +1,24 @@
+type AIEventFilter {
+  id: ID!
+  ownerUserId: ID!
+  prompt: String!
+  resolvedFilter: EventFilter!
+  createdAt: String!
+  updatedAt: String!
+  deletedAt: String
+}
+
+type ResolvedAIEventFilterResult {
+  resolvedFilter: EventFilter!
+  caveats: [String!]!
+}
+
+extend type Query {
+  myAIEventFilters: [AIEventFilter!]!
+}
+
+extend type Mutation {
+  resolvePromptToEventFilter(prompt: String!): ResolvedAIEventFilterResult!
+  saveAIEventFilter(prompt: String!, resolvedFilter: EventFilterInput!): AIEventFilter!
+  deleteAIEventFilter(id: ID!, action: SoftDeleteAction!): AIEventFilter!
+}

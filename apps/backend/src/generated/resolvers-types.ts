@@ -20,6 +20,17 @@ export type Scalars = {
   JSON: { input: any; output: any; }
 };
 
+export type AiEventFilter = {
+  __typename?: 'AIEventFilter';
+  createdAt: Scalars['String']['output'];
+  deletedAt?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  ownerUserId: Scalars['ID']['output'];
+  prompt: Scalars['String']['output'];
+  resolvedFilter: EventFilter;
+  updatedAt: Scalars['String']['output'];
+};
+
 export type AccountVote = {
   __typename?: 'AccountVote';
   accountId: Scalars['ID']['output'];
@@ -384,6 +395,7 @@ export type Mutation = {
   createApiKey: ApiKey;
   createUserLocation: UserLocation;
   createWidget: Widget;
+  deleteAIEventFilter: AiEventFilter;
   deleteApiKey: ApiKey;
   deleteEventPermanently: Scalars['Boolean']['output'];
   deleteUnprocessedPayload: Scalars['Boolean']['output'];
@@ -401,10 +413,12 @@ export type Mutation = {
   reportSystemError: Scalars['Boolean']['output'];
   reprocessPayload: ReprocessResult;
   resolveDefaultLocationChange: DefaultLocationChangeRequest;
+  resolvePromptToEventFilter: ResolvedAiEventFilterResult;
   resolveReport: Report;
   resolveReportsForEvent: Array<Report>;
   resolveScheduleTimezone: ResolveScheduleTimezoneResult;
   restoreEvent: Event;
+  saveAIEventFilter: AiEventFilter;
   selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
   submitCorrection: Correction;
@@ -439,6 +453,12 @@ export type MutationCreateUserLocationArgs = {
 
 export type MutationCreateWidgetArgs = {
   input: CreateWidgetInput;
+};
+
+
+export type MutationDeleteAiEventFilterArgs = {
+  action: SoftDeleteAction;
+  id: Scalars['ID']['input'];
 };
 
 
@@ -537,6 +557,11 @@ export type MutationResolveDefaultLocationChangeArgs = {
 };
 
 
+export type MutationResolvePromptToEventFilterArgs = {
+  prompt: Scalars['String']['input'];
+};
+
+
 export type MutationResolveReportArgs = {
   id: Scalars['ID']['input'];
   outcome: ReportOutcome;
@@ -557,6 +582,12 @@ export type MutationResolveScheduleTimezoneArgs = {
 export type MutationRestoreEventArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationSaveAiEventFilterArgs = {
+  prompt: Scalars['String']['input'];
+  resolvedFilter: EventFilterInput;
 };
 
 
@@ -754,6 +785,7 @@ export type Query = {
    * itself, Story 0.7/2.8), not rely on this query to answer that question.
    */
   moderatorPendingItemCount: Scalars['Int']['output'];
+  myAIEventFilters: Array<AiEventFilter>;
   myApiKeys: Array<ApiKey>;
   myExtractionQuota: ExtractionQuota;
   myLocations: Array<UserLocation>;
@@ -946,6 +978,12 @@ export type ResolveScheduleTimezoneResult = {
   scheduleId: Scalars['ID']['output'];
   timezone: Scalars['String']['output'];
   timezoneStatus: ScheduleTimezoneStatus;
+};
+
+export type ResolvedAiEventFilterResult = {
+  __typename?: 'ResolvedAIEventFilterResult';
+  caveats: Array<Scalars['String']['output']>;
+  resolvedFilter: EventFilter;
 };
 
 export type Schedule = {
@@ -1243,6 +1281,7 @@ export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
+  AIEventFilter: ResolverTypeWrapper<AiEventFilter>;
   AccountVote: ResolverTypeWrapper<AccountVote>;
   ActorRunConnection: ResolverTypeWrapper<ActorRunConnection>;
   ActorRunEdge: ResolverTypeWrapper<ActorRunEdge>;
@@ -1313,6 +1352,7 @@ export type ResolversTypes = ResolversObject<{
   ReportSystemErrorInput: ReportSystemErrorInput;
   ReprocessResult: ResolverTypeWrapper<ReprocessResult>;
   ResolveScheduleTimezoneResult: ResolverTypeWrapper<ResolveScheduleTimezoneResult>;
+  ResolvedAIEventFilterResult: ResolverTypeWrapper<ResolvedAiEventFilterResult>;
   Schedule: ResolverTypeWrapper<Schedule>;
   ScheduleTimezoneStatus: ScheduleTimezoneStatus;
   ScraperActorRun: ResolverTypeWrapper<ScraperActorRun>;
@@ -1345,6 +1385,7 @@ export type ResolversTypes = ResolversObject<{
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
+  AIEventFilter: AiEventFilter;
   AccountVote: AccountVote;
   ActorRunConnection: ActorRunConnection;
   ActorRunEdge: ActorRunEdge;
@@ -1397,6 +1438,7 @@ export type ResolversParentTypes = ResolversObject<{
   ReportSystemErrorInput: ReportSystemErrorInput;
   ReprocessResult: ReprocessResult;
   ResolveScheduleTimezoneResult: ResolveScheduleTimezoneResult;
+  ResolvedAIEventFilterResult: ResolvedAiEventFilterResult;
   Schedule: Schedule;
   ScraperActorRun: ScraperActorRun;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
@@ -1420,6 +1462,17 @@ export type ResolversParentTypes = ResolversObject<{
   ValidationError: ValidationError;
   ValidationErrorDetail: ValidationErrorDetail;
   Widget: Widget;
+}>;
+
+export type AiEventFilterResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AIEventFilter'] = ResolversParentTypes['AIEventFilter']> = ResolversObject<{
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  deletedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  ownerUserId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  prompt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  resolvedFilter?: Resolver<ResolversTypes['EventFilter'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type AccountVoteResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AccountVote'] = ResolversParentTypes['AccountVote']> = ResolversObject<{
@@ -1616,6 +1669,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   createApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationCreateApiKeyArgs, 'input'>>;
   createUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationCreateUserLocationArgs, 'input'>>;
   createWidget?: Resolver<ResolversTypes['Widget'], ParentType, ContextType, RequireFields<MutationCreateWidgetArgs, 'input'>>;
+  deleteAIEventFilter?: Resolver<ResolversTypes['AIEventFilter'], ParentType, ContextType, RequireFields<MutationDeleteAiEventFilterArgs, 'action' | 'id'>>;
   deleteApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationDeleteApiKeyArgs, 'action' | 'id'>>;
   deleteEventPermanently?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteEventPermanentlyArgs, 'id'>>;
   deleteUnprocessedPayload?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteUnprocessedPayloadArgs, 'payloadId'>>;
@@ -1633,10 +1687,12 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
   reprocessPayload?: Resolver<ResolversTypes['ReprocessResult'], ParentType, ContextType, RequireFields<MutationReprocessPayloadArgs, 'parserVersion' | 'payloadId'>>;
   resolveDefaultLocationChange?: Resolver<ResolversTypes['DefaultLocationChangeRequest'], ParentType, ContextType, RequireFields<MutationResolveDefaultLocationChangeArgs, 'action' | 'id'>>;
+  resolvePromptToEventFilter?: Resolver<ResolversTypes['ResolvedAIEventFilterResult'], ParentType, ContextType, RequireFields<MutationResolvePromptToEventFilterArgs, 'prompt'>>;
   resolveReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationResolveReportArgs, 'id' | 'outcome'>>;
   resolveReportsForEvent?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, RequireFields<MutationResolveReportsForEventArgs, 'eventId'>>;
   resolveScheduleTimezone?: Resolver<ResolversTypes['ResolveScheduleTimezoneResult'], ParentType, ContextType, RequireFields<MutationResolveScheduleTimezoneArgs, 'scheduleId' | 'timezone'>>;
   restoreEvent?: Resolver<ResolversTypes['Event'], ParentType, ContextType, RequireFields<MutationRestoreEventArgs, 'action' | 'id'>>;
+  saveAIEventFilter?: Resolver<ResolversTypes['AIEventFilter'], ParentType, ContextType, RequireFields<MutationSaveAiEventFilterArgs, 'prompt' | 'resolvedFilter'>>;
   selectPostsForExtraction?: Resolver<Array<ResolversTypes['Post']>, ParentType, ContextType, RequireFields<MutationSelectPostsForExtractionArgs, 'postIds'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   submitCorrection?: Resolver<ResolversTypes['Correction'], ParentType, ContextType, RequireFields<MutationSubmitCorrectionArgs, 'eventId' | 'proposedData' | 'source'>>;
@@ -1735,6 +1791,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   isOriginAllowedForWidget?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryIsOriginAllowedForWidgetArgs, 'origin' | 'widgetId'>>;
   me?: Resolver<ResolversTypes['Me'], ParentType, ContextType>;
   moderatorPendingItemCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  myAIEventFilters?: Resolver<Array<ResolversTypes['AIEventFilter']>, ParentType, ContextType>;
   myApiKeys?: Resolver<Array<ResolversTypes['ApiKey']>, ParentType, ContextType>;
   myExtractionQuota?: Resolver<ResolversTypes['ExtractionQuota'], ParentType, ContextType>;
   myLocations?: Resolver<Array<ResolversTypes['UserLocation']>, ParentType, ContextType>;
@@ -1802,6 +1859,12 @@ export type ResolveScheduleTimezoneResultResolvers<ContextType = GraphQLContext,
   scheduleId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   timezone?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   timezoneStatus?: Resolver<ResolversTypes['ScheduleTimezoneStatus'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ResolvedAiEventFilterResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ResolvedAIEventFilterResult'] = ResolversParentTypes['ResolvedAIEventFilterResult']> = ResolversObject<{
+  caveats?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  resolvedFilter?: Resolver<ResolversTypes['EventFilter'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1967,6 +2030,7 @@ export type WidgetResolvers<ContextType = GraphQLContext, ParentType extends Res
 }>;
 
 export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
+  AIEventFilter?: AiEventFilterResolvers<ContextType>;
   AccountVote?: AccountVoteResolvers<ContextType>;
   ActorRunConnection?: ActorRunConnectionResolvers<ContextType>;
   ActorRunEdge?: ActorRunEdgeResolvers<ContextType>;
@@ -2002,6 +2066,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Report?: ReportResolvers<ContextType>;
   ReprocessResult?: ReprocessResultResolvers<ContextType>;
   ResolveScheduleTimezoneResult?: ResolveScheduleTimezoneResultResolvers<ContextType>;
+  ResolvedAIEventFilterResult?: ResolvedAiEventFilterResultResolvers<ContextType>;
   Schedule?: ScheduleResolvers<ContextType>;
   ScraperActorRun?: ScraperActorRunResolvers<ContextType>;
   SocialMediaAccountProfile?: SocialMediaAccountProfileResolvers<ContextType>;

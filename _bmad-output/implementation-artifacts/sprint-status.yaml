@@ -1674,7 +1674,7 @@ development_status:
   # Epic 6's own direct append. Nothing implemented yet -- all five stories backlog.
   epic-7: in-progress
   7-1a-build-the-shared-eventfilterinput-query-layer: done
-  7-2a-build-the-ai-event-filter-backend-graphql-api-layer: ready-for-dev
+  7-2a-build-the-ai-event-filter-backend-graphql-api-layer: review
   7-3-build-the-reusable-ai-filter-summary-renderer: backlog
   7-4-add-the-ai-filter-prompt-entry-point-to-filterhub: backlog
   7-5-my-ai-filters-list-page: backlog
