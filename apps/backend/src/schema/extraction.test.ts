@@ -12,6 +12,7 @@ import '../lib/scraper/register-adapters.js';
 import { setCallGeminiGenerateContent } from '../lib/ai-gateway/gemini-client.js';
 import { setCallApifyActor } from '../lib/scraper/instagram-adapter.js';
 import { setSendSqsMessage } from '../lib/aws/send-sqs-message.js';
+import { clearApifyProviderUsage } from '../lib/scraper/usage-store-test-helpers.js';
 
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
 const files = fs.readdirSync(schemaDir).filter(f => f.endsWith('.graphql'));
@@ -41,6 +42,14 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
   let existingPost: any;
   let testApiKey: any;
   let testProfile: any;
+
+  // This test file exercises the real Apify capacity gate (via extractEventDataFromUrl's
+  // new-post scrape path) but doesn't own scraper_provider_usage. Clear any leftover 'apify'
+  // row up front — both to self-heal from a previous run that crashed before its own cleanup
+  // ran, and because the "new post path" subtest below records real usage against this same
+  // row (see t.after cleanup). See deferred-work.md, "quick-dev fix of scraper-provider-usage
+  // test pollution".
+  await clearApifyProviderUsage();
 
   await t.test('setup - get test data', async () => {
     // 1. Create a dedicated test user for this test file to avoid concurrent interference
@@ -97,6 +106,9 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
     if (testUser) {
       await db.delete(users).where(eq(users.id, testUser.id));
     }
+    // The "new post path" subtest above records real Apify usage against this row; clear it so
+    // this file doesn't leave a row behind for whichever test file runs next.
+    await clearApifyProviderUsage();
   });
 
   await t.test('extractEventDataFromUrl - unauthenticated rejected', async () => {

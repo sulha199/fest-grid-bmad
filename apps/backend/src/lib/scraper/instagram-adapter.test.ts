@@ -6,9 +6,10 @@ import { db } from '../../db/client.js';
 import { scraperProviderUsage } from '@festgrid/database';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError } from '@festgrid/domain';
 import { eq } from 'drizzle-orm';
+import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test-helpers.js';
 
 test('instagram-adapter tests', async (t) => {
-  const provider = 'apify';
+  await clearApifyProviderUsage();
 
   await t.test('mapApifyItemToScrapedPost maps Apify item correctly', async () => {
     const item = {
@@ -29,7 +30,7 @@ test('instagram-adapter tests', async (t) => {
   });
 
   t.afterEach(async () => {
-    await db.delete(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
+    await clearApifyProviderUsage();
   });
 
   await t.test('getNewestPosts maps output correctly and records usage', async () => {
@@ -69,7 +70,7 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(posts[0].publishedAt, '2026-08-08T00:00:00Z');
 
     // Verify usage recorded
-    const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
+    const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, APIFY_TEST_PROVIDER));
     assert.strictEqual(row.itemsUsedThisCycle, 1);
   });
 
@@ -106,7 +107,7 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(profile.profileImageUrl, 'https://img.com/pic.jpg');
 
     // Verify usage recorded
-    const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
+    const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, APIFY_TEST_PROVIDER));
     assert.strictEqual(row.itemsUsedThisCycle, 1);
   });
 
@@ -337,7 +338,7 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(posts[1].content, 'Another valid post');
 
     // Verify usage recorded for all 3 items (Apify bills regardless of validation)
-    const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
+    const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, APIFY_TEST_PROVIDER));
     assert.strictEqual(row.itemsUsedThisCycle, 3);
   });
 
@@ -350,7 +351,7 @@ test('instagram-adapter tests', async (t) => {
 
     // artificially exhaust capacity
     await db.insert(scraperProviderUsage).values({
-      provider,
+      provider: APIFY_TEST_PROVIDER,
       itemsUsedThisCycle: 10000, // very high count to exceed $5/month budget
       usageCycleResetAt: new Date(Date.now() + 86400000),
     });

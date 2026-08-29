@@ -5,14 +5,16 @@ import { apifyPendingJobs, scraperProviderUsage } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { attemptApifyAsyncTrigger, setAttemptApifyAsyncTrigger } from './trigger-apify-for-target.js';
 import { ScraperCapacityExceededError } from '@festgrid/domain';
+import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test-helpers.js';
 
 test('trigger-apify-for-target tests', async (t) => {
   const testProfileId = 'profile-' + Date.now();
-  const provider = 'apify';
+
+  await clearApifyProviderUsage();
 
   t.afterEach(async () => {
     await db.delete(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
-    await db.delete(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
+    await clearApifyProviderUsage();
   });
 
   await t.test('returns false when capacity unavailable', async () => {
@@ -21,7 +23,7 @@ test('trigger-apify-for-target tests', async (t) => {
 
     // Exhaust capacity
     await db.insert(scraperProviderUsage).values({
-      provider,
+      provider: APIFY_TEST_PROVIDER,
       itemsUsedThisCycle: 10000,
       usageCycleResetAt: new Date(Date.now() + 86400000),
     });
