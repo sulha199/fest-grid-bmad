@@ -3,8 +3,42 @@ import assert from 'node:assert';
 import { db } from '../db/client.js';
 import { scraperActorRuns } from '@festgrid/database';
 import { desc, count } from 'drizzle-orm';
+import { decodeActorRunCursor, endOfUtcDay } from './resolvers.js';
+import { GraphQLError } from 'graphql';
+
 
 test('Actor Runs GraphQL Resolvers', async (t) => {
+  await t.test('cursor and date-range helpers', async (t) => {
+    await t.test('decodeActorRunCursor', async () => {
+      assert.strictEqual(decodeActorRunCursor(null), 0);
+      assert.strictEqual(decodeActorRunCursor(undefined), 0);
+      assert.strictEqual(decodeActorRunCursor(''), 0);
+
+      assert.strictEqual(decodeActorRunCursor(Buffer.from('10').toString('base64')), 10);
+
+      assert.throws(() => decodeActorRunCursor('not-valid-base64!!!'), (err: any) => {
+        return err instanceof GraphQLError && err.extensions.code === 'BAD_REQUEST';
+      });
+
+      assert.throws(() => decodeActorRunCursor(Buffer.from('not-a-number').toString('base64')), (err: any) => {
+        return err instanceof GraphQLError && err.extensions.code === 'BAD_REQUEST';
+      });
+      
+      assert.throws(() => decodeActorRunCursor(Buffer.from('-1').toString('base64')), (err: any) => {
+        return err instanceof GraphQLError && err.extensions.code === 'BAD_REQUEST';
+      });
+    });
+
+    await t.test('endOfUtcDay', async () => {
+      const midnight = new Date('2026-08-29T00:00:00.000Z');
+      assert.strictEqual(endOfUtcDay(midnight).toISOString(), '2026-08-29T23:59:59.999Z');
+
+      const nonMidnight = new Date('2026-08-29T14:30:00.000Z');
+      assert.strictEqual(endOfUtcDay(nonMidnight).toISOString(), '2026-08-29T23:59:59.999Z');
+    });
+  });
+
+
   await t.test('queryActorRuns', async (t) => {
     await t.test('should return paginated actor runs', async (t) => {
       const mockRuns = [

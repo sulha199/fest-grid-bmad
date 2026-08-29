@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { randomUUID } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { apifyPendingJobs, scraperProviderUsage } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
@@ -8,7 +9,7 @@ import { ScraperCapacityExceededError } from '@festgrid/domain';
 import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test-helpers.js';
 
 test('trigger-apify-for-target tests', async (t) => {
-  const testProfileId = 'profile-' + Date.now();
+  const testProfileId = randomUUID();
 
   await clearApifyProviderUsage();
 

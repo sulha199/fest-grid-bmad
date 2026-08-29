@@ -86,6 +86,22 @@ function formatSubscription(row: any): any {
   };
 }
 
+export function decodeActorRunCursor(cursor: string | null | undefined): number {
+  if (!cursor) return 0;
+  const decoded = parseInt(Buffer.from(cursor, 'base64').toString(), 10);
+  if (!Number.isInteger(decoded) || decoded < 0) {
+    throw new GraphQLError('Invalid cursor', { extensions: { code: 'BAD_REQUEST' } });
+  }
+  return decoded;
+}
+
+export function endOfUtcDay(date: Date): Date {
+  const d = new Date(date);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+}
+
+
 export const resolvers: Resolvers = {
   JSON: GraphQLJSON,
   Coordinates: {
@@ -3151,7 +3167,7 @@ Constraints and Guidelines:
       requireModerator(context);
 
       const limit = (first || 10) + 1; // +1 to detect hasNextPage
-      const offset = after ? parseInt(Buffer.from(after, 'base64').toString(), 10) : 0;
+      const offset = decodeActorRunCursor(after);
 
       const conditions = [];
 
@@ -3168,7 +3184,7 @@ Constraints and Guidelines:
         conditions.push(gte(scraperActorRuns.createdAt, new Date(filters.createdAfter)));
       }
       if (filters?.createdBefore) {
-        conditions.push(lte(scraperActorRuns.createdAt, new Date(filters.createdBefore)));
+        conditions.push(lte(scraperActorRuns.createdAt, endOfUtcDay(new Date(filters.createdBefore))));
       }
 
       const rows = await db
