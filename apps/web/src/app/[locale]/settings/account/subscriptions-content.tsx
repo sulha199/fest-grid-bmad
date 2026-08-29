@@ -38,7 +38,7 @@ export function SubscriptionsContent() {
   // Query subscriptions
   const { data, isLoading, error, refetch } = useGetMySubscriptionsQuery(
     graphqlClient,
-    {},
+    undefined,
     {
       enabled: !!session,
     }

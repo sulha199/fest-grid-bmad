@@ -39,7 +39,7 @@ export function ApiKeysContent() {
   // Query api keys
   const { data, isLoading, error, refetch } = useGetMyApiKeysQuery(
     graphqlClient,
-    {},
+    undefined,
     {
       enabled: !!session,
     }
