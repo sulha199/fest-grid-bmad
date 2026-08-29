@@ -15,50 +15,62 @@ A user with a saved Gemini API key can describe what they're looking for in a fr
 - [ ] **And** `saveAIEventFilter(prompt: String!, resolvedFilter: EventFilterInput!)` persists a new filter to the database and returns the created `AIEventFilter` record.
 - [ ] **And** `myAIEventFilters` queries the user's active (non-deleted) saved filters, returning them ordered by creation date descending.
 - [ ] **And** `deleteAIEventFilter(id: ID!)` soft-deletes a saved filter.
-- [ ] **And** the existing `AIAgent` adapter (Story 0.13) implements `resolveEventFilter` using the `gemini-1.5-pro` model (Story 0.13a), adhering to PRD §3.15's JSON schema requirement for mapping natural language constraints (e.g. "free", "jazz", "this weekend") to the `EventFilterInput` shape (Story 7.1a).
+- [ ] **And** `resolvePromptToEventFilter` calls the existing `callGemini` AI Gateway adapter (Story 0.13, `apps/backend/src/lib/ai-gateway/adapter.ts`) directly from the resolver — passing `subscriberUserIds: [context.user.id]` to enforce a user-specific key with no system-key fallback (per `epic-7-readiness.md`'s Gate 1 resolution) — with a `responseSchema`/`responseMimeType: 'application/json'` request constraining Gemini's output to the `EventFilterInput` shape (Story 7.1a), adhering to PRD §3.15. The model itself is whatever `env.geminiModel` resolves to (set by the adapter, not chosen per-call) — no new AI Gateway abstraction or model name is introduced by this story.
 - [ ] **And** any API key failure during `resolvePromptToEventFilter` yields the standard `NO_API_KEY` or quota-exceeded GraphQL errors established in Story 3.4.
 
 ## 4. Developer Context & Guardrails
 
 ### Technical Requirements
-- **Database Access:** Add `ai_event_filters` table in `packages/database/schema.ts` mapped to `users` via `userId`. Table should include `id` (uuid), `userId` (uuid), `prompt` (text), `resolvedFilter` (jsonb), `createdAt` (timestamp), `updatedAt` (timestamp), `deletedAt` (timestamp, for soft-delete).
-- **GraphQL Schema:** Create `apps/backend/src/schema/ai-event-filters.graphql` containing types `AIEventFilter` and queries/mutations `resolvePromptToEventFilter`, `saveAIEventFilter`, `myAIEventFilters`, `deleteAIEventFilter`.
-- **Resolvers:** Implement these endpoints in `apps/backend/src/schema/resolvers.ts`. Ensure to use `requireAuth` for user session verification.
-- **AI Gateway Integration:** Extend `AIAgent` (in `packages/domain/src/ai-gateway/`) to have `resolveEventFilter(prompt: string, apiKey: string)` method that sends the prompt along with the expected JSON schema of `EventFilterInput` to Gemini API.
+- **Database Access:** Add `ai_event_filters` table in `packages/database/schema.ts` mapped to `users` via `ownerUserId` (per `epic-7-readiness.md`'s Gate 1 resolution — matches `widgets.ownerUserId`'s naming, not `userLocations.userId`'s). Table should include `id` (uuid), `ownerUserId` (uuid), `prompt` (text), `resolvedFilter` (jsonb), `createdAt` (timestamp), `updatedAt` (timestamp), `deletedAt` (timestamp, for soft-delete). Follow the AD-8 soft-delete convention already used by e.g. `widgets`/`userLocations`.
+- **GraphQL Schema:** Create `apps/backend/src/schema/ai-event-filters.graphql` containing type `AIEventFilter` and queries/mutations `resolvePromptToEventFilter`, `saveAIEventFilter`, `myAIEventFilters`, `deleteAIEventFilter`.
+- **Resolvers:** Implement these endpoints in `apps/backend/src/schema/resolvers.ts`. Use `requireAuth` for user session verification.
+- **AI Gateway Integration — reuse, do not re-abstract:** There is no `AIAgent` class and no `packages/domain/src/ai-gateway/` model layer to extend — that directory only holds pure helpers (`selectApiKey`, `computeBackoffDelayMs`, usage-cycle types). The real, already-built adapter is `callGemini` in `apps/backend/src/lib/ai-gateway/adapter.ts` (Story 0.13), called directly from resolvers elsewhere (see `resolvers.ts`'s existing `extractEventDataFromUrl`-family calls around line 1132 for the established call-site pattern). `resolvePromptToEventFilter`'s resolver should call it the same way:
+  ```ts
+  const result = await callGemini({
+    provider: 'gemini',
+    subscriberUserIds: [authUser.userId],
+    contents: prompt,
+    systemInstruction: '<instruct Gemini to map the prompt to EventFilterInput per PRD §3.15>',
+    responseSchema: <JSON schema mirroring EventFilterInput, Story 7.1a>,
+    responseMimeType: 'application/json',
+  });
+  ```
+  Then `JSON.parse(result.text)` and validate/coerce it into `EventFilterInput` — mirror the existing `transformGeminiResponseToEventInfo` pattern (`packages/domain/src/events/transform-gemini-response-to-event-info.ts`) of a small pure transform function taking the parsed payload and returning the typed shape, rather than trusting Gemini's JSON verbatim. `callGemini` already throws `AiGatewayExhaustedError` when no candidate key is usable — map that (and a caller with zero saved keys) to the standard `NO_API_KEY`/quota GraphQL error codes established in Story 3.4, do not introduce new error types.
+  The model itself comes from `env.geminiModel` inside the adapter — never hardcode a model name in this story's new code.
 
 ### Architecture Compliance
-- Use the established AI Gateway layer `AIAgent` for Gemini interactions rather than importing Google AI SDK directly into resolvers.
+- Reuse `callGemini` directly from the resolver; do not build a new adapter/agent abstraction around it.
 - Adhere to the soft-delete convention for `deleteAIEventFilter` by setting `deletedAt` rather than performing a hard delete.
 - All GraphQL endpoints MUST require authentication.
-- Any API key failure must throw the standard `NO_API_KEY` or quota-exceeded GraphQL errors.
+- Any API key failure must throw the standard `NO_API_KEY` or quota-exceeded GraphQL errors (map from `AiGatewayExhaustedError`/no-saved-key, do not invent new error codes).
 
 ### Library/Framework Requirements
 - Drizzle ORM for schema (`packages/database/schema.ts`) and queries (`apps/backend/src/schema/resolvers.ts`).
 - `GraphQL Code Generator` to sync TypeScript types (`pnpm codegen`).
-- `Gemini` API integration inside `AIAgent`.
+- `callGemini` (`apps/backend/src/lib/ai-gateway/adapter.ts`) for the Gemini call itself — no new Gemini/Google AI SDK usage.
 
 ### File Structure Requirements
-- Update `packages/database/schema.ts`
+- Update `packages/database/schema.ts` (new `aiEventFilters` table + migration)
 - Create `apps/backend/src/schema/ai-event-filters.graphql`
-- Update `apps/backend/src/schema/resolvers.ts`
-- Create/Update `packages/domain/src/ai-gateway/AIAgent.ts`
+- Update `apps/backend/src/schema/resolvers.ts` (new resolvers, calling `callGemini` directly)
+- Create `packages/domain/src/ai-event-filters/transform-gemini-response-to-event-filter.ts` (or similarly named pure transform function, alongside its own test) — the prompt→`EventFilterInput` parsing/validation logic, kept out of the resolver itself, mirroring `transform-gemini-response-to-event-info.ts`'s existing precedent.
 
 ### Testing Requirements
-- Unit test for `AIAgent.resolveEventFilter` in `packages/domain/src/ai-gateway/`.
-- Integration test for `ai-event-filters.graphql` resolvers in `apps/backend/src/schema/ai-event-filters.test.ts`.
+- Unit test for the new prompt→`EventFilterInput` transform function in `packages/domain`.
+- Integration test for `ai-event-filters.graphql` resolvers in `apps/backend/src/schema/ai-event-filters.test.ts`, following the existing `callGemini`-consuming resolver tests' mocking pattern (see `apps/backend/src/lib/ai-gateway/adapter.test.ts` for how `callGemini`'s dependencies are set up in tests).
 
 ### Data Type Compatibility & Migration Requirements
 - DB migration required to create `ai_event_filters` table. Run `pnpm --filter @festgrid/database generate` and commit the resulting migration.
 - `EventFilterInput` TS type changes require a `pnpm codegen` execution.
 
 ## 5. Tasks
-- [ ] 1. Add `aiEventFilters` table to `packages/database/schema.ts` including relations to `users` and soft-delete field. Run `pnpm --filter @festgrid/database generate` to create the migration.
-- [ ] 2. Update `packages/domain/src/ai-gateway` to implement `resolveEventFilter` using the `gemini-1.5-pro` model, generating JSON structured as `EventFilterInput`. Include unit tests.
-- [ ] 3. Create `apps/backend/src/schema/ai-event-filters.graphql` defining `AIEventFilter` type and the required queries/mutations. Import it in `typeDefs.graphql` if necessary.
-- [ ] 4. Run `pnpm codegen` to generate updated TypeScript schema types.
-- [ ] 5. Implement the resolvers in `apps/backend/src/schema/resolvers.ts` using `requireAuth`.
-- [ ] 6. Ensure API Key error handling returns the standardized `NO_API_KEY` error.
-- [ ] 7. Write integration tests in `apps/backend/src/schema/ai-event-filters.test.ts` to verify the backend flow.
+- [ ] 1. Add `aiEventFilters` table to `packages/database/schema.ts` including relations to `users` and soft-delete field (`deletedAt`). Run `pnpm --filter @festgrid/database generate` to create the migration.
+- [ ] 2. Add a pure `transformGeminiResponseToEventFilter`-style function in `packages/domain/src/ai-event-filters/` that takes Gemini's parsed JSON payload and returns a validated `EventFilterInput`, mirroring `transform-gemini-response-to-event-info.ts`'s pattern. Include unit tests (valid payload, malformed/partial payload).
+- [ ] 3. Create `apps/backend/src/schema/ai-event-filters.graphql` defining `AIEventFilter` type and the required queries/mutations. Confirm it's picked up by the existing `readdirSync`-based schema loader in `server.ts` (no manual `typeDefs.graphql` registration needed — see how `widgets.graphql`/`events.graphql` are loaded).
+- [ ] 4. Run `pnpm codegen` (both `apps/backend` and `apps/web`) to generate updated TypeScript schema types — check `apps/web/fix-codegen.js` for whether any new types introduced here need duplicate-stripping rules added, same issue Story 7.1a hit.
+- [ ] 5. Implement the resolvers in `apps/backend/src/schema/resolvers.ts` using `requireAuth`, calling `callGemini` directly (no new adapter class) with `subscriberUserIds: [authUser.userId]` and a `responseSchema` constraining output to `EventFilterInput`.
+- [ ] 6. Map `AiGatewayExhaustedError`/no-saved-key to the standardized `NO_API_KEY`/quota-exceeded GraphQL error codes (Story 3.4's convention).
+- [ ] 7. Write integration tests in `apps/backend/src/schema/ai-event-filters.test.ts` to verify the backend flow, mocking `callGemini`'s dependencies the same way `apps/backend/src/lib/ai-gateway/adapter.test.ts` does.
 
 ## 6. Project Context Reference
 - Consult `_bmad-output/project-context.md` for typescript strict rules and linting.
