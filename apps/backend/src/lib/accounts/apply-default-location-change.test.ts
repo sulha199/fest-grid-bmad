@@ -170,4 +170,25 @@ test('applyDefaultLocationChange - helper integration', async (t) => {
 
     assert.equal(reqs.length, 0);
   });
+  await t.test('4. AI_INFERENCE path with low confidence correctly returns awaitingApproval: true and completes without errors', async () => {
+    const newLocation = {
+      formattedAddress: 'Low Confidence Address',
+      placeName: 'Low Confidence Place',
+      coordinates: { latitude: 0, longitude: 0 },
+    };
+
+    const result = await applyDefaultLocationChange({
+      accountId: testProfile.id,
+      newLocation,
+      previousLocation: null,
+      changedByUserId: null,
+      changeSource: 'AI_INFERENCE',
+      confidenceScore: 0.1,
+      accountDisplayName: testProfile.displayName,
+    });
+
+    assert.equal(result.applied, false);
+    assert.equal(result.awaitingApproval, true);
+  });
+
 });

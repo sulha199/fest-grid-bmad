@@ -114,10 +114,38 @@ export async function applyDefaultLocationChange(params: {
     return { applied: true };
   });
 
+  const previousLocationText = previousLocation
+    ? previousLocation.formattedAddress || previousLocation.placeName || 'Unknown'
+    : 'None (Inferred by AI)';
+  const newLocationText = newLocation.formattedAddress || newLocation.placeName || 'Unknown';
+  const moderatorReviewUrl = `${loadBackendEnv().webAppBaseUrl}/moderator/items`;
+
   if (result.awaitingApproval) {
-    // TODO(2026-08-28): notify moderators of a pending AWAITING_APPROVAL item the same way the
-    // block below does for an already-applied change -- deferred, tracked alongside the
-    // Moderator Pending-Item Badge work (PRD Section 3.9.3) rather than duplicated here.
+    try {
+      const moderators = await db.select().from(users).where(eq(users.role, 'moderator'));
+      if (moderators.length > 0) {
+        const confidenceScorePercent = `${Math.round((confidenceScore ?? 0) * 100)}%`;
+        Promise.allSettled(
+          moderators.map((mod) =>
+            sendTemplatedEmail(
+              'DEFAULT_LOCATION_CHANGE_AWAITING_APPROVAL_ALERT',
+              mod.email,
+              {
+                accountDisplayName,
+                previousLocationText,
+                newLocationText,
+                confidenceScorePercent,
+                moderatorReviewUrl,
+              }
+            )
+          )
+        ).catch((err) => {
+          console.error('Failed sending moderator emails:', err);
+        });
+      }
+    } catch (emailErr) {
+      console.error('Failed loading moderators or triggering email send in helper:', emailErr);
+    }
     return result;
   }
 
@@ -129,12 +157,6 @@ export async function applyDefaultLocationChange(params: {
   try {
     const moderators = await db.select().from(users).where(eq(users.role, 'moderator'));
     if (moderators.length > 0) {
-      const previousLocationText = previousLocation
-        ? previousLocation.formattedAddress || previousLocation.placeName || 'Unknown'
-        : 'None (Inferred by AI)';
-      const newLocationText = newLocation.formattedAddress || newLocation.placeName || 'Unknown';
-      const moderatorReviewUrl = `${loadBackendEnv().webAppBaseUrl}/moderator/items`;
-
       Promise.allSettled(
         moderators.map((mod) =>
           sendTemplatedEmail(

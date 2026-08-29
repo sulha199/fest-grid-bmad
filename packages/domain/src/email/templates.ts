@@ -42,6 +42,20 @@ Message: {{message}}
 Context: {{context}}
 Timestamp: {{timestamp}}`,
   },
+  DEFAULT_LOCATION_CHANGE_AWAITING_APPROVAL_ALERT: {
+    subject: '[FestDaily Moderation] Action needed: low-confidence location change for {{accountDisplayName}}',
+    html: `<p>An AI-inferred default location change for the social media account "<strong>{{accountDisplayName}}</strong>" has low confidence (<strong>{{confidenceScorePercent}}</strong>) and is waiting on your decision before it takes effect.</p>
+<p><strong>Current Location:</strong> {{previousLocationText}}</p>
+<p><strong>Suggested Location:</strong> {{newLocationText}}</p>
+<p>The subscriber's Default Location will stay unchanged until you approve or reject this suggestion. Please review it on the Moderator Items page: <a href="{{moderatorReviewUrl}}">{{moderatorReviewUrl}}</a></p>`,
+    text: `An AI-inferred default location change for the social media account "{{accountDisplayName}}" has low confidence ({{confidenceScorePercent}}) and is waiting on your decision before it takes effect.
+
+Current Location: {{previousLocationText}}
+Suggested Location: {{newLocationText}}
+
+The subscriber's Default Location will stay unchanged until you approve or reject this suggestion. Please review it on the Moderator Items page: {{moderatorReviewUrl}}`,
+  },
+
   DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT: {
     subject: '[FestDaily Moderation] Default location changed for account: {{accountDisplayName}}',
     html: `<p>A subscriber has edited the default location set for the social media account "<strong>{{accountDisplayName}}</strong>".</p>
