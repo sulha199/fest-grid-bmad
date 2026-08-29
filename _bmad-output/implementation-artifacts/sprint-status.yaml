@@ -1372,7 +1372,12 @@ development_status:
   # is already reusable as-is with no extraction needed, despite epics.md's own
   # speculative "likely requires extracting" framing. No new prerequisite stories
   # split off.
-  4-3b-add-a-report-trigger-to-eventcard-list-view: ready-for-dev
+  # cancelled 2026-08-29 via bmad-correct-course: user decision reverses this story's own premise
+  # -- reporting now requires viewing an event's detail view first, so a card-level report trigger
+  # is deliberately not wanted. PRD 3.9.2's "list-view or detailed view" clause is narrowed to
+  # detail-view only. No code was written (was ready-for-dev, unstarted) -- nothing rolled back.
+  # Stories 4.3/4.3a/4.3c unaffected. See sprint-change-proposal-2026-08-29.md.
+  4-3b-add-a-report-trigger-to-eventcard-list-view: wont-do
   # added 2026-08-12 via bmad-correct-course: wires Story 2.7's default-visibility
   # rule chain to exclude self-reported events from list views (Discovery/Feed/
   # Favorites/My Calendar/search), closing the gap where isHiddenForCurrentUser

@@ -142,7 +142,7 @@ To ensure data accuracy and streamline the correction process, users can submit 
 
 #### 3.9.2 User Reporting and Event Moderation
 
-A 'Report' button will be available for all events (whether from Social Media Account Subscription or the main event discovery page, in list-view or detailed view). Unauthenticated users will need to log in to access the reporting functionality. Upon clicking, a popup will offer the following options:
+A 'Report' button will be available for all events (whether from Social Media Account Subscription or the main event discovery page), accessible from the event's detailed view. Reporting is intentionally not available directly from list/grid cards — a user must open an event's detail view first, ensuring they've reviewed the full event before reporting it. Unauthenticated users will need to log in to access the reporting functionality. Upon clicking, a popup will offer the following options:
 
 *   **Request Event Deletion (Soft Delete):** Users can request the removal of an event by selecting a reason.
     *   **Reason: Event Cancelled:**

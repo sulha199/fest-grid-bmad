@@ -2532,7 +2532,9 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Depends on:** Story 4.3a.
 
-### Story 4.3b: Add a Report trigger to EventCard (list-view)
+### Story 4.3b: Add a Report trigger to EventCard (list-view) — CANCELLED
+
+**Cancelled (2026-08-29, via `bmad-correct-course`):** User decision reverses this story's own premise — reporting now requires viewing an event's detail view first, so a card-level report trigger is deliberately not wanted. PRD 3.9.2's "list-view or detailed view" clause (the requirement this story was split off Story 4.3 to satisfy) has been narrowed to detail-view only. No code was written for this story (`ready-for-dev`, unstarted) — nothing to roll back. Story 4.3's existing detail-view report flow, Story 4.3a's backend, and Story 4.3c's server-side list-visibility exclusion are all unaffected. See `sprint-change-proposal-2026-08-29.md`.
 
 **As a** user,
 **I want** to report an event directly from a list/grid card (Discovery, Favorites, Feed, My Calendar, etc.),
