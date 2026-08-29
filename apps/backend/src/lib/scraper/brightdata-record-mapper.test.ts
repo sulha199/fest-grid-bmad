@@ -2,16 +2,35 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { unprocessedScraperPayloads } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
+import { or, sql } from 'drizzle-orm';
 import { mapBrightDataRecordToScrapedPost } from './brightdata-record-mapper.js';
+
+// This file's own test postUrls only -- do NOT wipe the whole table, other test files
+// running in the same suite (once the pnpm test glob bug is fixed) rely on their own
+// unprocessedScraperPayloads rows surviving. `context` is jsonb but the driver
+// double-encodes it on write (see deferred-work.md) -- match both shapes defensively,
+// matching the pattern already used in scraper-actor-run-linking.test.ts.
+const TEST_POST_URLS = [
+  'https://www.instagram.com/p/bad-date/',
+  'https://www.instagram.com/p/invalid/',
+];
+
+function cleanupCondition() {
+  return or(
+    ...TEST_POST_URLS.flatMap((url) => [
+      sql`context->>'postUrl' = ${url}`,
+      sql`(("context"#>>'{}')::jsonb)->>'postUrl' = ${url}`,
+    ])
+  );
+}
 
 test('brightdata-record-mapper tests', async (t) => {
   t.beforeEach(async () => {
-    await db.delete(unprocessedScraperPayloads);
+    await db.delete(unprocessedScraperPayloads).where(cleanupCondition());
   });
 
   t.afterEach(async () => {
-    await db.delete(unprocessedScraperPayloads);
+    await db.delete(unprocessedScraperPayloads).where(cleanupCondition());
   });
 
   await t.test('returns mapped candidate for valid record', async () => {
