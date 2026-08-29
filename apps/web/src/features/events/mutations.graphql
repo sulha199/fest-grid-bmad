@@ -49,3 +49,44 @@ mutation resolvePromptToEventFilter($prompt: String!) {
   }
 }
 
+
+mutation saveAIEventFilter($prompt: String!, $resolvedFilter: EventFilterInput!) {
+  saveAIEventFilter(prompt: $prompt, resolvedFilter: $resolvedFilter) {
+    id
+    ownerUserId
+    prompt
+    resolvedFilter {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
+    createdAt
+    updatedAt
+    deletedAt
+  }
+}
+
+mutation deleteAIEventFilter($id: ID!, $action: SoftDeleteAction!) {
+  deleteAIEventFilter(id: $id, action: $action) {
+    id
+    deletedAt
+  }
+}
+

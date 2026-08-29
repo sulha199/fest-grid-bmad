@@ -68,4 +68,66 @@ describe('AIFilterOverlay', () => {
 
     expect(screen.getByText('Invalid natural language query')).toBeInTheDocument();
   });
+
+  it('renders resolved summary, and triggers save, apply, re-prompt', () => {
+    const onSave = vi.fn();
+    const onApply = vi.fn();
+    const onRePrompt = vi.fn();
+    const saveLabels = {
+      ...defaultLabels,
+      saveFilter: 'Save Filter',
+      saving: 'Saving...',
+      saveSuccess: 'Saved!',
+      resolvedSummaryTitle: 'Resolved Filter Summary',
+      rePrompt: 'Try Another Prompt',
+    };
+
+    render(
+      <AIFilterOverlay
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        labels={saveLabels}
+        resolvedSummary="Filtered events about jazz in Berlin"
+        resolvedCaveats="Caveat: price limit ignored"
+        onSave={onSave}
+        onApply={onApply}
+        onRePrompt={onRePrompt}
+      />
+    );
+
+    expect(screen.getByText('Resolved Filter Summary')).toBeInTheDocument();
+    expect(screen.getByText('Filtered events about jazz in Berlin')).toBeInTheDocument();
+    expect(screen.getByText('Caveat: price limit ignored')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Filter' }));
+    expect(onSave).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Filter' }));
+    expect(onApply).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try Another Prompt' }));
+    expect(onRePrompt).toHaveBeenCalled();
+  });
+
+  it('shows save success state', () => {
+    const saveLabels = {
+      ...defaultLabels,
+      saveFilter: 'Save Filter',
+      saveSuccess: 'Saved successfully!',
+    };
+
+    render(
+      <AIFilterOverlay
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        labels={saveLabels}
+        resolvedSummary="Filtered events about jazz in Berlin"
+        saveSuccess={true}
+      />
+    );
+
+    expect(screen.getAllByText('Saved successfully!').length).toBeGreaterThan(0);
+  });
 });

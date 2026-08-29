@@ -23,6 +23,12 @@ export const profileMenuEntries: ProfileMenuEntry[] = [
     icon: MapPin,
   },
   {
+    id: 'ai-filters',
+    labelKey: 'aiFilters',
+    href: '/settings/ai-filters',
+    icon: Sparkles,
+  },
+  {
     id: 'account-settings',
     labelKey: 'accountSettings',
     href: '/settings/account',

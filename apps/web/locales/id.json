@@ -22,6 +22,8 @@
     "reportsDescription": "Lihat dan lacak status laporan yang telah Anda kirimkan di FestDaily.",
     "locationsTitle": "Lokasi Saya | FestDaily",
     "locationsDescription": "Kelola lokasi tersimpan Anda di FestDaily.",
+    "aiFiltersTitle": "Filter AI Saya | FestDaily",
+    "aiFiltersDescription": "Lihat dan kelola filter acara AI tersimpan Anda di FestDaily.",
     "archiveTitle": "Arsip Saya | FestDaily",
     "archiveDescription": "Lihat acara Anda yang diarsipkan dan disembunyikan di FestDaily.",
     "myCalendarTitle": "Kalender Saya | FestDaily",
@@ -174,7 +176,13 @@
     "aiOverlayPlaceholder": "misal, 'konser musik rock di Jakarta akhir pekan depan' atau 'pameran seni gratis'",
     "aiOverlaySubmit": "Terapkan Filter AI",
     "aiOverlayCancel": "Batal",
-    "aiOverlayErrorTitle": "Gagal menyelesaikan prompt"
+    "aiOverlayErrorTitle": "Gagal menyelesaikan prompt",
+    "aiOverlaySave": "Simpan filter ini",
+    "aiOverlaySaving": "Menyimpan...",
+    "aiOverlaySaveSuccess": "Tersimpan!",
+    "aiOverlaySaveError": "Gagal menyimpan filter",
+    "aiOverlayResolvedSummaryTitle": "Ringkasan Filter yang Dihasilkan",
+    "aiOverlayRePrompt": "Coba prompt lain"
   },
   "AIFilterSummary": {
     "noFilter": "Semua acara",
@@ -480,10 +488,20 @@
     "reports": "Laporan",
     "archive": "Arsip",
     "widgets": "Sematkan Widget",
+    "aiFilters": "Filter AI Saya",
     "moderatorItems": "Item Moderator",
     "moderatorTools": "Alat Moderator",
     "logout": "Keluar",
     "close": "Tutup"
+  },
+  "MyAIFiltersPage": {
+    "title": "Filter AI Saya",
+    "emptyState": "Anda belum memiliki filter AI yang disimpan.",
+    "errorState": "Gagal memuat filter AI yang disimpan. Silakan coba lagi nanti.",
+    "deleteButtonLabel": "Hapus",
+    "ctaLabel": "Coba Filter AI",
+    "removedToast": "Filter AI dihapus",
+    "undoLabel": "Urungkan"
   },
   "MyCalendarPage": {
     "title": "Kalender Saya",

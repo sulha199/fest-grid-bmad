@@ -22,6 +22,8 @@
     "reportsDescription": "View and track the status of your submitted reports on FestDaily.",
     "locationsTitle": "My Locations | FestDaily",
     "locationsDescription": "Manage your saved locations on FestDaily.",
+    "aiFiltersTitle": "My AI Filters | FestDaily",
+    "aiFiltersDescription": "View and manage your saved AI event filters on FestDaily.",
     "archiveTitle": "My Archive | FestDaily",
     "archiveDescription": "View your archived and hidden events on FestDaily.",
     "myCalendarTitle": "My Calendar | FestDaily",
@@ -174,7 +176,13 @@
     "aiOverlayPlaceholder": "e.g., 'rock concerts in Berlin next weekend' or 'free art exhibitions'",
     "aiOverlaySubmit": "Apply AI Filter",
     "aiOverlayCancel": "Cancel",
-    "aiOverlayErrorTitle": "Could not resolve prompt"
+    "aiOverlayErrorTitle": "Could not resolve prompt",
+    "aiOverlaySave": "Save this filter",
+    "aiOverlaySaving": "Saving...",
+    "aiOverlaySaveSuccess": "Saved!",
+    "aiOverlaySaveError": "Could not save filter",
+    "aiOverlayResolvedSummaryTitle": "Resolved Filter Summary",
+    "aiOverlayRePrompt": "Try another prompt"
   },
   "AIFilterSummary": {
     "noFilter": "All events",
@@ -480,10 +488,20 @@
     "reports": "Reports",
     "archive": "Archive",
     "widgets": "Embed Widgets",
+    "aiFilters": "My AI Filters",
     "moderatorItems": "Moderator Items",
     "moderatorTools": "Moderator Tools",
     "logout": "Log Out",
     "close": "Close"
+  },
+  "MyAIFiltersPage": {
+    "title": "My AI Filters",
+    "emptyState": "You have no saved AI filters yet.",
+    "errorState": "Failed to load saved AI filters. Please try again later.",
+    "deleteButtonLabel": "Delete",
+    "ctaLabel": "Try AI Filtering",
+    "removedToast": "AI Filter deleted",
+    "undoLabel": "Undo"
   },
   "MyCalendarPage": {
     "title": "My Calendar",

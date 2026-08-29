@@ -186,3 +186,37 @@ query getArchivedEvents($limit: Int, $offset: Int) {
     totalCount
   }
 }
+
+query getMyAIEventFilters {
+  myAIEventFilters {
+    id
+    ownerUserId
+    prompt
+    resolvedFilter {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
+    createdAt
+    updatedAt
+    deletedAt
+  }
+}
+

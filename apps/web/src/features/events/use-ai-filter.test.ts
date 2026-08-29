@@ -10,8 +10,13 @@ let mockResolvedFilter: any = { types: ['FESTIVAL'], keyword: 'jazz' };
 let mockCaveats: any = ['Some caveats'];
 
 // Mock next-intl
+const mockTranslate = Object.assign(
+  (key: string) => key,
+  { raw: (key: string) => key }
+);
+
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => mockTranslate,
 }));
 
 // Mock auth-session
@@ -41,8 +46,20 @@ vi.mock('@/generated/graphql', () => ({
             resolvedFilter: mockResolvedFilter,
             caveats: mockCaveats,
           },
-        });
+        }, { prompt });
       }
+    },
+    isPending: false,
+  }),
+  useSaveAiEventFilterMutation: (client: any, options: any) => ({
+    mutate: (variables: any) => {
+      options?.onSuccess?.({
+        saveAIEventFilter: {
+          id: 'filter-saved-1',
+          prompt: variables.prompt,
+          resolvedFilter: variables.resolvedFilter,
+        },
+      });
     },
     isPending: false,
   }),

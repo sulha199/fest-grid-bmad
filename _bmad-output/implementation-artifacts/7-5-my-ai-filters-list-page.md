@@ -59,7 +59,15 @@
 - Adhere strictly to the `SwipeToReveal` interaction pattern established in Story 0.19 and `undo` pattern in Story 0.18.
 
 ## 4. Story Completion Status
-Status: ready-for-dev
+Status: review
 
 ### Dev Agent Record (Completion Notes)
-- Ultimate context engine analysis completed - comprehensive developer guide created
+- Successfully implemented the "My AI Filters" list page at `apps/web/src/app/[locale]/settings/ai-filters/page.tsx` with a stateless prop-driven presentation component layout.
+- Added "Save this filter" action inside the `AIFilterOverlay` component to save resolved filters synchronously using the `saveAIEventFilter` GraphQL mutation.
+- Built a localized empty state with direct CTA to Discovery.
+- Integrated standard swipe-to-reveal soft delete with instant feedback and RESTORE-enabled undo callback using `useSoftDeleteWithUndo` hook and `deleteAIEventFilter` GraphQL mutation.
+- Fully synchronized generated GraphQL hooks.
+- Added comprehensive unit and integration test suites covering happy paths, navigation with query parameters, soft deletion, and undo restore actions. All tests pass with 100% success.
+
+### Independent verification (Claude, before commit)
+Correctly followed the corrected spec: `/settings/ai-filters` route (page/`*-content.tsx` split, matching `settings/locations`), the real `profile-menu-entries.ts` registry (not a hallucinated `features/user/UserMenu.tsx`), the real `deleteAIEventFilter(id, action: SoftDeleteAction!)` signature, and the real `useSoftDeleteWithUndo`/`SwipeToReveal` primitives. Preserved my earlier fixes from 7.4 (the manual-edit-detection effect, `useApiKeyStatus`'s null-safety, and my two regression tests) intact while extending `use-ai-filter.ts` with the save/re-prompt flow. No real bugs found this time — full verification suite run regardless, given the pattern of dev-story missing sibling-file regressions at both 7.1a and 7.4: `packages/domain` (189/189), `@festgrid/ui` (346/346, +2 for the new save-flow overlay states), `apps/web` (289/289, +5 for the new page and save-mutation coverage), `apps/web` typecheck matches the exact pre-existing baseline (same 12 errors, none in files this story touched).

@@ -15,7 +15,21 @@ export interface AIFilterOverlayProps {
     submit: string;
     cancel: string;
     errorTitle?: string;
+    saveFilter?: string;
+    saving?: string;
+    saveSuccess?: string;
+    saveError?: string;
+    resolvedSummaryTitle?: string;
+    rePrompt?: string;
   };
+  resolvedSummary?: string | null;
+  resolvedCaveats?: string | null;
+  onSave?: () => void;
+  isSaving?: boolean;
+  saveSuccess?: boolean;
+  saveError?: string | null;
+  onApply?: () => void;
+  onRePrompt?: () => void;
 }
 
 export function AIFilterOverlay({
@@ -25,6 +39,14 @@ export function AIFilterOverlay({
   isLoading = false,
   error,
   labels,
+  resolvedSummary,
+  resolvedCaveats,
+  onSave,
+  isSaving = false,
+  saveSuccess = false,
+  saveError,
+  onApply,
+  onRePrompt,
 }: AIFilterOverlayProps) {
   const [prompt, setPrompt] = React.useState('');
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -32,14 +54,16 @@ export function AIFilterOverlay({
 
   React.useEffect(() => {
     if (isOpen) {
-      setPrompt('');
-      setTimeout(() => textareaRef.current?.focus(), 50);
+      if (!resolvedSummary) {
+        setPrompt('');
+        setTimeout(() => textareaRef.current?.focus(), 50);
+      }
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [isOpen]);
+  }, [isOpen, resolvedSummary]);
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -94,9 +118,9 @@ export function AIFilterOverlay({
       role="dialog"
       aria-modal="true"
       aria-labelledby="ai-overlay-title"
-      className="fixed inset-0 z-50 flex flex-col bg-background p-6 md:p-10 outline-none"
+      className="fixed inset-0 z-50 flex flex-col bg-background p-6 md:p-10 outline-none overflow-y-auto"
     >
-      <div className="mx-auto w-full max-w-3xl flex flex-col h-full justify-between">
+      <div className="mx-auto w-full max-w-3xl flex flex-col min-h-full justify-between">
         <div className="flex justify-end mb-6">
           <Button
             type="button"
@@ -110,7 +134,7 @@ export function AIFilterOverlay({
           </Button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full gap-6">
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full gap-6 pb-6">
           <div className="space-y-2 text-center">
             <div className="inline-flex items-center justify-center p-3 bg-blue-50 dark:bg-blue-950/40 rounded-full text-blue-600 dark:text-blue-400 mb-2">
               <Sparkles className="w-8 h-8" />
@@ -123,17 +147,17 @@ export function AIFilterOverlay({
             </p>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-4">
             <textarea
               ref={textareaRef}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder={labels.placeholder}
               rows={4}
-              disabled={isLoading}
+              disabled={isLoading || !!resolvedSummary}
               className="w-full p-4 text-base rounded-xl border border-input bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 resize-none shadow-sm"
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter' && !e.shiftKey && !resolvedSummary) {
                   e.preventDefault();
                   handleSubmit(e);
                 }
@@ -144,26 +168,96 @@ export function AIFilterOverlay({
                 {error}
               </div>
             )}
+
+            {resolvedSummary && (
+              <div className="space-y-3 bg-muted/60 dark:bg-muted/30 p-4 rounded-xl border border-border/60 text-left animate-in fade-in slide-in-from-top-1">
+                <h4 className="font-semibold text-xs tracking-wider uppercase text-muted-foreground">
+                  {labels.resolvedSummaryTitle || 'Resolved Filter Summary'}
+                </h4>
+                <p className="text-base text-foreground font-medium leading-relaxed">
+                  {resolvedSummary}
+                </p>
+                {resolvedCaveats && (
+                  <div className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                    {resolvedCaveats}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {saveError && (
+              <div role="alert" className="text-sm font-medium text-destructive mt-1 p-3 bg-destructive/10 rounded-lg">
+                {saveError}
+              </div>
+            )}
+            {saveSuccess && (
+              <div role="status" className="text-sm font-medium text-emerald-600 dark:text-emerald-400 mt-1 p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>{labels.saveSuccess || 'Saved successfully!'}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full justify-center">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={isLoading}
-              className="w-full sm:w-auto px-6 h-11"
-            >
-              {labels.cancel}
-            </Button>
-            <Button
-              type="submit"
-              disabled={isLoading || !prompt.trim()}
-              className="w-full sm:w-auto px-6 h-11 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold flex items-center justify-center gap-2"
-            >
-              <Sparkles className="w-4 h-4 shrink-0" />
-              <span>{labels.submit}</span>
-            </Button>
+            {resolvedSummary ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onRePrompt}
+                  disabled={isLoading || isSaving}
+                  className="w-full sm:w-auto px-6 h-11"
+                >
+                  {labels.rePrompt || 'Try another prompt'}
+                </Button>
+                
+                <Button
+                  type="button"
+                  variant={saveSuccess ? 'secondary' : 'outline'}
+                  onClick={onSave}
+                  disabled={isLoading || isSaving || saveSuccess}
+                  className="w-full sm:w-auto px-6 h-11 font-semibold flex items-center justify-center gap-2"
+                >
+                  {isSaving ? (
+                    <span>{labels.saving || 'Saving...'}</span>
+                  ) : saveSuccess ? (
+                    <span>{labels.saveSuccess || 'Saved!'}</span>
+                  ) : (
+                    <span>{labels.saveFilter || 'Save this filter'}</span>
+                  )}
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={onApply}
+                  disabled={isLoading || isSaving}
+                  className="w-full sm:w-auto px-6 h-11 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4 shrink-0" />
+                  <span>{labels.submit}</span>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  disabled={isLoading}
+                  className="w-full sm:w-auto px-6 h-11"
+                >
+                  {labels.cancel}
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isLoading || !prompt.trim()}
+                  className="w-full sm:w-auto px-6 h-11 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4 shrink-0" />
+                  <span>{labels.submit}</span>
+                </Button>
+              </>
+            )}
           </div>
         </form>
       </div>

@@ -1359,6 +1359,22 @@ export type ResolvePromptToEventFilterMutationVariables = Exact<{
 
 export type ResolvePromptToEventFilterMutation = { resolvePromptToEventFilter: { caveats: Array<string>, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } };
 
+export type SaveAiEventFilterMutationVariables = Exact<{
+  prompt: string;
+  resolvedFilter: EventFilterInput;
+}>;
+
+
+export type SaveAiEventFilterMutation = { saveAIEventFilter: { id: string, ownerUserId: string, prompt: string, createdAt: string, updatedAt: string, deletedAt: string | null, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } };
+
+export type DeleteAiEventFilterMutationVariables = Exact<{
+  id: string | number;
+  action: SoftDeleteAction;
+}>;
+
+
+export type DeleteAiEventFilterMutation = { deleteAIEventFilter: { id: string, deletedAt: string | null } };
+
 export type GetEventsQueryVariables = Exact<{
   limit?: number | null | undefined;
   offset?: number | null | undefined;
@@ -1414,6 +1430,11 @@ export type GetArchivedEventsQueryVariables = Exact<{
 
 
 export type GetArchivedEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, slug: string, eventName: string, imageUrl: string | null, location: string | null, categories: Array<EventCategory> | null, types: Array<EventType> | null, deletedAt: string | null, isHiddenForCurrentUser: boolean, isExpiredForCurrentUser: boolean, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, ticketPrice: string | null }> }> } };
+
+export type GetMyAiEventFiltersQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetMyAiEventFiltersQuery = { myAIEventFilters: Array<{ id: string, ownerUserId: string, prompt: string, createdAt: string, updatedAt: string, deletedAt: string | null, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } }> };
 
 export type SubmitReportMutationVariables = Exact<{
   eventId: string | number;
@@ -2160,6 +2181,84 @@ export const useResolvePromptToEventFilterMutation = <
   }
     )};
 
+export const SaveAiEventFilterDocument = new TypedDocumentString(`
+    mutation saveAIEventFilter($prompt: String!, $resolvedFilter: EventFilterInput!) {
+  saveAIEventFilter(prompt: $prompt, resolvedFilter: $resolvedFilter) {
+    id
+    ownerUserId
+    prompt
+    resolvedFilter {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
+    createdAt
+    updatedAt
+    deletedAt
+  }
+}
+    `);
+
+export const useSaveAiEventFilterMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SaveAiEventFilterMutation, TError, SaveAiEventFilterMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SaveAiEventFilterMutation, TError, SaveAiEventFilterMutationVariables, TContext>(
+      {
+    mutationKey: ['saveAIEventFilter'],
+    mutationFn: (variables?: SaveAiEventFilterMutationVariables) => fetcher<SaveAiEventFilterMutation, SaveAiEventFilterMutationVariables>(client, SaveAiEventFilterDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiEventFilterDocument = new TypedDocumentString(`
+    mutation deleteAIEventFilter($id: ID!, $action: SoftDeleteAction!) {
+  deleteAIEventFilter(id: $id, action: $action) {
+    id
+    deletedAt
+  }
+}
+    `);
+
+export const useDeleteAiEventFilterMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DeleteAiEventFilterMutation, TError, DeleteAiEventFilterMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DeleteAiEventFilterMutation, TError, DeleteAiEventFilterMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAIEventFilter'],
+    mutationFn: (variables?: DeleteAiEventFilterMutationVariables) => fetcher<DeleteAiEventFilterMutation, DeleteAiEventFilterMutationVariables>(client, DeleteAiEventFilterDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
 export const GetEventsDocument = new TypedDocumentString(`
     query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
   events(limit: $limit, offset: $offset, query: $query) {
@@ -2485,6 +2584,59 @@ export const useGetArchivedEventsQuery = <
       {
     queryKey: variables === undefined ? ['getArchivedEvents'] : ['getArchivedEvents', variables],
     queryFn: fetcher<GetArchivedEventsQuery, GetArchivedEventsQueryVariables>(client, GetArchivedEventsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetMyAiEventFiltersDocument = new TypedDocumentString(`
+    query getMyAIEventFilters {
+  myAIEventFilters {
+    id
+    ownerUserId
+    prompt
+    resolvedFilter {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
+    createdAt
+    updatedAt
+    deletedAt
+  }
+}
+    `);
+
+export const useGetMyAiEventFiltersQuery = <
+      TData = GetMyAiEventFiltersQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: GetMyAiEventFiltersQueryVariables,
+      options?: Omit<UseQueryOptions<GetMyAiEventFiltersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetMyAiEventFiltersQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetMyAiEventFiltersQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['getMyAIEventFilters'] : ['getMyAIEventFilters', variables],
+    queryFn: fetcher<GetMyAiEventFiltersQuery, GetMyAiEventFiltersQueryVariables>(client, GetMyAiEventFiltersDocument, variables, headers),
     ...options
   }
     )};
