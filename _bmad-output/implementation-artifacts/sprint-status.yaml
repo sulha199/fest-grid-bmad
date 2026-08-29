@@ -1665,3 +1665,16 @@ development_status:
   6-7a-build-the-widgets-dynamic-frame-ancestors-csp-middleware: review
   6-7-public-widget-rendering-page: review
   epic-6-retrospective: optional
+  # Epic 7 added 2026-08-29: PRD Section 3.15 (AI Prompt-Based Custom Event Filter,
+  # EventFilterInput/AIEventFilter interfaces 4.18/4.19) was specced via bmad-spec/
+  # bmad-prd on 2026-08-28 but never backfilled into epics.md -- flagged as a pending
+  # follow-up in the PRD's own .memlog.md. Backfilled directly (FR98-103, epics.md
+  # Story 7.1a-7.5) per user's explicit request to skip bmad-create-epics-and-stories
+  # (its Step 1 overwrites epics.md wholesale), matching the established precedent for
+  # Epic 6's own direct append. Nothing implemented yet -- all five stories backlog.
+  epic-7: backlog
+  7-1a-build-the-shared-eventfilterinput-query-layer: backlog
+  7-2a-build-the-ai-event-filter-backend-graphql-api-layer: backlog
+  7-3-build-the-reusable-ai-filter-summary-renderer: backlog
+  7-4-add-the-ai-filter-prompt-entry-point-to-filterhub: backlog
+  7-5-my-ai-filters-list-page: backlog

@@ -116,6 +116,12 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **FR95 (added 2026-08-29):** From Moderator Tools, a moderator can approve or reject an `AWAITING_APPROVAL` Default Location change request — approving writes it to the account, rejecting discards it without applying — distinct from the existing accept/revert actions for a change that already applied.
 - **FR96 (added 2026-08-29):** For users with moderator access, a combined numeric badge (pending reports plus pending Default Location changes) is shown next to "Moderator Items" in the opened user menu and on the navbar avatar when the menu is closed, kept reasonably current via periodic refresh rather than instantaneous.
 - **FR97 (added 2026-08-29):** Each scraped post's hashtags are captured and stored. A search phrase beginning with `#` (Discovery per FR2, and the subscribed-events search bar per FR30) matches exactly against a post's hashtags instead of the existing event-name/performers/location substring match, and combines with type/category filters the same way normal search does.
+- **FR98 (added 2026-08-29):** `EventFilterInput` is the single shared, typed filter shape used by FilterHub's manual controls (Discovery/Feed), the Embeddable Widget's saved filter combination, and AI Event Filters alike, replacing the Widget's previously untyped `filters: JSON` shape.
+- **FR99 (added 2026-08-29):** A user with a saved Gemini API key (BYOK) can describe a filter in a free-text prompt (e.g. "free jazz events in Kota Yogyakarta next week"); it is resolved on-demand, single-shot (no conversation memory, no follow-up turn) into an `EventFilterInput` populated from a locked vocabulary — account, type, category, keyword, date range and/or day-of-week, admin-area/region text match, venue type, and an exact-text `isFree` match — and Discovery results update immediately.
+- **FR100 (added 2026-08-29):** A prompt fragment outside the locked vocabulary (e.g. a numeric price threshold, a floor/room-level location detail, an unanchored compound date expression, or off-topic content) is never guessed at or silently dropped — it is always surfaced as an explicit caveat alongside the resolved filter.
+- **FR101 (added 2026-08-29):** A resolved AI Event Filter — freshly extracted or reloaded from a save — is described to the user solely by a deterministic, template-rendered summary sentence built from its field values and any caveats; there is no edit UI for a filter, ever, only re-prompting.
+- **FR102 (added 2026-08-29):** A user can save a resolved AI Event Filter from a dedicated "My AI Filters" list page and reload it into Discovery later; adjusting a FilterHub manual control after loading a saved filter changes only that browsing session's query state and never mutates the saved filter itself.
+- **FR103 (added 2026-08-29):** The AI filter prompt entry point (an icon-only trigger inside FilterHub, opening a prompt overlay that reuses the existing blocking full-screen-overlay pattern while resolving) is not shown at all to a user with no BYOK Gemini key on file, including an unauthenticated Discovery visitor — they see only FilterHub's manual controls.
 
 ### NonFunctional Requirements
 - **NFR1:** Event discovery page should load in under 2 seconds on a standard 4G connection.
@@ -274,6 +280,12 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR95: Epic 4 - Data Quality and Moderation (extends Story 4.7's moderator review flow; implemented directly per sprint-change-proposal-2026-08-28.md Item 1, commit a0fc985, added 2026-08-29)
 - FR96: Epic 4 - Data Quality and Moderation (surfaced in Story 4.7's Moderator Items entry point; implemented directly per sprint-change-proposal-2026-08-28.md Item 2, commit a0fc985, added 2026-08-29)
 - FR97: Epic 1 - Core App and Event Discovery (extends Story 1.4's search per FR2; also covers the Feed search bar, FR30/Epic 3; implemented directly per sprint-change-proposal-2026-08-28.md Item 3, commit a0fc985, added 2026-08-29)
+- FR98: Epic 7 - AI Prompt-Based Custom Event Filter (also touches Epic 6's Widget entity — migrates `Widget.filters` off untyped JSON, added 2026-08-29)
+- FR99: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
+- FR100: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
+- FR101: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
+- FR102: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
+- FR103: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
 
 ## Epic List
 
@@ -3095,3 +3107,104 @@ Users who can't or don't want to provide a BYOK API key can still register deman
 *   **And** when loaded from a domain not registered for this `widgetId` (or not currently active), the request is refused per Story 6.7a's fail-closed CSP middleware — this page itself performs no separate domain check, since enforcement happens at the HTTP layer before this page's content is ever requested cross-origin.
 
 **Depends on:** Story 6.5a, Story 6.6a, Story 6.7a, Story 1.3d, Story 1.3g, Story 2.1b.
+
+### Epic 7: AI Prompt-Based Custom Event Filter
+
+A user with a saved Gemini API key can describe what they're looking for in a free-text prompt and immediately see matching Discovery results, as a faster alternative to FilterHub's manual controls.
+**FRs covered:** FR98, FR99, FR100, FR101, FR102, FR103
+
+### Story 7.1a: Build the shared EventFilterInput query layer
+
+**As a** developer,
+**I want** a single typed `EventFilterInput` GraphQL input (Section 4.18) that FilterHub's manual controls, the Embeddable Widget, and AI Event Filters all resolve to, with the events query condition builder extended to translate every field on it,
+**So that** Story 7.2a's AI-resolved filters and the Widget's persisted filter combination both apply through the exact same, single query path Discovery already uses — not a second, divergent filter mechanism.
+
+**Acceptance Criteria:**
+
+*   **Given** `events.graphql`'s existing `EventsQueryCondition`/Unified Query DSL and `resolvers.ts`'s `buildEventsQueryCondition`/`fieldMap` (Story 1.3a, extended by Stories 1.5, 2.5a, and the hashtag-search amendment, FR97) already implement most of `EventFilterInput`'s fields (`accountId`→FR30-style account scoping, `types`/`categories`→Story 1.5, `keyword`→FR2/FR97, `location.coordinates`+`radiusMeters`→Story 2.5a's geo-distance condition),
+*   **When** the new `EventFilterInput` GraphQL input type (with `DateRangeFilter`, `LocationFilter`, and the `DateAnchor`/`DateOffsetUnit`/`DayOfWeek` enums, Section 4.18) is added,
+*   **Then** the query resolver accepts it as a single structured argument (in addition to, not replacing, the existing flat DSL args other callers already depend on) and `buildEventsQueryCondition` gains three genuinely new translations: `dateRange` (an anchor+offset expression, e.g. `{THIS_WEEK, +1, WEEK}`, resolved against the current server date into a concrete start/end range at query time — never stored or matched as a frozen date) composed with `dayOfWeek` via AND when both are present; `location.adminArea` (an exact/normalized match against `LocationDetails.adminArea`, Section 4.3, mutually exclusive with `location.coordinates`/`radiusMeters` — the resolver rejects a request setting both); and `venueType`/`isFree` (exact-match conditions against `LocationDetails.venueType` and `Schedule.ticketPrice` respectively, following the existing exact-match pattern the hashtag-search amendment (FR97) established rather than a new query mechanism).
+*   **And** `widgets.graphql`'s `Widget.filters` field (currently untyped `JSON!`, Story 6.5a) is migrated to `EventFilterInput!` — the underlying storage stays JSONB (no new column), but the GraphQL layer now validates and types it, and Story 6.7's public widget page resolves it through this same translation instead of ad hoc JSON access.
+*   **And** an `EventFilterInput` with every field omitted resolves to the existing default unfiltered condition (Section 3.5) — no behavior change for a caller that passes none of the new fields.
+*   **And** existing Discovery/Feed/Widget query behavior is unchanged for every case already covered by tests today (verified by the existing test suites passing unmodified).
+
+**Note:** Positioned as the prerequisite plumbing for both Story 7.2a (AI-resolved filters) and the Widget migration, per this project's established backend-layer-first story-splitting convention (mirrors Stories 6.1a/6.5a/6.6a). Classified as Epic-7-scoped despite touching Epic 6's `Widget` entity, since `EventFilterInput` itself is defined by and introduced for this epic (PRD §4.18) — the Widget migration is a consumer update, not new Widget capability, matching the cross-epic-amendment precedent already used for Story 3.3c's `lookupAccountProfile` (Epic 6 readiness sweep) and Story 3.4m's location-inference amendments.
+
+**Depends on:** Story 1.3a, Story 1.5, Story 2.5a, Story 6.5a.
+
+### Story 7.2a: Build the AI Event Filter backend GraphQL API layer
+
+**As a** developer,
+**I want** a new `ai_event_filters` table plus a synchronous `resolvePromptToEventFilter` mutation and CRUD for saved filters,
+**So that** Story 7.4's prompt overlay and Story 7.5's "My AI Filters" page have a real backend to call, reusing the existing AI Gateway adapter rather than a new Gemini integration.
+
+**Acceptance Criteria:**
+
+*   **Given** an authenticated user (`requireAuth`, Story 0.17) with a saved Gemini API key on file (checked via the existing BYOK-key-presence mechanism, `use-has-api-key.ts`'s backend-side equivalent) calls `resolvePromptToEventFilter(prompt: String!): ResolvedAIEventFilterResult!`,
+*   **When** the resolver runs, **then** it calls `callGemini` (Story 0.13's AI Gateway adapter) with `subscriberUserIds: [context.user.id]` only (`TIER_1_USER_SPECIFIC`) — **no** tiered fallback to a shared/system key, unlike event extraction (Story 3.6) or Default Location inference's narrow system-key carve-out (FR91) — per PRD §3.15's explicit "Access and Funding" constraint; if the caller has no valid key, the mutation returns `errorCode: NO_API_KEY` without attempting extraction.
+*   **And** the Gemini request is a new, dedicated structured-output prompt (its own request-builder, not a reuse of `build-gemini-request.ts`'s event-extraction schema) constrained to the locked vocabulary (Section 3.15) — the response is parsed and AJV-validated into `{ resolvedFilter: EventFilterInput, caveats: string[] }`, where `caveats` captures any prompt fragment the schema has no field for (a price threshold, a floor/room detail, an unanchored compound date phrase, off-topic content) rather than guessing or dropping it silently.
+*   **And** `saveAIEventFilter(resolvedFilter: EventFilterInputInput!, caveats: [String!]!): AIEventFilter!` persists a new row (or, per PRD §4.19, is also the mechanism a re-prompt-and-resave overwrites an existing record through — this story exposes the mutation shape; Story 7.5 decides create-vs-overwrite UX), stamping `ownerUserId` from `context.user`.
+*   **And** `myAIEventFilters: [AIEventFilter!]!` returns the caller's own non-deleted saved filters only (`requireAuth`-scoped, no cross-user access).
+*   **And** `deleteAIEventFilter(id: ID!): AIEventFilter!` soft-deletes (`deletedAt`, AD-8 convention) rather than hard-deleting, matching every other user-owned entity in this codebase (`Favorite`, `CalendarEntry`, `Subscription`, `AccountVote`, `EmbedDomain`).
+*   **And** `resolvePromptToEventFilter` itself does **not** persist anything — resolving and saving are two separate calls, so a prompt can be resolved and applied to Discovery (Story 7.4) without ever being saved.
+
+**Note:** Mirrors Story 4.2a's synchronous, direct-response-to-a-click AI Gateway usage (not the async queue-driven pipeline, Story 3.5/3.6) — but deliberately does **not** mirror 4.2a's tiered key-fallback, per PRD §3.15's explicit BYOK-only constraint (narrower than both event extraction and 4.2a). Positioned after Story 7.1a since `resolvedFilter`'s shape is `EventFilterInput`.
+
+**Depends on:** Story 7.1a, Story 0.13, Story 0.17.
+
+### Story 7.3: Build the reusable AI filter summary renderer
+
+**As a** developer,
+**I want** a single, pure, deterministic function that renders an `EventFilterInput` + `caveats[]` into a localized summary sentence,
+**So that** Story 7.4's live overlay result and Story 7.5's saved-filter list rows describe a filter identically, satisfying PRD §3.15's "summary is the only transparency layer" constraint from one implementation instead of two independently-drifting ones.
+
+**Acceptance Criteria:**
+
+*   **Given** an `EventFilterInput` value and a `caveats: string[]` array,
+*   **When** `renderAIFilterSummary(filter, caveats, labels)` is called,
+*   **Then** it returns a single human-readable sentence assembling whichever fields are populated (account, type/category, keyword, date range/day-of-week, admin-area or "near me", venue type, "free events only") in a fixed, readable order, using a `labels` prop object for every piece of static text (matching `EventDetailViewLabels`/`CorrectionForm`'s i18n-decoupling precedent — no embedded strings, `apps/web` resolves `labels` via `next-intl`) — never an AI-generated or cached caption, always re-derived live from the current field values.
+*   **And** when `caveats` is non-empty, the sentence is followed by a distinct, visually-separable caveat clause listing them verbatim — never merged into or paraphrasing the main summary sentence.
+*   **And** an all-fields-empty `EventFilterInput` with no caveats renders a defined "no filter" sentence rather than an empty string.
+*   **And** the function is pure (no network call, no React dependency beyond its return type being a plain string or a small serializable structure) so it is trivially unit-testable and usable from both a live-resolution result and a stored `AIEventFilter` row alike.
+
+**Note:** Split out as shared logic per this project's established reusable-component convention (Stories 1.3b/1.3c/4.1b) — confirmed two consumers before either Story 7.4 or 7.5 is built (PRD §3.15's "Summary Is the Only Transparency Layer" bullet explicitly requires the same rendering for a fresh prompt result and a reloaded save). Positioned after Story 7.2a so its input shape (`resolvedFilter`/`caveats`) matches the backend's actual return type.
+
+**Depends on:** Story 7.1a.
+
+### Story 7.4: Add the AI filter prompt entry point to FilterHub
+
+**As a** user with a saved Gemini API key,
+**I want** to describe the events I'm looking for in a free-text prompt from Discovery's FilterHub,
+**So that** I can reach a precise result faster than operating FilterHub's manual controls one at a time.
+
+**Acceptance Criteria:**
+
+*   **Given** `FilterHub.tsx` (Story 1.5) and the existing BYOK-key-presence check (`use-has-api-key.ts`, already consumed by the onboarding wizard),
+*   **When** the calling user has no saved Gemini key, **then** no AI filter entry point renders at all — FilterHub shows only its existing manual controls, unchanged, matching an unauthenticated Discovery visitor's experience today.
+*   **And** when the user has a saved key, **then** FilterHub renders a small icon-only trigger (no permanent label, adding no permanent width) that opens the prompt as an overlay.
+*   **And** submitting a prompt calls `resolvePromptToEventFilter` (Story 7.2a) synchronously; while awaiting the response, the overlay uses the existing `BlockingLoader` (Story 1.7a) full-screen pattern — the same one Section 3.12's other data-extraction actions already use — not a lighter-weight inline spinner.
+*   **And** on a successful resolve, the resolved `EventFilterInput` (Story 7.1a) is applied to Discovery's query state (reusing the existing URL-state mechanism, AD-4/`nuqs`, that FilterHub's manual controls already use) and FilterHub's manual controls are replaced by a single collapsed row showing Story 7.3's rendered summary plus clear/expand actions — the manual controls and the collapsed AI-filter row are never shown stacked together.
+*   **And** clicking "clear" on the collapsed row discards the active AI filter and restores FilterHub's manual controls in their prior state (not a full page reset).
+*   **And** clicking "expand" (or otherwise adjusting a manual control while an AI filter's collapsed row is showing) changes only the current browsing session's query state — it never mutates a saved `AIEventFilter` record (Story 7.2a), matching PRD §3.15's "Saving and Reuse" bullet.
+*   **And** a resolution error (including `NO_API_KEY`, which should be unreachable given the entry point is hidden without a key, but is still handled defensively) surfaces inline in the overlay, not a silent failure or an uncaught rejection.
+
+**Note:** The two rejected alternatives from PRD §3.15 (a general open-dialogue chatbot; a dedicated "AI mode" toggle hiding FilterHub entirely) are explicitly out of scope — this story implements only the icon-trigger-plus-overlay design the PRD already settled on.
+
+**Depends on:** Story 7.1a, Story 7.2a, Story 7.3, Story 1.5, Story 1.7a.
+
+### Story 7.5: "My AI Filters" list page
+
+**As a** user with a saved Gemini API key,
+**I want** to save a resolved AI Event Filter and reload it later from a dedicated list page,
+**So that** I don't have to re-type the same prompt every time I want the same filtered view.
+
+**Acceptance Criteria:**
+
+*   **Given** I am logged in and navigate to "My AI Filters" from the user menu (same discovery pattern as Favorites, Story 2.2, and Subscribed Accounts, Story 3.2),
+*   **When** the page loads, **then** it lists my saved `AIEventFilter` records (`myAIEventFilters`, Story 7.2a), each row rendered via Story 7.3's `renderAIFilterSummary` — no row ever shows raw field data or a different summary than the one Story 7.4's live overlay would have shown for the same filter.
+*   **And** from Story 7.4's overlay, after a successful resolve, a "Save this filter" action calls `saveAIEventFilter` (Story 7.2a) and confirms success — this is the only path that creates a new `AIEventFilter` row; this list page itself has no create/prompt UI of its own, matching PRD §3.15's "no edit UI, ever, only re-prompting" constraint.
+*   **And** clicking a saved filter's row navigates to Discovery with that filter's `resolvedFilter` applied to the query state (same application mechanism as Story 7.4's live resolve), and FilterHub shows it as the same collapsed summary row Story 7.4 defines — loading a save and resolving a fresh prompt are visually indistinguishable once applied.
+*   **And** each row has a delete action calling `deleteAIEventFilter` (Story 7.2a, soft-delete), using the existing `SwipeToReveal`/soft-delete-with-undo pattern (Story 0.18/0.19) already used by Subscribed Accounts and Saved Locations, not a new delete-confirmation mechanism.
+*   **And** a zero-saved-filters state renders a defined empty-state message and CTA, matching this codebase's existing empty-state precedent (Story 3.7's Feed empty state) rather than a bare blank list.
+
+**Depends on:** Story 7.2a, Story 7.3.
