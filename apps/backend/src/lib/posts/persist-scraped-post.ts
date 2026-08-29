@@ -47,6 +47,24 @@ export async function persistScrapedPost({
     .then((rows) => rows[0]);
 
   if (post) {
+    const backfillPatch: Record<string, unknown> = {};
+    if (!post.videoUrl && videoUrl) {
+      backfillPatch.videoUrl = videoUrl;
+    }
+    if (!post.imageUrl && imageUrl) {
+      backfillPatch.imageUrl = imageUrl;
+      backfillPatch.imageUrlExpiresAt = parseImageUrlExpiry(imageUrl);
+    }
+
+    if (Object.keys(backfillPatch).length > 0) {
+      const [updated] = await db
+        .update(posts)
+        .set(backfillPatch)
+        .where(eq(posts.id, post.id))
+        .returning();
+      post = updated;
+    }
+
     return {
       post,
       alreadyExisted: true,

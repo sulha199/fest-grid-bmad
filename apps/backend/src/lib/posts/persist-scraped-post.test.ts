@@ -252,4 +252,66 @@ test('persistScrapedPost integration tests', async (t) => {
       }
     );
   });
+  await t.test('(h) backfills missing videoUrl and imageUrl on dedupe but leaves content untouched', async () => {
+    const postUrl = 'https://instagram.com/p/test_post_h_' + Date.now();
+    // 1st insert: null videoUrl/imageUrl
+    const result1 = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Original content',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+    });
+    assert.strictEqual(result1.alreadyExisted, false);
+    assert.strictEqual(result1.post.videoUrl, null);
+    assert.strictEqual(result1.post.imageUrl, null);
+
+    // 2nd insert: populated videoUrl/imageUrl
+    const result2 = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Updated content ignored',
+      videoUrl: 'https://test.com/video_h.mp4',
+      imageUrl: 'https://test.com/image_h.png?oe=64F373FF',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+    });
+
+    assert.strictEqual(result2.alreadyExisted, true);
+    assert.strictEqual(result2.post.id, result1.post.id);
+    assert.strictEqual(result2.post.content, 'Original content');
+    assert.strictEqual(result2.post.videoUrl, 'https://test.com/video_h.mp4');
+    assert.strictEqual(result2.post.imageUrl, 'https://test.com/image_h.png?oe=64F373FF');
+    assert.ok(result2.post.imageUrlExpiresAt instanceof Date);
+  });
+
+  await t.test('(i) preserves existing videoUrl on dedupe and does not overwrite', async () => {
+    const postUrl = 'https://instagram.com/p/test_post_i_' + Date.now();
+    // 1st insert: with videoUrl
+    const result1 = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Original content',
+      videoUrl: 'https://test.com/video_i_first.mp4',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+    });
+    assert.strictEqual(result1.alreadyExisted, false);
+    assert.strictEqual(result1.post.videoUrl, 'https://test.com/video_i_first.mp4');
+
+    // 2nd insert: different videoUrl
+    const result2 = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Updated content ignored',
+      videoUrl: 'https://test.com/video_i_second.mp4',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+    });
+
+    assert.strictEqual(result2.alreadyExisted, true);
+    assert.strictEqual(result2.post.id, result1.post.id);
+    assert.strictEqual(result2.post.videoUrl, 'https://test.com/video_i_first.mp4');
+  });
+
 });
