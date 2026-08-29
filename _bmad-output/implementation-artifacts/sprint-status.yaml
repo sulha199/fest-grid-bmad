@@ -1672,9 +1672,22 @@ development_status:
   # Story 7.1a-7.5) per user's explicit request to skip bmad-create-epics-and-stories
   # (its Step 1 overwrites epics.md wholesale), matching the established precedent for
   # Epic 6's own direct append. Nothing implemented yet -- all five stories backlog.
-  epic-7: in-progress
+  epic-7: done
   7-1a-build-the-shared-eventfilterinput-query-layer: done
   7-2a-build-the-ai-event-filter-backend-graphql-api-layer: done
   7-3-build-the-reusable-ai-filter-summary-renderer: done
   7-4-add-the-ai-filter-prompt-entry-point-to-filterhub: done
   7-5-my-ai-filters-list-page: done
+  epic-7-retrospective: done
+
+action_items:
+  - id: retro-7-1
+    description: "Refine AI Prompts: Monitor user behavior with AI filters to tune the system prompt for better date/location extraction accuracy."
+    owner: Alice
+    status: open
+    created_at: "2026-08-29"
+  - id: retro-7-2
+    description: "Performance Monitoring: Keep an eye on Gemini API response times during FilterHub prompt resolutions."
+    owner: Charlie
+    status: open
+    created_at: "2026-08-29"
