@@ -2,18 +2,20 @@ import test from 'node:test';
 import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { users, socialMediaAccountProfiles, subscriptions, userSettings, fcmTokens } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { getSubscribersForNotification } from './get-subscribers-for-notification.js';
+import crypto from 'node:crypto';
 
 test('getSubscribersForNotification integration tests', async (t) => {
+  const runId = crypto.randomUUID();
   // Retrieve seeded users to use across the tests
-  const seededUsers = await db.select().from(users).limit(3);
-  assert.ok(seededUsers.length >= 3, 'Must have at least three seeded users');
-  const user1 = seededUsers[0];
-  const user2 = seededUsers[1];
-  const user3 = seededUsers[2];
+  const [user1, user2, user3] = await db.insert(users).values([
+    { email: `notif-test-1-${runId}@example.com`, name: 'User 1', role: 'user' },
+    { email: `notif-test-2-${runId}@example.com`, name: 'User 2', role: 'user' },
+    { email: `notif-test-3-${runId}@example.com`, name: 'User 3', role: 'user' }
+  ]).returning();
 
-  const sourceAccountId = 'platform-acc-id-' + Date.now();
+  const sourceAccountId = 'platform-acc-id-' + runId;
 
   // Create a socialMediaAccountProfile for testing
   const [profile] = await db
@@ -22,7 +24,7 @@ test('getSubscribersForNotification integration tests', async (t) => {
       accountId: sourceAccountId,
       platform: 'instagram',
       displayName: 'Test Notification Profile',
-      username: 'test_notif_profile_' + Date.now()
+      username: 'test_notif_profile_' + runId
     })
     .returning();
 
@@ -36,6 +38,7 @@ test('getSubscribersForNotification integration tests', async (t) => {
     await db.delete(userSettings).where(eq(userSettings.userId, user3.id));
     await db.delete(subscriptions).where(eq(subscriptions.accountId, profile.id));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    await db.delete(users).where(inArray(users.id, [user1.id, user2.id, user3.id]));
   });
 
   await t.test('Initial state: no subscriptions or settings should return empty list', async () => {
