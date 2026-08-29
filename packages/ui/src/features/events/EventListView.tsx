@@ -19,7 +19,7 @@ export function EventListView<TEvent extends EventListViewItem>({
 }: EventListViewProps<TEvent>) {
   if (status === 'loading') {
     return (
-      <GridContainer baseCols={viewMode === 'masonry' ? 2 : 1} colsStep={1} gap="gap-6" className={className}>
+      <GridContainer baseCols={viewMode === 'masonry' ? 2 : 1} colsStep={1} gap={viewMode === 'masonry' ? "gap-2" : "gap-6"} className={className}>
         {Array.from({ length: skeletonCount }).map((_, i) => (
           <EventCard
             key={i}
@@ -53,7 +53,7 @@ export function EventListView<TEvent extends EventListViewItem>({
   if (status === 'success' && events.length > 0) {
     return (
       <>
-        <GridContainer baseCols={viewMode === 'masonry' ? 2 : 1} colsStep={1} gap="gap-6" className={className}>
+        <GridContainer baseCols={viewMode === 'masonry' ? 2 : 1} colsStep={1} gap={viewMode === 'masonry' ? "gap-2" : "gap-6"} className={className}>
           {events.map((event) => {
             const mainSchedule =
               event.schedules?.find((s) => s.isMainSchedule) ||

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from 'react';
-import { MapPin, Heart } from 'lucide-react';
+import { MapPin, Heart, Clock } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
 
@@ -30,6 +30,26 @@ function formatEventDate(locale: string, timezone: string | undefined, dateObj: 
       return new Intl.DateTimeFormat(locale, DATE_FORMAT_OPTIONS).format(dateObj);
     } catch {
       return new Intl.DateTimeFormat('en-US', DATE_FORMAT_OPTIONS).format(dateObj);
+    }
+  }
+}
+
+const TIME_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
+  hour: 'numeric',
+  minute: '2-digit',
+};
+
+function formatEventTime(locale: string, timezone: string | undefined, dateObj: Date): string {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      ...TIME_FORMAT_OPTIONS,
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(dateObj);
+  } catch {
+    try {
+      return new Intl.DateTimeFormat(locale, TIME_FORMAT_OPTIONS).format(dateObj);
+    } catch {
+      return new Intl.DateTimeFormat('en-US', TIME_FORMAT_OPTIONS).format(dateObj);
     }
   }
 }
@@ -78,16 +98,20 @@ function formatWeekday(locale: string, timezone: string | undefined, dateObj: Da
   }
 }
 
+function getEventDayDiff(dateObj: Date, timezone: string | undefined): number {
+  const now = new Date();
+  const nowParts = getLocalDateInTimezone(now, timezone);
+  const eventParts = getLocalDateInTimezone(dateObj, timezone);
+  return getCalendarDayDifference(nowParts, eventParts);
+}
+
 function formatRelativeDayOrDate(
   locale: string,
   timezone: string | undefined,
   dateObj: Date,
   labels?: { today?: string; tomorrow?: string }
 ): string {
-  const now = new Date();
-  const nowParts = getLocalDateInTimezone(now, timezone);
-  const eventParts = getLocalDateInTimezone(dateObj, timezone);
-  const dayDiff = getCalendarDayDifference(nowParts, eventParts);
+  const dayDiff = getEventDayDiff(dateObj, timezone);
 
   if (dayDiff >= 0 && dayDiff <= 6) {
     if (dayDiff === 0) {
@@ -238,8 +262,15 @@ export function EventCard({
             <div className="absolute top-2 right-2 z-10">{statusBadge}</div>
           )}
           {variant === 'masonry' && (
-            <div className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground">
-              {formattedDate}
+            <div className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground">
+              {getEventDayDiff(dateObj, activeTimezone) === 0 ? (
+                <>
+                  <Clock className="w-3 h-3" />
+                  {formatEventTime(activeLocale, activeTimezone, dateObj)}
+                </>
+              ) : (
+                formattedDate
+              )}
             </div>
           )}
           {!imgError && imageUrl ? (
@@ -258,7 +289,7 @@ export function EventCard({
 
         {variant === 'masonry' ? (
           <div className="p-3 flex-1 flex flex-col gap-2">
-            <h3 className="text-xl font-semibold leading-tight tracking-tight text-card-foreground line-clamp-2">
+            <h3 className="text-sm font-semibold leading-tight tracking-tight text-card-foreground line-clamp-2">
               {eventName}
             </h3>
             {locationName && (

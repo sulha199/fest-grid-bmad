@@ -319,8 +319,9 @@ describe('EventCard', () => {
       expect(screen.getByText(expectedAbsDate)).toBeInTheDocument();
     });
 
-    it('renders as top-left pill overlay in masonry variant only', () => {
+    it('shows the time (not the relative label) in the masonry pill when the event is today', () => {
       const today = new Date();
+      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(today);
       render(
         <EventCard
           eventName="Masonry Today"
@@ -330,9 +331,26 @@ describe('EventCard', () => {
         />
       );
 
-      const pill = screen.getByText('Today');
+      expect(screen.queryByText('Today')).not.toBeInTheDocument();
+      const pill = screen.getByText(expectedTime);
+      expect(pill.closest('div')).toHaveClass('absolute', 'top-3', 'left-3', 'rounded-full');
+    });
+
+    it('shows the relative date label (not a time) in the masonry pill when the event is not today', () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      render(
+        <EventCard
+          eventName="Masonry Tomorrow"
+          startDate={tomorrow}
+          variant="masonry"
+          locale="en-US"
+        />
+      );
+
+      const pill = screen.getByText('Tomorrow');
       expect(pill).toBeInTheDocument();
-      expect(pill).toHaveClass('absolute', 'top-3', 'left-3', 'rounded-full');
+      expect(pill.closest('div')).toHaveClass('absolute', 'top-3', 'left-3', 'rounded-full');
     });
   });
 
