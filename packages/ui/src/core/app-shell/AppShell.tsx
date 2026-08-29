@@ -190,6 +190,7 @@ export function AppShell({
               avatarUrl={avatarUrl}
               displayName={displayName}
               role={role}
+              moderatorPendingItemCount={moderatorPendingItemCount}
               onSignOut={onSignOut || (() => {})}
               renderLink={renderLink}
               labels={userMenuLabels || {}}
