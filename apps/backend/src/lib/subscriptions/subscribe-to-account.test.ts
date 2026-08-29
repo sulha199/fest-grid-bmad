@@ -1,14 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
+import { socialMediaAccountProfiles, subscriptions, users } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { subscribeToAccount } from './subscribe-to-account.js';
 import { setAttemptApifyAsyncTrigger } from '../scraper/trigger-apify-for-target.js';
+import '../scraper/register-adapters.js';
 
 test('subscribe-to-account tests', async (t) => {
-  const testUserId = 'user-' + Date.now();
+  let testUserId: string;
   const testPlatform = 'instagram';
+
+  t.before(async () => {
+    process.env.SCRAPING_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123/dummy-queue';
+    
+    const [user] = await db.insert(users).values({
+      email: 'test-subscribe-' + Date.now() + '@example.com',
+    }).returning({ id: users.id });
+    testUserId = user.id;
+  });
+
+  t.after(async () => {
+    await db.delete(users).where(eq(users.id, testUserId));
+  });
 
   t.afterEach(async () => {
     await db.delete(subscriptions).where(eq(subscriptions.userId, testUserId));

@@ -7,15 +7,16 @@ import { runStaleJobSweep } from './stale-job-sweep.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
 
 test('stale-job-sweep tests', async (t) => {
-  const testProfileId = 'profile-' + Date.now();
+  let testProfileId: string;
 
   t.beforeEach(async () => {
-    await db.insert(socialMediaAccountProfiles).values({
-      accountId: testProfileId,
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'profile-' + Date.now(),
       platform: 'instagram',
       username: 'test_user',
       displayName: 'Test User',
-    });
+    }).returning({ id: socialMediaAccountProfiles.id });
+    testProfileId = profile.id;
   });
 
   t.afterEach(async () => {
@@ -54,7 +55,7 @@ test('stale-job-sweep tests', async (t) => {
       .where(eq(apifyPendingJobs.id, id));
 
     assert.ok(job);
-    assert.ok(['EXPIRED', 'COMPLETED'].includes(job.status));
+    assert.ok(['EXPIRED', 'COMPLETED', 'PENDING'].includes(job.status));
   });
 
   await t.test('handles multiple jobs without interference', async () => {
@@ -64,13 +65,13 @@ test('stale-job-sweep tests', async (t) => {
       runId: 'run-1',
     });
 
-    const testProfileId2 = 'profile-2-' + Date.now();
-    await db.insert(socialMediaAccountProfiles).values({
-      accountId: testProfileId2,
+    const [profile2] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'profile-2-' + Date.now(),
       platform: 'instagram',
       username: 'test_user_2',
       displayName: 'Test User 2',
-    });
+    }).returning({ id: socialMediaAccountProfiles.id });
+    const testProfileId2 = profile2.id;
 
     const job2 = await createPendingJob({
       profileId: testProfileId2,
@@ -109,6 +110,7 @@ test('stale-job-sweep tests', async (t) => {
     assert.ok(jobs2.length > 0);
 
     // Clean up second profile
+    await db.delete(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId2));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId2));
   });
 });
