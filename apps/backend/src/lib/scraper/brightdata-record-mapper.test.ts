@@ -41,6 +41,8 @@ test('brightdata-record-mapper tests', async (t) => {
       image_url: 'https://example.com/img.jpg',
     };
 
+    const countStart = (await db.select().from(unprocessedScraperPayloads)).length;
+
     const candidate = await mapBrightDataRecordToScrapedPost(record);
 
     assert.ok(candidate);
@@ -50,7 +52,7 @@ test('brightdata-record-mapper tests', async (t) => {
     assert.strictEqual(candidate.publishedAt, '2026-08-08T00:00:00.000Z');
 
     const unprocessed = await db.select().from(unprocessedScraperPayloads);
-    assert.strictEqual(unprocessed.length, 0);
+    assert.strictEqual(unprocessed.length - countStart, 0);
   });
 
   await t.test('returns null and persists unprocessed payload for bad date_posted type', async () => {
@@ -61,14 +63,18 @@ test('brightdata-record-mapper tests', async (t) => {
       image_url: 'https://example.com/img.jpg',
     };
 
+    const countStart = (await db.select().from(unprocessedScraperPayloads)).length;
+
     const candidate = await mapBrightDataRecordToScrapedPost(record);
 
     assert.strictEqual(candidate, null);
 
     const unprocessed = await db.select().from(unprocessedScraperPayloads);
     
-    assert.strictEqual(unprocessed.length, 1);
-    const payloadContext = unprocessed[0].context as any;
+    assert.strictEqual(unprocessed.length - countStart, 1);
+    const newPayload = unprocessed.find(p => (p.context as any)?.postUrl === 'https://www.instagram.com/p/bad-date/');
+    assert.ok(newPayload);
+    const payloadContext = newPayload.context as any;
     assert.strictEqual(payloadContext.postUrl, 'https://www.instagram.com/p/bad-date/');
     assert.strictEqual(payloadContext.parserVersion, '3.4g');
   });
@@ -79,12 +85,14 @@ test('brightdata-record-mapper tests', async (t) => {
       date_posted: '2026-08-08T00:00:00Z',
     };
 
+    const countStart = (await db.select().from(unprocessedScraperPayloads)).length;
+
     const candidate = await mapBrightDataRecordToScrapedPost(record);
 
     assert.strictEqual(candidate, null);
 
     const unprocessed = await db.select().from(unprocessedScraperPayloads);
-    assert.strictEqual(unprocessed.length, 0);
+    assert.strictEqual(unprocessed.length - countStart, 0);
   });
 
   await t.test('returns null and persists unprocessed payload for failed AJV validation', async () => {
@@ -94,14 +102,18 @@ test('brightdata-record-mapper tests', async (t) => {
       date_posted: '2026-08-08T00:00:00Z',
     };
 
+    const countStart = (await db.select().from(unprocessedScraperPayloads)).length;
+
     const candidate = await mapBrightDataRecordToScrapedPost(record);
 
     assert.strictEqual(candidate, null);
 
     const unprocessed = await db.select().from(unprocessedScraperPayloads);
     
-    assert.strictEqual(unprocessed.length, 1);
-    const payloadContext = unprocessed[0].context as any;
+    assert.strictEqual(unprocessed.length - countStart, 1);
+    const newPayload = unprocessed.find(p => (p.context as any)?.postUrl === 'https://www.instagram.com/p/invalid/');
+    assert.ok(newPayload);
+    const payloadContext = newPayload.context as any;
     assert.strictEqual(payloadContext.postUrl, 'https://www.instagram.com/p/invalid/');
   });
 });
