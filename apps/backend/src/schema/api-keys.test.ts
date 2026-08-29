@@ -7,6 +7,7 @@ import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, apiKeys } from '@festgrid/database';
 import { eq, and } from 'drizzle-orm';
+import { setCallGeminiGenerateContent, callGeminiGenerateContent, GeminiInvalidKeyError } from '../lib/ai-gateway/gemini-client.js';
 
 // Read all required schema fragments dynamically from the schema directory
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -30,6 +31,16 @@ const yoga = createYoga({
 test('api keys resolvers integration', async (t) => {
   let testUser: any;
   let anotherUser: any;
+
+  const originalCall = callGeminiGenerateContent;
+  t.after(() => {
+    setCallGeminiGenerateContent(originalCall);
+  });
+
+  // Set default stub behavior to resolve successfully for non-verification tests
+  setCallGeminiGenerateContent(async () => {
+    return { text: 'ok' };
+  });
 
   await t.test('setup - get test users and clear existing data', async () => {
     const seededUsers = await db.select().from(users).limit(2);
@@ -308,5 +319,78 @@ test('api keys resolvers integration', async (t) => {
     const resultCrossDelete = await resCrossDelete.json();
     assert.ok(resultCrossDelete.errors);
     assert.strictEqual(resultCrossDelete.errors[0].extensions?.code, 'NOT_FOUND');
+  });
+
+  await t.test('createApiKey rejects with INVALID_API_KEY when verifyGeminiApiKey returns false', async () => {
+    setCallGeminiGenerateContent(async (apiKey) => {
+      if (apiKey === 'invalid-key-value') {
+        throw new GeminiInvalidKeyError('Invalid key');
+      }
+      return { text: 'ok' };
+    });
+
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            createApiKey(input: { provider: "gemini", key: "invalid-key-value" }) {
+              id
+            }
+          }
+        `
+      })
+    });
+    const result = await res.json();
+    assert.ok(result.errors, 'should be rejected');
+    assert.strictEqual(result.errors[0].message, 'Invalid Gemini API key');
+    assert.strictEqual(result.errors[0].extensions?.code, 'INVALID_API_KEY');
+
+    // Confirm not inserted in DB
+    const keys = await db.select().from(apiKeys).where(eq(apiKeys.userId, testUser.id));
+    const invalidInserted = keys.find(k => k.keyLast4 === 'alue'); // 'invalid-key-value'.slice(-4) => 'alue'
+    assert.ok(!invalidInserted, 'should not be inserted in db');
+  });
+
+  await t.test('createApiKey proceeds and persists when verification throws a non-invalid-key error (fail-open)', async () => {
+    setCallGeminiGenerateContent(async (apiKey) => {
+      if (apiKey === 'transient-error-key') {
+        throw new Error('Some DNS timeout error');
+      }
+      return { text: 'ok' };
+    });
+
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            createApiKey(input: { provider: "gemini", key: "transient-error-key" }) {
+              id
+              maskedKey
+              isValid
+            }
+          }
+        `
+      })
+    });
+    const result = await res.json();
+    assert.ok(!result.errors, 'should not fail because we fail open on transient errors: ' + JSON.stringify(result.errors));
+    assert.strictEqual(result.data.createApiKey.maskedKey, '••••-key');
+    assert.strictEqual(result.data.createApiKey.isValid, true);
+
+    // Confirm it exists in DB
+    const [dbRow] = await db.select().from(apiKeys).where(eq(apiKeys.id, result.data.createApiKey.id));
+    assert.ok(dbRow);
+    assert.strictEqual(dbRow.keyLast4, '-key'); // 'transient-error-key'.slice(-4) => '-key'
+
+    // Cleanup
+    await db.delete(apiKeys).where(eq(apiKeys.id, dbRow.id));
   });
 });
