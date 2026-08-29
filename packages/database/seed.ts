@@ -16,6 +16,8 @@ import {
   defaultLocationChangeRequests,
   corrections,
   scraperActorRuns,
+  brightdataPendingJobs,
+  apifyPendingJobs,
   unprocessedScraperPayloads,
   parserVersionRegistry,
 } from './schema';
@@ -918,7 +920,7 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
 
     await db.transaction(async (tx) => {
       // Explicit deletion order protects FK constraints and ensures deterministic reruns.
-      // These five have no ON DELETE CASCADE back to users/events/socialMediaAccountProfiles
+      // These tables have no ON DELETE CASCADE back to users/events/socialMediaAccountProfiles
       // (unlike favorites/calendarAdditions/fcmTokens, which do and so need no explicit
       // cleanup here), so they must be cleared before their referenced rows or the delete
       // below fails with a foreign-key-constraint violation.
@@ -932,6 +934,10 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
       await tx.delete(schedules);
       await tx.delete(events);
       await tx.delete(posts);
+      // brightdataPendingJobs/apifyPendingJobs reference both scraperActorRuns and
+      // socialMediaAccountProfiles, so they must be cleared before either.
+      await tx.delete(brightdataPendingJobs);
+      await tx.delete(apifyPendingJobs);
       await tx.delete(scraperActorRuns);
       await tx.delete(apiKeys);
       await tx.delete(subscriptions);

@@ -12,6 +12,8 @@ import {
   users,
   socialMediaAccountProfiles,
   reports,
+  brightdataPendingJobs,
+  apifyPendingJobs,
 } from './schema';
 import {
   FIXTURE_API_KEY_IDS,
@@ -219,6 +221,30 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       await sqlClient.end();
     }
 
+    // Simulate app code (a real scraper webhook) creating pending-job rows that
+    // reference a seeded profile between seed runs, reproducing the FK violation
+    // this fixture guards against: rerunning seedDatabase() must not fail with
+    // "brightdata_pending_jobs_profile_id_social_media_account_profiles_id_fk".
+    const pendingJobsSqlClient = createSqlClient(requiredDatabaseUrl);
+    const pendingJobsDb = drizzle(pendingJobsSqlClient);
+    try {
+      const seededProfileId = FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILE_IDS[0];
+      await pendingJobsDb.insert(brightdataPendingJobs).values({
+        profileId: seededProfileId,
+        snapshotId: 'integration-test-brightdata-snapshot',
+        webhookToken: 'integration-test-brightdata-token',
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      });
+      await pendingJobsDb.insert(apifyPendingJobs).values({
+        profileId: seededProfileId,
+        runId: 'integration-test-apify-run',
+        webhookToken: 'integration-test-apify-token',
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      });
+    } finally {
+      await pendingJobsSqlClient.end();
+    }
+
     await seedDatabase(requiredDatabaseUrl);
 
     const sqlClientAfterSecondRun = createSqlClient(requiredDatabaseUrl);
@@ -346,6 +372,17 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
         scheduleSlugRowsSecondRun.map((row) => row.slug).sort(),
         FIXTURE_SCHEDULE_SLUGS,
       );
+
+      // seedDatabase() clears brightdataPendingJobs/apifyPendingJobs rather than
+      // reseeding them, so the rows inserted above must be gone, not just non-blocking.
+      const [brightdataPendingJobCountSecondRun] = await dbAfterSecondRun
+        .select({ count: sql<number>`cast(count(*) as int)` })
+        .from(brightdataPendingJobs);
+      const [apifyPendingJobCountSecondRun] = await dbAfterSecondRun
+        .select({ count: sql<number>`cast(count(*) as int)` })
+        .from(apifyPendingJobs);
+      assert.equal(brightdataPendingJobCountSecondRun.count, 0);
+      assert.equal(apifyPendingJobCountSecondRun.count, 0);
     } finally {
       await sqlClientAfterSecondRun.end();
     }
