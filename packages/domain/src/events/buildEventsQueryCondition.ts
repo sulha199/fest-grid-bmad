@@ -39,17 +39,20 @@ export function resolveDateRangeFilter(
 ): { from: string; to: string } {
   const base = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), currentDate.getUTCDate()));
   let s = new Date(base), e = new Date(base);
-  const isMonthUnit = offsetUnit === 'MONTH' || offsetUnit === DateOffsetUnit.MONTH;
-  const isWeekUnit = offsetUnit === 'WEEK' || offsetUnit === DateOffsetUnit.WEEK;
+  // Compared against the plain string literal only (not also DateOffsetUnit.MONTH/DateAnchor.TODAY etc below):
+  // since this string enum's members' values equal their literal names, TS narrows the enum-member
+  // comparison as unreachable ("no overlap", TS2367) once the literal comparison has already run.
+  const isMonthUnit = offsetUnit === 'MONTH';
+  const isWeekUnit = offsetUnit === 'WEEK';
   const shiftDays = (a: Date, b: Date, days: number) => { a.setUTCDate(a.getUTCDate() + days); b.setUTCDate(b.getUTCDate() + days); };
   const applyDayOrWeekOffset = (a: Date, b: Date) => {
     if (isWeekUnit) shiftDays(a, b, offsetAmount * 7);
     else shiftDays(a, b, offsetAmount);
   };
-  if (anchor === 'TODAY' || anchor === DateAnchor.TODAY) {
+  if (anchor === 'TODAY') {
     if (isMonthUnit) { s.setUTCMonth(s.getUTCMonth() + offsetAmount); e.setUTCMonth(e.getUTCMonth() + offsetAmount); }
     else applyDayOrWeekOffset(s, e);
-  } else if (anchor === 'THIS_WEEK' || anchor === DateAnchor.THIS_WEEK) {
+  } else if (anchor === 'THIS_WEEK') {
     const day = base.getUTCDay();
     s.setUTCDate(s.getUTCDate() + (day === 0 ? -6 : 1 - day));
     e.setUTCDate(s.getUTCDate() + 6);
