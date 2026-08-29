@@ -27,7 +27,7 @@ A user with a saved Gemini API key can describe what they're looking for in a fr
   - It must not import from any specific UI package but rather operate purely on input data structures (`EventFilterInput`, `caveats` array, and `labels` interface).
   - Define the `labels` interface (`AIFilterSummaryLabels` or similar) in the same file or a co-located types file to dictate the required i18n strings (e.g. `{ freeEvents: "Free events", nearMe: "near me", in: "in", emptyFilter: "All events" }`).
 - **Data Type Compatibility Requirements:**
-  - `EventFilterInput` type shape must map to the GraphQL-generated structure from backend (or shared-types if defined there). However, since `packages/domain` cannot depend on `apps/backend/src/generated` directly to prevent cyclic/bloated dependencies, define an interface for the filter input inside the domain package matching the shape (e.g., `AIFilterSummaryInput`), or import the base types from `@festgrid/shared-types` if it's there.
+  - Do not invent a new filter-shape interface — `EventFilterInput` (plus `DateAnchor`/`DateOffsetUnit`/`DayOfWeek`/`LocationFilter`) is already defined in `packages/domain/src/events/buildEventsQueryCondition.ts` (Story 7.1a) and re-used as-is by Story 7.2a's `transformGeminiResponseToEventFilter` (`packages/domain/src/ai-event-filters/transform-gemini-response-to-event-filter.ts`) — import from there directly. No GraphQL-generated types are needed since this is a `packages/domain`-internal function operating on the same domain type its sibling functions already use.
   - No database migration or schema changes required for this story.
 - **Testing Requirements:**
   - `packages/domain` requires **100% unit test coverage**.
@@ -35,9 +35,9 @@ A user with a saved Gemini API key can describe what they're looking for in a fr
 
 ## 5. Tasks
 - [ ] 1. Define `AIFilterSummaryLabels` interface that captures all necessary static strings for building the sentence.
-- [ ] 2. Define `AIFilterSummaryInput` interface mimicking `EventFilterInput` to maintain type safety in `packages/domain` without cyclic imports.
+- [ ] 2. Import `EventFilterInput` (and `DateAnchor`/`DateOffsetUnit`/`DayOfWeek`) from `../events/buildEventsQueryCondition.js` — do not redefine the filter shape.
 - [ ] 3. Implement `renderAIFilterSummary(filter, caveats, labels)` in `packages/domain/src/ai-event-filters/render-ai-filter-summary.ts`.
-- [ ] 4. Implement formatting logic to chain clauses sensibly (e.g. "[Free] [Types] [Categories] about '[keyword]' by [accountId] [dateRange/dayOfWeek] [location]").
+- [ ] 4. Implement formatting logic to chain clauses in the AC-specified order: account, type/category, keyword, date range/day-of-week, admin-area-or-"near me", venue type, then "free events only" (e.g. "[accountId] [Types] [Categories] about '[keyword]' [dateRange/dayOfWeek] [location] [venueType] [Free]").
 - [ ] 5. Implement caveat appending logic (e.g. returning an object with `{ summary: string, caveatsText?: string }` or a formatted string block).
 - [ ] 6. Write comprehensive unit tests in `render-ai-filter-summary.test.ts` covering all branching and empty states to achieve 100% coverage.
 - [ ] 7. Export the function from `packages/domain/src/index.ts`.
