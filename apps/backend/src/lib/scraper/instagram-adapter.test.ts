@@ -86,6 +86,7 @@ test('instagram-adapter tests', async (t) => {
           id: '98765',
           fullName: 'Test Display Name',
           username: 'test_username',
+          biography: 'Test Biography',
           profilePicUrl: 'https://img.com/pic.jpg',
         },
       ];
@@ -167,6 +168,70 @@ test('instagram-adapter tests', async (t) => {
         },
       ];
       return response as any; // ActorOutputFor<T> inferred from context
+    });
+    const result = await instagramScraperAdapter.lookupAccountProfile('test_user');
+    assert.strictEqual(result, null);
+  });
+
+  await t.test('getPostByUrl returns null for item missing timestamp', async () => {
+    setCallApifyActor(async (actorId) => {
+      const response = [
+        {
+          url: 'https://www.instagram.com/p/missing_fields/',
+          id: '12345',
+          caption: 'Test caption',
+          displayUrl: 'https://example.com/img.jpg',
+        },
+      ];
+      return response as any;
+    });
+    const result = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/missing_fields/');
+    assert.strictEqual(result, null);
+  });
+
+  await t.test('getPostByUrl returns null for item missing caption', async () => {
+    setCallApifyActor(async (actorId) => {
+      const response = [
+        {
+          url: 'https://www.instagram.com/p/missing_fields/',
+          id: '12345',
+          timestamp: '2026-08-08T00:00:00Z',
+          displayUrl: 'https://example.com/img.jpg',
+        },
+      ];
+      return response as any;
+    });
+    const result = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/missing_fields/');
+    assert.strictEqual(result, null);
+  });
+
+  await t.test('lookupAccountProfile returns null for item missing biography', async () => {
+    setCallApifyActor(async (actorId) => {
+      const response = [
+        {
+          id: '98765',
+          username: 'test_user',
+          fullName: 'Test User',
+          profilePicUrl: 'https://example.com/pic.jpg',
+        },
+      ];
+      return response as any;
+    });
+    const result = await instagramScraperAdapter.lookupAccountProfile('test_user');
+    assert.strictEqual(result, null);
+  });
+
+  await t.test('lookupAccountProfile returns null for item missing fullName', async () => {
+    setCallApifyActor(async (actorId) => {
+      const response = [
+        {
+          id: '98765',
+          username: 'test_user',
+          biography: 'Test Bio',
+          profilePicUrl: 'https://example.com/pic.jpg',
+        },
+      ];
+      return response as any;
     });
     const result = await instagramScraperAdapter.lookupAccountProfile('test_user');
     assert.strictEqual(result, null);

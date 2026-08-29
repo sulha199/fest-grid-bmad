@@ -279,11 +279,11 @@ function isNotFoundItem(item: any, kind: 'post' | 'profile'): boolean {
   // For posts: must have both caption AND timestamp
   // For profiles: must have both fullName AND biography
   if (kind === 'post') {
-    if (!item.caption && !item.timestamp) {
+    if (!item.caption || !item.timestamp) {
       return true;
     }
   } else if (kind === 'profile') {
-    if (!item.fullName && !item.biography) {
+    if (!item.fullName || !item.biography) {
       return true;
     }
   }
