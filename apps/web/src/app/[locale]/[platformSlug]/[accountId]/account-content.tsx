@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, ViewModeToggle } from "@festgrid/ui";
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, ViewModeToggle, AccountAvatar } from "@festgrid/ui";
 import { EventCategory, EventType } from "@festgrid/shared-types";
 import { GetEventsDocument, GetEventsQuery, useToggleFavoriteMutation } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
@@ -226,13 +226,12 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
     <PageContainer>
       {/* Account Profile Header */}
       <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 bg-slate-50 dark:bg-slate-900/50 p-6 rounded-2xl border border-slate-200/60 dark:border-slate-800">
-        {profile.profileImageUrl && (
-          <img
-            src={profile.profileImageUrl}
-            alt={profile.displayName}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border border-slate-200 dark:border-slate-800 shrink-0"
-          />
-        )}
+        <AccountAvatar
+          profileImageUrl={profile.profileImageUrl}
+          displayName={profile.displayName}
+          username={profile.username}
+          size="lg"
+        />
         <div className="text-center sm:text-left space-y-2">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{profile.displayName}</h1>
           {profile.description && (

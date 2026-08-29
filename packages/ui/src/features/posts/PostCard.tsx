@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Instagram, Link, ExternalLink, User } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import { Checkbox } from '../../core/checkbox';
+import { AccountAvatar } from '../../core/account-avatar';
 import type { PostCardProps, PostCardSkeletonProps } from './PostCard.types';
 
 const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
@@ -116,17 +117,10 @@ export function PostCard({
 
       {/* Header section with Publisher info */}
       <div className="flex items-center gap-3 mb-3 pr-10">
-        {publisher?.profileImageUrl ? (
-          <img
-            src={publisher.profileImageUrl}
-            alt={publisherName}
-            className="w-10 h-10 rounded-full object-cover border border-border"
-          />
-        ) : (
-          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center border border-border text-muted-foreground">
-            <User className="w-5 h-5" />
-          </div>
-        )}
+        <AccountAvatar
+          profileImageUrl={publisher?.profileImageUrl}
+          displayName={publisherName}
+        />
         <div className="flex flex-col min-w-0">
           <span className="font-semibold text-sm truncate text-foreground leading-tight">
             {publisherName}

@@ -9,6 +9,8 @@ export * from './core/checkbox.types';
 export * from './core/blocking-loader';
 export * from './core/page-container';
 export * from './core/page-header';
+export * from './core/account-avatar';
+
 export * from './core/grid-container';
 export * from './core/route-loader';
 export * from './core/WeekPicker';

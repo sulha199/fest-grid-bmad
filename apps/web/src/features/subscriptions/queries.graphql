@@ -8,6 +8,7 @@ query getMySubscriptions {
     pendingExtractionCount
     account {
       id
+      accountId
       platform
       displayName
       username
