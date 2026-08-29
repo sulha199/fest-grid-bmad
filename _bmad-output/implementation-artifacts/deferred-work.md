@@ -59,18 +59,22 @@ This file tracks work deferred from development stories, code reviews, and plann
 - source_spec: `_bmad-output/implementation-artifacts/spec-fix-missing-platform-field-in-post-inserts.md`
   summary: `mapApifyItemToScrapedPost()` in process-apify-async-result.ts is called without await, causing the result to be a Promise instead of a ScrapedPost object.
   evidence: Pre-existing bug in line 16 of process-apify-async-result.ts. The check 'if (!post)' on line 17 will always be false (Promises are truthy), causing validation failures to be silently ignored. Surfaced by code review of the platform-field fix.
+  **CORRECTED (2026-08-29):** Re-checked against current code while triaging this file — `process-apify-async-result.ts`'s call already reads `const post = await mapApifyItemToScrapedPost(item);` with the `await` present. No longer reproduces; closing as already-resolved (likely fixed incidentally by an unrelated later change, not separately tracked). No action taken.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-fix-missing-platform-field-in-post-inserts.md`
   summary: instagram-adapter.ts line 234 uses AND logic ('if (!item.caption && !item.timestamp)') instead of OR to validate posts, allowing incomplete posts with either field missing to pass through.
   evidence: Pre-existing bug. According to the comment, both caption AND timestamp are required, but AND logic only detects missing posts when BOTH are absent. A post with caption but no timestamp passes through as valid despite violating the schema. Surfaced by code review.
+  **RESOLVED (2026-08-29):** Fixed via cline-cli (gemini-3.1-pro-preview) in an isolated worktree (`fix/tier1-deferred-batch`), independently reviewed and reverified before merge (commit bf5126c, merged to master `4e4f221`). `isNotFoundItem()`'s post-validation condition changed from `&&` to `||`, matching its own comment's stated contract. Also fixed the identical profile-validation bug below in the same commit. Independently reran `src/lib/scraper/instagram-adapter.test.ts` directly (not via `pnpm test`, which does not reach this file — see the glob-bug entry below) both in the worktree and on master post-merge: 21/21 pass, including 2 pre-existing "both fields missing" cases (still pass under the new `||` logic) and 4 new "only one field missing" cases the dispatch added. `pnpm --filter backend lint` showed no new warnings in either touched file. A third, pre-existing test (profile-lookup fixture lacking `biography`) would have broken under the corrected logic; the dispatch caught this and added the missing field to keep that fixture's original "valid profile" intent correct — reviewed and confirmed sound, not a workaround.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-fix-missing-platform-field-in-post-inserts.md`
   summary: instagram-adapter.ts line 238 uses AND logic ('if (!item.fullName && !item.biography)') instead of OR to validate profiles, allowing incomplete profiles with either field missing to pass through.
   evidence: Pre-existing bug. Valid profiles require both fullName AND biography, but AND logic only detects missing profiles when BOTH are absent. A profile with only one field passes through as valid, allowing malformed data into the database. Surfaced by code review.
+  **RESOLVED (2026-08-29):** Fixed in the same commit as the post-validation bug directly above — see that entry for detail.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-fix-missing-platform-field-in-post-inserts.md`
   summary: instagram-adapter.ts line 300 calls recordProviderUsage with items.length instead of mappedPosts.length, counting unfiltered items including those that failed validation.
   evidence: Pre-existing bug. The mappedPosts array (line 297) contains only successfully validated posts, but usage accounting counts all items in the unfiltered array. This inflates vendor usage metrics by billing for items that failed validation and were never persisted. Surfaced by code review.
+  **CORRECTED (2026-08-29):** Re-checked while triaging this file — this is not a bug. `instagram-adapter.test.ts`'s "getNewestPosts filters out invalid items and returns only valid ones" test explicitly asserts usage is recorded for the raw `items.length` (3), with an inline comment: "Verify usage recorded for all 3 items (Apify bills regardless of validation)." That's a deliberate, tested design choice — Apify's own billing is presumably per item returned by the actor regardless of what our AJV validation later does with it, so `items.length` is the correct count for capacity/budget tracking, not `mappedPosts.length`. The original code-review finding appears to have assumed "usage" meant "successfully persisted posts" rather than "vendor-billed items" — closing as invalid, no code change made.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-fix-missing-platform-field-in-post-inserts.md`
   summary: process-brightdata-result.ts line 27 uses an unchecked type assertion ('as string') on brightDataRecord.date_posted, masking potential type mismatches with the API.
@@ -168,17 +172,6 @@ This file tracks work deferred from development stories, code reviews, and plann
 - Unbounded Query Result Size: myAIEventFilters query returns a flat array and the resolver does not enforce pagination or a maximum limit.
 - No Limit on Maximum Filters per User: saveAIEventFilter indiscriminately inserts new rows into the database without a per-user quota check.
 - Unhandled Exceptions Bubbling to Client: Exceptions like database constraint violations are not mapped to predictable GraphQLError formats.
--  
- C a v e a t s  
- e m p t y  
- s t r i n g s  
- h a n d l i n g  
- [ p a c k a g e s / d o m a i n / s r c / a i - e v e n t - f i l t e r s / r e n d e r - a i - f i l t e r - s u m m a r y . t s : 1 3 4 ]  
-   
- d e f e r r e d  
- p r e - e x i s t i n g  
- .  
- 
 
 ## Deferred from: code review of 7-3-build-the-reusable-ai-filter-summary-renderer.md (2026-08-29)
 - Caveats empty strings handling [packages/domain/src/ai-event-filters/render-ai-filter-summary.ts:134] — deferred, pre-existing (code joins empty strings verbatim, technically matching AC).
