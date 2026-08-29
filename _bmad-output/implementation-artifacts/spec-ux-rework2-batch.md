@@ -87,4 +87,78 @@ baseline_commit: 'c9ed20813d3d8c4d134ec1e3b184f160fa513ad9'
 - `pnpm --filter web test nearby subscriptions-content posts-select-content` -- targeted frontend tests pass (update fixtures for the removed auto-apply and new navigation/avatar behavior).
 - `pnpm --filter backend test` (targeted files touched: `process-ai-job`, `resolvers`/`api-keys`, `gemini-client`) -- backend tests pass, including a new case for `verifyGeminiApiKey` rejecting an invalid key.
 
+## Suggested Review Order
+
+**Onboarding redirect race (cache-key fix)**
+
+- Root cause: `undefined` vs `{}` as the no-op query-variables argument silently forks the React Query cache key.
+  [`posts-select-content.tsx:46`](../../apps/web/src/app/[locale]/posts/select/posts-select-content.tsx#L46)
+
+- Same fix applied so the settings page reads the wizard's already-updated cache entry.
+  [`subscriptions-content.tsx:41`](../../apps/web/src/app/[locale]/settings/account/subscriptions-content.tsx#L41)
+
+- Same fix for the API-key guard's own query.
+  [`api-keys-content.tsx:42`](../../apps/web/src/app/[locale]/settings/account/api-keys-content.tsx#L42)
+
+**Discovery nearby-filter opt-in (Story 2.5 amendment)**
+
+- First-visit auto-apply/geolocation-prompt effect removed; filter now only activates explicitly.
+  [`use-nearby-filter.ts:104`](../../apps/web/src/app/[locale]/use-nearby-filter.ts#L104)
+
+- Story 2.5's AC4/AC5 marked superseded with a dated amendment note, since this removal deleted formally-specced behavior.
+  [`2-5-find-nearby-events.md:4`](./2-5-find-nearby-events.md#L4)
+
+**Gemini API-key validation on add**
+
+- New verification call reusing the existing lite-model adapter, no new model config.
+  [`gemini-client.ts:99`](../../apps/backend/src/lib/ai-gateway/gemini-client.ts#L99)
+
+- `createApiKey` rejects only on a definitive invalid-key result; fails open on transient errors.
+  [`resolvers.ts:214`](../../apps/backend/src/schema/resolvers.ts#L214)
+
+**Auto location-inference after event extraction**
+
+- Reuses the existing, already-idempotent backfill seam right after a successful extraction.
+  [`process-ai-job.ts:127`](../../apps/backend/src/lib/ai-processor/process-ai-job.ts#L127)
+
+**Shared AccountAvatar component**
+
+- New component: Instagram-style placeholder fallback, resets on a new `profileImageUrl` (review fix).
+  [`account-avatar.tsx:30`](../../packages/ui/src/core/account-avatar.tsx#L30)
+
+- `queries.graphql` gains the external `accountId` field needed by the new consumers/navigation.
+  [`queries.graphql:11`](../../apps/web/src/features/subscriptions/queries.graphql#L11)
+
+**Subscribed Accounts row navigation**
+
+- Click-through to the account page, plus keyboard access and swipe-drag/unknown-platform guards (review fixes).
+  [`subscriptions-content.tsx:97`](../../apps/web/src/app/[locale]/settings/account/subscriptions-content.tsx#L97)
+
+**Masonry view polish**
+
+- Badge always renders now; switches between relative date and time/clock based on a single `dayDiff` computation.
+  [`EventCard.tsx:268`](../../packages/ui/src/features/events/EventCard.tsx#L268)
+
+- Masonry-specific grid gap, independent of the standard grid's.
+  [`EventListView.tsx:22`](../../packages/ui/src/features/events/EventListView.tsx#L22)
+
+**User menu moderator badge**
+
+- Desktop `<UserMenu>` instance now forwards the count prop the mobile instance already had.
+  [`AppShell.tsx:193`](../../packages/ui/src/core/app-shell/AppShell.tsx#L193)
+
+**Peripherals**
+
+- New test coverage for the badge-recovery fix.
+  [`account-avatar.test.tsx`](../../packages/ui/src/core/account-avatar.test.tsx)
+
+- New/updated masonry badge tests (today vs. not-today content).
+  [`EventCard.test.tsx`](../../packages/ui/src/features/events/EventCard.test.tsx)
+
+- Fixed an AJV-invalid mock that made a backfill-skip assertion pass for the wrong reason.
+  [`process-ai-job.test.ts:734`](../../apps/backend/src/lib/ai-processor/process-ai-job.test.ts#L734)
+
+- Replaced a coincidental string-suffix assertion with a row-count check.
+  [`api-keys.test.ts:352`](../../apps/backend/src/schema/api-keys.test.ts#L352)
+
 </frozen-after-approval>
