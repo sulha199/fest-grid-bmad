@@ -77,4 +77,15 @@ content = content.replace(/export type UnprocessedPayloadFilters = \{\r?\n\s+cre
 content = content.replace(/export type ProposedEventCorrectionInput = \{\r?\n\s+categories\:\s+Array<EventCategory>;\r?\n\s+contactInfo\?\:\s+string[\s\S]*?\};\r?\n/g, '');
 content = content.replace(/export type ProposedScheduleCorrectionInput = \{\r?\n\s+eventEndDate\?\:\s+string\s\|[\s\S]*?\};\r?\n/g, '');
 
+// Replace duplicate DateAnchor, DateOffsetUnit and DayOfWeek (union-type re-declarations of the enums above)
+content = content.replace(/export type DateAnchor =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type DateOffsetUnit =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type DayOfWeek =[\s\S]*?;\r?\n/g, '');
+
+// Replace duplicate CoordinatesInput, DateRangeFilterInput, EventFilterInput and LocationFilterInput
+content = content.replace(/export type CoordinatesInput = \{\r?\n\s+lat: number;[\s\S]*?\};\r?\n/g, '');
+content = content.replace(/export type DateRangeFilterInput = \{\r?\n\s+anchor: DateAnchor;\r?\n\s+offsetAmount: number;[\s\S]*?\};\r?\n/g, '');
+content = content.replace(/export type EventFilterInput = \{\r?\n\s+accountId\?\: string \| number \| null \| undefined;[\s\S]*?\};\r?\n/g, '');
+content = content.replace(/export type LocationFilterInput = \{\r?\n\s+adminArea\?\: string \| null \| undefined;[\s\S]*?\};\r?\n/g, '');
+
 fs.writeFileSync(file, content);

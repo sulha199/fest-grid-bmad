@@ -1,10 +1,19 @@
-- store post's reel/video, and prioritize video in event detail rather than the image. The image will still be the skeleton loader.
-- correct the image/video aspect-ratio in the image detail
-- fix user avatar that looks narrow in navbar, show as rounded image
-- remove login button in discovery page
-- missed favorites count beside favorite icon
-- missing label menu archive & manual post selection
-- manual post selection should be disabled when api keys are empty -> should be disabled via menu or use redirect to onboarding wizard
-- missing widget menu
-- calendar view item misses the favorite icon + count
-- filterhub button for type, category, nearby should have inline `x` button, so its easily cleared
+- masonry view 
+  - should have less gap, 
+  - smaller event title's font size
+  - time/click is only shown for today's event.  
+- onboarding wizard:
+  - when user click complete(last step), sometimes there is data delay which causes user to be redirected back to wizard because of the onboarding guard has not received the update
+- user menu 
+  - when user menu is opened, the `moderator items` menu doesnt show the items count in desktop view
+- discovery page
+  - disable auto redirect to nearby filter
+- post selection page
+  - the the page should also check the last scrape run to see whether the account is really inactive or just there is run in progress or no run at all (put to deferred for better planning)
+  - use instagram image if we dont have the account's profile picture
+- Subscribed Accounts page
+  - use instagram image if we dont have the account's profile picture, probably create shared account-image component based on this trait
+  - if an account is clicked, it should open the account page like http://localhost:3000/en/ig/2237970730
+- after extracting an event from a post, if the related account doesnt have default location, run the ai-extract location automatically
+- i don't see the button to run the ai-filter-creation in all the event list
+- when adding an gemini api-key, run one small gemini call using the least model to verify if the key is valid

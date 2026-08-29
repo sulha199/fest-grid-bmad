@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-08-23T00:00:00Z
+# last_updated: 2026-08-29T16:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-08-27T08:15:00Z
+last_updated: 2026-08-29T16:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -979,7 +979,7 @@ development_status:
   # actually implicated in the bug -- never creates a pendingJobs row at all. Followed by 3-4k
   # (moderator UI). See story file Dev Notes for full evidence trail.
   3-4j-capture-scraper-actor-run-audit-trail-and-replay-by-run-id: review
-  last_updated: 2026-08-19
+  last_updated: 2026-08-29T16:00:00Z
   # added 2026-08-19 via bmad-create-story: split from 3-4j following the 3-4h/3-4i backend/
   # frontend precedent (Gate 2 finding). Extracts a new RawJsonViewer packages/ui component --
   # genuine reuse evidence vs. Story 3-4i's own inline (never extracted) raw-JSON display.
@@ -1672,8 +1672,8 @@ development_status:
   # Story 7.1a-7.5) per user's explicit request to skip bmad-create-epics-and-stories
   # (its Step 1 overwrites epics.md wholesale), matching the established precedent for
   # Epic 6's own direct append. Nothing implemented yet -- all five stories backlog.
-  epic-7: backlog
-  7-1a-build-the-shared-eventfilterinput-query-layer: backlog
+  epic-7: in-progress
+  7-1a-build-the-shared-eventfilterinput-query-layer: done
   7-2a-build-the-ai-event-filter-backend-graphql-api-layer: backlog
   7-3-build-the-reusable-ai-filter-summary-renderer: backlog
   7-4-add-the-ai-filter-prompt-entry-point-to-filterhub: backlog

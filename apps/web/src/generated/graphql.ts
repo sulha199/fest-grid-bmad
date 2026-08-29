@@ -106,6 +106,11 @@ export type Coordinates = {
   lng: Scalars['Float']['output'];
 };
 
+export type CoordinatesInput = {
+  lat: Scalars['Float']['input'];
+  lng: Scalars['Float']['input'];
+};
+
 export type Correction = {
   __typename?: 'Correction';
   createdAt: Scalars['String']['output'];
@@ -146,9 +151,44 @@ export type CreateUserLocationInput = {
 
 export type CreateWidgetInput = {
   displayMode?: InputMaybe<WidgetDisplayMode>;
-  filters: Scalars['JSON']['input'];
+  filters: EventFilterInput;
   theme?: InputMaybe<WidgetTheme>;
 };
+
+export enum DateAnchor {
+  ThisMonth = 'THIS_MONTH',
+  ThisWeek = 'THIS_WEEK',
+  Today = 'TODAY'
+}
+
+export enum DateOffsetUnit {
+  Day = 'DAY',
+  Month = 'MONTH',
+  Week = 'WEEK'
+}
+
+export type DateRangeFilter = {
+  __typename?: 'DateRangeFilter';
+  anchor: DateAnchor;
+  offsetAmount: Scalars['Int']['output'];
+  offsetUnit: DateOffsetUnit;
+};
+
+export type DateRangeFilterInput = {
+  anchor: DateAnchor;
+  offsetAmount: Scalars['Int']['input'];
+  offsetUnit: DateOffsetUnit;
+};
+
+export enum DayOfWeek {
+  Fri = 'FRI',
+  Mon = 'MON',
+  Sat = 'SAT',
+  Sun = 'SUN',
+  Thu = 'THU',
+  Tue = 'TUE',
+  Wed = 'WED'
+}
 
 export enum DefaultLocationChangeAction {
   Accept = 'ACCEPT',
@@ -255,6 +295,31 @@ export type EventConnection = {
   totalCount: Scalars['Int']['output'];
 };
 
+export type EventFilter = {
+  __typename?: 'EventFilter';
+  accountId?: Maybe<Scalars['ID']['output']>;
+  categories?: Maybe<Array<EventCategory>>;
+  dateRange?: Maybe<DateRangeFilter>;
+  dayOfWeek?: Maybe<DayOfWeek>;
+  isFree?: Maybe<Scalars['Boolean']['output']>;
+  keyword?: Maybe<Scalars['String']['output']>;
+  location?: Maybe<LocationFilter>;
+  types?: Maybe<Array<EventType>>;
+  venueType?: Maybe<Scalars['String']['output']>;
+};
+
+export type EventFilterInput = {
+  accountId?: InputMaybe<Scalars['ID']['input']>;
+  categories?: InputMaybe<Array<EventCategory>>;
+  dateRange?: InputMaybe<DateRangeFilterInput>;
+  dayOfWeek?: InputMaybe<DayOfWeek>;
+  isFree?: InputMaybe<Scalars['Boolean']['input']>;
+  keyword?: InputMaybe<Scalars['String']['input']>;
+  location?: InputMaybe<LocationFilterInput>;
+  types?: InputMaybe<Array<EventType>>;
+  venueType?: InputMaybe<Scalars['String']['input']>;
+};
+
 
 export enum EventType {
   Civic = 'CIVIC',
@@ -300,12 +365,29 @@ export enum GeolocationProvider {
 
 export type LocationDetails = {
   __typename?: 'LocationDetails';
+  adminArea?: Maybe<Scalars['String']['output']>;
+  city?: Maybe<Scalars['String']['output']>;
   coordinates: Coordinates;
   formattedAddress?: Maybe<Scalars['String']['output']>;
   placeId?: Maybe<Scalars['String']['output']>;
   placeName?: Maybe<Scalars['String']['output']>;
   provider?: Maybe<GeolocationProvider>;
+  province?: Maybe<Scalars['String']['output']>;
   timezone?: Maybe<Scalars['String']['output']>;
+  venueType?: Maybe<Scalars['String']['output']>;
+};
+
+export type LocationFilter = {
+  __typename?: 'LocationFilter';
+  adminArea?: Maybe<Scalars['String']['output']>;
+  coordinates?: Maybe<Coordinates>;
+  radiusMeters?: Maybe<Scalars['Int']['output']>;
+};
+
+export type LocationFilterInput = {
+  adminArea?: InputMaybe<Scalars['String']['input']>;
+  coordinates?: InputMaybe<CoordinatesInput>;
+  radiusMeters?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type Me = {
@@ -736,6 +818,7 @@ export type QueryEventBySlugArgs = {
 
 
 export type QueryEventsArgs = {
+  filter?: InputMaybe<EventFilterInput>;
   includeMyArchived?: InputMaybe<Scalars['Boolean']['input']>;
   includeSoftDeleted?: InputMaybe<Scalars['Boolean']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
@@ -1056,7 +1139,7 @@ export type UpdateUserSettingsInput = {
 
 export type UpdateWidgetInput = {
   displayMode?: InputMaybe<WidgetDisplayMode>;
-  filters?: InputMaybe<Scalars['JSON']['input']>;
+  filters?: InputMaybe<EventFilterInput>;
   theme?: InputMaybe<WidgetTheme>;
 };
 
@@ -1099,7 +1182,7 @@ export type Widget = {
   createdAt: Scalars['String']['output'];
   deletedAt?: Maybe<Scalars['String']['output']>;
   displayMode: WidgetDisplayMode;
-  filters: Scalars['JSON']['output'];
+  filters: EventFilter;
   id: Scalars['ID']['output'];
   ownerUserId: Scalars['ID']['output'];
   theme: WidgetTheme;
@@ -1114,6 +1197,13 @@ export enum WidgetTheme {
   Dark = 'DARK',
   Light = 'LIGHT'
 }
+
+
+
+
+
+
+
 
 
 
@@ -1587,7 +1677,7 @@ export type CreateWidgetMutationVariables = Exact<{
 }>;
 
 
-export type CreateWidgetMutation = { createWidget: { id: string, ownerUserId: string, filters: unknown, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string } };
+export type CreateWidgetMutation = { createWidget: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } };
 
 export type UpdateWidgetMutationVariables = Exact<{
   id: string | number;
@@ -1595,7 +1685,7 @@ export type UpdateWidgetMutationVariables = Exact<{
 }>;
 
 
-export type UpdateWidgetMutation = { updateWidget: { id: string, ownerUserId: string, filters: unknown, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string } };
+export type UpdateWidgetMutation = { updateWidget: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } };
 
 export type DeleteWidgetMutationVariables = Exact<{
   id: string | number;
@@ -1608,14 +1698,14 @@ export type DeleteWidgetMutation = { deleteWidget: { id: string, deletedAt: stri
 export type MyWidgetsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type MyWidgetsQuery = { myWidgets: Array<{ id: string, ownerUserId: string, filters: unknown, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string }> };
+export type MyWidgetsQuery = { myWidgets: Array<{ id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } }> };
 
 export type WidgetByIdQueryVariables = Exact<{
   id: string | number;
 }>;
 
 
-export type WidgetByIdQuery = { widgetById: { id: string, ownerUserId: string, filters: unknown, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string } | null };
+export type WidgetByIdQuery = { widgetById: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } | null };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -3617,7 +3707,28 @@ export const CreateWidgetDocument = new TypedDocumentString(`
   createWidget(input: $input) {
     id
     ownerUserId
-    filters
+    filters {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
     displayMode
     theme
     createdAt
@@ -3647,7 +3758,28 @@ export const UpdateWidgetDocument = new TypedDocumentString(`
   updateWidget(id: $id, input: $input) {
     id
     ownerUserId
-    filters
+    filters {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
     displayMode
     theme
     createdAt
@@ -3703,7 +3835,28 @@ export const MyWidgetsDocument = new TypedDocumentString(`
   myWidgets {
     id
     ownerUserId
-    filters
+    filters {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
     displayMode
     theme
     createdAt
@@ -3734,7 +3887,28 @@ export const WidgetByIdDocument = new TypedDocumentString(`
   widgetById(id: $id) {
     id
     ownerUserId
-    filters
+    filters {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
     displayMode
     theme
     createdAt

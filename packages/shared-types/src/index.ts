@@ -66,6 +66,8 @@ export interface LocationDetails {
   provider?: GeolocationProvider;
   city?: string;
   province?: string;
+  adminArea?: string;
+  venueType?: string;
 }
 
 export interface Schedule {

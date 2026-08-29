@@ -52,6 +52,10 @@ type LocationDetails {
   placeId: String
   formattedAddress: String
   timezone: String
+  city: String
+  province: String
+  adminArea: String
+  venueType: String
 }
 
 type Schedule {
@@ -119,7 +123,7 @@ input EventQueryConditionInput {
 }
 
 extend type Query {
-  events(query: EventQueryConditionInput, limit: Int, offset: Int, includeSoftDeleted: Boolean, includeMyArchived: Boolean): EventConnection!
+  events(query: EventQueryConditionInput, filter: EventFilterInput, limit: Int, offset: Int, includeSoftDeleted: Boolean, includeMyArchived: Boolean): EventConnection!
   event(id: ID!, includeMyArchived: Boolean): Event
   eventBySlug(slug: String!, includeMyArchived: Boolean): Event
 }
@@ -134,4 +138,79 @@ extend type Mutation {
   restoreEvent(id: ID!, action: SoftDeleteAction!): Event!
   deleteEventPermanently(id: ID!): Boolean!
   resolveScheduleTimezone(scheduleId: ID!, timezone: String!): ResolveScheduleTimezoneResult!
+}
+
+enum DateAnchor {
+  TODAY
+  THIS_WEEK
+  THIS_MONTH
+}
+
+enum DateOffsetUnit {
+  DAY
+  WEEK
+  MONTH
+}
+
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+input DateRangeFilterInput {
+  anchor: DateAnchor!
+  offsetAmount: Int!
+  offsetUnit: DateOffsetUnit!
+}
+
+input CoordinatesInput {
+  lat: Float!
+  lng: Float!
+}
+
+input LocationFilterInput {
+  coordinates: CoordinatesInput
+  radiusMeters: Int
+  adminArea: String
+}
+
+input EventFilterInput {
+  accountId: ID
+  types: [EventType!]
+  categories: [EventCategory!]
+  keyword: String
+  dateRange: DateRangeFilterInput
+  dayOfWeek: DayOfWeek
+  location: LocationFilterInput
+  venueType: String
+  isFree: Boolean
+}
+
+type DateRangeFilter {
+  anchor: DateAnchor!
+  offsetAmount: Int!
+  offsetUnit: DateOffsetUnit!
+}
+
+type LocationFilter {
+  coordinates: Coordinates
+  radiusMeters: Int
+  adminArea: String
+}
+
+type EventFilter {
+  accountId: ID
+  types: [EventType!]
+  categories: [EventCategory!]
+  keyword: String
+  dateRange: DateRangeFilter
+  dayOfWeek: DayOfWeek
+  location: LocationFilter
+  venueType: String
+  isFree: Boolean
 }

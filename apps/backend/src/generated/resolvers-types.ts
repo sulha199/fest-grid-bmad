@@ -93,6 +93,11 @@ export type Coordinates = {
   lng: Scalars['Float']['output'];
 };
 
+export type CoordinatesInput = {
+  lat: Scalars['Float']['input'];
+  lng: Scalars['Float']['input'];
+};
+
 export type Correction = {
   __typename?: 'Correction';
   createdAt: Scalars['String']['output'];
@@ -131,9 +136,41 @@ export type CreateUserLocationInput = {
 
 export type CreateWidgetInput = {
   displayMode?: InputMaybe<WidgetDisplayMode>;
-  filters: Scalars['JSON']['input'];
+  filters: EventFilterInput;
   theme?: InputMaybe<WidgetTheme>;
 };
+
+export type DateAnchor =
+  | 'THIS_MONTH'
+  | 'THIS_WEEK'
+  | 'TODAY';
+
+export type DateOffsetUnit =
+  | 'DAY'
+  | 'MONTH'
+  | 'WEEK';
+
+export type DateRangeFilter = {
+  __typename?: 'DateRangeFilter';
+  anchor: DateAnchor;
+  offsetAmount: Scalars['Int']['output'];
+  offsetUnit: DateOffsetUnit;
+};
+
+export type DateRangeFilterInput = {
+  anchor: DateAnchor;
+  offsetAmount: Scalars['Int']['input'];
+  offsetUnit: DateOffsetUnit;
+};
+
+export type DayOfWeek =
+  | 'FRI'
+  | 'MON'
+  | 'SAT'
+  | 'SUN'
+  | 'THU'
+  | 'TUE'
+  | 'WED';
 
 export type DefaultLocationChangeAction =
   | 'ACCEPT'
@@ -236,6 +273,31 @@ export type EventConnection = {
   totalCount: Scalars['Int']['output'];
 };
 
+export type EventFilter = {
+  __typename?: 'EventFilter';
+  accountId?: Maybe<Scalars['ID']['output']>;
+  categories?: Maybe<Array<EventCategory>>;
+  dateRange?: Maybe<DateRangeFilter>;
+  dayOfWeek?: Maybe<DayOfWeek>;
+  isFree?: Maybe<Scalars['Boolean']['output']>;
+  keyword?: Maybe<Scalars['String']['output']>;
+  location?: Maybe<LocationFilter>;
+  types?: Maybe<Array<EventType>>;
+  venueType?: Maybe<Scalars['String']['output']>;
+};
+
+export type EventFilterInput = {
+  accountId?: InputMaybe<Scalars['ID']['input']>;
+  categories?: InputMaybe<Array<EventCategory>>;
+  dateRange?: InputMaybe<DateRangeFilterInput>;
+  dayOfWeek?: InputMaybe<DayOfWeek>;
+  isFree?: InputMaybe<Scalars['Boolean']['input']>;
+  keyword?: InputMaybe<Scalars['String']['input']>;
+  location?: InputMaybe<LocationFilterInput>;
+  types?: InputMaybe<Array<EventType>>;
+  venueType?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type EventQueryConditionInput = {
   conditions?: InputMaybe<Array<EventQueryConditionInput>>;
   field?: InputMaybe<Scalars['String']['input']>;
@@ -284,12 +346,29 @@ export type GeolocationProvider =
 
 export type LocationDetails = {
   __typename?: 'LocationDetails';
+  adminArea?: Maybe<Scalars['String']['output']>;
+  city?: Maybe<Scalars['String']['output']>;
   coordinates: Coordinates;
   formattedAddress?: Maybe<Scalars['String']['output']>;
   placeId?: Maybe<Scalars['String']['output']>;
   placeName?: Maybe<Scalars['String']['output']>;
   provider?: Maybe<GeolocationProvider>;
+  province?: Maybe<Scalars['String']['output']>;
   timezone?: Maybe<Scalars['String']['output']>;
+  venueType?: Maybe<Scalars['String']['output']>;
+};
+
+export type LocationFilter = {
+  __typename?: 'LocationFilter';
+  adminArea?: Maybe<Scalars['String']['output']>;
+  coordinates?: Maybe<Coordinates>;
+  radiusMeters?: Maybe<Scalars['Int']['output']>;
+};
+
+export type LocationFilterInput = {
+  adminArea?: InputMaybe<Scalars['String']['input']>;
+  coordinates?: InputMaybe<CoordinatesInput>;
+  radiusMeters?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type Me = {
@@ -720,6 +799,7 @@ export type QueryEventBySlugArgs = {
 
 
 export type QueryEventsArgs = {
+  filter?: InputMaybe<EventFilterInput>;
   includeMyArchived?: InputMaybe<Scalars['Boolean']['input']>;
   includeSoftDeleted?: InputMaybe<Scalars['Boolean']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
@@ -1034,7 +1114,7 @@ export type UpdateUserSettingsInput = {
 
 export type UpdateWidgetInput = {
   displayMode?: InputMaybe<WidgetDisplayMode>;
-  filters?: InputMaybe<Scalars['JSON']['input']>;
+  filters?: InputMaybe<EventFilterInput>;
   theme?: InputMaybe<WidgetTheme>;
 };
 
@@ -1077,7 +1157,7 @@ export type Widget = {
   createdAt: Scalars['String']['output'];
   deletedAt?: Maybe<Scalars['String']['output']>;
   displayMode: WidgetDisplayMode;
-  filters: Scalars['JSON']['output'];
+  filters: EventFilter;
   id: Scalars['ID']['output'];
   ownerUserId: Scalars['ID']['output'];
   theme: WidgetTheme;
@@ -1175,13 +1255,19 @@ export type ResolversTypes = ResolversObject<{
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   CastVoteInput: CastVoteInput;
   Coordinates: ResolverTypeWrapper<Coordinates>;
+  CoordinatesInput: CoordinatesInput;
   Correction: ResolverTypeWrapper<Correction>;
   CorrectionSource: CorrectionSource;
   CorrectionStatus: CorrectionStatus;
   CreateApiKeyInput: CreateApiKeyInput;
   CreateUserLocationInput: CreateUserLocationInput;
   CreateWidgetInput: CreateWidgetInput;
+  DateAnchor: DateAnchor;
+  DateOffsetUnit: DateOffsetUnit;
+  DateRangeFilter: ResolverTypeWrapper<DateRangeFilter>;
+  DateRangeFilterInput: DateRangeFilterInput;
   DateTime: ResolverTypeWrapper<Scalars['DateTime']['output']>;
+  DayOfWeek: DayOfWeek;
   DefaultLocationChangeAction: DefaultLocationChangeAction;
   DefaultLocationChangeRequest: ResolverTypeWrapper<DefaultLocationChangeRequest>;
   DefaultLocationChangeRequestStatus: DefaultLocationChangeRequestStatus;
@@ -1190,6 +1276,8 @@ export type ResolversTypes = ResolversObject<{
   Event: ResolverTypeWrapper<Event>;
   EventCategory: EventCategory;
   EventConnection: ResolverTypeWrapper<EventConnection>;
+  EventFilter: ResolverTypeWrapper<EventFilter>;
+  EventFilterInput: EventFilterInput;
   EventQueryConditionInput: EventQueryConditionInput;
   EventType: EventType;
   ExtractEventDataFromUrlResult: ResolverTypeWrapper<ExtractEventDataFromUrlResult>;
@@ -1201,6 +1289,8 @@ export type ResolversTypes = ResolversObject<{
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   JSON: ResolverTypeWrapper<Scalars['JSON']['output']>;
   LocationDetails: ResolverTypeWrapper<LocationDetails>;
+  LocationFilter: ResolverTypeWrapper<LocationFilter>;
+  LocationFilterInput: LocationFilterInput;
   Me: ResolverTypeWrapper<Me>;
   Mutation: ResolverTypeWrapper<{}>;
   PageInfo: ResolverTypeWrapper<PageInfo>;
@@ -1264,15 +1354,20 @@ export type ResolversParentTypes = ResolversObject<{
   Boolean: Scalars['Boolean']['output'];
   CastVoteInput: CastVoteInput;
   Coordinates: Coordinates;
+  CoordinatesInput: CoordinatesInput;
   Correction: Correction;
   CreateApiKeyInput: CreateApiKeyInput;
   CreateUserLocationInput: CreateUserLocationInput;
   CreateWidgetInput: CreateWidgetInput;
+  DateRangeFilter: DateRangeFilter;
+  DateRangeFilterInput: DateRangeFilterInput;
   DateTime: Scalars['DateTime']['output'];
   DefaultLocationChangeRequest: DefaultLocationChangeRequest;
   EmbedDomain: EmbedDomain;
   Event: Event;
   EventConnection: EventConnection;
+  EventFilter: EventFilter;
+  EventFilterInput: EventFilterInput;
   EventQueryConditionInput: EventQueryConditionInput;
   ExtractEventDataFromUrlResult: ExtractEventDataFromUrlResult;
   ExtractionQuota: ExtractionQuota;
@@ -1281,6 +1376,8 @@ export type ResolversParentTypes = ResolversObject<{
   Int: Scalars['Int']['output'];
   JSON: Scalars['JSON']['output'];
   LocationDetails: LocationDetails;
+  LocationFilter: LocationFilter;
+  LocationFilterInput: LocationFilterInput;
   Me: Me;
   Mutation: {};
   PageInfo: PageInfo;
@@ -1382,6 +1479,13 @@ export type CorrectionResolvers<ContextType = GraphQLContext, ParentType extends
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type DateRangeFilterResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DateRangeFilter'] = ResolversParentTypes['DateRangeFilter']> = ResolversObject<{
+  anchor?: Resolver<ResolversTypes['DateAnchor'], ParentType, ContextType>;
+  offsetAmount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  offsetUnit?: Resolver<ResolversTypes['DateOffsetUnit'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['DateTime'], any> {
   name: 'DateTime';
 }
@@ -1448,6 +1552,19 @@ export type EventConnectionResolvers<ContextType = GraphQLContext, ParentType ex
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type EventFilterResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['EventFilter'] = ResolversParentTypes['EventFilter']> = ResolversObject<{
+  accountId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  categories?: Resolver<Maybe<Array<ResolversTypes['EventCategory']>>, ParentType, ContextType>;
+  dateRange?: Resolver<Maybe<ResolversTypes['DateRangeFilter']>, ParentType, ContextType>;
+  dayOfWeek?: Resolver<Maybe<ResolversTypes['DayOfWeek']>, ParentType, ContextType>;
+  isFree?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  keyword?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  location?: Resolver<Maybe<ResolversTypes['LocationFilter']>, ParentType, ContextType>;
+  types?: Resolver<Maybe<Array<ResolversTypes['EventType']>>, ParentType, ContextType>;
+  venueType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type ExtractEventDataFromUrlResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ExtractEventDataFromUrlResult'] = ResolversParentTypes['ExtractEventDataFromUrlResult']> = ResolversObject<{
   data?: Resolver<Maybe<ResolversTypes['ProposedEventCorrectionData']>, ParentType, ContextType>;
   errorCode?: Resolver<Maybe<ResolversTypes['ExtractionErrorCode']>, ParentType, ContextType>;
@@ -1467,12 +1584,23 @@ export interface JsonScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes
 }
 
 export type LocationDetailsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['LocationDetails'] = ResolversParentTypes['LocationDetails']> = ResolversObject<{
+  adminArea?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  city?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   coordinates?: Resolver<ResolversTypes['Coordinates'], ParentType, ContextType>;
   formattedAddress?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   placeId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   placeName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   provider?: Resolver<Maybe<ResolversTypes['GeolocationProvider']>, ParentType, ContextType>;
+  province?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   timezone?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  venueType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type LocationFilterResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['LocationFilter'] = ResolversParentTypes['LocationFilter']> = ResolversObject<{
+  adminArea?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  coordinates?: Resolver<Maybe<ResolversTypes['Coordinates']>, ParentType, ContextType>;
+  radiusMeters?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1831,7 +1959,7 @@ export type WidgetResolvers<ContextType = GraphQLContext, ParentType extends Res
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   deletedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayMode?: Resolver<ResolversTypes['WidgetDisplayMode'], ParentType, ContextType>;
-  filters?: Resolver<ResolversTypes['JSON'], ParentType, ContextType>;
+  filters?: Resolver<ResolversTypes['EventFilter'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   ownerUserId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   theme?: Resolver<ResolversTypes['WidgetTheme'], ParentType, ContextType>;
@@ -1846,15 +1974,18 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ApiKey?: ApiKeyResolvers<ContextType>;
   Coordinates?: CoordinatesResolvers<ContextType>;
   Correction?: CorrectionResolvers<ContextType>;
+  DateRangeFilter?: DateRangeFilterResolvers<ContextType>;
   DateTime?: GraphQLScalarType;
   DefaultLocationChangeRequest?: DefaultLocationChangeRequestResolvers<ContextType>;
   EmbedDomain?: EmbedDomainResolvers<ContextType>;
   Event?: EventResolvers<ContextType>;
   EventConnection?: EventConnectionResolvers<ContextType>;
+  EventFilter?: EventFilterResolvers<ContextType>;
   ExtractEventDataFromUrlResult?: ExtractEventDataFromUrlResultResolvers<ContextType>;
   ExtractionQuota?: ExtractionQuotaResolvers<ContextType>;
   JSON?: GraphQLScalarType;
   LocationDetails?: LocationDetailsResolvers<ContextType>;
+  LocationFilter?: LocationFilterResolvers<ContextType>;
   Me?: MeResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   PageInfo?: PageInfoResolvers<ContextType>;

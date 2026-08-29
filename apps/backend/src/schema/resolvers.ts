@@ -22,7 +22,7 @@ import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user
 import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../lib/geolocation/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
-import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl } from '@festgrid/domain/events';
+import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl } from '@festgrid/domain/events';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError } from '@festgrid/domain/posts';
@@ -1783,7 +1783,7 @@ export const resolvers: Resolvers = {
         displayMode: input.displayMode || 'CARD',
         theme: input.theme || 'LIGHT',
       }).returning();
-      return { ...inserted, createdAt: inserted.createdAt.toISOString(), deletedAt: null };
+      return { ...inserted, createdAt: inserted.createdAt.toISOString(), deletedAt: null } as any;
     },
     updateWidget: async (_: any, { id, input }: any, context: any) => {
       const authUser = requireAuth(context);
@@ -1814,7 +1814,7 @@ export const resolvers: Resolvers = {
         .set(updateFields)
         .where(eq(widgets.id, id))
         .returning();
-      return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null };
+      return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null } as any;
     },
     deleteWidget: async (_: any, { id, action }: any, context: any) => {
       const authUser = requireAuth(context);
@@ -1831,7 +1831,7 @@ export const resolvers: Resolvers = {
           .set({ deletedAt: new Date() })
           .where(eq(widgets.id, id))
           .returning();
-        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null };
+        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null } as any;
       } else if (action === 'RESTORE') {
         if (existing.deletedAt === null) {
           throw new GraphQLError('Widget is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
@@ -1840,7 +1840,7 @@ export const resolvers: Resolvers = {
           .set({ deletedAt: null })
           .where(eq(widgets.id, id))
           .returning();
-        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: null };
+        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: null } as any;
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
@@ -2404,11 +2404,11 @@ export const resolvers: Resolvers = {
     myWidgets: async (_: any, __: any, context: any) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
-      return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
+      return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null })) as any;
     },
     widgetById: async (_: any, { id }: any, context: any) => {
       const [row] = await db.select().from(widgets).where(and(eq(widgets.id, id), isNull(widgets.deletedAt)));
-      return row ? { ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null } : null;
+      return (row ? { ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null } : null) as any;
     },
     embedDomainsForWidget: async (_: any, { widgetId }: any, context: any) => {
       const authUser = requireAuth(context);
@@ -2438,7 +2438,7 @@ export const resolvers: Resolvers = {
       }
       return false;
     },
-    events: async (_: any, { query, limit, offset, includeSoftDeleted, includeMyArchived }: any, context: any, info: any) => {
+    events: async (_: any, { query, filter, limit, offset, includeSoftDeleted, includeMyArchived }: any, context: any, info: any) => {
       const hasFavoritedEqTrue = (condition: QueryCondition | undefined): boolean => {
         if (!condition) {
           return false;
@@ -2482,12 +2482,31 @@ export const resolvers: Resolvers = {
 
       const defaultVisibilityConditions = buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays, userId });
 
-      if (hasWithinRadiusCondition(query as QueryCondition | undefined) && userId === null) {
+      let baseQuery = query;
+      if (filter) {
+        try {
+          const filterQuery = buildEventsQueryCondition({ filter });
+          if (filterQuery) {
+            if (baseQuery) {
+              baseQuery = {
+                operator: 'and',
+                conditions: [baseQuery, filterQuery],
+              };
+            } else {
+              baseQuery = filterQuery;
+            }
+          }
+        } catch (err) {
+          throw new GraphQLError((err as Error).message, { extensions: { code: 'BAD_REQUEST' } });
+        }
+      }
+
+      if (hasWithinRadiusCondition(baseQuery as QueryCondition | undefined) && userId === null) {
         requireAuth(context);
       }
 
-      let resolvedQuery = query;
-      if (userId && hasWithinRadiusCondition(query as QueryCondition | undefined)) {
+      let resolvedQuery = baseQuery;
+      if (userId && hasWithinRadiusCondition(baseQuery as QueryCondition | undefined)) {
         const locationRows = await db.select({
           id: userLocations.id,
           latitude: userLocations.latitude,
@@ -2496,7 +2515,7 @@ export const resolvers: Resolvers = {
         
         const locationsById = new Map(locationRows.map(r => [r.id, { latitude: r.latitude, longitude: r.longitude }]));
         try {
-          resolvedQuery = resolveWithinRadiusConditions(query as QueryCondition, locationsById) as any;
+          resolvedQuery = resolveWithinRadiusConditions(baseQuery as QueryCondition, locationsById) as any;
         } catch (err) {
           if (err instanceof UnknownLocationPreferenceError) {
             throw new GraphQLError('Location not found', { extensions: { code: 'NOT_FOUND' } });
@@ -2530,6 +2549,9 @@ export const resolvers: Resolvers = {
           startCol: schedules.eventStartDate,
           endCol: schedules.eventEndDate,
         },
+        adminArea: sql`(${schedules.locationDetails}->>'adminArea')`,
+        venueType: sql`(${schedules.locationDetails}->>'venueType')`,
+        isFree: sql`(${schedules.ticketPrice} ILIKE 'free' OR ${schedules.ticketPrice} ILIKE 'gratis')`,
         isFavorited: userId ? exists(
           db.select({ id: favorites.id })
             .from(favorites)
@@ -2987,6 +3009,7 @@ export const resolvers: Resolvers = {
     deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },
   Widget: {
+    filters: (parent: any) => parent.filters as any,
     createdAt: (parent: any) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
     deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },

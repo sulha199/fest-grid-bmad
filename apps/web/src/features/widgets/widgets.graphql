@@ -2,7 +2,28 @@ mutation createWidget($input: CreateWidgetInput!) {
   createWidget(input: $input) {
     id
     ownerUserId
-    filters
+    filters {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
     displayMode
     theme
     createdAt
@@ -13,7 +34,28 @@ mutation updateWidget($id: ID!, $input: UpdateWidgetInput!) {
   updateWidget(id: $id, input: $input) {
     id
     ownerUserId
-    filters
+    filters {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
     displayMode
     theme
     createdAt
@@ -31,7 +73,28 @@ query myWidgets {
   myWidgets {
     id
     ownerUserId
-    filters
+    filters {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
     displayMode
     theme
     createdAt
@@ -42,7 +105,28 @@ query widgetById($id: ID!) {
   widgetById(id: $id) {
     id
     ownerUserId
-    filters
+    filters {
+      accountId
+      types
+      categories
+      keyword
+      dateRange {
+        anchor
+        offsetAmount
+        offsetUnit
+      }
+      dayOfWeek
+      location {
+        coordinates {
+          lat
+          lng
+        }
+        radiusMeters
+        adminArea
+      }
+      venueType
+      isFree
+    }
     displayMode
     theme
     createdAt
