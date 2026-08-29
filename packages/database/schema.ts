@@ -601,9 +601,9 @@ export const embedDomainsRelations = relations(embedDomains, ({ one }) => ({
 
 export const unprocessedScraperPayloads = pgTable('unprocessed_scraper_payloads', {
   id: uuid('id').defaultRandom().primaryKey(),
-  rawPayload: customJsonb<any>('raw_payload').notNull(),
-  validationError: customJsonb<any>('validation_error').notNull(),
-  context: customJsonb<any>('context').notNull(),
+  rawPayload: customJsonb<unknown>('raw_payload').notNull(),
+  validationError: customJsonb<unknown>('validation_error').notNull(),
+  context: customJsonb<unknown>('context').notNull(),
   scraperActorRunId: uuid('scraper_actor_run_id').references(() => scraperActorRuns.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
