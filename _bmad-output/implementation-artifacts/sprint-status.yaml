@@ -1593,7 +1593,14 @@ development_status:
   # composes GridContainer (Story 0.31, baseCols=1 colsStep=1) instead of a
   # hand-written literal className. Also blocked on Story 0.31.
   # DONE 2026-08-24: AC12 merged (Wave 2, story/wave2-page-grid-adoption).
-  # AC11 (nested-tabs styling) NOT part of this wave -- still open.
+  # CORRECTED 2026-08-29: the "AC11 NOT part of this wave -- still open" note
+  # above was stale. AC11 (pill-style per-account tabs, avatars, "Posts from:"
+  # label) was implemented and merged 2026-08-26 (commit 9868049) -- the
+  # story file's own Task 6 checklist and Completion Notes already reflect
+  # this, only this tracking line lagged. A separate, earlier, independent
+  # attempt at the same AC11 (branch story/5-1-ac11-nested-tabs, worktree
+  # gemini-story-5-1) was left unmerged and stale; confirmed superseded by
+  # 9868049 (not an ancestor of it) and cleaned up rather than merged.
   5-1-manual-post-selection-screen: review
   5-2-select-posts-for-extraction: review
   # Reopened 2026-08-24 via bmad-correct-course: added AC6 -- SummaryBar's
