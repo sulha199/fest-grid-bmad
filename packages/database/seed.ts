@@ -10,18 +10,12 @@ import {
   users,
   socialMediaAccountProfiles,
   reports,
-  accountVotes,
-  widgets,
-  embedDomains,
-  defaultLocationChangeRequests,
-  corrections,
   scraperActorRuns,
-  brightdataPendingJobs,
-  apifyPendingJobs,
   unprocessedScraperPayloads,
   parserVersionRegistry,
 } from './schema';
 import { loadDatabaseEnv } from './env';
+import { getTablesInDeleteOrder } from './delete-order';
 
 const FIXTURE_USERS = [
   {
@@ -919,31 +913,9 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
     await migrateEnumTypes(sqlClient);
 
     await db.transaction(async (tx) => {
-      // Explicit deletion order protects FK constraints and ensures deterministic reruns.
-      // These tables have no ON DELETE CASCADE back to users/events/socialMediaAccountProfiles
-      // (unlike favorites/calendarAdditions/fcmTokens, which do and so need no explicit
-      // cleanup here), so they must be cleared before their referenced rows or the delete
-      // below fails with a foreign-key-constraint violation.
-      await tx.delete(unprocessedScraperPayloads);
-      await tx.delete(parserVersionRegistry);
-      await tx.delete(embedDomains);
-      await tx.delete(widgets);
-      await tx.delete(accountVotes);
-      await tx.delete(corrections);
-      await tx.delete(defaultLocationChangeRequests);
-      await tx.delete(schedules);
-      await tx.delete(events);
-      await tx.delete(posts);
-      // brightdataPendingJobs/apifyPendingJobs reference both scraperActorRuns and
-      // socialMediaAccountProfiles, so they must be cleared before either.
-      await tx.delete(brightdataPendingJobs);
-      await tx.delete(apifyPendingJobs);
-      await tx.delete(scraperActorRuns);
-      await tx.delete(apiKeys);
-      await tx.delete(subscriptions);
-      await tx.delete(socialMediaAccountProfiles);
-      await tx.delete(userLocations);
-      await tx.delete(users);
+      for (const table of getTablesInDeleteOrder(['reports'])) {
+        await tx.delete(table);
+      }
 
       await tx.insert(users).values([...FIXTURE_USERS]);
       await tx.insert(userLocations).values([...FIXTURE_USER_LOCATIONS]);
