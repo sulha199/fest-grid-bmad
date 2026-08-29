@@ -193,7 +193,13 @@ export const resolvers: Resolvers = {
     resolvePromptToEventFilter: async (_: any, { prompt }: any, context: any) => {
       const authUser = requireAuth(context);
 
-      // Check if user has a saved API key (BYOK only)
+      if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0 || prompt.length > 2000) {
+        throw new GraphQLError('Prompt must be between 1 and 2000 characters', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+
+      // NO_API_KEY Pre-Check (matches extractEventDataFromUrl's established pattern)
       const candidates = await fetchCandidateKeys('gemini', [authUser.userId]);
       const chosenKey = selectApiKey(candidates, 'TIER_1_USER_SPECIFIC');
       if (!chosenKey) {
@@ -297,7 +303,15 @@ Constraints and Guidelines:
           subscriberUserIds: [authUser.userId],
         });
 
-        const parsed = JSON.parse(response.text);
+        let parsed: any;
+        try {
+          const rawText = response.text.replace(/^\s*```json/, '').replace(/```\s*$/, '').trim();
+          parsed = JSON.parse(rawText);
+        } catch (parseError) {
+          throw new GraphQLError('Failed to parse AI response.', {
+            extensions: { code: 'INTERNAL_SERVER_ERROR' }
+          });
+        }
         const resolvedFilter = transformGeminiResponseToEventFilter(parsed.resolvedFilter);
         const caveats = Array.isArray(parsed.caveats) ? parsed.caveats.filter((c: any) => typeof c === 'string') : [];
 
@@ -317,6 +331,12 @@ Constraints and Guidelines:
     saveAIEventFilter: async (_: any, { prompt, resolvedFilter }: any, context: any) => {
       const authUser = requireAuth(context);
       
+      if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0 || prompt.length > 2000) {
+        throw new GraphQLError('Prompt must be between 1 and 2000 characters', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+
       const [inserted] = await db.insert(aiEventFilters).values({
         ownerUserId: authUser.userId,
         prompt: prompt,
@@ -332,14 +352,13 @@ Constraints and Guidelines:
     },
     deleteAIEventFilter: async (_: any, { id, action }: any, context: any) => {
       const authUser = requireAuth(context);
-      const existingRows = await db.select().from(aiEventFilters)
+      const [existing] = await db.select().from(aiEventFilters)
         .where(and(eq(aiEventFilters.id, id), eq(aiEventFilters.ownerUserId, authUser.userId)));
-      
-      if (existingRows.length === 0) {
+
+      if (!existing) {
         throw new GraphQLError('AIEventFilter not found', { extensions: { code: 'NOT_FOUND' } });
       }
 
-      const existing = existingRows[0];
       if (action === 'DELETE') {
         if (existing.deletedAt !== null) {
           throw new GraphQLError('AIEventFilter is already deleted', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
@@ -354,7 +373,7 @@ Constraints and Guidelines:
           updatedAt: updated.updatedAt.toISOString(),
           deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null,
         } as any;
-      } else {
+      } else if (action === 'RESTORE') {
         if (existing.deletedAt === null) {
           throw new GraphQLError('AIEventFilter is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
         }
@@ -366,9 +385,10 @@ Constraints and Guidelines:
           ...updated,
           createdAt: updated.createdAt.toISOString(),
           updatedAt: updated.updatedAt.toISOString(),
-          deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null,
+          deletedAt: null,
         } as any;
       }
+      throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
     createApiKey: async (_: any, { input }: any, context: any) => {
       const authUser = requireAuth(context);

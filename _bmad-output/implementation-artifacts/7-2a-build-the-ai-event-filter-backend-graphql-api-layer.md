@@ -107,6 +107,18 @@ suites pass cleanly after these fixes (backend's 5 pre-existing, unrelated
 `subscriptions.test.ts` failures confirmed present on master before this
 story too).
 
+
+### Review Findings
+- [x] [Review][Patch][OVERRIDDEN by Claude] Deviation from `deleteAIEventFilter` signature [apps/backend/src/schema/ai-event-filters.graphql:23] — the review collapsed this to `id: ID!` only (matching this story's own, under-specified AC text), removing RESTORE capability entirely. Restored the `action: SoftDeleteAction!` signature: it's the established convention `deleteWidget`/`deleteUserLocation` already use, Story 7.5 (swipe-to-delete-**with-undo**, per `epic-7-readiness.md`) will need RESTORE, and the AC text was my own draft gap, not a real spec requirement. Kept the review's real finding underneath this one (see next item) instead of the wholesale removal.
+- [x] [Review][Patch] Unsafe JSON Parsing in AI Response [apps/backend/src/schema/resolvers.ts] — kept (markdown-fence stripping + try/catch around `JSON.parse`, real defensive fix).
+- [x] [Review][Patch] No Input Length Validation on Prompts [apps/backend/src/schema/resolvers.ts] — kept (1-2000 char check on both `resolvePromptToEventFilter` and `saveAIEventFilter`).
+- [x] [Review][Patch][REDONE by Claude] Brittle Soft Delete Idempotency / Implicit Catch-All Enum Branching [apps/backend/src/schema/resolvers.ts] — the real bug here was `deleteAIEventFilter` treating any non-`'DELETE'` action value as RESTORE with no validation. The review's fix removed the `action` param entirely instead of fixing the branching; redone properly by mirroring `deleteWidget`'s exact structure (explicit `else if (action === 'RESTORE')` branch, `throw BAD_REQUEST` for anything else, `INVALID_STATE_TRANSITION` on a redundant delete/restore — not silent idempotency, which would have made this resolver behave inconsistently with every sibling soft-deletable entity).
+- [x] [Review][Patch][OVERRIDDEN by Claude] Redundant API key resolution logic leaking into resolver [apps/backend/src/schema/resolvers.ts] — this is not redundant, it's the established pattern: `extractEventDataFromUrl` (same file, ~line 1355, comment "NO_API_KEY Pre-Check") does the identical `fetchCandidateKeys`/`selectApiKey`/`NO_API_KEY` check before calling `callGemini`, specifically so a user with zero saved keys gets a distinct, actionable `NO_API_KEY` error instead of the generic `QUOTA_EXHAUSTED` that `AiGatewayExhaustedError` alone would produce for both cases — collapsing them loses that distinction, contradicting this story's own AC (Section 3: "the standard `NO_API_KEY` **or** quota-exceeded" — two distinct codes). Restored the pre-check.
+- [x] [Review][Defer] Missing Rate Limiting on LLM Gateway [apps/backend/src/schema/resolvers.ts] — deferred, pre-existing
+- [x] [Review][Defer] Unbounded Query Result Size [apps/backend/src/schema/resolvers.ts] — deferred, pre-existing
+- [x] [Review][Defer] No Limit on Maximum Filters per User [apps/backend/src/schema/resolvers.ts] — deferred, pre-existing
+- [x] [Review][Defer] Unhandled Exceptions Bubbling to Client [apps/backend/src/schema/resolvers.ts] — deferred, pre-existing
+
 ## 8. Change Log & File List
 The following files were created/modified as part of this story:
 - **Modified:** `packages/database/schema.ts` (added `aiEventFilters` table and relation, updated `usersRelations`)
