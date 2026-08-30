@@ -38,9 +38,6 @@ test('default location change requests resolver integration', async (t) => {
   let testAccount: any;
 
   await t.test('setup - seed users and account profile', async () => {
-    // Clear existing requests
-    await db.delete(defaultLocationChangeRequests);
-
     // Insert test users
     const [user1] = await db.insert(users).values({
       email: `requester-${Date.now()}@test.com`,
@@ -151,8 +148,9 @@ test('default location change requests resolver integration', async (t) => {
     const result = await response.json();
     assert.ok(!result.errors, JSON.stringify(result.errors));
     const requests = result.data.pendingDefaultLocationChanges;
-    assert.strictEqual(requests.length, 1);
-    const req = requests[0];
+    const ownRequests = requests.filter((r: any) => r.accountId === testAccount.id);
+    assert.strictEqual(ownRequests.length, 1);
+    const req = ownRequests[0];
     assert.strictEqual(req.id, firstRequestId);
     assert.strictEqual(req.status, 'PENDING_REVIEW');
     assert.strictEqual(req.account.id, testAccount.id);
@@ -377,7 +375,7 @@ test('default location change requests resolver integration', async (t) => {
   });
 
   await t.test('cleanup', async () => {
-    await db.delete(defaultLocationChangeRequests);
+    await db.delete(defaultLocationChangeRequests).where(eq(defaultLocationChangeRequests.accountId, testAccount.id));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testAccount.id));
     await db.delete(users).where(inArray(users.id, [regularUser.id, moderatorUser.id]));
   });

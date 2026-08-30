@@ -40,9 +40,6 @@ test('reports resolver integration', async (t) => {
   let testEvent: any;
 
   await t.test('setup - seed users and event', async () => {
-    // Clear reports table to prevent test pollution
-    await db.delete(reports);
-
     // Insert test event
     const [insertedEvent] = await db.insert(events).values({
       eventName: 'Reports Test Event',
