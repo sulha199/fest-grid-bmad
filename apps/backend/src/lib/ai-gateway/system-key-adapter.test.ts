@@ -6,14 +6,16 @@ import {
   callGeminiRef
 } from './system-key-adapter.js';
 import { AiGatewayExhaustedError } from './adapter.js';
-import { setCallGeminiGenerateContent } from './gemini-client.js';
+import { setCallGeminiGenerateContent, callGeminiGenerateContent } from './gemini-client.js';
 
 test('system-key-adapter - callGeminiForLocationInference orchestration', async (t) => {
   const originalSystemKey = process.env.SYSTEM_GEMINI_API_KEY;
+  const originalCallGeminiGenerateContent = callGeminiGenerateContent;
 
   t.after(() => {
     // Restore original dependencies & environment
     setCallGemini(callGeminiRef);
+    setCallGeminiGenerateContent(originalCallGeminiGenerateContent);
     if (originalSystemKey !== undefined) {
       process.env.SYSTEM_GEMINI_API_KEY = originalSystemKey;
     } else {

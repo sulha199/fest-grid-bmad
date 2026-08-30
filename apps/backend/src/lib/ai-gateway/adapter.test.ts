@@ -4,10 +4,13 @@ import { db } from '../../db/client.js';
 import { apiKeys, users } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 import { callGemini, AiGatewayExhaustedError } from './adapter.js';
-import { setDecryptApiKey } from './kms.js';
-import { setCallGeminiGenerateContent, GeminiRateLimitedError, GeminiInvalidKeyError } from './gemini-client.js';
+import { setDecryptApiKey, decryptApiKey } from './kms.js';
+import { setCallGeminiGenerateContent, GeminiRateLimitedError, GeminiInvalidKeyError, callGeminiGenerateContent } from './gemini-client.js';
 
 test('AI Gateway Adapter - callGemini orchestration', async (t) => {
+  const originalDecryptApiKey = decryptApiKey;
+  const originalCallGeminiGenerateContent = callGeminiGenerateContent;
+
   // 1. Create mock users and api keys in the DB
   const [testUser] = await db.insert(users).values({
     email: `gateway-test-${Date.now()}@example.com`,
@@ -39,6 +42,8 @@ test('AI Gateway Adapter - callGemini orchestration', async (t) => {
 
   // Cleanup after tests
   t.after(async () => {
+    setDecryptApiKey(originalDecryptApiKey);
+    setCallGeminiGenerateContent(originalCallGeminiGenerateContent);
     await db.delete(apiKeys).where(inArray(apiKeys.id, [dbKey1.id, dbKey2.id]));
     await db.delete(users).where(eq(users.id, testUser.id));
   });
