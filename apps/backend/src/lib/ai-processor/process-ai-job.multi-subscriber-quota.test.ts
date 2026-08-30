@@ -5,10 +5,13 @@ import { socialMediaAccountProfiles, subscriptions, users, apiKeys } from '@fest
 import { eq, inArray } from 'drizzle-orm';
 import { getActiveSubscriberUserIds } from '../subscriptions/get-active-subscriber-user-ids.js';
 import { callGemini } from '../ai-gateway/adapter.js';
-import { setDecryptApiKey } from '../ai-gateway/kms.js';
-import { setCallGeminiGenerateContent, GeminiInvalidKeyError } from '../ai-gateway/gemini-client.js';
+import { setDecryptApiKey, decryptApiKey } from '../ai-gateway/kms.js';
+import { setCallGeminiGenerateContent, GeminiInvalidKeyError, callGeminiGenerateContent } from '../ai-gateway/gemini-client.js';
 
 test('processAiJob Multi-Subscriber Quota Integration Test', async (t) => {
+  const originalDecryptApiKey = decryptApiKey;
+  const originalCallGeminiGenerateContent = callGeminiGenerateContent;
+
   // Setup users A and B
   const [userA] = await db.insert(users).values({
     email: `proc-tier2-a-${Date.now()}@example.com`,
@@ -73,6 +76,8 @@ test('processAiJob Multi-Subscriber Quota Integration Test', async (t) => {
   }).returning();
 
   t.after(async () => {
+    setDecryptApiKey(originalDecryptApiKey);
+    setCallGeminiGenerateContent(originalCallGeminiGenerateContent);
     // Cleanup database rows
     await db.delete(apiKeys).where(inArray(apiKeys.id, [dbKeyA.id, dbKeyB.id]));
     await db.delete(subscriptions).where(eq(subscriptions.accountId, profile.id));

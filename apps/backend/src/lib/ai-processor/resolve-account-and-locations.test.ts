@@ -3,11 +3,12 @@ import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
-import { resolveAccountAndLocations, setResolveLocationSeam } from './resolve-account-and-locations.js';
+import { resolveAccountAndLocations, setResolveLocationSeam, resolveLocationSeam } from './resolve-account-and-locations.js';
 import { LocationDetails } from '@festgrid/shared-types';
 import { GeminiSchedulePayload } from '@festgrid/domain';
 
 test('resolveAccountAndLocations integration tests', async (t) => {
+  const originalResolveLocationSeam = resolveLocationSeam;
   const testProfileAccountId = 'platform-acc-' + Date.now();
   const testProfileId = 'profile-resolve-' + Date.now();
 
@@ -39,7 +40,7 @@ test('resolveAccountAndLocations integration tests', async (t) => {
 
   t.afterEach(() => {
     // Reset seam
-    setResolveLocationSeam(async (q) => ({}) as any);
+    setResolveLocationSeam(originalResolveLocationSeam);
   });
 
   await t.test('Case A: should resolve explicit schedule locations', async () => {
