@@ -2167,14 +2167,10 @@ Constraints and Guidelines:
         return { success: false, message: `Parser version ${parserVersion} not found in registry` };
       }
 
-      // TODO: Enqueue to AIProcessingQueue
-      // For now, return success with a placeholder queueId
-      const queueId = randomUUID();
-
       return {
-        success: true,
-        queueId,
-        message: `Payload requeued to AIProcessingQueue with parser ${parserVersion}`,
+        success: false,
+        queueId: null,
+        message: 'Reprocessing is not yet implemented \u2014 no payload was requeued.',
       };
     },
     deleteUnprocessedPayload: async (_: any, { payloadId }: any, context: any) => {
