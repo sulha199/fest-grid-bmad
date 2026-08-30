@@ -388,6 +388,13 @@ export class FestgridBackendStack extends cdk.Stack {
     scrapingQueue.grantSendMessages(scraperLambda);
     scrapingQueue.grantSendMessages(apiLambda);
 
+    // API needs to enqueue onto AIProcessingQueue when a user selects posts for extraction.
+    // Added 2026-08-30 as a prod incident fix: AI_PROCESSING_QUEUE_URL was wired into
+    // apiLambda's environment (Story 5.1a) without this matching grant, so every
+    // selectPostsForExtraction call failed with SQS AccessDenied (confirmed via CloudWatch).
+    // Do not remove without confirming a replacement grant exists.
+    aiProcessingQueue.grantSendMessages(apiLambda);
+
     // AI Processor needs to enqueue onto DataIngestionQueue
     dataIngestionQueue.grantSendMessages(aiProcessorLambda);
 

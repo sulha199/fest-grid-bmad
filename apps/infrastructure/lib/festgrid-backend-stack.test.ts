@@ -165,6 +165,26 @@ test('FestgridBackendStack provisions correct resources', () => {
     },
   });
 
+  // 13b. Assert L_API (apiLambda) holds an IAM grant to send onto AIProcessingQueue
+  // specifically (Resource scoped to that queue's own ARN, not merged with the
+  // adjacent ScrapingQueue grant statement) — regression test for a confirmed prod
+  // incident where AI_PROCESSING_QUEUE_URL was wired into apiLambda's environment
+  // (#9 above) with no matching grantSendMessages() call, causing every
+  // selectPostsForExtraction call to fail with SQS AccessDenied.
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Action: Match.arrayWith(['sqs:SendMessage']),
+          Effect: 'Allow',
+          Resource: {
+            'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('^AIProcessingQueue')]),
+          },
+        }),
+      ]),
+    },
+  });
+
   // 14. Assert L_AI (aiProcessorLambda) environment contains the two new post-media vars.
   // Combined with Timeout: 300 + DATA_INGESTION_QUEUE_URL (already unique to this Lambda's
   // environment) to disambiguate it from the other 300s batch Lambdas (Scraper/Ingestor), which

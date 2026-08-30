@@ -205,3 +205,15 @@ This file tracks work deferred from development stories, code reviews, and plann
 
 ## Deferred from: code review of 7-3-build-the-reusable-ai-filter-summary-renderer.md (2026-08-29)
 - Caveats empty strings handling [packages/domain/src/ai-event-filters/render-ai-filter-summary.ts:134] — deferred, pre-existing (code joins empty strings verbatim, technically matching AC).
+
+## Deferred from: quick-dev fix of ai-processing-queue-iam-grant (2026-08-30)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-processing-queue-iam-grant.md`
+  summary: `reprocessPayload` (`apps/backend/src/schema/resolvers.ts:2145-2178`) has a `// TODO: Enqueue to AIProcessingQueue` where the actual SQS send should be, then unconditionally returns `{ success: true, message: 'Payload requeued to AIProcessingQueue with parser ${parserVersion}' }` — the moderator UI is told a requeue happened when no enqueue call exists at all.
+  evidence: Confirmed by direct read of the resolver. Surfaced by adversarial review of the unrelated `aiProcessingQueue.grantSendMessages(apiLambda)` IAM fix (same queue, different call site) — worse than that bug in one respect: it fails silently with a false-success message rather than a visible `AccessDenied` error a moderator/on-call would notice.
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-processing-queue-iam-grant.md`
+  summary: No systemic check (lint rule, CDK construct wrapper, or stack test) verifies that every `*_QUEUE_URL`/secret ARN wired into a Lambda's `environment` block in `festgrid-backend-stack.ts` has a matching `grant*()` IAM call elsewhere in the same file. This exact mismatch (`AI_PROCESSING_QUEUE_URL` env var present, `aiProcessingQueue.grantSendMessages(apiLambda)` grant missing) is precisely how the just-fixed prod incident shipped undetected.
+  evidence: Surfaced by adversarial review of the IAM grant fix. A single stack-level test now guards this one instance (`festgrid-backend-stack.test.ts` #13b) but nothing prevents the same class of gap on a future queue/secret; a generic audit or pairing mechanism is a larger change than this one-line hotfix's scope.
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-processing-queue-iam-grant.md`
+  summary: `selectPostsForExtraction` (`apps/backend/src/schema/resolvers.ts` ~1859-1871) loops `for (const postId of postIds) { await enqueuePostForProcessing(postId); }` inside one try/catch with no per-post success tracking. Now that the IAM fix makes sends actually succeed, a mid-loop failure (throttling, a malformed post, a transient SQS error) aborts the mutation after some posts are already enqueued, and the caller gets one opaque error with no indication which posts went through.
+  evidence: Pre-existing loop/error-handling shape, unchanged by the IAM fix; surfaced by adversarial review because the fix changes this from a theoretical to a live risk (previously every send failed uniformly with AccessDenied, masking the partial-failure case).
