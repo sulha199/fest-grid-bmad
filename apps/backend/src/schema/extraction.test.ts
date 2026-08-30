@@ -9,9 +9,9 @@ import { users, posts, apiKeys, socialMediaAccountProfiles, subscriptions } from
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import '../lib/scraper/register-adapters.js';
-import { setCallGeminiGenerateContent } from '../lib/ai-gateway/gemini-client.js';
-import { setCallApifyActor } from '../lib/scraper/instagram-adapter.js';
-import { setSendSqsMessage } from '../lib/aws/send-sqs-message.js';
+import { callGeminiGenerateContent, setCallGeminiGenerateContent } from '../lib/ai-gateway/gemini-client.js';
+import { callApifyActor, setCallApifyActor } from '../lib/scraper/instagram-adapter.js';
+import { sendSqsMessage, setSendSqsMessage } from '../lib/aws/send-sqs-message.js';
 import { clearApifyProviderUsage } from '../lib/scraper/usage-store-test-helpers.js';
 
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -38,6 +38,10 @@ const yoga = createYoga({
 });
 
 test('extractEventDataFromUrl resolver integration', async (t) => {
+  const originalCallGeminiGenerateContent = callGeminiGenerateContent;
+  const originalCallApifyActor = callApifyActor;
+  const originalSendSqsMessage = sendSqsMessage;
+
   let testUser: any;
   let existingPost: any;
   let testApiKey: any;
@@ -109,6 +113,9 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
     // The "new post path" subtest above records real Apify usage against this row; clear it so
     // this file doesn't leave a row behind for whichever test file runs next.
     await clearApifyProviderUsage();
+    setCallGeminiGenerateContent(originalCallGeminiGenerateContent);
+    setCallApifyActor(originalCallApifyActor);
+    setSendSqsMessage(originalSendSqsMessage);
   });
 
   await t.test('extractEventDataFromUrl - unauthenticated rejected', async () => {

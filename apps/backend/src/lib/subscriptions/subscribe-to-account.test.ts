@@ -4,12 +4,13 @@ import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions, users } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { subscribeToAccount } from './subscribe-to-account.js';
-import { setAttemptApifyAsyncTrigger } from '../scraper/trigger-apify-for-target.js';
+import { attemptApifyAsyncTrigger, setAttemptApifyAsyncTrigger } from '../scraper/trigger-apify-for-target.js';
 import '../scraper/register-adapters.js';
 
 test('subscribe-to-account tests', async (t) => {
   let testUserId: string;
   const testPlatform = 'instagram';
+  const originalAttemptApifyAsyncTrigger = attemptApifyAsyncTrigger;
 
   t.before(async () => {
     process.env.SCRAPING_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123/dummy-queue';
@@ -22,6 +23,7 @@ test('subscribe-to-account tests', async (t) => {
 
   t.after(async () => {
     await db.delete(users).where(eq(users.id, testUserId));
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
   });
 
   t.afterEach(async () => {

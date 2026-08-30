@@ -6,9 +6,10 @@ import { eq, inArray } from 'drizzle-orm';
 import { processIngestionJob } from './process-ingestion-job.js';
 import { ExtractedEventMessage } from '@festgrid/domain';
 import { EventType, EventCategory } from '@festgrid/shared-types';
-import { setSendEventNotificationsSeam } from '../notifications/send-event-notifications.js';
+import { sendEventNotifications, setSendEventNotificationsSeam } from '../notifications/send-event-notifications.js';
 
 test('processIngestionJob integration tests', async (t) => {
+  const originalSendEventNotificationsSeam = sendEventNotifications;
   const accountId = 'acc-ingest-' + Date.now();
   const postId1 = 'post-ingest-1-' + Date.now();
   const postId2 = 'post-ingest-2-' + Date.now();
@@ -72,6 +73,7 @@ test('processIngestionJob integration tests', async (t) => {
 
     await db.delete(posts).where(inArray(posts.id, [seededPost1.id, seededPost2.id]));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    setSendEventNotificationsSeam(originalSendEventNotificationsSeam);
   });
 
   await t.test('Happy path: inserts event and schedules correctly', async (t) => {
@@ -84,7 +86,7 @@ test('processIngestionJob integration tests', async (t) => {
     });
 
     t.after(() => {
-      setSendEventNotificationsSeam(async () => {});
+      setSendEventNotificationsSeam(originalSendEventNotificationsSeam);
     });
 
     const message: ExtractedEventMessage = {
