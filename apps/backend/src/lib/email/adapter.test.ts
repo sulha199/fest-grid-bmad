@@ -2,12 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sendTemplatedEmail } from './adapter.js';
 import { setSesClient } from './ses-client.js';
+import { setDecryptApiKey, decryptApiKey } from '../ai-gateway/kms.js';
 import { SESv2Client } from '@aws-sdk/client-sesv2';
 
 process.env.SES_FROM_EMAIL_ADDRESS = 'notifications@festdaily.app';
 process.env.BACKEND_PORT = '4000';
 
 test('sendTemplatedEmail adapter tests', async (t) => {
+  const originalDecryptApiKey = decryptApiKey;
+  t.after(() => {
+    setSesClient(null);
+    setDecryptApiKey(originalDecryptApiKey);
+  });
+
   await t.test('sends QUOTA_EXHAUSTION_WARNING email via SESv2Client successfully', async () => {
     const originalNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'development';

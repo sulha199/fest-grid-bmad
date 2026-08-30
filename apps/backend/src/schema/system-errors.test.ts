@@ -43,6 +43,7 @@ test('GraphQL Mutation - reportSystemError', async (t) => {
     process.env.SES_FROM_EMAIL_ADDRESS = originalFrom;
     process.env.NODE_ENV = originalNodeEnv;
     process.env.SYSTEM_ERROR_ALERT_EMAIL = originalAlertEmail;
+    setSesClient(null);
   });
 
   await t.test('unauthenticated call succeeds', async () => {
