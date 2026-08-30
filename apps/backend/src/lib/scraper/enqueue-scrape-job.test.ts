@@ -1,8 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { enqueueScrapeJob, setSendSqsMessage } from './enqueue-scrape-job.js';
+import { enqueueScrapeJob, setSendSqsMessage, sendSqsMessage } from './enqueue-scrape-job.js';
 
 test('enqueue-scrape-job tests', async (t) => {
+  const originalSendSqsMessage = sendSqsMessage;
+  t.after(() => {
+    setSendSqsMessage(originalSendSqsMessage);
+  });
+
   await t.test('sends correct queue url and stringified target body', async () => {
     let sentQueueUrl = '';
     let sentBody = '';

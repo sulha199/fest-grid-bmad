@@ -3,7 +3,7 @@ import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { posts, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
-import { rehostPostImage, setS3ClientInstance } from './rehost-post-image.js';
+import { rehostPostImage, setS3ClientInstance, s3ClientInstance } from './rehost-post-image.js';
 import { type BackendEnv } from '../../env.js';
 
 test('rehostPostImage integration/unit tests', async (t) => {
@@ -29,10 +29,12 @@ test('rehostPostImage integration/unit tests', async (t) => {
     })
     .returning();
 
+  const originalS3ClientInstance = s3ClientInstance;
   t.after(async () => {
     // Cleanup database rows
     await db.delete(posts).where(eq(posts.id, post.id));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    setS3ClientInstance(originalS3ClientInstance);
   });
 
   const mockEnv: BackendEnv = {

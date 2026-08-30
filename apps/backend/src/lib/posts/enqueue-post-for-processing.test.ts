@@ -2,11 +2,15 @@ import test from "node:test";
 import * as assert from "node:assert";
 import { db } from "../../db/client.js";
 import { posts, socialMediaAccountProfiles } from "@festgrid/database";
-import { setSendSqsMessage } from "../aws/send-sqs-message.js";
+import { setSendSqsMessage, sendSqsMessage } from "../aws/send-sqs-message.js";
 import { enqueuePostForProcessing } from "./enqueue-post-for-processing.js";
 import { PostNotFoundError, PostAlreadyExtractedError } from "@festgrid/domain/posts";
 
 test("enqueuePostForProcessing integration tests", async (t) => {
+  const originalSendSqsMessage = sendSqsMessage;
+  t.after(() => {
+    setSendSqsMessage(originalSendSqsMessage);
+  });
   // Setup a test profile
   const [profile] = await db
     .insert(socialMediaAccountProfiles)
