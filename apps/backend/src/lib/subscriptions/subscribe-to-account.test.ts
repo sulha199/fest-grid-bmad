@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions, users } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { subscribeToAccount } from './subscribe-to-account.js';
 import { attemptApifyAsyncTrigger, setAttemptApifyAsyncTrigger } from '../scraper/trigger-apify-for-target.js';
 import '../scraper/register-adapters.js';
@@ -15,6 +15,23 @@ test('subscribe-to-account tests', async (t) => {
   t.before(async () => {
     process.env.SCRAPING_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123/dummy-queue';
     
+    // Clean up any leaked test data from previous failed/aborted runs
+    const profileRows = await db
+      .select({ id: socialMediaAccountProfiles.id })
+      .from(socialMediaAccountProfiles)
+      .where(
+        and(
+          eq(socialMediaAccountProfiles.platform, testPlatform),
+          inArray(socialMediaAccountProfiles.accountId, ['account-123', 'account-456', 'account-789'])
+        )
+      );
+    
+    if (profileRows.length > 0) {
+      const ids = profileRows.map(r => r.id);
+      await db.delete(subscriptions).where(inArray(subscriptions.accountId, ids));
+      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, ids));
+    }
+
     const [user] = await db.insert(users).values({
       email: 'test-subscribe-' + Date.now() + '@example.com',
     }).returning({ id: users.id });
@@ -28,7 +45,12 @@ test('subscribe-to-account tests', async (t) => {
 
   t.afterEach(async () => {
     await db.delete(subscriptions).where(eq(subscriptions.userId, testUserId));
-    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.platform, testPlatform));
+    await db.delete(socialMediaAccountProfiles).where(
+      and(
+        eq(socialMediaAccountProfiles.platform, testPlatform),
+        inArray(socialMediaAccountProfiles.accountId, ['account-123', 'account-456', 'account-789'])
+      )
+    );
   });
 
   await t.test('triggers Apify async and skips SQS when async succeeds', async () => {
