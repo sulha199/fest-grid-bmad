@@ -12,6 +12,12 @@ test('subscribe-to-account tests', async (t) => {
   const testPlatform = 'instagram';
   const originalAttemptApifyAsyncTrigger = attemptApifyAsyncTrigger;
 
+  const ts = Date.now();
+  const testAccountId1 = `account-123-${ts}`;
+  const testAccountId2 = `account-456-${ts}`;
+  const testAccountId3 = `account-789-${ts}`;
+  const testAccountIds = [testAccountId1, testAccountId2, testAccountId3];
+
   t.before(async () => {
     process.env.SCRAPING_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123/dummy-queue';
     
@@ -22,7 +28,7 @@ test('subscribe-to-account tests', async (t) => {
       .where(
         and(
           eq(socialMediaAccountProfiles.platform, testPlatform),
-          inArray(socialMediaAccountProfiles.accountId, ['account-123', 'account-456', 'account-789'])
+          inArray(socialMediaAccountProfiles.accountId, testAccountIds)
         )
       );
     
@@ -48,7 +54,7 @@ test('subscribe-to-account tests', async (t) => {
     await db.delete(socialMediaAccountProfiles).where(
       and(
         eq(socialMediaAccountProfiles.platform, testPlatform),
-        inArray(socialMediaAccountProfiles.accountId, ['account-123', 'account-456', 'account-789'])
+        inArray(socialMediaAccountProfiles.accountId, testAccountIds)
       )
     );
   });
@@ -65,7 +71,7 @@ test('subscribe-to-account tests', async (t) => {
     const result = await subscribeToAccount({
       userId: testUserId,
       platform: testPlatform,
-      accountId: 'account-123',
+      accountId: testAccountId1,
       profile: {
         displayName: 'Test Account',
         username: 'testaccount',
@@ -84,7 +90,7 @@ test('subscribe-to-account tests', async (t) => {
     const result = await subscribeToAccount({
       userId: testUserId,
       platform: testPlatform,
-      accountId: 'account-456',
+      accountId: testAccountId2,
       profile: {
         displayName: 'Test Account 2',
         username: 'testaccount2',
@@ -96,8 +102,6 @@ test('subscribe-to-account tests', async (t) => {
   });
 
   await t.test('returns existing subscription if already subscribed', async () => {
-    const testAccountId = 'account-789';
-
     // Mock Apify async to succeed
     setAttemptApifyAsyncTrigger(async () => true);
 
@@ -105,7 +109,7 @@ test('subscribe-to-account tests', async (t) => {
     const firstResult = await subscribeToAccount({
       userId: testUserId,
       platform: testPlatform,
-      accountId: testAccountId,
+      accountId: testAccountId3,
       profile: {
         displayName: 'Test Account 3',
         username: 'testaccount3',
@@ -118,7 +122,7 @@ test('subscribe-to-account tests', async (t) => {
     const secondResult = await subscribeToAccount({
       userId: testUserId,
       platform: testPlatform,
-      accountId: testAccountId,
+      accountId: testAccountId3,
       profile: {
         displayName: 'Test Account 3',
         username: 'testaccount3',
