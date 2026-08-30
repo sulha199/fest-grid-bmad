@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { ApifyApiError } from 'apify-client';
-import { instagramScraperAdapter, setCallApifyActor, mapApifyItemToScrapedPost } from './instagram-adapter.js';
+import { instagramScraperAdapter, callApifyActor, setCallApifyActor, mapApifyItemToScrapedPost } from './instagram-adapter.js';
 import { db } from '../../db/client.js';
 import { scraperProviderUsage } from '@festgrid/database';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError } from '@festgrid/domain';
@@ -9,6 +9,7 @@ import { eq } from 'drizzle-orm';
 import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test-helpers.js';
 
 test('instagram-adapter tests', async (t) => {
+  const originalCallApifyActor = callApifyActor;
   await clearApifyProviderUsage();
 
   await t.test('mapApifyItemToScrapedPost maps Apify item correctly', async () => {
@@ -31,6 +32,7 @@ test('instagram-adapter tests', async (t) => {
 
   t.afterEach(async () => {
     await clearApifyProviderUsage();
+    setCallApifyActor(originalCallApifyActor);
   });
 
   await t.test('getNewestPosts maps output correctly and records usage', async () => {

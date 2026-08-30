@@ -9,6 +9,7 @@ import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test
 
 test('trigger-apify-for-target tests', async (t) => {
   let testProfileId: string;
+  const originalAttemptApifyAsyncTrigger = attemptApifyAsyncTrigger;
 
   t.before(async () => {
     const [profile] = await db
@@ -25,6 +26,7 @@ test('trigger-apify-for-target tests', async (t) => {
 
   t.after(async () => {
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId));
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
   });
 
   await clearApifyProviderUsage();
@@ -35,9 +37,6 @@ test('trigger-apify-for-target tests', async (t) => {
   });
 
   await t.test('returns false when capacity unavailable', async () => {
-    // Store original for restoration
-    const originalTrigger = attemptApifyAsyncTrigger;
-
     // Exhaust capacity
     await db.insert(scraperProviderUsage).values({
       provider: APIFY_TEST_PROVIDER,

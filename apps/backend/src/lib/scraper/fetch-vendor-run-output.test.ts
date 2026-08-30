@@ -1,10 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { fetchApifyRunOutput, fetchBrightDataRunOutput } from './fetch-vendor-run-output.js';
-import { setGetApifyClient } from './instagram-adapter.js';
-import { setGetBrightDataProgress, setGetBrightDataSnapshot } from './brightdata-client.js';
+import { getApifyClient, setGetApifyClient } from './instagram-adapter.js';
+import { getBrightDataProgress, getBrightDataSnapshot, setGetBrightDataProgress, setGetBrightDataSnapshot } from './brightdata-client.js';
 
 test('fetch-vendor-run-output', async (t) => {
+  const originalGetApifyClient = getApifyClient;
+  const originalGetBrightDataProgress = getBrightDataProgress;
+  const originalGetBrightDataSnapshot = getBrightDataSnapshot;
+
+  t.after(() => {
+    setGetApifyClient(originalGetApifyClient);
+    setGetBrightDataProgress(originalGetBrightDataProgress);
+    setGetBrightDataSnapshot(originalGetBrightDataSnapshot);
+  });
+
   await t.test('fetchApifyRunOutput', async (t) => {
     await t.test('should fetch successful run output', async () => {
       setGetApifyClient(() => ({
