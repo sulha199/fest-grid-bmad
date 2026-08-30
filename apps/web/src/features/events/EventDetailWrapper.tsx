@@ -102,6 +102,44 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
           },
         }
       })
+
+      // Sync whichever list (feed/home/favorites) the user opened this detail view
+      // from -- each list owns its own react-query cache entry, and none of them
+      // are otherwise touched by this mutation.
+      const patchListCache = (queryKeyPrefix: unknown[]) => {
+        queryClient.setQueriesData({ queryKey: queryKeyPrefix }, (old: unknown) => {
+          const typedOld = old as any
+          if (!typedOld?.pages) return typedOld
+          return {
+            ...typedOld,
+            pages: typedOld.pages.map((page: any) => {
+              if (!page?.events?.items) return page
+              return {
+                ...page,
+                events: {
+                  ...page.events,
+                  items: page.events.items.map((item: any) => {
+                    if (item.id !== variables.eventId) return item
+                    const favoriteCount =
+                      typeof item.favoriteCount === "number"
+                        ? Math.max(0, item.favoriteCount + (data.toggleFavorite.isFavorited ? 1 : -1))
+                        : item.favoriteCount
+                    return { ...item, isFavorited: data.toggleFavorite.isFavorited, favoriteCount }
+                  }),
+                },
+              }
+            }),
+          }
+        })
+      }
+
+      // `setQueriesData` matches by key PREFIX (no `exact: true` given), so the
+      // ["events"] filter already reaches both home's ["events", {...}] queries
+      // AND feed's ["events", "feed", {...}] queries in one call -- patching
+      // ["events", "feed"] separately would double-apply the favoriteCount
+      // delta to the feed cache.
+      patchListCache(["events"])
+      patchListCache(["favoriteEvents"])
     },
   })
 
@@ -133,6 +171,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       if (context?.previousData) {
         queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, context.previousData)
       }
+      setLiveMessage(t("calendarErrorAnnouncement"))
     },
     onSuccess: (data, variables) => {
       queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, (old: unknown) => {
@@ -376,6 +415,10 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       toast.success(t("addToCalendarSuccessAnnouncement"))
     } catch (e) {
       console.error("Failed to update calendar additions", e)
+      // Re-throw so the dialog's awaited onConfirm knows this failed and keeps
+      // itself open instead of closing on a false-success basis. The mutation's
+      // own onError above already surfaces the user-visible message.
+      throw e
     }
   }
 

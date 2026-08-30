@@ -94,7 +94,7 @@ export interface EventDetailViewProps {
 
   isAuthenticated?: boolean;
   isAddedToCalendar?: boolean;
-  onAddToCalendar?: (selectedScheduleIds: string[]) => void;
+  onAddToCalendar?: (selectedScheduleIds: string[]) => void | Promise<void>;
   onResolveScheduleTimezone?: (scheduleId: string, timezone: string) => void;
   onCorrectData?: () => void;
   onReport?: () => void;

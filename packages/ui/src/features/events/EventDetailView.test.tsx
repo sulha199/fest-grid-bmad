@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { EventDetailView } from './EventDetailView';
@@ -242,7 +242,7 @@ describe('EventDetailView', () => {
     expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
   });
 
-  it('opens add to calendar dialog on click and handles confirm', () => {
+  it('opens add to calendar dialog on click and handles confirm', async () => {
     const onAddToCalendar = vi.fn();
     const testProps = {
       ...fullProps,
@@ -287,8 +287,11 @@ describe('EventDetailView', () => {
     const confirmBtn = screen.getByRole('button', { name: 'Confirm' });
     fireEvent.click(confirmBtn);
 
-    // Dialog should close
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // Confirm now awaits onConfirm before closing (so a caller's async failure
+    // can keep the dialog open) -- so closing happens after that promise resolves.
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
     expect(onAddToCalendar).toHaveBeenCalledWith(['sched-1', 'sched-2']);
   });
 
@@ -311,6 +314,33 @@ describe('EventDetailView', () => {
     fireEvent.keyDown(screen.getByRole('dialog').firstChild!, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(onAddToCalendar).not.toHaveBeenCalled();
+  });
+
+  it('ignores Escape and outside click while a confirm is still in flight', async () => {
+    let resolveConfirm: () => void;
+    const onAddToCalendar = vi.fn(
+      () => new Promise<void>((resolve) => { resolveConfirm = resolve; })
+    );
+    render(<EventDetailView {...fullProps} onAddToCalendar={onAddToCalendar} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add to Calendar' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    // Mutation is in flight -- Escape must not close the dialog early
+    fireEvent.keyDown(screen.getByRole('dialog').firstChild!, { key: 'Escape' });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    // Nor should an outside click
+    fireEvent.pointerDown(document.body);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    // Once the mutation resolves, the dialog is free to close normally
+    resolveConfirm!();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
 
   // AC15 Tests

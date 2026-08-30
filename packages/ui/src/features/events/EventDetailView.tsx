@@ -464,7 +464,7 @@ interface AddToCalendarDialogProps {
   onClose: () => void;
   schedules: ScheduleDetail[];
   labels: EventDetailViewLabels;
-  onConfirm: (selectedIds: string[]) => void;
+  onConfirm: (selectedIds: string[]) => void | Promise<void>;
   locale?: string;
   formatScheduleDate: (schedule: ScheduleDetail) => string;
   triggerEl: HTMLButtonElement | null;
@@ -481,6 +481,7 @@ const AddToCalendarDialog: React.FC<AddToCalendarDialogProps> = ({
   triggerEl,
 }) => {
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   // Initialize selectedIds with schedules that already have isAddedToCalendar === true
@@ -504,6 +505,7 @@ const AddToCalendarDialog: React.FC<AddToCalendarDialogProps> = ({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (isSubmitting) return;
         onClose();
         return;
       }
@@ -538,6 +540,7 @@ const AddToCalendarDialog: React.FC<AddToCalendarDialogProps> = ({
     };
 
     const handleOutsideClick = (e: PointerEvent) => {
+      if (isSubmitting) return;
       if (container && !container.contains(e.target as Node)) {
         onClose();
       }
@@ -553,7 +556,7 @@ const AddToCalendarDialog: React.FC<AddToCalendarDialogProps> = ({
         setTimeout(() => triggerEl.focus(), 0);
       }
     };
-  }, [isOpen, onClose, triggerEl]);
+  }, [isOpen, onClose, triggerEl, isSubmitting]);
 
   if (!isOpen) return null;
 
@@ -565,9 +568,17 @@ const AddToCalendarDialog: React.FC<AddToCalendarDialogProps> = ({
     }
   };
 
-  const handleConfirm = () => {
-    onConfirm(selectedIds);
-    onClose();
+  const handleConfirm = async () => {
+    setIsSubmitting(true);
+    try {
+      await Promise.resolve(onConfirm(selectedIds));
+      onClose();
+    } catch {
+      // Failure is already surfaced by the caller's own error announcement;
+      // keep the dialog open instead of closing on a false-success basis.
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -614,13 +625,15 @@ const AddToCalendarDialog: React.FC<AddToCalendarDialogProps> = ({
         <div className="flex justify-end gap-3 mt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md text-sm font-medium transition-colors"
+            disabled={isSubmitting}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {labels.addToCalendarCancelLabel}
           </button>
           <button
             onClick={handleConfirm}
-            className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md text-sm font-medium transition-colors"
+            disabled={isSubmitting}
+            className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {labels.addToCalendarConfirmLabel}
           </button>

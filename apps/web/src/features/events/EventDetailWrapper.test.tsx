@@ -154,6 +154,9 @@ const handlers = [
   }),
   api.mutation("toggleCalendarAddition", ({ variables }) => {
     const { eventId, scheduleId } = variables as any
+    if (scheduleId === "sched_fail") {
+      return HttpResponse.json({ errors: [{ message: "Mutation failed" }] })
+    }
     return HttpResponse.json({
       data: {
         toggleCalendarAddition: {
@@ -323,6 +326,41 @@ describe("EventDetailWrapper", () => {
     expect(screen.getByText("EventDetailsPage.favoriteSuccessAnnouncement")).toBeInTheDocument()
   })
 
+  it("patches list caches (events, events/feed, favoriteEvents) when toggle favorite succeeds, without double-counting favoriteCount", async () => {
+    // events/feed's query key is a PREFIX-match of events's (["events", "feed", ...]
+    // vs ["events", ...]), so a naive extra patch call targeting ["events", "feed"]
+    // on top of ["events"] would double-apply the favoriteCount delta to this cache.
+    queryClient.setQueryData(["events"], {
+      pages: [{ events: { items: [{ id: "evt_1", isFavorited: false, favoriteCount: 5 }] } }],
+    })
+    queryClient.setQueryData(["events", "feed"], {
+      pages: [{ events: { items: [{ id: "evt_1", isFavorited: false, favoriteCount: 5 }] } }],
+    })
+    queryClient.setQueryData(["favoriteEvents"], {
+      pages: [{ events: { items: [{ id: "evt_1", isFavorited: false, favoriteCount: 5 }] } }],
+    })
+
+    renderComponent()
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+    const favBtn = await screen.findByRole("button", { name: "EventDetailsPage.favoriteButtonLabel" })
+
+    fireEvent.click(favBtn)
+
+    await waitFor(() => {
+      const eventsCache = queryClient.getQueryData<any>(["events"])
+      expect(eventsCache?.pages[0].events.items[0].isFavorited).toBe(true)
+      expect(eventsCache?.pages[0].events.items[0].favoriteCount).toBe(6)
+
+      const feedCache = queryClient.getQueryData<any>(["events", "feed"])
+      expect(feedCache?.pages[0].events.items[0].isFavorited).toBe(true)
+      expect(feedCache?.pages[0].events.items[0].favoriteCount).toBe(6)
+
+      const favCache = queryClient.getQueryData<any>(["favoriteEvents"])
+      expect(favCache?.pages[0].events.items[0].isFavorited).toBe(true)
+      expect(favCache?.pages[0].events.items[0].favoriteCount).toBe(6)
+    })
+  })
+
   it("redirects unauthenticated users to /login and does not fire mutation", async () => {
     mockSession = null
     
@@ -427,6 +465,44 @@ describe("EventDetailWrapper", () => {
         scheduleIds: ["sched_1"],
       })
     })
+  })
+
+  it("surfaces an error and keeps the dialog open when add to calendar mutation fails", async () => {
+    currentMockEvent.schedules = [
+      {
+        id: "sched_fail",
+        isMainSchedule: true,
+        eventStartDate: "2026-08-10T10:00:00Z",
+        eventEndDate: null,
+        eventStartTime: null,
+        eventEndTime: null,
+        timezone: null,
+        ticketPrice: null,
+        isAddedToCalendar: false,
+      },
+    ] as any
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const calBtn = await screen.findByRole("button", { name: "EventDetailsPage.addToCalendarButtonLabel" })
+    fireEvent.click(calBtn)
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
+
+    const checkbox = screen.getByLabelText(/EventDetailsPage.defaultScheduleTitle/) as HTMLInputElement
+    fireEvent.click(checkbox)
+
+    const confirmBtn = screen.getByRole("button", { name: "EventDetailsPage.addToCalendarConfirmLabel" })
+    fireEvent.click(confirmBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText("EventDetailsPage.calendarErrorAnnouncement")).toBeInTheDocument()
+    })
+
+    // Dialog does not close on a false-success basis
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
   })
 
   it("unauthenticated calendar click redirects to /login and does not open dialog", async () => {
