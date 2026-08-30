@@ -6,12 +6,16 @@ import { eq } from 'drizzle-orm';
 import {
   processAiJob,
   setCallGeminiSeam,
+  callGeminiSeam,
   setMarkPostExtractedSeam,
+  markPostExtractedSeam,
   setRehostPostImageSeam,
-  setBackfillAccountProfileAndInferDefaultLocationSeam
+  rehostPostImageSeam,
+  setBackfillAccountProfileAndInferDefaultLocationSeam,
+  backfillAccountProfileAndInferDefaultLocationSeam
 } from './process-ai-job.js';
-import { setResolveLocationSeam } from './resolve-account-and-locations.js';
-import { setSendSqsMessage } from '../aws/send-sqs-message.js';
+import { setResolveLocationSeam, resolveLocationSeam } from './resolve-account-and-locations.js';
+import { setSendSqsMessage, sendSqsMessage } from '../aws/send-sqs-message.js';
 import { type ProcessingJobMessage } from '@festgrid/domain/posts';
 import { AiGatewayExhaustedError } from '../ai-gateway/adapter.js';
 
@@ -22,6 +26,13 @@ process.env.DATA_INGESTION_INLINE_FALLBACK_ENABLED = 'false';
 
 test('processAiJob orchestrator tests', async (t) => {
   const originalEnvQueueUrl = process.env.DATA_INGESTION_QUEUE_URL;
+  const originalCallGeminiSeam = callGeminiSeam;
+  const originalMarkPostExtractedSeam = markPostExtractedSeam;
+  const originalRehostPostImageSeam = rehostPostImageSeam;
+  const originalBackfillAccountProfileAndInferDefaultLocationSeam = backfillAccountProfileAndInferDefaultLocationSeam;
+  const originalResolveLocationSeam = resolveLocationSeam;
+  const originalSendSqsMessage = sendSqsMessage;
+
   setBackfillAccountProfileAndInferDefaultLocationSeam(async () => {});
 
   // Retrieve seeded users
@@ -56,6 +67,14 @@ test('processAiJob orchestrator tests', async (t) => {
     await db.delete(subscriptions).where(eq(subscriptions.accountId, profile.id));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
     process.env.DATA_INGESTION_QUEUE_URL = originalEnvQueueUrl;
+
+    // Reset seams
+    setCallGeminiSeam(originalCallGeminiSeam);
+    setMarkPostExtractedSeam(originalMarkPostExtractedSeam);
+    setRehostPostImageSeam(originalRehostPostImageSeam);
+    setBackfillAccountProfileAndInferDefaultLocationSeam(originalBackfillAccountProfileAndInferDefaultLocationSeam);
+    setResolveLocationSeam(originalResolveLocationSeam);
+    setSendSqsMessage(originalSendSqsMessage);
   });
 
   t.beforeEach(() => {
@@ -64,12 +83,12 @@ test('processAiJob orchestrator tests', async (t) => {
 
   t.afterEach(() => {
     // Reset seams
-    setCallGeminiSeam(async () => ({ text: '{}' }));
-    setMarkPostExtractedSeam(async () => ({}) as any);
-    setResolveLocationSeam(async () => ({}) as any);
-    setSendSqsMessage(async () => {});
-    setRehostPostImageSeam(async () => null);
-    setBackfillAccountProfileAndInferDefaultLocationSeam(async () => {});
+    setCallGeminiSeam(originalCallGeminiSeam);
+    setMarkPostExtractedSeam(originalMarkPostExtractedSeam);
+    setRehostPostImageSeam(originalRehostPostImageSeam);
+    setBackfillAccountProfileAndInferDefaultLocationSeam(originalBackfillAccountProfileAndInferDefaultLocationSeam);
+    setResolveLocationSeam(originalResolveLocationSeam);
+    setSendSqsMessage(originalSendSqsMessage);
   });
 
   await t.test('Case A: happy path (event extracted, enqueued, marked)', async (t) => {
