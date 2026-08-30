@@ -371,7 +371,7 @@ export function PostsSelectContent() {
       <div className="p-4 sm:p-8 max-w-xl mx-auto text-center space-y-4 mt-20">
         <p className="text-muted-foreground font-medium">{t('noSubscriptionsEmptyState')}</p>
         <Link
-          href="/settings/subscriptions"
+          href="/settings/account"
           className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
         >
           {t('noSubscriptionsCta')}

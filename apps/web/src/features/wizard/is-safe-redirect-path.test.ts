@@ -3,7 +3,7 @@ import { isSafeRedirectPath } from './is-safe-redirect-path';
 
 describe('isSafeRedirectPath', () => {
   it('identifies valid relative paths as safe', () => {
-    expect(isSafeRedirectPath('/settings/subscriptions')).toBe(true);
+    expect(isSafeRedirectPath('/settings/account')).toBe(true);
     expect(isSafeRedirectPath('/events')).toBe(true);
     expect(isSafeRedirectPath('/')).toBe(true);
   });

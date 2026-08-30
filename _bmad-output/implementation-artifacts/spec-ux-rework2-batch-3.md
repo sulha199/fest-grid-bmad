@@ -2,7 +2,7 @@
 title: 'ux-rework2-batch-p0-remainder'
 type: 'bugfix'
 created: '2026-08-31T00:00:00Z'
-status: 'in-progress'
+status: 'done'
 review_loop_iteration: 0
 context: []
 baseline_commit: '320a9eeacd91452511bfadcfdd58c8bddad95fe5'
@@ -49,11 +49,11 @@ baseline_commit: '320a9eeacd91452511bfadcfdd58c8bddad95fe5'
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `feed-content.tsx`, `posts-select-content.tsx`, `subscriptions-content.tsx` (+ their 3 test fixtures) -- change every `/settings/subscriptions` reference to `/settings/account`.
-- [ ] `onboarding-api-key-step.tsx` -- import `ClientError` from `graphql-request`; in the `catch` block, extract `err.response.errors?.[0]?.message` when `err instanceof ClientError` and show it via `toast.error`, falling back to `t('apiKeyErrorToast')` when no message is present.
-- [ ] `api-key-form-dialog.tsx` -- same fix pattern for its `catch` block, falling back to `t("addErrorToast")`.
-- [ ] `WeeklyCalendarView.tsx` -- in the count-line block (line 843-847), only render the `Heart` icon when `!schedule.isFavorited`; keep the count number always visible when `favoriteCount > 0`.
-- [ ] Add/update tests: `is-safe-redirect-path.test.ts`, `feed-content.test.tsx`, `subscriptions-content.test.tsx` (new target path); `onboarding-api-key-step.test.tsx`/`api-key-form-dialog.test.tsx` (real backend message surfaced on invalid-key rejection, generic fallback still shown for a non-GraphQL error); `WeeklyCalendarView.test.tsx` (new case: `isFavorited: true` AND `favoriteCount > 0` together, asserting exactly one `Heart` icon; existing not-favorited case continues to assert the count-line icon still renders).
+- [x] `feed-content.tsx`, `posts-select-content.tsx`, `subscriptions-content.tsx` (+ their 3 test fixtures) -- change every `/settings/subscriptions` reference to `/settings/account`.
+- [x] `onboarding-api-key-step.tsx` -- import `ClientError` from `graphql-request`; in the `catch` block, extract `err.response.errors?.[0]?.message` when `err instanceof ClientError` and show it via `toast.error`, falling back to `t('apiKeyErrorToast')` when no message is present.
+- [x] `api-key-form-dialog.tsx` -- same fix pattern for its `catch` block, falling back to `t("addErrorToast")`.
+- [x] `WeeklyCalendarView.tsx` -- in the count-line block (line 843-847), only render the `Heart` icon when `!schedule.isFavorited`; keep the count number always visible when `favoriteCount > 0`. (Extended during review: the icon carried the count-line's only `aria-label`, so suppressing it also silently dropped accessible context for screen readers -- moved `aria-label="Favorites"` onto the wrapper span so it's always present, and made the icon `aria-hidden` when shown.)
+- [x] Add/update tests: `is-safe-redirect-path.test.ts`, `feed-content.test.tsx`, `subscriptions-content.test.tsx` (new target path); `onboarding-api-key-step.test.tsx` and `api-keys-content.test.tsx` (real backend message surfaced on invalid-key rejection, generic fallback still shown for a non-GraphQL error -- landed in `api-keys-content.test.tsx`, the parent component's test file, rather than a separate `api-key-form-dialog.test.tsx` which doesn't exist); `WeeklyCalendarView.test.tsx` (new case: `isFavorited: true` AND `favoriteCount > 0` together, asserting exactly one `Heart` icon and that the count line still carries `aria-label="Favorites"`; existing not-favorited case continues to assert the count-line icon still renders).
 
 **Acceptance Criteria:**
 - Given a user clicks any link/redirect previously pointing at `/settings/subscriptions`, when navigation resolves, then they land on `/settings/account` (no 404).
@@ -61,12 +61,56 @@ baseline_commit: '320a9eeacd91452511bfadcfdd58c8bddad95fe5'
 - Given a user submits a key and a non-GraphQL error occurs (e.g. network failure), when the mutation rejects, then the existing generic fallback toast still shows (no regression).
 - Given a calendar-view event card where the current user has favorited the event and `favoriteCount > 0`, when rendered, then exactly one `Heart` icon appears (count still visible); given the event is not favorited, the count-line icon renders as before.
 
+## Spec Change Log
+
+- 2026-08-31: Dispatched implementation to `cline-cli` (`--worktree`). This time the spec file was committed to `master` *before* launching cline (commit `40d01b8`), fixing the prior batch's root cause (a stale worktree base that predated the spec's own creation). The worktree correctly saw the spec this time, but independent verification still found real defects cline's own reported "success" missed:
+  - `onboarding-api-key-step.test.tsx`'s two new tests were spliced with a missing closing brace for the *preceding* pre-existing test -- the same invalid-nesting defect class as the prior batch, in a new file. Re-derived by hand as proper sibling tests.
+  - The same file's `vi.mock('sonner', ...)` factory referenced a top-level `const mockToastError` directly by value, which throws `ReferenceError: Cannot access 'mockToastError' before initialization` under Vitest's mock-hoisting semantics (vi.mock calls hoist above const declarations). Fixed by wrapping the reference in a closure (`error: (msg) => mockToastError(msg)`), matching the working pattern already used in `report-dialog.test.tsx`.
+  - The same file's `vi.mock('graphql-request', ...)` factory only returned a hand-rolled `ClientError`, breaking `graphql-client.ts`'s `import { GraphQLClient } from 'graphql-request'`. Removed the mock entirely and used the real `ClientError` class instead (the pattern `api-keys-content.test.tsx` already used successfully) -- no mock was actually needed.
+  - `api-keys-content.test.tsx`'s two new tests set `vi.mocked(graphqlClient.request).mockRejectedValueOnce(...)` *before* rendering the component, which intercepted the component's own initial `GetMyApiKeys` query (the first call to the shared `.request` mock) instead of the intended later `createApiKey` mutation call, breaking the initial list render. Reordered so the rejection is set only after the initial list has loaded, immediately before the submit click that should trigger it.
+  All fixes independently verified: `pnpm --filter web test feed-content posts-select-content subscriptions-content is-safe-redirect-path onboarding-api-key-step api-key-form-dialog api-keys-content` -- 6 files, 45 tests, all pass.
+- 2026-08-31: Ran Blind Hunter + Edge Case Hunter adversarial review (`cline-cli`, `gemini-3.1-pro-preview`), independently verified every finding. Blind Hunter's two most serious-sounding claims ("corrupted patch file with truncation markers", "missing the third `/settings/subscriptions` call site") were both confirmed false by direct inspection of the diff file (no truncation markers present; all 3 call sites, including `subscriptions-content.tsx`, are in the diff). Its remaining findings (bare `any` catch type, inconsistent console logging, dynamic `import("sonner")` inside a catch block, hardcoded Tailwind classes, i18n bypass on the surfaced error message) were all confirmed pre-existing/spec-approved, not introduced by this diff -- logged to `deferred-work.md` rather than fixed here. One **patch** finding from Edge Case Hunter, confirmed real and fixed: suppressing the count-line `Heart` icon also silently dropped its `aria-label="Favorites"` for screen-reader users, since no other element carried that label. Moved the label onto the always-present wrapper span. Edge Case Hunter's other two findings (multi-error-array `errors[0]`-only access, whitespace-only message strings) were confirmed to match an existing codebase-wide pattern already spec-approved for this exact fix -- logged as low-probability defers rather than fixed, since the backend that produces this specific error only ever sends one non-whitespace message today.
+
 ## Verification
 
 **Commands:**
-- `pnpm --filter web exec tsc --noEmit` -- web app type-checks after all frontend changes.
-- `pnpm --filter @festgrid/ui exec tsc --noEmit` -- ui package type-checks (excluding the pre-existing, unrelated `baseUrl` deprecation warning already present on `master`).
-- `pnpm --filter web test feed-content posts-select-content subscriptions-content is-safe-redirect-path onboarding-api-key-step api-key-form-dialog` -- targeted frontend tests pass.
-- `pnpm --filter @festgrid/ui test WeeklyCalendarView` -- targeted test passes, including the new case.
-- `pnpm test` -- full project test suite passes (the pre-existing, unrelated `EventCard.test.tsx` masonry-badge failure logged in `deferred-work.md` is out of scope and expected to still be the only failure, if still present).
+- `pnpm --filter web exec tsc --noEmit` -- PASS (only pre-existing, unrelated errors remain elsewhere).
+- `pnpm --filter @festgrid/ui exec tsc --noEmit` -- PASS (only the pre-existing, unrelated `baseUrl` deprecation warning).
+- `pnpm --filter web test feed-content posts-select-content subscriptions-content is-safe-redirect-path onboarding-api-key-step api-key-form-dialog api-keys-content` -- PASS, 6 files / 45 tests.
+- `pnpm --filter @festgrid/ui test WeeklyCalendarView` -- PASS, 22/22.
+- `pnpm --filter web test` (full) -- PASS, 50 files / 295 tests.
+- `pnpm --filter @festgrid/ui test` (full) -- 347/348 PASS; the 1 failure (`EventCard.test.tsx`, masonry badge suite) is pre-existing and unrelated, already logged in `deferred-work.md` from the prior batch.
+
+## Suggested Review Order
+
+**Dead `/settings/subscriptions` link**
+
+- Entry point -- the onboarding-guard redirect that sends a subscription-less user through the wizard and back.
+  [`subscriptions-content.tsx:65`](../../apps/web/src/app/[locale]/settings/account/subscriptions-content.tsx#L65)
+
+- Feed's empty-state CTA, same dead target.
+  [`feed-content.tsx:301`](../../apps/web/src/app/[locale]/feed/feed-content.tsx#L301)
+
+- Post-selection's empty-state CTA, same dead target.
+  [`posts-select-content.tsx:374`](../../apps/web/src/app/[locale]/posts/select/posts-select-content.tsx#L374)
+
+**Surfacing the real backend error message**
+
+- Onboarding wizard's API-key step -- extracts `ClientError`'s real message before falling back to the generic toast.
+  [`onboarding-api-key-step.tsx:57`](../../apps/web/src/features/onboarding/onboarding-api-key-step.tsx#L57)
+
+- Same fix applied to the settings-page API-key dialog.
+  [`api-key-form-dialog.tsx:76`](../../apps/web/src/app/[locale]/settings/account/api-key-form-dialog.tsx#L76)
+
+**Duplicate favorite icon on calendar cards**
+
+- Count-line `Heart` now suppressed when the badge above already shows it; the wrapper carries the accessible label so screen readers aren't left with a bare number (a review-driven addition beyond the original ask).
+  [`WeeklyCalendarView.tsx:844`](../../packages/ui/src/features/events/WeeklyCalendarView.tsx#L844)
+
+**Peripherals**
+
+- New/updated test coverage for all three fixes, including the accessibility regression test.
+  [`onboarding-api-key-step.test.tsx`](../../apps/web/src/features/onboarding/onboarding-api-key-step.test.tsx)
+  [`api-keys-content.test.tsx`](../../apps/web/src/app/[locale]/settings/account/api-keys-content.test.tsx)
+  [`WeeklyCalendarView.test.tsx`](../../packages/ui/src/features/events/WeeklyCalendarView.test.tsx)
 

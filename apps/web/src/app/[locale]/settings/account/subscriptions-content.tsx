@@ -62,7 +62,7 @@ export function SubscriptionsContent() {
   useEffect(() => {
     if (session && !isLoading && !apiKeyLoading) {
       if (!hasApiKey && subscriptions.length === 0) {
-        router.push(`/wizard/onboarding/api-key?redirect=${encodeURIComponent('/settings/subscriptions')}`)
+        router.push(`/wizard/onboarding/api-key?redirect=${encodeURIComponent('/settings/account')}`)
       }
     }
   }, [session, hasApiKey, apiKeyLoading, subscriptions, isLoading, router])

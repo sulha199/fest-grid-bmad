@@ -6,6 +6,7 @@ import { BlockingLoader } from "@festgrid/ui"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useCreateApiKeyMutation } from "@/generated/graphql"
 import { useQueryClient } from "@tanstack/react-query"
+import { ClientError } from "graphql-request"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -72,6 +73,13 @@ export function ApiKeyFormDialog({ isOpen, onClose }: ApiKeyFormDialogProps) {
     } catch (err) {
       console.error(err)
       const { toast } = await import("sonner")
+      if (err instanceof ClientError) {
+        const msg = err.response?.errors?.[0]?.message;
+        if (msg) {
+          toast.error(msg);
+          return;
+        }
+      }
       toast.error(t("addErrorToast"))
     } finally {
       setIsSubmitting(false)

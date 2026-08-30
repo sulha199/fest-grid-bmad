@@ -2,6 +2,15 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: verification of ux-rework2-batch-3 (dead link / error-message / duplicate-icon P0 fixes) (2026-08-31)
+
+- `onboarding-api-key-step.tsx`'s `catch (err: any)` and inconsistent error logging vs. `api-key-form-dialog.tsx` (the latter `console.error`s the raw error before toasting, the former doesn't) both predate this batch's diff — this batch only added a new branch inside each existing catch block, it didn't touch the catch signature or logging. A future pass could standardize both call sites (and the two other GraphQL-error-branching call sites noted in the prior batch's deferred entry) on one shared error-handling helper.
+  evidence: Surfaced by the Blind Hunter review pass on `spec-ux-rework2-batch-3.md`'s diff; confirmed pre-existing by reading the original file content before this diff (`err: any` and the `console.error` call were both already present).
+- `api-key-form-dialog.tsx`'s pre-existing `const { toast } = await import("sonner")` inside its `catch` block (unmodified by this batch) means a network failure severe enough to break the dynamic import itself would leave the user with zero feedback. Pre-existing risk, not introduced or touched by this batch.
+  evidence: Surfaced by the Blind Hunter review pass; confirmed pre-existing via the original file read before this diff was applied.
+- The new error-message extraction (`onboarding-api-key-step.tsx`, `api-key-form-dialog.tsx`) only reads `err.response.errors?.[0]?.message`, silently ignoring a hypothetical second/third GraphQL error in the same response, and would show a whitespace-only string verbatim if the backend ever sent one. Matches the exact pattern already used by `report-dialog.tsx`/`subscribe-account-dialog.tsx` and was the explicitly spec-approved approach (`spec-ux-rework2-batch-3.md`'s Boundaries); the `createApiKey` resolver only ever throws one, non-whitespace message today, so this is a low-probability latent gap rather than an active bug.
+  evidence: Surfaced by the Edge Case Hunter review pass. Worth a shared, hardened error-message-extraction helper (`errors.find(e => e.message?.trim()) ?? errors[0]`) if/when the broader error-handling-standardization pass (noted above) happens.
+
 ## Deferred from: verification of ux-rework2-batch-2 (Add to Calendar / favorite-sync P0 fixes) (2026-08-31)
 
 - `EventCard.test.tsx`'s "Today WITH a startTime provided -> badge shows the formatted time" test (masonry badge suite from the prior `ux-rework2` batch) fails on a clean `master` checkout (no relation to this batch's changes) — it constructs `today = new Date()` and expects the masonry badge to show a formatted time, but the component renders "Yesterday" instead, meaning its day-diff calculation disagrees with the test's own local-time construction near a day boundary (likely a UTC-vs-local mismatch in the badge's day-diff logic vs. `Intl.DateTimeFormat`'s local formatting).

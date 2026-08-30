@@ -216,4 +216,61 @@ describe('ApiKeysContent', () => {
       expect(screen.getByText('••••1234')).toBeInTheDocument();
     });
   });
+
+  it('shows real backend message on invalid-key rejection in the dialog', async () => {
+    mockSession = { user: { id: 'user-1', email: 'user@test.dev' } };
+
+    renderWithProviders(<ApiKeysContent />);
+
+    // Let the initial GetMyApiKeys query resolve via the default beforeEach
+    // mock BEFORE overriding the next call -- setting mockRejectedValueOnce
+    // before render would otherwise intercept that initial query instead of
+    // the createApiKey mutation fired later by the submit click.
+    await waitFor(() => {
+      expect(screen.getByText('My API Keys')).toBeInTheDocument();
+    });
+
+    const { ClientError } = await import('graphql-request');
+    vi.mocked(graphqlClient.request).mockRejectedValueOnce(
+      new ClientError({ errors: [{ message: 'INVALID_API_KEY' }] } as any, { status: 400 } as any)
+    );
+
+    const addBtn = screen.getByRole('button', { name: 'Add API Key' });
+    fireEvent.click(addBtn);
+
+    const keyInput = screen.getByLabelText('API Key');
+    fireEvent.change(keyInput, { target: { value: 'GEMINI-TEST-KEY' } });
+
+    const submitBtn = screen.getByRole('button', { name: 'Add Key' });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('INVALID_API_KEY')).toBeInTheDocument();
+    });
+  });
+
+  it('shows generic fallback toast for a non-GraphQL error in the dialog', async () => {
+    mockSession = { user: { id: 'user-1', email: 'user@test.dev' } };
+
+    renderWithProviders(<ApiKeysContent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('My API Keys')).toBeInTheDocument();
+    });
+
+    vi.mocked(graphqlClient.request).mockRejectedValueOnce(new Error('Network Error'));
+
+    const addBtn = screen.getByRole('button', { name: 'Add API Key' });
+    fireEvent.click(addBtn);
+
+    const keyInput = screen.getByLabelText('API Key');
+    fireEvent.change(keyInput, { target: { value: 'GEMINI-TEST-KEY' } });
+
+    const submitBtn = screen.getByRole('button', { name: 'Add Key' });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to add API key. Please try again.')).toBeInTheDocument();
+    });
+  });
 });

@@ -213,7 +213,7 @@ describe('SubscriptionsContent', () => {
 
     await waitFor(() => {
       expect(mockRouterPush).toHaveBeenCalledWith(
-        `/wizard/onboarding/api-key?redirect=${encodeURIComponent('/settings/subscriptions')}`
+        `/wizard/onboarding/api-key?redirect=${encodeURIComponent('/settings/account')}`
       );
     });
   });

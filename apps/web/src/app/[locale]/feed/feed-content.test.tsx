@@ -239,7 +239,7 @@ describe('FeedContent', () => {
 
     const ctaButton = screen.getByRole('link', { name: 'Manage Subscriptions' });
     expect(ctaButton).toBeInTheDocument();
-    expect(ctaButton).toHaveAttribute('href', '/settings/subscriptions');
+    expect(ctaButton).toHaveAttribute('href', '/settings/account');
   });
 
   it('renders SubscriptionPicker when there are multiple active subscriptions and filters feed on selection', async () => {

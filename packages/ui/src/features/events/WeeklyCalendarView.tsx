@@ -841,8 +841,8 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
             </span>
           )}
           {schedule.favoriteCount !== undefined && schedule.favoriteCount > 0 && (
-            <span className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5" data-testid="favorite-count-line">
-              <Heart className="w-2.5 h-2.5 text-rose-500 shrink-0 inline" aria-label="Favorites" />
+            <span className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5" data-testid="favorite-count-line" aria-label="Favorites">
+              {!schedule.isFavorited && <Heart className="w-2.5 h-2.5 text-rose-500 shrink-0 inline" aria-hidden="true" />}
               <span>{schedule.favoriteCount}</span>
             </span>
           )}

@@ -685,5 +685,39 @@ describe('WeeklyCalendarView', () => {
         expect(card).toHaveAttribute('tabIndex', '0');
       });
     });
+
+    it('renders exactly one Heart icon when schedule isFavorited: true and favoriteCount > 0', () => {
+      const schedule = [
+        {
+          id: '1',
+          eventSlug: 'test',
+          eventName: 'Fav Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+          isFavorited: true,
+          favoriteCount: 15,
+        }
+      ];
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} schedules={schedule} />
+        </ScopedLocaleProvider>
+      );
+      
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      
+      const badgeHeart = within(mobileView).queryByTestId('heart-icon');
+      expect(badgeHeart).toBeInTheDocument();
+      
+      const favLine = within(mobileView).getByTestId('favorite-count-line');
+      expect(favLine).toHaveTextContent('15');
+
+      const countHeart = within(favLine).queryByLabelText('Favorites');
+      expect(countHeart).not.toBeInTheDocument();
+
+      // The count line still carries an accessible label even with its icon
+      // suppressed, so screen-reader users aren't left with a bare number.
+      expect(favLine).toHaveAttribute('aria-label', 'Favorites');
+    });
   });
 });

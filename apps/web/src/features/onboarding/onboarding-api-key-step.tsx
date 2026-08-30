@@ -8,6 +8,7 @@ import { usePostHog } from '@festgrid/analytics';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGetMyApiKeysQuery, useCreateApiKeyMutation } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
+import { ClientError } from 'graphql-request';
 
 export function OnboardingApiKeyStep() {
   const t = useTranslations('OnboardingWizard');
@@ -53,6 +54,13 @@ export function OnboardingApiKeyStep() {
       toast.success(t('apiKeySuccessToast'));
       setApiKeyVal('');
     } catch (err: any) {
+      if (err instanceof ClientError) {
+        const msg = err.response?.errors?.[0]?.message;
+        if (msg) {
+          toast.error(msg);
+          return;
+        }
+      }
       toast.error(t('apiKeyErrorToast'));
     }
   };
