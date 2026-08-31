@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, X, Heart, CalendarPlus, CalendarRange } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo, useId } from 'react';
+import { ChevronLeft, ChevronRight, X, Heart, CalendarPlus, CalendarRange, ChevronDown } from 'lucide-react';
 import { WeekPicker } from '../../core/WeekPicker';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type {
@@ -59,6 +59,22 @@ const toISODateString = (d: Date) => {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+/**
+ * "Today" as YYYY-MM-DD in the given IANA timezone (falls back to local
+ * system time if no timezone is given or it's invalid) -- avoids comparing
+ * dates against the wrong day boundary when the viewer's local timezone
+ * differs from the calendar's active one.
+ */
+const getTodayISOInTimezone = (tz?: string): string => {
+  if (!tz) return toISODateString(new Date());
+  try {
+    // en-CA formats as YYYY-MM-DD directly, avoiding manual part-parsing.
+    return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
+  } catch {
+    return toISODateString(new Date());
+  }
 };
 
 /**
@@ -354,6 +370,9 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
 
   // 4. Popover state & focus trap implementation
   const [openPopoverDayIdx, setOpenPopoverDayIdx] = useState<number | null>(null);
+  const [dayOverrides, setDayOverrides] = useState<Record<string, boolean>>({});
+  const todayISO = getTodayISOInTimezone(activeTimezone);
+  const mobileDayContentIdPrefix = useId();
   const popoverTriggerRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const popoverContainerRef = useRef<HTMLDivElement>(null);
 
@@ -651,30 +670,44 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
         .filter(({ bucket }) => bucket.length > 0)
         .map(({ bucket, dayIdx, dayDate }) => {
           const headerStr = formatDayHeader(activeLocale, activeTimezone, dayDate);
+          const dateISO = toISODateString(dayDate);
+          const isCollapsed = dayOverrides[dateISO] ?? (dateISO < todayISO);
+
           return (
             <div key={dayIdx} className="flex flex-col gap-1 py-3" data-testid="mobile-day-row">
-              <div className="text-sm font-medium text-left px-1 mb-1">
+              <button
+                type="button"
+                data-testid="mobile-day-toggle"
+                aria-expanded={!isCollapsed}
+                aria-controls={`${mobileDayContentIdPrefix}-mobile-day-content-${dayIdx}`}
+                aria-label={`${headerStr} — ${isCollapsed ? (labels?.expandDayLabel || 'Expand day') : (labels?.collapseDayLabel || 'Collapse day')}`}
+                className="flex items-center justify-between text-sm font-medium text-left px-1 mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded"
+                onClick={() => setDayOverrides(prev => ({ ...prev, [dateISO]: !isCollapsed }))}
+              >
                 {headerStr}
-              </div>
-              <div className="flex flex-col gap-2 px-1">
-                {bucket.map((seg) => (
-                  <CalendarCard
-                    key={seg.schedule.id}
-                    segment={seg}
-                    dayIdx={dayIdx}
-                    cardIdx={-1} // Non-grid / plain Tab stop
-                    isRovingActive={false}
-                    locale={activeLocale}
-                    timezone={activeTimezone}
-                    onScheduleClick={onScheduleClick}
-                    variant="list"
-                    currentDayStr={toISODateString(dayDate)}
-                    multiDaySegmentLabel={labels?.multiDaySegmentLabel}
-                    favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
-                    addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
-                  />
-                ))}
-              </div>
+                <ChevronDown className={`w-4 h-4 text-gray-500 shrink-0 transition-transform ${!isCollapsed ? 'rotate-180' : ''}`} />
+              </button>
+              {!isCollapsed && (
+                <div id={`${mobileDayContentIdPrefix}-mobile-day-content-${dayIdx}`} className="flex flex-col gap-2 px-1">
+                  {bucket.map((seg) => (
+                    <CalendarCard
+                      key={seg.schedule.id}
+                      segment={seg}
+                      dayIdx={dayIdx}
+                      cardIdx={-1} // Non-grid / plain Tab stop
+                      isRovingActive={false}
+                      locale={activeLocale}
+                      timezone={activeTimezone}
+                      onScheduleClick={onScheduleClick}
+                      variant="list"
+                      currentDayStr={dateISO}
+                      multiDaySegmentLabel={labels?.multiDaySegmentLabel}
+                      favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
+                      addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

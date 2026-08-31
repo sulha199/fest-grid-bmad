@@ -27,6 +27,10 @@ export interface WeeklyCalendarViewLabels {
   favoritedBadgeLabel?: string;
   /** aria-label for the added to calendar badge */
   addedToCalendarBadgeLabel?: string;
+  /** aria-label for the expand day button */
+  expandDayLabel?: string;
+  /** aria-label for the collapse day button */
+  collapseDayLabel?: string;
   /**
    * "+N more" affordance text, invoked once per over-capacity day cell with
    * that day's own hidden-schedule count. A resolver FUNCTION, not a static

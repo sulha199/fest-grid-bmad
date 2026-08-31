@@ -1,7 +1,7 @@
 /// <reference types="@testing-library/jest-dom" />
 import React from 'react';
 import { render, screen as rtlScreen, fireEvent, cleanup, within } from '@testing-library/react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
 import { WeeklyCalendarView } from './WeeklyCalendarView';
 import { ScopedLocaleProvider } from '../../hooks/useScopedLocale';
 
@@ -528,6 +528,15 @@ describe('WeeklyCalendarView', () => {
   });
 
   describe('Mobile Vertical List View (AC15)', () => {
+    beforeAll(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-04T12:00:00Z'));
+    });
+    
+    afterAll(() => {
+      vi.useRealTimers();
+    });
+
     it('renders one row per non-empty day and omits empty days entirely', () => {
       render(
         <ScopedLocaleProvider locale="en-US">
@@ -679,7 +688,10 @@ describe('WeeklyCalendarView', () => {
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      const cards = within(mobileView).getAllByRole('button');
+      // filter out the day header toggle buttons (identified by their own
+      // data-testid, not aria-expanded -- a CalendarCard could legitimately
+      // gain its own aria-expanded usage in the future)
+      const cards = within(mobileView).getAllByRole('button').filter(b => b.getAttribute('data-testid') !== 'mobile-day-toggle');
 
       cards.forEach((card) => {
         expect(card).toHaveAttribute('tabIndex', '0');
@@ -703,9 +715,9 @@ describe('WeeklyCalendarView', () => {
           <WeeklyCalendarView {...defaultProps} schedules={schedule} />
         </ScopedLocaleProvider>
       );
-      
+
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      
+
       const badgeHeart = within(mobileView).queryByTestId('heart-icon');
       expect(badgeHeart).toBeInTheDocument();
       
@@ -718,6 +730,55 @@ describe('WeeklyCalendarView', () => {
       // The count line still carries an accessible label even with its icon
       // suppressed, so screen-reader users aren't left with a bare number.
       expect(favLine).toHaveAttribute('aria-label', 'Favorites');
+    });
+  });
+  describe('Mobile Day Collapse State', () => {
+    beforeAll(() => {
+      vi.useFakeTimers();
+      // "Today" is 2026-08-06.
+      // 2026-08-05 is past (default collapsed).
+      // 2026-08-06 is today (default expanded).
+      // 2026-08-07 is future (default expanded).
+      vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    });
+    
+    afterAll(() => {
+      vi.useRealTimers();
+    });
+
+    it('defaults past days to collapsed and today/future to expanded, and allows toggling', () => {
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} timezone="UTC" />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      
+      // 2026-08-05 (past) -> collapsed
+      const pastHeader = within(mobileView).getByText('5 Wed').closest('button')!;
+      expect(pastHeader).toHaveAttribute('aria-expanded', 'false');
+      expect(within(mobileView).queryByText('Main Stage Concert')).not.toBeInTheDocument();
+
+      // 2026-08-06 (today) -> expanded
+      const todayHeader = within(mobileView).getByText('6 Thu').closest('button')!;
+      expect(todayHeader).toHaveAttribute('aria-expanded', 'true');
+      expect(within(mobileView).getByText('Gallery Tour')).toBeInTheDocument();
+
+      // 2026-08-07 (future) -> expanded
+      const futureHeader = within(mobileView).getByText('7 Fri').closest('button')!;
+      expect(futureHeader).toHaveAttribute('aria-expanded', 'true');
+      expect(within(mobileView).getAllByText('Tech Workshop').length).toBeGreaterThan(0);
+
+      // Toggle past open
+      fireEvent.click(pastHeader);
+      expect(pastHeader).toHaveAttribute('aria-expanded', 'true');
+      expect(within(mobileView).getByText('Main Stage Concert')).toBeInTheDocument();
+
+      // Toggle today closed
+      fireEvent.click(todayHeader);
+      expect(todayHeader).toHaveAttribute('aria-expanded', 'false');
+      expect(within(mobileView).queryByText('Gallery Tour')).not.toBeInTheDocument();
     });
   });
 });

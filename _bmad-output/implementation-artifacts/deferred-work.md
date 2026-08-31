@@ -2,6 +2,15 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: verification of ux-rework2-batch-5 (calendar mobile collapsible days) (2026-08-31)
+
+- `WeeklyCalendarView.tsx`'s mobile day-toggle content div is conditionally unmounted (not just CSS-hidden) when a day is collapsed. If a user's keyboard focus is inside that day's content when it collapses (via their own click, or in principle a re-render crossing local midnight), focus is dropped to `document.body` rather than moving somewhere predictable (e.g. back to the toggle button). Low real-world likelihood -- the most common trigger (the user's own collapse click) is itself the point of the interaction -- but not handled.
+  evidence: Surfaced by the Edge Case Hunter review pass on `spec-ux-rework2-batch-5.md`'s diff.
+- `dayOverrides` (the per-day collapse-toggle state map) never removes a key once set, even if a user toggles a day back to exactly its default state -- it just accumulates one small boolean entry per toggled date for as long as the component stays mounted. Negligible in practice (a handful of tiny string-keyed booleans, bounded by how many distinct dates one session's user could plausibly toggle), not worth the added complexity of pruning.
+  evidence: Surfaced by the Blind Hunter review pass.
+- The "Mobile Vertical List View (AC15)" test block's `getAllByText('Tech Workshop').length` assertion uses `toBeGreaterThan(0)` rather than an exact count -- pre-existing test style (not introduced by this batch), possibly deliberate given the fixture's multi-day segment could legitimately render more than once. Not verified either way; not worth the investigation cost for this batch.
+  evidence: Surfaced by the Blind Hunter review pass.
+
 ## Deferred from: verification of ux-rework2-batch-4 (masonry-only card view) (2026-08-31)
 
 - `home-content.tsx`, `feed-content.tsx`, `archive-content.tsx`, `favorites-content.tsx`, and the account page each render `<EventListView>` inside a `<div className="flex flex-col gap-4">` wrapper that now has only that one child (the sibling `ViewModeToggle` block it used to wrap alongside was removed). Purely cosmetic/dead markup, zero functional impact -- left alone rather than risk a multi-file JSX edit for no behavioral gain.
