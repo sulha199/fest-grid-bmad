@@ -1,9 +1,25 @@
 import { render, screen, cleanup } from '@testing-library/react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import React from 'react';
 import { EventDiscoveryPanel } from './EventDiscoveryPanel';
 
 // Mock nuqs to use React state for testing
+// Mock window.matchMedia
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
+
 vi.mock('nuqs', () => {
   const ReactMock = require('react');
   const store: Record<string, any> = {};
@@ -166,5 +182,99 @@ describe('EventDiscoveryPanel', () => {
 
     expect(screen.queryByTestId('card-view')).not.toBeInTheDocument();
     expect(screen.getByTestId('calendar-view')).toBeInTheDocument();
+  });
+
+  describe('scroll collapse behavior', () => {
+    let originalScrollY: number;
+
+    beforeEach(() => {
+      originalScrollY = window.scrollY;
+      vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      Object.defineProperty(window, 'scrollY', { value: originalScrollY, writable: true });
+      vi.restoreAllMocks();
+    });
+
+    it('renders normal header when scroll is below threshold', () => {
+      Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
+      render(<EventDiscoveryPanel {...defaultProps} />);
+
+      // Both states stay mounted (toggled via the `hidden` attribute, not
+      // conditional rendering) so `aria-controls` always references a real
+      // element -- assert visibility, not DOM presence.
+      expect(screen.getByPlaceholderText('Search events...')).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Show filters' })).not.toBeInTheDocument();
+    });
+
+    it('renders collapse button when scroll is above threshold', () => {
+      const { act } = require('@testing-library/react');
+      Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
+      render(<EventDiscoveryPanel {...defaultProps} />);
+
+      act(() => {
+        Object.defineProperty(window, 'scrollY', { value: 100, writable: true });
+        window.dispatchEvent(new Event('scroll'));
+      });
+
+      expect(screen.getByPlaceholderText('Search events...')).not.toBeVisible();
+      const expandBtn = screen.getByRole('button', { name: 'Show filters' });
+      expect(expandBtn).toBeVisible();
+    });
+
+    it('clicking expand button scrolls to top and immediately re-expands the header', () => {
+      const { act, fireEvent } = require('@testing-library/react');
+      Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
+      render(<EventDiscoveryPanel {...defaultProps} />);
+
+      act(() => {
+        Object.defineProperty(window, 'scrollY', { value: 100, writable: true });
+        window.dispatchEvent(new Event('scroll'));
+      });
+
+      const expandBtn = screen.getByRole('button', { name: 'Show filters' });
+      expect(expandBtn).toHaveAttribute('aria-expanded', 'false');
+
+      fireEvent.click(expandBtn);
+
+      expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+      // The header re-expands immediately -- doesn't wait for the (async,
+      // possibly-interrupted) scroll animation to cross the threshold.
+      expect(screen.getByPlaceholderText('Search events...')).toBeVisible();
+    });
+
+    it('links the expand button to the header content via aria-controls', () => {
+      const { act } = require('@testing-library/react');
+      Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
+      render(<EventDiscoveryPanel {...defaultProps} />);
+
+      act(() => {
+        Object.defineProperty(window, 'scrollY', { value: 100, writable: true });
+        window.dispatchEvent(new Event('scroll'));
+      });
+
+      const expandBtn = screen.getByRole('button', { name: 'Show filters' });
+      const controlsId = expandBtn.getAttribute('aria-controls');
+      expect(controlsId).toBeTruthy();
+      expect(document.getElementById(controlsId!)).not.toBeNull();
+    });
+
+    it('does not collapse while focus is inside the header', () => {
+      const { act } = require('@testing-library/react');
+      Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
+      render(<EventDiscoveryPanel {...defaultProps} />);
+
+      const searchInput = screen.getByPlaceholderText('Search events...');
+      searchInput.focus();
+
+      act(() => {
+        Object.defineProperty(window, 'scrollY', { value: 100, writable: true });
+        window.dispatchEvent(new Event('scroll'));
+      });
+
+      expect(searchInput).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Show filters' })).not.toBeInTheDocument();
+    });
   });
 });

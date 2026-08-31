@@ -2,6 +2,13 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: verification of ux-rework2-batch-6 (sticky FilterHub header) (2026-08-31)
+
+- After a user clicks the "Show filters" button to re-expand the header, focus is not explicitly moved anywhere (e.g. into the search input) -- it falls to the browser's default behavior when a focused element's visibility changes, which is generally to leave focus on the button itself (now visible again in the same position) rather than being lost, but this isn't verified across browsers and isn't as deliberate as moving focus to a specific sensible target.
+  evidence: Surfaced by the Edge Case Hunter review pass on `spec-ux-rework2-batch-6.md`'s diff. A full fix would need `SearchBar` to forward a ref (it currently doesn't), which is outside this spec's declared scope (`EventDiscoveryPanel.tsx` and the new hook only).
+- On first paint, `useCollapseHeaderOnScroll` initializes `isCollapsed` to `false` (matching the server-rendered HTML) and only measures real `window.scrollY` in a post-hydration `useEffect`. If a user's scroll position is already past the threshold when the page first becomes interactive (e.g. restored scroll position on a client-side back-navigation), there's a brief single-frame flash of the full header before it collapses. Does not produce an actual React hydration-mismatch error (the mismatch window is entirely within `useEffect`, after hydration completes) -- purely cosmetic, and Next.js App Router doesn't typically preserve scroll position across full page loads, only some SPA navigations.
+  evidence: Surfaced by both review passes. Avoiding it fully would need reading scroll position synchronously before first paint (e.g. `useLayoutEffect` or a blocking inline script), which is more invasive than the benefit justifies here.
+
 ## Deferred from: verification of ux-rework2-batch-5 (calendar mobile collapsible days) (2026-08-31)
 
 - `WeeklyCalendarView.tsx`'s mobile day-toggle content div is conditionally unmounted (not just CSS-hidden) when a day is collapsed. If a user's keyboard focus is inside that day's content when it collapses (via their own click, or in principle a re-render crossing local midnight), focus is dropped to `document.body` rather than moving somewhere predictable (e.g. back to the toggle button). Low real-world likelihood -- the most common trigger (the user's own collapse click) is itself the point of the interaction -- but not handled.

@@ -2,9 +2,10 @@
 title: 'ux-rework2-p1-sticky-filterhub-header'
 type: 'feature'
 created: '2026-08-31T00:00:00Z'
-status: 'ready-for-dev'
+status: 'done'
 review_loop_iteration: 0
 context: []
+baseline_commit: '89e6bc3405e9570c91f4f045427513cbb0653056'
 ---
 
 <frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">
@@ -37,11 +38,11 @@ context: []
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `packages/ui/src/hooks/useCollapseHeaderOnScroll.ts` (new) -- `useCollapseHeaderOnScroll(thresholdPx = 80)`: tracks `window.scrollY` via a passive `scroll` listener, returns `{ isCollapsed: boolean, expand: () => void }` where `isCollapsed = scrollY > thresholdPx` and `expand()` calls `window.scrollTo({ top: 0, behavior: usePrefersReducedMotion() ? 'auto' : 'smooth' })`. SSR-safe (no-op until mounted, matching `usePrefersReducedMotion`'s `typeof window === 'undefined'` guard).
-- [ ] `packages/ui/src/hooks/index.ts` -- export the new hook.
-- [ ] `EventDiscoveryPanel.tsx` -- wrap the search+FilterHub block and the view-switcher tabs together in one `<div className="sticky top-0 z-10 bg-background ...">`; when `isCollapsed`, render a small `<button onClick={expand} aria-label={showFiltersLabel || 'Show filters'}>` (icon + label) in place of the full block instead.
-- [ ] `EventDiscoveryPanel.types.ts` -- add `showFiltersLabel?: string`.
-- [ ] Add tests in a new `EventDiscoveryPanel.test.tsx` (or extend if one exists) and `useCollapseHeaderOnScroll.test.ts`: below the threshold the full header renders; above it the collapsed button renders instead and the full content does not; clicking the collapsed button calls `window.scrollTo` with `top: 0`.
+- [x] `packages/ui/src/hooks/useCollapseHeaderOnScroll.ts` (new) -- tracks `window.scrollY` via a passive `scroll` listener, returns `{ isCollapsed, expand }`. `expand()` calls `window.scrollTo(...)`, respecting `usePrefersReducedMotion()`. (Extended during review: accepts an optional `containerRef` used for two things -- (1) skip scroll-driven collapse while focus is inside the header, so an in-progress search/filter interaction isn't yanked away; (2) measure the header's own expanded-state height once on mount and use `Math.max(thresholdPx, measuredHeight)` as the real threshold, so collapsing doesn't visibly reflow content that's still on screen. `expand()` also now sets `isCollapsed` false eagerly instead of waiting for the scroll to physically cross the threshold.)
+- [x] `packages/ui/src/hooks/index.ts` -- export the new hook.
+- [x] `EventDiscoveryPanel.tsx` -- wrap the search+FilterHub block and the view-switcher tabs together in one sticky wrapper; collapsed state renders a small "Show filters" button in place of the full block. (Extended during review: both states now stay mounted, toggled via the `hidden` attribute rather than conditional rendering, so `aria-controls` always references a real element; the button carries `aria-expanded`/`aria-controls` instead of a redundant `aria-label` duplicating its own visible text; the sticky wrapper gained a bottom border + backdrop-blur so scrolling content doesn't visually bleed through it.)
+- [x] `EventDiscoveryPanel.types.ts` -- add `showFiltersLabel?: string`.
+- [x] Add tests in `EventDiscoveryPanel.test.tsx` and `useCollapseHeaderOnScroll.test.ts`: below the threshold the full header is visible; above it the collapsed button is visible instead and the full content is not; clicking the collapsed button calls `window.scrollTo` and immediately re-expands; the button's `aria-controls` resolves to a real element; scroll-driven collapse is skipped while focus is inside the header.
 
 **Acceptance Criteria:**
 - Given any page using `EventDiscoveryPanel` (Discovery/home, Feed, Favorites, Account, Widget), when the page is scrolled near the top, then the search bar, FilterHub, and view-switcher render normally and stick to the top of the viewport while scrolling.
@@ -49,10 +50,41 @@ context: []
 - Given the collapsed button is showing, when the user clicks it, then the page scrolls back to top and the full header reappears.
 - Given `archive-content.tsx` or `my-calendar-content.tsx`, when rendered, then neither is affected by this change (they don't use `EventDiscoveryPanel`).
 
+## Spec Change Log
+
+- 2026-08-31: Dispatched implementation to `cline-cli` (`--worktree`), spec pre-committed to `master` first. Independent verification found the initial implementation clean and structurally correct -- no defects (matching the prior calendar-collapse batch).
+- 2026-08-31: Ran Blind Hunter + Edge Case Hunter adversarial review (`cline-cli`, `gemini-3.1-pro-preview`), independently verified every finding. Both surfaced real, substantive issues this time. Fixed: (1) scroll-driven collapse could unmount the search box or an open filter popover mid-interaction, dropping focus and closing the popover -- added a focus-containment guard that skips collapsing while focus is inside the header; (2) the header collapsing at a fixed 80px regardless of its own (much taller) rendered height would visibly reflow/jump content still on screen -- now measures the header's real expanded height once and uses that as the effective threshold; (3) `expand()` only triggered a scroll, so clicking "Show filters" gave no visible response until the (possibly interrupted, possibly reduced-motion-skipped) scroll physically crossed back under the threshold -- now sets state eagerly; (4) the collapsed button lacked `aria-expanded`/`aria-controls` (a disclosure widget with neither), and separately duplicated its own visible text into a redundant `aria-label`, causing double-announcement -- restructured to keep both states permanently mounted (toggled via `hidden`, not conditional rendering) so `aria-controls` always resolves to a real element, and removed the redundant label; (5) the sticky wrapper had no visual separation from scrolling content beneath it (flat `bg-background`, no border/blur) -- added a bottom border and backdrop-blur. One Blind Hunter claim (`-mt-4` "pushing content out of the viewport") was checked against the actual CSS and found false -- `-mt-4` paired with `pt-4` is a standard, intentional sticky-header technique that nets to zero visual offset, not a bug. Two low-severity findings (no explicit focus-restoration target after expand; a single-frame flash on first paint if the page loads already scrolled past the threshold) logged to `deferred-work.md`.
+
 ## Verification
 
 **Commands:**
-- `pnpm --filter @festgrid/ui exec tsc --noEmit` -- ui package type-checks (excluding the pre-existing, unrelated `baseUrl` deprecation warning).
-- `pnpm --filter @festgrid/ui test EventDiscoveryPanel useCollapseHeaderOnScroll` -- new/targeted tests pass.
-- `pnpm test` -- full project test suite passes.
+- `pnpm --filter @festgrid/ui exec tsc --noEmit` -- PASS (only the pre-existing, unrelated `baseUrl` deprecation warning).
+- `pnpm --filter @festgrid/ui test EventDiscoveryPanel useCollapseHeaderOnScroll` -- PASS, 15/15.
+- `pnpm --filter @festgrid/ui test` (full) -- PASS, 45 files / 351 tests.
+- `web` package untouched by this batch (implementation is entirely within `packages/ui`); already verified green as of the prior batch.
+
+## Suggested Review Order
+
+**Sticky collapse, entry point**
+
+- The hook: scroll-position state, expand action.
+  [`useCollapseHeaderOnScroll.ts:48`](../../packages/ui/src/hooks/useCollapseHeaderOnScroll.ts#L48)
+
+- Wired into the panel; both collapsed and expanded states stay mounted, toggled via `hidden`.
+  [`EventDiscoveryPanel.tsx:51`](../../packages/ui/src/features/events/EventDiscoveryPanel.tsx#L51)
+  [`EventDiscoveryPanel.tsx:64`](../../packages/ui/src/features/events/EventDiscoveryPanel.tsx#L64)
+
+**Review-driven fixes**
+
+- Focus-containment guard -- skips scroll-driven collapse while the user is mid-interaction inside the header.
+  [`useCollapseHeaderOnScroll.ts:33`](../../packages/ui/src/hooks/useCollapseHeaderOnScroll.ts#L33)
+
+- Measured-height threshold -- collapses only once the header's own real height has scrolled past, avoiding a visible content jump.
+  [`useCollapseHeaderOnScroll.ts:28`](../../packages/ui/src/hooks/useCollapseHeaderOnScroll.ts#L28)
+
+**Peripherals**
+
+- New/updated tests, including the two review-driven regression cases (focus-containment, `aria-controls` linkage).
+  [`EventDiscoveryPanel.test.tsx`](../../packages/ui/src/features/events/EventDiscoveryPanel.test.tsx)
+  [`useCollapseHeaderOnScroll.test.ts`](../../packages/ui/src/hooks/useCollapseHeaderOnScroll.test.ts)
 

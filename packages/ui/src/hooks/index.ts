@@ -13,3 +13,4 @@ export * from './useCurrentLocationCapture';
 export * from './useWizardStep';
 export * from './useWeeklyCalendarController';
 export * from './useWeeklyCalendarController.types';
+export * from './useCollapseHeaderOnScroll';

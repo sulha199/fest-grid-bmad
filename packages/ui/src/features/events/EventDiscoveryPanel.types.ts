@@ -32,4 +32,5 @@ export interface EventDiscoveryPanelProps extends Omit<FilterHubProps, 'labels' 
   // View content
   views: EventDiscoveryPanelView[];
   className?: string;
+  showFiltersLabel?: string;
 }
