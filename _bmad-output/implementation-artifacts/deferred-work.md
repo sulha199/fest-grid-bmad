@@ -2,6 +2,15 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: quick-dev planning of ux-rework2 SubscribedAccountCard wiring (2026-08-31)
+
+- source_spec: none
+  summary: Wire `SubscribedAccountCard` into the Post Selection page (`apps/web/src/app/[locale]/posts/select/posts-select-content.tsx`), replacing its current raw `<img>`/`User`-icon-fallback inline account display (no `AccountAvatar` reuse even) with the shared card.
+  evidence: Split off in favor of wiring Event Detail first (pure addition, lower risk, and the only page where the card's "not yet subscribed" branch is actually exercised). Post Selection only shows posts from already-subscribed accounts, so `isSubscribed` would always be `true` there -- worth confirming that's still a useful application of the card (avatar+name+"Subscribed" display only, no functional subscribe click) before wiring.
+- source_spec: none
+  summary: Wire `SubscribedAccountCard` into the Subscribed Accounts settings page (`apps/web/src/app/[locale]/settings/account/subscriptions-content.tsx`), replacing its current `AccountAvatar` + name/platform badge + `SwipeToReveal`-wrapped `Trash2` unsubscribe button.
+  evidence: Split off -- same reasoning as Post Selection (isSubscribed always `true` here, no functional subscribe path). Additionally has an unresolved design question: `SubscribedAccountCard` has no unsubscribe affordance at all (`isSubscribed: true` renders a plain, non-interactive "Subscribed" text). Before wiring this page, decide whether the existing `SwipeToReveal` + `Trash2` delete stays as an external wrapper around the card (card handles display only, swipe still handles removal) or whether the card itself needs a new `onUnsubscribe` prop added (a change to the frozen component's contract, would need its own mini-spec).
+
 ## Deferred from: verification of ux-rework2-batch-7 (shared SubscribedAccountCard component) (2026-08-31)
 
 - `SubscribedAccountCard`'s `size="lg"` scales the composed `AccountAvatar` image but not the adjacent `displayName`/`username` text, which stays fixed-size regardless of `size`. No current caller uses `size="lg"` yet (component-only batch, no wiring), and the desired text scale at `lg` wasn't specified by the spec -- worth settling once a real `lg`-context caller exists rather than guessing now.
