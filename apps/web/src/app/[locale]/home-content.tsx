@@ -3,11 +3,11 @@
 import { useMemo, useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query"
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, ViewModeToggle, AIFilterOverlay, BlockingLoader } from "@festgrid/ui"
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
-import { useQueryState, parseAsString, parseAsArrayOf, parseAsStringLiteral } from "nuqs"
+import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs"
 import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
@@ -49,10 +49,6 @@ export function HomeContent() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
 
   const [view] = useQueryState('view', parseAsString.withDefault('card'))
-  const [layout, setLayout] = useQueryState(
-    'layout',
-    parseAsStringLiteral(['list', 'masonry']).withDefault('list')
-  )
   const [liveMessage, setLiveMessage] = useState("")
 
   useEffect(() => {
@@ -62,14 +58,6 @@ export function HomeContent() {
       posthog.capture('view_switched', { view })
     }
   }, [view, t, posthog])
-
-  useEffect(() => {
-    if (layout) {
-      const layoutLabel = layout === 'masonry' ? t('layoutSwitcherMasonryLabel') : t('layoutSwitcherListLabel')
-      setLiveMessage(t('layoutSwitcherAnnouncement', { layout: layoutLabel }))
-      posthog.capture('layout_switched', { layout })
-    }
-  }, [layout, t, posthog])
 
   const { mutate: toggleFavorite } = useToggleFavoriteMutation(graphqlClient, {
     onMutate: async (variables) => {
@@ -248,18 +236,7 @@ export function HomeContent() {
             icon: <LayoutGrid className="w-4 h-4" />,
             content: (
               <div className="flex flex-col gap-4">
-                <div className="flex justify-end">
-                  <ViewModeToggle
-                    viewMode={layout}
-                    onViewModeChange={setLayout}
-                    labels={{
-                      list: t('layoutSwitcherListLabel'),
-                      masonry: t('layoutSwitcherMasonryLabel'),
-                    }}
-                  />
-                </div>
                 <EventListView
-                  viewMode={layout}
                   status={status === 'pending' ? 'loading' : status}
                   events={events}
                   errorMessage={t('errorState')}

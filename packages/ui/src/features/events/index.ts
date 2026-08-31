@@ -15,8 +15,6 @@ export * from './LocationRadiusFilter';
 export * from './LocationRadiusFilter.types';
 export * from './CorrectionForm';
 export * from './CorrectionForm.types';
-export * from './ViewModeToggle';
-export * from './ViewModeToggle.types';
 
 export * from './format-event-date';
 

@@ -311,27 +311,5 @@ describe('ArchiveContent', () => {
     });
   });
 
-  it('layout switcher integration: default list mode, click switches to masonry, triggers PostHog capture', async () => {
-    renderWithProviders();
 
-    await waitFor(() => {
-      expect(screen.getByText('Moderated Event')).toBeInTheDocument();
-    });
-
-    const listToggle = screen.getByRole('button', { name: 'List View' });
-    const masonryToggle = screen.getByRole('button', { name: 'Masonry View' });
-
-    expect(listToggle.getAttribute('aria-pressed')).toBe('true');
-    expect(masonryToggle.getAttribute('aria-pressed')).toBe('false');
-
-    // Click masonry toggle
-    fireEvent.click(masonryToggle);
-
-    await waitFor(() => {
-      expect(listToggle.getAttribute('aria-pressed')).toBe('false');
-      expect(masonryToggle.getAttribute('aria-pressed')).toBe('true');
-    });
-
-    expect(mockPosthogCapture).toHaveBeenCalledWith('layout_switched', { layout: 'masonry' });
-  });
 });

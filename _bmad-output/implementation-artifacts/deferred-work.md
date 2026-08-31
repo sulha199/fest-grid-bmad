@@ -2,6 +2,15 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: verification of ux-rework2-batch-4 (masonry-only card view) (2026-08-31)
+
+- `home-content.tsx`, `feed-content.tsx`, `archive-content.tsx`, `favorites-content.tsx`, and the account page each render `<EventListView>` inside a `<div className="flex flex-col gap-4">` wrapper that now has only that one child (the sibling `ViewModeToggle` block it used to wrap alongside was removed). Purely cosmetic/dead markup, zero functional impact -- left alone rather than risk a multi-file JSX edit for no behavioral gain.
+  evidence: Surfaced by the Blind Hunter review pass on `spec-ux-rework2-batch-4.md`'s diff.
+- The `layoutSwitcherListLabel`/`layoutSwitcherMasonryLabel`/`layoutSwitcherAnnouncement` i18n keys (en/id locale files) are now unused after removing `ViewModeToggle` and its announcement effects, but were left in place -- harmless unused-string cruft, not worth a locale-file edit in this batch.
+  evidence: Surfaced by the Blind Hunter review pass.
+- A bookmarked/shared URL containing the now-removed `?layout=list` or `?layout=masonry` query param will keep that stale param in the address bar indefinitely (the app simply ignores it, no functional harm, but it's never cleaned up).
+  evidence: Surfaced by the Blind Hunter review pass. Very low impact; would need a redirect/param-stripping rule to fully clean up.
+
 ## Deferred from: quick-dev planning of ux-rework2 P1 batch (2026-08-31)
 
 - source_spec: none

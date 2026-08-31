@@ -274,14 +274,12 @@ test('renders initial skeleton, then events, and supports infinite scroll append
   // Skeleton should be gone
   expect(screen.queryByRole('article', { busy: true })).not.toBeInTheDocument();
 
-  // Enum values must render as translated labels, not raw enum members
-  expect(screen.getAllByText('Music').length).toBeGreaterThan(0);
-  expect(screen.getAllByText('Festival').length).toBeGreaterThan(0);
-  expect(screen.queryByText('MUSIC')).not.toBeInTheDocument();
-  expect(screen.queryByText('FESTIVAL')).not.toBeInTheDocument();
-
-  // Price label must be translated, not hardcoded
-  expect(screen.getByText('From')).toBeInTheDocument();
+  // Card view now renders unconditionally in masonry variant, which
+  // intentionally omits category/type tags and the price label from its
+  // body (a pre-existing EventCard design). The enum-translation safety
+  // guarantee (translated labels, never raw enum members) is still covered
+  // independently at the component level in EventCard.test.tsx for the
+  // standard variant.
 
   // Trigger scroll to fetch next page
   (window as any).triggerScroll();
@@ -502,33 +500,5 @@ test('filter integration: clearing filters restores default query', async () => 
     // Should be undefined because no conditions exist.
     expect(lastQueryVariables.query).toBeUndefined();
   });
-});
-
-test('layout switcher integration: default list mode, click switches to masonry, triggers PostHog capture', async () => {
-  renderWithProviders(<Home />);
-
-  // Wait for initial load
-  await waitFor(() => {
-    expect(screen.getByText('Test Event 1')).toBeInTheDocument();
-  });
-
-  // Default is list mode
-  const listToggle = screen.getByRole('button', { name: 'List View' });
-  const masonryToggle = screen.getByRole('button', { name: 'Masonry View' });
-
-  expect(listToggle.getAttribute('aria-pressed')).toBe('true');
-  expect(masonryToggle.getAttribute('aria-pressed')).toBe('false');
-
-  // Click masonry toggle
-  fireEvent.click(masonryToggle);
-
-  // Expect layout state to update
-  await waitFor(() => {
-    expect(listToggle.getAttribute('aria-pressed')).toBe('false');
-    expect(masonryToggle.getAttribute('aria-pressed')).toBe('true');
-  });
-
-  // Verify PostHog analytics captures 'layout_switched' with { layout: 'masonry' }
-  expect(mockPostHog.capture).toHaveBeenCalledWith('layout_switched', { layout: 'masonry' });
 });
 

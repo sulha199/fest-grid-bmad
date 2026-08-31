@@ -3,11 +3,11 @@
 import { useMemo, useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, ViewModeToggle, AccountAvatar } from "@festgrid/ui";
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AccountAvatar } from "@festgrid/ui";
 import { EventCategory, EventType } from "@festgrid/shared-types";
 import { GetEventsDocument, GetEventsQuery, useToggleFavoriteMutation } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
-import { useQueryState, parseAsString, parseAsArrayOf, parseAsStringLiteral } from "nuqs";
+import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs";
 import { usePostHog } from "@festgrid/analytics";
 import { useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
@@ -59,26 +59,13 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
   const [types] = useQueryState("types", parseAsArrayOf(parseAsString).withDefault([]));
   const [categories] = useQueryState("categories", parseAsArrayOf(parseAsString).withDefault([]));
   const [view] = useQueryState("view", parseAsString.withDefault("card"));
-  const [layout, setLayout] = useQueryState(
-    "layout",
-    parseAsStringLiteral(["list", "masonry"]).withDefault("list")
-  );
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [liveMessage, setLiveMessage] = useState("");
 
   useEffect(() => {
     if (view) {
       posthog.capture("view_switched", { view });
     }
   }, [view, posthog]);
-
-  useEffect(() => {
-    if (layout) {
-      const layoutLabel = layout === 'masonry' ? t('layoutSwitcherMasonryLabel') : t('layoutSwitcherListLabel');
-      setLiveMessage(t('layoutSwitcherAnnouncement', { layout: layoutLabel }));
-      posthog.capture('layout_switched', { layout });
-    }
-  }, [layout, t, posthog]);
 
   const categoryLabels = useMemo(
     () => buildEnumLabels(Object.values(EventCategory), tCategory),
@@ -264,18 +251,7 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
             label: "Card View",
             content: (
               <div className="flex flex-col gap-4">
-                <div className="flex justify-end">
-                  <ViewModeToggle
-                    viewMode={layout}
-                    onViewModeChange={setLayout}
-                    labels={{
-                      list: t('layoutSwitcherListLabel'),
-                      masonry: t('layoutSwitcherMasonryLabel'),
-                    }}
-                  />
-                </div>
                 <EventListView
-                  viewMode={layout}
                   status={listStatus === "pending" ? "loading" : listStatus}
                   events={events}
                   errorMessage={t("errorState")}
@@ -338,9 +314,6 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
           <LoginContent />
         </DialogContent>
       </Dialog>
-      <div aria-live="polite" className="sr-only">
-        {liveMessage}
-      </div>
     </PageContainer>
   );
 }

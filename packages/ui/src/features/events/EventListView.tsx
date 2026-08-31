@@ -15,18 +15,17 @@ export function EventListView<TEvent extends EventListViewItem>({
   loadingMoreLabel,
   skeletonCount = 6,
   className,
-  viewMode = 'list',
 }: EventListViewProps<TEvent>) {
   if (status === 'loading') {
     return (
-      <GridContainer baseCols={viewMode === 'masonry' ? 2 : 1} colsStep={1} gap={viewMode === 'masonry' ? "gap-2" : "gap-6"} className={className}>
+      <GridContainer baseCols={2} colsStep={1} gap="gap-2" className={className}>
         {Array.from({ length: skeletonCount }).map((_, i) => (
           <EventCard
             key={i}
             eventName=""
             startDate=""
             loading={true}
-            variant={viewMode === 'masonry' ? 'masonry' : 'standard'}
+            variant="masonry"
           />
         ))}
       </GridContainer>
@@ -53,7 +52,7 @@ export function EventListView<TEvent extends EventListViewItem>({
   if (status === 'success' && events.length > 0) {
     return (
       <>
-        <GridContainer baseCols={viewMode === 'masonry' ? 2 : 1} colsStep={1} gap={viewMode === 'masonry' ? "gap-2" : "gap-6"} className={className}>
+        <GridContainer baseCols={2} colsStep={1} gap="gap-2" className={className}>
           {events.map((event) => {
             const mainSchedule =
               event.schedules?.find((s) => s.isMainSchedule) ||
@@ -69,7 +68,7 @@ export function EventListView<TEvent extends EventListViewItem>({
               types: event.types ?? [],
               priceFrom: mainSchedule?.ticketPrice ?? undefined,
               labels: cardLabels,
-              variant: (viewMode === 'masonry' ? 'masonry' : 'standard') as 'standard' | 'masonry',
+              variant: 'masonry' as const,
             };
 
             const mergedProps = {

@@ -115,11 +115,13 @@ describe('EventListView', () => {
 
     // Event 1 has mainSchedule (ticketPrice 50, Aug 16)
     expect(screen.getByText('Summer Fest')).toBeInTheDocument();
-    expect(screen.getByText('50')).toBeInTheDocument();
 
     // Event 2 has fallback to first schedule (ticketPrice 20, Dec 15)
     expect(screen.getByText('Winter Fest')).toBeInTheDocument();
-    expect(screen.getByText('20')).toBeInTheDocument();
+
+    // Masonry variant's card body doesn't render priceFrom (it's an
+    // intentional, pre-existing EventCard design -- masonry keeps only
+    // eventName/locationName in the body), so no price assertions here.
   });
 
   it('merges card props and prioritizes getCardProps over derived ones', () => {
@@ -140,7 +142,8 @@ describe('EventListView', () => {
 
     expect(screen.getByText('Overridden Summer Fest')).toBeInTheDocument();
     expect(screen.queryByText('Summer Fest')).not.toBeInTheDocument();
-    expect(screen.getByText('999')).toBeInTheDocument();
+
+    // Masonry variant's card body doesn't render priceFrom -- see note above.
   });
 
   it('renders infinite-scroll sentinel and localized spinner when isFetchingNextPage is true', () => {
@@ -161,36 +164,12 @@ describe('EventListView', () => {
     expect(screen.getByText('Loading more...')).toBeInTheDocument();
   });
 
-  describe('viewMode and variant behaviors (AC15 / Task 7)', () => {
-    it('defaults to list viewMode and renders standard EventCards and GridContainer with baseCols=1', () => {
+  describe('masonry and variant behaviors', () => {
+    it('renders masonry unconditionally with baseCols=2 and variant="masonry" for Success state', () => {
       const { container } = render(
         <EventListView
           status="success"
           events={mockEvents}
-          emptyState={<div>Empty</div>}
-          getCardProps={() => ({})}
-          sentinelRef={vi.fn()}
-          isFetchingNextPage={false}
-          loadingMoreLabel="Loading more..."
-        />
-      );
-
-      const grid = container.querySelector('.grid');
-      expect(grid).toBeInTheDocument();
-      expect(grid).toHaveClass('grid-cols-1');
-      expect(grid).toHaveClass('md:grid-cols-2');
-
-      const cardTitle = screen.getByText('Summer Fest');
-      const cardContainer = cardTitle.closest('.p-4');
-      expect(cardContainer).toBeInTheDocument();
-    });
-
-    it('renders masonry viewMode with baseCols=2 and variant="masonry" for Success state', () => {
-      const { container } = render(
-        <EventListView
-          status="success"
-          events={mockEvents}
-          viewMode="masonry"
           emptyState={<div>Empty</div>}
           getCardProps={() => ({})}
           sentinelRef={vi.fn()}
@@ -209,12 +188,11 @@ describe('EventListView', () => {
       expect(cardContainer).toBeInTheDocument();
     });
 
-    it('renders masonry viewMode with baseCols=2 and variant="masonry" for Loading skeleton state', () => {
+    it('renders masonry unconditionally with baseCols=2 and variant="masonry" for Loading skeleton state', () => {
       const { container } = render(
         <EventListView
           status="loading"
           events={[]}
-          viewMode="masonry"
           emptyState={<div>Empty</div>}
           getCardProps={() => ({})}
           sentinelRef={vi.fn()}
@@ -234,12 +212,11 @@ describe('EventListView', () => {
       expect(standardImages.length).toBe(0);
     });
 
-    it('allows overriding viewMode-derived variant via getCardProps', () => {
+    it('allows overriding default masonry variant via getCardProps', () => {
       render(
         <EventListView
           status="success"
           events={[mockEvents[0]!]}
-          viewMode="masonry"
           emptyState={<div>Empty</div>}
           getCardProps={() => ({
             variant: 'standard',

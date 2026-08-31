@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, InfiniteData } from "@tanstack/react-query"
 import {
@@ -8,7 +8,6 @@ import {
   useInfiniteScroll,
   StatusBadge,
   PageContainer,
-  ViewModeToggle,
 } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
@@ -19,7 +18,6 @@ import { graphqlClient } from "@/lib/graphql-client"
 import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
-import { useQueryState, parseAsStringLiteral } from "nuqs"
 
 
 const PAGE_SIZE = 10
@@ -43,19 +41,6 @@ export function ArchiveContent() {
   const posthog = usePostHog()
   const router = useRouter()
   const { session, isLoading } = useAuthSession()
-  const [layout, setLayout] = useQueryState(
-    "layout",
-    parseAsStringLiteral(["list", "masonry"]).withDefault("list")
-  )
-  const [liveMessage, setLiveMessage] = useState("")
-
-  useEffect(() => {
-    if (layout) {
-      const layoutLabel = layout === 'masonry' ? t('layoutSwitcherMasonryLabel') : t('layoutSwitcherListLabel')
-      setLiveMessage(t('layoutSwitcherAnnouncement', { layout: layoutLabel }))
-      posthog.capture('layout_switched', { layout })
-    }
-  }, [layout, t, posthog])
 
   const categoryLabels = useMemo(
     () => buildEnumLabels(Object.values(EventCategory), tCategory),
@@ -137,18 +122,7 @@ export function ArchiveContent() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="flex justify-end">
-          <ViewModeToggle
-            viewMode={layout}
-            onViewModeChange={setLayout}
-            labels={{
-              list: t('layoutSwitcherListLabel'),
-              masonry: t('layoutSwitcherMasonryLabel'),
-            }}
-          />
-        </div>
         <EventListView
-          viewMode={layout}
           status={listStatus}
         events={events as any}
         errorMessage={t("errorState")}
@@ -198,9 +172,6 @@ export function ArchiveContent() {
       />
       </div>
 
-      <div aria-live="polite" className="sr-only">
-        {liveMessage}
-      </div>
     </PageContainer>
   )
 }
