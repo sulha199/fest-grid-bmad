@@ -2,7 +2,7 @@
 title: 'Post Selection account avatars: reuse AccountAvatar (Instagram fallback)'
 type: 'feature'
 created: '2026-08-31'
-status: 'ready-for-dev'
+status: 'done'
 review_loop_iteration: 0
 context: []
 baseline_commit: 'f393baa11d87d6cfe50e71be2e35799a444b45f0'
@@ -43,17 +43,26 @@ baseline_commit: 'f393baa11d87d6cfe50e71be2e35799a444b45f0'
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `packages/ui/src/core/account-avatar.tsx` -- add `'xs'` size variant (`w-5 h-5`, no responsive step) to `AccountAvatarProps['size']` and the `sizeClasses` ternary -- extends the shared component without touching `sm`/`lg` behavior
-- [ ] `packages/ui/src/core/account-avatar.test.tsx` -- add coverage for `size="xs"` (both image and placeholder-fallback branches render the `w-5 h-5` classes)
-- [ ] `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx` -- import `AccountAvatar` from `@festgrid/ui`, replace the raw avatar block (lines ~429-440) with it at `size="xs"`, drop the unused `User` import if applicable
-- [ ] `apps/web/src/app/[locale]/posts/select/posts-select-content.test.tsx` -- confirm/adjust existing avatar assertions, add a no-profile-image fallback case
+- [x] `packages/ui/src/core/account-avatar.tsx` -- added `'xs'` size variant (`w-5 h-5`, no responsive step) to `AccountAvatarProps['size']` and the `sizeClasses` ternary
+- [x] `packages/ui/src/core/account-avatar.test.tsx` -- added 2 tests for `size="xs"` (image + placeholder-fallback branches)
+- [x] `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx` -- imported `AccountAvatar` from `@festgrid/ui`, replaced the raw avatar block with it at `size="xs"`, dropped the now-unused `User` import
+- [x] `apps/web/src/app/[locale]/posts/select/posts-select-content.test.tsx` -- strengthened the existing avatar test to assert `AccountAvatar`'s testids (`avatar-image`, `avatar-fallback-container`, `avatar-fallback-placeholder`) instead of the removed raw markup's generic `<svg>` check
 
 **Acceptance Criteria:**
 - Given a subscribed account with a `profileImageUrl`, when Post Selection renders its tab, then the tab shows that image at the same `w-5 h-5` size as before.
 - Given a subscribed account with no `profileImageUrl`, when Post Selection renders its tab, then the tab shows `AccountAvatar`'s Instagram-styled placeholder (not the previous lucide `User` icon) at `w-5 h-5`.
 - Given the tab row after this change, when a user clicks a tab, then the existing `setActiveAccountId` behavior fires exactly as before (no regression to tab-switching).
 
+## Suggested Review Order
+
+- Entry point -- the shared component change: [`account-avatar.tsx:7-11,47-56`](../../packages/ui/src/core/account-avatar.tsx#L7-L56)
+- The call site: [`posts-select-content.tsx:429-441`](../../apps/web/src/app/%5Blocale%5D/posts/select/posts-select-content.tsx#L429-L441)
+- Tests: [`account-avatar.test.tsx:118-140`](../../packages/ui/src/core/account-avatar.test.tsx#L118-L140), [`posts-select-content.test.tsx:283-296`](../../apps/web/src/app/%5Blocale%5D/posts/select/posts-select-content.test.tsx#L283-L296)
+
 ## Spec Change Log
+
+- `cline-cli`'s hub daemon was found broken partway through this batch: 3 consecutive `--worktree` implementation launches hung identically (each registered with the local hub then went silent forever, confirmed via `~/.cline/data/logs/hub-daemon.log`, no CPU activity, no worktree file changes). Diagnosed and cleaned up stray processes/worktrees/a stale lock file between attempts; the hang persisted even from a fully clean state. Asked the human how to proceed -- chosen: implement directly rather than keep retrying. Implemented this spec by hand instead of via cline delegation.
+- A 4th cline-cli launch (the Blind Hunter review step, non-worktree) hung the same way. Performed the Blind Hunter and Edge Case Hunter review passes directly instead of via `cline -m gemini-3.1-pro-preview`, applying the same prompts/rigor used every other batch this session.
 
 ## Design Notes
 
@@ -62,7 +71,9 @@ baseline_commit: 'f393baa11d87d6cfe50e71be2e35799a444b45f0'
 ## Verification
 
 **Commands:**
-- `pnpm --filter @festgrid/ui test account-avatar` -- expected: new `xs`-size tests pass alongside existing `sm`/`lg` coverage
-- `pnpm --filter web test posts-select-content` -- expected: existing tests pass, new fallback-case test passes
-- `pnpm --filter @festgrid/ui build && pnpm --filter web build` -- expected: no TypeScript errors from the widened `size` union
-- `pnpm test` (full monorepo) -- expected: no regressions elsewhere
+- `pnpm --filter @festgrid/ui test account-avatar` -- 12/12 passed (10 existing + 2 new `xs`-size tests)
+- `pnpm --filter web test posts-select-content` -- 20/20 passed
+- `pnpm --filter web build` (type-checks `@festgrid/ui`'s source too, since it has no separate build step) -- succeeded, no new TS errors
+- `pnpm test` (full monorepo) -- 9/11 tasks passed on first run; `@festgrid/ui#test` showed 2 failures (`EventCard.test.tsx`, `WeeklyCalendarView.test.tsx`). Reproduced both against a `git stash`-clean baseline with no batch-9 changes present -- confirmed pre-existing wall-clock-date-rollover flakiness (missing `vi.useFakeTimers()` in both), unrelated to this batch. Logged to `deferred-work.md`. All other packages (`web` full suite included) passed cleanly on both runs.
+
+**Adversarial review:** Performed directly (Blind Hunter + Edge Case Hunter prompts/rigor, `cline-cli`'s hub daemon was down -- see Spec Change Log). Two minor, non-blocking findings, both logged to `deferred-work.md`: (1) `AccountAvatar`'s hardcoded `border-slate-200/800` vs the app's semantic `border-border` token -- pre-existing since batch-7, inherited not introduced; (2) empty-string `displayName` `alt`-text edge case -- unreachable through real data. No blocking issues found.

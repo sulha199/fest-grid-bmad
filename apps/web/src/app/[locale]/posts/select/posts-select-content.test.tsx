@@ -283,16 +283,16 @@ describe('PostsSelectContent integration', () => {
     const avatarImg = await screen.findByAltText('Jakarta Festival Info');
     expect(avatarImg).toBeInTheDocument();
     expect(avatarImg).toHaveAttribute('src', 'https://example.com/avatar1.png');
+    expect(avatarImg).toHaveAttribute('data-testid', 'avatar-image');
     expect(avatarImg).toHaveClass('rounded-full', 'w-5', 'h-5');
 
     const tab2Button = screen.getByRole('button', { name: /Inactive Sub/i });
     expect(tab2Button).toBeInTheDocument();
 
-    const fallbackDiv = tab2Button.querySelector('div');
-    expect(fallbackDiv).toHaveClass('w-5', 'h-5', 'rounded-full');
-
-    const userIcon = fallbackDiv?.querySelector('svg');
-    expect(userIcon).toBeInTheDocument();
+    const fallbackContainer = tab2Button.querySelector('[data-testid="avatar-fallback-container"]');
+    expect(fallbackContainer).toBeInTheDocument();
+    expect(fallbackContainer).toHaveClass('w-5', 'h-5', 'rounded-full');
+    expect(fallbackContainer?.querySelector('[data-testid="avatar-fallback-placeholder"]')).toBeInTheDocument();
   });
 
 

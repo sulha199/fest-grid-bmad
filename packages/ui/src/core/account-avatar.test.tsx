@@ -115,6 +115,31 @@ describe('AccountAvatar', () => {
     expect(img).toHaveClass('w-16 h-16 sm:w-20 sm:h-20');
   });
 
+  it('supports the xs size prop', () => {
+    render(
+      <AccountAvatar
+        profileImageUrl="https://example.com/avatar.jpg"
+        size="xs"
+      />
+    );
+
+    const img = screen.getByTestId('avatar-image');
+    expect(img).toHaveClass('w-5 h-5');
+  });
+
+  it('renders the fallback placeholder at xs size', () => {
+    render(
+      <AccountAvatar
+        profileImageUrl={null}
+        displayName="Jane Doe"
+        size="xs"
+      />
+    );
+
+    const fallbackContainer = screen.getByTestId('avatar-fallback-container');
+    expect(fallbackContainer).toHaveClass('w-5 h-5');
+  });
+
   it('supports default sm size when not provided', () => {
     render(
       <AccountAvatar

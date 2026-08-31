@@ -18,8 +18,8 @@ import {
   SoftDeleteAction,
   Subscription,
 } from '@/generated/graphql';
-import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo, PageContainer, GridContainer } from '@festgrid/ui';
-import { AlertCircle, TriangleAlert, User } from 'lucide-react';
+import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo, PageContainer, GridContainer, AccountAvatar } from '@festgrid/ui';
+import { AlertCircle, TriangleAlert } from 'lucide-react';
 import { usePostSelectionStore } from './post-selection-store';
 import { toast } from 'sonner';
 import { SummaryBar } from '@/features/post-selection/components/summary-bar';
@@ -426,18 +426,12 @@ export function PostsSelectContent() {
                       : 'bg-muted text-muted-foreground hover:bg-muted/80'
                   }`}
                 >
-                  {/* Account Avatar */}
-                  {sub.account.profileImageUrl ? (
-                    <img
-                      src={sub.account.profileImageUrl}
-                      alt={sub.account.displayName}
-                      className="w-5 h-5 rounded-full object-cover border border-border shrink-0"
-                    />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full bg-background/50 flex items-center justify-center border border-border text-muted-foreground shrink-0">
-                      <User className="w-3 h-3" />
-                    </div>
-                  )}
+                  <AccountAvatar
+                    profileImageUrl={sub.account.profileImageUrl}
+                    displayName={sub.account.displayName}
+                    username={sub.account.username}
+                    size="xs"
+                  />
 
                   <span>{sub.account.displayName}</span>
                   {sub.isInactive && (

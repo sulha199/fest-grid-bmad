@@ -7,7 +7,7 @@ export interface AccountAvatarProps {
   profileImageUrl?: string | null;
   displayName?: string | null;
   username?: string | null;
-  size?: 'sm' | 'lg';
+  size?: 'xs' | 'sm' | 'lg';
 }
 
 const InstagramPlaceholder = ({ className }: { className?: string }) => (
@@ -47,6 +47,8 @@ export function AccountAvatar({
   const sizeClasses =
     size === 'lg'
       ? 'w-16 h-16 sm:w-20 sm:h-20'
+      : size === 'xs'
+      ? 'w-5 h-5'
       : 'w-10 h-10';
 
   const commonClasses = `${sizeClasses} rounded-full shrink-0 border border-slate-200 dark:border-slate-800 overflow-hidden`;
