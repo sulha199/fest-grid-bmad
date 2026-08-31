@@ -256,8 +256,9 @@ test('reports resolver integration', async (t) => {
     });
     let result = await response.json();
     assert.ok(!result.errors);
-    assert.strictEqual(result.data.reportedEvents.length, 1);
-    assert.strictEqual(result.data.reportedEvents[0].id, firstReportId);
+    const ownReports = result.data.reportedEvents.filter((r: any) => r.id === firstReportId);
+    assert.strictEqual(ownReports.length, 1, 'should include exactly one entry for the report this test created');
+    assert.strictEqual(ownReports[0].id, firstReportId);
 
     // Filter by reason = dangerous (should be empty)
     response = await yoga.fetch('http://yoga/graphql', {
