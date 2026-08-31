@@ -2,11 +2,6 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
-## Deferred from: `pnpm --filter web test` full-suite check during ux-rework2-batch-8 (2026-08-31)
-
-- `usePrefersReducedMotion.ts` (shipped in `spec-ux-rework2-batch-6.md`, the sticky FilterHub header) only guards `typeof window === 'undefined'` before calling `window.matchMedia(...)`, not whether `matchMedia` itself exists as a function. In a jsdom test environment without a `matchMedia` mock, this throws `TypeError: window.matchMedia is not a function` inside a passive effect, breaking any test that renders `EventDiscoveryPanel` (now shared by home, feed, favorites, account, and widget). Confirmed via `pnpm --filter web test`: 5 files / 21 tests fail (`page.test.tsx`, `feed-content.test.tsx`, `favorites-content.test.tsx`, `account-content.test.tsx`, `nearby.test.tsx`) -- all pre-existing, unrelated to `spec-ux-rework2-batch-8.md`'s own changes. Batch-6's own verification only re-ran `packages/ui`'s test suite after shipping (its own `EventDiscoveryPanel.test.tsx` already mocks `matchMedia`, so it didn't surface there) -- never re-ran the full monorepo `pnpm test`, which is how this went unnoticed until now.
-  evidence: Directly reproduced and root-caused this session. The fix is at the hook itself (guard on `typeof window.matchMedia !== 'function'` too), not per-test-file mocking -- protects every current and future consumer. This is the next batch to run.
-
 ## Deferred from: verification of ux-rework2-batch-8 (wire SubscribedAccountCard into Event Detail) (2026-08-31)
 
 - `isSubscribedToAccount` (`EventDetailWrapper.tsx`) evaluates to `undefined`/`false` while `useGetMySubscriptionsQuery` is still loading, so an already-subscribed user briefly sees the "Subscribe" button flash before the query resolves and it flips to "Subscribed." Matches the same transient-loading-state pattern already present throughout this app (favorite state, calendar state, etc.), not a regression specific to this batch -- not fixed here since avoiding it would need a new loading-state prop threaded through the card.
