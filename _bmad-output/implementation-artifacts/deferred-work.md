@@ -2,6 +2,13 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: verification of ux-rework2-batch-7 (shared SubscribedAccountCard component) (2026-08-31)
+
+- `SubscribedAccountCard`'s `size="lg"` scales the composed `AccountAvatar` image but not the adjacent `displayName`/`username` text, which stays fixed-size regardless of `size`. No current caller uses `size="lg"` yet (component-only batch, no wiring), and the desired text scale at `lg` wasn't specified by the spec -- worth settling once a real `lg`-context caller exists rather than guessing now.
+  evidence: Surfaced by the Edge Case Hunter review pass on `spec-ux-rework2-batch-7.md`'s diff.
+- Degenerate input edge cases (empty `displayName`/`username`/`accountHref`) render a blank line, a dangling "@", or an inert same-page link respectively -- all true, but `account`/`accountHref` are required props matching this app's actual account data shape (no empty-string accounts exist in practice), so no validation was added. `isSubscribed: true` combined with `isSubscribing: true` is a nonsensical prop combination the component doesn't guard against -- correct caller usage never produces it (the `isSubscribing` flag is only meaningful while `isSubscribed` is still false, and a caller flips both together on mutation success).
+  evidence: Surfaced by the Edge Case Hunter review pass. None of these are reachable through the component's own designed usage contract; logged in case a future wiring batch's real caller proves otherwise.
+
 ## Deferred from: verification of ux-rework2-batch-6 (sticky FilterHub header) (2026-08-31)
 
 - After a user clicks the "Show filters" button to re-expand the header, focus is not explicitly moved anywhere (e.g. into the search input) -- it falls to the browser's default behavior when a focused element's visibility changes, which is generally to leave focus on the button itself (now visible again in the same position) rather than being lost, but this isn't verified across browsers and isn't as deliberate as moving focus to a specific sensible target.
