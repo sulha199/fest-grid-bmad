@@ -2,6 +2,21 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: quick-dev planning of ux-rework2 P1 batch (2026-08-31)
+
+- source_spec: none
+  summary: Build a shared subscribed-account inline-card component (image, name/id, subscribe button/subscribed state, instagram-app icon fallback when no profile picture) reused across the Post Selection page, Subscribed Accounts page, and Event Detail (left of favorite/add-to-calendar). Builds on the existing `AccountAvatar` component (`packages/ui/src/core/account-avatar.tsx`).
+  evidence: Split off the P1 batch to start with the smallest, most isolated items first, per user's explicit "split big scopes task" instruction. This is the biggest, most cross-cutting P1 item (new shared component + 3 call-site rewires) -- deserves its own dedicated spec.
+- source_spec: none
+  summary: Make FilterHub and the calendar/card view header sticky to the top; on scroll-down, collapse to a small "show header" button, and scrolling again re-shows the full header.
+  evidence: Split off the P1 batch. New scroll-driven UI behavior, not related to the event list/card work being tackled first.
+- source_spec: none
+  summary: Calendar view on mobile -- make days collapsible; default collapsed for past days, default expanded for today and future days.
+  evidence: Split off the P1 batch. Self-contained to the calendar view, independent of the other calendar items below.
+- source_spec: none
+  summary: (Merged) Calendar-view event-item layout unification ("use current mobile layout on both desktop & mobile") + the "show more" per-day overflow button, opening the same page filtered to that day's events (card-view) via the same query-params as other filters.
+  evidence: Originally two separate triage items, planned as two separate batches (event-item unification looked like a small, self-contained S-M win). Investigation for this P1 batch found they are NOT independent: `WeeklyCalendarView.tsx`'s desktop block (lines ~540-645, `data-testid="desktop-calendar-view"`) is a fully separate dual-render from the mobile block (lines ~648-681, `data-testid="mobile-calendar-view"`) -- desktop renders `CalendarCard` with the default `variant="grid"` inside a capped 7-column day-grid with a "+N more" popover disclosure system (its own state, its own second `CalendarCard` render for the popover contents); mobile renders `variant="list"` in an uncapped vertical day-list with no popover concept at all. "Use mobile's layout on desktop" therefore means *deleting* desktop's entire cap/popover mechanism, not just restyling the card -- which is exactly the "why mobile shows all events on that day but desktop is limited" question the original "show more" item already flagged as unresolved. These need to be scoped together: does removing the cap (matching mobile) eliminate the need for a "show more" button on desktop entirely, or does desktop still need pagination/a cap for its own reasons (e.g. 7 columns of unbounded list content could get very tall)? Tests referencing the desktop-only behavior that would need rewriting either way: `WeeklyCalendarView.test.tsx`'s custom `desktop-calendar-view`-scoped `screen` wrapper (lines 8-68), the popover tests (~line 245, ~288), the grid-only tooltip/roving-tabindex tests (~316, ~340), and the explicit desktop-vs-mobile cap-divergence test (~614).
+
 ## Deferred from: verification of ux-rework2-batch-3 (dead link / error-message / duplicate-icon P0 fixes) (2026-08-31)
 
 - `onboarding-api-key-step.tsx`'s `catch (err: any)` and inconsistent error logging vs. `api-key-form-dialog.tsx` (the latter `console.error`s the raw error before toasting, the former doesn't) both predate this batch's diff — this batch only added a new branch inside each existing catch block, it didn't touch the catch signature or logging. A future pass could standardize both call sites (and the two other GraphQL-error-branching call sites noted in the prior batch's deferred entry) on one shared error-handling helper.
