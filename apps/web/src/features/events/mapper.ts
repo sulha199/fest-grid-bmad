@@ -100,6 +100,9 @@ export function mapGraphQLEventToDetailViewProps(
     isFavorited: event.isFavorited,
     isAddedToCalendar: mappedSchedules.some((s) => s.isAddedToCalendar),
     accountName: event.sourceSocialMediaAccountProfile?.displayName ?? null,
+    accountUsername: event.sourceSocialMediaAccountProfile?.username ?? null,
+    accountPlatform: event.sourceSocialMediaAccountProfile?.platform ?? null,
+    accountId: event.sourceSocialMediaAccountProfile?.accountId ?? null,
     accountPlatformIconUrl: event.sourceSocialMediaAccountProfile?.profileImageUrl ?? null,
     accountHref: event.sourceSocialMediaAccountProfile
       ? `/${getPlatformSlug(event.sourceSocialMediaAccountProfile.platform as any)}/${event.sourceSocialMediaAccountProfile.accountId}`

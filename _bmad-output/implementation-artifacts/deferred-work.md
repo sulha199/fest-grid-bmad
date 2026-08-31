@@ -2,6 +2,20 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: `pnpm --filter web test` full-suite check during ux-rework2-batch-8 (2026-08-31)
+
+- `usePrefersReducedMotion.ts` (shipped in `spec-ux-rework2-batch-6.md`, the sticky FilterHub header) only guards `typeof window === 'undefined'` before calling `window.matchMedia(...)`, not whether `matchMedia` itself exists as a function. In a jsdom test environment without a `matchMedia` mock, this throws `TypeError: window.matchMedia is not a function` inside a passive effect, breaking any test that renders `EventDiscoveryPanel` (now shared by home, feed, favorites, account, and widget). Confirmed via `pnpm --filter web test`: 5 files / 21 tests fail (`page.test.tsx`, `feed-content.test.tsx`, `favorites-content.test.tsx`, `account-content.test.tsx`, `nearby.test.tsx`) -- all pre-existing, unrelated to `spec-ux-rework2-batch-8.md`'s own changes. Batch-6's own verification only re-ran `packages/ui`'s test suite after shipping (its own `EventDiscoveryPanel.test.tsx` already mocks `matchMedia`, so it didn't surface there) -- never re-ran the full monorepo `pnpm test`, which is how this went unnoticed until now.
+  evidence: Directly reproduced and root-caused this session. The fix is at the hook itself (guard on `typeof window.matchMedia !== 'function'` too), not per-test-file mocking -- protects every current and future consumer. This is the next batch to run.
+
+## Deferred from: verification of ux-rework2-batch-8 (wire SubscribedAccountCard into Event Detail) (2026-08-31)
+
+- `isSubscribedToAccount` (`EventDetailWrapper.tsx`) evaluates to `undefined`/`false` while `useGetMySubscriptionsQuery` is still loading, so an already-subscribed user briefly sees the "Subscribe" button flash before the query resolves and it flips to "Subscribed." Matches the same transient-loading-state pattern already present throughout this app (favorite state, calendar state, etc.), not a regression specific to this batch -- not fixed here since avoiding it would need a new loading-state prop threaded through the card.
+  evidence: Surfaced independently by both the Blind Hunter and Edge Case Hunter review passes on `spec-ux-rework2-batch-8.md`'s diff.
+- The `SubscribedAccountCard` render guard (`accountId && accountPlatform && accountUsername && accountHref`) means an event whose source account is missing any of these fields renders no account attribution at all -- the old bottom "Attributions" fallback that used to show at least `accountName`+`accountHref` was removed. Verified this is currently unreachable through the real data pipeline (all four fields derive from the same `sourceSocialMediaAccountProfile` object, and the backend schema marks `accountId`/`platform`/`username` non-nullable when that object exists -- so today, either all four are present or the whole object is null), but `EventDetailView` is a shared `packages/ui` component and a future caller feeding it partial/inconsistent props wouldn't get any fallback.
+  evidence: Surfaced by the Edge Case Hunter review pass. Not fixed since the scenario isn't reachable through the only real caller today; worth a defensive fallback if a second `EventDetailView` consumer with different data-consistency guarantees is ever added.
+- `EventDetailViewLabels.postedByLabel` is no longer referenced anywhere in `EventDetailView.tsx` (its only use was the removed bottom "Attributions" section) but remains in the labels type/prop. Harmless unused-string cruft, not worth a type-surface change in this batch.
+  evidence: Surfaced by the Blind Hunter review pass.
+
 ## Deferred from: quick-dev planning of ux-rework2 SubscribedAccountCard wiring (2026-08-31)
 
 - source_spec: none

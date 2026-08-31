@@ -108,6 +108,8 @@
     "addToCalendarCancelLabel": "Batal",
     "addToCalendarSuccessAnnouncement": "Acara telah ditambahkan ke kalender Anda",
     "calendarErrorAnnouncement": "Terjadi kesalahan. Silakan coba lagi.",
+    "subscribeSuccessAnnouncement": "Berlangganan akun berhasil",
+    "subscribeErrorAnnouncement": "Terjadi kesalahan. Silakan coba lagi.",
     "moreActionsButtonLabel": "Tindakan lainnya",
     "correctDataMenuItemLabel": "Koreksi Data",
     "reportMenuItemLabel": "Laporkan",

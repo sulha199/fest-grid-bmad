@@ -3,6 +3,7 @@ import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPl
 import { detectPlatformFromUrl } from '@festgrid/domain';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from './EventDetailView.types';
 import { EventImage } from './EventImage';
+import { SubscribedAccountCard } from '../subscriptions';
 
 /**
  * EventDetailView is a reusable, presentation-only component that displays
@@ -28,8 +29,14 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   originalPostUrl,
   sourcePostUrl,
   accountName,
+  accountUsername,
+  accountPlatform,
+  accountId,
   accountPlatformIconUrl,
   accountHref,
+  isSubscribedToAccount,
+  onSubscribeToAccount,
+  isSubscribingToAccount,
   loading = false,
   error = null,
   locale = 'en-US',
@@ -196,7 +203,6 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   };
 
   const hasTags = (types && types.length > 0) || (categories && categories.length > 0);
-  const hasAccountAttribution = accountName && accountPlatformIconUrl && accountHref;
   const hasSourceAttribution = originalPostUrl || sourcePostUrl;
 
   return (
@@ -222,25 +228,44 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
         {/* Right Column: Details & Content */}
         <div className="lg:col-span-2 min-w-0 flex flex-col gap-6">
           {/* Header controls */}
-          {(onFavoriteToggle || onAddToCalendar || menuActions.length > 0) && (
-            <div className="flex justify-end gap-3 mb-2">
-              {onFavoriteToggle && (
-                <button
-                  onClick={onFavoriteToggle}
-                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  aria-label={isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}
-                  aria-pressed={isFavorited}
-                >
-                  <Heart className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
-                </button>
+          <div className="flex justify-between items-center gap-3 mb-2">
+            <div className="flex-1 min-w-0">
+              {accountId && accountPlatform && accountUsername && accountHref && (
+                <SubscribedAccountCard
+                  account={{
+                    accountId,
+                    platform: accountPlatform,
+                    username: accountUsername,
+                    displayName: accountName || accountUsername,
+                    profileImageUrl: accountPlatformIconUrl,
+                  }}
+                  accountHref={accountHref}
+                  isSubscribed={!!isSubscribedToAccount}
+                  onSubscribe={onSubscribeToAccount}
+                  isSubscribing={isSubscribingToAccount}
+                  size="sm"
+                />
               )}
-              {onAddToCalendar && (
-                <button
-                  ref={triggerRef}
-                  onClick={handleTriggerClick}
-                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  aria-label={labels.addToCalendarButtonLabel}
-                  aria-pressed={isAddedToCalendar}
+            </div>
+            {(onFavoriteToggle || onAddToCalendar || menuActions.length > 0) && (
+              <div className="flex items-center gap-3 shrink-0">
+                {onFavoriteToggle && (
+                  <button
+                    onClick={onFavoriteToggle}
+                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    aria-label={isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}
+                    aria-pressed={isFavorited}
+                  >
+                    <Heart className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+                  </button>
+                )}
+                {onAddToCalendar && (
+                  <button
+                    ref={triggerRef}
+                    onClick={handleTriggerClick}
+                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    aria-label={labels.addToCalendarButtonLabel}
+                    aria-pressed={isAddedToCalendar}
                 >
                   <CalendarPlus className={`w-6 h-6 ${isAddedToCalendar ? 'fill-primary text-primary' : 'text-gray-500'}`} />
                 </button>
@@ -282,6 +307,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
               )}
             </div>
           )}
+          </div>
 
           <header className="flex flex-col gap-3">
         <h1 className="text-3xl font-bold break-words text-gray-900 dark:text-gray-100">{eventName}</h1>
@@ -411,33 +437,21 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
       </section>
 
       {/* Attributions */}
-      {(hasAccountAttribution || hasSourceAttribution) && (
+      {hasSourceAttribution && (
         <section className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3 text-sm text-gray-500">
-          {hasAccountAttribution && (
-            <div className="flex items-center gap-2">
-              <span>{labels.postedByLabel}</span>
-              <a href={accountHref!} className="flex items-center gap-2 hover:underline text-gray-900 dark:text-gray-100 font-medium">
-                <img src={accountPlatformIconUrl!} alt="" className="w-4 h-4 rounded-sm" aria-hidden="true" />
-                {accountName}
+          <div className="flex items-center gap-4 flex-wrap">
+            {originalPostUrl && (
+              <a href={originalPostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
+                <Instagram className="w-3 h-3 text-pink-600 dark:text-pink-400" />
+                {labels.viewOriginalPostLabel} <ExternalLink className="w-3 h-3" />
               </a>
-            </div>
-          )}
-
-          {hasSourceAttribution && (
-            <div className="flex items-center gap-4 flex-wrap">
-              {originalPostUrl && (
-                <a href={originalPostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
-                  <Instagram className="w-3 h-3 text-pink-600 dark:text-pink-400" />
-                  {labels.viewOriginalPostLabel} <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
-              {sourcePostUrl && !(originalPostUrl && detectPlatformFromUrl(sourcePostUrl) === 'instagram') && (
-                <a href={sourcePostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
-                  {labels.viewSourceLabel} <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
-            </div>
-          )}
+            )}
+            {sourcePostUrl && !(originalPostUrl && detectPlatformFromUrl(sourcePostUrl) === 'instagram') && (
+              <a href={sourcePostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
+                {labels.viewSourceLabel} <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
         </section>
       )}
         </div>

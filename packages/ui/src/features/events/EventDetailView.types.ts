@@ -77,8 +77,14 @@ export interface EventDetailViewProps {
   originalPostUrl?: string | null;
   sourcePostUrl?: string | null;
   accountName?: string | null;
+  accountUsername?: string | null;
+  accountPlatform?: string | null;
+  accountId?: string | null;
   accountPlatformIconUrl?: string | null;
   accountHref?: string | null;
+  isSubscribedToAccount?: boolean;
+  onSubscribeToAccount?: () => void;
+  isSubscribingToAccount?: boolean;
 
   // State overrides
   loading?: boolean;

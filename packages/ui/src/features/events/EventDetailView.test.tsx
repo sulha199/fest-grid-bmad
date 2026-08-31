@@ -69,6 +69,11 @@ describe('EventDetailView', () => {
     accountName: 'FestOrganizer',
     accountPlatformIconUrl: 'https://example.com/ig-icon.png',
     accountHref: '/instagram/festorganizer',
+    accountUsername: 'festorganizer',
+    accountPlatform: 'instagram',
+    accountId: '123',
+    isSubscribedToAccount: false,
+    onSubscribeToAccount: vi.fn(),
   };
 
   it('renders minimal guaranteed fields correctly', () => {
@@ -369,33 +374,43 @@ describe('EventDetailView', () => {
   });
 
   // AC16 Tests
-  it('renders account attribution link when all three props are present', () => {
-    render(<EventDetailView {...minimalProps} accountName="Org" accountPlatformIconUrl="http://icon" accountHref="/link" />);
-    const link = screen.getByRole('link', { name: /Org/i });
+  it('renders SubscribedAccountCard when accountId, platform, and username are present', () => {
+    const onSubscribe = vi.fn();
+    render(<EventDetailView {...minimalProps} accountName="Org" accountPlatformIconUrl="http://icon" accountHref="/link" accountId="123" accountPlatform="instagram" accountUsername="org" isSubscribedToAccount={false} onSubscribeToAccount={onSubscribe} />);
+    const link = screen.getByRole('link', { name: /@org/i });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', '/link');
-    expect(screen.getByText('Posted by:')).toBeInTheDocument();
+    const subscribeBtn = screen.getByRole('button', { name: /Subscribe/i });
+    expect(subscribeBtn).toBeInTheDocument();
+    fireEvent.click(subscribeBtn);
+    expect(onSubscribe).toHaveBeenCalled();
   });
 
-  it('omits account attribution section when any account prop is missing', () => {
-    // Missing accountHref
-    const { rerender } = render(<EventDetailView {...minimalProps} accountName="Org" accountPlatformIconUrl="http://icon" />);
-    expect(screen.queryByText('Posted by:')).not.toBeInTheDocument();
+  it('omits SubscribedAccountCard when essential account props are missing', () => {
+    // Missing accountId
+    const { rerender } = render(<EventDetailView {...minimalProps} accountPlatform="instagram" accountUsername="org" />);
+    expect(screen.queryByRole('button', { name: /Subscribe/i })).not.toBeInTheDocument();
 
-    // Missing accountName
-    rerender(<EventDetailView {...minimalProps} accountPlatformIconUrl="http://icon" accountHref="/link" />);
-    expect(screen.queryByText('Posted by:')).not.toBeInTheDocument();
+    // Missing accountPlatform
+    rerender(<EventDetailView {...minimalProps} accountId="123" accountUsername="org" />);
+    expect(screen.queryByRole('button', { name: /Subscribe/i })).not.toBeInTheDocument();
 
-    // Missing accountPlatformIconUrl
-    rerender(<EventDetailView {...minimalProps} accountName="Org" accountHref="/link" />);
-    expect(screen.queryByText('Posted by:')).not.toBeInTheDocument();
+    // Missing accountUsername
+    rerender(<EventDetailView {...minimalProps} accountId="123" accountPlatform="instagram" />);
+    expect(screen.queryByRole('button', { name: /Subscribe/i })).not.toBeInTheDocument();
   });
 
-  it('renders both account attribution and source post links simultaneously', () => {
+  it('renders both SubscribedAccountCard and source post links simultaneously', () => {
     render(<EventDetailView {...fullProps} />);
-    expect(screen.getByRole('link', { name: /FestOrganizer/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /@festorganizer/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /View original post/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /View source/i })).toBeInTheDocument();
+  });
+
+  it('shows a Subscribed indicator (no button) when already subscribed', () => {
+    render(<EventDetailView {...fullProps} isSubscribedToAccount={true} />);
+    expect(screen.getByText('Subscribed')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Subscribe/i })).not.toBeInTheDocument();
   });
 
   // More Actions Menu Tests (Story 4.1, Task 3)

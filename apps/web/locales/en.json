@@ -108,6 +108,8 @@
     "addToCalendarCancelLabel": "Cancel",
     "addToCalendarSuccessAnnouncement": "Event has been added to your calendar",
     "calendarErrorAnnouncement": "Something went wrong. Please try again.",
+    "subscribeSuccessAnnouncement": "Subscribed to account",
+    "subscribeErrorAnnouncement": "Something went wrong. Please try again.",
     "moreActionsButtonLabel": "More actions",
     "correctDataMenuItemLabel": "Correct Data",
     "reportMenuItemLabel": "Report",

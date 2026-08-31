@@ -88,8 +88,11 @@ let currentMockEvent = {
   originalPostUrl: null,
   isFavorited: false,
   isHiddenForCurrentUser: false,
+  sourceSocialMediaAccountProfile: null as { accountId: string; platform: string; username: string; displayName: string; profileImageUrl: string | null } | null,
   schedules: [],
 }
+
+let currentMockSubscriptions: { account: { accountId: string } }[] = []
 
 const api = graphql.link("*/api/graphql")
 
@@ -136,6 +139,33 @@ const handlers = [
           totalCount: rows.length,
         },
       },
+    })
+  }),
+  api.query("getMySubscriptions", () => {
+    return HttpResponse.json({
+      data: {
+        mySubscriptions: currentMockSubscriptions,
+      },
+    })
+  }),
+  api.mutation("SubscribeToAccount", ({ variables }) => {
+    const { input } = variables as any
+    // Reflect the new subscription so the post-mutation ["getMySubscriptions"]
+    // refetch (triggered by the wrapper's invalidateQueries) actually shows
+    // the account as subscribed, matching real backend behavior.
+    currentMockSubscriptions = [
+      ...currentMockSubscriptions,
+      { account: { accountId: input.accountId } },
+    ]
+    return HttpResponse.json({
+      data: {
+        subscribeToAccount: {
+          accountId: input.accountId,
+          platform: input.platform,
+          username: input.username,
+          displayName: input.displayName,
+        }
+      }
     })
   }),
   api.mutation("toggleFavorite", ({ variables }) => {
@@ -222,6 +252,7 @@ describe("EventDetailWrapper", () => {
       defaultOptions: { queries: { retry: false } },
     })
     mockSession = { user: { id: "u_1" } } // Default authenticated
+    currentMockSubscriptions = []
     mockSearchParams = new URLSearchParams()
     currentMockEvent = {
       id: "evt_1",
@@ -238,6 +269,7 @@ describe("EventDetailWrapper", () => {
       originalPostUrl: null,
       isFavorited: false,
       isHiddenForCurrentUser: false,
+      sourceSocialMediaAccountProfile: null,
       schedules: [
         {
           id: "sched_1",
@@ -764,5 +796,69 @@ describe("EventDetailWrapper", () => {
 
     // Assert that the img src has changed to the durableImageUrl
     expect(img).toHaveAttribute("src", "https://example.com/durable.jpg")
+  })
+
+  it("renders SubscribedAccountCard with a Subscribe button when not subscribed to the source account", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = {
+      accountId: "123",
+      platform: "instagram",
+      username: "org",
+      displayName: "Org",
+      profileImageUrl: null,
+    }
+    currentMockSubscriptions = []
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+    expect(screen.getByText("Org")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Subscribe" })).toBeInTheDocument()
+  })
+
+  it("clicking Subscribe calls the mutation and updates to Subscribed on success", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = {
+      accountId: "123",
+      platform: "instagram",
+      username: "org",
+      displayName: "Org",
+      profileImageUrl: null,
+    }
+    currentMockSubscriptions = []
+
+    renderComponent()
+
+    const subscribeBtn = await screen.findByRole("button", { name: "Subscribe" })
+    fireEvent.click(subscribeBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText("EventDetailsPage.subscribeSuccessAnnouncement")).toBeInTheDocument()
+    })
+
+    // The card itself must reflect the change too, not just the
+    // announcement -- driven by the ["getMySubscriptions"] refetch the
+    // mutation's onSuccess triggers.
+    await waitFor(() => {
+      expect(screen.getByText("Subscribed")).toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Subscribe" })).not.toBeInTheDocument()
+    })
+  })
+
+  it("shows Subscribed (no button) when already subscribed to the source account", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = {
+      accountId: "123",
+      platform: "instagram",
+      username: "org",
+      displayName: "Org",
+      profileImageUrl: null,
+    }
+    currentMockSubscriptions = [{ account: { accountId: "123" } }]
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText("Subscribed")).toBeInTheDocument()
+    })
+    expect(screen.queryByRole("button", { name: "Subscribe" })).not.toBeInTheDocument()
   })
 })

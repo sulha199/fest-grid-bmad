@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from "react"
-import { useGetEventBySlugQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useResolveScheduleTimezoneMutation, useMeQuery } from "@/generated/graphql"
+import { useGetEventBySlugQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useResolveScheduleTimezoneMutation, useMeQuery, useGetMySubscriptionsQuery, useSubscribeToAccountMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
@@ -48,6 +48,14 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   )
 
   const { data: meData } = useMeQuery(
+    graphqlClient,
+    undefined,
+    {
+      enabled: !!session,
+    }
+  )
+
+  const { data: subscriptionsData } = useGetMySubscriptionsQuery(
     graphqlClient,
     undefined,
     {
@@ -232,6 +240,29 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       setLiveMessage(t("timezoneSubmitSuccessAnnouncement"))
     },
   })
+
+  const { mutate: subscribeToAccount, isPending: isSubscribingToAccount } = useSubscribeToAccountMutation(graphqlClient, {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
+      setLiveMessage(t("subscribeSuccessAnnouncement"))
+    },
+    onError: () => {
+      setLiveMessage(t("subscribeErrorAnnouncement"))
+    }
+  })
+
+  const handleSubscribeToAccount = () => {
+    if (!data?.eventBySlug?.sourceSocialMediaAccountProfile) return
+    const { platform, accountId, username, displayName } = data.eventBySlug.sourceSocialMediaAccountProfile
+    if (!platform || !accountId || !username || !displayName) return
+    subscribeToAccount({
+      input: { platform, accountId, username, displayName }
+    })
+  }
+
+  const isSubscribedToAccount = subscriptionsData?.mySubscriptions?.some(
+    s => s.account.accountId === data?.eventBySlug?.sourceSocialMediaAccountProfile?.accountId
+  )
 
   const eventId = data?.eventBySlug?.id || ""
   const nav = useListNavigationForEvent(eventId, isModal)
@@ -456,7 +487,16 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
             return
           }
           setIsReportDialogOpen(true)
-        }
+        },
+        isSubscribedToAccount: !!isSubscribedToAccount,
+        isSubscribingToAccount: isSubscribingToAccount,
+        onSubscribeToAccount: () => {
+          if (!session) {
+            router.push("/login")
+            return
+          }
+          handleSubscribeToAccount()
+        },
       }
     : null
 
