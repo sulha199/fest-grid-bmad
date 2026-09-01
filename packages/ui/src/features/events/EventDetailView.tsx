@@ -42,6 +42,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   locale = 'en-US',
   labels,
   isFavorited,
+  favoriteCount,
   onFavoriteToggle,
   isAuthenticated = true,
   isAddedToCalendar,
@@ -252,11 +253,18 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                 {onFavoriteToggle && (
                   <button
                     onClick={onFavoriteToggle}
-                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className={`rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center ${
+                      favoriteCount !== undefined ? 'px-2.5 py-2 gap-1.5' : 'p-2'
+                    }`}
                     aria-label={isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}
                     aria-pressed={isFavorited}
                   >
                     <Heart className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+                    {favoriteCount !== undefined && (
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 select-none">
+                        {favoriteCount}
+                      </span>
+                    )}
                   </button>
                 )}
                 {onAddToCalendar && (

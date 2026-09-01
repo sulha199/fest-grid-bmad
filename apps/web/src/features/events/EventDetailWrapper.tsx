@@ -102,11 +102,16 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, (old: unknown) => {
         const typedOld = old as any
         if (!typedOld?.eventBySlug) return typedOld
+        const favoriteCount =
+          typeof typedOld.eventBySlug.favoriteCount === "number"
+            ? Math.max(0, typedOld.eventBySlug.favoriteCount + (data.toggleFavorite.isFavorited ? 1 : -1))
+            : typedOld.eventBySlug.favoriteCount
         return {
           ...typedOld,
           eventBySlug: {
             ...typedOld.eventBySlug,
             isFavorited: data.toggleFavorite.isFavorited,
+            favoriteCount,
           },
         }
       })

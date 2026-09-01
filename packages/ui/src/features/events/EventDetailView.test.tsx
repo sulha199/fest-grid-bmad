@@ -247,6 +247,30 @@ describe('EventDetailView', () => {
     expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
   });
 
+  it('shows the favorite count beside the icon when favoriteCount is provided', () => {
+    const onFavoriteToggle = vi.fn();
+    render(<EventDetailView {...minimalProps} onFavoriteToggle={onFavoriteToggle} isFavorited={false} favoriteCount={12} />);
+
+    const favBtn = screen.getByRole('button', { name: 'Add to Favorites' });
+    expect(favBtn).toHaveTextContent('12');
+  });
+
+  it('shows a zero favorite count rather than hiding it', () => {
+    const onFavoriteToggle = vi.fn();
+    render(<EventDetailView {...minimalProps} onFavoriteToggle={onFavoriteToggle} isFavorited={false} favoriteCount={0} />);
+
+    const favBtn = screen.getByRole('button', { name: 'Add to Favorites' });
+    expect(favBtn).toHaveTextContent('0');
+  });
+
+  it('does not render a count when favoriteCount is not provided', () => {
+    const onFavoriteToggle = vi.fn();
+    render(<EventDetailView {...minimalProps} onFavoriteToggle={onFavoriteToggle} isFavorited={false} />);
+
+    const favBtn = screen.getByRole('button', { name: 'Add to Favorites' });
+    expect(favBtn).toHaveTextContent('');
+  });
+
   it('opens add to calendar dialog on click and handles confirm', async () => {
     const onAddToCalendar = vi.fn();
     const testProps = {

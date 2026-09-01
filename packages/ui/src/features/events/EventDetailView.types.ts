@@ -96,6 +96,7 @@ export interface EventDetailViewProps {
 
   // Handlers (AC11)
   isFavorited?: boolean;
+  favoriteCount?: number;
   onFavoriteToggle?: () => void;
 
   isAuthenticated?: boolean;

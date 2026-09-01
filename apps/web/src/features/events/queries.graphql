@@ -49,6 +49,7 @@ query getEventBySlug($slug: String!) {
     organizerName
     contactInfo
     isFavorited
+    favoriteCount
     isHiddenForCurrentUser
     sourceSocialMediaAccountProfile {
       accountId

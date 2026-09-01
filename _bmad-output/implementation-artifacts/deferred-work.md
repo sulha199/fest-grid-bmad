@@ -2,6 +2,12 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: verification of ux-rework2-batch-11 (Event Detail favorite count) (2026-09-01)
+
+- The `favoriteCount` decrement direction (unfavoriting) of the toggle-favorite mutation's cache-sync logic is untested for all 4 caches it patches (`getEventBySlug`, `events`, `events/feed`, `favoriteEvents`) -- not just the new `getEventBySlug` patch added this batch. The existing test only exercises `isFavorited: false -> true` (increment); no test starts from an already-favorited state and verifies the count decrements correctly on unfavorite, for any of these caches. Pre-existing gap, not introduced by this batch, but now covers one more cache with the same untested branch.
+  evidence: Found during this batch's own Blind-Hunter-style review (performed directly, not delegated -- see Spec Change Log). Not fixed since it's outside this batch's scope and doesn't block the acceptance criteria (display, not toggle-sync correctness in the reverse direction).
+- **Process note:** `cline-cli` hung a third consecutive time today (batch-10 x2, now batch-11 x1) -- this time via a pre-built worktree (`scripts/cline-worktree.ps1`) with `cline --cwd <path> --timeout 600`, confirmed hub-healthy beforehand. Ran ~40 minutes with near-zero CPU before being killed; `--timeout` again did not enforce its cap. Implemented directly. This is now 3/3 real hangs today regardless of hub health or worktree-prep method -- worth investigating `cline-cli` itself (version, update, or a support report) rather than continuing to work around it session after session.
+
 ## Deferred from: verification of ux-rework2-batch-10 (FilterHub collapse fixes) (2026-09-01)
 
 - No automated regression test exists for the scroll-anchoring flicker fix itself (`overflow-anchor: none` in `EventDiscoveryPanel.tsx`). The bug and its fix were verified empirically via a throwaway, non-committed Playwright script driving a minimal standalone HTML repro -- jsdom (this repo's unit-test environment) has no real CSS box model or CSS Scroll Anchoring implementation at all, so a jsdom-based unit test structurally cannot exercise this bug or prove the fix. A real regression test would need a Playwright e2e spec (`apps/web/e2e/`), which requires the full dev+backend stack per `playwright.config.ts`'s `webServer` config -- out of scope for this batch's size.

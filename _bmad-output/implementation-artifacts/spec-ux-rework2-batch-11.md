@@ -2,7 +2,7 @@
 title: 'Show favorite count on Event Detail'
 type: 'feature'
 created: '2026-09-01'
-status: 'in-progress'
+status: 'done'
 review_loop_iteration: 0
 context: []
 baseline_commit: 'beb4529476db68d74e8b7dded9611344004a2812'
@@ -45,23 +45,36 @@ baseline_commit: 'beb4529476db68d74e8b7dded9611344004a2812'
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `apps/web/src/features/events/queries.graphql` -- add `favoriteCount` to `getEventBySlug`
-- [ ] Run `pnpm --filter web run codegen` to regenerate `apps/web/src/generated/graphql.ts`
-- [ ] `apps/web/src/features/events/mapper.ts` -- map `favoriteCount` through
-- [ ] `packages/ui/src/features/events/EventDetailView.types.ts` -- add `favoriteCount?: number`
-- [ ] `packages/ui/src/features/events/EventDetailView.tsx` -- render the count beside the Heart icon
-- [ ] Add a test on `EventDetailView.test.tsx` asserting the count renders when `favoriteCount` is passed, and an integration assertion on `EventDetailWrapper.test.tsx` that the real query's mocked response flows the count through to the rendered button
+- [x] `apps/web/src/features/events/queries.graphql` -- added `favoriteCount` to `getEventBySlug`
+- [x] Ran `pnpm --filter web run codegen` to regenerate `apps/web/src/generated/graphql.ts`
+- [x] `apps/web/src/features/events/mapper.ts` -- maps `favoriteCount` through
+- [x] `packages/ui/src/features/events/EventDetailView.types.ts` -- added `favoriteCount?: number`
+- [x] `packages/ui/src/features/events/EventDetailView.tsx` -- renders the count beside the Heart icon
+- [x] `packages/ui/src/features/events/EventDetailView.test.tsx` -- 3 new tests (count shown, zero-count shown not hidden, no count when prop absent)
+- [x] `apps/web/src/features/events/EventDetailWrapper.tsx` (not in original Code Map -- see Spec Change Log) -- mirrored the existing list-cache `favoriteCount` increment logic into the `["getEventBySlug"]` cache patch in the toggle-favorite mutation's `onSuccess`
+- [x] `apps/web/src/features/events/EventDetailWrapper.test.tsx` -- added `favoriteCount: 3` to both mock-event fixtures, extended the existing list-cache double-counting test to also assert the detail page's own cache count updates on toggle
 
 **Acceptance Criteria:**
 - Given an event with `favoriteCount: 12`, when Event Detail renders, then the favorite button shows both the Heart icon and "12".
 - Given `favoriteCount` is `0`, when Event Detail renders, then the button still shows "0" (matching `EventCard`'s `!== undefined` check, not a truthiness check).
 
+## Suggested Review Order
+
+- Entry point -- the query + data flow: [`queries.graphql:52`](../../apps/web/src/features/events/queries.graphql#L52), [`mapper.ts:101`](../../apps/web/src/features/events/mapper.ts#L101)
+- The render: [`EventDetailView.tsx:255-268`](../../packages/ui/src/features/events/EventDetailView.tsx#L255-L268)
+- Review-driven fix -- the cache-sync gap found during review, not in the original approved spec: [`EventDetailWrapper.tsx:102-118`](../../apps/web/src/features/events/EventDetailWrapper.tsx#L102-L118)
+- Tests: [`EventDetailView.test.tsx:250-274`](../../packages/ui/src/features/events/EventDetailView.test.tsx#L250-L274), [`EventDetailWrapper.test.tsx:392-399`](../../apps/web/src/features/events/EventDetailWrapper.test.tsx#L392-L399)
+
 ## Spec Change Log
+
+- During implementation, found a real gap not covered by the original spec: `EventDetailWrapper.tsx`'s `toggleFavorite` mutation already optimistically syncs `favoriteCount` on the feed/home/favorites list caches when a user toggles favorite (an existing, already-tested pattern -- `Math.max(0, count + (isFavorited ? 1 : -1))`), but never touched `getEventBySlug`'s own cache for that field, since the field didn't exist there before this batch. Once the count is displayed, leaving this unfixed would mean clicking favorite on Event Detail itself instantly flips the heart icon but leaves the count stale until the next full refetch -- a visible inconsistency, not a hypothetical one. Fixed by mirroring the exact same increment logic into the existing `onSuccess` cache patch for `["getEventBySlug"]`. Extended `EventDetailWrapper.tsx`'s Code Map/Tasks accordingly (not present in the original approved version).
 
 ## Verification
 
 **Commands:**
-- `pnpm --filter @festgrid/ui test EventDetailView` -- expected: existing tests pass, new count test passes
-- `pnpm --filter web test EventDetailWrapper` -- expected: existing tests pass, new integration assertion passes
-- `pnpm --filter web run codegen && pnpm --filter web build` -- expected: codegen regenerates cleanly, no TypeScript errors
-- `pnpm test` (full monorepo) -- expected: no new regressions (the pre-existing, already-documented `WeeklyCalendarView.test.tsx` date-flakiness failure is unrelated and may still appear)
+- `pnpm --filter @festgrid/ui test EventDetailView` -- 33/33 passed (30 existing + 3 new)
+- `pnpm --filter web test EventDetailWrapper` -- 28/28 passed (existing tests + the extended cache-sync assertion)
+- `pnpm --filter web run codegen && pnpm --filter web build` -- codegen regenerated cleanly, build succeeded, no TypeScript errors
+- `pnpm test` (full monorepo) -- 364/365 passed; the 1 failure is the same pre-existing, already-documented `WeeklyCalendarView.test.tsx` date-flakiness (`2026-08-10` vs the now-real `2026-09-10`), unrelated to this batch
+
+**Adversarial review:** Performed directly (Blind Hunter + Edge Case Hunter prompts/rigor -- `cline-cli` hung a third time today, see Spec Change Log). No blocking issues found. One minor, pre-existing gap logged to `deferred-work.md`: the favorite-count decrement (unfavorite) direction is untested for all 4 caches the toggle mutation patches, not just the one added this batch.

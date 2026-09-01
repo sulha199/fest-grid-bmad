@@ -87,6 +87,7 @@ let currentMockEvent = {
   sourcePostUrl: null,
   originalPostUrl: null,
   isFavorited: false,
+  favoriteCount: 3,
   isHiddenForCurrentUser: false,
   sourceSocialMediaAccountProfile: null as { accountId: string; platform: string; username: string; displayName: string; profileImageUrl: string | null } | null,
   schedules: [],
@@ -268,6 +269,7 @@ describe("EventDetailWrapper", () => {
       sourcePostUrl: null,
       originalPostUrl: null,
       isFavorited: false,
+      favoriteCount: 3,
       isHiddenForCurrentUser: false,
       sourceSocialMediaAccountProfile: null,
       schedules: [
@@ -390,6 +392,13 @@ describe("EventDetailWrapper", () => {
       const favCache = queryClient.getQueryData<any>(["favoriteEvents"])
       expect(favCache?.pages[0].events.items[0].isFavorited).toBe(true)
       expect(favCache?.pages[0].events.items[0].favoriteCount).toBe(6)
+
+      // The detail page's own cache (currentMockEvent starts at favoriteCount: 3)
+      // must also bump, or the count next to the heart would silently go stale
+      // after the user's own toggle on this exact page.
+      const detailCache = queryClient.getQueryData<any>(["getEventBySlug", { slug: "test-event" }])
+      expect(detailCache?.eventBySlug?.isFavorited).toBe(true)
+      expect(detailCache?.eventBySlug?.favoriteCount).toBe(4)
     })
   })
 

@@ -98,6 +98,7 @@ export function mapGraphQLEventToDetailViewProps(
     originalPostUrl: event.originalPostUrl,
     sourcePostUrl: event.sourcePostUrl,
     isFavorited: event.isFavorited,
+    favoriteCount: event.favoriteCount,
     isAddedToCalendar: mappedSchedules.some((s) => s.isAddedToCalendar),
     accountName: event.sourceSocialMediaAccountProfile?.displayName ?? null,
     accountUsername: event.sourceSocialMediaAccountProfile?.username ?? null,
