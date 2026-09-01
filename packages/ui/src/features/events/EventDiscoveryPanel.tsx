@@ -53,7 +53,7 @@ export function EventDiscoveryPanel({
   const headerContentId = React.useId();
 
   return (
-    <div className={`space-y-8 ${className}`}>
+    <div className={`space-y-8 [overflow-anchor:none] [&_*]:[overflow-anchor:none] ${className}`}>
       <div
         ref={headerContainerRef}
         className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 pt-4 pb-2 -mt-4"

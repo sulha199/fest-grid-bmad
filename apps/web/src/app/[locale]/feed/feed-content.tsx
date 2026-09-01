@@ -235,6 +235,7 @@ export function FeedContent() {
         onSearchSubmit={handleSearchSubmit}
         searchPlaceholder={t("searchPlaceholder")}
         searchClearLabel={t("searchClearLabel")}
+        showFiltersLabel={t("showFiltersLabel")}
         filterLabels={filterLabels}
         types={typesOptions}
         categories={categoriesOptions}

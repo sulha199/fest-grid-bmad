@@ -209,6 +209,7 @@ export function HomeContent() {
         onSearchEnter={handleSearchEnter}
         searchPlaceholder={t('searchPlaceholder')}
         searchClearLabel={t('searchClearLabel')}
+        showFiltersLabel={t('showFiltersLabel')}
         filterLabels={filterLabels}
         types={typesOptions}
         categories={categoriesOptions}

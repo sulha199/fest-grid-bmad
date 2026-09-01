@@ -276,5 +276,19 @@ describe('EventDiscoveryPanel', () => {
       expect(searchInput).toBeVisible();
       expect(screen.queryByRole('button', { name: 'Show filters' })).not.toBeInTheDocument();
     });
+
+    it('uses the passed showFiltersLabel instead of the English fallback', () => {
+      const { act } = require('@testing-library/react');
+      Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
+      render(<EventDiscoveryPanel {...defaultProps} showFiltersLabel="Tampilkan filter" />);
+
+      act(() => {
+        Object.defineProperty(window, 'scrollY', { value: 100, writable: true });
+        window.dispatchEvent(new Event('scroll'));
+      });
+
+      expect(screen.getByRole('button', { name: 'Tampilkan filter' })).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Show filters' })).not.toBeInTheDocument();
+    });
   });
 });
