@@ -286,6 +286,14 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR101: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
 - FR102: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
 - FR103: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
+- FR104: Epic 3 - Social Media Event Integration (Story 3.4n, account-type scraping filter; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
+- FR105: Epic 3 - Social Media Event Integration (Story 3.6g, image-storage opt-in flag; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
+- FR106: Epic 3 - Social Media Event Integration (Story 3.6h, gates Stories 3.6e/3.6f on the FR105 flag — closes a live consent gap in `master`; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
+- FR107: Epic 3 - Social Media Event Integration (Story 3.6i, `hasPrivateContact` classify-and-discard; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
+- FR108: Epic 3 - Social Media Event Integration (Story 3.6j, performer-contact/photo leak-guard verification; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
+- FR109: Epic 3 - Social Media Event Integration (Story 3.6k, children's-data keyword filter, Tier 1; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
+- FR110: Epic 3 - Social Media Event Integration (Story 3.7c, event-list hotlink/graceful-degrade/opted-in prominent card; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
+- FR111: Epic 3 - Social Media Event Integration (Story 3.7d, event-detail oEmbed transition with fallback; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
 
 ## Epic List
 
@@ -2096,6 +2104,23 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3-4j (backend contracts), Story 4.7a (moderator route guard).
 
+### Story 3.4n: Filter scraped accounts by type (organizer/venue/event only)
+
+**As a** platform operator,
+**I want** scraping to exclude personal attendee accounts and curator/local-guide accounts,
+**So that** FestDaily never processes public posts from individuals outside the narrow "official event account" scope the platform's legitimate-interest legal position depends on.
+
+**Acceptance Criteria:**
+
+*   **Given** `getBatchScrapeTargets()` (Story 3.4) selects accounts with ≥1 active subscriber, **when** a `SocialMediaAccountProfile` is newly created (at subscribe time, Story 3.2) or considered for the scheduled batch, **then** it is checked against a new `accountType` classification (`ORGANIZER_VENUE_EVENT | PERSONAL | CURATOR_GUIDE`, new column) and only `ORGANIZER_VENUE_EVENT` accounts are scraped.
+*   **And** the classification runs once, at subscribe time (mirroring the existing Default Location AI-inference trigger, Story 3.4m), using a dedicated Gemini prompt against the account's bio/description/recent post captions — not a per-post check.
+*   **And** an account classified `PERSONAL` or `CURATOR_GUIDE` is still allowed to exist as a `SocialMediaAccountProfile` row (a user can still subscribe to it in the UI) but is permanently excluded from every scrape trigger (scheduled batch, subscribe-time immediate scrape, on-demand manual trigger, Bright Data recovery sweep) — mirroring Story 5.4's existing "inactive account" warning pattern, a similar "excluded account" indicator should be shown to the subscriber (left to `bmad-create-story` to resolve against that precedent).
+*   **And** a low-confidence classification (below a defined threshold) is flagged for moderator review rather than silently defaulting to either inclusion or exclusion — moderator review follows the existing `DefaultLocationChangeRequest`-style `AWAITING_APPROVAL` pattern (Story 3.4m/4.14).
+
+**Note (2026-09-02, added via `bmad-correct-course`, `sprint-change-proposal-2026-09-02.md`):** Surfaced by the minimization doc (`monetization-plans/scraping-extraction-display-rules-2026-09-02.md` §1.3, §2.8) as a direct, unaddressed gap against the legal doc's hybrid-transition-model prerequisite #1. No classification step exists anywhere in the scraping pipeline today (confirmed via code read of `getBatchScrapeTargets()`). Positioned as a lettered suffix off Story 3.4 (the scraping-target-selection story family) since it's a precondition on scrape-target selection, not on extraction.
+
+**Depends on:** Story 3.2, Story 3.4, Story 3.4m (AI-inference trigger pattern).
+
 ### Story 3.5: Add new posts to a processing queue
 
 **As a** system,
@@ -2231,6 +2256,93 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 0.33, Story 3.3a, Story 3.6.
 
+### Story 3.6g: Add image-storage opt-in flag and moderator-only mutation
+
+**As a** moderator,
+**I want** to mark a social media account as opted-in to durable image storage,
+**So that** the platform can legally re-host and serve that account's post images with consent on record, ahead of a future self-service account-claim flow.
+
+**Acceptance Criteria:**
+
+*   **Given** the `social_media_account_profiles` table, **when** this story's migration runs, **then** it adds `is_image_storage_opted_in boolean not null default false` and `image_storage_opt_in_source text nullable` (`'MODERATOR' | 'ACCOUNT_OWNER'`) columns, matching PRD §4.5.
+*   **And** a new `setImageStorageOptIn(accountId: ID!, optedIn: Boolean!)` GraphQL mutation, guarded by `requireModerator(context)` only (no subscriber path — this is not a self-service action yet), sets `isImageStorageOptedIn` and stamps `imageStorageOptInSource: 'MODERATOR'`.
+*   **And** setting `optedIn: false` on a previously-opted-in account does not retroactively delete any already-stored `durableImageUrl` values (matches AD-12 Rule 6's existing no-deletion stance) — it only stops future re-hosting (Story 3.6h).
+*   **And** the flag is surfaced in Moderator Tools' existing account-management surface (Story 3.11/4.7 family) as a visible toggle, not a hidden admin-only field.
+
+**Note (2026-09-02, added via `bmad-correct-course`, `sprint-change-proposal-2026-09-02.md`):** This is the schema/mutation half of closing the AD-12 consent gap (Architecture Spine AD-12 Rule 7, added by this same proposal). Deliberately scoped to moderator-only per the user's explicit direction during this correct-course session: a full self-service account-claim/ownership-verification flow is a separate, larger epic (not yet spec'd anywhere in epics.md — see Epic 8 placeholder below) and is out of scope here — this story only ensures the flag and its provenance field exist in a shape that flow can write to later without a further migration.
+
+**Depends on:** Story 3.1a (`social_media_account_profiles` table), Story 4.7a (moderator auth pattern).
+
+### Story 3.6h: Gate image re-hosting and serving on account opt-in
+
+**As a** subscriber to a non-opted-in account,
+**I want** that account's post images to never be durably copied or served from FestDaily's own storage,
+**So that** FestDaily's default behavior matches its stated data-minimization policy instead of silently storing and serving a copy of every account's images regardless of consent.
+
+**Acceptance Criteria:**
+
+*   **Given** a post's account has `isImageStorageOptedIn = false` (the default), **when** Story 3.6e's re-hosting step would otherwise run (on successful AI extraction), **then** the upload is skipped entirely — no bytes uploaded, `durableImageUrl` stays `null` for that post, exactly as if the upload had failed (reuses the existing best-effort skip path).
+*   **Given** a post's account has `isImageStorageOptedIn = true`, **when** the same trigger fires, **then** re-hosting proceeds exactly as Story 3.6e already implemented it, unchanged.
+*   **Given** the Event resolver (Story 3.6f) is about to serve an event's image, **when** the backing post's `imageUrlExpiresAt` has passed and the account is NOT opted in, **then** the resolver returns `null` for `Event.imageUrl` (never falls back to `durableImageUrl`, which is guaranteed null anyway per the AC above) — the frontend's existing `EventImage` placeholder/fallback state renders, never a broken-image icon and never a silent re-hosted copy.
+*   **Given** the same expired-original scenario but the account IS opted in, **when** the resolver serves the image, **then** it falls back to `durableImageUrl` exactly as Story 3.6f already implemented — unchanged.
+*   **And** this story includes a data-hygiene note (not a migration): no backfill/purge of already-stored `durableImageUrl` values for currently-non-opted-in accounts is performed — every post re-hosted between Story 3.6e's original merge and this story's own merge stays stored (AD-12 Rule 6's no-deletion stance already covers this; a future dedicated cleanup story could revisit it, out of scope here).
+
+**Note (2026-09-02, added via `bmad-correct-course`, `sprint-change-proposal-2026-09-02.md`):** This is the story that actually closes the live legal gap described in `monetization-plans/scraping-extraction-display-rules-2026-09-02.md` §4 — Story 3.6e (merged `610cd9b`) and Story 3.6f (merged `e872e27`, referenced in Story 3.6e's own note above but never given its own epics.md entry) are both live in `master` today with unconditional, un-gated behavior. Confirmed via `git show`/`git log` during this correct-course session, not just cited from the minimization doc.
+
+**Depends on:** Story 3.6e, Story 3.6f, Story 3.6g.
+
+### Story 3.6i: Classify-and-discard private contact info during AI extraction
+
+**As a** subscriber,
+**I want** the app to never store a private individual's raw contact detail,
+**So that** FestDaily doesn't become a searchable directory of personal phone numbers/emails scraped from social posts.
+
+**Acceptance Criteria:**
+
+*   **Given** the AI extraction pipeline (Story 3.6) classifies a source post's contact information, **when** the contact is a business/official contact (a role-based email, an official venue/PT office number), **then** it is extracted and written to `EventInfo.contactInfo` as today.
+*   **Given** the contact is a private/individual contact (a personal phone number, personal email, or a `wa.me/<number>` link — treated identically to a raw phone number, never link-minimized), **when** extraction runs, **then** `EventInfo.hasPrivateContact` is set `true`, `contactInfo` is left `null`, and the raw contact value is discarded immediately after classification — never written to any column, never logged, never held beyond the classification step itself.
+*   **And** the event-detail UI, when `hasPrivateContact` is true, displays a message directing the user to the original source post for the contact detail (linking `Post.originalPostUrl`) rather than showing a stored value.
+*   **And** this classification is verified with unit tests covering: business email, official venue phone, personal phone number, personal email, `wa.me` link, and a post with no contact info at all (`hasPrivateContact` stays `false`, `contactInfo` stays `null`).
+
+**Note (2026-09-02, added via `bmad-correct-course`, `sprint-change-proposal-2026-09-02.md`):** Per the minimization doc (§2.3, §5 item 2), this is "the single highest-priority extraction-side build item" — no `hasPrivateContact` field existed anywhere in the schema or extraction logic before this correct-course pass (confirmed via grep, 2026-09-02). PRD §4.1 (this same proposal) already added the field's interface definition.
+
+**Depends on:** Story 3.6.
+
+### Story 3.6j: Verify and guard against performer-contact/photo leakage in extraction
+
+**As a** platform operator,
+**I want** the AI extraction prompt to actively exclude a performer's contact info or photo from ever landing in a free-text field,
+**So that** the "no performer photo or contact info is ever stored" guarantee is an enforced extraction-time exclusion, not just an absent schema field a naive extraction could still route around.
+
+**Acceptance Criteria:**
+
+*   **Given** a source post's caption includes a performer credit with an attached booking contact (e.g. "book this artist via 0812-xxx"), **when** AI extraction runs, **then** that contact value never appears in `EventInfo.description` or any other free-text field it could naively be copied into.
+*   **And** this is verified against the live extraction prompt (not assumed from the absence of a dedicated schema field) — a review/update of the current Gemini prompt in `build-gemini-request.ts` or the AI-processor's prompt-construction logic, adding an explicit negative instruction if none exists today.
+*   **And** a regression test fixture (a synthetic post caption containing a performer name + inline contact) confirms the contact does not appear anywhere in the resulting `EventInfo`/`Schedule` output.
+*   **And** no performer photo URL is ever written to any field, verified the same way against a synthetic post whose caption references an attached performer image.
+
+**Note (2026-09-02, added via `bmad-correct-course`, `sprint-change-proposal-2026-09-02.md`):** Per the minimization doc (§2.4), this guardrail "is not yet built... not yet verified or shipped" per the legal doc's own language — this story exists specifically to close that verification gap, not to build new suppression logic from scratch (some of it may already incidentally work; this story's job is to confirm and harden it, not assume).
+
+**Depends on:** Story 3.6.
+
+### Story 3.6k: Children's-data keyword filter (Tier 1 pre-ingestion suppression)
+
+**As a** platform operator,
+**I want** any scraped or user-submitted event text matching a kids'-event keyword filter to never have individual performer names written to the database,
+**So that** FestDaily never stores a searchable record of a minor's name, satisfying the legal doc's "prevent the write, not just hide the display" requirement.
+
+**Acceptance Criteria:**
+
+*   **Given** scraped post text (or a UGC correction submission, Story 4.1/4.2) matches a kids'-event keyword filter (`anak`, `cilik`, `junior`, `TK`, `SD`, `sanggar`, `lomba tari anak`, etc. — an expanding heuristic list, not closed), **when** extraction/correction processing runs, **then** `Schedule.performers` is suppressed entirely for that event (not populated, not populated-then-hidden) while the event's other facts (name, venue, description) are stored normally.
+*   **Given** a UGC correction submission matches the same filter, **when** the submission is processed, **then** it is set to an `AWAITING_VERIFICATION` state (names stay suppressed, Tier 1 default) rather than unlocking display — matching the existing moderation-queue pattern (`DefaultLocationChangeRequest`-style status field).
+*   **And** UGC corrections already require a verified (logged-in) submitter (existing Story 4.1/4.2 behavior) — this story adds no new anonymous-submission path.
+*   **And** a declaration checkbox ("I confirm I have parent/guardian permission if this includes a minor") is added to the correction form as an audit-trail record only — it does not by itself unlock display, since FestDaily cannot verify the submitter is actually the parent.
+*   **And** Tier 2 (a school/studio's verified, manually-reviewed exception path) is explicitly out of scope for this story — noted here as a distinct future story, not self-service, requiring moderator-verified organizational identity.
+
+**Note (2026-09-02, added via `bmad-correct-course`, `sprint-change-proposal-2026-09-02.md`):** Per the minimization doc (§2.5, §5 item 4), no keyword filter, Tier 1/Tier 2 distinction, or category-triggered suppression exists in the codebase today (confirmed via grep — no children's-data terms found in `apps/backend/src`). Positioned as a lettered suffix off Story 3.6 since Tier 1 applies to the scraping/extraction pipeline; its UGC-correction half touches Story 4.1/4.2's form and processing path.
+
+**Depends on:** Story 3.6, Story 4.1, Story 4.2.
+
 ### Story 3.7: Display extracted events to the user
 
 **As a** user,
@@ -2284,6 +2396,42 @@ Users can subscribe to social media accounts to import events into their feed.
 **Note (2026-08-10, added via bmad-create-story while drafting Story 3.7):** design-artifacts/C-UX-Scenarios/03-alex-discovers-his-feed/03.4-viewing-the-feed.md softly describes this as a possible "Feed-Specific Filter" ("there may be an option to filter by specific subscriptions"), but epics.md's original Story 3.7 AC never required it. User confirmed via AskUserQuestion during Story 3.7's creation to defer it as its own follow-up story rather than build it now or silently drop it, since it implies a new reusable filter component with no second consumer yet. Positioned as a lettered suffix directly off Story 3.7, matching the 3.7a sibling.
 
 **Depends on:** Story 3.7.
+
+### Story 3.7c: Event-list image display — hotlink-only with graceful degrade and opted-in prominent card
+
+**As a** user browsing the event list/grid,
+**I want** a scraped event's image to load reliably or degrade gracefully, and to see visually which accounts have opted into richer image display,
+**So that** I never see a broken-image icon, and opting in feels like a real, visible product benefit rather than an invisible backend flag.
+
+**Acceptance Criteria:**
+
+*   **Given** a non-opted-in account's event card, **when** it renders, **then** it hotlinks `Post.imageUrl` directly (no re-hosted source) as a small/secondary visual element, matching PRD §3.16.
+*   **Given** `Post.imageUrlExpiresAt` has passed (checked client-side where available, to preempt rather than wait on `onError`) or the hotlinked image fails to load, **when** the card renders, **then** a defined fallback/placeholder state is shown — never a broken-image icon, and never `durableImageUrl` (Story 3.6h guarantees it's null for non-opted-in accounts anyway).
+*   **Given** an opted-in account's event card, **when** it renders, **then** it uses a visually distinct, more prominent card variant — the image is the visual center of interest, not a small thumbnail — sourced from `Post.durableImageUrl`.
+*   **And** `SocialMediaAccountProfile.profileImageUrl` is never rendered on any card, for any account, opted-in or not (PRD §4.5/§3.16 — unconditional, independent of image-storage opt-in).
+*   **And** this story's visual specifications (the prominent-card layout specifically) will be provided as reference card-layout images/mockups by the product owner ahead of implementation, rather than fully specified in text here — `bmad-create-story` or `bmad-ux` should pull those in when this story is actually drafted for development.
+
+**Note (2026-09-02, added via `bmad-correct-course`, `sprint-change-proposal-2026-09-02.md`):** Implements the minimization doc's §3.1/§3.2 display decisions. The "opted-in gets a visually distinct card, sourced from `durableImageUrl`" design was explicitly confirmed during this correct-course session as the resolution that makes Story 3.6g/3.6h's opt-in flag a felt product incentive, not just a legal formality.
+
+**Depends on:** Story 1.3b (EventCard), Story 3.6h.
+
+### Story 3.7d: Event-detail image display — oEmbed transition with fallback
+
+**As a** user viewing an event's detail page,
+**I want** the source Instagram post shown as a proper platform embed rather than a bare hotlinked image,
+**So that** the display reads as clearly platform-sanctioned rather than presenting the image as FestDaily's own.
+
+**Acceptance Criteria:**
+
+*   **Given** an event's detail page renders its source post's image, **when** this story ships, **then** it uses an embedded Instagram post (oEmbed-style) instead of a raw hotlinked `Post.imageUrl`.
+*   **And** this does not change the event-lifecycle display window already planned for personal-data-bearing images (the 7-30 day Discovery→Archive transition referenced in the minimization doc §3.3) — the embed is a retention/copyright improvement, not a personal-data-exposure fix, and remains subject to that same bound whenever it's built.
+*   **Given** the source post is deleted, the account is set private, or Instagram's embed API otherwise fails, **when** the detail page renders for a non-opted-in account, **then** a "content no longer available" state is shown — it does NOT silently fall back to a raw hotlinked `Post.imageUrl`.
+*   **Given** the same failure for an opted-in account, **when** the detail page renders, **then** it falls back to `Post.durableImageUrl` — acceptable since storage was already consented to.
+*   **And** `SocialMediaAccountProfile.profileImageUrl` is never independently rendered here either — the oEmbed's own Instagram-chrome avatar (Instagram's UI, not FestDaily's) is not equivalent to FestDaily displaying the profile photo itself.
+
+**Note (2026-09-02, added via `bmad-correct-course`, `sprint-change-proposal-2026-09-02.md`):** Implements the minimization doc's §3.3/§3.4. The 7-30 day lifecycle-window mechanism itself is explicitly out of scope for this story (not yet designed anywhere) — flagged as a dependency this story's own display logic should account for once that mechanism exists, not built here.
+
+**Depends on:** Story 1.6a (EventDetailView), Story 3.6h.
 
 ### Story 3.8: Push notifications for extracted events
 
@@ -3208,3 +3356,11 @@ A user with a saved Gemini API key can describe what they're looking for in a fr
 *   **And** a zero-saved-filters state renders a defined empty-state message and CTA, matching this codebase's existing empty-state precedent (Story 3.7's Feed empty state) rather than a bare blank list.
 
 **Depends on:** Story 7.2a, Story 7.3.
+
+---
+
+### Epic 8: Account Claim & Image-Storage Self-Service Opt-In (Backlog — placeholder only, not spec'd)
+
+**FRs covered:** None yet — no stories drafted, no FR numbers assigned. This entry exists solely so the future work isn't lost, per explicit user direction during the 2026-09-02 correct-course session that produced Stories 3.6g/3.6h.
+
+Today, `SocialMediaAccountProfile.isImageStorageOptedIn` (PRD §4.5) can only be set by a moderator (Story 3.6g) — there is no way for an account owner to verify they actually own an Instagram account and set the flag themselves. The legal doc (`technical-legal-risks-PLACEHOLDER.md` §0.1 item 4) calls for "one flow [to serve] both the account claim and the image-storage opt-in," implying real ownership verification (e.g. Instagram OAuth, a bio-code challenge, or a DM-based confirmation flow) — none of which is designed anywhere yet. This is a distinct, larger epic from the Epic 3 minimization work (sprint-change-proposal-2026-09-02.md), not a lettered suffix off any existing story, because it introduces new account-facing surface area (an identity-verification UX) rather than extending the scraping/extraction pipeline. When picked up, it should run through `bmad-prd` (to formalize the requirement) and `bmad-create-epics-and-stories` or a direct epics.md append (matching this project's established precedent for Epics 6/7) rather than being drafted inline here.

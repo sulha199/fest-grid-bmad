@@ -214,10 +214,13 @@ This document defines the core architectural invariants for the FestDaily applic
     later without a fresh decision.
 *   **Rule:**
     1.  **Trigger & source of bytes:** on successful AI extraction (Story 3.6's pipeline,
-        `build-gemini-request.ts`'s existing `fetch(message.imageUrl)` call), the same
-        already-fetched image bytes are uploaded to the new media bucket and written to
-        `posts.durableImageUrl`. No second fetch of the source image is performed, and
-        `posts.imageUrl` is left untouched.
+        `build-gemini-request.ts`'s existing `fetch(message.imageUrl)` call), **and only when
+        the post's account has `SocialMediaAccountProfile.isImageStorageOptedIn = true`
+        (PRD §4.5, Rule 7 below)**, the same already-fetched image bytes are uploaded to the
+        new media bucket and written to `posts.durableImageUrl`. No second fetch of the source
+        image is performed, and `posts.imageUrl` is left untouched. For a non-opted-in
+        account's post, this step is skipped entirely — no bytes are uploaded, no
+        `durableImageUrl` is ever populated for that post.
     2.  **Storage & serving:** a new, private S3 bucket (Origin Access Control, no public bucket
         access) fronted by a CloudFront distribution; only the CloudFront URL is ever written to
         `durableImageUrl`. Objects are served with `Cache-Control: public, max-age=31536000,
@@ -235,10 +238,12 @@ This document defines the core architectural invariants for the FestDaily applic
         platform's URL format fails loudly once at ingestion rather than silently on every read.
         Adapters whose URL format has no parseable expiry leave this null, treated as
         "already expired" (never assumed valid indefinitely). The Event resolver then serves
-        `posts.imageUrl` while `now < imageUrlExpiresAt`, else `durableImageUrl` (falling back to
-        `imageUrl` regardless of expiry if `durableImageUrl` isn't populated yet — a maybe-stale
-        link beats no link, and `EventImage`'s existing `onError` fallback already covers total
-        failure). `durableImageUrl` is additionally exposed as a secondary field so the frontend
+        `posts.imageUrl` while `now < imageUrlExpiresAt`, else `durableImageUrl` **if and only if
+        the account is opted in (Rule 7) — a non-opted-in account's expired original never falls
+        back to `durableImageUrl` under any circumstance, since none was ever stored (Rule 1);
+        the resolver instead returns null/no-image for that request, and the frontend renders
+        its defined placeholder state (PRD §3.16), never a broken-image icon.** For an opted-in
+        account, `durableImageUrl` is additionally exposed as a secondary field so the frontend
         can retry it via the same `onError` pattern if the served choice fails earlier than its
         nominal expiry. This offloads an event's freshest, highest-traffic window onto Instagram's
         own CDN at the cost of one extra stored timestamp — a real reduction in CloudFront usage,
@@ -266,6 +271,17 @@ This document defines the core architectural invariants for the FestDaily applic
         change proposal above) — there is no storage-cost problem to solve. If storage hygiene is
         ever wanted, the right tool is a no-code **S3 Lifecycle rule** keyed to object age (e.g.
         transition/delete after 2+ years), not application logic keyed to event-expiry semantics.
+    7.  **Consent gate (added 2026-09-02, `bmad-correct-course`, sprint-change-proposal-2026-09-02.md):**
+        this AD originally shipped (Story 3.6e/3.6f) with re-hosting and serving unconditional for
+        every extracted post — no account-level consent concept existed in the schema yet. That
+        default was found to conflict with `monetization-plans/scraping-extraction-display-rules-2026-09-02.md`'s
+        minimization design (default embed/hotlink, never a persistent copy, until the account
+        owner opts in) — a live gap in `master`, not a hypothetical one. Rules 1 and 3 above are
+        now stated in their corrected, consent-gated form; this sub-rule records that the
+        correction happened and why. `SocialMediaAccountProfile.isImageStorageOptedIn` (PRD §4.5)
+        is currently moderator-set only — no self-service account-claim/ownership-verification
+        flow exists yet (tracked as a future epic in epics.md, not built here). Until that flow
+        ships, an account only becomes opted-in via explicit moderator action.
 *   **Considered and rejected:** a Service Worker persisting the *original* (cross-origin,
     Instagram-hosted) image client-side past its own expiry, using the Cache Storage API to
     intercept the browser's request and replay a stored copy. Rejected because (a) Instagram's

@@ -249,6 +249,16 @@ As a faster alternative to operating FilterHub's manual controls (Section 3.1), 
 
 > **Deferred to implementation:** whether a future revision of the closed date grammar (Section 4.18) should add compound-day support (e.g. a `WEEKEND` anchor, or a set-valued day-of-week) so phrasing like "this weekend" resolves to a real filter instead of a caveat — not addressed in this pass since the grammar was deliberately locked closed during discovery.
 
+### 3.16 Scraping & Display Data Minimization
+
+Full rationale and the authoritative rule-by-rule reference lives in `monetization-plans/scraping-extraction-display-rules-2026-09-02.md` (cited here as "the minimization doc"); this section states the resulting product requirements.
+
+*   **Event list (grid/card view):** Renders `Post.imageUrl` (hotlink to the original scraper-source CDN URL) directly — never a re-hosted/durable copy, for any account, by default. Must degrade to a defined placeholder (never a broken-image icon) when the hotlinked URL is expired or fails to load.
+*   **Opted-in accounts get a visually distinct, more prominent card** — the image becomes the visual center of interest rather than a small thumbnail — as a felt incentive to opt in (Section 4.5 `isImageStorageOptedIn`). This card is the only surface that uses `Post.durableImageUrl`.
+*   **Event detail page:** Uses an embedded Instagram post (oEmbed-style), not a raw hotlinked image URL. This is a copyright/retention-footprint improvement, not by itself a personal-data-exposure fix — an embed showing an identifiable individual is still subject to the same display-lifecycle bound as a hotlinked image would be. Requires a defined fallback ("content no longer available" for non-opted-in accounts; `durableImageUrl` is acceptable for opted-in accounts) if the source post becomes unavailable.
+*   **`SocialMediaAccountProfile.profileImageUrl` is never stored or displayed on any surface, including via embed, regardless of the account's image-storage opt-in status** (Section 4.5) — this is a stricter, independent rule from the post/poster-image handling above.
+*   **Account-type filtering:** scraping must exclude personal attendee accounts and curator/local-guide accounts — only organizer/venue/event accounts are in scope. Not yet built; tracked in epics.md.
+
 ## 4. Event Data Schema
 
 This section defines the data structure for events extracted and managed by FestDaily.
@@ -325,9 +335,22 @@ interface EventInfo {
    */
   organizerName?: string;
   /**
-   * Contact information for the event.
+   * Contact information for the event. Business/official contact only (e.g.
+   * a role-based email, an official venue number) — legal-entity contact is
+   * outside PDP Law's personal-data scope (Section 5, Security). A private/
+   * individual contact is never written here; see `hasPrivateContact` below.
    */
   contactInfo?: string;
+  /**
+   * True when AI extraction detected a private/individual contact value
+   * (phone number, personal email, a `wa.me/<number>` link — treated
+   * identically to a raw phone number, never as a link) in the source post.
+   * The raw value itself is discarded immediately after classification and
+   * never written to `contactInfo` or persisted anywhere else. When true,
+   * the app directs the user to the original source post for the contact
+   * detail instead of displaying a stored copy. See Section 5 (Security).
+   */
+  hasPrivateContact?: boolean;
   /**
    * A description of the event.
    */
@@ -477,7 +500,11 @@ interface Schedule {
    */
   eventEndTime?: string;
   /**
-   * A list of performers or artists at the event.
+   * A list of performers or artists at the event, extracted only as named
+   * in that single source post — never cross-referenced or aggregated into
+   * a fuller record of an individual across events (Section 5, Security).
+   * No performer photo or contact info is ever extracted into this or any
+   * other field, even when the source post provides one.
    */
   performers?: string[];
   /**
@@ -536,7 +563,10 @@ interface SocialMediaAccountProfile {
    */
   username: string;
   /**
-   * URL for the profile picture.
+   * URL for the profile picture. Never stored or displayed anywhere in the
+   * app, including via embed, without the account owner's opt-in — see
+   * `isImageStorageOptedIn` below. This is distinct from and stricter than
+   * that flag: even an opted-in account's profile photo is never rendered.
    */
   profileImageUrl?: string;
   /**
@@ -566,6 +596,24 @@ interface SocialMediaAccountProfile {
    * records which.
    */
   defaultLocation?: LocationDetails;
+  /**
+   * Whether this account's owner has consented to FestDaily durably storing
+   * a copy of their post/poster images, rather than the default of
+   * hotlinking/embedding without a persistent copy (Section 3.16, Section 5
+   * Security). Defaults to `false`. Gates both the re-hosting step and which
+   * image source is served/displayed for this account's posts.
+   */
+  isImageStorageOptedIn: boolean;
+  /**
+   * Who set `isImageStorageOptedIn`, mirroring the provenance pattern
+   * `DefaultLocationChangeSource` (Section 4.14) already establishes for
+   * `defaultLocation`. Populated whenever `isImageStorageOptedIn` is
+   * explicitly set (absent while it's still at its default `false`).
+   * `ACCOUNT_OWNER` is reserved for a future self-service account-claim flow
+   * (not yet built — see epics.md) verifying the setter actually owns the
+   * account; until that flow exists, only `MODERATOR` is ever written.
+   */
+  imageStorageOptInSource?: 'MODERATOR' | 'ACCOUNT_OWNER';
 }
 ```
 
@@ -1201,6 +1249,8 @@ interface AIEventFilter {
 *   All AI-driven event extractions must produce a `confidenceScore` along with the `EventInfo` data. Events with a score below a defined threshold will be automatically flagged for human review to ensure data quality.
 
 ### Security
+
+*   **Scraped-Content Personal Data (Indonesia PDP Law / GDPR):** Data extracted from third-party social posts must be minimized per Section 3.16 and the field-level rules in Section 4 (`EventInfo.hasPrivateContact`, `Schedule.performers`, `SocialMediaAccountProfile.profileImageUrl`/`isImageStorageOptedIn`). Two rules not yet enforced anywhere in the pipeline, tracked as open build items in epics.md: (1) a children's-data keyword filter that prevents an individual minor's name from ever being written to the database (not merely hidden at display), with a separate, non-self-service exception path for verified schools/studios; (2) vendor confirmation from Apify and Bright Data, in writing, that their Instagram scraping operates logged-out against public data only — the favorable Meta v. Bright Data legal comparison this product currently relies on depends on that being true, not just structurally plausible from the adapter code.
 *   User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal, identifiable data (event preferences, saved locations, calendar and favorite selections, account details) is used solely to personalize your experience within the app; we do not spam your calendar, and we do not sell personal data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
 *   **Private vs. Sellable Data Boundary:** A distinct, non-identifiable category — aggregated, anonymized usage and interest data (e.g. category/event-type demand trends, regional favorite/calendar-add volume) — is not subject to the "we do not sell personal data" commitment above and may be shared or sold to city tourism boards, venues, and local partners as part of the platform's monetization strategy (Section 6). This is permitted only when the data is reduced to the same k-anonymity standard already established by the vote list's "Near Me" ranking (Section 3.13): bucketed to city/province granularity, never raw coordinates, suppressed entirely for any region with fewer than 5 distinct contributing users, and with no path back to an individual account. Any future sellable-data product must be validated against this standard before launch.
 *   **Widget Embedding:** The embeddable widget (Section 3.14) is served from a dedicated route with a dynamically-scoped `frame-ancestors` policy limited to registered domain patterns (Section 4.17), validated against a Public Suffix List at registration time to prevent whitelisting a shared-hosting domain — the rest of the application's framing protection is unaffected.

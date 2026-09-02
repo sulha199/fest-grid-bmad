@@ -984,6 +984,10 @@ development_status:
   # frontend precedent (Gate 2 finding). Extracts a new RawJsonViewer packages/ui component --
   # genuine reuse evidence vs. Story 3-4i's own inline (never extracted) raw-JSON display.
   # Blocked on 3-4j shipping its GraphQL contracts.  3-4k-moderator-actor-run-browser-and-replay-ui: in-progress
+  # New 2026-09-02 via bmad-correct-course, sprint-change-proposal-2026-09-02.md:
+  # account-type scraping filter, closes minimization-doc §1.3/§2.8 gap. See
+  # epics.md Story 3.4n note.
+  3-4n-filter-scraped-accounts-by-type-organizer-venue-event-only: backlog
   # added 2026-08-19 via bmad-create-story: user-identified linking gap during /bmad-help
   # investigation. Story 3-4j captures scraper_actor_runs table but doesn't thread the run ID
   # to posts/unprocessed_payloads, leaving moderator UI (3-4k) unable to display "posts from
@@ -1124,7 +1128,13 @@ development_status:
   # specific; null if unparseable, treated as already-expired). posts.imageUrl
   # itself is never modified. Depends on Story 0.33. See sprint-change-
   # proposal-2026-08-25-video-priority-display.md (Architecture Spine AD-12).
-  3-6e-re-host-extracted-event-images-to-durable-storage: review
+  # Status corrected 2026-09-02 via bmad-correct-course: this row was stale --
+  # verified via `git show 610cd9b` that this story is genuinely merged to
+  # master (commit message confirms independent verification before merge).
+  # Found live-unconditional (no consent gate) during this session's impact
+  # analysis; see sprint-change-proposal-2026-09-02.md and Story 3-6h below,
+  # which closes that gap without reverting this story's own mechanics.
+  3-6e-re-host-extracted-event-images-to-durable-storage: done
   # New 2026-08-25 via bmad-correct-course: Event GraphQL resolver computes
   # the served imageUrl per AD-12 Rule 3 -- original while
   # now < imageUrlExpiresAt, else durableImageUrl, else original as a last
@@ -1133,7 +1143,24 @@ development_status:
   # fallback-URL prop so the existing onError handler can retry it. Depends
   # on Story 3-6e. See sprint-change-proposal-2026-08-25-video-priority-
   # display.md.
-  3-6f-serve-original-vs-durable-image-per-request: review
+  # Status corrected 2026-09-02 via bmad-correct-course: this row was stale
+  # AND this story was never given an epics.md heading at all (only existed
+  # here + its own implementation-artifact file) -- verified via
+  # `git log --grep "3-6f"` that Story 3-6f is genuinely merged to master
+  # (e872e27, independently verified per its own docs commit 10e3c12).
+  # sprint-change-proposal-2026-09-02.md's impact analysis found this
+  # resolver's fallback-to-durableImageUrl behavior is unconditional today --
+  # a live display-side consent gap, not just 3-6e's storage-side one. See
+  # Story 3-6h below.
+  3-6f-serve-original-vs-durable-image-per-request: done
+  # New 2026-09-02 via bmad-correct-course, sprint-change-proposal-2026-09-02.md:
+  # closes the 3-6e/3-6f consent gap. See epics.md Stories 3.6g-3.6k and 3.7c/3.7d
+  # notes for full provenance -- all six backlog, in dependency order below.
+  3-6g-add-image-storage-opt-in-flag-and-moderator-only-mutation: backlog
+  3-6h-gate-image-re-hosting-and-serving-on-account-opt-in: backlog
+  3-6i-classify-and-discard-private-contact-info-during-ai-extraction: backlog
+  3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: backlog
+  3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression: backlog
   # added 2026-08-10 via bmad-create-story Gate 2 finding (Freya persona, run fresh
   # since epic-3-readiness.md only swept Gate 1/3) while drafting Story 3.7: Feed's
   # planned calendar view would be a third near-byte-for-byte duplicate of
@@ -1186,6 +1213,13 @@ development_status:
   # reusable subscription-picker component with no second consumer yet. See
   # epics.md Story 3.7b note.
   3-7b-filter-the-feed-page-by-specific-subscribed-account: review
+  # New 2026-09-02 via bmad-correct-course, sprint-change-proposal-2026-09-02.md:
+  # display-side implementation of Stories 3.6g/3.6h's opt-in gate. Depends on
+  # 3.6h shipping first. See epics.md Story 3.7c/3.7d notes. 3.7c's prominent-
+  # card visual spec awaits reference card-layout images from the product
+  # owner (not yet provided) before bmad-create-story can fully draft it.
+  3-7c-event-list-image-display-hotlink-only-with-graceful-degrade-and-opted-in-prominent-card: backlog
+  3-7d-event-detail-image-display-oembed-transition-with-fallback: backlog
   3-8-push-notifications-for-extracted-events: review
   3-9-implement-api-key-quota-management: done
   # added 2026-08-11 via bmad-create-story Gate 2 finding while drafting Story 3.9:
@@ -1686,8 +1720,18 @@ development_status:
   7-4-add-the-ai-filter-prompt-entry-point-to-filterhub: done
   7-5-my-ai-filters-list-page: done
   epic-7-retrospective: done
+  # New 2026-09-02 via bmad-correct-course, sprint-change-proposal-2026-09-02.md:
+  # placeholder only, per explicit user direction -- no stories drafted yet.
+  # See epics.md Epic 8 entry for what this covers and why it's separate from
+  # Epic 3's Stories 3.6g/3.6h (moderator-only opt-in, shipping now).
+  epic-8: backlog
 
 action_items:
+  - id: correct-course-2026-09-02-1
+    description: "Vendor confirmation: get Apify and Bright Data to confirm in writing that their Instagram scraping actors/datasets operate logged-out against public data only -- the favorable Meta v. Bright Data legal comparison the product currently relies on depends on this being true, not just structurally plausible from the adapter code. See monetization-plans/scraping-extraction-display-rules-2026-09-02.md §1.1/§5 item 8."
+    owner: shulha
+    status: open
+    created_at: "2026-09-02"
   - id: retro-7-1
     description: "Refine AI Prompts: Monitor user behavior with AI filters to tune the system prompt for better date/location extraction accuracy."
     owner: Alice
