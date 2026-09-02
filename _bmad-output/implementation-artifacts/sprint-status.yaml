@@ -979,15 +979,25 @@ development_status:
   # actually implicated in the bug -- never creates a pendingJobs row at all. Followed by 3-4k
   # (moderator UI). See story file Dev Notes for full evidence trail.
   3-4j-capture-scraper-actor-run-audit-trail-and-replay-by-run-id: review
-  last_updated: 2026-08-29T16:00:00Z
+  last_updated: 2026-09-03T00:00:00Z
   # added 2026-08-19 via bmad-create-story: split from 3-4j following the 3-4h/3-4i backend/
   # frontend precedent (Gate 2 finding). Extracts a new RawJsonViewer packages/ui component --
   # genuine reuse evidence vs. Story 3-4i's own inline (never extracted) raw-JSON display.
   # Blocked on 3-4j shipping its GraphQL contracts.  3-4k-moderator-actor-run-browser-and-replay-ui: in-progress
   # New 2026-09-02 via bmad-correct-course, sprint-change-proposal-2026-09-02.md:
   # account-type scraping filter, closes minimization-doc §1.3/§2.8 gap. See
-  # epics.md Story 3.4n note.
-  3-4n-filter-scraped-accounts-by-type-organizer-venue-event-only: backlog
+  # epics.md Story 3.4n note. Amended 2026-09-03 via bmad-create-story: resolved
+  # an AC2/AC3 contradiction (classify pre-scrape, bio/username/businessCategoryName
+  # only), changed CURATOR_GUIDE from permanently excluded to temporarily excluded
+  # pending new Story 3.4o, and split moderator review of AWAITING_APPROVAL accounts
+  # into new Story 4.7c. Legacy accounts explicitly NOT backfilled (user's choice) --
+  # see story file Dev Notes "Legacy Accounts: Explicit Accepted Gap".
+  3-4n-filter-scraped-accounts-by-type-organizer-venue-event-only: ready-for-dev
+  # Added 2026-09-03 via bmad-create-story, split off Story 3-4n's own creation
+  # (Gate 1/3 finding): the minimization pipeline (no durable image storage, no
+  # displayed/retained captions) CURATOR_GUIDE-classified accounts need before
+  # 3-4n's scrape-gate can allow them through. See epics.md Story 3.4o.
+  3-4o-minimize-stored-displayed-data-for-curator-guide-sourced-posts: backlog
   # added 2026-08-19 via bmad-create-story: user-identified linking gap during /bmad-help
   # investigation. Story 3-4j captures scraper_actor_runs table but doesn't thread the run ID
   # to posts/unprocessed_payloads, leaving moderator UI (3-4k) unable to display "posts from
@@ -1598,6 +1608,13 @@ development_status:
   # Blocked on Story 0.30. See sprint-change-proposal-2026-08-24-ux-rework-
   # batch.md.
   # DONE 2026-08-24: AC8 merged (Wave 2, story/wave2-page-grid-adoption).
+  # Added 2026-09-03 via bmad-create-story, split off Story 3-4n's own creation
+  # (Gate 2/UX finding): /moderator/items (Story 4.7) hard-codes exactly two list
+  # types today (reportedEvents, pendingDefaultLocationChanges) with no generic
+  # plug-in mechanism -- AWAITING_APPROVAL account-type classifications (3-4n) need
+  # a third, structurally distinct list/resolve shape. Lettered off Story 4.7 (the
+  # page's owner), not off 3-4n. See epics.md Story 4.7c.
+  4-7c-review-queue-for-pending-account-type-classifications: backlog
   4-8-view-archived-hidden-personal-events: done
   epic-4-retrospective: optional
   epic-5: in-progress
