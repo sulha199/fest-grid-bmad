@@ -35,6 +35,12 @@ describe('ModeratorAccountsContent', () => {
     })));
     mockMutateAsync = vi.fn().mockResolvedValue({ id: '1', isImageStorageOptedIn: true });
     (useSetImageStorageOptInMutation as any).mockReturnValue({ mutateAsync: mockMutateAsync, isPending: false });
+    (useQueryModeratorAccountProfiles as any).mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
   });
 
   afterEach(() => {
