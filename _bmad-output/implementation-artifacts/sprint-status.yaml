@@ -1030,7 +1030,6 @@ development_status:
   # Bright Data API token in Secrets Manager). See epics.md Story 3.4q note and
   # 3-4q-fix-brightdata-auth-failure-and-alert-moderators-when-a-scraper-provider-goes-down.md.
   3-4q-fix-brightdata-auth-failure-and-alert-moderators-when-a-scraper-provider-goes-down: ready-for-dev
-  last_updated: 2026-09-03T00:00:00Z
   # added 2026-08-19 via bmad-create-story: user-identified linking gap during /bmad-help
   # investigation. Story 3-4j captures scraper_actor_runs table but doesn't thread the run ID
   # to posts/unprocessed_payloads, leaving moderator UI (3-4k) unable to display "posts from

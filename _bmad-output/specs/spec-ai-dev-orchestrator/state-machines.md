@@ -104,6 +104,12 @@ Ownership is scoped per file and per which real BMad skill would perform that ex
 
 `Epic.readinessReport`'s `swept` field is what makes a later CAP-12 sweep on that epic optional (skipped by default). `CorrectCourse` always forces a fresh sweep regardless.
 
+## Concurrency Policy (v1)
+
+Execution is strictly sequential per story, matching the write-ownership table above — enforced by turn order, not by locking. This is a deliberate choice, not a gap: parallelizing two stories with a `Depends on:` edge between them (e.g. `bmad-create-story` on story N+1 while `bmad-dev-story` is still mid-flight on story N) would draft N+1 against N's stale/incomplete state regardless of any file-locking, which is a correctness bug, not a race condition to merely guard against.
+
+A future `--parallel` mode may run stories with **no** `Depends on:` edge between them concurrently — eligibility computed from the same dependency graph already needed for ordering, so it's a byproduct of existing analysis, not new derivation work. Each concurrent story would run in its own git worktree (this project's already-established pattern for isolating parallel local work), and the two genuinely shared files (`sprint-status.yaml`, `epics.md`) would be written by the existing per-file sole-writer nodes on a queue, never directly by two parallel workers. Not implemented in v1.
+
 **`sprint-status.yaml` status discipline:** only the real enum values are ever written (`backlog`/`ready-for-dev`/`in-progress`/`review`/`done` for stories; `backlog`/`in-progress`/`done` for epics). A HITL pause is never represented as a status value — it exists only in the SQLite checkpoint (ephemeral run-state: `autoFixAttempts`, which story was mid-flight) and the audit log, so the file's schema never diverges from what other BMad tooling or a human expects.
 
 ## Reviewer verdict rubric — two tiers, one enum

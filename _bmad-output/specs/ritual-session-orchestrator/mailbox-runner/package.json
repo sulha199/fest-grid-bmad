@@ -1,0 +1,26 @@
+{
+  "name": "mailbox-runner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone tool: runs a bmad ritual as a child Claude Agent SDK session, relaying any AskUserQuestion/tool-approval request through a file-based mailbox instead of a local terminal, so a separate main Claude Code session can watch and answer it. Deliberately outside the main pnpm workspace (see pnpm-workspace.yaml) -- this is orchestrator tooling, not FestGrid app code.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "run-ritual": "tsx src/run-ritual.ts",
+    "run-ritual-cline": "tsx src/run-ritual-cline.ts",
+    "resolve-targets": "tsx src/resolve-targets.ts",
+    "verify-story": "tsx src/verify-story.ts",
+    "detect-new-stories": "tsx src/detect-new-stories.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.259",
+    "@cline/sdk": "0.0.82",
+    "zod": "^4.0.0",
+    "yaml": "^2.6.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0"
+  }
+}
