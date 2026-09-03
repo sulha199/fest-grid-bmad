@@ -1243,7 +1243,7 @@ development_status:
   # round-trip itself (unnecessary to close the leak). See story file's Dev Notes ->
   # Scope Extension Decision.
   3-6i-classify-and-discard-private-contact-info-during-ai-extraction: ready-for-dev
-  3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: backlog
+  3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: ready-for-dev
   3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression: backlog
   # added 2026-08-10 via bmad-create-story Gate 2 finding (Freya persona, run fresh
   # since epic-3-readiness.md only swept Gate 1/3) while drafting Story 3.7: Feed's
