@@ -28,6 +28,9 @@ interface CorrectionDialogProps {
     contactInfo?: string | null;
     types?: EventType[] | null;
     categories?: EventCategory[] | null;
+    sourceSocialMediaAccountProfile?: {
+      accountType?: string | null;
+    } | null;
     schedules: Array<{
       id: string;
       isMainSchedule: boolean;
@@ -282,10 +285,12 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
             isSubmitting={isPending}
             labels={labels}
             headerActions={
-              <AiAssistedCorrectionTrigger
-                labels={aiAssistedLabels}
-                onExtracted={handleExtracted}
-              />
+              event.sourceSocialMediaAccountProfile?.accountType !== 'CURATOR_GUIDE' ? (
+                <AiAssistedCorrectionTrigger
+                  labels={aiAssistedLabels}
+                  onExtracted={handleExtracted}
+                />
+              ) : undefined
             }
           />
         </DialogContent>

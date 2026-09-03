@@ -1342,6 +1342,12 @@ Constraints and Guidelines:
       if (existingPostRows.length > 0) {
         // Existing-post path
         const post = existingPostRows[0];
+        if (!post.content) {
+          return {
+            errorCode: 'EXTRACTION_FAILED',
+            errorMessage: 'The source post content has been removed for privacy compliance.',
+          };
+        }
         const message = {
           postId: post.id,
           accountId: post.accountId,

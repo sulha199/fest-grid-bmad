@@ -293,4 +293,23 @@ describe("CorrectionDialog", () => {
       });
     });
   });
+
+  it("hides the AI-assisted trigger for CURATOR_GUIDE accounts (AC2 / Task 6)", async () => {
+    const curatorEvent = {
+      ...mockEvent,
+      sourceSocialMediaAccountProfile: {
+        accountType: 'CURATOR_GUIDE',
+      },
+    };
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <CorrectionDialog isOpen={true} onClose={handleClose} event={curatorEvent as any} />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByRole("heading", { name: "EventCorrectionForm.dialogTitle" })).toBeInTheDocument();
+
+    expect(screen.queryByRole("button", { name: "AiAssistedCorrection.triggerButtonLabel" })).not.toBeInTheDocument();
+  });
 });

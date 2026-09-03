@@ -452,12 +452,6 @@ export function PostsSelectContent() {
                       title={t('gatedPersonalTooltip') || "Can't be tracked"}
                     />
                   )}
-                  {sub.account.accountTypeStatus === 'CONFIRMED' && sub.account.accountType === 'CURATOR_GUIDE' && (
-                    <Clock
-                      className="h-4 w-4 text-blue-500 shrink-0"
-                      title={t('gatedCuratorTooltip') || 'Coming Soon'}
-                    />
-                  )}
                 </button>
               );
             })}
@@ -503,14 +497,6 @@ export function PostsSelectContent() {
               {t('gatedPersonalDescription') || "This account can't be tracked."}
             </p>
           </div>
-        ) : activeSub?.account?.accountTypeStatus === 'CONFIRMED' && activeSub?.account?.accountType === 'CURATOR_GUIDE' ? (
-          <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800 space-y-4 max-w-xl mx-auto">
-            <Clock className="h-10 w-10 text-blue-500 mx-auto" />
-            <h3 className="text-lg font-semibold">{t('gatedCuratorTitle') || 'Curator Account'}</h3>
-            <p className="text-sm text-muted-foreground">
-              {t('gatedCuratorDescription') || 'Tracking for this account type is coming soon.'}
-            </p>
-          </div>
         ) : posts.length === 0 ? (
           <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800 space-y-4">
             <p className="text-muted-foreground font-medium">{t('scrapePostsEmptyStateCta')}</p>
@@ -545,6 +531,9 @@ export function PostsSelectContent() {
                     isSelected={isSelected}
                     onSelectionChange={() => togglePost(post.id as string)}
                     disabled={isDisabled}
+                    labels={{
+                      contentPlaceholder: t('nulledContentPlaceholder') || undefined,
+                    }}
                     publisher={
                       activeSub
                         ? {

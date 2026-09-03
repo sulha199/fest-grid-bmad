@@ -251,7 +251,8 @@
     "gatedCuratorDescription": "Tracking for this account type is coming soon. Curator and local-guide accounts will be held back until a minimization pipeline exists.",
     "gatedAwaitingApprovalTooltip": "This account is pending review",
     "gatedAwaitingApprovalTitle": "Classification Pending",
-    "gatedAwaitingApprovalDescription": "This account is pending moderation review."
+    "gatedAwaitingApprovalDescription": "This account is pending moderation review.",
+    "nulledContentPlaceholder": "[Caption cleared for privacy compliance]"
   },
   "DiscoveryPage": {
     "title": "Discover Events",

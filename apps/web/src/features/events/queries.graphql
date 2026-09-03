@@ -57,6 +57,7 @@ query getEventBySlug($slug: String!) {
       username
       displayName
       profileImageUrl
+      accountType
     }
     schedules {
       id

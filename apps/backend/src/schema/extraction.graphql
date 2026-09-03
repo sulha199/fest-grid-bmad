@@ -40,7 +40,7 @@ type ExtractEventDataFromUrlResult {
 type Post {
   id: ID!
   accountId: ID!
-  content: String!
+  content: String
   imageUrl: String
   postUrl: String!
   originalPostUrl: String

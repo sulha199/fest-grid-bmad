@@ -268,6 +268,27 @@ describe('PostsSelectContent integration', () => {
     const postContent = await screen.findByText('Post 1 content');
     expect(postContent).toBeInTheDocument();
   });
+
+  it('renders a placeholder when a post has null or empty content (AC2 / Task 5)', async () => {
+    mockPosts = [
+      {
+        id: 'post-1',
+        accountId: 'acc-1',
+        content: null,
+        imageUrl: null,
+        postUrl: 'https://instagram.com/p/post1',
+        originalPostUrl: null,
+        isExtracted: false,
+        publishedAt: '2026-08-10T12:00:00.000Z',
+      },
+    ];
+
+    renderComponent();
+
+    const placeholderText = await screen.findByText('[Caption cleared for privacy compliance]');
+    expect(placeholderText).toBeInTheDocument();
+  });
+
   it('renders "Posts from:" label, card containment, and avatars (images & fallback icons) on tab pills (AC11 / Task 6)', async () => {
     mockSubscriptions[0].account.profileImageUrl = 'https://example.com/avatar1.png';
     mockSubscriptions[1].account.profileImageUrl = null;

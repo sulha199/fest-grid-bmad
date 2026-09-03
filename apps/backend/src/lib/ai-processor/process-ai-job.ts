@@ -13,6 +13,10 @@ import { processIngestionJob } from '../ingestor/process-ingestion-job.js';
 import { loadBackendEnv } from '../../env.js';
 import { rehostPostImage as defaultRehostPostImage } from './rehost-post-image.js';
 import { backfillAccountProfileAndInferDefaultLocation } from '../accounts/backfill-account-profile-and-infer-location.js';
+import { db } from '../../db/client.js';
+import { eq } from 'drizzle-orm';
+import { socialMediaAccountProfiles, posts } from '@festgrid/database';
+
 
 export let callGeminiSeam = defaultCallGemini;
 export function setCallGeminiSeam(fn: typeof defaultCallGemini) {
@@ -39,6 +43,18 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
 
   // 1. Get active subscriber user IDs
   const subscriberUserIds = await getActiveSubscriberUserIds(message.accountId);
+
+  const [accountRow] = await db
+    .select({
+      accountType: socialMediaAccountProfiles.accountType,
+      isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
+    })
+    .from(socialMediaAccountProfiles)
+    .where(eq(socialMediaAccountProfiles.id, message.accountId))
+    .limit(1);
+
+  const isCuratorGuide = accountRow?.accountType === 'CURATOR_GUIDE';
+  const isOptedIntoImageStorage = accountRow?.isImageStorageOptedIn === true;
 
   // 2. Build Gemini extraction request
   const { request, imageBytes, imageContentType } = await buildGeminiExtractionRequest(message);
@@ -70,6 +86,9 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
 
   // 5. If not an event, mark extracted and return
   if (payload.isEvent === false) {
+    if (isCuratorGuide) {
+      await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
+    }
     await markPostExtractedSeam(message.postId);
     return;
   }
@@ -97,7 +116,8 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
   });
 
   // 7.5. Best-effort image rehosting to durable S3
-  if (imageBytes && imageContentType) {
+  const skipImageRehost = isCuratorGuide && !isOptedIntoImageStorage;
+  if (imageBytes && imageContentType && !skipImageRehost) {
     try {
       await rehostPostImageSeam(message.postId, imageBytes, imageContentType, env);
     } catch (rehostError) {
@@ -149,5 +169,8 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
   }
 
   // 9. Mark post extracted on successful enqueue
+  if (isCuratorGuide) {
+    await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
+  }
   await markPostExtractedSeam(message.postId);
 }

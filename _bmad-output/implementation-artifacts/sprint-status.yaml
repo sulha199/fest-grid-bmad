@@ -1011,7 +1011,8 @@ development_status:
   # existing markPostExtractedSeam terminal points (parse/validation-failure path is
   # an accepted, documented gap); the AI-assisted-correction re-extraction conflict
   # is accepted as a known limitation, enforced at both UI and API layers.
-  3-4o-minimize-stored-displayed-data-for-curator-guide-sourced-posts: ready-for-dev
+  3-4o-minimize-stored-displayed-data-for-curator-guide-sourced-posts: review
+  last_updated: 2026-09-03T00:00:00Z
   # added 2026-08-19 via bmad-create-story: user-identified linking gap during /bmad-help
   # investigation. Story 3-4j captures scraper_actor_runs table but doesn't thread the run ID
   # to posts/unprocessed_payloads, leaving moderator UI (3-4k) unable to display "posts from

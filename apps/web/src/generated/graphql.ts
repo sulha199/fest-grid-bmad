@@ -718,7 +718,7 @@ export type PayloadContext = {
 export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
-  content: Scalars['String']['output'];
+  content?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   isExtracted: Scalars['Boolean']['output'];
@@ -1398,7 +1398,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetEventForIcsExportQueryVariables = Exact<{
   id: string | number;
@@ -1597,7 +1597,7 @@ export type GetPostsByAccountQueryVariables = Exact<{
 }>;
 
 
-export type GetPostsByAccountQuery = { postsByAccount: { nextCursor: string | null, hasMore: boolean, items: Array<{ id: string, accountId: string, content: string, imageUrl: string | null, postUrl: string, originalPostUrl: string | null, isExtracted: boolean, publishedAt: string }> } };
+export type GetPostsByAccountQuery = { postsByAccount: { nextCursor: string | null, hasMore: boolean, items: Array<{ id: string, accountId: string, content: string | null, imageUrl: string | null, postUrl: string, originalPostUrl: string | null, isExtracted: boolean, publishedAt: string }> } };
 
 export type GetMyExtractionQuotaQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2361,6 +2361,7 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
       username
       displayName
       profileImageUrl
+      accountType
     }
     schedules {
       id

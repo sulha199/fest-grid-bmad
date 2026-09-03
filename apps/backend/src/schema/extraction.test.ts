@@ -56,6 +56,9 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
   await clearApifyProviderUsage();
 
   await t.test('setup - get test data', async () => {
+    // Self-heal from dirty state
+    await db.delete(posts).where(eq(posts.postUrl, 'https://instagram.com/p/existing123'));
+
     // 1. Create a dedicated test user for this test file to avoid concurrent interference
     const [insertedUser] = await db.insert(users).values({
       email: `extraction-test-${Date.now()}-${Math.random()}@example.com`,
@@ -334,6 +337,38 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
     const result = await response.json();
     assert.strictEqual(result.data.extractEventDataFromUrl.errorCode, 'EXTRACTION_FAILED');
     assert.strictEqual(result.data.extractEventDataFromUrl.errorMessage, 'The linked post does not appear to describe an event.');
+  });
+
+  await t.test('extractEventDataFromUrl - existing post with null content returns EXTRACTION_FAILED', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    await db.update(posts).set({ content: null }).where(eq(posts.id, existingPost.id));
+
+    try {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation ExtractEventDataFromUrl($url: String!) {
+              extractEventDataFromUrl(url: $url) {
+                errorCode
+                errorMessage
+              }
+            }
+          `,
+          variables: {
+            url: 'https://instagram.com/p/existing123',
+          }
+        })
+      });
+
+      const result = await response.json();
+      assert.strictEqual(result.data.extractEventDataFromUrl.errorCode, 'EXTRACTION_FAILED');
+      assert.strictEqual(result.data.extractEventDataFromUrl.errorMessage, 'The source post content has been removed for privacy compliance.');
+    } finally {
+      await db.update(posts).set({ content: 'This is a mock post with event details for existing path.' }).where(eq(posts.id, existingPost.id));
+    }
   });
 });
 

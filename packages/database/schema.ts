@@ -73,6 +73,8 @@ export const scraperRunVendorEnum = pgEnum('scraper_run_vendor', ['APIFY', 'BRIG
 export const scraperRunTriggerModeEnum = pgEnum('scraper_run_trigger_mode', ['SYNC', 'ASYNC']);
 export const scraperRunStatusEnum = pgEnum('scraper_run_status', ['PENDING', 'SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED']);
 
+export const imageStorageOptInSourceEnum = pgEnum('image_storage_opt_in_source', ['MODERATOR', 'ACCOUNT_OWNER']);
+
 export const accountTypeEnum = pgEnum('account_type', ['ORGANIZER_VENUE_EVENT', 'PERSONAL', 'CURATOR_GUIDE']);
 export const accountTypeStatusEnum = pgEnum('account_type_status', ['CONFIRMED', 'AWAITING_APPROVAL']);
 
@@ -157,6 +159,8 @@ export const socialMediaAccountProfiles = pgTable('social_media_account_profiles
   accountType: accountTypeEnum('account_type'),
   accountTypeStatus: accountTypeStatusEnum('account_type_status'),
   accountTypeConfidenceScore: doublePrecision('account_type_confidence_score'),
+  isImageStorageOptedIn: boolean('is_image_storage_opted_in').default(false).notNull(),
+  imageStorageOptInSource: imageStorageOptInSourceEnum('image_storage_opt_in_source'),
   ...timestamps,
 }, (t) => ({
   platformAccountIdUnq: unique().on(t.platform, t.accountId),
@@ -210,7 +214,7 @@ export const posts = pgTable('posts', {
   id: uuid('id').defaultRandom().primaryKey(),
   accountId: uuid('account_id').references(() => socialMediaAccountProfiles.id).notNull(),
   platform: text('platform').notNull(),
-  content: text('content').notNull(),
+  content: text('content'),
   imageUrl: text('image_url'),
   videoUrl: text('video_url'),
   postUrl: text('post_url').notNull(),

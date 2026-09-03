@@ -214,7 +214,7 @@ test('get-scrape-targets batch targeting tests', async (t) => {
     assert.ok(targetIds.includes(pLegacy.id), 'Legacy pre-existing profiles should be included (status IS NULL)');
     assert.ok(targetIds.includes(pConfirmed.id), 'Confirmed organizer venue event profiles should be included');
     assert.strictEqual(targetIds.includes(pPersonal.id), false, 'Personal profiles should be excluded');
-    assert.strictEqual(targetIds.includes(pCurator.id), false, 'Curator guide profiles should be excluded');
+    assert.ok(targetIds.includes(pCurator.id), 'Confirmed curator guide profiles should be included');
     assert.strictEqual(targetIds.includes(pAwaiting.id), false, 'Awaiting approval profiles should be excluded');
   });
 });
