@@ -997,7 +997,21 @@ development_status:
   # (Gate 1/3 finding): the minimization pipeline (no durable image storage, no
   # displayed/retained captions) CURATOR_GUIDE-classified accounts need before
   # 3-4n's scrape-gate can allow them through. See epics.md Story 3.4o.
-  3-4o-minimize-stored-displayed-data-for-curator-guide-sourced-posts: backlog
+  # Regenerated 2026-09-03 via bmad-create-story: full context-engine pass. Epic-3
+  # readiness sweep (epic-3-readiness.md, swept 2026-08-09) predates this story, so
+  # Gate 1/2/3 re-run fresh -- no gap requiring a new prerequisite story, but Gate 3
+  # found a genuine new dependency on Story 3-6g (isImageStorageOptedIn column,
+  # ready-for-dev, not yet built) for AC1/AC5's opt-in-override sub-task -- see the
+  # story file's Pre-Coding Approval Gate for the scoped blocker. Own Data Type
+  # Compatibility audit found posts.content's NOT NULL constraint and
+  # extraction.graphql's Post.content: String! both need to become nullable, neither
+  # anticipated by the original epics.md draft. Three tradeoffs resolved via
+  # AskUserQuestion: opt-in overrides the CURATOR_GUIDE image-storage default
+  # (image-storage-scoped only); caption-clearing triggers only at the pipeline's 2
+  # existing markPostExtractedSeam terminal points (parse/validation-failure path is
+  # an accepted, documented gap); the AI-assisted-correction re-extraction conflict
+  # is accepted as a known limitation, enforced at both UI and API layers.
+  3-4o-minimize-stored-displayed-data-for-curator-guide-sourced-posts: ready-for-dev
   # added 2026-08-19 via bmad-create-story: user-identified linking gap during /bmad-help
   # investigation. Story 3-4j captures scraper_actor_runs table but doesn't thread the run ID
   # to posts/unprocessed_payloads, leaving moderator UI (3-4k) unable to display "posts from
