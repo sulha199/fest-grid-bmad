@@ -79,6 +79,7 @@ export function WeekPicker({
         <Calendar
           mode="single"
           selected={current ? new Date(`${current}T12:00:00Z`) : undefined}
+          defaultMonth={current ? new Date(`${current}T12:00:00Z`) : undefined}
           onSelect={(date) => handleSelect(date)}
           modifiers={{
             highlighted: (date) => {
