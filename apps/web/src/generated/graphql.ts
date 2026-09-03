@@ -1297,14 +1297,8 @@ export enum WidgetTheme {
 
 
 
-export type ImageStorageOptInSource =
-  | 'ACCOUNT_OWNER'
-  | 'MODERATOR';
 
 
-export type ModeratorAccountProfileFilters = {
-  search?: string | null | undefined;
-};
 
 
 

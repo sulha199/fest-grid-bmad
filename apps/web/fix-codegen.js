@@ -59,6 +59,10 @@ content = content.replace(/export type CorrectionSource =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type CorrectionStatus =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ExtractionErrorCode =[\s\S]*?;\r?\n/g, '');
 
+// Replace duplicate ImageStorageOptInSource and ModeratorAccountProfileFilters
+content = content.replace(/export type ImageStorageOptInSource =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type ModeratorAccountProfileFilters = \{\r?\n\s+search\?\:\s+string[\s\S]*?\};\r?\n/g, '');
+
 // Replace duplicate ReportOutcome, ReportReason and ReportStatus
 content = content.replace(/export type ReportOutcome =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ReportReason =[\s\S]*?;\r?\n/g, '');
