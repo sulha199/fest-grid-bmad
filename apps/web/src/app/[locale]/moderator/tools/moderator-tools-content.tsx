@@ -5,8 +5,9 @@ import { useTranslations } from "next-intl"
 import { TabbedShell } from "@festgrid/ui"
 import { ActorRunsContent } from "./actor-runs-content"
 import { UnprocessedPayloadsContent } from "./unprocessed-payloads-content"
+import { ModeratorAccountsContent } from "./moderator-accounts-content"
 
-const tabEnum = parseAsStringEnum(['actor-runs', 'unprocessed-payloads']).withDefault('actor-runs')
+const tabEnum = parseAsStringEnum(['actor-runs', 'unprocessed-payloads', 'accounts']).withDefault('actor-runs')
 
 export function ModeratorToolsContent() {
   const t = useTranslations("ModeratorToolsPage")
@@ -22,6 +23,11 @@ export function ModeratorToolsContent() {
       key: "unprocessed-payloads",
       label: t("unprocessedPayloadsTabLabel"),
       Component: UnprocessedPayloadsContent,
+    },
+    {
+      key: "accounts",
+      label: t("accountsTabLabel"),
+      Component: ModeratorAccountsContent,
     },
   ]
 

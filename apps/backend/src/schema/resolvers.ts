@@ -834,6 +834,42 @@ Constraints and Guidelines:
         throw err;
       }
     },
+    setImageStorageOptIn: async (_: any, { accountId, optedIn }: any, context: any, info: any) => {
+      requireModerator(context);
+
+      // 1. Look up the social_media_account_profiles row by id = accountId
+      const profileRows = await db.select()
+        .from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, accountId));
+
+      if (profileRows.length === 0) {
+        throw new GraphQLError('Account profile not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      // 2. Update isImageStorageOptedIn and imageStorageOptInSource to 'MODERATOR'
+      await db.update(socialMediaAccountProfiles)
+        .set({
+          isImageStorageOptedIn: optedIn,
+          imageStorageOptInSource: 'MODERATOR',
+          updatedAt: new Date(),
+        })
+        .where(eq(socialMediaAccountProfiles.id, accountId));
+
+      // 3. Return the updated profile
+      const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: socialMediaAccountProfiles.id,
+      }).from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, accountId));
+
+      const updatedProfile = rows[0] as any;
+      if (updatedProfile && updatedProfile.defaultLocation) {
+        updatedProfile.defaultLocation = formatLocationDetails(updatedProfile.defaultLocation);
+      }
+
+      return updatedProfile;
+    },
     createUserLocation: async (_: any, { input }: any, context: any) => {
       try {
         const authUser = requireAuth(context);
@@ -3226,6 +3262,58 @@ Constraints and Guidelines:
       const totalCountRows = await db
         .select({ count: count() })
         .from(scraperActorRuns)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+      return {
+        edges,
+        pageInfo: { hasNextPage, endCursor },
+        totalCount: totalCountRows[0]?.count || 0,
+      };
+    },
+    queryModeratorAccountProfiles: async (_: any, { filters, first, after }: any, context: any, info: any) => {
+      requireModerator(context);
+
+      const limit = (first || 10) + 1; // +1 to detect hasNextPage
+      const offset = decodeActorRunCursor(after);
+
+      const conditions = [];
+
+      if (filters?.search) {
+        const searchVal = `%${filters.search}%`;
+        conditions.push(
+          or(
+            ilike(socialMediaAccountProfiles.displayName, searchVal),
+            ilike(socialMediaAccountProfiles.username, searchVal),
+            ilike(socialMediaAccountProfiles.platform, searchVal)
+          )
+        );
+      }
+
+      const rows = await db
+        .select()
+        .from(socialMediaAccountProfiles)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(asc(socialMediaAccountProfiles.displayName))
+        .limit(limit)
+        .offset(offset);
+
+      const hasNextPage = rows.length > (first || 10);
+      const edges = rows.slice(0, first || 10).map((row: any, idx: number) => {
+        const node = { ...row };
+        if (node.defaultLocation) {
+          node.defaultLocation = formatLocationDetails(node.defaultLocation);
+        }
+        return {
+          node,
+          cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+        };
+      });
+
+      const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+
+      const totalCountRows = await db
+        .select({ count: count() })
+        .from(socialMediaAccountProfiles)
         .where(conditions.length > 0 ? and(...conditions) : undefined);
 
       return {

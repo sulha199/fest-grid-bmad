@@ -1215,7 +1215,7 @@ development_status:
   # queryModeratorAccountProfiles list query reuses decodeActorRunCursor and the
   # votedAccountSuggestions ilike-search pattern. See epics.md Story 3.6g note (AC4
   # correction recorded in the story file itself, not epics.md).
-  3-6g-add-image-storage-opt-in-flag-and-moderator-only-mutation: in-progress
+  3-6g-add-image-storage-opt-in-flag-and-moderator-only-mutation: review
   3-6h-gate-image-re-hosting-and-serving-on-account-opt-in: backlog
   3-6i-classify-and-discard-private-contact-info-during-ai-extraction: backlog
   3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: backlog

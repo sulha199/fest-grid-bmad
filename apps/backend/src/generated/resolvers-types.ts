@@ -355,6 +355,10 @@ export type ExtractionQuota = {
 export type GeolocationProvider =
   | 'GEOAPIFY';
 
+export type ImageStorageOptInSource =
+  | 'ACCOUNT_OWNER'
+  | 'MODERATOR';
+
 export type LocationDetails = {
   __typename?: 'LocationDetails';
   adminArea?: Maybe<Scalars['String']['output']>;
@@ -389,6 +393,10 @@ export type Me = {
   role: Scalars['String']['output'];
 };
 
+export type ModeratorAccountProfileFilters = {
+  search?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
   castVote: AccountVote;
@@ -421,6 +429,7 @@ export type Mutation = {
   saveAIEventFilter: AiEventFilter;
   selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
+  setImageStorageOptIn: SocialMediaAccountProfile;
   submitCorrection: Correction;
   submitReport: Report;
   subscribeToAccount: SubscribeToAccountResult;
@@ -599,6 +608,12 @@ export type MutationSelectPostsForExtractionArgs = {
 export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   input: SetAccountDefaultLocationInput;
+};
+
+
+export type MutationSetImageStorageOptInArgs = {
+  accountId: Scalars['ID']['input'];
+  optedIn: Scalars['Boolean']['input'];
 };
 
 
@@ -798,6 +813,7 @@ export type Query = {
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
   queryActorRuns: ActorRunConnection;
+  queryModeratorAccountProfiles: SocialMediaAccountProfileConnection;
   queryUnprocessedPayloads: UnprocessedPayloadConnection;
   rankedVoteAccounts: Array<RankedAccountVote>;
   reportedEvents: Array<Report>;
@@ -868,6 +884,13 @@ export type QueryPreviewLocationArgs = {
 export type QueryQueryActorRunsArgs = {
   after?: InputMaybe<Scalars['String']['input']>;
   filters?: InputMaybe<ActorRunFilters>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryQueryModeratorAccountProfilesArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  filters?: InputMaybe<ModeratorAccountProfileFilters>;
   first?: InputMaybe<Scalars['Int']['input']>;
 };
 
@@ -1048,12 +1071,27 @@ export type SocialMediaAccountProfile = {
   displayName: Scalars['String']['output'];
   hasPendingDefaultLocationReview: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
+  imageStorageOptInSource?: Maybe<ImageStorageOptInSource>;
+  isImageStorageOptedIn: Scalars['Boolean']['output'];
   isScrapeInProgress: Scalars['Boolean']['output'];
   lastPostDate?: Maybe<Scalars['String']['output']>;
   lastScrapedAt?: Maybe<Scalars['String']['output']>;
   platform: Scalars['String']['output'];
   profileImageUrl?: Maybe<Scalars['String']['output']>;
   username: Scalars['String']['output'];
+};
+
+export type SocialMediaAccountProfileConnection = {
+  __typename?: 'SocialMediaAccountProfileConnection';
+  edges: Array<SocialMediaAccountProfileEdge>;
+  pageInfo: PageInfo;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type SocialMediaAccountProfileEdge = {
+  __typename?: 'SocialMediaAccountProfileEdge';
+  cursor: Scalars['String']['output'];
+  node: SocialMediaAccountProfile;
 };
 
 export type SoftDeleteAction =
@@ -1327,12 +1365,14 @@ export type ResolversTypes = ResolversObject<{
   Float: ResolverTypeWrapper<Scalars['Float']['output']>;
   GeolocationProvider: GeolocationProvider;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
+  ImageStorageOptInSource: ImageStorageOptInSource;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   JSON: ResolverTypeWrapper<Scalars['JSON']['output']>;
   LocationDetails: ResolverTypeWrapper<LocationDetails>;
   LocationFilter: ResolverTypeWrapper<LocationFilter>;
   LocationFilterInput: LocationFilterInput;
   Me: ResolverTypeWrapper<Me>;
+  ModeratorAccountProfileFilters: ModeratorAccountProfileFilters;
   Mutation: ResolverTypeWrapper<{}>;
   PageInfo: ResolverTypeWrapper<PageInfo>;
   ParserVersion: ResolverTypeWrapper<ParserVersion>;
@@ -1360,6 +1400,8 @@ export type ResolversTypes = ResolversObject<{
   ScraperActorRun: ResolverTypeWrapper<ScraperActorRun>;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
   SocialMediaAccountProfile: ResolverTypeWrapper<SocialMediaAccountProfile>;
+  SocialMediaAccountProfileConnection: ResolverTypeWrapper<SocialMediaAccountProfileConnection>;
+  SocialMediaAccountProfileEdge: ResolverTypeWrapper<SocialMediaAccountProfileEdge>;
   SoftDeleteAction: SoftDeleteAction;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   SubscribeToAccountInput: SubscribeToAccountInput;
@@ -1422,6 +1464,7 @@ export type ResolversParentTypes = ResolversObject<{
   LocationFilter: LocationFilter;
   LocationFilterInput: LocationFilterInput;
   Me: Me;
+  ModeratorAccountProfileFilters: ModeratorAccountProfileFilters;
   Mutation: {};
   PageInfo: PageInfo;
   ParserVersion: ParserVersion;
@@ -1445,6 +1488,8 @@ export type ResolversParentTypes = ResolversObject<{
   ScraperActorRun: ScraperActorRun;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
   SocialMediaAccountProfile: SocialMediaAccountProfile;
+  SocialMediaAccountProfileConnection: SocialMediaAccountProfileConnection;
+  SocialMediaAccountProfileEdge: SocialMediaAccountProfileEdge;
   String: Scalars['String']['output'];
   SubscribeToAccountInput: SubscribeToAccountInput;
   SubscribeToAccountResult: SubscribeToAccountResult;
@@ -1697,6 +1742,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   saveAIEventFilter?: Resolver<ResolversTypes['AIEventFilter'], ParentType, ContextType, RequireFields<MutationSaveAiEventFilterArgs, 'prompt' | 'resolvedFilter'>>;
   selectPostsForExtraction?: Resolver<Array<ResolversTypes['Post']>, ParentType, ContextType, RequireFields<MutationSelectPostsForExtractionArgs, 'postIds'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
+  setImageStorageOptIn?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetImageStorageOptInArgs, 'accountId' | 'optedIn'>>;
   submitCorrection?: Resolver<ResolversTypes['Correction'], ParentType, ContextType, RequireFields<MutationSubmitCorrectionArgs, 'eventId' | 'proposedData' | 'source'>>;
   submitReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationSubmitReportArgs, 'eventId' | 'reason'>>;
   subscribeToAccount?: Resolver<ResolversTypes['SubscribeToAccountResult'], ParentType, ContextType, RequireFields<MutationSubscribeToAccountArgs, 'input'>>;
@@ -1806,6 +1852,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   postsByAccount?: Resolver<ResolversTypes['PostConnection'], ParentType, ContextType, RequireFields<QueryPostsByAccountArgs, 'accountId'>>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
   queryActorRuns?: Resolver<ResolversTypes['ActorRunConnection'], ParentType, ContextType, Partial<QueryQueryActorRunsArgs>>;
+  queryModeratorAccountProfiles?: Resolver<ResolversTypes['SocialMediaAccountProfileConnection'], ParentType, ContextType, Partial<QueryQueryModeratorAccountProfilesArgs>>;
   queryUnprocessedPayloads?: Resolver<ResolversTypes['UnprocessedPayloadConnection'], ParentType, ContextType, Partial<QueryQueryUnprocessedPayloadsArgs>>;
   rankedVoteAccounts?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryRankedVoteAccountsArgs>>;
   reportedEvents?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, Partial<QueryReportedEventsArgs>>;
@@ -1921,12 +1968,27 @@ export type SocialMediaAccountProfileResolvers<ContextType = GraphQLContext, Par
   displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   hasPendingDefaultLocationReview?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  imageStorageOptInSource?: Resolver<Maybe<ResolversTypes['ImageStorageOptInSource']>, ParentType, ContextType>;
+  isImageStorageOptedIn?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isScrapeInProgress?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   lastPostDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   lastScrapedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   platform?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   profileImageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   username?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type SocialMediaAccountProfileConnectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SocialMediaAccountProfileConnection'] = ResolversParentTypes['SocialMediaAccountProfileConnection']> = ResolversObject<{
+  edges?: Resolver<Array<ResolversTypes['SocialMediaAccountProfileEdge']>, ParentType, ContextType>;
+  pageInfo?: Resolver<ResolversTypes['PageInfo'], ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type SocialMediaAccountProfileEdgeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SocialMediaAccountProfileEdge'] = ResolversParentTypes['SocialMediaAccountProfileEdge']> = ResolversObject<{
+  cursor?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  node?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2074,6 +2136,8 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Schedule?: ScheduleResolvers<ContextType>;
   ScraperActorRun?: ScraperActorRunResolvers<ContextType>;
   SocialMediaAccountProfile?: SocialMediaAccountProfileResolvers<ContextType>;
+  SocialMediaAccountProfileConnection?: SocialMediaAccountProfileConnectionResolvers<ContextType>;
+  SocialMediaAccountProfileEdge?: SocialMediaAccountProfileEdgeResolvers<ContextType>;
   SubscribeToAccountResult?: SubscribeToAccountResultResolvers<ContextType>;
   Subscription?: SubscriptionResolvers<ContextType>;
   ToggleCalendarAdditionResult?: ToggleCalendarAdditionResultResolvers<ContextType>;

@@ -1,0 +1,29 @@
+query QueryModeratorAccountProfiles($filters: ModeratorAccountProfileFilters, $first: Int, $after: String) {
+  queryModeratorAccountProfiles(filters: $filters, first: $first, after: $after) {
+    edges {
+      node {
+        id
+        accountId
+        platform
+        displayName
+        username
+        isImageStorageOptedIn
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    totalCount
+  }
+}
+
+mutation SetImageStorageOptIn($accountId: ID!, $optedIn: Boolean!) {
+  setImageStorageOptIn(accountId: $accountId, optedIn: $optedIn) {
+    id
+    accountId
+    isImageStorageOptedIn
+    imageStorageOptInSource
+  }
+}

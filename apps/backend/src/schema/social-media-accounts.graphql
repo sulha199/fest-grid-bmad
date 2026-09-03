@@ -13,6 +13,28 @@ type SocialMediaAccountProfile {
   hasPendingDefaultLocationReview: Boolean!
   accountType: String
   accountTypeStatus: String
+  isImageStorageOptedIn: Boolean!
+  imageStorageOptInSource: ImageStorageOptInSource
+}
+
+enum ImageStorageOptInSource {
+  MODERATOR
+  ACCOUNT_OWNER
+}
+
+input ModeratorAccountProfileFilters {
+  search: String
+}
+
+type SocialMediaAccountProfileEdge {
+  node: SocialMediaAccountProfile!
+  cursor: String!
+}
+
+type SocialMediaAccountProfileConnection {
+  edges: [SocialMediaAccountProfileEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
 
 extend type Query {
@@ -20,6 +42,12 @@ extend type Query {
     platform: String!
     accountId: String!
   ): SocialMediaAccountProfile
+
+  queryModeratorAccountProfiles(
+    filters: ModeratorAccountProfileFilters
+    first: Int
+    after: String
+  ): SocialMediaAccountProfileConnection!
 }
 
 input SetAccountDefaultLocationInput {
@@ -31,4 +59,5 @@ input SetAccountDefaultLocationInput {
 extend type Mutation {
   setAccountDefaultLocation(accountId: ID!, input: SetAccountDefaultLocationInput!): SocialMediaAccountProfile!
   editAccountDefaultLocation(accountId: ID!, input: SetAccountDefaultLocationInput!, asModeratorCorrection: Boolean): SocialMediaAccountProfile!
+  setImageStorageOptIn(accountId: ID!, optedIn: Boolean!): SocialMediaAccountProfile!
 }

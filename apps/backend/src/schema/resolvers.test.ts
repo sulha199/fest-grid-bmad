@@ -1983,3 +1983,181 @@ test('queryUnprocessedPayloads resolver integration via Yoga', async (t) => {
   });
 });
 
+
+test('setImageStorageOptIn and queryModeratorAccountProfiles integration tests', async (t) => {
+  let seededAccount: any;
+  let seededPost: any;
+
+  t.before(async () => {
+    const [acc] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: `test-opt-in-acc-${Date.now()}`,
+      platform: 'INSTAGRAM',
+      username: 'testoptin',
+      displayName: 'Test Opt-In',
+    }).returning();
+    seededAccount = acc;
+
+    const [pst] = await db.insert(posts).values({
+      accountId: acc.id,
+      postUrl: `https://instagram.com/p/testoptin-${Date.now()}`,
+      content: 'Hello World',
+      durableImageUrl: 'https://cdn.festdaily.com/durable-image-123.jpg',
+      isExtracted: false,
+      publishedAt: new Date(),
+      platform: 'INSTAGRAM',
+    }).returning();
+    seededPost = pst;
+  });
+
+  t.after(async () => {
+    if (seededPost) {
+      await db.delete(posts).where(eq(posts.id, seededPost.id));
+    }
+    if (seededAccount) {
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, seededAccount.id));
+    }
+  });
+
+  await t.test('setImageStorageOptIn mutation - FORBIDDEN for non-moderator', async () => {
+    mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'user' };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            setImageStorageOptIn(accountId: "${seededAccount.id}", optedIn: true) {
+              id
+              isImageStorageOptedIn
+              imageStorageOptInSource
+            }
+          }
+        `
+      })
+    });
+    const result = await response.json();
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
+  });
+
+  await t.test('setImageStorageOptIn mutation - NOT_FOUND for unknown accountId', async () => {
+    mockUser = { userId: '00000000-0000-0000-0000-000000000004', role: 'moderator' };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            setImageStorageOptIn(accountId: "00000000-0000-0000-0000-000000000000", optedIn: true) {
+              id
+            }
+          }
+        `
+      })
+    });
+    const result = await response.json();
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'NOT_FOUND');
+  });
+
+  await t.test('setImageStorageOptIn mutation - Happy Path', async () => {
+    mockUser = { userId: '00000000-0000-0000-0000-000000000004', role: 'moderator' };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            setImageStorageOptIn(accountId: "${seededAccount.id}", optedIn: true) {
+              id
+              isImageStorageOptedIn
+              imageStorageOptInSource
+            }
+          }
+        `
+      })
+    });
+    const result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.strictEqual(result.data.setImageStorageOptIn.isImageStorageOptedIn, true);
+    assert.strictEqual(result.data.setImageStorageOptIn.imageStorageOptInSource, 'MODERATOR');
+  });
+
+  await t.test('setImageStorageOptIn mutation - Opting out does not retroactively delete durableImageUrl (AC3)', async () => {
+    mockUser = { userId: '00000000-0000-0000-0000-000000000004', role: 'moderator' };
+    
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            setImageStorageOptIn(accountId: "${seededAccount.id}", optedIn: false) {
+              id
+              isImageStorageOptedIn
+            }
+          }
+        `
+      })
+    });
+    const result = await response.json();
+    assert.ok(!result.errors);
+    assert.strictEqual(result.data.setImageStorageOptIn.isImageStorageOptedIn, false);
+
+    const [pst] = await db.select().from(posts).where(eq(posts.id, seededPost.id));
+    assert.strictEqual(pst.durableImageUrl, 'https://cdn.festdaily.com/durable-image-123.jpg', 'durableImageUrl must remain unchanged');
+  });
+
+  await t.test('queryModeratorAccountProfiles - Happy Path & Search filter', async () => {
+    mockUser = { userId: '00000000-0000-0000-0000-000000000004', role: 'moderator' };
+
+    let response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            queryModeratorAccountProfiles(first: 50) {
+              edges {
+                node {
+                  id
+                  displayName
+                  username
+                }
+              }
+              totalCount
+            }
+          }
+        `
+      })
+    });
+    let result = await response.json();
+    assert.ok(!result.errors);
+    const nodes = result.data.queryModeratorAccountProfiles.edges.map((e: any) => e.node);
+    assert.ok(nodes.some((n: any) => n.id === seededAccount.id));
+
+    response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            queryModeratorAccountProfiles(filters: { search: "Opt-In" }) {
+              edges {
+                node {
+                  id
+                  displayName
+                }
+              }
+            }
+          }
+        `
+      })
+    });
+    result = await response.json();
+    assert.ok(!result.errors);
+    const searchNodes = result.data.queryModeratorAccountProfiles.edges.map((e: any) => e.node);
+    assert.ok(searchNodes.some((n: any) => n.id === seededAccount.id));
+    assert.strictEqual(searchNodes[0].displayName, 'Test Opt-In');
+  });
+});

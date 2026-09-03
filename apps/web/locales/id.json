@@ -48,8 +48,27 @@
   "ModeratorToolsPage": {
     "actorRunsTabLabel": "Jalankan Scraper",
     "unprocessedPayloadsTabLabel": "Payload Belum Diproses",
+    "accountsTabLabel": "Akun",
     "pageHeading": "Alat Moderator",
     "pageDescription": "Kelola operasi scraper, jalankan scraper, dan payload"
+  },
+  "ModeratorAccountsPage": {
+    "pageHeading": "Manajemen Akun",
+    "pageDescription": "Kelola pengaturan akun, konfigurasi scraper, dan opsi penyimpanan persetujuan",
+    "searchLabel": "Cari Akun",
+    "searchPlaceholder": "Cari berdasarkan nama tampilan, nama pengguna, atau platform...",
+    "optedInLabel": "Persetujuan Penyimpanan Gambar",
+    "platformLabel": "Platform",
+    "usernameLabel": "Nama Pengguna",
+    "emptyHeadline": "Akun tidak ditemukan",
+    "emptyMessage": "Tidak ada akun media sosial yang cocok dengan filter pencarian Anda.",
+    "loadMoreButton": "Muat akun lainnya",
+    "optInSuccessToast": "Berhasil menyetujui penyimpanan gambar tahan lama untuk {name}",
+    "optOutSuccessToast": "Berhasil membatalkan persetujuan penyimpanan gambar tahan lama untuk {name}",
+    "toggleErrorToast": "Gagal memperbarui status persetujuan penyimpanan gambar untuk {name}",
+    "errorHeadline": "Terjadi kesalahan",
+    "errorTryAgain": "Coba lagi",
+    "unknownError": "Terjadi kesalahan yang tidak diketahui"
   },
   "AccountPage": {
     "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",

@@ -48,8 +48,27 @@
   "ModeratorToolsPage": {
     "actorRunsTabLabel": "Actor Runs",
     "unprocessedPayloadsTabLabel": "Unprocessed Payloads",
+    "accountsTabLabel": "Accounts",
     "pageHeading": "Moderator Tools",
     "pageDescription": "Manage scraper operations, runs, and payloads"
+  },
+  "ModeratorAccountsPage": {
+    "pageHeading": "Accounts Management",
+    "pageDescription": "Manage account settings, scraper settings, and consent storage options",
+    "searchLabel": "Search Accounts",
+    "searchPlaceholder": "Search by display name, username, or platform...",
+    "optedInLabel": "Image Storage Opt-In",
+    "platformLabel": "Platform",
+    "usernameLabel": "Username",
+    "emptyHeadline": "No accounts found",
+    "emptyMessage": "No social media accounts match your search filters.",
+    "loadMoreButton": "Load more accounts",
+    "optInSuccessToast": "Successfully opted in {name} to durable image storage",
+    "optOutSuccessToast": "Successfully opted out {name} from future durable image storage",
+    "toggleErrorToast": "Failed to update image storage opt-in status for {name}",
+    "errorHeadline": "Something went wrong",
+    "errorTryAgain": "Try again",
+    "unknownError": "An unknown error occurred"
   },
   "AccountPage": {
     "errorState": "Failed to load events. Please try again later.",

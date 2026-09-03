@@ -374,6 +374,11 @@ export enum GeolocationProvider {
   Geoapify = 'GEOAPIFY'
 }
 
+export enum ImageStorageOptInSource {
+  AccountOwner = 'ACCOUNT_OWNER',
+  Moderator = 'MODERATOR'
+}
+
 export type LocationDetails = {
   __typename?: 'LocationDetails';
   adminArea?: Maybe<Scalars['String']['output']>;
@@ -408,6 +413,10 @@ export type Me = {
   role: Scalars['String']['output'];
 };
 
+export type ModeratorAccountProfileFilters = {
+  search?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
   castVote: AccountVote;
@@ -440,6 +449,7 @@ export type Mutation = {
   saveAIEventFilter: AiEventFilter;
   selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
+  setImageStorageOptIn: SocialMediaAccountProfile;
   submitCorrection: Correction;
   submitReport: Report;
   subscribeToAccount: SubscribeToAccountResult;
@@ -618,6 +628,12 @@ export type MutationSelectPostsForExtractionArgs = {
 export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   input: SetAccountDefaultLocationInput;
+};
+
+
+export type MutationSetImageStorageOptInArgs = {
+  accountId: Scalars['ID']['input'];
+  optedIn: Scalars['Boolean']['input'];
 };
 
 
@@ -817,6 +833,7 @@ export type Query = {
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
   queryActorRuns: ActorRunConnection;
+  queryModeratorAccountProfiles: SocialMediaAccountProfileConnection;
   queryUnprocessedPayloads: UnprocessedPayloadConnection;
   rankedVoteAccounts: Array<RankedAccountVote>;
   reportedEvents: Array<Report>;
@@ -887,6 +904,13 @@ export type QueryPreviewLocationArgs = {
 export type QueryQueryActorRunsArgs = {
   after?: InputMaybe<Scalars['String']['input']>;
   filters?: InputMaybe<ActorRunFilters>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryQueryModeratorAccountProfilesArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  filters?: InputMaybe<ModeratorAccountProfileFilters>;
   first?: InputMaybe<Scalars['Int']['input']>;
 };
 
@@ -1071,12 +1095,27 @@ export type SocialMediaAccountProfile = {
   displayName: Scalars['String']['output'];
   hasPendingDefaultLocationReview: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
+  imageStorageOptInSource?: Maybe<ImageStorageOptInSource>;
+  isImageStorageOptedIn: Scalars['Boolean']['output'];
   isScrapeInProgress: Scalars['Boolean']['output'];
   lastPostDate?: Maybe<Scalars['String']['output']>;
   lastScrapedAt?: Maybe<Scalars['String']['output']>;
   platform: Scalars['String']['output'];
   profileImageUrl?: Maybe<Scalars['String']['output']>;
   username: Scalars['String']['output'];
+};
+
+export type SocialMediaAccountProfileConnection = {
+  __typename?: 'SocialMediaAccountProfileConnection';
+  edges: Array<SocialMediaAccountProfileEdge>;
+  pageInfo: PageInfo;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type SocialMediaAccountProfileEdge = {
+  __typename?: 'SocialMediaAccountProfileEdge';
+  cursor: Scalars['String']['output'];
+  node: SocialMediaAccountProfile;
 };
 
 export enum SoftDeleteAction {
@@ -1258,6 +1297,14 @@ export enum WidgetTheme {
 
 
 
+export type ImageStorageOptInSource =
+  | 'ACCOUNT_OWNER'
+  | 'MODERATOR';
+
+
+export type ModeratorAccountProfileFilters = {
+  search?: string | null | undefined;
+};
 
 
 
@@ -1289,6 +1336,23 @@ export type ReplayActorRunMutationVariables = Exact<{
 
 
 export type ReplayActorRunMutation = { replayActorRun: { success: boolean, postsPersisted: number, message: string } };
+
+export type QueryModeratorAccountProfilesQueryVariables = Exact<{
+  filters?: ModeratorAccountProfileFilters | null | undefined;
+  first?: number | null | undefined;
+  after?: string | null | undefined;
+}>;
+
+
+export type QueryModeratorAccountProfilesQuery = { queryModeratorAccountProfiles: { totalCount: number, edges: Array<{ cursor: string, node: { id: string, accountId: string, platform: string, displayName: string, username: string, isImageStorageOptedIn: boolean } }>, pageInfo: { hasNextPage: boolean, endCursor: string | null } } };
+
+export type SetImageStorageOptInMutationVariables = Exact<{
+  accountId: string | number;
+  optedIn: boolean;
+}>;
+
+
+export type SetImageStorageOptInMutation = { setImageStorageOptIn: { id: string, accountId: string, isImageStorageOptedIn: boolean, imageStorageOptInSource: ImageStorageOptInSource | null } };
 
 export type ModeratorPendingItemCountQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1865,6 +1929,75 @@ export const useReplayActorRunMutation = <
       {
     mutationKey: ['replayActorRun'],
     mutationFn: (variables?: ReplayActorRunMutationVariables) => fetcher<ReplayActorRunMutation, ReplayActorRunMutationVariables>(client, ReplayActorRunDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const QueryModeratorAccountProfilesDocument = new TypedDocumentString(`
+    query QueryModeratorAccountProfiles($filters: ModeratorAccountProfileFilters, $first: Int, $after: String) {
+  queryModeratorAccountProfiles(filters: $filters, first: $first, after: $after) {
+    edges {
+      node {
+        id
+        accountId
+        platform
+        displayName
+        username
+        isImageStorageOptedIn
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    totalCount
+  }
+}
+    `);
+
+export const useQueryModeratorAccountProfilesQuery = <
+      TData = QueryModeratorAccountProfilesQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: QueryModeratorAccountProfilesQueryVariables,
+      options?: Omit<UseQueryOptions<QueryModeratorAccountProfilesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<QueryModeratorAccountProfilesQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<QueryModeratorAccountProfilesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['QueryModeratorAccountProfiles'] : ['QueryModeratorAccountProfiles', variables],
+    queryFn: fetcher<QueryModeratorAccountProfilesQuery, QueryModeratorAccountProfilesQueryVariables>(client, QueryModeratorAccountProfilesDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const SetImageStorageOptInDocument = new TypedDocumentString(`
+    mutation SetImageStorageOptIn($accountId: ID!, $optedIn: Boolean!) {
+  setImageStorageOptIn(accountId: $accountId, optedIn: $optedIn) {
+    id
+    accountId
+    isImageStorageOptedIn
+    imageStorageOptInSource
+  }
+}
+    `);
+
+export const useSetImageStorageOptInMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetImageStorageOptInMutation, TError, SetImageStorageOptInMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetImageStorageOptInMutation, TError, SetImageStorageOptInMutationVariables, TContext>(
+      {
+    mutationKey: ['SetImageStorageOptIn'],
+    mutationFn: (variables?: SetImageStorageOptInMutationVariables) => fetcher<SetImageStorageOptInMutation, SetImageStorageOptInMutationVariables>(client, SetImageStorageOptInDocument, variables, headers)(),
     ...options
   }
     )};
