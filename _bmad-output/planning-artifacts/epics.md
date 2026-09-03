@@ -2143,6 +2143,45 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.4n, Story 3.6e, Story 3.6, Story 3.6g (image-storage opt-in flag — added 2026-09-03; AC1/AC5's opt-in override needs its `isImageStorageOptedIn` column, which doesn't exist until 3.6g ships).
 
+### Story 3.4p: Fix daily-batch scrape-scheduling race that silently skips accounts
+
+**As a** platform operator,
+**I want** `getBatchScrapeTargets()`'s "already recently scraped" skip check to keep a real safety margin below the daily `ScraperScheduleRule`'s ~24h cadence,
+**So that** a subscribed account is never silently skipped for an entire extra day (and its posts left unscraped for up to ~48h) purely because the account's own `lastScrapedAt` completion timestamp happened to land within a few hours of the next day's fixed schedule fire time.
+
+**Acceptance Criteria:**
+
+1.  **Given** `getBatchScrapeTargets()` selects accounts where `lastScrapedAt` is null or `< now - SCRAPE_SKIP_RECENT_HOURS`, **when** the prod `ScraperScheduleRule` (EventBridge, `rate(1 day)`, firing at a fixed wall-clock time each day) runs, **then** an account whose previous scrape completed anywhere up to several hours after the *previous* day's fixed fire time must still be selected by *this* day's fire — not excluded by a razor-thin margin against the rolling skip window.
+2.  **And** the fix accounts for `lastScrapedAt` being stamped asynchronously, at webhook-completion time (`process-apify-async-result.ts`, `process-brightdata-result.ts`) — hours after the schedule actually fires, depending on vendor actor-run duration (both vendors' own job-expiry default is 180 minutes/3h, `BRIGHTDATA_JOB_TIMEOUT_MINUTES`/`APIFY_JOB_TIMEOUT_MINUTES`) — not at daily-dispatch time.
+3.  **And** the chosen fix is: lower `SCRAPE_SKIP_RECENT_HOURS`'s effective value to a real safety margin well below the ~24h schedule cadence (12h, confirmed with the user) — a config-level change, not a structural redesign of the eligibility check — and pin it as an explicit CDK-wired environment variable on `scraperLambda` (today it's unset in prod, silently relying on `env.ts`'s in-code default) so the value is visible/auditable in infrastructure, not just a code fallback.
+4.  **And** a regression test reproduces the exact drift scenario found in prod: an account whose `lastScrapedAt` lands within `[24h − 12h]` of the next scheduled fire time must still be included; an account scraped within the last 12h must still be excluded (no regression toward redundant same-day re-scrapes).
+
+**Note (2026-09-03, added via `bmad-create-story` during a live production incident investigation):** Root-caused directly against prod CloudWatch logs and the production database, not from a planned epics.md draft — a real Instagram post from a subscribed account (`plazaambarrukmo`) sat unscraped for ~2 days because the account's `lastScrapedAt` (`2026-09-01 07:13:37.672 UTC`, stamped when its Apify async job's webhook landed) fell a few hundred milliseconds *after* the cutoff the very next day's batch computed (`2026-09-02 03:13:37 − 20h = 2026-09-01 07:13:37`), silently dropping the account from that day's batch of 5 targets (down from 8 the day before) with no error logged anywhere. Positioned as a lettered suffix directly off Story 3.4 (the batch-scheduling story family), matching the 3.4e/3.4f bug-fix precedent, since this is a defect in already-shipped scheduling logic, not new scope. A structural fix (tracking a per-account "scraped today" calendar-day bucket instead of a rolling hours-ago window, which would eliminate this race class entirely rather than just shrink its probability) was considered and explicitly deferred by the user in favor of the simpler margin-widening fix — see Out of Scope in the story file.
+
+**Priority note:** live production defect causing real, ongoing data loss (missed event posts) — a strong candidate for expedited `bmad-dev-story`/`bmad-quick-dev` ahead of normal backlog ordering.
+
+**Depends on:** Story 3.4 (the batch-scheduling logic this fixes), Story 3.4a/3.4f (the async job-trigger/webhook-completion timing this story's fix must account for).
+
+### Story 3.4q: Fix Bright Data auth failure and alert moderators when a scraper provider goes down
+
+**As a** platform operator,
+**I want** a scraper vendor's trigger failures to be surfaced to moderators (not just swallowed to a Lambda console log nobody watches) once they persist for more than a day, and the underlying Bright Data credential fixed,
+**So that** a broken vendor integration can't silently degrade 100% of scrape traffic onto a single remaining provider's budget for days without anyone noticing — the way it has been happening in prod.
+
+**Acceptance Criteria:**
+
+1.  **Given** `attemptBrightDataTrigger` (called first, for every Instagram target, ahead of the Apify fallback) catches any error and returns `false`, logging only via `console.error`, **when** Bright Data fails on *every* attempt across an entire day's batch run for `N` consecutive days (`N` configurable, default 2), **then** all users with `role = 'moderator'` are emailed a new templated alert — reusing the existing `send-dangerous-report-moderator-alerts.ts` moderator-query-and-email pattern, not a new alerting mechanism (CloudWatch Alarm/SNS was considered and explicitly rejected by the user in favor of extending this existing pattern).
+2.  **And** once sent, the alert respects a cooldown (default 3 days, mirroring `users.lastQuotaWarningEmailSentAt`'s existing cooldown-column precedent from Story 3.10) so a still-down provider doesn't re-page moderators every single day.
+3.  **And** the specific root cause already found in prod — `BRIGHTDATA_API_TOKEN` (Secrets Manager: `festgrid-brightdata-api-token-prod`) returning `401 Unauthorized` on 100% of trigger attempts since at least 2026-08-31 — is rotated/fixed as part of this story's own Definition of Done (an external, manual step against Bright Data's own dashboard; not something committed code can verify on its own, only confirm via a real successful trigger in prod afterward).
+4.  **And** this story reviews (not necessarily changes) `SCRAPER_MONTHLY_BUDGET_USD`/`BRIGHTDATA_MONTHLY_BUDGET_USD` given that, while Bright Data was down, 100% of scrape volume was silently funneling through Apify's budget alone instead of being split across both providers as originally designed — deliverable is a documented sanity check of current thresholds, not a blind number change.
+5.  **And** this story does not remove or weaken the existing silent-fallback-to-Apify behavior itself (a deliberate resiliency feature) — it only adds the missing observability on top of it.
+
+**Note (2026-09-03, added via `bmad-create-story` during the same live production incident investigation as Story 3.4p):** Root-caused directly against prod CloudWatch logs: every single Bright Data trigger attempt on 2026-08-31, 2026-09-01, and 2026-09-02 (every account, every day) failed with `401 Unauthorized`; confirmed via the production database that `brightdata_pending_jobs` has zero rows ever and `scraper_provider_usage` has no `brightdata` row at all — Bright Data has likely never successfully triggered in prod. Positioned as a lettered suffix directly off Story 3.4 (the batch-scheduling story family, alongside sibling Story 3.4p), matching the 3.4e/3.4f bug-fix precedent.
+
+**Priority note:** live production defect with zero alerting — a strong candidate for expedited `bmad-dev-story`/`bmad-quick-dev` ahead of normal backlog ordering.
+
+**Depends on:** Story 3.4a (the `attemptBrightDataTrigger` code path this instruments), Story 3.10 (the cooldown-column pattern this reuses), the existing dangerous-report moderator-alert pattern (`send-dangerous-report-moderator-alerts.ts`).
+
 ### Story 3.5: Add new posts to a processing queue
 
 **As a** system,

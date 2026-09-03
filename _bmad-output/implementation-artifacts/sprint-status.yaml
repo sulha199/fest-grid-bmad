@@ -1012,6 +1012,24 @@ development_status:
   # an accepted, documented gap); the AI-assisted-correction re-extraction conflict
   # is accepted as a known limitation, enforced at both UI and API layers.
   3-4o-minimize-stored-displayed-data-for-curator-guide-sourced-posts: review
+  # Added 2026-09-03 via bmad-create-story during a live production incident
+  # investigation (/bmad-help): root-caused directly against prod CloudWatch logs +
+  # DB. Fix chosen with the user via AskUserQuestion: lower SCRAPE_SKIP_RECENT_HOURS
+  # to 12h (real margin below the ~24h daily schedule cadence) rather than a
+  # structural per-day-bucket redesign, which was considered and explicitly
+  # deferred. See epics.md Story 3.4p note and
+  # 3-4p-fix-daily-batch-scrape-scheduling-race-that-silently-skips-accounts.md.
+  3-4p-fix-daily-batch-scrape-scheduling-race-that-silently-skips-accounts: ready-for-dev
+  # Added 2026-09-03 via bmad-create-story during the same live production incident
+  # investigation as 3-4p. Root-caused directly against prod CloudWatch logs + DB:
+  # every Bright Data trigger attempt has failed 401 Unauthorized since at least
+  # 2026-08-31, zero alerting existed. Alert design chosen with the user via
+  # AskUserQuestion: extend the existing send-dangerous-report-moderator-alerts.ts
+  # pattern (email all role='moderator' users) rather than new CloudWatch Alarm/SNS
+  # infra. Includes an external, non-code Definition-of-Done item (rotating the
+  # Bright Data API token in Secrets Manager). See epics.md Story 3.4q note and
+  # 3-4q-fix-brightdata-auth-failure-and-alert-moderators-when-a-scraper-provider-goes-down.md.
+  3-4q-fix-brightdata-auth-failure-and-alert-moderators-when-a-scraper-provider-goes-down: ready-for-dev
   last_updated: 2026-09-03T00:00:00Z
   # added 2026-08-19 via bmad-create-story: user-identified linking gap during /bmad-help
   # investigation. Story 3-4j captures scraper_actor_runs table but doesn't thread the run ID
@@ -1197,7 +1215,7 @@ development_status:
   # queryModeratorAccountProfiles list query reuses decodeActorRunCursor and the
   # votedAccountSuggestions ilike-search pattern. See epics.md Story 3.6g note (AC4
   # correction recorded in the story file itself, not epics.md).
-  3-6g-add-image-storage-opt-in-flag-and-moderator-only-mutation: ready-for-dev
+  3-6g-add-image-storage-opt-in-flag-and-moderator-only-mutation: in-progress
   3-6h-gate-image-re-hosting-and-serving-on-account-opt-in: backlog
   3-6i-classify-and-discard-private-contact-info-during-ai-extraction: backlog
   3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: backlog
