@@ -452,6 +452,12 @@ export function PostsSelectContent() {
                       title={t('gatedPersonalTooltip') || "Can't be tracked"}
                     />
                   )}
+                  {sub.account.accountTypeStatus === 'CONFIRMED' && sub.account.accountType === 'CURATOR_GUIDE' && (
+                    <Ban
+                      className="h-4 w-4 text-destructive shrink-0"
+                      title={t('gatedCuratorTooltip') || "Tracking for this account type is coming soon"}
+                    />
+                  )}
                 </button>
               );
             })}
@@ -495,6 +501,14 @@ export function PostsSelectContent() {
             <h3 className="text-lg font-semibold">{t('gatedPersonalTitle') || 'Personal Account'}</h3>
             <p className="text-sm text-muted-foreground">
               {t('gatedPersonalDescription') || "This account can't be tracked."}
+            </p>
+          </div>
+        ) : activeSub?.account?.accountTypeStatus === 'CONFIRMED' && activeSub?.account?.accountType === 'CURATOR_GUIDE' ? (
+          <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800 space-y-4 max-w-xl mx-auto">
+            <Ban className="h-10 w-10 text-destructive mx-auto" />
+            <h3 className="text-lg font-semibold">{t('gatedCuratorTitle') || 'Curator Feed'}</h3>
+            <p className="text-sm text-muted-foreground">
+              {t('gatedCuratorDescription') || "Tracking for this account type is coming soon."}
             </p>
           </div>
         ) : posts.length === 0 ? (
