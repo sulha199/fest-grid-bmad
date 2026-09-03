@@ -24,3 +24,20 @@ export async function callGeminiForLocationInference(
     throw error;
   }
 }
+
+export async function callGeminiForAccountClassification(
+  request: GeminiCallRequest & { provider: 'gemini'; subscriberUserIds: string[] }
+): Promise<GeminiCallResult> {
+  try {
+    return await callGeminiRef(request);
+  } catch (error) {
+    if (error instanceof AiGatewayExhaustedError) {
+      const env = loadBackendEnv();
+      if (!env.systemGeminiApiKey) {
+        throw error;
+      }
+      return await callGeminiGenerateContent(env.systemGeminiApiKey, request);
+    }
+    throw error;
+  }
+}

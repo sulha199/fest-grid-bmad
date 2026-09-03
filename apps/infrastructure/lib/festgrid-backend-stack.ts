@@ -241,6 +241,7 @@ export class FestgridBackendStack extends cdk.Stack {
         SUPABASE_URL: process.env.SUPABASE_URL || '',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         GEOAPIFY_API_KEY: geoapifyApiKeySecret.secretValue.unsafeUnwrap(),
+        SYSTEM_GEMINI_API_KEY: systemGeminiApiKeySecret.secretValue.unsafeUnwrap(),
         FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || '',
         FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || '',
         FIREBASE_PRIVATE_KEY: firebasePrivateKeySecret.secretValue.unsafeUnwrap(),

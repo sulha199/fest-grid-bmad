@@ -242,7 +242,16 @@
     "scrapeTimeoutMessage": "Still processing — check back in a moment.",
     "scrapeCapacityExceededToast": "Scraper capacity is temporarily exhausted. Try again later.",
     "scrapeAlreadyInProgressToast": "A scrape is already in progress for this account.",
-    "scrapeGenericErrorToast": "Failed to start scraping. Please try again."
+    "scrapeGenericErrorToast": "Failed to start scraping. Please try again.",
+    "gatedPersonalTooltip": "This account can't be tracked",
+    "gatedPersonalTitle": "Personal Account",
+    "gatedPersonalDescription": "This account can't be tracked due to user privacy and legitimate interest compliance.",
+    "gatedCuratorTooltip": "Tracking for this account type is coming soon",
+    "gatedCuratorTitle": "Curator Feed",
+    "gatedCuratorDescription": "Tracking for this account type is coming soon. Curator and local-guide accounts will be held back until a minimization pipeline exists.",
+    "gatedAwaitingApprovalTooltip": "This account is pending review",
+    "gatedAwaitingApprovalTitle": "Classification Pending",
+    "gatedAwaitingApprovalDescription": "This account is pending moderation review."
   },
   "DiscoveryPage": {
     "title": "Discover Events",

@@ -30,9 +30,24 @@ interface GetNewestPostsActorInput {
   onlyPostsNewerThan?: string;
 }
 
+interface ClassifyAccountProfileActorInput {
+  usernames: string[];
+  includeAboutSection: boolean;
+}
+
 // ============================================================================
 // ACTOR OUTPUT TYPES — Raw responses from Apify
 // ============================================================================
+
+interface ApifyClassifyProfileItem {
+  biography?: string;
+  fullName?: string;
+  username?: string;
+  businessCategoryName?: string | null;
+  error?: string;
+}
+
+type ClassifyAccountProfileActorOutput = ApifyClassifyProfileItem[];
 
 // Raw post item from Apify (multiple possible field names from different actor versions)
 interface ApifyPostItem {
@@ -87,6 +102,10 @@ interface ActorRegistry {
     input: GetPostByUrlActorInput | LookupAccountProfileActorInput | GetNewestPostsActorInput;
     output: GetPostByUrlActorOutput | LookupAccountProfileActorOutput | GetNewestPostsActorOutput;
   };
+  'apify~instagram-profile-scraper': {
+    input: ClassifyAccountProfileActorInput;
+    output: ClassifyAccountProfileActorOutput;
+  };
 }
 
 // Strict type extractors
@@ -100,6 +119,7 @@ const APIFY_PARSER_VERSION = '3.4m';
 const GET_POST_BY_URL_ACTOR = 'apify/instagram-post-scraper';
 const LOOKUP_ACCOUNT_PROFILE_ACTOR = 'apify/instagram-post-scraper';
 const GET_NEWEST_POSTS_ACTOR = 'apify/instagram-post-scraper';
+const CLASSIFY_ACCOUNT_PROFILE_ACTOR = 'apify~instagram-profile-scraper';
 
 // Compile validator once at module scope to avoid recompilation per item
 const validateScrapedPost = compileValidator<ScrapedPost>(scrapedPostSchema);
@@ -397,5 +417,42 @@ export const instagramScraperAdapter: ScraperAdapter = {
     };
 
     return withTimeoutOrThrow(runLookup(), 20000, 'Account profile lookup timed out');
+  },
+
+  async getAccountClassificationProfile(username: string): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null> {
+    await assertProviderCapacityAvailable('apify', `profile-classify ${username}`);
+
+    const runLookup = async (): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null> => {
+      try {
+        const input: ClassifyAccountProfileActorInput = {
+          usernames: [username],
+          includeAboutSection: false,
+        };
+        const items = (await callApifyActor(CLASSIFY_ACCOUNT_PROFILE_ACTOR, input)) as ClassifyAccountProfileActorOutput;
+
+        if (!items || items.length === 0) {
+          return null;
+        }
+
+        const item = items[0];
+        if (item.error === 'not_found' || !item.username || !item.fullName || !item.biography) {
+          return null;
+        }
+
+        await recordProviderUsage('apify', 1);
+
+        return {
+          biography: item.biography || '',
+          username: item.username || '',
+          displayName: item.fullName || '',
+          businessCategoryName: item.businessCategoryName || null,
+        };
+      } catch (err) {
+        console.error(`Instagram Scraper Adapter error during account classification profile lookup for ${username}:`, err);
+        throw normalizeApifyError(err, `looking up profile for classification ${username}`);
+      }
+    };
+
+    return withTimeoutOrThrow(runLookup(), 20000, 'Account profile lookup for classification timed out');
   },
 };

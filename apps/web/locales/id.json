@@ -242,7 +242,16 @@
     "scrapeTimeoutMessage": "Masih diproses — periksa lagi dalam beberapa saat.",
     "scrapeCapacityExceededToast": "Kapasitas scraper sementara habis. Coba lagi nanti.",
     "scrapeAlreadyInProgressToast": "Proses pengambilan sudah berjalan untuk akun ini.",
-    "scrapeGenericErrorToast": "Gagal memulai pengambilan. Silakan coba lagi."
+    "scrapeGenericErrorToast": "Gagal memulai pengambilan. Silakan coba lagi.",
+    "gatedPersonalTooltip": "Akun ini tidak dapat dilacak",
+    "gatedPersonalTitle": "Akun Pribadi",
+    "gatedPersonalDescription": "Akun ini tidak dapat dilacak demi kepatuhan terhadap privasi pengguna dan kepentingan sah.",
+    "gatedCuratorTooltip": "Pelacakan untuk jenis akun ini segera hadir",
+    "gatedCuratorTitle": "Umpan Kurator",
+    "gatedCuratorDescription": "Pelacakan untuk jenis akun ini segera hadir. Akun kurator dan panduan lokal akan ditahan hingga saluran minimisasi tersedia.",
+    "gatedAwaitingApprovalTooltip": "Akun ini sedang ditinjau",
+    "gatedAwaitingApprovalTitle": "Klasifikasi Tertunda",
+    "gatedAwaitingApprovalDescription": "Akun ini sedang menunggu peninjauan moderasi."
   },
   "DiscoveryPage": {
     "title": "Temukan Acara",

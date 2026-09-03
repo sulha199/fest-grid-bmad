@@ -27,6 +27,19 @@ class FakeScraperAdapter implements ScraperAdapter {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async getAccountClassificationProfile(_username: string): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null> {
+    if (this.profileResult) {
+      return {
+        biography: "Fake Bio",
+        username: this.profileResult.username,
+        displayName: this.profileResult.displayName,
+        businessCategoryName: null
+      };
+    }
+    return null;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getPostByUrl(_url: string): Promise<ScrapedPost | null> {
     return this.postsResult[0] || null;
   }

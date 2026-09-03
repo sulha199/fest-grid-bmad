@@ -69,6 +69,7 @@ test('FestgridBackendStack provisions correct resources', () => {
         SUPABASE_URL: Match.anyValue(),
         DATABASE_URL: Match.anyValue(),
         GEOAPIFY_API_KEY: Match.anyValue(),
+        SYSTEM_GEMINI_API_KEY: Match.anyValue(),
         FIREBASE_PROJECT_ID: Match.anyValue(),
         FIREBASE_CLIENT_EMAIL: Match.anyValue(),
         FIREBASE_PRIVATE_KEY: Match.anyValue(),

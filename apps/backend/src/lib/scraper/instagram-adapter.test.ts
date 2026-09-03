@@ -114,6 +114,63 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(row.itemsUsedThisCycle, 1);
   });
 
+  await t.test('getAccountClassificationProfile maps details correctly and records usage', async () => {
+    let calledInput: any = null;
+    let calledActor: string | undefined;
+
+    setCallApifyActor(async (actorId, input) => {
+      calledActor = actorId;
+      calledInput = input;
+      return [
+        {
+          fullName: 'Test Display Name',
+          username: 'test_username',
+          biography: 'Test Biography',
+          businessCategoryName: 'Event Planner',
+        },
+      ];
+    });
+
+    const profile = await instagramScraperAdapter.getAccountClassificationProfile('test_username');
+
+    assert.strictEqual(calledActor, 'apify~instagram-profile-scraper');
+    assert.deepStrictEqual(calledInput, {
+      usernames: ['test_username'],
+      includeAboutSection: false,
+    });
+
+    assert.ok(profile);
+    assert.strictEqual(profile.biography, 'Test Biography');
+    assert.strictEqual(profile.displayName, 'Test Display Name');
+    assert.strictEqual(profile.username, 'test_username');
+    assert.strictEqual(profile.businessCategoryName, 'Event Planner');
+
+    // Verify usage recorded
+    const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, APIFY_TEST_PROVIDER));
+    assert.strictEqual(row.itemsUsedThisCycle, 1);
+  });
+
+  await t.test('getAccountClassificationProfile returns null for not-found or missing fields', async () => {
+    // case 1: error: 'not_found'
+    setCallApifyActor(async () => [
+      {
+        error: 'not_found',
+      },
+    ]);
+    const result1 = await instagramScraperAdapter.getAccountClassificationProfile('test_username');
+    assert.strictEqual(result1, null);
+
+    // case 2: missing biography
+    setCallApifyActor(async () => [
+      {
+        fullName: 'Test Display Name',
+        username: 'test_username',
+      },
+    ]);
+    const result2 = await instagramScraperAdapter.getAccountClassificationProfile('test_username');
+    assert.strictEqual(result2, null);
+  });
+
   await t.test('getPostByUrl returns null for not‑found error item', async () => {
     setCallApifyActor(async (actorId) => {
       const response = [
@@ -259,6 +316,15 @@ test('instagram-adapter tests', async (t) => {
     setCallApifyActor(async () => new Promise(() => {}) as any);
     await assert.rejects(
       () => instagramScraperAdapter.lookupAccountProfile('test_username'),
+      (err: any) => {
+        assert.strictEqual(err.name, 'ApifyRequestTimeoutError');
+        assert.match(err.message, /timed out/i);
+        return true;
+      }
+    );
+
+    await assert.rejects(
+      () => instagramScraperAdapter.getAccountClassificationProfile('test_username'),
       (err: any) => {
         assert.strictEqual(err.name, 'ApifyRequestTimeoutError');
         assert.match(err.message, /timed out/i);
@@ -435,6 +501,16 @@ test('instagram-adapter tests', async (t) => {
 
     await assert.rejects(
       () => instagramScraperAdapter.lookupAccountProfile('test_username'),
+      (err: any) => {
+        assert.ok(err instanceof ScraperCapacityExceededError);
+        assert.match(err.message, /Apify capacity/i);
+        return true;
+      }
+    );
+    assert.strictEqual(wasSeamCalled, false);
+
+    await assert.rejects(
+      () => instagramScraperAdapter.getAccountClassificationProfile('test_username'),
       (err: any) => {
         assert.ok(err instanceof ScraperCapacityExceededError);
         assert.match(err.message, /Apify capacity/i);

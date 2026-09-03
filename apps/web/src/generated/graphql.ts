@@ -1064,6 +1064,8 @@ export type SetAccountDefaultLocationInput = {
 export type SocialMediaAccountProfile = {
   __typename?: 'SocialMediaAccountProfile';
   accountId: Scalars['String']['output'];
+  accountType?: Maybe<Scalars['String']['output']>;
+  accountTypeStatus?: Maybe<Scalars['String']['output']>;
   defaultLocation?: Maybe<LocationDetails>;
   description?: Maybe<Scalars['String']['output']>;
   displayName: Scalars['String']['output'];
@@ -1669,7 +1671,7 @@ export type TriggerAccountScrapeMutation = { triggerAccountScrape: { triggered: 
 export type GetMySubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, isInactive: boolean, createdAt: string, pendingExtractionCount: number, account: { id: string, accountId: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, isScrapeInProgress: boolean, lastScrapedAt: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
+export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, isInactive: boolean, createdAt: string, pendingExtractionCount: number, account: { id: string, accountId: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, isScrapeInProgress: boolean, lastScrapedAt: string | null, accountType: string | null, accountTypeStatus: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
 
 export type ReportSystemErrorMutationVariables = Exact<{
   input: ReportSystemErrorInput;
@@ -3656,6 +3658,8 @@ export const GetMySubscriptionsDocument = new TypedDocumentString(`
       profileImageUrl
       isScrapeInProgress
       lastScrapedAt
+      accountType
+      accountTypeStatus
       defaultLocation {
         coordinates {
           lat

@@ -15,6 +15,8 @@ query getMySubscriptions {
       profileImageUrl
       isScrapeInProgress
       lastScrapedAt
+      accountType
+      accountTypeStatus
       defaultLocation {
         coordinates {
           lat

@@ -572,6 +572,14 @@ Constraints and Guidelines:
 
       const profile = profileRows[0];
 
+      // Gate check: proceed only if accountTypeStatus is NULL or (accountType = 'ORGANIZER_VENUE_EVENT' and accountTypeStatus = 'CONFIRMED')
+      const allowed = profile.accountTypeStatus === null || (profile.accountType === 'ORGANIZER_VENUE_EVENT' && profile.accountTypeStatus === 'CONFIRMED');
+      if (!allowed) {
+        throw new GraphQLError('Scraping is not allowed for this account type.', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
       // 3. Re-check isScrapeInProgress server-side
       const env = loadBackendEnv();
       const scrapeInProgressTimeoutHours = parseInt(env.scrapeInProgressTimeoutHours || '3', 10);

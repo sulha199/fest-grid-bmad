@@ -13,6 +13,10 @@ export const twitterScraperAdapter: ScraperAdapter = {
     throw new Error('Twitter/X scraping is not yet implemented');
   },
 
+  async getAccountClassificationProfile(username: string): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null> {
+    throw new Error('Twitter/X scraping is not yet implemented');
+  },
+
   async getPostByUrl(url: string): Promise<ScrapedPost | null> {
     throw new Error('Twitter/X scraping is not yet implemented');
   },

@@ -11,6 +11,8 @@ type SocialMediaAccountProfile {
   isScrapeInProgress: Boolean!
   defaultLocation: LocationDetails
   hasPendingDefaultLocationReview: Boolean!
+  accountType: String
+  accountTypeStatus: String
 }
 
 extend type Query {

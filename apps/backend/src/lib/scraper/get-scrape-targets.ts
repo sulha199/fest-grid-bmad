@@ -32,6 +32,13 @@ export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {
         or(
           isNull(socialMediaAccountProfiles.lastScrapedAt),
           lt(socialMediaAccountProfiles.lastScrapedAt, cutoffDate)
+        ),
+        or(
+          isNull(socialMediaAccountProfiles.accountTypeStatus),
+          and(
+            eq(socialMediaAccountProfiles.accountType, 'ORGANIZER_VENUE_EVENT'),
+            eq(socialMediaAccountProfiles.accountTypeStatus, 'CONFIRMED')
+          )
         )
       )
     );

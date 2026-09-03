@@ -5,6 +5,7 @@ import { activeOnly } from '@festgrid/graphql-select';
 import { ScraperCapacityExceededError, ScrapablePlatform } from '@festgrid/domain';
 import { isProviderCapacityAvailable } from '../scraper/usage-store.js';
 import { triggerScrapeForAccount } from '../scraper/trigger-scrape-for-account.js';
+import { classifyAccountType } from '../accounts/classify-account-type.js';
 
 interface ProfileInput {
   displayName: string;
@@ -76,16 +77,24 @@ export async function subscribeToAccount({
       .then((rows) => rows[0]);
 
     if (accountProfile) {
-      const scrapeTarget = {
-        profileId: accountProfile.id,
-        platform: accountProfile.platform as ScrapablePlatform,
-        accountId: accountProfile.accountId,
+      const classification = await classifyAccountType({
+        accountId: accountProfile.id,
         username: accountProfile.username,
-        isInitialNewSubscription: true,
-      };
+        userId,
+      });
 
-      const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      await triggerScrapeForAccount(scrapeTarget, newerThan);
+      if (classification.accountType === 'ORGANIZER_VENUE_EVENT' && classification.accountTypeStatus === 'CONFIRMED') {
+        const scrapeTarget = {
+          profileId: accountProfile.id,
+          platform: accountProfile.platform as ScrapablePlatform,
+          accountId: accountProfile.accountId,
+          username: accountProfile.username,
+          isInitialNewSubscription: true,
+        };
+
+        const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        await triggerScrapeForAccount(scrapeTarget, newerThan);
+      }
     }
   }
 

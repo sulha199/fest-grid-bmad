@@ -49,6 +49,9 @@ test('process-scrape-job integration tests', async (t) => {
       async lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null> {
         return null;
       },
+      async getAccountClassificationProfile(username: string): Promise<any> {
+        return null;
+      },
       async getPostByUrl(url: string): Promise<ScrapedPost | null> {
         return null;
       },
@@ -105,6 +108,9 @@ test('process-scrape-job integration tests', async (t) => {
         return [];
       },
       async lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(username: string): Promise<any> {
         return null;
       },
       async getPostByUrl(url: string): Promise<ScrapedPost | null> {
@@ -184,6 +190,9 @@ test('process-scrape-job integration tests', async (t) => {
       async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
         return null;
       },
+      async getAccountClassificationProfile(username: string): Promise<any> {
+        return null;
+      },
       async getPostByUrl(url: string): Promise<ScrapedPost | null> {
         return null;
       },
@@ -237,6 +246,9 @@ test('process-scrape-job integration tests', async (t) => {
       async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
         return null;
       },
+      async getAccountClassificationProfile(username: string): Promise<any> {
+        return null;
+      },
       async getPostByUrl(url: string): Promise<ScrapedPost | null> {
         return null;
       },
@@ -282,6 +294,9 @@ test('process-scrape-job integration tests', async (t) => {
         throw new Error('Fake adapter failure');
       },
       async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(username: string): Promise<any> {
         return null;
       },
       async getPostByUrl(url: string): Promise<ScrapedPost | null> {
@@ -341,6 +356,9 @@ test('process-scrape-job integration tests', async (t) => {
         ];
       },
       async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(username: string): Promise<any> {
         return null;
       },
       async getPostByUrl(url: string): Promise<ScrapedPost | null> {

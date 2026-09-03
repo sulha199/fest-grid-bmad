@@ -19,7 +19,7 @@ import {
   Subscription,
 } from '@/generated/graphql';
 import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo, PageContainer, GridContainer, AccountAvatar } from '@festgrid/ui';
-import { AlertCircle, TriangleAlert } from 'lucide-react';
+import { AlertCircle, TriangleAlert, Ban, Clock } from 'lucide-react';
 import { usePostSelectionStore } from './post-selection-store';
 import { toast } from 'sonner';
 import { SummaryBar } from '@/features/post-selection/components/summary-bar';
@@ -440,6 +440,24 @@ export function PostsSelectContent() {
                       xlinkTitle={t('inactiveWarningTitle') || 'Inactive Account'}
                     />
                   )}
+                  {sub.account.accountTypeStatus === 'AWAITING_APPROVAL' && (
+                    <Clock
+                      className="h-4 w-4 text-yellow-500 shrink-0"
+                      title={t('gatedAwaitingApprovalTooltip') || 'Pending Review'}
+                    />
+                  )}
+                  {sub.account.accountTypeStatus === 'CONFIRMED' && sub.account.accountType === 'PERSONAL' && (
+                    <Ban
+                      className="h-4 w-4 text-destructive shrink-0"
+                      title={t('gatedPersonalTooltip') || "Can't be tracked"}
+                    />
+                  )}
+                  {sub.account.accountTypeStatus === 'CONFIRMED' && sub.account.accountType === 'CURATOR_GUIDE' && (
+                    <Clock
+                      className="h-4 w-4 text-blue-500 shrink-0"
+                      title={t('gatedCuratorTooltip') || 'Coming Soon'}
+                    />
+                  )}
                 </button>
               );
             })}
@@ -468,6 +486,30 @@ export function PostsSelectContent() {
             >
               Retry
             </button>
+          </div>
+        ) : activeSub?.account?.accountTypeStatus === 'AWAITING_APPROVAL' ? (
+          <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800 space-y-4 max-w-xl mx-auto">
+            <Clock className="h-10 w-10 text-yellow-500 mx-auto animate-pulse" />
+            <h3 className="text-lg font-semibold">{t('gatedAwaitingApprovalTitle') || 'Classification Pending'}</h3>
+            <p className="text-sm text-muted-foreground">
+              {t('gatedAwaitingApprovalDescription') || 'This account is pending review.'}
+            </p>
+          </div>
+        ) : activeSub?.account?.accountTypeStatus === 'CONFIRMED' && activeSub?.account?.accountType === 'PERSONAL' ? (
+          <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800 space-y-4 max-w-xl mx-auto">
+            <Ban className="h-10 w-10 text-destructive mx-auto" />
+            <h3 className="text-lg font-semibold">{t('gatedPersonalTitle') || 'Personal Account'}</h3>
+            <p className="text-sm text-muted-foreground">
+              {t('gatedPersonalDescription') || "This account can't be tracked."}
+            </p>
+          </div>
+        ) : activeSub?.account?.accountTypeStatus === 'CONFIRMED' && activeSub?.account?.accountType === 'CURATOR_GUIDE' ? (
+          <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800 space-y-4 max-w-xl mx-auto">
+            <Clock className="h-10 w-10 text-blue-500 mx-auto" />
+            <h3 className="text-lg font-semibold">{t('gatedCuratorTitle') || 'Curator Account'}</h3>
+            <p className="text-sm text-muted-foreground">
+              {t('gatedCuratorDescription') || 'Tracking for this account type is coming soon.'}
+            </p>
           </div>
         ) : posts.length === 0 ? (
           <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800 space-y-4">

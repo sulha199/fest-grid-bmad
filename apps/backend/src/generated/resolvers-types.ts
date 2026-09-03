@@ -1041,6 +1041,8 @@ export type SetAccountDefaultLocationInput = {
 export type SocialMediaAccountProfile = {
   __typename?: 'SocialMediaAccountProfile';
   accountId: Scalars['String']['output'];
+  accountType?: Maybe<Scalars['String']['output']>;
+  accountTypeStatus?: Maybe<Scalars['String']['output']>;
   defaultLocation?: Maybe<LocationDetails>;
   description?: Maybe<Scalars['String']['output']>;
   displayName: Scalars['String']['output'];
@@ -1912,6 +1914,8 @@ export type ScraperActorRunResolvers<ContextType = GraphQLContext, ParentType ex
 
 export type SocialMediaAccountProfileResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SocialMediaAccountProfile'] = ResolversParentTypes['SocialMediaAccountProfile']> = ResolversObject<{
   accountId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  accountType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  accountTypeStatus?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   defaultLocation?: Resolver<Maybe<ResolversTypes['LocationDetails']>, ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;

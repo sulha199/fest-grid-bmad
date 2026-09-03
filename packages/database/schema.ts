@@ -73,6 +73,9 @@ export const scraperRunVendorEnum = pgEnum('scraper_run_vendor', ['APIFY', 'BRIG
 export const scraperRunTriggerModeEnum = pgEnum('scraper_run_trigger_mode', ['SYNC', 'ASYNC']);
 export const scraperRunStatusEnum = pgEnum('scraper_run_status', ['PENDING', 'SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED']);
 
+export const accountTypeEnum = pgEnum('account_type', ['ORGANIZER_VENUE_EVENT', 'PERSONAL', 'CURATOR_GUIDE']);
+export const accountTypeStatusEnum = pgEnum('account_type_status', ['CONFIRMED', 'AWAITING_APPROVAL']);
+
 export const brightdataPendingJobs = pgTable('brightdata_pending_jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
   profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
@@ -151,6 +154,9 @@ export const socialMediaAccountProfiles = pgTable('social_media_account_profiles
   lastScrapedAt: timestamp('last_scraped_at', { withTimezone: true }),
   scrapeTriggeredAt: timestamp('scrape_triggered_at', { withTimezone: true }),
   defaultLocation: jsonb('default_location').$type<LocationDetails>(),
+  accountType: accountTypeEnum('account_type'),
+  accountTypeStatus: accountTypeStatusEnum('account_type_status'),
+  accountTypeConfidenceScore: doublePrecision('account_type_confidence_score'),
   ...timestamps,
 }, (t) => ({
   platformAccountIdUnq: unique().on(t.platform, t.accountId),
@@ -477,6 +483,31 @@ export const defaultLocationChangeRequestsRelations = relations(defaultLocationC
   }),
   reviewedByModerator: one(users, {
     fields: [defaultLocationChangeRequests.reviewedByModeratorId],
+    references: [users.id],
+  }),
+}));
+
+export const accountTypeClassificationReviews = pgTable('account_type_classification_reviews', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  accountId: uuid('account_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  proposedAccountType: accountTypeEnum('proposed_account_type'), // null if classification failed before producing any answer
+  confidenceScore: doublePrecision('confidence_score'),
+  failureReason: text('failure_reason'), // populated only when AWAITING_APPROVAL is due to a hard failure, not low confidence
+  resolvedAccountType: accountTypeEnum('resolved_account_type'), // set by moderator
+  reviewedByModeratorId: uuid('reviewed_by_moderator_id').references(() => users.id),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  accountIdx: index('idx_account_type_classification_reviews_account').on(t.accountId),
+}));
+
+export const accountTypeClassificationReviewsRelations = relations(accountTypeClassificationReviews, ({ one }) => ({
+  accountProfile: one(socialMediaAccountProfiles, {
+    fields: [accountTypeClassificationReviews.accountId],
+    references: [socialMediaAccountProfiles.id],
+  }),
+  reviewedByModerator: one(users, {
+    fields: [accountTypeClassificationReviews.reviewedByModeratorId],
     references: [users.id],
   }),
 }));

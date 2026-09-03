@@ -140,4 +140,81 @@ test('get-scrape-targets batch targeting tests', async (t) => {
     assert.strictEqual(targetIds.includes(p4.id), false, 'Profile 4 should be excluded (unsupported platform)');
     assert.strictEqual(targetIds.includes(p5.id), false, 'Profile 5 should be excluded (soft-deleted subscription)');
   });
+
+  await t.test('filters targets based on accountType classification and status (AC1, AC5)', async () => {
+    // 1. Profile Legacy: accountType/Status is NULL (AC5 grandfathering, should be included)
+    const [pLegacy] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-target-legacy-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Grandfathered Legacy',
+      username: 'legacy_username',
+      accountType: null,
+      accountTypeStatus: null,
+    }).returning();
+    createdProfiles.push(pLegacy.id);
+
+    // 2. Profile Confirmed: ORGANIZER_VENUE_EVENT & CONFIRMED (should be included)
+    const [pConfirmed] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-target-confirmed-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Confirmed Organizer',
+      username: 'confirmed_username',
+      accountType: 'ORGANIZER_VENUE_EVENT',
+      accountTypeStatus: 'CONFIRMED',
+    }).returning();
+    createdProfiles.push(pConfirmed.id);
+
+    // 3. Profile Personal: PERSONAL & CONFIRMED (should be excluded)
+    const [pPersonal] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-target-personal-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Personal Blog',
+      username: 'personal_username',
+      accountType: 'PERSONAL',
+      accountTypeStatus: 'CONFIRMED',
+    }).returning();
+    createdProfiles.push(pPersonal.id);
+
+    // 4. Profile Curator: CURATOR_GUIDE & CONFIRMED (should be excluded)
+    const [pCurator] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-target-curator-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Curator Guide',
+      username: 'curator_username',
+      accountType: 'CURATOR_GUIDE',
+      accountTypeStatus: 'CONFIRMED',
+    }).returning();
+    createdProfiles.push(pCurator.id);
+
+    // 5. Profile Awaiting: ORGANIZER_VENUE_EVENT & AWAITING_APPROVAL (should be excluded)
+    const [pAwaiting] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-target-awaiting-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Awaiting Review',
+      username: 'awaiting_username',
+      accountType: 'ORGANIZER_VENUE_EVENT',
+      accountTypeStatus: 'AWAITING_APPROVAL',
+    }).returning();
+    createdProfiles.push(pAwaiting.id);
+
+    // Create active subscriptions for all of them
+    const newSubs = await db.insert(subscriptions).values([
+      { userId: user1.id, accountId: pLegacy.id },
+      { userId: user1.id, accountId: pConfirmed.id },
+      { userId: user1.id, accountId: pPersonal.id },
+      { userId: user1.id, accountId: pCurator.id },
+      { userId: user1.id, accountId: pAwaiting.id },
+    ]).returning();
+    createdSubs.push(...newSubs.map(s => s.id));
+
+    const targets = await getBatchScrapeTargets();
+    const targetIds = targets.map((t) => t.profileId);
+
+    // Assert correct inclusions/exclusions
+    assert.ok(targetIds.includes(pLegacy.id), 'Legacy pre-existing profiles should be included (status IS NULL)');
+    assert.ok(targetIds.includes(pConfirmed.id), 'Confirmed organizer venue event profiles should be included');
+    assert.strictEqual(targetIds.includes(pPersonal.id), false, 'Personal profiles should be excluded');
+    assert.strictEqual(targetIds.includes(pCurator.id), false, 'Curator guide profiles should be excluded');
+    assert.strictEqual(targetIds.includes(pAwaiting.id), false, 'Awaiting approval profiles should be excluded');
+  });
 });

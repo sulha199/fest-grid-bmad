@@ -40,6 +40,7 @@ export class ApifyRequestTimeoutError extends Error {
 export interface ScraperAdapter {
   getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]>;
   lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null>;
+  getAccountClassificationProfile(username: string): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null>;
   getPostByUrl(url: string): Promise<ScrapedPost | null>;
   /**
    * True when the underlying scraper actor reliably filters `getNewestPosts` server-side by

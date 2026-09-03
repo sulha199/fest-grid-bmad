@@ -5,8 +5,8 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, apiKeys, subscriptions, socialMediaAccountProfiles, posts, events, schedules } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
+import { users, apiKeys, subscriptions, socialMediaAccountProfiles, posts, events, schedules, accountTypeClassificationReviews } from '@festgrid/database';
+import { eq, inArray } from 'drizzle-orm';
 import { setCallGeminiGenerateContent, callGeminiGenerateContent } from '../lib/ai-gateway/gemini-client.js';
 
 // Force off regardless of the developer's local .env: without a queue configured (the
@@ -1031,6 +1031,48 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       assert.equal(foundSub.account.isScrapeInProgress, true, 'isScrapeInProgress should be true');
     });
 
+    await t.test('triggerAccountScrape - fails with FORBIDDEN if account is classified but not confirmed event/venue', async () => {
+      mockUser = { userId: testUser.id, role: testUser.role };
+
+      // Temporarily mark the account as PERSONAL & CONFIRMED (gated/forbidden)
+      await db.update(socialMediaAccountProfiles)
+        .set({
+          accountType: 'PERSONAL',
+          accountTypeStatus: 'CONFIRMED',
+          scrapeTriggeredAt: null,
+        })
+        .where(eq(socialMediaAccountProfiles.id, testProfile.id));
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation TriggerAccountScrape($accountId: ID!) {
+              triggerAccountScrape(accountId: $accountId) {
+                triggered
+              }
+            }
+          `,
+          variables: {
+            accountId: testProfile.id
+          }
+        })
+      });
+
+      const body = await response.json();
+      assert.ok(body.errors, 'Should reject gated account type');
+      assert.equal(body.errors[0].extensions?.code, 'FORBIDDEN');
+
+      // Restore to legacy/NULL status so other cleanups work
+      await db.update(socialMediaAccountProfiles)
+        .set({
+          accountType: null,
+          accountTypeStatus: null,
+        })
+        .where(eq(socialMediaAccountProfiles.id, testProfile.id));
+    });
+
     await t.test('cleanup - delete trigger test data', async () => {
       await db.delete(posts).where(eq(posts.accountId, testProfile.id));
       await db.delete(subscriptions).where(eq(subscriptions.id, testSubscription.id));
@@ -1041,6 +1083,14 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
   await t.test('cleanup - delete all created test data', async () => {
     await db.delete(subscriptions).where(eq(subscriptions.userId, testUser.id));
     await db.delete(apiKeys).where(eq(apiKeys.userId, testUser.id));
-    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'jkt_festivals_31'));
+
+    const jktProfileRows = await db.select({ id: socialMediaAccountProfiles.id })
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.accountId, 'jkt_festivals_31'));
+    if (jktProfileRows.length > 0) {
+      const ids = jktProfileRows.map(p => p.id);
+      await db.delete(accountTypeClassificationReviews).where(inArray(accountTypeClassificationReviews.accountId, ids));
+      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, ids));
+    }
   });
 });

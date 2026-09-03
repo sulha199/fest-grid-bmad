@@ -404,6 +404,96 @@ describe('PostsSelectContent integration', () => {
     });
   });
 
+  it('displays state-specific warning/info banners and tab indicators for gated account types (AC3)', async () => {
+    mockSubscriptions = [
+      {
+        id: 'sub-gated-1',
+        accountId: 'acc-gated-1',
+        isNewlyAdded: false,
+        isInactive: false,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        pendingExtractionCount: 0,
+        account: {
+          id: 'acc-gated-1',
+          platform: 'instagram',
+          displayName: 'Awaiting Review Account',
+          username: 'awaiting_review',
+          profileImageUrl: null,
+          defaultLocation: null,
+          hasPendingDefaultLocationReview: false,
+          accountType: 'ORGANIZER_VENUE_EVENT',
+          accountTypeStatus: 'AWAITING_APPROVAL',
+        },
+      },
+      {
+        id: 'sub-gated-2',
+        accountId: 'acc-gated-2',
+        isNewlyAdded: false,
+        isInactive: false,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        pendingExtractionCount: 0,
+        account: {
+          id: 'acc-gated-2',
+          platform: 'instagram',
+          displayName: 'Personal Excluded Account',
+          username: 'personal_excluded',
+          profileImageUrl: null,
+          defaultLocation: null,
+          hasPendingDefaultLocationReview: false,
+          accountType: 'PERSONAL',
+          accountTypeStatus: 'CONFIRMED',
+        },
+      },
+      {
+        id: 'sub-gated-3',
+        accountId: 'acc-gated-3',
+        isNewlyAdded: false,
+        isInactive: false,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        pendingExtractionCount: 0,
+        account: {
+          id: 'acc-gated-3',
+          platform: 'instagram',
+          displayName: 'Curator Excluded Account',
+          username: 'curator_excluded',
+          profileImageUrl: null,
+          defaultLocation: null,
+          hasPendingDefaultLocationReview: false,
+          accountType: 'CURATOR_GUIDE',
+          accountTypeStatus: 'CONFIRMED',
+        },
+      },
+    ];
+
+    renderComponent();
+
+    // 1. Verify Awaiting Review Tab Banners
+    const titleAwaiting = await screen.findByText('Classification Pending');
+    const descAwaiting = screen.getByText('This account is pending moderation review.');
+    expect(titleAwaiting).toBeInTheDocument();
+    expect(descAwaiting).toBeInTheDocument();
+
+    // 2. Switch to Personal Excluded Tab
+    const tabPersonal = screen.getByText('Personal Excluded Account');
+    fireEvent.click(tabPersonal);
+
+    // Verify Personal Excluded Banners
+    const titlePersonal = await screen.findByText('Personal Account');
+    const descPersonal = screen.getByText("This account can't be tracked", { exact: false });
+    expect(titlePersonal).toBeInTheDocument();
+    expect(descPersonal).toBeInTheDocument();
+
+    // 3. Switch to Curator Excluded Tab
+    const tabCurator = screen.getByText('Curator Excluded Account');
+    fireEvent.click(tabCurator);
+
+    // Verify Curator Excluded Banners
+    const titleCurator = await screen.findByText('Curator Feed');
+    const descCurator = screen.getByText('Tracking for this account type is coming soon', { exact: false });
+    expect(titleCurator).toBeInTheDocument();
+    expect(descCurator).toBeInTheDocument();
+  });
+
   describe('On-demand scraping trigger (Task 5.6)', () => {
     it('renders empty state with scrape button when account has no posts', async () => {
       mockPosts = [];

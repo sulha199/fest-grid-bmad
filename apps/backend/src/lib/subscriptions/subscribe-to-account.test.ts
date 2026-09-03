@@ -133,4 +133,156 @@ test('subscribe-to-account tests', async (t) => {
     assert.strictEqual(firstResult.profile.id, secondResult.profile.id);
     assert.strictEqual(firstResult.subscription.id, secondResult.subscription.id);
   });
+
+  await t.test('classification gating logic: gates scraper trigger based on accountType and accountTypeStatus', async (subT) => {
+    const {
+      setGetAccountClassificationProfileSeam,
+      setCallGeminiForAccountClassificationSeam,
+      getAccountClassificationProfileSeam,
+      callGeminiForAccountClassificationSeam
+    } = await import('../accounts/classify-account-type.js');
+    const { accountTypeClassificationReviews } = await import('@festgrid/database');
+
+    subT.afterEach(() => {
+      setGetAccountClassificationProfileSeam(getAccountClassificationProfileSeam);
+      setCallGeminiForAccountClassificationSeam(callGeminiForAccountClassificationSeam);
+    });
+
+    // Case A: ORGANIZER_VENUE_EVENT and CONFIRMED should trigger scrape
+    let scrapeCalledA = false;
+    setAttemptApifyAsyncTrigger(async () => {
+      scrapeCalledA = true;
+      return true;
+    });
+    setGetAccountClassificationProfileSeam(async () => ({
+      username: 'org_user',
+      displayName: 'Org User',
+      biography: 'Music Events',
+      businessCategoryName: 'Event'
+    }));
+    setCallGeminiForAccountClassificationSeam(async () => ({
+      text: JSON.stringify({ accountType: 'ORGANIZER_VENUE_EVENT', confidenceScore: 0.9 })
+    }));
+
+    const resultA = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: `gated-abc-${ts}`,
+      profile: { displayName: 'Org User', username: 'org_user' }
+    });
+    assert.strictEqual(scrapeCalledA, true, 'Scrape should be triggered for CONFIRMED ORGANIZER_VENUE_EVENT');
+    assert.strictEqual(resultA.profile.accountType, 'ORGANIZER_VENUE_EVENT');
+    assert.strictEqual(resultA.profile.accountTypeStatus, 'CONFIRMED');
+
+    // Case B: PERSONAL should NOT trigger scrape
+    let scrapeCalledB = false;
+    setAttemptApifyAsyncTrigger(async () => {
+      scrapeCalledB = true;
+      return true;
+    });
+    setGetAccountClassificationProfileSeam(async () => ({
+      username: 'pers_user',
+      displayName: 'Pers User',
+      biography: 'Just blogging',
+      businessCategoryName: null
+    }));
+    setCallGeminiForAccountClassificationSeam(async () => ({
+      text: JSON.stringify({ accountType: 'PERSONAL', confidenceScore: 0.85 })
+    }));
+
+    const resultB = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: `gated-def-${ts}`,
+      profile: { displayName: 'Pers User', username: 'pers_user' }
+    });
+    assert.strictEqual(scrapeCalledB, false, 'Scrape should NOT be triggered for PERSONAL');
+    assert.strictEqual(resultB.profile.accountType, 'PERSONAL');
+    assert.strictEqual(resultB.profile.accountTypeStatus, 'CONFIRMED');
+
+    // Case C: CURATOR_GUIDE should NOT trigger scrape
+    let scrapeCalledC = false;
+    setAttemptApifyAsyncTrigger(async () => {
+      scrapeCalledC = true;
+      return true;
+    });
+    setGetAccountClassificationProfileSeam(async () => ({
+      username: 'cur_user',
+      displayName: 'Cur User',
+      biography: 'List of events',
+      businessCategoryName: null
+    }));
+    setCallGeminiForAccountClassificationSeam(async () => ({
+      text: JSON.stringify({ accountType: 'CURATOR_GUIDE', confidenceScore: 0.9 })
+    }));
+
+    const resultC = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: `gated-ghi-${ts}`,
+      profile: { displayName: 'Cur User', username: 'cur_user' }
+    });
+    assert.strictEqual(scrapeCalledC, false, 'Scrape should NOT be triggered for CURATOR_GUIDE');
+    assert.strictEqual(resultC.profile.accountType, 'CURATOR_GUIDE');
+    assert.strictEqual(resultC.profile.accountTypeStatus, 'CONFIRMED');
+
+    // Case D: AWAITING_APPROVAL (low confidence) should NOT trigger scrape
+    let scrapeCalledD = false;
+    setAttemptApifyAsyncTrigger(async () => {
+      scrapeCalledD = true;
+      return true;
+    });
+    setGetAccountClassificationProfileSeam(async () => ({
+      username: 'low_user',
+      displayName: 'Low User',
+      biography: 'Blah',
+      businessCategoryName: null
+    }));
+    setCallGeminiForAccountClassificationSeam(async () => ({
+      text: JSON.stringify({ accountType: 'ORGANIZER_VENUE_EVENT', confidenceScore: 0.5 })
+    }));
+
+    const resultD = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: `gated-jkl-${ts}`,
+      profile: { displayName: 'Low User', username: 'low_user' }
+    });
+    assert.strictEqual(scrapeCalledD, false, 'Scrape should NOT be triggered for AWAITING_APPROVAL');
+    assert.strictEqual(resultD.profile.accountType, 'ORGANIZER_VENUE_EVENT');
+    assert.strictEqual(resultD.profile.accountTypeStatus, 'AWAITING_APPROVAL');
+
+    // Case E: Classification hard failure should NOT trigger scrape but subscription must still succeed (AC4)
+    let scrapeCalledE = false;
+    setAttemptApifyAsyncTrigger(async () => {
+      scrapeCalledE = true;
+      return true;
+    });
+    setGetAccountClassificationProfileSeam(async () => {
+      throw new Error('Apify down');
+    });
+
+    const resultE = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: `gated-mno-${ts}`,
+      profile: { displayName: 'Error User', username: 'err_user' }
+    });
+    assert.strictEqual(scrapeCalledE, false, 'Scrape should NOT be triggered when classification fails');
+    assert.ok(resultE.subscription, 'Subscription must still succeed on classification hard failure');
+    assert.equal(resultE.profile.accountTypeStatus, 'AWAITING_APPROVAL');
+
+    // Cleanup extra profiles
+    const extraAccountIds = [`gated-abc-${ts}`, `gated-def-${ts}`, `gated-ghi-${ts}`, `gated-jkl-${ts}`, `gated-mno-${ts}`];
+    const profileRows = await db
+      .select({ id: socialMediaAccountProfiles.id })
+      .from(socialMediaAccountProfiles)
+      .where(and(eq(socialMediaAccountProfiles.platform, testPlatform), inArray(socialMediaAccountProfiles.accountId, extraAccountIds)));
+    if (profileRows.length > 0) {
+      const ids = profileRows.map(r => r.id);
+      await db.delete(accountTypeClassificationReviews).where(inArray(accountTypeClassificationReviews.accountId, ids));
+      await db.delete(subscriptions).where(inArray(subscriptions.accountId, ids));
+      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, ids));
+    }
+  });
 });
