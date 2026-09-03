@@ -1228,7 +1228,21 @@ development_status:
   # checked off -- see this story's Pre-Coding Approval Gate. No apps/web/packages/ui
   # change, no DB migration, no new GraphQL API surface.
   3-6h-gate-image-re-hosting-and-serving-on-account-opt-in: review
-  3-6i-classify-and-discard-private-contact-info-during-ai-extraction: backlog
+  # regenerated 2026-09-03 via bmad-create-story: full context engine pass. Epic-3
+  # readiness sweep (epic-3-readiness.md, swept 2026-08-09) predates this story (added
+  # 2026-09-02), so Gate 1/2/3 were re-run fresh (Winston/Freya personas via
+  # runSubagent), no gap found on any. Gate 2 also resolved AC3's scope: EventDetailView
+  # never rendered contactInfo at all (even the business case) before this story, so the
+  # story now builds both the normal-contact display and the private-contact fallback
+  # message together (AC3 revised in place, not absorbed elsewhere). Tracing every
+  # consumer of the shared Gemini schema surfaced a second leak: the AI-assisted
+  # correction preview (extractEventDataFromUrl/Story 4.2a) can write an undiscarded
+  # private contact into events.contactInfo via submitCorrection. User confirmed via
+  # AskUserQuestion to extend this story's scope to close it (new AC5) rather than defer
+  # it, but declined threading hasPrivateContact through the corrections/submitCorrection
+  # round-trip itself (unnecessary to close the leak). See story file's Dev Notes ->
+  # Scope Extension Decision.
+  3-6i-classify-and-discard-private-contact-info-during-ai-extraction: ready-for-dev
   3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: backlog
   3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression: backlog
   # added 2026-08-10 via bmad-create-story Gate 2 finding (Freya persona, run fresh
