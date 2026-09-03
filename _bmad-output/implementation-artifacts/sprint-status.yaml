@@ -1216,7 +1216,18 @@ development_status:
   # votedAccountSuggestions ilike-search pattern. See epics.md Story 3.6g note (AC4
   # correction recorded in the story file itself, not epics.md).
   3-6g-add-image-storage-opt-in-flag-and-moderator-only-mutation: review
-  3-6h-gate-image-re-hosting-and-serving-on-account-opt-in: backlog
+  # regenerated 2026-09-03 via bmad-create-story: full context engine pass. Epic-3
+  # readiness sweep predates this story (added 2026-09-02), so Gate 1/2/3 were re-run
+  # fresh (all via runSubagent -- Winston/Freya personas), no gap found on any. Backend-
+  # only story: generalizes process-ai-job.ts's existing CURATOR_GUIDE-only rehost gate
+  # (Story 3.4o) to all accounts, and adds a required isImageStorageOptedIn param to
+  # packages/domain's resolveServedImageUrl (Story 3.6f) wired through 5 resolvers.ts
+  # join sites. Flagged (not blocking) sequencing risk: prerequisite Story 3.6g is
+  # still tracked in-progress here and its code is uncommitted in the working tree as
+  # of this story's creation, despite its own file's Completion Status being fully
+  # checked off -- see this story's Pre-Coding Approval Gate. No apps/web/packages/ui
+  # change, no DB migration, no new GraphQL API surface.
+  3-6h-gate-image-re-hosting-and-serving-on-account-opt-in: ready-for-dev
   3-6i-classify-and-discard-private-contact-info-during-ai-extraction: backlog
   3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: backlog
   3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression: backlog
