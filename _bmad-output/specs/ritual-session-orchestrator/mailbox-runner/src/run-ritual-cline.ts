@@ -119,7 +119,7 @@ import { z } from "zod";
 import { ClineCore, createTool } from "@cline/sdk";
 import type { CoreSessionEvent, AgentToolContext } from "@cline/core";
 import { ensureMailboxDirs, writePendingRequest, pollForAnswer, markResolved } from "./mailbox.js";
-import { getSkillConfig, knownSkills, type ReasoningEffort } from "./skill-config.js";
+import { getSkillConfig, knownSkills, setConfigOverride, activeConfigPath, type ReasoningEffort } from "./skill-config.js";
 
 interface Args {
   prompt: string;
@@ -142,18 +142,24 @@ function parseArgs(argv: string[]): Args {
     return i >= 0 ? argv[i + 1] : undefined;
   };
 
-  // --skill looks up ../ritual-config.json (routing/region/model/reasoning)
-  // and, combined with --story, auto-composes --prompt/--label so a caller
+  // --config selects a preset (bare name -> config-presets/<name>.json) or
+  // literal path in place of the default ../ritual-config.json. Must be
+  // applied before the --skill lookup below.
+  const configFlag = get("--config");
+  if (configFlag) setConfigOverride(configFlag);
+
+  // --skill looks up the active config (routing/region/model/reasoning) and,
+  // combined with --story, auto-composes --prompt/--label so a caller
   // driving a batch doesn't retype the same skill invocation shape per
   // story. Any explicit flag below still wins over what --skill supplied.
   const skill = get("--skill");
   const story = get("--story");
   const skillConfig = skill ? getSkillConfig(skill) : undefined;
   if (skill && !skillConfig) {
-    throw new Error(`Unknown --skill "${skill}" -- no entry in ritual-config.json. Known skills: ${knownSkills().join(", ")}`);
+    throw new Error(`Unknown --skill "${skill}" -- no entry in ${activeConfigPath()}. Known skills: ${knownSkills().join(", ")}`);
   }
   if (skillConfig && skillConfig.runtime !== "cline") {
-    throw new Error(`--skill "${skill}" is configured for runtime "${skillConfig.runtime}" in ritual-config.json, not "cline" -- use run-ritual.ts instead (or dispatch-ritual.ts, which reads this automatically).`);
+    throw new Error(`--skill "${skill}" is configured for runtime "${skillConfig.runtime}" in ${activeConfigPath()}, not "cline" -- use run-ritual.ts instead (or dispatch-ritual.ts, which reads this automatically).`);
   }
 
   const prompt = get("--prompt") ?? (skill && story ? `/${skill} ${story}` : undefined);

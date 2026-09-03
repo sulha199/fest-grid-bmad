@@ -13,12 +13,19 @@
  *   tsx src/dispatch-ritual.ts --skill bmad-dev-story --story 3.6h \
  *       --mailbox ../mailbox --cwd C:/projects/portfolio/festgrid/bmad
  *
- * Both resolve model/region/reasoning/routing purely from ritual-config.json
- * -- change routing, model, or reasoning level there, not in code. All other
- * flags (--prompt/--label overrides, --resume/--resume-label for the Claude
- * side, --api-key-env instead of Vertex ADC for the Cline side, etc.) pass
- * straight through to whichever underlying script gets dispatched -- this
- * file does no argument validation of its own beyond requiring --skill.
+ * Both resolve model/region/reasoning/routing purely from the active config
+ * -- change routing, model, or reasoning level there, not in code. Pass
+ * --config <preset-name-or-path> to select a preset for this invocation
+ * instead of ../ritual-config.json's default -- e.g.
+ * --config all-claude-max, or --config mixed-low. Forwarded automatically to
+ * whichever underlying script gets dispatched, since it's part of the passed-
+ * through argv; this file also applies it to its own routing decision.
+ *
+ * All other flags (--prompt/--label overrides, --resume/--resume-label for
+ * the Claude side, --api-key-env instead of Vertex ADC for the Cline side,
+ * etc.) pass straight through to whichever underlying script gets
+ * dispatched -- this file does no argument validation of its own beyond
+ * requiring --skill.
  *
  * Exits with the dispatched child's own exit code; stdio is inherited, so
  * all of that script's existing logging (including mailbox request/resolve
@@ -28,7 +35,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getSkillConfig, knownSkills } from "./skill-config.js";
+import { getSkillConfig, knownSkills, setConfigOverride, activeConfigPath } from "./skill-config.js";
 
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
 
@@ -41,12 +48,16 @@ async function main() {
   const argv = process.argv.slice(2);
   const skill = getArg(argv, "--skill");
   if (!skill) {
-    throw new Error(`Required: --skill <name> [--story <id>] [...other flags, passed through]. Known skills: ${knownSkills().join(", ")}`);
+    throw new Error(`Required: --skill <name> [--story <id>] [--config <preset-name-or-path>] [...other flags, passed through]. Known skills: ${knownSkills().join(", ")}`);
   }
+
+  const configFlag = getArg(argv, "--config");
+  if (configFlag) setConfigOverride(configFlag);
+  console.log(`[dispatch-ritual] using config: ${activeConfigPath()}`);
 
   const config = getSkillConfig(skill);
   if (!config) {
-    throw new Error(`Unknown --skill "${skill}" -- no entry in ritual-config.json. Known skills: ${knownSkills().join(", ")}`);
+    throw new Error(`Unknown --skill "${skill}" -- no entry in ${activeConfigPath()}. Known skills: ${knownSkills().join(", ")}`);
   }
 
   const targetScript = config.runtime === "claude" ? "run-ritual.ts" : "run-ritual-cline.ts";

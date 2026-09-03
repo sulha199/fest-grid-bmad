@@ -35,7 +35,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { ensureMailboxDirs, writePendingRequest, pollForAnswer, markResolved } from "./mailbox.js";
-import { getSkillConfig, knownSkills, type ClaudeEffort } from "./skill-config.js";
+import { getSkillConfig, knownSkills, setConfigOverride, activeConfigPath, type ClaudeEffort } from "./skill-config.js";
 
 interface Args {
   prompt: string;
@@ -54,17 +54,23 @@ function parseArgs(argv: string[]): Args {
     return i >= 0 ? argv[i + 1] : undefined;
   };
 
-  // --skill looks up ../ritual-config.json (routing/model/effort) and, with
+  // --config selects a preset (bare name -> config-presets/<name>.json) or
+  // literal path in place of the default ../ritual-config.json. Must be
+  // applied before the --skill lookup below.
+  const configFlag = get("--config");
+  if (configFlag) setConfigOverride(configFlag);
+
+  // --skill looks up the active config (routing/model/effort) and, with
   // --story, auto-composes --prompt/--label -- same convenience as the Cline
   // side. Any explicit flag below still wins over what --skill supplied.
   const skill = get("--skill");
   const story = get("--story");
   const skillConfig = skill ? getSkillConfig(skill) : undefined;
   if (skill && !skillConfig) {
-    throw new Error(`Unknown --skill "${skill}" -- no entry in ritual-config.json. Known skills: ${knownSkills().join(", ")}`);
+    throw new Error(`Unknown --skill "${skill}" -- no entry in ${activeConfigPath()}. Known skills: ${knownSkills().join(", ")}`);
   }
   if (skillConfig && skillConfig.runtime !== "claude") {
-    throw new Error(`--skill "${skill}" is configured for runtime "${skillConfig.runtime}" in ritual-config.json, not "claude" -- use run-ritual-cline.ts instead (or dispatch-ritual.ts, which reads this automatically).`);
+    throw new Error(`--skill "${skill}" is configured for runtime "${skillConfig.runtime}" in ${activeConfigPath()}, not "claude" -- use run-ritual-cline.ts instead (or dispatch-ritual.ts, which reads this automatically).`);
   }
 
   const prompt = get("--prompt") ?? (skill && story ? `/${skill} ${story}` : undefined);

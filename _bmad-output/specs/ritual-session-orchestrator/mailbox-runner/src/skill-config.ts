@@ -1,14 +1,26 @@
 /**
- * Loader for ../ritual-config.json -- the single, plain-JSON, human-editable
- * file that decides both AI/CLI routing (which runtime a skill runs under)
- * and its model/reasoning settings. Previously this was a hardcoded object
- * in this very file (TypeScript source, not something you'd want to hand-edit
- * to change a model) -- moved to real config specifically so routing/model/
- * reasoning can be changed without touching code.
+ * Loader for the ritual routing/model/reasoning config -- the single,
+ * plain-JSON, human-editable source that decides AI/CLI routing per bmad-*
+ * skill. Two layers:
  *
- * Not a hard permission boundary (see README: neither Claude Code nor Cline
- * exposes a per-skill allow/deny list) -- this is what decides which script
- * dispatch-ritual.ts invokes and what it passes it, not an enforced sandbox.
+ *   - ../ritual-config.json -- the active default, loaded when nothing else
+ *     is specified.
+ *   - ../config-presets/<name>.json -- named alternatives (e.g.
+ *     "mixed-low", "mixed-medium", "mixed-max", "all-claude-low",
+ *     "all-claude-medium", "all-claude-max") selectable per invocation via
+ *     each entry script's --config <name-or-path> flag, without overwriting
+ *     the active default file.
+ *
+ * Call setConfigOverride() (from a --config flag) before the first
+ * getSkillConfig()/knownSkills() call in a process; omit it to use
+ * ritual-config.json. A bare name (no "/", no ".json") resolves against
+ * config-presets/<name>.json; anything else is treated as a literal path
+ * (absolute, or relative to the current working directory).
+ *
+ * Metadata keys (any key starting with "_", e.g. "_preset"/"_description" --
+ * every preset file self-documents this way) are filtered out of what
+ * getSkillConfig()/knownSkills() return, so they never leak into a "Known
+ * skills:" error message or get treated as an actual skill entry.
  */
 
 import { readFileSync } from "node:fs";
@@ -33,19 +45,46 @@ export interface ClineSkillConfig {
 
 export type SkillConfig = ClaudeSkillConfig | ClineSkillConfig;
 
-const CONFIG_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "ritual-config.json");
+const PACKAGE_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const DEFAULT_CONFIG_PATH = path.join(PACKAGE_ROOT, "ritual-config.json");
 
+let overridePath: string | undefined;
 let cache: Record<string, SkillConfig> | undefined;
+let cachedPath: string | undefined;
 
-/** Reads ritual-config.json from disk once and caches per-process -- a long
- *  batch run doesn't need to notice a config edit mid-run, but each new
- *  run-ritual.ts/run-ritual-cline.ts/dispatch-ritual.ts invocation is a fresh
- *  process, so an edit always takes effect on the next story dispatched. */
+/** Resolves a --config value to a real file path. A bare name (no path
+ *  separator, no .json extension) is looked up under config-presets/;
+ *  anything else is used as-is (absolute or cwd-relative). */
+export function resolveConfigPath(nameOrPath: string): string {
+  const looksLikeBareName = !nameOrPath.includes("/") && !nameOrPath.includes("\\") && !nameOrPath.endsWith(".json");
+  return looksLikeBareName ? path.join(PACKAGE_ROOT, "config-presets", `${nameOrPath}.json`) : nameOrPath;
+}
+
+/** Call once, early, from a --config flag. Must be called before the first
+ *  loadSkillConfigs()/getSkillConfig()/knownSkills() call to take effect --
+ *  the config is cached per-process once loaded. */
+export function setConfigOverride(nameOrPath: string): void {
+  overridePath = resolveConfigPath(nameOrPath);
+  cache = undefined; // invalidate in case something already loaded the default
+}
+
+export function activeConfigPath(): string {
+  return overridePath ?? DEFAULT_CONFIG_PATH;
+}
+
 export function loadSkillConfigs(): Record<string, SkillConfig> {
-  if (!cache) {
-    const raw = readFileSync(CONFIG_PATH, "utf-8");
-    cache = JSON.parse(raw) as Record<string, SkillConfig>;
+  const targetPath = activeConfigPath();
+  if (cache && cachedPath === targetPath) return cache;
+
+  const raw = readFileSync(targetPath, "utf-8");
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  const skills: Record<string, SkillConfig> = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (key.startsWith("_")) continue;
+    skills[key] = value as SkillConfig;
   }
+  cache = skills;
+  cachedPath = targetPath;
   return cache;
 }
 

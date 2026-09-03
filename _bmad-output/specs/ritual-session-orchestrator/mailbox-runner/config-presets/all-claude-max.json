@@ -1,0 +1,13 @@
+{
+  "_preset": "all-claude-max",
+  "_description": "Everything routes to Claude (opus-5, max effort) -- no Cline/Gemini/Vertex involved at all. Highest cost/capability overall -- for the highest-stakes stories, or when Vertex/Cline auth or billing is unavailable and you need every skill to still run.",
+
+  "bmad-create-story": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" },
+  "bmad-epic-readiness-check": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" },
+  "bmad-correct-course": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" },
+  "bmad-architecture": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" },
+  "bmad-prd": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" },
+  "bmad-code-review": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" },
+  "bmad-dev-story": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" },
+  "bmad-quick-dev": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" }
+}

@@ -95,30 +95,52 @@ Steps 1, 3, and 4 are now real, tested scripts (`resolve-targets.ts`, `verify-st
 
 Both scripts are read-only against `epics.md`/`sprint-status.yaml` — writing them stays the real `bmad-*` skills' job, same separation of concerns as everywhere else in this design. `bmad-artifacts.ts` (shared by both) also had a real CRLF-line-ending bug found and fixed doing this: `epics.md` is CRLF, and JS regex `.` never matches `\r` (a LineTerminator), so a naive `split("\n")` silently failed to match a single story header until this was found by testing against the real file, not assumed from the design.
 
-## Plan/Act mode, model routing, and config
+## Plan/Act/Review mode, model routing, and config
 
-**`ritual-config.json`** (mailbox-runner's root, plain JSON, hand-editable — not TypeScript source) is the single file that decides AI/CLI routing, model, and reasoning level per `bmad-*` skill:
+**`ritual-config.json`** (mailbox-runner's root, plain JSON, hand-editable — not TypeScript source) is the active default deciding AI/CLI routing, model, and reasoning level per `bmad-*` skill. Three real buckets, not two — a refinement found while building this: **plan** (`bmad-create-story`, `bmad-epic-readiness-check`, `bmad-correct-course`, `bmad-architecture`, `bmad-prd`), **review** (`bmad-code-review`), **act** (`bmad-dev-story`, `bmad-quick-dev`) — `CLAUDE.md`'s Planning Isolation split only distinguishes plan from everything else; review and act can legitimately route differently (see presets below).
 
-```json
-{
-  "bmad-create-story": { "runtime": "claude", "model": "claude-opus-5", "effort": "high" },
-  "bmad-dev-story":    { "runtime": "cline",  "gcpRegion": "asia-southeast1", "model": "gemini-3.5-flash", "reasoningEffort": "medium" },
-  "bmad-code-review":  { "runtime": "cline",  "gcpRegion": "global",          "model": "gemini-3.1-pro-preview", "reasoningEffort": "high" }
-}
-```
+`runtime: "claude"` routes to `run-ritual.ts` (Claude Agent SDK, `effort` maps to the SDK's own documented `effort` option, confirmed present, `low`-`max`); `runtime: "cline"` routes to `run-ritual-cline.ts` (Vertex ADC, `reasoningEffort` maps to Cline's `CoreModelConfig.reasoningEffort`). No per-skill allow/deny list exists at the runtime level in either Claude Code or Cline (checked) — this is a routing convenience, not an enforced permission boundary.
 
-`runtime: "claude"` routes to `run-ritual.ts` (Claude Agent SDK, `effort` maps to the SDK's own documented `effort` option — confirmed present, `low`-`max`); `runtime: "cline"` routes to `run-ritual-cline.ts` (Vertex ADC, `reasoningEffort` maps to Cline's `CoreModelConfig.reasoningEffort`). Both scripts read this same file via `skill-config.ts`'s loader — change a model or reasoning level there, no code edit needed, and it takes effect on the next story dispatched (each invocation is a fresh process, so nothing needs a restart or a cache-bust).
+### Presets — select per invocation, don't hand-edit the active file
 
-Maps onto the distinction the project already enforces in `CLAUDE.md` ("Planning Isolation": planning skills write only to `_bmad-output/`; implementation skills touch `apps/`/`packages/`) — every `plan`-mode skill in the file today routes to `claude`, every `act`-mode skill routes to `cline`, but that's a convention the config expresses, not a hard rule it enforces (no per-skill allow/deny list exists at the runtime level in either Claude Code or Cline, checked).
+`config-presets/` holds six ready-made combinations — the two variants × three cost tiers:
 
-**`dispatch-ritual.ts`** is the one command a caller actually needs — it reads `ritual-config.json` for `--skill`, re-execs the correct underlying script, and passes everything else through:
+| | **mixed** (Claude plan+review, Gemini/Cline act) | **all-claude** (everything on Claude) |
+|---|---|---|
+| **low** | `mixed-low` — haiku-4-5 / gemini-3.5-flash, low reasoning | `all-claude-low` — haiku-4-5 everywhere, low effort |
+| **medium** | `mixed-medium` — sonnet-5 / gemini-3.5-flash, medium (= the active default) | `all-claude-medium` — sonnet-5 everywhere, medium effort |
+| **max** | `mixed-max` — opus-5 / gemini-3.1-pro-preview, max reasoning | `all-claude-max` — opus-5 everywhere, max effort |
+
+Every entry point (`dispatch-ritual.ts`, `run-ritual.ts`, `run-ritual-cline.ts`, `run-act-with-tests.ts`) accepts `--config <preset-name-or-path>` to select one for that invocation, applied before the `--skill` lookup:
 
 ```bash
-npx tsx src/dispatch-ritual.ts --skill bmad-create-story --story 3.6k --mailbox ../mailbox --cwd <repo-root>
-npx tsx src/dispatch-ritual.ts --skill bmad-dev-story --story 3.6h --mailbox ../mailbox --cwd <repo-root>
+npx tsx src/dispatch-ritual.ts --skill bmad-dev-story --story 3.6h --config all-claude-low --mailbox ../mailbox --cwd <repo-root>
 ```
 
-No need to remember which of the two runtimes a given skill maps to. **Verified live, 2026-09-03**: correct routing to each runtime, correct model/region/reasoning resolved purely from the config file. Found and fixed a real bug doing this: the first version spawned `npx tsx ...` with `{shell: true}`, which silently truncated any multi-word `--prompt "..."` down to its first word (Windows' cmd.exe re-tokenizes a shell-joined argv array on its own whitespace rules, discarding the original quoting) — fixed by spawning `tsx`'s own CLI entry point directly via `process.execPath`, which needs no shell and so nothing re-tokenizes the arguments.
+A bare name resolves to `config-presets/<name>.json`; anything with a `/` or `.json` is treated as a literal path, so a fully custom config file works too, not just the six shipped presets.
+
+**Verified live, 2026-09-03**: `--config all-claude-low` correctly re-routed `bmad-dev-story` from its normal Cline path onto Claude/haiku-4-5/low; `--config mixed-max` correctly resolved `bmad-code-review` to Claude/opus-5/max. Each preset self-documents via `_preset`/`_description` metadata keys, filtered out by the loader so they never leak into a "known skills" list.
+
+**`dispatch-ritual.ts`** is the one command a caller actually needs — it reads the active (or `--config`-selected) config for `--skill`, re-execs the correct underlying script, and passes everything else through. No need to remember which of the two runtimes a given skill maps to. **Verified live**: correct routing to each runtime, correct model/region/reasoning resolved purely from config. Found and fixed a real bug doing this: the first version spawned `npx tsx ...` with `{shell: true}`, which silently truncated any multi-word `--prompt "..."` down to its first word (Windows' cmd.exe re-tokenizes a shell-joined argv array on its own whitespace rules, discarding the original quoting) — fixed by spawning `tsx`'s own CLI entry point directly via `process.execPath`, which needs no shell and so nothing re-tokenizes the arguments.
+
+## Post-act verification: run the real test suite, auto-dispatch a fix
+
+**`run-tests.ts`** invokes and monitors `pnpm test` (turbo across every package — confirmed a genuinely long task against this repo's real suite: apps/backend's `node:test` suite plus every `packages/*` Vitest suite). "Invoke and monitor" concretely means: spawn it, print a heartbeat with elapsed time + the last output line every 30s (default) so a long silent stretch doesn't read as hung, and enforce a timeout (20 min default) that kills the process tree and reports a timeout outcome rather than hanging forever.
+
+**`test-output-summary.ts`** parses the raw output into pass/fail plus an itemized failure list — grounded in a real full run of this repo's suite, not assumed: `apps/backend` uses Node's native `node:test` TAP reporter (`not ok N - <name>` for failures); `packages/*` use Vitest's ANSI-colored default reporter (`✗`/`×` markers, a `Test Files N failed | M passed` summary block); turbo's own `Tasks: X successful, Y total` line is the single most reliable overall verdict regardless of which per-package reporter produced the detail below it. **Verified live, 2026-09-03**: zero false positives parsing 4593 real lines from an actual full run of this repo (including test *names* containing the word "fails", which a naive substring grep would have miscounted); a synthetic sample covering both real failure formats was correctly parsed into two itemized failures. Honesty note: the pass-path is grounded in a real run; the *failure*-path parsing logic itself has only been exercised against that synthetic sample, not a real induced failure in this repo — verify against a real failure before fully trusting the itemized list, though the overall pass/fail verdict (turbo's own line) is solid either way.
+
+**`run-act-with-tests.ts`** is the actual chained workflow requested — dispatch an act-mode skill, then verify it:
+
+```bash
+npx tsx src/run-act-with-tests.ts --skill bmad-dev-story --story 3.6h \
+    --mailbox ../mailbox --cwd <repo-root> [--config <preset>]
+```
+
+1. `dispatch-ritual.ts --skill bmad-dev-story --story 3.6h` (any `AskUserQuestion` still relays through the mailbox exactly as normal — this script only sequences around that, doesn't change it).
+2. On success, `run-tests.ts` runs the real suite.
+3. If tests fail, dispatches `bmad-quick-dev` (via `dispatch-ritual.ts` again, same `--config`) with a prompt built from the failure summary, asking it to fix them.
+
+Deliberately does **not** loop — it dispatches quick-dev once and reports; it doesn't re-run tests afterward or retry indefinitely. Re-running this same script (or just `run-tests.ts`) is how you'd verify the fix actually worked, same as any other story step in this design — no hidden autonomous retry loop.
 
 ## Resume
 

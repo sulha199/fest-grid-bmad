@@ -1,6 +1,6 @@
 {
-  "_preset": "default (mirrors config-presets/mixed-medium.json)",
-  "_description": "Active default when no --config override is given. See config-presets/ for low/medium/max presets across the mixed and all-claude variants.",
+  "_preset": "mixed-medium",
+  "_description": "Claude for plan+review (sonnet-5), Gemini/Cline for act (gemini-3.5-flash, medium reasoning). Balanced default -- this is what the root ritual-config.json mirrors.",
 
   "bmad-create-story": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
   "bmad-epic-readiness-check": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },

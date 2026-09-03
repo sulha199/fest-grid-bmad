@@ -1,6 +1,6 @@
 {
-  "_preset": "default (mirrors config-presets/mixed-medium.json)",
-  "_description": "Active default when no --config override is given. See config-presets/ for low/medium/max presets across the mixed and all-claude variants.",
+  "_preset": "all-claude-medium",
+  "_description": "Everything routes to Claude (sonnet-5, medium effort) -- no Cline/Gemini/Vertex involved at all. Balanced cost/capability in the all-claude variant.",
 
   "bmad-create-story": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
   "bmad-epic-readiness-check": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
@@ -8,7 +8,6 @@
   "bmad-architecture": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
   "bmad-prd": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
   "bmad-code-review": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
-
-  "bmad-dev-story": { "runtime": "cline", "gcpRegion": "asia-southeast1", "model": "gemini-3.5-flash", "reasoningEffort": "medium" },
-  "bmad-quick-dev": { "runtime": "cline", "gcpRegion": "asia-southeast1", "model": "gemini-3.5-flash", "reasoningEffort": "medium" }
+  "bmad-dev-story": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
+  "bmad-quick-dev": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" }
 }

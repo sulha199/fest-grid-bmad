@@ -1,0 +1,14 @@
+{
+  "_preset": "mixed-low",
+  "_description": "Claude for plan+review (haiku-4-5, cheapest Claude tier), Gemini/Cline for act (gemini-3.5-flash, low reasoning). Lowest cost, lowest capability -- for cheap/low-stakes stories or dry-run smoke tests.",
+
+  "bmad-create-story": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
+  "bmad-epic-readiness-check": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
+  "bmad-correct-course": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
+  "bmad-architecture": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
+  "bmad-prd": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
+  "bmad-code-review": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
+
+  "bmad-dev-story": { "runtime": "cline", "gcpRegion": "asia-southeast1", "model": "gemini-3.5-flash", "reasoningEffort": "low" },
+  "bmad-quick-dev": { "runtime": "cline", "gcpRegion": "asia-southeast1", "model": "gemini-3.5-flash", "reasoningEffort": "low" }
+}
