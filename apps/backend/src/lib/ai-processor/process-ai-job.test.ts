@@ -1,7 +1,7 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, subscriptions, users } from '@festgrid/database';
+import { socialMediaAccountProfiles, subscriptions, users, posts } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import {
   processAiJob,
@@ -863,6 +863,304 @@ test('processAiJob orchestrator tests', async (t) => {
       .update(socialMediaAccountProfiles)
       .set({ defaultLocation: null })
       .where(eq(socialMediaAccountProfiles.id, profile.id));
+  });
+
+  await t.test('Case M-1: CURATOR_GUIDE account without image-storage opt-in skips image rehost and clears post content on successful enqueue', async () => {
+    const [curatorProfile] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({
+        accountId: 'curator-acc-' + Date.now(),
+        platform: 'instagram',
+        displayName: 'Curator Guide Profile',
+        username: 'curator_guide_' + Date.now(),
+        accountType: 'CURATOR_GUIDE',
+        isImageStorageOptedIn: false,
+      })
+      .returning();
+
+    const testPostId = crypto.randomUUID();
+    const [testPost] = await db
+      .insert(posts)
+      .values({
+        id: testPostId,
+        accountId: curatorProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://test.com/curator-1',
+        content: 'Original curator caption',
+        publishedAt: new Date(),
+      })
+      .returning();
+
+    const originalFetch = globalThis.fetch;
+    t.after(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    globalThis.fetch = async () => {
+      return {
+        ok: true,
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null)
+        },
+        arrayBuffer: async () => Buffer.from('mock-bytes-123')
+      } as any;
+    };
+
+    const message: ProcessingJobMessage = {
+      postId: testPost.id,
+      accountId: curatorProfile.id,
+      content: 'Original curator caption',
+      imageUrl: 'https://test.com/img.png',
+      postUrl: 'https://test.com/curator-1',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let rehostCalled = false;
+    let markPostExtractedCalled = false;
+    let sendSqsMessageCalled = false;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          eventName: 'Curator Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: '2026-08-15'
+            }
+          ],
+          confidenceScore: 0.95
+        })
+      };
+    });
+
+    setSendSqsMessage(async () => {
+      sendSqsMessageCalled = true;
+    });
+
+    setMarkPostExtractedSeam(async () => {
+      markPostExtractedCalled = true;
+      return {} as any;
+    });
+
+    setRehostPostImageSeam(async () => {
+      rehostCalled = true;
+      return 'https://cdn.test.com/posts/rehost-fail-not-expected';
+    });
+
+    try {
+      await processAiJob(message);
+
+      assert.strictEqual(rehostCalled, false, 'Should skip image re-hosting for curator guide without opt-in');
+      assert.ok(sendSqsMessageCalled, 'Should successfully extract and enqueue event message');
+      assert.ok(markPostExtractedCalled, 'Should mark post extracted');
+
+      const [updatedPost] = await db.select().from(posts).where(eq(posts.id, testPost.id)).limit(1);
+      assert.strictEqual(updatedPost.content, null, 'Post content should be cleared for curator guide');
+    } finally {
+      await db.delete(posts).where(eq(posts.id, testPost.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, curatorProfile.id));
+    }
+  });
+
+  await t.test('Case M-2: CURATOR_GUIDE account with image-storage opt-in performs image rehost and clears post content on successful enqueue', async () => {
+    const [curatorProfile] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({
+        accountId: 'curator-opt-acc-' + Date.now(),
+        platform: 'instagram',
+        displayName: 'Curator Guide Opted-In Profile',
+        username: 'curator_guide_opt_' + Date.now(),
+        accountType: 'CURATOR_GUIDE',
+        isImageStorageOptedIn: true,
+      })
+      .returning();
+
+    const testPostId = crypto.randomUUID();
+    const [testPost] = await db
+      .insert(posts)
+      .values({
+        id: testPostId,
+        accountId: curatorProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://test.com/curator-2',
+        content: 'Original curator caption',
+        publishedAt: new Date(),
+      })
+      .returning();
+
+    const originalFetch = globalThis.fetch;
+    t.after(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    globalThis.fetch = async () => {
+      return {
+        ok: true,
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null)
+        },
+        arrayBuffer: async () => Buffer.from('mock-bytes-123')
+      } as any;
+    };
+
+    const message: ProcessingJobMessage = {
+      postId: testPost.id,
+      accountId: curatorProfile.id,
+      content: 'Original curator caption',
+      imageUrl: 'https://test.com/img.png',
+      postUrl: 'https://test.com/curator-2',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let rehostCalled = false;
+    let markPostExtractedCalled = false;
+    let sendSqsMessageCalled = false;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          eventName: 'Curator Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: '2026-08-15'
+            }
+          ],
+          confidenceScore: 0.95
+        })
+      };
+    });
+
+    setSendSqsMessage(async () => {
+      sendSqsMessageCalled = true;
+    });
+
+    setMarkPostExtractedSeam(async () => {
+      markPostExtractedCalled = true;
+      return {} as any;
+    });
+
+    setRehostPostImageSeam(async () => {
+      rehostCalled = true;
+      return 'https://cdn.test.com/posts/rehost-success';
+    });
+
+    try {
+      await processAiJob(message);
+
+      assert.strictEqual(rehostCalled, true, 'Should perform image re-hosting for opted-in curator guide');
+      assert.ok(sendSqsMessageCalled, 'Should successfully extract and enqueue event message');
+      assert.ok(markPostExtractedCalled, 'Should mark post extracted');
+
+      const [updatedPost] = await db.select().from(posts).where(eq(posts.id, testPost.id)).limit(1);
+      assert.strictEqual(updatedPost.content, null, 'Post content should still be cleared for opted-in curator guide');
+    } finally {
+      await db.delete(posts).where(eq(posts.id, testPost.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, curatorProfile.id));
+    }
+  });
+
+  await t.test('Case M-3: CURATOR_GUIDE account without image-storage opt-in skips image rehost and clears post content on isEvent: false path', async () => {
+    const [curatorProfile] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({
+        accountId: 'curator-fail-acc-' + Date.now(),
+        platform: 'instagram',
+        displayName: 'Curator Guide Fail Profile',
+        username: 'curator_guide_fail_' + Date.now(),
+        accountType: 'CURATOR_GUIDE',
+        isImageStorageOptedIn: false,
+      })
+      .returning();
+
+    const testPostId = crypto.randomUUID();
+    const [testPost] = await db
+      .insert(posts)
+      .values({
+        id: testPostId,
+        accountId: curatorProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://test.com/curator-3',
+        content: 'Original curator caption',
+        publishedAt: new Date(),
+      })
+      .returning();
+
+    const originalFetch = globalThis.fetch;
+    t.after(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    globalThis.fetch = async () => {
+      return {
+        ok: true,
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null)
+        },
+        arrayBuffer: async () => Buffer.from('mock-bytes-123')
+      } as any;
+    };
+
+    const message: ProcessingJobMessage = {
+      postId: testPost.id,
+      accountId: curatorProfile.id,
+      content: 'Original curator caption',
+      imageUrl: 'https://test.com/img.png',
+      postUrl: 'https://test.com/curator-3',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let rehostCalled = false;
+    let markPostExtractedCalled = false;
+    let sendSqsMessageCalled = false;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: false,
+          eventName: '',
+          types: [],
+          categories: [],
+          schedules: [],
+          confidenceScore: 0.99
+        })
+      };
+    });
+
+    setSendSqsMessage(async () => {
+      sendSqsMessageCalled = true;
+    });
+
+    setMarkPostExtractedSeam(async () => {
+      markPostExtractedCalled = true;
+      return {} as any;
+    });
+
+    setRehostPostImageSeam(async () => {
+      rehostCalled = true;
+      return 'https://cdn.test.com/posts/rehost-fail';
+    });
+
+    try {
+      await processAiJob(message);
+
+      assert.strictEqual(rehostCalled, false, 'Should not rehost image on isEvent: false');
+      assert.strictEqual(sendSqsMessageCalled, false, 'Should not enqueue event message');
+      assert.ok(markPostExtractedCalled, 'Should mark post extracted');
+
+      const [updatedPost] = await db.select().from(posts).where(eq(posts.id, testPost.id)).limit(1);
+      assert.strictEqual(updatedPost.content, null, 'Post content should be cleared for curator guide on non-event path');
+    } finally {
+      await db.delete(posts).where(eq(posts.id, testPost.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, curatorProfile.id));
+    }
   });
 });
 

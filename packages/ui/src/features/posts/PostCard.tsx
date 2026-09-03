@@ -61,6 +61,7 @@ export function PostCard({
   const defaultLabels = {
     imageFallbackAlt: 'No image available',
     loading: 'Loading post details',
+    contentPlaceholder: '[Caption cleared for privacy compliance]',
     ...labels,
   };
 
@@ -152,8 +153,8 @@ export function PostCard({
 
       {/* Post Text Content */}
       <div className="flex-1 flex flex-col justify-between">
-        <p className="text-sm text-foreground whitespace-pre-wrap break-words line-clamp-6">
-          {post.content}
+        <p className={`text-sm whitespace-pre-wrap break-words line-clamp-6 ${!post.content ? 'text-muted-foreground italic' : 'text-foreground'}`}>
+          {post.content || defaultLabels.contentPlaceholder}
         </p>
 
         {/* Footer section with Date & Link */}

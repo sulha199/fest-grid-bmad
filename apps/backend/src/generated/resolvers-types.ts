@@ -699,7 +699,7 @@ export type PayloadContext = {
 export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
-  content: Scalars['String']['output'];
+  content?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   isExtracted: Scalars['Boolean']['output'];
@@ -1740,7 +1740,7 @@ export type PayloadContextResolvers<ContextType = GraphQLContext, ParentType ext
 
 export type PostResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Post'] = ResolversParentTypes['Post']> = ResolversObject<{
   accountId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  content?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  content?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   isExtracted?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;

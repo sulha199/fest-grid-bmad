@@ -38,6 +38,10 @@ export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {
           and(
             eq(socialMediaAccountProfiles.accountType, 'ORGANIZER_VENUE_EVENT'),
             eq(socialMediaAccountProfiles.accountTypeStatus, 'CONFIRMED')
+          ),
+          and(
+            eq(socialMediaAccountProfiles.accountType, 'CURATOR_GUIDE'),
+            eq(socialMediaAccountProfiles.accountTypeStatus, 'CONFIRMED')
           )
         )
       )

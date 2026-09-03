@@ -3,6 +3,7 @@ import { Post } from '@festgrid/shared-types';
 export interface PostCardLabels {
   imageFallbackAlt?: string;
   loading?: string;
+  contentPlaceholder?: string;
 }
 
 export interface PostCardPublisher {

@@ -302,6 +302,13 @@
       "when": 1788397788652,
       "tag": "0042_tired_marvel_zombies",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1788401127619,
+      "tag": "0043_faulty_electro",
+      "breakpoints": true
     }
   ]
 }

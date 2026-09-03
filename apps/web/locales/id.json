@@ -251,7 +251,8 @@
     "gatedCuratorDescription": "Pelacakan untuk jenis akun ini segera hadir. Akun kurator dan panduan lokal akan ditahan hingga saluran minimisasi tersedia.",
     "gatedAwaitingApprovalTooltip": "Akun ini sedang ditinjau",
     "gatedAwaitingApprovalTitle": "Klasifikasi Tertunda",
-    "gatedAwaitingApprovalDescription": "Akun ini sedang menunggu peninjauan moderasi."
+    "gatedAwaitingApprovalDescription": "Akun ini sedang menunggu peninjauan moderasi.",
+    "nulledContentPlaceholder": "[Keterangan dihapus demi kepatuhan privasi]"
   },
   "DiscoveryPage": {
     "title": "Temukan Acara",
