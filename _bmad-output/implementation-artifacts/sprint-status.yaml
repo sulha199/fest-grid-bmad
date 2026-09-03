@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-03T00:00:00Z
+last_updated: 2026-09-04T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1241,9 +1241,22 @@ development_status:
   # it, but declined threading hasPrivateContact through the corrections/submitCorrection
   # round-trip itself (unnecessary to close the leak). See story file's Dev Notes ->
   # Scope Extension Decision.
-  3-6i-classify-and-discard-private-contact-info-during-ai-extraction: ready-for-dev
-  3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: ready-for-dev
-  3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression: backlog
+  3-6i-classify-and-discard-private-contact-info-during-ai-extraction: in-progress
+  3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: in-progress
+  # story created 2026-09-04 via bmad-create-story. Epic-3-readiness.md predates this
+  # story (stories_covered excludes 3.6k) so Gates 1/2/3 were re-run fresh. Gate 1 found
+  # a scoping gap (corrections.status has no AWAITING_VERIFICATION-equivalent value, no
+  # column for the guardian-permission checkbox) -- resolved within this story's own
+  # scope (Tasks 4-8), not split into a prerequisite, since it's this story's own natural
+  # DB/resolver/GraphQL/UI surface (matches Story 4.3a's own auto_resolved precedent).
+  # Gates 2/3: no gap. Two design decisions confirmed with the user: (1) an
+  # awaiting_verification correction still writes non-performer data immediately, only
+  # performers suppressed (no Tier 2 reviewer exists yet to ever un-hold a fully-blocked
+  # correction); (2) awaiting_verification is a new distinct correction_status enum value,
+  # not a reuse of the unused 'pending' default. User also required an explicit AC3: the
+  # UI must visibly explain to the submitting user why performers were withheld, not
+  # silently suppress them. See story file's Dev Notes for full reasoning.
+  3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression: ready-for-dev
   # added 2026-08-10 via bmad-create-story Gate 2 finding (Freya persona, run fresh
   # since epic-3-readiness.md only swept Gate 1/3) while drafting Story 3.7: Feed's
   # planned calendar view would be a third near-byte-for-byte duplicate of
