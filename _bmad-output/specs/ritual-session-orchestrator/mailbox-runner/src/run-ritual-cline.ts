@@ -119,7 +119,7 @@ import { z } from "zod";
 import { ClineCore, createTool } from "@cline/sdk";
 import type { CoreSessionEvent, AgentToolContext } from "@cline/core";
 import { ensureMailboxDirs, writePendingRequest, pollForAnswer, markResolved } from "./mailbox.js";
-import { SKILL_DEFAULTS, type ReasoningEffort } from "./skill-config.js";
+import { getSkillConfig, knownSkills, type ReasoningEffort } from "./skill-config.js";
 
 interface Args {
   prompt: string;
@@ -142,15 +142,18 @@ function parseArgs(argv: string[]): Args {
     return i >= 0 ? argv[i + 1] : undefined;
   };
 
-  // --skill looks up SKILL_DEFAULTS (region/model/reasoning) and, combined
-  // with --story, auto-composes --prompt/--label so a caller driving a batch
-  // doesn't retype the same skill invocation shape per story. Any explicit
-  // flag below still wins over what --skill would have supplied.
+  // --skill looks up ../ritual-config.json (routing/region/model/reasoning)
+  // and, combined with --story, auto-composes --prompt/--label so a caller
+  // driving a batch doesn't retype the same skill invocation shape per
+  // story. Any explicit flag below still wins over what --skill supplied.
   const skill = get("--skill");
   const story = get("--story");
-  const skillDefaults = skill ? SKILL_DEFAULTS[skill] : undefined;
-  if (skill && !skillDefaults) {
-    throw new Error(`Unknown --skill "${skill}" -- no entry in skill-config.ts's SKILL_DEFAULTS. Known skills: ${Object.keys(SKILL_DEFAULTS).join(", ")}`);
+  const skillConfig = skill ? getSkillConfig(skill) : undefined;
+  if (skill && !skillConfig) {
+    throw new Error(`Unknown --skill "${skill}" -- no entry in ritual-config.json. Known skills: ${knownSkills().join(", ")}`);
+  }
+  if (skillConfig && skillConfig.runtime !== "cline") {
+    throw new Error(`--skill "${skill}" is configured for runtime "${skillConfig.runtime}" in ritual-config.json, not "cline" -- use run-ritual.ts instead (or dispatch-ritual.ts, which reads this automatically).`);
   }
 
   const prompt = get("--prompt") ?? (skill && story ? `/${skill} ${story}` : undefined);
@@ -158,11 +161,11 @@ function parseArgs(argv: string[]): Args {
   const label = get("--label") ?? (skill && story ? `${story}/${skill}` : undefined);
   const cwd = get("--cwd") ?? process.cwd();
   const explicitProviderId = get("--provider");
-  const modelId = get("--model") ?? skillDefaults?.modelId;
-  const reasoningEffort = (get("--reasoning") as ReasoningEffort | undefined) ?? skillDefaults?.reasoningEffort;
+  const modelId = get("--model") ?? skillConfig?.model;
+  const reasoningEffort = (get("--reasoning") as ReasoningEffort | undefined) ?? skillConfig?.reasoningEffort;
   const apiKeyEnv = get("--api-key-env");
   const gcpProject = get("--gcp-project") ?? process.env.GOOGLE_CLOUD_PROJECT;
-  const gcpRegion = get("--gcp-region") ?? skillDefaults?.gcpRegion;
+  const gcpRegion = get("--gcp-region") ?? skillConfig?.gcpRegion;
   const vertex = !apiKeyEnv && gcpProject && gcpRegion ? { gcpProject, gcpRegion } : undefined;
 
   // Confirmed by a real run against live GCP credentials: Vertex mode needs

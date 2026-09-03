@@ -1,33 +1,58 @@
 /**
- * Per-skill defaults for Cline-driven ("act" mode) ritual children -- see
- * ../README.md's "Model/provider per mode" section. All Vertex-mode (no
- * apiKey, ambient GCP ADC) per the user's confirmed local setup: cline-cli/
- * gemini-cli already authenticate this way against GOOGLE_CLOUD_PROJECT
- * (.env), so run-ritual-cline.ts needs no separate credentials for these.
+ * Loader for ../ritual-config.json -- the single, plain-JSON, human-editable
+ * file that decides both AI/CLI routing (which runtime a skill runs under)
+ * and its model/reasoning settings. Previously this was a hardcoded object
+ * in this very file (TypeScript source, not something you'd want to hand-edit
+ * to change a model) -- moved to real config specifically so routing/model/
+ * reasoning can be changed without touching code.
  *
- * Not a hard permission boundary (see README: neither runtime exposes a
- * per-skill allow/deny list) -- this is a convenience lookup so a caller
- * doesn't have to remember/retype region/model/reasoning per skill. Explicit
- * CLI flags on run-ritual-cline.ts always override whatever's looked up here.
+ * Not a hard permission boundary (see README: neither Claude Code nor Cline
+ * exposes a per-skill allow/deny list) -- this is what decides which script
+ * dispatch-ritual.ts invokes and what it passes it, not an enforced sandbox.
  */
 
-export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-export interface SkillDefaults {
-  gcpRegion: string;
-  modelId: string;
-  reasoningEffort: ReasoningEffort;
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+export type ClaudeEffort = "low" | "medium" | "high" | "xhigh" | "max";
+
+export interface ClaudeSkillConfig {
+  runtime: "claude";
+  model: string;
+  effort?: ClaudeEffort;
 }
 
-export const SKILL_DEFAULTS: Record<string, SkillDefaults> = {
-  "bmad-dev-story": {
-    gcpRegion: "asia-southeast1",
-    modelId: "gemini-3.5-flash",
-    reasoningEffort: "medium",
-  },
-  "bmad-code-review": {
-    gcpRegion: "global",
-    modelId: "gemini-3.1-pro-preview",
-    reasoningEffort: "high",
-  },
-};
+export interface ClineSkillConfig {
+  runtime: "cline";
+  gcpRegion: string;
+  model: string;
+  reasoningEffort?: ReasoningEffort;
+}
+
+export type SkillConfig = ClaudeSkillConfig | ClineSkillConfig;
+
+const CONFIG_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "ritual-config.json");
+
+let cache: Record<string, SkillConfig> | undefined;
+
+/** Reads ritual-config.json from disk once and caches per-process -- a long
+ *  batch run doesn't need to notice a config edit mid-run, but each new
+ *  run-ritual.ts/run-ritual-cline.ts/dispatch-ritual.ts invocation is a fresh
+ *  process, so an edit always takes effect on the next story dispatched. */
+export function loadSkillConfigs(): Record<string, SkillConfig> {
+  if (!cache) {
+    const raw = readFileSync(CONFIG_PATH, "utf-8");
+    cache = JSON.parse(raw) as Record<string, SkillConfig>;
+  }
+  return cache;
+}
+
+export function getSkillConfig(skill: string): SkillConfig | undefined {
+  return loadSkillConfigs()[skill];
+}
+
+export function knownSkills(): string[] {
+  return Object.keys(loadSkillConfigs());
+}

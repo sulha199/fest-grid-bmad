@@ -95,16 +95,30 @@ Steps 1, 3, and 4 are now real, tested scripts (`resolve-targets.ts`, `verify-st
 
 Both scripts are read-only against `epics.md`/`sprint-status.yaml` — writing them stays the real `bmad-*` skills' job, same separation of concerns as everywhere else in this design. `bmad-artifacts.ts` (shared by both) also had a real CRLF-line-ending bug found and fixed doing this: `epics.md` is CRLF, and JS regex `.` never matches `\r` (a LineTerminator), so a naive `split("\n")` silently failed to match a single story header until this was found by testing against the real file, not assumed from the design.
 
-## Plan/Act mode and model routing
+## Plan/Act mode, model routing, and config
 
-Maps onto the distinction the project already enforces in `CLAUDE.md` ("Planning Isolation": planning skills write only to `_bmad-output/`; implementation skills touch `apps/`/`packages/`).
+**`ritual-config.json`** (mailbox-runner's root, plain JSON, hand-editable — not TypeScript source) is the single file that decides AI/CLI routing, model, and reasoning level per `bmad-*` skill:
 
-| Mode | Skills | Runtime today |
-|---|---|---|
-| **plan** | `bmad-create-story`, `bmad-epic-readiness-check`, `bmad-correct-course`, `bmad-architecture`, `bmad-prd` | `run-ritual.ts` (Claude Agent SDK) — `--model` flag routes per story/skill; mailbox relay handles any question. **Built and verified.** |
-| **act** | `bmad-dev-story`, `bmad-code-review`, `bmad-quick-dev` | **Built and fully verified live**, both the happy path and the model-gets-it-wrong-then-recovers path — see `run-ritual-cline.ts`'s file header for the full trail (correct provider id, the runtime-required-but-undeclared config fields, the `ask_user_question` schema-validation guard, and the real ~10-retry self-correction observed from `gemini-3.5-flash`). `--skill bmad-dev-story` / `--skill bmad-code-review` resolve region/model/reasoning automatically via `skill-config.ts`. |
+```json
+{
+  "bmad-create-story": { "runtime": "claude", "model": "claude-opus-5", "effort": "high" },
+  "bmad-dev-story":    { "runtime": "cline",  "gcpRegion": "asia-southeast1", "model": "gemini-3.5-flash", "reasoningEffort": "medium" },
+  "bmad-code-review":  { "runtime": "cline",  "gcpRegion": "global",          "model": "gemini-3.1-pro-preview", "reasoningEffort": "high" }
+}
+```
 
-No per-skill allow/deny list exists at the runtime level in either Claude Code or Cline (checked) — mode selection is about *which runtime/child you invoke*, not a permission boundary within one.
+`runtime: "claude"` routes to `run-ritual.ts` (Claude Agent SDK, `effort` maps to the SDK's own documented `effort` option — confirmed present, `low`-`max`); `runtime: "cline"` routes to `run-ritual-cline.ts` (Vertex ADC, `reasoningEffort` maps to Cline's `CoreModelConfig.reasoningEffort`). Both scripts read this same file via `skill-config.ts`'s loader — change a model or reasoning level there, no code edit needed, and it takes effect on the next story dispatched (each invocation is a fresh process, so nothing needs a restart or a cache-bust).
+
+Maps onto the distinction the project already enforces in `CLAUDE.md` ("Planning Isolation": planning skills write only to `_bmad-output/`; implementation skills touch `apps/`/`packages/`) — every `plan`-mode skill in the file today routes to `claude`, every `act`-mode skill routes to `cline`, but that's a convention the config expresses, not a hard rule it enforces (no per-skill allow/deny list exists at the runtime level in either Claude Code or Cline, checked).
+
+**`dispatch-ritual.ts`** is the one command a caller actually needs — it reads `ritual-config.json` for `--skill`, re-execs the correct underlying script, and passes everything else through:
+
+```bash
+npx tsx src/dispatch-ritual.ts --skill bmad-create-story --story 3.6k --mailbox ../mailbox --cwd <repo-root>
+npx tsx src/dispatch-ritual.ts --skill bmad-dev-story --story 3.6h --mailbox ../mailbox --cwd <repo-root>
+```
+
+No need to remember which of the two runtimes a given skill maps to. **Verified live, 2026-09-03**: correct routing to each runtime, correct model/region/reasoning resolved purely from the config file. Found and fixed a real bug doing this: the first version spawned `npx tsx ...` with `{shell: true}`, which silently truncated any multi-word `--prompt "..."` down to its first word (Windows' cmd.exe re-tokenizes a shell-joined argv array on its own whitespace rules, discarding the original quoting) — fixed by spawning `tsx`'s own CLI entry point directly via `process.execPath`, which needs no shell and so nothing re-tokenizes the arguments.
 
 ## Resume
 

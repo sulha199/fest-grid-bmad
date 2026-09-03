@@ -1,0 +1,11 @@
+{
+  "bmad-create-story": { "runtime": "claude", "model": "claude-opus-5", "effort": "high" },
+  "bmad-epic-readiness-check": { "runtime": "claude", "model": "claude-opus-5", "effort": "high" },
+  "bmad-correct-course": { "runtime": "claude", "model": "claude-opus-5", "effort": "high" },
+  "bmad-architecture": { "runtime": "claude", "model": "claude-opus-5", "effort": "high" },
+  "bmad-prd": { "runtime": "claude", "model": "claude-opus-5", "effort": "high" },
+
+  "bmad-dev-story": { "runtime": "cline", "gcpRegion": "asia-southeast1", "model": "gemini-3.5-flash", "reasoningEffort": "medium" },
+  "bmad-code-review": { "runtime": "cline", "gcpRegion": "global", "model": "gemini-3.1-pro-preview", "reasoningEffort": "high" },
+  "bmad-quick-dev": { "runtime": "cline", "gcpRegion": "asia-southeast1", "model": "gemini-3.5-flash", "reasoningEffort": "medium" }
+}

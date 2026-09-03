@@ -35,6 +35,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { ensureMailboxDirs, writePendingRequest, pollForAnswer, markResolved } from "./mailbox.js";
+import { getSkillConfig, knownSkills, type ClaudeEffort } from "./skill-config.js";
 
 interface Args {
   prompt: string;
@@ -42,6 +43,7 @@ interface Args {
   label: string;
   cwd: string;
   model?: string;
+  effort?: ClaudeEffort;
   resume?: string;
   resumeLabel?: string;
 }
@@ -51,23 +53,39 @@ function parseArgs(argv: string[]): Args {
     const i = argv.indexOf(flag);
     return i >= 0 ? argv[i + 1] : undefined;
   };
-  const prompt = get("--prompt");
+
+  // --skill looks up ../ritual-config.json (routing/model/effort) and, with
+  // --story, auto-composes --prompt/--label -- same convenience as the Cline
+  // side. Any explicit flag below still wins over what --skill supplied.
+  const skill = get("--skill");
+  const story = get("--story");
+  const skillConfig = skill ? getSkillConfig(skill) : undefined;
+  if (skill && !skillConfig) {
+    throw new Error(`Unknown --skill "${skill}" -- no entry in ritual-config.json. Known skills: ${knownSkills().join(", ")}`);
+  }
+  if (skillConfig && skillConfig.runtime !== "claude") {
+    throw new Error(`--skill "${skill}" is configured for runtime "${skillConfig.runtime}" in ritual-config.json, not "claude" -- use run-ritual-cline.ts instead (or dispatch-ritual.ts, which reads this automatically).`);
+  }
+
+  const prompt = get("--prompt") ?? (skill && story ? `/${skill} ${story}` : undefined);
   const mailbox = get("--mailbox");
-  const label = get("--label");
+  const label = get("--label") ?? (skill && story ? `${story}/${skill}` : undefined);
   const cwd = get("--cwd") ?? process.cwd();
-  const model = get("--model");
+  const model = get("--model") ?? skillConfig?.model;
+  const effort = (get("--effort") as ClaudeEffort | undefined) ?? skillConfig?.effort;
   const resume = get("--resume");
   const resumeLabel = get("--resume-label");
   if (!prompt || !mailbox || !label) {
     throw new Error(
-      "Required: --prompt <text> --mailbox <dir> --label <string> [--cwd <path>] [--model <id>] " +
+      "Required: --mailbox <dir> --label <string> (or --skill <name> --story <id> to derive prompt/label), " +
+        "[--cwd <path>] [--model <id>] [--effort <level>] " +
         "[--resume <session-id> | --resume-label <label, looked up from <mailbox>/sessions/>]"
     );
   }
   if (resume && resumeLabel) {
     throw new Error("Pass either --resume <session-id> or --resume-label <label>, not both.");
   }
-  return { prompt, mailbox, label, cwd, model, resume, resumeLabel };
+  return { prompt, mailbox, label, cwd, model, effort, resume, resumeLabel };
 }
 
 function sessionFilePath(mailboxDir: string, label: string): string {
@@ -96,7 +114,7 @@ async function main() {
 
   const resumeSessionId = args.resume ?? (args.resumeLabel ? await loadSessionId(args.mailbox, args.resumeLabel) : undefined);
 
-  console.log(`[run-ritual] label="${args.label}" model=${args.model ?? "(session default)"} cwd=${args.cwd}`);
+  console.log(`[run-ritual] label="${args.label}" model=${args.model ?? "(session default)"} effort=${args.effort ?? "(default)"} cwd=${args.cwd}`);
   console.log(`[run-ritual] prompt: ${args.prompt}`);
   if (resumeSessionId) console.log(`[run-ritual] resuming session_id=${resumeSessionId}`);
 
@@ -110,6 +128,7 @@ async function main() {
       options: {
         cwd: args.cwd,
         ...(args.model ? { model: args.model } : {}),
+        ...(args.effort ? { effort: args.effort } : {}),
         ...(resumeSessionId ? { resume: resumeSessionId } : {}),
         permissionMode: "acceptEdits",
         canUseTool: async (toolName, input) => {
