@@ -31,9 +31,19 @@
  * `sprint-change-proposal-2026-09-02.md`)"), in epics.md file order. This is
  * a filename-mention heuristic, not a formal marker -- it only works because
  * that citation convention has been consistent in this repo so far.
+ *
+ * --save-state <path> additionally persists this run's resolution + computed
+ * order to a JSON file -- for batch-level resume after the whole batch gets
+ * paused (not a single child dying mid-flight; see run-ritual.ts's
+ * --resume/--resume-label for that narrower case). Feed that file to
+ * resume-batch.ts later to get back just what's still actually pending,
+ * checked against real sprint-status.yaml state rather than trusted from
+ * the snapshot -- this project's own batches have repeatedly drifted from
+ * parallel activity between checks.
  */
 
 import path from "node:path";
+import { writeFile } from "node:fs/promises";
 import { loadSprintStatus, loadEpicsSections, findStatusEntry, listStoryKeysForEpic, dashKeyToDotted, type EpicStorySection } from "./bmad-artifacts.js";
 
 interface Args {
@@ -43,6 +53,7 @@ interface Args {
   epicsFile: string;
   implementationArtifacts: string;
   json: boolean;
+  saveState?: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -59,6 +70,7 @@ function parseArgs(argv: string[]): Args {
   const epicsFile = get("--epics-file");
   const implementationArtifacts = get("--implementation-artifacts");
   const json = argv.includes("--json");
+  const saveState = get("--save-state");
 
   if (!epicsFile || !implementationArtifacts) {
     throw new Error("Required: --epics-file <path> --implementation-artifacts <dir>, plus exactly one of --stories <a,b,c> | --epic <N> | --since-proposal <filename-or-path>");
@@ -67,7 +79,7 @@ function parseArgs(argv: string[]): Args {
   if (modesGiven !== 1) {
     throw new Error("Pass exactly one of --stories, --epic, --since-proposal.");
   }
-  return { stories, epic, sinceProposal, epicsFile, implementationArtifacts, json };
+  return { stories, epic, sinceProposal, epicsFile, implementationArtifacts, json, saveState };
 }
 
 function resolveInitialTargets(args: Args, devStatus: Record<string, string>, sections: Map<string, EpicStorySection>): string[] {
@@ -160,6 +172,26 @@ async function main() {
 
   checkOutOfSetDependencies(targets, sections, devStatus);
   const ordered = topoSort(targets, sections);
+
+  if (args.saveState) {
+    await writeFile(
+      args.saveState,
+      JSON.stringify(
+        {
+          createdAt: new Date().toISOString(),
+          mode: args.stories ? "stories" : args.epic ? "epic" : "since-proposal",
+          modeValue: args.stories ?? args.epic ?? args.sinceProposal,
+          epicsFile: path.resolve(args.epicsFile),
+          implementationArtifacts: path.resolve(args.implementationArtifacts),
+          order: ordered,
+        },
+        null,
+        2
+      ),
+      "utf-8"
+    );
+    console.error(`[resolve-targets] Batch state saved to ${args.saveState} -- pass it to resume-batch.ts if this run gets paused.`);
+  }
 
   if (args.json) {
     console.log(JSON.stringify(ordered));

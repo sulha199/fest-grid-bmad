@@ -106,6 +106,20 @@ Maps onto the distinction the project already enforces in `CLAUDE.md` ("Planning
 
 No per-skill allow/deny list exists at the runtime level in either Claude Code or Cline (checked) — mode selection is about *which runtime/child you invoke*, not a permission boundary within one.
 
+## Resume
+
+Two different problems, two different mechanisms — don't conflate them:
+
+**A single child dying mid-flight** (process killed, machine restart, a crash while genuinely waiting on a mailbox answer) — Claude side only. `run-ritual.ts` captures its own real `session_id` from the init message (not just the final result — by the time that would arrive, it's too late to have saved anything) and persists it to `<mailbox>/sessions/<label>.json` before doing any real work. Pass `--resume <session-id>` or `--resume-label <label>` (looked up from that file) to continue the *same* conversation via the SDK's documented `resume` option.
+
+**Verified live, 2026-09-03** — genuinely killed a running child mid-question (`taskkill /T /F` on its full process tree, not a graceful stop) after it had been told a secret and asked a question, then resumed it with a fresh invocation: the session ID stayed identical (true resume, not a new session), it correctly re-issued the interrupted tool call, and its final answer correctly recalled the pre-crash secret ("WATERMELON42") alongside the newly-answered question — real proof of conversation continuity across a real process kill, not just a restart.
+
+**Cline has no equivalent** — confirmed by reading `@cline/sdk`'s actual types (`StartSessionInput`, `ClineCoreStartConfig`) directly: no resume/continue-by-ID field anywhere. A killed Cline child loses its conversation; there's nothing to reconnect to.
+
+**A whole batch getting paused** (the far more common case in practice — this exact batch has been paused and resumed several times) — provider-agnostic, works regardless of which runtime any given story used. `resolve-targets.ts --save-state <path>` persists the resolution mode and computed order; `resume-batch.ts --state <path>` later re-checks each story's *real* current `sprint-status.yaml` status (never trusts the saved snapshot as truth — this project's own batches have repeatedly drifted from parallel activity between checks) and prints just what's still `backlog`, in original order.
+
+**Verified live, 2026-09-03** against this project's real, actively-drifting data: saved a 6-story batch state, then `resume-batch.ts` correctly recognized that 3.6h/3.6i/3.6j had moved on since the snapshot (advanced by a parallel session, not this one) and returned exactly `[3.6k, 3.7c, 3.7d]` — independently matching what manual inspection had already confirmed.
+
 ## Concurrency: sequential only in v1
 
 See `spec-ai-dev-orchestrator/state-machines.md`'s "Concurrency Policy (v1)" section (2026-09-03) for the full reasoning — this effort inherits the same rule rather than re-deriving it: a downstream story drafted against an upstream story's stale state is a correctness bug regardless of execution substrate, and `sprint-status.yaml`/`epics.md` are shared-write hazards either way. The mailbox mechanism itself doesn't structurally prevent running several children at once (the main session would just relay whichever one raises a question first — its own `AskUserQuestion` calls are naturally serialized anyway), but dispatch stays one-story-at-a-time until the dependency-graph-eligible-parallelism work described in that section exists.
