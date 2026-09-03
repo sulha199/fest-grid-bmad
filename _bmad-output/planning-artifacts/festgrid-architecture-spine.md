@@ -307,6 +307,36 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+### AD-13: Multi-Image (Carousel) Extraction Is Batched, Not Sequential
+
+*   **Binds:** Story 3.3e (`posts.additionalImageUrls` capture) and Story 3.6l (`build-gemini-request.ts`'s
+    multi-image request construction, `process-ai-job.ts`'s completeness logging) — PRD §3.7/§3.8, FR104,
+    amended 2026-09-03.
+*   **Prevents:** A sequential "call Gemini again on image N+1, N+2…" re-trigger loop for carousel posts;
+    treating `Post.additionalImageUrls` as display-facing or durable (conflating it with `Post.imageUrl`'s
+    AD-12 re-hosting treatment); an unbounded per-post image count reaching the AI Processor Lambda's fixed
+    timeout (the same class of bug Story 3.4f fixed for Apify's scrape paths).
+*   **Rule:**
+    1.  **One request per post, always.** When a post has additional images beyond its cover
+        (`Post.additionalImageUrls`, Story 3.3e), extraction sends the cover image plus up to
+        `MAX_CAROUSEL_IMAGES` (default 5, env-configurable) additional images as multiple `inlineData`
+        parts of the **same** Gemini request — never as separate sequential requests. Confirmed via
+        research (2026-09-03): Gemini's free-tier quota is bound by RPM/RPD (request count) *and* TPM
+        (token throughput) simultaneously; batching avoids multiplying request count per post (the
+        RPM/RPD-expensive dimension) while costing the same TPM as separate calls would.
+    2.  **Extraction-time-only, never durable.** `additionalImageUrls`/the bytes fetched from them are
+        never written to any durable-storage path and never served to a client — distinct from
+        `Post.imageUrl`, which AD-12 re-hosts on successful extraction. `rehostPostImageSeam` continues to
+        operate only on the cover image's bytes.
+    3.  **Completeness is a signal, not a driver.** The response schema's `minScheduleCount`/
+        `expectedScheduleNames` fields (model self-reported) are used only to log an "incomplete
+        extraction" flag for moderator visibility when `schedules.length < minScheduleCount` — they never
+        trigger an additional Gemini call. A genuine multi-call re-processing loop was considered and
+        explicitly rejected in favor of this rule; revisit only if the batched cap itself proves
+        insufficient in practice.
+
+---
+
 ## Related Documents
 
 - [Infrastructure](../../docs/infrastructure/index.md)

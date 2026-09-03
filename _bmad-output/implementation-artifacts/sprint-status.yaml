@@ -786,6 +786,13 @@ development_status:
   # implemented-but-not-yet-code-reviewed entries (e.g. 3-3b). See the story
   # file's own Completion Status/Dev Agent Record for full detail.
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: review
+  3-3e-persist-all-carousel-image-urls-for-a-scraped-post: backlog
+  # added 2026-09-03 via bmad-correct-course (sprint-change-proposal-2026-09-03-carousel-multi-image-extraction.md):
+  # closes a real data-loss gap -- instagram-adapter.ts only ever captured the
+  # cover image (item.displayUrl); Apify's own childPosts array (all carousel
+  # slides) was fetched and silently discarded. Positioned as a lettered suffix
+  # off Story 3.3a; see epics.md Story 3.3e note and its cross-reference on
+  # Story 3.4. Depends on Story 3.3a, Story 3.3c. Feeds Story 3.6l.
   3-4-scrape-new-posts-from-subscribed-accounts: review
   # added 2026-08-08 via bmad-create-story Gate 1 split while drafting Story 3.4:
   # making Bright Data the scheduled-batch's priority vendor (cheaper at scale,
@@ -1244,6 +1251,16 @@ development_status:
   3-6i-classify-and-discard-private-contact-info-during-ai-extraction: ready-for-dev
   3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: ready-for-dev
   3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression: backlog
+  3-6l-extract-events-from-multi-image-carousel-posts-using-a-single-batched-gemini-request: backlog
+  # added 2026-09-03 via bmad-correct-course (sprint-change-proposal-2026-09-03-carousel-multi-image-extraction.md):
+  # triggering issue -- a real laridijogja carousel post whose per-event
+  # schedules lived on slides 2-6, not the cover image or caption, which
+  # today's single-image pipeline silently misses. Batches all carousel images
+  # into ONE Gemini request (not a sequential re-trigger loop) per Architecture
+  # Spine AD-13 -- confirmed via research that Gemini's free-tier quota is
+  # RPM/RPD *and* TPM bound, so batching is the quota-efficient choice.
+  # Depends on Story 3.6, Story 3.3e. Coordinate merge order with in-flight
+  # 3-6i/3-6j/3-6k (same build-gemini-request.ts prompt file).
   # added 2026-08-10 via bmad-create-story Gate 2 finding (Freya persona, run fresh
   # since epic-3-readiness.md only swept Gate 1/3) while drafting Story 3.7: Feed's
   # planned calendar view would be a third near-byte-for-byte duplicate of
