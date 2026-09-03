@@ -83,6 +83,15 @@ export async function subscribeToAccount({
         userId,
       });
 
+      // classifyAccountType() persists accountType/accountTypeStatus to the DB row directly;
+      // merge its return value into our in-memory snapshot so callers (and the existing-subscription
+      // check below) don't see the stale pre-classification values.
+      accountProfile = {
+        ...accountProfile,
+        accountType: classification.accountType,
+        accountTypeStatus: classification.accountTypeStatus,
+      };
+
       if (classification.accountType === 'ORGANIZER_VENUE_EVENT' && classification.accountTypeStatus === 'CONFIRMED') {
         const scrapeTarget = {
           profileId: accountProfile.id,

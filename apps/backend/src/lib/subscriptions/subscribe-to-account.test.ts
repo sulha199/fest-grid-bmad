@@ -5,7 +5,28 @@ import { socialMediaAccountProfiles, subscriptions, users } from '@festgrid/data
 import { and, eq, inArray } from 'drizzle-orm';
 import { subscribeToAccount } from './subscribe-to-account.js';
 import { attemptApifyAsyncTrigger, setAttemptApifyAsyncTrigger } from '../scraper/trigger-apify-for-target.js';
+import {
+  setGetAccountClassificationProfileSeam,
+  setCallGeminiForAccountClassificationSeam,
+  getAccountClassificationProfileSeam,
+  callGeminiForAccountClassificationSeam,
+} from '../accounts/classify-account-type.js';
+import { accountTypeClassificationReviews } from '@festgrid/database';
 import '../scraper/register-adapters.js';
+
+// A classification result above the confidence threshold that resolves to a scrape-eligible
+// account type, for tests that only care about exercising the scrape-trigger path itself.
+function mockOrganizerConfirmedClassification(username: string) {
+  setGetAccountClassificationProfileSeam(async () => ({
+    username,
+    displayName: 'Test Account',
+    biography: 'Music Events',
+    businessCategoryName: 'Event',
+  }));
+  setCallGeminiForAccountClassificationSeam(async () => ({
+    text: JSON.stringify({ accountType: 'ORGANIZER_VENUE_EVENT', confidenceScore: 0.9 }),
+  }));
+}
 
 test('subscribe-to-account tests', async (t) => {
   let testUserId: string;
@@ -47,10 +68,30 @@ test('subscribe-to-account tests', async (t) => {
   t.after(async () => {
     await db.delete(users).where(eq(users.id, testUserId));
     setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
+    setGetAccountClassificationProfileSeam(getAccountClassificationProfileSeam);
+    setCallGeminiForAccountClassificationSeam(callGeminiForAccountClassificationSeam);
   });
 
   t.afterEach(async () => {
     await db.delete(subscriptions).where(eq(subscriptions.userId, testUserId));
+
+    // Delete any classification review rows first: account_type_classification_reviews.account_id
+    // has a foreign key to social_media_account_profiles.id with no cascade, so a classified
+    // account (AWAITING_APPROVAL inserts a review row) would otherwise block the profile delete below.
+    const profileRows = await db
+      .select({ id: socialMediaAccountProfiles.id })
+      .from(socialMediaAccountProfiles)
+      .where(
+        and(
+          eq(socialMediaAccountProfiles.platform, testPlatform),
+          inArray(socialMediaAccountProfiles.accountId, testAccountIds)
+        )
+      );
+    if (profileRows.length > 0) {
+      const ids = profileRows.map((r) => r.id);
+      await db.delete(accountTypeClassificationReviews).where(inArray(accountTypeClassificationReviews.accountId, ids));
+    }
+
     await db.delete(socialMediaAccountProfiles).where(
       and(
         eq(socialMediaAccountProfiles.platform, testPlatform),
@@ -67,6 +108,9 @@ test('subscribe-to-account tests', async (t) => {
       apifyAsyncCalled = true;
       return true;
     });
+    // Classification now gates the scrape trigger (Story 3.4n) — mock it to resolve to a
+    // scrape-eligible account type so this test still exercises the Apify-async path it intends to.
+    mockOrganizerConfirmedClassification('testaccount');
 
     const result = await subscribeToAccount({
       userId: testUserId,
@@ -86,6 +130,8 @@ test('subscribe-to-account tests', async (t) => {
   await t.test('falls back to Bright Data when Apify async fails', async () => {
     // Mock Apify async to fail
     setAttemptApifyAsyncTrigger(async () => false);
+    // Classification gates the scrape trigger — mock it so the fallback path still fires.
+    mockOrganizerConfirmedClassification('testaccount2');
 
     const result = await subscribeToAccount({
       userId: testUserId,
@@ -104,6 +150,8 @@ test('subscribe-to-account tests', async (t) => {
   await t.test('returns existing subscription if already subscribed', async () => {
     // Mock Apify async to succeed
     setAttemptApifyAsyncTrigger(async () => true);
+    // Classification gates the scrape trigger on the first (insert) call this test makes.
+    mockOrganizerConfirmedClassification('testaccount3');
 
     // First subscription
     const firstResult = await subscribeToAccount({
