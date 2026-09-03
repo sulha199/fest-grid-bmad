@@ -13,6 +13,7 @@ test('resolveServedImageUrl', async (t) => {
         imageUrl: 'original-url',
         durableImageUrl: 'durable-url',
         imageUrlExpiresAt: futureExpiry,
+        isImageStorageOptedIn: true,
         now,
       }),
       'original-url'
@@ -25,6 +26,7 @@ test('resolveServedImageUrl', async (t) => {
         imageUrl: 'original-url',
         durableImageUrl: 'durable-url',
         imageUrlExpiresAt: pastExpiry,
+        isImageStorageOptedIn: true,
         now,
       }),
       'durable-url'
@@ -37,6 +39,7 @@ test('resolveServedImageUrl', async (t) => {
         imageUrl: 'original-url',
         durableImageUrl: null,
         imageUrlExpiresAt: pastExpiry,
+        isImageStorageOptedIn: true,
         now,
       }),
       'original-url'
@@ -49,6 +52,7 @@ test('resolveServedImageUrl', async (t) => {
         imageUrl: 'original-url',
         durableImageUrl: 'durable-url',
         imageUrlExpiresAt: null,
+        isImageStorageOptedIn: true,
         now,
       }),
       'durable-url'
@@ -61,6 +65,7 @@ test('resolveServedImageUrl', async (t) => {
         imageUrl: 'original-url',
         durableImageUrl: null,
         imageUrlExpiresAt: null,
+        isImageStorageOptedIn: true,
         now,
       }),
       'original-url'
@@ -73,6 +78,7 @@ test('resolveServedImageUrl', async (t) => {
         imageUrl: null,
         durableImageUrl: null,
         imageUrlExpiresAt: futureExpiry,
+        isImageStorageOptedIn: true,
         now,
       }),
       null
@@ -85,6 +91,7 @@ test('resolveServedImageUrl', async (t) => {
         imageUrl: null,
         durableImageUrl: 'durable-url',
         imageUrlExpiresAt: futureExpiry,
+        isImageStorageOptedIn: true,
         now,
       }),
       'durable-url'
@@ -97,9 +104,62 @@ test('resolveServedImageUrl', async (t) => {
         imageUrl: 'original-url',
         durableImageUrl: 'durable-url',
         imageUrlExpiresAt: now,
+        isImageStorageOptedIn: true,
         now,
       }),
       'durable-url'
+    );
+  });
+
+  await t.test('(i) expired original + durable present + NOT opted in -> null', () => {
+    assert.strictEqual(
+      resolveServedImageUrl({
+        imageUrl: 'original-url',
+        durableImageUrl: 'durable-url',
+        imageUrlExpiresAt: pastExpiry,
+        isImageStorageOptedIn: false,
+        now,
+      }),
+      null
+    );
+  });
+
+  await t.test('(j) imageUrlExpiresAt is null + durable present + NOT opted in -> null', () => {
+    assert.strictEqual(
+      resolveServedImageUrl({
+        imageUrl: 'original-url',
+        durableImageUrl: 'durable-url',
+        imageUrlExpiresAt: null,
+        isImageStorageOptedIn: false,
+        now,
+      }),
+      null
+    );
+  });
+
+  await t.test('(k) valid original + durable present + NOT opted in -> serves original anyway', () => {
+    assert.strictEqual(
+      resolveServedImageUrl({
+        imageUrl: 'original-url',
+        durableImageUrl: 'durable-url',
+        imageUrlExpiresAt: futureExpiry,
+        isImageStorageOptedIn: false,
+        now,
+      }),
+      'original-url'
+    );
+  });
+
+  await t.test('(l) imageUrl is null + durable null + NOT opted in -> null', () => {
+    assert.strictEqual(
+      resolveServedImageUrl({
+        imageUrl: null,
+        durableImageUrl: null,
+        imageUrlExpiresAt: futureExpiry,
+        isImageStorageOptedIn: false,
+        now,
+      }),
+      null
     );
   });
 });

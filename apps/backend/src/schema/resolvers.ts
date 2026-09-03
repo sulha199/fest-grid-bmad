@@ -1704,8 +1704,10 @@ Constraints and Guidelines:
         videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
+        isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
+        .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
         .where(eq(events.id, id));
 
       return (rows[0] as any) || null;
@@ -2941,9 +2943,11 @@ Constraints and Guidelines:
         videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
+        isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
       }).from(events)
         .leftJoin(schedules, mainSchedulesOnly)
         .leftJoin(posts, eq(events.postId, posts.id))
+        .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
         .$dynamic();
 
       if (sortByFavoritedAt && userId) {
@@ -3060,8 +3064,10 @@ Constraints and Guidelines:
         videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
+        isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
+        .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
         .where(condition);
 
       return (rows[0] as any) || null;
@@ -3139,8 +3145,10 @@ Constraints and Guidelines:
         videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
+        isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
+        .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
         .where(condition);
 
       return (rows[0] as any) || null;
@@ -3386,8 +3394,10 @@ Constraints and Guidelines:
         videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
+        isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
+        .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
         .where(eq(events.id, parent.eventId));
       
       return (rows[0] as any) || null;
@@ -3420,6 +3430,7 @@ Constraints and Guidelines:
       imageUrl: parent.imageUrl,
       durableImageUrl: parent.durableImageUrl,
       imageUrlExpiresAt: parent.imageUrlExpiresAt,
+      isImageStorageOptedIn: parent.isImageStorageOptedIn === true,
     }),
     durableImageUrl: (parent: any) => parent.durableImageUrl || null,
     videoUrl: (parent: any) => parent.videoUrl || null,

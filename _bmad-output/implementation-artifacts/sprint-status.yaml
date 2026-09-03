@@ -1227,7 +1227,7 @@ development_status:
   # of this story's creation, despite its own file's Completion Status being fully
   # checked off -- see this story's Pre-Coding Approval Gate. No apps/web/packages/ui
   # change, no DB migration, no new GraphQL API surface.
-  3-6h-gate-image-re-hosting-and-serving-on-account-opt-in: ready-for-dev
+  3-6h-gate-image-re-hosting-and-serving-on-account-opt-in: review
   3-6i-classify-and-discard-private-contact-info-during-ai-extraction: backlog
   3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: backlog
   3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression: backlog

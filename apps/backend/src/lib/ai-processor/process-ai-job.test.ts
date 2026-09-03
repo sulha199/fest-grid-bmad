@@ -48,7 +48,8 @@ test('processAiJob orchestrator tests', async (t) => {
       accountId: testProfileAccountId,
       platform: 'instagram',
       displayName: 'Process Fest Account',
-      username: 'process_fest_' + Date.now()
+      username: 'process_fest_' + Date.now(),
+      isImageStorageOptedIn: true
     })
     .returning();
 
@@ -965,6 +966,107 @@ test('processAiJob orchestrator tests', async (t) => {
       await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, curatorProfile.id));
     }
   });
+
+  await t.test('Case M-1-plain: plain non-CURATOR_GUIDE account without image-storage opt-in skips image rehost on successful enqueue', async () => {
+    const [plainProfile] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({
+        accountId: 'plain-acc-' + Date.now(),
+        platform: 'instagram',
+        displayName: 'Plain Profile',
+        username: 'plain_acc_' + Date.now(),
+        isImageStorageOptedIn: false,
+      })
+      .returning();
+
+    const testPostId = crypto.randomUUID();
+    const [testPost] = await db
+      .insert(posts)
+      .values({
+        id: testPostId,
+        accountId: plainProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://test.com/plain-1',
+        content: 'Original plain caption',
+        publishedAt: new Date(),
+      })
+      .returning();
+
+    const originalFetch = globalThis.fetch;
+    t.after(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    globalThis.fetch = async () => {
+      return {
+        ok: true,
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null)
+        },
+        arrayBuffer: async () => Buffer.from('mock-bytes-123')
+      } as any;
+    };
+
+    const message: ProcessingJobMessage = {
+      postId: testPost.id,
+      accountId: plainProfile.id,
+      content: 'Original plain caption',
+      imageUrl: 'https://test.com/img.png',
+      postUrl: 'https://test.com/plain-1',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let rehostCalled = false;
+    let markPostExtractedCalled = false;
+    let sendSqsMessageCalled = false;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          eventName: 'Plain Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: '2026-08-15'
+            }
+          ],
+          confidenceScore: 0.95
+        })
+      };
+    });
+
+    setSendSqsMessage(async () => {
+      sendSqsMessageCalled = true;
+    });
+
+    setMarkPostExtractedSeam(async () => {
+      markPostExtractedCalled = true;
+      return {} as any;
+    });
+
+    setRehostPostImageSeam(async () => {
+      rehostCalled = true;
+      return 'https://cdn.test.com/posts/rehost-fail-not-expected';
+    });
+
+    try {
+      await processAiJob(message);
+
+      assert.strictEqual(rehostCalled, false, 'Should skip image re-hosting for plain account without opt-in');
+      assert.ok(sendSqsMessageCalled, 'Should successfully extract and enqueue event message');
+      assert.ok(markPostExtractedCalled, 'Should mark post extracted');
+
+      const [updatedPost] = await db.select().from(posts).where(eq(posts.id, testPost.id)).limit(1);
+      assert.strictEqual(updatedPost.content, 'Original plain caption', 'Post content should NOT be cleared for plain account');
+    } finally {
+      await db.delete(posts).where(eq(posts.id, testPost.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, plainProfile.id));
+    }
+  });
+
 
   await t.test('Case M-2: CURATOR_GUIDE account with image-storage opt-in performs image rehost and clears post content on successful enqueue', async () => {
     const [curatorProfile] = await db

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
+import crypto from 'node:crypto';
 import { createSchema, createYoga } from 'graphql-yoga';
 import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
@@ -1443,6 +1444,199 @@ test('events resolver integration via Yoga', async (t) => {
       }
     });
   });
+
+  await t.test('Event image serving and consent gates (Story 3.6h)', async (t) => {
+    let testProfile: any;
+    let testPost: any;
+    let testEvent: any;
+
+    const expiredDate = new Date('2026-08-27T11:00:00Z');
+    const futureDate = new Date('2026-09-10T12:00:00Z');
+    
+    t.after(async () => {
+      if (testEvent) await db.delete(events).where(eq(events.id, testEvent.id));
+      if (testPost) await db.delete(posts).where(eq(posts.id, testPost.id));
+      if (testProfile) await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfile.id));
+    });
+
+    await t.test('Case 1: account isImageStorageOptedIn: false and expired original -> resolves null (AC3)', async () => {
+      const uId = crypto.randomUUID();
+      const [p] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'consent_acc_1_' + uId,
+        platform: 'instagram',
+        displayName: 'Non-Opted-In Profile',
+        username: 'consent_acc_1_' + uId,
+        isImageStorageOptedIn: false,
+      }).returning();
+      testProfile = p;
+
+      const [post] = await db.insert(posts).values({
+        accountId: testProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/consent_post_1_' + uId,
+        originalPostUrl: 'https://instagram.com/p/consent_post_1_' + uId,
+        content: 'Original Caption',
+        imageUrl: 'https://instagram.com/p/original_img_1.png',
+        durableImageUrl: 'https://cdn.test.com/posts/durable_img_1.png',
+        imageUrlExpiresAt: expiredDate,
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      testPost = post;
+
+      const [ev] = await db.insert(events).values({
+        eventName: 'Consent Test Event 1',
+        postId: testPost.id,
+        location: 'Test location',
+        slug: 'consent-test-event-1-' + uId,
+      }).returning();
+      testEvent = ev;
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventBySlug($slug: String!) {
+              eventBySlug(slug: $slug) {
+                id
+                eventName
+                imageUrl
+                durableImageUrl
+              }
+            }
+          `,
+          variables: { slug: testEvent.slug }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.eventBySlug.imageUrl, null, 'Should return null for non-opted-in expired event');
+      assert.strictEqual(result.data.eventBySlug.durableImageUrl, 'https://cdn.test.com/posts/durable_img_1.png');
+    });
+
+    await t.test('Case 2: account isImageStorageOptedIn: true and expired original -> resolves durableImageUrl (AC4)', async () => {
+      if (testEvent) await db.delete(events).where(eq(events.id, testEvent.id));
+      if (testPost) await db.delete(posts).where(eq(posts.id, testPost.id));
+      if (testProfile) await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfile.id));
+
+      const uId = crypto.randomUUID();
+      const [p] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'consent_acc_2_' + uId,
+        platform: 'instagram',
+        displayName: 'Opted-In Profile',
+        username: 'consent_acc_2_' + uId,
+        isImageStorageOptedIn: true,
+      }).returning();
+      testProfile = p;
+
+      const [post] = await db.insert(posts).values({
+        accountId: testProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/consent_post_2_' + uId,
+        originalPostUrl: 'https://instagram.com/p/consent_post_2_' + uId,
+        content: 'Original Caption',
+        imageUrl: 'https://instagram.com/p/original_img_2.png',
+        durableImageUrl: 'https://cdn.test.com/posts/durable_img_2.png',
+        imageUrlExpiresAt: expiredDate,
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      testPost = post;
+
+      const [ev] = await db.insert(events).values({
+        eventName: 'Consent Test Event 2',
+        postId: testPost.id,
+        location: 'Test location',
+        slug: 'consent-test-event-2-' + uId,
+      }).returning();
+      testEvent = ev;
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventBySlug($slug: String!) {
+              eventBySlug(slug: $slug) {
+                id
+                eventName
+                imageUrl
+                durableImageUrl
+              }
+            }
+          `,
+          variables: { slug: testEvent.slug }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.eventBySlug.imageUrl, 'https://cdn.test.com/posts/durable_img_2.png', 'Should return durableImageUrl for opted-in expired event');
+    });
+
+    await t.test('Case 3: account isImageStorageOptedIn: false and still-valid original -> resolves original imageUrl (AC5)', async () => {
+      if (testEvent) await db.delete(events).where(eq(events.id, testEvent.id));
+      if (testPost) await db.delete(posts).where(eq(posts.id, testPost.id));
+      if (testProfile) await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfile.id));
+
+      const uId = crypto.randomUUID();
+      const [p] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'consent_acc_3_' + uId,
+        platform: 'instagram',
+        displayName: 'Non-Opted-In Profile',
+        username: 'consent_acc_3_' + uId,
+        isImageStorageOptedIn: false,
+      }).returning();
+      testProfile = p;
+
+      const [post] = await db.insert(posts).values({
+        accountId: testProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/consent_post_3_' + uId,
+        originalPostUrl: 'https://instagram.com/p/consent_post_3_' + uId,
+        content: 'Original Caption',
+        imageUrl: 'https://instagram.com/p/original_img_3.png',
+        durableImageUrl: 'https://cdn.test.com/posts/durable_img_3.png',
+        imageUrlExpiresAt: futureDate,
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      testPost = post;
+
+      const [ev] = await db.insert(events).values({
+        eventName: 'Consent Test Event 3',
+        postId: testPost.id,
+        location: 'Test location',
+        slug: 'consent-test-event-3-' + uId,
+      }).returning();
+      testEvent = ev;
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventBySlug($slug: String!) {
+              eventBySlug(slug: $slug) {
+                id
+                eventName
+                imageUrl
+                durableImageUrl
+              }
+            }
+          `,
+          variables: { slug: testEvent.slug }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.eventBySlug.imageUrl, 'https://instagram.com/p/original_img_3.png', 'Should return original imageUrl for non-opted-in still-valid event');
+    });
+  });
+
 
   await t.test('events - includeMyArchived opt-in bypass (Story 4.8)', async () => {
     const userId = '88888888-8888-8888-8888-888888888888';

@@ -116,7 +116,7 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
   });
 
   // 7.5. Best-effort image rehosting to durable S3
-  const skipImageRehost = isCuratorGuide && !isOptedIntoImageStorage;
+  const skipImageRehost = !isOptedIntoImageStorage;
   if (imageBytes && imageContentType && !skipImageRehost) {
     try {
       await rehostPostImageSeam(message.postId, imageBytes, imageContentType, env);

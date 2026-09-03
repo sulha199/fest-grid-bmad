@@ -26,7 +26,7 @@ export async function enqueuePostForProcessing(postId: string): Promise<void> {
   const message: ProcessingJobMessage = {
     postId: post.id,
     accountId: post.accountId,
-    content: post.content,
+    content: post.content ?? '',
     imageUrl: post.imageUrl ?? undefined,
     postUrl: post.postUrl,
     publishedAt: post.publishedAt.toISOString(),
