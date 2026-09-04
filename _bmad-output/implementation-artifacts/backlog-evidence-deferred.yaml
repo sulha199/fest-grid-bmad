@@ -1,0 +1,1335 @@
+records:
+  - id: DW-001
+    section: "verification of ux-rework2-batch-11 (Event Detail favorite count)"
+    section_date: 2026-09-01
+    line: 11
+    summary: "Unfavorite (decrement) path of toggle-favorite cache-sync untested for all 4 patched caches, not just new getEventBySlug"
+    category: test-gap
+    evidence_given: "Found during batch-11's own Blind-Hunter review; not fixed, outside scope and doesn't block display ACs"
+    symbols_named: [toggleFavorite, getEventBySlug, events, "events/feed", favoriteEvents]
+    files_named: []
+    still_live: unverified
+    still_live_evidence: "Not re-run; budget spent elsewhere in this section. No path:line given to probe cheaply."
+    touches: [web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-002
+    section: "verification of ux-rework2-batch-11 (Event Detail favorite count)"
+    section_date: 2026-09-01
+    line: 13
+    summary: "Process note: cline-cli hung a 3rd consecutive time today even via pre-built worktree with --timeout; --timeout not enforcing cap"
+    category: process
+    evidence_given: "Ran ~40min near-zero CPU before kill; 3/3 real hangs today regardless of hub health/worktree method; worth investigating cline-cli itself"
+    symbols_named: [cline-cli, "cline-worktree.ps1"]
+    files_named: []
+    still_live: unverified
+    still_live_evidence: "Tooling/runtime behavior on the operator's machine, not mechanically checkable via repo grep"
+    touches: [cross:process]
+    duplicate_of: null
+    notes: "Part of an escalating cline-cli hang saga also covered by DW-004 (batch-10) and DW-007 (batch-9), which appear later in this file; those two go chronologically earlier in real time despite the higher DW id. See DW-007 for the eventual root-cause/fix."
+
+  - id: DW-003
+    section: "verification of ux-rework2-batch-10 (FilterHub collapse fixes)"
+    section_date: 2026-09-01
+    line: 17
+    summary: "No automated regression test for the scroll-anchoring flicker fix (overflow-anchor: none); jsdom can't exercise CSS scroll anchoring"
+    category: test-gap
+    evidence_given: "Verified empirically via a throwaway non-committed Playwright repro; a real e2e spec would need the full dev+backend stack, out of scope"
+    symbols_named: [EventDiscoveryPanel, "overflow-anchor"]
+    files_named: ["packages/ui/src/features/events/EventDiscoveryPanel.tsx"]
+    still_live: yes
+    still_live_evidence: "overflow-anchor: none still present in EventDiscoveryPanel.tsx; no matching Playwright spec found under apps/web/e2e"
+    touches: [web:events, pkg:ui]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-004
+    section: "verification of ux-rework2-batch-10 (FilterHub collapse fixes)"
+    section_date: 2026-09-01
+    line: 19
+    summary: "cline-cli hung twice on batch-10 with a different, unexplained failure mode from batch-9's stale-hub-manifest issue"
+    category: process
+    evidence_given: "Prompted creation of scripts/cline-worktree.ps1 to decouple worktree setup from cline's agent loop; --timeout not reliably enforced logged to memory"
+    symbols_named: [cline-cli, "cline-worktree.ps1", "cline doctor"]
+    files_named: ["scripts/cline-worktree.ps1"]
+    still_live: unverified
+    still_live_evidence: "scripts/cline-worktree.ps1 confirmed present in repo (glob), consistent with the evidence text; the hang behavior itself is not repo-checkable"
+    touches: [cross:process]
+    duplicate_of: DW-002
+    notes: "Distinct root cause from DW-007's batch-9 stale-manifest fix (which appears later in file order but chronologically precedes this one)."
+
+  - id: DW-005
+    section: "verification of ux-rework2-batch-9 (Post Selection AccountAvatar reuse)"
+    section_date: 2026-09-01
+    line: 24
+    summary: "AccountAvatar commonClasses hardcodes border-slate-200/dark:border-slate-800 instead of the semantic border-border token"
+    category: code-debt
+    evidence_given: "Found during batch-9's own Blind-Hunter review; not fixed, cosmetic and pre-existing to a frozen shared component"
+    symbols_named: [AccountAvatar, commonClasses, "border-border"]
+    files_named: ["packages/ui/src/core/account-avatar.tsx:54", "apps/web/src/app/globals.css:34"]
+    still_live: yes
+    still_live_evidence: "account-avatar.tsx:54 still reads 'border border-slate-200 dark:border-slate-800'; no border-border usage in the file"
+    touches: [pkg:ui, cross:ux-tokens]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-006
+    section: "verification of ux-rework2-batch-9 (Post Selection AccountAvatar reuse)"
+    section_date: 2026-09-01
+    line: 26
+    summary: "AccountAvatar alt text falls back to @username for an empty-string displayName instead of empty alt, unreachable via real data"
+    category: edge-case
+    evidence_given: "Found during Edge-Case-Hunter review; not fixed since unreachable through real data (displayName never scraped empty in practice)"
+    symbols_named: [AccountAvatar, altText, displayName]
+    files_named: ["packages/ui/src/core/account-avatar.tsx:44"]
+    still_live: yes
+    still_live_evidence: "account-avatar.tsx:44 still reads: const altText = displayName || (username ? '@'+username : 'User avatar')"
+    touches: [pkg:ui]
+    duplicate_of: null
+    notes: "Text explicitly says this is the same class of degenerate-input edge case already accepted for SubscribedAccountCard in batch-7 (DW-015, which appears later in this file — see DW-015's duplicate_of back-reference)."
+
+  - id: DW-007
+    section: "verification of ux-rework2-batch-9 (Post Selection AccountAvatar reuse)"
+    section_date: 2026-09-01
+    line: 28
+    summary: "Process note: cline-cli hub daemon broken for entire batch-9 (4/4 hangs); root-caused to a stale hub manifest, fix verified"
+    category: process
+    evidence_given: "cline doctor showed hub healthy: no (dead pid); deleting ~/.cline/data/locks/hub/production.json* and sidecars fixed it; two subsequent invocations worked"
+    symbols_named: ["cline doctor", "production.json"]
+    files_named: []
+    still_live: unverified
+    still_live_evidence: "Fix concerns local machine state (~/.cline) outside this repo, not mechanically checkable via repo grep; document reports it verified fixed at the time"
+    touches: [cross:process]
+    duplicate_of: DW-004
+    notes: "This is chronologically the earliest of the three cline-cli hang entries (root-causes and fixes the stale-manifest class) even though it has the highest DW id in this file; DW-004's batch-10 hangs and DW-002's batch-11 hangs are separate, later, still-unexplained recurrences."
+
+  - id: DW-008
+    section: "pnpm test full-suite check during ux-rework2-batch-9"
+    section_date: 2026-09-01
+    line: 35
+    summary: "Two packages/ui tests (EventCard 'Today' badge, WeeklyCalendarView week-picker) fail purely from wall-clock date rollover"
+    category: test-gap
+    evidence_given: "Reproduced on a clean git stash of batch-9, proving pre-existing; root cause is missing vi.useFakeTimers()/setSystemTime; will keep resurfacing every session"
+    symbols_named: [EventCard.test.tsx, WeeklyCalendarView.test.tsx, useFakeTimers, setSystemTime]
+    files_named: ["packages/ui/src/features/events/EventCard.test.tsx", "packages/ui/src/features/events/WeeklyCalendarView.test.tsx"]
+    still_live: yes
+    still_live_evidence: "EventCard.test.tsx:324 still uses real `new Date()` with no fake timers; WeeklyCalendarView.test.tsx's 'opens the week picker' test (line 180) still has no useFakeTimers/setSystemTime and hardcodes '2026-08-10', while today is 2026-09-04 -- this test is very likely failing right now"
+    touches: [pkg:ui, web:events]
+    duplicate_of: null
+    notes: "The known trap item the handover flags explicitly; confirmed still live, not fixed."
+
+  - id: DW-009
+    section: "verification of ux-rework2-batch-8 (wire SubscribedAccountCard into Event Detail)"
+    section_date: 2026-08-31
+    line: 40
+    summary: "isSubscribedToAccount is undefined/false while useGetMySubscriptionsQuery loads, briefly flashing 'Subscribe' for an already-subscribed user"
+    category: edge-case
+    evidence_given: "Surfaced by both Blind Hunter and Edge Case Hunter passes; matches an existing transient-loading-state pattern elsewhere in the app, not fixed"
+    symbols_named: [isSubscribedToAccount, EventDetailWrapper, useGetMySubscriptionsQuery]
+    files_named: ["apps/web/src/features/events/EventDetailWrapper.tsx"]
+    still_live: yes
+    still_live_evidence: "EventDetailWrapper.tsx:268 still computes isSubscribedToAccount via subscriptionsData?.mySubscriptions?.some(...) with no separate loading-state guard"
+    touches: [web:events, web:subscriptions]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-010
+    section: "verification of ux-rework2-batch-8 (wire SubscribedAccountCard into Event Detail)"
+    section_date: 2026-08-31
+    line: 42
+    summary: "SubscribedAccountCard's render guard drops all account attribution if any of 4 required fields is missing, with no fallback like the old markup had"
+    category: edge-case
+    evidence_given: "Surfaced by Edge Case Hunter; unreachable through the only real caller today (backend schema guarantees all-or-nothing on the 4 fields)"
+    symbols_named: [SubscribedAccountCard, accountId, accountPlatform, accountUsername, accountHref]
+    files_named: []
+    still_live: yes
+    still_live_evidence: "EventDetailView.tsx still guards on accountId && accountPlatform && accountUsername && accountHref with no fallback branch"
+    touches: [pkg:ui, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-011
+    section: "verification of ux-rework2-batch-8 (wire SubscribedAccountCard into Event Detail)"
+    section_date: 2026-08-31
+    line: 44
+    summary: "EventDetailViewLabels.postedByLabel is no longer referenced in EventDetailView.tsx but remains in the labels type/prop"
+    category: code-debt
+    evidence_given: "Surfaced by Blind Hunter pass; harmless unused-string cruft, not worth a type-surface change in this batch"
+    symbols_named: [EventDetailViewLabels, postedByLabel]
+    files_named: []
+    still_live: yes
+    still_live_evidence: "postedByLabel still declared in EventDetailView.types.ts and used only in the test fixture; no match inside EventDetailView.tsx itself"
+    touches: [pkg:ui, cross:i18n]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-012
+    section: "quick-dev planning of ux-rework2 SubscribedAccountCard wiring"
+    section_date: 2026-08-31
+    line: 50
+    summary: "Wire SubscribedAccountCard into the Post Selection page, replacing its raw <img>/User-icon inline account display"
+    category: code-debt
+    evidence_given: "Split off in favor of wiring Event Detail first; isSubscribed would always be true here, worth confirming that's still useful before wiring"
+    symbols_named: [SubscribedAccountCard, "posts-select-content.tsx"]
+    files_named: ["apps/web/src/app/[locale]/posts/select/posts-select-content.tsx"]
+    still_live: yes
+    still_live_evidence: "No SubscribedAccountCard reference found in posts-select-content.tsx; still not wired"
+    touches: [web:post-selection, pkg:ui]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-013
+    section: "quick-dev planning of ux-rework2 SubscribedAccountCard wiring"
+    section_date: 2026-08-31
+    line: 53
+    summary: "Wire SubscribedAccountCard into Subscribed Accounts settings page, replacing AccountAvatar+badge+SwipeToReveal/Trash2 unsubscribe UI"
+    category: code-debt
+    evidence_given: "Split off for the same reason as Post Selection; also has an unresolved design question: card has no unsubscribe affordance at all"
+    symbols_named: [SubscribedAccountCard, SwipeToReveal, "subscriptions-content.tsx"]
+    files_named: ["apps/web/src/app/[locale]/settings/account/subscriptions-content.tsx"]
+    still_live: yes
+    still_live_evidence: "No SubscribedAccountCard reference found in subscriptions-content.tsx; still not wired, design question presumably still open"
+    touches: [web:settings, web:subscriptions, pkg:ui]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-014
+    section: "verification of ux-rework2-batch-7 (shared SubscribedAccountCard component)"
+    section_date: 2026-08-31
+    line: 58
+    summary: "SubscribedAccountCard's size=\"lg\" scales the AccountAvatar image but not the adjacent displayName/username text"
+    category: code-debt
+    evidence_given: "Surfaced by Edge Case Hunter; no current caller uses size=\"lg\" yet, desired text scale unspecified by spec"
+    symbols_named: [SubscribedAccountCard, size, AccountAvatar]
+    files_named: ["packages/ui/src/features/subscriptions/SubscribedAccountCard.tsx"]
+    still_live: yes
+    still_live_evidence: "SubscribedAccountCard.tsx passes size only to the nested AccountAvatar (size={size}); the displayName/username spans use fixed classes with no size-dependent text scale"
+    touches: [pkg:ui, web:subscriptions]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-015
+    section: "verification of ux-rework2-batch-7 (shared SubscribedAccountCard component)"
+    section_date: 2026-08-31
+    line: 60
+    summary: "Degenerate SubscribedAccountCard inputs (empty displayName/username/accountHref; isSubscribed+isSubscribing both true) render odd but unreachable output"
+    category: edge-case
+    evidence_given: "Surfaced by Edge Case Hunter; none reachable through the component's designed usage contract, logged in case a future caller proves otherwise"
+    symbols_named: [SubscribedAccountCard, isSubscribed, isSubscribing, displayName, username, accountHref]
+    files_named: []
+    still_live: yes
+    still_live_evidence: "SubscribedAccountCard.tsx has no validation/guard on these props (spot-checked render logic); no evidence any guard was added since"
+    touches: [pkg:ui, web:subscriptions]
+    duplicate_of: DW-006
+    notes: "DW-006 (batch-9, earlier id) explicitly names this batch-7 entry as the same class of degenerate-input edge case."
+
+  - id: DW-016
+    section: "verification of ux-rework2-batch-6 (sticky FilterHub header)"
+    section_date: 2026-08-31
+    line: 65
+    summary: "After clicking 'Show filters' to re-expand the header, focus is not explicitly moved anywhere (relies on browser default)"
+    category: edge-case
+    evidence_given: "Surfaced by Edge Case Hunter; a full fix needs SearchBar to forward a ref, outside this spec's declared scope"
+    symbols_named: ["Show filters", SearchBar, EventDiscoveryPanel]
+    files_named: ["packages/ui/src/features/events/EventDiscoveryPanel.tsx"]
+    still_live: yes
+    still_live_evidence: "No .focus() call found near the 'Show filters' button in EventDiscoveryPanel.tsx"
+    touches: [pkg:ui, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-017
+    section: "verification of ux-rework2-batch-6 (sticky FilterHub header)"
+    section_date: 2026-08-31
+    line: 67
+    summary: "useCollapseHeaderOnScroll initializes isCollapsed=false and only measures real scrollY post-hydration, causing a brief full-header flash on restored scroll"
+    category: edge-case
+    evidence_given: "Surfaced by both review passes; avoiding fully needs useLayoutEffect or a blocking inline script, judged more invasive than the benefit"
+    symbols_named: [useCollapseHeaderOnScroll, isCollapsed, scrollY]
+    files_named: ["packages/ui/src/hooks/useCollapseHeaderOnScroll.ts"]
+    still_live: yes
+    still_live_evidence: "useCollapseHeaderOnScroll.ts still imports/uses useEffect (not useLayoutEffect) for its scroll measurement"
+    touches: [pkg:ui, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-018
+    section: "verification of ux-rework2-batch-5 (calendar mobile collapsible days)"
+    section_date: 2026-08-31
+    line: 72
+    summary: "WeeklyCalendarView mobile day-content div is fully unmounted on collapse; focus inside it drops to document.body instead of a predictable target"
+    category: edge-case
+    evidence_given: "Surfaced by Edge Case Hunter; low real-world likelihood since the most common trigger is the user's own collapse click"
+    symbols_named: [WeeklyCalendarView, dayOverrides]
+    files_named: ["packages/ui/src/features/events/WeeklyCalendarView.tsx"]
+    still_live: yes
+    still_live_evidence: "Mobile day-content is still conditionally rendered (unmounted) based on dayOverrides/isCollapsed with no focus-management code found nearby"
+    touches: [pkg:ui, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-019
+    section: "verification of ux-rework2-batch-5 (calendar mobile collapsible days)"
+    section_date: 2026-08-31
+    line: 74
+    summary: "dayOverrides collapse-state map never removes a key once set, accumulating small boolean entries for the component's lifetime"
+    category: code-debt
+    evidence_given: "Surfaced by Blind Hunter; negligible in practice, not worth the complexity of pruning"
+    symbols_named: [dayOverrides, setDayOverrides]
+    files_named: ["packages/ui/src/features/events/WeeklyCalendarView.tsx:373"]
+    still_live: yes
+    still_live_evidence: "setDayOverrides is only ever called as a spread-merge (setDayOverrides(prev => ({...prev, [dateISO]: !isCollapsed}))) at line 685; no delete/prune logic exists"
+    touches: [pkg:ui, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-020
+    section: "verification of ux-rework2-batch-5 (calendar mobile collapsible days)"
+    section_date: 2026-08-31
+    line: 76
+    summary: "'Mobile Vertical List View (AC15)' test uses getAllByText(...).length toBeGreaterThan(0) instead of an exact count"
+    category: test-gap
+    evidence_given: "Surfaced by Blind Hunter; pre-existing test style, possibly deliberate given multi-day segments, not investigated further"
+    symbols_named: ["Tech Workshop", getAllByText]
+    files_named: ["packages/ui/src/features/events/WeeklyCalendarView.test.tsx"]
+    still_live: yes
+    still_live_evidence: "WeeklyCalendarView.test.tsx:771 still asserts .getAllByText('Tech Workshop').length toBeGreaterThan(0)"
+    touches: [pkg:ui, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-021
+    section: "verification of ux-rework2-batch-4 (masonry-only card view)"
+    section_date: 2026-08-31
+    line: 81
+    summary: "Several *-content.tsx pages render <EventListView> inside a now-single-child flex wrapper div left over from removed ViewModeToggle"
+    category: code-debt
+    evidence_given: "Surfaced by Blind Hunter; purely cosmetic/dead markup, left alone to avoid a multi-file JSX edit for no behavioral gain"
+    symbols_named: [EventListView, ViewModeToggle, "flex flex-col gap-4"]
+    files_named: ["apps/web/src/app/[locale]/home-content.tsx", "apps/web/src/app/[locale]/feed/feed-content.tsx", "apps/web/src/app/[locale]/archive/archive-content.tsx", "apps/web/src/app/[locale]/favorites/favorites-content.tsx"]
+    still_live: unverified
+    still_live_evidence: "ViewModeToggle confirmed fully gone from apps/web/src; a broad grep for 'flex flex-col gap-4' matched 10 files but couldn't cheaply confirm which now wrap a single EventListView child within budget"
+    touches: [web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-022
+    section: "verification of ux-rework2-batch-4 (masonry-only card view)"
+    section_date: 2026-08-31
+    line: 83
+    summary: "layoutSwitcherListLabel/MasonryLabel/Announcement i18n keys are unused after ViewModeToggle removal but left in locale files"
+    category: code-debt
+    evidence_given: "Surfaced by Blind Hunter; harmless unused-string cruft, not worth a locale-file edit"
+    symbols_named: [layoutSwitcherListLabel, layoutSwitcherMasonryLabel, layoutSwitcherAnnouncement]
+    files_named: ["apps/web/locales/en.json", "apps/web/locales/id.json"]
+    still_live: yes
+    still_live_evidence: "All three keys still found in both apps/web/locales/en.json and id.json"
+    touches: [web:events, cross:i18n]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-023
+    section: "verification of ux-rework2-batch-4 (masonry-only card view)"
+    section_date: 2026-08-31
+    line: 85
+    summary: "A bookmarked/shared URL with the removed ?layout=list or ?layout=masonry param keeps that stale param forever; app just ignores it"
+    category: code-debt
+    evidence_given: "Surfaced by Blind Hunter; very low impact, would need a redirect/param-stripping rule to fully clean up"
+    symbols_named: ["?layout=list", "?layout=masonry"]
+    files_named: []
+    still_live: unverified
+    still_live_evidence: "No layout= param handling of any kind found in apps/web/src, consistent with 'app ignores it', but the real-world condition (stale bookmarks existing) isn't repo-checkable"
+    touches: [web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-024
+    section: "quick-dev planning of ux-rework2 P1 batch"
+    section_date: 2026-08-31
+    line: 91
+    summary: "Build a shared subscribed-account inline-card component reused across Post Selection, Subscribed Accounts, and Event Detail"
+    category: code-debt
+    evidence_given: "Split off as the biggest, most cross-cutting P1 item (new shared component + 3 call-site rewires); deserves its own spec"
+    symbols_named: [AccountAvatar, SubscribedAccountCard]
+    files_named: ["packages/ui/src/core/account-avatar.tsx"]
+    still_live: no
+    still_live_evidence: "Implemented as batch-7's SubscribedAccountCard (see DW-014/DW-015); component exists at packages/ui/src/features/subscriptions/SubscribedAccountCard.tsx"
+    touches: [pkg:ui, web:subscriptions]
+    duplicate_of: null
+    notes: "Component itself shipped (batch-7); 2 of its 3 intended call-sites (Post Selection, Subscribed Accounts settings) remain unwired -- see DW-012/DW-013."
+
+  - id: DW-025
+    section: "quick-dev planning of ux-rework2 P1 batch"
+    section_date: 2026-08-31
+    line: 94
+    summary: "Make FilterHub and the calendar/card view header sticky with scroll-driven collapse/re-show behavior"
+    category: code-debt
+    evidence_given: "Split off the P1 batch; new scroll-driven UI behavior unrelated to the event list/card work tackled first"
+    symbols_named: [FilterHub, useCollapseHeaderOnScroll]
+    files_named: []
+    still_live: no
+    still_live_evidence: "Implemented as batch-6 (useCollapseHeaderOnScroll hook exists and is wired into EventDiscoveryPanel.tsx); see DW-016/DW-017 for residual gaps in that implementation"
+    touches: [pkg:ui, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-026
+    section: "quick-dev planning of ux-rework2 P1 batch"
+    section_date: 2026-08-31
+    line: 97
+    summary: "Calendar view on mobile: make days collapsible, default collapsed for past days, expanded for today/future"
+    category: code-debt
+    evidence_given: "Split off the P1 batch; self-contained to the calendar view, independent of other calendar items"
+    symbols_named: [WeeklyCalendarView, dayOverrides]
+    files_named: []
+    still_live: no
+    still_live_evidence: "Implemented as batch-5 (dayOverrides/isCollapsed logic exists in WeeklyCalendarView.tsx); see DW-018/DW-019/DW-020 for residual gaps"
+    touches: [pkg:ui, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-027
+    section: "quick-dev planning of ux-rework2 P1 batch"
+    section_date: 2026-08-31
+    line: 100
+    summary: "Merged item: unify calendar event-item layout desktop/mobile + per-day 'show more' overflow button, found NOT independent during investigation"
+    category: code-debt
+    evidence_given: "Desktop's popover/cap mechanism (data-testid desktop-calendar-view) is a fully separate dual-render from mobile's uncapped list; needs joint scoping, several tests would need rewriting"
+    symbols_named: [CalendarCard, "desktop-calendar-view", "mobile-calendar-view", variant]
+    files_named: ["packages/ui/src/features/events/WeeklyCalendarView.tsx"]
+    still_live: unverified
+    still_live_evidence: "Not independently re-checked whether desktop still has the separate capped/popover render vs mobile's uncapped list; no cheap single grep settles this cleanly within budget"
+    touches: [pkg:ui, web:events]
+    duplicate_of: null
+    notes: "Scoping/investigation note, not itself a defect; whether the unification ever shipped is unclear from this file alone."
+
+  - id: DW-028
+    section: "verification of ux-rework2-batch-3 (dead link / error-message / duplicate-icon P0 fixes)"
+    section_date: 2026-08-31
+    line: 105
+    summary: "onboarding-api-key-step.tsx's catch (err: any) and inconsistent console.error logging vs api-key-form-dialog.tsx predate this batch's diff"
+    category: code-debt
+    evidence_given: "Surfaced by Blind Hunter; confirmed pre-existing by reading original file content; future pass could standardize on one shared error-handling helper"
+    symbols_named: [onboarding-api-key-step.tsx, api-key-form-dialog.tsx, "console.error"]
+    files_named: ["apps/web/src/features/onboarding/onboarding-api-key-step.tsx"]
+    still_live: yes
+    still_live_evidence: "onboarding-api-key-step.tsx:56 still reads `catch (err: any) {`"
+    touches: [web:onboarding, web:settings]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-029
+    section: "verification of ux-rework2-batch-3 (dead link / error-message / duplicate-icon P0 fixes)"
+    section_date: 2026-08-31
+    line: 107
+    summary: "api-key-form-dialog.tsx's dynamic `await import(\"sonner\")` inside its catch block means a broken import leaves zero user feedback"
+    category: edge-case
+    evidence_given: "Surfaced by Blind Hunter; pre-existing risk, not introduced or touched by this batch"
+    symbols_named: [api-key-form-dialog.tsx, sonner, toast]
+    files_named: ["apps/web/src/app/[locale]/settings/account/api-key-form-dialog.tsx"]
+    still_live: yes
+    still_live_evidence: "api-key-form-dialog.tsx still has two unguarded `const { toast } = await import(\"sonner\")` calls inside catch blocks (lines 69, 75)"
+    touches: [web:settings]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-030
+    section: "verification of ux-rework2-batch-3 (dead link / error-message / duplicate-icon P0 fixes)"
+    section_date: 2026-08-31
+    line: 109
+    summary: "New error-message extraction only reads err.response.errors?.[0]?.message, silently ignoring further GraphQL errors or a whitespace-only message"
+    category: edge-case
+    evidence_given: "Surfaced by Edge Case Hunter; matches the spec-approved pattern already used by report-dialog.tsx/subscribe-account-dialog.tsx; low-probability latent gap, not an active bug"
+    symbols_named: [onboarding-api-key-step.tsx, api-key-form-dialog.tsx, "err.response.errors"]
+    files_named: ["apps/web/src/features/onboarding/onboarding-api-key-step.tsx:58", "apps/web/src/app/[locale]/settings/account/api-key-form-dialog.tsx:77"]
+    still_live: yes
+    still_live_evidence: "Both files still read `err.response?.errors?.[0]?.message` exactly, only the first error"
+    touches: [web:onboarding, web:settings]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-031
+    section: "verification of ux-rework2-batch-2 (Add to Calendar / favorite-sync P0 fixes)"
+    section_date: 2026-08-31
+    line: 114
+    summary: "EventCard.test.tsx's 'Today WITH a startTime' test fails on a clean master checkout, unrelated to batch-2's changes -- day-diff calc disagrees near a day boundary"
+    category: bug
+    evidence_given: "Confirmed via pnpm --filter @festgrid/ui test EventCard on master with batch-2 changes fully stashed; same failure/stack trace"
+    symbols_named: [EventCard.test.tsx, "Today WITH a startTime"]
+    files_named: ["packages/ui/src/features/events/EventCard.test.tsx:339"]
+    still_live: yes
+    still_live_evidence: "EventCard.test.tsx:323-324 still constructs `const today = new Date()` with no mocked clock for this exact test"
+    touches: [pkg:ui, web:events]
+    duplicate_of: DW-008
+    notes: "Same underlying test/bug as DW-008 (packages/ui date-flakiness), found independently a day earlier during batch-2 verification."
+
+  - id: DW-032
+    section: "verification of ux-rework2-batch-2 (Add to Calendar / favorite-sync P0 fixes)"
+    section_date: 2026-08-31
+    line: 116
+    summary: "EventDetailWrapper's handleAddToCalendar Promise.all has no partial-failure recovery or rollback if one schedule mutation fails"
+    category: edge-case
+    evidence_given: "Surfaced by both review passes; predates this batch (which only added error announcement + re-throw); out of scope for a P0 'silent failure' batch"
+    symbols_named: [handleAddToCalendar, "Promise.all", toggleCalendarAddition]
+    files_named: ["apps/web/src/features/events/EventDetailWrapper.tsx"]
+    still_live: yes
+    still_live_evidence: "handleAddToCalendar (line 408) still awaits a single Promise.all (line 433) with no per-item success tracking"
+    touches: [web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-033
+    section: "verification of ux-rework2-batch-2 (Add to Calendar / favorite-sync P0 fixes)"
+    section_date: 2026-08-31
+    line: 118
+    summary: "toggleFavorite onSuccess applies an unconditional favoriteCount +/-1 delta without checking if the cache item already matched the new isFavorited value"
+    category: edge-case
+    evidence_given: "Surfaced by Edge Case Hunter; matches an established (if imperfect) pattern already used by 3 other per-page favorite mutations"
+    symbols_named: [toggleFavorite, favoriteCount, onSuccess]
+    files_named: ["apps/web/src/features/events/EventDetailWrapper.tsx"]
+    still_live: yes
+    still_live_evidence: "EventDetailWrapper.tsx:107,138 still compute favoriteCount via Math.max(0, old + (data.toggleFavorite.isFavorited ? 1 : -1)) unconditionally"
+    touches: [web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-034
+    section: "verification of ux-rework2-batch-2 (Add to Calendar / favorite-sync P0 fixes)"
+    section_date: 2026-08-31
+    line: 120
+    summary: "toggleFavorite/toggleCalendarAddition onSuccess read data.toggleFavorite.isFavorited without null-checking data.toggleFavorite itself, risking a TypeError"
+    category: edge-case
+    evidence_given: "Surfaced by Edge Case Hunter; confirmed pre-existing (original onSuccess already read it unguarded); worth a defensive-null-check pass across all four handlers"
+    symbols_named: [toggleFavorite, toggleCalendarAddition, onSuccess]
+    files_named: ["apps/web/src/features/events/EventDetailWrapper.tsx:96"]
+    still_live: yes
+    still_live_evidence: "EventDetailWrapper.tsx:96 still reads `data.toggleFavorite.isFavorited` with no preceding null-check on data.toggleFavorite"
+    touches: [web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-035
+    section: "quick-dev planning of ux-rework2 P0 batch"
+    section_date: 2026-08-31
+    line: 126
+    summary: "Dead /settings/subscriptions link (real route is /settings/account) in 3 files plus 3 test fixtures asserting the dead path"
+    category: bug
+    evidence_given: "Split off spec-ux-rework2-batch-2.md to keep it within token budget; lowest-risk, most mechanical of the 5 P0 items"
+    symbols_named: ["/settings/subscriptions", "/settings/account"]
+    files_named: ["apps/web/src/app/[locale]/feed/feed-content.tsx:301", "apps/web/src/app/[locale]/posts/select/posts-select-content.tsx:374", "apps/web/src/app/[locale]/settings/account/subscriptions-content.tsx:65"]
+    still_live: no
+    still_live_evidence: "This planning item's own text names spec-ux-rework2-batch-2.md as its source_spec, i.e. it was folded into and implemented by batch-2"
+    touches: [web:settings, web:subscriptions]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-036
+    section: "quick-dev planning of ux-rework2 P0 batch"
+    section_date: 2026-08-31
+    line: 129
+    summary: "Backend error messages swallowed on the frontend at 2 createApiKey call sites; also a project-wide pattern of never using err.response.errors[0].message"
+    category: bug
+    evidence_given: "Split off to keep spec-ux-rework2-batch-2.md within budget; a future spec should scope to the two createApiKey call sites, not a full app-wide audit"
+    symbols_named: [onboarding-api-key-step.tsx, api-key-form-dialog.tsx, report-dialog.tsx, subscribe-account-dialog.tsx]
+    files_named: ["apps/web/src/features/onboarding/onboarding-api-key-step.tsx:55-57", "apps/web/src/app/[locale]/settings/account/api-key-form-dialog.tsx:72-75"]
+    still_live: yes
+    still_live_evidence: "The two createApiKey sites now do extract err.response?.errors?.[0]?.message (fixed by batch-3), but the broader 'only reads first error' pattern gap this item also flagged still exists (see DW-030)"
+    touches: [web:onboarding, web:settings]
+    duplicate_of: DW-030
+    notes: "The narrow 'swallowed entirely' half of this item was fixed by batch-3; the broader 'only reads first GraphQL error' pattern gap it also identified is the same residual issue DW-030 reconfirms."
+
+  - id: DW-037
+    section: "quick-dev planning of ux-rework2 P0 batch"
+    section_date: 2026-08-31
+    line: 132
+    summary: "Duplicate favorite Heart icon on calendar-view CalendarCard: one for isFavorited badge, one for favoriteCount > 0, both fire together"
+    category: bug
+    evidence_given: "Split off to keep spec-ux-rework2-batch-2.md within budget; existing test never exercised isFavorited:true + favoriteCount>0 together"
+    symbols_named: [CalendarCard, Heart, isFavorited, favoriteCount]
+    files_named: ["packages/ui/src/features/events/WeeklyCalendarView.tsx:830-847"]
+    still_live: no
+    still_live_evidence: "WeeklyCalendarView.tsx:878 now guards the count-line Heart with `{!schedule.isFavorited && <Heart .../>}`, so it no longer renders alongside the favorited badge's Heart"
+    touches: [pkg:ui, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-038
+    section: "code review of 3-4k-moderator-actor-run-browser-and-replay-ui.md"
+    section_date: 2026-08-20
+    line: 137
+    summary: "Actor-run cursor decoding accepts malformed base64/non-numeric values and can produce a NaN offset"
+    category: bug
+    evidence_given: "Pre-existing Story 3-4j resolver; explicitly excluded from the 3-4k review-patch scope"
+    symbols_named: [decodeActorRunCursor, actorRuns]
+    files_named: ["apps/backend/src/schema/resolvers.ts:2839"]
+    still_live: no
+    still_live_evidence: "RESOLVED per document (2026-08-29, commit 764b922/c512474): decodeActorRunCursor() now exists in resolvers.ts and throws GraphQLError on invalid input; confirmed present via grep"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-039
+    section: "code review of 3-4k-moderator-actor-run-browser-and-replay-ui.md"
+    section_date: 2026-08-20
+    line: 139
+    summary: "Actor-run createdBefore filter compares against midnight, excluding the whole selected end-day; identical bug also found in unprocessedScraperPayloads' filter"
+    category: bug
+    evidence_given: "Pre-existing Story 3-4j resolver, excluded from 3-4k scope; sibling occurrence in unprocessedScraperPayloads flagged as a new, not-yet-actioned finding"
+    symbols_named: [createdBefore, endOfUtcDay, unprocessedScraperPayloads]
+    files_named: ["apps/backend/src/schema/resolvers.ts:2857"]
+    still_live: no
+    still_live_evidence: "RESOLVED per document (2026-08-29, commits 764b922 and 8871910): endOfUtcDay() helper now exists in resolvers.ts and is reused by queryUnprocessedPayloads; confirmed present via grep"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: "Folds in the indented sub-bullet (same midnight-truncation bug in unprocessedScraperPayloads' createdBefore filter), which the document itself marks resolved in the same pass."
+
+  - id: DW-040
+    section: "code review of 3-4k-moderator-actor-run-browser-and-replay-ui.md"
+    section_date: 2026-08-20
+    line: 145
+    summary: "Tracked root .env allegedly contains live AWS/Firebase/Apify/Supabase credentials, needing rotation and history purge"
+    category: process
+    evidence_given: "Re-checked while triaging this file: .env is NOT actually tracked by git (git ls-files/log/fsck all clean, .gitignore excludes it); original 'tracked' framing was a mistake. Live credentials still sit in the working-directory file though."
+    symbols_named: [".env", ".gitignore"]
+    files_named: [".gitignore:9"]
+    still_live: no
+    still_live_evidence: "git ls-files | grep for .env/apps/backend/.env returns nothing in the current repo, consistent with the document's own correction"
+    touches: [cross:process, app:infrastructure]
+    duplicate_of: null
+    notes: "The plaintext local .env credentials being real/live is a separate hygiene concern not verifiable from this session (file not read)."
+
+  - id: DW-041
+    section: "code review of 0-1-initialize-pnpm-monorepo.md"
+    section_date: 2026-07-22
+    line: 150
+    summary: "App layout/page hardcode English text, missing next-intl integration, violating project-context.md i18n rules 14 & 15"
+    category: bug
+    evidence_given: "Deferred to address i18n setup in a dedicated workspace setup story"
+    symbols_named: ["next-intl", "project-context.md"]
+    files_named: []
+    still_live: no
+    still_live_evidence: "next-intl (4.13.4) is a declared dependency in apps/web/package.json and the app now has a [locale] route structure with ScopedLocaleProvider; next-intl is clearly integrated today"
+    touches: [cross:i18n, app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-042
+    section: "code review of 1-1-create-initial-database-tables.md"
+    section_date: 2026-07-27
+    line: 154
+    summary: "Vague local Postgres instance setup, flagged as pre-existing"
+    category: process
+    evidence_given: "Deferred, pre-existing"
+    symbols_named: []
+    files_named: []
+    still_live: unverified
+    still_live_evidence: "Not mechanically checkable (documentation/setup-clarity concern, no specific symbol or file to probe)"
+    touches: [cross:process, app:infrastructure]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-043
+    section: "quick-dev fix of enum i18n rendering"
+    section_date: 2026-08-01
+    line: 159
+    summary: "Discovery page never resolved the active route locale, so EventCard dates always rendered in en-US regardless of /en/ or /id/"
+    category: bug
+    evidence_given: "Pre-existing; EventCard's locale prop and en-US default predate this change. Surfaced by adversarial review while fixing the enum-translation bug."
+    symbols_named: [EventCard, locale, "page.tsx"]
+    files_named: ["apps/web/src/app/[locale]/page.tsx"]
+    still_live: no
+    still_live_evidence: "RESOLVED per document: layout.tsx now wraps AppShell in <ScopedLocaleProvider locale={...}>; confirmed present at layout.tsx:80 via grep"
+    touches: [cross:i18n, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-044
+    section: "quick-dev fix of enum i18n rendering"
+    section_date: 2026-08-01
+    line: 163
+    summary: "No integration/E2E test proves the route locale actually flows layout.tsx -> ScopedLocaleProvider -> AppShell -> EventCard in the real app"
+    category: test-gap
+    evidence_given: "Surfaced by adversarial review; a Playwright E2E case (switch locale, assert date format changes) is the natural fit per the testing-trophy philosophy"
+    symbols_named: [ScopedLocaleProvider, "layout.tsx", EventCard]
+    files_named: []
+    still_live: yes
+    still_live_evidence: "No file matching *locale* found under apps/web/e2e"
+    touches: [cross:i18n, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-045
+    section: "quick-dev fix of enum i18n rendering"
+    section_date: 2026-08-01
+    line: 166
+    summary: "EventCard is server-rendered for initial HTML with no app-wide timezone sourced at layout.tsx, risking a server/browser timezone hydration mismatch"
+    category: edge-case
+    evidence_given: "Pre-existing risk, more directly relevant now that timezone plumbing (useScopedTimezone) exists without a real value wired at the app root"
+    symbols_named: [EventCard, useScopedTimezone, "Intl.DateTimeFormat"]
+    files_named: ["apps/web/src/app/[locale]/layout.tsx"]
+    still_live: yes
+    still_live_evidence: "No timeZone prop/value found anywhere in apps/web/src/app/[locale]/layout.tsx"
+    touches: [cross:i18n, pkg:ui]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-046
+    section: "quick-dev fix of enum i18n rendering"
+    section_date: 2026-08-01
+    line: 169
+    summary: "EventCategory/EventType are hand-maintained in two independent places (shared-types and generated/graphql.ts) with nothing enforcing sync"
+    category: code-debt
+    evidence_given: "Pre-existing architecture gap, unrelated to the translation-label fix itself; surfaced by adversarial review"
+    symbols_named: [EventCategory, EventType, "shared-types", "generated/graphql.ts"]
+    files_named: ["packages/shared-types/src/index.ts"]
+    still_live: yes
+    still_live_evidence: "RELIGION_AND_SPIRITUALITY (a later addition) is present in packages/shared-types/src/index.ts, confirming the enum is still hand-maintained there separately from codegen"
+    touches: [pkg:shared-types, cross:architecture]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-047
+    section: "quick-dev fix of enum i18n rendering"
+    section_date: 2026-08-01
+    line: 172
+    summary: "No mechanism keeps EventCategory/EventType members in sync across all 4 sources; new locales.test.ts only guards en.json<->id.json parity"
+    category: test-gap
+    evidence_given: "Broader than the current fix's scope; surfaced by adversarial review"
+    symbols_named: ["locales.test.ts", "shared-types", "generated/graphql.ts"]
+    files_named: ["apps/web/locales/locales.test.ts"]
+    still_live: yes
+    still_live_evidence: "apps/web/locales/locales.test.ts exists and, per its own scope, only compares en.json against id.json -- no cross-check against shared-types or generated/graphql.ts found"
+    touches: [cross:i18n, pkg:shared-types]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-048
+    section: "quick-dev fix of enum i18n rendering"
+    section_date: 2026-08-01
+    line: 175
+    summary: "Translated 'From'/'Mulai dari' price label pairs awkwardly with free-text ticketPrice values like 'Free' (yielding 'From  Free')"
+    category: edge-case
+    evidence_given: "Pre-existing UX question about ticketPrice display, not introduced by the label-translation fix; surfaced by adversarial review"
+    symbols_named: [ticketPrice, ticketPriceLabel]
+    files_named: []
+    still_live: unverified
+    still_live_evidence: "ticketPrice rendering now lives in EventDetailView.tsx (not EventCard.tsx as the item implies); confirmed the value still renders directly (line 471) but didn't locate the specific 'From' prefix composition within budget"
+    touches: [cross:i18n, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-049
+    section: "quick-dev addition of RELIGION_AND_SPIRITUALITY category"
+    section_date: 2026-08-01
+    line: 181
+    summary: "Backend codegen generated the Resolvers type from a stub typeDefs.graphql, not the real runtime-merged schema, giving zero compile-time verification"
+    category: code-debt
+    evidence_given: "Pre-existing architecture gap, unrelated to the category addition; surfaced by adversarial review while adding RELIGION_AND_SPIRITUALITY"
+    symbols_named: ["codegen.ts", "typeDefs.graphql", useIndexSignature]
+    files_named: ["apps/backend/codegen.ts"]
+    still_live: no
+    still_live_evidence: "apps/backend/codegen.ts now sets schema: 'src/schema/*.graphql', which covers all 24 real .graphql files in that directory (events.graphql etc.), not just the stub typeDefs.graphql -- the described narrow-stub setup is gone"
+    touches: [app:backend, pkg:graphql-select]
+    duplicate_of: null
+    notes: "useIndexSignature: true is still set, so excess-property checking may still be loose, but the core 'generates from a stub' claim no longer holds."
+
+  - id: DW-050
+    section: "quick-dev addition of RELIGION_AND_SPIRITUALITY category"
+    section_date: 2026-08-01
+    line: 183
+    summary: "No test asserts the backend's runtime-merged GraphQL schema actually parses/builds, or that a query touching a given EventCategory round-trips"
+    category: test-gap
+    evidence_given: "Pre-existing test-coverage gap, not specific to this change; surfaced by adversarial review"
+    symbols_named: ["server.ts", "*.graphql"]
+    files_named: []
+    still_live: yes
+    still_live_evidence: "No test file under apps/backend/src matching schema-build/parse assertions found via grep"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-051
+    section: "quick-dev addition of RELIGION_AND_SPIRITUALITY category"
+    section_date: 2026-08-01
+    line: 186
+    summary: "First-ever ALTER TYPE ... ADD VALUE migration in the repo; Postgres has no DROP VALUE, and no process doc flags this one-way-door risk"
+    category: process
+    evidence_given: "Inherent Postgres limitation, not a defect in this change; noted since this is the first migration of this kind in the repo"
+    symbols_named: ["ALTER TYPE", event_category]
+    files_named: ["packages/database/migrations/0000_cultured_ultragirl.sql"]
+    still_live: unverified
+    still_live_evidence: "Not mechanically checkable (absence of a process doc is not a grep-friendly claim); no contradicting evidence found"
+    touches: [pkg:database, cross:architecture]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-052
+    section: "code review of 1-2a-create-posts-table-and-link-seeded-events-to-their-source-post.md"
+    section_date: 2026-08-03
+    line: 192
+    summary: "Extra changes (generateSlug using crypto, RELIGION_AND_SPIRITUALITY) appeared in the diff baseline from other commits on master"
+    category: process
+    evidence_given: "Pre-existing changes from other commits on master"
+    symbols_named: [generateSlug, RELIGION_AND_SPIRITUALITY]
+    files_named: []
+    still_live: unverified
+    still_live_evidence: "Historical diff-hygiene note about a since-merged review; not meaningfully re-checkable today"
+    touches: [cross:process]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-053
+    section: "quick-dev fix of missing-platform-field-in-post-inserts"
+    section_date: 2026-08-19
+    line: 197
+    summary: "mapApifyItemToScrapedPost() was allegedly called without await, making 'if (!post)' always false"
+    category: bug
+    evidence_given: "Pre-existing bug reported at process-apify-async-result.ts:16-17; surfaced by code review of the platform-field fix"
+    symbols_named: [mapApifyItemToScrapedPost, "process-apify-async-result.ts"]
+    files_named: ["apps/backend/src/lib/scraper/process-apify-async-result.ts:16"]
+    still_live: no
+    still_live_evidence: "CORRECTED per document (2026-08-29) and reconfirmed here: `const post = await mapApifyItemToScrapedPost(item);` -- await is present"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-054
+    section: "quick-dev fix of missing-platform-field-in-post-inserts"
+    section_date: 2026-08-19
+    line: 202
+    summary: "instagram-adapter.ts used AND logic (!caption && !timestamp) instead of OR to validate posts, letting incomplete posts through"
+    category: bug
+    evidence_given: "Pre-existing bug; comment said both fields required but AND only caught both-missing; surfaced by code review"
+    symbols_named: [isNotFoundItem, caption, timestamp]
+    files_named: ["apps/backend/src/lib/scraper/instagram-adapter.ts:234"]
+    still_live: no
+    still_live_evidence: "RESOLVED per document (commit bf5126c): instagram-adapter.ts now reads `if (!item.caption || !item.timestamp)`, confirmed via grep"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-055
+    section: "quick-dev fix of missing-platform-field-in-post-inserts"
+    section_date: 2026-08-19
+    line: 207
+    summary: "instagram-adapter.ts used AND logic (!fullName && !biography) instead of OR to validate profiles, letting incomplete profiles through"
+    category: bug
+    evidence_given: "Pre-existing bug, same class as the post-validation one above; surfaced by code review"
+    symbols_named: [fullName, biography]
+    files_named: ["apps/backend/src/lib/scraper/instagram-adapter.ts:238"]
+    still_live: no
+    still_live_evidence: "RESOLVED in the same commit as DW-054 per document; not independently re-grepped beyond the sibling fix already confirmed"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-056
+    section: "quick-dev fix of missing-platform-field-in-post-inserts"
+    section_date: 2026-08-19
+    line: 212
+    summary: "recordProviderUsage allegedly counted items.length instead of mappedPosts.length, inflating vendor usage metrics"
+    category: bug
+    evidence_given: "Pre-existing bug per original review; surfaced by code review"
+    symbols_named: [recordProviderUsage, "items.length", "mappedPosts.length"]
+    files_named: ["apps/backend/src/lib/scraper/instagram-adapter.ts:300"]
+    still_live: no
+    still_live_evidence: "CORRECTED per document (2026-08-29): a dedicated test explicitly asserts usage is recorded for items.length by design (Apify bills regardless of validation); closed as invalid, no code change made"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-057
+    section: "quick-dev fix of missing-platform-field-in-post-inserts"
+    section_date: 2026-08-19
+    line: 217
+    summary: "process-brightdata-result.ts used an unchecked 'as string' type assertion on date_posted, masking type mismatches from the API"
+    category: edge-case
+    evidence_given: "Pre-existing pattern; a number or null date_posted would produce incorrect timestamps via new Date(); surfaced by code review"
+    symbols_named: [date_posted, "as string"]
+    files_named: ["apps/backend/src/lib/scraper/process-brightdata-result.ts:27"]
+    still_live: no
+    still_live_evidence: "The mapping logic moved to brightdata-record-mapper.ts, which now explicitly checks `typeof datePosted !== 'string'` and produces a validationError instead of blindly asserting -- no unchecked 'as string' assertion found for date_posted anymore"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: "Fixed incidentally as part of the DW-060 dedup refactor (mapBrightDataRecordToScrapedPost), not called out explicitly as fixing this item."
+
+  - id: DW-058
+    section: "root pnpm lint cleanup"
+    section_date: 2026-08-21
+    line: 223
+    summary: "apps/backend has 868 pre-existing lint warnings; --max-warnings 0 was removed from its lint script so root pnpm lint isn't blocked"
+    category: process
+    evidence_given: "Surfaced while fixing unrelated no-explicit-any warnings elsewhere; --max-warnings 0 needs restoring once the backlog is worked through"
+    symbols_named: ["--max-warnings 0", "no-explicit-any"]
+    files_named: ["apps/backend/package.json"]
+    still_live: yes
+    still_live_evidence: "apps/backend/package.json's lint script has no --max-warnings flag at all, confirming it's still removed/not restored"
+    touches: [app:backend, cross:process]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-059
+    section: "quick-dev UI fixes batch"
+    section_date: 2026-08-28
+    line: 229
+    summary: "persistScrapedPost returned an already-known post row unchanged on re-scrape, so videoUrl never backfilled for posts scraped before migration 0036"
+    category: bug
+    evidence_given: "Confirmed end-to-end wiring works for posts persisted after the column shipped; a real fix needs a decision on backfill strategy"
+    symbols_named: [persistScrapedPost, videoUrl, imageUrl]
+    files_named: ["apps/backend/src/lib/posts/persist-scraped-post.ts:47-52"]
+    still_live: no
+    still_live_evidence: "RESOLVED per document (commit 269bd14): persist-scraped-post.ts:50-62 now builds a backfillPatch for videoUrl/imageUrl/imageUrlExpiresAt when null, confirmed via grep"
+    touches: [app:backend, web:posts]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-060
+    section: "quick-dev fix of posts-videourl-originalposturl-passthrough"
+    section_date: 2026-08-28
+    line: 236
+    summary: "Bright Data raw-record mapping was implemented twice (process-brightdata-result.ts and replay-actor-run.ts) with no shared helper"
+    category: code-debt
+    evidence_given: "Pre-existing duplication, extended in parallel by this fix; the two copies were beginning to diverge in malformed-date handling"
+    symbols_named: [mapBrightDataRecordToScrapedPost, "process-brightdata-result.ts", "replay-actor-run.ts"]
+    files_named: []
+    still_live: no
+    still_live_evidence: "RESOLVED per document (commits 87cbc1c/1e4ab2c): mapBrightDataRecordToScrapedPost() now in brightdata-record-mapper.ts, used by both process-brightdata-result.ts and replay-actor-run.ts, confirmed via grep"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-061
+    section: "quick-dev fix of posts-videourl-originalposturl-passthrough"
+    section_date: 2026-08-28
+    line: 241
+    summary: "apps/backend's test script glob (src/**/*.test.ts) never actually reached files 2+ directories deep, silently skipping 20+ test files"
+    category: process
+    evidence_given: "Confirmed via a planted deliberate assertion failure that pnpm test's pass count didn't change; needs a dedicated investigation, could surface previously-invisible failures"
+    symbols_named: ["src/**/*.test.ts", tsx, "--test"]
+    files_named: ["apps/backend/package.json"]
+    still_live: no
+    still_live_evidence: "apps/backend/package.json's test script now quotes the glob: `tsx --test --test-concurrency=1 \"src/**/*.test.ts\"`, confirmed via grep"
+    touches: [app:backend, cross:process]
+    duplicate_of: null
+    notes: "Folds in the two indented sub-bullets (fixing the glob surfaced 23-25/570 order-dependent test failures across test-isolation/seam-leak issues, root-caused and fixed in a long chain of batches A-D through 2026-08-30/31, plus the subscribe-to-account.test.ts self-inflicted pollution investigation). All sub-issues are reported RESOLVED in the document with independent re-verification described. Not independently re-checked beyond confirming the glob fix itself, given the scale of that sub-chain relative to budget."
+
+  - id: DW-062
+    section: "quick-dev fix of posts-videourl-originalposturl-passthrough"
+    section_date: 2026-08-28
+    line: 262
+    summary: "unprocessed_scraper_payloads.context (and rawPayload/validationError) jsonb columns were double-JSON-encoded on write, breaking single-level queries"
+    category: bug
+    evidence_given: "Confirmed via a raw SQL probe; an existing production resolver filter may have always silently matched zero rows"
+    symbols_named: [context, rawPayload, validationError, customJsonb]
+    files_named: ["apps/backend/src/schema/resolvers.ts:2778"]
+    still_live: no
+    still_live_evidence: "RESOLVED per document (commits f187bf4/9c91273): customJsonb column type now exists in packages/database/schema.ts, confirmed via grep"
+    touches: [pkg:database, app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-063
+    section: "quick-dev fix of seed script FK violation"
+    section_date: 2026-08-29
+    line: 269
+    summary: "brightdata/apify_pending_jobs.profile_id FKs are ON DELETE no action, so any non-seed delete of a profile/actor-run row would hit the same FK violation"
+    category: edge-case
+    evidence_given: "Root-caused via the migration file; grepped all of apps/backend/src for delete() on those tables outside tests -- zero matches, nothing in production can trigger this today"
+    symbols_named: ["ON DELETE no action", brightdata_pending_jobs, apify_pending_jobs]
+    files_named: ["packages/database/migrations/0028_vengeful_silver_surfer.sql:24"]
+    still_live: yes
+    still_live_evidence: "migrations/0028_vengeful_silver_surfer.sql:24 still declares `... ON DELETE no action ON UPDATE no action`; deliberately left as a forward risk, not changed"
+    touches: [pkg:database]
+    duplicate_of: null
+    notes: "Document explicitly frames this as intentionally left open (PARTIALLY ADDRESSED), not a hidden regression."
+
+  - id: DW-064
+    section: "quick-dev fix of seed script FK violation"
+    section_date: 2026-08-29
+    line: 273
+    summary: "seedDatabase()'s cleanup relied on a hand-maintained, manually-ordered delete list with no automated check against the FK graph"
+    category: code-debt
+    evidence_given: "Surfaced by adversarial review; a generic fix (e.g. topological sort from schema.ts) was judged a larger architectural change than this bug fix's scope"
+    symbols_named: [seedDatabase, "getTablesInDeleteOrder"]
+    files_named: []
+    still_live: no
+    still_live_evidence: "RESOLVED per document (commit c6aa973): packages/database/delete-order.ts exports getTablesInDeleteOrder(), confirmed via grep, and seedDatabase() now loops over the computed order"
+    touches: [pkg:database]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-065
+    section: "sprint-change-proposal-2026-08-28.md Items 1-2 implementation"
+    section_date: 2026-08-29
+    line: 280
+    summary: "No email notification sent to moderators for a new AWAITING_APPROVAL DefaultLocationChangeRequest (FR94), unlike the applied-change email"
+    category: bug
+    evidence_given: "TODO(2026-08-28) left in apply-default-location-change.ts; deliberately deferred, needs new copy distinguishing decision-needed vs FYI tone"
+    symbols_named: ["DEFAULT_LOCATION_CHANGE_AWAITING_APPROVAL_ALERT", "apply-default-location-change.ts"]
+    files_named: ["apps/backend/src/lib/accounts/apply-default-location-change.ts:118-120"]
+    still_live: no
+    still_live_evidence: "RESOLVED per document (commit 269bd14): DEFAULT_LOCATION_CHANGE_AWAITING_APPROVAL_ALERT template confirmed present in packages/domain/src/email/{types,templates}.ts via grep"
+    touches: [cross:notifications, app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-066
+    section: "adversarial review of ux-rework2 batch"
+    section_date: 2026-08-29
+    line: 287
+    summary: "backfillAccountProfileAndInferDefaultLocation's defaultLocation!==null guard has no lock, so concurrent posts can trigger duplicate billable Gemini calls"
+    category: edge-case
+    evidence_given: "Pre-existing gap, already true of its original call site; this batch only added a second call site with the identical limitation"
+    symbols_named: [backfillAccountProfileAndInferDefaultLocation, defaultLocation]
+    files_named: ["apps/backend/src/lib/accounts/backfill-account-profile-and-infer-location.ts"]
+    still_live: yes
+    still_live_evidence: "backfill-account-profile-and-infer-location.ts:74 still reads `if (profile.defaultLocation !== null)` with no lock/mutex visible around it"
+    touches: [app:backend, cross:ai-extraction]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-067
+    section: "adversarial review of ux-rework2 batch"
+    section_date: 2026-08-29
+    line: 289
+    summary: "No backoff/circuit-breaker for a failed location inference; a permanent failure re-triggers a fresh Gemini call on every subsequent post indefinitely"
+    category: edge-case
+    evidence_given: "Pre-existing design gap in the same backfill function, not introduced by this batch's new call site"
+    symbols_named: [parseLocationInferenceResponse, resolveLocationSeam, defaultLocation]
+    files_named: ["apps/backend/src/lib/accounts/backfill-account-profile-and-infer-location.ts"]
+    still_live: yes
+    still_live_evidence: "Same function inspected for DW-066 shows no backoff/circuit-breaker state; no evidence of one being added since"
+    touches: [app:backend, cross:ai-extraction]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-068
+    section: "adversarial review of ux-rework2 batch"
+    section_date: 2026-08-29
+    line: 292
+    summary: "createApiKey's fail-open key verification is only as safe as GeminiInvalidKeyError's error-shape classification accuracy"
+    category: edge-case
+    evidence_given: "The classifier predates this batch but now directly gates a security-relevant accept/reject decision; a dedicated accuracy review is out of scope"
+    symbols_named: [createApiKey, GeminiInvalidKeyError, "gemini-client.ts"]
+    files_named: []
+    still_live: unverified
+    still_live_evidence: "Classifier accuracy against real Gemini API error shapes is not something a static grep can settle; document itself frames this as needing live-API validation"
+    touches: [app:backend, web:settings]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-069
+    section: "adversarial review of ux-rework2 batch"
+    section_date: 2026-08-29
+    line: 295
+    summary: "No request-level timeout anywhere in the Gemini adapter; a hung HTTP call blocks the caller (now including the synchronous createApiKey path) indefinitely"
+    category: edge-case
+    evidence_given: "Pre-existing architectural gap across the whole adapter; createApiKey's new verifyGeminiApiKey call inherits it"
+    symbols_named: [callGeminiGenerateContent, callGemini, verifyGeminiApiKey]
+    files_named: ["apps/backend/src/lib/ai-gateway/adapter.ts"]
+    still_live: yes
+    still_live_evidence: "No timeout/AbortController/AbortSignal found anywhere in apps/backend/src/lib/ai-gateway/adapter.ts"
+    touches: [app:backend, cross:ai-extraction]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-070
+    section: "adversarial review of ux-rework2 batch"
+    section_date: 2026-08-29
+    line: 298
+    summary: "EventCard.tsx's date-formatting fallback chain (formatEventDate, now formatEventTime) doesn't guard an Invalid Date (NaN) input, throwing instead of degrading"
+    category: edge-case
+    evidence_given: "Pre-existing gap in formatEventDate's pattern; formatEventTime copies it verbatim, duplicating rather than introducing the gap"
+    symbols_named: [formatEventDate, formatEventTime, "Intl.DateTimeFormat"]
+    files_named: ["packages/ui/src/features/events/EventCard.tsx"]
+    still_live: yes
+    still_live_evidence: "EventCard.tsx:106 has an isNaN check, but only inside parseDateTime's internal date+time combining fallback -- the resulting dateObj is still passed unguarded into getEventDayDiff/formatRelativeDayOrDate at lines 112-113, so a bad dateStr can still propagate a NaN date into the formatting chain"
+    touches: [pkg:ui, web:events]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-071
+    section: "quick-dev fix of scraper-provider-usage test pollution"
+    section_date: 2026-08-29
+    line: 305
+    summary: "isProviderCapacityAvailable() uses a static budget-threshold heuristic instead of real Apify account usage data from GET /v2/users/me/limits"
+    category: code-debt
+    evidence_given: "Requested by the user while diagnosing an unrelated test-pollution failure; a real fix needs a persistence shape, refresh policy, and error handling -- real architectural decisions, split to 'planning'"
+    symbols_named: [isProviderCapacityAvailable, "users/me/limits", monthlyBudgetUsd]
+    files_named: ["apps/backend/src/lib/scraper/usage-store.ts"]
+    still_live: yes
+    still_live_evidence: "usage-store.ts:56 still defines isProviderCapacityAvailable() with no reference to users/me/limits anywhere in the file"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-072
+    section: "quick-dev fix of scraper-provider-usage test pollution"
+    section_date: 2026-08-29
+    line: 308
+    summary: "trigger-apify-for-target.test.ts's testProfileId ('profile-'+Date.now()) is not a valid UUID, breaking every subtest's shared afterEach cleanup"
+    category: bug
+    evidence_given: "Confirmed pre-existing and unrelated to the isolation fix; likely never runs under pnpm test due to the (then still-open) glob bug"
+    symbols_named: [testProfileId, apifyPendingJobs, "uuid column"]
+    files_named: ["apps/backend/src/lib/scraper/trigger-apify-for-target.test.ts:10"]
+    still_live: no
+    still_live_evidence: "RESOLVED per document (commits 764b922/c512474): trigger-apify-for-target.test.ts now seeds a real socialMediaAccountProfiles row via db.insert(...).returning() and uses its real id, confirmed via reading the file"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: "This item's own evidence explicitly cross-references the (then-open, now-fixed) pnpm test glob bug tracked as DW-061."
+
+  - id: DW-073
+    section: "quick-dev UI fixes batch, ux-rework2"
+    section_date: 2026-08-29
+    line: 316
+    summary: "'AI-assisted filter creation' was dropped from ux-rework2 scope but never actually logged to deferred-work.md as the spec's Intent section claimed"
+    category: process
+    evidence_given: "spec-ux-rework2-batch.md said it was 'tracked separately in deferred-work.md' but wasn't; this entry corrects that gap"
+    symbols_named: ["EventFilterInput", "AIEventFilter", "Epic 7"]
+    files_named: ["_bmad-output/planning-artifacts/epics.md"]
+    still_live: no
+    still_live_evidence: "Epic 7 (AI Prompt-Based Custom Event Filter) confirmed present in epics.md via grep, matching the document's own resolution"
+    touches: [cross:process, cross:prd]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-074
+    section: "code review of 7-1a-build-the-shared-eventfilterinput-query-layer"
+    section_date: 2026-08-29
+    line: 320
+    summary: "Timezone handling is entirely absent in the EventFilterInput date range calculation"
+    category: bug
+    evidence_given: "Deferred, pre-existing per the code review's terse bullet list"
+    symbols_named: [EventFilterInput, DateRangeFilterInput]
+    files_named: []
+    still_live: unverified
+    still_live_evidence: "The date-range resolution logic appears to now live under packages/domain/src/ai-event-filters and packages/domain/src/events/buildEventsQueryCondition.ts, refactored since this review; not confirmed within budget whether timezone handling was added"
+    touches: [pkg:domain, web:widgets]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-075
+    section: "code review of 7-1a-build-the-shared-eventfilterinput-query-layer"
+    section_date: 2026-08-29
+    line: 321
+    summary: "Missing date ranges hardcode a 90-day window"
+    category: bug
+    evidence_given: "Deferred, pre-existing per the code review's terse bullet list"
+    symbols_named: [EventFilterInput]
+    files_named: []
+    still_live: unverified
+    still_live_evidence: "Not independently re-verified within budget; same refactored-location caveat as DW-074"
+    touches: [pkg:domain, web:widgets]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-076
+    section: "code review of 7-1a-build-the-shared-eventfilterinput-query-layer"
+    section_date: 2026-08-29
+    line: 322
+    summary: "Filter resolution falls back to the epoch to guarantee zero results in some error path"
+    category: edge-case
+    evidence_given: "Deferred, pre-existing per the code review's terse bullet list"
+    symbols_named: [EventFilterInput]
+    files_named: []
+    still_live: unverified
+    still_live_evidence: "Not independently re-verified within budget"
+    touches: [pkg:domain, web:widgets]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-077
+    section: "code review of 7-1a-build-the-shared-eventfilterinput-query-layer"
+    section_date: 2026-08-29
+    line: 323
+    summary: "No constraints or validations on offsetAmount"
+    category: edge-case
+    evidence_given: "Deferred, pre-existing per the code review's terse bullet list"
+    symbols_named: [offsetAmount]
+    files_named: ["packages/domain/src/ai-event-filters/transform-gemini-response-to-event-filter.ts:51"]
+    still_live: yes
+    still_live_evidence: "transform-gemini-response-to-event-filter.ts:51-53 only checks !isNaN(offsetAmount); no range/magnitude validation found"
+    touches: [pkg:domain]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-078
+    section: "code review of 7-1a-build-the-shared-eventfilterinput-query-layer"
+    section_date: 2026-08-29
+    line: 324
+    summary: "Widget.filters is typed as EventFilterInput but resolvers.ts reads it back via a bare 'as any' cast with no runtime validation"
+    category: edge-case
+    evidence_given: "No known production widgets predate this story, so left as a forward risk rather than a blocking gap"
+    symbols_named: ["Widget.filters", "as any"]
+    files_named: ["apps/backend/src/schema/resolvers.ts"]
+    still_live: unverified
+    still_live_evidence: "Grepped resolvers.ts for 'widget.filters'/'filters: widget' -- no match; the widgets resolver code likely uses different variable naming, not located within budget"
+    touches: [web:widgets, app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-079
+    section: "code review of 7-1a-build-the-shared-eventfilterinput-query-layer (Independent verification findings)"
+    section_date: 2026-08-29
+    line: 327
+    summary: "pnpm --filter web codegen produced duplicate, conflicting declarations of the new EventFilterInput-family types, breaking apps/web's typecheck"
+    category: bug
+    evidence_given: "Pre-existing codegen quirk this project works around via fix-codegen.js's duplicate-stripping regexes, not extended for these new types by the story's dev pass"
+    symbols_named: [CoordinatesInput, DateRangeFilterInput, EventFilterInput, "fix-codegen.js"]
+    files_named: ["apps/web/fix-codegen.js"]
+    still_live: no
+    still_live_evidence: "Fixed before commit per the document's own framing; confirmed fix-codegen.js:89-90 still contains the CoordinatesInput/DateRangeFilterInput/EventFilterInput dedup regex"
+    touches: [pkg:graphql-select, web:widgets]
+    duplicate_of: null
+    notes: "Listed under a '### Independent verification findings (fixed before commit, not deferred)' subsection; included per the file's own top-level '- ' bullet count."
+
+  - id: DW-080
+    section: "code review of 7-1a-build-the-shared-eventfilterinput-query-layer (Independent verification findings)"
+    section_date: 2026-08-29
+    line: 328
+    summary: "resolveDateRangeFilter's THIS_MONTH anchor combined with a DAY/WEEK offset unit produced a garbage near-month-spanning range instead of a shifted window"
+    category: bug
+    evidence_given: "Untested combination; fixed to shift the whole month window and guard a setUTCMonth day-of-month overflow, with new regression tests added"
+    symbols_named: [resolveDateRangeFilter, THIS_MONTH, setUTCMonth]
+    files_named: []
+    still_live: no
+    still_live_evidence: "Fixed before commit per the document's own framing (with new regression tests described); not independently re-located post-refactor within budget"
+    touches: [pkg:domain]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-081
+    section: "code review of 7-1a-build-the-shared-eventfilterinput-query-layer (Independent verification findings)"
+    section_date: 2026-08-29
+    line: 329
+    summary: "packages/domain's strict --max-warnings 0 lint flagged the original isUnit(u,std,en) helper as untyped; removed in favor of direct equality checks"
+    category: code-debt
+    evidence_given: "Fixed before commit; TS string enums equal their literal value so the helper was redundant besides being untyped"
+    symbols_named: [isUnit, "--max-warnings 0"]
+    files_named: []
+    still_live: no
+    still_live_evidence: "No isUnit symbol found anywhere in packages/domain/src, confirming the helper was removed as described"
+    touches: [pkg:domain]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-082
+    section: "code review of 7-2a-build-the-ai-event-filter-backend-graphql-api-layer"
+    section_date: 2026-08-29
+    line: 332
+    summary: "resolvePromptToEventFilter invokes the external Gemini API with no rate-limiting at the GraphQL mutation layer"
+    category: edge-case
+    evidence_given: "Deferred, pre-existing per the code review's terse bullet list"
+    symbols_named: [resolvePromptToEventFilter]
+    files_named: ["apps/backend/src/schema/resolvers.ts:209"]
+    still_live: yes
+    still_live_evidence: "No rateLimit/RATE_LIMIT/throttle symbol found in resolvers.ts; resolvePromptToEventFilter's implementation (lines 209-219) only validates prompt shape, no rate limiting"
+    touches: [app:backend, cross:ai-extraction]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-083
+    section: "code review of 7-2a-build-the-ai-event-filter-backend-graphql-api-layer"
+    section_date: 2026-08-29
+    line: 333
+    summary: "myAIEventFilters query returns a flat array with no pagination or maximum limit enforced"
+    category: edge-case
+    evidence_given: "Deferred, pre-existing per the code review's terse bullet list"
+    symbols_named: [myAIEventFilters]
+    files_named: ["apps/backend/src/schema/resolvers.ts:2251"]
+    still_live: yes
+    still_live_evidence: "resolvers.ts:2251-2259 confirms myAIEventFilters still does a plain db.select()...orderBy() with no .limit() call"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-084
+    section: "code review of 7-2a-build-the-ai-event-filter-backend-graphql-api-layer"
+    section_date: 2026-08-29
+    line: 334
+    summary: "saveAIEventFilter inserts new rows with no per-user quota check"
+    category: edge-case
+    evidence_given: "Deferred, pre-existing per the code review's terse bullet list"
+    symbols_named: [saveAIEventFilter]
+    files_named: ["apps/backend/src/schema/resolvers.ts:347"]
+    still_live: yes
+    still_live_evidence: "resolvers.ts:347-357 confirms saveAIEventFilter validates prompt length then inserts directly, with no preceding count/quota check"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-085
+    section: "code review of 7-2a-build-the-ai-event-filter-backend-graphql-api-layer"
+    section_date: 2026-08-29
+    line: 335
+    summary: "Exceptions like DB constraint violations are not mapped to predictable GraphQLError formats for this resolver family"
+    category: edge-case
+    evidence_given: "Deferred, pre-existing per the code review's terse bullet list"
+    symbols_named: [GraphQLError, saveAIEventFilter]
+    files_named: []
+    still_live: unverified
+    still_live_evidence: "Not independently re-verified within budget beyond confirming saveAIEventFilter/myAIEventFilters have no obvious catch-and-remap block in the excerpts read"
+    touches: [app:backend]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-086
+    section: "code review of 7-3-build-the-reusable-ai-filter-summary-renderer.md"
+    section_date: 2026-08-29
+    line: 338
+    summary: "renderAIFilterSummary joins caveat strings verbatim, including empty strings, technically matching the AC but a minor rendering blemish"
+    category: edge-case
+    evidence_given: "Deferred, pre-existing"
+    symbols_named: [renderAIFilterSummary, caveats]
+    files_named: ["packages/domain/src/ai-event-filters/render-ai-filter-summary.ts:134"]
+    still_live: yes
+    still_live_evidence: "render-ai-filter-summary.ts:134 still does `caveats.map(c => caveatPrefix + c).join(caveatSeparator)` with no empty-string filtering"
+    touches: [pkg:domain]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-087
+    section: "quick-dev fix of ai-processing-queue-iam-grant"
+    section_date: 2026-08-30
+    line: 343
+    summary: "reprocessPayload had a TODO where the SQS enqueue should be, but unconditionally returned success, telling moderators a requeue happened when it hadn't"
+    category: bug
+    evidence_given: "Confirmed by direct read; worse than the sibling IAM-grant bug since it fails silently with a false-success message"
+    symbols_named: [reprocessPayload, AIProcessingQueue]
+    files_named: ["apps/backend/src/schema/resolvers.ts:2145-2178"]
+    still_live: yes
+    still_live_evidence: "PARTIALLY RESOLVED per document: resolvers.ts:2225 now returns 'Reprocessing is not yet implemented \\u2014 no payload was requeued.' (false-success lie stopped, confirmed via grep), but the actual reprocess feature (real consumer + enqueue) remains unbuilt, matching the document's own framing that this stays open"
+    touches: [app:backend, web:moderation]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-088
+    section: "quick-dev fix of ai-processing-queue-iam-grant"
+    section_date: 2026-08-30
+    line: 347
+    summary: "No systemic check verifies every *_QUEUE_URL/secret ARN wired into a Lambda's environment has a matching grant*() IAM call in the same stack file"
+    category: process
+    evidence_given: "This exact mismatch is precisely how the just-fixed prod incident (AI_PROCESSING_QUEUE_URL present, grantSendMessages missing) shipped undetected; one stack test now guards this one instance"
+    symbols_named: ["festgrid-backend-stack.ts", grantSendMessages]
+    files_named: ["apps/infrastructure/lib/festgrid-backend-stack.ts", "apps/infrastructure/lib/festgrid-backend-stack.test.ts"]
+    still_live: yes
+    still_live_evidence: "grantSendMessages and the stack test file both exist, but only as a single-instance regression test (#13b per the document); no generic lint rule/CDK wrapper found auditing all queue/secret-to-grant pairings"
+    touches: [app:infrastructure, cross:process]
+    duplicate_of: null
+    notes: ""
+
+  - id: DW-089
+    section: "quick-dev fix of ai-processing-queue-iam-grant"
+    section_date: 2026-08-30
+    line: 350
+    summary: "selectPostsForExtraction loops enqueuePostForProcessing per post inside one try/catch, with no per-post success tracking on a mid-loop failure"
+    category: edge-case
+    evidence_given: "Pre-existing loop shape; the IAM fix makes sends actually succeed, turning this from a theoretical to a live partial-failure risk"
+    symbols_named: [selectPostsForExtraction, enqueuePostForProcessing]
+    files_named: ["apps/backend/src/schema/resolvers.ts:1859-1871"]
+    still_live: yes
+    still_live_evidence: "resolvers.ts:1912-1915 still shows `for (const postId of postIds) { await enqueuePostForProcessing(postId); }` inside a single try/catch with no per-post result tracking"
+    touches: [app:backend, web:posts]
+    duplicate_of: null
+    notes: ""
