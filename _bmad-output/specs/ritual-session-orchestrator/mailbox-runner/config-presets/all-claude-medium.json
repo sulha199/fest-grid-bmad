@@ -2,11 +2,11 @@
   "_preset": "all-claude-medium",
   "_description": "Everything routes to Claude (sonnet-5, medium effort) -- no Cline/Gemini/Vertex involved at all. Balanced cost/capability in the all-claude variant.",
 
-  "bmad-create-story": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
-  "bmad-epic-readiness-check": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
+  "bmad-create-story": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
+  "bmad-epic-readiness-check": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
   "bmad-correct-course": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
-  "bmad-architecture": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
-  "bmad-prd": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
+  "bmad-architecture": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
+  "bmad-prd": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
   "bmad-code-review": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
   "bmad-dev-story": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
   "bmad-quick-dev": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" }

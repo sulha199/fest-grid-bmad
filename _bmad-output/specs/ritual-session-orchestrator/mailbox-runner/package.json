@@ -14,7 +14,8 @@
     "resume-batch": "tsx src/resume-batch.ts",
     "dispatch-ritual": "tsx src/dispatch-ritual.ts",
     "run-tests": "tsx src/run-tests.ts",
-    "run-act-with-tests": "tsx src/run-act-with-tests.ts"
+    "run-check": "tsx src/run-check.ts",
+    "run-act-with-checks": "tsx src/run-act-with-checks.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.259",

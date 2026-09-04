@@ -8,6 +8,6 @@
   "bmad-architecture": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" },
   "bmad-prd": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" },
   "bmad-code-review": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" },
-  "bmad-dev-story": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" },
-  "bmad-quick-dev": { "runtime": "claude", "model": "claude-opus-5", "effort": "max" }
+  "bmad-dev-story": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
+  "bmad-quick-dev": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" }
 }

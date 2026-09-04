@@ -111,7 +111,7 @@ Both scripts are read-only against `epics.md`/`sprint-status.yaml` — writing t
 | **medium** | `mixed-medium` — sonnet-5 / gemini-3.5-flash, medium (= the active default) | `all-claude-medium` — sonnet-5 everywhere, medium effort |
 | **max** | `mixed-max` — opus-5 / gemini-3.1-pro-preview, max reasoning | `all-claude-max` — opus-5 everywhere, max effort |
 
-Every entry point (`dispatch-ritual.ts`, `run-ritual.ts`, `run-ritual-cline.ts`, `run-act-with-tests.ts`) accepts `--config <preset-name-or-path>` to select one for that invocation, applied before the `--skill` lookup:
+Every entry point (`dispatch-ritual.ts`, `run-ritual.ts`, `run-ritual-cline.ts`, `run-act-with-checks.ts`) accepts `--config <preset-name-or-path>` to select one for that invocation, applied before the `--skill` lookup:
 
 ```bash
 npx tsx src/dispatch-ritual.ts --skill bmad-dev-story --story 3.6h --config all-claude-low --mailbox ../mailbox --cwd <repo-root>
@@ -123,26 +123,30 @@ A bare name resolves to `config-presets/<name>.json`; anything with a `/` or `.j
 
 **`dispatch-ritual.ts`** is the one command a caller actually needs — it reads the active (or `--config`-selected) config for `--skill`, re-execs the correct underlying script, and passes everything else through. No need to remember which of the two runtimes a given skill maps to. **Verified live**: correct routing to each runtime, correct model/region/reasoning resolved purely from config. Found and fixed a real bug doing this: the first version spawned `npx tsx ...` with `{shell: true}`, which silently truncated any multi-word `--prompt "..."` down to its first word (Windows' cmd.exe re-tokenizes a shell-joined argv array on its own whitespace rules, discarding the original quoting) — fixed by spawning `tsx`'s own CLI entry point directly via `process.execPath`, which needs no shell and so nothing re-tokenizes the arguments.
 
-## Post-act verification: run the real test suite, auto-dispatch a fix
+## Post-act verification: lint + build + test, auto-dispatch a fix
 
-**`run-tests.ts`** invokes and monitors `pnpm test` (turbo across every package — confirmed a genuinely long task against this repo's real suite: apps/backend's `node:test` suite plus every `packages/*` Vitest suite). "Invoke and monitor" concretely means: spawn it, print a heartbeat with elapsed time + the last output line every 30s (default) so a long silent stretch doesn't read as hung, and enforce a timeout (20 min default) that kills the process tree and reports a timeout outcome rather than hanging forever.
+**`run-check.ts --kind test|build|lint`** invokes and monitors one of this repo's real turbo checks (`pnpm test`/`pnpm build`/`pnpm lint` by default, overridable via `--command`). "Invoke and monitor" concretely means: spawn it, print a heartbeat with elapsed time + the last output line every 30s (default) so a long silent stretch doesn't read as hung, and enforce a timeout (20 min default) that kills the process tree and reports a timeout outcome rather than hanging forever. Generalizes what was originally a test-only `run-tests.ts` (still present, unchanged, for any direct caller that only wants test) across all three check kinds so the same invoke/monitor/timeout machinery isn't duplicated per kind.
 
-**`test-output-summary.ts`** parses the raw output into pass/fail plus an itemized failure list — grounded in a real full run of this repo's suite, not assumed: `apps/backend` uses Node's native `node:test` TAP reporter (`not ok N - <name>` for failures); `packages/*` use Vitest's ANSI-colored default reporter (`✗`/`×` markers, a `Test Files N failed | M passed` summary block); turbo's own `Tasks: X successful, Y total` line is the single most reliable overall verdict regardless of which per-package reporter produced the detail below it. **Verified live, 2026-09-03, against two real full runs — not synthetic samples**: a passing run (zero false positives across 4593 lines, including test *names* containing the word "fails" that a naive substring grep would have miscounted) and, separately, **a real failing run**: `apps/backend`'s suite hit 5 genuine failures (`node:test`'s own summary: `# fail 5`), and this parser extracted exactly 5 failures, in order, with exact descriptions matching a raw `grep "not ok"` on the same log. Both the pass-path and the failure-path are grounded in real data now, not assumed.
+**`test-output-summary.ts`** (kind `test`) parses the raw output into pass/fail plus an itemized failure list — grounded in a real full run of this repo's suite, not assumed: `apps/backend` uses Node's native `node:test` TAP reporter (`not ok N - <name>` for failures); `packages/*` use Vitest's ANSI-colored default reporter (`✗`/`×` markers, a `Test Files N failed | M passed` summary block); turbo's own `Tasks: X successful, Y total` line is the single most reliable overall verdict regardless of which per-package reporter produced the detail below it. **Verified live, 2026-09-03, against two real full runs — not synthetic samples**: a passing run (zero false positives across 4593 lines, including test *names* containing the word "fails" that a naive substring grep would have miscounted) and, separately, **a real failing run**: `apps/backend`'s suite hit 5 genuine failures (`node:test`'s own summary: `# fail 5`), and this parser extracted exactly 5 failures, in order, with exact descriptions matching a raw `grep "not ok"` on the same log. Both the pass-path and the failure-path are grounded in real data now, not assumed.
 
-That failing run itself is a real, current finding worth acting on, not just a tooling validation — see below.
+That failing run itself is a real, current finding worth acting on, not just a tooling validation — it was fixed (see git history for the `subscribe-to-account` fix around 2026-09-03/04).
 
-**`run-act-with-tests.ts`** is the actual chained workflow requested — dispatch an act-mode skill, then verify it:
+**`build-lint-output-summary.ts`** (kinds `build`/`lint`) does the same for turbo's build/lint output — also grounded in real triggered failures (2026-09-04), not assumed: a genuine `tsc` type error (`<pkg>:build: src/foo.ts(1,14): error TS2322: ...`) and a genuine `--max-warnings 0` breach (an eslint `warning`-severity line that still fails the task, surfaced via the package's own `✖ N problems (0 errors, N warnings)` / `ESLint found too many warnings` lines rather than an `error`-severity line, since not every real lint failure is an eslint "error"). Turbo's own `Failed:    <pkg>#<task>` line (one per failed task) is the most reliable "what exactly failed" signal for both kinds, cross-checked against the same `Tasks: X successful, Y total` verdict line `test-output-summary.ts` relies on.
+
+**`run-act-with-checks.ts`** is the actual chained workflow — dispatch an act-mode skill, then verify it against all three checks, not just test:
 
 ```bash
-npx tsx src/run-act-with-tests.ts --skill bmad-dev-story --story 3.6h \
+npx tsx src/run-act-with-checks.ts --skill bmad-dev-story --story 3.6h \
     --mailbox ../mailbox --cwd <repo-root> [--config <preset>]
 ```
 
 1. `dispatch-ritual.ts --skill bmad-dev-story --story 3.6h` (any `AskUserQuestion` still relays through the mailbox exactly as normal — this script only sequences around that, doesn't change it).
-2. On success, `run-tests.ts` runs the real suite.
-3. If tests fail, dispatches `bmad-quick-dev` (via `dispatch-ritual.ts` again, same `--config`) with a prompt built from the failure summary, asking it to fix them.
+2. On success, runs `run-check.ts --kind lint`, then `--kind build`, then `--kind test`, in that order — cheapest first, fail-fast. Test already implies a build via turbo's own `dependsOn` graph, but running build explicitly first attributes a compile error to "build" instead of burying it inside a "test" failure.
+3. At the first failing check, dispatches `bmad-quick-dev` (via `dispatch-ritual.ts` again, same `--config`) with a prompt built from that check's own failure summary, asking it to fix it.
 
-Deliberately does **not** loop — it dispatches quick-dev once and reports; it doesn't re-run tests afterward or retry indefinitely. Re-running this same script (or just `run-tests.ts`) is how you'd verify the fix actually worked, same as any other story step in this design — no hidden autonomous retry loop.
+Deliberately does **not** loop — it dispatches quick-dev once for the first failing check and reports; it doesn't re-run the remaining checks afterward or retry indefinitely. Re-running this same script (or `run-check.ts` directly) is how you'd verify the fix actually worked, same as any other story step in this design — no hidden autonomous retry loop. Supersedes the earlier test-only `run-act-with-tests.ts`, which this replaces.
+
+**Skill-level enforcement**: `bmad-dev-story` (Step 9, definition-of-done) and `bmad-quick-dev` (`step-03-implement.md`, before handing off to review) now explicitly require lint + build + test to all pass before the skill considers its own work complete — this holds even when a ritual is run directly in an interactive session, not only when wrapped by `run-act-with-checks.ts`. The orchestrator script is the outer safety net for batch/unattended runs; the skill files are the inner gate for every invocation.
 
 ## Resume
 

@@ -36,6 +36,10 @@ Hand `{spec_file}` to a subagent/task and let it implement. If no subagents are 
 
 Before leaving this step, verify every task in the `## Tasks & Acceptance` section of `{spec_file}` is complete and every acceptance criterion is satisfied. Mark each finished task `[x]`. If any task is not done or any acceptance criterion is not satisfied, finish the missing work before proceeding.
 
+### Lint, Build, Test Gate
+
+Run `pnpm lint`, `pnpm build`, and the project's test suite at the repo root. All three must pass with zero errors before proceeding to review — this is not conditional on whether the touched files "look" affected; a change in one package can break another package's build or lint. If any fails, fix it and re-run all three before continuing. Do not hand off to `step-04-review.md` with any of the three failing.
+
 ## NEXT
 
 Read fully and follow `./step-04-review.md`

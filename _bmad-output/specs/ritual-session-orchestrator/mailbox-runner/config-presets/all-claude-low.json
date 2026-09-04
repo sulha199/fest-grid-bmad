@@ -2,12 +2,12 @@
   "_preset": "all-claude-low",
   "_description": "Everything routes to Claude (haiku-4-5, low effort) -- no Cline/Gemini/Vertex involved at all. Lowest cost in the all-claude variant.",
 
-  "bmad-create-story": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
-  "bmad-epic-readiness-check": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
-  "bmad-correct-course": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
-  "bmad-architecture": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
-  "bmad-prd": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
-  "bmad-code-review": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
-  "bmad-dev-story": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" },
-  "bmad-quick-dev": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "low" }
+  "bmad-create-story": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
+  "bmad-epic-readiness-check": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
+  "bmad-correct-course": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
+  "bmad-architecture": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
+  "bmad-prd": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
+  "bmad-code-review": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "medium" },
+  "bmad-dev-story": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "medium" },
+  "bmad-quick-dev": { "runtime": "claude", "model": "claude-haiku-4-5", "effort": "medium" }
 }
