@@ -33,4 +33,38 @@ persistent_facts = [
   "Scope guard: `_bmad-output/project-context.md` (loaded above) and the FestGrid PRD (`_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md`) describe the FestGrid/FestDaily product (`apps/web`, `apps/backend`) only — its Next.js/React/GraphQL/Drizzle ORM/Tailwind-Shadcn/PostHog/next-intl/Firebase stack, package-boundary rules (packages/ui, packages/domain, state-management isolation), and UI/UX invariants. When the story being created targets `ai-dev-orchestrator/` (its own standalone initiative — see `_bmad-output/specs/spec-ai-dev-orchestrator/`, `_bmad-output/planning-artifacts/architecture/architecture-ai-dev-orchestrator-2026-08-20/`, and `_bmad-output/planning-artifacts/ai-dev-orchestrator/epics.md`), none of project-context.md's or the FestGrid PRD's stack/package/UI rules apply — do not cite, enforce, or Gate-check a story against them, and do not require a Global Rules References entry pointing at them. Ground Gate 1/2/3 and Dev Notes instead in ai-dev-orchestrator's own SPEC and architecture spine. Generic process rules in this file that aren't festgrid-stack-specific (story-content-structure.md's canonical shape, the Pre-Coding Approval Gate, story-split-gate.md's Gate concept itself, and this file's token-efficiency notes) still apply regardless of target."
 ]
 
-on_complete = "After the story file has been written and sprint-status.yaml updated (including any new prerequisite entries from Gate 1/2/3 findings and any epics.md additions), stage exactly those files — the new/updated story file(s), sprint-status.yaml, and epics.md if it was amended — and run `git commit` yourself, with a message following this repo's existing commit style (inspect `git log --oneline` for current convention, e.g. `feat: add Story X.Y for <short description>`). Do not stage or commit unrelated files. Report the commit hash and message in the final summary."
+on_complete = """
+First, promote on the backlog board if this story implements a row there. The rule is
+`_bmad-output/implementation-artifacts/backlog-spec.md` §13 — read it; do not improvise
+the matching.
+
+Short form: a story matches a row when the user named a row id, or when the story derives
+from a Sprint Change Proposal that appears in some row's `ref` (the deterministic case),
+or when its subject plainly matches an open row — confirm that last case with the user,
+since a wrong attachment marks the wrong item as under way. **Many stories match nothing**
+— a Gate 1/2/3 prerequisite story usually has no row — and that is a normal outcome; say
+so rather than inventing an attachment.
+
+On a match: append the full `sprint-status.yaml` story key(s) to that row's `stories`, set
+`status: promoted` (derived from here on, never hand-edited again), and **carve every part
+of the item this story does not cover into a child row** with `parent` set to the row id.
+That carve-out is the point of the step: a proposal that fans into two stories and leaves
+three items unaddressed must leave three child rows behind, or those items vanish exactly
+as the 16 orphans found on 2026-09-04 did.
+
+Then run `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` from the project
+root and confirm it exits clean before committing.
+
+Then commit: after the story file has been written and sprint-status.yaml updated
+(including any new prerequisite entries from Gate 1/2/3 findings and any epics.md
+additions), stage exactly those files — the new/updated story file(s), sprint-status.yaml,
+epics.md if it was amended, and backlog.yaml if you promoted a row — and run `git commit`
+yourself, with a message following this repo's existing commit style (inspect
+`git log --oneline` for current convention, e.g. `feat: add Story X.Y for <short
+description>`). Do not stage or commit unrelated files. The story file, sprint-status.yaml
+and backlog.yaml move together; splitting them is how a board row ends up describing a
+story that was never written.
+
+Report the commit hash and message in the final summary, plus the row id promoted and any
+child rows carved out — or state plainly that this story matched no backlog row.
+"""

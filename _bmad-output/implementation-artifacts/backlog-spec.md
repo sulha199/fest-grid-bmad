@@ -402,3 +402,47 @@ the same role DW ids play for the Phase E evidence.
   reserved for a decision to never do it, and needs a stated reason.
 - Do not migrate old `deferred-work.md` sections. Everything through 2026-09-01 is
   already folded in under FIND-005; re-importing them would double-count.
+
+## 13. Promotion intake
+
+§10 names promotion as *"the step whose omission created the current mess."* This is its
+concrete mechanics, for `bmad-create-story`.
+
+**Not every story comes from the board.** A story created from a Gate 1/2/3 prerequisite
+finding, or from a plain epic entry, has no backlog row and needs none. Do not invent a
+row to attach it to.
+
+### Matching
+
+A story implements a backlog row when any of these holds, checked in order:
+
+1. The user named a row id (`CC-019`, `BUG-010`) when invoking the workflow.
+2. The story derives from a Sprint Change Proposal, and some row's `ref` contains that
+   proposal's filename. This is the deterministic case and covers most promotions.
+3. The story's subject plainly matches an open row's `title` and `touches`. Confirm with
+   the user before relying on this — a wrong attachment is worse than none, because it
+   marks the wrong item as under way.
+
+If none match, do nothing. Say so in the summary rather than silently skipping.
+
+### On a match
+
+1. Append the new story key(s) to that row's `stories`, using the full
+   `sprint-status.yaml` key.
+2. Set `status: promoted`. From here it is **derived** (§5) and never hand-edited again.
+3. `impact`/`effort` may stay on the row; they become inert once `stories` is non-empty
+   and check 8 no longer applies to it.
+4. **Carve out every part of the item this story does not cover into a child row** (§6),
+   with `parent` set to the row id. This is the whole point of the step. A proposal that
+   fans into two stories and leaves three items unaddressed must leave three child rows
+   behind, or those items vanish exactly as the 16 orphans found on 2026-09-04 did.
+5. If the row carries `blocks`, check whether the gate is now satisfied — check 9 will
+   flag a `blocks` entry pointing at a terminal target, but it cannot tell you that the
+   *blocker itself* is resolved. That judgment is yours.
+
+### Verify
+
+Run `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` and confirm clean
+before committing. Include `backlog.yaml` in the same commit as the story file and
+`sprint-status.yaml` — the three move together, and splitting them is how a board row
+ends up describing a story that was never written.
