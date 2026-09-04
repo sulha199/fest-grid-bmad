@@ -1,3 +1,7 @@
+---
+backlog_id: CC-008
+---
+
 # Sprint Change Proposal — 2026-08-12
 
 **Trigger:** User-reported gap in the reporting/moderation feature, raised directly via `bmad-correct-course` (not tied to a single in-flight story).

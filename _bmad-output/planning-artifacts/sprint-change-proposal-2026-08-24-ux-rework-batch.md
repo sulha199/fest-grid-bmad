@@ -1,3 +1,7 @@
+---
+backlog_id: CC-014
+---
+
 # Sprint Change Proposal — 2026-08-24: UX Rework Batch (Redesign & Scope Track)
 
 **Trigger:** [`ux-rework-2026-08-24.md`](ux-rework-2026-08-24.md) — a raw UX/product punch list, originally dropped at the project root and moved here (with a full item-by-item disposition table) once triage completed. Item #1 (main page container width) was missed by the initial triage pass and remains untracked — flagged in that file, not covered by this proposal. Items #7, #8, #9 (autocomplete/wizard-layout bugs) were routed directly to `bmad-create-story` and are out of scope here. Item #6 (mandatory default location) was explicitly dropped by the user in favor of item #14's AI-inference approach. This proposal covers the remaining **9 items**, pre-triaged and decided across two conversation passes with the user before this workflow started.

@@ -1,3 +1,7 @@
+---
+backlog_id: CC-009
+---
+
 # Sprint Change Proposal — 2026-08-13
 
 **Trigger:** Two post-implementation scope gaps discovered on review for Epic 3: onboarding-form completion and retry behavior for newly-subscribed accounts. Both were explicitly routed through `bmad-correct-course` rather than ad-hoc code edits.

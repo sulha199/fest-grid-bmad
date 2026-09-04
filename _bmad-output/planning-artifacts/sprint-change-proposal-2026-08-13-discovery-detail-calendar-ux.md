@@ -1,3 +1,7 @@
+---
+backlog_id: CC-010
+---
+
 # Sprint Change Proposal — Discovery, Event Detail & Calendar UI Refinements — 2026-08-13
 
 **Trigger:** Three user-requested UI/UX refinements to already-shipped Epic 1 surfaces (FilterHub, event detail navigation, weekly calendar), distilled via `bmad-spec` into [`_bmad-output/specs/spec-discovery-detail-calendar-ux/`](../specs/spec-discovery-detail-calendar-ux/SPEC.md), then routed through `bmad-correct-course` at the user's explicit choice so the change is tracked with revised ACs and `sprint-status.yaml` updates (matching the pattern already used for the same-day Epic 3 proposal).

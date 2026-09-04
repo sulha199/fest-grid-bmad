@@ -1,0 +1,45 @@
+[workflow]
+persistent_facts = [
+  "Backlog board: this project keeps a second, smaller board at `_bmad-output/implementation-artifacts/backlog.yaml` tracking pre-story work — Sprint Change Proposals, bugs, findings and raw ideas — that `sprint-status.yaml` has no room for. Its convention is `_bmad-output/implementation-artifacts/backlog-spec.md`. Sprint status is not complete without it: a story board alone hides everything proposed but never promoted, which is most of the open work.",
+  "Board separation is deliberate and must be preserved: `sprint-status.yaml` is ~140KB and read by the story hot path, so backlog items are never migrated into it. Report the two together; keep them stored apart.",
+]
+
+activation_steps_append = [
+  "Read `_bmad-output/implementation-artifacts/backlog.yaml` (rows plus the tag registry). It is small by design — read it whole. Do not read the documents it references; the rows are the summary.",
+]
+
+on_complete = """
+Extend the sprint status summary with a Backlog Board section, after the story/epic
+status and alongside the retrospective action items. Report, in this order:
+
+1. **Counts by status** — `backlog`, `triaged`, `promoted`, `done`, `skipped`,
+   `superseded` — and by type. State the total row count.
+
+2. **Derived-status reconciliation.** For every item carrying `stories`, look each key up
+   in `sprint-status.yaml`: all terminal (`done` or `wont-do`) means the item derives to
+   `done`, anything else means `promoted`. Flag any row whose written status disagrees
+   with what it derives to — that disagreement is the drift this board exists to catch.
+   Note explicitly when an item's stories are all `review` rather than `done`: that is
+   `promoted (awaiting close-out)`, not finished, and it is this project's most common
+   state.
+
+3. **Open children.** List rows with a `parent` whose status is `backlog` or `triaged`,
+   grouped under their parent. A parent cannot be `done` while any child is open, so
+   surface any parent that violates this. These are the partially-promoted batches.
+
+4. **Integrity checks** (spec section 9): broken `ref` paths, referenced files whose
+   `backlog_id` is missing or disagrees with the row, `touches` tags absent from the
+   registry, `stories` keys absent from `sprint-status.yaml`, open items whose stories are
+   all terminal, and `parent` ids that do not exist. Report only failures; say "clean"
+   when there are none.
+
+5. **Target collisions.** Group open items (`backlog`/`triaged`/`promoted`) by `touches`
+   tag prefix, deduplicating items within a group. **Report groups ascending by size and
+   suppress any group larger than 4** — a tag shared by a third of the board carries no
+   signal, while small groups are where real conflicts surface. Present these as
+   candidates for a human read, never as confirmed conflicts: semantic contradictions
+   between items that share no tag are not mechanically detectable.
+
+Keep this section terse — counts, ids and one-line titles. It is a status readout, not a
+report; the user opens a referenced document only when they choose to act on a row.
+"""

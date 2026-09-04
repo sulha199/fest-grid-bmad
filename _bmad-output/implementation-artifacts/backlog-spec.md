@@ -123,7 +123,16 @@ Per-type counters, zero-padded to 3: `BUG-001`, `IDEA-001`, `CC-001`, `FIND-001`
 `status` for items with `stories` is **computed, not hand-edited**:
 
 - any story `backlog`/`ready-for-dev`/`in-progress`/`review` → `promoted`
-- all stories `done` **and** no unapplied sections → `done`
+- all stories terminal (`done` or `wont-do`) **and** no unapplied sections → `done`
+
+`wont-do` is a real terminal value in `sprint-status.yaml` (first used for
+`4-3b-add-a-report-trigger-to-eventcard-list-view`, cancelled by CC-017). It counts
+as terminal for derivation — a cancelled story does not hold its item open.
+
+`stories` holds **execution units, not every story the source document mentions.** A
+proposal often names stories as context. CC-017 names four but only cancels one;
+listing all four would have held it open forever. Filter to what the item actually
+changes.
 
 **Known condition:** 115 stories currently sit in `review` against 43 `done`. An item
 whose stories are all `review` is **`promoted`**, not `done` — report it as
@@ -212,6 +221,14 @@ One-way links rot silently. With both directions, any file resolves to its row, 
 6. **Orphan child** — a `parent` ID that does not exist.
 7. **Target collision** — two or more open items (`backlog`/`triaged`/`promoted`)
    sharing a `touches` prefix or a story key. Report as a group for human review.
+
+   **Report groups ascending by size and suppress any group larger than 4.** Measured
+   on the 2026-09-04 backfill, `app:backend` grouped 17 open items and `cross:prd` 12 —
+   a tag shared by a third of the board carries no information. The signal is in small
+   groups: `cross:ai-extraction` (4) correctly linked IDEA-001 to CC-018 and FIND-004,
+   and `web:wizard` (2) linked CC-014 to its own untracked spillover FIND-003.
+   Deduplicate items within a group — an item with several `web:events/*` tags must
+   count once.
 
 Check 7 finds *candidates*, not conflicts. Semantic contradiction between items that
 touch no common surface is **not mechanically detectable** and needs a reading pass —

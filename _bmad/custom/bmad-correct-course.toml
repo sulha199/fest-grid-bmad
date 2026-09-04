@@ -1,0 +1,43 @@
+[workflow]
+persistent_facts = [
+  "Backlog board: this project tracks every Sprint Change Proposal, bug, finding and raw idea as a row in `_bmad-output/implementation-artifacts/backlog.yaml`. Its convention is `_bmad-output/implementation-artifacts/backlog-spec.md` — read that spec before writing to the board. The board is the intake index; `sprint-status.yaml` remains the execution board for anything that already has a story, and exactly one of the two owns an item's state at a time. Never duplicate execution state into the board: an item with stories carries a derived status, not a hand-edited one.",
+  "Proposal identity: every Sprint Change Proposal carries a `backlog_id: CC-NNN` key in its own frontmatter, matching its row in backlog.yaml. Links are bidirectional — a proposal without a row, or a row without a matching file, is a defect the board's checks will flag.",
+]
+
+on_complete = """
+Register this Sprint Change Proposal on the backlog board before exiting. Follow
+`_bmad-output/implementation-artifacts/backlog-spec.md` for the schema; do not invent fields.
+
+1. Read `_bmad-output/implementation-artifacts/backlog.yaml` and take the next unused
+   `CC-NNN` id (ids are immutable and never reused, so scan for the highest and add one).
+
+2. Add `backlog_id: CC-NNN` to this proposal's own frontmatter, as the first key. If the
+   document has no frontmatter block, create one containing only that key. Leave any
+   existing `status:` field exactly as written — it describes the document, not the item.
+
+3. Append a row to `items:` in backlog.yaml:
+   - `type: proposal`
+   - `status: triaged` — the proposal exists and is analysed, but no story yet carries its
+     changes. Only `bmad-create-story` promotes it, by adding story keys.
+   - `created` — today's date, matching the date in this proposal's filename.
+   - `title` — one line under 100 chars, understandable without opening the document.
+   - `ref` — an ordered list ending with `planning-artifacts/<this proposal's filename>`.
+     If this proposal grew out of an existing backlog note, that note comes first.
+   - `touches` — tags from the registry at the top of backlog.yaml. Every tag must already
+     exist there; adding a new one is a deliberate edit to the registry block, not a
+     side effect. Use `namespace:slice/Symbol` where you know the symbol.
+   - `note` — only if something changes how the row is read.
+
+4. **Carve out every deferred, rejected, or out-of-scope chunk into its own child row.**
+   This is the step whose omission created the 2026-09-04 backfill's 16 orphaned items —
+   work that was proposed, deferred in prose, and then tracked nowhere. For each one add a
+   row with `parent: CC-NNN`, its own id (`BUG-NNN`, `IDEA-NNN` or `FIND-NNN`), `touches`,
+   and a `note` recording why it was deferred. Use `status: skipped` for something
+   deliberately dropped — record the decision rather than deleting it — and
+   `status: backlog` for anything still genuinely open.
+
+5. Re-read the rows you wrote and confirm: every `touches` tag resolves against the
+   registry, every `ref` path exists on disk, and the proposal's frontmatter `backlog_id`
+   matches its row key. Report to the user which id was assigned and how many child rows
+   were carved out.
+"""

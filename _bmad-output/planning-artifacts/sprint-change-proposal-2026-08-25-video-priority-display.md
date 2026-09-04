@@ -1,3 +1,7 @@
+---
+backlog_id: CC-015
+---
+
 # Sprint Change Proposal — 2026-08-25: Video/Reel Storage & Priority Display
 
 **Trigger:** [`apps/ux-rework2.md`](../../apps/ux-rework2.md) item #1 — "store post's reel/video, and prioritize video in event detail rather than the image. The image will still be the skeleton loader." Items #2–#4 in the same file (aspect-ratio fix, avatar rounding, remove login button on discovery) are mechanical UI fixes, routed directly to `bmad-create-story`, out of scope here.

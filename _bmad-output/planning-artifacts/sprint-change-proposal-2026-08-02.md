@@ -1,4 +1,5 @@
 ---
+backlog_id: CC-003
 date: 2026-08-02
 trigger_story: epic-3-new-story
 scope: Moderate

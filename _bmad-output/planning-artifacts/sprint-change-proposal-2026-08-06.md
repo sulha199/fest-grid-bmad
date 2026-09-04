@@ -1,4 +1,5 @@
 ---
+backlog_id: CC-005
 title: "Sprint Change Proposal: Soft-Delete-with-Undo Reliability Fix (AD-8 rollout)"
 status: "approved"
 created: "2026-08-06T00:00:00Z"

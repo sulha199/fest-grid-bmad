@@ -1,3 +1,7 @@
+---
+backlog_id: CC-011
+---
+
 # Sprint Change Proposal: Scraper Adapter Correctness and Reliability Fixes
 
 - **Date:** 2026-08-15, amended 2026-08-17

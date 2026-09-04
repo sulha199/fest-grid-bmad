@@ -1,3 +1,7 @@
+---
+backlog_id: CC-012
+---
+
 # Sprint Change Proposal — 2026-08-16: Event Detail Carousel UX Fixes
 
 **Trigger story:** [1.6 — View event details](../../_bmad-output/implementation-artifacts/1-6-view-event-details.md), Task 15 / AC13 (Carousel-chrome Next/Previous navigation).

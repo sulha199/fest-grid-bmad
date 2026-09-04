@@ -1,4 +1,5 @@
 ---
+backlog_id: CC-001
 date: 2026-08-01
 trigger_story: 1-6-view-event-details
 scope: Moderate

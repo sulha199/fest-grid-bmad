@@ -1,4 +1,5 @@
 ---
+backlog_id: CC-013
 title: Sprint Change Proposal — Moderator Default-Location Override Authority
 status: approved
 created: 2026-08-24

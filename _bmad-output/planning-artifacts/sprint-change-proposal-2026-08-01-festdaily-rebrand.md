@@ -1,4 +1,5 @@
 ---
+backlog_id: CC-002
 date: 2026-08-01
 trigger_story: none (proactive brand decision)
 scope: Moderate

@@ -1,3 +1,7 @@
+---
+backlog_id: CC-018
+---
+
 # Sprint Change Proposal — 2026-09-02
 
 **Trigger:** `monetization-plans/scraping-extraction-display-rules-2026-09-02.md` (the "minimization doc"), a legal/product spec consolidating Indonesia PDP Law / GDPR data-minimization rules for scraped Instagram content, plus two new UI display decisions (hotlink-only event list with an opted-in prominent card; oEmbed event detail).

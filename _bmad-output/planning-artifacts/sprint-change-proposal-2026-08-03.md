@@ -1,4 +1,5 @@
 ---
+backlog_id: CC-004
 title: "Sprint Change Proposal: Geolocation Provider Swap (Google -> Geoapify)"
 status: "approved"
 created: "2026-08-03T00:00:00Z"

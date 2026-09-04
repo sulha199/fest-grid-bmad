@@ -1,4 +1,5 @@
 ---
+backlog_id: CC-006
 title: "Sprint Change Proposal: Map Picker Continuity & In-Sheet Search (Story 2.4)"
 status: "approved"
 created: "2026-08-06T00:00:00Z"

@@ -1,3 +1,7 @@
+---
+backlog_id: CC-016
+---
+
 # Sprint Change Proposal — 2026-08-28
 
 ## 1. Issue Summary

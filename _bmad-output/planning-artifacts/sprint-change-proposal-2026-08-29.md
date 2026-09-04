@@ -1,3 +1,7 @@
+---
+backlog_id: CC-017
+---
+
 # Sprint Change Proposal — 2026-08-29
 
 **Trigger:** User decision to require viewing an event's detail page before it can be reported, raised directly via `bmad-correct-course` (not tied to a code defect).

@@ -1,4 +1,5 @@
 ---
+backlog_id: CC-007
 project: festgrid
 date: 2026-08-07
 trigger: "Every route-page should be wrapped in Suspense with a generic/global 'beating app logo' loader as fallback"
