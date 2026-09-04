@@ -5,7 +5,8 @@ persistent_facts = [
 ]
 
 activation_steps_append = [
-  "Read `_bmad-output/implementation-artifacts/backlog.yaml` (rows plus the tag registry). It is small by design — read it whole. Do not read the documents its rows reference; the rows are the summary. The one exception is the convention itself: read section 11 of `_bmad-output/implementation-artifacts/backlog-spec.md` for the lens definitions, which are needed for the readout and are deliberately stored in one place only.",
+  "Read `_bmad-output/implementation-artifacts/backlog.yaml` (rows plus the tag registry). It is small by design — read it whole. Do not read the documents its rows reference; the rows are the summary.",
+  "Run `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` from the project root. It executes checks 1-9, the check-7 collision grouping, and every §11 lens, and its exit code is the failure count. Use its output for sections 4, 5 and 6 of the readout below rather than re-deriving any of them by hand — a hand-rolled reimplementation that is subtly wrong reports \"clean\" on a broken board. If the script itself fails to run, say so plainly and fall back to reading `backlog-spec.md` §9 and §11; do not silently skip the checks.",
 ]
 
 on_complete = """

@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: 2026-09-05
+last_updated: 2026-09-05 (Phase F fold-in)
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -351,6 +351,198 @@ items:
      ref: [], touches: [web:events/EventCard, cross:ux-tokens],
      note: "CC-019 Section 4.3 names this a prerequisite: date-box/TILL badge, badge-row placement, prominent-poster sizing."}
 
+  # ── 2026-09-05 (deferred-work fold-in, FIND-005) ──────────────────────────────
+  BUG-005:
+    {type: bug, status: backlog, created: 2026-09-05,
+     impact: latent, effort: s,
+     title: "Shared account components mishandle degenerate or missing input props",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [pkg:ui, web:subscriptions, web:events],
+     note: "DW-006, DW-010, DW-015. AccountAvatar's empty-displayName alt-text fallback and SubscribedAccountCard's all-or-nothing render guard are both unreachable via real data/current callers today, but nothing guards them if that changes."}
+
+  BUG-006:
+    {type: finding, status: superseded, created: 2026-09-05, superseded_by: FIND-009,
+     title: "EventCard 'Today' day-diff — claimed product bug, verified to be the test-clock gap only",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [pkg:ui, web:events],
+     note: "DW-031. Verified 2026-09-05 against format-event-date.ts:66-71: getCalendarDayDifference anchors both sides to Date.UTC midnight from calendar-day parts, so diffMs is always an exact multiple of 86400000 and the floor is exact — no day-boundary defect exists in the product. The only real defect is the unmocked test clock, which is FIND-009. Kept as a row so the claim is not re-raised from the same evidence."}
+
+  BUG-007:
+    {type: bug, status: backlog, created: 2026-09-05,
+     impact: latent, effort: s,
+     title: "handleAddToCalendar's Promise.all has no partial-failure recovery across multi-schedule events",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [web:events],
+     note: "DW-032. Predates ux-rework2 batch-2; that batch only added error announcement plus re-throw, not per-item success tracking."}
+
+  BUG-008:
+    {type: bug, status: backlog, created: 2026-09-05,
+     impact: latent, effort: s,
+     title: "toggleFavorite onSuccess applies an unconditional favoriteCount +/-1 delta without state check",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [web:events],
+     note: "DW-033. Matches an established but imperfect pattern already used by 3 other per-page favorite mutations."}
+
+  BUG-009:
+    {type: bug, status: backlog, created: 2026-09-05,
+     impact: latent, effort: xs,
+     title: "toggleFavorite/toggleCalendarAddition onSuccess read response fields without null-checking",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [web:events],
+     note: "DW-034. Four onSuccess handlers in EventDetailWrapper.tsx read data.toggleFavorite/toggleCalendarAddition unguarded; confirmed pre-existing."}
+
+  BUG-010:
+    {type: bug, status: backlog, created: 2026-09-05,
+     impact: user-visible, effort: s,
+     title: "EventCard renders server-side with no app-wide timezone wired at the layout root",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [cross:i18n, pkg:ui],
+     note: "DW-045. useScopedTimezone plumbing exists but layout.tsx passes no real timeZone value, risking a server/browser hydration mismatch."}
+
+  BUG-011:
+    {type: bug, status: backlog, created: 2026-09-05,
+     impact: latent, effort: m,
+     title: "Gemini/AI backend calls lack concurrency locking, backoff, and rate-limiting guardrails",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [app:backend, cross:ai-extraction],
+     note: "DW-066, DW-067, DW-068, DW-082. Covers backfillAccountProfileAndInferDefaultLocation's unlocked duplicate-billable-call risk, no retry backoff on failed inference, createApiKey's fail-open trust in the error-shape classifier, and resolvePromptToEventFilter's missing rate limit."}
+
+  BUG-012:
+    {type: bug, status: backlog, created: 2026-09-05,
+     impact: user-visible, effort: s,
+     title: "No request-level timeout in the Gemini adapter; a hung call blocks the caller indefinitely",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [app:backend, cross:ai-extraction],
+     note: "DW-069. Affects verifyGeminiApiKey's synchronous createApiKey path directly, not just background jobs."}
+
+  BUG-013:
+    {type: bug, status: backlog, created: 2026-09-05,
+     impact: user-visible, effort: xs,
+     title: "EventCard date-formatting fallback chain can still propagate a NaN date past its own guard",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [pkg:ui, web:events],
+     note: "DW-070. The isNaN check only covers parseDateTime's internal fallback; the resulting dateObj is passed unguarded into getEventDayDiff/formatRelativeDayOrDate."}
+
+  BUG-014:
+    {type: bug, status: backlog, created: 2026-09-05,
+     impact: user-visible, effort: m,
+     title: "Moderator payload reprocessing remains unbuilt after its false-success message was fixed",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [app:backend, web:moderation],
+     note: "DW-087. reprocessPayload no longer lies about success, but the actual SQS enqueue plus consumer path remains unimplemented."}
+
+  BUG-015:
+    {type: bug, status: backlog, created: 2026-09-05,
+     impact: latent, effort: s,
+     title: "selectPostsForExtraction's enqueue loop has no partial-failure tracking on a mid-loop error",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [app:backend, web:posts],
+     note: "DW-089. Now a live risk rather than a theoretical one, since the sibling IAM-grant fix means sends actually succeed."}
+
+  FIND-006:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: internal, effort: s,
+     title: "Two ux-rework2 fixes shipped without automated tests (favorite cache-sync, scroll-anchor)",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [web:events, pkg:ui],
+     note: "DW-001, DW-003. The unfavorite/decrement path across all 4 patched favorite caches is untested; the overflow-anchor scroll-flicker fix has no Playwright spec since jsdom can't exercise CSS scroll anchoring."}
+
+  FIND-007:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: internal, effort: s,
+     title: "cline-cli hang saga: one root cause fixed and verified, later recurrences still unexplained",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [cross:process],
+     note: "DW-002, DW-004, DW-007 (chronological order is 007, then 004, then 002). DW-007's stale-hub-manifest fix was verified working at the time; DW-004's batch-10 and DW-002's batch-11 hangs are separate, later, still-unexplained recurrences."}
+
+  FIND-008:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: cosmetic, effort: xs,
+     title: "AccountAvatar hardcodes border-slate-* instead of the semantic border-border token",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [pkg:ui, cross:ux-tokens],
+     note: "DW-005."}
+
+  FIND-009:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: internal, effort: xs,
+     title: "packages/ui tests fail on wall-clock date rollover (EventCard, WeeklyCalendarView)",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [pkg:ui, web:events],
+     note: "DW-008, DW-031. Missing vi.useFakeTimers()/setSystemTime; the known recurring trap. Absorbs BUG-006, which recorded the same defect as a product day-diff bug — disproved against format-event-date.ts:66-71, see that row."}
+
+  FIND-010:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: latent, effort: m,
+     title: "ux-rework2 collapsible/sticky UI batches shipped without full focus or cleanup polish",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [pkg:ui, web:events, web:subscriptions],
+     note: "DW-009, DW-016, DW-017, DW-018, DW-019, DW-020, DW-027. A loading-state flash, unmanaged focus on expand/collapse, an unpruned dayOverrides map, a loose test assertion, and an unresolved desktop/mobile calendar-layout unification question."}
+
+  FIND-011:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: internal, effort: xs,
+     title: "SubscribedAccountCard/EventDetailView carry minor unused-prop and unscaled-variant cruft",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [pkg:ui, cross:i18n],
+     note: "DW-011, DW-014. postedByLabel is unused outside its own test fixture; size=\"lg\" doesn't scale the adjacent text, with no current caller to validate against."}
+
+  FIND-012:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: cosmetic, effort: s,
+     title: "SubscribedAccountCard still not wired into Post Selection or Subscribed Accounts settings",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [web:post-selection, web:settings, web:subscriptions, pkg:ui],
+     note: "DW-012, DW-013. Both pages still render their own inline account UI; Subscribed Accounts settings also has an open design question, since the card has no unsubscribe affordance at all."}
+
+  FIND-013:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: internal, effort: xs,
+     title: "ViewModeToggle removal left dead markup, unused i18n keys, and an ignored URL param",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [web:events, cross:i18n],
+     note: "DW-021, DW-022, DW-023. Leftover single-child flex wrapper divs, unused layoutSwitcher* locale keys, and stale ?layout= params the app now silently ignores."}
+
+  FIND-014:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: latent, effort: s,
+     title: "Onboarding/settings dialogs only read the first GraphQL error, with inconsistent handling",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [web:onboarding, web:settings],
+     note: "DW-028, DW-029, DW-030 (absorbs duplicate DW-036, same first-error-only pattern). Inconsistent catch(err: any) typing, an unguarded dynamic import('sonner') inside a catch block, and err.response.errors?.[0] silently dropping further GraphQL errors."}
+
+  FIND-015:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: internal, effort: m,
+     title: "Assorted process gaps: DB setup docs, an irreversible enum migration, disabled lint gate",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [cross:process, app:infrastructure, app:backend, pkg:database],
+     note: "DW-042 (vague local Postgres setup), DW-051 (first ALTER TYPE ADD VALUE migration in the repo; Postgres has no DROP VALUE, no process doc flags the one-way-door risk), DW-052 (historical diff-hygiene note, not re-checkable), DW-058 (apps/backend's lint script dropped --max-warnings 0 against 868 pre-existing warnings)."}
+
+  FIND-016:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: internal, effort: m,
+     title: "EventCategory/EventType enums and locale plumbing lack cross-source consistency checks",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [cross:i18n, pkg:shared-types, web:events, app:backend],
+     note: "DW-044, DW-046, DW-047, DW-048, DW-050. The enums are hand-maintained in shared-types and generated/graphql.ts with nothing enforcing sync; no e2e proves locale actually flows to EventCard; no test builds the runtime-merged GraphQL schema; ticketPrice's 'From Free' pairing is unresolved."}
+
+  FIND-017:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: internal, effort: m,
+     title: "Backend/infra resiliency gaps found during scraper and infra work remain unhardened",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [pkg:database, app:backend, app:infrastructure, cross:process],
+     note: "DW-063 (brightdata/apify pending-job FKs are ON DELETE no action, a deliberately left-open forward risk), DW-071 (capacity check uses a static heuristic instead of real Apify usage data), DW-088 (no systemic check that every queue/secret env var has a matching IAM grant; only one regression test exists, for the exact incident that already shipped)."}
+
+  FIND-018:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: latent, effort: m,
+     title: "AI Event Filter (Epic 7) resolver needs validation, quota, and error-mapping hardening",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [app:backend, pkg:domain, web:widgets],
+     note: "DW-074, DW-075, DW-076, DW-077, DW-078, DW-083, DW-084, DW-085, DW-086. No production widgets exist yet, so all latent: missing timezone handling, a hardcoded 90-day fallback window, an epoch-fallback trick, no offsetAmount bounds, an unvalidated 'as any' cast on Widget.filters, no pagination/quota on two mutations, unmapped DB exceptions, and a caveat-joining blemish in the summary renderer."}
+
   # ── undated intake ──────────────────────────────────────────────────────────
   IDEA-001:
     {type: idea, status: backlog, created: 2026-09-04,
@@ -361,10 +553,9 @@ items:
      note: "Instagram carousels sometimes carry schedules on slide 2+ and not in the caption. Proposes the prompt also return expected schedule count/names to trigger a follow-up pass. Open question: heuristic vs always processing all images. Not implemented — no such mechanism in apps/backend/src/lib/ai-processor."}
 
   FIND-005:
-    {type: finding, status: backlog, created: 2026-09-04,
-     impact: internal, effort: m,
+    {type: finding, status: done, created: 2026-09-04,
      title: "deferred-work.md is a third untracked tracker holding 89 items",
      ref: [implementation-artifacts/deferred-work.md,
            implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [cross:process],
-     note: "Phase E complete 2026-09-04: all 89 bullets evidenced (45 still live, 27 fixed, 17 unverified). Phase F folds the live ones into rows."}
+     note: "Phase F complete 2026-09-05: all 89 DW records folded into 24 new rows (10 bug, 14 finding after BUG-006 was superseded into FIND-009 on review) under the 2026-09-05 section below. 27 dropped as already-fixed (rule 1), 1 (DW-065) already tracked as BUG-003 (rule 3), 4 absorbed into an anchor row's note as duplicates (rule 2: DW-004/007 into FIND-007, DW-015 into BUG-005, DW-036 into FIND-014). 9 stayed individual per the Phase E user-visible list (BUG-006 through BUG-015 excl. BUG-011); the remaining 49 batched by shared cause into 15 rows."}

@@ -259,6 +259,20 @@ One-way links rot silently. With both directions, any file resolves to its row, 
 
 ## 9. Checks (run by `bmad-sprint-status`)
 
+**Run them with the committed runner, do not re-derive them:**
+
+```
+uv run --python 3.11 --with pyyaml scripts/backlog-check.py          # checks + counts + collisions + lenses
+uv run --python 3.11 --with pyyaml scripts/backlog-check.py --lens cheap-wins
+```
+
+Exit code is the failure count, so it can gate a commit. The checks and the §11 lens
+table are prose here and executable there; when they disagree, this document is
+authoritative and the script is the bug. Re-deriving these checks from prose each
+session is how a subtly wrong reimplementation comes to report "clean" on a broken
+board — worse than running no check at all.
+
+
 1. **Broken ref** — a `ref` path that does not exist on disk.
 2. **Back-reference mismatch** — a referenced file whose `backlog_id` is missing or
    disagrees with its row.
