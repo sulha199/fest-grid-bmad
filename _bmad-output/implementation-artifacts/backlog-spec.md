@@ -350,3 +350,55 @@ Rules:
   the mechanism that serves "different goal this week" without a migration.
 - No lens may reference a field §3 does not define. If a lens needs a new fact, add the
   field and backfill it first — otherwise the lens silently returns a partial set.
+
+## 12. Deferral intake
+
+`deferred-work.md` is **tier-1 capture, not a tracker.** `bmad-code-review`,
+`bmad-quick-dev` and `bmad-dev-auto` all append `defer` findings to it, and that stays —
+it is prose-shaped, carries the `evidence:` reasoning, and sits naturally in those
+workflows. What must not happen again is those entries existing *only* there.
+
+Between 2026-07-22 and 2026-09-01 the file accumulated **89 entries across 33 sections**
+that no board, sprint status, or query could see. Folding them in took two delegated
+phases. The producers were never redirected, so without this section the file simply
+refills and the two diverge again.
+
+**Rule: a session that defers anything writes to both.** The prose entry goes to
+`deferred-work.md` as it does today; the board gets row(s) whose `ref` points at it.
+
+### Batching
+
+Default to **one row per deferring session**, not one per finding. The 2026-09-05
+fold-in resolved 89 entries into 24 rows, and that ratio is the target — check 7 works
+by keeping the open set enumerable, so a row per finding destroys the property the board
+exists for.
+
+| Finding | Row |
+|---|---|
+| `impact: user-visible` — a user or moderator hits it through today's data | Its own row. |
+| Everything else | Batched into one row per session, grouped by shared cause if the session's deferrals split cleanly into two or three themes. |
+
+### Shape
+
+```yaml
+FIND-0NN:
+  {type: finding, status: backlog, created: <today>,
+   impact: internal, effort: s,
+   title: "<the shared cause, one line>",
+   ref: [implementation-artifacts/deferred-work.md],
+   touches: [...],
+   note: "Deferred from: <the exact deferred-work.md section heading>. <N> findings."}
+```
+
+`type` is `bug` when the batch is a genuine defect, `finding` otherwise. The `note`
+**must** quote the section heading verbatim — it is the only link back to the detail,
+the same role DW ids play for the Phase E evidence.
+
+### Do not
+
+- Do not re-verify or re-litigate the finding at defer time. The reviewing agent already
+  judged it; the row records its existence, not a second opinion.
+- Do not mark a deferral `skipped`. Deferred means not now, not never — `skipped` is
+  reserved for a decision to never do it, and needs a stated reason.
+- Do not migrate old `deferred-work.md` sections. Everything through 2026-09-01 is
+  already folded in under FIND-005; re-importing them would double-count.

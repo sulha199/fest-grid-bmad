@@ -1,6 +1,23 @@
 [workflow]
 persistent_facts = [
   "Scope guard: `_bmad-output/project-context.md` (loaded via Step 4's `project_context` config key) and the FestGrid PRD describe the FestGrid/FestDaily product (`apps/web`, `apps/backend`) only — its Next.js/React/GraphQL/Drizzle ORM/Tailwind-Shadcn/PostHog/next-intl/Firebase stack, package-boundary rules, and UI/UX invariants. When the diff/PR under review is scoped to `ai-dev-orchestrator/` (its own standalone initiative — see `_bmad-output/specs/spec-ai-dev-orchestrator/` and `_bmad-output/planning-artifacts/architecture/architecture-ai-dev-orchestrator-2026-08-20/`), none of project-context.md's or the FestGrid PRD's stack/package/UI rules apply — do not raise findings against ai-dev-orchestrator code for violating them. Ground review findings instead in ai-dev-orchestrator's own SPEC and architecture spine, plus general code-quality/correctness concerns.",
+  "Deferrals are tracked on the backlog board. `deferred-work.md` is tier-1 capture, not a tracker — an entry that exists only there is invisible to every query, which is how 89 entries accumulated across 33 sections before being folded in. Keep writing the prose entry as this workflow already does, and additionally register the deferral on `_bmad-output/implementation-artifacts/backlog.yaml` per `backlog-spec.md` §12.",
 ]
 
-on_complete = ""
+on_complete = """
+If this run deferred any finding to `deferred-work.md`, register it on the backlog board
+before exiting. The rule is `_bmad-output/implementation-artifacts/backlog-spec.md` §12 —
+read it rather than improvising, particularly the batching.
+
+Short form: **one row per deferring session**, not one per finding — except a finding
+whose `impact` is `user-visible`, which gets its own row. `ref` is
+`[implementation-artifacts/deferred-work.md]`, and the `note` quotes the section heading
+you just wrote there, verbatim; that heading is the only link back to the detail. Assign
+`impact` and `effort` from §3 — both are required on an open row and check 8 fails the
+board without them.
+
+Then run `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` from the project
+root and confirm it exits clean. Report the row id(s) you added.
+
+If this run deferred nothing, do nothing here.
+"""

@@ -1,0 +1,23 @@
+[workflow]
+persistent_facts = [
+  "Deferrals are tracked on the backlog board. `deferred-work.md` is tier-1 capture, not a tracker — an entry that exists only there is invisible to every query, which is how 89 entries accumulated across 33 sections before being folded in. Keep writing the prose entry as this workflow already does, and additionally register the deferral on `_bmad-output/implementation-artifacts/backlog.yaml` per `backlog-spec.md` §12.",
+]
+
+on_complete = """
+If this run wrote anything to `deferred-work.md` — from planning, from the review step,
+or from the oneshot path — register it on the backlog board before exiting. The rule is
+`_bmad-output/implementation-artifacts/backlog-spec.md` §12; read it rather than
+improvising the batching.
+
+Short form: **one row per deferring session**, not one per item — except an item whose
+`impact` is `user-visible`, which gets its own row. `ref` is
+`[implementation-artifacts/deferred-work.md]`, and the `note` quotes the section heading
+you just wrote there, verbatim; that heading is the only link back to the detail. Assign
+`impact` and `effort` from §3 — both are required on an open row and check 8 fails the
+board without them.
+
+Then run `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` from the project
+root and confirm it exits clean. Report the row id(s) you added.
+
+If this run deferred nothing, do nothing here.
+"""
