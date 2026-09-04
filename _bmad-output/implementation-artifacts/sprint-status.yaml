@@ -1315,7 +1315,29 @@ development_status:
   # card visual spec awaits reference card-layout images from the product
   # owner (not yet provided) before bmad-create-story can fully draft it.
   3-7c-event-list-image-display-hotlink-only-with-graceful-degrade-and-opted-in-prominent-card: backlog
-  3-7d-event-detail-image-display-oembed-transition-with-fallback: backlog
+  # regenerated 2026-09-04 via bmad-create-story: full context engine pass. Gate 1
+  # (run fresh, Winston persona -- epic-3-readiness.md predates 3.7c/3.7d, never
+  # covered them) found this story cannot be frontend-only: AC3/AC4's opt-in-aware
+  # failure branching needs a typed success/error signal only obtainable server-side
+  # (Instagram's oEmbed response is blocked from direct browser calls by its own
+  # Cross-Origin-Resource-Policy header, independent of credentials). Live research
+  # found Meta reversed its 2020 access-token requirement 2026-06-15 -- the oEmbed
+  # endpoint is now tokenless/no-App-Review for public posts -- so the backend
+  # prerequisite needed no credential/IaC work, just an adapter+resolver. Split into
+  # new prerequisite Story 3.7e (single combined story, user-confirmed) rather than
+  # a separate credential-provisioning story or a frontend-only implementation.
+  # Gate 2 (Freya persona) additionally found the embed needs a new dedicated
+  # InstagramEmbed.tsx component (own state machine) rather than another EventImage.tsx
+  # branch, and confirmed no DESIGN.md/EXPERIENCE.md content specifies this embed's
+  # visual treatment -- both folded into this story's own AC/tasks (not a separate
+  # story). Gate 3 found no shared EmbedAdapter generalization needed yet (single
+  # consumer). See epics.md Story 3.7d Amendment and Story 3.7e.
+  3-7d-event-detail-image-display-oembed-transition-with-fallback: ready-for-dev
+  # New 2026-09-04, split from Story 3.7d via bmad-create-story Gate 1/3 findings
+  # (see epics.md Story 3.7e note and Story 3.7d's Amendment). Backend-only: adapter
+  # proxying Instagram's tokenless oEmbed endpoint + Event.instagramEmbed resolver
+  # field reusing Story 3.6h's opt-in join. Blocks Story 3.7d.
+  3-7e-instagram-oembed-backend-integration-adapter-and-resolver-field: backlog
   3-8-push-notifications-for-extracted-events: review
   3-9-implement-api-key-quota-management: done
   # added 2026-08-11 via bmad-create-story Gate 2 finding while drafting Story 3.9:
