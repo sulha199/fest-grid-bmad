@@ -1,8 +1,10 @@
 # FestGrid Backlog Board — intake tracking for pre-story work
 # Convention: backlog-spec.md   Evidence: backlog-evidence.yaml
 # Execution state for anything with `stories` lives in sprint-status.yaml.
+# `impact`/`effort` are required on open un-promoted rows only. No stored priority —
+# rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: 2026-09-04
+last_updated: 2026-09-05
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -37,12 +39,14 @@ items:
 
   BUG-001:
     {type: bug, status: backlog, created: 2026-08-01, parent: CC-002,
+     impact: user-visible, effort: xs,
      title: "Logo.tsx logotype span still hardcodes 'Grid' — FestDaily rename unfinished",
      ref: [], touches: [pkg:ui],
      note: "Verified 2026-09-04: 0 occurrences of 'Daily' in packages/ui/src/core/app-shell/Logo.tsx."}
 
   IDEA-002:
     {type: idea, status: backlog, created: 2026-08-01, parent: CC-002,
+     impact: cosmetic, effort: m,
      title: "Redesign the logomark — 2x2 grid icon is a visual pun on the retired 'Grid' name",
      ref: [], touches: [pkg:ui, cross:ux-tokens],
      note: "Explicitly deferred by CC-002 pending new brand visuals."}
@@ -127,6 +131,7 @@ items:
 
   FIND-001:
     {type: finding, status: backlog, created: 2026-08-13, parent: CC-009,
+     impact: internal, effort: xs,
      title: "Story 3.1b AC4 and 3.4 AC3 prose never updated though the behaviour shipped",
      ref: [], touches: [app:backend],
      note: "DUPLICATE_API_KEY lives in resolvers.ts and the 3d..30d retry windows in process-scrape-job.ts, but neither story file's ACs say so. Code is ahead of its own documentation."}
@@ -161,6 +166,7 @@ items:
 
   BUG-002:
     {type: bug, status: backlog, created: 2026-08-15, parent: CC-011,
+     impact: latent, effort: s,
      title: "aiProcessorLambda and ingestorLambda share 3.4f's missing-timeout gap — never folded in or decided",
      ref: [], touches: [app:infrastructure, app:backend],
      note: "CC-011 explicitly left this undecided rather than scoping it into 3.4f."}
@@ -218,12 +224,14 @@ items:
 
   FIND-002:
     {type: finding, status: backlog, created: 2026-08-24, parent: CC-014,
+     impact: internal, effort: xs,
      title: "PRD favoriteCount text edit was proposed but never applied to prd.md",
      ref: [], touches: [cross:prd],
      note: "Field exists in epics.md Story 1.3g and in the resolver; PRD 3.2 was skipped."}
 
   IDEA-003:
     {type: idea, status: backlog, created: 2026-08-24, parent: CC-014,
+     impact: user-visible, effort: m,
      title: "Mobile calendar multi-day-span rendering — no UX design exists yet",
      ref: [], touches: [web:events, cross:ux-tokens],
      note: "CC-014 item #11, explicitly deferred to a future scoped bmad-ux pass."}
@@ -236,6 +244,7 @@ items:
 
   FIND-003:
     {type: finding, status: backlog, created: 2026-08-24, parent: CC-014,
+     impact: internal, effort: xs,
      title: "UX rework items #7/#8/#9 routed straight to bmad-create-story — landing never verified",
      ref: [], touches: [web:onboarding, web:wizard],
      note: "Autocomplete and wizard-layout bugs taken out of CC-014's scope; no evidence gathered on whether stories were created."}
@@ -256,6 +265,7 @@ items:
 
   IDEA-005:
     {type: idea, status: backlog, created: 2026-08-25, parent: CC-015,
+     impact: user-visible, effort: l,
      title: "Push-notification-triggered image cache warming",
      ref: [], touches: [cross:notifications, app:infrastructure],
      note: "CC-015 Section 6 deferred this to future discussion; never scoped into any story."}
@@ -271,6 +281,7 @@ items:
 
   BUG-003:
     {type: bug, status: backlog, created: 2026-08-28, parent: CC-016,
+     impact: user-visible, effort: m,
      title: "No email notification when a location change enters AWAITING_APPROVAL",
      ref: [], touches: [app:backend, cross:notifications],
      note: "TODO left in apply-default-location-change.ts; the pending-item badge was accepted as interim cover. Also logged in deferred-work.md."}
@@ -304,12 +315,14 @@ items:
 
   IDEA-006:
     {type: idea, status: backlog, created: 2026-09-02, parent: CC-018,
+     impact: user-visible, effort: l,
      title: "Epic 8 — self-service account claim and ownership verification",
      ref: [], touches: [web:accounts, cross:prd],
      note: "Placeholder only in epics.md (epic-8: backlog); needs its own bmad-prd pass before any story."}
 
   FIND-004:
     {type: finding, status: backlog, created: 2026-09-02, parent: CC-018,
+     impact: compliance, effort: s,
      title: "Apify / Bright Data vendor DPA confirmation not enforced anywhere in the pipeline",
      ref: [], touches: [cross:ai-extraction, app:backend],
      note: "Named as an open build item in the PRD 5 Security text itself."}
@@ -317,6 +330,7 @@ items:
   # ── 2026-09-04 ──────────────────────────────────────────────────────────────
   CC-019:
     {type: proposal, status: triaged, created: 2026-09-04,
+     impact: user-visible, effort: m,
      title: "Discovery card redesign (TILL badge, status badge, nearby badge, masonry spacing)",
      ref: [planning-artifacts/sprint-change-proposal-2026-09-04.md],
      touches: [web:events/EventCard, web:events/EventListView, web:events/getEvents,
@@ -325,19 +339,22 @@ items:
 
   BUG-004:
     {type: bug, status: backlog, created: 2026-09-04, parent: CC-019,
+     impact: internal, effort: xs,
      title: "sprint-status.yaml still reads 1-3i as done though ViewModeToggle was deleted",
      ref: [], touches: [web:events/EventListView, cross:architecture],
      note: "spec-ux-rework2-p1-masonry-only.md deleted the component and its layout URL-param wiring. CC-019 recommended a documentation-only correction; never applied. This is the drift case that motivated the board."}
 
   IDEA-007:
     {type: idea, status: backlog, created: 2026-09-04, parent: CC-019,
+     impact: cosmetic, effort: s, blocks: [CC-019],
      title: "Targeted bmad-ux pass for card visual tokens before CC-019 story finalization",
      ref: [], touches: [web:events/EventCard, cross:ux-tokens],
-     note: "CC-019 Section 4.3 names this a prerequisite: date-box/TILL badge, badge-row placement, prominent-poster sizing. Blocks safe promotion of CC-019."}
+     note: "CC-019 Section 4.3 names this a prerequisite: date-box/TILL badge, badge-row placement, prominent-poster sizing."}
 
   # ── undated intake ──────────────────────────────────────────────────────────
   IDEA-001:
     {type: idea, status: backlog, created: 2026-09-04,
+     impact: user-visible, effort: m,
      title: "Retry AI extraction on n+1 carousel slides when schedule count falls short",
      ref: [backlog/IDEA-001-multislide-extraction.md],
      touches: [cross:ai-extraction, app:backend],
@@ -345,7 +362,9 @@ items:
 
   FIND-005:
     {type: finding, status: backlog, created: 2026-09-04,
+     impact: internal, effort: m,
      title: "deferred-work.md is a third untracked tracker holding 89 items",
-     ref: [implementation-artifacts/deferred-work.md],
+     ref: [implementation-artifacts/deferred-work.md,
+           implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [cross:process],
-     note: "33 sections, 89 bullets, 2026-07-22 to 2026-09-01 — test gaps, cosmetic debt, and cline-cli process findings. Discovered during Phase C; not yet folded into this board."}
+     note: "Phase E complete 2026-09-04: all 89 bullets evidenced (45 still live, 27 fixed, 17 unverified). Phase F folds the live ones into rows."}

@@ -5,7 +5,7 @@ persistent_facts = [
 ]
 
 activation_steps_append = [
-  "Read `_bmad-output/implementation-artifacts/backlog.yaml` (rows plus the tag registry). It is small by design — read it whole. Do not read the documents it references; the rows are the summary.",
+  "Read `_bmad-output/implementation-artifacts/backlog.yaml` (rows plus the tag registry). It is small by design — read it whole. Do not read the documents its rows reference; the rows are the summary. The one exception is the convention itself: read section 11 of `_bmad-output/implementation-artifacts/backlog-spec.md` for the lens definitions, which are needed for the readout and are deliberately stored in one place only.",
 ]
 
 on_complete = """
@@ -30,8 +30,13 @@ status and alongside the retrospective action items. Report, in this order:
 4. **Integrity checks** (spec section 9): broken `ref` paths, referenced files whose
    `backlog_id` is missing or disagrees with the row, `touches` tags absent from the
    registry, `stories` keys absent from `sprint-status.yaml`, open items whose stories are
-   all terminal, and `parent` ids that do not exist. Report only failures; say "clean"
-   when there are none.
+   all terminal, `parent` ids that do not exist, open un-promoted rows missing `impact` or
+   `effort` or carrying a value outside the §3 enums, and `blocks` entries naming an id
+   that does not exist or one whose target is already terminal. Report only failures; say
+   "clean" when there are none.
+
+   An unranked open row is not a cosmetic omission — it cannot appear in any lens, so it
+   is silently unprioritizable rather than merely undecorated. Name those rows explicitly.
 
 5. **Target collisions.** Group open items (`backlog`/`triaged`/`promoted`) by `touches`
    tag prefix, deduplicating items within a group. **Report groups ascending by size and
@@ -39,6 +44,17 @@ status and alongside the retrospective action items. Report, in this order:
    signal, while small groups are where real conflicts surface. Present these as
    candidates for a human read, never as confirmed conflicts: semantic contradictions
    between items that share no tag are not mechanically detectable.
+
+6. **Lens readout** (spec section 11). Lenses are defined in backlog-spec.md §11 and
+   nowhere else — read that table rather than reconstructing the filters from memory, and
+   never copy one into a row. Report `unblock` first (those rows gate other work
+   regardless of their own size), then `cheap-wins`, then `stability`, each as an id list
+   with one-line titles. Omit any lens returning nothing.
+
+   Do **not** rank the lenses against each other or present a single "do this next" list.
+   Which lens applies depends on what the user is doing this session, and that judgment is
+   theirs — the board's job is to make each candidate set cheap to see. If the user stated
+   a goal for the session, run the lens matching that goal instead of the default three.
 
 Keep this section terse — counts, ids and one-line titles. It is a status readout, not a
 report; the user opens a referenced document only when they choose to act on a row.

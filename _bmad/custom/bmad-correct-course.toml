@@ -2,6 +2,7 @@
 persistent_facts = [
   "Backlog board: this project tracks every Sprint Change Proposal, bug, finding and raw idea as a row in `_bmad-output/implementation-artifacts/backlog.yaml`. Its convention is `_bmad-output/implementation-artifacts/backlog-spec.md` — read that spec before writing to the board. The board is the intake index; `sprint-status.yaml` remains the execution board for anything that already has a story, and exactly one of the two owns an item's state at a time. Never duplicate execution state into the board: an item with stories carries a derived status, not a hand-edited one.",
   "Proposal identity: every Sprint Change Proposal carries a `backlog_id: CC-NNN` key in its own frontmatter, matching its row in backlog.yaml. Links are bidirectional — a proposal without a row, or a row without a matching file, is a defect the board's checks will flag.",
+  "Ranking is never stored. The board has no `priority` field and must not grow one — a stored composite score is a hand-maintained derived value, the same failure mode the board's derived `status` exists to prevent, and no check can detect that it went stale. Open un-promoted rows carry two verifiable facts instead: `impact` (`user-visible|compliance|latent|cosmetic|internal`) and `effort` (`xs|s|m|l`), defined in backlog-spec.md §3 'Prioritization fields'. Prioritization happens at read time through the named lenses in §11.",
 ]
 
 on_complete = """
@@ -26,7 +27,12 @@ Register this Sprint Change Proposal on the backlog board before exiting. Follow
    - `touches` — tags from the registry at the top of backlog.yaml. Every tag must already
      exist there; adding a new one is a deliberate edit to the registry block, not a
      side effect. Use `namespace:slice/Symbol` where you know the symbol.
-   - `note` — only if something changes how the row is read.
+   - `impact` and `effort` — **required.** A `triaged` row is open and un-promoted, which
+     is exactly the set that gets ranked. Take the values and their tests from
+     backlog-spec.md §3 "Prioritization fields"; both are facts to be verified, not a
+     score to be guessed. Write no `priority` field.
+   - `note` — only if something changes how the row is read. A dependency does not belong
+     here; see step 4.
 
 4. **Carve out every deferred, rejected, or out-of-scope chunk into its own child row.**
    This is the step whose omission created the 2026-09-04 backfill's 16 orphaned items —
@@ -36,8 +42,16 @@ Register this Sprint Change Proposal on the backlog board before exiting. Follow
    deliberately dropped — record the decision rather than deleting it — and
    `status: backlog` for anything still genuinely open.
 
+   Every `status: backlog` child also needs `impact` and `effort`; a `skipped` child is
+   terminal and needs neither. If a carve-out **gates its own parent** — a design or
+   research pass the parent cannot safely ship without — put `blocks: [CC-NNN]` on the
+   child. Do not write that dependency as prose in a `note`: a blocker described in prose
+   is invisible to every lens and to the board's own checks, which is how IDEA-007 sat
+   unnoticed against CC-019.
+
 5. Re-read the rows you wrote and confirm: every `touches` tag resolves against the
-   registry, every `ref` path exists on disk, and the proposal's frontmatter `backlog_id`
-   matches its row key. Report to the user which id was assigned and how many child rows
-   were carved out.
+   registry, every open row carries an `impact` and an `effort` whose values are in the
+   §3 enums, every `blocks` id exists and is not already terminal, every `ref` path exists
+   on disk, and the proposal's frontmatter `backlog_id` matches its row key. Report to the
+   user which id was assigned and how many child rows were carved out.
 """

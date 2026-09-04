@@ -52,7 +52,7 @@ tags:
           posts, reports, settings, subscriptions, system, votes, widgets, wizard]
   pkg:   [analytics, database, domain, graphql-select, shared-types, ui]
   app:   [backend, infrastructure]
-  cross: [ai-extraction, prd, architecture, ux-tokens, i18n, notifications]
+  cross: [ai-extraction, prd, architecture, ux-tokens, i18n, notifications, process]
 
 items:
   CC-014:
@@ -66,12 +66,14 @@ items:
 
   IDEA-001:
     {type: idea, status: backlog, created: 2026-09-04,
+     impact: user-visible, effort: m,
      title: "Retry AI extraction on n+1 carousel slides when schedule count falls short",
      ref: [backlog/IDEA-001-multislide-extraction.md],
      touches: [cross:ai-extraction, app:backend]}
 
   BUG-001:
     {type: bug, status: triaged, created: 2026-09-04, parent: CC-014,
+     impact: internal, effort: xs, blocks: [CC-019],
      title: "1-3i marked done but ViewModeToggle was deleted by a later change",
      ref: [],
      touches: [web:events/EventListView, cross:architecture]}
@@ -88,12 +90,58 @@ items:
 | `ref` | yes | Ordered provenance chain, oldest→newest. Last = current home of truth. `[]` if tier 0. |
 | `stories` | no | Full `sprint-status.yaml` keys. Presence means the item has fanned out. |
 | `touches` | yes | Registry-resolved tags. See §7. |
+| `impact` | open rows | User-facing consequence. See below. |
+| `effort` | open rows | Size of the work. See below. |
 | `parent` | no | Parent item ID, for carved-out children. See §6. |
+| `blocks` | no | IDs this row gates. One-directional — declared on the blocker only. |
 | `superseded_by` | no | Required when `status: superseded`. |
 | `note` | no | One line. Only for a fact that changes how the row is read. Not a description. |
 
 Rows are written as YAML flow mappings (one logical row per entry) to keep the board
-cheap to read. ~30 tokens per row; 50 items ≈ 1.5k tokens.
+cheap to read. ~30 tokens per row, ~38 for an open row carrying `impact`/`effort`;
+50 items ≈ 1.7k tokens.
+
+### Prioritization fields
+
+Two facts, no score. **`priority` is deliberately absent.** A stored composite is a
+derived value maintained by hand — the exact failure §5's derived `status` exists to
+prevent, and worse, because no check in §9 can detect that it went stale. A single
+scalar also cannot serve two different weightings; ranking happens at read time via §11.
+
+The test for both fields: *can it be verified, or must it be judged?* Facts do not rot.
+
+**`impact`** — the user-facing consequence of the row: the defect for a `bug`/`finding`,
+the payoff for an `idea`/`proposal`.
+
+| Value | Test |
+|---|---|
+| `user-visible` | A user — including a moderator — can reach it through today's data. |
+| `compliance` | An unmet legal/DPA/consent obligation. No user symptom; not optional. |
+| `latent` | A real defect, unreachable through today's data. |
+| `cosmetic` | The user sees it, but only aesthetics. |
+| `internal` | No user path at all — tests, tooling, docs, refactor, audits. |
+
+Default ranking, absent a lens that says otherwise:
+`compliance` ≈ `user-visible` > `latent` > `cosmetic` > `internal`.
+
+`compliance` exists because the alternative collapses it into `internal`, which sorts a
+regulatory obligation below a token rename. FIND-004 (vendor DPA never enforced) is the
+case that forced it.
+
+**`effort`** — size of the change, not its value. A property of the work itself, so it
+does not move when goals do.
+
+| Value | Scale |
+|---|---|
+| `xs` | One file, one edit. No story needed. |
+| `s` | One story. |
+| `m` | 2–4 stories, or one story plus a design/PRD pass. |
+| `l` | Multi-epic, or blocked on infrastructure that does not exist yet. |
+
+**Both are required only for open, un-promoted rows** (`status: backlog` or `triaged`) —
+the set actually being ranked. A `promoted` item's effort is already legible in
+`len(stories)`, and terminal items are never ranked. On the 2026-09-05 board that is
+16 rows out of 35, which is what keeps this affordable.
 
 ## 4. IDs
 
@@ -230,6 +278,13 @@ One-way links rot silently. With both directions, any file resolves to its row, 
    Deduplicate items within a group — an item with several `web:events/*` tags must
    count once.
 
+8. **Unranked open row** — a `backlog`/`triaged` row missing `impact` or `effort`, or
+   carrying a value outside the §3 enums. Blocks the row from appearing in any §11 lens,
+   so it is silently unprioritizable rather than merely undecorated.
+9. **Dangling or satisfied block** — a `blocks` entry naming an ID that does not exist,
+   or one whose target is already terminal (`done`/`skipped`/`superseded`). The second
+   case is the `blocks` equivalent of check 5: the gate outlived what it was gating.
+
 Check 7 finds *candidates*, not conflicts. Semantic contradiction between items that
 touch no common surface is **not mechanically detectable** and needs a reading pass —
 e.g. one item re-hosting images unconditionally while another requires an opt-in gate.
@@ -253,3 +308,31 @@ same pass — this is the step whose omission created the current mess.
 
 **Close-out.** When all stories reach `done` and no children are open, the item is
 `done`. It stays on the board as history; the board is not pruned.
+
+## 11. Lenses
+
+Prioritization is a **query, not a row property.** What changes between sessions is the
+weighting across categories — not the facts about each item. So the variation lives here,
+in named filters over fields the board already carries. Adding a lens re-ranks the entire
+board without touching a single row; that is the property a stored `priority` can never
+have.
+
+| Lens | Filter | Use when |
+|---|---|---|
+| `cheap-wins` | `status: backlog` AND `effort` in (xs, s) AND `impact` in (user-visible, cosmetic) | Short session, want visible movement. |
+| `stability` | `status: backlog` AND `impact: user-visible` AND `type` in (bug, finding) | Before a demo or a release. |
+| `legal` | `impact: compliance` OR (`touches ~ cross:ai-extraction` AND status open) | Any consent/PDP/GDPR pass. Ignores `effort` — these are not optional. |
+| `demo-polish` | `touches ~ (cross:ux-tokens \| web:events)` AND `impact` in (user-visible, cosmetic) | Portfolio and screenshot work. |
+| `close-out` | `status: promoted` AND every entry in `stories` is `review` | Clearing the 115-vs-43 review gap named in §5. |
+| `unblock` | any ID appearing in an open row's `blocks` | Ordering. These gate other work regardless of their own size. |
+| `truth-debt` | `impact: internal` AND `type: finding` | Periodic sweep for docs/status that drifted from code. |
+
+Rules:
+
+- A lens is **defined here and nowhere else.** Never copy one into a row — that
+  re-creates the stored-priority problem one item at a time.
+- Lenses may overlap. An item in three lenses is signal, not an error.
+- Adding or retiring a lens is a one-line edit to this table, and is expected. This is
+  the mechanism that serves "different goal this week" without a migration.
+- No lens may reference a field §3 does not define. If a lens needs a new fact, add the
+  field and backfill it first — otherwise the lens silently returns a partial set.
