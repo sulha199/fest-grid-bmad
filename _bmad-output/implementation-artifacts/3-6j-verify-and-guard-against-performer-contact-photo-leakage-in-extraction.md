@@ -1,3 +1,7 @@
+---
+baseline_commit: 4255f0df9c29b1fbd06867954801d351664a2c8d
+---
+
 # Story 3.6j: Verify and guard against performer-contact/photo leakage in extraction
 
 ## Story Details
@@ -103,12 +107,12 @@ Epic 3's readiness sweep (`epic-readiness/epic-3-readiness.md`, `swept: true`, d
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — one prompt-string addition to `build-gemini-request.ts` (Task 1); two new test cases in an already-existing domain test file (Tasks 2-3); no new DB column, GraphQL field, resolver, component, or i18n/analytics/app-shell foundation; no code-level regex/heuristic scrub (explicitly declined, see Dev Notes).
-- [ ] Architecture and boundary confirmation — no `packages/domain` implementation file is modified, only its test file; the prompt change stays inside `apps/backend`'s existing AI-processor layer, matching where every other extraction-prompt rule already lives (e.g. the publish-date anchor instruction, item 8's account-name-metadata instruction).
-- [ ] Testing plan confirmation — `apps/backend` prompt-content assertion (Task 1, mirrors Case D-F); `packages/domain` pass-through fixture tests for both the contact sentinel (AC3) and the photo-URL sentinel (AC4), each asserting the performer's name is preserved while the sentinel value is absent from every output field (Tasks 2-3).
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1: no gap (re-run fresh via `runSubagent`, Winston persona; one non-blocking forward-looking note recorded in Dev Notes). Gate 2: no gap (re-run fresh via `runSubagent`, Freya persona; confirmed no UX-spec display requirement exists for this data). Gate 3: no gap (re-run fresh via `runSubagent`, Winston persona; confirmed no other story owns this scope).
-- [ ] **Test-approach decision confirmed via `AskUserQuestion` (see Dev Notes):** the regression fixture tests pipeline pass-through behavior against a synthetic "correctly-behaving" Gemini payload, not live Gemini compliance — confirm this narrower boundary before implementing Tasks 2-3, do not widen it into a code-level free-text scrub without re-confirming.
+- [x] Scope confirmation — one prompt-string addition to `build-gemini-request.ts` (Task 1); two new test cases in an already-existing domain test file (Tasks 2-3); no new DB column, GraphQL field, resolver, component, or i18n/analytics/app-shell foundation; no code-level regex/heuristic scrub (explicitly declined, see Dev Notes).
+- [x] Architecture and boundary confirmation — no `packages/domain` implementation file is modified, only its test file; the prompt change stays inside `apps/backend`'s existing AI-processor layer, matching where every other extraction-prompt rule already lives (e.g. the publish-date anchor instruction, item 8's account-name-metadata instruction).
+- [x] Testing plan confirmation — `apps/backend` prompt-content assertion (Task 1, mirrors Case D-F); `packages/domain` pass-through fixture tests for both the contact sentinel (AC3) and the photo-URL sentinel (AC4), each asserting the performer's name is preserved while the sentinel value is absent from every output field (Tasks 2-3).
+- [x] Explicit human approval state — approved by shulha via `AskUserQuestion` on 2026-09-03 ("Approve, proceed").
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1: no gap (re-run fresh via `runSubagent`, Winston persona; one non-blocking forward-looking note recorded in Dev Notes). Gate 2: no gap (re-run fresh via `runSubagent`, Freya persona; confirmed no UX-spec display requirement exists for this data). Gate 3: no gap (re-run fresh via `runSubagent`, Winston persona; confirmed no other story owns this scope).
+- [x] **Test-approach decision confirmed via `AskUserQuestion` (see Dev Notes):** the regression fixture tests pipeline pass-through behavior against a synthetic "correctly-behaving" Gemini payload, not live Gemini compliance — confirm this narrower boundary before implementing Tasks 2-3, do not widen it into a code-level free-text scrub without re-confirming.
 
 ## Testing Requirements
 

@@ -154,4 +154,19 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok(result.request.systemInstruction?.includes('wa.me'));
     assert.ok(result.request.systemInstruction?.includes('private/individual'));
   });
+
+  await t.test('Case H: systemInstruction contains the performer-contact/photo exclusion instruction', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-8',
+      accountId: 'account-8',
+      content: 'Live music by DJ Nova! Book this artist via 0812-3456-7890.',
+      postUrl: 'https://test.com/post8',
+      publishedAt: '2026-08-27T15:30:00Z'
+    };
+
+    const result = await buildGeminiExtractionRequest(message);
+
+    assert.ok(result.request.systemInstruction?.includes('performer'));
+    assert.ok(result.request.systemInstruction?.includes('must never be copied'));
+  });
 });

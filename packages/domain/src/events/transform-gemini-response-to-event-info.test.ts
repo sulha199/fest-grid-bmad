@@ -354,4 +354,94 @@ describe('transformGeminiResponseToEventInfo', () => {
       assert.ok(!result.hasPrivateContact);
     });
   });
+
+  describe('performer-contact/photo leakage regression fixtures (Story 3.6j, AC3/AC4)', () => {
+    it('should never surface a performer\'s contact detail in any output field, while preserving the performer\'s name', () => {
+      // Simulated source caption: "Live music by DJ Nova! Book this artist via 0812-3456-7890."
+      // This payload represents a correctly-behaved extraction: the prompt (Story 3.6j, Task 1)
+      // instructs Gemini to extract the performer's name but never copy their contact detail into
+      // any field. This fixture proves the transform pipeline itself doesn't reintroduce the leak.
+      const contactSentinel = '0812-3456-7890';
+
+      const payload: GeminiExtractionPayload = {
+        isEvent: true,
+        eventName: 'Live Music Night',
+        types: ['PERFORMANCE'],
+        categories: ['MUSIC'],
+        schedules: [
+          {
+            isMainSchedule: true,
+            eventStartDate: '2026-09-10',
+            title: 'Live Music Night',
+            performers: ['DJ Nova'],
+            location: 'The Venue'
+          }
+        ],
+        location: 'The Venue',
+        organizerName: 'The Venue Management',
+        contactInfo: 'events@thevenue.com',
+        description: 'Come enjoy a night of live music!',
+        confidenceScore: 0.95
+      };
+
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+
+      // Performer name is preserved.
+      assert.ok(result.schedules[0].performers?.includes('DJ Nova'));
+
+      // The contact sentinel must not appear anywhere in the output.
+      assert.ok(!result.description?.includes(contactSentinel));
+      assert.ok(!result.contactInfo?.includes(contactSentinel));
+      assert.ok(!result.organizerName?.includes(contactSentinel));
+      assert.ok(!result.location?.includes(contactSentinel));
+      for (const schedule of result.schedules) {
+        assert.ok(!schedule.title?.includes(contactSentinel));
+        assert.ok(!schedule.location?.includes(contactSentinel));
+        assert.ok(!schedule.performers?.some((p) => p.includes(contactSentinel)));
+      }
+    });
+
+    it('should never surface a performer\'s photo URL in any output field', () => {
+      // Simulated source caption: "Live music by DJ Nova! Check out her photo: https://instagram.com/p/abc123photo"
+      // Same pattern as the contact-sentinel fixture above, but for a performer photo URL --
+      // there is no dedicated schema field for a performer photo, so this proves the pipeline
+      // never lets one leak into a free-text field either.
+      const photoUrlSentinel = 'https://instagram.com/p/abc123photo';
+
+      const payload: GeminiExtractionPayload = {
+        isEvent: true,
+        eventName: 'Live Music Night',
+        types: ['PERFORMANCE'],
+        categories: ['MUSIC'],
+        schedules: [
+          {
+            isMainSchedule: true,
+            eventStartDate: '2026-09-10',
+            title: 'Live Music Night',
+            performers: ['DJ Nova'],
+            location: 'The Venue'
+          }
+        ],
+        location: 'The Venue',
+        organizerName: 'The Venue Management',
+        contactInfo: 'events@thevenue.com',
+        description: 'Come enjoy a night of live music!',
+        confidenceScore: 0.95
+      };
+
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+
+      assert.ok(result.schedules[0].performers?.includes('DJ Nova'));
+
+      assert.ok(!result.description?.includes(photoUrlSentinel));
+      assert.ok(!result.contactInfo?.includes(photoUrlSentinel));
+      assert.ok(!result.organizerName?.includes(photoUrlSentinel));
+      assert.ok(!result.location?.includes(photoUrlSentinel));
+      for (const schedule of result.schedules) {
+        assert.ok(!schedule.title?.includes(photoUrlSentinel));
+        assert.ok(!schedule.location?.includes(photoUrlSentinel));
+        assert.ok(!schedule.performers?.some((p) => p.includes(photoUrlSentinel)));
+      }
+    });
+  });
 });
