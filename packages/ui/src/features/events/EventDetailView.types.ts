@@ -50,6 +50,7 @@ export interface EventDetailViewLabels {
   timezoneSubmitSuccessAnnouncement: string;
   timezoneSubmitErrorAnnouncement: string;
   videoUnavailableLabel?: string;
+  privateContactMessageLabel: string;
 }
 
 /**
@@ -76,6 +77,10 @@ export interface EventDetailViewProps {
   // External URLs (AC15, AC16)
   originalPostUrl?: string | null;
   sourcePostUrl?: string | null;
+
+  // Contact info (Story 3.6i)
+  contactInfo?: string | null;
+  hasPrivateContact?: boolean | null;
   accountName?: string | null;
   accountUsername?: string | null;
   accountPlatform?: string | null;

@@ -47,6 +47,12 @@ export function transformGeminiResponseToEventInfo(
     };
   });
 
+  // 4. Discard-at-classification enforcement (AC2): a private-contact classification
+  // always wins over whatever contactInfo the prompt/schema separation returned --
+  // never trust that separation alone, since a model response is not contractually
+  // bound to honor it. The raw private value is never passed through.
+  const contactInfo = payload.hasPrivateContact === true ? undefined : payload.contactInfo;
+
   return {
     postId: context.postId,
     sourceSocialMediaAccountId: context.sourceSocialMediaAccountId,
@@ -56,7 +62,8 @@ export function transformGeminiResponseToEventInfo(
     schedules,
     location,
     organizerName: payload.organizerName,
-    contactInfo: payload.contactInfo,
+    contactInfo,
+    hasPrivateContact: payload.hasPrivateContact,
     description: payload.description,
     confidenceScore: payload.confidenceScore
   };

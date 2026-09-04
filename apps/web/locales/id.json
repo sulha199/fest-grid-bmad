@@ -140,7 +140,8 @@
     "timezoneSelectPlaceholder": "Masukkan zona waktu (misalnya, UTC, Asia/Jakarta)",
     "timezoneSubmitLabel": "Konfirmasi",
     "timezoneSubmitSuccessAnnouncement": "Zona waktu berhasil diperbarui",
-    "timezoneSubmitErrorAnnouncement": "Gagal memperbarui zona waktu. Silakan coba lagi."
+    "timezoneSubmitErrorAnnouncement": "Gagal memperbarui zona waktu. Silakan coba lagi.",
+    "privateContactMessageLabel": "Info kontak tidak ditampilkan untuk melindungi privasi pemosting — lihat postingan asli untuk detailnya."
   },
   "EventReportForm": {
     "dialogTitle": "Laporkan Acara",

@@ -1,10 +1,14 @@
+---
+baseline_commit: 4255f0df9c29b1fbd06867954801d351664a2c8d
+---
+
 # Story 3.6i: Classify-and-discard private contact info during AI extraction
 
 ## Story Details
 
 - Epic: 3
 - Story ID: 3.6i
-- Status: ready-for-dev
+- Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -154,12 +158,12 @@ Epic 3's readiness sweep (`epic-readiness/epic-3-readiness.md`, `swept: true`, d
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — one new DB column + GraphQL field (Tasks 5-6); prompt/schema/AJV extension (Tasks 1-2); discard enforcement at two independent call sites (Tasks 3, 7); one new frontend display section (Task 8); no new API surface, no new component/hook, no new i18n/analytics/app-shell foundation.
-- [ ] Architecture and boundary confirmation — all new domain functions (`transformGeminiResponseToEventInfo`, `buildEventInsertValues`, `mapExtractionPayloadToProposedCorrection`) stay pure `packages/domain` code with no DB/ORM coupling; the DB write and GraphQL resolution stay in `apps/backend`, matching the existing pattern for every other `EventInsertValues`/`Event` field.
-- [ ] Testing plan confirmation — `packages/domain` unit tests for the discard logic and all 6 AC4 classification-outcome categories (Tasks 3, 4, 7, 9); `apps/backend` prompt-content assertion (Task 1); `packages/ui` component tests for both display branches plus the empty state (Task 8).
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1: no gap (re-run fresh via `runSubagent`, Winston persona). Gate 2: no gap (re-run fresh via `runSubagent`, Freya persona — also resolved AC3's business-contactInfo-display scope question in favor of building both branches now). Gate 3: no gap (re-run fresh via `runSubagent`, Winston persona; confirmed no other story owns `hasPrivateContact`/contact-classification scope).
-- [ ] **Scope-extension decision confirmed via `AskUserQuestion` (see Dev Notes):** this story's scope includes closing the parallel correction-preview leak (AC5, Task 7), but explicitly does NOT extend to adding `hasPrivateContact` bookkeeping anywhere in the `submitCorrection`/`corrections` round-trip (`ProposedEventCorrection` type, its AJV schema, or either `.graphql` input/output type) — confirm this narrower boundary before implementing Task 7, do not widen it further without re-confirming.
+- [x] Scope confirmation — one new DB column + GraphQL field (Tasks 5-6); prompt/schema/AJV extension (Tasks 1-2); discard enforcement at two independent call sites (Tasks 3, 7); one new frontend display section (Task 8); no new API surface, no new component/hook, no new i18n/analytics/app-shell foundation.
+- [x] Architecture and boundary confirmation — all new domain functions (`transformGeminiResponseToEventInfo`, `buildEventInsertValues`, `mapExtractionPayloadToProposedCorrection`) stay pure `packages/domain` code with no DB/ORM coupling; the DB write and GraphQL resolution stay in `apps/backend`, matching the existing pattern for every other `EventInsertValues`/`Event` field.
+- [x] Testing plan confirmation — `packages/domain` unit tests for the discard logic and all 6 AC4 classification-outcome categories (Tasks 3, 4, 7, 9); `apps/backend` prompt-content assertion (Task 1); `packages/ui` component tests for both display branches plus the empty state (Task 8).
+- [x] Explicit human approval state — approved by shulha via `AskUserQuestion` on 2026-09-03.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1: no gap (re-run fresh via `runSubagent`, Winston persona). Gate 2: no gap (re-run fresh via `runSubagent`, Freya persona — also resolved AC3's business-contactInfo-display scope question in favor of building both branches now). Gate 3: no gap (re-run fresh via `runSubagent`, Winston persona; confirmed no other story owns `hasPrivateContact`/contact-classification scope).
+- [x] **Scope-extension decision confirmed via `AskUserQuestion` (see Dev Notes):** this story's scope includes closing the parallel correction-preview leak (AC5, Task 7), but explicitly does NOT extend to adding `hasPrivateContact` bookkeeping anywhere in the `submitCorrection`/`corrections` round-trip (`ProposedEventCorrection` type, its AJV schema, or either `.graphql` input/output type) — confirmed narrower boundary via `AskUserQuestion` on 2026-09-03.
 
 ## Testing Requirements
 

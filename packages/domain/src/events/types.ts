@@ -21,6 +21,7 @@ export interface GeminiExtractionPayload {
   location?: string;
   organizerName?: string;
   contactInfo?: string;
+  hasPrivateContact?: boolean;
   description?: string;
   confidenceScore: number;
 }
@@ -57,6 +58,7 @@ export interface ExtractedEventMessage {
   location?: string;
   organizerName?: string;
   contactInfo?: string;
+  hasPrivateContact?: boolean;
   description?: string;
   confidenceScore: number;
 }
@@ -70,6 +72,7 @@ export interface EventInsertValues {
   location: string;
   organizerName?: string | null;
   contactInfo?: string | null;
+  hasPrivateContact: boolean;
   description?: string | null;
   confidenceScore?: number | null;
 }

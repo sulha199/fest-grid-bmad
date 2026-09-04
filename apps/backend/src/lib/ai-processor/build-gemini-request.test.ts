@@ -138,4 +138,20 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
       'Account Name Metadata: "fest.daily"\nPost Content:\n"Event announcement 2!"'
     );
   });
+
+  await t.test('Case G: systemInstruction contains private-contact classification guidance', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-7',
+      accountId: 'account-7',
+      content: 'Call us at 0812-3456-7890 or wa.me/6281234567890 for details.',
+      postUrl: 'https://test.com/post7',
+      publishedAt: '2026-08-27T15:30:00Z'
+    };
+
+    const result = await buildGeminiExtractionRequest(message);
+
+    assert.ok(result.request.systemInstruction?.includes('hasPrivateContact'));
+    assert.ok(result.request.systemInstruction?.includes('wa.me'));
+    assert.ok(result.request.systemInstruction?.includes('private/individual'));
+  });
 });

@@ -39,6 +39,7 @@ export const geminiExtractionResponseSchema = {
     location: { type: 'STRING' },
     organizerName: { type: 'STRING' },
     contactInfo: { type: 'STRING' },
+    hasPrivateContact: { type: 'BOOLEAN' },
     description: { type: 'STRING' },
     confidenceScore: { type: 'NUMBER' }
   },
@@ -66,6 +67,7 @@ export async function buildGeminiExtractionRequest(
 4. Select appropriate categories from this allowed list: ${allowedCategories}.
 5. Extract schedule(s) under schedules. For each schedule, isMainSchedule (boolean) and eventStartDate (YYYY-MM-DD) are required. Extract title, eventEndDate (YYYY-MM-DD), eventStartTime (HH:MM:SS), eventEndTime (HH:MM:SS), performers (array), location, and ticketPrice if available.
 6. Extract the top-level location, organizerName, contactInfo, and description if present.
+6a. Classify any contact information found: if it is business/official (a role-based email such as info@venue.com, or an official venue/PT office phone number), populate contactInfo as normal. If it is private/individual (a personal phone number, a personal email address, or a wa.me/<number> WhatsApp link), do NOT populate contactInfo with it -- instead set hasPrivateContact to true and leave contactInfo absent/empty for that value. Treat a wa.me link exactly like a raw personal phone number for this classification -- never describe it merely as "a link" or minimize it, since it directly encodes a reachable personal phone number. If no contact information is present at all, leave both contactInfo and hasPrivateContact absent.
 7. Assign a confidenceScore between 0 and 1 indicating your confidence in the extraction.
 8. Use the provided account name metadata (if present) to help disambiguate ambiguous location or venue references in the post text.
 

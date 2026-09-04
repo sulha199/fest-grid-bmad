@@ -278,6 +278,7 @@ export const events = pgTable('events', {
   // Organizer name, NOT a reference to users.id
   organizerName: text('organizer_name'),
   contactInfo: text('contact_info'),
+  hasPrivateContact: boolean('has_private_contact').default(false).notNull(),
   description: text('description'),
   confidenceScore: doublePrecision('confidence_score'),
   sourceSocialMediaAccountId: text('source_social_media_account_id'),

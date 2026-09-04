@@ -31,6 +31,7 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
     moreActionsButtonLabel: t('moreActionsButtonLabel'),
     correctDataMenuItemLabel: t('correctDataMenuItemLabel'),
     reportMenuItemLabel: t('reportMenuItemLabel'),
+    privateContactMessageLabel: t('privateContactMessageLabel'),
   };
 }
 
@@ -97,6 +98,8 @@ export function mapGraphQLEventToDetailViewProps(
     videoAlt: event.eventName,
     originalPostUrl: event.originalPostUrl,
     sourcePostUrl: event.sourcePostUrl,
+    contactInfo: event.contactInfo,
+    hasPrivateContact: event.hasPrivateContact,
     isFavorited: event.isFavorited,
     favoriteCount: event.favoriteCount,
     isAddedToCalendar: mappedSchedules.some((s) => s.isAddedToCalendar),

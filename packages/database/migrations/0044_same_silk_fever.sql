@@ -1,0 +1,1 @@
+ALTER TABLE "events" ADD COLUMN "has_private_contact" boolean DEFAULT false NOT NULL;

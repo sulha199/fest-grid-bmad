@@ -140,7 +140,8 @@
     "timezoneSelectPlaceholder": "Enter timezone (e.g., UTC, America/New_York)",
     "timezoneSubmitLabel": "Confirm",
     "timezoneSubmitSuccessAnnouncement": "Timezone updated successfully",
-    "timezoneSubmitErrorAnnouncement": "Failed to update timezone. Please try again."
+    "timezoneSubmitErrorAnnouncement": "Failed to update timezone. Please try again.",
+    "privateContactMessageLabel": "Contact info isn't shown to protect the poster's privacy — see the original post for details."
   },
   "EventReportForm": {
     "dialogTitle": "Report Event",

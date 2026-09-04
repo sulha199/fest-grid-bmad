@@ -97,6 +97,7 @@ type Event {
   originalPostUrl: String
   organizerName: String
   contactInfo: String
+  hasPrivateContact: Boolean!
   updatedAt: String!
   createdAt: String!
   schedules: [Schedule!]!

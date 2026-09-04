@@ -13,6 +13,7 @@ export function buildEventInsertValues(message: ExtractedEventMessage): {
     location: message.location ?? 'Location not specified',
     organizerName: message.organizerName || null,
     contactInfo: message.contactInfo || null,
+    hasPrivateContact: message.hasPrivateContact ?? false,
     description: message.description || null,
     confidenceScore: message.confidenceScore ?? null,
   };

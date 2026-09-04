@@ -34,6 +34,7 @@ describe('EventDetailView', () => {
       addToCalendarDialogTitle: 'Select Schedules',
       addToCalendarConfirmLabel: 'Confirm',
       addToCalendarCancelLabel: 'Cancel',
+      privateContactMessageLabel: "Contact info isn't shown to protect the poster's privacy — see the original post for details.",
     },
   };
 
@@ -395,6 +396,44 @@ describe('EventDetailView', () => {
     render(<EventDetailView {...minimalProps} />);
     expect(screen.queryByRole('link', { name: /View original post/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /View source/i })).not.toBeInTheDocument();
+  });
+
+  // Story 3.6i Task 8 Tests: business contactInfo display + private-contact fallback
+  it('renders business contactInfo text when contactInfo is set and hasPrivateContact is false/absent', () => {
+    render(<EventDetailView {...minimalProps} contactInfo="events@venue.com" />);
+    expect(screen.getByText('events@venue.com')).toBeInTheDocument();
+    expect(screen.queryByText(minimalProps.labels.privateContactMessageLabel)).not.toBeInTheDocument();
+  });
+
+  it('renders the private-contact fallback message as a link to originalPostUrl when hasPrivateContact is true', () => {
+    render(
+      <EventDetailView
+        {...minimalProps}
+        hasPrivateContact
+        contactInfo={null}
+        originalPostUrl="http://orig"
+      />
+    );
+    const links = screen.getAllByRole('link', { name: new RegExp(minimalProps.labels.privateContactMessageLabel) });
+    expect(links[0]).toHaveAttribute('href', 'http://orig');
+  });
+
+  it('falls back to sourcePostUrl for the private-contact link when originalPostUrl is absent', () => {
+    render(
+      <EventDetailView
+        {...minimalProps}
+        hasPrivateContact
+        contactInfo={null}
+        sourcePostUrl="http://source"
+      />
+    );
+    const link = screen.getByRole('link', { name: new RegExp(minimalProps.labels.privateContactMessageLabel) });
+    expect(link).toHaveAttribute('href', 'http://source');
+  });
+
+  it('renders nothing in the contact section when neither contactInfo nor hasPrivateContact is present', () => {
+    render(<EventDetailView {...minimalProps} />);
+    expect(screen.queryByText(minimalProps.labels.privateContactMessageLabel)).not.toBeInTheDocument();
   });
 
   // AC16 Tests

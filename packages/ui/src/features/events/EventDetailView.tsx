@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus, MoreVertical, AlertCircle, Instagram } from 'lucide-react';
+import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus, MoreVertical, AlertCircle, Instagram, Phone } from 'lucide-react';
 import { detectPlatformFromUrl } from '@festgrid/domain';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from './EventDetailView.types';
 import { EventImage } from './EventImage';
@@ -28,6 +28,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   imageFallbackUrl,
   originalPostUrl,
   sourcePostUrl,
+  contactInfo,
+  hasPrivateContact,
   accountName,
   accountUsername,
   accountPlatform,
@@ -340,6 +342,42 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
       {description && (
         <section>
           <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words leading-relaxed">{description}</p>
+        </section>
+      )}
+
+      {/* Contact Info (Story 3.6i): private-contact fallback message takes
+          precedence over a stored contactInfo value -- hasPrivateContact means
+          any contactInfo has already been discarded server-side, so this branch
+          never has a stored value to lose by preferring the fallback. */}
+      {(hasPrivateContact || contactInfo) && (
+        <section>
+          {hasPrivateContact ? (
+            (() => {
+              const privateContactLinkUrl = originalPostUrl || sourcePostUrl;
+              return privateContactLinkUrl ? (
+                <a
+                  href={privateContactLinkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400 hover:underline hover:text-primary"
+                >
+                  <Instagram className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{labels.privateContactMessageLabel}</span>
+                  <ExternalLink className="w-3 h-3 shrink-0 mt-0.5" />
+                </a>
+              ) : (
+                <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <Instagram className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{labels.privateContactMessageLabel}</span>
+                </div>
+              );
+            })()
+          ) : (
+            <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <Phone className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{contactInfo}</span>
+            </div>
+          )}
         </section>
       )}
 

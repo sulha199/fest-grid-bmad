@@ -231,4 +231,127 @@ describe('transformGeminiResponseToEventInfo', () => {
     assert.strictEqual(result.schedules[0].timezone, undefined);
     assert.strictEqual(result.schedules[0].timezoneStatus, undefined);
   });
+
+  describe('private-contact discard enforcement (AC2, Task 3)', () => {
+    const basePayload = {
+      isEvent: true,
+      eventName: 'Contact Test Event',
+      types: ['OTHER'],
+      categories: ['OTHER'],
+      schedules: [],
+      confidenceScore: 0.9
+    };
+
+    it('passes contactInfo through unchanged for a business-contact payload (hasPrivateContact: false)', () => {
+      const payload: GeminiExtractionPayload = {
+        ...basePayload,
+        hasPrivateContact: false,
+        contactInfo: 'events@venue.com'
+      };
+
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+
+      assert.strictEqual(result.contactInfo, 'events@venue.com');
+      assert.strictEqual(result.hasPrivateContact, false);
+    });
+
+    it('discards contactInfo when hasPrivateContact is true even if contactInfo is populated (imperfect Gemini response)', () => {
+      const payload: GeminiExtractionPayload = {
+        ...basePayload,
+        hasPrivateContact: true,
+        contactInfo: '0812-3456-7890'
+      };
+
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+
+      assert.strictEqual(result.contactInfo, undefined);
+      assert.strictEqual(result.hasPrivateContact, true);
+    });
+
+    it('leaves both contactInfo and hasPrivateContact undefined/falsy when neither field is set', () => {
+      const payload: GeminiExtractionPayload = {
+        ...basePayload
+      };
+
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+
+      assert.strictEqual(result.contactInfo, undefined);
+      assert.ok(!result.hasPrivateContact);
+    });
+  });
+
+  describe('AC4: 6 classification-outcome categories (Task 9)', () => {
+    const basePayload = {
+      isEvent: true,
+      eventName: 'Classification Outcome Event',
+      types: ['OTHER'],
+      categories: ['OTHER'],
+      schedules: [],
+      confidenceScore: 0.9
+    };
+
+    it('1. business email passes through', () => {
+      const payload: GeminiExtractionPayload = {
+        ...basePayload,
+        hasPrivateContact: false,
+        contactInfo: 'events@venue.com'
+      };
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+      assert.strictEqual(result.contactInfo, 'events@venue.com');
+      assert.strictEqual(result.hasPrivateContact, false);
+    });
+
+    it('2. official venue/PT phone passes through', () => {
+      const payload: GeminiExtractionPayload = {
+        ...basePayload,
+        hasPrivateContact: false,
+        contactInfo: '(021) 555-0100'
+      };
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+      assert.strictEqual(result.contactInfo, '(021) 555-0100');
+      assert.strictEqual(result.hasPrivateContact, false);
+    });
+
+    it('3. personal phone number is discarded', () => {
+      const payload: GeminiExtractionPayload = {
+        ...basePayload,
+        hasPrivateContact: true,
+        contactInfo: '0812-3456-7890'
+      };
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+      assert.strictEqual(result.contactInfo, undefined);
+      assert.strictEqual(result.hasPrivateContact, true);
+    });
+
+    it('4. personal email is discarded', () => {
+      const payload: GeminiExtractionPayload = {
+        ...basePayload,
+        hasPrivateContact: true,
+        contactInfo: 'someone@gmail.com'
+      };
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+      assert.strictEqual(result.contactInfo, undefined);
+      assert.strictEqual(result.hasPrivateContact, true);
+    });
+
+    it('5. wa.me link is discarded, same as a raw phone number', () => {
+      const payload: GeminiExtractionPayload = {
+        ...basePayload,
+        hasPrivateContact: true,
+        contactInfo: 'https://wa.me/6281234567890'
+      };
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+      assert.strictEqual(result.contactInfo, undefined);
+      assert.strictEqual(result.hasPrivateContact, true);
+    });
+
+    it('6. no contact info at all leaves both fields falsy/undefined', () => {
+      const payload: GeminiExtractionPayload = {
+        ...basePayload
+      };
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+      assert.strictEqual(result.contactInfo, undefined);
+      assert.ok(!result.hasPrivateContact);
+    });
+  });
 });

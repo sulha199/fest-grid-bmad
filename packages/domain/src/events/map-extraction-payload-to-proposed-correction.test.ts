@@ -70,3 +70,21 @@ test('mapExtractionPayloadToProposedCorrection - maps a full payload with multip
   assert.equal(sched2.location, undefined);
   assert.equal(sched2.ticketPrice, undefined);
 });
+
+test('mapExtractionPayloadToProposedCorrection - discards contactInfo when hasPrivateContact is true (AC5, Task 7)', () => {
+  const payload: GeminiExtractionPayload = {
+    isEvent: true,
+    eventName: 'Private Contact Preview Event',
+    types: ['OTHER'],
+    categories: ['OTHER'],
+    location: 'Somewhere',
+    hasPrivateContact: true,
+    contactInfo: '0812-3456-7890',
+    confidenceScore: 0.9,
+    schedules: [],
+  };
+
+  const result = mapExtractionPayloadToProposedCorrection(payload);
+
+  assert.equal(result.contactInfo, undefined);
+});

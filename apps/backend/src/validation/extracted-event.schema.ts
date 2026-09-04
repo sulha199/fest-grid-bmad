@@ -43,6 +43,7 @@ export const extractedEventSchema: JSONSchemaType<GeminiExtractionPayload> = {
     location: { type: 'string', nullable: true },
     organizerName: { type: 'string', nullable: true },
     contactInfo: { type: 'string', nullable: true },
+    hasPrivateContact: { type: 'boolean', nullable: true },
     description: { type: 'string', nullable: true },
     confidenceScore: { type: 'number', minimum: 0, maximum: 1 }
   },

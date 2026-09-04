@@ -237,6 +237,7 @@ export type Event = {
   durableImageUrl?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
   favoriteCount: Scalars['Int']['output'];
+  hasPrivateContact: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   isAddedToCalendar: Scalars['Boolean']['output'];
@@ -1624,6 +1625,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   durableImageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   favoriteCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  hasPrivateContact?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   isAddedToCalendar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;

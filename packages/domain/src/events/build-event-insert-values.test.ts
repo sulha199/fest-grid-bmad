@@ -51,6 +51,7 @@ test('buildEventInsertValues - maps fields correctly', () => {
     location: 'Central Park',
     organizerName: 'Organizer A',
     contactInfo: 'organizer@example.com',
+    hasPrivateContact: false,
     description: 'A great music festival',
     confidenceScore: 0.95,
   });
@@ -93,7 +94,25 @@ test('buildEventInsertValues - applies placeholder when location is absent', () 
 
   const result = buildEventInsertValues(message);
   assert.strictEqual(result.event.location, 'Location not specified');
+  assert.strictEqual(result.event.hasPrivateContact, false);
   assert.deepStrictEqual(result.schedules, []);
+});
+
+test('buildEventInsertValues - maps hasPrivateContact: true through explicitly', () => {
+  const message: ExtractedEventMessage = {
+    postId: 'post-4',
+    sourceSocialMediaAccountId: 'account-4',
+    eventName: 'Private Contact Event',
+    types: [EventType.OTHER],
+    categories: [EventCategory.OTHER],
+    confidenceScore: 0.7,
+    hasPrivateContact: true,
+    schedules: [],
+  };
+
+  const result = buildEventInsertValues(message);
+  assert.strictEqual(result.event.hasPrivateContact, true);
+  assert.strictEqual(result.event.contactInfo, null);
 });
 
 test('buildEventInsertValues - handles absent coordinates and timezone fields', () => {
