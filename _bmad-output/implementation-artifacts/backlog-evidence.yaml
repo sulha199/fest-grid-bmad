@@ -1,0 +1,1014 @@
+records:
+  - file: sprint-change-proposal-2026-08-01.md
+    created: 2026-08-01
+    title_from_doc: "Sprint Change Proposal — Source Post Attribution"
+    frontmatter_status: "approved"
+
+    stories_named:
+      - 1-2a-create-posts-table-and-link-seeded-events-to-their-source-post
+      - 1-6-view-event-details
+      - 1-6a-build-the-reusable-event-detail-view-component
+      - 3-4-scrape-new-posts-from-subscribed-accounts
+    story_status:
+      1-2a-create-posts-table-and-link-seeded-events-to-their-source-post: done
+      1-6-view-event-details: review
+      1-6a-build-the-reusable-event-detail-view-component: done
+      3-4-scrape-new-posts-from-subscribed-accounts: review
+
+    proposed_artifact_edits:
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.3.3"
+        marker: "Source Attribution"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.7"
+        marker: "Scraping Approach (Adapter-Specific)"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §4.7 Post interface"
+        marker: "originalPostUrl?: string"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md FR13"
+        marker: "attribution/links back to the source social media post"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md Story 1.2a amendment"
+        marker: "Amendment (2026-08-01, source-attribution requirement via `bmad-correct-course`)"
+        present_in_target: true
+      - target: "01.2-event-detail.md (UX scenario)"
+        marker: "source-attribution links bullet"
+        present_in_target: unverified
+
+    symbols_named: [Post, EventInfo, postUrl, originalPostUrl, eventBySlug, ScraperAdapter]
+
+    deferred_or_rejected_sections:
+      - "Story 3.4 left as a flagged placeholder for Epic 3's own future bmad-create-story/readiness pass — requirement annotated but not fully specified"
+
+    supersedes_hint: null
+    evidence_notes: |
+      UX scenario file "01.2-event-detail.md" referenced by the proposal does not exist
+      anywhere in the repo today (searched broadly) — likely renamed/reorganized since
+      2026-08-01; marked unverified rather than false. All other proposed edits confirmed
+      present in current PRD/epics.md, and both named stories (1-2a, 1-6a) are `done`
+      while 1-6 and 3-4 are `review`.
+
+  - file: sprint-change-proposal-2026-08-01-festdaily-rebrand.md
+    created: 2026-08-01
+    title_from_doc: "Sprint Change Proposal — FestGrid → FestDaily Rebrand (User-Facing Only)"
+    frontmatter_status: "approved (planning artifacts applied; app code handed off, not yet implemented)"
+
+    stories_named:
+      - 0-6-set-up-i18n-foundation-next-intl
+      - 0-7-build-the-global-app-shell-and-navigation-layout
+    story_status:
+      0-6-set-up-i18n-foundation-next-intl: review
+      0-7-build-the-global-app-shell-and-navigation-layout: review
+
+    proposed_artifact_edits:
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md"
+        marker: "FestDaily"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md"
+        marker: "FestDaily"
+        present_in_target: true
+      - target: "planning-artifacts/festgrid-architecture-spine.md"
+        marker: "Architecture Spine: FestDaily"
+        present_in_target: true
+      - target: "apps/web/src/app/[locale]/layout.tsx title/description"
+        marker: "FestDaily"
+        present_in_target: true
+      - target: "packages/ui/src/core/app-shell/Logo.tsx logotype span"
+        marker: "Daily"
+        present_in_target: false
+      - target: "apps/web/src/app/[locale]/page.test.tsx"
+        marker: "FestDaily"
+        present_in_target: true
+
+    symbols_named: [layout.tsx, Logo.tsx, page.test.tsx, home.spec.ts, defaultTitle, defaultDescription]
+
+    deferred_or_rejected_sections:
+      - "Logo icon (2x2 grid logomark, visual pun on \"Grid\") explicitly not redesigned in this change — flagged as a separate follow-up design task once new brand visuals are decided"
+      - "Execution log: app code (layout.tsx, Logo.tsx, tests) explicitly marked 'not yet touched' at proposal time, handed off as a pending Developer-agent item against Stories 0-6/0-7"
+
+    supersedes_hint: null
+    evidence_notes: |
+      Doc's own execution log says app code was NOT YET applied at proposal time. Current
+      repo state shows it is now PARTIALLY applied: layout.tsx title/description and
+      page.test.tsx were migrated to next-intl locale keys and do say "FestDaily" (locales
+      en.json/id.json confirmed), but Logo.tsx's logotype span still hardcodes "Grid", not
+      "Daily" — the rename was never finished there. This is exactly the partial-promotion
+      pattern the backlog board is meant to expose.
+
+  - file: sprint-change-proposal-2026-08-02.md
+    created: 2026-08-02
+    title_from_doc: "Sprint Change Proposal — Public Social Media Account Event Page"
+    frontmatter_status: "approved"
+
+    stories_named:
+      - 3-11-view-events-for-a-social-media-account
+      - 3-1a-create-social-media-account-profiles-table
+      - 1-6a-build-the-reusable-event-detail-view-component
+    story_status:
+      3-11-view-events-for-a-social-media-account: done
+      3-1a-create-social-media-account-profiles-table: done
+      1-6a-build-the-reusable-event-detail-view-component: done
+
+    proposed_artifact_edits:
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.3.4"
+        marker: "Account Attribution"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.7"
+        marker: "Public Account Page"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md FR68"
+        marker: "FR68"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md Story 3.1a amendment"
+        marker: "socialMediaAccountProfileByAccountId"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md Story 1.6a amendment"
+        marker: "Amendment (2026-08-02, added via bmad-correct-course)"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md new Story 3.11"
+        marker: "View events for a social media account"
+        present_in_target: true
+
+    symbols_named: [SocialMediaAccountProfile, EventCard, socialMediaAccountProfileByAccountId, accountId, platformSlug]
+
+    deferred_or_rejected_sections: []
+
+    supersedes_hint: null
+    evidence_notes: |
+      All three named stories are `done` and every proposed PRD/epics.md edit is
+      confirmed present verbatim. No contradictions found.
+
+  - file: sprint-change-proposal-2026-08-03.md
+    created: 2026-08-03
+    title_from_doc: "Sprint Change Proposal: Geolocation Provider Swap (Google → Geoapify)"
+    frontmatter_status: "approved"
+
+    stories_named:
+      - 0-16-set-up-geolocation-adapter-with-caching-layer
+      - 2-3-manage-saved-locations
+      - 2-3a-build-the-saved-locations-backend-graphql-api-layer
+      - 2-3b-extend-the-geolocation-adapter-and-saved-locations-api-with-address-autocomplete-support
+    story_status:
+      0-16-set-up-geolocation-adapter-with-caching-layer: review
+      2-3-manage-saved-locations: done
+      2-3a-build-the-saved-locations-backend-graphql-api-layer: review
+      2-3b-extend-the-geolocation-adapter-and-saved-locations-api-with-address-autocomplete-support: review
+
+    proposed_artifact_edits:
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §5 External API Management"
+        marker: "Geoapify's dashboard domain/IP referrer restrictions"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md Story 0.16"
+        marker: "Geoapify Geocoding/Places/Reverse-Geocoding"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md Story 0.16 note"
+        marker: "Sprint Change Proposal 2026-08-03"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md (residual Google references check)"
+        marker: "Google Geolocation|Google Places|Google Maps Platform"
+        present_in_target: false
+
+    symbols_named: [GeolocationQuery, resolveLocation, LocationDetails, GEOAPIFY_API_KEY]
+
+    deferred_or_rejected_sections:
+      - "Story 2.4 (map-pick UI, map-tile/widget vendor choice) explicitly left undecided — this proposal only resolves the geocoding provider, not the map-display widget"
+
+    supersedes_hint: null
+    evidence_notes: |
+      Story 0.16 (the epicenter of this swap) is `review`, meaning it was regenerated
+      and implemented since this proposal. Grep across PRD/epics.md for residual
+      "Google Geolocation/Places/Maps Platform" text found zero matches — the doc's own
+      success criterion (grep for stale Google references) is satisfied.
+
+  - file: sprint-change-proposal-2026-08-06.md
+    created: 2026-08-06
+    title_from_doc: "Sprint Change Proposal: Soft-Delete-with-Undo Reliability Fix (AD-8 rollout)"
+    frontmatter_status: "approved"
+
+    stories_named:
+      - 0-18-build-the-reusable-soft-delete-with-undo-ui-primitive
+      - 2-3a-build-the-saved-locations-backend-graphql-api-layer
+      - 2-3-manage-saved-locations
+      - 0-22-build-the-shared-active-rows-query-filter-helper-for-ad-8
+    story_status:
+      0-18-build-the-reusable-soft-delete-with-undo-ui-primitive: review
+      2-3a-build-the-saved-locations-backend-graphql-api-layer: review
+      2-3-manage-saved-locations: done
+      0-22-build-the-shared-active-rows-query-filter-helper-for-ad-8: review
+
+    proposed_artifact_edits:
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §4.6 UserLocationPreference"
+        marker: "deletedAt?: string"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md Story 2-3a AC5"
+        marker: "SoftDeleteAction"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md (INVALID_STATE_TRANSITION contract)"
+        marker: "INVALID_STATE_TRANSITION"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md new Story 0.22"
+        marker: "activeOnly(table)"
+        present_in_target: true
+      - target: "project-context.md Soft-Delete Convention paragraph"
+        marker: "UserLocation"
+        present_in_target: unverified
+
+    symbols_named: [useSoftDeleteWithUndo, SoftDeleteToaster, deleteUserLocation, activeOnly, SoftDeleteAction, markPending, onExpire]
+
+    deferred_or_rejected_sections:
+      - "Story 2-3a's myLocations filter: whether it ships its own inline isNull() filter now or waits for Story 0.22's activeOnly() helper is left as a live sequencing choice, not decided in this proposal"
+      - "Story 0.18 Task 2 internal hook-implementation prose and Dev Notes' stale-closure explanation explicitly not rewritten in this pass — left for the dev-story implementer"
+
+    supersedes_hint: null
+    evidence_notes: |
+      All four stories confirmed at expected statuses (three `review`, one `done`).
+      project-context.md's current Soft-Delete Convention wording not directly checked
+      for the exact UserLocation/action-param phrasing — marked unverified rather than
+      guessed, per the field rule (grep budget of 1-2 searches).
+
+  - file: sprint-change-proposal-2026-08-06-map-picker-continuity.md
+    created: 2026-08-06
+    title_from_doc: "Sprint Change Proposal: Map Picker Continuity & In-Sheet Search (Story 2.4)"
+    frontmatter_status: "approved"
+
+    stories_named:
+      - 2-4-set-location-by-current-location-or-map
+      - 2-4a-set-up-frontend-map-integration-and-reusable-map-component
+      - 2-4b-extend-the-geolocation-adapter-with-a-reverse-geocode-preview-query
+    story_status:
+      2-4-set-location-by-current-location-or-map: review
+      2-4a-set-up-frontend-map-integration-and-reusable-map-component: review
+      2-4b-extend-the-geolocation-adapter-with-a-reverse-geocode-preview-query: review
+
+    proposed_artifact_edits:
+      - target: "implementation-artifacts/2-4a-...md AC12/AC13"
+        marker: "showZoomControl"
+        present_in_target: true
+      - target: "implementation-artifacts/2-4a-...md AC13"
+        marker: "onViewStateChange"
+        present_in_target: true
+      - target: "implementation-artifacts/2-4b-...md AC8/AC9"
+        marker: "placeId as a second, mutually-exclusive input mode"
+        present_in_target: true
+      - target: "implementation-artifacts/2-4-...md AC18"
+        marker: "Shared map-picker continuity state"
+        present_in_target: true
+      - target: "epics.md"
+        marker: "N/A — proposal explicitly states epics.md not touched (Story 2.4's file is authoritative over epics.md for ACs)"
+        present_in_target: unverified
+
+    symbols_named: [MapView, mapViewState, previewLocation, showZoomControl, onViewStateChange, addressAutocomplete, location-form-dialog.tsx, map-picker-sheet.tsx]
+
+    deferred_or_rejected_sections:
+      - "i18n locale keys (mapSearchPlaceholder, mapSearchSearching, mapSearchNoResults) explicitly not yet added to en.json/id.json at proposal time — deferred to the follow-up dev-story pass"
+      - "MapLibre moveend/zoomend firing on programmatic (non-user) camera changes flagged as a known, accepted limitation to verify during implementation rather than resolved here"
+
+    supersedes_hint: null
+    evidence_notes: |
+      All three story files show the [REVISED 2026-08-06] amendment markers applied
+      in full (AC18/18a/18b, AC12/AC13, AC8/AC9), and all tasks implementing them are
+      checked off ([x]) in the story files — consistent with all three being `review`.
+      No epics.md changes to verify; proposal explicitly scoped edits to story files only.
+
+  - file: sprint-change-proposal-2026-08-07.md
+    created: 2026-08-07
+    title_from_doc: "Sprint Change Proposal — Route-Level Suspense Loader"
+    frontmatter_status: null
+
+    stories_named:
+      - 0-26-build-the-reusable-routeloader-component
+    story_status:
+      0-26-build-the-reusable-routeloader-component: review
+
+    proposed_artifact_edits:
+      - target: "project-context.md UI Patterns & UX Invariants"
+        marker: "Route-Level Suspense Fallback"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md new Story 0.26"
+        marker: "Build the reusable RouteLoader component"
+        present_in_target: unverified
+      - target: "packages/ui/src/core/route-loader.tsx"
+        marker: "RouteLoader component file"
+        present_in_target: true
+      - target: "packages/ui/src/core/app-shell/LogoMark.tsx"
+        marker: "LogoMark extraction"
+        present_in_target: true
+      - target: "8 route page.tsx Suspense fallback wiring"
+        marker: "fallback={<RouteLoader />}"
+        present_in_target: true
+
+    symbols_named: [RouteLoader, LogoMark, Logo, BlockingLoader, AppShellWrapper]
+
+    deferred_or_rejected_sections:
+      - "test-swipe/page.tsx explicitly out of scope (dev-only test harness, not a real route)"
+
+    supersedes_hint: null
+    evidence_notes: |
+      Retrofit actually landed on more than the 8 originally-named routes — grep found
+      RouteLoader wired into archive/, feed/, moderator/items/, moderator/tools/ as well,
+      which didn't exist as routes at proposal time (2026-08-07); those are later stories
+      correctly following the new project-context.md rule, not evidence against this one.
+      epics.md's own Story 0.26 text not directly grepped (redundant with sprint-status.yaml
+      and the fully-realized code); marked unverified rather than assumed.
+
+  - file: sprint-change-proposal-2026-08-12.md
+    created: 2026-08-12
+    title_from_doc: "Sprint Change Proposal — 2026-08-12 (self-reported event hiding + personal-report auto-resolution)"
+    frontmatter_status: null
+
+    stories_named:
+      - 4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering
+      - 4-6-users-reports-page
+      - 4-7-moderator-items-page
+      - 4-8-view-archived-hidden-personal-events
+      - 4-3c-extend-default-event-visibility-rules-to-exclude-self-reported-events-from-list-views
+    story_status:
+      4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering: review
+      4-6-users-reports-page: review
+      4-7-moderator-items-page: review
+      4-8-view-archived-hidden-personal-events: done
+      4-3c-extend-default-event-visibility-rules-to-exclude-self-reported-events-from-list-views: review
+
+    proposed_artifact_edits:
+      - target: "planning-artifacts/epics.md new Story 4.3c"
+        marker: "Extend default event-visibility rules to exclude self-reported events from list views"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md Story 4.3a correction"
+        marker: "auto_resolved"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md Story 4.6 correction"
+        marker: "auto_resolved"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md Story 4.7 correction"
+        marker: "reportedEvents(status: PENDING)"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md Story 4.8 wording fix"
+        marker: "Story 4.3a's 2026-08-11 correction broadened this from personal-only"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.9.2"
+        marker: "requires no moderator review"
+        present_in_target: true
+
+    symbols_named: [isHiddenForCurrentUser, submitReport, ReportStatus, buildDefaultEventVisibilityConditions, StatusBadge, reportedEvents]
+
+    deferred_or_rejected_sections: []
+
+    supersedes_hint: null
+    evidence_notes: |
+      All five named stories confirmed at expected statuses and every proposed edit is
+      present verbatim in epics.md/PRD. Note (not part of this doc, found in passing):
+      epics.md line 2779 records a *later* proposal (2026-08-29) cancelling a different,
+      unrelated Story 4.3-family story (card-level report trigger) — irrelevant to this
+      record but flags that the 4.3-family has more churn in a later proposal.
+
+  - file: sprint-change-proposal-2026-08-13.md
+    created: 2026-08-13
+    title_from_doc: "Sprint Change Proposal — 2026-08-13 (onboarding list/reset gaps + scraper retry-loop)"
+    frontmatter_status: null
+
+    stories_named:
+      - 3-1b-manage-and-revoke-api-keys
+      - 3-2-subscribe-to-a-social-media-account
+      - 3-4-scrape-new-posts-from-subscribed-accounts
+    story_status:
+      3-1b-manage-and-revoke-api-keys: done
+      3-2-subscribe-to-a-social-media-account: done
+      3-4-scrape-new-posts-from-subscribed-accounts: review
+
+    proposed_artifact_edits:
+      - target: "implementation-artifacts/3-1b-manage-and-revoke-api-keys.md AC4"
+        marker: "DUPLICATE_API_KEY"
+        present_in_target: false
+      - target: "apps/backend/src/schema/resolvers.ts createApiKey resolver"
+        marker: "DUPLICATE_API_KEY"
+        present_in_target: true
+      - target: "implementation-artifacts/3-2-subscribe-to-a-social-media-account.md AC5/AC7"
+        marker: "alreadySubscribed"
+        present_in_target: true
+      - target: "implementation-artifacts/3-4-scrape-new-posts-from-subscribed-accounts.md AC3"
+        marker: "3d, 7d, 10d, 14d, 17d, 21d, 24d, 27d, 30d"
+        present_in_target: false
+      - target: "apps/backend/src/lib/scraper/process-scrape-job.ts"
+        marker: "NEW_SUBSCRIBE_RETRY_WINDOWS_DAYS = [3, 7, 10, 14, 17, 21, 24, 27, 30]"
+        present_in_target: true
+
+    symbols_named: [createApiKey, DUPLICATE_API_KEY, subscribeToAccount, alreadySubscribed, persistScrapedPost, process-scrape-job.ts, NEW_SUBSCRIBE_RETRY_WINDOWS_DAYS]
+
+    deferred_or_rejected_sections: []
+
+    supersedes_hint: null
+    evidence_notes: |
+      Doc/code drift found: the proposal's AC text for both 3.1b's duplicate-key rejection
+      and 3.4's progressive-retry-window logic is NOT present in either story file's AC
+      prose (both still `done`/`review` without the added AC wording), but the actual
+      behavior IS implemented in code — DUPLICATE_API_KEY in resolvers.ts, and the exact
+      3d/7d/.../30d windows + 15/10 thresholds as named constants in
+      process-scrape-job.ts (which also adds an unproposed optimization: adapters
+      supporting server-side newerThan+limit filtering skip the loop and make one
+      widest-window call instead). Code is ahead of the story-file documentation here —
+      real behavior matches the proposal's intent, but the story files were never
+      updated to say so.
+
+  - file: sprint-change-proposal-2026-08-13-discovery-detail-calendar-ux.md
+    created: 2026-08-13
+    title_from_doc: "Sprint Change Proposal — Discovery, Event Detail & Calendar UI Refinements"
+    frontmatter_status: null
+
+    stories_named:
+      - 1-5-filter-events-by-type-and-category
+      - 1-6-view-event-details
+      - 3-7a-extract-shared-weekly-calendar-controller-hook
+      - 1-3g-build-the-reusable-weeklycalendarview-component
+      - 1-3f-build-the-discovery-weekly-calendar-view-and-view-switcher
+      - 2-6-view-and-manage-events-on-a-calendar
+    story_status:
+      1-5-filter-events-by-type-and-category: review
+      1-6-view-event-details: review
+      3-7a-extract-shared-weekly-calendar-controller-hook: review
+      1-3g-build-the-reusable-weeklycalendarview-component: review
+      1-3f-build-the-discovery-weekly-calendar-view-and-view-switcher: review
+      2-6-view-and-manage-events-on-a-calendar: done
+
+    proposed_artifact_edits:
+      - target: "implementation-artifacts/1-5-filter-events-by-type-and-category.md"
+        marker: "AC9 — Compact dropdown presentation"
+        present_in_target: true
+      - target: "implementation-artifacts/1-6-view-event-details.md"
+        marker: "AC13 — Carousel-chrome Next/Previous navigation"
+        present_in_target: true
+      - target: "implementation-artifacts/1-6-view-event-details.md"
+        marker: "AC14 — Icon-only modal close"
+        present_in_target: true
+      - target: "implementation-artifacts/3-7a-extract-shared-weekly-calendar-controller-hook.md"
+        marker: "AC6 — Monday-start week boundary"
+        present_in_target: true
+      - target: "implementation-artifacts/1-3g-build-the-reusable-weeklycalendarview-component.md"
+        marker: "AC13 — Manual week-picker control"
+        present_in_target: true
+      - target: "design-artifacts/UX-festgrid-run-1/EXPERIENCE.md Filter Hub description"
+        marker: "compact dropdown triggers"
+        present_in_target: true
+
+    symbols_named: [FilterHub, EventDetailWrapper, useWeeklyCalendarController, WeeklyCalendarView, WeekPicker, getWeekStart, getWeekEnd, handleSelectWeek]
+
+    deferred_or_rejected_sections: []
+
+    supersedes_hint: null
+    evidence_notes: |
+      All six stories confirmed and every proposed AC/UX-doc edit present verbatim.
+      Notable: Story 1.6's AC13 (carousel-chrome navigation) carries a later inline
+      amendment marker "(amended 2026-08-16 via bmad-correct-course)" — this points to
+      sprint-change-proposal-2026-08-16-detail-carousel-ux-fixes.md, a later proposal in
+      this same batch of 20 that further revised this exact AC.
+
+  - file: sprint-change-proposal-2026-08-15-not-found-detection-bug.md
+    created: 2026-08-15
+    title_from_doc: "Sprint Change Proposal: Scraper Adapter Correctness and Reliability Fixes"
+    frontmatter_status: null
+
+    stories_named:
+      - 3-4d-per-use-case-actor-selection-and-sync-path-timeout
+      - 3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry
+      - 3-4e-fix-not-found-detection-in-the-instagram-scraper-adapter
+      - 6-1a-build-the-account-vote-backend-graphql-api-layer
+      - 6-1-vote-for-a-social-media-account
+      - 3-4a-add-brightdata-as-the-priority-scraping-vendor-for-the-scheduled-batch
+      - 3-4f-fix-missing-lambda-timeouts-and-extend-async-job-handling-to-apifys-long-running-scrape-paths
+    story_status:
+      3-4d-per-use-case-actor-selection-and-sync-path-timeout: review
+      3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: review
+      3-4e-fix-not-found-detection-in-the-instagram-scraper-adapter: review
+      6-1a-build-the-account-vote-backend-graphql-api-layer: review
+      6-1-vote-for-a-social-media-account: review
+      3-4a-add-brightdata-as-the-priority-scraping-vendor-for-the-scheduled-batch: review
+      3-4f-fix-missing-lambda-timeouts-and-extend-async-job-handling-to-apifys-long-running-scrape-paths: review
+
+    proposed_artifact_edits:
+      - target: "planning-artifacts/epics.md Story 3.3c amendment"
+        marker: "must reliably distinguish \"not found\" from \"found.\""
+        present_in_target: true
+      - target: "planning-artifacts/epics.md Story 3.4d Amendment 4"
+        marker: "split out to a new Story 3.4e"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md new Story 3.4e"
+        marker: "Fix not-found detection in the Instagram scraper adapter"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md new Story 3.4f"
+        marker: "Fix missing Lambda timeouts and extend async job handling to Apify's long-running scrape paths"
+        present_in_target: true
+
+    symbols_named: [getPostByUrl, lookupAccountProfile, ScraperAdapter, instagram-adapter.ts, castVote, festgrid-backend-stack.ts, processApifyAsyncResult]
+
+    deferred_or_rejected_sections:
+      - "Story 3.4f explicitly leaves open whether to fold aiProcessorLambda/ingestorLambda's identical missing-timeout gap into its own scope, or treat as a future decision — not pre-decided by this proposal"
+      - "Option to pull Story 3.4f's Lambda-timeout half (AC1) out for an immediate standalone bmad-quick-dev fix ahead of the rest of that story — flagged, not decided"
+
+    supersedes_hint: null
+    evidence_notes: |
+      All seven named stories confirmed `review` (including 3-4f, which was still
+      `backlog` at the time this proposal's approval section was written — it has since
+      progressed). All epics.md edits confirmed present verbatim, including the later
+      2026-08-17 amendment material (Story 3.4f) folded into the same document.
+
+  - file: sprint-change-proposal-2026-08-16-detail-carousel-ux-fixes.md
+    created: 2026-08-16
+    title_from_doc: "Sprint Change Proposal — Event Detail Carousel UX Fixes"
+    frontmatter_status: null
+
+    stories_named:
+      - 1-6-view-event-details
+    story_status:
+      1-6-view-event-details: review
+
+    proposed_artifact_edits:
+      - target: "implementation-artifacts/1-6-view-event-details.md AC13"
+        marker: "amended 2026-08-16 via bmad-correct-course"
+        present_in_target: true
+      - target: "apps/web/src/features/events/event-preview-card.tsx"
+        marker: "EventDetailView's own loading-skeleton proportions"
+        present_in_target: true
+      - target: "apps/web/src/features/events/EventDetailWrapper.tsx"
+        marker: "router.prefetch"
+        present_in_target: true
+      - target: "project-context.md addendum (Section 4.4, explicitly deferred/not approved in this proposal)"
+        marker: "prefetch-adjacent"
+        present_in_target: false
+
+    symbols_named: [EventPreviewCard, EventDetailView, EventDetailWrapper, RouteLoader, router.prefetch, Carousel]
+
+    deferred_or_rejected_sections:
+      - "Section 4.4: project-context.md addendum documenting the prefetch-adjacent-known-targets pattern explicitly deferred to the user's own call, not required to close this proposal"
+
+    supersedes_hint: null
+    evidence_notes: |
+      The story file itself records that this proposal's diagnosis (Issue 2, the
+      RouteLoader flash) was right but its prescribed fix (router.prefetch alone) was
+      NOT what ultimately resolved it: a "2026-08-17 correction note" in the story file
+      says the modal-route flash was actually fixed by REMOVING
+      @modal/(.)events/[slug]/loading.tsx, not by prefetching. router.prefetch calls do
+      exist in EventDetailWrapper.tsx (kept, benefits the full-page route), but the
+      modal-route fix was a different mechanism than this proposal specified. The
+      deferred project-context.md addendum (4.4) was never added in the exact form
+      described here; instead a broader, restructured rule ("No loading.tsx on a route
+      only ever reached via in-app navigation," dated 2026-08-16/corrected 2026-08-17)
+      was added later documenting the real fix — see the 2026-08-07 RouteLoader record
+      for that rule's current text.
+
+  - file: sprint-change-proposal-2026-08-24-moderator-location-override.md
+    created: 2026-08-24
+    title_from_doc: "Sprint Change Proposal: Moderator Default-Location Override Authority"
+    frontmatter_status: "approved"
+
+    stories_named:
+      - 3-3b-edit-an-accounts-default-location
+      - 4-7-moderator-items-page
+      - 3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata
+    story_status:
+      3-3b-edit-an-accounts-default-location: review
+      4-7-moderator-items-page: review
+      3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: review
+
+    proposed_artifact_edits:
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.7"
+        marker: "Moderator Override (added 2026-08-24)"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §4.14 changeSource"
+        marker: "MODERATOR"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §4.14 status enum"
+        marker: "SUPERSEDED"
+        present_in_target: true
+      - target: "planning-artifacts/festgrid-architecture-spine.md"
+        marker: "AD-11: Moderator Override on Subscriber-Scoped Mutations"
+        present_in_target: true
+      - target: "design-artifacts/UX-festgrid-run-1/ shared account-location component spec"
+        marker: "AccountLocationField"
+        present_in_target: true
+
+    symbols_named: [editAccountDefaultLocation, DefaultLocationChangeRequest, changeSource, requireModerator, AccountLocationField, resolveDefaultLocationChange]
+
+    deferred_or_rejected_sections:
+      - "Story 3.4m explicitly left unchanged — its own Pre-Coding Gate Decision 2 (ACCEPT/REVERT only) stands as designed; the correction capability was deliberately not duplicated into it"
+
+    supersedes_hint: null
+    evidence_notes: |
+      Proposal's own text flags a self-correction mid-document: Story 4.7 was
+      mischaracterized as `backlog` in an earlier section (2.1/2.2) but corrected to
+      `done`-then-`review` (already-shipped code) by the time of Section 4/Stories. All
+      three stories and every PRD/architecture/UX artifact edit confirmed present
+      verbatim.
+
+  - file: sprint-change-proposal-2026-08-24-ux-rework-batch.md
+    created: 2026-08-24
+    title_from_doc: "Sprint Change Proposal — UX Rework Batch (Redesign & Scope Track)"
+    frontmatter_status: null
+
+    stories_named:
+      - 0-13-set-up-ai-gateway-adapter-layer-for-gemini
+      - 0-24-build-the-reusable-wizard-page-primitive
+      - 0-29-build-the-reusable-tabbedshell-primitive
+      - 1-3b-build-the-reusable-eventcard-component
+      - 1-3d-build-the-reusable-eventlistview-component
+      - 1-3g-build-the-reusable-weeklycalendarview-component
+      - 2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer
+      - 2-5-find-nearby-events
+      - 2-8-user-menu
+      - 3-2-subscribe-to-a-social-media-account
+      - 3-1b-manage-and-revoke-api-keys
+      - 3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry
+      - 3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata
+      - 3-9a-display-in-app-queue-status-and-api-key-health
+      - 4-7a-moderator-route-guard
+      - 4-7b-moderator-tools-tabbed-shell
+      - 5-5-integrate-manual-post-selection-into-the-getting-started-wizard
+      - 5-1-manual-post-selection-screen
+      - 0-30-build-the-reusable-pagecontainer-primitive
+      - 1-3-display-a-list-of-events-on-the-main-page
+      - 2-2-view-favorited-events
+      - 2-6-view-and-manage-events-on-a-calendar
+      - 3-7-display-extracted-events-to-the-user
+      - 3-11-view-events-for-a-social-media-account
+      - 4-8-view-archived-hidden-personal-events
+      - 0-31-build-the-reusable-gridcontainer-primitive
+    story_status:
+      0-13-set-up-ai-gateway-adapter-layer-for-gemini: review
+      0-24-build-the-reusable-wizard-page-primitive: ready-for-dev
+      0-29-build-the-reusable-tabbedshell-primitive: review
+      1-3b-build-the-reusable-eventcard-component: review
+      1-3d-build-the-reusable-eventlistview-component: review
+      1-3g-build-the-reusable-weeklycalendarview-component: review
+      2-1a-build-the-favorites-and-calendar-additions-backend-graphql-api-layer: review
+      2-5-find-nearby-events: review
+      2-8-user-menu: done
+      3-2-subscribe-to-a-social-media-account: done
+      3-1b-manage-and-revoke-api-keys: done
+      3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: review
+      3-4m-backfill-account-profile-and-ai-infer-default-location-from-scrape-metadata: review
+      3-9a-display-in-app-queue-status-and-api-key-health: done
+      4-7a-moderator-route-guard: review
+      4-7b-moderator-tools-tabbed-shell: review
+      5-5-integrate-manual-post-selection-into-the-getting-started-wizard: review
+      5-1-manual-post-selection-screen: review
+      0-30-build-the-reusable-pagecontainer-primitive: done
+      1-3-display-a-list-of-events-on-the-main-page: done
+      2-2-view-favorited-events: done
+      2-6-view-and-manage-events-on-a-calendar: done
+      3-7-display-extracted-events-to-the-user: done
+      3-11-view-events-for-a-social-media-account: done
+      4-8-view-archived-hidden-personal-events: done
+      0-31-build-the-reusable-gridcontainer-primitive: done
+
+    proposed_artifact_edits:
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §4.14 changeSource"
+        marker: "AI_INFERENCE"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.7 system-key scope note"
+        marker: "exclusively for default-location inference"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.2/new favoriteCount"
+        marker: "favoriteCount"
+        present_in_target: false
+      - target: "planning-artifacts/epics.md Story 1.3g Amendment (favoriteCount)"
+        marker: "AC14 (favorite count second line on calendar items"
+        present_in_target: true
+      - target: "planning-artifacts/festgrid-architecture-spine.md"
+        marker: "AD-10: System Gemini Key for Location Inference"
+        present_in_target: true
+      - target: "design-artifacts/UX-festgrid-run-1/EXPERIENCE.md IA + User Menu registry"
+        marker: "Account Settings tabbed shell"
+        present_in_target: true
+      - target: "project-context.md Page Containers rule"
+        marker: "Page Containers"
+        present_in_target: true
+      - target: "apps/backend/src/schema/resolvers.ts favoriteCount resolver"
+        marker: "favoriteCount: async (parent"
+        present_in_target: true
+
+    symbols_named: [TabbedShell, PageContainer, GridContainer, selectApiKey, callGeminiForLocationInference, SocialMediaAccountProfile, DefaultLocationChangeRequest, EventCard, EventListView, WeeklyCalendarView, changeSource]
+
+    deferred_or_rejected_sections:
+      - "Item #1 (main page container width) missed by the initial triage pass, remains untracked as of this proposal — flagged in ux-rework-2026-08-24.md, not covered here (later expanded into its own addendum, Story 0.30/0.31)"
+      - "Items #7, #8, #9 (autocomplete/wizard-layout bugs) routed directly to bmad-create-story, explicitly out of scope for this proposal"
+      - "Item #6 (mandatory default location) explicitly dropped by the user in favor of item #14's AI-inference approach"
+      - "Item #11 (mobile calendar multi-day-span rendering) has no UX design yet — explicitly deferred to a future scoped bmad-ux pass, not part of this batch"
+
+    supersedes_hint: "Superseded within this same document: Story 1.3's initial narrow one-line AC9 fix (worktree story/1-3-ac9-full-width, already coded/tested/reviewed) was superseded, not merged, by the later PageContainer/GridContainer primitives addendum in this same proposal"
+    evidence_notes: |
+      This is the largest and most structurally complex proposal in the batch (touches
+      2 epics of new primitives, 2 new stories, ~15 reopened stories, PRD §3.7/§4.14,
+      an architecture AD, and a full EXPERIENCE.md/project-context.md rewrite), itself
+      amended twice same-day with two further addenda (PageContainer/GridContainer).
+      One concrete gap found: the PRD text edit for `favoriteCount` (§3.2/new,
+      explicitly proposed in Section 4.5) was never made to prd.md itself — the field
+      only appears in epics.md's Story 1.3g amendment and in the actual resolver code.
+      Everything else checked (system-key PRD wording, AD-10, EXPERIENCE.md two-shell
+      IA, Page Containers rule) is present verbatim. Given the scope (~25 story
+      references), spot-checked the highest-value/most load-bearing markers per the
+      handover's 1-2-grep budget rather than exhaustively verifying every reopened
+      story's individual AC text.
+
+  - file: sprint-change-proposal-2026-08-25-video-priority-display.md
+    created: 2026-08-25
+    title_from_doc: "Sprint Change Proposal — Video/Reel Storage & Priority Display"
+    frontmatter_status: null
+
+    stories_named:
+      - 3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry
+      - 1-6a-build-the-reusable-event-detail-view-component
+      - 1-6-view-event-details
+      - 0-33-provision-s3-cloudfront-infrastructure-for-post-media
+      - 3-6e-re-host-extracted-event-images-to-durable-storage
+      - 3-6f-serve-original-vs-durable-image-per-request
+    story_status:
+      3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: review
+      1-6a-build-the-reusable-event-detail-view-component: done
+      1-6-view-event-details: review
+      0-33-provision-s3-cloudfront-infrastructure-for-post-media: review
+      3-6e-re-host-extracted-event-images-to-durable-storage: done
+      3-6f-serve-original-vs-durable-image-per-request: done
+
+    proposed_artifact_edits:
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.4 new bullet 3.3.5"
+        marker: "Video Prioritization"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §4.7 Post interface"
+        marker: "videoUrl?: string"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §4.1 EventInfo postId doc comment"
+        marker: "imageUrl/videoUrl"
+        present_in_target: true
+      - target: "planning-artifacts/festgrid-architecture-spine.md"
+        marker: "AD-12: Durable Media Re-hosting for Scraped Post Images"
+        present_in_target: true
+      - target: "apps/backend generated resolver types / rehost-post-image"
+        marker: "durableImageUrl"
+        present_in_target: true
+
+    symbols_named: [ScrapedPost, videoUrl, durableImageUrl, imageUrlExpiresAt, EventDetailView, EventImage, instagram-adapter.ts, rehost-post-image]
+
+    deferred_or_rejected_sections:
+      - "Backfill of already-broken existing images explicitly rejected — fix going forward only"
+      - "Client-side Service Worker caching of the original cross-origin image explicitly rejected (AD-12 'Considered and rejected')"
+      - "Push-notification-triggered cache warming explicitly deferred to future discussion (Section 6), not scoped into any story"
+      - "posts.videoUrl explicitly never re-hosted — accepted as ephemeral, out of AD-12's scope"
+
+    supersedes_hint: null
+    evidence_notes: |
+      Document itself records a mid-history data-loss/reconciliation incident: a
+      parallel session applied an earlier Track-B-only draft directly and committed it,
+      overwriting this file back to that earlier state until this version restored it
+      — a real editorial hazard specific to this doc, not a content-accuracy issue. All
+      six named stories confirmed at expected status (three `review`, three `done`,
+      including the full Track A infra chain 0-33→3-6e→3-6f all now `review`/`done`)
+      and every proposed PRD/architecture/code edit confirmed present verbatim.
+
+  - file: sprint-change-proposal-2026-08-28.md
+    created: 2026-08-28
+    title_from_doc: "Sprint Change Proposal — 2026-08-28 (confidence-gated AI location, moderator badge, hashtags)"
+    frontmatter_status: null
+
+    stories_named:
+      - 4-7-moderator-items-page
+      - 1-4-search-for-events
+    story_status:
+      4-7-moderator-items-page: review
+      1-4-search-for-events: done
+
+    proposed_artifact_edits:
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.7 AI-Assisted Location Inference"
+        marker: "LOCATION_INFERENCE_CONFIDENCE_THRESHOLD"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §4.14 DefaultLocationChangeStatus"
+        marker: "AWAITING_APPROVAL"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.9.3 Moderator Pending-Item Badge"
+        marker: "Moderator Pending-Item Badge"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §4.7 Post interface"
+        marker: "hashtags?: string[]"
+        present_in_target: true
+      - target: "project-context.md Database Indexing rule"
+        marker: "hashtags"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md FR94-FR97 + Story 4.7/1.4 amendments"
+        marker: "FR94 (added 2026-08-29)"
+        present_in_target: true
+      - target: "implementation-artifacts/deferred-work.md"
+        marker: "Deferred from: sprint-change-proposal-2026-08-28.md"
+        present_in_target: true
+
+    symbols_named: [confidenceScore, AWAITING_APPROVAL, DefaultLocationChangeRequest, hashtags, buildEventsQueryCondition, moderatorPendingItemCount, CountBadge]
+
+    deferred_or_rejected_sections:
+      - "Email notification for a new AWAITING_APPROVAL item explicitly not built — the pending-item badge covers ongoing visibility instead; TODO left in apply-default-location-change.ts, tracked in deferred-work.md"
+
+    supersedes_hint: null
+    evidence_notes: |
+      This proposal bypassed bmad-create-story entirely (\"implemented directly,\" \"not
+      routed through bmad-create-story, matching Story 3.4m's precedent\") — all four
+      items landed as direct PRD/epics.md/project-context.md edits plus code, confirmed
+      via commit a0fc985 and epics.md's own amendment notes on Stories 4.7 and 1.4. All
+      markers, including the deferred-work.md tracking file, confirmed present.
+
+  - file: sprint-change-proposal-2026-08-29.md
+    created: 2026-08-29
+    title_from_doc: "Sprint Change Proposal — 2026-08-29 (cancel card-level report trigger)"
+    frontmatter_status: null
+
+    stories_named:
+      - 4-3b-add-a-report-trigger-to-eventcard-list-view
+      - 4-3-report-an-event
+      - 4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering
+      - 4-3c-extend-default-event-visibility-rules-to-exclude-self-reported-events-from-list-views
+    story_status:
+      4-3b-add-a-report-trigger-to-eventcard-list-view: wont-do
+      4-3-report-an-event: review
+      4-3a-build-the-reports-backend-graphql-api-layer-and-personal-visibility-filtering: review
+      4-3c-extend-default-event-visibility-rules-to-exclude-self-reported-events-from-list-views: review
+
+    proposed_artifact_edits:
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.9.2 opening sentence"
+        marker: "intentionally not available directly from list/grid cards"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md Story 4.3b"
+        marker: "CANCELLED"
+        present_in_target: unverified
+      - target: "implementation-artifacts/4-3b-add-a-report-trigger-to-eventcard-list-view.md"
+        marker: "Cancellation"
+        present_in_target: true
+      - target: "implementation-artifacts/sprint-status.yaml 4-3b entry"
+        marker: "wont-do"
+        present_in_target: true
+
+    symbols_named: [EventCard, Report, wont-do]
+
+    deferred_or_rejected_sections:
+      - "Story 4.3b itself is the deferred/rejected item this whole proposal is about — cancelled before any code was written"
+
+    supersedes_hint: "Reverses Story 4.3b's own originating premise from sprint-change-proposal-2026-08-12.md-era work (Story 4.3b was split off Story 4.3 on 2026-08-11 to satisfy the exact PRD clause this proposal now deletes)"
+    evidence_notes: |
+      Confirms this project's first use of the `wont-do` terminal sprint-status value,
+      exactly as proposed. epics.md's own Story 4.3b CANCELLED heading not directly
+      grepped (the story-file and sprint-status.yaml cancellation markers, which are
+      the load-bearing guardrails per the proposal's own rationale in 4.4, were both
+      confirmed) — marked unverified rather than assumed, per the 1-2-grep budget.
+
+  - file: sprint-change-proposal-2026-09-02.md
+    created: 2026-09-02
+    title_from_doc: "Sprint Change Proposal — 2026-09-02 (scraping/display data-minimization rules)"
+    frontmatter_status: null
+
+    stories_named:
+      - 3-6e-re-host-extracted-event-images-to-durable-storage
+      - 3-6f-serve-original-vs-durable-image-per-request
+      - 3-4n-filter-scraped-accounts-by-type-organizer-venue-event-only
+      - 3-6g-add-image-storage-opt-in-flag-and-moderator-only-mutation
+      - 3-6h-gate-image-re-hosting-and-serving-on-account-opt-in
+      - 3-6i-classify-and-discard-private-contact-info-during-ai-extraction
+      - 3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction
+      - 3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression
+      - 3-7c-event-list-image-display-hotlink-only-with-graceful-degrade-and-opted-in-prominent-card
+      - 3-7d-event-detail-image-display-oembed-transition-with-fallback
+      - epic-8
+    story_status:
+      3-6e-re-host-extracted-event-images-to-durable-storage: done
+      3-6f-serve-original-vs-durable-image-per-request: done
+      3-4n-filter-scraped-accounts-by-type-organizer-venue-event-only: review
+      3-6g-add-image-storage-opt-in-flag-and-moderator-only-mutation: review
+      3-6h-gate-image-re-hosting-and-serving-on-account-opt-in: review
+      3-6i-classify-and-discard-private-contact-info-during-ai-extraction: in-progress
+      3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: in-progress
+      3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression: ready-for-dev
+      3-7c-event-list-image-display-hotlink-only-with-graceful-degrade-and-opted-in-prominent-card: backlog
+      3-7d-event-detail-image-display-oembed-transition-with-fallback: ready-for-dev
+      epic-8: backlog
+
+    proposed_artifact_edits:
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md new §3.16"
+        marker: "Scraping & Display Data Minimization"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §4.5 SocialMediaAccountProfile"
+        marker: "isImageStorageOptedIn: boolean"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §4.1 EventInfo"
+        marker: "hasPrivateContact?: boolean"
+        present_in_target: true
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §5 Security"
+        marker: "Scraped-Content Personal Data (Indonesia PDP Law / GDPR)"
+        present_in_target: true
+      - target: "planning-artifacts/festgrid-architecture-spine.md AD-12 Rule 7"
+        marker: "Rule 7"
+        present_in_target: true
+      - target: "planning-artifacts/epics.md FR104-FR111 + Epic 8 placeholder"
+        marker: "Epic 8: Account Claim & Image-Storage Self-Service Opt-In"
+        present_in_target: true
+      - target: "apps/backend/src/schema/resolvers.ts (opt-in gate)"
+        marker: "isImageStorageOptedIn"
+        present_in_target: true
+
+    symbols_named: [isImageStorageOptedIn, imageStorageOptInSource, hasPrivateContact, durableImageUrl, AD-12, oEmbed]
+
+    deferred_or_rejected_sections:
+      - "Epic 8 (self-service account-claim/ownership-verification flow) explicitly a placeholder only — not spec'd, needs its own future bmad-prd pass"
+      - "Children's-data keyword filter (Tier 1) and Apify/Bright Data vendor confirmation both explicitly named as 'not yet enforced anywhere in the pipeline' open build items in the PRD §5 Security text itself"
+      - "Story 3.7c's prominent-card visual design intentionally left text-light, deferred pending user-supplied reference images before drafting"
+
+    supersedes_hint: "Corrects AD-12 Rules 1 and 3 (from sprint-change-proposal-2026-08-25-video-priority-display.md) to their consent-gated form, and corrects sprint-status.yaml's stale review status on 3-6e/3-6f to done"
+
+    evidence_notes: |
+      This proposal fixes a real, previously-live legal-exposure gap: Story 3.6e/3.6f
+      shipped unconditional image re-hosting/serving with no opt-in check. The fix
+      (Story 3.6h, gating on isImageStorageOptedIn) is now `review` and the gate is
+      confirmed present in resolvers.ts. Stories 3.6i/3.6j (private-contact/performer
+      classification) are `in-progress`, consistent with this session's own recent git
+      log (commits 5061e02, 9e4b897). This resolves the "live conflict" flagged in this
+      project's own prior memory of the scraping/display-rules spec — that memory is
+      now stale and should be updated: the opt-in gate exists as of Story 3.6h.
+
+  - file: sprint-change-proposal-2026-09-04.md
+    created: 2026-09-04
+    title_from_doc: "Sprint Change Proposal: Discovery Card Redesign (TILL badge, status badge, nearby badge, masonry grid spacing)"
+    frontmatter_status: "approved"
+
+    stories_named:
+      - 1-3b-build-the-reusable-eventcard-component
+      - 1-3d-build-the-reusable-eventlistview-component
+      - 1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web
+    story_status:
+      1-3b-build-the-reusable-eventcard-component: review
+      1-3d-build-the-reusable-eventlistview-component: review
+      1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web: done
+
+    proposed_artifact_edits:
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.1"
+        marker: "Event Status Badge (added 2026-09-04)"
+        present_in_target: false
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.1"
+        marker: "Nearby Badge (added 2026-09-04)"
+        present_in_target: false
+      - target: "prds/festgrid-prd-2026-07-10-2047/prd.md §3.16"
+        marker: "durableImageUrl"
+        present_in_target: true
+      - target: "implementation-artifacts/1-3b-build-the-reusable-eventcard-component.md"
+        marker: "AC14 — TILL badge"
+        present_in_target: false
+      - target: "implementation-artifacts/1-3d-build-the-reusable-eventlistview-component.md"
+        marker: "AC19 — Masonry grid spacing"
+        present_in_target: false
+      - target: "apps/web/src/features/events/ formatEventStatus helper"
+        marker: "formatEventStatus"
+        present_in_target: false
+      - target: "implementation-artifacts/sprint-status.yaml 1-3i entry"
+        marker: "ViewModeToggle deleted / documentation correction"
+        present_in_target: false
+
+    symbols_named: [EventCard, EventListView, getEvents, GridContainer, formatEventStatus, ViewModeToggle, durableImageUrl, distanceKm, prominentPoster]
+
+    deferred_or_rejected_sections:
+      - "Section 4.3: a targeted bmad-ux pass for exact visual tokens (date-box/TILL badge, badge-row placement, prominent-poster sizing) explicitly recommended before story finalization, not done as part of this proposal"
+      - "Reusing 2.5a's backend distance resolver for the per-card nearby badge was considered and explicitly rejected by the user in favor of client-side computation"
+
+    supersedes_hint: "AC12's existing top-left relative-day pill (masonry) is explicitly superseded by the new AC14/AC15 date-box+TILL+status badges, once implemented"
+
+    evidence_notes: |
+      Flags 1-3i as dead (ViewModeToggle deleted by spec-ux-rework2-p1-masonry-only.md)
+      while sprint-status.yaml still reads `done` with no correction comment added yet —
+      this proposal's own recommended documentation-only fix for that has NOT been
+      applied. This is the most recent proposal in the batch (created same day as this
+      evidence pass) and is genuinely unimplemented end-to-end: none of the proposed
+      PRD §3.1 badge bullets, the §3.16 amendment sentence, the Story 1.3b/1.3d new ACs,
+      or the formatEventStatus helper exist yet — only the PRD's pre-existing (not
+      newly-added) durableImageUrl language from the 2026-09-02 proposal is present.
+      Consistent with the handover's own worked example for this exact document.
+
+  - file: ai-extraction-improvement.md
+    created: null
+    title_from_doc: null
+    frontmatter_status: null
+
+    stories_named: []
+    story_status: {}
+
+    proposed_artifact_edits: []
+
+    symbols_named: []
+
+    deferred_or_rejected_sections: []
+
+    supersedes_hint: null
+    evidence_notes: |
+      Unstructured idea dump, no frontmatter, no story references, as expected for this
+      document type. Content: lines 1-9 are the actual idea — Instagram carousel posts
+      sometimes put event schedules on slide 2+ rather than the first image or the
+      caption, so the AI-extraction prompt should also return a minimum-expected-
+      schedule-count and expected-schedule-names signal, triggering a follow-up
+      extraction pass on subsequent slides when the first pass falls short; asks
+      open questions (best trigger heuristic? just always process all images and
+      skip token efficiency?) rather than proposing a concrete design. The remaining
+      ~1075 lines are a single raw Apify JSON sample (one real post) attached as
+      supporting evidence, with no further prose after it. Not implemented anywhere:
+      grepped apps/backend/src/lib/ai-processor for a multi-slide-retry/expected-
+      schedule-count mechanism, found none. This is the source material for
+      backlog-spec.md's own worked example (IDEA-001, "Retry AI extraction on n+1
+      carousel slides when schedule count falls short") — the spec's example was
+      evidently drawn from this exact file.
