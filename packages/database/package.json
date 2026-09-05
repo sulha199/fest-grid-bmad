@@ -15,6 +15,7 @@
     "generate": "drizzle-kit generate",
     "migrate": "tsx migrate.ts",
     "seed": "tsx seed.ts",
+    "backfill-scraper-actor-runs": "tsx backfill-scraper-actor-runs.ts",
     "test:seed": "tsx --test seed.integration.test.ts",
     "migrate:prod": "node dist/migrate.js",
     "studio": "drizzle-kit studio",
