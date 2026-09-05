@@ -16,7 +16,8 @@ export type UnprocessedPayloadContext = {
 
 export type UnprocessedScraperPayload = {
   id: string;
-  rawPayload: string;
+  // GraphQL `JSON` scalar: server sends this already parsed, never a JSON-encoded string.
+  rawPayload: unknown;
   validationError: ValidationError[];
   context: UnprocessedPayloadContext;
   createdAt: string;
