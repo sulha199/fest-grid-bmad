@@ -8,7 +8,7 @@ baseline_commit: 4255f0df9c29b1fbd06867954801d351664a2c8d
 
 - Epic: 3
 - Story ID: 3.6j
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,17 +31,17 @@ so that the "no performer photo or contact info is ever stored" guarantee is an 
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1, AC2) — Harden the Gemini extraction prompt against performer-contact/photo leakage:**
-  - [ ] In `apps/backend/src/lib/ai-processor/build-gemini-request.ts`'s `systemInstruction`, add a new numbered instruction (item 9, after the existing item 8 "Use the provided account name metadata...") stating: performer names must still be extracted normally into each schedule's `performers` array, but any personal contact detail (a phone number, email address, or booking/management link, including a `wa.me` link) or any photo/image reference/URL associated with a specific performer — wherever it appears in the caption text or the image — must never be copied into `description`, `contactInfo`, `organizerName`, or any schedule field (`title`, `location`, `performers`). If such a detail is present in the source, omit it entirely from the extraction rather than including it in any field.
-  - [ ] Update `build-gemini-request.test.ts`: add a new test case (Case G) asserting `result.request.systemInstruction` includes the new instruction's distinguishing text (e.g. `.includes('performer')` combined with `.includes('must never be copied')`, or equivalent substrings unique to the new instruction), mirroring the existing Case D-F `.includes(...)` assertion pattern.
+- [x] **Task 1 (AC1, AC2) — Harden the Gemini extraction prompt against performer-contact/photo leakage:**
+  - [x] In `apps/backend/src/lib/ai-processor/build-gemini-request.ts`'s `systemInstruction`, add a new numbered instruction (item 9, after the existing item 8 "Use the provided account name metadata...") stating: performer names must still be extracted normally into each schedule's `performers` array, but any personal contact detail (a phone number, email address, or booking/management link, including a `wa.me` link) or any photo/image reference/URL associated with a specific performer — wherever it appears in the caption text or the image — must never be copied into `description`, `contactInfo`, `organizerName`, or any schedule field (`title`, `location`, `performers`). If such a detail is present in the source, omit it entirely from the extraction rather than including it in any field.
+  - [x] Update `build-gemini-request.test.ts`: add a new test case (Case G) asserting `result.request.systemInstruction` includes the new instruction's distinguishing text (e.g. `.includes('performer')` combined with `.includes('must never be copied')`, or equivalent substrings unique to the new instruction), mirroring the existing Case D-F `.includes(...)` assertion pattern.
 
-- [ ] **Task 2 (AC3) — Regression fixture: performer contact never appears in the transform pipeline's output:**
-  - [ ] In `packages/domain/src/events/transform-gemini-response-to-event-info.test.ts`, add a new `it` case ("should never surface a performer's contact detail in any output field, while preserving the performer's name"): construct a `GeminiExtractionPayload` representing a correctly-behaved extraction from a synthetic source caption — document the simulated source caption in a comment (e.g. `// Simulated source caption: "Live music by DJ Nova! Book this artist via 0812-3456-7890."`) — where `schedules[0].performers` contains `'DJ Nova'` (name preserved) but no field of the payload (`description`, `contactInfo`, `organizerName`, `location`, any `schedules[].title`/`location`/`performers`) contains the sentinel contact string `'0812-3456-7890'`. Run the payload through `transformGeminiResponseToEventInfo` and assert: (a) `result.schedules[0].performers` still contains `'DJ Nova'`; (b) none of `result.description`, `result.contactInfo`, `result.organizerName`, `result.location`, or any `result.schedules[].title`/`.location`/`.performers` entry contains `'0812-3456-7890'` (explicit per-field assertions, not a generic recursive scanner, to match this test file's existing per-field assertion style).
+- [x] **Task 2 (AC3) — Regression fixture: performer contact never appears in the transform pipeline's output:**
+  - [x] In `packages/domain/src/events/transform-gemini-response-to-event-info.test.ts`, add a new `it` case ("should never surface a performer's contact detail in any output field, while preserving the performer's name"): construct a `GeminiExtractionPayload` representing a correctly-behaved extraction from a synthetic source caption — document the simulated source caption in a comment (e.g. `// Simulated source caption: "Live music by DJ Nova! Book this artist via 0812-3456-7890."`) — where `schedules[0].performers` contains `'DJ Nova'` (name preserved) but no field of the payload (`description`, `contactInfo`, `organizerName`, `location`, any `schedules[].title`/`location`/`performers`) contains the sentinel contact string `'0812-3456-7890'`. Run the payload through `transformGeminiResponseToEventInfo` and assert: (a) `result.schedules[0].performers` still contains `'DJ Nova'`; (b) none of `result.description`, `result.contactInfo`, `result.organizerName`, `result.location`, or any `result.schedules[].title`/`.location`/`.performers` entry contains `'0812-3456-7890'` (explicit per-field assertions, not a generic recursive scanner, to match this test file's existing per-field assertion style).
 
-- [ ] **Task 3 (AC4) — Regression fixture: performer photo URL never appears in the transform pipeline's output:**
-  - [ ] Same file, add a second `it` case ("should never surface a performer's photo URL in any output field"): same pattern as Task 2, with a sentinel photo-URL string (e.g. `'https://instagram.com/p/abc123photo'`) simulating a caption referencing an attached performer image, asserting none of the same output fields listed in Task 2 contain that URL substring.
+- [x] **Task 3 (AC4) — Regression fixture: performer photo URL never appears in the transform pipeline's output:**
+  - [x] Same file, add a second `it` case ("should never surface a performer's photo URL in any output field"): same pattern as Task 2, with a sentinel photo-URL string (e.g. `'https://instagram.com/p/abc123photo'`) simulating a caption referencing an attached performer image, asserting none of the same output fields listed in Task 2 contain that URL substring.
 
-- [ ] **Task 4 — Full verification:** `pnpm --filter backend test` (Task 1); `pnpm --filter @festgrid/domain test` (Tasks 2, 3); `pnpm build`, `pnpm lint`, `pnpm test` at the repo root — no regressions elsewhere that reads `EventInfo.description`/`contactInfo`/`organizerName` or `Schedule.performers`/`title`/`location`.
+- [x] **Task 4 — Full verification:** `pnpm --filter backend test` (Task 1); `pnpm --filter @festgrid/domain test` (Tasks 2, 3); `pnpm build`, `pnpm lint`, `pnpm test` at the repo root — no regressions elsewhere that reads `EventInfo.description`/`contactInfo`/`organizerName` or `Schedule.performers`/`title`/`location`.
 
 ## Dev Notes
 
@@ -116,17 +116,17 @@ Epic 3's readiness sweep (`epic-readiness/epic-3-readiness.md`, `swept: true`, d
 
 ## Testing Requirements
 
-- [ ] Unit test (required, `apps/backend`): `build-gemini-request.test.ts` — new Case G prompt-content assertion for the performer-contact/photo negative instruction (Task 1).
-- [ ] Unit tests (required, `packages/domain`): `transform-gemini-response-to-event-info.test.ts` — two new cases: performer-contact sentinel absent from all output fields while the name is preserved (Task 2); performer-photo-URL sentinel absent from all output fields (Task 3).
-- [ ] Integration tests: not required as new cases — `process-ai-job.test.ts`/`extraction.test.ts` must continue passing unchanged (no test in either file asserts on the literal content of `description`/`contactInfo`/`organizerName` today, confirmed by direct read via Story 3.6i's own equivalent finding; if implementation reveals otherwise, add the minimal case needed rather than skipping verification).
-- [ ] E2E tests: not required — this is a prompt-hardening/regression-fixture story with no new interactive flow and no UI.
+- [x] Unit test (required, `apps/backend`): `build-gemini-request.test.ts` — new Case G prompt-content assertion for the performer-contact/photo negative instruction (Task 1). (Implemented as "Case H" in the actual file — Case G was already taken by Story 3.6i's private-contact-classification test, added to this codebase between this story's drafting and implementation; same assertion intent.)
+- [x] Unit tests (required, `packages/domain`): `transform-gemini-response-to-event-info.test.ts` — two new cases: performer-contact sentinel absent from all output fields while the name is preserved (Task 2); performer-photo-URL sentinel absent from all output fields (Task 3).
+- [x] Integration tests: not required as new cases — `process-ai-job.test.ts`/`extraction.test.ts` continue passing unchanged (confirmed via `pnpm --filter backend test`, no regressions).
+- [x] E2E tests: not required — this is a prompt-hardening/regression-fixture story with no new interactive flow and no UI.
 
 ## Deliverables Checklist
 
-- [ ] Gemini prompt's `systemInstruction` gains an explicit negative instruction excluding performer contact/photo details from every free-text/schedule field while preserving performer names (AC1, AC2, Task 1).
-- [ ] Prompt-content assertion test proving the new instruction is present (AC2, Task 1).
-- [ ] Regression fixture proving `transformGeminiResponseToEventInfo`'s output never contains a performer-contact sentinel across any field, while the performer's name is preserved (AC3, Task 2).
-- [ ] Regression fixture proving `transformGeminiResponseToEventInfo`'s output never contains a performer-photo-URL sentinel across any field (AC4, Task 3).
+- [x] Gemini prompt's `systemInstruction` gains an explicit negative instruction excluding performer contact/photo details from every free-text/schedule field while preserving performer names (AC1, AC2, Task 1).
+- [x] Prompt-content assertion test proving the new instruction is present (AC2, Task 1).
+- [x] Regression fixture proving `transformGeminiResponseToEventInfo`'s output never contains a performer-contact sentinel across any field, while the performer's name is preserved (AC3, Task 2).
+- [x] Regression fixture proving `transformGeminiResponseToEventInfo`'s output never contains a performer-photo-URL sentinel across any field (AC4, Task 3).
 
 ## Out of Scope
 
@@ -137,29 +137,51 @@ Epic 3's readiness sweep (`epic-readiness/epic-3-readiness.md`, `swept: true`, d
 
 ## Definition of Done
 
-- [ ] AC1-AC4 satisfied.
-- [ ] All required tests passing (`apps/backend` prompt-content assertion; `packages/domain` pass-through fixture tests for both sentinels).
-- [ ] Lint and type checks passing for `apps/backend`, `packages/domain`.
-- [ ] No code-level regex/heuristic scrub added to any free-text field beyond the prompt-level instruction itself (per the confirmed scope boundary) — any diff there should be treated as scope creep and questioned.
+- [x] AC1-AC4 satisfied.
+- [x] All required tests passing (`apps/backend` prompt-content assertion; `packages/domain` pass-through fixture tests for both sentinels).
+- [x] Lint and type checks passing for `apps/backend`, `packages/domain`.
+- [x] No code-level regex/heuristic scrub added to any free-text field beyond the prompt-level instruction itself (per the confirmed scope boundary) — verified via direct diff read: only the prompt string and test files changed, `transform-gemini-response-to-event-info.ts` itself is untouched.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled in by the implementing agent._
+Claude Sonnet 5 (bmad-dev-story)
 
 ### Debug Log References
 
-_To be filled in by the implementing agent._
+- The implementation for Tasks 1-3 was already committed (`9e4b897` "feat(ai-extraction): harden prompt against performer-contact/photo leakage (Story 3.6j)") in a prior session, which also checked the Pre-Coding Approval Gate boxes and added the `baseline_commit` frontmatter — but this story file's own Tasks/Subtasks, Status, Testing Requirements, Deliverables Checklist, Definition of Done, Completion Status, and Dev Agent Record were never updated to match, and `sprint-status.yaml` was left at `in-progress`. This session's work was to independently re-verify the code against the story's own spec (not merely trust the prior commit message) and complete the missing bookkeeping — same pattern as the immediately preceding `3.6i` reconciliation.
+- Verified by direct code read against each task's exact spec: `build-gemini-request.ts`'s `systemInstruction` item 9 (performer name preserved, contact/photo detail excluded from `description`/`contactInfo`/`organizerName`/schedule fields) matches AC1/AC2's wording exactly (Task 1); `build-gemini-request.test.ts`'s "Case H" asserts `.includes('performer')` and `.includes('must never be copied')` against the new instruction, mirroring the Case D-F pattern (Task 1 — the story anticipated this as "Case G", but that label was already claimed by Story 3.6i's own private-contact-classification test added to the file in between this story's drafting and implementation; the assertion intent is identical); `transform-gemini-response-to-event-info.test.ts`'s two new `it` cases under `describe('performer-contact/photo leakage regression fixtures (Story 3.6j, AC3/AC4)')` construct the exact synthetic payload described in Tasks 2/3 (performer name `'DJ Nova'` preserved, a contact sentinel `'0812-3456-7890'` / photo-URL sentinel `'https://instagram.com/p/abc123photo'` absent from every listed output field) (Tasks 2, 3); confirmed `transform-gemini-response-to-event-info.ts` itself is unmodified (pure pass-through, per Dev Notes).
+- This sandbox session started with no installed dependencies, no local Postgres, and no `.env` file — none of which are specific to this story. Bootstrapped the environment before verification could run at all: `pnpm install`; `pnpm build` (built `@festgrid/domain`, `@festgrid/database`, `@festgrid/graphql-select`, `backend` successfully; `apps/web`'s own build failed solely on `next/font`'s Google Fonts fetch returning `SELF_SIGNED_CERT_IN_CHAIN` — this sandbox's network egress is allowlisted to a fixed set of hosts that does not include `fonts.googleapis.com`, unrelated to any code in this repo or this story, which touches no `apps/web` file); created a local `.env` from `.env.example` plus `BACKEND_PORT=4000` (gitignored, not committed); started the pre-installed local PostgreSQL 16 service, created the `festgrid` database, ran `pnpm --filter @festgrid/database migrate` and `pnpm --filter @festgrid/database seed`.
+- Ran `pnpm --filter backend test`: 595/615 passing, including Task 1's "Case H" and confirming `process-ai-job.test.ts`/`extraction.test.ts` pass unchanged. The 20 failures are 4 pre-existing integration suites (`geolocation resolvers integration`, `setAccountDefaultLocation`/`editAccountDefaultLocation mutation resolver integration`, `user locations resolvers integration`) that call the real Geoapify geocoding API and fail on `INTERNAL_SERVER_ERROR`/`should not have errors` because this sandbox's `.env` has no real `GEOAPIFY_API_KEY` — entirely unrelated to this story's AI-extraction-prompt scope (confirmed by direct read: none of these files import or exercise `build-gemini-request.ts`/`transform-gemini-response-to-event-info.ts`). Flagging rather than fixing, per this project's own dev-story customization ("if pre-existing/out of scope, explicitly flag it to the user").
+- Ran `pnpm --filter @festgrid/domain test`: 215/215 passing, including both new Task 2/Task 3 fixture cases.
+- Ran `pnpm --filter backend lint`/`pnpm --filter backend build` and `pnpm --filter @festgrid/domain lint`/`build`: all clean (0 errors; only pre-existing `no-explicit-any` warnings).
+- Ran root `pnpm lint`: 6/6 workspace tasks successful, 0 errors (pre-existing warnings only).
+- Ran root `pnpm test`: 10/11 workspace tasks successful — `@festgrid/domain` (215/215), `web` (305/305), `@festgrid/ui` (369/369), `@festgrid/database` (3/3), `@festgrid/graphql-select` (30/30), `infrastructure` (1/1) all passing; only `backend#test` reported failed, and only due to the same 4 pre-existing Geoapify-credential-dependent suites noted above.
+- Did not run root `pnpm build` as a hard gate for this story's own scope (only for the sandbox-bootstrap step above) — since the one failure (`apps/web`'s Google Fonts fetch) is a network-egress-allowlist limitation of this execution sandbox, not a code defect, and this story touches no `apps/web` file. `backend`, `@festgrid/domain`, `@festgrid/database`, and `@festgrid/graphql-select` all built cleanly.
 
 ### Completion Notes List
 
-_To be filled in by the implementing agent._
+- All 4 ACs implemented and independently re-verified against the current codebase state (not merely inferred from the prior commit's message): AC1's negative instruction excluding performer contact/photo from every field while preserving the performer's name; AC2's confirmation against the live prompt (`build-gemini-request.ts` item 9); AC3/AC4's pass-through regression fixtures for the contact sentinel and photo-URL sentinel respectively.
+- This session did not write any new Story 3.6j implementation code — Tasks 1-3 were already complete and correct in the working tree from a prior session's commit (`9e4b897`); this session's contribution was independent verification of each task against its exact spec, bootstrapping this fresh sandbox (dependency install, local Postgres + migrate + seed, `.env`) to actually run that verification, running the full verification plan, and completing the story file's own tracking (checkboxes, Status, Testing Requirements, Deliverables Checklist, Definition of Done, Completion Status, Dev Agent Record, File List) plus `sprint-status.yaml`, which had been left out of sync with the actual code state.
+- Flagged one pre-existing, out-of-scope test gap (4 backend integration suites requiring a real `GEOAPIFY_API_KEY`, none of which touch this story's AI-extraction-prompt code) without fixing it, since a real Geoapify credential is outside this session's control and unrelated to 3.6j.
+- Full verification plan (Task 4) executed: `pnpm --filter backend test` (595/615 — 20 pre-existing/out-of-scope failures, see Debug Log), `pnpm --filter @festgrid/domain test` (215/215), `pnpm --filter backend build`/`lint` (clean), `pnpm --filter @festgrid/domain build`/`lint` (clean), root `pnpm lint` (6/6 tasks, 0 errors), root `pnpm test` (10/11 tasks — only `backend#test`'s pre-existing Geoapify-credential gap).
 
 ### File List
 
-_To be filled in by the implementing agent._
+**Implemented in a prior session (commit `9e4b897`), independently re-verified this session:**
+- `apps/backend/src/lib/ai-processor/build-gemini-request.ts` (modified)
+- `apps/backend/src/lib/ai-processor/build-gemini-request.test.ts` (modified)
+- `packages/domain/src/events/transform-gemini-response-to-event-info.test.ts` (modified)
+
+**Story bookkeeping (this session):**
+- `_bmad-output/implementation-artifacts/3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction.md` (Tasks/Subtasks, Status, Testing Requirements, Deliverables Checklist, Definition of Done, Completion Status, Dev Agent Record)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (status `in-progress` → `review`)
+
+**Sandbox bootstrap only, not part of this story's diff (gitignored / local-only, not committed):**
+- `.env` (created from `.env.example` plus `BACKEND_PORT=4000`)
+- local PostgreSQL 16 service started, `festgrid` database created, migrated, and seeded
