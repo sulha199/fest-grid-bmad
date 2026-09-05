@@ -187,16 +187,70 @@ together or they drift, which is the failure the board was built to end.
 and 11 in §9. Nothing else about the board changes; `impact`/`effort` stay meaningful right
 up to promotion, and lenses are unaffected.
 
-## 9. Tooling — specified, not yet built
+## 9. Genericity
+
+> The observation procedure is a function of the criteria, not of the board's contents.
+
+- No criterion, axis, or threshold may name a specific row, cluster, tag value, or a count
+  taken from one day's board. §5's thresholds are expressed in row counts and effort —
+  properties any board has.
+- **Adding rows must not change how existing rows are read.** A bigger board has exactly
+  three sanctioned effects: a new row joins a cluster; a previously rejected candidate
+  crosses criterion 1 or 5; or a new row reveals a broader invariant that subsumes two
+  narrower ones. The third is real and allowed, but it is a **merge** and must be declared
+  as one in the formation report — never applied silently.
+- Delaying the formation pass is about having the full input present for a single run. It
+  is **not** about tuning the method on more data. A method that needs the data to be tuned
+  is not a method; it is a fit to one board, and it will re-fit itself every time the board
+  moves.
+
+§5's rejection records are what make this checkable: a candidate that was rejected under
+criterion 1 and later accepted is visibly a threshold effect rather than a changed reading.
+
+## 10. Stability test
+
+§9 is a claim. This is how it gets tested, and it is cheap enough to be worth doing before
+trusting any formation pass.
+
+1. **Full run.** Cluster the whole open set. Record accepted epics, rejected candidates
+   with their failing criterion, and unclustered rows.
+2. **Ablation runs, ≥2.** Repeat the observation on subsets: one dropping ~25% of rows at
+   random, one dropping a single member from each accepted cluster. Each ablation run is
+   **blind** — a fresh context given only its subset and this document, never the full
+   run's output. A run that can see the previous answer confirms it; it does not test it.
+3. **Compare on the intersection** — the rows present in both runs.
+
+| Difference between runs | Verdict |
+|---|---|
+| A row is unclustered in the subset because its cluster fell below criterion 1 or 5 | allowed — threshold effect |
+| The invariant is worded differently but partitions the same rows | allowed — wording variance |
+| A row moves from one invariant to another | **fail** |
+| A cluster splits, or two merge, with no new row causing it | **fail** |
+| A row's §6 spec-reconciliation routing changes | **fail** |
+
+The test measures **membership, not prose.** Clustering is an LLM judgment and the same
+invariant will be worded differently on different runs; that is variance, not instability.
+
+**On failure:** the affected cluster's invariant sentence is describing its members rather
+than stating a rule — criterion 2 — because a rule does not change when unrelated evidence
+is added or removed. Rewrite the sentence or drop the cluster. Do not resolve a flip by
+keeping whichever run's answer reads better; the disagreement is the finding.
+
+Run it once before the first formation pass, and again whenever a criterion in this
+document is edited — a change to the method is the only thing that is *supposed* to change
+the output.
+
+## 11. Tooling — specified, not yet built
 
 `backlog-check.py --cluster`: emit candidate groupings across §5's four mechanical axes
 (tag prefix, `parent` chain, shared `deferred-work.md` section, shared AD reference) as
-input to a reading pass. Deliberately deferred — the grouping heuristics should be
-calibrated against a fuller board than today's, and a tool that proposes bad clusters
-confidently is worse than reading 40 rows by hand. The fifth axis, repair shape, is not
-mechanizable and stays a reading pass permanently.
+input to a reading pass. Those axes are already fully specified here and are
+item-independent, so the tool only saves the reading pass from recomputing them by hand —
+nothing about the method depends on it existing, which is §9's point applied to its own
+tooling. Build it whenever convenient, before or after the board grows. The fifth axis,
+repair shape, is not mechanizable and stays a reading pass permanently.
 
-## 10. Do not
+## 12. Do not
 
 - Do not form an epic that has no ratchet. §4 is the admission test, not a formality.
 - Do not use a `touches` tag as the epic boundary.
@@ -205,8 +259,11 @@ mechanizable and stays a reading pass permanently.
 - Do not move member rows to `promoted` at formation. Only stories do that.
 - Do not re-verify the member rows' findings at formation time. The board records that a
   finding exists; formation groups them. A second opinion on each is a different pass.
+- Do not tune a criterion to make a particular cluster come out. If a criterion is wrong it
+  is wrong for every board, and §10 must be re-run after the edit.
+- Do not run an ablation in a context that has seen the full run's output. §10 step 2.
 
-## 11. Status
+## 13. Status
 
-No dry run has been performed. This document defines the method only — no clusters have
-been proposed, and no rows carry `epic:` yet.
+No formation pass has been run and no stability test has been run. This document defines
+the method only — no clusters have been proposed, and no rows carry `epic:` yet.
