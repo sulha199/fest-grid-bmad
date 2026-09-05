@@ -22,8 +22,13 @@ export function PayloadListItem({ payload, onReprocess, onDelete, isReprocessing
     return null
   }
 
+  // The backend persists context.source lowercase ('apify'/'brightdata'/'gemini' --
+  // see brightdata-record-mapper.ts/instagram-adapter.ts), while the declared type
+  // above says uppercase; normalize before comparing so this doesn't always fall
+  // through to the Gemini label regardless of the real source.
+  const normalizedSource = payload.context.source?.toUpperCase()
   const sourceLabel =
-    payload.context.source === "APIFY" ? t("sourceApify") : payload.context.source === "BRIGHTDATA" ? t("sourceBrightData") : t("sourceGemini")
+    normalizedSource === "APIFY" ? t("sourceApify") : normalizedSource === "BRIGHTDATA" ? t("sourceBrightData") : t("sourceGemini")
 
   const timestamp = new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",

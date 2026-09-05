@@ -698,6 +698,7 @@ export type ParserVersion = {
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   isActive: Scalars['Boolean']['output'];
+  source?: Maybe<UnprocessedPayloadSource>;
   sourceFile?: Maybe<Scalars['String']['output']>;
   version: Scalars['String']['output'];
 };
@@ -865,6 +866,7 @@ export type QueryIsOriginAllowedForWidgetArgs = {
 
 export type QueryParserVersionsArgs = {
   onlyActive?: InputMaybe<Scalars['Boolean']['input']>;
+  source?: InputMaybe<UnprocessedPayloadSource>;
 };
 
 
@@ -1771,6 +1773,7 @@ export type ParserVersionResolvers<ContextType = GraphQLContext, ParentType exte
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   isActive?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  source?: Resolver<Maybe<ResolversTypes['UnprocessedPayloadSource']>, ParentType, ContextType>;
   sourceFile?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   version?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;

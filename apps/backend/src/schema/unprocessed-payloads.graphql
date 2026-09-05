@@ -66,6 +66,7 @@ type ParserVersion {
   version: String!
   description: String
   sourceFile: String
+  source: UnprocessedPayloadSource
   deployedAt: DateTime!
   isActive: Boolean!
   createdAt: DateTime!
@@ -78,7 +79,7 @@ extend type Query {
     after: String
   ): UnprocessedPayloadConnection!
 
-  parserVersions(onlyActive: Boolean): [ParserVersion!]!
+  parserVersions(onlyActive: Boolean, source: UnprocessedPayloadSource): [ParserVersion!]!
 }
 
 extend type Mutation {

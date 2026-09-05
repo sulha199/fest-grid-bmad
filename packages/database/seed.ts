@@ -563,6 +563,23 @@ export const FIXTURE_PARSER_VERSIONS = [
     version: 'v1.0.0',
     description: 'Initial stable parser version',
     sourceFile: 'gemini-extractor.ts',
+    source: 'GEMINI' as const,
+    isActive: true,
+  },
+  {
+    id: 'a0000000-0000-0000-0000-000000000002',
+    version: '3.4g',
+    description: 'Bright Data record-to-post field mapping',
+    sourceFile: 'brightdata-record-mapper.ts',
+    source: 'BRIGHTDATA' as const,
+    isActive: true,
+  },
+  {
+    id: 'a0000000-0000-0000-0000-000000000003',
+    version: '3.4m',
+    description: 'Apify actor-selection field mapping',
+    sourceFile: 'instagram-adapter.ts',
+    source: 'APIFY' as const,
     isActive: true,
   },
 ];

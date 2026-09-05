@@ -2207,6 +2207,8 @@ Constraints and Guidelines:
       if (!payloadRows.length || payloadRows[0].deletedAt) {
         return { success: false, message: 'Payload not found or already deleted' };
       }
+      const payload = payloadRows[0];
+      const payloadContext = payload.context as { source?: string; postUrl?: string | null };
 
       // Verify parser version exists
       const versionRows = await db
@@ -2218,11 +2220,74 @@ Constraints and Guidelines:
       if (!versionRows.length) {
         return { success: false, message: `Parser version ${parserVersion} not found in registry` };
       }
+      const registeredVersion = versionRows[0];
+
+      // A version registered for a different provider than this payload's can't
+      // meaningfully reprocess it -- the mapping logic it names doesn't apply here.
+      if (
+        registeredVersion.source &&
+        payloadContext.source &&
+        registeredVersion.source !== payloadContext.source.toUpperCase()
+      ) {
+        return {
+          success: false,
+          message: `Parser version ${parserVersion} is registered for ${registeredVersion.source}, not ${payloadContext.source.toUpperCase()} (this payload's source)`,
+        };
+      }
+
+      // Reprocessing means re-mapping the *actual* raw vendor output, not this row's
+      // own rawPayload -- for a payload that failed AJV validation, rawPayload is
+      // already the lossy, post-mapping candidate (see brightdata-record-mapper.ts),
+      // not the real raw record, so re-mapping it would just reproduce the same
+      // failure. The real raw output lives on the linked scraper_actor_runs row, and
+      // replayActorRun already re-maps (with whatever the current mapper code does --
+      // there's no per-version mapper to select between) and persists from it.
+      if (!payload.scraperActorRunId) {
+        return {
+          success: false,
+          message: 'This payload has no linked actor run to reprocess from (it predates actor-run audit-trail linking); re-scraping the account is the only option',
+        };
+      }
+
+      const replayResult = await replayActorRun(payload.scraperActorRunId);
+      if (!replayResult.success) {
+        return { success: false, queueId: payload.scraperActorRunId, message: replayResult.message };
+      }
+
+      // A successful replay doesn't guarantee *this* payload's post specifically was
+      // the one persisted -- its run may contain other records too -- so check directly
+      // rather than trusting the run-level result.
+      if (!payloadContext.postUrl) {
+        return {
+          success: false,
+          queueId: payload.scraperActorRunId,
+          message: `Actor run replayed (${replayResult.message}) but this payload has no postUrl to verify against`,
+        };
+      }
+
+      const persistedPost = await db
+        .select({ id: posts.id })
+        .from(posts)
+        .where(eq(posts.postUrl, payloadContext.postUrl))
+        .limit(1);
+
+      if (persistedPost.length === 0) {
+        return {
+          success: false,
+          queueId: payload.scraperActorRunId,
+          message: `Actor run replayed (${replayResult.message}) but this specific post still was not persisted -- it likely still fails validation`,
+        };
+      }
+
+      await db
+        .update(unprocessedScraperPayloads)
+        .set({ deletedAt: new Date() })
+        .where(eq(unprocessedScraperPayloads.id, payloadId));
 
       return {
-        success: false,
-        queueId: null,
-        message: 'Reprocessing is not yet implemented \u2014 no payload was requeued.',
+        success: true,
+        queueId: payload.scraperActorRunId,
+        message: `Reprocessed successfully: ${replayResult.message}`,
       };
     },
     deleteUnprocessedPayload: async (_: any, { payloadId }: any, context: any) => {
@@ -3211,12 +3276,15 @@ Constraints and Guidelines:
         totalCount: totalCountRows[0]?.count || 0,
       } as any;
     },
-    parserVersions: async (_: any, { onlyActive }: any, context: any) => {
+    parserVersions: async (_: any, { onlyActive, source }: any, context: any) => {
       requireModerator(context);
 
       const conditions = [];
       if (onlyActive) {
         conditions.push(eq(parserVersionRegistry.isActive, true));
+      }
+      if (source) {
+        conditions.push(eq(parserVersionRegistry.source, source));
       }
 
       const rows = await db

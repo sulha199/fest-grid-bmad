@@ -71,6 +71,8 @@ export const brightdataJobStatusEnum = pgEnum('brightdata_job_status', ['PENDING
 
 export const scraperRunVendorEnum = pgEnum('scraper_run_vendor', ['APIFY', 'BRIGHTDATA']);
 export const scraperRunTriggerModeEnum = pgEnum('scraper_run_trigger_mode', ['SYNC', 'ASYNC']);
+
+export const parserVersionSourceEnum = pgEnum('parser_version_source', ['APIFY', 'BRIGHTDATA', 'GEMINI']);
 export const scraperRunStatusEnum = pgEnum('scraper_run_status', ['PENDING', 'SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED']);
 
 export const imageStorageOptInSourceEnum = pgEnum('image_storage_opt_in_source', ['MODERATOR', 'ACCOUNT_OWNER']);
@@ -662,6 +664,10 @@ export const parserVersionRegistry = pgTable('parser_version_registry', {
   version: text('version').notNull().unique(),
   description: text('description'),
   sourceFile: text('source_file'),
+  // Nullable: this table has historically only ever been populated by the dev/test
+  // seed script (never in production), so an unknown/legacy row without a source is
+  // possible -- see migration 0046 for the real production data this backfills.
+  source: parserVersionSourceEnum('source'),
   deployedAt: timestamp('deployed_at', { withTimezone: true }).defaultNow().notNull(),
   isActive: boolean('is_active').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

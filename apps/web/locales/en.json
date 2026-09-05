@@ -736,6 +736,7 @@
     "filterVendorLabel": "Vendor",
     "reprocessSuccessToast": "Payload re-processing queued — tracking ID: {trackingId}",
     "currentVersionBadge": "(current)",
+    "noParserVersionsMessage": "No registered parser versions for this payload's source.",
     "filterSourceLabel": "Source",
     "filterClearButton": "Clear all",
     "errorHeadline": "Couldn't load payloads",
