@@ -51,4 +51,13 @@ export type ReprocessResult = {
   message?: string | null;
 };
 
+export type ParserVersion = {
+  id: string;
+  version: string;
+  description?: string | null;
+  sourceFile?: string | null;
+  source?: "APIFY" | "BRIGHTDATA" | "GEMINI" | null;
+  isActive: boolean;
+};
+
 export type DeleteUnprocessedPayloadResult = boolean;

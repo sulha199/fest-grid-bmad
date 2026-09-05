@@ -7,6 +7,7 @@ import type {
   UnprocessedPayloadFilters,
   ReprocessResult,
   DeleteUnprocessedPayloadResult,
+  ParserVersion,
 } from "./types"
 
 type QueryUnprocessedPayloadsResponse = {
@@ -60,6 +61,19 @@ const MUTATION_DELETE_UNPROCESSED_PAYLOAD = gql`
   }
 `
 
+const QUERY_PARSER_VERSIONS = gql`
+  query parserVersions($onlyActive: Boolean, $source: UnprocessedPayloadSource) {
+    parserVersions(onlyActive: $onlyActive, source: $source) {
+      id
+      version
+      description
+      sourceFile
+      source
+      isActive
+    }
+  }
+`
+
 function unprocessedPayloadsQueryOptions(
   filters?: UnprocessedPayloadFilters,
   cursor?: string,
@@ -108,5 +122,23 @@ export function useDeleteUnprocessedPayloadMutation() {
       })
       return result.deleteUnprocessedPayload
     },
+  })
+}
+
+type QueryParserVersionsResponse = {
+  parserVersions: ParserVersion[]
+}
+
+export function useParserVersionsQuery(source?: "APIFY" | "BRIGHTDATA" | "GEMINI", enabled: boolean = true) {
+  return useQuery({
+    queryKey: ["parserVersions", source] as const,
+    queryFn: async () => {
+      const result = await graphqlClient.request<QueryParserVersionsResponse>(QUERY_PARSER_VERSIONS, {
+        onlyActive: true,
+        source: source || undefined,
+      })
+      return result.parserVersions
+    },
+    enabled,
   })
 }

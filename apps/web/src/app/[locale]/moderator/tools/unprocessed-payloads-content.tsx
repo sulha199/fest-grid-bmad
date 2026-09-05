@@ -64,6 +64,9 @@ export function UnprocessedPayloadsContent() {
       const result = await reprocessPayload({ payloadId, parserVersion })
       if (result.success) {
         toast.success(t("reprocessSuccessToast", { trackingId: payloadId }))
+        // A successful reprocess soft-deletes the payload row server-side (it's now
+        // resolved as a real post), so refetch to drop it from the list like a delete would.
+        refetchPayloads()
       } else {
         toast.error(t("reprocessErrorToast", { message: result.message || "Unknown error" }))
       }

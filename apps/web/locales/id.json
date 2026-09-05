@@ -709,6 +709,7 @@
     "payloadAccountId": "ID Akun",
     "reprocessingLabel": "Memproses ulang...",
     "currentVersionBadge": "(saat ini)",
+    "noParserVersionsMessage": "Tidak ada versi parser terdaftar untuk sumber payload ini.",
     "expandButtonLabel": "Tampilkan detail",
     "filterSortLabel": "Urutkan berdasarkan",
     "filterDateStartLabel": "Dari (Tanggal)",
