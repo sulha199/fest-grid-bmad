@@ -122,7 +122,9 @@ test('Actor Runs GraphQL Resolvers', async (t) => {
         await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
       });
 
-      const brightDataResult = await resolvers.Query.queryActorRuns(
+      const queryActorRuns = (resolvers.Query as any).queryActorRuns;
+
+      const brightDataResult = await queryActorRuns(
         {},
         { filters: { vendor: 'BRIGHTDATA' }, first: 20 },
         moderatorContext as any,
@@ -130,7 +132,7 @@ test('Actor Runs GraphQL Resolvers', async (t) => {
       );
       assert.ok(brightDataResult.edges.some((e: any) => e.node.id === run.id));
 
-      const apifyResult = await resolvers.Query.queryActorRuns(
+      const apifyResult = await queryActorRuns(
         {},
         { filters: { vendor: 'APIFY' }, first: 20 },
         moderatorContext as any,
