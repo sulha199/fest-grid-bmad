@@ -6,6 +6,15 @@ backlog_id: FIND-005
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: moderator-tools-test-missing-message (2026-09-05)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-moderator-tools-test-missing-message.md`
+  summary: `ModeratorToolsContent`'s test suite has zero coverage of the "Accounts" tab (the third tab) — no assertion that its trigger renders, is labeled correctly, or mounts `ModeratorAccountsContent`; that component is also left unmocked while its sibling tabs' content components are mocked, an inconsistent strategy that will break the moment a future test drives `mockTab = 'accounts'`.
+  evidence: Found via Blind Hunter review of this session's one-line i18n-mock fix (`accountsTabLabel` was missing from the test's message override). Pre-existing gap, not caused by that fix — closing it needs mocking `ModeratorAccountsContent`'s dependencies and adding real tab-switch assertions, out of scope for a trivial i18n patch.
+- source_spec: `_bmad-output/implementation-artifacts/spec-moderator-tools-test-missing-message.md`
+  summary: The test's `it(...)` description ("renders both tab triggers, matches active tab, and updates URL on tab switch") is now inaccurate — the component has three tabs, not two, and the description obscures that the third is untested.
+  evidence: Same Blind Hunter pass as above; pre-existing, not caused by this session's fix, and renaming alone doesn't close the underlying coverage gap above.
+
 ## Deferred from: verification of ux-rework2-batch-11 (Event Detail favorite count) (2026-09-01)
 
 - The `favoriteCount` decrement direction (unfavoriting) of the toggle-favorite mutation's cache-sync logic is untested for all 4 caches it patches (`getEventBySlug`, `events`, `events/feed`, `favoriteEvents`) -- not just the new `getEventBySlug` patch added this batch. The existing test only exercises `isFavorited: false -> true` (increment); no test starts from an already-favorited state and verifies the count decrements correctly on unfavorite, for any of these caches. Pre-existing gap, not introduced by this batch, but now covers one more cache with the same untested branch.

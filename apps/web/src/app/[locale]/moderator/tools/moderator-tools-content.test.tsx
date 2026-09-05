@@ -41,9 +41,7 @@ vi.mock('nuqs', () => ({
 const mergedMessages = {
   ...enMessages,
   ModeratorToolsPage: {
-    actorRunsTabLabel: 'Actor Runs',
-    unprocessedPayloadsTabLabel: 'Unprocessed Payloads',
-    pageHeading: 'Moderator Tools',
+    ...enMessages.ModeratorToolsPage,
     pageDescription: 'Manage scraper operations, runs, and payloads.',
   },
 };
