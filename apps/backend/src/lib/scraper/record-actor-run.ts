@@ -1,6 +1,7 @@
 import { db } from '../../db/client.js';
 import { scraperActorRuns } from '@festgrid/database';
 import { eq, and } from 'drizzle-orm';
+import { sendScraperAuditAlert } from '../notifications/send-scraper-audit-alert.js';
 
 export type RecordActorRunStartInput = {
   vendor: 'APIFY' | 'BRIGHTDATA';
@@ -47,6 +48,11 @@ export async function recordActorRunStart(input: RecordActorRunStartInput): Prom
       `Failed to record actor run start for ${input.vendor} run ${input.runId}:`,
       err
     );
+    sendScraperAuditAlert({
+      source: 'recordActorRunStart',
+      message: err instanceof Error ? err.message : String(err),
+      context: JSON.stringify({ vendor: input.vendor, runId: input.runId, profileId: input.profileId }),
+    }).catch(() => {});
     return null;
   }
 }
@@ -96,6 +102,11 @@ export async function recordActorRunResult(input: RecordActorRunResultInput): Pr
       err
     );
     // Errors are swallowed intentionally - audit recording never blocks the caller
+    sendScraperAuditAlert({
+      source: 'recordActorRunResult',
+      message: err instanceof Error ? err.message : String(err),
+      context: JSON.stringify({ vendor: input.vendor, runId: input.runId, id: input.id }),
+    }).catch(() => {});
   }
 }
 
@@ -142,6 +153,11 @@ export async function recordSyncActorRun(input: {
       `Failed to record sync actor run for ${input.vendor} run ${input.runId}:`,
       err
     );
+    sendScraperAuditAlert({
+      source: 'recordSyncActorRun',
+      message: err instanceof Error ? err.message : String(err),
+      context: JSON.stringify({ vendor: input.vendor, runId: input.runId, profileId: input.profileId }),
+    }).catch(() => {});
     return null;
   }
 }

@@ -69,4 +69,20 @@ New Location: {{newLocationText}}
 
 Please review this change and take appropriate action on the Moderator Items page: {{moderatorReviewUrl}}`,
   },
+
+  SCRAPER_AUDIT_TRAIL_FAILURE_ALERT: {
+    subject: '[FestDaily Moderation] Scraper audit-trail write failed: {{source}}',
+    html: `<p>A write to the scraper audit trail failed and was silently dropped or unlinked.</p>
+<p><strong>Source:</strong> {{source}}</p>
+<p><strong>Message:</strong> {{message}}</p>
+<p><strong>Context:</strong> {{context}}</p>
+<p>Please review this item and take appropriate action on the Moderator Items page: <a href="{{moderatorReviewUrl}}">{{moderatorReviewUrl}}</a></p>`,
+    text: `A write to the scraper audit trail failed and was silently dropped or unlinked.
+
+Source: {{source}}
+Message: {{message}}
+Context: {{context}}
+
+Please review this item and take appropriate action on the Moderator Items page: {{moderatorReviewUrl}}`,
+  },
 };

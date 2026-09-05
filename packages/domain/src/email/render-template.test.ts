@@ -90,6 +90,25 @@ test('renderEmailTemplate tests', async (t) => {
     assert.ok(result.text.includes('https://festdaily.app/moderator/items'));
   });
 
+  await t.test('renders SCRAPER_AUDIT_TRAIL_FAILURE_ALERT correctly', () => {
+    const result = renderEmailTemplate('SCRAPER_AUDIT_TRAIL_FAILURE_ALERT', {
+      source: 'recordActorRunStart',
+      message: 'DB error',
+      context: '{"vendor":"APIFY","runId":"apify-run-123"}',
+      moderatorReviewUrl: 'https://festdaily.app/moderator/items',
+    });
+
+    assert.ok(result.subject.includes('recordActorRunStart'));
+    assert.ok(result.html.includes('recordActorRunStart'));
+    assert.ok(result.html.includes('DB error'));
+    assert.ok(result.html.includes('apify-run-123'));
+    assert.ok(result.html.includes('https://festdaily.app/moderator/items'));
+    assert.ok(result.text.includes('recordActorRunStart'));
+    assert.ok(result.text.includes('DB error'));
+    assert.ok(result.text.includes('apify-run-123'));
+    assert.ok(result.text.includes('https://festdaily.app/moderator/items'));
+  });
+
   await t.test('throws descriptive error if template is called with missing variable', () => {
     assert.throws(() => {
       // @ts-expect-error - testing missing variables runtime checks
