@@ -443,19 +443,19 @@ export function PostsSelectContent() {
                   {sub.account.accountTypeStatus === 'AWAITING_APPROVAL' && (
                     <Clock
                       className="h-4 w-4 text-yellow-500 shrink-0"
-                      title={t('gatedAwaitingApprovalTooltip') || 'Pending Review'}
+                      xlinkTitle={t('gatedAwaitingApprovalTooltip') || 'Pending Review'}
                     />
                   )}
                   {sub.account.accountTypeStatus === 'CONFIRMED' && sub.account.accountType === 'PERSONAL' && (
                     <Ban
                       className="h-4 w-4 text-destructive shrink-0"
-                      title={t('gatedPersonalTooltip') || "Can't be tracked"}
+                      xlinkTitle={t('gatedPersonalTooltip') || "Can't be tracked"}
                     />
                   )}
                   {sub.account.accountTypeStatus === 'CONFIRMED' && sub.account.accountType === 'CURATOR_GUIDE' && (
                     <Ban
                       className="h-4 w-4 text-destructive shrink-0"
-                      title={t('gatedCuratorTooltip') || "Tracking for this account type is coming soon"}
+                      xlinkTitle={t('gatedCuratorTooltip') || "Tracking for this account type is coming soon"}
                     />
                   )}
                 </button>
@@ -535,7 +535,7 @@ export function PostsSelectContent() {
                     post={{
                       id: post.id as string,
                       accountId: post.accountId as string,
-                      content: post.content,
+                      content: post.content ?? '',
                       imageUrl: post.imageUrl || undefined,
                       postUrl: post.postUrl,
                       originalPostUrl: post.originalPostUrl || undefined,

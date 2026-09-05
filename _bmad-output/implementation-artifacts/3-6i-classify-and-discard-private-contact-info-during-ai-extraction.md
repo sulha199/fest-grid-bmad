@@ -8,7 +8,7 @@ baseline_commit: 4255f0df9c29b1fbd06867954801d351664a2c8d
 
 - Epic: 3
 - Story ID: 3.6i
-- Status: in-progress
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -28,50 +28,50 @@ so that FestDaily doesn't become a searchable directory of personal phone number
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1, AC2) — Extend the Gemini extraction prompt and structured-output schema for contact classification:**
-  - [ ] In `apps/backend/src/lib/ai-processor/build-gemini-request.ts`'s `systemInstruction`, add explicit classification guidance after the existing "Extract the top-level location, organizerName, contactInfo, and description if present" instruction: contact information is business/official (a role-based email, an official venue/PT office phone number) → populate `contactInfo` as today; contact information is private/individual (a personal phone number, a personal email address, or a `wa.me/<number>` WhatsApp link — a `wa.me` link must be treated identically to a raw phone number, never minimized to a generic "link" description) → set `hasPrivateContact` to `true` and leave `contactInfo` absent/empty for that value. If no contact information is present at all, leave both fields absent (existing behavior, unchanged).
-  - [ ] Add `hasPrivateContact: { type: 'BOOLEAN' }` to `geminiExtractionResponseSchema`'s `properties` (not added to the top-level `required` array — absent/`false` means "no private contact detected," matching the existing optional treatment of `contactInfo`/`organizerName`/`description` in this same schema).
-  - [ ] Update `build-gemini-request.test.ts`: add an assertion that `result.request.systemInstruction` includes the new classification guidance (e.g. `.includes('wa.me')` or `.includes('hasPrivateContact')`), mirroring the existing `assert.ok(result.request.systemInstruction?.includes('PERFORMANCE'))` structural check.
+- [x] **Task 1 (AC1, AC2) — Extend the Gemini extraction prompt and structured-output schema for contact classification:**
+  - [x] In `apps/backend/src/lib/ai-processor/build-gemini-request.ts`'s `systemInstruction`, add explicit classification guidance after the existing "Extract the top-level location, organizerName, contactInfo, and description if present" instruction: contact information is business/official (a role-based email, an official venue/PT office phone number) → populate `contactInfo` as today; contact information is private/individual (a personal phone number, a personal email address, or a `wa.me/<number>` WhatsApp link — a `wa.me` link must be treated identically to a raw phone number, never minimized to a generic "link" description) → set `hasPrivateContact` to `true` and leave `contactInfo` absent/empty for that value. If no contact information is present at all, leave both fields absent (existing behavior, unchanged).
+  - [x] Add `hasPrivateContact: { type: 'BOOLEAN' }` to `geminiExtractionResponseSchema`'s `properties` (not added to the top-level `required` array — absent/`false` means "no private contact detected," matching the existing optional treatment of `contactInfo`/`organizerName`/`description` in this same schema).
+  - [x] Update `build-gemini-request.test.ts`: add an assertion that `result.request.systemInstruction` includes the new classification guidance (e.g. `.includes('wa.me')` or `.includes('hasPrivateContact')`), mirroring the existing `assert.ok(result.request.systemInstruction?.includes('PERFORMANCE'))` structural check.
 
-- [ ] **Task 2 (AC1, AC2) — Extend the pipeline's TypeScript types and AJV validation schema:**
-  - [ ] In `packages/domain/src/events/types.ts`, add `hasPrivateContact?: boolean` to `GeminiExtractionPayload`, `ExtractedEventMessage`, and `EventInsertValues` — mirrors exactly how `contactInfo?: string` already exists on all three interfaces.
-  - [ ] In `apps/backend/src/validation/extracted-event.schema.ts`, add `hasPrivateContact: { type: 'boolean', nullable: true }` to `extractedEventSchema`'s `properties` (not added to `required`) — this is the same AJV schema compiled as `validateExtractedEvent` in `resolvers.ts` (used by Story 4.2a's `extractEventDataFromUrl` mutation, Task 7 below) and as the validator inside `processAiJob` (`process-ai-job.ts`), so this one change covers both entry points.
+- [x] **Task 2 (AC1, AC2) — Extend the pipeline's TypeScript types and AJV validation schema:**
+  - [x] In `packages/domain/src/events/types.ts`, add `hasPrivateContact?: boolean` to `GeminiExtractionPayload`, `ExtractedEventMessage`, and `EventInsertValues` — mirrors exactly how `contactInfo?: string` already exists on all three interfaces.
+  - [x] In `apps/backend/src/validation/extracted-event.schema.ts`, add `hasPrivateContact: { type: 'boolean', nullable: true }` to `extractedEventSchema`'s `properties` (not added to `required`) — this is the same AJV schema compiled as `validateExtractedEvent` in `resolvers.ts` (used by Story 4.2a's `extractEventDataFromUrl` mutation, Task 7 below) and as the validator inside `processAiJob` (`process-ai-job.ts`), so this one change covers both entry points.
 
-- [ ] **Task 3 (AC2) — Enforce the discard at the domain transform layer (defense-in-depth, not solely prompt-level):**
-  - [ ] In `packages/domain/src/events/transform-gemini-response-to-event-info.ts`'s `transformGeminiResponseToEventInfo`, when `payload.hasPrivateContact === true`, set the returned `contactInfo` to `undefined` **regardless of what `payload.contactInfo` holds** (do not trust the prompt/schema separation alone — if Gemini's response ever populates both fields against instructions, the code must still discard the raw value) and set `hasPrivateContact: true`. Otherwise, pass `contactInfo: payload.contactInfo` through unchanged (today's behavior) and set `hasPrivateContact: payload.hasPrivateContact` (passes through `false`/`undefined`).
-  - [ ] Update `transform-gemini-response-to-event-info.test.ts`: add cases proving (a) a business-contact payload (`hasPrivateContact: false`, `contactInfo` populated) passes `contactInfo` through unchanged; (b) a payload with `hasPrivateContact: true` **and** a populated `contactInfo` (simulating an imperfect Gemini response) still discards it — `result.contactInfo` is `undefined`, `result.hasPrivateContact` is `true`; (c) a payload with neither field set leaves both `undefined`/falsy on the result.
+- [x] **Task 3 (AC2) — Enforce the discard at the domain transform layer (defense-in-depth, not solely prompt-level):**
+  - [x] In `packages/domain/src/events/transform-gemini-response-to-event-info.ts`'s `transformGeminiResponseToEventInfo`, when `payload.hasPrivateContact === true`, set the returned `contactInfo` to `undefined` **regardless of what `payload.contactInfo` holds** (do not trust the prompt/schema separation alone — if Gemini's response ever populates both fields against instructions, the code must still discard the raw value) and set `hasPrivateContact: true`. Otherwise, pass `contactInfo: payload.contactInfo` through unchanged (today's behavior) and set `hasPrivateContact: payload.hasPrivateContact` (passes through `false`/`undefined`).
+  - [x] Update `transform-gemini-response-to-event-info.test.ts`: add cases proving (a) a business-contact payload (`hasPrivateContact: false`, `contactInfo` populated) passes `contactInfo` through unchanged; (b) a payload with `hasPrivateContact: true` **and** a populated `contactInfo` (simulating an imperfect Gemini response) still discards it — `result.contactInfo` is `undefined`, `result.hasPrivateContact` is `true`; (c) a payload with neither field set leaves both `undefined`/falsy on the result.
 
-- [ ] **Task 4 (AC1, AC2) — Map `hasPrivateContact` into the DB insert-values builder:**
-  - [ ] In `packages/domain/src/events/build-event-insert-values.ts`, add `hasPrivateContact: message.hasPrivateContact ?? false` to the returned `event: EventInsertValues` object (same optional-with-explicit-default pattern already used for `confidenceScore`/`organizerName` in this function — `EventInsertValues.hasPrivateContact` is a plain `boolean`, not nullable, since the DB column below is `NOT NULL DEFAULT false`).
-  - [ ] Update `build-event-insert-values.test.ts`: add an assertion for `event.hasPrivateContact` in both the `hasPrivateContact: true` and omitted-field cases.
+- [x] **Task 4 (AC1, AC2) — Map `hasPrivateContact` into the DB insert-values builder:**
+  - [x] In `packages/domain/src/events/build-event-insert-values.ts`, add `hasPrivateContact: message.hasPrivateContact ?? false` to the returned `event: EventInsertValues` object (same optional-with-explicit-default pattern already used for `confidenceScore`/`organizerName` in this function — `EventInsertValues.hasPrivateContact` is a plain `boolean`, not nullable, since the DB column below is `NOT NULL DEFAULT false`).
+  - [x] Update `build-event-insert-values.test.ts`: add an assertion for `event.hasPrivateContact` in both the `hasPrivateContact: true` and omitted-field cases.
 
-- [ ] **Task 5 (AC1, AC2) — Database schema and migration:**
-  - [ ] In `packages/database/schema.ts`, add `hasPrivateContact: boolean('has_private_contact').default(false).notNull()` to the `events` pgTable, immediately after the existing `contactInfo: text('contact_info')` field — mirrors Story 3.6g's `isImageStorageOptedIn` boolean-default-false-`notNull` column exactly.
-  - [ ] Run `pnpm --filter database run generate` (Drizzle-kit) to produce the next sequential migration file (`0044_*.sql`, following `0043_faulty_electro.sql`) per project-context.md's generated-migrations-only rule (AD-3). Commit the generated `.sql` file and its `meta/0044_snapshot.json` — do not hand-write the migration.
+- [x] **Task 5 (AC1, AC2) — Database schema and migration:**
+  - [x] In `packages/database/schema.ts`, add `hasPrivateContact: boolean('has_private_contact').default(false).notNull()` to the `events` pgTable, immediately after the existing `contactInfo: text('contact_info')` field — mirrors Story 3.6g's `isImageStorageOptedIn` boolean-default-false-`notNull` column exactly.
+  - [x] Run `pnpm --filter database run generate` (Drizzle-kit) to produce the next sequential migration file (`0044_*.sql`, following `0043_faulty_electro.sql`) per project-context.md's generated-migrations-only rule (AD-3). Commit the generated `.sql` file and its `meta/0044_snapshot.json` — do not hand-write the migration.
 
-- [ ] **Task 6 (AC1, AC2, AC3) — Expose `hasPrivateContact` on the `Event` GraphQL type:**
-  - [ ] In `apps/backend/src/schema/events.graphql`, add `hasPrivateContact: Boolean!` to `type Event`, alongside the existing `contactInfo: String` field.
-  - [ ] No resolver code is required in `resolvers.ts`: `buildOptimizedDrizzleSelect(events, info)` (already the standing pattern at every `events`-querying resolver site — `eventBySlug`, `event`, the paginated `events` list, `restoreEvent`, `Report.event`) auto-derives the Drizzle column selection from whatever fields a GraphQL query requests against the `events` table schema, and GraphQL's default resolver reads the same-named field off the parent row object — exactly how `contactInfo`/`organizerName` already resolve today with zero explicit entries in the `Event: {}` resolver map (confirmed by direct code read; verified fresh by this story's Gate 1 check).
-  - [ ] Run codegen (`pnpm --filter backend codegen` / the project's standard codegen script) to regenerate `apps/backend/src/generated/resolvers-types.ts` with the new field.
+- [x] **Task 6 (AC1, AC2, AC3) — Expose `hasPrivateContact` on the `Event` GraphQL type:**
+  - [x] In `apps/backend/src/schema/events.graphql`, add `hasPrivateContact: Boolean!` to `type Event`, alongside the existing `contactInfo: String` field.
+  - [x] No resolver code is required in `resolvers.ts`: `buildOptimizedDrizzleSelect(events, info)` (already the standing pattern at every `events`-querying resolver site — `eventBySlug`, `event`, the paginated `events` list, `restoreEvent`, `Report.event`) auto-derives the Drizzle column selection from whatever fields a GraphQL query requests against the `events` table schema, and GraphQL's default resolver reads the same-named field off the parent row object — exactly how `contactInfo`/`organizerName` already resolve today with zero explicit entries in the `Event: {}` resolver map (confirmed by direct code read; verified fresh by this story's Gate 1 check).
+  - [x] Run codegen (`pnpm --filter backend codegen` / the project's standard codegen script) to regenerate `apps/backend/src/generated/resolvers-types.ts` with the new field.
 
-- [ ] **Task 7 (AC5) — Close the parallel leak in the AI-assisted correction preview path:**
-  - [ ] In `packages/domain/src/events/map-extraction-payload-to-proposed-correction.ts`'s `mapExtractionPayloadToProposedCorrection`, apply the exact same discard rule as Task 3: when `payload.hasPrivateContact === true`, return `contactInfo: undefined` regardless of `payload.contactInfo`; otherwise pass `contactInfo: payload.contactInfo` through unchanged (today's behavior).
-  - [ ] Update `map-extraction-payload-to-proposed-correction.test.ts`: add a case with `hasPrivateContact: true` and a populated `contactInfo` in the input payload, asserting `result.contactInfo` is `undefined`.
-  - [ ] **Deliberately out of scope (do not do this):** do NOT add `hasPrivateContact` to `ProposedEventCorrection` (`types.ts`), `proposedEventCorrectionSchema` (AJV), `ProposedEventCorrectionInput`/`ProposedEventCorrectionData` (`corrections.graphql`/`extraction.graphql`), or the `submitCorrection` apply-to-`events` write in `resolvers.ts`. The discard at the mapper is sufficient by itself: once the raw private value is dropped before `ProposedEventCorrectionData` is returned to the client, it can never appear in what `CorrectionForm` pre-fills or what a user submits back via `submitCorrection` (a user manually *typing* a new contact value into the form afterward is legitimate human-authored data, not an AI-classification leak, and is intentionally not touched by this story). Threading a new `hasPrivateContact` field through the correction-submission round-trip was considered and explicitly declined during this story's creation (see Dev Notes → Scope Extension Decision) as scope beyond what closing the leak requires.
+- [x] **Task 7 (AC5) — Close the parallel leak in the AI-assisted correction preview path:**
+  - [x] In `packages/domain/src/events/map-extraction-payload-to-proposed-correction.ts`'s `mapExtractionPayloadToProposedCorrection`, apply the exact same discard rule as Task 3: when `payload.hasPrivateContact === true`, return `contactInfo: undefined` regardless of `payload.contactInfo`; otherwise pass `contactInfo: payload.contactInfo` through unchanged (today's behavior).
+  - [x] Update `map-extraction-payload-to-proposed-correction.test.ts`: add a case with `hasPrivateContact: true` and a populated `contactInfo` in the input payload, asserting `result.contactInfo` is `undefined`.
+  - [x] **Deliberately out of scope (do not do this):** do NOT add `hasPrivateContact` to `ProposedEventCorrection` (`types.ts`), `proposedEventCorrectionSchema` (AJV), `ProposedEventCorrectionInput`/`ProposedEventCorrectionData` (`corrections.graphql`/`extraction.graphql`), or the `submitCorrection` apply-to-`events` write in `resolvers.ts`. The discard at the mapper is sufficient by itself: once the raw private value is dropped before `ProposedEventCorrectionData` is returned to the client, it can never appear in what `CorrectionForm` pre-fills or what a user submits back via `submitCorrection` (a user manually *typing* a new contact value into the form afterward is legitimate human-authored data, not an AI-classification leak, and is intentionally not touched by this story). Threading a new `hasPrivateContact` field through the correction-submission round-trip was considered and explicitly declined during this story's creation (see Dev Notes → Scope Extension Decision) as scope beyond what closing the leak requires.
 
-- [ ] **Task 8 (AC3) — Frontend: display business `contactInfo` and the private-contact fallback message:**
-  - [ ] `apps/web/src/features/events/queries.graphql`: add `hasPrivateContact` to the existing `getEventBySlug` query's `eventBySlug { ... }` selection, immediately after the already-present `contactInfo` field.
-  - [ ] `packages/ui/src/features/events/EventDetailView.types.ts`: add `contactInfo?: string | null` and `hasPrivateContact?: boolean | null` to `EventDetailViewProps`; add `privateContactMessageLabel: string` to `EventDetailViewLabels`.
-  - [ ] `packages/ui/src/features/events/EventDetailView.tsx`: destructure the two new props. Add a new `<section>` between the existing Description and Schedules sections (this is event-level information, not per-schedule, so it does not belong inside the schedule `<li>` loop): if `hasPrivateContact` is true, render an icon + `labels.privateContactMessageLabel` as a link to `originalPostUrl` (falling back to `sourcePostUrl` if `originalPostUrl` is absent — mirrors the existing Attributions section's own original-preferred-else-source fallback a few lines below); else if `contactInfo` is present, render an icon + the `contactInfo` text (same plain icon+text pattern already used for `ticketPrice`/`performers`). Render nothing when neither is present (today's behavior, unchanged). Import a `Phone` icon from `lucide-react` for the business-contact row (reuse the existing `Instagram`/`ExternalLink` icons already imported for the private-contact link, matching the Attributions section's link styling).
-  - [ ] Update `EventDetailView.test.tsx`: add cases for (a) `contactInfo` set, `hasPrivateContact` false/absent → renders the contact text; (b) `hasPrivateContact` true, `originalPostUrl` set → renders the fallback message as a link to `originalPostUrl`; (c) `hasPrivateContact` true, `originalPostUrl` absent, `sourcePostUrl` set → link falls back to `sourcePostUrl`; (d) both absent → section renders nothing.
-  - [ ] `apps/web/src/features/events/mapper.ts`: in `mapGraphQLEventToDetailViewProps`, add `contactInfo: event.contactInfo` and `hasPrivateContact: event.hasPrivateContact` to the returned object (today `event.contactInfo` is already fetched by the query but silently dropped here — confirmed by direct code read, a pre-existing gap unrelated to any new backend work in this story).
-  - [ ] `apps/web/src/features/events/mapper.ts`'s `useEventDetailViewLabels`: add `privateContactMessageLabel: t('privateContactMessageLabel')`.
-  - [ ] `apps/web/locales/en.json` and `apps/web/locales/id.json`: add a new `privateContactMessageLabel` key under the existing `EventDetailsPage` namespace. English: `"Contact info isn't shown to protect the poster's privacy — see the original post for details."` Indonesian: `"Info kontak tidak ditampilkan untuk melindungi privasi pemosting — lihat postingan asli untuk detailnya."` (the link itself is a separate `<a>` wrapping this text, matching how `viewOriginalPostLabel` is already a standalone link label elsewhere in this same component, not an interpolated sentence).
+- [x] **Task 8 (AC3) — Frontend: display business `contactInfo` and the private-contact fallback message:**
+  - [x] `apps/web/src/features/events/queries.graphql`: add `hasPrivateContact` to the existing `getEventBySlug` query's `eventBySlug { ... }` selection, immediately after the already-present `contactInfo` field.
+  - [x] `packages/ui/src/features/events/EventDetailView.types.ts`: add `contactInfo?: string | null` and `hasPrivateContact?: boolean | null` to `EventDetailViewProps`; add `privateContactMessageLabel: string` to `EventDetailViewLabels`.
+  - [x] `packages/ui/src/features/events/EventDetailView.tsx`: destructure the two new props. Add a new `<section>` between the existing Description and Schedules sections (this is event-level information, not per-schedule, so it does not belong inside the schedule `<li>` loop): if `hasPrivateContact` is true, render an icon + `labels.privateContactMessageLabel` as a link to `originalPostUrl` (falling back to `sourcePostUrl` if `originalPostUrl` is absent — mirrors the existing Attributions section's own original-preferred-else-source fallback a few lines below); else if `contactInfo` is present, render an icon + the `contactInfo` text (same plain icon+text pattern already used for `ticketPrice`/`performers`). Render nothing when neither is present (today's behavior, unchanged). Import a `Phone` icon from `lucide-react` for the business-contact row (reuse the existing `Instagram`/`ExternalLink` icons already imported for the private-contact link, matching the Attributions section's link styling).
+  - [x] Update `EventDetailView.test.tsx`: add cases for (a) `contactInfo` set, `hasPrivateContact` false/absent → renders the contact text; (b) `hasPrivateContact` true, `originalPostUrl` set → renders the fallback message as a link to `originalPostUrl`; (c) `hasPrivateContact` true, `originalPostUrl` absent, `sourcePostUrl` set → link falls back to `sourcePostUrl`; (d) both absent → section renders nothing.
+  - [x] `apps/web/src/features/events/mapper.ts`: in `mapGraphQLEventToDetailViewProps`, add `contactInfo: event.contactInfo` and `hasPrivateContact: event.hasPrivateContact` to the returned object (today `event.contactInfo` is already fetched by the query but silently dropped here — confirmed by direct code read, a pre-existing gap unrelated to any new backend work in this story).
+  - [x] `apps/web/src/features/events/mapper.ts`'s `useEventDetailViewLabels`: add `privateContactMessageLabel: t('privateContactMessageLabel')`.
+  - [x] `apps/web/locales/en.json` and `apps/web/locales/id.json`: add a new `privateContactMessageLabel` key under the existing `EventDetailsPage` namespace. English: `"Contact info isn't shown to protect the poster's privacy — see the original post for details."` Indonesian: `"Info kontak tidak ditampilkan untuk melindungi privasi pemosting — lihat postingan asli untuk detailnya."` (the link itself is a separate `<a>` wrapping this text, matching how `viewOriginalPostLabel` is already a standalone link label elsewhere in this same component, not an interpolated sentence).
 
-- [ ] **Task 9 (AC4) — Unit test coverage for all 6 classification-outcome categories:**
+- [x] **Task 9 (AC4) — Unit test coverage for all 6 classification-outcome categories:**
   - [ ] In `transform-gemini-response-to-event-info.test.ts`, add 6 cases against synthetic `GeminiExtractionPayload` fixtures (per AC4's scope clarification — these test the deterministic discard/pass-through logic per classification outcome, not live Gemini accuracy): (1) business email (`hasPrivateContact: false`, `contactInfo: 'events@venue.com'`) → passes through; (2) official venue/PT phone (`hasPrivateContact: false`, `contactInfo: '(021) 555-0100'`) → passes through; (3) personal phone number (`hasPrivateContact: true`, `contactInfo: '0812-3456-7890'`) → `contactInfo` discarded (`undefined`), `hasPrivateContact: true`; (4) personal email (`hasPrivateContact: true`, `contactInfo: 'someone@gmail.com'`) → discarded; (5) `wa.me` link (`hasPrivateContact: true`, `contactInfo: 'https://wa.me/6281234567890'`) → discarded, same as a raw phone number; (6) no contact info at all (`hasPrivateContact` and `contactInfo` both omitted) → `result.hasPrivateContact` falsy, `result.contactInfo` `undefined`.
 
-- [ ] **Task 10 — Full verification:** `pnpm --filter @festgrid/domain test` (Tasks 3, 4, 7, 9); `pnpm --filter backend test` (Tasks 1, 2, 6); `pnpm --filter web test` and `pnpm --filter ui test` (Task 8); `pnpm --filter database run generate` output committed (Task 5); `pnpm build`, `pnpm lint`, `pnpm test` at the repo root — no regressions elsewhere that reads `EventInfo.contactInfo`, `ProposedEventCorrection.contactInfo`, or `Event.contactInfo`.
+- [x] **Task 10 — Full verification:** `pnpm --filter @festgrid/domain test` (Tasks 3, 4, 7, 9); `pnpm --filter backend test` (Tasks 1, 2, 6); `pnpm --filter web test` and `pnpm --filter ui test` (Task 8); `pnpm --filter database run generate` output committed (Task 5); `pnpm build`, `pnpm lint`, `pnpm test` at the repo root — no regressions elsewhere that reads `EventInfo.contactInfo`, `ProposedEventCorrection.contactInfo`, or `Event.contactInfo`.
 
 ## Dev Notes
 
@@ -167,20 +167,20 @@ Epic 3's readiness sweep (`epic-readiness/epic-3-readiness.md`, `swept: true`, d
 
 ## Testing Requirements
 
-- [ ] Unit tests (required, `packages/domain`): `transform-gemini-response-to-event-info.test.ts` — discard-enforcement cases (Task 3) plus all 6 AC4 classification-outcome categories (Task 9); `build-event-insert-values.test.ts` — `hasPrivateContact` mapping (Task 4); `map-extraction-payload-to-proposed-correction.test.ts` — discard-enforcement case (Task 7).
-- [ ] Unit test (required, `apps/backend`): `build-gemini-request.test.ts` — prompt-content assertion for the new classification guidance (Task 1).
-- [ ] Component tests (required, `packages/ui`): `EventDetailView.test.tsx` — business-contact display, private-contact fallback message + link (both `originalPostUrl` and `sourcePostUrl`-fallback variants), and the neither-present empty case (Task 8).
-- [ ] Integration tests: not required as new cases — `process-ai-job.test.ts`, `extraction.test.ts`, `corrections.test.ts` must continue passing unchanged (no test in any of these three files asserts on `contactInfo`'s literal value today, confirmed by direct read, so none is expected to need updating; if implementation reveals otherwise, add the minimal case needed rather than skipping verification).
-- [ ] E2E tests: not required — this is a data-classification/display-correctness story with no new interactive flow; the existing event-detail page E2E coverage (if any) is unaffected by an additive display section.
+- [x] Unit tests (required, `packages/domain`): `transform-gemini-response-to-event-info.test.ts` — discard-enforcement cases (Task 3) plus all 6 AC4 classification-outcome categories (Task 9); `build-event-insert-values.test.ts` — `hasPrivateContact` mapping (Task 4); `map-extraction-payload-to-proposed-correction.test.ts` — discard-enforcement case (Task 7).
+- [x] Unit test (required, `apps/backend`): `build-gemini-request.test.ts` — prompt-content assertion for the new classification guidance (Task 1).
+- [x] Component tests (required, `packages/ui`): `EventDetailView.test.tsx` — business-contact display, private-contact fallback message + link (both `originalPostUrl` and `sourcePostUrl`-fallback variants), and the neither-present empty case (Task 8).
+- [x] Integration tests: not required as new cases — `process-ai-job.test.ts`, `extraction.test.ts`, `corrections.test.ts` continue passing unchanged (confirmed via full `pnpm --filter backend test` run — 615/615 passing, no regressions).
+- [x] E2E tests: not required — this is a data-classification/display-correctness story with no new interactive flow; the existing event-detail page E2E coverage (if any) is unaffected by an additive display section.
 
 ## Deliverables Checklist
 
-- [ ] Gemini prompt classifies business-vs-private contact info and treats `wa.me` links as raw phone numbers (AC1, AC2, Task 1).
-- [ ] `hasPrivateContact` threaded through `GeminiExtractionPayload` → AJV validation → `transformGeminiResponseToEventInfo`'s discard enforcement → `ExtractedEventMessage` → `EventInsertValues` → `events` DB column (AC1, AC2, Tasks 2-5).
-- [ ] `Event.hasPrivateContact` exposed on the GraphQL API with zero new resolver code (AC1, AC2, AC3, Task 6).
-- [ ] The same discard enforcement applied to the AI-assisted correction preview path, `ProposedEventCorrection`/`corrections` round-trip deliberately left untouched (AC5, Task 7).
-- [ ] `EventDetailView.tsx` displays business `contactInfo` and the private-contact fallback message (linking `originalPostUrl`/`sourcePostUrl`) (AC3, Task 8).
-- [ ] Unit tests covering all 6 AC4 classification-outcome categories, plus discard-enforcement and mapping tests at every touched `packages/domain` function (AC4, Tasks 3, 4, 7, 9).
+- [x] Gemini prompt classifies business-vs-private contact info and treats `wa.me` links as raw phone numbers (AC1, AC2, Task 1).
+- [x] `hasPrivateContact` threaded through `GeminiExtractionPayload` → AJV validation → `transformGeminiResponseToEventInfo`'s discard enforcement → `ExtractedEventMessage` → `EventInsertValues` → `events` DB column (AC1, AC2, Tasks 2-5).
+- [x] `Event.hasPrivateContact` exposed on the GraphQL API with zero new resolver code (AC1, AC2, AC3, Task 6).
+- [x] The same discard enforcement applied to the AI-assisted correction preview path, `ProposedEventCorrection`/`corrections` round-trip deliberately left untouched (AC5, Task 7).
+- [x] `EventDetailView.tsx` displays business `contactInfo` and the private-contact fallback message (linking `originalPostUrl`/`sourcePostUrl`) (AC3, Task 8).
+- [x] Unit tests covering all 6 AC4 classification-outcome categories, plus discard-enforcement and mapping tests at every touched `packages/domain` function (AC4, Tasks 3, 4, 7, 9).
 
 ## Out of Scope
 
@@ -192,31 +192,73 @@ Epic 3's readiness sweep (`epic-readiness/epic-3-readiness.md`, `swept: true`, d
 
 ## Definition of Done
 
-- [ ] AC1-AC5 satisfied.
-- [ ] All required tests passing (`packages/domain` unit tests for discard enforcement + all 6 classification-outcome categories; `apps/backend` prompt-content assertion; `packages/ui` component tests for both display branches).
-- [ ] Lint and type checks passing for `packages/domain`, `apps/backend`, `apps/web`, `packages/ui`.
-- [ ] Migration `0044_*.sql` generated via `drizzle-kit generate` (not hand-written) and committed alongside its snapshot.
-- [ ] `apps/backend`/`apps/web` codegen regenerated and committed (`resolvers-types.ts`, `apps/web/src/generated/graphql.ts`).
-- [ ] No `hasPrivateContact` field added anywhere in the `ProposedEventCorrection`/`corrections` round-trip beyond the `mapExtractionPayloadToProposedCorrection` discard fix itself (per the confirmed scope boundary) — any diff there should be treated as scope creep and questioned.
+- [x] AC1-AC5 satisfied.
+- [x] All required tests passing (`packages/domain` unit tests for discard enforcement + all 6 classification-outcome categories; `apps/backend` prompt-content assertion; `packages/ui` component tests for both display branches).
+- [x] Lint and type checks passing for `packages/domain`, `apps/backend`, `apps/web`, `packages/ui`.
+- [x] Migration `0044_*.sql` generated via `drizzle-kit generate` (not hand-written) and committed alongside its snapshot.
+- [x] `apps/backend`/`apps/web` codegen regenerated and committed (`resolvers-types.ts`, `apps/web/src/generated/graphql.ts`).
+- [x] No `hasPrivateContact` field added anywhere in the `ProposedEventCorrection`/`corrections` round-trip beyond the `mapExtractionPayloadToProposedCorrection` discard fix itself (per the confirmed scope boundary) — verified via direct code read, no such diff exists.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] complete
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled in by the implementing agent._
+Claude Sonnet 5 (bmad-dev-story)
 
 ### Debug Log References
 
-_To be filled in by the implementing agent._
+- The implementation for Tasks 1-9 was already committed (`5061e02` "feat(ai-extraction): classify and discard private contact info during extraction (Story 3.6i)") in a prior session, but this story file's own Tasks/Subtasks, Status, and Dev Agent Record bookkeeping were never updated to match — this session's work was to independently re-verify every task's code against the story's own spec line-by-line (not merely trust the prior commit message) and then complete the missing bookkeeping.
+- Verified by direct code read against each Task's exact spec: `build-gemini-request.ts` classification guidance + `hasPrivateContact: { type: 'BOOLEAN' }` schema field (Task 1); `types.ts`/`extracted-event.schema.ts` (Task 2); `transformGeminiResponseToEventInfo`'s forced discard when `hasPrivateContact === true` (Task 3); `buildEventInsertValues`'s `?? false` default (Task 4); `schema.ts`'s `has_private_contact` column + generated migration `0044_same_silk_fever.sql` (Task 5); `events.graphql`'s `hasPrivateContact: Boolean!` + regenerated `resolvers-types.ts` (Task 6); `mapExtractionPayloadToProposedCorrection`'s identical discard rule, with `ProposedEventCorrection`/`corrections.graphql` confirmed untouched per the scope boundary (Task 7); `EventDetailView.tsx`'s new contact section (business `contactInfo` row vs. `hasPrivateContact` fallback link to `originalPostUrl`/`sourcePostUrl`), `mapper.ts`, `queries.graphql`, both locale files (Task 8).
+- Ran `pnpm --filter @festgrid/domain test`: 215/215 passing, including all Task 3/4/7/9 cases (discard enforcement + all 6 AC4 classification-outcome categories).
+- Ran `pnpm --filter backend test`: 615/615 passing, including Task 1's prompt-content assertion; `process-ai-job.test.ts`/`extraction.test.ts`/`corrections.test.ts` unaffected.
+- Ran `pnpm --filter web test`: 305/305 passing.
+- Ran `pnpm --filter ui test`: `EventDetailView.test.tsx` 37/37 passing (all Task 8 cases). One unrelated pre-existing failure surfaced in `EventCard.test.tsx` ("Masonry badge display behavior" — a `Today`/`Yesterday` off-by-one tied to the local run's clock/timezone at test time, in a component this story never touches); flagged to the user rather than fixed, as out of scope for 3.6i.
+- Ran root `pnpm lint`: 0 errors (pre-existing `no-explicit-any`/etc. warnings only, unrelated to this story).
+- Ran root `pnpm build`: initially failed on a pre-existing, unrelated TypeScript error in `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx` (from Story 3.4n/3.4o's own commit `fd349bc`, not this story) — a `title` prop passed to three `lucide-react` icons (`Clock`, `Ban` ×2) where `LucideProps` has no `title` field, plus a `post.content: string | null` assigned to a `string`-typed field. Per user decision (asked via `AskUserQuestion`), fixed both: changed `title=` to `xlinkTitle=` on the three icons (matching the sibling `AlertCircle` icon already using that prop successfully two lines above), and changed `content: post.content` to `content: post.content ?? ''` (consistent with `PostCard`'s existing `post.content || contentPlaceholder` fallback rendering). Re-ran `pnpm build` (all 7 tasks green), `pnpm lint` (clean), and the affected `posts-select-content.test.tsx` (22/22 passing) to confirm no regression from this out-of-scope fix.
+- Ran root `pnpm test` (full workspace suite) as the final Step 9 gate: 11/11 workspace test tasks successful, exit code 0 — including `packages/ui`, where the earlier `EventCard.test.tsx` "Masonry badge" failure did not recur, confirming it was the suspected clock/timezone-dependent flake rather than a real regression.
 
 ### Completion Notes List
 
-_To be filled in by the implementing agent._
+- All 5 ACs implemented and verified against the current codebase state (not merely inferred from the prior commit's message): AC1/AC2's business-vs-private classification and discard-at-classification enforcement (Gemini prompt + schema + domain transform), AC3's `EventDetailView` business-contact display and private-contact fallback message, AC4's 6 classification-outcome unit tests, AC5's parallel discard fix in the AI-assisted correction preview path.
+- This session did not write any new Story 3.6i implementation code — Tasks 1-9 were already complete and correct in the working tree from a prior session's commit (`5061e02`); this session's contribution was independent verification of each task against its exact spec, running the full test/lint/build verification plan, and completing the story file's own tracking (checkboxes, Status, Dev Agent Record, File List) which had been left out of sync with the actual code state.
+- Fixed one pre-existing, out-of-scope build-blocking issue (unrelated to 3.6i, from Story 3.4n/3.4o's `posts-select-content.tsx`) after explicit user confirmation — see Debug Log and File List.
+- Flagged one pre-existing, out-of-scope test failure (`EventCard.test.tsx`'s masonry badge "Today" test, timezone/clock-dependent) without fixing it, since it is unrelated to this story's component (`EventDetailView`, not `EventCard`) and touching it was not requested.
+- Full verification plan (Task 10) executed: `pnpm --filter @festgrid/domain test` (215/215), `pnpm --filter backend test` (615/615), `pnpm --filter web test` (305/305), `pnpm --filter ui test` (368/369 on first run — 1 flaky unrelated failure, not reproduced on the final full-suite run, see below), root `pnpm lint` (0 errors), root `pnpm build` (clean after the out-of-scope fix), root `pnpm test` (11/11 workspace tasks, exit 0).
 
 ### File List
 
-_To be filled in by the implementing agent._
+**Implemented in a prior session (commit `5061e02`), independently re-verified this session:**
+- `apps/backend/src/lib/ai-processor/build-gemini-request.ts` (modified)
+- `apps/backend/src/lib/ai-processor/build-gemini-request.test.ts` (modified)
+- `apps/backend/src/validation/extracted-event.schema.ts` (modified)
+- `apps/backend/src/schema/events.graphql` (modified)
+- `apps/backend/src/generated/resolvers-types.ts` (regenerated)
+- `packages/domain/src/events/types.ts` (modified)
+- `packages/domain/src/events/transform-gemini-response-to-event-info.ts` (modified)
+- `packages/domain/src/events/transform-gemini-response-to-event-info.test.ts` (modified)
+- `packages/domain/src/events/build-event-insert-values.ts` (modified)
+- `packages/domain/src/events/build-event-insert-values.test.ts` (modified)
+- `packages/domain/src/events/map-extraction-payload-to-proposed-correction.ts` (modified)
+- `packages/domain/src/events/map-extraction-payload-to-proposed-correction.test.ts` (modified)
+- `packages/database/schema.ts` (modified)
+- `packages/database/migrations/0044_same_silk_fever.sql` (generated)
+- `packages/database/migrations/meta/0044_snapshot.json` (generated)
+- `packages/database/migrations/meta/_journal.json` (modified)
+- `apps/web/src/features/events/queries.graphql` (modified)
+- `apps/web/src/features/events/mapper.ts` (modified)
+- `apps/web/src/generated/graphql.ts` (regenerated)
+- `apps/web/locales/en.json` (modified)
+- `apps/web/locales/id.json` (modified)
+- `packages/ui/src/features/events/EventDetailView.types.ts` (modified)
+- `packages/ui/src/features/events/EventDetailView.tsx` (modified)
+- `packages/ui/src/features/events/EventDetailView.test.tsx` (modified)
+
+**Fixed this session (out-of-scope build blocker, user-confirmed):**
+- `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx` (modified — `title` → `xlinkTitle` on 3 lucide icons; `post.content ?? ''` null-coalesce)
+
+**This story file:**
+- `_bmad-output/implementation-artifacts/3-6i-classify-and-discard-private-contact-info-during-ai-extraction.md` (modified — Tasks/Subtasks, Status, Dev Agent Record, checklists)

@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-04T00:00:00Z
+last_updated: 2026-09-05T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1241,7 +1241,7 @@ development_status:
   # it, but declined threading hasPrivateContact through the corrections/submitCorrection
   # round-trip itself (unnecessary to close the leak). See story file's Dev Notes ->
   # Scope Extension Decision.
-  3-6i-classify-and-discard-private-contact-info-during-ai-extraction: in-progress
+  3-6i-classify-and-discard-private-contact-info-during-ai-extraction: review
   3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: in-progress
   # story created 2026-09-04 via bmad-create-story. Epic-3-readiness.md predates this
   # story (stories_covered excludes 3.6k) so Gates 1/2/3 were re-run fresh. Gate 1 found
