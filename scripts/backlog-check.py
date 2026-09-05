@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Deterministic runner for the backlog board's integrity checks and lenses.
 
-Implements checks 1-9 and the lens table from
-`_bmad-output/implementation-artifacts/backlog-spec.md`. `bmad-sprint-status` runs
+Implements checks 1-11 and the lens table from
+`_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-11 cover epic
+formation, `planning-artifacts/epic-formation-gate.md`). `bmad-sprint-status` runs
 this rather than re-deriving the checks from prose each session: a subtly wrong
 reimplementation reports "clean" on a broken board, which is worse than no check.
 
@@ -132,7 +133,35 @@ def run_checks(items, tags, stories):
         if status == "superseded" and not row.get("superseded_by"):
             fail(5, key, "status superseded but no superseded_by")
 
+        # Checks 10-11 — epic formation (epic-formation-gate.md).
+        epic = row.get("epic")
+        if epic:
+            if epic not in epics(stories):
+                fail(10, key, f"epic not in sprint-status.yaml: {epic}")
+            elif IMPROVEMENT_EPIC.match(epic) and not any(
+                epic_story_letter(epic, s) == "z" for s in stories
+            ):
+                fail(11, key, f"improvement epic {epic} has no z (ratchet) story")
+
     return failures
+
+
+# §9 check 11 — `epic-0-i1` owns stories `0-i1a-…` through `0-i1z-…`.
+IMPROVEMENT_EPIC = re.compile(r"^epic-(\d+)-i(\d+)$")
+
+
+def epics(stories):
+    return {k for k in stories if k.startswith("epic-")}
+
+
+def epic_story_letter(epic: str, story: str) -> str | None:
+    """The story's letter within `epic`, or None if it belongs to another epic."""
+    m = IMPROVEMENT_EPIC.match(epic)
+    if not m:
+        return None
+    n, k = m.groups()
+    hit = re.match(rf"^{n}-i{k}([a-z])-", story)
+    return hit.group(1) if hit else None
 
 
 def collisions(items):
@@ -212,7 +241,7 @@ def main():
         for num, row, msg in sorted(failures):
             print(f"  check {num}  [{row}] {msg}")
     else:
-        print("checks 1-9: clean")
+        print("checks 1-11: clean")
 
     if args.quiet:
         return len(failures)

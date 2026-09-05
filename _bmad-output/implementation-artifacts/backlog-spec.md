@@ -92,6 +92,7 @@ items:
 | `touches` | yes | Registry-resolved tags. See §7. |
 | `impact` | open rows | User-facing consequence. See below. |
 | `effort` | open rows | Size of the work. See below. |
+| `epic` | no | `sprint-status.yaml` epic key this row was folded into at epic formation. See `planning-artifacts/epic-formation-gate.md`. |
 | `parent` | no | Parent item ID, for carved-out children. See §6. |
 | `blocks` | no | IDs this row gates. One-directional — declared on the blocker only. |
 | `superseded_by` | no | Required when `status: superseded`. |
@@ -298,6 +299,15 @@ board — worse than running no check at all.
 9. **Dangling or satisfied block** — a `blocks` entry naming an ID that does not exist,
    or one whose target is already terminal (`done`/`skipped`/`superseded`). The second
    case is the `blocks` equivalent of check 5: the gate outlived what it was gating.
+10. **Unknown epic** — an `epic` value that is not an epic key in `sprint-status.yaml`.
+    Same failure mode as check 4, one level up: a row claiming to be folded into an epic
+    that was never registered is invisible to every epic-level workflow.
+11. **Ratchetless improvement epic** — an improvement epic (`epic-N-iK`) named by some
+    row's `epic`, whose registered stories include no `z` story. The ratchet is what
+    separates an improvement epic from a batch of fixes
+    (`epic-formation-gate.md` §4); a missing one is the epic silently degrading into the
+    thing it was formed to replace. Plain integer epics are exempt — they are feature
+    epics and carry no ratchet.
 
 Check 7 finds *candidates*, not conflicts. Semantic contradiction between items that
 touch no common surface is **not mechanically detectable** and needs a reading pass —
@@ -314,6 +324,14 @@ cheap by design — a row is one line.
 
 **Triage.** Set `type`, sharpen `touches`, and either promote or `skip` with a reason.
 Batch by `type` or by shared tag rather than item-by-item.
+
+**Epic formation** (optional, batch). Several triaged rows that violate one invariant are
+folded into an improvement epic rather than fixed one at a time — the step that lets the
+implementing agent build the shared mechanism once instead of re-solving it per row. Ritual,
+criteria, and numbering: `planning-artifacts/epic-formation-gate.md`. It stamps `epic:` on
+each member row and leaves status at `triaged`; only stories move a row to `promoted`.
+Rows never have to pass through this — a row with no clustering partners goes straight to
+promotion or to `bmad-quick-dev`, as before.
 
 **Promotion.** Running `CC` appends the proposal to `ref` and sets `triaged`. Running
 `bmad-create-story` appends story keys to `stories`; status becomes `promoted` and from
