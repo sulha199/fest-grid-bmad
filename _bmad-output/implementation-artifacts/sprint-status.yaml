@@ -1242,7 +1242,7 @@ development_status:
   # round-trip itself (unnecessary to close the leak). See story file's Dev Notes ->
   # Scope Extension Decision.
   3-6i-classify-and-discard-private-contact-info-during-ai-extraction: review
-  3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: in-progress
+  3-6j-verify-and-guard-against-performer-contact-photo-leakage-in-extraction: review
   # story created 2026-09-04 via bmad-create-story. Epic-3-readiness.md predates this
   # story (stories_covered excludes 3.6k) so Gates 1/2/3 were re-run fresh. Gate 1 found
   # a scoping gap (corrections.status has no AWAITING_VERIFICATION-equivalent value, no
