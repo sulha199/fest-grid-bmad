@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../db/client.js';
-import { scraperActorRuns } from '@festgrid/database';
-import { desc, count } from 'drizzle-orm';
-import { decodeActorRunCursor, endOfUtcDay } from './resolvers.js';
+import { scraperActorRuns, socialMediaAccountProfiles } from '@festgrid/database';
+import { eq, desc, count } from 'drizzle-orm';
+import { decodeActorRunCursor, endOfUtcDay, resolvers } from './resolvers.js';
 import { GraphQLError } from 'graphql';
 
+const moderatorContext = { user: { userId: 'test-moderator', role: 'moderator' as const } };
 
 test('Actor Runs GraphQL Resolvers', async (t) => {
   await t.test('cursor and date-range helpers', async (t) => {
@@ -88,9 +89,56 @@ test('Actor Runs GraphQL Resolvers', async (t) => {
       assert.ok(selectMock);
     });
 
-    await t.test('should filter by vendor', async () => {
-      // When filters.vendor = 'BRIGHTDATA', query should include that condition
-      assert.ok(scraperActorRuns);
+    await t.test('should filter by vendor against a real DB without throwing (regression: scraper_run_vendor enum case)', async (t) => {
+      // Real DB, real resolver -- not mocked. This is the exact path that broke in
+      // production: migration 0032 created scraper_run_vendor with lowercase values
+      // ('apify'/'brightdata') while every call site (this resolver included) has
+      // always filtered/inserted with uppercase ('APIFY'/'BRIGHTDATA'). A mocked
+      // db.select() (as used elsewhere in this file) never touches Postgres, so it
+      // can't catch an "invalid input value for enum" error -- only a real query can.
+      const [profile] = await db
+        .insert(socialMediaAccountProfiles)
+        .values({
+          accountId: 'acct-vendor-filter-' + Date.now(),
+          platform: 'instagram',
+          username: 'test_user_vendor_filter',
+          displayName: 'Test User Vendor Filter',
+        })
+        .returning({ id: socialMediaAccountProfiles.id });
+
+      const [run] = await db
+        .insert(scraperActorRuns)
+        .values({
+          vendor: 'BRIGHTDATA',
+          triggerMode: 'ASYNC',
+          profileId: profile.id,
+          runId: 'vendor-filter-run-' + Date.now(),
+          rawInput: {},
+        })
+        .returning({ id: scraperActorRuns.id });
+
+      t.after(async () => {
+        await db.delete(scraperActorRuns).where(eq(scraperActorRuns.id, run.id));
+        await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+      });
+
+      const queryActorRuns = (resolvers.Query as any).queryActorRuns;
+
+      const brightDataResult = await queryActorRuns(
+        {},
+        { filters: { vendor: 'BRIGHTDATA' }, first: 20 },
+        moderatorContext as any,
+        {} as any
+      );
+      assert.ok(brightDataResult.edges.some((e: any) => e.node.id === run.id));
+
+      const apifyResult = await queryActorRuns(
+        {},
+        { filters: { vendor: 'APIFY' }, first: 20 },
+        moderatorContext as any,
+        {} as any
+      );
+      assert.ok(!apifyResult.edges.some((e: any) => e.node.id === run.id));
     });
 
     await t.test('should filter by status', async () => {
