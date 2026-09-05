@@ -293,9 +293,9 @@ test('scraper actor run linking (Story 3-4l)', async (t) => {
     const rawOutput = [
       {
         url: 'https://instagram.com/p/bd-replay-url/',
-        caption: 'Bright Data replayed post caption',
+        description: 'Bright Data replayed post caption',
         date_posted: new Date().toISOString(),
-        image_url: 'https://example.com/bd-img.jpg',
+        photos: ['https://example.com/bd-img.jpg'],
         videos: ['https://example.com/bd-video.mp4'],
       }
     ];

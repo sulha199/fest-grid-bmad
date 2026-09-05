@@ -19,9 +19,14 @@ export async function mapBrightDataRecordToScrapedPost(
   const brightDataRecord = record as Record<string, unknown>;
 
   // Map Bright Data field names to our post structure
+  // (field names confirmed against Bright Data's Instagram Posts dataset schema --
+  // `description` is the caption field and `photos`/`videos` are URL arrays; there is
+  // no `caption`/`image_url` field, which is why every record was mapping to an empty
+  // `content` and getting rejected by AJV validation before this fix)
   const postUrl = brightDataRecord.url as string;
-  const imageUrl = brightDataRecord.image_url as string;
-  const caption = brightDataRecord.caption as string;
+  const photos = brightDataRecord.photos as unknown[] | null | undefined;
+  const imageUrl = Array.isArray(photos) && photos.length > 0 && typeof photos[0] === 'string' ? photos[0] : undefined;
+  const caption = brightDataRecord.description as string;
   const datePosted = brightDataRecord.date_posted;
   const videos = brightDataRecord.videos as unknown[] | null | undefined;
   const videoUrl = Array.isArray(videos) && videos.length > 0 && typeof videos[0] === 'string' ? videos[0] : undefined;

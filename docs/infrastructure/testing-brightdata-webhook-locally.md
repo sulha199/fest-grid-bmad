@@ -104,7 +104,7 @@ To iterate on the handler/mapping logic without waiting on a real Bright Data jo
 ```bash
 curl -X POST "http://localhost:4001/webhooks/brightdata?jobToken=<webhookToken-from-a-PENDING-row>" \
   -H "Content-Type: application/json" \
-  -d '[{"url": "...", "caption": "...", "likes": 1, "comments": 0, "date_posted": "2026-08-01T00:00:00Z", "id": "abc123"}]'
+  -d '[{"url": "...", "description": "...", "likes": 1, "num_comments": 0, "date_posted": "2026-08-01T00:00:00Z", "id": "abc123"}]'
 ```
 
 This is the right loop for iterating on Task 5's field-mapping (`processBrightDataResult`) and Task 6's token-validation branches (missing/unknown/expired/already-completed token → `200` without processing) — no ngrok or real Bright Data call needed for any of that. Reserve the full ngrok round trip for confirming the *real* payload shape once, not for every iteration.

@@ -50,9 +50,9 @@ test('process-brightdata-result tests', async (t) => {
     const records = [
       {
         url: 'https://www.instagram.com/p/abc123/',
-        caption: 'Test post from Bright Data',
+        description: 'Test post from Bright Data',
         date_posted: '2026-08-08T00:00:00Z',
-        image_url: 'https://example.com/img.jpg',
+        photos: ['https://example.com/img.jpg'],
       },
     ];
 
@@ -109,9 +109,9 @@ test('process-brightdata-result tests', async (t) => {
     const records = [
       {
         url: 'https://www.instagram.com/p/video123/',
-        caption: 'Test video post from Bright Data',
+        description: 'Test video post from Bright Data',
         date_posted: '2026-08-08T00:00:00Z',
-        image_url: 'https://example.com/img.jpg',
+        photos: ['https://example.com/img.jpg'],
         videos: ['https://example.com/video.mp4'],
       },
     ];
@@ -153,15 +153,15 @@ test('process-brightdata-result tests', async (t) => {
     const records = [
       {
         url: 'https://www.instagram.com/p/valid/',
-        caption: 'Valid post',
+        description: 'Valid post',
         date_posted: '2026-08-08T00:00:00Z',
-        image_url: 'https://example.com/valid.jpg',
+        photos: ['https://example.com/valid.jpg'],
       },
       {
         url: 'https://www.instagram.com/p/invalid/',
-        caption: 'Invalid post',
+        description: 'Invalid post',
         date_posted: 12345, // Wrong type: number instead of string
-        image_url: 'https://example.com/invalid.jpg',
+        photos: ['https://example.com/invalid.jpg'],
       },
     ];
 
@@ -208,9 +208,9 @@ test('process-brightdata-result tests', async (t) => {
     const records = [
       {
         // Missing url
-        caption: 'Post without URL',
+        description: 'Post without URL',
         date_posted: '2026-08-08T00:00:00Z',
-        image_url: 'https://example.com/img.jpg',
+        photos: ['https://example.com/img.jpg'],
       },
     ];
 
@@ -255,9 +255,9 @@ test('process-brightdata-result tests', async (t) => {
     const records = [
       {
         url: 'https://www.instagram.com/p/malformed-video/',
-        caption: 'Test post with malformed videos',
+        description: 'Test post with malformed videos',
         date_posted: '2026-08-08T00:00:00Z',
-        image_url: 'https://example.com/img.jpg',
+        photos: ['https://example.com/img.jpg'],
         videos: [12345], // non-string element
       },
     ];
