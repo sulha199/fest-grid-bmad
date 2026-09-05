@@ -24,11 +24,17 @@ export function PayloadDetail({ payload, onReprocess, isReprocessing }: PayloadD
     }
   }
 
-  let parsedJson: Record<string, unknown> | null = null
-  try {
-    parsedJson = JSON.parse(payload.rawPayload)
-  } catch (e) {
-    // Keep as string if JSON parsing fails
+  // The `rawPayload` GraphQL field is a JSON scalar, so the server already sends it
+  // parsed (object/array/primitive) rather than as a JSON-encoded string.
+  let displayPayload: string
+  if (typeof payload.rawPayload === "string") {
+    try {
+      displayPayload = JSON.stringify(JSON.parse(payload.rawPayload), null, 2)
+    } catch (e) {
+      displayPayload = payload.rawPayload
+    }
+  } else {
+    displayPayload = JSON.stringify(payload.rawPayload, null, 2)
   }
 
   return (
@@ -52,7 +58,7 @@ export function PayloadDetail({ payload, onReprocess, isReprocessing }: PayloadD
         <h3 className="text-sm font-semibold">{t("rawJsonLabel")}</h3>
         <div className="overflow-x-auto rounded-md border border-border bg-muted">
           <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words p-4 font-mono text-xs">
-            {typeof parsedJson === "object" && parsedJson !== null ? JSON.stringify(parsedJson, null, 2) : payload.rawPayload}
+            {displayPayload}
           </pre>
         </div>
       </div>
