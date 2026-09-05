@@ -1,6 +1,7 @@
 import { db } from '../../db/client.js';
 import { scraperActorRuns } from '@festgrid/database';
 import { eq, and } from 'drizzle-orm';
+import { sendScraperAuditAlert } from '../notifications/send-scraper-audit-alert.js';
 
 export type RecordActorRunStartInput = {
   vendor: 'APIFY' | 'BRIGHTDATA';
@@ -47,6 +48,11 @@ export async function recordActorRunStart(input: RecordActorRunStartInput): Prom
       `Failed to record actor run start for ${input.vendor} run ${input.runId}:`,
       err
     );
+    await sendScraperAuditAlert({
+      source: 'recordActorRunStart',
+      message: err instanceof Error ? err.message : String(err),
+      context: JSON.stringify({ vendor: input.vendor, runId: input.runId, profileId: input.profileId }),
+    });
     return null;
   }
 }
@@ -95,7 +101,14 @@ export async function recordActorRunResult(input: RecordActorRunResultInput): Pr
       `Failed to record actor run result for ${input.vendor} run ${input.runId}:`,
       err
     );
-    // Errors are swallowed intentionally - audit recording never blocks the caller
+    // The DB error itself is swallowed intentionally (audit recording never throws to the
+    // caller) -- but the resulting moderator alert is awaited, since sendScraperAuditAlert
+    // can never throw either and this guarantees the alert isn't dropped by a Lambda freeze.
+    await sendScraperAuditAlert({
+      source: 'recordActorRunResult',
+      message: err instanceof Error ? err.message : String(err),
+      context: JSON.stringify({ vendor: input.vendor, runId: input.runId, id: input.id }),
+    });
   }
 }
 
@@ -142,6 +155,11 @@ export async function recordSyncActorRun(input: {
       `Failed to record sync actor run for ${input.vendor} run ${input.runId}:`,
       err
     );
+    await sendScraperAuditAlert({
+      source: 'recordSyncActorRun',
+      message: err instanceof Error ? err.message : String(err),
+      context: JSON.stringify({ vendor: input.vendor, runId: input.runId, profileId: input.profileId }),
+    });
     return null;
   }
 }

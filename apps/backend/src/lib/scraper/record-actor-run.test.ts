@@ -2,8 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { recordActorRunStart, recordActorRunResult, recordSyncActorRun } from './record-actor-run.js';
 import { db } from '../../db/client.js';
+import { sendScraperAuditAlert, setSendScraperAuditAlert } from '../notifications/send-scraper-audit-alert.js';
 
 test('record-actor-run', async (t) => {
+  const originalSendScraperAuditAlert = sendScraperAuditAlert;
+  t.afterEach(() => {
+    setSendScraperAuditAlert(originalSendScraperAuditAlert);
+  });
+
   await t.test('recordActorRunStart', async (t) => {
     await t.test('should insert a new pending actor run', async (t) => {
       t.mock.method(db, 'insert', () => ({
@@ -23,10 +29,14 @@ test('record-actor-run', async (t) => {
       assert.strictEqual(result, 'run-123');
     });
 
-    await t.test('should catch and log database errors without throwing', async (t) => {
+    await t.test('should catch and log database errors without throwing, and alert moderators', async (t) => {
       const consoleErrorMock = t.mock.method(console, 'error', () => {});
       t.mock.method(db, 'insert', () => {
         throw new Error('DB error');
+      });
+      const alertCalls: any[] = [];
+      setSendScraperAuditAlert(async (details) => {
+        alertCalls.push(details);
       });
 
       const result = await recordActorRunStart({
@@ -39,6 +49,9 @@ test('record-actor-run', async (t) => {
 
       assert.strictEqual(result, null);
       assert.ok(consoleErrorMock.mock.callCount() > 0);
+      assert.strictEqual(alertCalls.length, 1);
+      assert.strictEqual(alertCalls[0].source, 'recordActorRunStart');
+      assert.ok(alertCalls[0].context.includes('apify-run-123'));
     });
   });
 
@@ -62,10 +75,14 @@ test('record-actor-run', async (t) => {
       assert.ok(updateMock.mock.callCount() > 0);
     });
 
-    await t.test('should catch and log database errors without throwing', async (t) => {
+    await t.test('should catch and log database errors without throwing, and alert moderators', async (t) => {
       const consoleErrorMock = t.mock.method(console, 'error', () => {});
       t.mock.method(db, 'update', () => {
         throw new Error('DB error');
+      });
+      const alertCalls: any[] = [];
+      setSendScraperAuditAlert(async (details) => {
+        alertCalls.push(details);
       });
 
       await recordActorRunResult({
@@ -76,6 +93,8 @@ test('record-actor-run', async (t) => {
       });
 
       assert.ok(consoleErrorMock.mock.callCount() > 0);
+      assert.strictEqual(alertCalls.length, 1);
+      assert.strictEqual(alertCalls[0].source, 'recordActorRunResult');
     });
   });
 
@@ -119,10 +138,14 @@ test('record-actor-run', async (t) => {
       assert.ok(insertMock.mock.callCount() > 0);
     });
 
-    await t.test('should catch and log database errors without throwing', async (t) => {
+    await t.test('should catch and log database errors without throwing, and alert moderators', async (t) => {
       const consoleErrorMock = t.mock.method(console, 'error', () => {});
       t.mock.method(db, 'insert', () => {
         throw new Error('DB error');
+      });
+      const alertCalls: any[] = [];
+      setSendScraperAuditAlert(async (details) => {
+        alertCalls.push(details);
       });
 
       await recordSyncActorRun({
@@ -134,6 +157,8 @@ test('record-actor-run', async (t) => {
       });
 
       assert.ok(consoleErrorMock.mock.callCount() > 0);
+      assert.strictEqual(alertCalls.length, 1);
+      assert.strictEqual(alertCalls[0].source, 'recordSyncActorRun');
     });
   });
 });

@@ -1,5 +1,6 @@
 import { db } from '../../db/client.js';
 import { unprocessedScraperPayloads } from '@festgrid/database';
+import { sendScraperAuditAlert } from '../notifications/send-scraper-audit-alert.js';
 
 interface PersistUnprocessedPayloadParams {
   rawPayload: unknown;
@@ -41,13 +42,20 @@ export async function persistUnprocessedPayload({
         `FK constraint violation inserting unprocessed payload with runId ${scraperActorRunId}; payload will be persisted without run link`,
         err
       );
-      // Retry insert without the FK to ensure payload is captured
+      await sendScraperAuditAlert({
+        source: 'persistUnprocessedPayload',
+        message: `FK constraint violation on scraperActorRunId ${scraperActorRunId}`,
+        context: JSON.stringify({ scraperActorRunId, ...context }),
+      });
+      // Retry insert without the FK to ensure payload is captured, but preserve the
+      // orphaned run id inside context (jsonb) so a future backfill can key on it
+      // instead of losing the link entirely.
       const result = await db
         .insert(unprocessedScraperPayloads)
         .values({
           rawPayload,
           validationError,
-          context,
+          context: { ...context, orphanedScraperActorRunId: scraperActorRunId },
           // omit scraperActorRunId to retry without FK
         })
         .returning();

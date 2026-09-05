@@ -551,6 +551,22 @@ items:
      touches: [web:moderation],
      note: "Deferred from: moderator-tools-test-missing-message (2026-09-05). 2 findings."}
 
+  FIND-020:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: internal, effort: m,
+     title: "Scraper audit-trail alert lacks throttling/dedup, duplicates an existing moderator-notify pattern, and depends on the same DB it may be reporting on",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, pkg:domain],
+     note: "Deferred from: quick-dev fix of scraper-audit-trail-alerting (2026-09-05). 5 findings (excludes the HTML-escaping finding, tracked separately as FIND-021 per its user-visible impact)."}
+
+  FIND-021:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: user-visible, effort: m,
+     title: "render-template.ts has no HTML-escaping; scraper-sourced content flows unescaped into moderator alert emails",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [pkg:domain, app:backend],
+     note: "Deferred from: quick-dev fix of scraper-audit-trail-alerting (2026-09-05). Pre-existing gap in the shared render engine, already reachable via existing templates (e.g. DANGEROUS_EVENT_MODERATOR_ALERT's eventName); this pass's new SCRAPER_AUDIT_TRAIL_FAILURE_ALERT template is a new consumer of scraper-influenced fields (postUrl, raw DB error text) routed through it."}
+
   # ── undated intake ──────────────────────────────────────────────────────────
   IDEA-001:
     {type: idea, status: backlog, created: 2026-09-04,
