@@ -543,6 +543,14 @@ items:
      touches: [app:backend, pkg:domain, web:widgets],
      note: "DW-074, DW-075, DW-076, DW-077, DW-078, DW-083, DW-084, DW-085, DW-086. No production widgets exist yet, so all latent: missing timezone handling, a hardcoded 90-day fallback window, an epoch-fallback trick, no offsetAmount bounds, an unvalidated 'as any' cast on Widget.filters, no pagination/quota on two mutations, unmapped DB exceptions, and a caveat-joining blemish in the summary renderer."}
 
+  FIND-019:
+    {type: finding, status: backlog, created: 2026-09-05,
+     impact: internal, effort: s,
+     title: "ModeratorToolsContent test has no Accounts-tab coverage and an inaccurate test name",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [web:moderation],
+     note: "Deferred from: moderator-tools-test-missing-message (2026-09-05). 2 findings."}
+
   # ── undated intake ──────────────────────────────────────────────────────────
   IDEA-001:
     {type: idea, status: backlog, created: 2026-09-04,
