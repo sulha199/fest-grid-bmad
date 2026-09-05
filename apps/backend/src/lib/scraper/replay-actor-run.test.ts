@@ -40,15 +40,15 @@ test('replay-actor-run tests (Bright Data)', async (t) => {
     const rawOutput = [
       {
         url: 'https://www.instagram.com/p/valid-replay/',
-        caption: 'Valid replayed post',
+        description: 'Valid replayed post',
         date_posted: '2026-08-08T00:00:00Z',
-        image_url: 'https://example.com/img.jpg',
+        photos: ['https://example.com/img.jpg'],
       },
       {
         url: 'https://www.instagram.com/p/bad-date-replay/',
-        caption: 'Bad date post',
+        description: 'Bad date post',
         date_posted: 12345, // malformed date
-        image_url: 'https://example.com/img2.jpg',
+        photos: ['https://example.com/img2.jpg'],
       },
     ];
 

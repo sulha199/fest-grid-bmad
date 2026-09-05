@@ -36,9 +36,9 @@ test('brightdata-record-mapper tests', async (t) => {
   await t.test('returns mapped candidate for valid record', async () => {
     const record = {
       url: 'https://www.instagram.com/p/valid/',
-      caption: 'Valid post',
+      description: 'Valid post',
       date_posted: '2026-08-08T00:00:00Z',
-      image_url: 'https://example.com/img.jpg',
+      photos: ['https://example.com/img.jpg'],
     };
 
     const countStart = (await db.select().from(unprocessedScraperPayloads)).length;
@@ -58,9 +58,9 @@ test('brightdata-record-mapper tests', async (t) => {
   await t.test('returns null and persists unprocessed payload for bad date_posted type', async () => {
     const record = {
       url: 'https://www.instagram.com/p/bad-date/',
-      caption: 'Bad date post',
+      description: 'Bad date post',
       date_posted: 1234567890,
-      image_url: 'https://example.com/img.jpg',
+      photos: ['https://example.com/img.jpg'],
     };
 
     const countStart = (await db.select().from(unprocessedScraperPayloads)).length;
@@ -81,7 +81,7 @@ test('brightdata-record-mapper tests', async (t) => {
 
   await t.test('returns null and skips unprocessed payload for missing URL', async () => {
     const record = {
-      caption: 'No URL post',
+      description: 'No URL post',
       date_posted: '2026-08-08T00:00:00Z',
     };
 
@@ -98,7 +98,7 @@ test('brightdata-record-mapper tests', async (t) => {
   await t.test('returns null and persists unprocessed payload for failed AJV validation', async () => {
     const record = {
       url: 'https://www.instagram.com/p/invalid/',
-      caption: '', // Fails minLength: 1 for content
+      description: '', // Fails minLength: 1 for content
       date_posted: '2026-08-08T00:00:00Z',
     };
 
