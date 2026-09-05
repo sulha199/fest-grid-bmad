@@ -42,11 +42,11 @@ export async function persistUnprocessedPayload({
         `FK constraint violation inserting unprocessed payload with runId ${scraperActorRunId}; payload will be persisted without run link`,
         err
       );
-      sendScraperAuditAlert({
+      await sendScraperAuditAlert({
         source: 'persistUnprocessedPayload',
         message: `FK constraint violation on scraperActorRunId ${scraperActorRunId}`,
         context: JSON.stringify({ scraperActorRunId, ...context }),
-      }).catch(() => {});
+      });
       // Retry insert without the FK to ensure payload is captured, but preserve the
       // orphaned run id inside context (jsonb) so a future backfill can key on it
       // instead of losing the link entirely.

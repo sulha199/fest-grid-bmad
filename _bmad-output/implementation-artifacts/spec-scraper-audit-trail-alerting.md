@@ -2,8 +2,8 @@
 title: 'Alert moderators and preserve context on scraper audit-trail silent failures'
 type: 'bugfix'
 created: '2026-09-05'
-status: 'in-review'
-review_loop_iteration: 0
+status: 'done'
+review_loop_iteration: 1
 context: []
 baseline_commit: '5b13fab6f98eb7f093521e20796d53032bcfffb1'
 ---
@@ -19,7 +19,7 @@ baseline_commit: '5b13fab6f98eb7f093521e20796d53032bcfffb1'
 ## Boundaries & Constraints
 
 **Always:**
-- Every touched function keeps its existing "never throw, never block the caller" contract — the alert call is fire-and-forget (not awaited) inside each catch block, and `sendScraperAuditAlert` itself never throws (own try/catch, matching `sendDangerousReportModeratorAlerts`'s shape).
+- Every touched function keeps its existing "never throw to the caller" contract — `sendScraperAuditAlert` itself never throws (own try/catch, matching `sendDangerousReportModeratorAlerts`'s shape), so it is safe to `await` at every call site: awaiting it cannot introduce a new failure mode, and it removes the risk of the Lambda execution environment freezing mid-dispatch on an un-awaited promise (see Spec Change Log).
 - Alert recipients are all `role = 'moderator'` users (per user decision, consistent with Story 3.4q's precedent) — not `SYSTEM_ERROR_ALERT_EMAIL`.
 - No throttling/cooldown in this fix (per user decision) — one alert attempt per failure occurrence.
 - `stale-job-sweep.ts` needs no direct changes — it only calls `recordActorRunResult`, so fixing `record-actor-run.ts` covers it.
@@ -60,16 +60,25 @@ baseline_commit: '5b13fab6f98eb7f093521e20796d53032bcfffb1'
 - [x] `packages/domain/src/email/render-template.test.ts` -- add render test for the new key
 - [x] `apps/backend/src/lib/notifications/send-scraper-audit-alert.ts` -- new module, `sendScraperAuditAlert(details: { source: string; message: string; context: string }, deps = { sendTemplatedEmail })`, mirrors `send-dangerous-report-moderator-alerts.ts` exactly
 - [x] `apps/backend/src/lib/notifications/send-scraper-audit-alert.test.ts` -- new, real-DB seam-based test mirroring `send-dangerous-report-moderator-alerts.test.ts` (happy path, zero moderators, partial failure)
-- [x] `apps/backend/src/lib/scraper/record-actor-run.ts` -- call `sendScraperAuditAlert` (fire-and-forget, `.catch(() => {})` safety net) from all 3 catch blocks with vendor/runId/profileId context
+- [x] `apps/backend/src/lib/scraper/record-actor-run.ts` -- `await sendScraperAuditAlert(...)` (not fire-and-forget, per Spec Change Log) from all 3 catch blocks with vendor/runId/profileId context
 - [x] `apps/backend/src/lib/scraper/record-actor-run.test.ts` -- extend existing "catch and log" tests to also assert the alert fires (mock `sendScraperAuditAlert` via its module seam)
 - [x] `apps/backend/src/lib/posts/persist-unprocessed-payload.ts` -- in the `23503` branch, call `sendScraperAuditAlert` and set `context.orphanedScraperActorRunId` on the retried insert
 - [x] `apps/backend/src/lib/posts/persist-unprocessed-payload.test.ts` -- add a real-DB test that forces a genuine FK violation (a random non-existent UUID) and asserts the retried row's `context.orphanedScraperActorRunId` matches, plus the alert fires
 - [x] `_bmad-output/implementation-artifacts/deferred-work.md` -- append one entry naming the deferred throttling/cooldown mechanism for this alert path
+- [x] `apps/backend/src/lib/notifications/send-scraper-audit-alert.ts` -- narrow `ScraperAuditFailureDetails.source` from bare `string` to a literal union of the 4 real call-site values (review patch)
+- [x] `apps/backend/src/lib/scraper/record-actor-run.ts` -- update the stale `// Errors are swallowed intentionally...` comment above `recordActorRunResult`'s catch block to reflect the new awaited alert dispatch (review patch)
+- [x] `apps/backend/src/lib/scraper/record-actor-run.ts`, `apps/backend/src/lib/posts/persist-unprocessed-payload.ts` -- change all 4 `sendScraperAuditAlert(...).catch(() => {})` call sites to `await sendScraperAuditAlert(...)` per Spec Change Log
 
 **Acceptance Criteria:**
 - Given a DB error during `recordActorRunStart`, when it's caught, then the function still returns `null` (unchanged contract) and `sendScraperAuditAlert` is invoked with vendor/runId/profileId
 - Given a `23503` FK violation in `persistUnprocessedPayload`, when the retry succeeds, then the persisted row's `context.orphanedScraperActorRunId` equals the originally-passed `scraperActorRunId`, and `sendScraperAuditAlert` is invoked
 - Given zero `role='moderator'` users, when `sendScraperAuditAlert` runs, then it logs and returns without throwing or sending email
+
+## Spec Change Log
+
+- **2026-09-05, review_loop_iteration 1 (intent_gap, root cause inside `<frozen-after-approval>`):** All three review passes (2x Blind Hunter, Edge Case Hunter, run independently with no shared context) independently flagged the same top finding: the original "fire-and-forget (not awaited)" mandate in Boundaries & Constraints risks the AWS Lambda execution environment freezing mid-dispatch — after the handler's own awaited chain resolves, an un-awaited promise (a DB query + parallel SES sends) may never complete, silently defeating this fix's entire purpose (guaranteed moderator notification on audit-trail failure). Verified `sendScraperAuditAlert` structurally can never throw (its own top-level try/catch swallows everything), so awaiting it cannot violate the "never blocks/throws to the caller" contract — it only adds the alert's own latency to an already-degraded failure path. Presented to the human via `AskUserQuestion`; **human chose to await it**. Amended: the "Always" bullet in Boundaries & Constraints (fire-and-forget → awaited); Task list items for `record-actor-run.ts`/`persist-unprocessed-payload.ts` (see Code Map tasks). **KEEP:** everything else about the original design survives unchanged — `sendScraperAuditAlert`'s own internal never-throws contract, the moderator-query-and-email pattern, the FK-violation-branch scoping, no-throttling decision, and Story 3.4q exclusion are all still correct and were not reconsidered.
+- **2026-09-05, review_loop_iteration 1 (patch, non-frozen):** Two additional low-risk review findings applied as direct patches (not requiring human input, per step-04's patch category): (1) `ScraperAuditFailureDetails.source` narrowed from bare `string` to a literal union of the 4 real call-site values, since nothing prevented a typo from type-checking; (2) the stale comment above `recordActorRunResult`'s catch block updated to reflect that the block now also awaits an alert dispatch, not just a swallowed log.
+- **2026-09-05, review_loop_iteration 1 (defer, pre-existing/out-of-scope):** Several other real findings were confirmed pre-existing (not caused by this diff) or out of this fix's approved scope, and logged to `deferred-work.md` instead of blocking this pass: `render-template.ts`'s lack of HTML-escaping (shared by every existing template, not newly introduced); `persist-unprocessed-payload.ts`'s pre-existing unguarded retry-insert and non-FK-error-unalerted paths; the alert mechanism's inherent dependency on the same DB it's reporting failures about (matches the already-accepted email-via-app-DB pattern from Story 3.4q, which explicitly rejected an out-of-band CloudWatch/SNS channel); `send-scraper-audit-alert.ts`/`send-dangerous-report-moderator-alerts.ts` now being duplicate implementations of the same "notify all moderators" pattern, now with 2 real call sites (this project's own stated threshold for extracting shared infrastructure) — a real, actionable follow-up, but touching an already-shipped, already-tested file is outside this fix's approved Code Map; `context` being a pre-serialized string rather than a structured value; and the pre-existing unguarded `webAppBaseUrl` trailing-slash construction (mirrored from the sibling module, not introduced here).
 
 ## Design Notes
 
@@ -82,3 +91,55 @@ Alert module needs a mockable seam for `record-actor-run.test.ts`/`persist-unpro
 - `pnpm --filter domain exec tsx --test src/email/*.test.ts` -- expect 100% coverage maintained
 - `pnpm --filter backend lint && pnpm --filter domain lint` -- expect clean
 - `pnpm --filter backend build && pnpm --filter domain build` -- expect clean
+
+## Suggested Review Order
+
+**New alert module**
+
+- Entry point: the shared moderator-alert function, mirrors `send-dangerous-report-moderator-alerts.ts`'s query/fan-out/never-throw shape.
+  [`send-scraper-audit-alert.ts:19`](../../apps/backend/src/lib/notifications/send-scraper-audit-alert.ts#L19)
+
+- `source` narrowed to the 4 real call-site values instead of bare `string` (review patch).
+  [`send-scraper-audit-alert.ts:7`](../../apps/backend/src/lib/notifications/send-scraper-audit-alert.ts#L7)
+
+- Injectable `set...` seam so callers that don't have their own `deps` param can still mock this in tests.
+  [`send-scraper-audit-alert.ts:50`](../../apps/backend/src/lib/notifications/send-scraper-audit-alert.ts#L50)
+
+**Wiring into the silent-catch paths**
+
+- The FK-violation branch now alerts and preserves the orphaned run id in `context` instead of discarding it.
+  [`persist-unprocessed-payload.ts:45`](../../apps/backend/src/lib/posts/persist-unprocessed-payload.ts#L45)
+
+- `orphanedScraperActorRunId` survives the retry insert as a backfill key.
+  [`persist-unprocessed-payload.ts:58`](../../apps/backend/src/lib/posts/persist-unprocessed-payload.ts#L58)
+
+- `recordActorRunStart`'s catch now awaits the alert (not fire-and-forget) — see Spec Change Log for why.
+  [`record-actor-run.ts:51`](../../apps/backend/src/lib/scraper/record-actor-run.ts#L51)
+
+- `recordActorRunResult`'s catch, same awaited-alert change; comment updated to match.
+  [`record-actor-run.ts:107`](../../apps/backend/src/lib/scraper/record-actor-run.ts#L107)
+
+- `recordSyncActorRun`'s catch, same awaited-alert change.
+  [`record-actor-run.ts:158`](../../apps/backend/src/lib/scraper/record-actor-run.ts#L158)
+
+**New email template**
+
+- `SCRAPER_AUDIT_TRAIL_FAILURE_ALERT` variable shape, mirrors `SYSTEM_ERROR_ALERT`'s field naming.
+  [`types.ts:45`](../../packages/domain/src/email/types.ts#L45)
+
+- Template body (subject/html/text), matches existing moderator-alert tone.
+  [`templates.ts:73`](../../packages/domain/src/email/templates.ts#L73)
+
+**Tests**
+
+- Real-DB alert-dispatch tests: happy path, zero moderators, partial send failure.
+  [`send-scraper-audit-alert.test.ts:1`](../../apps/backend/src/lib/notifications/send-scraper-audit-alert.test.ts#L1)
+
+- Real FK violation forced via a non-existent UUID; asserts `orphanedScraperActorRunId` and the alert firing.
+  [`persist-unprocessed-payload.test.ts:191`](../../apps/backend/src/lib/posts/persist-unprocessed-payload.test.ts#L191)
+
+- Mocked-DB catch-path tests extended to assert the alert fires with the right `source`/`context`.
+  [`record-actor-run.test.ts:1`](../../apps/backend/src/lib/scraper/record-actor-run.test.ts#L1)
+
+- New render test for the template.
+  [`render-template.test.ts:93`](../../packages/domain/src/email/render-template.test.ts#L93)

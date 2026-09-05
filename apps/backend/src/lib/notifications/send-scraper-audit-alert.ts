@@ -4,8 +4,14 @@ import { users } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import * as emailAdapter from '../email/adapter.js';
 
+export type ScraperAuditFailureSource =
+  | 'recordActorRunStart'
+  | 'recordActorRunResult'
+  | 'recordSyncActorRun'
+  | 'persistUnprocessedPayload';
+
 export interface ScraperAuditFailureDetails {
-  source: string;
+  source: ScraperAuditFailureSource;
   message: string;
   context: string;
 }
