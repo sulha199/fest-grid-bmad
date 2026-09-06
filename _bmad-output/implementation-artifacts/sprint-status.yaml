@@ -380,6 +380,15 @@ development_status:
   # (confirmed via merge-base ancestry + swap testing). Merged onto current master
   # (4448d61). Post-merge: packages/ui 309/309 tests pass, all 5 touched pages' tests
   # + nearby.test.tsx pass (29/29), web lint clean (only pre-existing warnings).
+  # Documentation correction (2026-09-06, BUG-004 / sprint-change-proposal-
+  # 2026-09-04.md Section 5): this entry still reads `done`, but the
+  # ViewModeToggle component and per-page `layout` URL-param wiring it shipped
+  # were later deleted by spec-ux-rework2-p1-masonry-only.md, which hardcoded
+  # EventListView to always render masonry. The story's original scope was
+  # genuinely completed and merged at the time -- this is drift from a later,
+  # unrelated change removing the feature, not a stale/incorrect original
+  # status. No code change follows from this; left `done` since the story
+  # itself was never reverted, only superseded.
   1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web: done
   # Reopened 2026-08-24 via bmad-create-story: added AC9/Task 7 -- root
   # container drops its max-w-7xl cap in favor of full width
