@@ -1,12 +1,13 @@
 ---
 name: bmad-form-epics
-description: 'Clusters open backlog rows into improvement epics — one shared invariant, one mechanism story, adoption stories, and a mandatory ratchet — per epic-formation-gate.md, so a defect class is fixed once instead of row by row. Also runs that method''s stability test. Use when the user says "form epics from the backlog", "cluster the backlog into epics", "run epic formation", or "run the formation stability test".'
+description: 'Clusters open backlog rows that share one mechanism into an epic — a mechanism story, adoption stories, and a ratchet — per epic-formation-gate.md, so the shared thing is built once instead of re-solved row by row. Covers piled-up bugs and findings (improvement epics) and two or more features needing the same mechanism (feature epics), including reopening a row skipped on price. Also runs that method''s stability test. Use when the user says "form epics from the backlog", "cluster the backlog into epics", "run epic formation", "these two features need the same thing", or "run the formation stability test".'
 ---
 
 # Form Epics From The Backlog
 
-**Goal:** Turn open `backlog.yaml` rows into improvement epics, following
-`epic-formation-gate.md`. That document is the method; this skill is its execution order,
+**Goal:** Turn open `backlog.yaml` rows that share one mechanism into an epic, following
+`epic-formation-gate.md` — an improvement epic from bugs and findings, or a feature epic
+from ideas and proposals (§2). That document is the method; this skill is its execution order,
 its delegation to the runner, and its human checkpoint. It adds no rules of its own.
 
 **Why this exists:** `bmad-quick-dev` fixes one row with no gates. `bmad-create-story` runs
