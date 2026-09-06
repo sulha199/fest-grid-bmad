@@ -2,7 +2,7 @@
 title: "DESIGN.md: festgrid"
 status: "draft"
 created: "2026-07-13T22:33:00Z"
-updated: "2026-08-25T00:00:00Z"
+updated: "2026-09-04T00:00:00Z"
 sources:
   - "_bmad-output/planning-artifacts/prfaq-festgrid.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -34,7 +34,7 @@ components:
     # Both rows below are the *output* of GridContainer(baseCols, colsStep) (packages/ui/src/core/grid-container.tsx,
     # Story 0.31), documented here for readability -- not hand-maintained separately from the component.
     base: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4" # GridContainer(baseCols=1, colsStep=1)
-    masonry: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4" # GridContainer(baseCols=2, colsStep=1), Story 1.3b/1.3d Pinterest/masonry view mode
+    masonry: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-x-2 gap-y-6" # GridContainer(baseCols=2, colsStep=1) with gap="gap-x-2 gap-y-6" (amended 2026-09-04, sprint-change-proposal-2026-09-04.md Section 4.3/Story 1.3d AC19 -- tighter horizontal gap keeps the 2-col mobile grid dense, larger vertical gap gives each card's new date_box/badge_row/caption stack room against the row below so adjacent cards' content doesn't read as connected)
   page_container:
     full_width: "w-full min-w-[320px] sm:min-w-[640px] md:min-w-[768px] lg:min-w-[1024px] xl:min-w-[1280px] p-4 sm:p-8 space-y-8" # fullWidth=true (default), added 2026-08-24, replaces the per-page max-w-7xl mx-auto copy-paste -- see packages/ui/src/core/page-container.tsx (Story 0.30)
     contained: "w-full max-w-5xl mx-auto lg:min-w-[768px] p-4 sm:p-8 space-y-8" # fullWidth=false, added 2026-08-24, replaces the per-page max-w-3xl/max-w-4xl split on settings/table pages
@@ -89,14 +89,55 @@ components:
   event_card_masonry:
     # Added 2026-08-25 -- Story 1.3b's variant="masonry" prop, sprint-change-proposal-2026-08-24-ux-rework-batch.md
     # Section 4.4/4.5. Distinct from event_card_compact above, which is the calendar view's per-schedule
-    # mini-card, not a card-grid mode. Reference: user-provided screenshot, 2-col grid, native-aspect-ratio
-    # poster image, relative-day pill top-left, heart+count badge top-right, title/venue caption below.
-    image: "w-full aspect-[3/4] object-cover" # native aspect ratio, no fixed h-48 like the standard variant
-    caption: "p-2 flex flex-col gap-0.5" # tighter than the standard variant's p-4 -- denser Pinterest-grid density
-  event_card_relative_day_pill:
-    base: "absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full text-xs font-semibold bg-background/80 backdrop-blur-sm shadow-sm text-foreground" # same glassmorphism treatment as the existing favorite-toggle button, mirrored to the opposite corner
+    # mini-card, not a card-grid mode. Amended 2026-09-04 -- sprint-change-proposal-2026-09-04.md Section 4.3
+    # (Story 1.3b AC14-AC18 / 1.3d AC16-AC19): replaces the top-left relative-day pill with event_card_date_box
+    # (below), adds a below-image badge row, and adds the prominent-poster treatment for durableImageUrl-driven
+    # opted-in accounts (PRD SS3.16). Reference: two user-provided screenshots -- default and opted-in/prominent
+    # states are the identical structure, only the poster's aspect ratio differs between them (user-confirmed).
+    image: "w-full aspect-[3/4] object-cover" # native aspect ratio, default/non-prominent poster -- unchanged
+    image_prominent: "w-full aspect-[2/3] object-cover" # Story 1.3b AC17 -- taller than the default aspect-[3/4], rendered when prominentPoster=true (EventListView derives this from durableImageUrl != null, AC17). Same date_box/till_badge/heart+count overlay treatment and badge_row placement as the default state -- only the image silhouette changes.
+    caption: "p-3 flex-1 flex flex-col gap-2" # unchanged container -- badge_row (below) is now its first flex child, so the existing gap-2 spacing applies uniformly between badge_row, the title, and locationName with no separate wrapper needed
+    badge_row: "flex items-center gap-1.5 flex-wrap" # status badge always first, nearby badge appended when present (AC15/AC16). Sits below the poster against the card's own bg-card background, so unlike date_box/till_badge it uses solid fills, not glassmorphism
+  event_card_date_box:
+    # Added <bmad-ux pass, 2026-09-04> -- sprint-change-proposal-2026-09-04.md Section 4.3, supersedes
+    # event_card_relative_day_pill (2026-08-25) entirely for the masonry variant. Same top-left overlay slot/
+    # z-index as the pill it replaces (user-confirmed: overlay-on-poster, not a separate beside/above element);
+    # restyled as a squarer "box" (rounded-md, not rounded-full) so it reads as a date chip distinct from a
+    # pure status pill. Primary content is the exact same formatShortEventDateTime() output the pill already
+    # rendered (Today/Tomorrow/weekday/short-date, e.g. "12 Oct") plus its existing Clock-icon-when-today-with-
+    # time rule (AC12) -- reused verbatim, not reimplemented. Identical in both default and prominent poster
+    # states (only the poster's own aspect ratio differs, per event_card_masonry.image_prominent).
+    base: "absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground"
+    icon: "w-3 h-3" # existing Clock icon, rendered only when hasTime && dayDiff === 0 -- unchanged rule carried over from the superseded pill
+  event_card_till_badge:
+    # Added <bmad-ux pass, 2026-09-04> -- Story 1.3b AC14. A distinct sub-badge anchored to event_card_date_box's
+    # bottom edge (event_card_date_box's own `absolute` positioning already makes it a valid containing block for
+    # this child, no extra `relative` class needed) -- not a second text line inside the box's own padding, so it
+    # reads as its own tag rather than part of the date box's primary content. Renders only once the event has
+    # started (AC14), so its appearance/inverted color is a live-urgency cue distinct from the neutral date box
+    # beneath it. Text is "till" or "till {formatted end time}" per AC14's exact rule.
+    base: "absolute -bottom-1.5 left-1/2 -translate-x-1/2 z-20 px-1.5 py-0.5 rounded-full bg-foreground text-background text-[10px] font-semibold leading-none shadow-sm whitespace-nowrap"
+  event_card_status_badge:
+    # Added <bmad-ux pass, 2026-09-04> -- Story 1.3b AC15 (8-state status badge: ended/happeningNow/endsToday/
+    # inHours/tomorrow/weekday/inDays/upcoming). User decision: a single neutral style for all 8 states, text
+    # alone differentiates them -- deliberately does NOT reuse {components.status_badge}'s positive/negative/
+    # pendingReview/superseded palette, since that palette encodes review-workflow outcomes, not time-urgency,
+    # and mapping e.g. "ended" onto its red "negative" variant would misread as an error/failure state. Shape
+    # mirrors {components.status_badge}'s own base shape (`text-xs px-2 py-0.5 rounded font-medium shrink-0`)
+    # exactly, just with a new neutral color pairing, so the two still read as the same family of "badge."
+    base: "inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-muted text-muted-foreground"
+  event_card_nearby_badge:
+    # Added <bmad-ux pass, 2026-09-04> -- Story 1.3b AC16. Renders only when distanceKm <= 5; omitted entirely
+    # otherwise (no placeholder/disabled state, per AC16). Distinguished from event_card_status_badge by both a
+    # solid accent fill (not color alone) and its own icon, satisfying the project's existing non-color-cue
+    # convention (EXPERIENCE.md State Patterns > Soft Delete "at least one non-color cue is required", WCAG
+    # 1.4.1) -- reuses the exact bg-secondary/text-secondary-foreground pairing EventCard.tsx's standard-variant
+    # type badges already use, rather than inventing a new color pairing.
+    base: "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground"
+    icon: "w-3 h-3" # lucide-react Navigation icon -- deliberately distinct from the caption's own MapPin (locationName row) so the two location-related glyphs never look identical in an already-dense card; confirm the exact icon name against the installed lucide-react version at implementation time (same caveat already applied to components.calendar.mobile_day_list.multi_day_badge's CalendarRange icon)
   event_card_favorite_count_badge:
     base: "flex items-center gap-1 text-xs font-medium" # count text rendered inline next to the existing Heart icon inside the favorite-toggle button, not a separate element -- reuses EventCard's existing top-right slot rather than adding a third overlay
+    # Confirmed visually unchanged by the 2026-09-04 bmad-ux pass (sprint-change-proposal-2026-09-04.md Section 4.3 item 3) -- both reference screenshots show this top-right slot untouched by the new date_box/till_badge/badge_row additions.
   modal:
     overlay: "fixed inset-0 bg-black bg-opacity-50"
     dialog: "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 w-full max-w-md"
