@@ -7,7 +7,7 @@ baseline_commit: 704c86d15e26c66b94ea0695f36cba8f5e529955
 
 - Epic: 1 - Core App and Event Discovery
 - Story ID: 1.3d
-- Status: review
+- Status: review (AC1-AC15 delivered; AC16-AC19 added 2026-09-06 via `sprint-change-proposal-2026-09-04.md`, pending implementation)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -35,6 +35,15 @@ so that the Discovery feed (`home-content.tsx`, Story 1.3) and Favorites page (`
 14. **AC14 — Grid column count scales past `lg:`, via `GridContainer` (revised 2026-08-24, same day, superseding the version committed in `fe8a1af`):** And the two `<div className={className}>` wrappers (AC1's skeleton grid, AC4's success grid) are replaced with `<GridContainer baseCols={1} colsStep={1} gap="gap-6">` (`@festgrid/ui`, Story 0.31) — `gap="gap-6"` preserves this component's already-shipped spacing exactly (`GridContainer`'s own default is `gap-4`, matching `DESIGN.md`'s token; `EventListView` overrides it explicitly rather than silently inheriting a spacing change). This produces the same five-breakpoint column progression the original (now-superseded) version of this AC specified — `1/2/3/4/5` at base/md/lg/xl/2xl — but via the shared primitive instead of a second hand-written literal string (`posts-select-content.tsx`'s `PostCard` grid, Story 5.1 AC12, is the other consumer). The `className` prop (AC1's `EventListViewProps`) is repurposed: it now passes through to `GridContainer`'s own `className` merge slot rather than replacing the whole grid className outright — any caller needing a one-off tweak appends via that prop instead of overriding the full grid string. **Depends on Story 0.31.** No change to `EventCard` itself, `getCardProps`, or any other AC.
 
 15. **AC15 — Masonry view-mode switcher (added 2026-08-25, `bmad-correct-course`/`bmad-create-story` amendment, `sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.4; fulfills the Masonry Forward Note below):** `EventListView` accepts a new optional `viewMode?: 'list' | 'masonry'` prop, defaulting to `'list'` (today's existing single-column-progression grid, AC14, unchanged). `EventListView` itself owns no toggle UI and no view-mode state — matching every other prop on this component (a purely controlled presentational shell; the caller decides how/where to render the actual switch control, mirroring how `EventDiscoveryPanel`'s own `views` mechanism, not `EventListView`, owns the Card/Calendar switcher one level up). When `viewMode === 'masonry'`: both grid wrappers (AC14's skeleton and success grids) use `<GridContainer baseCols={2} colsStep={1} gap="gap-6">` instead of `baseCols={1}`; every rendered `EventCard` (including skeleton-state cards) receives `variant="masonry"` (Story 1.3b's AC11) as a base prop, shallow-merged with `getCardProps(event)`'s output using the exact same precedence AC5 already establishes (`getCardProps` wins on key collision) — `viewMode`-derived props are not a new merge mechanism, just another source feeding the same merge AC5 already defines.
+
+> **Superseded note (added 2026-09-06):** `spec-ux-rework2-p1-masonry-only.md` later deleted `viewMode`/`ViewModeToggle` entirely and hardcoded `EventListView` to always render masonry (`baseCols={2}`, `gap="gap-2"`, `variant="masonry"` unconditionally — confirmed via direct inspection of the live `EventListView.tsx`, which has no `viewMode` prop today). This is tracked as a separate documentation correction against Story 1.3i (see Dev Notes → Amendment 2026-09-06 and the Implementation Handoff note in `sprint-change-proposal-2026-09-04.md`), not reopened or reversed by this amendment. AC16-AC19 below build on top of today's masonry-only code, not on AC15's now-dead `viewMode` branch.
+
+**(Added 2026-09-06, `bmad-correct-course`/`bmad-create-story` amendment, `sprint-change-proposal-2026-09-04.md` Section 4.5)**
+
+16. **AC16 — Thread end date/time and coordinates:** `EventListView`'s `derivedProps` (deriving `startDate`/`priceFrom` from the main schedule today) is extended to also derive `endDate`/`endTime` from the same schedule (`mainSchedule.eventEndDate`/`mainSchedule.eventEndTime`), and pass the schedule's `locationDetails.coordinates` through as `EventCard`'s new `distanceKm`-adjacent data need — **not** as a `distanceKm` prop itself (AC18 keeps that computation out of this component). Concretely: `EventListViewScheduleShape` gains `eventEndDate?: string | null`, `eventEndTime?: string | null`, and `locationDetails?: { coordinates?: { lat: number; lng: number } | null } | null`. **Field-name correction from the proposal draft:** Section 4.5's draft type used `{ latitude, longitude }`, but the actual GraphQL schema (`apps/backend/src/schema/events.graphql`'s `Coordinates` type, confirmed via direct inspection, and already used identically by `getEventBySlug` in `queries.graphql`) names these fields `lat`/`lng` — this AC's shape uses `lat`/`lng` to stay structurally compatible with the real generated query type, per this component's own AC7 rule (`EventListViewItem` must structurally match the caller's actual GraphQL-generated shape with no adapter/mapping step).
+17. **AC17 — Prominent poster derivation:** `EventListView` derives `prominentPoster: event.durableImageUrl != null` and passes it to `EventCard`, per PRD §3.16's amended trigger rule (Section 4.1 of `sprint-change-proposal-2026-09-04.md`) — no new boolean is required from the backend. `EventListViewItem` gains `durableImageUrl?: string | null`.
+18. **AC18 — Nearby distance computation stays out of `EventListView`:** `EventListView` does not compute `distanceKm` itself — it passes each event's coordinates through via `EventListViewScheduleShape.locationDetails.coordinates` (AC16), preserving AC5's/AC7's existing "no `apps/web`-generated GraphQL type import, structural typing only" rule — and the `apps/web` call site (e.g. `home-content.tsx`) is responsible for combining them with `useCurrentLocationCapture`'s (already built for Story 2.5, `packages/ui/src/hooks/useCurrentLocationCapture.ts`) live position and passing the resulting `distanceKm` via `getCardProps`. This matches `EventListView`'s existing controlled-component pattern (`getCardProps` already carries per-event caller-computed props like `isFavorited`/`onFavoriteToggle`) — `distanceKm` is just another such prop, not a new mechanism.
+19. **AC19 — Masonry grid spacing:** Both `GridContainer` call sites in `EventListView.tsx` (the loading-skeleton grid and the success grid — both currently hardcoded to `gap="gap-2"` per the Superseded note above, not `gap="gap-6"` as AC14's now-superseded default-grid text describes) change `gap="gap-2"` to `gap="gap-x-2 gap-y-6"` (tight horizontal spacing, larger vertical spacing, matching the now-finalized `components.grid.masonry` token in `DESIGN.md`) — tighter horizontal gap keeps the 2-col mobile grid dense; the larger vertical gap gives each card's new date-box/badge-row/caption stack room against the row below so adjacent cards' content doesn't read as visually connected. `baseCols={2}` (already the current, masonry-only hardcoded value per the Superseded note) is unchanged — already satisfies "2 cols on mobile."
 
 ## Tasks / Subtasks
 
@@ -70,8 +79,26 @@ so that the Discovery feed (`home-content.tsx`, Story 1.3) and Favorites page (`
   - [x] Compute each rendered `EventCard`'s `variant` prop as `viewMode === 'masonry' ? 'masonry' : 'standard'`, shallow-merged with that event's `getCardProps(event)` result (`getCardProps` wins on collision, same as every other merged prop per AC5) — apply this to skeleton-state cards too (a fixed, uniform `variant`, not per-event, so no `getCardProps` call is needed for skeleton cards specifically).
   - [x] Extend `EventListView.test.tsx`: `viewMode="masonry"` renders `GridContainer` with `baseCols=2`; every `EventCard` (including skeleton state) receives `variant="masonry"`; `viewMode="list"` (and the default, omitted case) renders `baseCols=1`/`variant="standard"` unchanged from today; a `getCardProps` result that explicitly sets `variant` overrides the `viewMode`-derived value.
   - [x] This story does **not** build the actual toggle-button UI (the control a user clicks to switch `viewMode`) — that is the `apps/web` call site's responsibility (`home-content.tsx`/`feed-content.tsx`/wherever Card view is rendered), analogous to how `EventDiscoveryPanel`'s Card/Calendar switcher UI lives one level up from `EventListView` too. Not building it here is a scope boundary, not an oversight — flagged explicitly so the dev agent doesn't invent a toggle control inside `packages/ui`.
+- [ ] **Task 8 (AC16-AC17, added 2026-09-06) — Thread new fields through types and `derivedProps`:**
+  - [ ] In `EventListView.types.ts`, add to `EventListViewScheduleShape`: `eventEndDate?: string | null`, `eventEndTime?: string | null`, `locationDetails?: { coordinates?: { lat: number; lng: number } | null } | null` (note the `lat`/`lng` field names, not `latitude`/`longitude` — see AC16's field-name correction). Add to `EventListViewItem`: `durableImageUrl?: string | null`.
+  - [ ] In `EventListView.tsx`'s success-branch `derivedProps` (currently lines 61-72, deriving `eventName`/`startDate`/`startTime`/`imageUrl`/`locationName`/`categories`/`types`/`priceFrom`/`labels`/`variant`), add `endDate: mainSchedule?.eventEndDate ?? undefined`, `endTime: mainSchedule?.eventEndTime ?? null`, and `prominentPoster: event.durableImageUrl != null`. Do **not** add `distanceKm` here (AC18) — only pass `mainSchedule?.locationDetails?.coordinates` through implicitly via the caller's own access to `event`/`mainSchedule` if a caller-side `getCardProps` needs it (this component does not surface it as a derived `EventCardProps` field itself, since `distanceKm` — not raw coordinates — is what `EventCard` accepts).
+  - [ ] Apply the same `endDate`/`endTime`/`prominentPoster` derivation to the skeleton-grid branch's mapping if/where it derives per-card props (today it passes a fixed `variant="masonry"` with no per-event data, per Task 7's "no `getCardProps` call needed for skeleton cards" precedent — `prominentPoster`/`endDate`/`endTime` need no skeleton-state equivalent since skeleton cards render no real data).
+- [ ] **Task 9 (AC19, added 2026-09-06) — Masonry grid spacing:**
+  - [ ] Change both `GridContainer` call sites' `gap="gap-2"` to `gap="gap-x-2 gap-y-6"` (loading-skeleton grid and success grid). `baseCols={2}`/`colsStep={1}` unchanged on both.
+  - [ ] Manually verify at the mobile/base breakpoint that adjacent card rows read as visually separated (larger vertical gap) while columns stay dense (tighter horizontal gap), matching the finalized `components.grid.masonry` token in `DESIGN.md`.
+- [ ] **Task 10 (AC16-AC19, added 2026-09-06) — Extend `EventListView.test.tsx`:** `derivedProps` correctly maps `eventEndDate`/`eventEndTime` to `endDate`/`endTime` (including the fallback-to-first-schedule case already covered for `startDate`); `prominentPoster` is `true` only when `durableImageUrl` is non-null; a `getCardProps` result that sets `distanceKm` passes through unmodified (proving `EventListView` performs no distance computation of its own — the negative-space assertion for AC18); both `GridContainer` call sites render with `gap="gap-x-2 gap-y-6"`.
+- [ ] **Task 11 (added 2026-09-06) — `queries.graphql`/`apps/web` dependency check (not this story's own file, verify before/alongside implementation):** Confirm `getEvents` (`apps/web/src/features/events/queries.graphql`, currently missing all four fields) adds `durableImageUrl`, and on `schedules`: `eventEndDate`, `eventEndTime`, `locationDetails { coordinates { lat lng } }` — using `lat`/`lng`, matching `getEventBySlug`'s existing identical selection in the same file (confirmed via direct inspection) and this story's own AC16 field-name correction. This is an `apps/web` query-file change, not a schema/resolver change (both fields already exist and are already selected elsewhere in the same file) — but regenerate the GraphQL codegen types (`apps/web/src/generated/graphql.ts`) after editing the query, and confirm `home-content.tsx`'s event item type still structurally satisfies `EventListViewItem` afterward.
 
 ## Dev Notes
+
+### Amendment (2026-09-06, `bmad-correct-course` / `bmad-create-story`)
+
+AC16-AC19 are new, added per `sprint-change-proposal-2026-09-04.md` Section 4.5, feeding Story 1.3b's parallel AC14-AC18 amendment (this story's AC16/AC17 thread the raw data Story 1.3b's `EventCard` needs for its new TILL badge/status badge/nearby badge/prominent poster). Process order: Story 1.3b (`EventCardProps`'s new `endDate`/`endTime`/`prominentPoster`/`distanceKm` fields) was amended first, since this story's derivations target those exact prop names. AC1-AC15/Tasks 1-7 are unchanged and confirmed already implemented via direct code inspection of the live `EventListView.tsx`/`EventListView.types.ts`.
+
+- **Story 1.3i is dead; this amendment does not reintroduce `viewMode`.** `spec-ux-rework2-p1-masonry-only.md` deleted `ViewModeToggle` and all `viewMode`/per-page `layout` URL-param wiring, hardcoding `EventListView` to always render masonry (confirmed via direct inspection: the live `EventListView.tsx` has no `viewMode` prop, unconditionally uses `baseCols={2}` and `variant="masonry"` on every card). `sprint-status.yaml`'s `1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web` entry still stale-reads `done` — flagged here per the proposal's Section 5 handoff, but the correction itself is separate documentation housekeeping, not part of this amendment's scope (see the sprint-status.yaml comment added alongside this amendment, which notes but does not resolve it).
+- **Coordinates use `lat`/`lng`, not `latitude`/`longitude`.** The proposal's Section 4.5 draft type used `{ latitude, longitude }`; the actual GraphQL `Coordinates` type (`apps/backend/src/schema/events.graphql:44-47`, mirrored in `apps/web/src/generated/graphql.ts`) uses `lat`/`lng`, and `getEventBySlug` in `queries.graphql` already selects coordinates this way. AC16 uses the corrected field names so `EventListViewScheduleShape` stays structurally compatible with the real generated query type with no adapter step, per this component's own AC7 rule.
+- **`getEvents` query-file gap confirmed exactly as the proposal predicted.** Direct inspection of `apps/web/src/features/events/queries.graphql` confirms `getEvents` (the query this story's two consumers use) selects none of `durableImageUrl`/`eventEndDate`/`eventEndTime`/`locationDetails`, while `getEventBySlug` in the same file already selects all four — this is purely a query-selection gap, not a missing resolver/schema field (Task 11).
+- **`distanceKm` is deliberately absent from `EventListViewItem`/`derivedProps` (AC18).** Only raw coordinates thread through this component's minimal event-shape type; the actual haversine/distance math against the viewer's live position happens at the `apps/web` call site using the already-built `useCurrentLocationCapture` hook (`packages/ui/src/hooks/useCurrentLocationCapture.ts`, built for Story 2.5), passed into `EventCard` via `getCardProps` exactly like `isFavorited`/`onFavoriteToggle` already are — no new merge mechanism, per AC5.
 
 ### Amendment (2026-08-25, `bmad-correct-course` / `bmad-create-story`)
 
@@ -100,10 +127,17 @@ Unlike the `1.3a`/`1.3b`/`1.6a` precedent (a split positioned *before* an unbuil
 
 ```ts
 // packages/ui/src/features/events/EventListView.types.ts
+// Updated 2026-09-06 to reflect both the current live shape (viewMode was removed by
+// spec-ux-rework2-p1-masonry-only.md -- do not reintroduce it, see Dev Notes -> Amendment
+// 2026-09-06) and this amendment's new AC16/AC17 fields (bold-equivalent: new lines marked).
 export interface EventListViewScheduleShape {
   isMainSchedule: boolean;
   eventStartDate: string;
+  eventStartTime?: string | null;
+  eventEndDate?: string | null; // NEW (AC16)
+  eventEndTime?: string | null; // NEW (AC16)
   ticketPrice?: string | number | null;
+  locationDetails?: { coordinates?: { lat: number; lng: number } | null } | null; // NEW (AC16) -- lat/lng, not latitude/longitude (see Dev Notes)
 }
 
 export interface EventListViewItem {
@@ -111,6 +145,7 @@ export interface EventListViewItem {
   slug: string;
   eventName: string;
   imageUrl?: string | null;
+  durableImageUrl?: string | null; // NEW (AC17)
   location?: string | null;
   categories?: string[] | null;
   types?: string[] | null;
@@ -130,6 +165,8 @@ export interface EventListViewProps<TEvent extends EventListViewItem> {
   loadingMoreLabel: string;
   skeletonCount?: number; // default 6
   className?: string;
+  // NOTE: no `viewMode` prop -- AC15/Task 7 added one, but spec-ux-rework2-p1-masonry-only.md
+  // later deleted it and hardcoded masonry everywhere. Do not reintroduce it here.
 }
 ```
 
@@ -192,6 +229,10 @@ No changes required. This story adds no database columns, no GraphQL schema/reso
 - [Source: `packages/ui/src/features/events/EventCard.tsx`, `EventCard.types.ts`, `index.ts`]
 - [Source: `packages/ui/src/hooks/useInfiniteScroll.types.ts`]
 - [Source: `_bmad-output/implementation-artifacts/1-3b-build-the-reusable-eventcard-component.md`, `1-3c-build-the-reusable-infinite-scroll-hook.md`, `2-2-view-favorited-events.md`]
+- [Source: `_bmad-output/planning-artifacts/sprint-change-proposal-2026-09-04.md`] — Section 4.5, source-of-truth draft for AC16-AC19.
+- [Source: `design-artifacts/UX-festgrid-run-1/DESIGN.md`] — `components.grid.masonry` (AC19), `event_card_masonry` (added 2026-09-04).
+- [Source: `apps/web/src/features/events/queries.graphql`] — confirmed `getEvents` missing `durableImageUrl`/`eventEndDate`/`eventEndTime`/`locationDetails`, already selected by `getEventBySlug` in the same file (Task 11).
+- [Source: `apps/backend/src/schema/events.graphql`] — confirmed `Coordinates` field names are `lat`/`lng` (AC16 field-name correction).
 
 ## Global Rules References
 
@@ -242,6 +283,7 @@ No changes required. This story adds no database columns, no GraphQL schema/reso
 - `packages/ui`: `EventListView.test.tsx` — loading skeleton (count + markup), error markup (`errorMessage`/`errorDetail`), empty-state slot rendered verbatim, success grid with `mainSchedule` derivation (including fallback-to-first-schedule), `getCardProps` merge/override precedence, infinite-scroll sentinel + spinner visibility while `isFetchingNextPage`.
 - `apps/web`: existing `page.test.tsx` (home) and `favorites-content.test.tsx` must continue passing against the refactored pages with no assertion changes (Task 4) — this is the primary regression guard for this story, since it is a behavior-preserving refactor rather than new user-facing functionality.
 - Manual: `pnpm build`/`pnpm lint` clean at the repo root.
+- **(Added 2026-09-06)** `packages/ui`: `EventListView.test.tsx` extended per Task 10 — `endDate`/`endTime` derivation, `prominentPoster` derivation, `distanceKm` passthrough (not computed), and the `gap-x-2 gap-y-6` grid spacing on both `GridContainer` call sites.
 
 ## Deliverables Checklist
 
@@ -250,6 +292,10 @@ No changes required. This story adds no database columns, no GraphQL schema/reso
 - [x] `favorites-content.tsx` migrated to consume `EventListView`, duplicated JSX removed, zero visible behavior change.
 - [x] Existing `page.test.tsx`/`favorites-content.test.tsx` pass against the refactored pages.
 - [x] `pnpm build`/`pnpm lint` clean at the repo root.
+- [ ] `endDate`/`endTime`/`locationDetails.coordinates` threaded through `EventListViewScheduleShape`/`derivedProps` (AC16, new 2026-09-06).
+- [ ] `prominentPoster` derivation from `durableImageUrl` (AC17, new 2026-09-06).
+- [ ] Masonry grid spacing changed to `gap-x-2 gap-y-6` (AC19, new 2026-09-06).
+- [ ] `getEvents` query updated with the 4 new field selections (Task 11, new 2026-09-06).
 
 ## Out of Scope
 
@@ -257,7 +303,9 @@ No changes required. This story adds no database columns, no GraphQL schema/reso
 - **Filter by Location (saved locations)** and the resulting **"Nearby" default state** — named in `01-event-list-view.md`, has no backing story yet (would need a new story once saved-locations filtering is prioritized).
 - Any change to `favorites-content.tsx`'s id-snapshot/local-pagination mechanism, `useSoftDeleteWithUndo` integration, or `navigation-hook.ts`'s `?fromList=favorites` handling — all built by Story 2.2, consumed unchanged by this story's `getCardProps`/`status` wiring.
 - Any change to `home-content.tsx`'s optimistic-mutation favorite-toggle logic, login-modal gating, or Sign In/Sign Out header — consumed unchanged via `getCardProps`.
-- Adding new i18n keys, new analytics events, or new GraphQL fields/resolvers — none are needed for this refactor.
+- Adding new i18n keys, new analytics events, or new GraphQL fields/resolvers — none are needed for this refactor. **(Amended 2026-09-06:** the 4 fields this amendment threads through already exist in the GraphQL schema and are already selected by `getEventBySlug` in the same query file — this amendment only adds a *selection* of already-existing fields to the `getEvents` query, per Task 11; it does not add a schema field or resolver.**)**
+- **(Added 2026-09-06)** Client-side geolocation capture, permission handling, and distance computation — `EventListView` threads raw coordinates through (AC16) but never computes `distanceKm` itself (AC18); that's the `apps/web` call site's job.
+- **(Added 2026-09-06)** Reintroducing `viewMode`/`ViewModeToggle` — dead per Story 1.3i's supersession (`spec-ux-rework2-p1-masonry-only.md`); not reopened by this amendment (see Dev Notes → Amendment 2026-09-06).
 
 ## Definition of Done
 
@@ -265,6 +313,7 @@ No changes required. This story adds no database columns, no GraphQL schema/reso
 - Required tests pass: new `EventListView.test.tsx` (packages/ui), existing `page.test.tsx`/`favorites-content.test.tsx` (apps/web) with no assertion changes.
 - Lint and type checks pass for `packages/ui` and `apps/web`.
 - Manual visual diff confirms no regression on `/` (Discovery) and `/favorites`.
+- **(Added 2026-09-06)** AC16-AC19 (end date/time + coordinates threading, prominent-poster derivation, distance-computation scope boundary, masonry grid spacing) are met.
 
 ## Completion Status
 
@@ -276,6 +325,8 @@ No changes required. This story adds no database columns, no GraphQL schema/reso
 **2026-08-24, later same day:** AC14 revised again — now composes the new `GridContainer` primitive (Story 0.31, `baseCols`/`colsStep` props) instead of hand-writing the literal className. No code existed against the prior version (committed in `fe8a1af`); this is a documentation correction, not a rework.
 
 **2026-08-25:** AC15 (masonry `viewMode` switcher) backfilled with real AC/task — only a forward-note existed before. AC1-AC14 confirmed already implemented via direct code inspection, unaffected.
+
+**2026-09-06 (`bmad-correct-course`/`bmad-create-story` amendment):** Reopened per `sprint-change-proposal-2026-09-04.md` Section 4.5 for AC16-AC19 (end date/time + coordinates threading, prominent-poster derivation, distance-computation scope boundary, masonry grid spacing) — draft AC/task text finalized against the `bmad-ux` pass's now-finalized `DESIGN.md` tokens; not yet implemented. Also confirmed via direct code inspection that AC15's `viewMode` prop no longer exists in the live component (superseded by `spec-ux-rework2-p1-masonry-only.md`'s masonry-only hardcoding) — noted but not reopened, since Story 1.3i's own stale `sprint-status.yaml` entry is separate documentation housekeeping. Status stays `review` per this project's established precedent (this same story's own 2026-08-24/25 amendments).
 
 ## Dev Agent Record
 
