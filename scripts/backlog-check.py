@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Deterministic runner for the backlog board's integrity checks and lenses.
 
-Implements checks 1-11 and the lens table from
-`_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-11 cover epic
-formation, `planning-artifacts/epic-formation-gate.md`). `bmad-sprint-status` runs
-this rather than re-deriving the checks from prose each session: a subtly wrong
+Implements checks 1-12 and the lens table from
+`_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-12 cover epic formation
+and skip classification, `planning-artifacts/epic-formation-gate.md`). `bmad-sprint-status`
+runs this rather than re-deriving the checks from prose each session: a subtly wrong
 reimplementation reports "clean" on a broken board, which is worse than no check.
 
 Usage:
@@ -30,6 +30,9 @@ OPEN = {"backlog", "triaged", "promoted"}
 UNPROMOTED = {"backlog", "triaged"}
 ITEM_TERMINAL = {"done", "skipped", "superseded"}
 STORY_TERMINAL = {"done", "wont-do"}
+
+# §5 — a skip states which kind it is; only a cost: skip can be reopened on price.
+SKIP_REASON = re.compile(r"^\s*(cost|value):", re.I)
 
 
 def load_board():
@@ -132,6 +135,10 @@ def run_checks(items, tags, stories):
 
         if status == "superseded" and not row.get("superseded_by"):
             fail(5, key, "status superseded but no superseded_by")
+
+        # Check 12 — a skip's note says which reason, because only a cost: skip reopens.
+        if status == "skipped" and not SKIP_REASON.match(row.get("note") or ""):
+            fail(12, key, "skipped note does not open with 'cost:' or 'value:'")
 
         # Checks 10-11 — epic formation (epic-formation-gate.md).
         epic = row.get("epic")
@@ -241,7 +248,7 @@ def main():
         for num, row, msg in sorted(failures):
             print(f"  check {num}  [{row}] {msg}")
     else:
-        print("checks 1-11: clean")
+        print("checks 1-12: clean")
 
     if args.quiet:
         return len(failures)

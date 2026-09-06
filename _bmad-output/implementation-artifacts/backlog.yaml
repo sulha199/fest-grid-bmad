@@ -240,7 +240,7 @@ items:
     {type: idea, status: skipped, created: 2026-08-24, parent: CC-014,
      title: "Mandatory default location on subscription",
      ref: [], touches: [web:accounts, web:subscriptions],
-     note: "CC-014 item #6, dropped by the user in favour of item #14's AI-inference approach. Recorded to preserve the decision."}
+     note: "value: CC-014 item #6, dropped by the user in favour of item #14's AI-inference approach. Recorded to preserve the decision. Not reopenable on price — a cheaper mandatory-location flow is still one the user chose against."}
 
   FIND-003:
     {type: finding, status: backlog, created: 2026-08-24, parent: CC-014,

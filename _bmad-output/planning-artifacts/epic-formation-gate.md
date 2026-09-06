@@ -166,19 +166,24 @@ undocumented rule.
    with the failing criterion, and rows left unclustered.
 3. **Draft each accepted epic**: invariant sentence, owning epic N, member row ids, story
    list `a`/`b`…/`z` with `z`'s acceptance criteria, and §6 routing per row.
-4. **Append to `epics.md`.** Never `bmad-create-epics-and-stories` — its Step 1 overwrites
+4. **Re-scoring sweep** across the rest of the board, `skipped` rows included — §9.1. Late
+   members join their epic here; everything else gets a `note` and is re-priced later, not
+   now.
+5. **Append to `epics.md`.** Never `bmad-create-epics-and-stories` — its Step 1 overwrites
    the file wholesale, the same reason Epics 6 and 7 were appended directly.
-5. **Register in `sprint-status.yaml`**: `epic-N-i<k>: backlog` plus every story key.
-6. **Stamp `epic:` on each member row.** Status stays `triaged` — execution ownership does
+6. **Register in `sprint-status.yaml`**: `epic-N-i<k>: backlog` plus every story key.
+7. **Stamp `epic:` on each member row.** Status stays `triaged` — execution ownership does
    not transfer until stories exist, per the board's one-owner rule.
-7. **`bmad-epic-readiness-check`** on the epic. Gate 1/3 across all its stories at once;
+8. **`bmad-epic-readiness-check`** on the epic. Gate 1/3 across all its stories at once;
    this is where `a` is validated, replaced, or dropped.
-8. **`bmad-create-story`** per story in letter order. Normal promotion intake
+9. **`bmad-create-story`** per story in letter order. Normal promotion intake
    (`backlog-spec.md` §13) applies: story keys land on the member rows and status becomes
    derived from here on.
-9. **Close out** with `bmad-epic-readiness-review`, then `bmad-retrospective`.
+10. **Close out** with `bmad-epic-readiness-review`, then `bmad-retrospective`.
 
-Steps 4–6 are one commit. `epics.md`, `sprint-status.yaml`, and `backlog.yaml` move
+Sequencing across the formed epics is not decided here — it is a lens at read time, §9.3.
+
+Steps 5–7 are one commit. `epics.md`, `sprint-status.yaml`, and `backlog.yaml` move
 together or they drift, which is the failure the board was built to end.
 
 ## 8. Board contract
@@ -187,7 +192,67 @@ together or they drift, which is the failure the board was built to end.
 and 11 in §9. Nothing else about the board changes; `impact`/`effort` stay meaningful right
 up to promotion, and lenses are unaffected.
 
-## 9. Genericity
+## 9. Re-scoring and ordering
+
+Two facts the board deliberately refuses to store — a frozen `effort`, and `priority` —
+meet epic formation here.
+
+### 9.1 A mechanism re-scores rows it did not include
+
+`backlog-spec.md` §3 calls `effort` "a property of the work itself, so it does not move
+when goals do." True, and unchanged — but it is measured **against the codebase as it
+stands**, and a mechanism story landing is the one event that legitimately re-scores it. A
+row that needed the whole guard now needs one call site: `m` becomes `xs`.
+
+So every formation pass ends with a **re-scoring sweep**: for each accepted epic, read the
+rest of the board — rows outside the epic, and `skipped` rows too — and flag every row whose
+effort would drop if this mechanism existed. Each flagged row goes one of two ways:
+
+| The flagged row | Where it goes |
+|---|---|
+| Violates the **same** invariant | Joins the epic as an adoption story (`b`…`y`). It was always a member; becoming cheap is just what made it visible. |
+| A **different** invariant that happens to become cheap | Stays where it is, with a `note` naming the epic that will re-price it. Re-score its `effort` only once that epic's `a` story is `done`. |
+
+The second rule is the load-bearing one: **re-scoring on a promise is how a board starts
+lying.** `effort` tracks the code, not the plan.
+
+### 9.2 Reopening a `skipped` row
+
+A skip is reversible, but only for one of the two reasons a row gets skipped:
+
+| Skip reason | When a mechanism makes it cheap |
+|---|---|
+| **cost** — not worth the effort | Reopen. Status back to `backlog`; append (never rewrite) a note naming the epic that changed the price. The stated reason is now false, so the decision no longer holds. |
+| **value** — we do not want this | Stays skipped. Cheap is not a reason to build something nobody wants. |
+
+This only works if the skip said which one it was, so `backlog-spec.md` §5 now requires the
+note to classify itself. A skip that does not is **unreopenable by rule** — the safe
+default, because the alternative is guessing at someone's past decision from its price tag.
+
+### 9.3 Epic order is a query, not a field
+
+Epics carry no priority field, for the same reason rows carry no `priority`
+(`backlog-spec.md` §3): a stored composite is a hand-maintained derived value, it goes
+stale silently, no check can detect that it has, and one scalar cannot serve two
+weightings.
+
+- **`epics.md` order is insertion order and never means priority.** §13 forbids
+  renumbering, so file order is chronological by construction. It is not a plan; do not
+  read it as one.
+- **Execution order is produced by a lens** (`backlog-spec.md` §11) applied to member rows
+  and lifted to their epics: an epic ranks by the members the active lens selects. Change
+  the lens and the order changes, with no epic and no row edited — the same property that
+  made lenses right for rows in the first place.
+- Two constraints outrank every lens, because they are facts rather than weightings:
+  1. **Within an epic**: `a` → `b`…`y` → `z`. Dependency, not preference.
+  2. **Across epics**: if a member row `blocks` a row in another epic, its epic goes first.
+     Already on the board — this only reads it at epic scope.
+
+The payoff a stored priority could never have: because §9.1 re-scores rows when a mechanism
+lands, an epic's rank **legitimately moves after an unrelated epic ships**. A number written
+down at formation time would be wrong exactly then, and nothing would say so.
+
+## 10. Genericity
 
 > The observation procedure is a function of the criteria, not of the board's contents.
 
@@ -207,9 +272,9 @@ up to promotion, and lenses are unaffected.
 §5's rejection records are what make this checkable: a candidate that was rejected under
 criterion 1 and later accepted is visibly a threshold effect rather than a changed reading.
 
-## 10. Stability test
+## 11. Stability test
 
-§9 is a claim. This is how it gets tested, and it is cheap enough to be worth doing before
+§10 is a claim. This is how it gets tested, and it is cheap enough to be worth doing before
 trusting any formation pass.
 
 1. **Full run.** Cluster the whole open set. Record accepted epics, rejected candidates
@@ -240,17 +305,17 @@ Run it once before the first formation pass, and again whenever a criterion in t
 document is edited — a change to the method is the only thing that is *supposed* to change
 the output.
 
-## 11. Tooling — specified, not yet built
+## 12. Tooling — specified, not yet built
 
 `backlog-check.py --cluster`: emit candidate groupings across §5's four mechanical axes
 (tag prefix, `parent` chain, shared `deferred-work.md` section, shared AD reference) as
 input to a reading pass. Those axes are already fully specified here and are
 item-independent, so the tool only saves the reading pass from recomputing them by hand —
-nothing about the method depends on it existing, which is §9's point applied to its own
+nothing about the method depends on it existing, which is §10's point applied to its own
 tooling. Build it whenever convenient, before or after the board grows. The fifth axis,
 repair shape, is not mechanizable and stays a reading pass permanently.
 
-## 12. Do not
+## 13. Do not
 
 - Do not form an epic that has no ratchet. §4 is the admission test, not a formality.
 - Do not use a `touches` tag as the epic boundary.
@@ -260,10 +325,10 @@ repair shape, is not mechanizable and stays a reading pass permanently.
 - Do not re-verify the member rows' findings at formation time. The board records that a
   finding exists; formation groups them. A second opinion on each is a different pass.
 - Do not tune a criterion to make a particular cluster come out. If a criterion is wrong it
-  is wrong for every board, and §10 must be re-run after the edit.
-- Do not run an ablation in a context that has seen the full run's output. §10 step 2.
+  is wrong for every board, and §11 must be re-run after the edit.
+- Do not run an ablation in a context that has seen the full run's output. §11 step 2.
 
-## 13. Status
+## 14. Status
 
 No formation pass has been run and no stability test has been run. This document defines
 the method only — no clusters have been proposed, and no rows carry `epic:` yet.

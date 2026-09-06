@@ -164,8 +164,23 @@ Per-type counters, zero-padded to 3: `BUG-001`, `IDEA-001`, `CC-001`, `FIND-001`
 | `triaged` | Analysed/approved, no story yet. | Proposal exists; no `stories`. |
 | `promoted` | Has ≥1 story; execution owned by `sprint-status.yaml`. | `stories` non-empty, not all `done`. |
 | `done` | Fully landed. | Every entry in `stories` is `done`, **and** no proposed change remains unapplied. |
-| `skipped` | Deliberately not doing. | Requires a `note` giving the reason. |
+| `skipped` | Deliberately not doing. | Requires a `note` giving the reason, classified `cost:` or `value:`. See below. |
 | `superseded` | Replaced by a later item. | Requires `superseded_by`. |
+
+### Classifying a skip
+
+A `skipped` note must open with `cost:` or `value:` — the two reasons a row gets skipped,
+and the only thing that decides whether it can ever come back:
+
+- `cost:` — not worth the effort. **Reversible.** A mechanism landing elsewhere can make the
+  work cheap and falsify the stated reason; the row reopens to `backlog` with the reason
+  appended, never rewritten. See `planning-artifacts/epic-formation-gate.md` §9.2.
+- `value:` — we do not want this. **Not reversible by price.** Cheap is not a reason to
+  build something nobody wants.
+
+An unclassified skip is unreopenable by rule. That is the safe default: the alternative is
+inferring a past decision from its price tag, which is how a `value:` skip quietly returns
+as a "cheap win".
 
 ### Derived status
 
@@ -308,6 +323,9 @@ board — worse than running no check at all.
     (`epic-formation-gate.md` §4); a missing one is the epic silently degrading into the
     thing it was formed to replace. Plain integer epics are exempt — they are feature
     epics and carry no ratchet.
+12. **Unclassified skip** — a `skipped` row whose `note` does not open with `cost:` or
+    `value:`. §5 makes that classification the thing that decides whether the row can ever
+    reopen, so an unclassified skip is a decision nobody can act on later.
 
 Check 7 finds *candidates*, not conflicts. Semantic contradiction between items that
 touch no common surface is **not mechanically detectable** and needs a reading pass —
