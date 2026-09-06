@@ -211,10 +211,23 @@ effort would drop if this mechanism existed. Each flagged row goes one of two wa
 | The flagged row | Where it goes |
 |---|---|
 | Violates the **same** invariant | Joins the epic as an adoption story (`b`…`y`). It was always a member; becoming cheap is just what made it visible. |
-| A **different** invariant that happens to become cheap | Stays where it is, with a `note` naming the epic that will re-price it. Re-score its `effort` only once that epic's `a` story is `done`. |
+| A **different** invariant that happens to become cheap | Stays where it is, carrying `reprice_on: <epic key>`. Its `effort` is re-scored only once that epic's `a` story is `done`. |
 
 The second rule is the load-bearing one: **re-scoring on a promise is how a board starts
 lying.** `effort` tracks the code, not the plan.
+
+**Nothing re-prices itself.** `effort` is a judgment about size; no runner can decide that
+`m` became `xs`. What the runner can do is notice the row is *due* — check 13 flags any row
+whose `reprice_on` epic has landed its `a` story, and keeps flagging it until someone
+re-scores `effort` and clears the field. So you run no special command: the flag appears in
+the next `backlog-check.py` / `bmad-sprint-status` you were going to run anyway, and the
+lenses keep reading the old `effort` until you act — which is correct, because a lens
+ranking on a value nobody has confirmed is a lens that lies. The pending flag is the honest
+intermediate state, not a delay to engineer away.
+
+Epic **order**, by contrast, needs no trigger at all: §9.3 computes it at read time, so the
+moment a re-score lands the next lens read already reflects it. There is no stored order to
+update and no command to run.
 
 ### 9.2 Reopening a `skipped` row
 

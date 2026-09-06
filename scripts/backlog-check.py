@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Deterministic runner for the backlog board's integrity checks and lenses.
 
-Implements checks 1-12 and the lens table from
-`_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-12 cover epic formation
-and skip classification, `planning-artifacts/epic-formation-gate.md`). `bmad-sprint-status`
-runs this rather than re-deriving the checks from prose each session: a subtly wrong
+Implements checks 1-13 and the lens table from
+`_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-13 cover epic formation,
+skip classification and re-pricing — `planning-artifacts/epic-formation-gate.md`).
+`bmad-sprint-status` runs this rather than re-deriving the checks from prose: a subtly wrong
 reimplementation reports "clean" on a broken board, which is worse than no check.
 
 Usage:
@@ -150,6 +150,16 @@ def run_checks(items, tags, stories):
             ):
                 fail(11, key, f"improvement epic {epic} has no z (ratchet) story")
 
+        # Check 13 — the mechanism this row was waiting on has landed, so its
+        # `effort` is stale. Not a defect: a judgment that has come due.
+        waiting_on = row.get("reprice_on")
+        if waiting_on:
+            if waiting_on not in epics(stories):
+                fail(13, key, f"reprice_on names an unknown epic: {waiting_on}")
+            elif mechanism_landed(waiting_on, stories):
+                fail(13, key, f"{waiting_on} settled its mechanism; re-score effort "
+                              f"({row.get('effort')}) and clear reprice_on")
+
     return failures
 
 
@@ -169,6 +179,15 @@ def epic_story_letter(epic: str, story: str) -> str | None:
     n, k = m.groups()
     hit = re.match(rf"^{n}-i{k}([a-z])-", story)
     return hit.group(1) if hit else None
+
+
+def mechanism_landed(epic: str, stories) -> bool:
+    """The epic's `a` story is terminal (a cancelled mechanism settles the
+    question too) — or, when the epic has no `a` story, the epic itself is done."""
+    for story, status in stories.items():
+        if epic_story_letter(epic, story) == "a":
+            return status in STORY_TERMINAL
+    return stories.get(epic) == "done"
 
 
 def collisions(items):
@@ -248,7 +267,7 @@ def main():
         for num, row, msg in sorted(failures):
             print(f"  check {num}  [{row}] {msg}")
     else:
-        print("checks 1-12: clean")
+        print("checks 1-13: clean")
 
     if args.quiet:
         return len(failures)

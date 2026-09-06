@@ -93,6 +93,7 @@ items:
 | `impact` | open rows | User-facing consequence. See below. |
 | `effort` | open rows | Size of the work. See below. |
 | `epic` | no | `sprint-status.yaml` epic key this row was folded into at epic formation. See `planning-artifacts/epic-formation-gate.md`. |
+| `reprice_on` | no | Epic key whose mechanism will change this row's `effort`. Set at formation; cleared by hand when the row is re-scored. Check 13. |
 | `parent` | no | Parent item ID, for carved-out children. See §6. |
 | `blocks` | no | IDs this row gates. One-directional — declared on the blocker only. |
 | `superseded_by` | no | Required when `status: superseded`. |
@@ -326,6 +327,14 @@ board — worse than running no check at all.
 12. **Unclassified skip** — a `skipped` row whose `note` does not open with `cost:` or
     `value:`. §5 makes that classification the thing that decides whether the row can ever
     reopen, so an unclassified skip is a decision nobody can act on later.
+13. **Due for re-pricing** — a row whose `reprice_on` epic has settled its mechanism (its
+    `a` story terminal — a cancelled mechanism answers the question too — or, when the epic
+    has no `a` story, the epic itself `done`). The mechanism this row
+    was waiting on now exists, so its `effort` is stale and every lens is ranking it on a
+    number that is no longer true. Unlike the other checks this one is not a defect to
+    repair but a **judgment that has come due**: re-score `effort` and clear `reprice_on`.
+    It keeps firing until someone does, which is the point — `effort` is a judgment and no
+    runner can make it. Also fires on a `reprice_on` naming an epic that does not exist.
 
 Check 7 finds *candidates*, not conflicts. Semantic contradiction between items that
 touch no common surface is **not mechanically detectable** and needs a reading pass —
