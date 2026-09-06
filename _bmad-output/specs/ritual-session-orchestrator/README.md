@@ -1,5 +1,7 @@
 # Ritual Session Orchestrator (built + verified)
 
+**Invoking this from a live session?** Use the `ritual-orchestrator` skill (`.claude/skills/ritual-orchestrator/SKILL.md`, mirrored to `.agents/` and `.cline/`) — it packages the batch procedure below into a runnable workflow (parameter gathering, `Monitor`-based dispatch + HIL relay, verify, resume) so it doesn't need to be re-derived from this document by hand each time. This README stays the source of truth for *why* it works this way; the skill is *how* to actually run it.
+
 Status: **working, tested end-to-end 2026-09-03.** Separate from `_bmad-output/specs/spec-ai-dev-orchestrator/` by design — that SPEC reimplements each BMad ritual as a direct-LLM-call LangGraph node with no Claude Code session involved anywhere; this is the opposite approach: run the *real* `bmad-*` skill inside a real agentic session, as an independent child process, and relay whatever question it raises to a human through the mailbox mechanism below.
 
 ## Why this exists
