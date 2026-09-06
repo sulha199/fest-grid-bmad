@@ -329,13 +329,15 @@ items:
 
   # ── 2026-09-04 ──────────────────────────────────────────────────────────────
   CC-019:
-    {type: proposal, status: triaged, created: 2026-09-04,
+    {type: proposal, status: promoted, created: 2026-09-04,
      impact: user-visible, effort: m,
      title: "Discovery card redesign (TILL badge, status badge, nearby badge, masonry spacing)",
      ref: [planning-artifacts/sprint-change-proposal-2026-09-04.md],
+     stories: [1-3b-build-the-reusable-eventcard-component,
+               1-3d-build-the-reusable-eventlistview-component],
      touches: [web:events/EventCard, web:events/EventListView, web:events/getEvents,
                cross:ux-tokens, cross:prd],
-     note: "Approved but genuinely unimplemented end-to-end — none of the PRD 3.1 badge bullets, the Story 1.3b/1.3d ACs, or the formatEventStatus helper exist. Targets 1-3b/1-3d for amendment; no story yet carries its ACs, so not promoted."}
+     note: "IDEA-007's bmad-ux pass landed (DESIGN.md/EXPERIENCE.md tokens), then 1-3b gained AC14-18 and 1-3d gained AC16-19 — both moved to ready-for-dev (2026-09-06), not yet coded. The PRD 3.1/3.16 bullets this proposal drafted were never written into prd.md; carved out as BUG-016."}
 
   BUG-004:
     {type: bug, status: backlog, created: 2026-09-04, parent: CC-019,
@@ -345,11 +347,18 @@ items:
      note: "spec-ux-rework2-p1-masonry-only.md deleted the component and its layout URL-param wiring. CC-019 recommended a documentation-only correction; never applied. This is the drift case that motivated the board."}
 
   IDEA-007:
-    {type: idea, status: backlog, created: 2026-09-04, parent: CC-019,
+    {type: idea, status: done, created: 2026-09-04, parent: CC-019,
      impact: cosmetic, effort: s, blocks: [CC-019],
      title: "Targeted bmad-ux pass for card visual tokens before CC-019 story finalization",
      ref: [], touches: [web:events/EventCard, cross:ux-tokens],
-     note: "CC-019 Section 4.3 names this a prerequisite: date-box/TILL badge, badge-row placement, prominent-poster sizing."}
+     note: "Landed 2026-09-06 in design-artifacts/UX-festgrid-run-1/DESIGN.md (outside _bmad-output/, so not a ref path): event_card_date_box/till_badge/status_badge/nearby_badge tokens, amended event_card_masonry, masonry grid gap. CC-019's story finalization gate is satisfied."}
+
+  BUG-016:
+    {type: bug, status: backlog, created: 2026-09-06, parent: CC-019,
+     impact: internal, effort: xs,
+     title: "CC-019's drafted PRD 3.1/3.16 badge bullets were never written into prd.md",
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-04.md], touches: [cross:prd, web:events/EventCard],
+     note: "Section 4.1 drafted exact before/after text for the Event Status Badge and Nearby Badge PRD bullets and the 3.16 durableImageUrl-trigger clarification; 1-3b/1-3d were amended from it but prd.md itself was never edited."}
 
   # ── 2026-09-05 (deferred-work fold-in, FIND-005) ──────────────────────────────
   BUG-005:
