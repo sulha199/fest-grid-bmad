@@ -77,7 +77,7 @@ reimplementation reports "clean" on a broken board, per `backlog-spec.md` §9.
   <action>For each candidate, write the invariant sentence FIRST — present tense, positive form — then test membership against it. A cluster you can only describe as a list has already failed §5 criterion 2.</action>
   <action>Apply all five criteria from `{{gate}}` §5. Any failure means it is not an epic.</action>
   <action>For each rejected candidate, record the criterion it failed and the routing it gets instead (§4: a sweep story under the owning epic, or per-row `bmad-quick-dev`). A rejection without a recorded reason gets re-proposed and re-litigated next session.</action>
-  <action>Determine the owning epic N for each accepted cluster per §2 — the epic that owns the MECHANISM, not the one with the most symptoms; 0 when the mechanism is cross-cutting.</action>
+  <action>Determine what KIND of epic each accepted cluster is, per §2. A cluster of `bug`/`finding` rows is an improvement epic (`epic-N-iK`) — determine its owning N: the epic that owns the MECHANISM, not the one with the most symptoms; 0 when the mechanism is cross-cutting. A cluster of `idea`/`proposal` rows is a FEATURE epic taking the next integer, where `z` is optional, criterion 3 is read strictly in criterion 4's place, and the spec route is `bmad-prd` first rather than §6 amendment.</action>
 </step>
 
 <step n="4" goal="Human checkpoint — the user attacks the invariant">
@@ -91,14 +91,16 @@ reimplementation reports "clean" on a broken board, per `backlog-spec.md` §9.
 
 <step n="5" goal="Draft each accepted epic">
   <action>Assign story letters per `{{gate}}` §3. `a` is the mechanism; `b`…`y` are adoption, one per call site or surface; `z` is the ratchet.</action>
-  <action>Write `z`'s acceptance criteria NOW, before any other story's — they are what "done" means for the epic (§3). The ratchet must be executable per §4; if you cannot name a lint rule, a test, or a check on an existing runner, the cluster failed §5 criterion 4 and goes back to Step 3.</action>
+  <action>Write `z`'s acceptance criteria NOW, before any other story's — they are what "done" means for the epic (§3). The ratchet must be executable per §4; if you cannot name a lint rule, a test, or a check on an existing runner, the cluster failed §5 criterion 4 and goes back to Step 3. For a feature epic `z` is optional (§2) — propose one anyway when the epic's whole justification is the shared mechanism, since it is what stops the second feature forking the first one's helper.</action>
   <action>Record the §6 routing per member row: a PRD amendment task carried in `z`, a `bmad-correct-course` referral, a new `AD-n` written in `a`, or nothing for internal-only rows.</action>
 </step>
 
 <step n="6" goal="Re-scoring sweep">
   <action>Per `{{gate}}` §9.1, read the rest of the board — rows outside every accepted epic, plus the cost-skipped rows the runner listed — and flag each row whose `effort` would drop if one of these mechanisms existed.</action>
-  <action>A flagged row that violates the SAME invariant joins that epic as an adoption story. A flagged row that merely becomes cheap stays where it is and gains `reprice_on: <epic key>`; do NOT change its `effort` now (§9.1 — re-scoring on a promise is how a board starts lying).</action>
-  <action>For a `cost:`-skipped row whose price this mechanism falsifies, reopen it to `backlog` and APPEND to its note; never rewrite the original reason. A `value:`-skipped row is untouched no matter how cheap it becomes (§9.2).</action>
+  <action>A flagged row that violates the SAME invariant JOINS that epic as an adoption story, and IS re-scored now: its `a` story is a committed prerequisite inside the same epic, so the estimate is conditional on the same unit of work, not on a promise (§9.1). Record the post-mechanism effort in the formation report, not only in the field.</action>
+  <action>A flagged row that merely becomes cheap and stays OUTSIDE the epic gains `reprice_on: <epic key>` and keeps its current `effort` — nothing binds it to a mechanism that may never be built (§9.1).</action>
+  <action>For a `cost:`-skipped row whose price this mechanism falsifies, reopen it to `backlog` and APPEND to its note; never rewrite the original reason. A `value:`-skipped row is untouched no matter how cheap it becomes (§9.2). When a skip's note reads as a value-for-price judgment, apply §9.2's test — *would you do it if it were free?* — rather than the words the note happens to use.</action>
+  <critical>Re-scoring a joining row is what makes criterion 5 answerable and what makes a reopen decision possible at all — you cannot judge value-for-price without the new price. But it is provisional: Step 8's `bmad-epic-readiness-check` is what validates `a` is buildable as one story. Say so in the report, and if that check later drops or reshapes `a`, every row re-scored here must be re-examined and a row reopened only for the promised price returns to `skipped`.</critical>
 </step>
 
 <step n="7" goal="Write the three files, one commit">

@@ -61,6 +61,29 @@ expected, not a smell.
 
 `<k>` increments per owning epic, never globally, and is never reused.
 
+### Formation is not only for improvement epics
+
+Two *features* that need the same mechanism cluster on the same evidence, by the same
+criteria — an `idea` or `proposal` row is board input like any other. The observation is
+identical; only the outputs differ:
+
+| | Improvement epic | Feature epic formed this way |
+|---|---|---|
+| Number | `N.i<k>` | the next integer |
+| Rows | `bug`, `finding` | `idea`, `proposal` |
+| The invariant is | a rule the code violates | the mechanism both features need |
+| Ratchet `z` | mandatory | **optional** |
+| Spec | §6 routing | **`bmad-prd` first** — a new capability needs requirements before stories, and formation does not replace that |
+
+`z` is optional because a feature epic's done-test is that the capability ships, not that a
+class cannot recur — which is also why check 11 exempts integer epics. Add one anyway when
+the epic's whole justification is the shared mechanism: it stops the second feature quietly
+forking the first one's helper, which is the failure that made the epic worth forming.
+
+Criterion 4 (ratchetable) therefore cannot be the admission test here. **Criterion 3 takes
+its place and is read strictly:** if a single mechanism cannot host both features, they are
+two feature epics that happen to be adjacent, and forming one epic buys nothing.
+
 ## 3. Story letters
 
 | Letter | Role | Count |
@@ -95,7 +118,8 @@ Not acceptable, and not negotiable:
 - a code comment, a checklist item, a retro action item
 - a script that exists but no pipeline runs
 
-**The ratchet test is the epic test.** A cluster that cannot be ratcheted is not an
+**The ratchet test is the epic test** (for improvement epics — a feature epic formed by
+clustering is governed by criterion 3 instead, §2). A cluster that cannot be ratcheted is not an
 improvement epic — it is a batch of fixes wearing an epic's clothes, and the whole reason
 this document exists is that batches of fixes don't stop the class from returning. When a
 cluster fails §5.4, route it instead:
@@ -116,7 +140,8 @@ All five must hold. Any failure → not an epic.
    cluster you can only describe as a list is a tag, not an invariant.
 3. **A single mechanism can host it** — one that exists, or one buildable in a single `a`
    story. Two mechanisms means two epics.
-4. **It is ratchetable**, per §4.
+4. **It is ratchetable**, per §4 — mandatory for an improvement epic; for a feature epic
+   formed this way, criterion 3 is read strictly in its place (§2).
 5. **Combined effort is worth ≥3 stories.** Three `xs` rows that share a surface are a
    sweep story, not an epic.
 
@@ -216,6 +241,24 @@ effort would drop if this mechanism existed. Each flagged row goes one of two wa
 The second rule is the load-bearing one: **re-scoring on a promise is how a board starts
 lying.** `effort` tracks the code, not the plan.
 
+**A member row is re-scored at formation. A non-member row waits.** The difference is not
+timing, it is whether anything binds the row to the mechanism. A member's `a` story is a
+committed prerequisite *inside the same epic*: if `a` never lands, the adoption story never
+lands either, so the estimate is conditional on the same unit of work rather than on a
+promise made elsewhere. A non-member is bound to nothing — the epic it is waiting on may be
+dropped, and it would sit there carrying a price for a mechanism that never existed.
+
+This is also what makes the re-scoring *decidable at formation*, which it has to be:
+criterion 5 sizes the epic from its members' effort, and the decision to reopen a skipped
+row is a value-for-price judgment that cannot be made without the new price. Record it as
+post-mechanism effort in the formation report, not just as a changed field.
+
+**One loop to close:** `bmad-epic-readiness-check` (ritual step 8) is what validates that
+`a` is real and buildable as one story — and it runs *after* formation. If it drops or
+reshapes `a`, every member row re-scored at formation must be re-examined, and a row that
+was reopened only because of the promised price goes back to `skipped` with the reason
+appended.
+
 **Nothing re-prices itself.** `effort` is a judgment about size; no runner can decide that
 `m` became `xs`. What the runner can do is notice the row is *due* — check 13 flags any row
 whose `reprice_on` epic has landed its `a` story, and keeps flagging it until someone
@@ -231,14 +274,21 @@ update and no command to run.
 
 ### 9.2 Reopening a `skipped` row
 
-A skip is reversible, but only for one of the two reasons a row gets skipped:
+Most real skips are **both** cost and value — *the value did not justify that price.* A
+reason shaped like that is relative, and a price change falsifies it. So the classification
+is not a vocabulary choice between two pure motives; it is one question:
 
-| Skip reason | When a mechanism makes it cheap |
-|---|---|
-| **cost** — not worth the effort | Reopen. Status back to `backlog`; append (never rewrite) a note naming the epic that changed the price. The stated reason is now false, so the decision no longer holds. |
-| **value** — we do not want this | Stays skipped. Cheap is not a reason to build something nobody wants. |
+> **Would you do it if it were free?**
 
-This only works if the skip said which one it was, so `backlog-spec.md` §5 now requires the
+| Answer | Tag | When a mechanism makes it cheap |
+|---|---|---|
+| **yes** | `cost:` | Reopen. Status back to `backlog`; append (never rewrite) a note naming the epic that changed the price. The stated reason referenced the price and dies with it. This is where "worth doing, just not for that effort" belongs — the common case, not an edge one. |
+| **no** | `value:` | Stays skipped. Cheap is not a reason to build something nobody wants, and a cheaper version of a thing you chose against is still the thing you chose against. |
+
+The question is decidable in one beat and needs no re-litigation of the original debate,
+which is what makes it safe to answer years later by someone who was not there.
+
+This only works if the skip recorded the answer, so `backlog-spec.md` §5 now requires the
 note to classify itself. A skip that does not is **unreopenable by rule** — the safe
 default, because the alternative is guessing at someone's past decision from its price tag.
 

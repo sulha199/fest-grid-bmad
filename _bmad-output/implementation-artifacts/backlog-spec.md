@@ -170,14 +170,21 @@ Per-type counters, zero-padded to 3: `BUG-001`, `IDEA-001`, `CC-001`, `FIND-001`
 
 ### Classifying a skip
 
-A `skipped` note must open with `cost:` or `value:` — the two reasons a row gets skipped,
-and the only thing that decides whether it can ever come back:
+A `skipped` note must open with `cost:` or `value:`. Most real skips are both — *the value
+did not justify that price* — so the tag is not a choice between two pure motives. It
+records the answer to one question:
 
-- `cost:` — not worth the effort. **Reversible.** A mechanism landing elsewhere can make the
-  work cheap and falsify the stated reason; the row reopens to `backlog` with the reason
-  appended, never rewritten. See `planning-artifacts/epic-formation-gate.md` §9.2.
-- `value:` — we do not want this. **Not reversible by price.** Cheap is not a reason to
-  build something nobody wants.
+> **Would you do it if it were free?**
+
+- **yes → `cost:`** — **reversible.** The reason referenced the price, so a mechanism
+  landing elsewhere falsifies it; the row reopens to `backlog` with the reason appended,
+  never rewritten. "Worth doing, just not for that effort" lives here — it is the common
+  case, not an edge one. See `planning-artifacts/epic-formation-gate.md` §9.2.
+- **no → `value:`** — **not reversible by price.** Cheap is not a reason to build something
+  nobody wants, and a cheaper version of a thing you chose against is still that thing.
+
+The question is decidable in one beat without re-opening the original debate, which is what
+makes it answerable years later by someone who was not in it.
 
 An unclassified skip is unreopenable by rule. That is the safe default: the alternative is
 inferring a past decision from its price tag, which is how a `value:` skip quietly returns
@@ -322,8 +329,9 @@ board — worse than running no check at all.
     row's `epic`, whose registered stories include no `z` story. The ratchet is what
     separates an improvement epic from a batch of fixes
     (`epic-formation-gate.md` §4); a missing one is the epic silently degrading into the
-    thing it was formed to replace. Plain integer epics are exempt — they are feature
-    epics and carry no ratchet.
+    thing it was formed to replace. Plain integer epics are exempt — a feature epic's
+    done-test is that the capability ships, so a ratchet is optional there
+    (`epic-formation-gate.md` §2).
 12. **Unclassified skip** — a `skipped` row whose `note` does not open with `cost:` or
     `value:`. §5 makes that classification the thing that decides whether the row can ever
     reopen, so an unclassified skip is a decision nobody can act on later.
