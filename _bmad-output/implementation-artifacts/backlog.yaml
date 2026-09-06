@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: 2026-09-05 (Phase F fold-in)
+last_updated: 2026-09-06 (ux-rework2 gap audit)
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -592,3 +592,36 @@ items:
            implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [cross:process],
      note: "Phase F complete 2026-09-05: all 89 DW records folded into 24 new rows (10 bug, 14 finding after BUG-006 was superseded into FIND-009 on review) under the 2026-09-05 section below. 27 dropped as already-fixed (rule 1), 1 (DW-065) already tracked as BUG-003 (rule 3), 4 absorbed into an anchor row's note as duplicates (rule 2: DW-004/007 into FIND-007, DW-015 into BUG-005, DW-036 into FIND-014). 9 stayed individual per the Phase E user-visible list (BUG-006 through BUG-015 excl. BUG-011); the remaining 49 batched by shared cause into 15 rows."}
+
+  # ── 2026-09-06 (ux-rework2 gap audit) ────────────────────────────────────────
+  IDEA-008:
+    {type: idea, status: backlog, created: 2026-09-06,
+     impact: user-visible, effort: m,
+     title: "Max 5 subscribed accounts (normal user), upgrade-account 'coming soon' CTA + PostHog event, moderator exempt",
+     ref: [],
+     touches: [web:subscriptions, app:backend, pkg:analytics, cross:prd],
+     note: "From apps/ux-rework2.md L19-21, via ux-rework2-tracking.md item #7. PRD 8.2 (Phase 2 free_user tier) only vaguely caps accounts at 'e.g., 2' with no upgrade-CTA/PostHog/moderator-exemption language, and the number conflicts with this item's '5' — needs reconciling. Real feature work (server-side guard + upgrade UI flow + analytics), not polish; no backlog row or story existed before this audit."}
+
+  IDEA-009:
+    {type: idea, status: backlog, created: 2026-09-06,
+     impact: user-visible, effort: m,
+     title: "Auto-extract posts on first subscribe (respecting Gemini's 500 RPD limit) + onboarding wizard redirect to feed",
+     ref: [],
+     touches: [web:onboarding, web:wizard, web:subscriptions, app:backend, cross:ai-extraction],
+     note: "From apps/ux-rework2.md L23, via ux-rework2-tracking.md item #9. Cross-cutting: rate-limit-aware auto-triggering against a shared Gemini quota, plus a wizard-routing change. No backlog row or story existed before this audit."}
+
+  IDEA-010:
+    {type: idea, status: backlog, created: 2026-09-06,
+     impact: user-visible, effort: m,
+     title: "Post Selection: distinguish genuinely-inactive account from scrape-run-in-progress or never-run",
+     ref: [],
+     touches: [web:post-selection, app:backend],
+     note: "From apps/ux-rework2.md L6, dup. L18, via ux-rework2-tracking.md item #2 — deferred in the user's own words ('put to deferred for better planning'), never re-triaged since. Story 5.4 (inactive-account-warning) ships a simpler 30-day-no-post isInactive flag that doesn't cover run-status, so this nuance was never actually captured as its own row before this audit."}
+
+  BUG-017:
+    {type: bug, status: backlog, created: 2026-09-06,
+     impact: user-visible, effort: s,
+     title: "Geoapify rank.confidence returns wrong location for sub-venues (e.g. 'Grand Atrium, Pakuwon Mall Jogja')",
+     ref: [],
+     touches: [web:locations, app:backend],
+     note: "From apps/ux-rework2.md L45, via ux-rework2-tracking.md item #20. Research task, not yet started — investigate whether rank/rank.confidence can filter or re-rank Geoapify results before any fix is scoped. No backlog row existed before this audit."}
