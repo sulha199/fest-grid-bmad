@@ -8,7 +8,7 @@ skip classification and re-pricing — `planning-artifacts/epic-formation-gate.m
 reimplementation reports "clean" on a broken board, which is worse than no check.
 
 Usage:
-    uv run --python 3.11 --with pyyaml scripts/backlog-check.py [--lens NAME] [--quiet]
+    uv run --python 3.11 --with pyyaml scripts/backlog-check.py [--lens NAME] [--cluster] [--quiet]
 
 Exit code is the number of check failures (0 = clean), so it can gate a commit.
 """
@@ -208,6 +208,58 @@ def collisions(items):
     return sorted(shown), suppressed
 
 
+def cluster_candidates(items):
+    """Epic-formation candidate axes (epic-formation-gate.md §5).
+
+    Mechanical axes only. These are CANDIDATES for a reading pass, never
+    clusters: the strongest axis — shared repair shape — is not mechanizable,
+    and a `touches` tag is explicitly not an epic boundary.
+    """
+    open_set = {k: r for k, r in items.items()
+                if r.get("status") in UNPROMOTED and not (r.get("stories") or [])}
+
+    axes = {"tag": defaultdict(set), "parent": defaultdict(set),
+            "deferred-from": defaultdict(set), "spine-AD": defaultdict(set)}
+
+    for key, row in open_set.items():
+        text = f"{row.get('title','')} {row.get('note','') or ''}"
+        for tag in row.get("touches") or []:
+            axes["tag"][tag_prefix(tag)].add(key)
+        if row.get("parent"):
+            axes["parent"][row["parent"]].add(key)
+        m = re.search(r"Deferred from:\s*([^.]+)", row.get("note") or "")
+        if m:
+            axes["deferred-from"][m.group(1).strip()].add(key)
+        for ad in set(re.findall(r"\bAD-\d+\b", text)):
+            axes["spine-AD"][ad].add(key)
+
+    return open_set, axes
+
+
+def print_clusters(items):
+    open_set, axes = cluster_candidates(items)
+    print(f"\ncandidate axes over {len(open_set)} open un-promoted rows")
+    print("  CANDIDATES, not clusters — the deciding axis (shared repair shape) is a reading pass")
+
+    for axis, groups in axes.items():
+        sized = sorted(((len(v), k, sorted(v)) for k, v in groups.items() if len(v) > 1))
+        keep = [g for g in sized if g[0] <= 6]
+        broad = [g for g in sized if g[0] > 6]
+        print(f"\n  ── {axis} ──")
+        if not keep and not broad:
+            print("     (none)")
+        for size, name, members in keep:
+            print(f"     {name[:34]:34} {size}  {', '.join(members)}")
+        for size, name, _ in broad:
+            print(f"     {name[:34]:34} {size}  too broad to be a candidate")
+
+    # Ritual step 4 reads these: only a cost: skip can reopen on price.
+    reopenable = sorted(k for k, r in items.items() if r.get("status") == "skipped"
+                        and (r.get("note") or "").lower().lstrip().startswith("cost:"))
+    print(f"\n  ── cost-skipped (re-scoring sweep, §9.2) ──")
+    print("     " + (", ".join(reopenable) if reopenable else "(none)"))
+
+
 def lenses(items):
     """Spec §11. Definitions live in the spec; this mirrors them."""
     def touches(row, prefix):
@@ -245,6 +297,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lens", help="print one lens instead of the full report")
     ap.add_argument("--quiet", action="store_true", help="failures only")
+    ap.add_argument("--cluster", action="store_true",
+                    help="epic-formation candidate axes instead of the full report")
     args = ap.parse_args()
 
     items, tags = load_board()
@@ -259,6 +313,10 @@ def main():
         for key in sorted(k for k, r in items.items() if fn(k, r)):
             r = items[key]
             print(f"{key:9} {r.get('impact','-'):13} {r.get('effort','-'):3} {r['title']}")
+        return 0
+
+    if args.cluster:
+        print_clusters(items)
         return 0
 
     failures = run_checks(items, tags, SPRINT_STATUS)

@@ -318,15 +318,29 @@ Run it once before the first formation pass, and again whenever a criterion in t
 document is edited — a change to the method is the only thing that is *supposed* to change
 the output.
 
-## 12. Tooling — specified, not yet built
+## 12. Running it
 
-`backlog-check.py --cluster`: emit candidate groupings across §5's four mechanical axes
-(tag prefix, `parent` chain, shared `deferred-work.md` section, shared AD reference) as
-input to a reading pass. Those axes are already fully specified here and are
-item-independent, so the tool only saves the reading pass from recomputing them by hand —
-nothing about the method depends on it existing, which is §10's point applied to its own
-tooling. Build it whenever convenient, before or after the board grows. The fifth axis,
-repair shape, is not mechanizable and stays a reading pass permanently.
+| Step | Belongs to | Because |
+|---|---|---|
+| checks 1-13, candidate axes, lens ranking | `scripts/backlog-check.py` | a rerun must produce the identical answer |
+| the invariant, the criteria, the sweep, the epic entry | `bmad-form-epics` | it needs a reading pass |
+
+The split is `backlog-spec.md` §9's rule one level up: mechanical work goes to the committed
+runner because a re-derived check reports "clean" on a broken board, and judgment stays out
+of the script because a scripted judgment is fake precision.
+
+**`backlog-check.py --cluster`** emits candidate groupings across §5's four mechanical axes
+(tag prefix, `parent` chain, shared `deferred-work.md` section, shared AD reference), plus
+the `cost:`-skipped rows §9.2's sweep reads. Groups larger than six are reported as too
+broad to be candidates — on the 2026-09-05 board that is `app:backend` (15), `web:events`
+(14) and `pkg:ui` (11), which is this document's tag claim measured rather than asserted.
+The fifth axis, repair shape, is not mechanizable and stays a reading pass permanently.
+
+**`bmad-form-epics`** owns execution order, the human checkpoint at ritual step 3, and the
+blind subagent structure §11's ablation needs. It carries none of this document's rules —
+it cites them. A skill that copied the criteria would be a second copy to drift, which is
+the failure the board exists to prevent. The reason it is a skill at all rather than a
+prompt is §10: a procedure that varies with how it was asked for that day is not generic.
 
 ## 13. Do not
 
@@ -343,5 +357,6 @@ repair shape, is not mechanizable and stays a reading pass permanently.
 
 ## 14. Status
 
-No formation pass has been run and no stability test has been run. This document defines
-the method only — no clusters have been proposed, and no rows carry `epic:` yet.
+No formation pass has been run and no stability test has been run. The method, the runner
+support (§12) and the skill are in place; no clusters have been proposed, and no rows carry
+`epic:` or `reprice_on` yet.
