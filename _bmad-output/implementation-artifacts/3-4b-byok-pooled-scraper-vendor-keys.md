@@ -4,7 +4,7 @@
 
 - Epic: 3
 - Story ID: 3.4b
-- Status: backlog
+- Status: wont-do (closed 2026-09-07 — Apify never responded)
 
 ## LEGAL GATE — READ BEFORE DOING ANYTHING ELSE WITH THIS STORY
 
@@ -154,7 +154,7 @@ Send both (they are independent; one vendor confirming does not imply the other 
 
 ### Vendor Responses (fill in once received)
 
-- **Apify:** *(outreach sent — per user confirmation 2026-08-14; exact original send date not recorded here, update if known. Awaiting response as of 2026-08-14. Follow-up draft above ready to send once a reasonable wait has passed — typically 1-2 weeks for a first response to a B2B legal/support inquiry before nudging.)*
+- **Apify: closed 2026-09-07, no response received.** Outreach sent ~2026-08-14 (exact date not recorded); the drafted follow-up nudge (Dev Notes above) was never sent either — the user decided, given 3+ weeks of total silence, to treat this as a no-go rather than nudge further. This closes the story entirely: Bright Data was already closed 2026-08-10 (KYC restricted to registered business entities), and Apify is now closed too. **3.4b will not be built.** If Apify's stance ever changes (e.g. they reach out unprompted, or a future retry is deliberately chosen), reopen this story rather than treating this closure as permanent policy.
 - **Bright Data: closed for this story (3.4b) specifically, 2026-08-10 — but the follow-up's underlying question resolved favorably for Story 3.4a.** Initial response received from Akhilesh (support/sales contact): *"Bright Data no longer provides the IPs for Social media account management usecase or accessing payment gateways like PayPal & Stripe. We do the KYC only for the Registered business entities not Freelancer individuals."* Follow-up response (same thread, 2026-08-10): *"We can support you collecting Social media data from our Webscraper APIs and Filter APIs. If you have the post URL or Profile URL you can give those as an input and fetch the publicly available data."* This confirms the account-management exclusion was about their Proxy/IP product, not the Web Scraper/Dataset API — good news for Story 3.4a, which is now unblocked on the policy question (see that story's own note for the one remaining capability question: does profile-URL input return recent posts, or only metadata/single-post lookup). **This does not change this story's (3.4b's) own conclusion**: the KYC-for-registered-business-entities restriction is untouched by either reply and still rules out individual end-users contributing their own Bright Data key. Bright Data BYOK remains closed here. Apify's BYOK viability is unaffected by any of this and remains open pending its own response.
 
 ### References
@@ -201,9 +201,9 @@ Send both (they are independent; one vendor confirming does not imply the other 
 
 ## Deliverables Checklist
 
-- [x] Apify outreach email sent (per user confirmation 2026-08-14; exact date not recorded in this file). Follow-up draft (with new §4.4 question) ready to send once a reasonable wait has passed.
+- [x] Apify outreach email sent (per user confirmation 2026-08-14; exact date not recorded in this file). Follow-up draft was never sent — no-go decision made instead (see below).
 - [x] Bright Data outreach email sent — response received 2026-08-10, closed (KYC restricted to registered business entities).
-- [ ] Apify's response recorded in this file's "Vendor Responses" section (or a documented decision to abandon this story entirely if Apify also declines).
+- [x] Apify's non-response recorded in this file's "Vendor Responses" section, and a documented decision to abandon this story made 2026-09-07 (both vendors now closed, no response from Apify after 3+ weeks).
 
 ## Out of Scope
 
@@ -215,12 +215,12 @@ Send both (they are independent; one vendor confirming does not imply the other 
 ## Definition of Done
 
 - [x] Bright Data outreach sent and response recorded (closed).
-- [x] Apify outreach sent (2026-08-14 or earlier, per user confirmation) — response not yet recorded.
-- [ ] A clear go/no-go decision for Apify recorded, with reasoning, before this story is ever moved to `ready-for-dev`.
+- [x] Apify outreach sent (2026-08-14 or earlier, per user confirmation) — no response received after 3+ weeks.
+- [x] No-go decision for Apify recorded 2026-09-07, with reasoning: 3+ weeks of silence, past the story's own 1-2 week follow-up window, and the user chose to close out rather than nudge further. **This story will not proceed to `ready-for-dev` unless reopened.**
 
 ## Completion Status
 
-- [ ] In progress — Apify outreach sent, awaiting response. Follow-up draft (Vendor Outreach section) ready once a reasonable wait has passed.
+- [x] Closed 2026-09-07 — both vendors (Bright Data, Apify) resolved with no path forward. Bright Data explicitly declined (KYC scope); Apify never responded. Story abandoned, no code was or will be written under it as currently scoped.
 
 ## Dev Agent Record
 

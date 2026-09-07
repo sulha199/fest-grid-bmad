@@ -864,13 +864,22 @@ development_status:
   # entities only, not individual freelancers, which appears to rule out
   # individual end-users contributing a Bright Data key regardless of the
   # sublicensing question. Bright Data BYOK looks closed; Apify still pending.
-  3-4b-byok-pooled-scraper-vendor-keys: backlog
+  # CLOSED 2026-09-07: Apify never responded (outreach sent ~2026-08-14, 3+
+  # weeks of silence past the story's own 1-2 week follow-up window). User
+  # decided no-go rather than nudging further. Both vendors now closed --
+  # story will not proceed unless reopened.
+  3-4b-byok-pooled-scraper-vendor-keys: wont-do
   # added 2026-08-09 via bmad-create-story: exploratory outreach to Instagram-
   # viewer sites (storiesig.info explicitly invites API-access contact; imginn.com
   # is the right shape but has no advertised partnership channel, cold outreach
   # only; mollygram has no scraping/API prohibition but is likely the wrong
   # shape). EXPLORATORY -- outreach only, no adapter code until a concrete offer
   # exists.
+  # UPDATE 2026-09-07: storiesig.info + imginn.com outreach actually sent
+  # mid-to-late August 2026 (story file previously said "not yet sent" --
+  # tracking had drifted from real state). No response from either as of
+  # 2026-09-07. No follow-up drafted, no abandon decision made yet -- still
+  # genuinely open, unlike 3-4b.
   3-4c-explore-whitelisted-access-with-instagram-viewer-sites: backlog
   # added 2026-08-14 via bmad-help/architect analysis of docs/assets/Apify actor
   # costing and facts.md; corrected same day. None of the four actors evaluated
