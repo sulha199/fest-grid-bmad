@@ -672,7 +672,10 @@
   "DefaultLocationChangeStatus": {
     "PENDING_REVIEW": "Pending Review",
     "ACCEPTED": "Accepted",
-    "REVERTED": "Reverted"
+    "REVERTED": "Reverted",
+    "AWAITING_APPROVAL": "Awaiting Approval",
+    "REJECTED": "Rejected",
+    "SUPERSEDED": "Superseded"
   },
   "ModeratorItemsPage": {
     "pageTitle": "Moderator Items",
@@ -691,6 +694,8 @@
     "buttonIgnoreFutureReports": "Ignore future reports from this user",
     "buttonAccept": "Accept",
     "buttonRevert": "Revert",
+    "buttonApprove": "Approve",
+    "buttonReject": "Reject",
     "filterReasonLabel": "Filter by Reason",
     "filterStatusLabel": "Filter by Status",
     "allOption": "All",
@@ -702,7 +707,23 @@
     "fromLabel": "From",
     "toLabel": "To",
     "correctLocationLabel": "Correct {accountName}'s location directly",
-    "moderatorLocationCorrectedToast": "Default location successfully corrected"
+    "moderatorLocationCorrectedToast": "Default location successfully corrected",
+    "pendingClassificationsSection": "Pending Account-Type Classifications",
+    "emptyClassifications": "No pending account-type classifications awaiting review.",
+    "bioLabel": "Bio",
+    "proposedTypeLabel": "Proposed Type",
+    "confidenceLabel": "Confidence",
+    "classificationFailedLabel": "Classification Failed",
+    "failureReasonLabel": "Failure Reason",
+    "buttonResolveOrganizerVenueEvent": "Organizer/Venue/Event",
+    "buttonResolvePersonal": "Personal",
+    "buttonResolveCuratorGuide": "Curator/Guide",
+    "classificationResolvedToast": "Account-type classification successfully resolved"
+  },
+  "AccountType": {
+    "ORGANIZER_VENUE_EVENT": "Organizer / Venue / Event",
+    "PERSONAL": "Personal",
+    "CURATOR_GUIDE": "Curator / Guide"
   },
   "UnprocessedPayloadsPage": {
     "rawJsonLabel": "Raw Payload (JSON)",

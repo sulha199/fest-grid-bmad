@@ -1,10 +1,14 @@
+---
+baseline_commit: ac122f0d3b7a8fdbf4d04eb4e0386d8f4f5ecd79
+---
+
 # Story 4.7c: Review queue for pending account-type classifications
 
 ## Story Details
 
 - Epic: 4
 - Story ID: 4.7c
-- Status: ready-for-dev
+- Status: review
 
 ## Story
 
@@ -22,8 +26,8 @@ so that an account that couldn't be automatically classified as `ORGANIZER_VENUE
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1, AC2, AC4) — New backend GraphQL schema file**
-  - [ ] Create `apps/backend/src/schema/account-type-classification-reviews.graphql`:
+- [x] **Task 1 (AC1, AC2, AC4) — New backend GraphQL schema file**
+  - [x] Create `apps/backend/src/schema/account-type-classification-reviews.graphql`:
     ```graphql
     enum AccountType {
       ORGANIZER_VENUE_EVENT
@@ -52,32 +56,32 @@ so that an account that couldn't be automatically classified as `ORGANIZER_VENUE
       resolveAccountTypeClassificationReview(id: ID!, accountType: AccountType!): AccountTypeClassificationReview!
     }
     ```
-  - [ ] Update `apps/backend/src/schema/moderator.graphql`'s `moderatorPendingItemCount` doc comment to mention the third source (pending account-type classification reviews), per AC5.
+  - [x] Update `apps/backend/src/schema/moderator.graphql`'s `moderatorPendingItemCount` doc comment to mention the third source (pending account-type classification reviews), per AC5.
 
-- [ ] **Task 2 (AC1) — `pendingAccountTypeClassificationReviews` resolver**
-  - [ ] In `apps/backend/src/schema/resolvers.ts`, add to `Query`: `requireModerator(context)`; `db.select().from(accountTypeClassificationReviews).where(isNull(accountTypeClassificationReviews.reviewedAt)).orderBy(asc(accountTypeClassificationReviews.createdAt))`; map `createdAt`/`reviewedAt` to ISO strings (mirror `pendingDefaultLocationChanges`'s exact date-mapping pattern, `resolvers.ts:2371-2385`).
+- [x] **Task 2 (AC1) — `pendingAccountTypeClassificationReviews` resolver**
+  - [x] In `apps/backend/src/schema/resolvers.ts`, add to `Query`: `requireModerator(context)`; `db.select().from(accountTypeClassificationReviews).where(isNull(accountTypeClassificationReviews.reviewedAt)).orderBy(asc(accountTypeClassificationReviews.createdAt))`; map `createdAt`/`reviewedAt` to ISO strings (mirror `pendingDefaultLocationChanges`'s exact date-mapping pattern, `resolvers.ts:2371-2385`).
 
-- [ ] **Task 3 (AC1) — `AccountTypeClassificationReview.account` field resolver**
-  - [ ] Mirror `DefaultLocationChangeRequest.account` exactly (`resolvers.ts:3434-3449`): `buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info)` then `db.select({...requestedFields, id: socialMediaAccountProfiles.id}).from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, parent.accountId))`, returning `null` if not found.
+- [x] **Task 3 (AC1) — `AccountTypeClassificationReview.account` field resolver**
+  - [x] Mirror `DefaultLocationChangeRequest.account` exactly (`resolvers.ts:3434-3449`): `buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info)` then `db.select({...requestedFields, id: socialMediaAccountProfiles.id}).from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, parent.accountId))`, returning `null` if not found.
 
-- [ ] **Task 4 (AC2) — `resolveAccountTypeClassificationReview` mutation resolver**
-  - [ ] `requireModerator(context)` → get `moderator`.
-  - [ ] Fetch the `accountTypeClassificationReviews` row by `id`; `NOT_FOUND` if missing.
-  - [ ] `INVALID_STATE_TRANSITION` if `reviewedAt !== null` (already resolved) — mirrors `resolveDefaultLocationChange`'s already-resolved guard (`resolvers.ts:1737-1741`).
-  - [ ] In one `db.transaction`: update `accountTypeClassificationReviews` row (`resolvedAccountType: accountType, reviewedByModeratorId: moderator.userId, reviewedAt: new Date()`); update `socialMediaAccountProfiles` where `id = reqRow.accountId` (`accountType, accountTypeStatus: 'CONFIRMED'`). Return the updated review row with ISO-formatted dates.
+- [x] **Task 4 (AC2) — `resolveAccountTypeClassificationReview` mutation resolver**
+  - [x] `requireModerator(context)` → get `moderator`.
+  - [x] Fetch the `accountTypeClassificationReviews` row by `id`; `NOT_FOUND` if missing.
+  - [x] `INVALID_STATE_TRANSITION` if `reviewedAt !== null` (already resolved) — mirrors `resolveDefaultLocationChange`'s already-resolved guard (`resolvers.ts:1737-1741`).
+  - [x] In one `db.transaction`: update `accountTypeClassificationReviews` row (`resolvedAccountType: accountType, reviewedByModeratorId: moderator.userId, reviewedAt: new Date()`); update `socialMediaAccountProfiles` where `id = reqRow.accountId` (`accountType, accountTypeStatus: 'CONFIRMED'`). Return the updated review row with ISO-formatted dates.
 
-- [ ] **Task 5 (AC5) — Extend `moderatorPendingItemCount`**
-  - [ ] In `resolvers.ts`, add a third `Promise.all` term to the existing two (`resolvers.ts:2359-2370`): `db.select({ pendingClassificationCount: count() }).from(accountTypeClassificationReviews).where(isNull(accountTypeClassificationReviews.reviewedAt))`. Sum all three into the returned `Int!`.
+- [x] **Task 5 (AC5) — Extend `moderatorPendingItemCount`**
+  - [x] In `resolvers.ts`, add a third `Promise.all` term to the existing two (`resolvers.ts:2359-2370`): `db.select({ pendingClassificationCount: count() }).from(accountTypeClassificationReviews).where(isNull(accountTypeClassificationReviews.reviewedAt))`. Sum all three into the returned `Int!`.
 
-- [ ] **Task 6 (AC1, AC2, AC5) — Backend integration tests**
-  - [ ] New `apps/backend/src/schema/account-type-classification-reviews.test.ts`, mirroring `default-location-change-requests.test.ts`'s harness (schema-from-`src/schema/*.graphql` + `createYoga`, seeded `users`/`socialMediaAccountProfiles`/`accountTypeClassificationReviews` rows via `db.insert`):
+- [x] **Task 6 (AC1, AC2, AC5) — Backend integration tests**
+  - [x] New `apps/backend/src/schema/account-type-classification-reviews.test.ts`, mirroring `default-location-change-requests.test.ts`'s harness (schema-from-`src/schema/*.graphql` + `createYoga`, seeded `users`/`socialMediaAccountProfiles`/`accountTypeClassificationReviews` rows via `db.insert`):
     - `pendingAccountTypeClassificationReviews` — non-moderator rejected `FORBIDDEN`; returns only `reviewedAt IS NULL` rows, oldest-first; a row with `proposedAccountType: null`/`failureReason` set (hard-failure case) round-trips correctly.
     - `AccountTypeClassificationReview.account` field resolver returns the correct linked profile.
     - `resolveAccountTypeClassificationReview` — non-moderator rejected `FORBIDDEN`; happy path for each of the 3 `AccountType` values (assert both `socialMediaAccountProfiles.accountType/accountTypeStatus` and the review row's `resolvedAccountType/reviewedByModeratorId/reviewedAt` are updated); `NOT_FOUND` for a bad id; `INVALID_STATE_TRANSITION` when resolving an already-`reviewedAt`-set row.
-    - `moderatorPendingItemCount` — reflects the new third term (seed one pending report, one pending location change, one pending classification review; assert the sum is 3; resolve the classification review; assert the sum drops to 2).
+    - `moderatorPendingItemCount` — reflects the new third term (isolated before/after delta around resolving one seeded pending classification review, rather than assuming an absolute baseline of 3/2, since other suites' rows may coexist in the shared test DB).
 
-- [ ] **Task 7 (AC1, AC2) — Frontend GraphQL operations**
-  - [ ] Add to `apps/web/src/features/moderation/moderation.graphql`:
+- [x] **Task 7 (AC1, AC2) — Frontend GraphQL operations**
+  - [x] Add to `apps/web/src/features/moderation/moderation.graphql`:
     ```graphql
     query getPendingAccountTypeClassificationReviews {
       pendingAccountTypeClassificationReviews {
@@ -106,44 +110,50 @@ so that an account that couldn't be automatically classified as `ORGANIZER_VENUE
       }
     }
     ```
-  - [ ] `pnpm run codegen` (both `apps/backend` and `apps/web` sides) — regenerates `useGetPendingAccountTypeClassificationReviewsQuery`/`useResolveAccountTypeClassificationReviewMutation` hooks and the new `AccountType` TypeScript enum.
+  - [x] `pnpm run codegen` (both `apps/backend` and `apps/web` sides) — regenerates `useGetPendingAccountTypeClassificationReviewsQuery`/`useResolveAccountTypeClassificationReviewMutation` hooks and the new `AccountType` TypeScript enum. (Also required a `fix-codegen.js` addition to strip the duplicate `AccountType` union-type re-declaration, matching the existing precedent for every other enum in that file.)
 
-- [ ] **Task 8 (Gate 2 finding) — Extend shared `StatusBadge`**
-  - [ ] In `packages/ui/src/core/status-badge.tsx`, add two variants to the union (grouping into the existing color families): `"lowConfidence"` (amber, joins the `"pending"|"pendingReview"|"hiddenByMe"` group) and `"classificationFailed"` (red, joins the `"invalid"|"upheld"|"reverted"|"removedByModeration"` group).
-  - [ ] Extend `status-badge.test.tsx` for both new variants.
+- [x] **Task 8 (Gate 2 finding) — Extend shared `StatusBadge`**
+  - [x] In `packages/ui/src/core/status-badge.tsx`, add two variants to the union (grouping into the existing color families): `"lowConfidence"` (amber, joins the `"pending"|"pendingReview"|"hiddenByMe"` group) and `"classificationFailed"` (red, joins the `"invalid"|"upheld"|"reverted"|"removedByModeration"` group).
+  - [x] Extend `status-badge.test.tsx` for both new variants.
 
-- [ ] **Task 9 (AC1, AC2) — New `account-type-classification-row.tsx` component**
-  - [ ] `apps/web/src/app/[locale]/moderator/items/account-type-classification-row.tsx`, mirroring `pending-location-change-row.tsx`'s structure (avatar with `onError` fallback to initials, header with `displayName`/`username`/platform, bounded content block, action buttons row):
+- [x] **Task 9 (AC1, AC2) — New `account-type-classification-row.tsx` component**
+  - [x] `apps/web/src/app/[locale]/moderator/items/account-type-classification-row.tsx`, mirroring `pending-location-change-row.tsx`'s structure (avatar with `onError` fallback to initials, header with `displayName`/`username`/platform, bounded content block, action buttons row):
     - Bio snippet: `account.description` (line-clamped; render a fallback dash/empty-state string if `null`).
     - If `proposedAccountType` is non-null: render it through the new `AccountType` i18n namespace + a `StatusBadge variant="lowConfidence"` showing the percent-formatted `confidenceScore` (via `Intl.NumberFormat` — use the existing `useScopedLocale()` pattern if `packages/ui` needs the active locale, per project-context.md's Scoped locale/timezone rule, since this is a `packages/ui`-adjacent but page-local `apps/web` component that already has `next-intl`'s `useLocale()` available directly).
     - Else (hard failure): render `failureReason` with `StatusBadge variant="classificationFailed"`.
     - Three resolve buttons, one per `AccountType` value, each calling `onResolve(review.id, accountType)`.
-  - [ ] Export the `AccountTypeClassificationReview` prop-shape interface (matching `PendingLocationChange`'s export pattern).
+  - [x] Export the `AccountTypeClassificationReview` prop-shape interface (matching `PendingLocationChange`'s export pattern).
 
-- [ ] **Task 10 (AC1, AC2, AC3, AC5) — Wire the new section into `moderator-items-content.tsx`**
-  - [ ] Add `useGetPendingAccountTypeClassificationReviewsQuery`/`useResolveAccountTypeClassificationReviewMutation` hooks (same `enabled: authStatus === "authorized"` gating as the other two).
-  - [ ] Add a third page section (`<div className="space-y-6">`) after the existing two, titled via a new `pendingClassificationsSection` key, with the same empty-state/list-of-rows shape as the other two sections.
-  - [ ] Fold the new query into `isLoading`/`error`/`refetchAll`; fold the new mutation's `isPending` into the existing `isMutating` aggregate (`BlockingLoader active={isMutating}`).
-  - [ ] `handleResolveClassification(id, accountType)`: call the mutation, fire `moderator_account_type_classification_resolved` (payload: `{ reviewId, accountId, resolvedAccountType }`), show a success toast, refetch the classification-reviews list. Do **not** add any explicit `moderatorPendingItemCount` cache invalidation here — mirrors the existing precedent that neither `handleResolveReports` nor `handleResolveLocationChange` invalidates that query either; the badge relies on `AppShellWrapper.tsx`'s existing 60s poll for all three sources uniformly (documented parity, not a gap introduced by this story).
-  - [ ] Extend the existing `moderator_items_page_viewed` PostHog payload with `pendingClassificationReviewCount: classificationsData?.pendingAccountTypeClassificationReviews?.length || 0`.
+- [x] **Task 10 (AC1, AC2, AC3, AC5) — Wire the new section into `moderator-items-content.tsx`**
+  - [x] Add `useGetPendingAccountTypeClassificationReviewsQuery`/`useResolveAccountTypeClassificationReviewMutation` hooks (same `enabled: authStatus === "authorized"` gating as the other two).
+  - [x] Add a third page section (`<div className="space-y-6">`) after the existing two, titled via a new `pendingClassificationsSection` key, with the same empty-state/list-of-rows shape as the other two sections.
+  - [x] Fold the new query into `isLoading`/`error`/`refetchAll`; fold the new mutation's `isPending` into the existing `isMutating` aggregate (`BlockingLoader active={isMutating}`).
+  - [x] `handleResolveClassification(id, accountType)`: call the mutation, fire `moderator_account_type_classification_resolved` (payload: `{ reviewId, accountId, resolvedAccountType }`), show a success toast, refetch the classification-reviews list. Do **not** add any explicit `moderatorPendingItemCount` cache invalidation here — mirrors the existing precedent that neither `handleResolveReports` nor `handleResolveLocationChange` invalidates that query either; the badge relies on `AppShellWrapper.tsx`'s existing 60s poll for all three sources uniformly (documented parity, not a gap introduced by this story).
+  - [x] Extend the existing `moderator_items_page_viewed` PostHog payload with `pendingClassificationReviewCount: classificationsData?.pendingAccountTypeClassificationReviews?.length || 0`.
 
-- [ ] **Task 11 (AD-6) — i18n keys**
-  - [ ] `apps/web/locales/en.json`/`id.json`, `ModeratorItemsPage` namespace, add: `pendingClassificationsSection`, `emptyClassifications`, `bioLabel`, `proposedTypeLabel`, `confidenceLabel`, `classificationFailedLabel`, `failureReasonLabel`, `buttonResolveOrganizerVenueEvent`, `buttonResolvePersonal`, `buttonResolveCuratorGuide`, `classificationResolvedToast`.
-  - [ ] New `AccountType` namespace (mirrors `ReportReason`'s shape): `ORGANIZER_VENUE_EVENT`, `PERSONAL`, `CURATOR_GUIDE` (en + id).
+- [x] **Task 11 (AD-6) — i18n keys**
+  - [x] `apps/web/locales/en.json`/`id.json`, `ModeratorItemsPage` namespace, add: `pendingClassificationsSection`, `emptyClassifications`, `bioLabel`, `proposedTypeLabel`, `confidenceLabel`, `classificationFailedLabel`, `failureReasonLabel`, `buttonResolveOrganizerVenueEvent`, `buttonResolvePersonal`, `buttonResolveCuratorGuide`, `classificationResolvedToast`.
+  - [x] New `AccountType` namespace (mirrors `ReportReason`'s shape): `ORGANIZER_VENUE_EVENT`, `PERSONAL`, `CURATOR_GUIDE` (en + id).
 
-- [ ] **Task 12 (AD-5) — Analytics**
-  - [ ] New event `moderator_account_type_classification_resolved` — payload `{ reviewId: string, accountId: string, resolvedAccountType: 'ORGANIZER_VENUE_EVENT' | 'PERSONAL' | 'CURATOR_GUIDE' }`.
-  - [ ] Extend existing `moderator_items_page_viewed` payload with `pendingClassificationReviewCount`.
+- [x] **Task 12 (AD-5) — Analytics**
+  - [x] New event `moderator_account_type_classification_resolved` — payload `{ reviewId: string, accountId: string, resolvedAccountType: 'ORGANIZER_VENUE_EVENT' | 'PERSONAL' | 'CURATOR_GUIDE' }`.
+  - [x] Extend existing `moderator_items_page_viewed` payload with `pendingClassificationReviewCount`.
 
-- [ ] **Task 13 (Testing) — Frontend tests**
-  - [ ] Extend `moderator-items-content.test.tsx`: third section renders/empty state; resolve flow (each of 3 buttons) calls the mutation with correct args, shows toast, refetches; loading/error aggregation unaffected; extended analytics payload asserted.
-  - [ ] New `account-type-classification-row.test.tsx`: proposed-type+confidence branch vs. failure-reason branch render correctly; percent-formatted confidence; all three resolve buttons fire `onResolve` with correct `(id, accountType)`; avatar `onError` fallback.
+- [x] **Task 13 (Testing) — Frontend tests**
+  - [x] Extend `moderator-items-content.test.tsx`: third section renders/empty state; resolve flow (each of 3 buttons) calls the mutation with correct args, shows toast, refetches; loading/error aggregation unaffected; extended analytics payload asserted.
+  - [x] New `account-type-classification-row.test.tsx`: proposed-type+confidence branch vs. failure-reason branch render correctly; percent-formatted confidence; all three resolve buttons fire `onResolve` with correct `(id, accountType)`; avatar `onError` fallback.
 
-- [ ] **Task 14 (Testing) — E2E**
-  - [ ] One new Playwright spec: moderator resolves a pending account-type classification review (any of the 3 outcomes) and it disappears from the list — matching Story 4.7's own two-happy-path E2E precedent.
+- [x] **Task 14 (Testing) — E2E**
+  - [x] One new Playwright spec: moderator resolves a pending account-type classification review (any of the 3 outcomes) and it disappears from the list — matching Story 4.7's own two-happy-path E2E precedent. (Note: no pre-existing `/moderator/items` Playwright spec or seeded classification-review fixture was actually found in the repo despite the story text's reference — the new spec follows this project's established sparse-data-tolerant E2E pattern instead, e.g. `moderator-accounts.spec.ts`: skips without `E2E_AUTH_STORAGE_STATE`, and skips gracefully if the live environment has no pending review to resolve, since this repo's E2E specs don't seed DB fixtures directly.)
 
-- [ ] **Task 15 (Verification) — Full sweep**
-  - [ ] `pnpm --filter backend test`; `pnpm --filter web test`; `pnpm run codegen` (clean, both sides); `pnpm build`; `pnpm lint` (root).
+- [x] **Task 15 (Verification) — Full sweep**
+  - [x] `pnpm --filter backend test`; `pnpm --filter web test`; `pnpm run codegen` (clean, both sides); `pnpm build`; `pnpm lint` (root). All green: backend 672/672 tests pass (including the 12 new in `account-type-classification-reviews.test.ts`); web 326/326 tests pass (including 18 new across `moderator-items-content.test.tsx`/`account-type-classification-row.test.tsx`/`status-badge.test.tsx`); codegen re-ran clean on both sides with no diff; `pnpm build` 7/7 tasks green; `pnpm lint` 0 errors (1100 pre-existing warnings, none newly introduced by this story's files).
+
+- [x] **Task 16 (User-approved scope addition) — Fix Story 4.7's pre-existing Approve/Reject UI gap for `AWAITING_APPROVAL` default-location-change rows**
+  - [x] Confirmed: the backend already fully supports this (`DefaultLocationChangeAction.APPROVE`/`REJECT`, `resolveDefaultLocationChange` resolver logic) — frontend-only fix.
+  - [x] `pending-location-change-row.tsx`: when `status === 'AWAITING_APPROVAL'`, render distinct Approve/Reject buttons (calling `onResolve(id, 'APPROVE')`/`onResolve(id, 'REJECT')`) instead of the current Accept/Revert buttons; add a visual status indicator distinguishing `AWAITING_APPROVAL` from `PENDING_REVIEW` rows (`StatusBadge variant="pendingReview"`, matching this story's own Task 8 pattern — the closest existing amber "awaiting attention" semantic group; no new variant needed).
+  - [x] `apps/web/locales/en.json`/`id.json`: add the three missing `DefaultLocationChangeStatus` keys — `AWAITING_APPROVAL`, `REJECTED`, `SUPERSEDED` (plus `buttonApprove`/`buttonReject` in `ModeratorItemsPage`).
+  - [x] Extend `pending-location-change-row.test.tsx`/`moderator-items-content.test.tsx` coverage for the `AWAITING_APPROVAL` branch: Approve/Reject buttons render and call the mutation with the correct action; badge renders; `moderator-items-content.tsx`'s `handleResolveLocationChange` extended to accept all 4 actions.
 
 ## Dev Notes
 
@@ -155,7 +165,7 @@ so that an account that couldn't be automatically classified as `ORGANIZER_VENUE
 - **Gate 2 (Freya/UX) — PASS.** No `DESIGN.md`/`EXPERIENCE.md` run covers this feature (it postdates `design-artifacts/UX-festgrid-run-1/EXPERIENCE.md` entirely) — confirmed by direct search. A fresh pass against the actual current code (not just Story 3.4n's own prior one-line Gate 2 note) confirms: the two existing `/moderator/items` sections are structurally identical, single-purpose, page-local (own hook, own empty state, own row list, no shared container/tabs abstraction) — there is no latent shared machinery a third section needs to slot into, and no ≥2-consumer reuse case for the new row component (exactly 1 consumer, same as its two siblings). Recommendation adopted: extend the shared `StatusBadge` variant union in place (Task 8) rather than inventing a new badge component, matching Story 4.7's own established precedent.
 - **Gate 3 (Winston/Architect) — PASS.** i18n, analytics, GraphQL/codegen, app-shell/nav, and `buildOptimizedDrizzleSelect` are all already-established foundations already exercised twice on this exact page — this story only adds incremental usage (new namespace entries, one new event, one new query/mutation via the existing pipeline), not new foundational infrastructure. The one substantive question assessed: whether extending `moderatorPendingItemCount` (FR96, consumed by the shared `UserMenu.tsx`/`AppShell.tsx`) is itself a cross-cutting gap. Conclusion: **no** — the mechanism is already built, already proven to aggregate heterogeneous sources (it already sums two today), and adding a third summed term is incremental extension of existing shared infrastructure, not construction of new infrastructure (the same logic Gate 3's own heuristic already applies to "adding a new event to an already-set-up analytics system"). Flagged as a task-completeness note, not a gap: the extension must not silently regress the existing two counts (Task 6's test asserts all three sources together).
 
-**A pre-existing bug was found and raised to the user, not resolved either way by default — the user did not answer.** While reading `moderator-items-content.tsx`/`pending-location-change-row.tsx` in full (mandatory, since this story adds a third section to the exact same page/file), it was confirmed by direct code search that Story 4.7's own 2026-08-29 `epics.md` amendment (FR94-96: "this page's pending-change list shows both post-hoc `PENDING_REVIEW` items... and pre-hoc `AWAITING_APPROVAL` items (new approve/reject...), visually distinguished") was **not actually shipped** in the frontend: `PendingLocationChangeRow` only ever renders Accept/Revert buttons (no Approve/Reject, no `AWAITING_APPROVAL` visual distinction), and the `DefaultLocationChangeStatus` i18n namespace is missing `AWAITING_APPROVAL`/`REJECTED`/`SUPERSEDED` keys entirely — meaning a moderator who clicks Accept/Revert on an `AWAITING_APPROVAL` row today gets an unhandled backend `INVALID_STATE_TRANSITION` error. Presented to the user via `AskUserQuestion` (fix now vs. document-only, recommended); the user did not respond. Per this workflow's default-to-recommended-option-on-no-answer guidance, this is **documented as a known, out-of-scope gap in Story 4.7's own code** — not fixed by this story, which stays strictly scoped to account-type classification review (unrelated feature, unrelated table). Whoever picks up Story 4.7's own follow-up should add the missing Approve/Reject UI + the three missing i18n keys.
+**A pre-existing bug was found while reading files this story touches, and the user explicitly approved fixing it inline (confirmed: the backend endpoint already fully exists and is implemented — `resolveDefaultLocationChange`/`DefaultLocationChangeAction.APPROVE`/`REJECT` in `apps/backend/src/schema/resolvers.ts`/`default-location-change-requests.graphql` — so this is frontend-only work).** While reading `moderator-items-content.tsx`/`pending-location-change-row.tsx` in full (mandatory, since this story adds a third section to the exact same page/file), it was confirmed by direct code search that Story 4.7's own 2026-08-29 `epics.md` amendment (FR94-96: "this page's pending-change list shows both post-hoc `PENDING_REVIEW` items... and pre-hoc `AWAITING_APPROVAL` items (new approve/reject...), visually distinguished") was **not actually shipped** in the frontend: `PendingLocationChangeRow` only ever renders Accept/Revert buttons (no Approve/Reject, no `AWAITING_APPROVAL` visual distinction), and the `DefaultLocationChangeStatus` i18n namespace is missing `AWAITING_APPROVAL`/`REJECTED`/`SUPERSEDED` keys entirely — meaning a moderator who clicks Accept/Revert on an `AWAITING_APPROVAL` row today gets an unhandled backend `INVALID_STATE_TRANSITION` error with no visible reason. **In scope for this story as Task 16** — see Tasks section. Also ensured noted on the backlog board per the user's instruction, in case it's deferred for any reason.
 
 ### GraphQL Typing Note (Gate 1 finding, accepted)
 
@@ -199,7 +209,7 @@ A third page-local vertical section (`<div className="space-y-6">`), appended af
 ### Existing code read in full (mandatory — files this story modifies or reads as its structural template)
 
 - **`moderator-items-content.tsx`** (full file, modified) — current state: two hard-coded sections, per-section hook pattern, shared `isMutating`/`isLoading`/`error`/`refetchAll` aggregation, a PostHog view-tracking `useEffect`, and a separate mutation-cache-subscribe `useEffect` for the location-edit-dialog toast (unrelated to this story — must not be disturbed). This story adds a third section following the identical shape and folds its query/mutation into the existing aggregation variables only.
-- **`pending-location-change-row.tsx`** (full file, read-only) — confirmed, while reading, the pre-existing Approve/Reject/`AWAITING_APPROVAL` gap documented above. Not touched by this story.
+- **`pending-location-change-row.tsx`** (full file, modified) — confirmed, while reading, the pre-existing Approve/Reject/`AWAITING_APPROVAL` gap documented above; fixed as Task 16 per explicit user approval.
 - **`reported-event-group.tsx`** (full file, read-only) — read for the `StatusBadge`/avatar/row-layout pattern the new row component (Task 9) follows.
 - **`page.tsx`** (read-only, no change needed) — route shell is already `Suspense`/`RouteLoader`-wrapped, generic to any content component.
 - **`social-media-accounts.graphql`** (read-only) — confirmed the current `accountType`/`accountTypeStatus: String` shape (source of the "GraphQL Typing Note" above). Not modified by this story.
@@ -235,8 +245,8 @@ A third page-local vertical section (`<div className="space-y-6">`), appended af
 ### File Change Plan
 
 - **New:** `apps/backend/src/schema/account-type-classification-reviews.graphql`; `apps/backend/src/schema/account-type-classification-reviews.test.ts`; `apps/web/src/app/[locale]/moderator/items/account-type-classification-row.tsx` + `.test.tsx`; one new Playwright E2E spec.
-- **Modified:** `apps/backend/src/schema/resolvers.ts` (new query/mutation/field resolver + `moderatorPendingItemCount` extension); `apps/backend/src/schema/moderator.graphql` (doc comment); `apps/web/src/features/moderation/moderation.graphql` (new query/mutation ops); `apps/web/src/app/[locale]/moderator/items/moderator-items-content.tsx` + `.test.tsx`; `packages/ui/src/core/status-badge.tsx` + test; `apps/web/locales/en.json`/`id.json`; `apps/backend/src/generated/resolvers-types.ts`, `apps/web/src/generated/graphql.ts` (codegen, regenerated).
-- **Not modified:** `packages/database/schema.ts` (no migration — already shipped by Story 3.4n); `packages/domain`; `packages/shared-types`; `apps/web/src/app/[locale]/moderator/items/pending-location-change-row.tsx`, `reported-event-group.tsx`, `page.tsx`, `apps/backend/src/schema/default-location-change-requests.graphql` (read-only precedent); `apps/backend/src/schema/social-media-accounts.graphql` (read-only, Story 3.4n's field, GraphQL Typing Note documented not fixed); `apps/infrastructure` (no IaC change).
+- **Modified:** `apps/backend/src/schema/resolvers.ts` (new query/mutation/field resolver + `moderatorPendingItemCount` extension); `apps/backend/src/schema/moderator.graphql` (doc comment); `apps/web/src/features/moderation/moderation.graphql` (new query/mutation ops); `apps/web/src/app/[locale]/moderator/items/moderator-items-content.tsx` + `.test.tsx`; `apps/web/src/app/[locale]/moderator/items/pending-location-change-row.tsx` + `.test.tsx` (Task 16 — Approve/Reject UI fix, user-approved scope addition); `packages/ui/src/core/status-badge.tsx` + test; `apps/web/locales/en.json`/`id.json`; `apps/backend/src/generated/resolvers-types.ts`, `apps/web/src/generated/graphql.ts` (codegen, regenerated).
+- **Not modified:** `packages/database/schema.ts` (no migration — already shipped by Story 3.4n); `packages/domain`; `packages/shared-types`; `reported-event-group.tsx`, `page.tsx`, `apps/backend/src/schema/default-location-change-requests.graphql` (read-only precedent — its resolver logic already supports APPROVE/REJECT, Task 16 is frontend-only); `apps/backend/src/schema/social-media-accounts.graphql` (read-only, Story 3.4n's field, GraphQL Typing Note documented not fixed); `apps/infrastructure` (no IaC change).
 
 ### Rule Mapping
 
@@ -258,40 +268,41 @@ A third page-local vertical section (`<div className="space-y-6">`), appended af
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: adds a third page-local section to `/moderator/items` surfacing `accountTypeClassificationReviews` rows with no `reviewedAt` set, resolved via a 3-way `accountType` choice; one new backend query, one new mutation, one new field resolver; extends `moderatorPendingItemCount`'s sum; no DB migration (Story 3.4n already shipped the schema).
-- [ ] Architecture and boundary confirmation: Gate 1/2/3 all **PASS** (freshly re-run — `epic-4-readiness.md` predates and does not cover Stories 4.7a/4.7b/4.7c); new GraphQL surface `requireModerator`-guarded throughout; `StatusBadge` extended in place; no `packages/domain`/`packages/ui` feature-package additions.
-- [ ] Testing plan confirmation: backend integration tests for every new resolver branch plus `moderatorPendingItemCount`'s extended sum + frontend integration tests for every render/action branch + one E2E happy path, per Tasks 6/13/14.
-- [ ] Explicit human approval state (Default: **pending approval**).
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted: Story 3.4n is `review` (schema/table live, confirmed by direct code read); Story 4.7 and Story 4.7b are both `review` (page/route-guard/shell live). No new prerequisite story was created by this pass — all three gates returned **PASS**. Separately, a pre-existing bug in Story 4.7's own shipped code (missing Approve/Reject UI + i18n for `AWAITING_APPROVAL` default-location-change rows) was found while reading files this story touches and raised to the user via `AskUserQuestion`; the user did not respond, so per this workflow's default-to-recommended-option rule it is accepted as a known, out-of-scope gap for Story 4.7's own follow-up — not a blocker for this story, whose scope is unrelated (a different table, a different review flow).
+- [x] Scope confirmation: adds a third page-local section to `/moderator/items` surfacing `accountTypeClassificationReviews` rows with no `reviewedAt` set, resolved via a 3-way `accountType` choice; one new backend query, one new mutation, one new field resolver; extends `moderatorPendingItemCount`'s sum; no DB migration (Story 3.4n already shipped the schema).
+- [x] Architecture and boundary confirmation: Gate 1/2/3 all **PASS** (freshly re-run — `epic-4-readiness.md` predates and does not cover Stories 4.7a/4.7b/4.7c); new GraphQL surface `requireModerator`-guarded throughout; `StatusBadge` extended in place; no `packages/domain`/`packages/ui` feature-package additions.
+- [x] Testing plan confirmation: backend integration tests for every new resolver branch plus `moderatorPendingItemCount`'s extended sum + frontend integration tests for every render/action branch + one E2E happy path, per Tasks 6/13/14.
+- [x] Explicit human approval state: **approved** (2026-09-07, via `bmad-dev-story` activation `AskUserQuestion` — user selected "Approve, proceed").
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted: Story 3.4n is `review` (schema/table live, confirmed by direct code read); Story 4.7 and Story 4.7b are both `review` (page/route-guard/shell live). No new prerequisite story was created by this pass — all three gates returned **PASS**. Separately, a pre-existing bug in Story 4.7's own shipped code (missing Approve/Reject UI + i18n for `AWAITING_APPROVAL` default-location-change rows) was found while reading files this story touches; the user explicitly approved fixing it inline, confirmed the backend endpoint already exists — brought into this story's scope as Task 16 (frontend-only, `pending-location-change-row.tsx` + 3 i18n keys).
 
 ## Testing Requirements
 
-- [ ] Backend integration tests (Vitest/`node:test`, `apps/backend`): `pendingAccountTypeClassificationReviews` (non-moderator `FORBIDDEN`; returns only `reviewedAt IS NULL` rows, oldest-first; hard-failure row shape round-trips); `AccountTypeClassificationReview.account` field resolver; `resolveAccountTypeClassificationReview` (non-moderator `FORBIDDEN`; happy path × 3 `AccountType` values, both tables asserted updated; `NOT_FOUND`; `INVALID_STATE_TRANSITION` on already-resolved); `moderatorPendingItemCount` reflects the new third term before/after resolution.
-- [ ] Frontend integration tests (Vitest + msw, `apps/web`): third section renders/empty state; proposed-type+confidence branch vs. failure-reason branch; percent-formatted confidence; all three resolve buttons fire correct mutation args + toast + refetch; loading/error aggregation unaffected by the new section; extended `moderator_items_page_viewed` analytics payload.
-- [ ] E2E (Playwright): moderator resolves a pending classification review and it disappears from the list.
+- [x] Backend integration tests (Vitest/`node:test`, `apps/backend`): `pendingAccountTypeClassificationReviews` (non-moderator `FORBIDDEN`; returns only `reviewedAt IS NULL` rows, oldest-first; hard-failure row shape round-trips); `AccountTypeClassificationReview.account` field resolver; `resolveAccountTypeClassificationReview` (non-moderator `FORBIDDEN`; happy path × 3 `AccountType` values, both tables asserted updated; `NOT_FOUND`; `INVALID_STATE_TRANSITION` on already-resolved); `moderatorPendingItemCount` reflects the new third term before/after resolution.
+- [x] Frontend integration tests (Vitest + msw, `apps/web`): third section renders/empty state; proposed-type+confidence branch vs. failure-reason branch; percent-formatted confidence; all three resolve buttons fire correct mutation args + toast + refetch; loading/error aggregation unaffected by the new section; extended `moderator_items_page_viewed` analytics payload.
+- [x] E2E (Playwright): moderator resolves a pending classification review and it disappears from the list.
 
 ## Deliverables Checklist
 
-- [ ] New GraphQL schema file (`account-type-classification-reviews.graphql`) + `moderator.graphql` doc-comment update (Task 1)
-- [ ] `pendingAccountTypeClassificationReviews` query resolver (Task 2)
-- [ ] `AccountTypeClassificationReview.account` field resolver (Task 3)
-- [ ] `resolveAccountTypeClassificationReview` mutation resolver (Task 4)
-- [ ] `moderatorPendingItemCount` extended to a three-source sum (Task 5)
-- [ ] Backend integration tests (Task 6)
-- [ ] Frontend GraphQL operations + regenerated codegen (Task 7)
-- [ ] `StatusBadge` extended with `lowConfidence`/`classificationFailed` variants (Task 8)
-- [ ] New `account-type-classification-row.tsx` component (Task 9)
-- [ ] Third section wired into `moderator-items-content.tsx` (Task 10)
-- [ ] i18n keys — `ModeratorItemsPage` additions + new `AccountType` namespace, en/id (Task 11)
-- [ ] Analytics — new event + extended existing payload (Task 12)
-- [ ] Frontend tests (Task 13)
-- [ ] E2E test (Task 14)
-- [ ] Full verification sweep green (Task 15)
+- [x] New GraphQL schema file (`account-type-classification-reviews.graphql`) + `moderator.graphql` doc-comment update (Task 1)
+- [x] `pendingAccountTypeClassificationReviews` query resolver (Task 2)
+- [x] `AccountTypeClassificationReview.account` field resolver (Task 3)
+- [x] `resolveAccountTypeClassificationReview` mutation resolver (Task 4)
+- [x] `moderatorPendingItemCount` extended to a three-source sum (Task 5)
+- [x] Backend integration tests (Task 6)
+- [x] Frontend GraphQL operations + regenerated codegen (Task 7)
+- [x] `StatusBadge` extended with `lowConfidence`/`classificationFailed` variants (Task 8)
+- [x] New `account-type-classification-row.tsx` component (Task 9)
+- [x] Third section wired into `moderator-items-content.tsx` (Task 10)
+- [x] i18n keys — `ModeratorItemsPage` additions + new `AccountType` namespace, en/id (Task 11)
+- [x] Analytics — new event + extended existing payload (Task 12)
+- [x] Frontend tests (Task 13)
+- [x] E2E test (Task 14)
+- [x] Full verification sweep green (Task 15)
+- [x] Story 4.7's `AWAITING_APPROVAL` Approve/Reject UI gap fixed, user-approved scope addition (Task 16)
 
 ## Out of Scope
 
 - **Retrofitting `SocialMediaAccountProfile.accountType`/`accountTypeStatus` from `String` to the new `AccountType` enum** — Gate 1 finding, documented not fixed; Story 3.4n's own field, no accepted prerequisite needed since Gate 1 returned PASS (not a blocking gap).
-- **Fixing Story 4.7's pre-existing `AWAITING_APPROVAL` default-location-change Approve/Reject UI/i18n gap** — found while reading files this story touches; raised via `AskUserQuestion`, left unanswered, defaulted to document-only per this workflow's rule. A follow-up to Story 4.7 should pick this up.
+- ~~Fixing Story 4.7's pre-existing `AWAITING_APPROVAL` default-location-change Approve/Reject UI/i18n gap~~ — **superseded, now in scope.** Found while reading files this story touches; initially raised via `AskUserQuestion` during story creation and left unanswered (defaulted to document-only), but the user subsequently explicitly approved fixing it inline — brought into this story's scope as Task 16 (frontend-only: `pending-location-change-row.tsx` Approve/Reject buttons + `AWAITING_APPROVAL` badge, 3 missing `DefaultLocationChangeStatus` i18n keys, `handleResolveLocationChange` extended to all 4 actions). Done.
 - **Triggering an immediate re-scrape when a review resolves to `ORGANIZER_VENUE_EVENT`** — AC3 only clears the gate for the next natural trigger (batch/on-demand/recovery-sweep), per Story 3.4n's own design.
 - **`CURATOR_GUIDE` accounts becoming scrapeable** — remains gated behind Story 3.4o (minimization pipeline), unaffected by this story's resolution action.
 - **Legacy `SocialMediaAccountProfile` rows with `accountTypeStatus IS NULL`** — entirely out of this story's scope (Story 3.4n's own accepted gap, its AC5); this story only ever surfaces rows that already have a corresponding `accountTypeClassificationReviews` entry.
@@ -299,21 +310,63 @@ A third page-local vertical section (`<div className="space-y-6">`), appended af
 
 ## Definition of Done
 
-- [ ] AC1-AC5 satisfied
-- [ ] All tests in Tasks 6/13/14 passing
-- [ ] Lint and type checks passing for touched packages
-- [ ] No `epics.md`/`sprint-status.yaml` prerequisite additions needed (all three gates returned PASS)
+- [x] AC1-AC5 satisfied
+- [x] All tests in Tasks 6/13/14 passing
+- [x] Lint and type checks passing for touched packages
+- [x] No `epics.md`/`sprint-status.yaml` prerequisite additions needed (all three gates returned PASS)
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — all 15 tasks done, all ACs satisfied, full verification sweep green.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+Claude (Sonnet), via `bmad-dev-story` — direct implementation in the main repo working tree (no cline-cli/worktree delegation, per explicit user instruction for this batch: both configured cline-cli providers are currently confirmed broken).
+
 ### Debug Log References
+
+- `pnpm --filter backend test` (post-implementation): 100 suites, 672/672 tests passing, including the new 12-test `account-type-classification-reviews.test.ts` and no regression in `default-location-change-requests.test.ts` (10/10 still passing).
+- `pnpm --filter web test`: 53 test files, 326/326 tests passing pre-Task-16; after Task 16 (Approve/Reject UI fix: 3 new tests added to `moderator-items-content.test.tsx`, plus new `pending-location-change-row.test.tsx` with 6 tests), re-ran the full suite fresh: 54 test files, 335/335 tests passing.
+- `pnpm run codegen` re-run clean on both `apps/backend` and `apps/web` after all schema/operation changes — no diff.
+- `pnpm build` (root, turbo): 7/7 tasks successful (re-run clean after Task 16's changes too).
+- `pnpm lint` (root, turbo): 6/6 tasks successful, 0 errors (1100 pre-existing warnings across the monorepo, none newly introduced by this story's files).
 
 ### Completion Notes List
 
+- Implemented all 5 ACs: new `AccountType` enum + `AccountTypeClassificationReview` type/query/mutation (AC1, AC2, AC4); moderator full discretion over all 3 `accountType` values on resolve (AC2); `ORGANIZER_VENUE_EVENT` resolution clears the scrape gate for the next natural trigger only, `CURATOR_GUIDE` stays excluded per Story 3.4o (AC3); `moderatorPendingItemCount` extended to a three-source sum (AC5).
+- Backend: new `account-type-classification-reviews.graphql` schema file; `pendingAccountTypeClassificationReviews` query resolver and `AccountTypeClassificationReview.account` field resolver mirroring `pendingDefaultLocationChanges`/`DefaultLocationChangeRequest.account` exactly; `resolveAccountTypeClassificationReview` mutation resolver (`requireModerator`-guarded, `NOT_FOUND`/`INVALID_STATE_TRANSITION` error handling, single `db.transaction` updating both the review row and `socialMediaAccountProfiles.accountType/accountTypeStatus`); `moderatorPendingItemCount` extended with a third `Promise.all` term.
+- Frontend: new `AccountTypeClassificationRow` component (bio snippet, i18n'd proposed-type + percent-formatted confidence via `Intl.NumberFormat`, or failure-reason branch, per AC1); wired as a third page section into `moderator-items-content.tsx` following the existing two sections' exact structural pattern (own hook, own empty state, folded into shared `isLoading`/`error`/`refetchAll`/`isMutating` aggregation); `StatusBadge` extended in-place with `lowConfidence`/`classificationFailed` variants (Gate 2 recommendation, not a new badge component); new `moderator_account_type_classification_resolved` analytics event and extended `moderator_items_page_viewed` payload; full `ModeratorItemsPage` + new `AccountType` i18n namespace added to both `en.json`/`id.json`.
+- Codegen fix: `apps/web/fix-codegen.js` needed one new strip rule for the duplicate `AccountType` union-type re-declaration that `typescript-operations` emits alongside the base `typescript` plugin's `export enum AccountType` — this follows the exact existing precedent already used for every other GraphQL enum in that generated file (`ReportReason`, `DefaultLocationChangeAction`, etc.), not a new pattern.
+- E2E: no pre-existing `/moderator/items` Playwright spec or seeded classification-review DB fixture was actually found in the repo (despite the story text's reference to matching "Story 4.7's own two-happy-path E2E precedent" — that spec doesn't exist as written). The new `moderator-account-type-classification.spec.ts` instead follows this project's actual established sparse-data-tolerant E2E pattern (e.g. `moderator-accounts.spec.ts`): skips without `E2E_AUTH_STORAGE_STATE`, and skips gracefully if the live environment has no pending review to resolve.
+- Pre-Coding Approval Gate: the story file's gate was unchecked/pending on session start; explicit approval was obtained via `AskUserQuestion` at workflow activation (user selected "Approve, proceed") before any code was written, per this project's `bmad-dev-story` persistent-fact instruction.
+- No new dependencies were introduced; no DB migration was needed (Story 3.4n already shipped the `accountTypeClassificationReviews` table and both enums).
+- Task 16 (user-approved scope addition, appeared mid-session): a pre-existing bug in Story 4.7's own shipped code — `pending-location-change-row.tsx` only ever rendered Accept/Revert buttons even for `AWAITING_APPROVAL` rows, which the backend rejects with `INVALID_STATE_TRANSITION` since those rows require `APPROVE`/`REJECT` instead — was confirmed already backend-complete (`DefaultLocationChangeAction.APPROVE`/`REJECT` and the resolver's branch logic already exist and were unmodified) and fixed frontend-only: `pending-location-change-row.tsx` now branches on `status === 'AWAITING_APPROVAL'` to render Approve/Reject buttons plus a `StatusBadge variant="pendingReview"` "Awaiting Approval" indicator instead of Accept/Revert; `moderator-items-content.tsx`'s `handleResolveLocationChange` extended from a 2-action to a 4-action union with a small enum/toast-copy lookup map; added the 3 missing `DefaultLocationChangeStatus` i18n keys (`AWAITING_APPROVAL`/`REJECTED`/`SUPERSEDED`) plus `buttonApprove`/`buttonReject`, en+id. New `pending-location-change-row.test.tsx` covers both branches directly; `moderator-items-content.test.tsx` extended with 3 tests covering the AWAITING_APPROVAL row end-to-end (badge + both buttons wired to the mutation with correct action).
+
 ### File List
+
+**New:**
+- `apps/backend/src/schema/account-type-classification-reviews.graphql`
+- `apps/backend/src/schema/account-type-classification-reviews.test.ts`
+- `apps/web/src/app/[locale]/moderator/items/account-type-classification-row.tsx`
+- `apps/web/src/app/[locale]/moderator/items/account-type-classification-row.test.tsx`
+- `apps/web/e2e/moderator-account-type-classification.spec.ts`
+- `apps/web/src/app/[locale]/moderator/items/pending-location-change-row.test.tsx` (Task 16)
+
+**Modified:**
+- `apps/backend/src/schema/resolvers.ts`
+- `apps/backend/src/schema/moderator.graphql`
+- `apps/backend/src/generated/resolvers-types.ts` (codegen, regenerated)
+- `apps/web/src/features/moderation/moderation.graphql`
+- `apps/web/src/app/[locale]/moderator/items/moderator-items-content.tsx`
+- `apps/web/src/app/[locale]/moderator/items/moderator-items-content.test.tsx`
+- `apps/web/src/app/[locale]/moderator/items/pending-location-change-row.tsx` (Task 16)
+- `apps/web/src/generated/graphql.ts` (codegen, regenerated)
+- `apps/web/fix-codegen.js`
+- `packages/ui/src/core/status-badge.tsx`
+- `packages/ui/src/core/status-badge.test.tsx`
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`
+- `_bmad-output/implementation-artifacts/4-7c-review-queue-for-pending-account-type-classifications.md` (this story file — frontmatter, task checkboxes, Dev Agent Record, Status)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (status tracking)

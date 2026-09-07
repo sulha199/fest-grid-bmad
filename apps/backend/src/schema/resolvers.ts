@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
@@ -1850,6 +1850,51 @@ Constraints and Guidelines:
         reviewedAt: updatedRow.reviewedAt ? updatedRow.reviewedAt.toISOString() : null,
       };
     },
+    resolveAccountTypeClassificationReview: async (_: any, { id, accountType }: any, context: any): Promise<any> => {
+      const moderator = requireModerator(context);
+
+      const [reqRow] = await db.select()
+        .from(accountTypeClassificationReviews)
+        .where(eq(accountTypeClassificationReviews.id, id));
+
+      if (!reqRow) {
+        throw new GraphQLError('AccountTypeClassificationReview not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      if (reqRow.reviewedAt !== null) {
+        throw new GraphQLError('AccountTypeClassificationReview is already resolved', {
+          extensions: { code: 'INVALID_STATE_TRANSITION' },
+        });
+      }
+
+      const updatedRow = await db.transaction(async (tx) => {
+        const [updated] = await tx.update(accountTypeClassificationReviews)
+          .set({
+            resolvedAccountType: accountType,
+            reviewedByModeratorId: moderator.userId,
+            reviewedAt: new Date(),
+          })
+          .where(eq(accountTypeClassificationReviews.id, id))
+          .returning();
+
+        await tx.update(socialMediaAccountProfiles)
+          .set({
+            accountType,
+            accountTypeStatus: 'CONFIRMED',
+          })
+          .where(eq(socialMediaAccountProfiles.id, reqRow.accountId));
+
+        return updated;
+      });
+
+      return {
+        ...updatedRow,
+        createdAt: updatedRow.createdAt.toISOString(),
+        reviewedAt: updatedRow.reviewedAt ? updatedRow.reviewedAt.toISOString() : null,
+      };
+    },
     markSubscriptionViewed: async (_: any, { subscriptionId }: any, context: any) => {
       const authUser = requireAuth(context);
       const [updated] = await db.update(subscriptions)
@@ -2366,15 +2411,18 @@ Constraints and Guidelines:
     },
     moderatorPendingItemCount: async (_: any, __: any, context: any): Promise<number> => {
       requireModerator(context);
-      const [[{ pendingReportCount }], [{ pendingLocationChangeCount }]] = await Promise.all([
+      const [[{ pendingReportCount }], [{ pendingLocationChangeCount }], [{ pendingClassificationCount }]] = await Promise.all([
         db.select({ pendingReportCount: count() })
           .from(reports)
           .where(eq(reports.status, 'pending')),
         db.select({ pendingLocationChangeCount: count() })
           .from(defaultLocationChangeRequests)
           .where(inArray(defaultLocationChangeRequests.status, ['PENDING_REVIEW', 'AWAITING_APPROVAL'])),
+        db.select({ pendingClassificationCount: count() })
+          .from(accountTypeClassificationReviews)
+          .where(isNull(accountTypeClassificationReviews.reviewedAt)),
       ]);
-      return Number(pendingReportCount) + Number(pendingLocationChangeCount);
+      return Number(pendingReportCount) + Number(pendingLocationChangeCount) + Number(pendingClassificationCount);
     },
     pendingDefaultLocationChanges: async (_: any, __: any, context: any): Promise<any> => {
       requireModerator(context);
@@ -2387,6 +2435,19 @@ Constraints and Guidelines:
         ...r,
         previousLocation: formatLocationDetails(r.previousLocation),
         newLocation: formatLocationDetails(r.newLocation),
+        createdAt: r.createdAt.toISOString(),
+        reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null,
+      }));
+    },
+    pendingAccountTypeClassificationReviews: async (_: any, __: any, context: any): Promise<any> => {
+      requireModerator(context);
+      const rows = await db.select()
+        .from(accountTypeClassificationReviews)
+        .where(isNull(accountTypeClassificationReviews.reviewedAt))
+        .orderBy(asc(accountTypeClassificationReviews.createdAt));
+
+      return rows.map((r) => ({
+        ...r,
         createdAt: r.createdAt.toISOString(),
         reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null,
       }));
@@ -3454,6 +3515,18 @@ Constraints and Guidelines:
       }
 
       return profile || null;
+    }
+  },
+  AccountTypeClassificationReview: {
+    account: async (parent: any, _: any, __: any, info: any) => {
+      const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: socialMediaAccountProfiles.id,
+      }).from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, parent.accountId));
+
+      return (rows[0] as any) || null;
     }
   },
   Report: {

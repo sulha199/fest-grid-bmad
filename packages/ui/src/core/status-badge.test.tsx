@@ -84,4 +84,18 @@ describe('StatusBadge Component', () => {
     expect(badge).toBeDefined();
     expect(badge.className).toContain('text-amber-800');
   });
+
+  it('renders correctly with lowConfidence variant', () => {
+    render(<StatusBadge variant="lowConfidence" label="42%" />);
+    const badge = screen.getByText('42%');
+    expect(badge).toBeDefined();
+    expect(badge.className).toContain('text-amber-800');
+  });
+
+  it('renders correctly with classificationFailed variant', () => {
+    render(<StatusBadge variant="classificationFailed" label="Classification Failed" />);
+    const badge = screen.getByText('Classification Failed');
+    expect(badge).toBeDefined();
+    expect(badge.className).toContain('text-red-800');
+  });
 });

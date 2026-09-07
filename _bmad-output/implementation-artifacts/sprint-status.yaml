@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-07T00:00:00Z # (dev-story 3.7d: review)
+last_updated: 2026-09-07T00:00:00Z # (dev-story 4.7c: review)
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1771,7 +1771,7 @@ development_status:
   # plug-in mechanism -- AWAITING_APPROVAL account-type classifications (3-4n) need
   # a third, structurally distinct list/resolve shape. Lettered off Story 4.7 (the
   # page's owner), not off 3-4n. See epics.md Story 4.7c.
-  4-7c-review-queue-for-pending-account-type-classifications: ready-for-dev
+  4-7c-review-queue-for-pending-account-type-classifications: review
   4-8-view-archived-hidden-personal-events: done
   epic-4-retrospective: optional
   epic-5: in-progress

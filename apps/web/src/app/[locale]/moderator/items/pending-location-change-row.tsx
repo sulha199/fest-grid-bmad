@@ -38,7 +38,7 @@ export interface PendingLocationChange {
 
 interface PendingLocationChangeRowProps {
   change: PendingLocationChange
-  onResolve: (id: string, action: "ACCEPT" | "REVERT") => Promise<void>
+  onResolve: (id: string, action: "ACCEPT" | "REVERT" | "APPROVE" | "REJECT") => Promise<void>
   onEditRequest: (changeId: string) => void
 }
 
@@ -51,6 +51,7 @@ export function PendingLocationChangeRow({ change, onResolve, onEditRequest }: P
   }
 
   const prevLocText = change.previousLocation?.formattedAddress || change.previousLocation?.placeName || "Unknown"
+  const isAwaitingApproval = change.status === "AWAITING_APPROVAL"
 
   return (
     <div className="p-4 sm:p-6 border rounded-lg bg-card shadow-sm space-y-4 flex flex-col md:flex-row md:items-center md:justify-between md:space-y-0 md:space-x-6">
@@ -72,6 +73,9 @@ export function PendingLocationChangeRow({ change, onResolve, onEditRequest }: P
             <div className="font-semibold flex items-center space-x-2">
               <span>{change.account.displayName || change.account.username}</span>
               <span className="text-xs font-normal text-muted-foreground">({change.account.platform})</span>
+              {isAwaitingApproval && (
+                <StatusBadge variant="pendingReview" label={tStatus("AWAITING_APPROVAL")} />
+              )}
             </div>
             <div className="text-xs text-muted-foreground">@{change.account.username}</div>
           </div>
@@ -102,18 +106,37 @@ export function PendingLocationChangeRow({ change, onResolve, onEditRequest }: P
       </div>
 
       <div className="flex items-center space-x-2 shrink-0 self-end md:self-center">
-        <button
-          onClick={() => onResolve(change.id, "ACCEPT")}
-          className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-green-600 text-white hover:bg-green-700 h-9 px-4 py-2"
-        >
-          {t("buttonAccept")}
-        </button>
-        <button
-          onClick={() => onResolve(change.id, "REVERT")}
-          className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
-        >
-          {t("buttonRevert")}
-        </button>
+        {isAwaitingApproval ? (
+          <>
+            <button
+              onClick={() => onResolve(change.id, "APPROVE")}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-green-600 text-white hover:bg-green-700 h-9 px-4 py-2"
+            >
+              {t("buttonApprove")}
+            </button>
+            <button
+              onClick={() => onResolve(change.id, "REJECT")}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
+            >
+              {t("buttonReject")}
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => onResolve(change.id, "ACCEPT")}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-green-600 text-white hover:bg-green-700 h-9 px-4 py-2"
+            >
+              {t("buttonAccept")}
+            </button>
+            <button
+              onClick={() => onResolve(change.id, "REVERT")}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
+            >
+              {t("buttonRevert")}
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

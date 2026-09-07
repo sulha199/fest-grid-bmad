@@ -117,3 +117,30 @@ mutation reprocessPayload($payloadId: ID!, $parserVersion: String!) {
 mutation deleteUnprocessedPayload($payloadId: ID!) {
   deleteUnprocessedPayload(payloadId: $payloadId)
 }
+
+query getPendingAccountTypeClassificationReviews {
+  pendingAccountTypeClassificationReviews {
+    id
+    accountId
+    proposedAccountType
+    confidenceScore
+    failureReason
+    createdAt
+    account {
+      id
+      displayName
+      platform
+      username
+      profileImageUrl
+      description
+    }
+  }
+}
+
+mutation resolveAccountTypeClassificationReview($id: ID!, $accountType: AccountType!) {
+  resolveAccountTypeClassificationReview(id: $id, accountType: $accountType) {
+    id
+    resolvedAccountType
+    reviewedAt
+  }
+}

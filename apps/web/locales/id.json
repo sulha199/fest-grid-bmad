@@ -672,7 +672,10 @@
   "DefaultLocationChangeStatus": {
     "PENDING_REVIEW": "Menunggu Tinjauan",
     "ACCEPTED": "Diterima",
-    "REVERTED": "Dikembalikan"
+    "REVERTED": "Dikembalikan",
+    "AWAITING_APPROVAL": "Menunggu Persetujuan",
+    "REJECTED": "Ditolak",
+    "SUPERSEDED": "Digantikan"
   },
   "ModeratorItemsPage": {
     "pageTitle": "Item Moderator",
@@ -691,6 +694,8 @@
     "buttonIgnoreFutureReports": "Abaikan laporan masa depan dari pengguna ini",
     "buttonAccept": "Terima",
     "buttonRevert": "Kembalikan",
+    "buttonApprove": "Setujui",
+    "buttonReject": "Tolak",
     "filterReasonLabel": "Filter berdasarkan Alasan",
     "filterStatusLabel": "Filter berdasarkan Status",
     "allOption": "Semua",
@@ -702,7 +707,23 @@
     "fromLabel": "Dari",
     "toLabel": "Ke",
     "correctLocationLabel": "Koreksi langsung lokasi {accountName}",
-    "moderatorLocationCorrectedToast": "Lokasi default berhasil dikoreksi"
+    "moderatorLocationCorrectedToast": "Lokasi default berhasil dikoreksi",
+    "pendingClassificationsSection": "Klasifikasi Jenis Akun yang Tertunda",
+    "emptyClassifications": "Tidak ada klasifikasi jenis akun yang menunggu tinjauan.",
+    "bioLabel": "Bio",
+    "proposedTypeLabel": "Jenis yang Diusulkan",
+    "confidenceLabel": "Tingkat Keyakinan",
+    "classificationFailedLabel": "Klasifikasi Gagal",
+    "failureReasonLabel": "Alasan Kegagalan",
+    "buttonResolveOrganizerVenueEvent": "Penyelenggara/Tempat/Acara",
+    "buttonResolvePersonal": "Pribadi",
+    "buttonResolveCuratorGuide": "Kurator/Pemandu",
+    "classificationResolvedToast": "Klasifikasi jenis akun berhasil diselesaikan"
+  },
+  "AccountType": {
+    "ORGANIZER_VENUE_EVENT": "Penyelenggara / Tempat / Acara",
+    "PERSONAL": "Pribadi",
+    "CURATOR_GUIDE": "Kurator / Pemandu"
   },
   "UnprocessedPayloadsPage": {
     "reprocessButton": "Proses Ulang",
