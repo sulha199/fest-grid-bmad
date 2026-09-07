@@ -633,3 +633,19 @@ items:
      ref: [],
      touches: [web:locations, app:backend],
      note: "From apps/ux-rework2.md L45, via ux-rework2-tracking.md item #20. Research task, not yet started — investigate whether rank/rank.confidence can filter or re-rank Geoapify results before any fix is scoped. No backlog row existed before this audit."}
+
+  BUG-018:
+    {type: bug, status: backlog, created: 2026-09-07,
+     impact: user-visible, effort: s,
+     title: "Infinite-scroll next-page load doesn't preserve scroll position, forcing user to scroll up/down again to trigger the following page",
+     ref: [],
+     touches: [web:events, pkg:ui],
+     note: "Reported by user on event-list-bug-fixes-pagination branch. When the list auto-loads the next page at the bottom, the viewport sometimes doesn't stay anchored on the previously-last item once new items render, so the bottom sentinel is no longer in view and the user must manually scroll up then down to re-trigger the next page load. Proposed fix to evaluate: a 'next-page-placeholder' element that keeps the intersection/scroll anchor stable across page appends."}
+
+  BUG-019:
+    {type: bug, status: backlog, created: 2026-09-07,
+     impact: user-visible, effort: s,
+     title: "Changing category/type filter a second time (or later) sometimes appends the next page instead of reloading the whole list",
+     ref: [],
+     touches: [web:events, pkg:ui],
+     note: "Reported by user on event-list-bug-fixes-pagination branch, same session as BUG-018. On subsequent filter changes, the event list occasionally fails to reset pagination state/cursor, so the next infinite-scroll load appends results from the old query instead of restarting from page 1 with the new filter, producing a mixed/incorrect list."}
