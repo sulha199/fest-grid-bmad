@@ -943,23 +943,9 @@ Users can discover and browse events.
 *   **And** it exposes a loading (skeleton) state and renders correctly with only the fields guaranteed by the API contract.
 *   **And** the component is documented/exported from `packages/ui` for reuse across features.
 
-### Story 1.3j: Fix EventCard ongoing-event date display and TILL badge placement
+**Amendment (2026-09-07, added via `bmad-help` bug-report session):** Reported as a live bug against the just-implemented AC14 `TILL` badge — merged into this story as **AC19** rather than tracked as a separate story, since it is a narrow follow-on gap in the same masonry date-box element AC14 already amended, not a new component concern. **AC19 — Primary date box shows end date while ongoing:** Given `started === true` (the same condition already gating AC14's `TILL` sub-badge), when the masonry date box (`event_card_date_box`) renders, then its primary content switches from the `startDate`/`startTime`-derived text (`formatShortEventDateTime` on `dateObj`) to the equivalent text for the *effective end* date/time (`endDate`/`endTime`, falling back to `startDate` per AC14's existing "ends same day as start" convention) — so the box and its attached `TILL` sub-badge read together as "till `<end time>`" describing one coherent date, not a start-date box with a contradictory "ends" tag. For a not-yet-started event, the date box is unchanged (start date, as today). For an already-ended event (`endDayDiff < 0`), the date box's behavior is unchanged (out of scope — ended-event display is Story 2.7/4.8's visibility concern, not this box's own text). Scoped to the masonry variant only, matching AC14's own scope (the `standard` variant has no such date-box element to amend) — if a future story adds an equivalent primary-date element to `standard`, it should extend this AC rather than this story inventing new `standard`-variant scope here.
 
-**As a** user browsing an ongoing event's card,
-**I want** the card's primary date to reflect the event's end date (not its start date) while it is ongoing, and the "till" indicator placed consistently at the top-left of that date,
-**So that** I can immediately tell when an ongoing event finishes without misreading it as still-upcoming or checking the detail page.
-
-**Acceptance Criteria:**
-
-*   **Given** an event whose current time falls between its `startDate`/`startTime` and `endDate`/`endTime` (i.e. `started === true` per the existing AC14 "till" derivation in `EventCard.tsx`), **when** the card renders its primary top-left date badge, **then** the badge displays the event's end date/time (`endDate`/`endTime`, falling back to `startDate` per the existing "ends same day as start" convention) instead of the start date/time.
-*   **And** the existing "till" sub-badge (`tillBadgeText`, AC14) is positioned directly associated with — visually anchored to — that same top-left date badge, not floating independently, so the "till [time]" qualifier is unambiguously read as describing the displayed (end) date.
-*   **And** for an event that has not yet started (upcoming), the primary date badge continues to show the start date/time exactly as today — this story only changes the ongoing-event branch.
-*   **And** for an event that has already ended (`endDayDiff < 0`), the primary date badge behavior is unchanged (out of scope here — ended events are addressed by Story 2.7/Story 4.8's visibility rules, not this story's display logic).
-*   **And** this applies to both the `list` and `masonry` `EventCard` variants — not just masonry — since the reported issue affects the primary date rendering, not only the masonry-only sub-badge.
-
-**Note (added via `bmad-help`, bug report session):** Reported as a live bug — `EventCard.tsx`'s top-left date badge (masonry variant, `EventCard.tsx:219-227`) always renders the `startDate`/`startTime`-derived `dateObj`/`formattedDate`, even when `started === true` and a "till" sub-badge is already shown beneath it, which reads as contradictory (a start-date badge with an "ends" qualifier attached). No existing story's AC specifies swapping the primary date to the end date while ongoing; Story 1.3b's original AC only required "displays ... date" without specifying which date for the ongoing case. Positioned as a lettered amendment off Story 1.3b (the story that owns `EventCard`), following the `1.3a`-`1.3i` lettering precedent already established for this component.
-
-**Depends on:** Story 1.3b (`EventCard`).
+**Depends on:** Story 1.3b (`EventCard`) AC14 (this amendment builds directly on AC14's `started`/`TILL` derivation).
 
 ### Story 1.3c: Build the reusable infinite-scroll hook
 
