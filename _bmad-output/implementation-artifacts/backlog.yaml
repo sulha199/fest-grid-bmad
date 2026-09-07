@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: 2026-09-07 (FIND-022 coauthor content scope deepened via /bmad-help)
+last_updated: 2026-09-07 (FIND-022 forged; vendor-role normalization and IDEA-008 cap boundary remain explicit)
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -577,12 +577,12 @@ items:
      note: "Deferred from: quick-dev fix of scraper-audit-trail-alerting (2026-09-05). Pre-existing gap in the shared render engine, already reachable via existing templates (e.g. DANGEROUS_EVENT_MODERATOR_ALERT's eventName); this pass's new SCRAPER_AUDIT_TRAIL_FAILURE_ALERT template is a new consumer of scraper-influenced fields (postUrl, raw DB error text) routed through it."}
 
   FIND-022:
-    {type: finding, status: backlog, created: 2026-09-07,
+    {type: finding, status: triaged, created: 2026-09-07,
      impact: user-visible, effort: l,
      title: "Repost/coauthor posts are misattributed to the subscribed (scraping) account instead of the original-owner account",
      ref: [backlog/FIND-022-coauthor-content-issues.md],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
-     note: "Expanded 2026-09-07 same-day beyond display-trait attribution: (1) account auto-creation for original creator + all co-creators listed in coauthor_producers, not just trait lookup; (2) event-list account filtering must match original creator + co-creators, not only posts.accountId; (3) event detail should show posted-at timestamp (existing short date format) and, if co-creators exist, list them below the view-original-post link via shared-account-info; (4) shared-account-info's 'subscribed' text becomes a subscribe/unsubscribe toggle icon with confirm dialog and success/failure tracking (future subscribed-account cap, see IDEA-008, depends on this). effort raised m->l: now spans data-model (account association model, auto-creation), backend, web:events, web:accounts, pkg:ui. Full detail in ref. Not yet forged/spec'd."}
+     note: "Forged 2026-09-07: add normalized post-account roles and lossless legacy migration; create deduplicated unsubscribed profiles for verified identities, with internal-only provisional records; filter across publisher/coauthor/scraping associations; add posted-at/coauthor detail UI and confirmed accessible subscription toggle with success/failure analytics. Vendor-role normalization is a prerequisite (Bright Data evidence exists; Apify still needs verification). IDEA-008 owns cap value/guard/CTA; PRD '2' vs backlog '5' remains separate. Ready for bmad-spec."}
 
   # ── undated intake ──────────────────────────────────────────────────────────
   IDEA-001:
