@@ -118,6 +118,6 @@ jobs:
       # it can be reviewed/re-run (including as the eventual --apply run) without
       # re-uploading. The bucket's own 7-day lifecycle rule is still the backstop either way.
       - name: Delete backfill input from S3
-        if: always() && inputs.apply == 'true'
+        if: always() && inputs.apply == true
         run: |
           aws s3 rm "s3://${{ steps.bucket.outputs.name }}/${{ inputs.backfill_s3_key }}" || true
