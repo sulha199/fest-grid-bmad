@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: 2026-09-07 (event-list & moderator-tools pagination/filter bugs)
+last_updated: 2026-09-07 (FIND-022 coauthor content scope deepened via /bmad-help)
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -578,11 +578,11 @@ items:
 
   FIND-022:
     {type: finding, status: backlog, created: 2026-09-07,
-     impact: user-visible, effort: m,
+     impact: user-visible, effort: l,
      title: "Repost/coauthor posts are misattributed to the subscribed (scraping) account instead of the original-owner account",
-     ref: [],
-     touches: [app:backend, cross:ai-extraction],
-     note: "Instagram Posts records can carry a `coauthor_producers` array (co-authored/reposted content) where `user_posted` is the subscribed account we scrape, but the post was actually authored by a different (possibly non-subscribed) account listed in `coauthor_producers`. persist-scraped-post.ts / process-brightdata-result.ts currently always set posts.accountId to the triggering pendingJob.profileId (the subscribed account), with no coauthor_producers handling anywhere in instagram-adapter.ts or brightdata-record-mapper.ts. Two effects need to be disentangled: (1) DISPLAY traits (isImageStorageOptedIn, durableImageUrl prominent-card treatment, moderation attribution) should follow the ORIGINAL-OWNER account's profile, not the subscribed/scraping account's — requires resolving the true owner (from coauthor_producers, or user_posted itself if the post isn't a repost) against social_media_account_profiles, handling the case where that owner account doesn't exist/isn't subscribed. (2) BYOK API-key consumption should remain keyed off whichever user/account actually triggered and paid for the scrape job (unrelated axis, already correctly separated in ai-gateway/adapter.ts's selectApiKey — no change needed there). Open questions before implementation: how to resolve/create a profile row for a non-subscribed original-owner account solely for display-trait lookup; whether coauthor_producers[0] or another heuristic determines \"the\" original owner when the array has multiple entries; whether user_posted itself might already be a coauthor list post's true author in some records. Raised via /bmad-help 2026-09-07, not yet forged/spec'd."}
+     ref: [backlog/FIND-022-coauthor-content-issues.md],
+     touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
+     note: "Expanded 2026-09-07 same-day beyond display-trait attribution: (1) account auto-creation for original creator + all co-creators listed in coauthor_producers, not just trait lookup; (2) event-list account filtering must match original creator + co-creators, not only posts.accountId; (3) event detail should show posted-at timestamp (existing short date format) and, if co-creators exist, list them below the view-original-post link via shared-account-info; (4) shared-account-info's 'subscribed' text becomes a subscribe/unsubscribe toggle icon with confirm dialog and success/failure tracking (future subscribed-account cap, see IDEA-008, depends on this). effort raised m->l: now spans data-model (account association model, auto-creation), backend, web:events, web:accounts, pkg:ui. Full detail in ref. Not yet forged/spec'd."}
 
   # ── undated intake ──────────────────────────────────────────────────────────
   IDEA-001:
