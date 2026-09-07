@@ -1877,7 +1877,7 @@ Constraints and Guidelines:
         used += isElapsed ? 0 : row.usageCount;
       }
 
-      const limit = keysRows.length * 50;
+      const limit = keysRows.length * env.geminiPostsPerKeyPerCycle;
       const remainingQuota = Math.max(0, limit - used);
 
       if (postIds.length > remainingQuota) {
@@ -2461,7 +2461,7 @@ Constraints and Guidelines:
         used += isElapsed ? 0 : row.usageCount;
       }
 
-      const limit = keysRows.length * 50;
+      const limit = keysRows.length * env.geminiPostsPerKeyPerCycle;
       const remaining = Math.max(0, limit - used);
 
       return {

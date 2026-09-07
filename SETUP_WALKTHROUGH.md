@@ -307,6 +307,7 @@ The AI Gateway wraps all outbound Google Gemini API calls behind a single Adapte
         BYOK_KMS_KEY_ID="" # Provisioned automatically by Story 0.14's AWS IaC stack
         GEMINI_MODEL="gemini-3.5-flash-lite"
         API_KEY_INVALID_ATTEMPTS_THRESHOLD="5"
+        GEMINI_POSTS_PER_KEY_PER_CYCLE="300"
         API_KEY_USAGE_CYCLE_DAYS="30"
         ```
     *   *Note: Decryption in `kms.ts` is lazily initialized and mocked locally/in test environments if `BYOK_KMS_KEY_ID` is omitted or when `NODE_ENV === 'test'`.*
