@@ -386,6 +386,26 @@ trusting any formation pass.
 The test measures **membership, not prose.** Clustering is an LLM judgment and the same
 invariant will be worded differently on different runs; that is variance, not instability.
 
+### Record the model, and hold it fixed
+
+Every run — full and ablation — records which model produced it. Two verdicts compared a
+week apart are otherwise guesswork.
+
+**The control: a full run and its ablations must use the same model.** Mix them and the test
+stops answering its own question — a membership flip could be instability in the method or
+disagreement between two models, and nothing in the output distinguishes them.
+
+That control is also what turns this into a **model-fitness experiment**, which is a
+different question worth asking: *can a cheaper model drive formation at all?* Run the whole
+test twice, wholly on each model, and compare the two verdicts.
+
+| Both stable | The method is generic and the cheaper model can drive it. Any per-step model split is over-cautious. |
+| Cheap unstable, strong stable | The model is the constraint, not the method. Keep the strong model on the steps §12 names. |
+| Both unstable | The method is at fault, not the model. Fix the invariant sentences before spending anything on either. |
+
+The third row is why the experiment is worth running before trusting a first pass: a bad
+result on the cheap model is not automatically a reason to buy a better one.
+
 **On failure:** the affected cluster's invariant sentence is describing its members rather
 than stating a rule — criterion 2 — because a rule does not change when unrelated evidence
 is added or removed. Rewrite the sentence or drop the cluster. Do not resolve a flip by
@@ -412,6 +432,26 @@ the `cost:`-skipped rows §9.2's sweep reads. Groups larger than six are reporte
 broad to be candidates — on the 2026-09-05 board that is `app:backend` (15), `web:events`
 (14) and `pkg:ui` (11), which is this document's tag claim measured rather than asserted.
 The fifth axis, repair shape, is not mechanizable and stays a reading pass permanently.
+
+### Which steps need the stronger model
+
+Split by **failure visibility**, not by difficulty. A step whose errors reach the human
+checkpoint is safe on a cheaper model, because you catch them there. A step whose errors are
+*silent* is not, because nothing downstream detects an omission.
+
+| Step | If it goes wrong | |
+|---|---|---|
+| §7 step 1 freeze, 5 draft, 7 write, 8 report | the runner, the checks, or you catch it | cheaper model |
+| §7 step 3 criteria and invariant sentence | **you attack it at step 4** — that is what the checkpoint is for | cheaper model |
+| **§7 step 2 reading pass** | **silent — you cannot attack a cluster that was never proposed** | stronger model |
+| **§7 step 4 (ritual) re-scoring sweep** | **silent — a row never flagged is never re-priced** | stronger model |
+
+So the economical arrangement is inverted from the usual: a cheap driver that spawns the two
+silent-failure passes as stronger-model subagents. Both passes are bounded — one read over
+the input set, once — so the expensive part stays small.
+
+None of this is settled until §11's model-fitness experiment says so. Until then it is a
+prudent default, not a measurement.
 
 **`bmad-form-epics`** owns execution order, the human checkpoint at ritual step 3, and the
 blind subagent structure §11's ablation needs. It carries none of this document's rules —

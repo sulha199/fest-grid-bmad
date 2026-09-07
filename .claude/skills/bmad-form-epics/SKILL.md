@@ -40,6 +40,21 @@ groups, candidate axes, or lens rankings by reading YAML yourself — a subtly w
 reimplementation reports "clean" on a broken board, per `backlog-spec.md` §9.
 </critical>
 
+## Model
+
+Per `{{gate}}` §12, split by **failure visibility**: a step whose errors reach the Step 4
+checkpoint is safe on whatever model is driving; a step whose errors are silent is not.
+
+- Steps 1, 3, 5, 7, 8 run on the driving model. Step 3 included — a weak invariant sentence
+  is exactly what Step 4 exists to catch.
+- **Step 2's reading pass and Step 6's re-scoring sweep** are the silent-failure steps: you
+  cannot attack a cluster that was never proposed, and a row never flagged is never
+  re-priced. When driving on a cheaper model, spawn each as its own subagent with
+  `model: opus` and hand back the findings. When already driving on the strong model, run
+  them inline.
+- This is a prudent default, not a measurement. §11's model-fitness experiment is what
+  settles it; if a cheaper model comes back stable there, drop the split.
+
 ## Paths
 
 - `board` = `{implementation_artifacts}/backlog.yaml`
@@ -132,14 +147,29 @@ reimplementation reports "clean" on a broken board, per `backlog-spec.md` §9.
     (`{{runner}} --lens <name>`, `{{gate}}` §9.3).</output>
 </step>
 
-<step n="9" goal="Stability test (§10)">
-  <action>Run a full formation pass over the whole open set, per Steps 1-3. Record accepted, rejected-with-criterion, and unclustered.</action>
-  <action>Build at least two subsets: one dropping ~25% of rows at random, one dropping a single member from each accepted cluster.</action>
-  <critical>Each ablation run MUST be blind. Spawn one subagent per subset via `runSubagent`, giving it ONLY that subset's rows and `{{gate}}`. Never include the full run's output, your reasoning about it, or the names of the clusters it produced. A run that can see the previous answer confirms it; it does not test it.</critical>
-  <action>Compare on the intersection — rows present in both runs — using §10's difference table. Threshold effects and re-wordings are allowed; a row moving between invariants, an uncaused split or merge, or changed §6 routing is a failure.</action>
-  <action>Measure membership, not prose. The same invariant worded differently across runs is variance, not instability.</action>
-  <action>On failure, report which cluster flipped and state the diagnosis §10 gives: its invariant sentence is describing its members rather than stating a rule (§5 criterion 2). Do not resolve a flip by keeping whichever run reads better — the disagreement is the finding.</action>
-  <output>Report accepted/rejected per run, the intersection comparison, and a verdict: stable, or the clusters whose invariants need rewriting before any formation pass is trusted.</output>
+<step n="9" goal="Stability test (§11)">
+  <action>Ask which model to test, or use the driving model. Every run below uses THAT model — full run and ablations alike.</action>
+  <critical>The control that makes the test mean anything: a full run and its ablations MUST use the same model (`{{gate}}` §11). Mix them and a membership flip could be method instability or two models disagreeing, and nothing in the output tells you which.</critical>
+
+  <action>Build the subsets first, from the frozen input set (§5 — rows AND unstarted stories): one dropping ~25% at random, one dropping a single member from each cluster the full run will accept. Compute them mechanically before any run so no subset is chosen to flatter a result.</action>
+
+  <action>Spawn every run as a SEPARATE cold subagent via the Agent tool, all with the chosen `model`, none nested:
+    - one **full run**: the whole input set, Steps 1-3 only, returning accepted clusters (with invariant sentences and members), rejected candidates with failing criteria, and unclustered items.
+    - one **ablation per subset**: identical instructions, that subset only.
+    Give each subagent `{{gate}}` and its own slice of input, and NOTHING else.
+  </action>
+  <critical>Blindness is structural here, not a matter of discipline: a cold subagent cannot see the full run's output unless you put it in the prompt. Do not. Never include the full run's clusters, your reasoning about them, or even their names in an ablation's prompt — a run that can see the answer confirms it rather than testing it.</critical>
+
+  <action>Compare on the intersection using §11's difference table. Threshold effects and re-wordings pass; a row moving between invariants, an uncaused split or merge, or changed §6 routing fails. Measure membership, not prose.</action>
+  <action>On failure, name the cluster that flipped and give §11's diagnosis: its invariant sentence is describing its members rather than stating a rule (§5 criterion 2). Never resolve a flip by keeping whichever run reads better — the disagreement IS the finding.</action>
+
+  <action>Write the verdict to `{{planning_artifacts}}/epic-formation/stability-{{date}}-{{model}}.md`, recording the model, the frozen input (date, row count, unstarted-story count), each run's output, and the comparison. §11 requires the model on every run — two verdicts compared later are guesswork without it.</action>
+
+  <check if="the user asked to compare two models">
+    <action>Repeat the whole procedure per model, then compare the two VERDICTS (not the two clusterings) against §11's model-fitness table: both stable → the cheaper model can drive formation; cheap unstable and strong stable → the model is the constraint; both unstable → the method is at fault and no model spend fixes it.</action>
+  </check>
+
+  <output>Per model: accepted/rejected per run, the intersection comparison, and a verdict — stable, or the clusters whose invariants need rewriting before any formation pass is trusted.</output>
 </step>
 
 </workflow>
