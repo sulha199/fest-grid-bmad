@@ -1761,7 +1761,7 @@ development_status:
   # plug-in mechanism -- AWAITING_APPROVAL account-type classifications (3-4n) need
   # a third, structurally distinct list/resolve shape. Lettered off Story 4.7 (the
   # page's owner), not off 3-4n. See epics.md Story 4.7c.
-  4-7c-review-queue-for-pending-account-type-classifications: backlog
+  4-7c-review-queue-for-pending-account-type-classifications: ready-for-dev
   4-8-view-archived-hidden-personal-events: done
   epic-4-retrospective: optional
   epic-5: in-progress
