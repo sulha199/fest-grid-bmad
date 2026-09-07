@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: 2026-09-07 (FIND-022 forged; vendor-role normalization and IDEA-008 cap boundary remain explicit)
+last_updated: "2026-09-07 (BUG-021/BUG-022 added via bmad-help bug-report session: ended-event visibility triaged to Story 2.7's still-review status; EventCard TILL/date-box gap folded into Story 1.3b AC19)"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -665,3 +665,22 @@ items:
      ref: [],
      touches: [pkg:ui, web:events, web:moderation, cross:architecture, cross:ux-tokens],
      note: "Reported by user on event-list-bug-fixes-pagination branch, in the same session as BUG-018/019/020. Currently inconsistent across the app — e.g. moderator filter panels call handleFilterChange on every onChange (apply-on-change), and BUG-019 shows that pattern can cause append-instead-of-reload bugs; meanwhile no documented rule says whether a filter should take effect immediately on change or only after an explicit Apply action. Need a cross-cutting decision (likely in project-context.md and/or a UX token/primitive) so all list, discovery, and moderation views behave the same way."}
+
+  # ── 2026-09-07 (bmad-help bug-report session) ───────────────────────────────
+  BUG-021:
+    {type: bug, status: triaged, created: 2026-09-07,
+     impact: user-visible, effort: s, blocks: [],
+     title: "Ended events still show in Discovery/Favorites/Feed/My Calendar; should be archive-only",
+     ref: [],
+     stories: [2-7-automatically-hide-past-events, 4-8-view-archived-hidden-personal-events],
+     touches: [web:events, app:backend, pkg:domain],
+     note: "Reported by user via bmad-help. Verified NOT a new gap: Story 2.7 (buildDefaultEventVisibilityConditions.ts, wired into the events resolver's default query) already implements exactly this hiding rule, and Story 4.8 (Archive page) is its already-`done` escape hatch — but 2-7-automatically-hide-past-events itself is still status:review in sprint-status.yaml, not merged/released. status: triaged rather than backlog since this is very likely that in-review work simply not yet shipped, not an undiscovered defect — closing action is confirming/landing 2.7's review, not new dev work."}
+
+  BUG-022:
+    {type: bug, status: triaged, created: 2026-09-07, parent: CC-019,
+     impact: user-visible, effort: xs,
+     title: "EventCard's masonry date box shows startDate even while the event is ongoing, contradicting its own TILL sub-badge",
+     ref: [],
+     stories: [1-3b-build-the-reusable-eventcard-component],
+     touches: [web:events/EventCard, pkg:ui],
+     note: "Reported by user via bmad-help, immediately after CC-019's AC14 TILL-badge amendment landed (2026-09-07) — AC14 already anchors the TILL sub-badge to the date box (the 'placement' half of the report), but the box's primary text still always renders startDate/startTime, so a started event reads as a contradictory 'start-date box with an ends-qualifier attached'. No existing AC swaps the box's text to the effective end date while `started === true`. Folded into Story 1.3b as a new AC19 (epics.md) rather than a standalone story, since it's a narrow follow-on to the exact element AC14 just amended. status: triaged, not backlog, since story-level AC/task text already exists and needs implementation, not further scoping."}
