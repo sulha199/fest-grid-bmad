@@ -302,6 +302,7 @@ export class FestgridBackendStack extends cdk.Stack {
         SYSTEM_GEMINI_API_KEY: systemGeminiApiKeySecret.secretValue.unsafeUnwrap(),
         SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
         WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
+        SCRAPE_SKIP_RECENT_HOURS: process.env.SCRAPE_SKIP_RECENT_HOURS || '12',
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });

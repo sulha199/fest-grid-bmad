@@ -217,4 +217,91 @@ test('get-scrape-targets batch targeting tests', async (t) => {
     assert.ok(targetIds.includes(pCurator.id), 'Confirmed curator guide profiles should be included');
     assert.strictEqual(targetIds.includes(pAwaiting.id), false, 'Awaiting approval profiles should be excluded');
   });
+
+  await t.test('Story 3.4p: regression test for daily batch scrape scheduling race (AC1, AC2, AC4)', async () => {
+    // This test reproduces the exact prod incident found on 2026-09-03:
+    // An account whose lastScrapedAt landed just after the previous day's schedule fire,
+    // within the old 20h skip window, was silently excluded the next day.
+    // With the new 12h window, the same account should be included comfortably.
+
+    // Test case (a): lastScrapedAt 13h ago → should be INCLUDED (within old 20h but outside new 12h)
+    const scraped13hAgo = new Date();
+    scraped13hAgo.setHours(scraped13hAgo.getHours() - 13);
+    const [p13h] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-3.4p-13h-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Account Scraped 13h Ago',
+      username: 'account_13h_ago',
+      lastScrapedAt: scraped13hAgo,
+      accountType: 'ORGANIZER_VENUE_EVENT',
+      accountTypeStatus: 'CONFIRMED',
+    }).returning();
+    createdProfiles.push(p13h.id);
+
+    // Test case (b): lastScrapedAt 11h ago → should be EXCLUDED (within new 12h window)
+    const scraped11hAgo = new Date();
+    scraped11hAgo.setHours(scraped11hAgo.getHours() - 11);
+    const [p11h] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-3.4p-11h-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Account Scraped 11h Ago',
+      username: 'account_11h_ago',
+      lastScrapedAt: scraped11hAgo,
+      accountType: 'ORGANIZER_VENUE_EVENT',
+      accountTypeStatus: 'CONFIRMED',
+    }).returning();
+    createdProfiles.push(p11h.id);
+
+    // Test case (c): lastScrapedAt exactly 20h ago (the actual prod incident value)
+    // → should now be INCLUDED under the new 12h window with clear margin (8h safety buffer)
+    const scraped20hAgo = new Date();
+    scraped20hAgo.setHours(scraped20hAgo.getHours() - 20);
+    const [p20h] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-3.4p-20h-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Account Scraped 20h Ago (Prod Incident Value)',
+      username: 'account_20h_ago_prod_incident',
+      lastScrapedAt: scraped20hAgo,
+      accountType: 'ORGANIZER_VENUE_EVENT',
+      accountTypeStatus: 'CONFIRMED',
+    }).returning();
+    createdProfiles.push(p20h.id);
+
+    // Create subscriptions for all three test accounts
+    const [s13h] = await db.insert(subscriptions).values({
+      userId: user1.id,
+      accountId: p13h.id,
+    }).returning();
+    createdSubs.push(s13h.id);
+
+    const [s11h] = await db.insert(subscriptions).values({
+      userId: user1.id,
+      accountId: p11h.id,
+    }).returning();
+    createdSubs.push(s11h.id);
+
+    const [s20h] = await db.insert(subscriptions).values({
+      userId: user1.id,
+      accountId: p20h.id,
+    }).returning();
+    createdSubs.push(s20h.id);
+
+    const targets = await getBatchScrapeTargets();
+    const targetIds = targets.map((t) => t.profileId);
+
+    // Verify the new 12h threshold behavior
+    assert.ok(
+      targetIds.includes(p13h.id),
+      'Account scraped 13h ago should be INCLUDED (outside the new 12h window, old prod bug no longer applies)'
+    );
+    assert.strictEqual(
+      targetIds.includes(p11h.id),
+      false,
+      'Account scraped 11h ago should be EXCLUDED (within the new 12h window, prevents redundant same-day re-scrapes)'
+    );
+    assert.ok(
+      targetIds.includes(p20h.id),
+      'Account scraped exactly 20h ago (prod incident value) should now be INCLUDED with clear 8h safety margin under the new 12h threshold'
+    );
+  });
 });

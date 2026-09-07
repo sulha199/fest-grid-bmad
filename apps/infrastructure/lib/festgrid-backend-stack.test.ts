@@ -119,6 +119,7 @@ test('FestgridBackendStack provisions correct resources', () => {
         SYSTEM_GEMINI_API_KEY: Match.anyValue(),
         SES_FROM_EMAIL_ADDRESS: Match.anyValue(),
         WEB_APP_BASE_URL: Match.anyValue(),
+        SCRAPE_SKIP_RECENT_HOURS: '12',
       }),
     },
   });

@@ -140,7 +140,7 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeInitialLookbackDays: parseInt(process.env.SCRAPE_INITIAL_LOOKBACK_DAYS || '7', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
-    scrapeSkipRecentHours: parseInt(process.env.SCRAPE_SKIP_RECENT_HOURS || '20', 10),
+    scrapeSkipRecentHours: parseInt(process.env.SCRAPE_SKIP_RECENT_HOURS || '12', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scraperMonthlyBudgetUsd: parseFloat(process.env.SCRAPER_MONTHLY_BUDGET_USD || '5.00'),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
