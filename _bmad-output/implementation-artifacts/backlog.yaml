@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-09-07 (BUG-021/BUG-022 added via bmad-help bug-report session: ended-event visibility triaged to Story 2.7's still-review status; EventCard TILL/date-box gap folded into Story 1.3b AC19)"
+last_updated: "2026-09-07 (BUG-023/IDEA-012 added via bmad-help: favorite-icon/date-badge size mismatch, event-links extraction+display; BUG-021/BUG-022 added via bmad-help bug-report session: ended-event visibility triaged to Story 2.7's still-review status; EventCard TILL/date-box gap folded into Story 1.3b AC19)"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -684,3 +684,17 @@ items:
      stories: [1-3b-build-the-reusable-eventcard-component],
      touches: [web:events/EventCard, pkg:ui],
      note: "Reported by user via bmad-help, immediately after CC-019's AC14 TILL-badge amendment landed (2026-09-07) — AC14 already anchors the TILL sub-badge to the date box (the 'placement' half of the report), but the box's primary text still always renders startDate/startTime, so a started event reads as a contradictory 'start-date box with an ends-qualifier attached'. No existing AC swaps the box's text to the effective end date while `started === true`. Folded into Story 1.3b as a new AC19 (epics.md) rather than a standalone story, since it's a narrow follow-on to the exact element AC14 just amended. status: triaged, not backlog, since story-level AC/task text already exists and needs implementation, not further scoping."}
+
+  BUG-023:
+    {type: bug, status: backlog, created: 2026-09-07, parent: CC-019,
+     impact: cosmetic, effort: xs,
+     title: "EventCard favorite icon size not tied to the date badge's font size — drifts inconsistently",
+     ref: [], touches: [pkg:ui, web:events/EventCard],
+     note: "Reported by user via bmad-help. Verified in EventCard.tsx: the favorite button's Heart icon is hardcoded `w-5 h-5` (line ~191), independent of the masonry date badge's `text-xs` (line ~219) — no shared token links them, so the two can visually drift out of proportion. Fix should size the icon relative to the date badge's font size (e.g. an em-based or shared-token size) rather than a fixed pixel class."}
+
+  IDEA-012:
+    {type: idea, status: backlog, created: 2026-09-07,
+     impact: user-visible, effort: m,
+     title: "Extract event links ({url, label?}[]) during AI extraction and display them in Event Detail",
+     ref: [], touches: [cross:ai-extraction, app:backend, web:events, pkg:ui],
+     note: "Reported by user via bmad-help. Two parts: (1) extend the AI extraction schema/prompt (apps/backend/src/validation/extracted-event.schema.ts, build-gemini-request.ts) to also return a `links: {url: string; label?: string}[]` field, threading it through storage/GraphQL (events.graphql, extraction.graphql) alongside the existing contactInfo field; (2) render it in EventDetailView.tsx as a new 'links' row styled identically to the existing Contact Info row (packages/ui/src/features/events/EventDetailView.tsx:367-401 — `flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400` with a leading icon), and — per the user's requirement — both the contact row and the new links row should only render when their field is non-empty, matching contactInfo's existing `(hasPrivateContact || contactInfo) &&` conditional pattern."}
