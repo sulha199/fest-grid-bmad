@@ -14,6 +14,7 @@ export * from './map-extraction-payload-to-proposed-correction.js';
 export * from './getCancelledReportWindowCutoff.js';
 export * from './shouldSoftDeleteFromCancelledReports.js';
 export * from './resolveServedImageUrl.js';
+export * from './resolveInstagramEmbedResult.js';
 export * from './matches-childrens-data-keyword-filter.js';
 export * from './build-correction-classification-text.js';
 

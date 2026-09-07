@@ -242,6 +242,7 @@ export type Event = {
   hasPrivateContact: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
+  instagramEmbed?: Maybe<InstagramEmbed>;
   isAddedToCalendar: Scalars['Boolean']['output'];
   isExpiredForCurrentUser: Scalars['Boolean']['output'];
   isFavorited: Scalars['Boolean']['output'];
@@ -361,6 +362,17 @@ export type GeolocationProvider =
 export type ImageStorageOptInSource =
   | 'ACCOUNT_OWNER'
   | 'MODERATOR';
+
+export type InstagramEmbed = {
+  __typename?: 'InstagramEmbed';
+  durableImageUrl?: Maybe<Scalars['String']['output']>;
+  html?: Maybe<Scalars['String']['output']>;
+  status: InstagramEmbedStatus;
+};
+
+export type InstagramEmbedStatus =
+  | 'AVAILABLE'
+  | 'UNAVAILABLE';
 
 export type LocationDetails = {
   __typename?: 'LocationDetails';
@@ -1372,6 +1384,8 @@ export type ResolversTypes = ResolversObject<{
   GeolocationProvider: GeolocationProvider;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   ImageStorageOptInSource: ImageStorageOptInSource;
+  InstagramEmbed: ResolverTypeWrapper<InstagramEmbed>;
+  InstagramEmbedStatus: InstagramEmbedStatus;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   JSON: ResolverTypeWrapper<Scalars['JSON']['output']>;
   LocationDetails: ResolverTypeWrapper<LocationDetails>;
@@ -1464,6 +1478,7 @@ export type ResolversParentTypes = ResolversObject<{
   ExtractionQuota: ExtractionQuota;
   Float: Scalars['Float']['output'];
   ID: Scalars['ID']['output'];
+  InstagramEmbed: InstagramEmbed;
   Int: Scalars['Int']['output'];
   JSON: Scalars['JSON']['output'];
   LocationDetails: LocationDetails;
@@ -1634,6 +1649,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   hasPrivateContact?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  instagramEmbed?: Resolver<Maybe<ResolversTypes['InstagramEmbed']>, ParentType, ContextType>;
   isAddedToCalendar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isExpiredForCurrentUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isFavorited?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
@@ -1684,6 +1700,13 @@ export type ExtractionQuotaResolvers<ContextType = GraphQLContext, ParentType ex
   limit?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   remaining?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   used?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type InstagramEmbedResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['InstagramEmbed'] = ResolversParentTypes['InstagramEmbed']> = ResolversObject<{
+  durableImageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  html?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['InstagramEmbedStatus'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2122,6 +2145,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   EventFilter?: EventFilterResolvers<ContextType>;
   ExtractEventDataFromUrlResult?: ExtractEventDataFromUrlResultResolvers<ContextType>;
   ExtractionQuota?: ExtractionQuotaResolvers<ContextType>;
+  InstagramEmbed?: InstagramEmbedResolvers<ContextType>;
   JSON?: GraphQLScalarType;
   LocationDetails?: LocationDetailsResolvers<ContextType>;
   LocationFilter?: LocationFilterResolvers<ContextType>;

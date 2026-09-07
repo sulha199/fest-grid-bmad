@@ -1,5 +1,16 @@
 scalar JSON
 
+enum InstagramEmbedStatus {
+  AVAILABLE
+  UNAVAILABLE
+}
+
+type InstagramEmbed {
+  status: InstagramEmbedStatus!
+  html: String
+  durableImageUrl: String
+}
+
 enum EventType {
   EXHIBITION
   COMPETITION
@@ -93,6 +104,7 @@ type Event {
   imageUrl: String
   durableImageUrl: String
   videoUrl: String
+  instagramEmbed: InstagramEmbed
   sourcePostUrl: String
   originalPostUrl: String
   organizerName: String

@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import * as assert from 'node:assert';
 import crypto from 'node:crypto';
 import { createSchema, createYoga } from 'graphql-yoga';
@@ -6,7 +6,7 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, unprocessedScraperPayloads } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, unprocessedScraperPayloads, instagramOembedCache } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
 
 // read the generated schema for the yoga server
@@ -1637,6 +1637,185 @@ test('events resolver integration via Yoga', async (t) => {
     });
   });
 
+  await t.test('Event.instagramEmbed resolver (Story 3.7e)', async (t) => {
+    let testProfile: any;
+    let testPost: any;
+    let testEvent: any;
+
+    const fetchMock = mock.method(globalThis, 'fetch', async (): Promise<{ ok: boolean; json: () => Promise<any> }> => ({
+      ok: true,
+      json: async () => ({ html: '<blockquote>embed</blockquote>' }),
+    }));
+
+    const cleanup = async () => {
+      if (testEvent) { await db.delete(events).where(eq(events.id, testEvent.id)); testEvent = undefined; }
+      if (testPost) { await db.delete(instagramOembedCache).where(eq(instagramOembedCache.postUrl, testPost.originalPostUrl)); await db.delete(posts).where(eq(posts.id, testPost.id)); testPost = undefined; }
+      if (testProfile) { await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfile.id)); testProfile = undefined; }
+    };
+
+    t.afterEach(async () => {
+      fetchMock.mock.resetCalls();
+      fetchMock.mock.mockImplementation(async () => ({
+        ok: true,
+        json: async () => ({ html: '<blockquote>embed</blockquote>' }),
+      }));
+      await cleanup();
+    });
+
+    t.after(() => {
+      mock.restoreAll();
+    });
+
+    async function seedEventWithPost(opts: { isImageStorageOptedIn: boolean; durableImageUrl?: string | null }) {
+      const uId = crypto.randomUUID();
+      const [p] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'ig_embed_acc_' + uId,
+        platform: 'instagram',
+        displayName: 'IG Embed Test Profile',
+        username: 'ig_embed_acc_' + uId,
+        isImageStorageOptedIn: opts.isImageStorageOptedIn,
+      }).returning();
+      testProfile = p;
+
+      const [post] = await db.insert(posts).values({
+        accountId: testProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/ig_embed_post_' + uId,
+        originalPostUrl: 'https://instagram.com/p/ig_embed_post_' + uId,
+        content: 'IG Embed Caption',
+        durableImageUrl: opts.durableImageUrl ?? null,
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      testPost = post;
+
+      const [ev] = await db.insert(events).values({
+        eventName: 'IG Embed Test Event',
+        postId: testPost.id,
+        location: 'Test location',
+        slug: 'ig-embed-test-event-' + uId,
+      }).returning();
+      testEvent = ev;
+
+      return testEvent.slug;
+    }
+
+    const instagramEmbedQuery = `
+      query GetEventBySlug($slug: String!) {
+        eventBySlug(slug: $slug) {
+          id
+          instagramEmbed {
+            status
+            html
+            durableImageUrl
+          }
+        }
+      }
+    `;
+
+    await t.test('adapter AVAILABLE -> AVAILABLE shape with html', async () => {
+      const slug = await seedEventWithPost({ isImageStorageOptedIn: false });
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: instagramEmbedQuery, variables: { slug } }),
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.deepStrictEqual(result.data.eventBySlug.instagramEmbed, {
+        status: 'AVAILABLE',
+        html: '<blockquote>embed</blockquote>',
+        durableImageUrl: null,
+      });
+    });
+
+    await t.test('adapter UNAVAILABLE + not opted-in -> durableImageUrl null', async () => {
+      fetchMock.mock.mockImplementation(async () => ({ ok: false, json: async () => ({}) }));
+      const slug = await seedEventWithPost({ isImageStorageOptedIn: false, durableImageUrl: 'https://cdn.test.com/ig_embed_durable.png' });
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: instagramEmbedQuery, variables: { slug } }),
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.deepStrictEqual(result.data.eventBySlug.instagramEmbed, {
+        status: 'UNAVAILABLE',
+        html: null,
+        durableImageUrl: null,
+      });
+    });
+
+    await t.test('adapter UNAVAILABLE + opted-in + durable URL present -> fallback shape', async () => {
+      fetchMock.mock.mockImplementation(async () => ({ ok: false, json: async () => ({}) }));
+      const slug = await seedEventWithPost({ isImageStorageOptedIn: true, durableImageUrl: 'https://cdn.test.com/ig_embed_durable.png' });
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: instagramEmbedQuery, variables: { slug } }),
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.deepStrictEqual(result.data.eventBySlug.instagramEmbed, {
+        status: 'UNAVAILABLE',
+        html: null,
+        durableImageUrl: 'https://cdn.test.com/ig_embed_durable.png',
+      });
+    });
+
+    await t.test('no linked post -> instagramEmbed resolves null, adapter never called', async () => {
+      const uId = crypto.randomUUID();
+      const [ev] = await db.insert(events).values({
+        eventName: 'IG Embed No-Post Event',
+        location: 'Test location',
+        slug: 'ig-embed-no-post-event-' + uId,
+      }).returning();
+      testEvent = ev;
+
+      fetchMock.mock.resetCalls();
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: instagramEmbedQuery, variables: { slug: testEvent.slug } }),
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.eventBySlug.instagramEmbed, null);
+      assert.equal(fetchMock.mock.calls.length, 0);
+    });
+
+    await t.test('AC4 regression: query omitting instagramEmbed never invokes the adapter', async () => {
+      const slug = await seedEventWithPost({ isImageStorageOptedIn: false });
+
+      fetchMock.mock.resetCalls();
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventBySlug($slug: String!) {
+              eventBySlug(slug: $slug) {
+                id
+                eventName
+              }
+            }
+          `,
+          variables: { slug },
+        }),
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.equal(fetchMock.mock.calls.length, 0, 'resolveInstagramOEmbed (and thus fetch) must not be called when instagramEmbed is not selected');
+    });
+  });
 
   await t.test('events - includeMyArchived opt-in bypass (Story 4.8)', async () => {
     const userId = '88888888-8888-8888-8888-888888888888';

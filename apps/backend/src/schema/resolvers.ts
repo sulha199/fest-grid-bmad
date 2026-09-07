@@ -20,9 +20,10 @@ import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '
 import { isValidIanaTimezone } from '@festgrid/domain/users';
 import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user-settings.js';
 import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../lib/geolocation/adapter.js';
+import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
-import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl } from '@festgrid/domain/events';
+import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult } from '@festgrid/domain/events';
 import { transformGeminiResponseToEventFilter } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
@@ -3509,6 +3510,18 @@ Constraints and Guidelines:
     }),
     durableImageUrl: (parent: any) => parent.durableImageUrl || null,
     videoUrl: (parent: any) => parent.videoUrl || null,
+    instagramEmbed: async (parent: any) => {
+      const postUrl = parent.originalPostUrl || parent.sourcePostUrl;
+      if (!postUrl) {
+        return null;
+      }
+      const adapterResult = await resolveInstagramOEmbed(postUrl);
+      return resolveInstagramEmbedResult({
+        adapterResult,
+        isImageStorageOptedIn: parent.isImageStorageOptedIn === true,
+        durableImageUrl: parent.durableImageUrl,
+      });
+    },
     sourcePostUrl: (parent: any) => parent.sourcePostUrl || null,
     originalPostUrl: (parent: any) => parent.originalPostUrl || null,
     isFavorited: async (parent: any, _: any, context: any) => {

@@ -58,6 +58,8 @@ export const userRoleEnum = pgEnum('user_role', ['user', 'moderator']);
 
 export const geolocationQueryTypeEnum = pgEnum('geolocation_query_type', ['GEOCODE', 'REVERSE_GEOCODE', 'PLACE_DETAILS']);
 
+export const instagramOembedStatusEnum = pgEnum('instagram_oembed_status', ['AVAILABLE', 'UNAVAILABLE']);
+
 // AWAITING_APPROVAL and REJECTED added 2026-08-28 (confidence-gated moderation, see AWAITING_APPROVAL doc comment on the table below)
 export const defaultLocationChangeStatusEnum = pgEnum('default_location_change_status', ['AWAITING_APPROVAL', 'PENDING_REVIEW', 'ACCEPTED', 'REJECTED', 'REVERTED', 'SUPERSEDED']);
 
@@ -213,6 +215,20 @@ export const geolocationCache = pgTable('geolocation_cache', {
   result: jsonb('result').notNull(),
   ...timestamps,
 });
+
+// Bounded-TTL cache for Instagram's tokenless oEmbed endpoint (Story 3.7e). Both AVAILABLE and
+// UNAVAILABLE results are cached (an UNAVAILABLE result, e.g. a deleted post, is just as reusable
+// within the TTL window as an AVAILABLE one) -- see apps/backend/src/lib/instagram-oembed/adapter.ts.
+export const instagramOembedCache = pgTable('instagram_oembed_cache', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  postUrl: text('post_url').unique().notNull(),
+  status: instagramOembedStatusEnum('status').notNull(),
+  html: text('html'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  ...timestamps,
+}, (t) => ({
+  expiresAtIdx: index('idx_instagram_oembed_cache_expires_at').on(t.expiresAt),
+}));
 
 export const apiKeys = pgTable('api_keys', {
   id: uuid('id').defaultRandom().primaryKey(),

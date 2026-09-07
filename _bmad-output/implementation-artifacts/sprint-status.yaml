@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-07T00:00:00Z # (dev-story 1.3d AC16-19: review)
+last_updated: 2026-09-07T00:00:00Z # (dev-story 3.7e: review)
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1381,7 +1381,7 @@ development_status:
   # confirmed zero UI surface. Gate 3 (Winston) confirmed no shared EmbedAdapter
   # generalization needed (single consumer) and no new foundational dependency. No
   # prerequisite stories created.
-  3-7e-instagram-oembed-backend-integration-adapter-and-resolver-field: ready-for-dev
+  3-7e-instagram-oembed-backend-integration-adapter-and-resolver-field: review
   3-8-push-notifications-for-extracted-events: review
   3-9-implement-api-key-quota-management: done
   # added 2026-08-11 via bmad-create-story Gate 2 finding while drafting Story 3.9:
