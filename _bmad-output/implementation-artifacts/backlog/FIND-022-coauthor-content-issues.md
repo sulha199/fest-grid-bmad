@@ -1,94 +1,93 @@
----
-backlog_id: FIND-022
-title: "Repost/coauthor posts are misattributed to the subscribed (scraping) account instead of the original-owner account"
-captured: 2026-09-07
-status: backlog # document state; item state lives in backlog.yaml
----
+# FestDaily backlog note: FIND-022
 
-## Original finding (2026-09-07, raised via /bmad-help)
+## Finding
 
-Instagram Posts records can carry a `coauthor_producers` array (co-authored/reposted
-content) where `user_posted` is the subscribed account we scrape, but the post was
-actually authored by a different (possibly non-subscribed) account listed in
-`coauthor_producers`. `persist-scraped-post.ts` / `process-brightdata-result.ts`
-currently always set `posts.accountId` to the triggering `pendingJob.profileId` (the
-subscribed account), with no `coauthor_producers` handling anywhere in
-`instagram-adapter.ts` or `brightdata-record-mapper.ts`.
+Instagram post payloads can contain a publishing account plus coauthor/collaborator
+identities. The current ingestion path assigns `posts.accountId` from the triggering
+subscription job, which conflates content ownership with the account that paid for or
+requested the scrape. Display traits, attribution, and account filtering can therefore
+be wrong. BYOK key selection is a separate concern and remains keyed to the job/user
+that triggered the scrape.
 
-Two effects need to be disentangled:
-1. **Display traits** (`isImageStorageOptedIn`, `durableImageUrl` prominent-card
-   treatment, moderation attribution) should follow the ORIGINAL-OWNER account's
-   profile, not the subscribed/scraping account's — requires resolving the true
-   owner (from `coauthor_producers`, or `user_posted` itself if the post isn't a
-   repost) against `social_media_account_profiles`, handling the case where that
-   owner account doesn't exist/isn't subscribed.
-2. **BYOK API-key consumption** should remain keyed off whichever user/account
-   actually triggered and paid for the scrape job (unrelated axis, already correctly
-   separated in `ai-gateway/adapter.ts`'s `selectApiKey` — no change needed there).
+The Bright Data fixture at `D:\Downloads\sd_mtnt676r2fb2ouphzs.success.json` shows
+`user_posted`/`user_posted_id` separately from `coauthor_producers`. This is evidence,
+not yet a cross-vendor contract: Apify's representation and role semantics still need
+to be inspected and normalized before implementation claims which identity is the
+canonical publisher.
 
-Open questions from the original finding:
-- How to resolve/create a profile row for a non-subscribed original-owner account
-  solely for display-trait lookup.
-- Whether `coauthor_producers[0]` or another heuristic determines "the" original
-  owner when the array has multiple entries.
-- Whether `user_posted` itself might already be a coauthor list post's true author
-  in some records.
+## Forged outcome
 
-## Expanded scope (2026-09-07, same-day deepening via /bmad-help)
+### Account identity and creation
 
-The original finding focused on display-trait attribution. Follow-up discussion
-surfaced that account creation and downstream UI also need to handle co-authored
-content, not just trait lookup:
+- Normalize each vendor payload into distinct axes: scraping/subscription source,
+  publishing/canonical account, and coauthors.
+- Create a deduplicated `SocialMediaAccountProfile` for every valid discovered identity,
+  including verified coauthors, with `(platform, stable platform account ID)` as the
+  identity key. New profiles are unsubscribed by default.
+- A text-only or incomplete producer may be retained as an internal provisional
+  identity for attribution/filtering, but is not publicly searchable or subscribable.
+  It must be backfillable and mergeable into the stable profile once the platform ID is
+  known. Raw text alone must never create a public subscription target.
+- A verified profile with a stable account ID is immediately subscribable from event
+  detail or direct account-ID lookup; prior direct scraping is not a prerequisite.
+  The existing subscription contract still requires display name and username, and
+  may trigger the existing initial scrape/classification flow.
+- Verified scrape-discovered profiles do not enter broad account autocomplete/ranked
+  discovery until there is intentional demand (subscribe or vote). This limits
+  directory pollution without blocking contextual subscription.
+- Deduplicate by platform identity, retain discovery provenance/first-seen and
+  last-seen information, and make malformed/ambiguous payloads observable.
 
-### Account creation
-- Co-authored/reposted content should create post data attributed to the
-  **original creator's account** — meaning the app needs to create a new account
-  record for the original creator if one doesn't already exist (not just resolve
-  display traits from an existing row; this answers open question 1 above by
-  choosing "always create").
-- The app should also create account records for **other co-creators** listed in
-  `coauthor_producers` beyond just the first/primary one (this touches open
-  question 2 — all listed coauthors get accounts, not just a single heuristic pick).
+### Data model and migration
 
-### Event list filtering
-- Filtering events by account in the app's list view should match against an
-  event's **original creator and any co-creators**, not only the subscribed
-  scraping account currently stored on `posts.accountId`.
+- Add a normalized post-account association table with one row per post/account pair,
+  explicit role (publisher/canonical, coauthor, scraping source, or publisher unknown),
+  provenance, and a uniqueness constraint.
+- Preserve `posts.accountId` during the transition for compatibility. For new posts it
+  should be populated from the normalized canonical publisher only after vendor roles
+  are verified; it must not be inferred from producer array order.
+- Migrate existing rows losslessly: preserve their current `posts.accountId` and add
+  an association marked scraping source/publisher unknown. Do not rewrite historical
+  ownership without raw vendor evidence.
+- User-facing account filtering matches the union of active associations, preserving
+  subscribed-feed behavior while adding publisher/coauthor matches. Role data remains
+  available for moderation and analytics.
 
-### Event detail
-- Should show the timestamp when the post was posted, using the existing short
-  date format (reuse existing formatting utility, do not introduce a new format).
-- If the post has co-creators, they should be displayed **below the
-  view-original-post link area**, reusing the current `shared-account-info`
-  component (same component instance/pattern used elsewhere, not a bespoke list).
+### Event detail and shared account UI
 
-### `shared-account-info` component changes
-- The "subscribed" text label should be replaced by an icon.
-- That icon becomes a **toggle** to subscribe/unsubscribe the account directly
-  from wherever `shared-account-info` is rendered (including the new event-detail
-  co-creator list).
-- Must show a **confirmation prompt** before subscribing/unsubscribing.
-- Must **track whether the subscribe/unsubscribe action succeeded or failed** —
-  called out because a future subscribed-account limit (see IDEA-008: max 5
-  subscribed accounts) will depend on knowing actual subscription state
-  reliably, so silent failures need to be observable.
+- Show the post's posted-at timestamp with the existing short-date formatter.
+- Render coauthors below the view-original-post link area using the existing
+  `shared-account-info` pattern. Verified profiles expose the subscribe state/toggle;
+  provisional identities remain display-only until they have a stable account ID.
+- Replace the subscribed text label with an accessible subscribed/unsubscribed icon
+  toggle. Confirm both subscribe and unsubscribe before mutating; do not optimistically
+  change state. Refetch/invalidate the authoritative subscription state after success
+  and restore the prior state on failure.
+- Capture `subscription_toggle_succeeded` and `subscription_toggle_failed` with
+  `action`, `platform`, `source`, and a sanitized backend `errorCode` on failure. Do not
+  send raw handles, account IDs, captions, or post content.
 
-## Open questions still unresolved
+## Explicit boundaries
 
-- Account auto-creation policy: what minimal profile fields are required to create
-  an account record purely from `coauthor_producers` data (no prior scrape of that
-  account)? Does it get marked as "not yet subscribed" by default?
-- Does creating an account for every listed co-creator (potentially several per
-  post) have moderation/spam implications (e.g. co-creator accounts nobody
-  intentionally subscribed to accumulating in the system)?
-- For list filtering: does an event now need multiple account associations (a
-  join/array) instead of the current single `accountId`, and if so what's the
-  migration path for existing `posts` rows?
-- Toggle-to-subscribe from `shared-account-info` needs a source-of-truth check
-  against IDEA-008's future subscribed-account cap — sequencing between FIND-022
-  and IDEA-008 needs deciding (does the toggle need to respect the cap now, or can
-  cap enforcement land later without changing this component again?).
+- IDEA-008 owns the subscription-cap policy, numeric value, server-side guard, and
+  upgrade CTA. FIND-022 must be cap-agnostic but handle a typed future cap error so
+  IDEA-008 does not require another shared-component redesign.
+- The active PRD is inconsistent with the backlog: monetization says a free-user cap
+  of "e.g., 2", while IDEA-008 says 5; PRD section 8.2 is actually premium custom
+  slugs. Reconcile that separately rather than inventing a limit here.
+- Vendor-specific Apify/Bright Data schema verification and normalization is a
+  prerequisite to implementation. No producer-order heuristic is accepted.
+- Spam/moderation policy for unrequested public account creation beyond the
+  demand-gated discovery/provenance rules is not expanded into a new moderation
+  system in this item.
+- BYOK quota/key selection, platform scraping capacity, account classification, and
+  initial-scrape behavior remain existing concerns unless a typed integration point is
+  required by the toggle.
 
-Not yet forged/spec'd. Recommend `bmad-forge-idea` or a design pass before
-`bmad-create-story`, given the data-model implications (account association model,
-account auto-creation) span backend + web:events + web:accounts + pkg:ui.
+## Handoff
+
+This is now a cross-layer, multi-story finding (backend schema/ingestion/migration,
+GraphQL filtering, event detail, shared UI, analytics). It is ready for `bmad-spec`
+to define the normalized vendor contract and story boundaries. Do not use
+`bmad-create-story` directly; `bmad-create-epics-and-stories` should follow the spec
+if the project requires epic decomposition.
