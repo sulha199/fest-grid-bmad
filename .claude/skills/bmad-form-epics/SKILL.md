@@ -59,7 +59,7 @@ reimplementation reports "clean" on a broken board, per `backlog-spec.md` §9.
 </step>
 
 <step n="1" goal="Freeze the input">
-  <action>Run `{{runner}}`. Record the date, the open-row count, and that checks 1-13 are clean.</action>
+  <action>Run `{{runner}}`. Record the date, the open-row count, the unstarted-story count, and that checks 1-13 are clean. §5's input set spans BOTH files, so the freeze must name both.</action>
   <check if="any check fails">
     <output>The board is not clean: {{failures}}. Formation reads the board as evidence, so a failing check means the evidence is wrong.</output>
     <ask>Fix the failures first, or proceed anyway? [fix/proceed]</ask>
@@ -69,8 +69,9 @@ reimplementation reports "clean" on a broken board, per `backlog-spec.md` §9.
 </step>
 
 <step n="2" goal="Generate candidates">
-  <action>Run `{{runner}} --cluster` for the four mechanical axes and the cost-skipped list.</action>
+  <action>Run `{{runner}} --cluster` for the four mechanical axes, the cost-skipped list, and the unstarted stories §5 includes in the input set.</action>
   <action>Then run the fifth axis yourself — the reading pass over each open row's title and note, asking *"what would the fix actually be?"* This is the axis the runner cannot compute and the only one strong enough to decide a boundary. Read `{{board}}` rows and, where a row's `ref` points at one, the tier-1 note or `deferred-work.md` section it cites.</action>
+  <critical>The unstarted stories get the SAME reading pass, against their story files, and no mechanical axis reaches them — a story carries no `touches`, no `parent`, no DW citation. Read each one's ACs and ask whether it and some open row are two framings of one problem. Watch specifically for **rival designs**: a row and a story proposing different mechanisms for the same outcome each look reasonable alone, and building either strands the other. That is the case this input set exists to catch.</critical>
   <critical>A `touches` tag is a candidate generator, never an epic boundary (`{{gate}}` §5). The runner already marks the broad tags as too broad to be candidates; do not resurrect them.</critical>
 </step>
 
@@ -78,6 +79,7 @@ reimplementation reports "clean" on a broken board, per `backlog-spec.md` §9.
   <action>For each candidate, write the invariant sentence FIRST — present tense, positive form — then test membership against it. A cluster you can only describe as a list has already failed §5 criterion 2.</action>
   <action>Apply all five criteria from `{{gate}}` §5. Any failure means it is not an epic.</action>
   <action>For each rejected candidate, record the criterion it failed and the routing it gets instead (§4: a sweep story under the owning epic, or per-row `bmad-quick-dev`). A rejection without a recorded reason gets re-proposed and re-litigated next session.</action>
+  <action>When an unstarted story lands in a cluster, decide its fate explicitly per §5: it keeps its key and becomes an adoption story under the new epic, OR goes `wont-do` with a note naming the sibling that supersedes it. Never renumber it, and never leave the absorption unrecorded — a story that silently changes epics is the drift the board exists to prevent.</action>
   <action>Determine what KIND of epic each accepted cluster is, per §2. A cluster of `bug`/`finding` rows is an improvement epic (`epic-N-iK`) — determine its owning N: the epic that owns the MECHANISM, not the one with the most symptoms; 0 when the mechanism is cross-cutting. A cluster of `idea`/`proposal` rows is a FEATURE epic taking the next integer, where `z` is optional, criterion 3 is read strictly in criterion 4's place, and the spec route is `bmad-prd` first rather than §6 amendment.</action>
 </step>
 
@@ -117,6 +119,7 @@ reimplementation reports "clean" on a broken board, per `backlog-spec.md` §9.
   <output>**Formation pass complete — {{date}}, {{n}} open rows read**
 
     Accepted: {{epic keys with invariant sentences}}
+    Absorbed stories: {{unstarted story keys, and whether re-parented or superseded}}
     Rejected: {{candidate + failing criterion + routing}}
     Re-scored: {{rows reopened or given reprice_on}}
     Report: {{report}}

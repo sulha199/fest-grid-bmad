@@ -30,6 +30,8 @@ OPEN = {"backlog", "triaged", "promoted"}
 UNPROMOTED = {"backlog", "triaged"}
 ITEM_TERMINAL = {"done", "skipped", "superseded"}
 STORY_TERMINAL = {"done", "wont-do"}
+# epic-formation-gate.md §5 — un-built intent recorded as a story rather than a row.
+STORY_UNSTARTED = {"backlog", "ready-for-dev"}
 
 # §5 — a skip states which kind it is; only a cost: skip can be reopened on price.
 SKIP_REASON = re.compile(r"^\s*(cost|value):", re.I)
@@ -236,9 +238,17 @@ def cluster_candidates(items):
     return open_set, axes
 
 
-def print_clusters(items):
+def unstarted_stories(stories):
+    """§5's input set also spans stories nobody has started — same un-built intent."""
+    return sorted(k for k, v in stories.items()
+                  if v in STORY_UNSTARTED and not k.startswith("epic-"))
+
+
+def print_clusters(items, stories):
     open_set, axes = cluster_candidates(items)
-    print(f"\ncandidate axes over {len(open_set)} open un-promoted rows")
+    unstarted = unstarted_stories(stories)
+    print(f"\ncandidate axes over {len(open_set)} open un-promoted rows"
+          f" + {len(unstarted)} unstarted stories")
     print("  CANDIDATES, not clusters — the deciding axis (shared repair shape) is a reading pass")
 
     for axis, groups in axes.items():
@@ -258,6 +268,13 @@ def print_clusters(items):
                         and (r.get("note") or "").lower().lstrip().startswith("cost:"))
     print(f"\n  ── cost-skipped (re-scoring sweep, §9.2) ──")
     print("     " + (", ".join(reopenable) if reopenable else "(none)"))
+
+    # §5 input set — no mechanical axis reaches these; they need the reading pass.
+    print("\n  ── unstarted stories (§5 input set — read against the rows above) ──")
+    for key in unstarted:
+        print(f"     {key}")
+    if not unstarted:
+        print("     (none)")
 
 
 def lenses(items):
@@ -316,7 +333,7 @@ def main():
         return 0
 
     if args.cluster:
-        print_clusters(items)
+        print_clusters(items, SPRINT_STATUS)
         return 0
 
     failures = run_checks(items, tags, SPRINT_STATUS)

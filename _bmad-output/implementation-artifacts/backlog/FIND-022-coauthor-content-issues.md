@@ -1,3 +1,9 @@
+---
+backlog_id: FIND-022
+title: "Post co-author / collaborator identities are collapsed into the triggering account"
+captured: 2026-09-07
+---
+
 # FestDaily backlog note: FIND-022
 
 ## Finding

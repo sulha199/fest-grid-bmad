@@ -668,7 +668,7 @@ items:
 
   # ── 2026-09-07 (bmad-help bug-report session) ───────────────────────────────
   BUG-021:
-    {type: bug, status: triaged, created: 2026-09-07,
+    {type: bug, status: promoted, created: 2026-09-07,
      impact: user-visible, effort: s, blocks: [],
      title: "Ended events still show in Discovery/Favorites/Feed/My Calendar; should be archive-only",
      ref: [],
@@ -677,7 +677,7 @@ items:
      note: "Reported by user via bmad-help. Verified NOT a new gap: Story 2.7 (buildDefaultEventVisibilityConditions.ts, wired into the events resolver's default query) already implements exactly this hiding rule, and Story 4.8 (Archive page) is its already-`done` escape hatch — but 2-7-automatically-hide-past-events itself is still status:review in sprint-status.yaml, not merged/released. status: triaged rather than backlog since this is very likely that in-review work simply not yet shipped, not an undiscovered defect — closing action is confirming/landing 2.7's review, not new dev work."}
 
   BUG-022:
-    {type: bug, status: triaged, created: 2026-09-07, parent: CC-019,
+    {type: bug, status: promoted, created: 2026-09-07, parent: CC-019,
      impact: user-visible, effort: xs,
      title: "EventCard's masonry date box shows startDate even while the event is ongoing, contradicting its own TILL sub-badge",
      ref: [],

@@ -131,6 +131,32 @@ Both are fine outcomes. Neither gets an epic number.
 
 ## 5. Formation criteria
 
+### The input set
+
+> Formation reads **un-built intent, wherever it is recorded.**
+
+| Source | In? | Because |
+|---|---|---|
+| `backlog.yaml` rows at `backlog` / `triaged` | yes | the obvious case |
+| `sprint-status.yaml` stories at `backlog` / `ready-for-dev` | **yes** | a story nobody has started is a requirement that happens to already have a story file. Nothing is built; the design is still open. |
+| `sprint-status.yaml` stories at `in-progress` / `review` / `done` | no | code exists. A problem with it is a `bug` or `finding` row, not an input to clustering. |
+| `skipped` rows | only via §9.2's sweep | a `cost:` skip can rejoin; a `value:` skip cannot. |
+
+Excluding unstarted stories was the original error: a requirement recorded as
+`3-6l-extract-events-from-multi-image-carousel-posts…` and one recorded as an `IDEA` row
+are the same kind of thing, and reading only the board means two framings of one problem
+never meet. Rival *designs* for the same work are the specific damage — each looks
+reasonable alone, and building either strands the other.
+
+**When an unstarted story joins a cluster it keeps its key.** Story keys are stable like row
+IDs (§13 forbids renumbering). It becomes an adoption story under the new epic, or — when a
+sibling supersedes it — goes `wont-do` with a note naming its replacement. Its execution
+state stays owned by `sprint-status.yaml` throughout; the epic only re-parents it. Record
+the absorption in the formation report: an unstarted story that silently changes epics is
+the drift this whole board exists to prevent.
+
+### The criteria
+
 All five must hold. Any failure → not an epic.
 
 1. **≥3 open rows.** Two rows are two quick-devs.
@@ -184,8 +210,9 @@ undocumented rule.
 
 ## 7. Ritual
 
-0. **Freeze the input.** `backlog-check.py` clean. Record the date and open-row count in the
-   formation report; the board moves, the report must say which board it read.
+0. **Freeze the input.** `backlog-check.py` clean. Record the date, the open-row count, and
+   the unstarted-story count (§5's input set spans both files) in the formation report; both
+   move, and the report must say which state it read.
 1. **Generate candidates** across §5's axes.
 2. **Apply §5's criteria.** Write the formation report: accepted epics, rejected clusters
    with the failing criterion, and rows left unclustered.
