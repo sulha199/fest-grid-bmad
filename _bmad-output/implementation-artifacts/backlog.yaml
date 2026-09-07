@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: 2026-09-06 (ux-rework2 gap audit)
+last_updated: 2026-09-07 (event-list & moderator-tools pagination/filter bugs)
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -649,3 +649,19 @@ items:
      ref: [],
      touches: [web:events, pkg:ui],
      note: "Reported by user on event-list-bug-fixes-pagination branch, same session as BUG-018. On subsequent filter changes, the event list occasionally fails to reset pagination state/cursor, so the next infinite-scroll load appends results from the old query instead of restarting from page 1 with the new filter, producing a mixed/incorrect list."}
+
+  BUG-020:
+    {type: bug, status: backlog, created: 2026-09-07,
+     impact: user-visible, effort: m,
+     title: "Moderator tools tab-item pages lack previous-page navigation and total/page info in their simple pagination",
+     ref: [],
+     touches: [web:moderation, pkg:ui],
+     note: "Reported by user on event-list-bug-fixes-pagination branch. Affected pages: apps/web/src/app/[locale]/moderator/tools/unprocessed-payloads-content.tsx, actor-runs-content.tsx, and moderator-accounts-content.tsx. All three use cursor-based pagination but only render a single 'Load more' button (hasNextPage) with no way to go back to the previous page, and they do not surface totalCount or any 'current page' indicator. Fix should add a prev-page control alongside next, and display totalCount + current page info so moderators can orient themselves in the result set."}
+
+  IDEA-011:
+    {type: proposal, status: backlog, created: 2026-09-07,
+     impact: internal, effort: m,
+     title: "Define a standard rule for when filters apply (on Apply button vs. on change) across list/discovery UIs",
+     ref: [],
+     touches: [pkg:ui, web:events, web:moderation, cross:architecture, cross:ux-tokens],
+     note: "Reported by user on event-list-bug-fixes-pagination branch, in the same session as BUG-018/019/020. Currently inconsistent across the app — e.g. moderator filter panels call handleFilterChange on every onChange (apply-on-change), and BUG-019 shows that pattern can cause append-instead-of-reload bugs; meanwhile no documented rule says whether a filter should take effect immediately on change or only after an explicit Apply action. Need a cross-cutting decision (likely in project-context.md and/or a UX token/primitive) so all list, discovery, and moderation views behave the same way."}
