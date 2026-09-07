@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-05T00:00:00Z
+last_updated: 2026-09-07T00:00:00Z # (dev-story 4.7c: review)
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -263,7 +263,19 @@ development_status:
   # found across this batch). AC1-10 confirmed already implemented, unaffected.
   # depends on Story 2.1a's new favoriteCount GraphQL field for real data.
   # AC11-13 implemented 2026-08-26 via cline: 288/288 packages/ui tests pass.
+  # Reopened 2026-09-06 via bmad-create-story: added AC14-18 (TILL badge,
+  # 8-state formatEventStatus status badge, nearby badge <=5km, prominent
+  # poster keyed off durableImageUrl != null). Draft AC/task text finalized
+  # against a bmad-ux pass's DESIGN.md/EXPERIENCE.md tokens
+  # (event_card_date_box/till_badge/status_badge/nearby_badge).
+  # AC14-18 implemented 2026-09-07 via bmad-dev-story (direct in-session,
+  # all-Claude): 399/399 packages/ui tests pass, build/lint clean.
   1-3b-build-the-reusable-eventcard-component: review
+  # added 2026-09-07 via bmad-help bug-report session: merged into Story 1.3b as
+  # new AC19 (not a separate story) -- AC14's TILL badge placement was already
+  # implemented same-day; only the "swap primary date-box text to end date while
+  # ongoing" part was a genuine remaining gap. Status stays review pending AC19
+  # implementation, following this story's own AC11-13/AC14-18 amendment precedent.
   1-3c-build-the-reusable-infinite-scroll-hook: done
   # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
   # home-content.tsx (this story's sibling 1.3) and favorites-content.tsx (Story 2.2) were
@@ -289,6 +301,19 @@ development_status:
   # Story 1.3b's variant="masonry" prop. Does not build the toggle-button UI
   # itself -- that's the apps/web call site's job. See sprint-change-proposal-
   # 2026-08-24-ux-rework-batch.md Section 4.4.
+  # Reopened 2026-09-06 via bmad-create-story: added AC16-19 (thread
+  # endDate/endTime/locationDetails.coordinates through derivedProps,
+  # prominentPoster derivation, distanceKm computation stays out of this
+  # component (apps/web's job), masonry grid gap changed to gap-x-2 gap-y-6).
+  # Depends on Story 1.3b's parallel AC14-18 amendment (EventCardProps' new
+  # endDate/endTime/prominentPoster/distanceKm fields) -- process 1.3b first.
+  # Also confirmed AC15's viewMode prop no longer exists in the live component
+  # (superseded by spec-ux-rework2-p1-masonry-only.md's masonry-only
+  # hardcoding). Note: the 1-3i entry below still stale-reads done despite
+  # this -- flagged here per sprint-change-proposal-2026-09-04.md Section 5,
+  # but correcting that entry is separate documentation housekeeping, not
+  # part of this amendment. Implemented 2026-09-07 (Tasks 8-11, AC16-AC19) --
+  # see the story file's 2026-09-07 Change Log entry.
   1-3d-build-the-reusable-eventlistview-component: review
   # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
   # home-content.tsx and favorites-content.tsx still duplicate the SearchBar/FilterHub
@@ -362,6 +387,15 @@ development_status:
   # (confirmed via merge-base ancestry + swap testing). Merged onto current master
   # (4448d61). Post-merge: packages/ui 309/309 tests pass, all 5 touched pages' tests
   # + nearby.test.tsx pass (29/29), web lint clean (only pre-existing warnings).
+  # Documentation correction (2026-09-06, BUG-004 / sprint-change-proposal-
+  # 2026-09-04.md Section 5): this entry still reads `done`, but the
+  # ViewModeToggle component and per-page `layout` URL-param wiring it shipped
+  # were later deleted by spec-ux-rework2-p1-masonry-only.md, which hardcoded
+  # EventListView to always render masonry. The story's original scope was
+  # genuinely completed and merged at the time -- this is drift from a later,
+  # unrelated change removing the feature, not a stale/incorrect original
+  # status. No code change follows from this; left `done` since the story
+  # itself was never reverted, only superseded.
   1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web: done
   # Reopened 2026-08-24 via bmad-create-story: added AC9/Task 7 -- root
   # container drops its max-w-7xl cap in favor of full width
@@ -786,6 +820,13 @@ development_status:
   # implemented-but-not-yet-code-reviewed entries (e.g. 3-3b). See the story
   # file's own Completion Status/Dev Agent Record for full detail.
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: review
+  3-3e-persist-all-carousel-image-urls-for-a-scraped-post: backlog
+  # added 2026-09-03 via bmad-correct-course (sprint-change-proposal-2026-09-03-carousel-multi-image-extraction.md):
+  # closes a real data-loss gap -- instagram-adapter.ts only ever captured the
+  # cover image (item.displayUrl); Apify's own childPosts array (all carousel
+  # slides) was fetched and silently discarded. Positioned as a lettered suffix
+  # off Story 3.3a; see epics.md Story 3.3e note and its cross-reference on
+  # Story 3.4. Depends on Story 3.3a, Story 3.3c. Feeds Story 3.6l.
   3-4-scrape-new-posts-from-subscribed-accounts: review
   # added 2026-08-08 via bmad-create-story Gate 1 split while drafting Story 3.4:
   # making Bright Data the scheduled-batch's priority vendor (cheaper at scale,
@@ -823,13 +864,22 @@ development_status:
   # entities only, not individual freelancers, which appears to rule out
   # individual end-users contributing a Bright Data key regardless of the
   # sublicensing question. Bright Data BYOK looks closed; Apify still pending.
-  3-4b-byok-pooled-scraper-vendor-keys: backlog
+  # CLOSED 2026-09-07: Apify never responded (outreach sent ~2026-08-14, 3+
+  # weeks of silence past the story's own 1-2 week follow-up window). User
+  # decided no-go rather than nudging further. Both vendors now closed --
+  # story will not proceed unless reopened.
+  3-4b-byok-pooled-scraper-vendor-keys: wont-do
   # added 2026-08-09 via bmad-create-story: exploratory outreach to Instagram-
   # viewer sites (storiesig.info explicitly invites API-access contact; imginn.com
   # is the right shape but has no advertised partnership channel, cold outreach
   # only; mollygram has no scraping/API prohibition but is likely the wrong
   # shape). EXPLORATORY -- outreach only, no adapter code until a concrete offer
   # exists.
+  # UPDATE 2026-09-07: storiesig.info + imginn.com outreach actually sent
+  # mid-to-late August 2026 (story file previously said "not yet sent" --
+  # tracking had drifted from real state). No response from either as of
+  # 2026-09-07. No follow-up drafted, no abandon decision made yet -- still
+  # genuinely open, unlike 3-4b.
   3-4c-explore-whitelisted-access-with-instagram-viewer-sites: backlog
   # added 2026-08-14 via bmad-help/architect analysis of docs/assets/Apify actor
   # costing and facts.md; corrected same day. None of the four actors evaluated
@@ -979,11 +1029,15 @@ development_status:
   # actually implicated in the bug -- never creates a pendingJobs row at all. Followed by 3-4k
   # (moderator UI). See story file Dev Notes for full evidence trail.
   3-4j-capture-scraper-actor-run-audit-trail-and-replay-by-run-id: review
-  last_updated: 2026-09-03T00:00:00Z
   # added 2026-08-19 via bmad-create-story: split from 3-4j following the 3-4h/3-4i backend/
   # frontend precedent (Gate 2 finding). Extracts a new RawJsonViewer packages/ui component --
   # genuine reuse evidence vs. Story 3-4i's own inline (never extracted) raw-JSON display.
-  # Blocked on 3-4j shipping its GraphQL contracts.  3-4k-moderator-actor-run-browser-and-replay-ui: in-progress
+  # Blocked on 3-4j shipping its GraphQL contracts.
+  # Corrected 2026-09-07 via bmad-help sweep: mis-tracked as in-progress (and the status
+  # key itself had been swallowed into the comment above by a missing line break, so it
+  # wasn't even being parsed). Git shows this fully implemented (4e79ee9) and code-reviewed
+  # (0888a6f), merged to master 2026-08-20 -- three weeks before this file's last update.
+  3-4k-moderator-actor-run-browser-and-replay-ui: done
   # New 2026-09-02 via bmad-correct-course, sprint-change-proposal-2026-09-02.md:
   # account-type scraping filter, closes minimization-doc §1.3/§2.8 gap. See
   # epics.md Story 3.4n note. Amended 2026-09-03 via bmad-create-story: resolved
@@ -1019,7 +1073,7 @@ development_status:
   # structural per-day-bucket redesign, which was considered and explicitly
   # deferred. See epics.md Story 3.4p note and
   # 3-4p-fix-daily-batch-scrape-scheduling-race-that-silently-skips-accounts.md.
-  3-4p-fix-daily-batch-scrape-scheduling-race-that-silently-skips-accounts: ready-for-dev
+  3-4p-fix-daily-batch-scrape-scheduling-race-that-silently-skips-accounts: review
   # Added 2026-09-03 via bmad-create-story during the same live production incident
   # investigation as 3-4p. Root-caused directly against prod CloudWatch logs + DB:
   # every Bright Data trigger attempt has failed 401 Unauthorized since at least
@@ -1029,7 +1083,10 @@ development_status:
   # infra. Includes an external, non-code Definition-of-Done item (rotating the
   # Bright Data API token in Secrets Manager). See epics.md Story 3.4q note and
   # 3-4q-fix-brightdata-auth-failure-and-alert-moderators-when-a-scraper-provider-goes-down.md.
-  3-4q-fix-brightdata-auth-failure-and-alert-moderators-when-a-scraper-provider-goes-down: ready-for-dev
+  # Code complete 2026-09-07 (Tasks 1-7, 9-10). Task 8 (Bright Data token rotation, AC3)
+  # remains outstanding -- manual/external, coordinated separately per explicit user
+  # instruction, not blocking this story's move to review.
+  3-4q-fix-brightdata-auth-failure-and-alert-moderators-when-a-scraper-provider-goes-down: review
   # added 2026-08-19 via bmad-create-story: user-identified linking gap during /bmad-help
   # investigation. Story 3-4j captures scraper_actor_runs table but doesn't thread the run ID
   # to posts/unprocessed_payloads, leaving moderator UI (3-4k) unable to display "posts from
@@ -1256,7 +1313,17 @@ development_status:
   # not a reuse of the unused 'pending' default. User also required an explicit AC3: the
   # UI must visibly explain to the submitting user why performers were withheld, not
   # silently suppress them. See story file's Dev Notes for full reasoning.
-  3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression: ready-for-dev
+  3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression: review
+  3-6l-extract-events-from-multi-image-carousel-posts-using-a-single-batched-gemini-request: backlog
+  # added 2026-09-03 via bmad-correct-course (sprint-change-proposal-2026-09-03-carousel-multi-image-extraction.md):
+  # triggering issue -- a real laridijogja carousel post whose per-event
+  # schedules lived on slides 2-6, not the cover image or caption, which
+  # today's single-image pipeline silently misses. Batches all carousel images
+  # into ONE Gemini request (not a sequential re-trigger loop) per Architecture
+  # Spine AD-13 -- confirmed via research that Gemini's free-tier quota is
+  # RPM/RPD *and* TPM bound, so batching is the quota-efficient choice.
+  # Depends on Story 3.6, Story 3.3e. Coordinate merge order with in-flight
+  # 3-6i/3-6j/3-6k (same build-gemini-request.ts prompt file).
   # added 2026-08-10 via bmad-create-story Gate 2 finding (Freya persona, run fresh
   # since epic-3-readiness.md only swept Gate 1/3) while drafting Story 3.7: Feed's
   # planned calendar view would be a third near-byte-for-byte duplicate of
@@ -1332,12 +1399,20 @@ development_status:
   # visual treatment -- both folded into this story's own AC/tasks (not a separate
   # story). Gate 3 found no shared EmbedAdapter generalization needed yet (single
   # consumer). See epics.md Story 3.7d Amendment and Story 3.7e.
-  3-7d-event-detail-image-display-oembed-transition-with-fallback: ready-for-dev
+  3-7d-event-detail-image-display-oembed-transition-with-fallback: review
   # New 2026-09-04, split from Story 3.7d via bmad-create-story Gate 1/3 findings
   # (see epics.md Story 3.7e note and Story 3.7d's Amendment). Backend-only: adapter
   # proxying Instagram's tokenless oEmbed endpoint + Event.instagramEmbed resolver
   # field reusing Story 3.6h's opt-in join. Blocks Story 3.7d.
-  3-7e-instagram-oembed-backend-integration-adapter-and-resolver-field: backlog
+  # regenerated 2026-09-07 via bmad-create-story: full context engine pass. Gates 1/2/3
+  # all run fresh (epic-3-readiness.md predates 3.7e -- stories_covered stops at 3.11,
+  # added 2026-08-09, before 3.7c/3.7d/3.7e existed) -- all three: no gap. Gate 1 (Winston)
+  # confirmed backend-only scope, no queue involvement (synchronous read-path resolver,
+  # not extraction pipeline), tokenless endpoint needs no IaC/credential. Gate 2 (Freya)
+  # confirmed zero UI surface. Gate 3 (Winston) confirmed no shared EmbedAdapter
+  # generalization needed (single consumer) and no new foundational dependency. No
+  # prerequisite stories created.
+  3-7e-instagram-oembed-backend-integration-adapter-and-resolver-field: review
   3-8-push-notifications-for-extracted-events: review
   3-9-implement-api-key-quota-management: done
   # added 2026-08-11 via bmad-create-story Gate 2 finding while drafting Story 3.9:
@@ -1722,7 +1797,7 @@ development_status:
   # plug-in mechanism -- AWAITING_APPROVAL account-type classifications (3-4n) need
   # a third, structurally distinct list/resolve shape. Lettered off Story 4.7 (the
   # page's owner), not off 3-4n. See epics.md Story 4.7c.
-  4-7c-review-queue-for-pending-account-type-classifications: backlog
+  4-7c-review-queue-for-pending-account-type-classifications: review
   4-8-view-archived-hidden-personal-events: done
   epic-4-retrospective: optional
   epic-5: in-progress

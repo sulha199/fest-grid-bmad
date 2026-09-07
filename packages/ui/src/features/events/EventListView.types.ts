@@ -5,7 +5,10 @@ export interface EventListViewScheduleShape {
   isMainSchedule: boolean;
   eventStartDate: string;
   eventStartTime?: string | null;
+  eventEndDate?: string | null;
+  eventEndTime?: string | null;
   ticketPrice?: string | number | null;
+  locationDetails?: { coordinates?: { lat: number; lng: number } | null } | null;
 }
 
 export interface EventListViewItem {
@@ -13,6 +16,7 @@ export interface EventListViewItem {
   slug: string;
   eventName: string;
   imageUrl?: string | null;
+  durableImageUrl?: string | null;
   location?: string | null;
   categories?: string[] | null;
   types?: string[] | null;

@@ -360,7 +360,7 @@ describe('EventCard', () => {
       it('Tomorrow (dayDiff===1) -> badge shows Tomorrow', () => {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        render(
+        const { container } = render(
           <EventCard
             eventName="Masonry Tomorrow"
             startDate={tomorrow}
@@ -369,7 +369,11 @@ describe('EventCard', () => {
           />
         );
 
-        expect(screen.getByText('Tomorrow')).toBeInTheDocument();
+        // Both the top-left date pill (AC12) and the below-image status badge (AC15) render
+        // "Tomorrow" for a dayDiff===1 event -- scope to the date pill specifically.
+        const datePill = container.querySelector('.top-3.left-3');
+        expect(datePill).toHaveTextContent('Tomorrow');
+        expect(screen.getAllByText('Tomorrow').length).toBe(2);
       });
 
       it('Yesterday (dayDiff===-1) -> badge shows Yesterday (new case)', () => {
@@ -454,6 +458,169 @@ describe('EventCard', () => {
 
       expect(screen.queryByLabelText(/favorite/i)).not.toBeInTheDocument();
       expect(screen.queryByText('42')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('TILL badge (masonry, AC14)', () => {
+    it('renders no TILL badge when the event has not started yet', () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      render(
+        <EventCard
+          eventName="Not Started"
+          startDate={tomorrow}
+          endDate={(() => { const d = new Date(); d.setDate(d.getDate() + 2); return d; })()}
+          variant="masonry"
+          locale="en-US"
+        />
+      );
+      expect(screen.queryByText(/till/)).not.toBeInTheDocument();
+    });
+
+    it('renders "till hh:mm" when started and endDate is today with a known endTime', () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const today = new Date();
+      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
+        new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 0)
+      );
+
+      render(
+        <EventCard
+          eventName="Ends Today"
+          startDate={yesterday}
+          endDate={today}
+          endTime="23:59:00"
+          variant="masonry"
+          locale="en-US"
+        />
+      );
+
+      expect(screen.getByText(`till ${expectedTime}`)).toBeInTheDocument();
+    });
+
+    it('renders bare "till" (no time) when started and endDate is tomorrow or later', () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      render(
+        <EventCard
+          eventName="Ends Tomorrow"
+          startDate={yesterday}
+          endDate={tomorrow}
+          variant="masonry"
+          locale="en-US"
+        />
+      );
+
+      expect(screen.getByText('till')).toBeInTheDocument();
+    });
+
+    it('renders no TILL badge for the absent-endDate fallback with no known end time', () => {
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+      render(
+        <EventCard
+          eventName="Absent End, No Fallback Time"
+          startDate={twoDaysAgo}
+          variant="masonry"
+          locale="en-US"
+        />
+      );
+
+      expect(screen.queryByText(/till/)).not.toBeInTheDocument();
+    });
+
+    it('renders "till hh:mm" for the absent-endDate fallback when endTime is present and the fallback day is today', () => {
+      const today = new Date();
+      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
+        new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 0)
+      );
+
+      render(
+        <EventCard
+          eventName="Absent End, Fallback Time Present"
+          startDate={today}
+          startTime="00:00:01"
+          endTime="23:59:00"
+          variant="masonry"
+          locale="en-US"
+        />
+      );
+
+      expect(screen.getByText(`till ${expectedTime}`)).toBeInTheDocument();
+    });
+  });
+
+  describe('Status badge (masonry, AC15) and Nearby badge (AC16)', () => {
+    it('renders the nearby badge at the distanceKm=5 boundary and omits it just past it', () => {
+      const { rerender } = render(
+        <EventCard {...defaultProps} variant="masonry" distanceKm={5} locale="en-US" />
+      );
+      expect(screen.getByText('Nearby')).toBeInTheDocument();
+
+      rerender(<EventCard {...defaultProps} variant="masonry" distanceKm={5.01} locale="en-US" />);
+      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+    });
+
+    it('omits the nearby badge when distanceKm is null or undefined', () => {
+      const { rerender } = render(
+        <EventCard {...defaultProps} variant="masonry" distanceKm={null} locale="en-US" />
+      );
+      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+
+      rerender(<EventCard {...defaultProps} variant="masonry" locale="en-US" />);
+      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+    });
+
+    it('renders the status badge alone (no nearby badge) when distanceKm is absent, and status-then-nearby order when present', () => {
+      const { container, rerender } = render(
+        <EventCard {...defaultProps} variant="masonry" locale="en-US" />
+      );
+      const badgeRow = container.querySelector('.p-3.flex-1.flex.flex-col.gap-2 > div');
+      expect(badgeRow).not.toBeNull();
+      expect(badgeRow?.children.length).toBe(1);
+
+      rerender(<EventCard {...defaultProps} variant="masonry" distanceKm={1} locale="en-US" />);
+      const badgeRowWithNearby = container.querySelector('.p-3.flex-1.flex.flex-col.gap-2 > div');
+      expect(badgeRowWithNearby?.children.length).toBe(2);
+      expect(badgeRowWithNearby?.children[1]).toHaveTextContent('Nearby');
+    });
+  });
+
+  describe('Prominent poster (masonry, AC17)', () => {
+    it('uses the enlarged aspect-[2/3] poster treatment when prominentPoster is true', () => {
+      render(
+        <EventCard
+          {...defaultProps}
+          variant="masonry"
+          imageUrl="http://example.com/image.jpg"
+          prominentPoster
+          locale="en-US"
+        />
+      );
+      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const imgContainer = img.parentElement;
+      expect(imgContainer).toHaveClass('aspect-[2/3]');
+      expect(imgContainer).not.toHaveClass('aspect-[3/4]');
+    });
+
+    it('keeps the default aspect-[3/4] poster treatment when prominentPoster is false/omitted', () => {
+      render(
+        <EventCard
+          {...defaultProps}
+          variant="masonry"
+          imageUrl="http://example.com/image.jpg"
+          locale="en-US"
+        />
+      );
+      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const imgContainer = img.parentElement;
+      expect(imgContainer).toHaveClass('aspect-[3/4]');
+      expect(imgContainer).not.toHaveClass('aspect-[2/3]');
     });
   });
 

@@ -3,6 +3,7 @@ import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPl
 import { detectPlatformFromUrl } from '@festgrid/domain';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from './EventDetailView.types';
 import { EventImage } from './EventImage';
+import { InstagramEmbed } from './InstagramEmbed';
 import { SubscribedAccountCard } from '../subscriptions';
 
 /**
@@ -26,6 +27,9 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   videoUrl,
   videoAlt,
   imageFallbackUrl,
+  instagramEmbedStatus,
+  instagramEmbedHtml,
+  instagramEmbedDurableImageUrl,
   originalPostUrl,
   sourcePostUrl,
   contactInfo,
@@ -213,19 +217,34 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
         {/* Left Column: Media */}
         <div className="lg:col-span-3 min-w-0 flex flex-col gap-6">
-          <EventImage
-            imageUrl={imageUrl}
-            imageAlt={imageAlt}
-            eventName={eventName}
-            videoUrl={videoUrl}
-            videoAlt={videoAlt}
-            imageFallbackUrl={imageFallbackUrl}
-            originalPostUrl={originalPostUrl}
-            sourcePostUrl={sourcePostUrl}
-            videoUnavailableLabel={labels.videoUnavailableLabel}
-            viewOriginalPostLabel={labels.viewOriginalPostLabel}
-            viewSourceLabel={labels.viewSourceLabel}
-          />
+          {instagramEmbedStatus ? (
+            <InstagramEmbed
+              status={instagramEmbedStatus}
+              html={instagramEmbedHtml}
+              durableImageUrl={instagramEmbedDurableImageUrl}
+              durableImageAlt={imageAlt}
+              eventName={eventName}
+              labels={{
+                contentNoLongerAvailableLabel: labels.contentNoLongerAvailableLabel,
+                embedLoadingLabel: labels.embedLoadingLabel,
+                embedRegionLabel: labels.embedRegionLabel,
+              }}
+            />
+          ) : (
+            <EventImage
+              imageUrl={imageUrl}
+              imageAlt={imageAlt}
+              eventName={eventName}
+              videoUrl={videoUrl}
+              videoAlt={videoAlt}
+              imageFallbackUrl={imageFallbackUrl}
+              originalPostUrl={originalPostUrl}
+              sourcePostUrl={sourcePostUrl}
+              videoUnavailableLabel={labels.videoUnavailableLabel}
+              viewOriginalPostLabel={labels.viewOriginalPostLabel}
+              viewSourceLabel={labels.viewSourceLabel}
+            />
+          )}
         </div>
 
         {/* Right Column: Details & Content */}

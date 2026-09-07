@@ -58,6 +58,8 @@ export const userRoleEnum = pgEnum('user_role', ['user', 'moderator']);
 
 export const geolocationQueryTypeEnum = pgEnum('geolocation_query_type', ['GEOCODE', 'REVERSE_GEOCODE', 'PLACE_DETAILS']);
 
+export const instagramOembedStatusEnum = pgEnum('instagram_oembed_status', ['AVAILABLE', 'UNAVAILABLE']);
+
 // AWAITING_APPROVAL and REJECTED added 2026-08-28 (confidence-gated moderation, see AWAITING_APPROVAL doc comment on the table below)
 export const defaultLocationChangeStatusEnum = pgEnum('default_location_change_status', ['AWAITING_APPROVAL', 'PENDING_REVIEW', 'ACCEPTED', 'REJECTED', 'REVERTED', 'SUPERSEDED']);
 
@@ -66,7 +68,14 @@ export const defaultLocationChangeSourceEnum = pgEnum('default_location_change_s
 export const scheduleTimezoneStatusEnum = pgEnum('schedule_timezone_status', ['RESOLVED', 'NEEDS_CLARIFICATION']);
 
 export const correctionSourceEnum = pgEnum('correction_source', ['manual', 'ai_assisted']);
-export const correctionStatusEnum = pgEnum('correction_status', ['pending', 'applied', 'rejected']);
+// 'awaiting_verification' added 2026-09-07 (Story 3.6k): a UGC correction whose
+// free-text fields matched the children's-data keyword filter -- non-performer
+// data was applied immediately, but performer names were suppressed pending
+// guardian verification (Tier 2, not yet built). Distinct from 'pending' because
+// submitCorrection never actually writes 'pending' today; overloading it would
+// conflate "not yet processed" with "held specifically for guardian-verification
+// reasons" (see Story 4.3a's 'auto_resolved' for the same new-value-over-reuse precedent).
+export const correctionStatusEnum = pgEnum('correction_status', ['pending', 'applied', 'rejected', 'awaiting_verification']);
 export const brightdataJobStatusEnum = pgEnum('brightdata_job_status', ['PENDING', 'COMPLETED', 'EXPIRED']);
 
 export const scraperRunVendorEnum = pgEnum('scraper_run_vendor', ['APIFY', 'BRIGHTDATA']);
@@ -176,6 +185,18 @@ export const scraperProviderUsage = pgTable('scraper_provider_usage', {
   ...timestamps,
 });
 
+// Tracks per-provider trigger health (consecutive full-failure days + alert cooldown) --
+// a distinct concern from scraperProviderUsage's cost/item-volume tracking above
+// (Story 3.4q).
+export const scraperProviderHealth = pgTable('scraper_provider_health', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  provider: text('provider').notNull().unique(),
+  consecutiveFailureDays: integer('consecutive_failure_days').default(0).notNull(),
+  lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
+  lastAlertSentAt: timestamp('last_alert_sent_at', { withTimezone: true }),
+  ...timestamps,
+});
+
 export const subscriptions = pgTable('subscriptions', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
@@ -194,6 +215,20 @@ export const geolocationCache = pgTable('geolocation_cache', {
   result: jsonb('result').notNull(),
   ...timestamps,
 });
+
+// Bounded-TTL cache for Instagram's tokenless oEmbed endpoint (Story 3.7e). Both AVAILABLE and
+// UNAVAILABLE results are cached (an UNAVAILABLE result, e.g. a deleted post, is just as reusable
+// within the TTL window as an AVAILABLE one) -- see apps/backend/src/lib/instagram-oembed/adapter.ts.
+export const instagramOembedCache = pgTable('instagram_oembed_cache', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  postUrl: text('post_url').unique().notNull(),
+  status: instagramOembedStatusEnum('status').notNull(),
+  html: text('html'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  ...timestamps,
+}, (t) => ({
+  expiresAtIdx: index('idx_instagram_oembed_cache_expires_at').on(t.expiresAt),
+}));
 
 export const apiKeys = pgTable('api_keys', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -526,6 +561,12 @@ export const corrections = pgTable('corrections', {
   proposedData: jsonb('proposed_data').$type<ProposedEventCorrection>().notNull(),
   source: correctionSourceEnum('source').notNull(),
   status: correctionStatusEnum('status').default('pending').notNull(),
+  // Added 2026-09-07 (Story 3.6k): audit-trail-only record of the submitter's
+  // declaration checkbox ("I confirm I have parent/guardian permission if this
+  // includes a minor"). Does NOT by itself unlock performer-name display or
+  // change the keyword-match outcome -- FestDaily cannot verify the submitter
+  // is actually the parent. Sibling-audit-column precedent: reports.moderatorIgnored.
+  guardianPermissionConfirmed: boolean('guardian_permission_confirmed').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   resolvedAt: timestamp('resolved_at', { withTimezone: true }),
 }, (t) => ({

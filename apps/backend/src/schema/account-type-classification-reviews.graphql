@@ -1,0 +1,26 @@
+enum AccountType {
+  ORGANIZER_VENUE_EVENT
+  PERSONAL
+  CURATOR_GUIDE
+}
+
+type AccountTypeClassificationReview {
+  id: ID!
+  accountId: ID!
+  account: SocialMediaAccountProfile!
+  proposedAccountType: AccountType
+  confidenceScore: Float
+  failureReason: String
+  resolvedAccountType: AccountType
+  reviewedByModeratorId: ID
+  reviewedAt: String
+  createdAt: String!
+}
+
+extend type Query {
+  pendingAccountTypeClassificationReviews: [AccountTypeClassificationReview!]!
+}
+
+extend type Mutation {
+  resolveAccountTypeClassificationReview(id: ID!, accountType: AccountType!): AccountTypeClassificationReview!
+}

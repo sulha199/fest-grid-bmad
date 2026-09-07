@@ -141,7 +141,10 @@
     "timezoneSubmitLabel": "Konfirmasi",
     "timezoneSubmitSuccessAnnouncement": "Zona waktu berhasil diperbarui",
     "timezoneSubmitErrorAnnouncement": "Gagal memperbarui zona waktu. Silakan coba lagi.",
-    "privateContactMessageLabel": "Info kontak tidak ditampilkan untuk melindungi privasi pemosting — lihat postingan asli untuk detailnya."
+    "privateContactMessageLabel": "Info kontak tidak ditampilkan untuk melindungi privasi pemosting — lihat postingan asli untuk detailnya.",
+    "contentNoLongerAvailableLabel": "Konten ini sudah tidak tersedia",
+    "embedLoadingLabel": "Memuat postingan yang disematkan…",
+    "embedRegionLabel": "Postingan yang disematkan"
   },
   "EventReportForm": {
     "dialogTitle": "Laporkan Acara",
@@ -186,7 +189,9 @@
     "unmatchedErrorFallbackLabel": "Kesalahan validasi",
     "requiredFieldError": "Kolom ini wajib diisi",
     "endDateBeforeStartDateError": "Tanggal selesai acara tidak boleh lebih awal dari tanggal mulai",
-    "endTimeBeforeStartTimeError": "Waktu selesai acara harus lebih lambat dari waktu mulai"
+    "endTimeBeforeStartTimeError": "Waktu selesai acara harus lebih lambat dari waktu mulai",
+    "guardianPermissionCheckboxLabel": "Saya menyatakan memiliki izin orang tua/wali jika ini melibatkan anak di bawah umur",
+    "awaitingVerificationToast": "Koreksi telah disimpan, tetapi nama pengisi acara ditahan sementara menunggu verifikasi izin orang tua/wali."
   },
   "FilterHub": {
     "typeLabel": "Tipe",
@@ -667,7 +672,10 @@
   "DefaultLocationChangeStatus": {
     "PENDING_REVIEW": "Menunggu Tinjauan",
     "ACCEPTED": "Diterima",
-    "REVERTED": "Dikembalikan"
+    "REVERTED": "Dikembalikan",
+    "AWAITING_APPROVAL": "Menunggu Persetujuan",
+    "REJECTED": "Ditolak",
+    "SUPERSEDED": "Digantikan"
   },
   "ModeratorItemsPage": {
     "pageTitle": "Item Moderator",
@@ -686,6 +694,8 @@
     "buttonIgnoreFutureReports": "Abaikan laporan masa depan dari pengguna ini",
     "buttonAccept": "Terima",
     "buttonRevert": "Kembalikan",
+    "buttonApprove": "Setujui",
+    "buttonReject": "Tolak",
     "filterReasonLabel": "Filter berdasarkan Alasan",
     "filterStatusLabel": "Filter berdasarkan Status",
     "allOption": "Semua",
@@ -697,7 +707,23 @@
     "fromLabel": "Dari",
     "toLabel": "Ke",
     "correctLocationLabel": "Koreksi langsung lokasi {accountName}",
-    "moderatorLocationCorrectedToast": "Lokasi default berhasil dikoreksi"
+    "moderatorLocationCorrectedToast": "Lokasi default berhasil dikoreksi",
+    "pendingClassificationsSection": "Klasifikasi Jenis Akun yang Tertunda",
+    "emptyClassifications": "Tidak ada klasifikasi jenis akun yang menunggu tinjauan.",
+    "bioLabel": "Bio",
+    "proposedTypeLabel": "Jenis yang Diusulkan",
+    "confidenceLabel": "Tingkat Keyakinan",
+    "classificationFailedLabel": "Klasifikasi Gagal",
+    "failureReasonLabel": "Alasan Kegagalan",
+    "buttonResolveOrganizerVenueEvent": "Penyelenggara/Tempat/Acara",
+    "buttonResolvePersonal": "Pribadi",
+    "buttonResolveCuratorGuide": "Kurator/Pemandu",
+    "classificationResolvedToast": "Klasifikasi jenis akun berhasil diselesaikan"
+  },
+  "AccountType": {
+    "ORGANIZER_VENUE_EVENT": "Penyelenggara / Tempat / Acara",
+    "PERSONAL": "Pribadi",
+    "CURATOR_GUIDE": "Kurator / Pemandu"
   },
   "UnprocessedPayloadsPage": {
     "reprocessButton": "Proses Ulang",

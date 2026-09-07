@@ -2,7 +2,7 @@
 title: "EXPERIENCE.md: festgrid"
 status: "draft"
 created: "2026-07-20T10:59:00Z"
-updated: "2026-08-25T00:00:00Z"
+updated: "2026-09-04T00:00:00Z"
 sources:
   - "design-artifacts/UX-festgrid-run-1/DESIGN.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -169,6 +169,18 @@ The feeling of using FestDaily should be one of exciting discovery. Microcopy sh
 
 **Chrome/tokens.** Both shells reuse `DESIGN.md`'s existing `nav.profile_menu`-adjacent chrome conventions and button primary/secondary tokens (`#1E293B`/`#6366F1`, `bg-violet-600 text-white` / `bg-gray-200 text-gray-800`) for the tab bar's active/inactive states — a 2-state model, not `WizardStepSummary`'s 3-state Completed/Current/Upcoming (free navigation has no linear-progress concept; see Story 0.29 Dev Notes). No new component tokens are introduced by this pass beyond what `TabbedShell` itself already ships with.
 
+### Masonry EventCard: Date Box, TILL Badge, and Status/Nearby Badge Row
+
+*Added via a targeted `bmad-ux` pass, 2026-09-04 — `sprint-change-proposal-2026-09-04.md` Section 4.3, feeding Story 1.3b's AC14-AC18 and Story 1.3d's AC16-AC19. Token source: `{design-artifacts/UX-festgrid-run-1/DESIGN.md}` `components.event_card_date_box` / `event_card_till_badge` / `event_card_status_badge` / `event_card_nearby_badge` / `event_card_masonry`. This entry supersedes the masonry-relevant portion of whatever informal behavior the original 2026-08-25 relative-day pill carried — there was no dedicated EXPERIENCE.md entry for it before this pass.*
+
+**Composition, top to bottom.** The masonry card's poster area keeps its two existing overlays unchanged in position — `{components.event_card_date_box}` top-left, the heart+favorite-count control top-right (confirmed visually unchanged by this pass) — and gains `{components.event_card_till_badge}` as a small tag anchored to the date box's bottom edge, conditional per Story 1.3b AC14. Below the poster, a new `{components.event_card_masonry.badge_row}` renders the status badge (`{components.event_card_status_badge}`, always present — one of its 8 states always applies) followed by the nearby badge (`{components.event_card_nearby_badge}`, conditional on `distanceKm <= 5`) when present. The existing eventName/locationName caption is unchanged and simply sits below this row.
+
+**Why the date box stays an overlay rather than moving beside/above the poster.** The reference screenshots could be read either way (a self-contained date box next to a smaller poster, or a corner overlay on a full-width poster). Resolved with the user: overlay-on-poster, the same top-left slot/z-index the relative-day pill already occupied — this keeps the poster full-width at both default and prominent states (only the aspect ratio differs between them, `{components.event_card_masonry.image}` vs `{components.event_card_masonry.image_prominent}`) and avoids restructuring the card's box model for a 2-column mobile grid that is already narrow.
+
+**Why the status badge doesn't use per-state color.** Also resolved with the user: one neutral style for all 8 states (`{components.event_card_status_badge}`), differentiated by text alone rather than a new 8-way (or tiered) color system. The existing `{components.status_badge}` primitive's positive/negative/pendingReview/superseded palette was deliberately not reused here — that palette's colors mean "review-outcome," and forcing this badge's time-urgency states through it (e.g. "Ended" as the red "negative" variant) would misread as an error rather than a neutral fact about elapsed time.
+
+**Distinguishing the two below-image badges without relying on color alone (WCAG 1.4.1).** The status and nearby badges sit adjacent in the same row and could be visually confused at a glance if color were their only distinguishing signal (this project's existing convention already requires a non-color cue — see State Patterns § Soft Delete with Undo below). Two independent cues separate them: the nearby badge carries its own icon (a `Navigation` glyph, deliberately distinct from the caption's `MapPin` icon so the two location-related glyphs never look identical in one dense card) that the status badge never has, and each badge's text content is always unique and self-describing regardless of styling. Color (`{components.event_card_nearby_badge}`'s secondary fill vs. the status badge's neutral muted fill) is present as a reinforcing cue only, not the sole differentiator.
+
 ## State Patterns
 
 ### Soft Delete with Undo
@@ -236,3 +248,10 @@ At the rail tiers (≥768px), the app logo is pinned to the top of the rail; Pro
 - **Focus:** the toast does not steal focus when it appears (non-modal — matches APG guidance for status messages); see Trigger's focus-management rule in State Patterns above for what happens to the item's own triggering control.
 - **Hit area / tab order:** the Undo action (and the failure toast's close control) is a real, tab-reachable `<button>` inside the live region, meeting `{components.notification.action_hit_area}`. It is reached by continuing to Tab forward from wherever focus currently is — not assumed to be the very next stop after the triggering item, since the toast is portal-rendered outside normal document flow.
 - **Non-color cue:** the pending item's "marked for deletion" appearance always includes a non-color signal (greyed out and/or struck through — WCAG 1.4.1), never opacity/color alone.
+
+### Masonry EventCard Badge Row
+
+*Scoped to Component Patterns § Masonry EventCard: Date Box, TILL Badge, and Status/Nearby Badge Row above — added 2026-09-04 alongside that pattern.*
+
+- **Non-color cue (WCAG 1.4.1):** the status badge (`{components.event_card_status_badge}`) and nearby badge (`{components.event_card_nearby_badge}`) are never distinguished by color alone — each has unique, self-describing text, and the nearby badge additionally carries its own icon. A viewer with color-vision deficiency or a grayscale display can still tell them apart.
+- **Reading order:** the date box, TILL badge, status badge, and nearby badge are all supplementary metadata about an already-labeled event card (the card's own accessible name comes from `eventName`/`imageAlt`, unchanged by this pass) — none of them are interactive on their own, so they need no independent focus stop; they follow normal DOM order (top-left overlay, then bottom-anchored TILL tag, then the badge row) inside the card's single existing focusable/clickable region.

@@ -63,6 +63,9 @@ content = content.replace(/export type ExtractionErrorCode =[\s\S]*?;\r?\n/g, ''
 content = content.replace(/export type ImageStorageOptInSource =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ModeratorAccountProfileFilters = \{\r?\n\s+search\?\:\s+string[\s\S]*?\};\r?\n/g, '');
 
+// Replace duplicate AccountType (Story 4.7c: union-type re-declaration of the enum above)
+content = content.replace(/export type AccountType =[\s\S]*?;\r?\n/g, '');
+
 // Replace duplicate ReportOutcome, ReportReason and ReportStatus
 content = content.replace(/export type ReportOutcome =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ReportReason =[\s\S]*?;\r?\n/g, '');
@@ -75,6 +78,8 @@ content = content.replace(/export type DefaultLocationChangeRequestStatus =[\s\S
 // Replace duplicate actor-run and unprocessed-payload types
 content = content.replace(/export type ActorRunFilters = \{\r?\n\s+createdAfter\?: unknown;[\s\S]*?export type ActorRunVendor =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ScheduleTimezoneStatus =[\s\S]*?;\r?\n/g, '');
+// Replace duplicate InstagramEmbedStatus (Story 3.7d/3.7e)
+content = content.replace(/export type InstagramEmbedStatus =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type UnprocessedPayloadFilters = \{\r?\n\s+createdAfter\?: unknown;[\s\S]*?export type UnprocessedPayloadSource =[\s\S]*?;\r?\n/g, '');
 
 // Replace duplicate ProposedEventCorrectionInput and ProposedScheduleCorrectionInput

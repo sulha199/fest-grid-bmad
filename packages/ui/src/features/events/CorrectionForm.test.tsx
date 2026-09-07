@@ -31,6 +31,7 @@ describe("CorrectionForm", () => {
     submitButtonLabel: "Submit",
     cancelButtonLabel: "Cancel",
     unmatchedErrorFallbackLabel: "Unmatched Errors Found",
+    guardianPermissionCheckboxLabel: "I confirm I have parent/guardian permission if this includes a minor",
   };
 
   const typeOptions = [
@@ -309,5 +310,111 @@ describe("CorrectionForm", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
     const submittedData = onSubmit.mock.calls[0][0] as ProposedEventCorrection;
     expect(submittedData.types).toEqual([EventType.FESTIVAL, EventType.PERFORMANCE]);
+  });
+
+  describe("guardian-permission declaration checkbox (Story 3.6k, AC5)", () => {
+    it("renders the checkbox, unchecked by default", () => {
+      render(
+        <CorrectionForm
+          initialValues={initialValues}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      const checkbox = screen.getByLabelText(
+        "I confirm I have parent/guardian permission if this includes a minor"
+      );
+      expect(checkbox).not.toBeChecked();
+    });
+
+    it("toggles when clicked (uncontrolled/local state)", () => {
+      render(
+        <CorrectionForm
+          initialValues={initialValues}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      const checkbox = screen.getByLabelText(
+        "I confirm I have parent/guardian permission if this includes a minor"
+      );
+      fireEvent.click(checkbox);
+      expect(checkbox).toBeChecked();
+    });
+
+    it("calls onSubmit with (data, guardianPermissionConfirmed) reflecting the checkbox state", () => {
+      const onSubmit = vi.fn();
+      render(
+        <CorrectionForm
+          initialValues={initialValues}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={onSubmit}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      const checkbox = screen.getByLabelText(
+        "I confirm I have parent/guardian permission if this includes a minor"
+      );
+      fireEvent.click(checkbox);
+
+      fireEvent.submit(screen.getByRole("button", { name: "Submit" }).closest("form")!);
+
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+      expect(onSubmit.mock.calls[0][1]).toBe(true);
+    });
+
+    it("calls onSubmit with guardianPermissionConfirmed: false when the checkbox is left unchecked", () => {
+      const onSubmit = vi.fn();
+      render(
+        <CorrectionForm
+          initialValues={initialValues}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={onSubmit}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      fireEvent.submit(screen.getByRole("button", { name: "Submit" }).closest("form")!);
+
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+      expect(onSubmit.mock.calls[0][1]).toBe(false);
+    });
+
+    it("respects the controlled prop pair when provided", () => {
+      const onChange = vi.fn();
+      render(
+        <CorrectionForm
+          initialValues={initialValues}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+          guardianPermissionConfirmed={true}
+          onGuardianPermissionConfirmedChange={onChange}
+        />
+      );
+
+      const checkbox = screen.getByLabelText(
+        "I confirm I have parent/guardian permission if this includes a minor"
+      );
+      expect(checkbox).toBeChecked();
+
+      fireEvent.click(checkbox);
+      expect(onChange).toHaveBeenCalledWith(false);
+    });
   });
 });

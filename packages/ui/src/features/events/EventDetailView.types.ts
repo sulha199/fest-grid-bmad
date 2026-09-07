@@ -51,6 +51,9 @@ export interface EventDetailViewLabels {
   timezoneSubmitErrorAnnouncement: string;
   videoUnavailableLabel?: string;
   privateContactMessageLabel: string;
+  contentNoLongerAvailableLabel?: string;
+  embedLoadingLabel?: string;
+  embedRegionLabel?: string;
 }
 
 /**
@@ -73,6 +76,11 @@ export interface EventDetailViewProps {
   videoUrl?: string | null;
   videoAlt?: string | null;
   imageFallbackUrl?: string | null;
+
+  // Instagram oEmbed transition (Story 3.7d/3.7e)
+  instagramEmbedStatus?: 'AVAILABLE' | 'UNAVAILABLE' | null;
+  instagramEmbedHtml?: string | null;
+  instagramEmbedDurableImageUrl?: string | null;
 
   // External URLs (AC15, AC16)
   originalPostUrl?: string | null;

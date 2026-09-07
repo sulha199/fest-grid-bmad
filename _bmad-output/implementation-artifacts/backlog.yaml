@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: 2026-09-05 (Phase F fold-in)
+last_updated: "2026-09-07 (BUG-021/BUG-022 added via bmad-help bug-report session: ended-event visibility triaged to Story 2.7's still-review status; EventCard TILL/date-box gap folded into Story 1.3b AC19)"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -329,27 +329,36 @@ items:
 
   # ── 2026-09-04 ──────────────────────────────────────────────────────────────
   CC-019:
-    {type: proposal, status: triaged, created: 2026-09-04,
+    {type: proposal, status: promoted, created: 2026-09-04,
      impact: user-visible, effort: m,
      title: "Discovery card redesign (TILL badge, status badge, nearby badge, masonry spacing)",
      ref: [planning-artifacts/sprint-change-proposal-2026-09-04.md],
+     stories: [1-3b-build-the-reusable-eventcard-component,
+               1-3d-build-the-reusable-eventlistview-component],
      touches: [web:events/EventCard, web:events/EventListView, web:events/getEvents,
                cross:ux-tokens, cross:prd],
-     note: "Approved but genuinely unimplemented end-to-end — none of the PRD 3.1 badge bullets, the Story 1.3b/1.3d ACs, or the formatEventStatus helper exist. Targets 1-3b/1-3d for amendment; no story yet carries its ACs, so not promoted."}
+     note: "IDEA-007's bmad-ux pass landed (DESIGN.md/EXPERIENCE.md tokens), then 1-3b gained AC14-18 and 1-3d gained AC16-19 — both moved to ready-for-dev (2026-09-06), not yet coded. PRD 3.1/3.16 bullets applied via BUG-016 (done)."}
 
   BUG-004:
-    {type: bug, status: backlog, created: 2026-09-04, parent: CC-019,
+    {type: bug, status: done, created: 2026-09-04, parent: CC-019,
      impact: internal, effort: xs,
      title: "sprint-status.yaml still reads 1-3i as done though ViewModeToggle was deleted",
      ref: [], touches: [web:events/EventListView, cross:architecture],
-     note: "spec-ux-rework2-p1-masonry-only.md deleted the component and its layout URL-param wiring. CC-019 recommended a documentation-only correction; never applied. This is the drift case that motivated the board."}
+     note: "Fixed 2026-09-06: correction comment added to the 1-3i entry explaining the drift (feature later deleted by an unrelated change, status left `done` since the story itself was never reverted). This is the drift case that motivated the board."}
 
   IDEA-007:
-    {type: idea, status: backlog, created: 2026-09-04, parent: CC-019,
+    {type: idea, status: done, created: 2026-09-04, parent: CC-019,
      impact: cosmetic, effort: s, blocks: [CC-019],
      title: "Targeted bmad-ux pass for card visual tokens before CC-019 story finalization",
      ref: [], touches: [web:events/EventCard, cross:ux-tokens],
-     note: "CC-019 Section 4.3 names this a prerequisite: date-box/TILL badge, badge-row placement, prominent-poster sizing."}
+     note: "Landed 2026-09-06 in design-artifacts/UX-festgrid-run-1/DESIGN.md (outside _bmad-output/, so not a ref path): event_card_date_box/till_badge/status_badge/nearby_badge tokens, amended event_card_masonry, masonry grid gap. CC-019's story finalization gate is satisfied."}
+
+  BUG-016:
+    {type: bug, status: done, created: 2026-09-06, parent: CC-019,
+     impact: internal, effort: xs,
+     title: "CC-019's drafted PRD 3.1/3.16 badge bullets were never written into prd.md",
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-04.md], touches: [cross:prd, web:events/EventCard],
+     note: "Fixed 2026-09-06: applied CC-019 Section 4.1's drafted Event Status Badge / Nearby Badge bullets to PRD 3.1, and the durableImageUrl-trigger clarification to PRD 3.16, verbatim."}
 
   # ── 2026-09-05 (deferred-work fold-in, FIND-005) ──────────────────────────────
   BUG-005:
@@ -567,6 +576,14 @@ items:
      touches: [pkg:domain, app:backend],
      note: "Deferred from: quick-dev fix of scraper-audit-trail-alerting (2026-09-05). Pre-existing gap in the shared render engine, already reachable via existing templates (e.g. DANGEROUS_EVENT_MODERATOR_ALERT's eventName); this pass's new SCRAPER_AUDIT_TRAIL_FAILURE_ALERT template is a new consumer of scraper-influenced fields (postUrl, raw DB error text) routed through it."}
 
+  FIND-022:
+    {type: finding, status: triaged, created: 2026-09-07,
+     impact: user-visible, effort: l,
+     title: "Repost/coauthor posts are misattributed to the subscribed (scraping) account instead of the original-owner account",
+     ref: [backlog/FIND-022-coauthor-content-issues.md],
+     touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
+     note: "Forged 2026-09-07: add normalized post-account roles and lossless legacy migration; create deduplicated unsubscribed profiles for verified identities, with internal-only provisional records; filter across publisher/coauthor/scraping associations; add posted-at/coauthor detail UI and confirmed accessible subscription toggle with success/failure analytics. Vendor-role normalization is a prerequisite (Bright Data evidence exists; Apify still needs verification). IDEA-008 owns cap value/guard/CTA; PRD '2' vs backlog '5' remains separate. Ready for bmad-spec."}
+
   # ── undated intake ──────────────────────────────────────────────────────────
   IDEA-001:
     {type: idea, status: backlog, created: 2026-09-04,
@@ -583,3 +600,87 @@ items:
            implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [cross:process],
      note: "Phase F complete 2026-09-05: all 89 DW records folded into 24 new rows (10 bug, 14 finding after BUG-006 was superseded into FIND-009 on review) under the 2026-09-05 section below. 27 dropped as already-fixed (rule 1), 1 (DW-065) already tracked as BUG-003 (rule 3), 4 absorbed into an anchor row's note as duplicates (rule 2: DW-004/007 into FIND-007, DW-015 into BUG-005, DW-036 into FIND-014). 9 stayed individual per the Phase E user-visible list (BUG-006 through BUG-015 excl. BUG-011); the remaining 49 batched by shared cause into 15 rows."}
+
+  # ── 2026-09-06 (ux-rework2 gap audit) ────────────────────────────────────────
+  IDEA-008:
+    {type: idea, status: backlog, created: 2026-09-06,
+     impact: user-visible, effort: m,
+     title: "Max 5 subscribed accounts (normal user), upgrade-account 'coming soon' CTA + PostHog event, moderator exempt",
+     ref: [],
+     touches: [web:subscriptions, app:backend, pkg:analytics, cross:prd],
+     note: "From apps/ux-rework2.md L19-21, via ux-rework2-tracking.md item #7. PRD 8.2 (Phase 2 free_user tier) only vaguely caps accounts at 'e.g., 2' with no upgrade-CTA/PostHog/moderator-exemption language, and the number conflicts with this item's '5' — needs reconciling. Real feature work (server-side guard + upgrade UI flow + analytics), not polish; no backlog row or story existed before this audit."}
+
+  IDEA-009:
+    {type: idea, status: backlog, created: 2026-09-06,
+     impact: user-visible, effort: m,
+     title: "Auto-extract posts on first subscribe (respecting Gemini's 500 RPD limit) + onboarding wizard redirect to feed",
+     ref: [],
+     touches: [web:onboarding, web:wizard, web:subscriptions, app:backend, cross:ai-extraction],
+     note: "From apps/ux-rework2.md L23, via ux-rework2-tracking.md item #9. Cross-cutting: rate-limit-aware auto-triggering against a shared Gemini quota, plus a wizard-routing change. No backlog row or story existed before this audit."}
+
+  IDEA-010:
+    {type: idea, status: backlog, created: 2026-09-06,
+     impact: user-visible, effort: m,
+     title: "Post Selection: distinguish genuinely-inactive account from scrape-run-in-progress or never-run",
+     ref: [],
+     touches: [web:post-selection, app:backend],
+     note: "From apps/ux-rework2.md L6, dup. L18, via ux-rework2-tracking.md item #2 — deferred in the user's own words ('put to deferred for better planning'), never re-triaged since. Story 5.4 (inactive-account-warning) ships a simpler 30-day-no-post isInactive flag that doesn't cover run-status, so this nuance was never actually captured as its own row before this audit."}
+
+  BUG-017:
+    {type: bug, status: backlog, created: 2026-09-06,
+     impact: user-visible, effort: s,
+     title: "Geoapify rank.confidence returns wrong location for sub-venues (e.g. 'Grand Atrium, Pakuwon Mall Jogja')",
+     ref: [],
+     touches: [web:locations, app:backend],
+     note: "From apps/ux-rework2.md L45, via ux-rework2-tracking.md item #20. Research task, not yet started — investigate whether rank/rank.confidence can filter or re-rank Geoapify results before any fix is scoped. No backlog row existed before this audit."}
+
+  BUG-018:
+    {type: bug, status: backlog, created: 2026-09-07,
+     impact: user-visible, effort: s,
+     title: "Infinite-scroll next-page load doesn't preserve scroll position, forcing user to scroll up/down again to trigger the following page",
+     ref: [],
+     touches: [web:events, pkg:ui],
+     note: "Reported by user on event-list-bug-fixes-pagination branch. When the list auto-loads the next page at the bottom, the viewport sometimes doesn't stay anchored on the previously-last item once new items render, so the bottom sentinel is no longer in view and the user must manually scroll up then down to re-trigger the next page load. Proposed fix to evaluate: a 'next-page-placeholder' element that keeps the intersection/scroll anchor stable across page appends."}
+
+  BUG-019:
+    {type: bug, status: backlog, created: 2026-09-07,
+     impact: user-visible, effort: s,
+     title: "Changing category/type filter a second time (or later) sometimes appends the next page instead of reloading the whole list",
+     ref: [],
+     touches: [web:events, pkg:ui],
+     note: "Reported by user on event-list-bug-fixes-pagination branch, same session as BUG-018. On subsequent filter changes, the event list occasionally fails to reset pagination state/cursor, so the next infinite-scroll load appends results from the old query instead of restarting from page 1 with the new filter, producing a mixed/incorrect list."}
+
+  BUG-020:
+    {type: bug, status: backlog, created: 2026-09-07,
+     impact: user-visible, effort: m,
+     title: "Moderator tools tab-item pages lack previous-page navigation and total/page info in their simple pagination",
+     ref: [],
+     touches: [web:moderation, pkg:ui],
+     note: "Reported by user on event-list-bug-fixes-pagination branch. Affected pages: apps/web/src/app/[locale]/moderator/tools/unprocessed-payloads-content.tsx, actor-runs-content.tsx, and moderator-accounts-content.tsx. All three use cursor-based pagination but only render a single 'Load more' button (hasNextPage) with no way to go back to the previous page, and they do not surface totalCount or any 'current page' indicator. Fix should add a prev-page control alongside next, and display totalCount + current page info so moderators can orient themselves in the result set."}
+
+  IDEA-011:
+    {type: proposal, status: backlog, created: 2026-09-07,
+     impact: internal, effort: m,
+     title: "Define a standard rule for when filters apply (on Apply button vs. on change) across list/discovery UIs",
+     ref: [],
+     touches: [pkg:ui, web:events, web:moderation, cross:architecture, cross:ux-tokens],
+     note: "Reported by user on event-list-bug-fixes-pagination branch, in the same session as BUG-018/019/020. Currently inconsistent across the app — e.g. moderator filter panels call handleFilterChange on every onChange (apply-on-change), and BUG-019 shows that pattern can cause append-instead-of-reload bugs; meanwhile no documented rule says whether a filter should take effect immediately on change or only after an explicit Apply action. Need a cross-cutting decision (likely in project-context.md and/or a UX token/primitive) so all list, discovery, and moderation views behave the same way."}
+
+  # ── 2026-09-07 (bmad-help bug-report session) ───────────────────────────────
+  BUG-021:
+    {type: bug, status: triaged, created: 2026-09-07,
+     impact: user-visible, effort: s, blocks: [],
+     title: "Ended events still show in Discovery/Favorites/Feed/My Calendar; should be archive-only",
+     ref: [],
+     stories: [2-7-automatically-hide-past-events, 4-8-view-archived-hidden-personal-events],
+     touches: [web:events, app:backend, pkg:domain],
+     note: "Reported by user via bmad-help. Verified NOT a new gap: Story 2.7 (buildDefaultEventVisibilityConditions.ts, wired into the events resolver's default query) already implements exactly this hiding rule, and Story 4.8 (Archive page) is its already-`done` escape hatch — but 2-7-automatically-hide-past-events itself is still status:review in sprint-status.yaml, not merged/released. status: triaged rather than backlog since this is very likely that in-review work simply not yet shipped, not an undiscovered defect — closing action is confirming/landing 2.7's review, not new dev work."}
+
+  BUG-022:
+    {type: bug, status: triaged, created: 2026-09-07, parent: CC-019,
+     impact: user-visible, effort: xs,
+     title: "EventCard's masonry date box shows startDate even while the event is ongoing, contradicting its own TILL sub-badge",
+     ref: [],
+     stories: [1-3b-build-the-reusable-eventcard-component],
+     touches: [web:events/EventCard, pkg:ui],
+     note: "Reported by user via bmad-help, immediately after CC-019's AC14 TILL-badge amendment landed (2026-09-07) — AC14 already anchors the TILL sub-badge to the date box (the 'placement' half of the report), but the box's primary text still always renders startDate/startTime, so a started event reads as a contradictory 'start-date box with an ends-qualifier attached'. No existing AC swaps the box's text to the effective end date while `started === true`. Folded into Story 1.3b as a new AC19 (epics.md) rather than a standalone story, since it's a narrow follow-on to the exact element AC14 just amended. status: triaged, not backlog, since story-level AC/task text already exists and needs implementation, not further scoping."}

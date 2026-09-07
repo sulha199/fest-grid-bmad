@@ -31,6 +31,25 @@ export type AiEventFilter = {
   updatedAt: Scalars['String']['output'];
 };
 
+export type AccountType =
+  | 'CURATOR_GUIDE'
+  | 'ORGANIZER_VENUE_EVENT'
+  | 'PERSONAL';
+
+export type AccountTypeClassificationReview = {
+  __typename?: 'AccountTypeClassificationReview';
+  account: SocialMediaAccountProfile;
+  accountId: Scalars['ID']['output'];
+  confidenceScore?: Maybe<Scalars['Float']['output']>;
+  createdAt: Scalars['String']['output'];
+  failureReason?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  proposedAccountType?: Maybe<AccountType>;
+  resolvedAccountType?: Maybe<AccountType>;
+  reviewedAt?: Maybe<Scalars['String']['output']>;
+  reviewedByModeratorId?: Maybe<Scalars['ID']['output']>;
+};
+
 export type AccountVote = {
   __typename?: 'AccountVote';
   accountId: Scalars['ID']['output'];
@@ -113,6 +132,7 @@ export type Correction = {
   __typename?: 'Correction';
   createdAt: Scalars['String']['output'];
   eventId: Scalars['ID']['output'];
+  guardianPermissionConfirmed: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   proposedData: Scalars['JSON']['output'];
   resolvedAt?: Maybe<Scalars['String']['output']>;
@@ -128,6 +148,7 @@ export type CorrectionSource =
 
 export type CorrectionStatus =
   | 'applied'
+  | 'awaiting_verification'
   | 'pending'
   | 'rejected';
 
@@ -240,6 +261,7 @@ export type Event = {
   hasPrivateContact: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
+  instagramEmbed?: Maybe<InstagramEmbed>;
   isAddedToCalendar: Scalars['Boolean']['output'];
   isExpiredForCurrentUser: Scalars['Boolean']['output'];
   isFavorited: Scalars['Boolean']['output'];
@@ -360,6 +382,17 @@ export type ImageStorageOptInSource =
   | 'ACCOUNT_OWNER'
   | 'MODERATOR';
 
+export type InstagramEmbed = {
+  __typename?: 'InstagramEmbed';
+  durableImageUrl?: Maybe<Scalars['String']['output']>;
+  html?: Maybe<Scalars['String']['output']>;
+  status: InstagramEmbedStatus;
+};
+
+export type InstagramEmbedStatus =
+  | 'AVAILABLE'
+  | 'UNAVAILABLE';
+
 export type LocationDetails = {
   __typename?: 'LocationDetails';
   adminArea?: Maybe<Scalars['String']['output']>;
@@ -421,6 +454,7 @@ export type Mutation = {
   replayActorRun: ReplayActorRunResult;
   reportSystemError: Scalars['Boolean']['output'];
   reprocessPayload: ReprocessResult;
+  resolveAccountTypeClassificationReview: AccountTypeClassificationReview;
   resolveDefaultLocationChange: DefaultLocationChangeRequest;
   resolvePromptToEventFilter: ResolvedAiEventFilterResult;
   resolveReport: Report;
@@ -561,6 +595,12 @@ export type MutationReprocessPayloadArgs = {
 };
 
 
+export type MutationResolveAccountTypeClassificationReviewArgs = {
+  accountType: AccountType;
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationResolveDefaultLocationChangeArgs = {
   action: DefaultLocationChangeAction;
   id: Scalars['ID']['input'];
@@ -620,6 +660,7 @@ export type MutationSetImageStorageOptInArgs = {
 
 export type MutationSubmitCorrectionArgs = {
   eventId: Scalars['ID']['input'];
+  guardianPermissionConfirmed?: InputMaybe<Scalars['Boolean']['input']>;
   proposedData: ProposedEventCorrectionInput;
   source: CorrectionSource;
 };
@@ -795,8 +836,9 @@ export type Query = {
   /**
    * Combined count of items awaiting moderator action across Moderator Items
    * (Section 3.9.3): pending Reports plus Default Location changes in
-   * PENDING_REVIEW or AWAITING_APPROVAL status (Section 3.7/4.14). Powers the
-   * Moderator Pending-Item Badge (added 2026-08-28). Moderator-gated like every
+   * PENDING_REVIEW or AWAITING_APPROVAL status (Section 3.7/4.14), plus pending
+   * AccountTypeClassificationReview rows (reviewedAt IS NULL, Story 4.7c).
+   * Powers the Moderator Pending-Item Badge (added 2026-08-28). Moderator-gated like every
    * other Moderator Items query -- the frontend must already know to only call
    * this for a moderator (the same `me.role` check that gates the nav entry
    * itself, Story 0.7/2.8), not rely on this query to answer that question.
@@ -811,6 +853,7 @@ export type Query = {
   mySubscriptions: Array<Subscription>;
   myWidgets: Array<Widget>;
   parserVersions: Array<ParserVersion>;
+  pendingAccountTypeClassificationReviews: Array<AccountTypeClassificationReview>;
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
@@ -1325,6 +1368,8 @@ export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
   AIEventFilter: ResolverTypeWrapper<AiEventFilter>;
+  AccountType: AccountType;
+  AccountTypeClassificationReview: ResolverTypeWrapper<AccountTypeClassificationReview>;
   AccountVote: ResolverTypeWrapper<AccountVote>;
   ActorRunConnection: ResolverTypeWrapper<ActorRunConnection>;
   ActorRunEdge: ResolverTypeWrapper<ActorRunEdge>;
@@ -1369,6 +1414,8 @@ export type ResolversTypes = ResolversObject<{
   GeolocationProvider: GeolocationProvider;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   ImageStorageOptInSource: ImageStorageOptInSource;
+  InstagramEmbed: ResolverTypeWrapper<InstagramEmbed>;
+  InstagramEmbedStatus: InstagramEmbedStatus;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   JSON: ResolverTypeWrapper<Scalars['JSON']['output']>;
   LocationDetails: ResolverTypeWrapper<LocationDetails>;
@@ -1433,6 +1480,7 @@ export type ResolversTypes = ResolversObject<{
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
   AIEventFilter: AiEventFilter;
+  AccountTypeClassificationReview: AccountTypeClassificationReview;
   AccountVote: AccountVote;
   ActorRunConnection: ActorRunConnection;
   ActorRunEdge: ActorRunEdge;
@@ -1461,6 +1509,7 @@ export type ResolversParentTypes = ResolversObject<{
   ExtractionQuota: ExtractionQuota;
   Float: Scalars['Float']['output'];
   ID: Scalars['ID']['output'];
+  InstagramEmbed: InstagramEmbed;
   Int: Scalars['Int']['output'];
   JSON: Scalars['JSON']['output'];
   LocationDetails: LocationDetails;
@@ -1525,6 +1574,20 @@ export type AiEventFilterResolvers<ContextType = GraphQLContext, ParentType exte
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type AccountTypeClassificationReviewResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AccountTypeClassificationReview'] = ResolversParentTypes['AccountTypeClassificationReview']> = ResolversObject<{
+  account?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType>;
+  accountId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  confidenceScore?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  failureReason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  proposedAccountType?: Resolver<Maybe<ResolversTypes['AccountType']>, ParentType, ContextType>;
+  resolvedAccountType?: Resolver<Maybe<ResolversTypes['AccountType']>, ParentType, ContextType>;
+  reviewedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  reviewedByModeratorId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type AccountVoteResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AccountVote'] = ResolversParentTypes['AccountVote']> = ResolversObject<{
   accountId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -1572,6 +1635,7 @@ export type CoordinatesResolvers<ContextType = GraphQLContext, ParentType extend
 export type CorrectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Correction'] = ResolversParentTypes['Correction']> = ResolversObject<{
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   eventId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  guardianPermissionConfirmed?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   proposedData?: Resolver<ResolversTypes['JSON'], ParentType, ContextType>;
   resolvedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -1630,6 +1694,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   hasPrivateContact?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  instagramEmbed?: Resolver<Maybe<ResolversTypes['InstagramEmbed']>, ParentType, ContextType>;
   isAddedToCalendar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isExpiredForCurrentUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isFavorited?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
@@ -1680,6 +1745,13 @@ export type ExtractionQuotaResolvers<ContextType = GraphQLContext, ParentType ex
   limit?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   remaining?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   used?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type InstagramEmbedResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['InstagramEmbed'] = ResolversParentTypes['InstagramEmbed']> = ResolversObject<{
+  durableImageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  html?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['InstagramEmbedStatus'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1737,6 +1809,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   replayActorRun?: Resolver<ResolversTypes['ReplayActorRunResult'], ParentType, ContextType, RequireFields<MutationReplayActorRunArgs, 'actorRunId'>>;
   reportSystemError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationReportSystemErrorArgs, 'input'>>;
   reprocessPayload?: Resolver<ResolversTypes['ReprocessResult'], ParentType, ContextType, RequireFields<MutationReprocessPayloadArgs, 'parserVersion' | 'payloadId'>>;
+  resolveAccountTypeClassificationReview?: Resolver<ResolversTypes['AccountTypeClassificationReview'], ParentType, ContextType, RequireFields<MutationResolveAccountTypeClassificationReviewArgs, 'accountType' | 'id'>>;
   resolveDefaultLocationChange?: Resolver<ResolversTypes['DefaultLocationChangeRequest'], ParentType, ContextType, RequireFields<MutationResolveDefaultLocationChangeArgs, 'action' | 'id'>>;
   resolvePromptToEventFilter?: Resolver<ResolversTypes['ResolvedAIEventFilterResult'], ParentType, ContextType, RequireFields<MutationResolvePromptToEventFilterArgs, 'prompt'>>;
   resolveReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationResolveReportArgs, 'id' | 'outcome'>>;
@@ -1853,6 +1926,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   mySubscriptions?: Resolver<Array<ResolversTypes['Subscription']>, ParentType, ContextType>;
   myWidgets?: Resolver<Array<ResolversTypes['Widget']>, ParentType, ContextType>;
   parserVersions?: Resolver<Array<ResolversTypes['ParserVersion']>, ParentType, ContextType, Partial<QueryParserVersionsArgs>>;
+  pendingAccountTypeClassificationReviews?: Resolver<Array<ResolversTypes['AccountTypeClassificationReview']>, ParentType, ContextType>;
   pendingDefaultLocationChanges?: Resolver<Array<ResolversTypes['DefaultLocationChangeRequest']>, ParentType, ContextType>;
   postsByAccount?: Resolver<ResolversTypes['PostConnection'], ParentType, ContextType, RequireFields<QueryPostsByAccountArgs, 'accountId'>>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
@@ -2102,6 +2176,7 @@ export type WidgetResolvers<ContextType = GraphQLContext, ParentType extends Res
 
 export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   AIEventFilter?: AiEventFilterResolvers<ContextType>;
+  AccountTypeClassificationReview?: AccountTypeClassificationReviewResolvers<ContextType>;
   AccountVote?: AccountVoteResolvers<ContextType>;
   ActorRunConnection?: ActorRunConnectionResolvers<ContextType>;
   ActorRunEdge?: ActorRunEdgeResolvers<ContextType>;
@@ -2118,6 +2193,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   EventFilter?: EventFilterResolvers<ContextType>;
   ExtractEventDataFromUrlResult?: ExtractEventDataFromUrlResultResolvers<ContextType>;
   ExtractionQuota?: ExtractionQuotaResolvers<ContextType>;
+  InstagramEmbed?: InstagramEmbedResolvers<ContextType>;
   JSON?: GraphQLScalarType;
   LocationDetails?: LocationDetailsResolvers<ContextType>;
   LocationFilter?: LocationFilterResolvers<ContextType>;

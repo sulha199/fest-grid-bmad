@@ -62,6 +62,7 @@ vi.mock('@/lib/graphql-client', () => {
 
 let mockReportedEvents: any[] = [];
 let mockPendingChanges: any[] = [];
+let mockPendingClassifications: any[] = [];
 let forceError = false;
 
 beforeEach(() => {
@@ -125,6 +126,25 @@ beforeEach(() => {
     },
   ];
 
+  mockPendingClassifications = [
+    {
+      id: 'classification-1',
+      accountId: 'account-2',
+      proposedAccountType: 'ORGANIZER_VENUE_EVENT',
+      confidenceScore: 0.42,
+      failureReason: null,
+      createdAt: '2026-08-11T14:00:00.000Z',
+      account: {
+        id: 'account-2',
+        displayName: 'Classification Account',
+        platform: 'instagram',
+        username: 'classification_user',
+        profileImageUrl: null,
+        description: 'A test bio',
+      },
+    },
+  ];
+
   forceError = false;
 
   vi.mocked(graphqlClient.request).mockImplementation(async (...args: any[]): Promise<any> => {
@@ -147,6 +167,16 @@ beforeEach(() => {
     if (docStr.includes('getPendingDefaultLocationChanges')) {
       return {
         pendingDefaultLocationChanges: mockPendingChanges,
+      };
+    }
+    if (docStr.includes('getPendingAccountTypeClassificationReviews')) {
+      return {
+        pendingAccountTypeClassificationReviews: mockPendingClassifications,
+      };
+    }
+    if (docStr.includes('resolveAccountTypeClassificationReview')) {
+      return {
+        resolveAccountTypeClassificationReview: { id: 'classification-1', resolvedAccountType: 'ORGANIZER_VENUE_EVENT', reviewedAt: '2026-09-07T00:00:00.000Z' },
       };
     }
     if (docStr.includes('resolveReportsForEvent')) {
@@ -218,6 +248,7 @@ describe('ModeratorItemsContent integration', () => {
     // Verify sections
     expect(screen.getByText('Reported Events')).toBeInTheDocument();
     expect(screen.getByText('Pending Location Changes')).toBeInTheDocument();
+    expect(screen.getByText('Pending Account-Type Classifications')).toBeInTheDocument();
 
     // Verify event details inside Reported Events
     expect(screen.getByText('Test Event 1')).toBeInTheDocument();
@@ -229,10 +260,201 @@ describe('ModeratorItemsContent integration', () => {
     expect(screen.getByText('Jakarta, Indonesia')).toBeInTheDocument();
     expect(screen.getByText('Monumen Nasional, Jakarta, Indonesia')).toBeInTheDocument();
 
+    // Verify pending classification review details
+    expect(screen.getByText('Classification Account')).toBeInTheDocument();
+    expect(screen.getByText('A test bio')).toBeInTheDocument();
+
     // Verify analytics was triggered
     expect(mockPosthogCapture).toHaveBeenCalledWith('moderator_items_page_viewed', {
       pendingReportGroupCount: 1,
       pendingLocationChangeCount: 1,
+      pendingClassificationReviewCount: 1,
+    });
+  });
+
+  it('renders Approve/Reject buttons and an Awaiting Approval badge for an AWAITING_APPROVAL location change row', async () => {
+    mockPendingChanges = [
+      {
+        id: 'change-2',
+        accountId: 'account-3',
+        status: 'AWAITING_APPROVAL',
+        createdAt: '2026-08-11T13:00:00.000Z',
+        account: {
+          id: 'account-3',
+          displayName: 'AI Inferred Account',
+          platform: 'instagram',
+          username: 'ai_inferred_user',
+          profileImageUrl: null,
+        },
+        previousLocation: null,
+        newLocation: {
+          placeName: 'Monas, ID',
+          formattedAddress: 'Monumen Nasional, Jakarta, Indonesia',
+          coordinates: { lat: -6.17, lng: 106.82 },
+        },
+      },
+    ];
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Awaiting Approval')).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Revert' })).not.toBeInTheDocument();
+  });
+
+  it('can approve an AWAITING_APPROVAL location change row', async () => {
+    mockPendingChanges = [
+      {
+        id: 'change-2',
+        accountId: 'account-3',
+        status: 'AWAITING_APPROVAL',
+        createdAt: '2026-08-11T13:00:00.000Z',
+        account: {
+          id: 'account-3',
+          displayName: 'AI Inferred Account',
+          platform: 'instagram',
+          username: 'ai_inferred_user',
+          profileImageUrl: null,
+        },
+        previousLocation: null,
+        newLocation: {
+          placeName: 'Monas, ID',
+          formattedAddress: 'Monumen Nasional, Jakarta, Indonesia',
+          coordinates: { lat: -6.17, lng: 106.82 },
+        },
+      },
+    ];
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+
+    await waitFor(() => {
+      const calls = vi.mocked(graphqlClient.request).mock.calls;
+      const approveCall = calls.find(call => {
+        const obj = call[0] as any;
+        return obj && obj.variables && obj.variables.id === 'change-2' && obj.variables.action === 'APPROVE';
+      });
+      expect(approveCall).toBeDefined();
+    });
+  });
+
+  it('can reject an AWAITING_APPROVAL location change row', async () => {
+    mockPendingChanges = [
+      {
+        id: 'change-2',
+        accountId: 'account-3',
+        status: 'AWAITING_APPROVAL',
+        createdAt: '2026-08-11T13:00:00.000Z',
+        account: {
+          id: 'account-3',
+          displayName: 'AI Inferred Account',
+          platform: 'instagram',
+          username: 'ai_inferred_user',
+          profileImageUrl: null,
+        },
+        previousLocation: null,
+        newLocation: {
+          placeName: 'Monas, ID',
+          formattedAddress: 'Monumen Nasional, Jakarta, Indonesia',
+          coordinates: { lat: -6.17, lng: 106.82 },
+        },
+      },
+    ];
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+
+    await waitFor(() => {
+      const calls = vi.mocked(graphqlClient.request).mock.calls;
+      const rejectCall = calls.find(call => {
+        const obj = call[0] as any;
+        return obj && obj.variables && obj.variables.id === 'change-2' && obj.variables.action === 'REJECT';
+      });
+      expect(rejectCall).toBeDefined();
+    });
+  });
+
+  it('renders the empty state for pending account-type classifications', async () => {
+    mockPendingClassifications = [];
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('No pending account-type classifications awaiting review.')).toBeInTheDocument();
+    });
+  });
+
+  it('can resolve a pending account-type classification review (Organizer/Venue/Event)', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Organizer/Venue/Event')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Organizer/Venue/Event'));
+
+    await waitFor(() => {
+      const calls = vi.mocked(graphqlClient.request).mock.calls;
+      const resolveCall = calls.find(call => {
+        const obj = call[0] as any;
+        return obj && obj.variables && obj.variables.id === 'classification-1' && obj.variables.accountType === 'ORGANIZER_VENUE_EVENT';
+      });
+      expect(resolveCall).toBeDefined();
+    });
+
+    expect(mockPosthogCapture).toHaveBeenCalledWith('moderator_account_type_classification_resolved', {
+      reviewId: 'classification-1',
+      accountId: 'account-2',
+      resolvedAccountType: 'ORGANIZER_VENUE_EVENT',
+    });
+  });
+
+  it('can resolve a pending account-type classification review (Personal)', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Personal' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Personal' }));
+
+    await waitFor(() => {
+      const calls = vi.mocked(graphqlClient.request).mock.calls;
+      const resolveCall = calls.find(call => {
+        const obj = call[0] as any;
+        return obj && obj.variables && obj.variables.id === 'classification-1' && obj.variables.accountType === 'PERSONAL';
+      });
+      expect(resolveCall).toBeDefined();
+    });
+  });
+
+  it('can resolve a pending account-type classification review (Curator/Guide)', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Curator/Guide')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Curator/Guide'));
+
+    await waitFor(() => {
+      const calls = vi.mocked(graphqlClient.request).mock.calls;
+      const resolveCall = calls.find(call => {
+        const obj = call[0] as any;
+        return obj && obj.variables && obj.variables.id === 'classification-1' && obj.variables.accountType === 'CURATOR_GUIDE';
+      });
+      expect(resolveCall).toBeDefined();
     });
   });
 

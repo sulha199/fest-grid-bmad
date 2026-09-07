@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
@@ -20,12 +20,13 @@ import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '
 import { isValidIanaTimezone } from '@festgrid/domain/users';
 import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user-settings.js';
 import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../lib/geolocation/adapter.js';
+import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
-import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl } from '@festgrid/domain/events';
+import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult } from '@festgrid/domain/events';
 import { transformGeminiResponseToEventFilter } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
-import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed } from '@festgrid/domain';
+import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
@@ -1227,7 +1228,7 @@ Constraints and Guidelines:
 
       return true;
     },
-    submitCorrection: async (_: any, { eventId, proposedData, source }: any, context: any) => {
+    submitCorrection: async (_: any, { eventId, proposedData, source, guardianPermissionConfirmed }: any, context: any) => {
       const authUser = requireAuth(context);
 
       // 1. Look up event
@@ -1298,6 +1299,12 @@ Constraints and Guidelines:
       }
 
       // 6. If applied (inside transaction)
+      // Story 3.6k (AC2, AC5): a keyword match against this correction's free-text
+      // fields means the non-performer data is still applied immediately, but
+      // performer names are suppressed and the correction is held as
+      // 'awaiting_verification' rather than 'applied' pending guardian verification.
+      const childrensDataMatch = matchesChildrensDataKeywordFilter(buildCorrectionClassificationText(proposedData));
+
       const correction = await db.transaction(async (tx) => {
         // Update event
         await tx.update(events)
@@ -1322,7 +1329,7 @@ Constraints and Guidelines:
             eventStartTime: s.eventStartTime || null,
             eventEndTime: s.eventEndTime || null,
             title: s.title || null,
-            performers: s.performers || null,
+            performers: childrensDataMatch ? null : (s.performers || null),
             location: s.location || null,
             ticketPrice: s.ticketPrice || null,
             updatedAt: new Date(),
@@ -1348,7 +1355,8 @@ Constraints and Guidelines:
             submittedByUserId: authUser.userId,
             proposedData,
             source,
-            status: 'applied',
+            status: childrensDataMatch ? 'awaiting_verification' : 'applied',
+            guardianPermissionConfirmed: guardianPermissionConfirmed ?? false,
             resolvedAt: new Date(),
           })
           .returning();
@@ -1842,6 +1850,51 @@ Constraints and Guidelines:
         reviewedAt: updatedRow.reviewedAt ? updatedRow.reviewedAt.toISOString() : null,
       };
     },
+    resolveAccountTypeClassificationReview: async (_: any, { id, accountType }: any, context: any): Promise<any> => {
+      const moderator = requireModerator(context);
+
+      const [reqRow] = await db.select()
+        .from(accountTypeClassificationReviews)
+        .where(eq(accountTypeClassificationReviews.id, id));
+
+      if (!reqRow) {
+        throw new GraphQLError('AccountTypeClassificationReview not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      if (reqRow.reviewedAt !== null) {
+        throw new GraphQLError('AccountTypeClassificationReview is already resolved', {
+          extensions: { code: 'INVALID_STATE_TRANSITION' },
+        });
+      }
+
+      const updatedRow = await db.transaction(async (tx) => {
+        const [updated] = await tx.update(accountTypeClassificationReviews)
+          .set({
+            resolvedAccountType: accountType,
+            reviewedByModeratorId: moderator.userId,
+            reviewedAt: new Date(),
+          })
+          .where(eq(accountTypeClassificationReviews.id, id))
+          .returning();
+
+        await tx.update(socialMediaAccountProfiles)
+          .set({
+            accountType,
+            accountTypeStatus: 'CONFIRMED',
+          })
+          .where(eq(socialMediaAccountProfiles.id, reqRow.accountId));
+
+        return updated;
+      });
+
+      return {
+        ...updatedRow,
+        createdAt: updatedRow.createdAt.toISOString(),
+        reviewedAt: updatedRow.reviewedAt ? updatedRow.reviewedAt.toISOString() : null,
+      };
+    },
     markSubscriptionViewed: async (_: any, { subscriptionId }: any, context: any) => {
       const authUser = requireAuth(context);
       const [updated] = await db.update(subscriptions)
@@ -1877,7 +1930,7 @@ Constraints and Guidelines:
         used += isElapsed ? 0 : row.usageCount;
       }
 
-      const limit = keysRows.length * 50;
+      const limit = keysRows.length * env.geminiPostsPerKeyPerCycle;
       const remainingQuota = Math.max(0, limit - used);
 
       if (postIds.length > remainingQuota) {
@@ -2358,15 +2411,18 @@ Constraints and Guidelines:
     },
     moderatorPendingItemCount: async (_: any, __: any, context: any): Promise<number> => {
       requireModerator(context);
-      const [[{ pendingReportCount }], [{ pendingLocationChangeCount }]] = await Promise.all([
+      const [[{ pendingReportCount }], [{ pendingLocationChangeCount }], [{ pendingClassificationCount }]] = await Promise.all([
         db.select({ pendingReportCount: count() })
           .from(reports)
           .where(eq(reports.status, 'pending')),
         db.select({ pendingLocationChangeCount: count() })
           .from(defaultLocationChangeRequests)
           .where(inArray(defaultLocationChangeRequests.status, ['PENDING_REVIEW', 'AWAITING_APPROVAL'])),
+        db.select({ pendingClassificationCount: count() })
+          .from(accountTypeClassificationReviews)
+          .where(isNull(accountTypeClassificationReviews.reviewedAt)),
       ]);
-      return Number(pendingReportCount) + Number(pendingLocationChangeCount);
+      return Number(pendingReportCount) + Number(pendingLocationChangeCount) + Number(pendingClassificationCount);
     },
     pendingDefaultLocationChanges: async (_: any, __: any, context: any): Promise<any> => {
       requireModerator(context);
@@ -2379,6 +2435,19 @@ Constraints and Guidelines:
         ...r,
         previousLocation: formatLocationDetails(r.previousLocation),
         newLocation: formatLocationDetails(r.newLocation),
+        createdAt: r.createdAt.toISOString(),
+        reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null,
+      }));
+    },
+    pendingAccountTypeClassificationReviews: async (_: any, __: any, context: any): Promise<any> => {
+      requireModerator(context);
+      const rows = await db.select()
+        .from(accountTypeClassificationReviews)
+        .where(isNull(accountTypeClassificationReviews.reviewedAt))
+        .orderBy(asc(accountTypeClassificationReviews.createdAt));
+
+      return rows.map((r) => ({
+        ...r,
         createdAt: r.createdAt.toISOString(),
         reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null,
       }));
@@ -2461,7 +2530,7 @@ Constraints and Guidelines:
         used += isElapsed ? 0 : row.usageCount;
       }
 
-      const limit = keysRows.length * 50;
+      const limit = keysRows.length * env.geminiPostsPerKeyPerCycle;
       const remaining = Math.max(0, limit - used);
 
       return {
@@ -3448,6 +3517,18 @@ Constraints and Guidelines:
       return profile || null;
     }
   },
+  AccountTypeClassificationReview: {
+    account: async (parent: any, _: any, __: any, info: any) => {
+      const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: socialMediaAccountProfiles.id,
+      }).from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, parent.accountId));
+
+      return (rows[0] as any) || null;
+    }
+  },
   Report: {
     event: async (parent: any, _: any, __: any, info: any) => {
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
@@ -3502,6 +3583,18 @@ Constraints and Guidelines:
     }),
     durableImageUrl: (parent: any) => parent.durableImageUrl || null,
     videoUrl: (parent: any) => parent.videoUrl || null,
+    instagramEmbed: async (parent: any) => {
+      const postUrl = parent.originalPostUrl || parent.sourcePostUrl;
+      if (!postUrl) {
+        return null;
+      }
+      const adapterResult = await resolveInstagramOEmbed(postUrl);
+      return resolveInstagramEmbedResult({
+        adapterResult,
+        isImageStorageOptedIn: parent.isImageStorageOptedIn === true,
+        durableImageUrl: parent.durableImageUrl,
+      });
+    },
     sourcePostUrl: (parent: any) => parent.sourcePostUrl || null,
     originalPostUrl: (parent: any) => parent.originalPostUrl || null,
     isFavorited: async (parent: any, _: any, context: any) => {

@@ -1,5 +1,6 @@
 import { EventType, EventCategory, LocationDetails } from '@festgrid/shared-types';
 import { GeminiExtractionPayload, ExtractedEventMessage, ExtractedScheduleMessage, ScheduleTimezoneResolution } from './types.js';
+import { matchesChildrensDataKeywordFilter } from './matches-childrens-data-keyword-filter.js';
 
 export function transformGeminiResponseToEventInfo(
   payload: GeminiExtractionPayload,
@@ -9,6 +10,7 @@ export function transformGeminiResponseToEventInfo(
     defaultLocation?: LocationDetails;
     resolvedScheduleLocations: Map<number, LocationDetails>;
     scheduleTimezoneResolutions?: Map<number, ScheduleTimezoneResolution>;
+    sourcePostText?: string;
   }
 ): ExtractedEventMessage {
   // 1. Filter valid types and categories, fallback to OTHER if empty
@@ -27,7 +29,13 @@ export function transformGeminiResponseToEventInfo(
     ? (context.defaultLocation.formattedAddress ?? context.defaultLocation.placeName)
     : undefined);
 
-  // 3. Map schedules, attaching resolved schedule locations and timezone resolutions
+  // 3. Map schedules, attaching resolved schedule locations and timezone resolutions.
+  // Discard-at-classification enforcement (Story 3.6k, AC1): when the raw scraped
+  // post text matches the children's-data keyword filter, performers are suppressed
+  // entirely for every schedule of the resulting event -- the pipeline itself never
+  // writes individual performer names for a matched post, independent of whatever
+  // Gemini extracted.
+  const childrensDataMatch = matchesChildrensDataKeywordFilter(context.sourcePostText);
   const schedules: ExtractedScheduleMessage[] = payload.schedules.map((sch, i) => {
     const locationDetails = context.resolvedScheduleLocations.get(i);
     const timezoneResolution = context.scheduleTimezoneResolutions?.get(i);
@@ -38,7 +46,7 @@ export function transformGeminiResponseToEventInfo(
       eventStartTime: sch.eventStartTime,
       eventEndTime: sch.eventEndTime,
       title: sch.title,
-      performers: sch.performers,
+      performers: childrensDataMatch ? undefined : sch.performers,
       location: sch.location,
       ticketPrice: sch.ticketPrice,
       locationDetails,

@@ -24,6 +24,7 @@ export interface CorrectionFormLabels {
   submitButtonLabel: string;
   cancelButtonLabel: string;
   unmatchedErrorFallbackLabel: string;
+  guardianPermissionCheckboxLabel: string;
 }
 
 export interface CorrectionFormProps {
@@ -31,9 +32,11 @@ export interface CorrectionFormProps {
   typeOptions: { value: string; label: string }[];
   categoryOptions: { value: string; label: string }[];
   validationErrors?: ValidationErrorItem[];
-  onSubmit: (data: ProposedEventCorrection) => void;
+  onSubmit: (data: ProposedEventCorrection, guardianPermissionConfirmed: boolean) => void;
   onCancel: () => void;
   isSubmitting?: boolean;
   headerActions?: React.ReactNode;
   labels: CorrectionFormLabels;
+  guardianPermissionConfirmed?: boolean;
+  onGuardianPermissionConfirmedChange?: (checked: boolean) => void;
 }

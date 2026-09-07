@@ -107,11 +107,21 @@ The larger realistic risk here is not legal (sanctioned access resolves that for
 > Thank you,
 > [Name]
 
+**Follow-up to storiesig.info (send once — reply-in-thread nudge, not a new cold email). Added 2026-09-07: outreach sent mid-to-late August, no response as of this date. imginn.com has no advertised business channel and was always the lower-confidence lead (~25-35% reply odds per the pre-outreach estimate above), so no nudge is drafted for it — a second unsolicited email to a generic privacy/removal address risks reading as spam rather than a legitimate follow-up. storiesig.info explicitly invites API-access contact, which is exactly the channel this nudge replies into, so it's the one worth nudging.**
+**Subject: Re: API access inquiry — periodic structured post data for public accounts**
+
+> Hello,
+>
+> Following up on my note below — wanted to check in on questions 1-4, whenever you have a chance to look into this. Happy to answer any questions on our end in the meantime.
+>
+> Thank you,
+> [Name]
+
 ### Vendor Responses (fill in once received)
 
-- **storiesig.info:** *(not yet contacted / awaiting response / response received — record date, respondent, terms, and pricing here)*
-- **imginn.com:** *(not yet contacted / awaiting response / response received — record date, respondent, terms, and pricing here)*
-- **mollygram.com:** *(not contacted / not yet contacted / awaiting response / response received — record date, respondent, and summary here)*
+- **storiesig.info:** Outreach sent mid-to-late August 2026 (exact date not recorded by the user). **No response as of 2026-09-07** — 2-3+ weeks of silence despite their API FAQ explicitly inviting contact, which was the higher-confidence lead of the two sent.
+- **imginn.com:** Outreach sent mid-to-late August 2026 (exact date not recorded by the user). **No response as of 2026-09-07** — consistent with the story's own pre-outreach estimate (~25-35% reply chance via a generic, non-business contact address).
+- **mollygram.com:** Not contacted (deprioritized per Dev Notes — wrong shape, single-item downloader not a per-account feed).
 
 ### References
 
@@ -158,10 +168,10 @@ The larger realistic risk here is not legal (sanctioned access resolves that for
 
 ## Deliverables Checklist
 
-- [ ] storiesig.info outreach email sent.
-- [ ] imginn.com outreach email sent.
-- [ ] mollygram.com inquiry sent (optional, lower priority).
-- [ ] Any response(s) recorded in this file's "Vendor Responses" section, or a documented decision to abandon this avenue after a reasonable follow-up window.
+- [x] storiesig.info outreach email sent (mid-to-late August 2026).
+- [x] imginn.com outreach email sent (mid-to-late August 2026).
+- [ ] mollygram.com inquiry sent (optional, lower priority — still not sent, deprioritized).
+- [x] No response from either recorded in this file's "Vendor Responses" section as of 2026-09-07. No abandonment decision made yet — see Completion Status.
 
 ## Out of Scope
 
@@ -177,7 +187,7 @@ The larger realistic risk here is not legal (sanctioned access resolves that for
 
 ## Completion Status
 
-- [ ] Not started (outreach not yet sent)
+- [ ] In progress — storiesig.info and imginn.com outreach sent mid-to-late August 2026; no response from either as of 2026-09-07 (2-3+ weeks). Neither a workable offer nor an explicit decline has come in. A follow-up nudge to storiesig.info is now drafted (Vendor Outreach section above, added 2026-09-07) and ready to send — no nudge is planned for imginn.com (weak/non-business contact channel, second unsolicited email risks reading as spam). Sending the nudge, or documenting a decision to abandon this avenue instead, is the open next step per Definition of Done below.
 
 ## Dev Agent Record
 

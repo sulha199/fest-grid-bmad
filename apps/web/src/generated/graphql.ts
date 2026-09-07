@@ -41,6 +41,26 @@ export type AiEventFilter = {
   updatedAt: Scalars['String']['output'];
 };
 
+export enum AccountType {
+  CuratorGuide = 'CURATOR_GUIDE',
+  OrganizerVenueEvent = 'ORGANIZER_VENUE_EVENT',
+  Personal = 'PERSONAL'
+}
+
+export type AccountTypeClassificationReview = {
+  __typename?: 'AccountTypeClassificationReview';
+  account: SocialMediaAccountProfile;
+  accountId: Scalars['ID']['output'];
+  confidenceScore?: Maybe<Scalars['Float']['output']>;
+  createdAt: Scalars['String']['output'];
+  failureReason?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  proposedAccountType?: Maybe<AccountType>;
+  resolvedAccountType?: Maybe<AccountType>;
+  reviewedAt?: Maybe<Scalars['String']['output']>;
+  reviewedByModeratorId?: Maybe<Scalars['ID']['output']>;
+};
+
 export type AccountVote = {
   __typename?: 'AccountVote';
   accountId: Scalars['ID']['output'];
@@ -126,6 +146,7 @@ export type Correction = {
   __typename?: 'Correction';
   createdAt: Scalars['String']['output'];
   eventId: Scalars['ID']['output'];
+  guardianPermissionConfirmed: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   proposedData: Scalars['JSON']['output'];
   resolvedAt?: Maybe<Scalars['String']['output']>;
@@ -142,6 +163,7 @@ export enum CorrectionSource {
 
 export enum CorrectionStatus {
   Applied = 'applied',
+  AwaitingVerification = 'awaiting_verification',
   Pending = 'pending',
   Rejected = 'rejected'
 }
@@ -261,6 +283,7 @@ export type Event = {
   hasPrivateContact: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
+  instagramEmbed?: Maybe<InstagramEmbed>;
   isAddedToCalendar: Scalars['Boolean']['output'];
   isExpiredForCurrentUser: Scalars['Boolean']['output'];
   isFavorited: Scalars['Boolean']['output'];
@@ -380,6 +403,18 @@ export enum ImageStorageOptInSource {
   Moderator = 'MODERATOR'
 }
 
+export type InstagramEmbed = {
+  __typename?: 'InstagramEmbed';
+  durableImageUrl?: Maybe<Scalars['String']['output']>;
+  html?: Maybe<Scalars['String']['output']>;
+  status: InstagramEmbedStatus;
+};
+
+export enum InstagramEmbedStatus {
+  Available = 'AVAILABLE',
+  Unavailable = 'UNAVAILABLE'
+}
+
 export type LocationDetails = {
   __typename?: 'LocationDetails';
   adminArea?: Maybe<Scalars['String']['output']>;
@@ -441,6 +476,7 @@ export type Mutation = {
   replayActorRun: ReplayActorRunResult;
   reportSystemError: Scalars['Boolean']['output'];
   reprocessPayload: ReprocessResult;
+  resolveAccountTypeClassificationReview: AccountTypeClassificationReview;
   resolveDefaultLocationChange: DefaultLocationChangeRequest;
   resolvePromptToEventFilter: ResolvedAiEventFilterResult;
   resolveReport: Report;
@@ -581,6 +617,12 @@ export type MutationReprocessPayloadArgs = {
 };
 
 
+export type MutationResolveAccountTypeClassificationReviewArgs = {
+  accountType: AccountType;
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationResolveDefaultLocationChangeArgs = {
   action: DefaultLocationChangeAction;
   id: Scalars['ID']['input'];
@@ -640,6 +682,7 @@ export type MutationSetImageStorageOptInArgs = {
 
 export type MutationSubmitCorrectionArgs = {
   eventId: Scalars['ID']['input'];
+  guardianPermissionConfirmed?: InputMaybe<Scalars['Boolean']['input']>;
   proposedData: ProposedEventCorrectionInput;
   source: CorrectionSource;
 };
@@ -718,6 +761,7 @@ export type ParserVersion = {
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   isActive: Scalars['Boolean']['output'];
+  source?: Maybe<UnprocessedPayloadSource>;
   sourceFile?: Maybe<Scalars['String']['output']>;
   version: Scalars['String']['output'];
 };
@@ -814,8 +858,9 @@ export type Query = {
   /**
    * Combined count of items awaiting moderator action across Moderator Items
    * (Section 3.9.3): pending Reports plus Default Location changes in
-   * PENDING_REVIEW or AWAITING_APPROVAL status (Section 3.7/4.14). Powers the
-   * Moderator Pending-Item Badge (added 2026-08-28). Moderator-gated like every
+   * PENDING_REVIEW or AWAITING_APPROVAL status (Section 3.7/4.14), plus pending
+   * AccountTypeClassificationReview rows (reviewedAt IS NULL, Story 4.7c).
+   * Powers the Moderator Pending-Item Badge (added 2026-08-28). Moderator-gated like every
    * other Moderator Items query -- the frontend must already know to only call
    * this for a moderator (the same `me.role` check that gates the nav entry
    * itself, Story 0.7/2.8), not rely on this query to answer that question.
@@ -830,6 +875,7 @@ export type Query = {
   mySubscriptions: Array<Subscription>;
   myWidgets: Array<Widget>;
   parserVersions: Array<ParserVersion>;
+  pendingAccountTypeClassificationReviews: Array<AccountTypeClassificationReview>;
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
@@ -885,6 +931,7 @@ export type QueryIsOriginAllowedForWidgetArgs = {
 
 export type QueryParserVersionsArgs = {
   onlyActive?: InputMaybe<Scalars['Boolean']['input']>;
+  source?: InputMaybe<UnprocessedPayloadSource>;
 };
 
 
@@ -1316,6 +1363,8 @@ export enum WidgetTheme {
 
 
 
+
+
 export type QueryActorRunsQueryVariables = Exact<{
   filters?: ActorRunFilters | null | undefined;
   first?: number | null | undefined;
@@ -1378,10 +1427,11 @@ export type SubmitCorrectionMutationVariables = Exact<{
   eventId: string | number;
   proposedData: ProposedEventCorrectionInput;
   source: CorrectionSource;
+  guardianPermissionConfirmed?: boolean | null | undefined;
 }>;
 
 
-export type SubmitCorrectionMutation = { submitCorrection: { id: string, status: CorrectionStatus, validationErrors: Array<{ field: string, message: string }> | null } };
+export type SubmitCorrectionMutation = { submitCorrection: { id: string, status: CorrectionStatus, guardianPermissionConfirmed: boolean, validationErrors: Array<{ field: string, message: string }> | null } };
 
 export type ExtractEventDataFromUrlMutationVariables = Exact<{
   url: string;
@@ -1443,7 +1493,7 @@ export type GetEventsQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, isFavorited: boolean, favoriteCount: number, imageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventStartTime: string | null, ticketPrice: string | null }> }> } };
+export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, isFavorited: boolean, favoriteCount: number, imageUrl: string | null, durableImageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventStartTime: string | null, eventEndDate: string | null, eventEndTime: string | null, ticketPrice: string | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetFavoritedEventIdsQueryVariables = Exact<{
   query?: EventQueryConditionInput | null | undefined;
@@ -1457,7 +1507,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, instagramEmbed: { status: InstagramEmbedStatus, html: string | null, durableImageUrl: string | null } | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetEventForIcsExportQueryVariables = Exact<{
   id: string | number;
@@ -1615,6 +1665,19 @@ export type DeleteUnprocessedPayloadMutationVariables = Exact<{
 
 
 export type DeleteUnprocessedPayloadMutation = { deleteUnprocessedPayload: boolean };
+
+export type GetPendingAccountTypeClassificationReviewsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetPendingAccountTypeClassificationReviewsQuery = { pendingAccountTypeClassificationReviews: Array<{ id: string, accountId: string, proposedAccountType: AccountType | null, confidenceScore: number | null, failureReason: string | null, createdAt: string, account: { id: string, displayName: string, platform: string, username: string, profileImageUrl: string | null, description: string | null } }> };
+
+export type ResolveAccountTypeClassificationReviewMutationVariables = Exact<{
+  id: string | number;
+  accountType: AccountType;
+}>;
+
+
+export type ResolveAccountTypeClassificationReviewMutation = { resolveAccountTypeClassificationReview: { id: string, resolvedAccountType: AccountType | null, reviewedAt: string | null } };
 
 export type CreateApiKeyMutationVariables = Exact<{
   input: CreateApiKeyInput;
@@ -2105,14 +2168,16 @@ export const useMeQuery = <
     )};
 
 export const SubmitCorrectionDocument = new TypedDocumentString(`
-    mutation submitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!) {
+    mutation submitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!, $guardianPermissionConfirmed: Boolean) {
   submitCorrection(
     eventId: $eventId
     proposedData: $proposedData
     source: $source
+    guardianPermissionConfirmed: $guardianPermissionConfirmed
   ) {
     id
     status
+    guardianPermissionConfirmed
     validationErrors {
       field
       message
@@ -2399,6 +2464,7 @@ export const GetEventsDocument = new TypedDocumentString(`
       isFavorited
       favoriteCount
       imageUrl
+      durableImageUrl
       location
       types
       categories
@@ -2407,7 +2473,15 @@ export const GetEventsDocument = new TypedDocumentString(`
         isMainSchedule
         eventStartDate
         eventStartTime
+        eventEndDate
+        eventEndTime
         ticketPrice
+        locationDetails {
+          coordinates {
+            lat
+            lng
+          }
+        }
       }
     }
     hasMore
@@ -2476,6 +2550,11 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
     imageUrl
     durableImageUrl
     videoUrl
+    instagramEmbed {
+      status
+      html
+      durableImageUrl
+    }
     sourcePostUrl
     originalPostUrl
     organizerName
@@ -3289,6 +3368,72 @@ export const useDeleteUnprocessedPayloadMutation = <
       {
     mutationKey: ['deleteUnprocessedPayload'],
     mutationFn: (variables?: DeleteUnprocessedPayloadMutationVariables) => fetcher<DeleteUnprocessedPayloadMutation, DeleteUnprocessedPayloadMutationVariables>(client, DeleteUnprocessedPayloadDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const GetPendingAccountTypeClassificationReviewsDocument = new TypedDocumentString(`
+    query getPendingAccountTypeClassificationReviews {
+  pendingAccountTypeClassificationReviews {
+    id
+    accountId
+    proposedAccountType
+    confidenceScore
+    failureReason
+    createdAt
+    account {
+      id
+      displayName
+      platform
+      username
+      profileImageUrl
+      description
+    }
+  }
+}
+    `);
+
+export const useGetPendingAccountTypeClassificationReviewsQuery = <
+      TData = GetPendingAccountTypeClassificationReviewsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: GetPendingAccountTypeClassificationReviewsQueryVariables,
+      options?: Omit<UseQueryOptions<GetPendingAccountTypeClassificationReviewsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetPendingAccountTypeClassificationReviewsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetPendingAccountTypeClassificationReviewsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['getPendingAccountTypeClassificationReviews'] : ['getPendingAccountTypeClassificationReviews', variables],
+    queryFn: fetcher<GetPendingAccountTypeClassificationReviewsQuery, GetPendingAccountTypeClassificationReviewsQueryVariables>(client, GetPendingAccountTypeClassificationReviewsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const ResolveAccountTypeClassificationReviewDocument = new TypedDocumentString(`
+    mutation resolveAccountTypeClassificationReview($id: ID!, $accountType: AccountType!) {
+  resolveAccountTypeClassificationReview(id: $id, accountType: $accountType) {
+    id
+    resolvedAccountType
+    reviewedAt
+  }
+}
+    `);
+
+export const useResolveAccountTypeClassificationReviewMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ResolveAccountTypeClassificationReviewMutation, TError, ResolveAccountTypeClassificationReviewMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ResolveAccountTypeClassificationReviewMutation, TError, ResolveAccountTypeClassificationReviewMutationVariables, TContext>(
+      {
+    mutationKey: ['resolveAccountTypeClassificationReview'],
+    mutationFn: (variables?: ResolveAccountTypeClassificationReviewMutationVariables) => fetcher<ResolveAccountTypeClassificationReviewMutation, ResolveAccountTypeClassificationReviewMutationVariables>(client, ResolveAccountTypeClassificationReviewDocument, variables, headers)(),
     ...options
   }
     )};

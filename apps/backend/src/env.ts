@@ -14,6 +14,7 @@ export interface BackendEnv {
   byokKmsKeyId?: string;
   geminiModel: string;
   apiKeyInvalidAttemptsThreshold: number;
+  geminiPostsPerKeyPerCycle: number;
   apiKeyUsageCycleDays: number;
   webAppBaseUrl: string;
   scrapingQueueUrl?: string;
@@ -33,6 +34,8 @@ export interface BackendEnv {
   queueNotificationThresholdDays: number;
   queueNotificationThresholdCount: number;
   queueNotificationCooldownDays: number;
+  scraperProviderAlertThresholdDays: number;
+  scraperProviderAlertCooldownDays: number;
   // Bright Data integration env vars
   brightdataApiToken?: string;
   brightdataDatasetId?: string;
@@ -55,6 +58,14 @@ export interface BackendEnv {
   // Below this AI-inference confidence score (0.0-1.0), a Default Location change is held as
   // AWAITING_APPROVAL instead of applying immediately (added 2026-08-28)
   locationInferenceConfidenceThreshold: number;
+}
+
+function parseNonNegativeInt(value: string | undefined, name: string, defaultValue: number): number {
+  const parsed = Number.parseInt(value || String(defaultValue), 10);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${name} must be a non-negative integer.`);
+  }
+  return parsed;
 }
 
 /** Validate that required Bright Data vars are present */
@@ -118,6 +129,13 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     apiKeyInvalidAttemptsThreshold: parseInt(process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD || '5', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
+    geminiPostsPerKeyPerCycle: parseNonNegativeInt(
+      // eslint-disable-next-line turbo/no-undeclared-env-vars
+      process.env.GEMINI_POSTS_PER_KEY_PER_CYCLE,
+      'GEMINI_POSTS_PER_KEY_PER_CYCLE',
+      300
+    ),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
     apiKeyUsageCycleDays: parseInt(process.env.API_KEY_USAGE_CYCLE_DAYS || '30', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     webAppBaseUrl: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
@@ -140,7 +158,7 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeInitialLookbackDays: parseInt(process.env.SCRAPE_INITIAL_LOOKBACK_DAYS || '7', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
-    scrapeSkipRecentHours: parseInt(process.env.SCRAPE_SKIP_RECENT_HOURS || '20', 10),
+    scrapeSkipRecentHours: parseInt(process.env.SCRAPE_SKIP_RECENT_HOURS || '12', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scraperMonthlyBudgetUsd: parseFloat(process.env.SCRAPER_MONTHLY_BUDGET_USD || '5.00'),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
@@ -155,6 +173,10 @@ export function loadBackendEnv(): BackendEnv {
     queueNotificationThresholdCount: parseInt(process.env.QUEUE_NOTIFICATION_THRESHOLD_COUNT || '3', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     queueNotificationCooldownDays: parseInt(process.env.QUEUE_NOTIFICATION_COOLDOWN_DAYS || '7', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scraperProviderAlertThresholdDays: parseInt(process.env.SCRAPER_PROVIDER_ALERT_THRESHOLD_DAYS || '2', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scraperProviderAlertCooldownDays: parseInt(process.env.SCRAPER_PROVIDER_ALERT_COOLDOWN_DAYS || '3', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     locationInferenceConfidenceThreshold: parseFloat(process.env.LOCATION_INFERENCE_CONFIDENCE_THRESHOLD || '0.5'),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

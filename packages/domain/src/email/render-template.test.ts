@@ -109,6 +109,23 @@ test('renderEmailTemplate tests', async (t) => {
     assert.ok(result.text.includes('https://festdaily.app/moderator/items'));
   });
 
+  await t.test('renders SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT correctly', () => {
+    const result = renderEmailTemplate('SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT', {
+      provider: 'brightdata',
+      consecutiveFailureDays: 2,
+      moderatorReviewUrl: 'https://festdaily.app/moderator/tools',
+    });
+
+    assert.ok(result.subject.includes('brightdata'));
+    assert.ok(result.subject.includes('2'));
+    assert.ok(result.html.includes('brightdata'));
+    assert.ok(result.html.includes('2'));
+    assert.ok(result.html.includes('https://festdaily.app/moderator/tools'));
+    assert.ok(result.text.includes('brightdata'));
+    assert.ok(result.text.includes('2'));
+    assert.ok(result.text.includes('https://festdaily.app/moderator/tools'));
+  });
+
   await t.test('throws descriptive error if template is called with missing variable', () => {
     assert.throws(() => {
       // @ts-expect-error - testing missing variables runtime checks

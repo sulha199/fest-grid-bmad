@@ -16,12 +16,16 @@ import {
   useIgnoreSubsequentReportsMutation,
   useGetPendingDefaultLocationChangesQuery,
   useResolveDefaultLocationChangeMutation,
+  useGetPendingAccountTypeClassificationReviewsQuery,
+  useResolveAccountTypeClassificationReviewMutation,
   ReportStatus,
   ReportReason,
   DefaultLocationChangeAction,
+  AccountType,
 } from "@/generated/graphql"
 import { ReportedEventGroup, type Report } from "./reported-event-group"
 import { PendingLocationChangeRow, type PendingLocationChange } from "./pending-location-change-row"
+import { AccountTypeClassificationRow, type AccountTypeClassificationReview } from "./account-type-classification-row"
 
 export function ModeratorItemsContent() {
   const t = useTranslations("ModeratorItemsPage")
@@ -68,24 +72,49 @@ export function ModeratorItemsContent() {
     }
   )
 
+  // Query pending account-type classification reviews
+  const {
+    data: classificationsData,
+    isLoading: classificationsLoading,
+    error: classificationsError,
+    refetch: refetchClassifications,
+  } = useGetPendingAccountTypeClassificationReviewsQuery(
+    graphqlClient,
+    undefined,
+    {
+      enabled: authStatus === "authorized",
+    }
+  )
+
   // Mutations
   const { mutateAsync: resolveReports, isPending: isResolvingReports } = useResolveReportsForEventMutation(graphqlClient)
   const { mutateAsync: deleteEvent, isPending: isDeletingEvent } = useDeleteEventPermanentlyMutation(graphqlClient)
   const { mutateAsync: ignoreReporter, isPending: isIgnoringReporter } = useIgnoreSubsequentReportsMutation(graphqlClient)
   const { mutateAsync: resolveChange, isPending: isResolvingChange } = useResolveDefaultLocationChangeMutation(graphqlClient)
+  const { mutateAsync: resolveClassification, isPending: isResolvingClassification } = useResolveAccountTypeClassificationReviewMutation(graphqlClient)
 
   // Analytics view track ref
   const hasTrackedView = useRef(false)
 
   useEffect(() => {
-    if (authStatus === "authorized" && !reportsLoading && !changesLoading && reportsData && changesData && !hasTrackedView.current) {
+    if (
+      authStatus === "authorized" &&
+      !reportsLoading &&
+      !changesLoading &&
+      !classificationsLoading &&
+      reportsData &&
+      changesData &&
+      classificationsData &&
+      !hasTrackedView.current
+    ) {
       hasTrackedView.current = true
       posthog.capture("moderator_items_page_viewed", {
         pendingReportGroupCount: reportsData?.reportedEvents?.length || 0,
         pendingLocationChangeCount: changesData?.pendingDefaultLocationChanges?.length || 0,
+        pendingClassificationReviewCount: classificationsData?.pendingAccountTypeClassificationReviews?.length || 0,
       })
     }
-  }, [authStatus, reportsLoading, changesLoading, reportsData, changesData, posthog])
+  }, [authStatus, reportsLoading, changesLoading, classificationsLoading, reportsData, changesData, classificationsData, posthog])
 
   // Intercept edit mutation success on queryClient mutation cache to fire PostHog event & Toast
   useEffect(() => {
@@ -116,12 +145,13 @@ export function ModeratorItemsContent() {
     return <RouteLoader />
   }
 
-  const isLoading = reportsLoading || changesLoading
-  const error = reportsError || changesError
+  const isLoading = reportsLoading || changesLoading || classificationsLoading
+  const error = reportsError || changesError || classificationsError
 
   const refetchAll = () => {
     refetchReports()
     refetchChanges()
+    refetchClassifications()
   }
 
   if (isLoading) {
@@ -145,6 +175,7 @@ export function ModeratorItemsContent() {
 
   const reportsList = (reportsData?.reportedEvents || []) as Report[]
   const changesList = (changesData?.pendingDefaultLocationChanges || []) as PendingLocationChange[]
+  const classificationsList = (classificationsData?.pendingAccountTypeClassificationReviews || []) as AccountTypeClassificationReview[]
 
   // Group reported events by event.id
   const reportsByEventId: { [eventId: string]: Report[] } = {}
@@ -209,23 +240,62 @@ export function ModeratorItemsContent() {
     }
   }
 
-  const handleResolveLocationChange = async (id: string, action: "ACCEPT" | "REVERT") => {
+  const handleResolveLocationChange = async (id: string, action: "ACCEPT" | "REVERT" | "APPROVE" | "REJECT") => {
     try {
       if (editingChangeId === id) {
         setEditingChangeId(null)
       }
-      const actionEnum = action === "ACCEPT" ? DefaultLocationChangeAction.Accept : DefaultLocationChangeAction.Revert
+      const actionEnumMap: Record<"ACCEPT" | "REVERT" | "APPROVE" | "REJECT", DefaultLocationChangeAction> = {
+        ACCEPT: DefaultLocationChangeAction.Accept,
+        REVERT: DefaultLocationChangeAction.Revert,
+        APPROVE: DefaultLocationChangeAction.Approve,
+        REJECT: DefaultLocationChangeAction.Reject,
+      }
+      const actionEnum = actionEnumMap[action]
       await resolveChange({ id, action: actionEnum })
-      
+
       posthog.capture("moderator_default_location_change_resolved", {
         requestId: id,
-        action: action.toLowerCase() as "accept" | "revert",
+        action: action.toLowerCase() as "accept" | "revert" | "approve" | "reject",
       })
 
-      toast.success(`Location change successfully ${action === "ACCEPT" ? "accepted" : "reverted"}`)
+      const actionPastTenseMap: Record<"ACCEPT" | "REVERT" | "APPROVE" | "REJECT", string> = {
+        ACCEPT: "accepted",
+        REVERT: "reverted",
+        APPROVE: "approved",
+        REJECT: "rejected",
+      }
+      toast.success(`Location change successfully ${actionPastTenseMap[action]}`)
       refetchChanges()
     } catch (err) {
       toast.error("Failed to resolve location change")
+    }
+  }
+
+  const handleResolveClassification = async (
+    id: string,
+    accountType: "ORGANIZER_VENUE_EVENT" | "PERSONAL" | "CURATOR_GUIDE"
+  ) => {
+    try {
+      const review = classificationsList.find((r) => r.id === id)
+      const accountTypeEnum =
+        accountType === "ORGANIZER_VENUE_EVENT"
+          ? AccountType.OrganizerVenueEvent
+          : accountType === "PERSONAL"
+            ? AccountType.Personal
+            : AccountType.CuratorGuide
+      await resolveClassification({ id, accountType: accountTypeEnum })
+
+      posthog.capture("moderator_account_type_classification_resolved", {
+        reviewId: id,
+        accountId: review?.accountId,
+        resolvedAccountType: accountType,
+      })
+
+      toast.success(t("classificationResolvedToast"))
+      refetchClassifications()
+    } catch (err) {
+      toast.error("Failed to resolve account-type classification")
     }
   }
 
@@ -248,7 +318,7 @@ export function ModeratorItemsContent() {
 
   const editingChange = changesList.find((c) => c.id === editingChangeId) ?? null
 
-  const isMutating = isResolvingReports || isDeletingEvent || isIgnoringReporter || isResolvingChange
+  const isMutating = isResolvingReports || isDeletingEvent || isIgnoringReporter || isResolvingChange || isResolvingClassification
 
   return (
     <div className="p-4 sm:p-8 space-y-8 max-w-5xl mx-auto">
@@ -337,6 +407,26 @@ export function ModeratorItemsContent() {
                 change={change}
                 onResolve={handleResolveLocationChange}
                 onEditRequest={setEditingChangeId}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Pending Account-Type Classifications Section */}
+      <div className="space-y-6">
+        <h2 className="text-2xl font-semibold border-b pb-4">{t("pendingClassificationsSection")}</h2>
+        {classificationsList.length === 0 ? (
+          <div className="border rounded-lg p-8 bg-card text-center text-muted-foreground text-sm shadow-sm">
+            {t("emptyClassifications")}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {classificationsList.map((review) => (
+              <AccountTypeClassificationRow
+                key={review.id}
+                review={review}
+                onResolve={handleResolveClassification}
               />
             ))}
           </div>

@@ -143,6 +143,9 @@ const mockEventsDataPage1 = {
       {
         id: '1',
         eventName: 'Test Event 1',
+        slug: 'test-event-1',
+        isFavorited: false,
+        favoriteCount: 0,
         imageUrl: null,
         location: 'Test Location 1',
         types: ['FESTIVAL'],
@@ -152,6 +155,7 @@ const mockEventsDataPage1 = {
             id: 's1',
             isMainSchedule: true,
             eventStartDate: new Date().toISOString(),
+            eventStartTime: '14:00',
             ticketPrice: '10'
           }
         ]
@@ -168,6 +172,9 @@ const mockEventsDataPage2 = {
       {
         id: '2',
         eventName: 'Test Event 2',
+        slug: 'test-event-2',
+        isFavorited: false,
+        favoriteCount: 0,
         imageUrl: null,
         location: 'Test Location 2',
         types: [],
@@ -177,6 +184,7 @@ const mockEventsDataPage2 = {
             id: 's2',
             isMainSchedule: true,
             eventStartDate: new Date().toISOString(),
+            eventStartTime: '18:00',
             ticketPrice: '20'
           }
         ]

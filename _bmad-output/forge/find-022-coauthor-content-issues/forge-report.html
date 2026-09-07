@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FIND-022 Forge Report</title>
+  <style>
+    :root { color-scheme: dark; --bg:#111827; --panel:#1f2937; --ink:#f9fafb; --muted:#cbd5e1; --accent:#f59e0b; }
+    body { margin:0; padding:2rem; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,sans-serif; }
+    main { max-width:900px; margin:auto; } section { background:var(--panel); border-radius:12px; padding:1.25rem 1.5rem; margin:1rem 0; }
+    h1 { margin-top:0; } li { margin:.45rem 0; } .seal { display:flex; align-items:center; gap:1rem; color:var(--accent); font-weight:800; letter-spacing:.12em; }
+    svg { width:76px; height:76px; flex:none; } .muted { color:var(--muted); }
+  </style>
+</head>
+<body>
+<main>
+  <section class="seal">
+    <svg viewBox="0 0 100 100" aria-label="Hardened seal">
+      <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" stroke-width="6"/>
+      <path d="M28 52l14 14 30-34" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div>HARDENED<br><span class="muted">FIND-022</span></div>
+  </section>
+  <section>
+    <h1>Coauthor attribution and subscription surfaces</h1>
+    <p>The finding survived pressure-testing as a cross-layer change, but only after separating scraper identity from content identity and refusing historical ownership guesses.</p>
+  </section>
+  <section>
+    <h2>Locked decisions</h2>
+    <ul>
+      <li>Normalized post-account roles with lossless legacy migration.</li>
+      <li>Verified identities are subscribable from context; provisional identities are internal-only.</li>
+      <li>Filtering includes publisher, coauthor, and scraping-source associations.</li>
+      <li>Event detail gets posted-at and coauthors; shared account info gets a confirmed accessible toggle.</li>
+      <li>Toggle analytics report sanitized success and failure; the future cap belongs to IDEA-008.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>Rejected or deferred</h2>
+    <ul>
+      <li>No producer-array-order heuristic.</li>
+      <li>No automatic public account-directory population from every scraped identity.</li>
+      <li>No cap number chosen here; the PRD “2” and IDEA-008 “5” conflict.</li>
+      <li>Apify role semantics remain a prerequisite, not an assumption based on the Bright Data fixture.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>Pressure-test voices</h2>
+    <p><strong>Winston, architect voice:</strong> challenged the single-account model and migration safety.</p>
+    <p><strong>The Directory-Abuse Reviewer, generated critic:</strong> challenged unbounded profile creation and provisional identity exposure.</p>
+    <p><strong>Subscription Boundary Reviewer, generated product critic:</strong> separated stable-ID eligibility from the unresolved account-cap policy.</p>
+  </section>
+  <section>
+    <p class="muted">Next: run <code>bmad-spec</code> to define vendor normalization and story boundaries.</p>
+  </section>
+</main>
+</body>
+</html>
