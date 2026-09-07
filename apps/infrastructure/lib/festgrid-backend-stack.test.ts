@@ -136,15 +136,37 @@ test('FestgridBackendStack provisions correct resources', () => {
     },
   });
 
-  // 11. Story 0.33 / Architecture Spine AD-12: exactly 1 private S3 bucket for post media,
-  // with public access fully blocked.
-  template.resourceCountIs('AWS::S3::Bucket', 1);
+  // 11. Story 0.33 / Architecture Spine AD-12: exactly 2 private S3 buckets — post-media
+  // (public-facing via CloudFront/OAC) and the Ops Backfill staging bucket (2026-09-05
+  // scraper-audit-trail incident, docs/infrastructure/incidents/2026-09-05-scraper-audit-trail-gap.md) —
+  // both with public access fully blocked.
+  template.resourceCountIs('AWS::S3::Bucket', 2);
   template.hasResourceProperties('AWS::S3::Bucket', {
     PublicAccessBlockConfiguration: {
       BlockPublicAcls: true,
       BlockPublicPolicy: true,
       IgnorePublicAcls: true,
       RestrictPublicBuckets: true,
+    },
+  });
+
+  // 11b. Ops Backfill Bucket specifically: private, SSE-S3 encrypted, and objects
+  // auto-expire after 7 days so stale backfill inputs don't linger indefinitely.
+  template.hasResourceProperties('AWS::S3::Bucket', {
+    BucketEncryption: {
+      ServerSideEncryptionConfiguration: Match.arrayWith([
+        Match.objectLike({
+          ServerSideEncryptionByDefault: Match.objectLike({ SSEAlgorithm: 'AES256' }),
+        }),
+      ]),
+    },
+    LifecycleConfiguration: {
+      Rules: Match.arrayWith([
+        Match.objectLike({
+          Status: 'Enabled',
+          ExpirationInDays: 7,
+        }),
+      ]),
     },
   });
 
