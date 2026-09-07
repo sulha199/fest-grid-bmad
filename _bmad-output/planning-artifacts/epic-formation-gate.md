@@ -411,9 +411,34 @@ than stating a rule — criterion 2 — because a rule does not change when unre
 is added or removed. Rewrite the sentence or drop the cluster. Do not resolve a flip by
 keeping whichever run's answer reads better; the disagreement is the finding.
 
-Run it once before the first formation pass, and again whenever a criterion in this
-document is edited — a change to the method is the only thing that is *supposed* to change
-the output.
+### What this test does not detect
+
+**A cluster nobody proposed.** A miss appears in neither run, so it can never show up as a
+difference. The ablation measures the stability of what was found, not the completeness of
+the finding — which is the opposite of what its cost suggests, and worth stating plainly
+before anyone reads a "stable" verdict as "nothing was missed".
+
+It also does not replace §7 step 4. The failure it detects — an invariant that describes its
+members rather than stating a rule — is the same one a human catches by trying to say *"so
+anything that does X is a bug"* and finding they need a caveat. You are the cheaper detector,
+and you are in the loop anyway.
+
+### So when is it worth the tokens
+
+Every run re-reads the whole input set, so the cost scales with the board. Spend it
+deliberately:
+
+| Situation | Do |
+|---|---|
+| First formation pass, clusters read cleanly at step 4 | **skip it.** Step 4 already did the work. |
+| A cluster you could not confidently restate as a rule, but did not want to drop | one blind ablation dropping a member of *that* cluster |
+| A criterion in this document was edited | one ablation — the method changed, which is the only thing that should change the output |
+| Choosing whether a cheaper model can drive formation | drive a real pass on it and judge at step 4; that answers it for free |
+| A formation pass you intend to trust without a step-4 review | the full matrix — but reconsider skipping the review instead |
+
+The full-matrix run in §11 is the expensive end of that table, not its default. The minimum
+useful form is **one full run plus one ablation**, and the full run is not overhead — it is
+the formation pass you were going to do anyway.
 
 ## 12. Running it
 
