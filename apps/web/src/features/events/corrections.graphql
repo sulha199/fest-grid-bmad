@@ -1,7 +1,8 @@
-mutation submitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!) {
-  submitCorrection(eventId: $eventId, proposedData: $proposedData, source: $source) {
+mutation submitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!, $guardianPermissionConfirmed: Boolean) {
+  submitCorrection(eventId: $eventId, proposedData: $proposedData, source: $source, guardianPermissionConfirmed: $guardianPermissionConfirmed) {
     id
     status
+    guardianPermissionConfirmed
     validationErrors {
       field
       message

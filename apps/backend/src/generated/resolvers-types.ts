@@ -113,6 +113,7 @@ export type Correction = {
   __typename?: 'Correction';
   createdAt: Scalars['String']['output'];
   eventId: Scalars['ID']['output'];
+  guardianPermissionConfirmed: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   proposedData: Scalars['JSON']['output'];
   resolvedAt?: Maybe<Scalars['String']['output']>;
@@ -128,6 +129,7 @@ export type CorrectionSource =
 
 export type CorrectionStatus =
   | 'applied'
+  | 'awaiting_verification'
   | 'pending'
   | 'rejected';
 
@@ -620,6 +622,7 @@ export type MutationSetImageStorageOptInArgs = {
 
 export type MutationSubmitCorrectionArgs = {
   eventId: Scalars['ID']['input'];
+  guardianPermissionConfirmed?: InputMaybe<Scalars['Boolean']['input']>;
   proposedData: ProposedEventCorrectionInput;
   source: CorrectionSource;
 };
@@ -1572,6 +1575,7 @@ export type CoordinatesResolvers<ContextType = GraphQLContext, ParentType extend
 export type CorrectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Correction'] = ResolversParentTypes['Correction']> = ResolversObject<{
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   eventId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  guardianPermissionConfirmed?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   proposedData?: Resolver<ResolversTypes['JSON'], ParentType, ContextType>;
   resolvedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

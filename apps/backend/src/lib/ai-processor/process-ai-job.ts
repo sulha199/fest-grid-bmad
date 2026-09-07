@@ -112,7 +112,8 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     sourceSocialMediaAccountId,
     defaultLocation,
     resolvedScheduleLocations,
-    scheduleTimezoneResolutions
+    scheduleTimezoneResolutions,
+    sourcePostText: message.content
   });
 
   // 7.5. Best-effort image rehosting to durable S3

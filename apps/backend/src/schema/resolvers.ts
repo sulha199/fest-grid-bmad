@@ -25,7 +25,7 @@ import { GraphQLError } from 'graphql';
 import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl } from '@festgrid/domain/events';
 import { transformGeminiResponseToEventFilter } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
-import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed } from '@festgrid/domain';
+import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
@@ -1227,7 +1227,7 @@ Constraints and Guidelines:
 
       return true;
     },
-    submitCorrection: async (_: any, { eventId, proposedData, source }: any, context: any) => {
+    submitCorrection: async (_: any, { eventId, proposedData, source, guardianPermissionConfirmed }: any, context: any) => {
       const authUser = requireAuth(context);
 
       // 1. Look up event
@@ -1298,6 +1298,12 @@ Constraints and Guidelines:
       }
 
       // 6. If applied (inside transaction)
+      // Story 3.6k (AC2, AC5): a keyword match against this correction's free-text
+      // fields means the non-performer data is still applied immediately, but
+      // performer names are suppressed and the correction is held as
+      // 'awaiting_verification' rather than 'applied' pending guardian verification.
+      const childrensDataMatch = matchesChildrensDataKeywordFilter(buildCorrectionClassificationText(proposedData));
+
       const correction = await db.transaction(async (tx) => {
         // Update event
         await tx.update(events)
@@ -1322,7 +1328,7 @@ Constraints and Guidelines:
             eventStartTime: s.eventStartTime || null,
             eventEndTime: s.eventEndTime || null,
             title: s.title || null,
-            performers: s.performers || null,
+            performers: childrensDataMatch ? null : (s.performers || null),
             location: s.location || null,
             ticketPrice: s.ticketPrice || null,
             updatedAt: new Date(),
@@ -1348,7 +1354,8 @@ Constraints and Guidelines:
             submittedByUserId: authUser.userId,
             proposedData,
             source,
-            status: 'applied',
+            status: childrensDataMatch ? 'awaiting_verification' : 'applied',
+            guardianPermissionConfirmed: guardianPermissionConfirmed ?? false,
             resolvedAt: new Date(),
           })
           .returning();

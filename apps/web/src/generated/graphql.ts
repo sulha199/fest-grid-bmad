@@ -126,6 +126,7 @@ export type Correction = {
   __typename?: 'Correction';
   createdAt: Scalars['String']['output'];
   eventId: Scalars['ID']['output'];
+  guardianPermissionConfirmed: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   proposedData: Scalars['JSON']['output'];
   resolvedAt?: Maybe<Scalars['String']['output']>;
@@ -142,6 +143,7 @@ export enum CorrectionSource {
 
 export enum CorrectionStatus {
   Applied = 'applied',
+  AwaitingVerification = 'awaiting_verification',
   Pending = 'pending',
   Rejected = 'rejected'
 }
@@ -640,6 +642,7 @@ export type MutationSetImageStorageOptInArgs = {
 
 export type MutationSubmitCorrectionArgs = {
   eventId: Scalars['ID']['input'];
+  guardianPermissionConfirmed?: InputMaybe<Scalars['Boolean']['input']>;
   proposedData: ProposedEventCorrectionInput;
   source: CorrectionSource;
 };
@@ -718,6 +721,7 @@ export type ParserVersion = {
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   isActive: Scalars['Boolean']['output'];
+  source?: Maybe<UnprocessedPayloadSource>;
   sourceFile?: Maybe<Scalars['String']['output']>;
   version: Scalars['String']['output'];
 };
@@ -885,6 +889,7 @@ export type QueryIsOriginAllowedForWidgetArgs = {
 
 export type QueryParserVersionsArgs = {
   onlyActive?: InputMaybe<Scalars['Boolean']['input']>;
+  source?: InputMaybe<UnprocessedPayloadSource>;
 };
 
 
@@ -1378,10 +1383,11 @@ export type SubmitCorrectionMutationVariables = Exact<{
   eventId: string | number;
   proposedData: ProposedEventCorrectionInput;
   source: CorrectionSource;
+  guardianPermissionConfirmed?: boolean | null | undefined;
 }>;
 
 
-export type SubmitCorrectionMutation = { submitCorrection: { id: string, status: CorrectionStatus, validationErrors: Array<{ field: string, message: string }> | null } };
+export type SubmitCorrectionMutation = { submitCorrection: { id: string, status: CorrectionStatus, guardianPermissionConfirmed: boolean, validationErrors: Array<{ field: string, message: string }> | null } };
 
 export type ExtractEventDataFromUrlMutationVariables = Exact<{
   url: string;
@@ -2105,14 +2111,16 @@ export const useMeQuery = <
     )};
 
 export const SubmitCorrectionDocument = new TypedDocumentString(`
-    mutation submitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!) {
+    mutation submitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!, $guardianPermissionConfirmed: Boolean) {
   submitCorrection(
     eventId: $eventId
     proposedData: $proposedData
     source: $source
+    guardianPermissionConfirmed: $guardianPermissionConfirmed
   ) {
     id
     status
+    guardianPermissionConfirmed
     validationErrors {
       field
       message

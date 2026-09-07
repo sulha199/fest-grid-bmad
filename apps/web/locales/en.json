@@ -186,7 +186,9 @@
     "unmatchedErrorFallbackLabel": "Validation error",
     "requiredFieldError": "Field is required",
     "endDateBeforeStartDateError": "Event end date must not be earlier than start date",
-    "endTimeBeforeStartTimeError": "Event end time must be later than start time"
+    "endTimeBeforeStartTimeError": "Event end time must be later than start time",
+    "guardianPermissionCheckboxLabel": "I confirm I have parent/guardian permission if this includes a minor",
+    "awaitingVerificationToast": "Correction saved, but performer names were withheld pending guardian verification."
   },
   "FilterHub": {
     "typeLabel": "Type",

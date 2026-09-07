@@ -14,6 +14,19 @@ vi.mock("@festgrid/analytics", () => ({
   }),
 }));
 
+const mockToastSuccess = vi.fn();
+const mockToastError = vi.fn();
+const mockToastGeneric = vi.fn();
+vi.mock("sonner", () => ({
+  toast: Object.assign(
+    (msg: string, opts?: any) => mockToastGeneric(msg, opts),
+    {
+      success: (msg: string) => mockToastSuccess(msg),
+      error: (msg: string) => mockToastError(msg),
+    }
+  ),
+}));
+
 vi.mock("next-intl", () => {
   const useTranslations = (namespace: string) => {
     const t = (key: string) => `${namespace}.${key}`;
@@ -64,11 +77,14 @@ const mockEvent = {
 
 let mockResponseStatus = "applied";
 let mockResponseErrors: any = null;
+let mockGuardianPermissionConfirmedResponse = false;
+let capturedMutationVariables: any = null;
 
 const api = graphql.link("*/api/graphql")
 
 const handlers = [
   api.mutation("submitCorrection", ({ variables }) => {
+    capturedMutationVariables = variables;
     if (mockResponseStatus === "error") {
       return HttpResponse.json({ errors: [{ message: "Network Error" }] });
     }
@@ -77,6 +93,7 @@ const handlers = [
         submitCorrection: {
           id: "corr_123",
           status: mockResponseStatus,
+          guardianPermissionConfirmed: mockGuardianPermissionConfirmedResponse,
           validationErrors: mockResponseErrors,
         },
       },
@@ -104,7 +121,12 @@ describe("CorrectionDialog", () => {
     });
     mockResponseStatus = "applied";
     mockResponseErrors = null;
+    mockGuardianPermissionConfirmedResponse = false;
+    capturedMutationVariables = null;
     mockPosthogCapture.mockClear();
+    mockToastSuccess.mockClear();
+    mockToastError.mockClear();
+    mockToastGeneric.mockClear();
     handleClose.mockClear();
   });
 
@@ -311,5 +333,70 @@ describe("CorrectionDialog", () => {
     expect(await screen.findByRole("heading", { name: "EventCorrectionForm.dialogTitle" })).toBeInTheDocument();
 
     expect(screen.queryByRole("button", { name: "AiAssistedCorrection.triggerButtonLabel" })).not.toBeInTheDocument();
+  });
+
+  describe("awaiting_verification branch (Story 3.6k)", () => {
+    it("includes guardianPermissionConfirmed in the mutation variables", async () => {
+      renderComponent();
+
+      expect(await screen.findByRole("heading", { name: "EventCorrectionForm.dialogTitle" })).toBeInTheDocument();
+
+      const checkbox = screen.getByLabelText("EventCorrectionForm.guardianPermissionCheckboxLabel");
+      fireEvent.click(checkbox);
+
+      const form = document.querySelector("form") as HTMLFormElement;
+      fireEvent.submit(form);
+
+      await waitFor(() => {
+        expect(capturedMutationVariables?.guardianPermissionConfirmed).toBe(true);
+      });
+    });
+
+    it("patches the cache with performers: null (not the submitted value) and shows the distinct awaiting-verification notice, not the generic success toast", async () => {
+      mockResponseStatus = "awaiting_verification";
+      mockGuardianPermissionConfirmedResponse = true;
+
+      const queryKey = ["getEventBySlug", { slug: "test-event" }];
+      queryClient.setQueryData(queryKey, {
+        eventBySlug: {
+          eventName: mockEvent.eventName,
+          types: mockEvent.types,
+          categories: mockEvent.categories,
+          location: mockEvent.location,
+          organizerName: mockEvent.organizerName,
+          contactInfo: mockEvent.contactInfo,
+          description: mockEvent.description,
+          schedules: mockEvent.schedules,
+        },
+      });
+
+      renderComponent();
+
+      expect(await screen.findByRole("heading", { name: "EventCorrectionForm.dialogTitle" })).toBeInTheDocument();
+
+      const performersInput = document.getElementById("schedulePerformers") as HTMLInputElement;
+      fireEvent.change(performersInput, { target: { value: "Aisyah, Budi" } });
+
+      const form = document.querySelector("form") as HTMLFormElement;
+      fireEvent.submit(form);
+
+      await waitFor(() => {
+        expect(handleClose).toHaveBeenCalled();
+      });
+
+      // Distinct notice shown, not the generic success toast.
+      expect(mockToastGeneric).toHaveBeenCalledWith(
+        "EventCorrectionForm.awaitingVerificationToast",
+        expect.objectContaining({
+          className: expect.stringContaining("amber"),
+        })
+      );
+      expect(mockToastSuccess).not.toHaveBeenCalled();
+
+      // Cache patch reflects what was actually persisted (null), never the submitted value.
+      const patched = queryClient.getQueryData<any>(queryKey);
+      const mainSchedule = patched.eventBySlug.schedules.find((s: any) => s.isMainSchedule);
+      expect(mainSchedule.performers).toBeNull();
+    });
   });
 });

@@ -66,7 +66,14 @@ export const defaultLocationChangeSourceEnum = pgEnum('default_location_change_s
 export const scheduleTimezoneStatusEnum = pgEnum('schedule_timezone_status', ['RESOLVED', 'NEEDS_CLARIFICATION']);
 
 export const correctionSourceEnum = pgEnum('correction_source', ['manual', 'ai_assisted']);
-export const correctionStatusEnum = pgEnum('correction_status', ['pending', 'applied', 'rejected']);
+// 'awaiting_verification' added 2026-09-07 (Story 3.6k): a UGC correction whose
+// free-text fields matched the children's-data keyword filter -- non-performer
+// data was applied immediately, but performer names were suppressed pending
+// guardian verification (Tier 2, not yet built). Distinct from 'pending' because
+// submitCorrection never actually writes 'pending' today; overloading it would
+// conflate "not yet processed" with "held specifically for guardian-verification
+// reasons" (see Story 4.3a's 'auto_resolved' for the same new-value-over-reuse precedent).
+export const correctionStatusEnum = pgEnum('correction_status', ['pending', 'applied', 'rejected', 'awaiting_verification']);
 export const brightdataJobStatusEnum = pgEnum('brightdata_job_status', ['PENDING', 'COMPLETED', 'EXPIRED']);
 
 export const scraperRunVendorEnum = pgEnum('scraper_run_vendor', ['APIFY', 'BRIGHTDATA']);
@@ -538,6 +545,12 @@ export const corrections = pgTable('corrections', {
   proposedData: jsonb('proposed_data').$type<ProposedEventCorrection>().notNull(),
   source: correctionSourceEnum('source').notNull(),
   status: correctionStatusEnum('status').default('pending').notNull(),
+  // Added 2026-09-07 (Story 3.6k): audit-trail-only record of the submitter's
+  // declaration checkbox ("I confirm I have parent/guardian permission if this
+  // includes a minor"). Does NOT by itself unlock performer-name display or
+  // change the keyword-match outcome -- FestDaily cannot verify the submitter
+  // is actually the parent. Sibling-audit-column precedent: reports.moderatorIgnored.
+  guardianPermissionConfirmed: boolean('guardian_permission_confirmed').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   resolvedAt: timestamp('resolved_at', { withTimezone: true }),
 }, (t) => ({

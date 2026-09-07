@@ -159,9 +159,12 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
     submitButtonLabel: t("submitButtonLabel") || "Submit Correction",
     cancelButtonLabel: t("cancelButtonLabel") || "Cancel",
     unmatchedErrorFallbackLabel: t("unmatchedErrorFallbackLabel") || "Validation error",
+    guardianPermissionCheckboxLabel:
+      t("guardianPermissionCheckboxLabel") ||
+      "I confirm I have parent/guardian permission if this includes a minor",
   };
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (data: any, guardianPermissionConfirmed: boolean) => {
     setValidationErrors([]);
 
     // Client-side Zod check
@@ -199,6 +202,7 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
         eventId: event.id,
         proposedData,
         source: hasExtracted ? CorrectionSource.AiAssisted : CorrectionSource.Manual,
+        guardianPermissionConfirmed,
       });
 
       if (response.submitCorrection.status === "applied") {
@@ -251,6 +255,68 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
         });
 
         toast.success(t("successToast") || "Correction submitted successfully");
+        onClose();
+      } else if (response.submitCorrection.status === "awaiting_verification") {
+        // Story 3.6k (AC2, AC3, AC5): non-performer data was still applied immediately,
+        // but performer names were suppressed pending guardian verification -- patch the
+        // cache the same way as "applied", except the main schedule's performers must
+        // reflect what was actually persisted (null), never what the user typed.
+        queryClient.setQueriesData<any>(
+          { queryKey: ["getEventBySlug"] },
+          (oldData: any) => {
+            if (!oldData || !oldData.eventBySlug) return oldData;
+
+            const updatedSchedules = oldData.eventBySlug.schedules.map((s: any) => {
+              if (s.isMainSchedule && proposedData.schedules[0]) {
+                const propMain = proposedData.schedules[0];
+                return {
+                  ...s,
+                  eventStartDate: propMain.eventStartDate,
+                  eventEndDate: propMain.eventEndDate || null,
+                  eventStartTime: propMain.eventStartTime || null,
+                  eventEndTime: propMain.eventEndTime || null,
+                  title: propMain.title || null,
+                  performers: null,
+                  location: propMain.location || null,
+                  ticketPrice: propMain.ticketPrice || null,
+                };
+              }
+              return s;
+            });
+
+            return {
+              ...oldData,
+              eventBySlug: {
+                ...oldData.eventBySlug,
+                eventName: proposedData.eventName,
+                types: proposedData.types,
+                categories: proposedData.categories,
+                location: proposedData.location,
+                organizerName: proposedData.organizerName || null,
+                contactInfo: proposedData.contactInfo || null,
+                description: proposedData.description || null,
+                schedules: updatedSchedules,
+              },
+            };
+          }
+        );
+
+        posthog.capture("event_correction_submitted", {
+          eventId: event.id,
+          correctionId: response.submitCorrection.id,
+          source: hasExtracted ? "ai_assisted" : "manual",
+        });
+
+        // Distinct, specific notice -- not the generic success toast -- reusing the
+        // amber `pendingReview` styling (packages/ui/src/core/status-badge.tsx).
+        toast(
+          t("awaitingVerificationToast") ||
+            "Correction saved, but performer names were withheld pending guardian verification.",
+          {
+            className:
+              "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200",
+          }
+        );
         onClose();
       } else {
         // status: rejected

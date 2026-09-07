@@ -186,7 +186,9 @@
     "unmatchedErrorFallbackLabel": "Kesalahan validasi",
     "requiredFieldError": "Kolom ini wajib diisi",
     "endDateBeforeStartDateError": "Tanggal selesai acara tidak boleh lebih awal dari tanggal mulai",
-    "endTimeBeforeStartTimeError": "Waktu selesai acara harus lebih lambat dari waktu mulai"
+    "endTimeBeforeStartTimeError": "Waktu selesai acara harus lebih lambat dari waktu mulai",
+    "guardianPermissionCheckboxLabel": "Saya menyatakan memiliki izin orang tua/wali jika ini melibatkan anak di bawah umur",
+    "awaitingVerificationToast": "Koreksi telah disimpan, tetapi nama pengisi acara ditahan sementara menunggu verifikasi izin orang tua/wali."
   },
   "FilterHub": {
     "typeLabel": "Tipe",

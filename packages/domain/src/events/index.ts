@@ -14,6 +14,8 @@ export * from './map-extraction-payload-to-proposed-correction.js';
 export * from './getCancelledReportWindowCutoff.js';
 export * from './shouldSoftDeleteFromCancelledReports.js';
 export * from './resolveServedImageUrl.js';
+export * from './matches-childrens-data-keyword-filter.js';
+export * from './build-correction-classification-text.js';
 
 export const DEFAULT_CANCELLED_REPORT_THRESHOLD = 3;
 export const DEFAULT_CANCELLED_REPORT_WINDOW_DAYS = 7;

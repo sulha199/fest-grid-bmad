@@ -444,4 +444,70 @@ describe('transformGeminiResponseToEventInfo', () => {
       }
     });
   });
+
+  describe("children's-data keyword filter suppression (Story 3.6k, AC1, Task 2)", () => {
+    const multiScheduleMatchedPayload: GeminiExtractionPayload = {
+      isEvent: true,
+      eventName: 'Lomba Tari Anak Sanggar Melati',
+      types: ['PERFORMANCE'],
+      categories: ['ARTS_AND_CULTURE'],
+      schedules: [
+        {
+          isMainSchedule: true,
+          eventStartDate: '2026-09-10',
+          title: 'Main Performance',
+          performers: ['Aisyah', 'Budi'],
+          location: 'Gedung Kesenian'
+        },
+        {
+          isMainSchedule: false,
+          eventStartDate: '2026-09-11',
+          title: 'Rehearsal Showcase',
+          performers: ['Citra'],
+          location: 'Aula Sekolah'
+        }
+      ],
+      location: 'Gedung Kesenian',
+      organizerName: 'Sanggar Melati',
+      description: 'Lomba tari untuk anak-anak usia SD',
+      confidenceScore: 0.9
+    };
+
+    it('suppresses performers on every schedule when sourcePostText matches the keyword filter', () => {
+      const result = transformGeminiResponseToEventInfo(multiScheduleMatchedPayload, {
+        ...dummyContext,
+        sourcePostText: 'Ayo daftar Lomba Tari Anak Sanggar Melati untuk siswa SD!'
+      });
+
+      assert.strictEqual(result.schedules[0].performers, undefined);
+      assert.strictEqual(result.schedules[1].performers, undefined);
+
+      // Every other field passes through unchanged.
+      assert.strictEqual(result.eventName, 'Lomba Tari Anak Sanggar Melati');
+      assert.strictEqual(result.location, 'Gedung Kesenian');
+      assert.strictEqual(result.organizerName, 'Sanggar Melati');
+      assert.strictEqual(result.description, 'Lomba tari untuk anak-anak usia SD');
+      assert.strictEqual(result.schedules[0].title, 'Main Performance');
+      assert.strictEqual(result.schedules[0].location, 'Gedung Kesenian');
+      assert.strictEqual(result.schedules[1].title, 'Rehearsal Showcase');
+      assert.strictEqual(result.schedules[1].location, 'Aula Sekolah');
+    });
+
+    it('leaves performers unchanged when sourcePostText does not match the keyword filter (regression)', () => {
+      const result = transformGeminiResponseToEventInfo(multiScheduleMatchedPayload, {
+        ...dummyContext,
+        sourcePostText: 'Join us for a fun evening of live dance performances!'
+      });
+
+      assert.deepStrictEqual(result.schedules[0].performers, ['Aisyah', 'Budi']);
+      assert.deepStrictEqual(result.schedules[1].performers, ['Citra']);
+    });
+
+    it('behaves exactly as before (no suppression) when sourcePostText is absent, for backward compatibility', () => {
+      const result = transformGeminiResponseToEventInfo(multiScheduleMatchedPayload, dummyContext);
+
+      assert.deepStrictEqual(result.schedules[0].performers, ['Aisyah', 'Budi']);
+      assert.deepStrictEqual(result.schedules[1].performers, ['Citra']);
+    });
+  });
 });

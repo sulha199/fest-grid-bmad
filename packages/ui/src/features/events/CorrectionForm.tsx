@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { EventType, EventCategory } from "@festgrid/shared-types";
 import { ProposedEventCorrection, ProposedScheduleCorrection } from "@festgrid/domain/events";
 import { MultiSelect } from "../../core/multi-select";
+import { Checkbox } from "../../core/checkbox";
 import { CorrectionFormProps } from "./CorrectionForm.types";
 
 export function CorrectionForm({
@@ -16,6 +17,8 @@ export function CorrectionForm({
   isSubmitting = false,
   headerActions,
   labels,
+  guardianPermissionConfirmed: guardianPermissionConfirmedProp,
+  onGuardianPermissionConfirmedChange,
 }: CorrectionFormProps) {
   // Resolve the editable schedule
   const mainSchedule = initialValues.schedules?.find((s) => s.isMainSchedule) ?? initialValues.schedules?.[0] ?? {
@@ -43,6 +46,19 @@ export function CorrectionForm({
   );
   const [scheduleLocation, setScheduleLocation] = useState(mainSchedule.location || "");
   const [scheduleTicketPrice, setScheduleTicketPrice] = useState(mainSchedule.ticketPrice || "");
+
+  // Guardian-permission declaration checkbox (Story 3.6k, AC5). Nothing else in this
+  // form is externally controlled either, so fall back to internal local state when
+  // the caller doesn't pass the controlled prop pair.
+  const [guardianPermissionConfirmedState, setGuardianPermissionConfirmedState] = useState(false);
+  const guardianPermissionConfirmed = guardianPermissionConfirmedProp ?? guardianPermissionConfirmedState;
+  const handleGuardianPermissionConfirmedChange = (checked: boolean) => {
+    if (onGuardianPermissionConfirmedChange) {
+      onGuardianPermissionConfirmedChange(checked);
+    } else {
+      setGuardianPermissionConfirmedState(checked);
+    }
+  };
 
   // List of fields that are considered "matched" to render error inline
   const matchedFields = [
@@ -140,7 +156,7 @@ export function CorrectionForm({
       payload.description = description;
     }
 
-    onSubmit(payload);
+    onSubmit(payload, guardianPermissionConfirmed);
   };
 
   const inputClass =
@@ -444,6 +460,16 @@ export function CorrectionForm({
               )}
             </div>
           </div>
+        </div>
+
+        {/* Guardian-permission declaration (Story 3.6k, AC5) */}
+        <div className="flex flex-col gap-1.5">
+          <Checkbox
+            id="guardianPermissionConfirmed"
+            label={labels.guardianPermissionCheckboxLabel}
+            checked={guardianPermissionConfirmed}
+            onChange={handleGuardianPermissionConfirmedChange}
+          />
         </div>
 
         {/* Form Actions Section */}

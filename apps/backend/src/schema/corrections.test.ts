@@ -311,4 +311,120 @@ test('submitCorrection resolver integration', async (t) => {
     const [scheduleRow] = await db.select().from(schedules).where(eq(schedules.id, testScheduleId));
     assert.strictEqual(scheduleRow.eventStartDate, '2026-08-15');
   });
+
+  await t.test("submitCorrection - children's-data keyword match: awaiting_verification, performers suppressed, other fields applied normally (Story 3.6k, AC2)", async () => {
+    if (!testUser || !testEventId || !testScheduleId) return;
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const matchedEventName = 'Lomba Tari Anak Sanggar Melati';
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation SubmitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!, $guardianPermissionConfirmed: Boolean) {
+            submitCorrection(eventId: $eventId, proposedData: $proposedData, source: $source, guardianPermissionConfirmed: $guardianPermissionConfirmed) {
+              id
+              status
+              guardianPermissionConfirmed
+              validationErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        variables: {
+          eventId: testEventId,
+          proposedData: {
+            eventName: matchedEventName,
+            types: ['FESTIVAL'],
+            categories: ['MUSIC'],
+            location: 'Chicago, IL',
+            schedules: [
+              {
+                id: testScheduleId,
+                isMainSchedule: true,
+                eventStartDate: '2026-08-16',
+                eventEndDate: '2026-08-16',
+                location: 'United Center, Chicago, IL',
+                performers: ['Aisyah', 'Budi']
+              }
+            ]
+          },
+          source: 'manual',
+          guardianPermissionConfirmed: true
+        }
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors);
+    assert.strictEqual(result.data.submitCorrection.status, 'awaiting_verification');
+    assert.strictEqual(result.data.submitCorrection.guardianPermissionConfirmed, true);
+    assert.deepEqual(result.data.submitCorrection.validationErrors, []);
+
+    // Non-performer data still applied immediately.
+    const [eventRow] = await db.select().from(events).where(eq(events.id, testEventId));
+    assert.strictEqual(eventRow.eventName, matchedEventName);
+
+    // performers written as null, not what was submitted.
+    const [scheduleRow] = await db.select().from(schedules).where(eq(schedules.id, testScheduleId));
+    assert.strictEqual(scheduleRow.eventStartDate, '2026-08-16');
+    assert.strictEqual(scheduleRow.location, 'United Center, Chicago, IL');
+    assert.strictEqual(scheduleRow.performers, null);
+  });
+
+  await t.test('submitCorrection - non-matching keyword regression: status applied, performers written as submitted', async () => {
+    if (!testUser || !testEventId || !testScheduleId) return;
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation SubmitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!) {
+            submitCorrection(eventId: $eventId, proposedData: $proposedData, source: $source) {
+              id
+              status
+              guardianPermissionConfirmed
+              validationErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        variables: {
+          eventId: testEventId,
+          proposedData: {
+            eventName: 'Live Jazz Night',
+            types: ['FESTIVAL'],
+            categories: ['MUSIC'],
+            location: 'Chicago, IL',
+            schedules: [
+              {
+                id: testScheduleId,
+                isMainSchedule: true,
+                eventStartDate: '2026-08-17',
+                eventEndDate: '2026-08-17',
+                location: 'United Center, Chicago, IL',
+                performers: ['DJ Nova']
+              }
+            ]
+          },
+          source: 'manual'
+        }
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors);
+    assert.strictEqual(result.data.submitCorrection.status, 'applied');
+    assert.strictEqual(result.data.submitCorrection.guardianPermissionConfirmed, false);
+
+    const [scheduleRow] = await db.select().from(schedules).where(eq(schedules.id, testScheduleId));
+    assert.deepEqual(scheduleRow.performers, ['DJ Nova']);
+  });
 });
