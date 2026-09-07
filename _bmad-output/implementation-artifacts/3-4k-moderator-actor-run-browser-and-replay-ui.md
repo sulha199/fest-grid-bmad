@@ -5,7 +5,9 @@
 - Epic: 3 (Social Media Event Integration)
 - Story ID: 3-4k
 - Key: 3-4k-moderator-actor-run-browser-and-replay-ui
-- Status: in-progress
+- Status: done
+
+**Correction (2026-09-07, bmad-help sweep):** header still read `in-progress`, but git shows this fully implemented and code-reviewed — 7 review patches applied (`0888a6f`) — and merged to master on 2026-08-20. Status corrected to `done`; see matching correction in `sprint-status.yaml`.
 - Type: UI-only story
 - Baseline Commit: 9dda28df (2026-08-19, start of implementation)
 

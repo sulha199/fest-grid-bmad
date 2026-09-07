@@ -7,9 +7,11 @@ baseline_commit: e68e97742d8fd71cfca9154d0420d7ce2c28afe8
 
 - Epic: 0
 - Story ID: 0.7
-- Status: ready-for-dev
+- Status: review
 
 **Revision note (2026-08-05):** This story was previously implemented (see Dev Agent Record below) and reached `review`, but the delivered nav pattern (top header + hamburger drawer, empty `navEntries`, no active-route logic) has been superseded by a formal UX spec pass (`design-artifacts/UX-festgrid-run-1/EXPERIENCE.md`/`DESIGN.md`, accessibility-reviewed). The AC/Tasks below reflect the new pattern and require a new dev pass — the prior implementation's files are reworked in place, not rebuilt from scratch. Story status has been reset to `ready-for-dev` accordingly.
+
+**Correction (2026-09-07, bmad-help sweep):** this header still read `ready-for-dev` from the 2026-08-05 reset above, but `sprint-status.yaml` has carried `review` since, and git history shows continuous work against `packages/ui/src/core/app-shell/` well past that date (sidenav-rail nav pattern matching the new UX spec, active-route logic, nav entries wired for later stories) — the rework described above was actually done, just never reflected back into this file's own header. Status corrected to `review` to match. This does not re-verify the full AC/task checklist below line-by-line; if picking this story up for its formal code-review pass, confirm each AC against current code first.
 
 ## Story
 
