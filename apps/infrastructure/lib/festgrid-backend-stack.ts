@@ -176,6 +176,25 @@ export class FestgridBackendStack extends cdk.Stack {
       },
     });
 
+    // Ops Backfill Bucket: private staging area for one-off ops/backfill input files (e.g. the
+    // 2026-09-05 scraper-audit-trail backfill JSON, docs/infrastructure/incidents/2026-09-05-scraper-audit-trail-gap.md).
+    // Blocks ALL public access (no CloudFront/OAC in front — this is never meant to be served
+    // publicly, only fetched by the GitHub Actions workflow via authenticated AWS credentials).
+    // Objects auto-expire after 7 days so stale backfill inputs don't linger indefinitely; no
+    // bucket-wide auto-delete-on-destroy since a stray `cdk destroy` shouldn't silently drop
+    // ops files still in flight.
+    const opsBackfillBucket = new s3.Bucket(this, `OpsBackfillBucket-${stageName}`, {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      removalPolicy,
+      lifecycleRules: [
+        {
+          expiration: cdk.Duration.days(7),
+        },
+      ],
+    });
+
     // 2.6 SES Domain Identity for outgoing emails (Reconciled from FestgridEmailStack)
     const domainName = process.env.SES_SENDING_DOMAIN || 'festdaily.app';
     const emailIdentity = new ses.EmailIdentity(this, `FestgridEmailIdentity-${stageName}`, {
@@ -523,6 +542,14 @@ export class FestgridBackendStack extends cdk.Stack {
       value: api.url,
       description: 'The API Gateway invoke URL',
       exportName: `festgrid-api-url-${stageName}`,
+    });
+
+    // Output Ops Backfill Bucket name (referenced by the "Backfill Scraper Audit Trail"
+    // GitHub Actions workflow, .github/workflows/ci.yml, to upload/fetch backfill input JSON).
+    new cdk.CfnOutput(this, `opsBackfillBucketName`, {
+      value: opsBackfillBucket.bucketName,
+      description: 'S3 bucket for staging one-off ops/backfill input files',
+      exportName: `festgrid-ops-backfill-bucket-${stageName}`,
     });
 
     // Schedule Stale Job Sweep (hourly) - targets scraper Lambda with jobType payload

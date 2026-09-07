@@ -110,6 +110,29 @@ pnpm --filter @festgrid/database run backfill-scraper-actor-runs backfill --inpu
 
 Re-running with `--apply` is safe/idempotent: an already-inserted run (matched on `vendor` + `vendor_run_id`) is reused rather than duplicated, and pending-job relinks only ever touch rows still `NULL`.
 
+### 5. Running in production
+
+Production `DATABASE_URL` only exists as a GitHub Actions secret (`environment: production`) and inside AWS (Secrets Manager, via the CDK stack) — it is never available on a local machine. Production backfills therefore run via a dedicated, **manual-only** job in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml): `backfill-scraper-audit-trail`, gated on `workflow_dispatch` (never runs on `push`/`pull_request`), reusing the same `secrets.DATABASE_URL` and AWS credentials the existing `db-migrate`/`deploy-infrastructure` jobs already use against `environment: production`.
+
+**Before triggering it, always dry-run locally first** against a restored copy of prod data (a `pg_dump`/snapshot restore into a scratch Postgres, with `DATABASE_URL` pointed at that) — the local dry-run's fuzzy-match candidate counts (§4 above, `posts`/`unprocessed_scraper_payloads`) are the only real check that the `±2h`/profile heuristic isn't about to relink the wrong rows before you run `--apply` for real.
+
+**Staging the input file (never public, never committed):** GitHub Actions `workflow_dispatch` inputs are size-capped well below what these files reach, and the JSON must never be committed to the repo or embedded in a workflow input/log. Instead it's uploaded ahead of time to `OpsBackfillBucket-prod` — a private S3 bucket added specifically for this (`apps/infrastructure/lib/festgrid-backend-stack.ts`, CDK output `opsBackfillBucketName`) with `blockPublicAccess: BLOCK_ALL`, SSE-S3 encryption, `enforceSSL`, and a 7-day object expiration lifecycle rule as a backstop. The workflow itself also deletes the object immediately after running (`always()` cleanup step), so nothing lingers pending the lifecycle rule.
+
+To run it:
+
+1. Upload the input file:
+   ```bash
+   BUCKET=$(aws cloudformation describe-stacks --stack-name FestgridBackendStack-prod \
+     --query "Stacks[0].Outputs[?OutputKey=='opsBackfillBucketName'].OutputValue" --output text)
+   aws s3 cp ./runs.json "s3://$BUCKET/backfill-runs/$(date +%s)-runs.json"
+   ```
+2. Trigger the workflow (GitHub UI → Actions → "CI/CD Pipeline" → "Run workflow", or `gh workflow run ci.yml`) with:
+   - `backfill_s3_key`: the key you uploaded to (e.g. `backfill-runs/1735689600-runs.json`)
+   - `apply`: unchecked for a dry run (**always do this first**), checked once you've reviewed the dry-run output
+   - `window_hours`: optional, defaults to `2`
+3. The job downloads the file from S3, **skips itself entirely (no DB write, no backfill script invocation) if the file is empty or an empty JSON array `[]`**, otherwise runs the same `backfill-scraper-actor-runs.ts backfill` script against prod `DATABASE_URL`, then deletes the S3 object regardless of outcome.
+4. Review the job's logs (dry-run candidate counts, skipped/ambiguous profiles) before re-running with `apply: true`.
+
 ### What the script does per run
 
 1. Resolves `instagram_profile_id` to an internal `social_media_account_profiles.id` (skips + reports if ambiguous or not found).
