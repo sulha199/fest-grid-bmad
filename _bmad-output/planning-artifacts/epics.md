@@ -122,6 +122,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **FR101 (added 2026-08-29):** A resolved AI Event Filter — freshly extracted or reloaded from a save — is described to the user solely by a deterministic, template-rendered summary sentence built from its field values and any caveats; there is no edit UI for a filter, ever, only re-prompting.
 - **FR102 (added 2026-08-29):** A user can save a resolved AI Event Filter from a dedicated "My AI Filters" list page and reload it into Discovery later; adjusting a FilterHub manual control after loading a saved filter changes only that browsing session's query state and never mutates the saved filter itself.
 - **FR103 (added 2026-08-29):** The AI filter prompt entry point (an icon-only trigger inside FilterHub, opening a prompt overlay that reuses the existing blocking full-screen-overlay pattern while resolving) is not shown at all to a user with no BYOK Gemini key on file, including an unauthenticated Discovery visitor — they see only FilterHub's manual controls.
+- **FR112 (added 2026-09-03):** When a scraped post has multiple images (a carousel/Sidecar post), the system persists all of its image URLs and the AI extraction pipeline includes up to a configurable number of the additional images — alongside the cover image, in a single extraction call — so schedule information appearing on a later slide rather than the cover image or caption is not missed.
 
 ### NonFunctional Requirements
 - **NFR1:** Event discovery page should load in under 2 seconds on a standard 4G connection.
@@ -286,6 +287,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR101: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
 - FR102: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
 - FR103: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
+- FR112: Epic 3 - Social Media Event Integration (Story 3.6l, multi-image carousel extraction; added 2026-09-03 via bmad-correct-course)
 - FR104: Epic 3 - Social Media Event Integration (Story 3.4n, account-type scraping filter; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
 - FR105: Epic 3 - Social Media Event Integration (Story 3.6g, image-storage opt-in flag; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
 - FR106: Epic 3 - Social Media Event Integration (Story 3.6h, gates Stories 3.6e/3.6f on the FR105 flag — closes a live consent gap in `master`; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
@@ -1635,7 +1637,7 @@ Users can personalize their experience by saving favorite events and locations.
 ### Epic 3: Social Media Event Integration
 
 Users can subscribe to social media accounts to import events into their feed.
-**FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37, FR66
+**FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37, FR66, FR112
 
 ### Story 3.1a: Create social media account profiles table
 
@@ -1845,6 +1847,24 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** None.
 
+### Story 3.3e: Persist all carousel image URLs for a scraped post
+
+**As a** system,
+**I want** to capture every image URL from a multi-image (carousel/Sidecar) Instagram post, not just its cover image,
+**So that** Story 3.6l's multi-image AI extraction has access to schedule information that appears on a later slide rather than the cover image or caption.
+
+**Acceptance Criteria:**
+
+*   **Given** a scraped Instagram post is a Sidecar (carousel) post, **when** `instagram-adapter.ts` maps Apify's raw item to a `ScrapedPost`, **then** every slide's image URL beyond the cover (`item.childPosts[].displayUrl`, in slide order) is captured into a new `additionalImageUrls: string[]` field — the existing `imageUrl` field continues to hold only the cover image (`item.displayUrl`), unchanged.
+*   **And**, **given** a non-carousel post (`item.type !== 'Sidecar'`, or no `childPosts` present), **when** the same mapping runs, **then** `additionalImageUrls` is omitted/empty — no behavior change for existing single-image posts.
+*   **And** the `posts` table (Story 3.3a) gains a nullable `additional_image_urls` (jsonb) column, written by `persistScrapedPost`'s existing write path, with **no cap applied at persistence time** — the full set of scraped slide URLs is stored; Story 3.6l decides how many are actually sent to Gemini.
+*   **And** `ProcessingJobMessage` (`packages/domain/src/posts/types.ts`) gains an optional `additionalImageUrls?: string[]` field, populated from the post's persisted column when the message is built for the `AIProcessingQueue`.
+*   **And** this field is purely an extraction-time input — never displayed in any UI, never durably re-hosted (Architecture Spine AD-12 is unaffected; see AD-13), and Story 4.2a's existing on-demand correction path is unaffected since it does not populate this new optional field.
+
+**Note (2026-09-03, added via `bmad-correct-course`):** Triggered by a real-world example (a `laridijogja` Instagram post whose per-event schedule details lived on carousel slides 2-6, not the cover image or caption) surfaced in `ai-extraction-improvement.md`. Confirmed via code trace, not assumption: `apps/backend/src/lib/scraper/instagram-adapter.ts:237` only ever reads `item.displayUrl`, and `packages/database/schema.ts`'s `posts` table has no column for additional images — Apify's own `childPosts` array is fetched and silently discarded today. Positioned as a lettered suffix off Story 3.3a (the posts-table/persistence owner) rather than reopening it (status: review) — see the cross-reference note added to Story 3.4 below, whose `instagram-adapter.ts` this story edits.
+
+**Depends on:** Story 3.3a, Story 3.3c.
+
 ### Story 3.4: Scrape new posts from subscribed accounts
 
 **As a** system,
@@ -1879,6 +1899,8 @@ Users can subscribe to social media accounts to import events into their feed.
 - **`lastScrapedAt` skip-optimization (AC1):** New `SocialMediaAccountProfile.lastScrapedAt` column (distinct from the existing, currently-unused-by-any-story `lastPostDate` column) added specifically so the daily batch doesn't immediately re-scrape an account AC6 just scraped on-demand.
 - This story also fixes two pre-existing infra gaps found while reading Story 0.14's CDK stack (`apps/infrastructure/lib/festgrid-backend-stack.ts`) during this story's creation: the Scraper Lambda's `environment` block was missing `DATABASE_URL` and a `ScrapingQueue` URL (it cannot run its actual logic without them), and it held a stale `AIProcessingQueue.grantSendMessages` IAM grant left over from before the Epic 3 readiness sweep corrected `docs/infrastructure/high-level-overview.md`'s diagram to remove the (never-actually-used) `L_Scrape → SQS_AI` edge.
 - This story also carries a small, additive amendment to Story 3.3c's already-shipped `ScraperAdapter` interface (adding an optional `options?: { newerThan?: string }` parameter to `getNewestPosts`) — see Story 3.3c's own 2026-08-08 amendment note.
+
+**Cross-reference (2026-09-03, added via `bmad-correct-course`):** New Story 3.3e (above) extends this story's already-shipped `instagram-adapter.ts` (`apps/backend/src/lib/scraper/instagram-adapter.ts`) with an additive `additionalImageUrls` capture from Apify's `childPosts[].displayUrl` — no existing field/behavior in this story changes, matching the small-additive-amendment pattern already used for Story 3.3c's `getNewestPosts` above.
 
 **Depends on:** Story 3.3c, Story 3.3a, Story 3.1a, Story 0.14.
 
@@ -2409,6 +2431,27 @@ Users can subscribe to social media accounts to import events into their feed.
 **Note (2026-09-02, added via `bmad-correct-course`, `sprint-change-proposal-2026-09-02.md`):** Per the minimization doc (§2.5, §5 item 4), no keyword filter, Tier 1/Tier 2 distinction, or category-triggered suppression exists in the codebase today (confirmed via grep — no children's-data terms found in `apps/backend/src`). Positioned as a lettered suffix off Story 3.6 since Tier 1 applies to the scraping/extraction pipeline; its UGC-correction half touches Story 4.1/4.2's form and processing path.
 
 **Depends on:** Story 3.6, Story 4.1, Story 4.2.
+
+### Story 3.6l: Extract events from multi-image carousel posts using a single batched Gemini request
+
+**As a** system,
+**I want** to include every additional carousel image (Story 3.3e's `additionalImageUrls`, up to a configurable cap) as extra parts of the same Gemini extraction request Story 3.6 already makes — not a sequence of separate re-trigger calls,
+**So that** schedule information living on a later slide is found, without multiplying the number of Gemini requests against the account's RPM/RPD quota.
+
+**Acceptance Criteria:**
+
+*   **Given** a post has one or more `additionalImageUrls` (Story 3.3e), **when** `buildGeminiExtractionRequest` builds the request, **then** it fetches up to `MAX_CAROUSEL_IMAGES` (default 5, env-configurable) of those additional images — in slide order, stopping at the cap — and appends each as its own `inlineData` part in the same `contents` array alongside the existing cover-image part; a fetch failure on any one additional image is caught and that image is skipped (best-effort, matching the existing single-image fallback pattern already in this function) — it does not fail the whole request.
+*   **And** the system prompt is amended to instruct the model that when multiple images are provided, they are sequential slides of one social media post (in order), and schedule information may be split across them — extract and merge schedules from all provided images into one combined `schedules` array, rather than treating each image as a separate/competing event.
+*   **And** the response schema gains two optional self-reported fields, filled in by the model based on its own reading of the caption plus every provided image: `minScheduleCount` (number — how many distinct schedule/event dates the source content appears to describe, whether or not all were fully extractable) and `expectedScheduleNames` (string[] — names/titles of schedules the model can identify text for, even if other fields of that schedule couldn't be fully extracted).
+*   **And**, **when** the returned `schedules.length` is less than the returned `minScheduleCount`, **then** `process-ai-job.ts` logs a structured "incomplete extraction" warning (post ID, `minScheduleCount` vs actual count, `expectedScheduleNames`) for moderator visibility — a logging/flagging signal only in this story; no automatic re-trigger and no additional Gemini call beyond the single batched request above (see this story's Note on why a sequential re-trigger loop was rejected).
+*   **And** `rehostPostImageSeam` (Story 3.6e/3.6h) continues to rehost only the cover image's bytes (`message.imageUrl`'s already-returned `imageBytes`/`imageContentType`) — additional carousel images are never rehosted, matching Story 3.3e's "extraction-time-only, never durable" scope.
+*   **And** a regression test fixture covering a real multi-slide carousel (schedule info absent from the cover image and caption, present only on a later slide) confirms schedules are extracted from the non-cover image(s).
+
+**Note (2026-09-03, added via `bmad-correct-course`):** Design choice confirmed via research during this correct-course session, not assumed — Gemini's free-tier quota is enforced simultaneously by RPM, RPD, *and* TPM; a sequential "call again on image N+1" loop is the worst pattern against RPM/RPD (each extra image = one more full request), while Gemini's API already accepts multiple `inlineData` parts in a single `contents` array (`build-gemini-request.ts` already sends one). Batching all slides into one request costs the same TPM as separate calls but a fraction of the RPM/RPD, and is faster (one round trip instead of N). `MAX_CAROUSEL_IMAGES` bounds worst-case per-post token/latency cost and keeps the AI Processor Lambda safely inside its existing 300s timeout (`apps/infrastructure/lib/festgrid-backend-stack.ts`) — this exact class of bug (an unbounded async path against a fixed Lambda timeout) already reached production once, in Story 3.4f. `minScheduleCount`/`expectedScheduleNames` are a completeness *signal*, not a re-trigger driver, by deliberate choice — a genuine multi-call re-processing loop was considered and rejected in favor of this cheaper batched-request approach; revisit only if the batched cap itself proves insufficient in practice (e.g. carousels routinely exceeding the cap). This story also resolves an open question raised during this correct-course session about whether Section 3.10's "Selected Posts" quota count needs to change to account per-call rather than per-post: it does not — a carousel post still costs exactly one Gemini call.
+
+**Cross-reference (2026-09-03, added via `bmad-correct-course`):** This story and the in-flight Story 3.6i/Story 3.6j/Story 3.6k all edit `build-gemini-request.ts`'s prompt/response schema. Whichever lands second must rebase on the other's changes rather than silently conflicting.
+
+**Depends on:** Story 3.6, Story 3.3e.
 
 ### Story 3.7: Display extracted events to the user
 
