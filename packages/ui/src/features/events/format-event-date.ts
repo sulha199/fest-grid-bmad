@@ -92,6 +92,102 @@ export function getEventDayDiff(dateObj: Date, timezone: string | undefined): nu
   return getCalendarDayDifference(nowParts, eventParts);
 }
 
+/**
+ * Combines a date (Date object or ISO-ish string) with an optional time-of-day string
+ * (e.g. "18:00:00") into a single Date instance. Mirrors the date+time combining logic
+ * `EventCard.tsx` already used inline for `startDate`/`startTime` — extracted here so
+ * `formatEventStatus` and the masonry TILL badge can reuse it rather than duplicating it.
+ */
+export function combineDateTime(dateInput: Date | string, timeStr?: string | null): Date {
+  const dateStr = typeof dateInput === 'string' ? dateInput : dateInput.toISOString();
+  if (timeStr) {
+    const datePart = dateStr.split('T')[0];
+    const combined = `${datePart}T${timeStr}`;
+    const d = new Date(combined);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return new Date(dateStr);
+}
+
+export interface EventStatusLabels {
+  tomorrow?: string;
+  statusEnded?: string;
+  statusHappeningNow?: string;
+  statusEndsToday?: string;
+  statusInHours?: string;
+  statusInDays?: string;
+  statusUpcoming?: string;
+}
+
+/**
+ * Computes the masonry variant's status badge text (Story 1.3b AC15): one of 8 states
+ * — ended / happeningNow / endsToday / inHours(n) / tomorrow / a weekday name /
+ * inDays(n) / upcoming — always returning an already-labeled display string (matching
+ * `formatRelativeDayOrDate`'s existing return-a-ready-string convention).
+ *
+ * `now` is an explicit parameter (unlike `getEventDayDiff`, which calls a bare `new Date()`
+ * internally) so every state boundary is unit-testable without mocking global time.
+ *
+ * Absent `endDate` is treated as "ends same day as start" (falls back to `startDate`),
+ * matching the masonry TILL badge's identical fallback (AC14), for consistency.
+ */
+export function formatEventStatus(
+  locale: string,
+  timezone: string | undefined,
+  now: Date,
+  startDate: Date | string,
+  startTime: string | null | undefined,
+  endDate: Date | string | null | undefined,
+  endTime: string | null | undefined,
+  labels?: EventStatusLabels
+): string {
+  const startDateTime = combineDateTime(startDate, startTime);
+  const nowParts = getLocalDateInTimezone(now, timezone);
+  const startParts = getLocalDateInTimezone(startDateTime, timezone);
+  const startDayDiff = getCalendarDayDifference(nowParts, startParts);
+  const started = now.getTime() >= startDateTime.getTime();
+
+  const effectiveEndDate = endDate ?? startDate;
+  const endDateTime = combineDateTime(effectiveEndDate, endTime);
+  const endParts = getLocalDateInTimezone(endDateTime, timezone);
+  const endDayDiff = getCalendarDayDifference(nowParts, endParts);
+
+  const ended =
+    endDayDiff < 0 || (endDayDiff === 0 && !!endTime && now.getTime() >= endDateTime.getTime());
+
+  if (ended) {
+    return labels?.statusEnded ?? 'Ended';
+  }
+
+  if (started) {
+    if (endDayDiff > 0) {
+      return labels?.statusHappeningNow ?? 'Happening Now';
+    }
+    // endDayDiff === 0 here: ended-check above already handled endDayDiff < 0.
+    return labels?.statusEndsToday ?? 'Ends Today';
+  }
+
+  // Not started.
+  if (startDayDiff === 0) {
+    let n = 0;
+    if (startTime) {
+      const diffMs = startDateTime.getTime() - now.getTime();
+      n = Math.ceil(diffMs / (1000 * 60 * 60));
+    }
+    return (labels?.statusInHours ?? 'In {n} hour(s)').replace('{n}', String(n));
+  }
+  if (startDayDiff === 1) {
+    return labels?.tomorrow ?? 'Tomorrow';
+  }
+  if (startDayDiff >= 2 && startDayDiff <= 6) {
+    return formatWeekday(locale, timezone, startDateTime);
+  }
+  if (startDayDiff >= 7 && startDayDiff <= 13) {
+    return (labels?.statusInDays ?? 'In {n} days').replace('{n}', String(startDayDiff));
+  }
+  return labels?.statusUpcoming ?? 'Upcoming';
+}
+
 export function formatRelativeDayOrDate(
   locale: string,
   timezone: string | undefined,

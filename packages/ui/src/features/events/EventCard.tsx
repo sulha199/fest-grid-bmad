@@ -1,13 +1,18 @@
 "use client"
 
 import React, { useState } from 'react';
-import { MapPin, Heart, Clock } from 'lucide-react';
+import { MapPin, Heart, Clock, Navigation } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
 import {
   getEventDayDiff,
   formatRelativeDayOrDate,
   formatShortEventDateTime,
+  formatEventTime,
+  formatEventStatus,
+  combineDateTime,
+  getLocalDateInTimezone,
+  getCalendarDayDifference,
 } from './format-event-date';
 
 /**
@@ -54,6 +59,10 @@ export function EventCard({
   onClick,
   labels = {},
   statusBadge,
+  endDate,
+  endTime,
+  prominentPoster = false,
+  distanceKm,
 }: EventCardProps) {
   const defaultLabels = {
     imageFallbackAlt: 'No image available',
@@ -63,6 +72,14 @@ export function EventCard({
     today: 'Today',
     tomorrow: 'Tomorrow',
     yesterday: 'Yesterday',
+    statusEnded: 'Ended',
+    statusHappeningNow: 'Happening Now',
+    statusEndsToday: 'Ends Today',
+    statusInHours: 'In {n} hour(s)',
+    statusInDays: 'In {n} days',
+    statusUpcoming: 'Upcoming',
+    tillLabel: 'till',
+    nearbyBadge: 'Nearby',
     ...labels,
     typeLabels: labels.typeLabels ?? {},
     categoryLabels: labels.categoryLabels ?? {},
@@ -94,26 +111,54 @@ export function EventCard({
     );
   }
 
-  const dateStr = typeof startDate === 'string' ? startDate : startDate.toISOString();
   const hasTime = !!startTime;
 
-  const parseDateTime = (dStr: string, tStr?: string | null): Date => {
-    if (tStr) {
-      // e.g. "2026-08-01T12:00:00" or similar
-      const datePart = dStr.split('T')[0];
-      const combined = `${datePart}T${tStr}`;
-      const d = new Date(combined);
-      if (!isNaN(d.getTime())) return d;
-    }
-    return new Date(dStr);
-  };
-
-  const dateObj = parseDateTime(dateStr, startTime);
+  const dateObj = combineDateTime(startDate, startTime);
   const dayDiff = getEventDayDiff(dateObj, activeTimezone);
   const formattedDate = formatRelativeDayOrDate(activeLocale, activeTimezone, dateObj, defaultLabels, dayDiff);
 
   const fallbackAlt = defaultLabels.imageFallbackAlt;
   const finalImageAlt = imageAlt || eventName;
+
+  // AC14 — TILL sub-badge (masonry only): "till hh:mm" / bare "till" / no badge.
+  // Absent endDate falls back to startDate ("ends same day as start", AC14/AC15's shared convention).
+  const started = Date.now() >= dateObj.getTime();
+  let tillBadgeText: string | null = null;
+  if (started) {
+    const effectiveEndDate = endDate ?? startDate;
+    const endDateTime = combineDateTime(effectiveEndDate, endTime);
+    const nowParts = getLocalDateInTimezone(new Date(), activeTimezone);
+    const endParts = getLocalDateInTimezone(endDateTime, activeTimezone);
+    const endDayDiff = getCalendarDayDifference(nowParts, endParts);
+
+    if (endDayDiff === 0) {
+      if (endTime) {
+        tillBadgeText = `${defaultLabels.tillLabel} ${formatEventTime(activeLocale, activeTimezone, endDateTime)}`;
+      } else if (endDate != null) {
+        // A real endDate of today with no known endTime: still show a bare "till" tag.
+        tillBadgeText = defaultLabels.tillLabel;
+      }
+      // else: absent endDate (fallback to start day) with no known end time -> no TILL badge (AC14).
+    } else if (endDayDiff > 0) {
+      tillBadgeText = defaultLabels.tillLabel;
+    }
+    // endDayDiff < 0 (already ended): no TILL badge — not explicitly specified by AC14, safest default.
+  }
+
+  // AC15 — status badge (masonry only): always one of 8 states.
+  const statusText = formatEventStatus(
+    activeLocale,
+    activeTimezone,
+    new Date(),
+    startDate,
+    startTime,
+    endDate,
+    endTime,
+    defaultLabels
+  );
+
+  // AC16 — nearby badge (masonry only): renders only when distanceKm is known and <= 5.
+  const showNearbyBadge = distanceKm != null && distanceKm <= 5;
 
   const RootTag = href ? 'a' : onClick ? 'button' : 'div';
   const interactiveProps = href 
@@ -158,14 +203,27 @@ export function EventCard({
         {...interactiveProps} 
         className="flex-1 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <div className={`relative ${variant === 'masonry' ? 'aspect-[3/4]' : 'h-48'} w-full bg-muted overflow-hidden flex items-center justify-center`}>
+        <div
+          className={`relative ${
+            variant === 'masonry'
+              ? prominentPoster
+                ? 'aspect-[2/3]'
+                : 'aspect-[3/4]'
+              : 'h-48'
+          } w-full bg-muted overflow-hidden flex items-center justify-center`}
+        >
           {statusBadge && (
             <div className="absolute top-2 right-2 z-10">{statusBadge}</div>
           )}
           {variant === 'masonry' && (
-            <div className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground">
+            <div className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground">
               {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
               {formatShortEventDateTime(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)}
+              {tillBadgeText && (
+                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 z-20 px-1.5 py-0.5 rounded-full bg-foreground text-background text-[10px] font-semibold leading-none shadow-sm whitespace-nowrap">
+                  {tillBadgeText}
+                </span>
+              )}
             </div>
           )}
           {!imgError && imageUrl ? (
@@ -184,6 +242,17 @@ export function EventCard({
 
         {variant === 'masonry' ? (
           <div className="p-3 flex-1 flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-muted text-muted-foreground">
+                {statusText}
+              </span>
+              {showNearbyBadge && (
+                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground">
+                  <Navigation className="w-3 h-3" />
+                  {defaultLabels.nearbyBadge}
+                </span>
+              )}
+            </div>
             <h3 className="text-sm font-semibold leading-tight tracking-tight text-card-foreground line-clamp-2">
               {eventName}
             </h3>

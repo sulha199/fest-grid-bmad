@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-07T00:00:00Z # (dev-story 3.6k: in-progress)
+last_updated: 2026-09-07T00:00:00Z # (dev-story 1.3b AC14-18: review)
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -267,9 +267,10 @@ development_status:
   # 8-state formatEventStatus status badge, nearby badge <=5km, prominent
   # poster keyed off durableImageUrl != null). Draft AC/task text finalized
   # against a bmad-ux pass's DESIGN.md/EXPERIENCE.md tokens
-  # (event_card_date_box/till_badge/status_badge/nearby_badge). Not yet
-  # implemented. See sprint-change-proposal-2026-09-04.md Section 4.4.
-  1-3b-build-the-reusable-eventcard-component: ready-for-dev
+  # (event_card_date_box/till_badge/status_badge/nearby_badge).
+  # AC14-18 implemented 2026-09-07 via bmad-dev-story (direct in-session,
+  # all-Claude): 399/399 packages/ui tests pass, build/lint clean.
+  1-3b-build-the-reusable-eventcard-component: review
   1-3c-build-the-reusable-infinite-scroll-hook: done
   # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
   # home-content.tsx (this story's sibling 1.3) and favorites-content.tsx (Story 2.2) were
