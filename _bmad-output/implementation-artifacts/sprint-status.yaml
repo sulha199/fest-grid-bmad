@@ -271,6 +271,12 @@ development_status:
   # AC14-18 implemented 2026-09-07 via bmad-dev-story (direct in-session,
   # all-Claude): 399/399 packages/ui tests pass, build/lint clean.
   1-3b-build-the-reusable-eventcard-component: review
+  # added 2026-09-07 via bmad-help bug-report session: user reported EventCard's
+  # top-left date badge always shows startDate even while an event is ongoing
+  # (AC14's "till" sub-badge already shown beneath it), and requested the TILL
+  # indicator be visually anchored to that date badge. No existing AC covers
+  # swapping the primary date to endDate while ongoing. Lettered off Story 1.3b.
+  1-3j-fix-eventcard-ongoing-event-date-display-and-till-badge-placement: backlog
   1-3c-build-the-reusable-infinite-scroll-hook: done
   # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
   # home-content.tsx (this story's sibling 1.3) and favorites-content.tsx (Story 2.2) were
