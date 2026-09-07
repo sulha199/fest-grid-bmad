@@ -943,6 +943,24 @@ Users can discover and browse events.
 *   **And** it exposes a loading (skeleton) state and renders correctly with only the fields guaranteed by the API contract.
 *   **And** the component is documented/exported from `packages/ui` for reuse across features.
 
+### Story 1.3j: Fix EventCard ongoing-event date display and TILL badge placement
+
+**As a** user browsing an ongoing event's card,
+**I want** the card's primary date to reflect the event's end date (not its start date) while it is ongoing, and the "till" indicator placed consistently at the top-left of that date,
+**So that** I can immediately tell when an ongoing event finishes without misreading it as still-upcoming or checking the detail page.
+
+**Acceptance Criteria:**
+
+*   **Given** an event whose current time falls between its `startDate`/`startTime` and `endDate`/`endTime` (i.e. `started === true` per the existing AC14 "till" derivation in `EventCard.tsx`), **when** the card renders its primary top-left date badge, **then** the badge displays the event's end date/time (`endDate`/`endTime`, falling back to `startDate` per the existing "ends same day as start" convention) instead of the start date/time.
+*   **And** the existing "till" sub-badge (`tillBadgeText`, AC14) is positioned directly associated with — visually anchored to — that same top-left date badge, not floating independently, so the "till [time]" qualifier is unambiguously read as describing the displayed (end) date.
+*   **And** for an event that has not yet started (upcoming), the primary date badge continues to show the start date/time exactly as today — this story only changes the ongoing-event branch.
+*   **And** for an event that has already ended (`endDayDiff < 0`), the primary date badge behavior is unchanged (out of scope here — ended events are addressed by Story 2.7/Story 4.8's visibility rules, not this story's display logic).
+*   **And** this applies to both the `list` and `masonry` `EventCard` variants — not just masonry — since the reported issue affects the primary date rendering, not only the masonry-only sub-badge.
+
+**Note (added via `bmad-help`, bug report session):** Reported as a live bug — `EventCard.tsx`'s top-left date badge (masonry variant, `EventCard.tsx:219-227`) always renders the `startDate`/`startTime`-derived `dateObj`/`formattedDate`, even when `started === true` and a "till" sub-badge is already shown beneath it, which reads as contradictory (a start-date badge with an "ends" qualifier attached). No existing story's AC specifies swapping the primary date to the end date while ongoing; Story 1.3b's original AC only required "displays ... date" without specifying which date for the ongoing case. Positioned as a lettered amendment off Story 1.3b (the story that owns `EventCard`), following the `1.3a`-`1.3i` lettering precedent already established for this component.
+
+**Depends on:** Story 1.3b (`EventCard`).
+
 ### Story 1.3c: Build the reusable infinite-scroll hook
 
 **As a** developer,
