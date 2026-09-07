@@ -32,6 +32,9 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
     correctDataMenuItemLabel: t('correctDataMenuItemLabel'),
     reportMenuItemLabel: t('reportMenuItemLabel'),
     privateContactMessageLabel: t('privateContactMessageLabel'),
+    contentNoLongerAvailableLabel: t('contentNoLongerAvailableLabel'),
+    embedLoadingLabel: t('embedLoadingLabel'),
+    embedRegionLabel: t('embedRegionLabel'),
   };
 }
 
@@ -94,6 +97,9 @@ export function mapGraphQLEventToDetailViewProps(
     imageUrl: event.imageUrl,
     imageFallbackUrl: event.durableImageUrl,
     imageAlt: event.eventName,
+    instagramEmbedStatus: event.instagramEmbed?.status ?? null,
+    instagramEmbedHtml: event.instagramEmbed?.html ?? null,
+    instagramEmbedDurableImageUrl: event.instagramEmbed?.durableImageUrl ?? null,
     videoUrl: event.videoUrl,
     videoAlt: event.eventName,
     originalPostUrl: event.originalPostUrl,

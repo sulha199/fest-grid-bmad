@@ -141,7 +141,10 @@
     "timezoneSubmitLabel": "Konfirmasi",
     "timezoneSubmitSuccessAnnouncement": "Zona waktu berhasil diperbarui",
     "timezoneSubmitErrorAnnouncement": "Gagal memperbarui zona waktu. Silakan coba lagi.",
-    "privateContactMessageLabel": "Info kontak tidak ditampilkan untuk melindungi privasi pemosting — lihat postingan asli untuk detailnya."
+    "privateContactMessageLabel": "Info kontak tidak ditampilkan untuk melindungi privasi pemosting — lihat postingan asli untuk detailnya.",
+    "contentNoLongerAvailableLabel": "Konten ini sudah tidak tersedia",
+    "embedLoadingLabel": "Memuat postingan yang disematkan…",
+    "embedRegionLabel": "Postingan yang disematkan"
   },
   "EventReportForm": {
     "dialogTitle": "Laporkan Acara",

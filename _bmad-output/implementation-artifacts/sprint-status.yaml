@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-07T00:00:00Z # (dev-story 3.7e: review)
+last_updated: 2026-09-07T00:00:00Z # (dev-story 3.7d: review)
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1373,7 +1373,7 @@ development_status:
   # visual treatment -- both folded into this story's own AC/tasks (not a separate
   # story). Gate 3 found no shared EmbedAdapter generalization needed yet (single
   # consumer). See epics.md Story 3.7d Amendment and Story 3.7e.
-  3-7d-event-detail-image-display-oembed-transition-with-fallback: ready-for-dev
+  3-7d-event-detail-image-display-oembed-transition-with-fallback: review
   # New 2026-09-04, split from Story 3.7d via bmad-create-story Gate 1/3 findings
   # (see epics.md Story 3.7e note and Story 3.7d's Amendment). Backend-only: adapter
   # proxying Instagram's tokenless oEmbed endpoint + Event.instagramEmbed resolver

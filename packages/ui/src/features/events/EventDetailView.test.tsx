@@ -140,6 +140,40 @@ describe('EventDetailView', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
+  it('renders InstagramEmbed (not EventImage) when instagramEmbedStatus is set (AC1)', () => {
+    const props = {
+      ...fullProps,
+      instagramEmbedStatus: 'AVAILABLE' as const,
+      instagramEmbedHtml: '<blockquote class="instagram-media">post</blockquote>',
+    };
+    render(<EventDetailView {...props} />);
+
+    // The InstagramEmbed's labeled region replaces EventImage's plain <img>.
+    expect(screen.getByRole('region', { name: 'Embedded post' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Custom Alt Text' })).not.toBeInTheDocument();
+  });
+
+  it('renders the unchanged EventImage path when instagramEmbedStatus is absent (AC2 regression guard)', () => {
+    render(<EventDetailView {...fullProps} />);
+
+    expect(screen.queryByRole('region', { name: 'Embedded post' })).not.toBeInTheDocument();
+    const img = screen.getByRole('img', { name: 'Custom Alt Text' });
+    expect(img).toHaveAttribute('src', 'https://example.com/image.jpg');
+  });
+
+  it('renders the InstagramEmbed durableImageUrl fallback when instagramEmbedStatus is UNAVAILABLE with a durableImageUrl', () => {
+    const props = {
+      ...fullProps,
+      instagramEmbedStatus: 'UNAVAILABLE' as const,
+      instagramEmbedHtml: null,
+      instagramEmbedDurableImageUrl: 'https://example.com/durable.jpg',
+    };
+    render(<EventDetailView {...props} />);
+
+    const img = screen.getByRole('img', { name: 'Custom Alt Text' });
+    expect(img).toHaveAttribute('src', 'https://example.com/durable.jpg');
+  });
+
   it('renders video when videoUrl is present', () => {
     const props = {
       ...fullProps,

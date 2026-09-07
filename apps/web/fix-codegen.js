@@ -75,6 +75,8 @@ content = content.replace(/export type DefaultLocationChangeRequestStatus =[\s\S
 // Replace duplicate actor-run and unprocessed-payload types
 content = content.replace(/export type ActorRunFilters = \{\r?\n\s+createdAfter\?: unknown;[\s\S]*?export type ActorRunVendor =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ScheduleTimezoneStatus =[\s\S]*?;\r?\n/g, '');
+// Replace duplicate InstagramEmbedStatus (Story 3.7d/3.7e)
+content = content.replace(/export type InstagramEmbedStatus =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type UnprocessedPayloadFilters = \{\r?\n\s+createdAfter\?: unknown;[\s\S]*?export type UnprocessedPayloadSource =[\s\S]*?;\r?\n/g, '');
 
 // Replace duplicate ProposedEventCorrectionInput and ProposedScheduleCorrectionInput

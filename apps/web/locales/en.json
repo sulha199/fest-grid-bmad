@@ -141,7 +141,10 @@
     "timezoneSubmitLabel": "Confirm",
     "timezoneSubmitSuccessAnnouncement": "Timezone updated successfully",
     "timezoneSubmitErrorAnnouncement": "Failed to update timezone. Please try again.",
-    "privateContactMessageLabel": "Contact info isn't shown to protect the poster's privacy — see the original post for details."
+    "privateContactMessageLabel": "Contact info isn't shown to protect the poster's privacy — see the original post for details.",
+    "contentNoLongerAvailableLabel": "This content is no longer available",
+    "embedLoadingLabel": "Loading embedded post…",
+    "embedRegionLabel": "Embedded post"
   },
   "EventReportForm": {
     "dialogTitle": "Report Event",

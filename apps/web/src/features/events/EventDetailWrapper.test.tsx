@@ -84,6 +84,7 @@ let currentMockEvent = {
   imageUrl: null as string | null,
   durableImageUrl: null as string | null,
   videoUrl: null as string | null,
+  instagramEmbed: null as { status: string; html: string | null; durableImageUrl: string | null } | null,
   sourcePostUrl: null,
   originalPostUrl: null,
   isFavorited: false,
@@ -266,6 +267,7 @@ describe("EventDetailWrapper", () => {
       imageUrl: null,
       durableImageUrl: null,
       videoUrl: null,
+      instagramEmbed: null,
       sourcePostUrl: null,
       originalPostUrl: null,
       isFavorited: false,
@@ -358,6 +360,36 @@ describe("EventDetailWrapper", () => {
 
     // Success message is announced
     expect(screen.getByText("EventDetailsPage.favoriteSuccessAnnouncement")).toBeInTheDocument()
+  })
+
+  it("renders the InstagramEmbed path when getEventBySlug's response includes instagramEmbed", async () => {
+    currentMockEvent = {
+      ...currentMockEvent,
+      instagramEmbed: {
+        status: "AVAILABLE",
+        html: "<blockquote class='instagram-media'>post</blockquote>",
+        durableImageUrl: null,
+      },
+    }
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+    expect(screen.getByRole("region", { name: "EventDetailsPage.embedRegionLabel" })).toBeInTheDocument()
+  })
+
+  it("renders the unchanged EventImage path when getEventBySlug's response has no instagramEmbed", async () => {
+    currentMockEvent = {
+      ...currentMockEvent,
+      imageUrl: "https://example.com/evt.jpg",
+      instagramEmbed: null,
+    }
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+    expect(screen.queryByRole("region", { name: "EventDetailsPage.embedRegionLabel" })).not.toBeInTheDocument()
+    expect(screen.getByRole("img", { name: "Test Event" })).toHaveAttribute("src", "https://example.com/evt.jpg")
   })
 
   it("patches list caches (events, events/feed, favoriteEvents) when toggle favorite succeeds, without double-counting favoriteCount", async () => {

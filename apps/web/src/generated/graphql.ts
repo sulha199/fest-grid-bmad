@@ -263,6 +263,7 @@ export type Event = {
   hasPrivateContact: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
+  instagramEmbed?: Maybe<InstagramEmbed>;
   isAddedToCalendar: Scalars['Boolean']['output'];
   isExpiredForCurrentUser: Scalars['Boolean']['output'];
   isFavorited: Scalars['Boolean']['output'];
@@ -380,6 +381,18 @@ export enum GeolocationProvider {
 export enum ImageStorageOptInSource {
   AccountOwner = 'ACCOUNT_OWNER',
   Moderator = 'MODERATOR'
+}
+
+export type InstagramEmbed = {
+  __typename?: 'InstagramEmbed';
+  durableImageUrl?: Maybe<Scalars['String']['output']>;
+  html?: Maybe<Scalars['String']['output']>;
+  status: InstagramEmbedStatus;
+};
+
+export enum InstagramEmbedStatus {
+  Available = 'AVAILABLE',
+  Unavailable = 'UNAVAILABLE'
 }
 
 export type LocationDetails = {
@@ -1321,6 +1334,7 @@ export enum WidgetTheme {
 
 
 
+
 export type QueryActorRunsQueryVariables = Exact<{
   filters?: ActorRunFilters | null | undefined;
   first?: number | null | undefined;
@@ -1463,7 +1477,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, instagramEmbed: { status: InstagramEmbedStatus, html: string | null, durableImageUrl: string | null } | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetEventForIcsExportQueryVariables = Exact<{
   id: string | number;
@@ -2493,6 +2507,11 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
     imageUrl
     durableImageUrl
     videoUrl
+    instagramEmbed {
+      status
+      html
+      durableImageUrl
+    }
     sourcePostUrl
     originalPostUrl
     organizerName

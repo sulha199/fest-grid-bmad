@@ -3,6 +3,8 @@ export * from './EventCard.types';
 export * from './SearchBar';
 export * from './FilterHub';
 export * from './EventImage';
+export * from './InstagramEmbed';
+export * from './InstagramEmbed.types';
 export * from './EventDetailView';
 export * from './EventDetailView.types';
 export * from './EventListView';

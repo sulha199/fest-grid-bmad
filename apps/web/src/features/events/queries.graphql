@@ -53,6 +53,11 @@ query getEventBySlug($slug: String!) {
     imageUrl
     durableImageUrl
     videoUrl
+    instagramEmbed {
+      status
+      html
+      durableImageUrl
+    }
     sourcePostUrl
     originalPostUrl
     organizerName
