@@ -575,9 +575,9 @@ test('manual post selection & extraction integration tests', async (t) => {
 
     const result = await response.json();
     assert.ok(!result.errors, 'should not have errors');
-    assert.strictEqual(result.data.myExtractionQuota.limit, 50);
+    assert.strictEqual(result.data.myExtractionQuota.limit, 300);
     assert.strictEqual(result.data.myExtractionQuota.used, 10);
-    assert.strictEqual(result.data.myExtractionQuota.remaining, 40);
+    assert.strictEqual(result.data.myExtractionQuota.remaining, 290);
   });
 
   await t.test('postsByAccount retrieves posts for account with cursor-based pagination', async () => {

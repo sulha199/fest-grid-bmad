@@ -14,6 +14,7 @@ export interface BackendEnv {
   byokKmsKeyId?: string;
   geminiModel: string;
   apiKeyInvalidAttemptsThreshold: number;
+  geminiPostsPerKeyPerCycle: number;
   apiKeyUsageCycleDays: number;
   webAppBaseUrl: string;
   scrapingQueueUrl?: string;
@@ -55,6 +56,14 @@ export interface BackendEnv {
   // Below this AI-inference confidence score (0.0-1.0), a Default Location change is held as
   // AWAITING_APPROVAL instead of applying immediately (added 2026-08-28)
   locationInferenceConfidenceThreshold: number;
+}
+
+function parseNonNegativeInt(value: string | undefined, name: string, defaultValue: number): number {
+  const parsed = Number.parseInt(value || String(defaultValue), 10);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${name} must be a non-negative integer.`);
+  }
+  return parsed;
 }
 
 /** Validate that required Bright Data vars are present */
@@ -117,6 +126,13 @@ export function loadBackendEnv(): BackendEnv {
     geminiModel: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     apiKeyInvalidAttemptsThreshold: parseInt(process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD || '5', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    geminiPostsPerKeyPerCycle: parseNonNegativeInt(
+      // eslint-disable-next-line turbo/no-undeclared-env-vars
+      process.env.GEMINI_POSTS_PER_KEY_PER_CYCLE,
+      'GEMINI_POSTS_PER_KEY_PER_CYCLE',
+      300
+    ),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     apiKeyUsageCycleDays: parseInt(process.env.API_KEY_USAGE_CYCLE_DAYS || '30', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

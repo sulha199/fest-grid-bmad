@@ -43,6 +43,7 @@ test('rehostPostImage integration/unit tests', async (t) => {
     postMediaCdnDomain: 'cdn.test.com',
     geminiModel: 'gemini-3.5-flash-lite',
     apiKeyInvalidAttemptsThreshold: 5,
+    geminiPostsPerKeyPerCycle: 300,
     apiKeyUsageCycleDays: 30,
     webAppBaseUrl: 'http://localhost:3000',
     locationInferenceConfidenceThreshold: 0.5,
