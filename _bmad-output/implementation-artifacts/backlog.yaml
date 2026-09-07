@@ -576,6 +576,14 @@ items:
      touches: [pkg:domain, app:backend],
      note: "Deferred from: quick-dev fix of scraper-audit-trail-alerting (2026-09-05). Pre-existing gap in the shared render engine, already reachable via existing templates (e.g. DANGEROUS_EVENT_MODERATOR_ALERT's eventName); this pass's new SCRAPER_AUDIT_TRAIL_FAILURE_ALERT template is a new consumer of scraper-influenced fields (postUrl, raw DB error text) routed through it."}
 
+  FIND-022:
+    {type: finding, status: backlog, created: 2026-09-07,
+     impact: user-visible, effort: m,
+     title: "Repost/coauthor posts are misattributed to the subscribed (scraping) account instead of the original-owner account",
+     ref: [],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Instagram Posts records can carry a `coauthor_producers` array (co-authored/reposted content) where `user_posted` is the subscribed account we scrape, but the post was actually authored by a different (possibly non-subscribed) account listed in `coauthor_producers`. persist-scraped-post.ts / process-brightdata-result.ts currently always set posts.accountId to the triggering pendingJob.profileId (the subscribed account), with no coauthor_producers handling anywhere in instagram-adapter.ts or brightdata-record-mapper.ts. Two effects need to be disentangled: (1) DISPLAY traits (isImageStorageOptedIn, durableImageUrl prominent-card treatment, moderation attribution) should follow the ORIGINAL-OWNER account's profile, not the subscribed/scraping account's — requires resolving the true owner (from coauthor_producers, or user_posted itself if the post isn't a repost) against social_media_account_profiles, handling the case where that owner account doesn't exist/isn't subscribed. (2) BYOK API-key consumption should remain keyed off whichever user/account actually triggered and paid for the scrape job (unrelated axis, already correctly separated in ai-gateway/adapter.ts's selectApiKey — no change needed there). Open questions before implementation: how to resolve/create a profile row for a non-subscribed original-owner account solely for display-trait lookup; whether coauthor_producers[0] or another heuristic determines \"the\" original owner when the array has multiple entries; whether user_posted itself might already be a coauthor list post's true author in some records. Raised via /bmad-help 2026-09-07, not yet forged/spec'd."}
+
   # ── undated intake ──────────────────────────────────────────────────────────
   IDEA-001:
     {type: idea, status: backlog, created: 2026-09-04,
