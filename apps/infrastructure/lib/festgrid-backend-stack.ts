@@ -269,6 +269,7 @@ export class FestgridBackendStack extends cdk.Stack {
         BYOK_KMS_KEY_ID: kmsKey.keyId,
         GEMINI_MODEL: process.env.GEMINI_MODEL,
         API_KEY_INVALID_ATTEMPTS_THRESHOLD: process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD,
+        GEMINI_POSTS_PER_KEY_PER_CYCLE: process.env.GEMINI_POSTS_PER_KEY_PER_CYCLE,
         API_KEY_USAGE_CYCLE_DAYS: process.env.API_KEY_USAGE_CYCLE_DAYS,
         WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
         SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
