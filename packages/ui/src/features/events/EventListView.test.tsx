@@ -234,4 +234,215 @@ describe('EventListView', () => {
       expect(masonryContainer).not.toBeInTheDocument();
     });
   });
+
+  describe('AC16-AC19: end date/time + coordinates threading, prominent poster, distance passthrough, grid spacing', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('threads eventEndDate/eventEndTime from the main schedule into endDate/endTime (TILL badge appears once the event has started and an end is known)', () => {
+      // Fixed "now": well after the event's start, same UTC calendar day as its end.
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T14:00:00Z'));
+
+      const eventWithEnd: EventListViewItem = {
+        id: 'with-end',
+        slug: 'with-end',
+        eventName: 'Has End',
+        schedules: [
+          {
+            isMainSchedule: true,
+            eventStartDate: '2026-01-01T10:00:00Z',
+            eventEndDate: '2026-01-01T18:00:00Z',
+            eventEndTime: '18:00:00',
+          },
+        ],
+      };
+
+      render(
+        <EventListView
+          status="success"
+          events={[eventWithEnd]}
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({})}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      expect(screen.getByText(/till/i)).toBeInTheDocument();
+    });
+
+    it('falls back to the first schedule when no schedule is marked isMainSchedule, threading that schedule\'s end fields too', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T14:00:00Z'));
+
+      const eventNoMain: EventListViewItem = {
+        id: 'no-main',
+        slug: 'no-main',
+        eventName: 'No Main Schedule',
+        schedules: [
+          {
+            isMainSchedule: false,
+            eventStartDate: '2026-01-01T10:00:00Z',
+            eventEndDate: '2026-01-01T18:00:00Z',
+            eventEndTime: '18:00:00',
+          },
+        ],
+      };
+
+      render(
+        <EventListView
+          status="success"
+          events={[eventNoMain]}
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({})}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      expect(screen.getByText(/till/i)).toBeInTheDocument();
+    });
+
+    it('does not show a TILL badge when the schedule has no eventEndDate (negative-space check for the endDate/endTime derivation)', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T14:00:00Z'));
+
+      const eventNoEnd: EventListViewItem = {
+        id: 'no-end',
+        slug: 'no-end',
+        eventName: 'No End Info',
+        schedules: [
+          { isMainSchedule: true, eventStartDate: '2026-01-01T10:00:00Z' },
+        ],
+      };
+
+      render(
+        <EventListView
+          status="success"
+          events={[eventNoEnd]}
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({})}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      expect(screen.queryByText(/till/i)).not.toBeInTheDocument();
+    });
+
+    it('derives prominentPoster=true only when durableImageUrl is non-null', () => {
+      const withDurable: EventListViewItem = {
+        id: 'durable',
+        slug: 'durable',
+        eventName: 'Durable Poster',
+        durableImageUrl: 'http://example.com/durable.jpg',
+        schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-16T18:00:00Z' }],
+      };
+      const withoutDurable: EventListViewItem = {
+        id: 'not-durable',
+        slug: 'not-durable',
+        eventName: 'Not Durable',
+        schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-16T18:00:00Z' }],
+      };
+
+      const { container } = render(
+        <EventListView
+          status="success"
+          events={[withDurable, withoutDurable]}
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({})}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      const durableCard = screen.getByText('Durable Poster').closest('article');
+      const notDurableCard = screen.getByText('Not Durable').closest('article');
+
+      expect(durableCard?.querySelector('.aspect-\\[2\\/3\\]')).toBeInTheDocument();
+      expect(durableCard?.querySelector('.aspect-\\[3\\/4\\]')).not.toBeInTheDocument();
+
+      expect(notDurableCard?.querySelector('.aspect-\\[3\\/4\\]')).toBeInTheDocument();
+      expect(notDurableCard?.querySelector('.aspect-\\[2\\/3\\]')).not.toBeInTheDocument();
+
+      // No skeleton-state equivalent is expected -- skeleton cards render no real event data.
+      expect(container).toBeInTheDocument();
+    });
+
+    it('passes a getCardProps-supplied distanceKm through unmodified (EventListView performs no distance computation itself, AC18)', () => {
+      render(
+        <EventListView
+          status="success"
+          events={[mockEvents[0]!]}
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({ distanceKm: 2.5 })}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      expect(screen.getByText('Nearby')).toBeInTheDocument();
+    });
+
+    it('does not render a Nearby badge when getCardProps omits distanceKm', () => {
+      render(
+        <EventListView
+          status="success"
+          events={[mockEvents[0]!]}
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({})}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+    });
+
+    it('renders the success grid with gap-x-2 gap-y-6 spacing (AC19)', () => {
+      const { container } = render(
+        <EventListView
+          status="success"
+          events={mockEvents}
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({})}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      const grid = container.querySelector('.grid');
+      expect(grid).toHaveClass('gap-x-2');
+      expect(grid).toHaveClass('gap-y-6');
+      expect(grid).not.toHaveClass('gap-2');
+    });
+
+    it('renders the loading skeleton grid with gap-x-2 gap-y-6 spacing (AC19)', () => {
+      const { container } = render(
+        <EventListView
+          status="loading"
+          events={[]}
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({})}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      const grid = container.querySelector('.grid');
+      expect(grid).toHaveClass('gap-x-2');
+      expect(grid).toHaveClass('gap-y-6');
+      expect(grid).not.toHaveClass('gap-2');
+    });
+  });
 });

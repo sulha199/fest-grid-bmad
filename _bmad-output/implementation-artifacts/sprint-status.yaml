@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-07T00:00:00Z # (dev-story 1.3b AC14-18: review)
+last_updated: 2026-09-07T00:00:00Z # (dev-story 1.3d AC16-19: review)
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -307,8 +307,9 @@ development_status:
   # hardcoding). Note: the 1-3i entry below still stale-reads done despite
   # this -- flagged here per sprint-change-proposal-2026-09-04.md Section 5,
   # but correcting that entry is separate documentation housekeeping, not
-  # part of this amendment. Not yet implemented.
-  1-3d-build-the-reusable-eventlistview-component: ready-for-dev
+  # part of this amendment. Implemented 2026-09-07 (Tasks 8-11, AC16-AC19) --
+  # see the story file's 2026-09-07 Change Log entry.
+  1-3d-build-the-reusable-eventlistview-component: review
   # added 2026-08-05 via bmad-create-story at user's request: retroactive extraction —
   # home-content.tsx and favorites-content.tsx still duplicate the SearchBar/FilterHub
   # row above the shell Story 1.3d already extracted. Positioned as a 1.3-family

@@ -7,6 +7,7 @@ query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
       isFavorited
       favoriteCount
       imageUrl
+      durableImageUrl
       location
       types
       categories
@@ -15,7 +16,15 @@ query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
         isMainSchedule
         eventStartDate
         eventStartTime
+        eventEndDate
+        eventEndTime
         ticketPrice
+        locationDetails {
+          coordinates {
+            lat
+            lng
+          }
+        }
       }
     }
     hasMore
