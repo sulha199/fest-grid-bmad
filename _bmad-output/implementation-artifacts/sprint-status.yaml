@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-07T00:00:00Z
+last_updated: 2026-09-07T00:00:00Z # (dev-story 3.4q: review)
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1060,7 +1060,10 @@ development_status:
   # infra. Includes an external, non-code Definition-of-Done item (rotating the
   # Bright Data API token in Secrets Manager). See epics.md Story 3.4q note and
   # 3-4q-fix-brightdata-auth-failure-and-alert-moderators-when-a-scraper-provider-goes-down.md.
-  3-4q-fix-brightdata-auth-failure-and-alert-moderators-when-a-scraper-provider-goes-down: ready-for-dev
+  # Code complete 2026-09-07 (Tasks 1-7, 9-10). Task 8 (Bright Data token rotation, AC3)
+  # remains outstanding -- manual/external, coordinated separately per explicit user
+  # instruction, not blocking this story's move to review.
+  3-4q-fix-brightdata-auth-failure-and-alert-moderators-when-a-scraper-provider-goes-down: review
   # added 2026-08-19 via bmad-create-story: user-identified linking gap during /bmad-help
   # investigation. Story 3-4j captures scraper_actor_runs table but doesn't thread the run ID
   # to posts/unprocessed_payloads, leaving moderator UI (3-4k) unable to display "posts from

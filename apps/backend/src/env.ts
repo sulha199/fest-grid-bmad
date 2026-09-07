@@ -34,6 +34,8 @@ export interface BackendEnv {
   queueNotificationThresholdDays: number;
   queueNotificationThresholdCount: number;
   queueNotificationCooldownDays: number;
+  scraperProviderAlertThresholdDays: number;
+  scraperProviderAlertCooldownDays: number;
   // Bright Data integration env vars
   brightdataApiToken?: string;
   brightdataDatasetId?: string;
@@ -171,6 +173,10 @@ export function loadBackendEnv(): BackendEnv {
     queueNotificationThresholdCount: parseInt(process.env.QUEUE_NOTIFICATION_THRESHOLD_COUNT || '3', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     queueNotificationCooldownDays: parseInt(process.env.QUEUE_NOTIFICATION_COOLDOWN_DAYS || '7', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scraperProviderAlertThresholdDays: parseInt(process.env.SCRAPER_PROVIDER_ALERT_THRESHOLD_DAYS || '2', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scraperProviderAlertCooldownDays: parseInt(process.env.SCRAPER_PROVIDER_ALERT_COOLDOWN_DAYS || '3', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     locationInferenceConfidenceThreshold: parseFloat(process.env.LOCATION_INFERENCE_CONFIDENCE_THRESHOLD || '0.5'),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

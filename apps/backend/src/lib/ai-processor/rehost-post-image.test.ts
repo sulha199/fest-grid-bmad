@@ -57,6 +57,8 @@ test('rehostPostImage integration/unit tests', async (t) => {
     queueNotificationThresholdDays: 3,
     queueNotificationThresholdCount: 3,
     queueNotificationCooldownDays: 7,
+    scraperProviderAlertThresholdDays: 2,
+    scraperProviderAlertCooldownDays: 3,
     scrapeInlineFallbackEnabled: false,
     aiProcessingInlineFallbackEnabled: false,
     dataIngestionInlineFallbackEnabled: false,

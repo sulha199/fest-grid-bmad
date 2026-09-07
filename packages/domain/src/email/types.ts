@@ -5,7 +5,8 @@ export type EmailTemplateKey =
   | 'DEFAULT_LOCATION_CHANGE_AWAITING_APPROVAL_ALERT'
   | 'DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT'
   | 'SYSTEM_ERROR_ALERT'
-  | 'SCRAPER_AUDIT_TRAIL_FAILURE_ALERT';
+  | 'SCRAPER_AUDIT_TRAIL_FAILURE_ALERT'
+  | 'SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT';
 
 export interface EmailTemplateVariables {
   QUOTA_EXHAUSTION_WARNING: {
@@ -46,6 +47,11 @@ export interface EmailTemplateVariables {
     source: string;
     message: string;
     context: string;
+    moderatorReviewUrl: string;
+  };
+  SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT: {
+    provider: string;
+    consecutiveFailureDays: number;
     moderatorReviewUrl: string;
   };
 }

@@ -176,6 +176,18 @@ export const scraperProviderUsage = pgTable('scraper_provider_usage', {
   ...timestamps,
 });
 
+// Tracks per-provider trigger health (consecutive full-failure days + alert cooldown) --
+// a distinct concern from scraperProviderUsage's cost/item-volume tracking above
+// (Story 3.4q).
+export const scraperProviderHealth = pgTable('scraper_provider_health', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  provider: text('provider').notNull().unique(),
+  consecutiveFailureDays: integer('consecutive_failure_days').default(0).notNull(),
+  lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
+  lastAlertSentAt: timestamp('last_alert_sent_at', { withTimezone: true }),
+  ...timestamps,
+});
+
 export const subscriptions = pgTable('subscriptions', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),

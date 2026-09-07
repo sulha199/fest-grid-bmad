@@ -6,6 +6,7 @@ import { processScrapeJob } from '../lib/scraper/process-scrape-job.js';
 import { attemptBrightDataTrigger } from '../lib/scraper/trigger-brightdata-for-target.js';
 import { attemptApifyAsyncTrigger } from '../lib/scraper/trigger-apify-for-target.js';
 import { runStaleJobSweep } from '../lib/scraper/stale-job-sweep.js';
+import { recordProviderHealthCheck } from '../lib/scraper/scraper-provider-health-store.js';
 
 export const handler = async (
   event: SQSEvent | EventBridgeEvent<string, unknown>,
@@ -47,19 +48,31 @@ export const handler = async (
             const brightDataTriggered = await attemptBrightDataTrigger(target, newerThan);
             if (brightDataTriggered) {
               console.log(`Triggered Bright Data job for ${target.username}`);
-              return;
+              return { brightDataAttempted: true, brightDataSucceeded: true };
             }
+
+            // Fall back to Apify async trigger for all platforms
+            const apifyAsyncTriggered = await attemptApifyAsyncTrigger(target, newerThan);
+            if (apifyAsyncTriggered) {
+              console.log(`Triggered Apify async job for ${target.username}`);
+              return { brightDataAttempted: true, brightDataSucceeded: false };
+            }
+
+            // Fall back to SQS queue if both async tiers fail
+            await enqueueScrapeJob(target);
+            return { brightDataAttempted: true, brightDataSucceeded: false };
           }
 
           // Fall back to Apify async trigger for all platforms
           const apifyAsyncTriggered = await attemptApifyAsyncTrigger(target, newerThan);
           if (apifyAsyncTriggered) {
             console.log(`Triggered Apify async job for ${target.username}`);
-            return;
+            return { brightDataAttempted: false };
           }
 
           // Fall back to SQS queue if both async tiers fail
           await enqueueScrapeJob(target);
+          return { brightDataAttempted: false };
         })
       );
 
@@ -68,6 +81,31 @@ export const handler = async (
         console.error(`Failed to dispatch ${failedCount} out of ${targets.length} scrape jobs`);
       } else {
         console.log(`Successfully dispatched all ${targets.length} scrape jobs`);
+      }
+
+      // Tally Bright Data attempts/successes across the batch and record a health
+      // check, so a persistently-failing provider can be surfaced to moderators
+      // (Story 3.4q) -- purely additive observability, no change to the fallback
+      // control flow above.
+      let brightDataAttempted = 0;
+      let brightDataSucceeded = 0;
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value?.brightDataAttempted) {
+          brightDataAttempted += 1;
+          if (result.value.brightDataSucceeded) {
+            brightDataSucceeded += 1;
+          }
+        }
+      }
+      if (brightDataAttempted > 0) {
+        try {
+          await recordProviderHealthCheck('brightdata', {
+            attempted: brightDataAttempted,
+            succeeded: brightDataSucceeded,
+          });
+        } catch (healthCheckErr) {
+          console.error('Failed to record Bright Data provider health check:', healthCheckErr);
+        }
       }
     } catch (err) {
       console.error('Failed to retrieve or dispatch batch scrape targets:', err);
