@@ -98,3 +98,36 @@ references it becomes a new class of broken link.
 file passes ~10k tokens. When it happens: one logical board across two files
 (`backlog.yaml` + `backlog-archive.yaml`), the runner loads both, checks
 unchanged, and an archived row is never edited again.
+
+---
+
+## 4. Gate gaps the 2026-09-07 pass exposed in §2 and §5
+
+Both surfaced as the run correctly refusing to guess, which is the checkpoint
+working — but they are defects in the document, not in the run.
+
+**§2's kind rule reads as forbidding mixed membership.** *"A cluster of
+`bug`/`finding` rows is an improvement epic… A cluster of `idea`/`proposal` rows
+is a FEATURE epic"* was written to say what determines an epic's **kind**. The
+run read it as a membership constraint and therefore could not make IDEA-011 a
+member of `epic-0-i5`. Fix: state that kind is set by the **driving** rows, and
+that a row of another type may be a member when it violates the same invariant.
+
+**§5's absorption rule only covers stories.** *"When an unstarted story joins a
+cluster it keeps its key"* is written for `sprint-status.yaml` stories and says
+nothing about a board row that an epic answers. Fix: a board row absorbed by an
+epic carries `epic: <key>`, and when the story that answers it exists, that story
+key joins the row's `stories` — so the row derives to `promoted` and closes with
+the epic through the ordinary §5 mechanism. It is **answered, not replaced**, so
+`superseded_by` is wrong for this case; reserve that for a row another *row*
+supersedes.
+
+Ruled this way for the in-flight pass (IDEA-011 → `epic-0-i5`, no adoption story
+of its own, `a` settles the apply-on-change question). The document should be
+amended to match rather than leaving the next pass to re-derive it.
+
+**Ninth fractional row.** FIND-011 belongs in `epic-0-i6` on merit — unused props
+and an unscaled variant on `SubscribedAccountCard` are prop-contract defects on
+the exact card the invariant governs — but it also covers `EventDetailView`,
+outside the card. It is a carve candidate under item 2 above, bringing the
+fractional count from the pass to nine.
