@@ -39,7 +39,15 @@
 **Evidence this class recurs:** BUG-004 and BUG-016 already fixed one instance each, individually, and are `done` — the class kept returning because nothing checks it, only individual incidents get fixed.
 
 ### `epic-0-i5` — Shared list-pagination and filter-state controller
-**Invariant:** Every list/pagination surface manages its cursor, filter-reset, and scroll-anchor state through one shared controller, not local per-page state.
+**Invariant:** Every list/pagination surface derives its cursor and filter-reset state from one
+shared controller, not local per-page state.
+
+*Corrected 2026-09-08 after the pass: the Step 4 ruling dropped "scroll-anchor" from this
+invariant and the reword was not applied to `epics.md` or here. The three moderator-tools pages
+(BUG-020) have no scroll anchor, so the original sentence failed the restate-as-a-rule test
+(gate §5 criterion 2). Anchor stability stays a capability of Story 0.i5a consumed by 0.i5b, not
+a property of every adopting surface. Story 0.i5z's ratchet already scoped itself correctly to
+cursor/filter state only, which is what confirmed the narrower reading.*
 **Members:** BUG-018, BUG-019, BUG-020, **IDEA-011**
 **Stories:** `a` (mechanism — also settles IDEA-011's on-change-vs-Apply question), `b` (Discovery/event-list adoption), `c` (moderator-tools adoption), `z` (ratchet)
 **§6 routing:** IDEA-011 establishes a new cross-cutting convention → new AD-n written in `a`. BUG-018/019/020 are internal-only fixes riding the same mechanism.

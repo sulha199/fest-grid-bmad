@@ -3794,7 +3794,9 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 ### Epic 0.i5: Shared list-pagination and filter-state controller
 
-**Invariant:** Every list/pagination surface manages its cursor, filter-reset, and scroll-anchor state through one shared controller, not local per-page state.
+**Invariant:** Every list/pagination surface derives its cursor and filter-reset state from one shared controller, not local per-page state.
+
+**Note on scope (Step 4 ruling, 2026-09-08):** "scroll-anchor" was deliberately dropped from the invariant. Infinite scroll and prev/next are two views over the same cursor state, but the three moderator-tools pages (BUG-020) have no scroll anchor to preserve — so *"anything that manages its own scroll-anchor state locally is a bug"* is false for them, and the sentence failed the restate-as-a-rule test (gate §5 criterion 2). Anchor stability across appends remains a **capability** the controller offers (Story 0.i5a) and that the infinite-scroll surface consumes (Story 0.i5b); it is not a property every adopting surface must exhibit. Story 0.i5z's ratchet already scopes itself this way — it asserts only cursor/filter state, which is what makes it the operational definition of this invariant.
 
 ### Story 0.i5a: Build the shared pagination/filter controller
 
