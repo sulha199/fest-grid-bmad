@@ -47,8 +47,10 @@ export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {
       )
     );
 
-  // Exclude profiles that already have a pending Bright Data job
-  const pendingRows = await db.select({ profileId: brightdataPendingJobs.profileId }).from(brightdataPendingJobs);
+  // Exclude profiles that already have a Bright Data job still in flight (not completed/failed)
+  const pendingRows = await db.select({ profileId: brightdataPendingJobs.profileId })
+    .from(brightdataPendingJobs)
+    .where(eq(brightdataPendingJobs.status, 'PENDING'));
   const pendingSet = new Set(pendingRows.map(p => p.profileId));
 
   // TypeScript deduplication by profileId and filter pending
