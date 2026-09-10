@@ -7,9 +7,11 @@
  * test-output-summary.ts.
  *
  * Usage:
- *   tsx src/run-tests.ts --cwd C:/projects/portfolio/festgrid/bmad \
+ *   tsx src/run-tests.ts [--cwd C:/projects/portfolio/festgrid/bmad] \
  *       [--command "pnpm test"] [--timeout-ms 1200000] [--heartbeat-ms 30000] \
  *       [--log-file <path to save the full raw output>]
+ *
+ * --cwd defaults to the repo root (derived from this file's location).
  *
  * Prints the summary to stdout and exits 0 if all tests passed, 1 if any
  * failed or the run timed out. The full raw output is always available via
@@ -18,7 +20,12 @@
 
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import { summarizeTestOutput, formatSummary } from "./test-output-summary.js";
+
+// src/ -> mailbox-runner -> ritual-session-orchestrator -> specs -> _bmad-output -> repo root
+const DEFAULT_REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../..");
 
 interface Args {
   cwd: string;
@@ -33,12 +40,8 @@ function parseArgs(argv: string[]): Args {
     const i = argv.indexOf(flag);
     return i >= 0 ? argv[i + 1] : undefined;
   };
-  const cwd = get("--cwd");
-  if (!cwd) {
-    throw new Error("Required: --cwd <repo-root> [--command \"pnpm test\"] [--timeout-ms N] [--heartbeat-ms N] [--log-file <path>]");
-  }
   return {
-    cwd,
+    cwd: get("--cwd") ?? DEFAULT_REPO_ROOT,
     command: get("--command") ?? "pnpm test",
     timeoutMs: Number(get("--timeout-ms") ?? 20 * 60 * 1000), // 20 min default -- a full monorepo run is a genuinely long task
     heartbeatMs: Number(get("--heartbeat-ms") ?? 30 * 1000),

@@ -6,11 +6,12 @@
  * generically across all three check kinds rather than duplicated per kind.
  *
  * Usage:
- *   tsx src/run-check.ts --kind test|build|lint --cwd C:/projects/portfolio/festgrid/bmad \
+ *   tsx src/run-check.ts --kind test|build|lint [--cwd C:/projects/portfolio/festgrid/bmad] \
  *       [--command "pnpm build"] [--timeout-ms 1200000] [--heartbeat-ms 30000] \
  *       [--log-file <path to save the full raw output>]
  *
- * If --command is omitted, defaults to "pnpm <kind>". Prints the summary to
+ * --cwd defaults to the repo root (derived from this file's location). If
+ * --command is omitted, defaults to "pnpm <kind>". Prints the summary to
  * stdout and exits 0 if the check passed, 1 if it failed or timed out. The
  * full raw output is always available via --log-file if the summary needs
  * cross-checking against the real log.
@@ -18,8 +19,13 @@
 
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import { summarizeTestOutput, formatSummary } from "./test-output-summary.js";
 import { summarizeBuildOrLintOutput, formatBuildLintSummary } from "./build-lint-output-summary.js";
+
+// src/ -> mailbox-runner -> ritual-session-orchestrator -> specs -> _bmad-output -> repo root
+const DEFAULT_REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../..");
 
 type CheckKind = "test" | "build" | "lint";
 
@@ -37,14 +43,13 @@ function parseArgs(argv: string[]): Args {
     const i = argv.indexOf(flag);
     return i >= 0 ? argv[i + 1] : undefined;
   };
-  const cwd = get("--cwd");
   const kind = get("--kind");
-  if (!cwd || (kind !== "test" && kind !== "build" && kind !== "lint")) {
-    throw new Error(`Required: --kind test|build|lint --cwd <repo-root> [--command "pnpm <kind>"] [--timeout-ms N] [--heartbeat-ms N] [--log-file <path>]`);
+  if (kind !== "test" && kind !== "build" && kind !== "lint") {
+    throw new Error(`Required: --kind test|build|lint [--cwd <repo-root>] [--command "pnpm <kind>"] [--timeout-ms N] [--heartbeat-ms N] [--log-file <path>]`);
   }
   return {
     kind,
-    cwd,
+    cwd: get("--cwd") ?? DEFAULT_REPO_ROOT,
     command: get("--command") ?? `pnpm ${kind}`,
     timeoutMs: Number(get("--timeout-ms") ?? 20 * 60 * 1000), // 20 min default -- a full monorepo run is a genuinely long task
     heartbeatMs: Number(get("--heartbeat-ms") ?? 30 * 1000),
