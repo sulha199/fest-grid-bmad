@@ -425,6 +425,12 @@ test('events resolver integration via Yoga', async (t) => {
     if (seededUsers.length === 0) return;
     const testUser = seededUsers[0];
 
+    const daysAhead = (n: number) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + n);
+      return d.toISOString().split('T')[0];
+    };
+
     // Create custom test user locations
     const [userLoc1] = await db.insert(userLocations).values({
       userId: testUser.id,
@@ -462,7 +468,7 @@ test('events resolver integration via Yoga', async (t) => {
     const [schedA] = await db.insert(schedules).values({
       eventId: eventA.id,
       isMainSchedule: true,
-      eventStartDate: '2026-09-01',
+      eventStartDate: daysAhead(1),
       latitude: -6.2010,
       longitude: 106.8010,
       locationDetails: { coordinates: { latitude: -6.2010, longitude: 106.8010 } }
@@ -475,7 +481,7 @@ test('events resolver integration via Yoga', async (t) => {
     const [schedB] = await db.insert(schedules).values({
       eventId: eventB.id,
       isMainSchedule: true,
-      eventStartDate: '2026-09-02',
+      eventStartDate: daysAhead(2),
       latitude: -6.2990,
       longitude: 106.8990,
       locationDetails: { coordinates: { latitude: -6.2990, longitude: 106.8990 } }
@@ -488,7 +494,7 @@ test('events resolver integration via Yoga', async (t) => {
     const [schedC] = await db.insert(schedules).values({
       eventId: eventC.id,
       isMainSchedule: true,
-      eventStartDate: '2026-09-03',
+      eventStartDate: daysAhead(3),
       latitude: -1.0000,
       longitude: 100.0000,
       locationDetails: { coordinates: { latitude: -1.0000, longitude: 100.0000 } }
@@ -501,7 +507,7 @@ test('events resolver integration via Yoga', async (t) => {
     const [schedD] = await db.insert(schedules).values({
       eventId: eventD.id,
       isMainSchedule: true,
-      eventStartDate: '2026-09-04',
+      eventStartDate: daysAhead(4),
       latitude: null,
       longitude: null,
       locationDetails: null

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomBytes } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, brightdataPendingJobs, posts } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
@@ -34,6 +34,7 @@ test('process-brightdata-result tests', async (t) => {
     const { id, webhookToken } = await createPendingJob({
       profileId: testProfileId,
       snapshotId,
+      webhookToken: randomBytes(24).toString('hex'),
     });
 
     const pendingJob: BrightdataPendingJob = {
@@ -93,6 +94,7 @@ test('process-brightdata-result tests', async (t) => {
     const { id, webhookToken } = await createPendingJob({
       profileId: testProfileId,
       snapshotId,
+      webhookToken: randomBytes(24).toString('hex'),
     });
 
     const pendingJob: BrightdataPendingJob = {
@@ -137,6 +139,7 @@ test('process-brightdata-result tests', async (t) => {
     const { id, webhookToken } = await createPendingJob({
       profileId: testProfileId,
       snapshotId,
+      webhookToken: randomBytes(24).toString('hex'),
     });
 
     const pendingJob: BrightdataPendingJob = {
@@ -192,6 +195,7 @@ test('process-brightdata-result tests', async (t) => {
     const { id, webhookToken } = await createPendingJob({
       profileId: testProfileId,
       snapshotId,
+      webhookToken: randomBytes(24).toString('hex'),
     });
 
     const pendingJob: BrightdataPendingJob = {
@@ -239,6 +243,7 @@ test('process-brightdata-result tests', async (t) => {
     const { id, webhookToken } = await createPendingJob({
       profileId: testProfileId,
       snapshotId,
+      webhookToken: randomBytes(24).toString('hex'),
     });
 
     const pendingJob: BrightdataPendingJob = {

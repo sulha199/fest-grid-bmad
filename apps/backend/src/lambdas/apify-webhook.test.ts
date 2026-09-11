@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { randomBytes } from 'node:crypto';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { handler } from './apify-webhook.js';
 import { db } from '../db/client.js';
@@ -55,6 +56,7 @@ test('apify-webhook tests', async (t) => {
     const { id, webhookToken } = await createPendingJob({
       profileId: testProfileId,
       runId: 'run-completed',
+      webhookToken: randomBytes(24).toString('hex'),
     });
 
     // Mark as completed
@@ -77,6 +79,7 @@ test('apify-webhook tests', async (t) => {
     const { id, webhookToken } = await createPendingJob({
       profileId: testProfileId,
       runId: 'run-expired',
+      webhookToken: randomBytes(24).toString('hex'),
     });
 
     // Set expiration to past

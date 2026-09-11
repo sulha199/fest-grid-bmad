@@ -330,7 +330,7 @@ Apify's `apify/instagram-scraper` actor is the concrete Instagram `ScraperAdapte
     *   Set the relevant environment variables in your root `.env`:
         ```env
         APIFY_API_TOKEN=""
-        SCRAPE_RESULTS_LIMIT="10"
+        SCRAPE_RESULTS_LIMIT="30"
         SCRAPE_INITIAL_LOOKBACK_DAYS="7"
         SCRAPE_SKIP_RECENT_HOURS="20"
         SCRAPER_MONTHLY_BUDGET_USD="5.00"

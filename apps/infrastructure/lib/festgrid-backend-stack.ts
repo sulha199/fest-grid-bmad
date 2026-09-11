@@ -323,6 +323,11 @@ export class FestgridBackendStack extends cdk.Stack {
         SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
         WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
         SCRAPE_SKIP_RECENT_HOURS: process.env.SCRAPE_SKIP_RECENT_HOURS || '12',
+        // Posts fetched per account per run (Apify resultsLimit / Bright Data numOfPosts).
+        // Kept above the ~1/day posting cadence most accounts see so a missed or delayed
+        // cron cycle still catches up on everything posted since the last successful run,
+        // instead of silently truncating to the newest N and losing older posts in between.
+        SCRAPE_RESULTS_LIMIT: process.env.SCRAPE_RESULTS_LIMIT || '30',
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });

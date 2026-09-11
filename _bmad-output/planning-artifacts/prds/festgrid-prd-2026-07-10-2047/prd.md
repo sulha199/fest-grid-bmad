@@ -7,7 +7,7 @@ status: "final"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-08-28T00:00:00Z"
+updated: "2026-09-11T00:00:00Z"
 
 ---
 
@@ -78,6 +78,7 @@ This feature allows users to curate their event feed by subscribing to specific 
         *   **Key Used for Inference (added 2026-08-24):** This inference call prefers a contributing subscriber's own BYOK Gemini key (the same fairness/rotation approach as regular extraction, above). Only when no subscriber of the account has a usable key does the system fall back to a platform-funded key, held centrally for this purpose. This system key is used exclusively for default-location inference on accounts with no subscriber-contributed key; it does not extend to general post-extraction processing, which remains BYOK-only until the managed-key-pool phase of the platform's rollout (Section 6).
         *   **Moderator Override (added 2026-08-24):** A moderator reviewing a pending change is not limited to accepting or reverting it as-is — they may also set "Default Location" directly to a corrected value, using the same mechanism a subscriber uses. This closes a gap the AI-inference feature above makes routine: reverting a wrong AI guess only blanks the value (Section 3.9.3), it does not let a moderator supply the value that should have been inferred. A moderator-sourced change requires no further review — the moderator's own edit *is* the review — and is recorded with `changeSource: MODERATOR` (Section 4.14). Setting a new value this way, by a subscriber or a moderator, automatically supersedes any other still-pending `DefaultLocationChangeRequest` for that account, since an earlier pending record's captured before/after values are no longer accurate once a later edit has overtaken it.
 *   **Multi-Image (Carousel) Extraction (added 2026-09-03; FR112):** A scraped post may carry multiple images (e.g. an Instagram carousel/Sidecar post) — schedule information for the event(s) being advertised does not always appear on the cover image or in the caption; it may live on a later slide. When a post has additional images, the AI agent is given the cover image plus up to a configurable number of the post's additional images (`Post.additionalImageUrls`) in the **same** extraction call, so it can read schedule details across all provided slides. This is not a separate/repeated extraction pass — see Section 3.8 for how this interacts with quota, and Section 3.10, where the "Selected Posts" quota count is unaffected since a carousel post still costs exactly one extraction call.
+*   **Weekday-Narrowed Recurring Schedules (added 2026-09-11):** A caption may state that a schedule recurs only on specific weekdays within a date range (e.g. "Valid only Monday to Wednesday during September 2026"), rather than applying to every day in that range. When the AI agent identifies this pattern, it records the schedule's full span via `eventStartDate`/`eventEndDate` as usual, plus the stated weekdays via `applicableDaysOfWeek` (Section 4.4), so downstream matching and calendar rendering treat only those weekdays as valid occurrences, not the entire span. Extraction may represent a multi-weekday recurrence either as one schedule per weekday (matching how the source names each occurrence) or as a single schedule covering multiple weekdays that share the same title/time/price/location — both are valid under this field; the AI agent is not required to force one shape over the other.
 *   **Account Profile Backfill from Scraped Posts (added 2026-08-24):** Every scraped post also carries the publishing account's own profile information (its current display name and username). When this differs from what is stored, the system updates the account's stored profile to match — keeping subscriber-facing account details current without requiring a subscriber to notice and re-enter them.
 *   **Quota Management & Notifications:**
 *   **Email Notifications:** Users will receive email notifications if `X` of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
@@ -94,7 +95,7 @@ This feature allows users to curate their event feed by subscribing to specific 
 *   **Display Subscribed Events:** Events extracted from a user's social media accounts will be displayed to the user.
     *   **View Options:** Users can view these events in a calendar-view (default) or a card-view.
         *   **Calendar View Behavior:**
-            *   Each schedule within an `EventInfo` object will be displayed as a separate, clickable item in the calendar.
+            *   Each schedule within an `EventInfo` object will be displayed as a separate, clickable item in the calendar, on each date its `eventStartDate`-`eventEndDate` span covers -- narrowed to only the dates matching `applicableDaysOfWeek` when that field is set (Section 4.4), rather than on every date in the span.
             *   The title of the calendar item will be formatted as follows:
                 *   If `isMainSchedule` is `true`, the title will be the `eventName`.
                 *   If `isMainSchedule` is `false`, the title will be a combination of the event name and the schedule title, in the format: `eventName - schedule.title`.
@@ -495,6 +496,20 @@ interface Schedule {
    * The end date of the event in YYYY-MM-DD format.
    */
   eventEndDate?: string;
+  /**
+   * Narrows this schedule's occurrences to specific weekdays within its
+   * `eventStartDate`-`eventEndDate` span -- e.g. a promo captioned "valid
+   * Monday to Wednesday during September" resolves to `eventStartDate`/
+   * `eventEndDate` bounding the full promo window, with
+   * `applicableDaysOfWeek` set to the stated weekdays, rather than reading
+   * as valid on every day in between. Absent or empty means every day
+   * within the span applies -- the existing, unchanged behavior for
+   * ordinary multi-day events (a festival spanning Fri-Sun) and for
+   * schedules extracted before this field existed, which cannot be
+   * retroactively narrowed without re-extraction. Reuses the `DayOfWeek`
+   * enum defined in Section 4.18.
+   */
+  applicableDaysOfWeek?: DayOfWeek[];
   /**
    * The start time of the event in HH:MM format.
    */

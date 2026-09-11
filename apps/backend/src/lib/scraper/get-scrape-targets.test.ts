@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { users, socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
+import { users, socialMediaAccountProfiles, subscriptions, brightdataPendingJobs } from '@festgrid/database';
 import { getBatchScrapeTargets } from './get-scrape-targets.js';
 import { eq, inArray } from 'drizzle-orm';
 import './register-adapters.js';
@@ -139,6 +139,68 @@ test('get-scrape-targets batch targeting tests', async (t) => {
     assert.strictEqual(targetIds.includes(p3.id), false, 'Profile 3 should be excluded (lastScrapedAt is 1h ago)');
     assert.strictEqual(targetIds.includes(p4.id), false, 'Profile 4 should be excluded (unsupported platform)');
     assert.strictEqual(targetIds.includes(p5.id), false, 'Profile 5 should be excluded (soft-deleted subscription)');
+  });
+
+  await t.test('excludes profiles with an in-flight Bright Data job but not ones with only completed/expired jobs', async () => {
+    const createdJobs: string[] = [];
+
+    // Profile with a still-PENDING Bright Data job (should be excluded)
+    const [pPending] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-target-bd-pending-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Bright Data Pending',
+      username: 'bd_pending',
+    }).returning();
+    createdProfiles.push(pPending.id);
+
+    // Profile whose only Bright Data job already COMPLETED (should still be included)
+    const [pCompleted] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-target-bd-completed-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Bright Data Completed',
+      username: 'bd_completed',
+    }).returning();
+    createdProfiles.push(pCompleted.id);
+
+    const [subPending] = await db.insert(subscriptions).values({
+      userId: user1.id,
+      accountId: pPending.id,
+    }).returning();
+    createdSubs.push(subPending.id);
+
+    const [subCompleted] = await db.insert(subscriptions).values({
+      userId: user1.id,
+      accountId: pCompleted.id,
+    }).returning();
+    createdSubs.push(subCompleted.id);
+
+    const [jobPending] = await db.insert(brightdataPendingJobs).values({
+      profileId: pPending.id,
+      snapshotId: 'test-snapshot-pending-' + Date.now(),
+      webhookToken: 'test-token-pending-' + Date.now(),
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    }).returning();
+    createdJobs.push(jobPending.id);
+
+    const [jobCompleted] = await db.insert(brightdataPendingJobs).values({
+      profileId: pCompleted.id,
+      snapshotId: 'test-snapshot-completed-' + Date.now(),
+      webhookToken: 'test-token-completed-' + Date.now(),
+      status: 'COMPLETED',
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    }).returning();
+    createdJobs.push(jobCompleted.id);
+
+    try {
+      const targets = await getBatchScrapeTargets();
+      const targetIds = targets.map((t) => t.profileId);
+
+      assert.strictEqual(targetIds.includes(pPending.id), false, 'Profile with a PENDING Bright Data job should be excluded');
+      assert.ok(targetIds.includes(pCompleted.id), 'Profile whose only Bright Data job is COMPLETED should still be scrape-eligible');
+    } finally {
+      await db.delete(brightdataPendingJobs).where(inArray(brightdataPendingJobs.id, createdJobs));
+    }
   });
 
   await t.test('filters targets based on accountType classification and status (AC1, AC5)', async () => {

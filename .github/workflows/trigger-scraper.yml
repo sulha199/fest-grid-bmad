@@ -1,0 +1,96 @@
+name: Manually Trigger Scraper
+
+# Manual-only workflow to invoke the scraper Lambda's daily-batch code path on demand,
+# without waiting for the EventBridge daily schedule (ScraperScheduleRule-<stage> in
+# apps/infrastructure/lib/festgrid-backend-stack.ts). Mirrors the same manual-only,
+# workflow_dispatch-gated pattern as backfill-scraper-audit-trail.yml, reusing the same
+# AWS credentials already scoped to `environment: production`.
+#
+# The Lambda handler (apps/backend/src/lambdas/scraper.ts) branches on the invocation
+# payload: an SQS event (`Records`) processes queued per-account jobs, a `{"jobType":
+# "stale-job-sweep"}` payload re-fetches any pending vendor job past its expiry directly
+# by runId/snapshotId (recovers jobs whose webhook callback never landed), and anything
+# else (an empty `{}`, same as what EventBridge sends) runs the daily batch-targeting pass.
+#
+# No `functionName` is set on ScraperLambda in the CDK stack, so its physical name is a
+# CloudFormation-generated string, not literally "ScraperLambda-<stage>" — the resolve
+# step below looks it up via list-stack-resources instead of guessing it.
+#
+# Only the prod stack (FestgridBackendStack-prod) is actually deployed by ci.yml today, so
+# `stage` defaults to prod; it's left as an input purely so this workflow keeps working
+# unmodified if dev/staging stacks are ever deployed.
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Stage whose ScraperLambda to invoke'
+        required: true
+        type: choice
+        options:
+          - prod
+          - staging
+          - dev
+        default: prod
+      job_type:
+        description: 'What to invoke: the daily batch-targeting pass, or an immediate stale-job-sweep (recovers pending jobs stuck past their expiry)'
+        required: true
+        type: choice
+        options:
+          - daily-batch
+          - stale-job-sweep
+        default: daily-batch
+
+jobs:
+  trigger-scraper:
+    name: Manually Trigger Scraper (manual)
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: trigger-scraper-${{ inputs.stage }}
+      cancel-in-progress: false
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Resolve ScraperLambda physical function name
+        id: fn
+        run: |
+          STACK_NAME="FestgridBackendStack-${{ inputs.stage }}"
+          NAMES=$(aws cloudformation list-stack-resources \
+            --stack-name "$STACK_NAME" \
+            --query "StackResourceSummaries[?ResourceType=='AWS::Lambda::Function' && contains(LogicalResourceId, 'ScraperLambda')].PhysicalResourceId" \
+            --output text)
+          COUNT=$(echo "$NAMES" | wc -w)
+          if [ "$COUNT" -ne 1 ]; then
+            echo "::error::Expected exactly one ScraperLambda function in $STACK_NAME, found $COUNT: $NAMES"
+            exit 1
+          fi
+          echo "name=$NAMES" >> "$GITHUB_OUTPUT"
+
+      - name: Build invocation payload
+        id: payload
+        run: |
+          if [ "${{ inputs.job_type }}" = "stale-job-sweep" ]; then
+            echo 'json={"jobType":"stale-job-sweep"}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'json={}' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Invoke scraper Lambda
+        run: |
+          aws lambda invoke \
+            --function-name "${{ steps.fn.outputs.name }}" \
+            --invocation-type RequestResponse \
+            --payload '${{ steps.payload.outputs.json }}' \
+            --cli-binary-format raw-in-base64-out \
+            response.json
+          echo "--- Lambda response (job_type: ${{ inputs.job_type }}) ---"
+          cat response.json
+          if grep -q '"FunctionError"' response.json; then
+            echo "::error::Scraper Lambda invocation returned a FunctionError — check CloudWatch Logs for ${{ steps.fn.outputs.name }}."
+            exit 1
+          fi
