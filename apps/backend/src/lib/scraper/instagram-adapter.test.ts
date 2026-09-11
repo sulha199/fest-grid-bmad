@@ -61,7 +61,7 @@ test('instagram-adapter tests', async (t) => {
     assert.deepStrictEqual(calledInput, {
       username: ['test_username'],
       resultsType: 'posts',
-      resultsLimit: 10,
+      resultsLimit: 30,
       onlyPostsNewerThan: '2026-08-01T00:00:00Z',
     });
 
