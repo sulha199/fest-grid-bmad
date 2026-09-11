@@ -111,12 +111,13 @@ checkpoint is safe on whatever model is driving; a step whose errors are silent 
   <critical>Do not write any file before this step completes. Formation is a proposal; the judgment is the user's.</critical>
   <output>Present, per accepted epic: the invariant sentence, the proposed key (`epic-N-iK`), member row ids, the draft story list (`a` / `b`…`y` / `z`), and the §6 spec-reconciliation routing per row. Then the rejected candidates with their failing criterion.
 
-  Then **every unclustered row, grouped by its disposition** (`{{gate}}` §5): `quick-dev`, `adopt: <epic>`, `sweep: <epic>`, `reprice_on: <epic>`, `carve-first`, `spec-first`, `blocked: <what>`, `stays-skipped`. Sort by `impact` inside each group, `compliance` and `user-visible` first. Close with the balance line: `N accepted members + M unclustered = K open rows read`.
+  Then **every unclustered row, grouped by its disposition** (`{{gate}}` §5): `quick-dev`, `promote`, `adopt: <epic>`, `sweep: <epic>`, `reprice_on: <epic>`, `carve-first`, `spec-first`, `blocked: <what>`, `stays-skipped`. Sort by `impact` inside each group, `compliance` and `user-visible` first. Close with the balance line: `N accepted members + M unclustered = K open rows read`.
 
   Ask the user to attack each invariant sentence directly: if they cannot restate it as "so anything that does X is a bug" without adding a caveat, the sentence is wrong.</output>
   <critical>Never present unclustered rows as a bare list or as "the rest". Every open row carries a named next action, and the arithmetic must balance — a row in neither the accepted set nor the disposition groups has been silently dropped. If it does not balance, find the missing rows before presenting anything.</critical>
   <critical>The disposition groups are the checkpoint's real payload. The first pass left 14 of 20 `user-visible` rows unclustered and the user could not see it, because the report presented them undifferentiated; the bias was found by counting the board days later. Sorting by `impact` inside each group is what puts the arguable omissions where they get argued.</critical>
-  <ask>Which of these hold? Reword, merge, split, or drop any of them. Then: does any `quick-dev` row actually belong in an epic, and does any epic member actually belong in `quick-dev`?</ask>
+  <critical>A standalone row's disposition splits on `effort`, not merit: `xs`/`s` is `quick-dev`, `m`/`l` is `promote` (`{{gate}}` §5). Sending an `m` row to `bmad-quick-dev` sends it somewhere that cannot hold it.</critical>
+  <ask>Which of these hold? Reword, merge, split, or drop any of them. Then: does any `quick-dev` or `promote` row actually belong in an epic, and does any epic member actually belong on its own?</ask>
   <action>Apply their corrections. Re-run §5's criteria against any cluster they changed — a reworded invariant can change membership.</action>
 </step>
 

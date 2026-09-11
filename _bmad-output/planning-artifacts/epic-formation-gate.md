@@ -291,7 +291,8 @@ a row in neither set has been silently dropped.
 
 | Disposition | When | What happens next |
 |---|---|---|
-| `quick-dev` | genuinely standalone; fixing it teaches nothing reusable | `bmad-quick-dev`, any time |
+| `quick-dev` | genuinely standalone, and small — `xs`/`s` | `bmad-quick-dev`, any time |
+| `promote` | genuinely standalone but `m`/`l`, so it needs a story, not a patch | `bmad-create-story` under the epic that owns the surface |
 | `adopt: <epic>` | violates an **already-formed** epic's invariant | added as an adoption story under that epic |
 | `sweep: <epic>` | shares a surface with an epic but is not epic-worthy itself (criterion 5) | one sweep story under the owning epic |
 | `reprice_on: <epic>` | not worth doing at today's price; a pending mechanism changes that price | re-examined when that epic lands (§9.1) |
@@ -307,6 +308,13 @@ which is precisely how the first pass's bias survived its own checkpoint.
 `quick-dev` is a legitimate answer and usually the commonest one. A singleton is not a
 formation failure; forcing it into an epic is. What the report must not do is reach that
 answer silently.
+
+**`quick-dev` and `promote` split on `effort`, not on merit.** Both mean *this row stands
+alone*; they differ only in whether that row is a patch or a story. §3's scale already draws
+the line — `xs` is "one file, one edit, no story needed" and `s` is "one story" — so a row at
+`m` (2–4 stories) or `l` routed to `bmad-quick-dev` is being sent somewhere that cannot hold
+it. Added 2026-09-11, after the disposition table shipped with `quick-dev` as the only
+standalone route and several `m` rows landed there.
 
 ## 6. Spec reconciliation routing
 

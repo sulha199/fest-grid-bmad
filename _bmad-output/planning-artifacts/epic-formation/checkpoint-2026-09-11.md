@@ -1,6 +1,7 @@
 # Formation pass 2026-09-11 — Step 4 checkpoint rulings
 
-**Frozen input:** commit `95e8a82`, 41 open unclustered rows + 5 non-epic unstarted
+**Frozen input:** superseded — see "What is still owed" item 4; the sweep freezes at
+`bec358b`. The Step 4 output below was produced against `95e8a82`, 41 open unclustered rows + 5 non-epic unstarted
 stories + IDEA-004 (re-score sweep only). Runner clean.
 **Status:** the pass stopped at Step 4. **Nothing has been written to `epics.md`,
 `sprint-status.yaml` or `backlog.yaml`.** These are the human rulings; the pass is
@@ -130,10 +131,35 @@ claiming without the tier limits, yields two contradicting sections. Dispatched
    each had ≥2 in-scope rows. `cross:prd` is expected to fail — it is a process tag
    meaning "needs PRD work", not a domain — but that is a conclusion from reading
    them, which has not happened.
-4. **Re-freeze before the sweep.** The dispatched PRD pass may append to IDEA-006's
-   and IDEA-008's notes, which is correct and expected — resolving a spec is exactly
-   what should change a `spec-first` row's disposition. Record the new commit as the
-   frozen input rather than reusing `95e8a82`.
+4. **Re-freeze: the new input commit is `bec358b`, not `95e8a82`.** The dispatched
+   PRD pass landed and appended to IDEA-006's and IDEA-008's notes, exactly as
+   expected — resolving a spec is what should change a `spec-first` row's
+   disposition. Runner clean at `bec358b`. Verified independently: only `note`
+   changed on those two rows (no `status`/`effort`/`impact`/`epic`), no `backlog_id`
+   was written into the PRD (§8), and every section and symbol PRD 3.17 / 4.20 / 6
+   cite resolves — 3.9.3, 3.13, 3.16, 4.8's `UserRole.MODERATOR`, 4.9, and the
+   `view_switched` / `subscription_default_location_set` PostHog precedents all
+   exist. Section numbers 3.17 and 4.20 are unique and follow 3.16 / 4.19.
+
+   **Two dispositions change as a result:**
+   - **IDEA-008** leaves `spec-first`. The cap is resolved to 5
+     (`MAX_SUBSCRIBED_ACCOUNTS_FREE_USER`), enforcement, the moderator exemption and
+     the CTA's two PostHog events are all stated, and the row's note says no open
+     question remains. At `effort: m` its new disposition is **`promote`**, not
+     `quick-dev` (see item 5).
+   - **IDEA-006** stays blocked, but on a different thing. PRD 3.17 now specifies
+     the claim flow, so the *spec* question is answered; `epics.md`'s Epic 8 is
+     still a bare placeholder, which the PRD pass correctly declined to touch under
+     CLAUDE.md's Planning Isolation guardrail. Re-route from `spec-first` to
+     **`blocked: epics.md Epic 8 needs bmad-create-epics-and-stories`**.
+
+5. **A gap the verification exposed in the disposition table itself.** It shipped with
+   `quick-dev` as the only route for a standalone row, described as "`bmad-quick-dev`,
+   any time" — but §3's effort scale says `m` is 2–4 stories. Several rows the run
+   put in `quick-dev` are `m`. Fixed the same day: `promote` added as the standalone
+   route for `m`/`l` rows, going to `bmad-create-story` under the epic that owns the
+   surface. **The 19 `quick-dev` rows must be re-split on `effort` during the sweep**
+   — this was not the run's error, the table gave it nowhere else to put them.
 
 ## 4. Dispositions upheld as reported
 
