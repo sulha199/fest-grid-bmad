@@ -101,7 +101,7 @@ unchanged, and an archived row is never edited again.
 
 ---
 
-## 4. Gate gaps the 2026-09-07 pass exposed in §2 and §5
+## 4. Gate gaps the 2026-09-07 pass exposed in §2 and §5 — **APPLIED 2026-09-08**
 
 Both surfaced as the run correctly refusing to guess, which is the checkpoint
 working — but they are defects in the document, not in the run.
@@ -126,8 +126,40 @@ Ruled this way for the in-flight pass (IDEA-011 → `epic-0-i5`, no adoption sto
 of its own, `a` settles the apply-on-change question). The document should be
 amended to match rather than leaving the next pass to re-derive it.
 
+**Both amended in `epic-formation-gate.md` on 2026-09-08**, together with the
+two-axis correction the same pass motivated: §2 now states that kind is set by the
+driving rows and not by unanimity, and §5 states that a board row an epic answers is
+*answered, not replaced* — it carries `epic: <key>` and joins the answering story's
+key into `stories`. Nothing left to raise as a row for this item.
+
 **Ninth fractional row.** FIND-011 belongs in `epic-0-i6` on merit — unused props
 and an unscaled variant on `SubscribedAccountCard` are prop-contract defects on
 the exact card the invariant governs — but it also covers `EventDetailView`,
 outside the card. It is a carve candidate under item 2 above, bringing the
 fractional count from the pass to nine.
+
+---
+
+## 5. Batch execution of an epic's stories — a separate layer, not a gate change
+
+**Raised 2026-09-08**, from the consolidation-epic proposal. The idea: once an epic
+groups rows that share a mechanism, its stories are also cheaper to *execute*
+together — one context window that has already loaded the mechanism, and one PR
+rather than one per story.
+
+**It is not a formation concern and must not be written into the gate.** Formation
+decides what belongs together; execution decides how the belonging work is run. Fold
+batching into the gate and the two get decided at once, which is how a cluster ends
+up sized to fit a PR instead of to fit an invariant — the exact inversion §5
+criterion 1 exists to stop.
+
+**Where it belongs: `ritual-orchestrator`.** That skill already dispatches
+`bmad-create-story` / `bmad-dev-story` as child sessions, so "dispatch epic-0-i3's
+`b`..`e` stories into one session, in letter order, `a` first" is an orchestrator
+argument, not a new ritual. The letters already encode the dependency order the batch
+would need.
+
+**Open question before it is worth building.** A batch that fails halfway leaves
+several stories partly done in one branch, which is worse to unwind than N separate
+branches. Decide the failure mode first — abort-and-reset, or commit-per-story inside
+one branch — and only then size the batch.

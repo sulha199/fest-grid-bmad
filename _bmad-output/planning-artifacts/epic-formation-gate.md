@@ -30,7 +30,7 @@ downstream (`epic-readiness-check` → `create-story` → `dev-story` → `code-
 | | Greenfield ritual | Formation from the board |
 |---|---|---|
 | Input | PRD requirements | evidence: rows pointing at real code |
-| An epic is | a user capability | **an invariant** |
+| An epic is | a user capability | **an invariant**, or a capability the board shows gaps in (§2's two axes) |
 | Spec flows | spec → epic → code | code → epic → **spec reconciliation** |
 | Done means | the capability ships | the defect class **cannot recur** |
 
@@ -64,7 +64,12 @@ expected, not a smell.
 ### Formation is not only for improvement epics
 
 Two *features* that need the same mechanism cluster on the same evidence, by the same
-criteria — an `idea` or `proposal` row is board input like any other. The observation is
+criteria — an `idea` or `proposal` row is board input like any other.
+
+**Kind is set by the driving rows, not by unanimity.** A row of another type may be a member
+whenever it violates the same invariant or fills a gap in the same capability; it does not
+flip the epic's kind. One `proposal` inside a bug-driven cluster leaves it an improvement
+epic (ruled 2026-09-08 for IDEA-011 in `epic-0-i5`). The observation is
 identical; only the outputs differ:
 
 | | Improvement epic | Feature epic formed this way |
@@ -80,9 +85,32 @@ class cannot recur — which is also why check 11 exempts integer epics. Add one
 the epic's whole justification is the shared mechanism: it stops the second feature quietly
 forking the first one's helper, which is the failure that made the epic worth forming.
 
-Criterion 4 (ratchetable) therefore cannot be the admission test here. **Criterion 3 takes
-its place and is read strictly:** if a single mechanism cannot host both features, they are
-two feature epics that happen to be adjacent, and forming one epic buys nothing.
+Criterion 4 (ratchetable) therefore cannot be the admission test here. **Its replacement is
+criterion 3's feature form (§5), not a stricter reading of its mechanism form** — see the
+correction below.
+
+### Two axes, and the error of using one for both
+
+**Corrected 2026-09-08.** This section previously said criterion 3 "takes its place and is
+read strictly." That was wrong, and it was measured wrong: after the first formation pass,
+`internal` rows clustered at 64% and `latent` at 60%, while **`user-visible` clustered at
+30%** — 14 of 20 left out, 8 of them `idea` rows. Requiring a shared *mechanism* set a
+higher bar for exactly the work a user can see.
+
+The cause is that a shared mechanism is an **implementation** predicate. Internal and latent
+defects *are* mechanism problems, so they cluster on it naturally. Features are outcome
+problems: two of them can share no mechanism at all — a quota guard, a trigger, a status
+display — while being one thing to the person using the product.
+
+| | Improvement epic | Feature epic |
+|---|---|---|
+| The sentence states | an **invariant** — *every X goes through Y* | a **capability**, from the user's side — *a subscriber sees events from a new account without waiting for the daily batch* |
+| Members are | violations of it | **gaps** in it |
+| Cohesion is | one **mechanism** can host it | one **journey** can host them |
+| Done means | the class cannot recur (ratchet) | the capability ships |
+
+**Never apply the mechanism test to a feature cluster.** That is the specific error this
+correction removes. Ask instead whether the members are steps or facets of one journey.
 
 ## 3. Story letters
 
@@ -155,21 +183,41 @@ state stays owned by `sprint-status.yaml` throughout; the epic only re-parents i
 the absorption in the formation report: an unstarted story that silently changes epics is
 the drift this whole board exists to prevent.
 
+**A board row an epic answers is absorbed differently.** It is *answered*, not replaced, so
+`superseded_by` is the wrong vocabulary — reserve that for a row superseded by another row.
+The absorbed row carries `epic: <key>`, and when the story that answers it exists, that story
+key joins the row's `stories`; the row then derives to `promoted` and closes with the epic
+through §5's ordinary mechanism. It needs no adoption story of its own when it is the rule
+the mechanism implements rather than a symptom of its absence.
+
 ### The criteria
 
 All five must hold. Any failure → not an epic.
 
-1. **≥3 open rows.** Two rows are two quick-devs.
-2. **One sentence states the invariant**, present tense, positive form — *"every X goes
-   through Y"* — and **every member row is a violation of it.** A row that needs an "and
-   also" belongs to a different cluster. Write the sentence before deciding membership; a
-   cluster you can only describe as a list is a tag, not an invariant.
-3. **A single mechanism can host it** — one that exists, or one buildable in a single `a`
-   story. Two mechanisms means two epics.
-4. **It is ratchetable**, per §4 — mandatory for an improvement epic; for a feature epic
-   formed this way, criterion 3 is read strictly in its place (§2).
-5. **Combined effort is worth ≥3 stories.** Three `xs` rows that share a surface are a
-   sweep story, not an epic.
+Criteria 2 and 3 have a form per axis (§2). Pick the axis from what the cluster is about —
+a defect class or a user-facing capability — then apply that column and no other.
+
+1. **≥3 open rows.** Both axes. Two rows are two quick-devs.
+2. **One sentence, written before membership is decided.** Both axes; the forms differ.
+   - *Improvement:* the **invariant**, present tense, positive — *"every X goes through Y"* —
+     and every member row is a **violation** of it.
+   - *Feature:* the **capability**, present tense, from the user's side — *"a subscriber sees
+     events from a new account without waiting for the daily batch"* — and every member row
+     is a **gap** in it.
+   Either way, a row needing an "and also" belongs to a different cluster, and a cluster you
+   can only describe as a list has failed this criterion.
+3. **Cohesion.**
+   - *Improvement:* **a single mechanism can host it** — one that exists, or one buildable in
+     a single `a` story. Two mechanisms means two epics.
+   - *Feature:* **a single journey can host them** — shipping the members separately leaves
+     the capability *visibly incomplete to a user*. If any member can ship alone and a user
+     gets the whole outcome, it is not a member.
+4. **It is ratchetable**, per §4. **Improvement epics only, and mandatory there.** Feature
+   epics are not required to ratchet (§2); criterion 3's feature form is what guards them
+   against inflation, and that guard is falsifiable — name the user who is left with an
+   incomplete outcome, or drop the member.
+5. **Combined effort is worth ≥3 stories.** Both axes. Three `xs` rows that share a surface
+   are a sweep story, not an epic.
 
 ### Candidate generation
 

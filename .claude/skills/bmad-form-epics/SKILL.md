@@ -91,11 +91,15 @@ checkpoint is safe on whatever model is driving; a step whose errors are silent 
 </step>
 
 <step n="3" goal="Apply the criteria">
-  <action>For each candidate, write the invariant sentence FIRST — present tense, positive form — then test membership against it. A cluster you can only describe as a list has already failed §5 criterion 2.</action>
-  <action>Apply all five criteria from `{{gate}}` §5. Any failure means it is not an epic.</action>
+  <action>For each candidate, decide its axis first (§2: a defect class or a user-facing capability), then write §5 criterion 2's sentence for THAT axis — the invariant, or the capability from the user's side — before deciding membership. A cluster you can only describe as a list has already failed criterion 2 either way.</action>
+  <action>Apply all five criteria from `{{gate}}` §5, using the form of criteria 2 and 3 that matches the axis. Any failure means it is not an epic.</action>
+  <critical>NEVER apply the mechanism form of criterion 3 to a feature cluster (`{{gate}}` §2). That error measurably suppressed user-visible work in the 2026-09-08 pass — 30% of `user-visible` rows clustered against 64% of `internal`. Two features can share no mechanism at all and still be one journey.</critical>
   <action>For each rejected candidate, record the criterion it failed and the routing it gets instead (§4: a sweep story under the owning epic, or per-row `bmad-quick-dev`). A rejection without a recorded reason gets re-proposed and re-litigated next session.</action>
   <action>When an unstarted story lands in a cluster, decide its fate explicitly per §5: it keeps its key and becomes an adoption story under the new epic, OR goes `wont-do` with a note naming the sibling that supersedes it. Never renumber it, and never leave the absorption unrecorded — a story that silently changes epics is the drift the board exists to prevent.</action>
-  <action>Determine what KIND of epic each accepted cluster is, per §2. A cluster of `bug`/`finding` rows is an improvement epic (`epic-N-iK`) — determine its owning N: the epic that owns the MECHANISM, not the one with the most symptoms; 0 when the mechanism is cross-cutting. A cluster of `idea`/`proposal` rows is a FEATURE epic taking the next integer, where `z` is optional, criterion 3 is read strictly in criterion 4's place, and the spec route is `bmad-prd` first rather than §6 amendment.</action>
+  <action>Determine what KIND of epic each accepted cluster is, per §2 — this decides WHICH FORM of criteria 2 and 3 you just applied, so if you picked the wrong kind, go back and re-apply §5 in the right column.
+    - **Improvement epic** (`epic-N-iK`), driven by `bug`/`finding` rows: criterion 2 is the invariant form, criterion 3 the mechanism form, criterion 4 mandatory. Owning N is the epic that owns the MECHANISM, not the one with the most symptoms; 0 when it is cross-cutting.
+    - **Feature epic** (next integer), driven by `idea`/`proposal` rows: criterion 2 is the capability form, criterion 3 the JOURNEY form, `z` optional, spec route `bmad-prd` first.
+    Kind is set by the driving rows, not by unanimity — a member of another type does not flip it (§2).</action>
 </step>
 
 <step n="4" goal="Human checkpoint — the user attacks the invariant">
