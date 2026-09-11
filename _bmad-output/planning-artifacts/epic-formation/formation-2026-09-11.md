@@ -303,6 +303,56 @@ whatever its eventual route.
 | compliance | 0 | 0 | 0 | — |
 | **Total** | **11** | **30** | **41** | **27%** |
 
+### Verification addendum (2026-09-11, reviewing session)
+
+Checked against `backlog.yaml` rather than read from this report's own summary:
+
+- **§5's table is exact.** 41 rows listed, 41 unique, no duplicates, and the set matches the
+  in-scope set precisely — none added, none dropped. Every `promote` row is `m`/`l` and every
+  `quick-dev` row is `xs`/`s`, all 41 `impact` values correct. This was re-derived from primary
+  evidence because the prior 19-row list was never written down — a gap in
+  `checkpoint-2026-09-11.md`, not in the run that produced it.
+- **`sweep: Epic 3` is genuinely inherited.** Doubted on review, then confirmed at
+  `formation-2026-09-08.md` line 85: *"AIProcessingQueue enqueue | BUG-014, BUG-015 | criterion 1 —
+  only 2 rows | …recommend one sweep story under Epic 3."* The 2026-09-11 stalled run had lost that
+  routing and put both rows in `quick-dev`; this pass **recovered** it.
+
+**Two corrections to this section.**
+
+**1. The coverage definition changed, so 27% is not comparable to the earlier figures.** This table
+counts `adopt` and `sweep` rows as clustered. Every previous coverage number — the 30%/64% that
+motivated the two-axis correction, and the stalled run's 18% — counted **epic members only**. Under
+that same definition this pass is:
+
+| Impact | Clustered | Total | % |
+|---|---|---|---|
+| user-visible | 4 | 22 | **18%** |
+| cosmetic | 3 | 6 | 50% |
+| latent | 0 | 4 | 0% |
+| internal | 0 | 9 | 0% |
+| **Total** | **7** | **41** | **17%** |
+
+**`user-visible` is unchanged at 18%.** The generator fix moved the headline number by nothing. That
+is the honest result and it is the one worth recording: the feature-axis sweep ran properly and found
+nothing, so the low number is now a fact about this board rather than an artifact of a missing
+generator. Both definitions are legitimate; mixing them across passes is not.
+
+**2. A limit on what the zero proves.** The human ruling that moved "Epic 9" to `epic-1-i1` took
+IDEA-016 + IDEA-017 — the one pair on this board that demonstrably shares a capability — out of the
+feature pool *before* this sweep ran. The sweep found zero among what remained. The strongest
+counter-candidate available to the reviewer was a performance journey (*a user browsing media-heavy
+surfaces doesn't wait on images*: IDEA-005 + IDEA-020); it dies on **criterion 1** with 2 clean
+members once IDEA-021/022 are removed as settled. So the zero holds — but it is zero from a pool the
+best candidate had already left, not zero from a full field.
+
+**3. IDEA-003's disposition did change, and the report says it did not.** §2 flags that
+`EXPERIENCE.md`'s "Mobile Multi-Day Calendar Spanning" section (line 124, cross-referenced from the
+Calendar View section) already specifies this behaviour, making the row's own *"no UX design exists
+yet"* note stale — then says *"not acted on, freeze holds."* But the row moved from `spec-first` (its
+disposition in the stalled run) to `promote` here, which **is** acting on it. The move is correct —
+the staleness is real, confirmed on review — and it should be recorded as a decision rather than as
+an untaken observation. **Board follow-up:** IDEA-003's note needs updating; it is currently wrong.
+
 **Stated plainly:** coverage is low and internal-impact rows have zero cluster coverage this pass.
 This is not explained away. Two things are true at once: (1) the feature axis, run properly for the
 first time, found nothing to cluster — most `idea`/`proposal` rows on this board are genuinely
