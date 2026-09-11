@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { randomBytes } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { apifyPendingJobs, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
@@ -10,6 +11,10 @@ import {
   markPendingJobExpired,
   findExpiredPendingJobs,
 } from './apify-pending-jobs-store.js';
+
+function testWebhookToken(): string {
+  return randomBytes(24).toString('hex');
+}
 
 test('apify-pending-jobs-store tests', async (t) => {
   let testProfileId: string;
@@ -35,13 +40,15 @@ test('apify-pending-jobs-store tests', async (t) => {
     await db.delete(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
   });
 
-  await t.test('creates pending job with webhook token', async () => {
+  await t.test('creates pending job storing the caller-provided webhook token verbatim', async () => {
     const runId = 'run-123-' + Date.now();
-    const result = await createPendingJob({ profileId: testProfileId, runId });
+    const webhookToken = testWebhookToken();
+    const result = await createPendingJob({ profileId: testProfileId, runId, webhookToken });
 
     assert.ok(result.id);
-    assert.ok(result.webhookToken);
-    assert.strictEqual(result.webhookToken.length, 48); // randomBytes(24).toString('hex') = 48 chars
+    // Must equal the caller's token exactly, not a store-generated one — otherwise the
+    // vendor's webhook callback (which echoes this same token back) can never find this row.
+    assert.strictEqual(result.webhookToken, webhookToken);
 
     const [row] = await db
       .select()
@@ -60,6 +67,7 @@ test('apify-pending-jobs-store tests', async (t) => {
     const { webhookToken, id } = await createPendingJob({
       profileId: testProfileId,
       runId,
+      webhookToken: testWebhookToken(),
     });
 
     const found = await findPendingJobByToken(webhookToken);
@@ -73,7 +81,7 @@ test('apify-pending-jobs-store tests', async (t) => {
 
   await t.test('marks pending job as completed', async () => {
     const runId = 'run-789-' + Date.now();
-    const { id } = await createPendingJob({ profileId: testProfileId, runId });
+    const { id } = await createPendingJob({ profileId: testProfileId, runId, webhookToken: testWebhookToken() });
 
     await markPendingJobCompleted(id);
 
@@ -87,7 +95,7 @@ test('apify-pending-jobs-store tests', async (t) => {
 
   await t.test('marks pending job as expired', async () => {
     const runId = 'run-expired-' + Date.now();
-    const { id } = await createPendingJob({ profileId: testProfileId, runId });
+    const { id } = await createPendingJob({ profileId: testProfileId, runId, webhookToken: testWebhookToken() });
 
     await markPendingJobExpired(id);
 
@@ -104,14 +112,14 @@ test('apify-pending-jobs-store tests', async (t) => {
     const futureRunId = 'run-future-' + Date.now();
 
     // Create past job (expired)
-    const { id: pastId } = await createPendingJob({ profileId: testProfileId, runId: pastRunId });
+    const { id: pastId } = await createPendingJob({ profileId: testProfileId, runId: pastRunId, webhookToken: testWebhookToken() });
     await db
       .update(apifyPendingJobs)
       .set({ expiresAt: new Date(Date.now() - 1000) }) // 1 second in the past
       .where(eq(apifyPendingJobs.id, pastId));
 
     // Create future job (not expired)
-    await createPendingJob({ profileId: testProfileId, runId: futureRunId });
+    await createPendingJob({ profileId: testProfileId, runId: futureRunId, webhookToken: testWebhookToken() });
 
     const expiredJobs = await findExpiredPendingJobs();
 
@@ -131,6 +139,7 @@ test('apify-pending-jobs-store tests', async (t) => {
     const { id: completedId } = await createPendingJob({
       profileId: testProfileId,
       runId: completedRunId,
+      webhookToken: testWebhookToken(),
     });
     await db
       .update(apifyPendingJobs)
@@ -144,6 +153,7 @@ test('apify-pending-jobs-store tests', async (t) => {
     const { id: pendingId } = await createPendingJob({
       profileId: testProfileId,
       runId: pendingRunId,
+      webhookToken: testWebhookToken(),
     });
     await db
       .update(apifyPendingJobs)

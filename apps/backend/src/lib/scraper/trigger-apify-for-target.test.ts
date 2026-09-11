@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { randomBytes } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { apifyPendingJobs, scraperProviderUsage, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
@@ -90,6 +91,7 @@ test('trigger-apify-for-target tests', async (t) => {
       await createPendingJob({
         profileId: target.profileId,
         runId: 'run-sim-123',
+        webhookToken: randomBytes(24).toString('hex'),
       });
       return true;
     });

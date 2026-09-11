@@ -1,7 +1,6 @@
 import { db } from '../../db/client.js';
 import { apifyPendingJobs } from '@festgrid/database';
 import { eq, and } from 'drizzle-orm';
-import { randomBytes } from 'crypto';
 
 export interface ApifyPendingJob {
   id: string;
@@ -18,13 +17,18 @@ export interface ApifyPendingJob {
 export async function createPendingJob({
   profileId,
   runId,
+  webhookToken,
   scraperActorRunId,
 }: {
   profileId: string;
   runId: string;
+  // Must be the exact token embedded in the webhook URL registered with the vendor at
+  // trigger time (see trigger-apify-for-target.ts). Generating a separate token here would
+  // mean the incoming webhook's jobToken can never match this row's, leaving the job stuck
+  // at PENDING forever even after the vendor run succeeds.
+  webhookToken: string;
   scraperActorRunId?: string | null;
 }): Promise<{ webhookToken: string; id: string }> {
-  const webhookToken = randomBytes(24).toString('hex');
   const { APIFY_JOB_TIMEOUT_MINUTES = 180 } = process.env;
   const timeoutMinutes = parseInt(APIFY_JOB_TIMEOUT_MINUTES as string, 10);
   const expiresAt = new Date(Date.now() + timeoutMinutes * 60_000);

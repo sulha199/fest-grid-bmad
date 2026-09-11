@@ -46,16 +46,12 @@ export async function attemptBrightDataTrigger(
     });
 
     // Create pending job row (with the audit run ID so it can be threaded through the webhook)
-    const pendingJob = await createPendingJob({
+    await createPendingJob({
       profileId: target.profileId,
       snapshotId: triggerResult.snapshotId,
+      webhookToken,
       scraperActorRunId: auditRunId || undefined,
     });
-
-    // Verify the webhook token matches what we created
-    if (pendingJob.webhookToken !== webhookToken) {
-      console.error('Webhook token mismatch - this should not happen');
-    }
 
     // Record usage
     await recordProviderUsage('brightdata', 1);

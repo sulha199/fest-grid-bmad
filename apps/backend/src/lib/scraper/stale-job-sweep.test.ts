@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { randomBytes } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { apifyPendingJobs, socialMediaAccountProfiles, posts } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
@@ -29,6 +30,7 @@ test('stale-job-sweep tests', async (t) => {
     const { id } = await createPendingJob({
       profileId: testProfileId,
       runId: 'run-succeeded',
+      webhookToken: randomBytes(24).toString('hex'),
     });
 
     // Mark job as expired (past its expiration time)
@@ -63,6 +65,7 @@ test('stale-job-sweep tests', async (t) => {
     const job1 = await createPendingJob({
       profileId: testProfileId,
       runId: 'run-1',
+      webhookToken: randomBytes(24).toString('hex'),
     });
 
     const [profile2] = await db.insert(socialMediaAccountProfiles).values({
@@ -76,6 +79,7 @@ test('stale-job-sweep tests', async (t) => {
     const job2 = await createPendingJob({
       profileId: testProfileId2,
       runId: 'run-2',
+      webhookToken: randomBytes(24).toString('hex'),
     });
 
     // Mark both as expired

@@ -70,6 +70,7 @@ export let attemptApifyAsyncTrigger = async (
     const pendingJob = await createPendingJob({
       profileId: target.profileId,
       runId: run.id,
+      webhookToken,
       scraperActorRunId: auditRunId || undefined,
     });
 
