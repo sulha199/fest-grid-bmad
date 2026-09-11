@@ -101,6 +101,7 @@ components:
     # event_card_date_box (masonry), not just a restyle -- see date_box below. Still left open, and still an
     # architecture question for the amendment story (not this pass): whether this composition attaches to the
     # existing mobile_day_list per-schedule card, a new flatter/ungrouped surface, or both.
+    # References: imports/calendar-row-card-with-thumbnail.png (with-image state), imports/calendar-row-card-thumbnail-fallback-large-favorite-icon.png (missing/expired-image fallback).
     base: "flex items-stretch gap-2 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200" # was already the card's own chrome (violet-50 fill/border) -- now also the 3-zone flex row container below
     date_box: "flex items-center justify-center px-2 py-1 rounded-md bg-slate-800 text-white text-xs font-semibold shrink-0" # same solid-navy visual treatment as event_card_date_box.base_default (no photo directly behind it, same reasoning) -- BUT its content is till/end info, not formatShortEventDateTime's start-date output. No separate till_badge sub-element on this card -- this single box does both jobs (date-shaped chrome, till-shaped content), since the day/date container this card sits inside already shows the start date. **Differs from event_card_till_badge's own gating (AC14: no badge until the event has started)**: a calendar row is already anchored to one specific day/segment, so showing nothing pre-start would leave most upcoming cards' date boxes empty, which defeats the point of keeping a box here at all. Deferred to the amendment story: the exact always-shown text rule for this box (e.g. that day's segment end time, "till hh:mm", independent of has-it-started) -- reuses `formatEventTime` and the day-segment data `WeeklyCalendarView.tsx` already computes (`dayBuckets`/`isFirstSegment`/`isLastSegment`), not new formatting logic, but the has-it-started gate itself does not carry over from AC14 as-is.
     content: "flex-1 min-w-0 flex flex-col gap-1 justify-center" # title/venue/badges column -- reuses event_card_status_badge/event_card_nearby_badge as-is, no new badge tokens needed
@@ -136,6 +137,7 @@ components:
       # rather than to a full-width poster, means an expired/broken image degrades gracefully -- the row's
       # layout never depends on the image actually loading, so there's no reflow/collapse when it fails (see
       # thumbnail_default_fallback below and backlog FIND-023).
+      # Reference: imports/masonry-default-ai-tech-summit-date-box-beside-thumbnail.png.
       base: "flex items-stretch gap-2"
     thumbnail_default:
       # Sits beside event_card_date_box.base_default inside top_row_default. `flex-1` (fills whatever width the
@@ -154,11 +156,14 @@ components:
       # "image not available" text, no fill distinct from the card's own bg-card) -- and
       # event_card_favorite_count_badge_large (below) replaces the small corner favorite_badge, centered in the
       # reserved slot instead of corner-anchored, matching the reference screenshot exactly.
+      # Reference: imports/masonry-default-thumbnail-fallback-large-favorite-icon.png.
       base: "flex items-center justify-center h-full"
   event_card_favorite_count_badge_large:
     # New <bmad-ux pass, 2026-09-11> -- shared between event_card_masonry's default-state missing-image fallback
     # (thumbnail_default_fallback above) and the new calendar row-card's own missing-image fallback
     # (event_card_compact_thumbnail_fallback below). Both reference screenshots show the identical treatment:
+    # imports/masonry-default-thumbnail-fallback-large-favorite-icon.png and
+    # imports/calendar-row-card-thumbnail-fallback-large-favorite-icon.png.
     # the same favorite-toggle heart icon and count, just larger and with no pill/background, standing alone
     # where the image would have been. Not a new component -- the same favorite-toggle button EventCard/
     # WeeklyCalendarView already render, just re-skinned; only the icon size and the removed pill background
@@ -181,7 +186,7 @@ components:
     # rounded-full) so it reads as a date chip distinct from a pure status pill. Primary content is the exact
     # same formatShortEventDateTime() output the pill already rendered (Today/Tomorrow/weekday/short-date, e.g.
     # "12 Oct") plus its existing Clock-icon-when-today-with-time rule (AC12) -- reused verbatim, not
-    # reimplemented.
+    # reimplemented. Reference: imports/masonry-prominent-quantum-leap-symposium.png.
     base: "absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground"
     icon: "w-3 h-3" # existing Clock icon, rendered only when hasTime && dayDiff === 0 -- unchanged rule carried over from the superseded pill
     base_default:
@@ -197,6 +202,7 @@ components:
       # icon) is identical to `base` above -- only the container's position/background changes, not what's
       # inside it. `relative` is required here (unlike `base`, which is itself `absolute` and so already a valid
       # containing block) so event_card_till_badge can still anchor to this box's corner.
+      # Reference: imports/masonry-default-ai-tech-summit-date-box-beside-thumbnail.png.
       base: "relative flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 text-white shadow-sm text-xs font-semibold shrink-0"
   event_card_till_badge:
     # Added <bmad-ux pass, 2026-09-04> -- Story 1.3b AC14. REVISED <bmad-ux pass, 2026-09-11> -- reference
@@ -212,6 +218,7 @@ components:
     # with margin. Anchored to the containing date box's top-left corner in both prominentPoster states (works
     # against `base`, which is itself `absolute` and so already a containing block, and against `base_default`,
     # which now carries its own `relative` for exactly this reason).
+    # References: imports/masonry-prominent-quantum-leap-symposium.png (prominentPoster=true), imports/masonry-default-ai-tech-summit-date-box-beside-thumbnail.png (prominentPoster=false).
     base: "absolute -top-1.5 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-[10px] font-semibold leading-none shadow-sm whitespace-nowrap"
   event_card_status_badge:
     # Added <bmad-ux pass, 2026-09-04> -- Story 1.3b AC15 (8-state status badge: ended/happeningNow/endsToday/
