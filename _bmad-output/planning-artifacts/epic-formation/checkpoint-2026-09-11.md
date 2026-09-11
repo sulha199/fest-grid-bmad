@@ -161,7 +161,37 @@ claiming without the tier limits, yields two contradicting sections. Dispatched
    surface. **The 19 `quick-dev` rows must be re-split on `effort` during the sweep**
    — this was not the run's error, the table gave it nowhere else to put them.
 
-## 4. Dispositions upheld as reported
+## 4. Improvement-axis rejections — settled, do not re-litigate
+
+Recorded verbatim from the run's Step 4 output so the next session inherits them
+rather than re-deriving them. §5 requires rejections to be written down for exactly
+this reason; they were reported in conversation and would otherwise be lost with it.
+
+| Candidate | Rows | Criterion | Why it failed |
+|---|---|---|---|
+| `cross:i18n` remainder | BUG-010, FIND-013, FIND-016 | 2 | No sentence covers all three. BUG-010 is a missing timezone value at the layout root; FIND-013 is dead markup/i18n keys left by a *removal*; FIND-016 is enum/locale cross-source validation. Three root causes sharing one tag. |
+| `cross:process` remainder | FIND-007, IDEA-015, IDEA-020 | 2 | A tooling incident (cline-cli hangs), a scraper-batching cost spike, and Instagram-embed performance. No relationship beyond the tag. |
+| `web:subscriptions` remainder | FIND-010, FIND-022, IDEA-008, IDEA-009 | 2 | Unfinished UI polish, post-attribution misassignment, an account cap, and auto-extract-on-subscribe. Four independent problems sharing one tag. |
+| IDEA-008 + IDEA-009 | IDEA-008, IDEA-009 | 3 (feature form) | Either ships alone with complete value — IDEA-008 gives the whole cap-and-CTA outcome, IDEA-009 the whole extract-on-subscribe outcome. Neither leaves the other visibly incomplete. |
+| `CC-002` rebrand | BUG-001, IDEA-002 | 1 | Only 2 open rows. Genuinely related (both blocked on new brand visuals) but 2 rows is 2 quick-devs by rule. |
+| `CC-018` remainder | FIND-023, IDEA-006 | 2 | Broken-image fallback vs. Epic-8 account claim. The `parent` link is administrative — both carved from one capture — not thematic. FIND-023 was separately accepted into the card cluster via its own note, a different evidentiary path. |
+| Instagram embed | IDEA-020, IDEA-021, IDEA-022 | 3 (feature form) | IDEA-021's note: *"could be picked up on its own ahead of IDEA-020's larger questions."* IDEA-022's note: *"no open design questions left."* Both were split out of IDEA-020 *because* they are independently complete wins. IDEA-022 alone already delivers the primary outcome — the page stops blocking on the embed. |
+
+Four more groups died on criterion 1 by arithmetic after out-of-scope rows were
+removed, with no reason beyond the count: `cross:notifications` (1 row left),
+`pkg:database` (1), `web:onboarding` (2), `app:infrastructure` (1). A fifth,
+`web:moderation` (BUG-014, FIND-019 left), reached criteria 1/2 and died there — a
+reprocessing bug and a test-naming gap admit no shared sentence.
+
+**Why a fresh session, not the one that produced this.** That run has already
+concluded these 41 rows are largely singletons and written standalone
+justifications for 19 of them. The outstanding work asks it to sweep the same rows
+for shared journeys and to reconsider BUG-013 and FIND-009 — both of which it
+justified as standalone. Continuing anchors the measurement against the thing being
+measured. The only real cost of starting cold is losing the reasoning above, which
+is why it is written here.
+
+## 5. Dispositions upheld as reported
 
 All other dispositions from the run's Step 4 output were checked and stand:
 5 `spec-first`, 4 `blocked`, 1 `adopt` (FIND-008 → `epic-0-i6`), 1 `sweep`
