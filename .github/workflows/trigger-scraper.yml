@@ -11,6 +11,10 @@ name: Manually Trigger Scraper
 # batch-targeting branch, so an empty `{}` payload reproduces exactly what the EventBridge
 # schedule sends.
 #
+# No `functionName` is set on ScraperLambda in the CDK stack, so its physical name is a
+# CloudFormation-generated string, not literally "ScraperLambda-<stage>" — the resolve
+# step below looks it up via list-stack-resources instead of guessing it.
+#
 # Only the prod stack (FestgridBackendStack-prod) is actually deployed by ci.yml today, so
 # `stage` defaults to prod; it's left as an input purely so this workflow keeps working
 # unmodified if dev/staging stacks are ever deployed.
@@ -43,10 +47,25 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Resolve ScraperLambda physical function name
+        id: fn
+        run: |
+          STACK_NAME="FestgridBackendStack-${{ inputs.stage }}"
+          NAMES=$(aws cloudformation list-stack-resources \
+            --stack-name "$STACK_NAME" \
+            --query "StackResourceSummaries[?ResourceType=='AWS::Lambda::Function' && contains(LogicalResourceId, 'ScraperLambda')].PhysicalResourceId" \
+            --output text)
+          COUNT=$(echo "$NAMES" | wc -w)
+          if [ "$COUNT" -ne 1 ]; then
+            echo "::error::Expected exactly one ScraperLambda function in $STACK_NAME, found $COUNT: $NAMES"
+            exit 1
+          fi
+          echo "name=$NAMES" >> "$GITHUB_OUTPUT"
+
       - name: Invoke scraper Lambda (daily batch)
         run: |
           aws lambda invoke \
-            --function-name "ScraperLambda-${{ inputs.stage }}" \
+            --function-name "${{ steps.fn.outputs.name }}" \
             --invocation-type RequestResponse \
             --payload '{}' \
             --cli-binary-format raw-in-base64-out \
@@ -54,6 +73,6 @@ jobs:
           echo "--- Lambda response ---"
           cat response.json
           if grep -q '"FunctionError"' response.json; then
-            echo "::error::Scraper Lambda invocation returned a FunctionError — check CloudWatch Logs for ScraperLambda-${{ inputs.stage }}."
+            echo "::error::Scraper Lambda invocation returned a FunctionError — check CloudWatch Logs for ${{ steps.fn.outputs.name }}."
             exit 1
           fi
