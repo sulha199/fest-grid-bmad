@@ -1,0 +1,59 @@
+name: Manually Trigger Scraper
+
+# Manual-only workflow to invoke the scraper Lambda's daily-batch code path on demand,
+# without waiting for the EventBridge daily schedule (ScraperScheduleRule-<stage> in
+# apps/infrastructure/lib/festgrid-backend-stack.ts). Mirrors the same manual-only,
+# workflow_dispatch-gated pattern as backfill-scraper-audit-trail.yml, reusing the same
+# AWS credentials already scoped to `environment: production`.
+#
+# The Lambda handler (apps/backend/src/lambdas/scraper.ts) routes any invocation that is
+# neither an SQS event (`Records`) nor a stale-job-sweep event (`jobType`) to the daily
+# batch-targeting branch, so an empty `{}` payload reproduces exactly what the EventBridge
+# schedule sends.
+#
+# Only the prod stack (FestgridBackendStack-prod) is actually deployed by ci.yml today, so
+# `stage` defaults to prod; it's left as an input purely so this workflow keeps working
+# unmodified if dev/staging stacks are ever deployed.
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Stage whose ScraperLambda to invoke'
+        required: true
+        type: choice
+        options:
+          - prod
+          - staging
+          - dev
+        default: prod
+
+jobs:
+  trigger-scraper:
+    name: Manually Trigger Scraper (manual)
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: trigger-scraper-${{ inputs.stage }}
+      cancel-in-progress: false
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Invoke scraper Lambda (daily batch)
+        run: |
+          aws lambda invoke \
+            --function-name "ScraperLambda-${{ inputs.stage }}" \
+            --invocation-type RequestResponse \
+            --payload '{}' \
+            --cli-binary-format raw-in-base64-out \
+            response.json
+          echo "--- Lambda response ---"
+          cat response.json
+          if grep -q '"FunctionError"' response.json; then
+            echo "::error::Scraper Lambda invocation returned a FunctionError — check CloudWatch Logs for ScraperLambda-${{ inputs.stage }}."
+            exit 1
+          fi

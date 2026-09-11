@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-09-07 (BUG-023/IDEA-012 added via bmad-help: favorite-icon/date-badge size mismatch, event-links extraction+display; BUG-021/BUG-022 added via bmad-help bug-report session: ended-event visibility triaged to Story 2.7's still-review status; EventCard TILL/date-box gap folded into Story 1.3b AC19)"
+last_updated: "2026-09-11 (IDEA-013 added via bmad-help: no per-cron-cycle scraper-batch record; manual scraper trigger shipped same session as .github/workflows/trigger-scraper.yml, not a backlog item); 2026-09-07 (BUG-023/IDEA-012 added via bmad-help: favorite-icon/date-badge size mismatch, event-links extraction+display; BUG-021/BUG-022 added via bmad-help bug-report session: ended-event visibility triaged to Story 2.7's still-review status; EventCard TILL/date-box gap folded into Story 1.3b AC19)"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -698,3 +698,12 @@ items:
      title: "Extract event links ({url, label?}[]) during AI extraction and display them in Event Detail",
      ref: [], touches: [cross:ai-extraction, app:backend, web:events, pkg:ui],
      note: "Reported by user via bmad-help. Two parts: (1) extend the AI extraction schema/prompt (apps/backend/src/validation/extracted-event.schema.ts, build-gemini-request.ts) to also return a `links: {url: string; label?: string}[]` field, threading it through storage/GraphQL (events.graphql, extraction.graphql) alongside the existing contactInfo field; (2) render it in EventDetailView.tsx as a new 'links' row styled identically to the existing Contact Info row (packages/ui/src/features/events/EventDetailView.tsx:367-401 — `flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400` with a leading icon), and — per the user's requirement — both the contact row and the new links row should only render when their field is non-empty, matching contactInfo's existing `(hasPrivateContact || contactInfo) &&` conditional pattern."}
+
+  # ── 2026-09-11 (bmad-help scraper-ops session) ──────────────────────────────
+  IDEA-013:
+    {type: idea, status: backlog, created: 2026-09-11,
+     impact: internal, effort: s,
+     title: "No per-cron-cycle record of the scraper batch invocation — can't tell 'zero accounts scraped' from 'cron never fired'",
+     ref: [docs/infrastructure/incidents/2026-09-05-scraper-audit-trail-gap.md],
+     touches: [app:backend, pkg:database],
+     note: "Reported by user via bmad-help. Verified: scraper_actor_runs (schema.ts:283) only gets a row when a per-target trigger actually succeeds against a vendor (record-actor-run.ts) — nothing records the EventBridge invocation itself. scraper_provider_health (schema.ts:191) is the closest existing thing but is a single overwritten row per provider (Bright Data only), tracking consecutiveFailureDays, not a per-cycle history. Today the only trace of 'the cron fired and found 0 targets' vs 'the cron never fired' is scraper.ts's console.log lines in CloudWatch (ephemeral, not queryable from the app/DB). Proposed fix: new scraper_batch_runs table, one row per EventBridge daily invocation (startedAt/completedAt, targetsFound, dispatchedSucceeded/dispatchedFailed counts), inserted at the start/end of scraper.ts's EventBridge branch (apps/backend/src/lambdas/scraper.ts:35-114) — same additive-observability shape as the existing recordProviderHealthCheck call already in that branch. Not built: needs its own migration + wiring, held back pending prioritization."}
