@@ -1456,8 +1456,10 @@ test('events resolver integration via Yoga', async (t) => {
     let testPost: any;
     let testEvent: any;
 
-    const expiredDate = new Date('2026-08-27T11:00:00Z');
-    const futureDate = new Date('2026-09-10T12:00:00Z');
+    // Use relative timestamps (delta from "now") so this test stays valid regardless of when
+    // it runs — a hardcoded absolute date would drift into the past and change the expiry outcome.
+    const expiredDate = new Date(Date.now() - 60 * 60 * 1000); // 1 hour ago (expired)
+    const futureDate = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now (still valid)
     
     t.after(async () => {
       if (testEvent) await db.delete(events).where(eq(events.id, testEvent.id));

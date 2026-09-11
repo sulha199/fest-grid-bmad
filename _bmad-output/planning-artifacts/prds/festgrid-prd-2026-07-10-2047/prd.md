@@ -84,7 +84,7 @@ This feature allows users to curate their event feed by subscribing to specific 
 *   **Email Notifications:** Users will receive email notifications if `X` of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
 *   **In-App Queue Status:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user, providing transparency on API key performance and quota impact.
 
-> **Note:** The thresholds for notifications and event cancellation are configurable via environment variables. The default values are: `X=3` (posts) and `Y=3` (days) for queue notifications; `N=5` (attempts) for invalid API key notifications; 3 users reporting within 7 days for event cancellation; and `LOCATION_INFERENCE_CONFIDENCE_THRESHOLD=0.5` (score 0.0–1.0) for gating low-confidence AI-inferred Default Location changes to pre-approval.
+> **Note:** The thresholds for notifications and event cancellation are configurable via environment variables. The default values are: `X=3` (posts) and `Y=3` (days) for queue notifications; `N=5` (attempts) for invalid API key notifications; 3 users reporting within 7 days for event cancellation; `LOCATION_INFERENCE_CONFIDENCE_THRESHOLD=0.5` (score 0.0–1.0) for gating low-confidence AI-inferred Default Location changes to pre-approval; `MAX_SUBSCRIBED_ACCOUNTS_FREE_USER=5` (Section 6) for a `free_user`'s subscription cap; and `CLAIM_VERIFICATION_WINDOW_HOURS=24` (Section 3.17) for how long an account-claim verification code stays valid.
 
 *   **Quota Management Algorithm:** To maximize the number of processed requests and ensure fairness, the following algorithm will be implemented:
     *   **Internal Quota Tracking:** The system will internally track the usage of each API key to inform the fairness algorithm. This tracking will be reset at the beginning of each billing cycle.
@@ -263,6 +263,19 @@ Full rationale and the authoritative rule-by-rule reference lives in `monetizati
 *   **Event detail page:** Uses an embedded Instagram post (oEmbed-style), not a raw hotlinked image URL. This is a copyright/retention-footprint improvement, not by itself a personal-data-exposure fix — an embed showing an identifiable individual is still subject to the same display-lifecycle bound as a hotlinked image would be. Requires a defined fallback ("content no longer available" for non-opted-in accounts; `durableImageUrl` is acceptable for opted-in accounts) if the source post becomes unavailable.
 *   **`SocialMediaAccountProfile.profileImageUrl` is never stored or displayed on any surface, including via embed, regardless of the account's image-storage opt-in status** (Section 4.5) — this is a stricter, independent rule from the post/poster-image handling above.
 *   **Account-type filtering:** scraping must exclude personal attendee accounts and curator/local-guide accounts — only organizer/venue/event accounts are in scope. Not yet built; tracked in epics.md.
+
+### 3.17 Self-Service Account Claim & Ownership Verification (Epic 8, added 2026-09-11)
+
+Today, `SocialMediaAccountProfile.isImageStorageOptedIn` (Section 4.5) can only be set by a moderator (Section 3.16) — there is no way for the person who actually runs a subscribed social media account to prove that and manage their own account's settings themselves. `epics.md`'s "Epic 8: Account Claim & Image-Storage Self-Service Opt-In" existed only as a placeholder pending this pass (backlog `IDEA-006`); this section is that pass, resolving the flow the placeholder deferred.
+
+*   **Claim Entry Point:** An authenticated user starts a claim from that account's Public Account Page (Section 3.7) via a "Claim this account" action. A user may have multiple pending claims open across different accounts, but at most one `AccountClaim` (Section 4.20) per `accountId` may be `VERIFIED` at a time.
+*   **Verification Mechanism — Bio-Code Challenge:** FestDaily has no official API partnership with any social platform — it scrapes via platform-specific adapters, through a proxy/mirror site where a platform blocks direct scraping (Section 3.7) — so OAuth-based verification isn't available for MVP, and a DM-based challenge would depend on the claimant monitoring an inbox the system has no access to. Verification instead reuses the existing scraper-adapter infrastructure: the system issues a unique `verificationCode` (`AccountClaim.verificationCode`, Section 4.20) and asks the user to add it to the account's public bio/description on the platform. The user then triggers a check, which re-scrapes the account's public profile — the same lightweight profile-lookup mechanism Section 3.13's new-account voting already uses, not a full post scrape — and looks for the code. A match sets the claim to `VERIFIED`; the user may then remove the code from their bio.
+*   **Verification Window & Abandoned Claims:** A `PENDING_VERIFICATION` claim's code expires after `CLAIM_VERIFICATION_WINDOW_HOURS` (default 24, environment-variable configurable — see Section 3.7's threshold Note). An abandoned claim — one whose code is never confirmed within the window — simply moves to `EXPIRED`; the account reverts to unclaimed state and the user may request a fresh code at any time. No moderator involvement is needed for an expiry; it is not a dispute, just a claim nobody finished.
+*   **What a Claim Grants:** A `VERIFIED` claim's owner (`SocialMediaAccountProfile.claimedByUserId`, Section 4.5) gains the ability to set `isImageStorageOptedIn` themselves, recorded with `imageStorageOptInSource: 'ACCOUNT_OWNER'` — the exact field/value this flow was always designed to populate (Section 4.5) — closing the gap left by Section 3.16, where only a moderator can do this today. A claim grants no *new* capability over `defaultLocation`, since any subscriber — claimed-owner or not — can already edit it (Section 3.7); claiming doesn't change that. A claim also does **not** exempt the owner's own subscription to their claimed account from the Section 6 subscription cap — see Section 6 for why, and for how the cap's separate moderator exemption relates to this claim mechanism.
+*   **Contested Claims:** If a second user disputes an already-`VERIFIED` claim — by attempting their own claim against an already-claimed account, or by raising a dispute through Moderator Tools — it surfaces on the Moderator Pending-Item Badge (Section 3.9.3) alongside Default Location changes and reports. A moderator may `REVOKE` the standing claim (clearing `claimedByUserId` and reverting `isImageStorageOptedIn`/`imageStorageOptInSource` to whatever a moderator had last set, if anything) and, if the disputing user's own claim subsequently verifies, that becomes the account's new `VERIFIED` claim. There is no automated arbitration — a contested claim always requires a moderator decision, the same posture already established for the "Dangerous" report reason (Section 3.9.2).
+*   **Not in Scope for MVP:** Multiple simultaneous verified owners on one account (e.g. co-organizers) and any claim-granted capability beyond the image-storage opt-in above are deferred — see `epics.md` Epic 8 for the originating scope note.
+
+> **Deferred to implementation:** whether a claimed account's verified status is surfaced as a visible badge on the Public Account Page (Section 3.7) — plausible, but this pass resolves the ownership/verification/grant mechanics, not the resulting UI treatment.
 
 ## 4. Event Data Schema
 
@@ -628,11 +641,22 @@ interface SocialMediaAccountProfile {
    * `DefaultLocationChangeSource` (Section 4.14) already establishes for
    * `defaultLocation`. Populated whenever `isImageStorageOptedIn` is
    * explicitly set (absent while it's still at its default `false`).
-   * `ACCOUNT_OWNER` is reserved for a future self-service account-claim flow
-   * (not yet built — see epics.md) verifying the setter actually owns the
-   * account; until that flow exists, only `MODERATOR` is ever written.
+   * `ACCOUNT_OWNER` is written by the self-service account-claim flow
+   * (Section 3.17, Epic 8) once a claim on this account is `VERIFIED`; until
+   * then (and for any account nobody has claimed), only `MODERATOR` is ever
+   * written.
    */
   imageStorageOptInSource?: 'MODERATOR' | 'ACCOUNT_OWNER';
+  /**
+   * The `User` (Section 4.8) whose `AccountClaim` (Section 4.20, Section 3.17)
+   * on this account is currently `VERIFIED`. Absent for an unclaimed account.
+   * Cleared when a moderator `REVOKE`s a contested claim (Section 3.17).
+   * Distinct from `Subscription` (Section 4.9) — claiming verifies ownership
+   * and grants self-service `isImageStorageOptedIn` control; it does not by
+   * itself add a `Subscription` row, and does not exempt one from the
+   * `free_user` subscription cap (Section 6) if the owner also subscribes.
+   */
+  claimedByUserId?: string;
 }
 ```
 
@@ -1247,6 +1271,57 @@ interface AIEventFilter {
 }
 ```
 
+### 4.20. AccountClaim Interface (added 2026-09-11, Section 3.17)
+
+```typescript
+enum AccountClaimStatus {
+  PENDING_VERIFICATION, // verificationCode issued, not yet confirmed present in the account's bio
+  VERIFIED,             // code confirmed; claimingUserId is now this account's verified owner
+  EXPIRED,              // codeExpiresAt elapsed before the code was confirmed -- an abandoned claim
+  REJECTED,             // a moderator determined the claimant does not own the account, before verification
+  REVOKED,              // a previously VERIFIED claim was later overturned by a moderator (a contested claim)
+}
+
+/**
+ * Records one user's attempt to verify ownership of a `SocialMediaAccountProfile`
+ * (Section 4.5) via the bio-code challenge described in Section 3.17. At most one
+ * `VERIFIED` AccountClaim exists per `accountId` at a time -- a newly `VERIFIED`
+ * claim for an already-claimed account first requires the prior claim to be
+ * `REVOKED` via moderator review (Section 3.17, Contested Claims).
+ */
+interface AccountClaim {
+  id: string;
+  /**
+   * The ID of the claimed `SocialMediaAccountProfile` (Section 4.5).
+   */
+  accountId: string;
+  /**
+   * The ID of the `User` (Section 4.8) attempting or holding the claim.
+   */
+  claimingUserId: string;
+  /**
+   * System-generated, unique per attempt. The claimant adds this to the
+   * account's public bio/description on the platform for verification.
+   */
+  verificationCode: string;
+  status: AccountClaimStatus;
+  /**
+   * End of the `PENDING_VERIFICATION` window, `CLAIM_VERIFICATION_WINDOW_HOURS`
+   * (default 24, Section 3.7 Note) after `createdAt`. Reaching this while still
+   * `PENDING_VERIFICATION` moves the claim to `EXPIRED`.
+   */
+  codeExpiresAt: string;
+  verifiedAt?: string;
+  /**
+   * The ID of the moderator `User` (role = MODERATOR) who resolved a
+   * `REJECTED` or `REVOKED` claim, if any (Section 3.17, Contested Claims).
+   */
+  resolvedByModeratorId?: string;
+  resolvedAt?: string;
+  createdAt: string;
+}
+```
+
 ## 5. Non-Functional Requirements
 
 ### Performance
@@ -1302,7 +1377,11 @@ FestDaily will launch with a two-phase rollout to manage costs and build a valua
 
 *   **Phase 1: Invitation-Only Beta (`contributing_user` Tier):** The initial release will be for `contributing_user`s who operate on a Bring-Your-Own-Key (BYOK) model. These early adopters provide their own API key to subscribe to any public social media account. This strategy allows us to test the core technology while these users help seed the platform with a diverse range of `Shared Public Accounts` at no AI-processing cost to the platform.
 
-*   **Phase 2: Public Launch (`free_user` Tier):** Once a critical mass of shared accounts is established, a `free_user` tier will be introduced. These users can subscribe to a limited number (e.g., 2) of popular `Shared Public Accounts`. The platform will use a managed pool of API keys to handle processing for these shared accounts, ensuring reliability.
+*   **Phase 2: Public Launch (`free_user` Tier):** Once a critical mass of shared accounts is established, a `free_user` tier will be introduced. These users can subscribe to a limited number of popular `Shared Public Accounts`. The platform will use a managed pool of API keys to handle processing for these shared accounts, ensuring reliability.
+    *   **Subscription Cap (resolved 2026-09-11, was "e.g., 2"):** A `free_user` may hold at most `MAX_SUBSCRIBED_ACCOUNTS_FREE_USER` (default **5**, environment-variable configurable, Section 3.7 Note) active `Subscription` rows (Section 4.9) at once. "e.g., 2" was always an illustrative placeholder, never a decided requirement; **5** is adopted because it is the only value actually arrived at deliberately for this cap — via the ux-rework2 UX-gap audit that produced backlog `IDEA-008` — rather than an example figure picked when this section was first drafted. A `contributing_user` has no equivalent cap: their BYOK key's own quota is the natural limit on what they can usefully subscribe to (Section 3.7's Tier 1/Tier 2 fairness algorithm already governs shared-key contention), so 5 exists solely to bound the platform's own managed-key-pool cost for Phase 2, not to match any other tier's number.
+    *   **Cap Enforcement:** Enforced server-side at subscribe time, counting the `free_user`'s active (non-soft-deleted) `Subscription` rows — not `AccountVote` rows (Section 3.13), which remain uncapped since a vote consumes no processing resources. This includes a `Subscription` to an account the user has claimed under Epic 8 (Section 3.17): claiming verifies ownership of the source account but consumes managed-key-pool extraction capacity identically to subscribing to an unclaimed account, so a claimed account's own `Subscription` row is not exempt.
+    *   **Moderator Exemption:** A user with `UserRole.MODERATOR` (Section 4.8) is exempt from the cap regardless of `UserTier` — a role-based exemption covering every account they subscribe to. This is a distinct mechanism from Section 3.17's account-claim grant: a claimed-account owner's grant is scoped to the one account they verified and never touches the subscription cap, while a moderator's exemption is untied to any specific account and touches nothing but the cap.
+    *   **Upgrade CTA & Analytics (added 2026-09-11):** When a `free_user` attempts to subscribe to an account that would exceed the cap, the subscribe action is blocked and an "Upgrade" call-to-action is shown in its place, in a defined "coming soon" state — no paid upgrade tier exists yet; the paid/premium features referenced elsewhere in this section remain Post-MVP. Showing the CTA fires a `subscription_cap_upgrade_cta_shown` PostHog event (`{ accountId, currentSubscriptionCount }`); clicking it fires `subscription_cap_upgrade_cta_clicked` — both following this project's existing snake_case PostHog event convention (e.g. `view_switched`, `subscription_default_location_set`).
 
 *   **Demand Signal (Both Phases):** The account vote list (Section 3.13) is available to any authenticated user starting in Phase 1, independent of `contributing_user`/`free_user` tier — it lets users without a BYOK key register demand for an account, and gives Phase 1 `contributing_user`s and future Phase 2 tooling a shared, ranked view of which `Shared Public Accounts` are most wanted.
 

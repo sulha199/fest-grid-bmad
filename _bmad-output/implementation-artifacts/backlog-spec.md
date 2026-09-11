@@ -92,6 +92,8 @@ items:
 | `touches` | yes | Registry-resolved tags. See §7. |
 | `impact` | open rows | User-facing consequence. See below. |
 | `effort` | open rows | Size of the work. See below. |
+| `epic` | no | `sprint-status.yaml` epic key this row was folded into at epic formation. See `planning-artifacts/epic-formation-gate.md`. |
+| `reprice_on` | no | Epic key whose mechanism will change this row's `effort`. Set at formation; cleared by hand when the row is re-scored. Check 13. |
 | `parent` | no | Parent item ID, for carved-out children. See §6. |
 | `blocks` | no | IDs this row gates. One-directional — declared on the blocker only. |
 | `superseded_by` | no | Required when `status: superseded`. |
@@ -152,8 +154,19 @@ Per-type counters, zero-padded to 3: `BUG-001`, `IDEA-001`, `CC-001`, `FIND-001`
 - Assign in chronological order during backfill.
 - Never reuse an ID, including for deleted items.
 
-`ref` paths are relative to `_bmad-output/`, except `backlog/…` which is relative to
-`implementation-artifacts/`.
+### Ref roots
+
+A ref's first segment names its root:
+
+| First segment | Resolves against |
+|---|---|
+| `backlog/…` | `_bmad-output/implementation-artifacts/` |
+| `planning-artifacts/…`, `implementation-artifacts/…`, `specs/…` | `_bmad-output/` |
+| anything else | the **repo root** |
+
+The third row is what lets a row cite evidence that does not live under `_bmad-output/` —
+`design-artifacts/UX-festgrid-run-1/DESIGN.md`, an incident report under `docs/`. A typo
+still fails check 1 in every case, because no root resolves it.
 
 ## 5. Status vocabulary and adjudication
 
@@ -163,8 +176,30 @@ Per-type counters, zero-padded to 3: `BUG-001`, `IDEA-001`, `CC-001`, `FIND-001`
 | `triaged` | Analysed/approved, no story yet. | Proposal exists; no `stories`. |
 | `promoted` | Has ≥1 story; execution owned by `sprint-status.yaml`. | `stories` non-empty, not all `done`. |
 | `done` | Fully landed. | Every entry in `stories` is `done`, **and** no proposed change remains unapplied. |
-| `skipped` | Deliberately not doing. | Requires a `note` giving the reason. |
+| `skipped` | Deliberately not doing. | Requires a `note` giving the reason, classified `cost:` or `value:`. See below. |
 | `superseded` | Replaced by a later item. | Requires `superseded_by`. |
+
+### Classifying a skip
+
+A `skipped` note must open with `cost:` or `value:`. Most real skips are both — *the value
+did not justify that price* — so the tag is not a choice between two pure motives. It
+records the answer to one question:
+
+> **Would you do it if it were free?**
+
+- **yes → `cost:`** — **reversible.** The reason referenced the price, so a mechanism
+  landing elsewhere falsifies it; the row reopens to `backlog` with the reason appended,
+  never rewritten. "Worth doing, just not for that effort" lives here — it is the common
+  case, not an edge one. See `planning-artifacts/epic-formation-gate.md` §9.2.
+- **no → `value:`** — **not reversible by price.** Cheap is not a reason to build something
+  nobody wants, and a cheaper version of a thing you chose against is still that thing.
+
+The question is decidable in one beat without re-opening the original debate, which is what
+makes it answerable years later by someone who was not in it.
+
+An unclassified skip is unreopenable by rule. That is the safe default: the alternative is
+inferring a past decision from its price tag, which is how a `value:` skip quietly returns
+as a "cheap win".
 
 ### Derived status
 
@@ -241,7 +276,22 @@ Form: `namespace:slice` or `namespace:slice/Symbol`.
 
 ## 8. Cross-reference contract
 
-Links are **bidirectional**. Every file named in a `ref` carries the ID back:
+A ref is one of two things, and only the first kind is bidirectional.
+
+**Owned artifacts** are written *for* one row and carry its ID back — `backlog/…` evidence
+files and `planning-artifacts/sprint-change-proposal-*`. These are the board's own output.
+
+**Citations** are documents the board points at but does not own — the PRD, a design
+artifact, an incident report, a shared evidence dump. **Never stamp a `backlog_id` into
+one.** No single row owns the PRD, so any id written there would be false, and the next row
+to cite the same document would have to either overwrite it or contradict it.
+
+The ownership classes are named by ref shape, not inferred from how many rows cite a file.
+Owner-count is a proxy that holds only until a canonical document happens to have exactly
+one citer — which is how BUG-026's citation of the PRD came to be reported as a missing
+back-reference on 2026-09-11.
+
+For an owned artifact, the link is **bidirectional**:
 
 ```yaml
 ---
@@ -274,8 +324,11 @@ board — worse than running no check at all.
 
 
 1. **Broken ref** — a `ref` path that does not exist on disk.
-2. **Back-reference mismatch** — a referenced file whose `backlog_id` is missing or
-   disagrees with its row.
+2. **Back-reference mismatch** — asserted **per owned artifact** (§8), not per citing
+   row, because any row may cite another row's proposal or evidence file. For each
+   owned-shape ref: it carries a `backlog_id`, that id is a real row, and **that row cites
+   the file back**. A row citing an artifact another row owns is not a mismatch; a
+   citation (§8) is exempt entirely.
 3. **Unregistered tag** — a `touches` entry not in the registry.
 4. **Unknown story** — a `stories` entry that is not a key in `sprint-status.yaml`.
 5. **Stale target** — an open item whose story is `done` in `sprint-status.yaml`
@@ -298,6 +351,27 @@ board — worse than running no check at all.
 9. **Dangling or satisfied block** — a `blocks` entry naming an ID that does not exist,
    or one whose target is already terminal (`done`/`skipped`/`superseded`). The second
    case is the `blocks` equivalent of check 5: the gate outlived what it was gating.
+10. **Unknown epic** — an `epic` value that is not an epic key in `sprint-status.yaml`.
+    Same failure mode as check 4, one level up: a row claiming to be folded into an epic
+    that was never registered is invisible to every epic-level workflow.
+11. **Ratchetless improvement epic** — an improvement epic (`epic-N-iK`) named by some
+    row's `epic`, whose registered stories include no `z` story. The ratchet is what
+    separates an improvement epic from a batch of fixes
+    (`epic-formation-gate.md` §4); a missing one is the epic silently degrading into the
+    thing it was formed to replace. Plain integer epics are exempt — a feature epic's
+    done-test is that the capability ships, so a ratchet is optional there
+    (`epic-formation-gate.md` §2).
+12. **Unclassified skip** — a `skipped` row whose `note` does not open with `cost:` or
+    `value:`. §5 makes that classification the thing that decides whether the row can ever
+    reopen, so an unclassified skip is a decision nobody can act on later.
+13. **Due for re-pricing** — a row whose `reprice_on` epic has settled its mechanism (its
+    `a` story terminal — a cancelled mechanism answers the question too — or, when the epic
+    has no `a` story, the epic itself `done`). The mechanism this row
+    was waiting on now exists, so its `effort` is stale and every lens is ranking it on a
+    number that is no longer true. Unlike the other checks this one is not a defect to
+    repair but a **judgment that has come due**: re-score `effort` and clear `reprice_on`.
+    It keeps firing until someone does, which is the point — `effort` is a judgment and no
+    runner can make it. Also fires on a `reprice_on` naming an epic that does not exist.
 
 Check 7 finds *candidates*, not conflicts. Semantic contradiction between items that
 touch no common surface is **not mechanically detectable** and needs a reading pass —
@@ -314,6 +388,14 @@ cheap by design — a row is one line.
 
 **Triage.** Set `type`, sharpen `touches`, and either promote or `skip` with a reason.
 Batch by `type` or by shared tag rather than item-by-item.
+
+**Epic formation** (optional, batch). Several triaged rows that violate one invariant are
+folded into an improvement epic rather than fixed one at a time — the step that lets the
+implementing agent build the shared mechanism once instead of re-solving it per row. Ritual,
+criteria, and numbering: `planning-artifacts/epic-formation-gate.md`. It stamps `epic:` on
+each member row and leaves status at `triaged`; only stories move a row to `promoted`.
+Rows never have to pass through this — a row with no clustering partners goes straight to
+promotion or to `bmad-quick-dev`, as before.
 
 **Promotion.** Running `CC` appends the proposal to `ref` and sets `triaged`. Running
 `bmad-create-story` appends story keys to `stories`; status becomes `promoted` and from

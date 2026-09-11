@@ -249,6 +249,54 @@ development_status:
   # Agent Record for full detail.
   0-33-provision-s3-cloudfront-infrastructure-for-post-media: review
   epic-0-retrospective: optional
+  # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
+  # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
+  # See planning-artifacts/epic-formation/formation-2026-09-08.md for the full pass.
+  epic-0-i1: backlog
+  0-i1a-build-the-notifyallmoderators-helper-with-escaped-throttled-templates: backlog
+  0-i1b-send-the-missing-awaiting-approval-location-change-notification: backlog
+  0-i1c-route-the-scraper-audit-trail-alert-through-the-shared-helper: backlog
+  0-i1z-ratchet-no-moderator-notification-bypasses-the-helper: backlog
+  epic-0-i2: backlog
+  0-i2a-build-the-guarded-vendor-call-wrapper: backlog
+  0-i2b-adopt-the-wrapper-in-the-gemini-synchronous-verification-path: backlog
+  0-i2c-adopt-the-wrapper-in-the-async-inference-path: backlog
+  0-i2z-ratchet-no-vendor-call-bypasses-the-wrapper: backlog
+  epic-0-i3: backlog
+  0-i3a-set-up-the-invariant-sweep-check-suite-and-restore-the-lint-gate: backlog
+  0-i3b-add-the-lambda-timeout-check: backlog
+  0-i3c-add-the-iam-grant-check: backlog
+  0-i3z-ratchet-the-invariant-sweep-suite-runs-and-blocks-merge: backlog
+  epic-0-i4: backlog
+  0-i4a-build-the-landing-verification-check: backlog
+  0-i4b-remediate-find-001-sync-story-3-1b-3-4-acs-to-shipped-behavior: backlog
+  0-i4c-remediate-find-002-apply-the-favoritecount-prd-text: backlog
+  0-i4d-remediate-find-003-verify-or-create-the-ux-rework-items-7-8-9-stories: backlog
+  0-i4z-ratchet-the-check-runs-in-backlog-check-py-and-gates-its-exit-code: backlog
+  epic-0-i5: backlog
+  0-i5a-build-the-shared-pagination-filter-controller: backlog
+  0-i5b-adopt-the-controller-in-discovery-event-list-surfaces: backlog
+  0-i5c-adopt-the-controller-in-the-moderator-tools-pages: backlog
+  0-i5d-sweep-add-the-temporal-filter-to-the-filterhub: backlog
+  0-i5z-ratchet-no-list-surface-manages-pagination-filter-state-locally: backlog
+  epic-0-i6: backlog
+  0-i6a-finish-the-subscribedaccountcard-accountavatar-contract: backlog
+  0-i6b-adopt-the-card-into-post-selection: backlog
+  0-i6c-adopt-the-card-into-subscribed-accounts-settings-and-settle-the-detail-surface-variant: backlog
+  0-i6d-route-accountavatar-border-through-the-cards-tokens: backlog
+  0-i6z-ratchet-no-display-surface-bypasses-the-card: backlog
+  epic-0-i7: backlog
+  0-i7a-carry-confidence-and-country-bias-through-every-geoapify-response-mapper: backlog
+  0-i7b-re-rank-sub-venue-matches-using-the-confidence-signal: backlog
+  0-i7c-gate-the-event-detail-map-link-on-location-confidence: backlog
+  0-i7z-ratchet-no-consumer-trusts-a-geoapify-result-without-its-confidence-signal: backlog
+  epic-1-i1: backlog
+  1-i1a-extend-the-shared-event-card-primitive-to-own-thumbnail-sizing-and-fallback: backlog
+  1-i1b-tie-the-favorite-icon-size-to-the-date-badge-token: backlog
+  1-i1c-replace-the-local-broken-image-placeholder-with-the-shared-fallback: backlog
+  1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row: backlog
+  1-i1e-adopt-the-primitive-into-the-masonry-default-state: backlog
+  1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: backlog
   epic-1: in-progress
   1-1-create-initial-database-tables: done
   1-2-seed-database-with-mock-data: done
@@ -623,6 +671,13 @@ development_status:
   2-9-manage-push-notification-settings: done
   2-10-service-worker-lifecycle-updates-and-database-self-healing: review
   epic-2-retrospective: optional
+  # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass.
+  # See planning-artifacts/epic-formation/formation-2026-09-08.md.
+  epic-2-i1: backlog
+  2-i1a-fix-eventdetailwrappers-four-onsuccess-handlers: backlog
+  2-i1b-adopt-the-fixed-pattern-to-the-other-favorite-mutation-call-sites: backlog
+  2-i1c-add-the-missing-automated-tests-for-the-favorite-cache-sync-path: backlog
+  2-i1z-ratchet-every-favorite-calendar-mutation-handler-follows-the-pattern: backlog
   epic-3: in-progress
   3-1a-create-social-media-account-profiles-table: done
   # regenerated 2026-08-07 via bmad-create-story: full context engine pass. Gate 1/3

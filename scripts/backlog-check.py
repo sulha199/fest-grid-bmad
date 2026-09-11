@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Deterministic runner for the backlog board's integrity checks and lenses.
 
-Implements checks 1-9 and the lens table from
-`_bmad-output/implementation-artifacts/backlog-spec.md`. `bmad-sprint-status` runs
-this rather than re-deriving the checks from prose each session: a subtly wrong
+Implements checks 1-13 and the lens table from
+`_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-13 cover epic formation,
+skip classification and re-pricing — `planning-artifacts/epic-formation-gate.md`).
+`bmad-sprint-status` runs this rather than re-deriving the checks from prose: a subtly wrong
 reimplementation reports "clean" on a broken board, which is worse than no check.
 
 Usage:
-    uv run --python 3.11 --with pyyaml scripts/backlog-check.py [--lens NAME] [--quiet]
+    uv run --python 3.11 --with pyyaml scripts/backlog-check.py [--lens NAME] [--cluster] [--quiet]
 
 Exit code is the number of check failures (0 = clean), so it can gate a commit.
 """
@@ -29,6 +30,11 @@ OPEN = {"backlog", "triaged", "promoted"}
 UNPROMOTED = {"backlog", "triaged"}
 ITEM_TERMINAL = {"done", "skipped", "superseded"}
 STORY_TERMINAL = {"done", "wont-do"}
+# epic-formation-gate.md §5 — un-built intent recorded as a story rather than a row.
+STORY_UNSTARTED = {"backlog", "ready-for-dev"}
+
+# §5 — a skip states which kind it is; only a cost: skip can be reopened on price.
+SKIP_REASON = re.compile(r"^\s*(cost|value):", re.I)
 
 
 def load_board():
@@ -49,12 +55,29 @@ def load_sprint_status():
     return status
 
 
+# §4: a ref's first segment names its root. `backlog/…` is relative to
+# implementation-artifacts/; the _bmad-output/ trees are relative to
+# _bmad-output/; everything else is relative to the repo root, so the board can
+# cite design artifacts and incident reports that live outside _bmad-output/.
+BMAD_OUTPUT_TREES = ("planning-artifacts/", "implementation-artifacts/", "specs/")
+
+# §8: check 2 applies only to a ref the row OWNS — a file authored for that row,
+# which therefore carries `backlog_id` back. Every other ref is a CITATION of a
+# document the board does not own (the PRD, a design artifact, an incident
+# report), and stamping one row's id into it would be false: no single row owns
+# the PRD. Owned shapes are named here rather than inferred from owner count,
+# which mis-classifies the moment a canonical document happens to have one citer.
+OWNED_REF = re.compile(
+    r"^(backlog/|planning-artifacts/sprint-change-proposal-)"
+)
+
+
 def resolve_ref(ref: str) -> str:
-    # §4: ref paths are relative to _bmad-output/, except backlog/… which is
-    # relative to implementation-artifacts/.
     if ref.startswith("backlog/"):
         return os.path.join(IMPL, ref)
-    return os.path.join(ROOT, "_bmad-output", ref)
+    if ref.startswith(BMAD_OUTPUT_TREES):
+        return os.path.join(ROOT, "_bmad-output", ref)
+    return os.path.join(ROOT, ref)
 
 
 def tag_prefix(tag: str) -> str:
@@ -67,13 +90,6 @@ def run_checks(items, tags, stories):
     def fail(num, row, msg):
         failures.append((num, row, msg))
 
-    # A ref shared by many rows (the evidence files) cannot carry one row's
-    # backlog_id, so check 2 only applies to refs a single row owns.
-    ref_owners = defaultdict(list)
-    for key, row in items.items():
-        for ref in row.get("ref") or []:
-            ref_owners[ref].append(key)
-
     for key, row in items.items():
         status = row.get("status")
 
@@ -82,15 +98,8 @@ def run_checks(items, tags, stories):
             if not os.path.exists(path):
                 fail(1, key, f"broken ref: {ref}")
                 continue
-            if len(ref_owners[ref]) > 1:
-                continue  # shared evidence file; check 2 does not apply
-            with open(path, encoding="utf-8") as fh:
-                head = fh.read(400)
-            m = re.search(r"^backlog_id:\s*(\S+)", head, re.M)
-            if not m:
-                fail(2, key, f"{ref} carries no backlog_id")
-            elif m.group(1) != key:
-                fail(2, key, f"{ref} says backlog_id: {m.group(1)}")
+            # check 2 is asserted once per owned artifact below, not per citer:
+            # any row may CITE another row's proposal or evidence file.
 
         for tag in row.get("touches") or []:
             if tag_prefix(tag) not in tags:
@@ -132,7 +141,81 @@ def run_checks(items, tags, stories):
         if status == "superseded" and not row.get("superseded_by"):
             fail(5, key, "status superseded but no superseded_by")
 
+        # Check 12 — a skip's note says which reason, because only a cost: skip reopens.
+        if status == "skipped" and not SKIP_REASON.match(row.get("note") or ""):
+            fail(12, key, "skipped note does not open with 'cost:' or 'value:'")
+
+        # Checks 10-11 — epic formation (epic-formation-gate.md).
+        epic = row.get("epic")
+        if epic:
+            if epic not in epics(stories):
+                fail(10, key, f"epic not in sprint-status.yaml: {epic}")
+            elif IMPROVEMENT_EPIC.match(epic) and not any(
+                epic_story_letter(epic, s) == "z" for s in stories
+            ):
+                fail(11, key, f"improvement epic {epic} has no z (ratchet) story")
+
+        # Check 13 — the mechanism this row was waiting on has landed, so its
+        # `effort` is stale. Not a defect: a judgment that has come due.
+        waiting_on = row.get("reprice_on")
+        if waiting_on:
+            if waiting_on not in epics(stories):
+                fail(13, key, f"reprice_on names an unknown epic: {waiting_on}")
+            elif mechanism_landed(waiting_on, stories):
+                fail(13, key, f"{waiting_on} settled its mechanism; re-score effort "
+                              f"({row.get('effort')}) and clear reprice_on")
+
+
+    # §8 check 2, asserted per OWNED ARTIFACT rather than per citing row. The
+    # link §8 wants is directional: an artifact the board owns names its row,
+    # and that row cites it back. A row citing SOMEONE ELSE'S proposal or
+    # evidence file is ordinary cross-reference, not a mismatch.
+    for ref in sorted({r for row in items.values() for r in (row.get("ref") or [])}):
+        if not OWNED_REF.match(ref):
+            continue
+        path = resolve_ref(ref)
+        if not os.path.exists(path):
+            continue  # already reported by check 1
+        with open(path, encoding="utf-8") as fh:
+            head = fh.read(400)
+        m = re.search(r"^backlog_id:\s*(\S+)", head, re.M)
+        if not m:
+            fail(2, "-", f"{ref} carries no backlog_id")
+            continue
+        owner = m.group(1)
+        if owner not in items:
+            fail(2, owner, f"{ref} claims backlog_id: {owner}, which is not a row")
+        elif ref not in (items[owner].get("ref") or []):
+            fail(2, owner, f"{ref} claims this row, but the row does not cite it back")
+
     return failures
+
+
+# §9 check 11 — `epic-0-i1` owns stories `0-i1a-…` through `0-i1z-…`.
+IMPROVEMENT_EPIC = re.compile(r"^epic-(\d+)-i(\d+)$")
+
+
+def epics(stories):
+    return {k for k in stories if k.startswith("epic-")}
+
+
+def epic_story_letter(epic: str, story: str) -> str | None:
+    """The story's letter within `epic`, or None if it belongs to another epic."""
+    m = IMPROVEMENT_EPIC.match(epic)
+    if not m:
+        return None
+    n, k = m.groups()
+    hit = re.match(rf"^{n}-i{k}([a-z])-", story)
+    return hit.group(1) if hit else None
+
+
+def mechanism_landed(epic: str, stories) -> bool:
+    """The epic's `a` story is terminal (a cancelled mechanism settles the
+    question too) — or, when the epic has no `a` story, the epic itself is done."""
+    for story, status in stories.items():
+        if epic_story_letter(epic, story) == "a":
+            return status in STORY_TERMINAL
+    return stories.get(epic) == "done"
 
 
 def collisions(items):
@@ -151,6 +234,73 @@ def collisions(items):
         else:
             shown.append((len(members), tag, sorted(members)))
     return sorted(shown), suppressed
+
+
+def cluster_candidates(items):
+    """Epic-formation candidate axes (epic-formation-gate.md §5).
+
+    Mechanical axes only. These are CANDIDATES for a reading pass, never
+    clusters: the strongest axis — shared repair shape — is not mechanizable,
+    and a `touches` tag is explicitly not an epic boundary.
+    """
+    open_set = {k: r for k, r in items.items()
+                if r.get("status") in UNPROMOTED and not (r.get("stories") or [])}
+
+    axes = {"tag": defaultdict(set), "parent": defaultdict(set),
+            "deferred-from": defaultdict(set), "spine-AD": defaultdict(set)}
+
+    for key, row in open_set.items():
+        text = f"{row.get('title','')} {row.get('note','') or ''}"
+        for tag in row.get("touches") or []:
+            axes["tag"][tag_prefix(tag)].add(key)
+        if row.get("parent"):
+            axes["parent"][row["parent"]].add(key)
+        m = re.search(r"Deferred from:\s*([^.]+)", row.get("note") or "")
+        if m:
+            axes["deferred-from"][m.group(1).strip()].add(key)
+        for ad in set(re.findall(r"\bAD-\d+\b", text)):
+            axes["spine-AD"][ad].add(key)
+
+    return open_set, axes
+
+
+def unstarted_stories(stories):
+    """§5's input set also spans stories nobody has started — same un-built intent."""
+    return sorted(k for k, v in stories.items()
+                  if v in STORY_UNSTARTED and not k.startswith("epic-"))
+
+
+def print_clusters(items, stories):
+    open_set, axes = cluster_candidates(items)
+    unstarted = unstarted_stories(stories)
+    print(f"\ncandidate axes over {len(open_set)} open un-promoted rows"
+          f" + {len(unstarted)} unstarted stories")
+    print("  CANDIDATES, not clusters — the deciding axis (shared repair shape) is a reading pass")
+
+    for axis, groups in axes.items():
+        sized = sorted(((len(v), k, sorted(v)) for k, v in groups.items() if len(v) > 1))
+        keep = [g for g in sized if g[0] <= 6]
+        broad = [g for g in sized if g[0] > 6]
+        print(f"\n  ── {axis} ──")
+        if not keep and not broad:
+            print("     (none)")
+        for size, name, members in keep:
+            print(f"     {name[:34]:34} {size}  {', '.join(members)}")
+        for size, name, _ in broad:
+            print(f"     {name[:34]:34} {size}  too broad to be a candidate")
+
+    # Ritual step 4 reads these: only a cost: skip can reopen on price.
+    reopenable = sorted(k for k, r in items.items() if r.get("status") == "skipped"
+                        and (r.get("note") or "").lower().lstrip().startswith("cost:"))
+    print(f"\n  ── cost-skipped (re-scoring sweep, §9.2) ──")
+    print("     " + (", ".join(reopenable) if reopenable else "(none)"))
+
+    # §5 input set — no mechanical axis reaches these; they need the reading pass.
+    print("\n  ── unstarted stories (§5 input set — read against the rows above) ──")
+    for key in unstarted:
+        print(f"     {key}")
+    if not unstarted:
+        print("     (none)")
 
 
 def lenses(items):
@@ -190,6 +340,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lens", help="print one lens instead of the full report")
     ap.add_argument("--quiet", action="store_true", help="failures only")
+    ap.add_argument("--cluster", action="store_true",
+                    help="epic-formation candidate axes instead of the full report")
     args = ap.parse_args()
 
     items, tags = load_board()
@@ -206,13 +358,17 @@ def main():
             print(f"{key:9} {r.get('impact','-'):13} {r.get('effort','-'):3} {r['title']}")
         return 0
 
+    if args.cluster:
+        print_clusters(items, SPRINT_STATUS)
+        return 0
+
     failures = run_checks(items, tags, SPRINT_STATUS)
     if failures:
         print("CHECK FAILURES")
         for num, row, msg in sorted(failures):
             print(f"  check {num}  [{row}] {msg}")
     else:
-        print("checks 1-9: clean")
+        print("checks 1-13: clean")
 
     if args.quiet:
         return len(failures)

@@ -3510,3 +3510,691 @@ A user with a saved Gemini API key can describe what they're looking for in a fr
 **FRs covered:** None yet — no stories drafted, no FR numbers assigned. This entry exists solely so the future work isn't lost, per explicit user direction during the 2026-09-02 correct-course session that produced Stories 3.6g/3.6h.
 
 Today, `SocialMediaAccountProfile.isImageStorageOptedIn` (PRD §4.5) can only be set by a moderator (Story 3.6g) — there is no way for an account owner to verify they actually own an Instagram account and set the flag themselves. The legal doc (`technical-legal-risks-PLACEHOLDER.md` §0.1 item 4) calls for "one flow [to serve] both the account claim and the image-storage opt-in," implying real ownership verification (e.g. Instagram OAuth, a bio-code challenge, or a DM-based confirmation flow) — none of which is designed anywhere yet. This is a distinct, larger epic from the Epic 3 minimization work (sprint-change-proposal-2026-09-02.md), not a lettered suffix off any existing story, because it introduces new account-facing surface area (an identity-verification UX) rather than extending the scraping/extraction pipeline. When picked up, it should run through `bmad-prd` (to formalize the requirement) and `bmad-create-epics-and-stories` or a direct epics.md append (matching this project's established precedent for Epics 6/7) rather than being drafted inline here.
+
+---
+
+## Epics formed from the backlog (`epic-formation-gate.md`)
+
+The epics below were formed by clustering `backlog.yaml` rows that violate the same invariant, per `planning-artifacts/epic-formation-gate.md`. Unlike Epics 0-8, they did not originate in the PRD — evidence flows code → epic → spec reconciliation (gate §1), not the other way around. Each carries its invariant sentence, a mechanism story (`a`), adoption stories, and a mandatory ratchet (`z`) per gate §§3-4.
+
+### Epic 0.i1: Templated, throttled moderator notifications
+
+**Invariant:** Every outbound moderator notification is sent through one templated, throttled helper whose rendering escapes HTML.
+
+### Story 0.i1a: Build the notifyAllModerators helper with escaped, throttled templates
+
+**As a** developer,
+**I want** one `notifyAllModerators(templateKey, vars)` helper that does moderator lookup, fan-out, and `moderatorReviewUrl` construction — currently duplicated verbatim across at least two files — and a fix to `render-template.ts` so every template HTML-escapes its interpolated fields, plus a per-template/per-entity throttle,
+**So that** no future moderator-notification call site re-implements lookup/fan-out/escaping from scratch, and no template can leak unescaped scraper- or user-influenced content into a moderator's inbox.
+
+**Acceptance Criteria:**
+
+*   **Given** any code path that needs to notify moderators of something,
+*   **When** it calls `notifyAllModerators(templateKey, vars)`,
+*   **Then** it receives the same moderator lookup, fan-out, and review-URL construction every other call site uses, with no duplicated logic at the call site.
+*   **And** `render-template.ts` HTML-escapes every interpolated field for every template, including `DANGEROUS_EVENT_MODERATOR_ALERT` and the new `SCRAPER_AUDIT_TRAIL_FAILURE_ALERT`.
+*   **And** two calls for the same `templateKey` + entity within the cooldown window are deduplicated/throttled rather than sent twice.
+*   **And** the notification path is DB-backed, matching the decision already made for the sibling alert in Story 3.4q — not an out-of-band CloudWatch+SNS channel.
+
+**Note:** Resolves FIND-021 directly — the escaping fix covers all existing templates, so FIND-021 gets no separate adoption story.
+
+### Story 0.i1b: Send the missing AWAITING_APPROVAL location-change notification
+
+**As a** moderator,
+**I want** an email when a location change enters `AWAITING_APPROVAL`,
+**So that** I don't rely solely on the in-app pending-item badge to notice a change needs review.
+
+**Acceptance Criteria:**
+
+*   **Given** `apply-default-location-change.ts` moves a change to `AWAITING_APPROVAL`,
+*   **When** that transition happens,
+*   **Then** `notifyAllModerators` is called with the appropriate template, replacing the TODO left in that file (BUG-003).
+
+**Depends on:** Story 0.i1a.
+
+### Story 0.i1c: Route the scraper audit-trail alert through the shared helper
+
+**As a** developer,
+**I want** the scraper audit-trail failure alert to call `notifyAllModerators` instead of its own duplicated notify logic, with dedup/throttle applied,
+**So that** repeated failures for the same audit-trail issue don't flood moderators (FIND-020).
+
+**Acceptance Criteria:**
+
+*   **Given** a scraper audit-trail failure that would previously trigger its own ad hoc notification,
+*   **When** the alert fires,
+*   **Then** it is sent via `notifyAllModerators`, deduplicated/throttled the same way every other template is.
+
+**Note:** Residual, not addressed by this story: FIND-020 also notes the audit-trail alert depends on the same DB it may be reporting on — that risk is unresolved and stays on the row.
+
+**Depends on:** Story 0.i1a.
+
+### Story 0.i1z: Ratchet — no moderator notification bypasses the helper
+
+**As a** developer,
+**I want** an enforced, CI-wired guarantee that the invariant holds,
+**So that** a future notification call site can't reintroduce a duplicated, unescaped, or unthrottled path.
+
+**Acceptance Criteria:**
+
+*   **Given** the full codebase,
+*   **When** the repo-wide sweep test runs in CI,
+*   **Then** it fails if any file outside `notifyAllModerators`'s own module sends a moderator-facing notification directly.
+*   **And** a rendering regression test asserts `render-template.ts` escapes a `<script>`-bearing payload for at least `DANGEROUS_EVENT_MODERATOR_ALERT` and `SCRAPER_AUDIT_TRAIL_FAILURE_ALERT`.
+*   **And** a test asserts two calls for the same template+entity within the cooldown window are deduplicated.
+
+**Depends on:** Stories 0.i1a, 0.i1b, 0.i1c.
+
+**Note:** Formed 2026-09-08 via `bmad-form-epics` from BUG-003, FIND-020, FIND-021. Establishes a new architecture-spine invariant (AD-n), written in Story 0.i1a, covering all three member rows — none require a separate PRD amendment.
+
+---
+
+### Epic 0.i2: Guarded outbound vendor calls
+
+**Invariant:** Every outbound call to an AI/scraping vendor (Gemini, Apify, Bright Data) goes through one guarded wrapper enforcing a per-key lock, a request timeout, retry backoff, and a recorded vendor-DPA check.
+
+### Story 0.i2a: Build the guarded vendor-call wrapper
+
+**As a** developer,
+**I want** one wrapper around outbound vendor calls that enforces a per-key lock, a request timeout, retry backoff, and a DPA-confirmation gate before the call is made,
+**So that** no call site can bypass locking, hang indefinitely, retry without backoff, or fire against a vendor whose DPA was never confirmed.
+
+**Acceptance Criteria:**
+
+*   **Given** any code path that needs to call Gemini, Apify, or Bright Data,
+*   **When** it calls through this wrapper,
+*   **Then** the call is serialized per key (no concurrent duplicate-billable calls), bounded by a request timeout, retried with backoff on transient failure, and rejected before any network call if that vendor's DPA confirmation is not recorded.
+
+**Note:** Establishes a new architecture-spine invariant (AD-n) — FIND-004 is `impact: compliance`.
+
+### Story 0.i2b: Adopt the wrapper in the Gemini synchronous verification path
+
+**As a** developer,
+**I want** `verifyGeminiApiKey`/`createApiKey` to call through the guarded wrapper,
+**So that** a hung call no longer blocks the caller indefinitely (BUG-012) and the fail-open error-shape classifier no longer trusts an unverified shape (BUG-011).
+
+**Acceptance Criteria:**
+
+*   **Given** `createApiKey`'s synchronous verification call,
+*   **When** the vendor call hangs or errors,
+*   **Then** it times out per the wrapper's bound and does not fail open on an unclassified error shape.
+
+**Depends on:** Story 0.i2a.
+
+### Story 0.i2c: Adopt the wrapper in the async inference path
+
+**As a** developer,
+**I want** `backfillAccountProfileAndInferDefaultLocation` and `resolvePromptToEventFilter` to call through the guarded wrapper,
+**So that** unlocked duplicate-billable calls, missing retry backoff, and the missing rate limit (BUG-011) are all closed by the same mechanism.
+
+**Acceptance Criteria:**
+
+*   **Given** a background inference call on this path,
+*   **When** it is invoked concurrently or repeatedly,
+*   **Then** it is serialized per key, retried with backoff on failure, and bounded by the rate limit the wrapper enforces.
+
+**Depends on:** Story 0.i2a.
+
+### Story 0.i2z: Ratchet — no vendor call bypasses the wrapper
+
+**As a** developer,
+**I want** an enforced, CI-wired guarantee that the invariant holds,
+**So that** a future integration can't call a vendor SDK directly and skip locking, timeout, backoff, or the DPA gate.
+
+**Acceptance Criteria:**
+
+*   **Given** the full codebase,
+*   **When** the repo-wide sweep test runs in CI,
+*   **Then** it fails if any file outside the wrapper module imports the Gemini, Apify, or Bright Data SDK directly.
+*   **And** a test simulating a hung vendor call asserts the wrapper times out with a typed error rather than blocking.
+*   **And** a test asserts a call attempted without a recorded DPA confirmation for that vendor is rejected before any network call.
+
+**Depends on:** Stories 0.i2a, 0.i2b, 0.i2c.
+
+**Note:** Formed 2026-09-08 via `bmad-form-epics` from BUG-011, BUG-012, FIND-004. FIND-017 (capacity-heuristic sub-issue), FIND-018 (quota sub-issue), and IDEA-009 (quota-aware auto-extract trigger) are not members — each is a multi-cause or feature row that would need an "and also" to justify direct membership — but each carries `reprice_on: epic-0-i2` pending this epic's `a` story (see formation report).
+
+---
+
+### Epic 0.i3: CI-enforced infrastructure and build-config checks
+
+**Invariant:** Every Lambda's configuration and the backend's lint strictness are asserted by a CI check, not left to memory.
+
+### Story 0.i3a: Set up the invariant-sweep check suite and restore the lint gate
+
+**As a** developer,
+**I want** a CI-wired check suite for cross-cutting infra/build-config assumptions, and `apps/backend`'s lint script restored to `--max-warnings 0`,
+**So that** the backend stops silently accumulating lint warnings and there is one place new infra/build-config checks get added (FIND-015's lint-gate sub-issue).
+
+**Acceptance Criteria:**
+
+*   **Given** a PR that introduces a new backend lint warning,
+*   **When** CI runs,
+*   **Then** the build fails — `--max-warnings 0` is enforced in CI, not just available locally.
+*   **And** the invariant-sweep check suite exists as a runnable, CI-wired job that Stories 0.i3b/0.i3c register into.
+
+**Note:** Residual, not addressed here: FIND-015 also names vague local Postgres setup docs and an irreversible `ALTER TYPE ADD VALUE` migration risk — neither is a CI-checkable invariant and both stay on the row.
+
+### Story 0.i3b: Add the Lambda-timeout check
+
+**As a** developer,
+**I want** a check asserting every Lambda in the infra stack declares a timeout,
+**So that** `aiProcessorLambda` and `ingestorLambda` (BUG-002) can't silently ship without one the way they did after Story 3.4f fixed the same gap elsewhere.
+
+**Acceptance Criteria:**
+
+*   **Given** the infra stack definition,
+*   **When** the invariant-sweep suite runs,
+*   **Then** it fails if any Lambda, including `aiProcessorLambda` and `ingestorLambda`, has no declared timeout.
+
+**Depends on:** Story 0.i3a.
+
+### Story 0.i3c: Add the IAM-grant check
+
+**As a** developer,
+**I want** a check asserting every queue/secret env var a Lambda references has a matching IAM grant,
+**So that** the gap FIND-017 names — only one regression test exists, for the exact incident that already shipped — is closed systemically rather than incident-by-incident.
+
+**Acceptance Criteria:**
+
+*   **Given** the infra stack definition,
+*   **When** the invariant-sweep suite runs,
+*   **Then** it fails if any Lambda references a queue/secret env var with no matching IAM grant.
+
+**Note:** Residual, not addressed here: FIND-017 also names a deliberately-left-open FK `ON DELETE` risk on brightdata/apify pending-job tables, and a capacity heuristic that should use real Apify usage data instead (the latter carries `reprice_on: epic-0-i2`, see that epic's note) — neither is closed by this story.
+
+**Depends on:** Story 0.i3a.
+
+### Story 0.i3z: Ratchet — the invariant-sweep suite runs and blocks merge
+
+**As a** developer,
+**I want** the invariant-sweep suite wired into CI as a required check,
+**So that** the mechanism itself, not just the individual checks, is enforced.
+
+**Acceptance Criteria:**
+
+*   **Given** a PR,
+*   **When** CI runs,
+*   **Then** the invariant-sweep suite (Lambda-timeout check, IAM-grant check, and the restored lint gate) is a required check that blocks merge on failure.
+
+**Depends on:** Stories 0.i3a, 0.i3b, 0.i3c.
+
+**Note:** Formed 2026-09-08 via `bmad-form-epics` from BUG-002, FIND-015 (lint-gate sub-scope), FIND-017 (IAM-grant sub-scope). Internal only for all three — no PRD or spine-interface change.
+
+---
+
+### Epic 0.i4: Proposal landing verification
+
+**Invariant:** Every edit a proposal declares — to a planning doc, a story's ACs, or a story's existence — is confirmed present in its target artifact by an automated check, not assumed.
+
+### Story 0.i4a: Build the landing-verification check
+
+**As a** developer,
+**I want** `backlog-check.py` (or a script it invokes) to parse a proposal's declared edits and assert their presence in the named target file(s),
+**So that** "the proposal says it made this edit" and "the edit actually landed" stop being different facts that nothing reconciles.
+
+**Acceptance Criteria:**
+
+*   **Given** a `promoted` or `done` backlog item whose source document declares a specific edit to a named target file,
+*   **When** the check runs,
+*   **Then** it fails if that edit is not found in the target file, and passes when it is.
+*   **And** the check is exercised against at least one known-good fixture (e.g. the already-`done` BUG-016 case) and one known-bad fixture, proving it actually fires.
+
+### Story 0.i4b: Remediate FIND-001 — sync Story 3.1b/3.4 ACs to shipped behavior
+
+**As a** developer,
+**I want** Story 3.1b AC4 and Story 3.4 AC3 updated to state the behavior that already shipped (`DUPLICATE_API_KEY` in `resolvers.ts`, the 3d..30d retry windows in `process-scrape-job.ts`),
+**So that** the story files stop being behind their own code.
+
+**Acceptance Criteria:**
+
+*   **Given** the shipped behavior in `resolvers.ts` and `process-scrape-job.ts`,
+*   **When** Story 3.1b AC4 and Story 3.4 AC3 are reviewed,
+*   **Then** their prose states that behavior.
+
+### Story 0.i4c: Remediate FIND-002 — apply the favoriteCount PRD text
+
+**As a** developer,
+**I want** CC-014's drafted `favoriteCount` text applied to `prd.md` §3.2,
+**So that** the PRD matches what Story 1.3g and the resolver already implement.
+
+**Acceptance Criteria:**
+
+*   **Given** CC-014's drafted `favoriteCount` text,
+*   **When** this story lands,
+*   **Then** `prd.md` §3.2 contains it.
+
+### Story 0.i4d: Remediate FIND-003 — verify or create the UX rework items #7/#8/#9 stories
+
+**As a** developer,
+**I want** to confirm whether UX rework items #7/#8/#9 (autocomplete and wizard-layout bugs, routed straight to `bmad-create-story`) actually became stories,
+**So that** no scope silently vanished when CC-014 carved them out.
+
+**Acceptance Criteria:**
+
+*   **Given** CC-014's carve-out of items #7/#8/#9,
+*   **When** this story runs,
+*   **Then** it records, per item, either the existing story key or a newly-created one — no item is left with neither.
+
+### Story 0.i4z: Ratchet — the check runs in backlog-check.py and gates its exit code
+
+**As a** developer,
+**I want** the landing-verification check registered as a new numbered check in `backlog-check.py`,
+**So that** a future proposal's unlanded edit fails the same commit gate checks 1-13 already provide.
+
+**Acceptance Criteria:**
+
+*   **Given** `backlog-check.py`,
+*   **When** it runs,
+*   **Then** the new check is numbered after check 13, contributes to the exit code the same way, and is documented in `backlog-spec.md` §9.
+
+**Depends on:** Stories 0.i4a, 0.i4b, 0.i4c, 0.i4d.
+
+**Note:** Formed 2026-09-08 via `bmad-form-epics` from FIND-001, FIND-002, FIND-003. Internal only for all three — process tooling, no PRD/spine interface. Evidence this class recurs: BUG-004 and BUG-016 already fixed one instance each, individually, and are `done`.
+
+---
+
+### Epic 0.i5: Shared list-pagination and filter-state controller
+
+**Invariant:** Every list/pagination surface derives its cursor and filter-reset state from one shared controller, not local per-page state.
+
+**Note on scope (Step 4 ruling, 2026-09-08):** "scroll-anchor" was deliberately dropped from the invariant. Infinite scroll and prev/next are two views over the same cursor state, but the three moderator-tools pages (BUG-020) have no scroll anchor to preserve — so *"anything that manages its own scroll-anchor state locally is a bug"* is false for them, and the sentence failed the restate-as-a-rule test (gate §5 criterion 2). Anchor stability across appends remains a **capability** the controller offers (Story 0.i5a) and that the infinite-scroll surface consumes (Story 0.i5b); it is not a property every adopting surface must exhibit. Story 0.i5z's ratchet already scopes itself this way — it asserts only cursor/filter state, which is what makes it the operational definition of this invariant.
+
+### Story 0.i5a: Build the shared pagination/filter controller
+
+**As a** developer,
+**I want** one controller/hook owning cursor state, a reset-on-filter-change rule, scroll-anchor stability across appends, and prev/next/total controls — and a settled answer to whether filters apply on change or only on an explicit Apply action (IDEA-011) —
+**So that** every list view stops reinventing pagination and filter-reset locally, and the app has one consistent rule for when a filter takes effect.
+
+**Acceptance Criteria:**
+
+*   **Given** any list view using the controller,
+*   **When** the user changes a filter,
+*   **Then** the controller resets pagination to page 1 before the next fetch (closing BUG-019's failure mode), applying the on-change-vs-Apply rule this story settles.
+*   **And** when the list auto-loads its next page, the controller keeps the scroll/intersection anchor stable across the append (closing BUG-018's failure mode).
+*   **And** the controller exposes prev/next/total controls for consumers that need them.
+
+**Note:** Settles IDEA-011 directly — establishes a new cross-cutting convention (AD-n), written in this story. IDEA-011 does not get its own adoption story; it is the rule this story implements, not a symptom of it. Once this story's key exists, add it to IDEA-011's `stories` field alongside the bug rows' — IDEA-011 then derives to `promoted` through the ordinary mechanism (`backlog-spec.md` §5) and closes with this epic.
+
+### Story 0.i5b: Adopt the controller in Discovery/event-list surfaces
+
+**As a** developer,
+**I want** the Discovery event-list infinite-scroll view to use the shared controller,
+**So that** BUG-018 (scroll position) and BUG-019 (filter-change reset) are both closed by construction rather than by two separate point fixes.
+
+**Acceptance Criteria:**
+
+*   **Given** the Discovery event list,
+*   **When** it adopts the shared controller,
+*   **Then** its local pagination/filter state is removed in favor of the controller's.
+
+**Depends on:** Story 0.i5a.
+
+### Story 0.i5c: Adopt the controller in the moderator-tools pages
+
+**As a** moderator,
+**I want** `unprocessed-payloads-content.tsx`, `actor-runs-content.tsx`, and `moderator-accounts-content.tsx` to gain prev-page navigation and totalCount/current-page display,
+**So that** I can orient myself in the result set instead of only having a one-way "Load more" button (BUG-020).
+
+**Acceptance Criteria:**
+
+*   **Given** any of the three moderator-tools pages,
+*   **When** it adopts the shared controller,
+*   **Then** it displays a prev-page control alongside next, plus totalCount and current-page info.
+
+**Depends on:** Story 0.i5a.
+
+### Story 0.i5d: Sweep — add the temporal filter to the FilterHub
+
+**As a** user,
+**I want** a Happening now / Upcoming / All temporal filter in the event-list filter row,
+**So that** I can narrow the list to what is on right now (IDEA-019).
+
+**Acceptance Criteria:**
+
+*   **Given** the event list filter row,
+*   **When** the temporal filter is used,
+*   **Then** its state is held by this epic's shared controller, not locally, and resets with the other filters.
+
+**Depends on:** Story 0.i5a.
+
+**Note:** Added 2026-09-11 as a **sweep** story (gate §5) — IDEA-019 shares this epic's FilterHub surface but is not epic-worthy on its own (criterion 5). It is new user-visible behaviour riding the epic's mechanism, not a violation of its invariant; the invariant and the other members are unchanged.
+
+### Story 0.i5z: Ratchet — no list surface manages pagination/filter state locally
+
+**As a** developer,
+**I want** an enforced, CI-wired guarantee that the invariant holds,
+**So that** a future list view can't reintroduce local cursor/filter state and the on-change-vs-Apply rule can't silently diverge per surface.
+
+**Acceptance Criteria:**
+
+*   **Given** the full codebase,
+*   **When** the repo-wide sweep test runs in CI,
+*   **Then** it fails if any list/pagination surface manages `endCursor`/`hasNextPage`/filter state via local `useState` outside the shared controller.
+*   **And** a regression test asserts a filter change resets pagination to page 1 (BUG-019's exact case).
+*   **And** the on-change-vs-Apply rule is applied identically across every adopting surface, verified by the controller's own test suite rather than by per-surface convention.
+
+**Depends on:** Stories 0.i5a, 0.i5b, 0.i5c, 0.i5d.
+
+**Note:** Formed 2026-09-08 via `bmad-form-epics` from BUG-018, BUG-019, BUG-020, and IDEA-011 (member — see Story 0.i5a's note on its absorption). This is a mixed-type improvement epic: bugs drive it, so it stays `epic-0-i5` rather than becoming a feature epic — one `proposal`-type member does not flip an epic's kind (gate §2 governs what the epic's kind IS from its driving rows, not a requirement that every member share one type).
+
+---
+
+### Epic 0.i6: One SubscribedAccountCard for every subscribed-account display
+
+**Invariant:** Every place that displays a subscribed social-media account renders it through one `SubscribedAccountCard` whose props are fully specified and gracefully degrade on missing input.
+
+### Story 0.i6a: Finish the SubscribedAccountCard/AccountAvatar contract
+
+**As a** developer,
+**I want** `SubscribedAccountCard`'s `size="lg"` variant to scale its adjacent text, its unused `postedByLabel` prop dropped, and `AccountAvatar`/`SubscribedAccountCard` to render a defined fallback instead of an all-or-nothing guard on degenerate input (empty `displayName`, missing avatar),
+**So that** the card's own contract is complete before any more pages adopt it (FIND-011, BUG-005).
+
+**Acceptance Criteria:**
+
+*   **Given** `SubscribedAccountCard` rendered with `size="lg"`,
+*   **When** it renders,
+*   **Then** the adjacent text scales proportionally.
+*   **And** `postedByLabel` is removed if genuinely unused, or wired to a real caller.
+*   **And** `AccountAvatar`/`SubscribedAccountCard` given an empty `displayName` or missing avatar renders a defined fallback, not a blank or crashed render.
+
+**Note:** FIND-011 is a fractional member — its `EventDetailView` unused-prop finding is outside this card's contract and is not addressed here. Flagged as a carve candidate in the formation report; not carved now, the board is frozen for this pass.
+
+### Story 0.i6b: Adopt the card into Post Selection
+
+**As a** developer,
+**I want** the Post Selection page's inline account markup replaced with `SubscribedAccountCard`,
+**So that** the page stops maintaining its own duplicate rendering of the same data (FIND-012).
+
+**Acceptance Criteria:**
+
+*   **Given** the Post Selection page,
+*   **When** it adopts the card,
+*   **Then** its inline account markup is removed in favor of the card.
+
+**Depends on:** Story 0.i6a.
+
+### Story 0.i6c: Adopt the card into Subscribed Accounts settings, and settle the detail-surface variant
+
+**As a** developer,
+**I want** the Subscribed Accounts settings list to render through `SubscribedAccountCard` while keeping its shipped `SwipeToReveal`+`Trash2` delete affordance, and — if `SubscribedAccountCard` is also the component behind FIND-022's "shared-account-info" pattern on event/post detail — a context/variant prop so list context gets the swipe-to-reveal delete and detail context gets the subscribe/unsubscribe toggle,
+**So that** the settings list's shipped convention is not disturbed, and the detail-surface convention (a separate, narrower question) is settled by a props decision rather than by picking one convention to win across both surfaces.
+
+**Acceptance Criteria:**
+
+*   **Given** the Subscribed Accounts settings list,
+*   **When** it adopts the card,
+*   **Then** it keeps the shipped `SwipeToReveal`+`Trash2` delete affordance — this is not in tension with anything and is not replaced.
+*   **And** if the event/post-detail "shared-account-info" surface (FIND-022) uses the same card, it does so via a context/variant prop selecting the subscribe/unsubscribe toggle, not the swipe-to-reveal delete.
+
+**Depends on:** Story 0.i6a.
+
+### Story 0.i6d: Route AccountAvatar's border through the card's tokens
+
+**As a** developer,
+**I want** `AccountAvatar`'s hardcoded `border-slate-*` replaced by the shared token the card already defines,
+**So that** the avatar stops carrying its own colour decision outside the card contract (FIND-008).
+
+**Acceptance Criteria:**
+
+*   **Given** `AccountAvatar` rendered in any context,
+*   **When** it renders its border,
+*   **Then** the colour comes from the shared token, with no hardcoded `border-slate-*` class remaining.
+
+**Depends on:** Story 0.i6a.
+
+**Note:** Added 2026-09-11 as an adoption story — FIND-008 violates this epic's existing invariant directly, so it joins rather than forming anything new (gate §5, `adopt`). The epic's membership is otherwise unchanged.
+
+### Story 0.i6z: Ratchet — no display surface bypasses the card
+
+**As a** developer,
+**I want** an enforced, CI-wired guarantee that the invariant holds,
+**So that** a future page can't reintroduce inline account markup instead of the card.
+
+**Acceptance Criteria:**
+
+*   **Given** the full codebase,
+*   **When** the repo-wide sweep test runs in CI,
+*   **Then** it fails if any file in post-selection, settings/account/subscriptions, or subscriptions renders raw account-avatar+name markup outside `SubscribedAccountCard`.
+*   **And** a test asserts the card renders a defined fallback for degenerate input.
+*   **And** a test asserts the `size="lg"` variant scales its adjacent text.
+
+**Depends on:** Stories 0.i6a, 0.i6b, 0.i6c, 0.i6d.
+
+**Note:** Formed 2026-09-08 via `bmad-form-epics` from FIND-011 (fractional, see Story 0.i6a), BUG-005, FIND-012. Internal only for all three — UI consistency, no PRD/spine interface change.
+
+---
+
+### Epic 0.i7: Confidence-aware Geoapify location resolution
+
+**Invariant:** No consumer uses a Geoapify-resolved location without reading its confidence signal.
+
+### Story 0.i7a: Carry confidence and country bias through every Geoapify response mapper
+
+**As a** developer,
+**I want** `confidence`/`matchType` captured into `LocationDetails` by all three `geoapify-client.ts` response mappers, plus a country-code bias on the schedule-geocoding call,
+**So that** every consumer downstream has a signal to read instead of trusting Geoapify's top result (BUG-027).
+
+**Acceptance Criteria:**
+
+*   **Given** `geocodeAddress`, `reverseGeocode` and `getPlaceDetails`,
+*   **When** each maps a Geoapify response,
+*   **Then** the returned `LocationDetails` carries Geoapify's `rank.confidence` and `rank.match_type`.
+*   **And** schedule-location geocoding passes the account's own country as a bias, so a same-named venue abroad is not preferred over the local one.
+
+**Note:** Establishes a new invariant — a new `AD-n` on the architecture spine is written in this story, not deferred to `z` (gate §6).
+
+### Story 0.i7b: Re-rank sub-venue matches using the confidence signal
+
+**As a** developer,
+**I want** sub-venue lookups ("Grand Atrium, Pakuwon Mall Jogja") re-ranked against the new confidence signal rather than taking Geoapify's first result,
+**So that** a low-confidence top hit no longer wins over a correct lower-ranked one (BUG-017).
+
+**Acceptance Criteria:**
+
+*   **Given** a sub-venue query whose top Geoapify result is low-confidence,
+*   **When** the location is resolved,
+*   **Then** the result is chosen by reading `confidence`/`matchType`, not by position.
+
+**Depends on:** Story 0.i7a.
+
+### Story 0.i7c: Gate the event-detail map link on location confidence
+
+**As a** developer,
+**I want** the event-detail Google Maps link to use the coordinate only when the resolved location is trustworthy, and fall back to a text query otherwise,
+**So that** a user is never sent to a confidently-wrong pin (IDEA-023).
+
+**Acceptance Criteria:**
+
+*   **Given** an event whose location resolved below the confidence threshold,
+*   **When** the event-detail map link renders,
+*   **Then** it falls back to a text query rather than linking the coordinate.
+*   **And** above the threshold it links the coordinate as today.
+
+**Depends on:** Story 0.i7a.
+
+### Story 0.i7z: Ratchet — no consumer trusts a Geoapify result without its confidence signal
+
+**As a** developer,
+**I want** an enforced, CI-wired guarantee that the invariant holds,
+**So that** a future consumer cannot reintroduce blind trust in Geoapify's top result.
+
+**Acceptance Criteria:**
+
+*   **Given** the full codebase,
+*   **When** the check runs in CI,
+*   **Then** it fails if any of `geocodeAddress`, `reverseGeocode` or `getPlaceDetails` in `geoapify-client.ts` returns a `LocationDetails` that drops `confidence`/`matchType`.
+*   **And** it fails if either the schedule-location call site (`resolve-account-and-locations.ts`) or the event-detail map-link builder (`mapper.ts`) consumes a resolved location without reading `confidence`/`matchType` first.
+
+**Depends on:** Stories 0.i7a, 0.i7b, 0.i7c.
+
+**Note:** Formed 2026-09-11 via `bmad-form-epics` from BUG-027, BUG-017, IDEA-023. Invariant rewritten at the human checkpoint from an earlier two-clause form whose second half ("prefers a correct match over blindly trusting") was unfalsifiable; these `z` criteria test the replacement directly. See `planning-artifacts/epic-formation/checkpoint-2026-09-11.md` §2.
+
+---
+
+## Epic 1 (Core App and Event Discovery) — improvement epics
+
+### Epic 1.i1: One card primitive for every event-card image slot and badge
+
+**Invariant:** Every card surface renders its image slot, thumbnail and favorite/date badge through the shared `event_card_*` primitive — never a local size, never a local fallback.
+
+### Story 1.i1a: Extend the shared event_card_* primitive to own thumbnail sizing and fallback
+
+**As a** developer,
+**I want** the `event_card_*` tokens already specified by the 2026-09-11 `bmad-ux` pass — `event_card_date_box.base_default`, `event_card_masonry.thumbnail_default`/`thumbnail_default_fallback`, `event_card_compact_thumbnail_fallback`, `event_card_favorite_count_badge_large` — implemented as one primitive that owns image-slot dimensions, fallback rendering and badge scale,
+**So that** every surface has one thing to adopt instead of re-deciding sizing and fallback locally.
+
+**Acceptance Criteria:**
+
+*   **Given** the shared primitive,
+*   **When** it renders an image slot,
+*   **Then** the slot's dimensions come from the surrounding chrome (date-box height / row height), never from the image, so nothing shifts when the image fails.
+*   **And** the favorite icon's size derives from the date badge's font-size token rather than a fixed class.
+*   **And** a missing or hotlink-expired image renders reserved-but-blank space — no placeholder text, no icon.
+
+**Note:** Establishes a new invariant — a new `AD-n` on the architecture spine is written in this story, not deferred to `z` (gate §6).
+
+### Story 1.i1b: Tie the favorite icon's size to the date badge token
+
+**As a** developer,
+**I want** `EventCard`'s hardcoded `w-5 h-5` Heart icon replaced by the primitive's badge-scale token,
+**So that** the icon and the date badge stop drifting out of proportion (BUG-023).
+
+**Acceptance Criteria:**
+
+*   **Given** `EventCard` at any date-badge font size,
+*   **When** the favorite icon renders,
+*   **Then** its size is derived from that font size through the shared token, with no fixed pixel class remaining.
+
+**Depends on:** Story 1.i1a.
+
+### Story 1.i1c: Replace the local broken-image placeholder with the shared fallback
+
+**As a** developer,
+**I want** `EventCard`'s `!imgError && imageUrl` else-branch — today a muted box reading "No image available" — replaced by the primitive's reserved-but-blank fallback,
+**So that** an expired hotlink shows nothing rather than placeholder text (FIND-023).
+
+**Acceptance Criteria:**
+
+*   **Given** an event whose image is absent or whose hotlinked URL has expired,
+*   **When** the card renders on masonry or the calendar row,
+*   **Then** the image area is blank and correctly sized, with no placeholder text or icon and no reflow.
+
+**Depends on:** Story 1.i1a.
+
+### Story 1.i1d: Adopt the primitive into WeeklyCalendarView's compact row
+
+**As a** developer,
+**I want** the calendar row card to render a thumbnail through the primitive, with the enlarged standalone favorite icon when the image is missing,
+**So that** the calendar surface stops being the one list view with no image at all (IDEA-016).
+
+**Acceptance Criteria:**
+
+*   **Given** the Weekly Calendar's compact row,
+*   **When** it renders,
+*   **Then** the thumbnail, fallback and favorite badge come from the primitive.
+*   **And** the row's date box shows till/end information, not a repeat of the start date its day header already anchors.
+
+**Depends on:** Stories 1.i1a, 1.i1c.
+
+**Note:** Which `WeeklyCalendarView.tsx` render path this attaches to — the grouped `mobile_day_list` per-schedule card, a new ungrouped surface, or both — is deliberately open and is an architecture call for `bmad-epic-readiness-check`, not a design one (IDEA-016's note, user-confirmed 2026-09-11).
+
+### Story 1.i1e: Adopt the primitive into the masonry default state
+
+**As a** developer,
+**I want** `prominentPoster=false` to move its date box out of the poster overlay and beside a small thumbnail sized to the date box's own height, with the TILL badge repositioned and recolored,
+**So that** an expired image degrades gracefully instead of leaving a broken overlay on an empty poster (IDEA-017).
+
+**Acceptance Criteria:**
+
+*   **Given** `EventCard` with `prominentPoster=false`,
+*   **When** it renders,
+*   **Then** the date box sits beside a thumbnail sized to the date box's height, both from the primitive.
+*   **And** `prominentPoster=true` keeps its shipped full-width-poster treatment unchanged.
+*   **And** the TILL badge renders at the date box's top-left corner in the new amber treatment.
+
+**Depends on:** Stories 1.i1a, 1.i1c.
+
+### Story 1.i1z: Ratchet — no card surface sizes or falls back locally
+
+**As a** developer,
+**I want** an enforced, CI-wired guarantee that the invariant holds,
+**So that** a fifth card surface cannot reintroduce its own image sizing or its own fallback.
+
+**Acceptance Criteria:**
+
+*   **Given** the full codebase,
+*   **When** the repo-wide sweep test runs in CI,
+*   **Then** it fails if any component under `packages/ui/src/features/events` renders an image slot, thumbnail, favorite icon or date badge with a hardcoded dimension class instead of an `event_card_*` token.
+*   **And** it fails if the literal "No image available", or any other placeholder text or icon, appears inside an image-fallback branch anywhere outside the shared primitive.
+*   **And** a test asserts every card surface — masonry default, masonry prominent, and the calendar compact row — renders reserved-but-blank on image error with no layout shift.
+
+**Depends on:** Stories 1.i1a, 1.i1b, 1.i1c, 1.i1d, 1.i1e.
+
+**Note:** Formed 2026-09-11 via `bmad-form-epics` from BUG-023, FIND-023, IDEA-016, IDEA-017. **Proposed as a feature epic ("Epic 9") and reclassified to the improvement axis at the human checkpoint** — the members are not one journey (masonry shipping without the calendar thumbnail leaves the surfaces *inconsistent*, not the outcome incomplete), and a feature epic carries no mandatory ratchet, which is what "consistently across every surface" most needs. Reasoning in `planning-artifacts/epic-formation/checkpoint-2026-09-11.md` §2.
+
+---
+
+## Epic 2 (User Personalization) — improvement epics
+
+### Epic 2.i1: One mutation-result handler for favorite/calendar toggles
+
+**Invariant:** Every mutation-result handler for a favorite/calendar-toggle null-checks its payload and derives its count/state delta from the response, settling multi-item fan-outs per item.
+
+### Story 2.i1a: Fix EventDetailWrapper's four onSuccess handlers
+
+**As a** developer,
+**I want** `EventDetailWrapper.tsx`'s four `onSuccess` handlers to null-check their response payload, derive the favorite-count delta from the response instead of assuming ±1, and settle a multi-schedule `Promise.all` per item instead of failing the whole batch on one error,
+**So that** BUG-007 (no partial-failure recovery), BUG-008 (unconditional delta), and BUG-009 (unguarded field reads) are all closed in the one file where they live.
+
+**Acceptance Criteria:**
+
+*   **Given** any of the four `onSuccess` handlers in `EventDetailWrapper.tsx`,
+*   **When** the mutation response arrives,
+*   **Then** the handler null-checks the payload before reading fields (closing BUG-009).
+*   **And** the favorite-count delta is derived from the response, not assumed (closing BUG-008).
+*   **And** a multi-schedule `handleAddToCalendar`'s `Promise.all` settles and reports per-item outcomes rather than an all-or-nothing failure (closing BUG-007).
+
+### Story 2.i1b: Adopt the fixed pattern to the other favorite-mutation call sites
+
+**As a** developer,
+**I want** the same null-check/derive-from-response pattern applied to the three other favorite-mutation call sites that currently replicate the old ±1 pattern (per BUG-008's and FIND-006's notes),
+**So that** the fix isn't confined to `EventDetailWrapper.tsx` while the same defect persists elsewhere.
+
+**Acceptance Criteria:**
+
+*   **Given** each of the three other favorite-mutation call sites,
+*   **When** it adopts the pattern from Story 2.i1a,
+*   **Then** its `onSuccess` handler null-checks and derives its delta the same way.
+
+**Depends on:** Story 2.i1a.
+
+### Story 2.i1c: Add the missing automated tests for the favorite cache-sync path
+
+**As a** developer,
+**I want** automated test coverage for the unfavorite/decrement path across all four patched favorite caches,
+**So that** FIND-006's untested-fix gap is closed for the favorite-cache-sync half of that finding.
+
+**Acceptance Criteria:**
+
+*   **Given** the four favorite caches patched by Stories 2.i1a/2.i1b,
+*   **When** the test suite runs,
+*   **Then** it covers both the favorite and unfavorite (decrement) paths for each.
+
+**Note:** Residual, not addressed here: FIND-006 also names an untested scroll-anchor flicker fix that jsdom cannot exercise via Playwright — that half stays on the row.
+
+**Depends on:** Stories 2.i1a, 2.i1b.
+
+### Story 2.i1z: Ratchet — every favorite/calendar mutation handler follows the pattern
+
+**As a** developer,
+**I want** an enforced, CI-wired guarantee that the invariant holds,
+**So that** a future favorite/calendar mutation handler can't reintroduce an unguarded read or an assumed delta.
+
+**Acceptance Criteria:**
+
+*   **Given** the full codebase,
+*   **When** the test suite runs,
+*   **Then** a regression test covers each of BUG-007's, BUG-008's, and BUG-009's exact failure modes and fails if any is reintroduced.
+
+**Depends on:** Stories 2.i1a, 2.i1b, 2.i1c.
+
+**Note:** Formed 2026-09-08 via `bmad-form-epics` from BUG-007, BUG-008, BUG-009, FIND-006 (fractional, see Story 2.i1c). **Open convention conflict, not resolved by this epic:** BUG-008/Story 2.i1a preserves the existing optimistic ±1 pattern; FIND-022 (a separate, unrelated row) mandates no optimistic state change — confirm-then-refetch — for its own new subscribe-toggle mutation. Whichever ships first sets the house convention for the other. Flagged in the formation report; not adjudicated here.
