@@ -221,7 +221,11 @@ a defect class or a user-facing capability — then apply that column and no oth
 
 ### Candidate generation
 
-Signals, in ascending order of strength:
+**Generation is per axis, and the two axes need different generators.** This is separate
+from §2's correction to the *criteria*. Getting criterion 3 right only decides what passes;
+it cannot admit a cluster the generator never proposed.
+
+**Improvement axis** — signals in ascending order of strength:
 
 | Axis | Source | Strength |
 |---|---|---|
@@ -235,6 +239,38 @@ Signals, in ascending order of strength:
 share a directory and nothing else; the spec's own check-7 note already says a tag carried
 by a third of the board carries no information. The epic-worthy question is not *"do these
 touch the same code?"* but *"would fixing this properly once kill all of them?"*
+
+**Feature axis** — none of the above will find one, and this is why:
+
+Every improvement signal is a proxy for *implementation proximity*. `touches` is a
+directory. `parent` is capture history. An AD is a mechanism. "Shared repair shape" asks
+what the fix would be. A journey is none of these — two rows can serve one capability while
+sharing no tag, no parent, no AD and no repair shape at all, which is exactly what §2 says
+about features.
+
+So the feature axis needs its own generator, run as a **separate pass**, not as a second
+reading of groups the mechanical axes produced:
+
+| Axis | Source |
+|---|---|
+| Shared PRD capability or section | the PRD — which capability does this row fill a gap in? |
+| Shared user journey | `EXPERIENCE.md` — which journey does a user hit this in? |
+| Shared surface *from the user's side* | the screen or flow, not the component tree |
+
+Read every open `idea`/`proposal` row against these, and ask of each: **which capability
+does this fill a gap in, and does another row fill a gap in the same one?** Rows that share
+an answer are a candidate. Their `touches` sets may be disjoint; that is not evidence
+against them.
+
+**Measured 2026-09-11.** Before this section existed, a pass over 41 rows generated three
+feature-axis candidates, and all three arrived via a `parent` chain or a tag group — the run
+reported, accurately, that it *"did not independently sweep `idea`/`proposal` rows asking
+what journey does this serve."* It had no reason to: the only generators this document gave
+it were mechanism-shaped. The sieve had the right holes and the wrong hopper.
+
+Run the two generation passes independently and record the candidate count from each. One
+pass producing zero candidates is a finding about the board; producing zero because nothing
+generated any is a finding about this document.
 
 ### Rejections are recorded
 
