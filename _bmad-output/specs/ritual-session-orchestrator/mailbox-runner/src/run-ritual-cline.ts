@@ -50,6 +50,23 @@
  *       --gcp-project <your-gcp-project-id> --gcp-region us-central1 \
  *       --prompt "/bmad-dev-story 3.6h"
  *
+ * Usage (OpenAI-compatible endpoint, e.g. DeepInfra -- bare API key + baseUrl):
+ *   tsx src/run-ritual-cline.ts --mailbox ../mailbox --label "3.6h/bmad-dev-story" \
+ *       --cwd C:/projects/portfolio/festgrid/bmad --provider openai-compatible \
+ *       --model deepseek-ai/DeepSeek-V4-Flash-0731 --api-key-env DEEPINFRA_API_KEY \
+ *       --base-url https://api.deepinfra.com/v1/openai --prompt "/bmad-dev-story 3.6h"
+ * Verified 2026-09-12, live round-trip against a real DeepInfra key, both as
+ * raw --provider/--api-key-env/--base-url flags and via --config
+ * all-claude-deepseek-medium --skill bmad-quick-dev (config-driven
+ * ClineProviderSkillConfig resolution): session started, reached
+ * reason="completed", and returned the exact expected model text for a
+ * harmless no-tool-use prompt. Confirms providerId "openai-compatible" +
+ * baseUrl is a valid combination and that skill-config.ts's provider/
+ * apiKeyEnv/baseUrl fields flow through correctly. Only a benign SDK
+ * deprecation warning appeared ("providerOptions key 'openai-compatible',
+ * use 'openaiCompatible' instead") -- internal to the AI SDK's own model
+ * resolution, not something this script sets, no action needed.
+ *
  * Verified 2026-09-03, API-key path (no valid key available in this
  * environment, so this stops short of a live model turn): provider "gemini"
  * is the correct id (not "google" -- confirmed by trial against the real
@@ -133,6 +150,7 @@ interface Args {
   // on why Vertex mode carries no key at all (relies on ambient GCP ADC, the
   // same credentials `gcloud`/cline-cli/gemini-cli already use locally).
   apiKeyEnv?: string;
+  baseUrl?: string;
   vertex?: { gcpProject: string; gcpRegion: string };
 }
 
@@ -166,12 +184,21 @@ function parseArgs(argv: string[]): Args {
   const mailbox = get("--mailbox");
   const label = get("--label") ?? (skill && story ? `${story}/${skill}` : undefined);
   const cwd = get("--cwd") ?? process.cwd();
-  const explicitProviderId = get("--provider");
+  // skillConfig is a ClineVertexSkillConfig (gcpRegion) or a
+  // ClineProviderSkillConfig (provider/apiKeyEnv/baseUrl) -- narrow by field
+  // presence rather than a discriminant tag, since both share runtime:"cline".
+  const skillProviderId = skillConfig && "provider" in skillConfig ? skillConfig.provider : undefined;
+  const skillApiKeyEnv = skillConfig && "apiKeyEnv" in skillConfig ? skillConfig.apiKeyEnv : undefined;
+  const skillBaseUrl = skillConfig && "baseUrl" in skillConfig ? skillConfig.baseUrl : undefined;
+  const skillGcpRegion = skillConfig && "gcpRegion" in skillConfig ? skillConfig.gcpRegion : undefined;
+
+  const explicitProviderId = get("--provider") ?? skillProviderId;
   const modelId = get("--model") ?? skillConfig?.model;
   const reasoningEffort = (get("--reasoning") as ReasoningEffort | undefined) ?? skillConfig?.reasoningEffort;
-  const apiKeyEnv = get("--api-key-env");
+  const apiKeyEnv = get("--api-key-env") ?? skillApiKeyEnv;
+  const baseUrl = get("--base-url") ?? skillBaseUrl;
   const gcpProject = get("--gcp-project") ?? process.env.GOOGLE_CLOUD_PROJECT;
-  const gcpRegion = get("--gcp-region") ?? skillConfig?.gcpRegion;
+  const gcpRegion = get("--gcp-region") ?? skillGcpRegion;
   const vertex = !apiKeyEnv && gcpProject && gcpRegion ? { gcpProject, gcpRegion } : undefined;
 
   // Confirmed by a real run against live GCP credentials: Vertex mode needs
@@ -186,8 +213,9 @@ function parseArgs(argv: string[]): Args {
     throw new Error(
       "Required: --mailbox <dir> --model <id> (or --skill <name> to look it up) [--cwd <path>], and either " +
         "(--prompt <text> --label <string>) or (--skill <name> --story <id>), and exactly one auth mode: " +
-        "--provider <id> --api-key-env <ENV_VAR_NAME>  |  --gcp-project <id> --gcp-region <region> (Vertex ADC mode, no --provider; " +
-        "--gcp-project defaults to $GOOGLE_CLOUD_PROJECT, --gcp-region defaults from --skill if known)"
+        "--provider <id> --api-key-env <ENV_VAR_NAME> [--base-url <url>]  |  --gcp-project <id> --gcp-region <region> (Vertex ADC mode, no --provider; " +
+        "--gcp-project defaults to $GOOGLE_CLOUD_PROJECT, --gcp-region defaults from --skill if known). " +
+        "--provider/--api-key-env/--base-url also default from a --skill's ClineProviderSkillConfig entry."
     );
   }
   if (!providerId) {
@@ -205,7 +233,7 @@ function parseArgs(argv: string[]): Args {
   if (apiKeyEnv && !process.env[apiKeyEnv]) {
     throw new Error(`Environment variable ${apiKeyEnv} is not set -- required as this Cline session's API key.`);
   }
-  return { prompt, mailbox, label, cwd, providerId, modelId, reasoningEffort, apiKeyEnv, vertex };
+  return { prompt, mailbox, label, cwd, providerId, modelId, reasoningEffort, apiKeyEnv, baseUrl, vertex };
 }
 
 const askUserQuestionInputSchema = z.object({
@@ -244,7 +272,8 @@ async function main() {
 
   console.log(
     `[run-ritual-cline] label="${args.label}" provider=${args.providerId} model=${args.modelId} ` +
-      `reasoning=${args.reasoningEffort ?? "(default)"} region=${args.vertex?.gcpRegion ?? "n/a"} cwd=${args.cwd}`
+      `reasoning=${args.reasoningEffort ?? "(default)"} region=${args.vertex?.gcpRegion ?? "n/a"} ` +
+      `baseUrl=${args.baseUrl ?? "(provider default)"} cwd=${args.cwd}`
   );
 
   const askUserQuestionTool = createTool({
@@ -327,6 +356,10 @@ async function main() {
       // and usable in this environment via `gcloud auth application-default
       // print-access-token` before this mode was built.
       ...(args.apiKeyEnv ? { apiKey: process.env[args.apiKeyEnv] } : {}),
+      // Flat CoreModelConfig field (@cline/core's types/config.d.ts) -- no
+      // nested providerConfig wrapper needed here, unlike Vertex below, since
+      // baseUrl/providerId/modelId/apiKey are all top-level on CoreModelConfig.
+      ...(args.baseUrl ? { baseUrl: args.baseUrl } : {}),
       ...(args.vertex
         ? {
             providerConfig: {

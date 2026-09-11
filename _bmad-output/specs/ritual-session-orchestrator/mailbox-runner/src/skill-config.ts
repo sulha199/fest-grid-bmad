@@ -36,12 +36,30 @@ export interface ClaudeSkillConfig {
   effort?: ClaudeEffort;
 }
 
-export interface ClineSkillConfig {
+/** Vertex AI via ambient GCP ADC -- no key, no provider id (run-ritual-cline.ts
+ *  derives providerId "vertex" automatically from gcpRegion + $GOOGLE_CLOUD_PROJECT). */
+export interface ClineVertexSkillConfig {
   runtime: "cline";
   gcpRegion: string;
   model: string;
   reasoningEffort?: ReasoningEffort;
 }
+
+/** Any other cline-reachable provider (openai-compatible endpoints like
+ *  DeepInfra/Together/Fireworks, or a named built-in provider id) authenticated
+ *  via a plain API key read from apiKeyEnv. baseUrl is required for
+ *  "openai-compatible" (there's no default endpoint for that provider id) and
+ *  optional/ignored for a named provider with its own fixed endpoint. */
+export interface ClineProviderSkillConfig {
+  runtime: "cline";
+  provider: string;
+  apiKeyEnv: string;
+  baseUrl?: string;
+  model: string;
+  reasoningEffort?: ReasoningEffort;
+}
+
+export type ClineSkillConfig = ClineVertexSkillConfig | ClineProviderSkillConfig;
 
 export type SkillConfig = ClaudeSkillConfig | ClineSkillConfig;
 
