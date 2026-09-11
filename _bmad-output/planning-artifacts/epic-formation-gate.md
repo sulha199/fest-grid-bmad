@@ -241,6 +241,37 @@ touch the same code?"* but *"would fixing this properly once kill all of them?"*
 A cluster that fails a criterion is written into the formation report with the criterion it
 failed. Without that, the next session re-proposes it and re-litigates it from scratch.
 
+### Every open row gets a disposition
+
+**Added 2026-09-11.** A formation report that lists only what clustered makes its own blind
+spot invisible. The first pass left 14 of 20 `user-visible` rows out and reported them as an
+undifferentiated tail, so the 30%-vs-64% gap was found by counting the board afterwards
+rather than at the checkpoint where it could have been argued.
+
+So: **every open row appears exactly once** — inside an accepted epic, or in the unclustered
+list under a named next action. Not "the rest"; a route. Assert the arithmetic in the report
+(`accepted members + unclustered = open rows read`) and stop if it does not balance, because
+a row in neither set has been silently dropped.
+
+| Disposition | When | What happens next |
+|---|---|---|
+| `quick-dev` | genuinely standalone; fixing it teaches nothing reusable | `bmad-quick-dev`, any time |
+| `adopt: <epic>` | violates an **already-formed** epic's invariant | added as an adoption story under that epic |
+| `sweep: <epic>` | shares a surface with an epic but is not epic-worthy itself (criterion 5) | one sweep story under the owning epic |
+| `reprice_on: <epic>` | not worth doing at today's price; a pending mechanism changes that price | re-examined when that epic lands (§9.1) |
+| `carve-first` | the row bundles more than one concern, so only part of it is a member | split into `parent` + children, then re-read |
+| `spec-first` | cannot be sized until a PRD or UX decision exists | `bmad-prd` / `bmad-ux`, then back to the board |
+| `blocked: <what>` | waiting on infrastructure or an external dependency | nothing now; the note names the dependency |
+| `stays-skipped` | a `value:` skip §9.2 does not reopen | nothing, no matter how cheap it becomes |
+
+**Group by disposition, and inside each group sort by `impact`** — `compliance` and
+`user-visible` first. A flat list buries the rows whose absence is most worth questioning,
+which is precisely how the first pass's bias survived its own checkpoint.
+
+`quick-dev` is a legitimate answer and usually the commonest one. A singleton is not a
+formation failure; forcing it into an epic is. What the report must not do is reach that
+answer silently.
+
 ## 6. Spec reconciliation routing
 
 Decided per member row, at formation time, and written into the epic entry:
@@ -263,7 +294,9 @@ undocumented rule.
    move, and the report must say which state it read.
 1. **Generate candidates** across §5's axes.
 2. **Apply §5's criteria.** Write the formation report: accepted epics, rejected clusters
-   with the failing criterion, and rows left unclustered.
+   with the failing criterion, and every unclustered row under a disposition from §5's
+   table, grouped by disposition and sorted by `impact` within each group. The report
+   balances: accepted members + unclustered = open rows read.
 3. **Draft each accepted epic**: invariant sentence, owning epic N, member row ids, story
    list `a`/`b`…/`z` with `z`'s acceptance criteria, and §6 routing per row.
 4. **Re-scoring sweep** across the rest of the board, `skipped` rows included — §9.1. Late

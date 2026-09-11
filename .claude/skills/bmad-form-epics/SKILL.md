@@ -104,10 +104,14 @@ checkpoint is safe on whatever model is driving; a step whose errors are silent 
 
 <step n="4" goal="Human checkpoint — the user attacks the invariant">
   <critical>Do not write any file before this step completes. Formation is a proposal; the judgment is the user's.</critical>
-  <output>Present, per accepted epic: the invariant sentence, the proposed key (`epic-N-iK`), member row ids, the draft story list (`a` / `b`…`y` / `z`), and the §6 spec-reconciliation routing per row. Then the rejected candidates with their failing criterion, then the rows left unclustered.
+  <output>Present, per accepted epic: the invariant sentence, the proposed key (`epic-N-iK`), member row ids, the draft story list (`a` / `b`…`y` / `z`), and the §6 spec-reconciliation routing per row. Then the rejected candidates with their failing criterion.
+
+  Then **every unclustered row, grouped by its disposition** (`{{gate}}` §5): `quick-dev`, `adopt: <epic>`, `sweep: <epic>`, `reprice_on: <epic>`, `carve-first`, `spec-first`, `blocked: <what>`, `stays-skipped`. Sort by `impact` inside each group, `compliance` and `user-visible` first. Close with the balance line: `N accepted members + M unclustered = K open rows read`.
 
   Ask the user to attack each invariant sentence directly: if they cannot restate it as "so anything that does X is a bug" without adding a caveat, the sentence is wrong.</output>
-  <ask>Which of these hold? Reword, merge, split, or drop any of them.</ask>
+  <critical>Never present unclustered rows as a bare list or as "the rest". Every open row carries a named next action, and the arithmetic must balance — a row in neither the accepted set nor the disposition groups has been silently dropped. If it does not balance, find the missing rows before presenting anything.</critical>
+  <critical>The disposition groups are the checkpoint's real payload. The first pass left 14 of 20 `user-visible` rows unclustered and the user could not see it, because the report presented them undifferentiated; the bias was found by counting the board days later. Sorting by `impact` inside each group is what puts the arguable omissions where they get argued.</critical>
+  <ask>Which of these hold? Reword, merge, split, or drop any of them. Then: does any `quick-dev` row actually belong in an epic, and does any epic member actually belong in `quick-dev`?</ask>
   <action>Apply their corrections. Re-run §5's criteria against any cluster they changed — a reworded invariant can change membership.</action>
 </step>
 
@@ -130,7 +134,8 @@ checkpoint is safe on whatever model is driving; a step whose errors are silent 
   <action>APPEND each epic to `{{epics_file}}` as `### Epic N.iK: ...` with the invariant sentence, its stories in full sections, and a `**Note:**` recording the formation date and member row ids. Never run `bmad-create-epics-and-stories` — its Step 1 overwrites the file wholesale.</action>
   <action>Register `epic-N-iK: backlog` plus every story key in `{{sprint_status}}`, inserted positionally, never overwriting existing entries.</action>
   <action>Stamp `epic: epic-N-iK` on each member row in `{{board}}`. Leave status at `triaged` — only stories move a row to `promoted` (§7 step 7).</action>
-  <action>Write `{{report}}`: the frozen board date and row count, accepted epics, rejected candidates with failing criteria, unclustered rows, and every re-scoring decision from Step 6.</action>
+  <action>Write `{{report}}`: the frozen board date, commit and row count, accepted epics, rejected candidates with failing criteria, every re-scoring decision from Step 6, and the **unclustered rows grouped by disposition** exactly as presented at Step 4 — including the balance line and the per-`impact` sort. The report is what the next pass reads to avoid re-litigating; a disposition that exists only in the chat transcript is lost.</action>
+  <action>Add a **coverage table** to the report: clustered vs unclustered counts per `impact` value. A pass that clusters one impact class far below the others has found a real asymmetry or has a biased criterion, and the table is what makes the next reader ask which.</action>
   <action>Run `{{runner}}` and confirm clean before committing. Check 11 fires if any epic lacks its `z` story.</action>
 </step>
 
@@ -140,6 +145,9 @@ checkpoint is safe on whatever model is driving; a step whose errors are silent 
     Accepted: {{epic keys with invariant sentences}}
     Absorbed stories: {{unstarted story keys, and whether re-parented or superseded}}
     Rejected: {{candidate + failing criterion + routing}}
+    Unclustered by disposition: {{counts per disposition, then the rows per group}}
+    Coverage: {{clustered/unclustered per impact value}}
+    Balance: {{accepted members}} + {{unclustered}} = {{open rows read}}
     Re-scored: {{rows reopened or given reprice_on}}
     Report: {{report}}
 

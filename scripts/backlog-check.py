@@ -55,12 +55,29 @@ def load_sprint_status():
     return status
 
 
+# §4: a ref's first segment names its root. `backlog/…` is relative to
+# implementation-artifacts/; the _bmad-output/ trees are relative to
+# _bmad-output/; everything else is relative to the repo root, so the board can
+# cite design artifacts and incident reports that live outside _bmad-output/.
+BMAD_OUTPUT_TREES = ("planning-artifacts/", "implementation-artifacts/", "specs/")
+
+# §8: check 2 applies only to a ref the row OWNS — a file authored for that row,
+# which therefore carries `backlog_id` back. Every other ref is a CITATION of a
+# document the board does not own (the PRD, a design artifact, an incident
+# report), and stamping one row's id into it would be false: no single row owns
+# the PRD. Owned shapes are named here rather than inferred from owner count,
+# which mis-classifies the moment a canonical document happens to have one citer.
+OWNED_REF = re.compile(
+    r"^(backlog/|planning-artifacts/sprint-change-proposal-)"
+)
+
+
 def resolve_ref(ref: str) -> str:
-    # §4: ref paths are relative to _bmad-output/, except backlog/… which is
-    # relative to implementation-artifacts/.
     if ref.startswith("backlog/"):
         return os.path.join(IMPL, ref)
-    return os.path.join(ROOT, "_bmad-output", ref)
+    if ref.startswith(BMAD_OUTPUT_TREES):
+        return os.path.join(ROOT, "_bmad-output", ref)
+    return os.path.join(ROOT, ref)
 
 
 def tag_prefix(tag: str) -> str:
@@ -73,13 +90,6 @@ def run_checks(items, tags, stories):
     def fail(num, row, msg):
         failures.append((num, row, msg))
 
-    # A ref shared by many rows (the evidence files) cannot carry one row's
-    # backlog_id, so check 2 only applies to refs a single row owns.
-    ref_owners = defaultdict(list)
-    for key, row in items.items():
-        for ref in row.get("ref") or []:
-            ref_owners[ref].append(key)
-
     for key, row in items.items():
         status = row.get("status")
 
@@ -88,15 +98,8 @@ def run_checks(items, tags, stories):
             if not os.path.exists(path):
                 fail(1, key, f"broken ref: {ref}")
                 continue
-            if len(ref_owners[ref]) > 1:
-                continue  # shared evidence file; check 2 does not apply
-            with open(path, encoding="utf-8") as fh:
-                head = fh.read(400)
-            m = re.search(r"^backlog_id:\s*(\S+)", head, re.M)
-            if not m:
-                fail(2, key, f"{ref} carries no backlog_id")
-            elif m.group(1) != key:
-                fail(2, key, f"{ref} says backlog_id: {m.group(1)}")
+            # check 2 is asserted once per owned artifact below, not per citer:
+            # any row may CITE another row's proposal or evidence file.
 
         for tag in row.get("touches") or []:
             if tag_prefix(tag) not in tags:
@@ -161,6 +164,29 @@ def run_checks(items, tags, stories):
             elif mechanism_landed(waiting_on, stories):
                 fail(13, key, f"{waiting_on} settled its mechanism; re-score effort "
                               f"({row.get('effort')}) and clear reprice_on")
+
+
+    # §8 check 2, asserted per OWNED ARTIFACT rather than per citing row. The
+    # link §8 wants is directional: an artifact the board owns names its row,
+    # and that row cites it back. A row citing SOMEONE ELSE'S proposal or
+    # evidence file is ordinary cross-reference, not a mismatch.
+    for ref in sorted({r for row in items.values() for r in (row.get("ref") or [])}):
+        if not OWNED_REF.match(ref):
+            continue
+        path = resolve_ref(ref)
+        if not os.path.exists(path):
+            continue  # already reported by check 1
+        with open(path, encoding="utf-8") as fh:
+            head = fh.read(400)
+        m = re.search(r"^backlog_id:\s*(\S+)", head, re.M)
+        if not m:
+            fail(2, "-", f"{ref} carries no backlog_id")
+            continue
+        owner = m.group(1)
+        if owner not in items:
+            fail(2, owner, f"{ref} claims backlog_id: {owner}, which is not a row")
+        elif ref not in (items[owner].get("ref") or []):
+            fail(2, owner, f"{ref} claims this row, but the row does not cite it back")
 
     return failures
 

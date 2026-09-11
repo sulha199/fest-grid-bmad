@@ -154,8 +154,19 @@ Per-type counters, zero-padded to 3: `BUG-001`, `IDEA-001`, `CC-001`, `FIND-001`
 - Assign in chronological order during backfill.
 - Never reuse an ID, including for deleted items.
 
-`ref` paths are relative to `_bmad-output/`, except `backlog/…` which is relative to
-`implementation-artifacts/`.
+### Ref roots
+
+A ref's first segment names its root:
+
+| First segment | Resolves against |
+|---|---|
+| `backlog/…` | `_bmad-output/implementation-artifacts/` |
+| `planning-artifacts/…`, `implementation-artifacts/…`, `specs/…` | `_bmad-output/` |
+| anything else | the **repo root** |
+
+The third row is what lets a row cite evidence that does not live under `_bmad-output/` —
+`design-artifacts/UX-festgrid-run-1/DESIGN.md`, an incident report under `docs/`. A typo
+still fails check 1 in every case, because no root resolves it.
 
 ## 5. Status vocabulary and adjudication
 
@@ -265,7 +276,22 @@ Form: `namespace:slice` or `namespace:slice/Symbol`.
 
 ## 8. Cross-reference contract
 
-Links are **bidirectional**. Every file named in a `ref` carries the ID back:
+A ref is one of two things, and only the first kind is bidirectional.
+
+**Owned artifacts** are written *for* one row and carry its ID back — `backlog/…` evidence
+files and `planning-artifacts/sprint-change-proposal-*`. These are the board's own output.
+
+**Citations** are documents the board points at but does not own — the PRD, a design
+artifact, an incident report, a shared evidence dump. **Never stamp a `backlog_id` into
+one.** No single row owns the PRD, so any id written there would be false, and the next row
+to cite the same document would have to either overwrite it or contradict it.
+
+The ownership classes are named by ref shape, not inferred from how many rows cite a file.
+Owner-count is a proxy that holds only until a canonical document happens to have exactly
+one citer — which is how BUG-026's citation of the PRD came to be reported as a missing
+back-reference on 2026-09-11.
+
+For an owned artifact, the link is **bidirectional**:
 
 ```yaml
 ---
@@ -298,8 +324,11 @@ board — worse than running no check at all.
 
 
 1. **Broken ref** — a `ref` path that does not exist on disk.
-2. **Back-reference mismatch** — a referenced file whose `backlog_id` is missing or
-   disagrees with its row.
+2. **Back-reference mismatch** — asserted **per owned artifact** (§8), not per citing
+   row, because any row may cite another row's proposal or evidence file. For each
+   owned-shape ref: it carries a `backlog_id`, that id is a real row, and **that row cites
+   the file back**. A row citing an artifact another row owns is not a mismatch; a
+   citation (§8) is exempt entirely.
 3. **Unregistered tag** — a `touches` entry not in the registry.
 4. **Unknown story** — a `stories` entry that is not a key in `sprint-status.yaml`.
 5. **Stale target** — an open item whose story is `done` in `sprint-status.yaml`
