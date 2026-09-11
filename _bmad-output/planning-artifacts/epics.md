@@ -3842,6 +3842,22 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Story 0.i5a.
 
+### Story 0.i5d: Sweep — add the temporal filter to the FilterHub
+
+**As a** user,
+**I want** a Happening now / Upcoming / All temporal filter in the event-list filter row,
+**So that** I can narrow the list to what is on right now (IDEA-019).
+
+**Acceptance Criteria:**
+
+*   **Given** the event list filter row,
+*   **When** the temporal filter is used,
+*   **Then** its state is held by this epic's shared controller, not locally, and resets with the other filters.
+
+**Depends on:** Story 0.i5a.
+
+**Note:** Added 2026-09-11 as a **sweep** story (gate §5) — IDEA-019 shares this epic's FilterHub surface but is not epic-worthy on its own (criterion 5). It is new user-visible behaviour riding the epic's mechanism, not a violation of its invariant; the invariant and the other members are unchanged.
+
 ### Story 0.i5z: Ratchet — no list surface manages pagination/filter state locally
 
 **As a** developer,
@@ -3856,7 +3872,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **And** a regression test asserts a filter change resets pagination to page 1 (BUG-019's exact case).
 *   **And** the on-change-vs-Apply rule is applied identically across every adopting surface, verified by the controller's own test suite rather than by per-surface convention.
 
-**Depends on:** Stories 0.i5a, 0.i5b, 0.i5c.
+**Depends on:** Stories 0.i5a, 0.i5b, 0.i5c, 0.i5d.
 
 **Note:** Formed 2026-09-08 via `bmad-form-epics` from BUG-018, BUG-019, BUG-020, and IDEA-011 (member — see Story 0.i5a's note on its absorption). This is a mixed-type improvement epic: bugs drive it, so it stays `epic-0-i5` rather than becoming a feature epic — one `proposal`-type member does not flip an epic's kind (gate §2 governs what the epic's kind IS from its driving rows, not a requirement that every member share one type).
 
@@ -3911,6 +3927,22 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Story 0.i6a.
 
+### Story 0.i6d: Route AccountAvatar's border through the card's tokens
+
+**As a** developer,
+**I want** `AccountAvatar`'s hardcoded `border-slate-*` replaced by the shared token the card already defines,
+**So that** the avatar stops carrying its own colour decision outside the card contract (FIND-008).
+
+**Acceptance Criteria:**
+
+*   **Given** `AccountAvatar` rendered in any context,
+*   **When** it renders its border,
+*   **Then** the colour comes from the shared token, with no hardcoded `border-slate-*` class remaining.
+
+**Depends on:** Story 0.i6a.
+
+**Note:** Added 2026-09-11 as an adoption story — FIND-008 violates this epic's existing invariant directly, so it joins rather than forming anything new (gate §5, `adopt`). The epic's membership is otherwise unchanged.
+
 ### Story 0.i6z: Ratchet — no display surface bypasses the card
 
 **As a** developer,
@@ -3925,9 +3957,179 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **And** a test asserts the card renders a defined fallback for degenerate input.
 *   **And** a test asserts the `size="lg"` variant scales its adjacent text.
 
-**Depends on:** Stories 0.i6a, 0.i6b, 0.i6c.
+**Depends on:** Stories 0.i6a, 0.i6b, 0.i6c, 0.i6d.
 
 **Note:** Formed 2026-09-08 via `bmad-form-epics` from FIND-011 (fractional, see Story 0.i6a), BUG-005, FIND-012. Internal only for all three — UI consistency, no PRD/spine interface change.
+
+---
+
+### Epic 0.i7: Confidence-aware Geoapify location resolution
+
+**Invariant:** No consumer uses a Geoapify-resolved location without reading its confidence signal.
+
+### Story 0.i7a: Carry confidence and country bias through every Geoapify response mapper
+
+**As a** developer,
+**I want** `confidence`/`matchType` captured into `LocationDetails` by all three `geoapify-client.ts` response mappers, plus a country-code bias on the schedule-geocoding call,
+**So that** every consumer downstream has a signal to read instead of trusting Geoapify's top result (BUG-027).
+
+**Acceptance Criteria:**
+
+*   **Given** `geocodeAddress`, `reverseGeocode` and `getPlaceDetails`,
+*   **When** each maps a Geoapify response,
+*   **Then** the returned `LocationDetails` carries Geoapify's `rank.confidence` and `rank.match_type`.
+*   **And** schedule-location geocoding passes the account's own country as a bias, so a same-named venue abroad is not preferred over the local one.
+
+**Note:** Establishes a new invariant — a new `AD-n` on the architecture spine is written in this story, not deferred to `z` (gate §6).
+
+### Story 0.i7b: Re-rank sub-venue matches using the confidence signal
+
+**As a** developer,
+**I want** sub-venue lookups ("Grand Atrium, Pakuwon Mall Jogja") re-ranked against the new confidence signal rather than taking Geoapify's first result,
+**So that** a low-confidence top hit no longer wins over a correct lower-ranked one (BUG-017).
+
+**Acceptance Criteria:**
+
+*   **Given** a sub-venue query whose top Geoapify result is low-confidence,
+*   **When** the location is resolved,
+*   **Then** the result is chosen by reading `confidence`/`matchType`, not by position.
+
+**Depends on:** Story 0.i7a.
+
+### Story 0.i7c: Gate the event-detail map link on location confidence
+
+**As a** developer,
+**I want** the event-detail Google Maps link to use the coordinate only when the resolved location is trustworthy, and fall back to a text query otherwise,
+**So that** a user is never sent to a confidently-wrong pin (IDEA-023).
+
+**Acceptance Criteria:**
+
+*   **Given** an event whose location resolved below the confidence threshold,
+*   **When** the event-detail map link renders,
+*   **Then** it falls back to a text query rather than linking the coordinate.
+*   **And** above the threshold it links the coordinate as today.
+
+**Depends on:** Story 0.i7a.
+
+### Story 0.i7z: Ratchet — no consumer trusts a Geoapify result without its confidence signal
+
+**As a** developer,
+**I want** an enforced, CI-wired guarantee that the invariant holds,
+**So that** a future consumer cannot reintroduce blind trust in Geoapify's top result.
+
+**Acceptance Criteria:**
+
+*   **Given** the full codebase,
+*   **When** the check runs in CI,
+*   **Then** it fails if any of `geocodeAddress`, `reverseGeocode` or `getPlaceDetails` in `geoapify-client.ts` returns a `LocationDetails` that drops `confidence`/`matchType`.
+*   **And** it fails if either the schedule-location call site (`resolve-account-and-locations.ts`) or the event-detail map-link builder (`mapper.ts`) consumes a resolved location without reading `confidence`/`matchType` first.
+
+**Depends on:** Stories 0.i7a, 0.i7b, 0.i7c.
+
+**Note:** Formed 2026-09-11 via `bmad-form-epics` from BUG-027, BUG-017, IDEA-023. Invariant rewritten at the human checkpoint from an earlier two-clause form whose second half ("prefers a correct match over blindly trusting") was unfalsifiable; these `z` criteria test the replacement directly. See `planning-artifacts/epic-formation/checkpoint-2026-09-11.md` §2.
+
+---
+
+## Epic 1 (Core App and Event Discovery) — improvement epics
+
+### Epic 1.i1: One card primitive for every event-card image slot and badge
+
+**Invariant:** Every card surface renders its image slot, thumbnail and favorite/date badge through the shared `event_card_*` primitive — never a local size, never a local fallback.
+
+### Story 1.i1a: Extend the shared event_card_* primitive to own thumbnail sizing and fallback
+
+**As a** developer,
+**I want** the `event_card_*` tokens already specified by the 2026-09-11 `bmad-ux` pass — `event_card_date_box.base_default`, `event_card_masonry.thumbnail_default`/`thumbnail_default_fallback`, `event_card_compact_thumbnail_fallback`, `event_card_favorite_count_badge_large` — implemented as one primitive that owns image-slot dimensions, fallback rendering and badge scale,
+**So that** every surface has one thing to adopt instead of re-deciding sizing and fallback locally.
+
+**Acceptance Criteria:**
+
+*   **Given** the shared primitive,
+*   **When** it renders an image slot,
+*   **Then** the slot's dimensions come from the surrounding chrome (date-box height / row height), never from the image, so nothing shifts when the image fails.
+*   **And** the favorite icon's size derives from the date badge's font-size token rather than a fixed class.
+*   **And** a missing or hotlink-expired image renders reserved-but-blank space — no placeholder text, no icon.
+
+**Note:** Establishes a new invariant — a new `AD-n` on the architecture spine is written in this story, not deferred to `z` (gate §6).
+
+### Story 1.i1b: Tie the favorite icon's size to the date badge token
+
+**As a** developer,
+**I want** `EventCard`'s hardcoded `w-5 h-5` Heart icon replaced by the primitive's badge-scale token,
+**So that** the icon and the date badge stop drifting out of proportion (BUG-023).
+
+**Acceptance Criteria:**
+
+*   **Given** `EventCard` at any date-badge font size,
+*   **When** the favorite icon renders,
+*   **Then** its size is derived from that font size through the shared token, with no fixed pixel class remaining.
+
+**Depends on:** Story 1.i1a.
+
+### Story 1.i1c: Replace the local broken-image placeholder with the shared fallback
+
+**As a** developer,
+**I want** `EventCard`'s `!imgError && imageUrl` else-branch — today a muted box reading "No image available" — replaced by the primitive's reserved-but-blank fallback,
+**So that** an expired hotlink shows nothing rather than placeholder text (FIND-023).
+
+**Acceptance Criteria:**
+
+*   **Given** an event whose image is absent or whose hotlinked URL has expired,
+*   **When** the card renders on masonry or the calendar row,
+*   **Then** the image area is blank and correctly sized, with no placeholder text or icon and no reflow.
+
+**Depends on:** Story 1.i1a.
+
+### Story 1.i1d: Adopt the primitive into WeeklyCalendarView's compact row
+
+**As a** developer,
+**I want** the calendar row card to render a thumbnail through the primitive, with the enlarged standalone favorite icon when the image is missing,
+**So that** the calendar surface stops being the one list view with no image at all (IDEA-016).
+
+**Acceptance Criteria:**
+
+*   **Given** the Weekly Calendar's compact row,
+*   **When** it renders,
+*   **Then** the thumbnail, fallback and favorite badge come from the primitive.
+*   **And** the row's date box shows till/end information, not a repeat of the start date its day header already anchors.
+
+**Depends on:** Stories 1.i1a, 1.i1c.
+
+**Note:** Which `WeeklyCalendarView.tsx` render path this attaches to — the grouped `mobile_day_list` per-schedule card, a new ungrouped surface, or both — is deliberately open and is an architecture call for `bmad-epic-readiness-check`, not a design one (IDEA-016's note, user-confirmed 2026-09-11).
+
+### Story 1.i1e: Adopt the primitive into the masonry default state
+
+**As a** developer,
+**I want** `prominentPoster=false` to move its date box out of the poster overlay and beside a small thumbnail sized to the date box's own height, with the TILL badge repositioned and recolored,
+**So that** an expired image degrades gracefully instead of leaving a broken overlay on an empty poster (IDEA-017).
+
+**Acceptance Criteria:**
+
+*   **Given** `EventCard` with `prominentPoster=false`,
+*   **When** it renders,
+*   **Then** the date box sits beside a thumbnail sized to the date box's height, both from the primitive.
+*   **And** `prominentPoster=true` keeps its shipped full-width-poster treatment unchanged.
+*   **And** the TILL badge renders at the date box's top-left corner in the new amber treatment.
+
+**Depends on:** Stories 1.i1a, 1.i1c.
+
+### Story 1.i1z: Ratchet — no card surface sizes or falls back locally
+
+**As a** developer,
+**I want** an enforced, CI-wired guarantee that the invariant holds,
+**So that** a fifth card surface cannot reintroduce its own image sizing or its own fallback.
+
+**Acceptance Criteria:**
+
+*   **Given** the full codebase,
+*   **When** the repo-wide sweep test runs in CI,
+*   **Then** it fails if any component under `packages/ui/src/features/events` renders an image slot, thumbnail, favorite icon or date badge with a hardcoded dimension class instead of an `event_card_*` token.
+*   **And** it fails if the literal "No image available", or any other placeholder text or icon, appears inside an image-fallback branch anywhere outside the shared primitive.
+*   **And** a test asserts every card surface — masonry default, masonry prominent, and the calendar compact row — renders reserved-but-blank on image error with no layout shift.
+
+**Depends on:** Stories 1.i1a, 1.i1b, 1.i1c, 1.i1d, 1.i1e.
+
+**Note:** Formed 2026-09-11 via `bmad-form-epics` from BUG-023, FIND-023, IDEA-016, IDEA-017. **Proposed as a feature epic ("Epic 9") and reclassified to the improvement axis at the human checkpoint** — the members are not one journey (masonry shipping without the calendar thumbnail leaves the surfaces *inconsistent*, not the outcome incomplete), and a feature epic carries no mandatory ratchet, which is what "consistently across every surface" most needs. Reasoning in `planning-artifacts/epic-formation/checkpoint-2026-09-11.md` §2.
 
 ---
 

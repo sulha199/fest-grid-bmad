@@ -277,12 +277,26 @@ development_status:
   0-i5a-build-the-shared-pagination-filter-controller: backlog
   0-i5b-adopt-the-controller-in-discovery-event-list-surfaces: backlog
   0-i5c-adopt-the-controller-in-the-moderator-tools-pages: backlog
+  0-i5d-sweep-add-the-temporal-filter-to-the-filterhub: backlog
   0-i5z-ratchet-no-list-surface-manages-pagination-filter-state-locally: backlog
   epic-0-i6: backlog
   0-i6a-finish-the-subscribedaccountcard-accountavatar-contract: backlog
   0-i6b-adopt-the-card-into-post-selection: backlog
   0-i6c-adopt-the-card-into-subscribed-accounts-settings-and-settle-the-detail-surface-variant: backlog
+  0-i6d-route-accountavatar-border-through-the-cards-tokens: backlog
   0-i6z-ratchet-no-display-surface-bypasses-the-card: backlog
+  epic-0-i7: backlog
+  0-i7a-carry-confidence-and-country-bias-through-every-geoapify-response-mapper: backlog
+  0-i7b-re-rank-sub-venue-matches-using-the-confidence-signal: backlog
+  0-i7c-gate-the-event-detail-map-link-on-location-confidence: backlog
+  0-i7z-ratchet-no-consumer-trusts-a-geoapify-result-without-its-confidence-signal: backlog
+  epic-1-i1: backlog
+  1-i1a-extend-the-shared-event-card-primitive-to-own-thumbnail-sizing-and-fallback: backlog
+  1-i1b-tie-the-favorite-icon-size-to-the-date-badge-token: backlog
+  1-i1c-replace-the-local-broken-image-placeholder-with-the-shared-fallback: backlog
+  1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row: backlog
+  1-i1e-adopt-the-primitive-into-the-masonry-default-state: backlog
+  1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: backlog
   epic-1: in-progress
   1-1-create-initial-database-tables: done
   1-2-seed-database-with-mock-data: done

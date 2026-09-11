@@ -465,7 +465,7 @@ items:
      note: "DW-002, DW-004, DW-007 (chronological order is 007, then 004, then 002). DW-007's stale-hub-manifest fix was verified working at the time; DW-004's batch-10 and DW-002's batch-11 hangs are separate, later, still-unexplained recurrences."}
 
   FIND-008:
-    {type: finding, status: backlog, created: 2026-09-05,
+    {type: finding, status: backlog, epic: epic-0-i6, created: 2026-09-05,
      impact: cosmetic, effort: xs,
      title: "AccountAvatar hardcodes border-slate-* instead of the semantic border-border token",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
@@ -586,12 +586,12 @@ items:
 
   # ── undated intake ──────────────────────────────────────────────────────────
   IDEA-001:
-    {type: idea, status: backlog, created: 2026-09-04,
+    {type: idea, status: skipped, created: 2026-09-04,
      impact: user-visible, effort: m,
      title: "Retry AI extraction on n+1 carousel slides when schedule count falls short",
      ref: [backlog/IDEA-001-multislide-extraction.md],
      touches: [cross:ai-extraction, app:backend],
-     note: "Instagram carousels sometimes carry schedules on slide 2+ and not in the caption. Proposes the prompt also return expected schedule count/names to trigger a follow-up pass. Open question: heuristic vs always processing all images. Not implemented — no such mechanism in apps/backend/src/lib/ai-processor."}
+     note: "value: 3-6l delivers the same outcome within the Gemini 500-RPD budget — IDEA-001 retries n+1 slides per post, multiplying requests against that ceiling, while 3-6l is one batched request regardless of slide count. Rival designs, not a supersession: only one gets built, so this is a value skip and §9.2 never reopens it on price. Ruled at the 2026-09-11 human checkpoint. Original reason follows. Instagram carousels sometimes carry schedules on slide 2+ and not in the caption. Proposes the prompt also return expected schedule count/names to trigger a follow-up pass. Open question: heuristic vs always processing all images. Not implemented — no such mechanism in apps/backend/src/lib/ai-processor."}
 
   FIND-005:
     {type: finding, status: done, created: 2026-09-04,
@@ -627,7 +627,7 @@ items:
      note: "From apps/ux-rework2.md L6, dup. L18, via ux-rework2-tracking.md item #2 — deferred in the user's own words ('put to deferred for better planning'), never re-triaged since. Story 5.4 (inactive-account-warning) ships a simpler 30-day-no-post isInactive flag that doesn't cover run-status, so this nuance was never actually captured as its own row before this audit."}
 
   BUG-017:
-    {type: bug, status: backlog, created: 2026-09-06,
+    {type: bug, status: backlog, epic: epic-0-i7, created: 2026-09-06,
      impact: user-visible, effort: s,
      title: "Geoapify rank.confidence returns wrong location for sub-venues (e.g. 'Grand Atrium, Pakuwon Mall Jogja')",
      ref: [],
@@ -686,7 +686,7 @@ items:
      note: "Reported by user via bmad-help, immediately after CC-019's AC14 TILL-badge amendment landed (2026-09-07) — AC14 already anchors the TILL sub-badge to the date box (the 'placement' half of the report), but the box's primary text still always renders startDate/startTime, so a started event reads as a contradictory 'start-date box with an ends-qualifier attached'. No existing AC swaps the box's text to the effective end date while `started === true`. Folded into Story 1.3b as a new AC19 (epics.md) rather than a standalone story, since it's a narrow follow-on to the exact element AC14 just amended. status: triaged, not backlog, since story-level AC/task text already exists and needs implementation, not further scoping."}
 
   BUG-023:
-    {type: bug, status: backlog, created: 2026-09-07, parent: CC-019,
+    {type: bug, status: backlog, epic: epic-1-i1, created: 2026-09-07, parent: CC-019,
      impact: cosmetic, effort: xs,
      title: "EventCard favorite icon size not tied to the date badge's font size — drifts inconsistently",
      ref: [], touches: [pkg:ui, web:events/EventCard],
@@ -724,7 +724,7 @@ items:
 
   # ── 2026-09-11 (bmad-help event-card screenshot audit) ──────────────────────
   FIND-023:
-    {type: finding, status: backlog, created: 2026-09-11, parent: CC-018,
+    {type: finding, status: backlog, epic: epic-1-i1, created: 2026-09-11, parent: CC-018,
      impact: cosmetic, effort: xs,
      title: "Broken/expired event image should render nothing, not the current 'image not available' placeholder",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
@@ -732,7 +732,7 @@ items:
      note: "Reported by user via bmad-help while checking whether the shipped card design matches two user-provided reference screenshots. EventCard.tsx's existing fallback (packages/ui/src/features/events/EventCard.tsx, the `!imgError && imageUrl` branch's else-case, ~line 236-240) renders a muted box with 'No image available' text whenever the image is absent or fails to load. Per the user's explicit instruction: 'for expired image, just display nothing (dont display image not available)' — no visible placeholder text/icon once the image is missing or its hotlinked URL has expired. RESOLVED (2026-09-11 bmad-ux pass, see IDEA-016/IDEA-017): reserved-but-blank confirmed, not collapsing — the image slot's dimensions come from the surrounding chrome (date box height / row height), never from the image itself, so nothing shifts when it fails. Now precisely tokenized for both surfaces: EventCard's masonry default state (`event_card_masonry.thumbnail_default_fallback`) and WeeklyCalendarView's new compact row (`event_card_compact_thumbnail_fallback`), both swapping the small corner favorite pill for the shared `event_card_favorite_count_badge_large` token. Still not coded — this is squarely CC-018's still-undrafted 3-7c story (3-7c-event-list-image-display-hotlink-only-with-graceful-degrade-and-opted-in-prominent-card) plus IDEA-017's Story 1.3b amendment and IDEA-016's Story 1.3g amendment — fold this rule into those ACs when drafted rather than patching EventCard.tsx ad hoc now."}
 
   IDEA-016:
-    {type: idea, status: backlog, created: 2026-09-11, parent: CC-019,
+    {type: idea, status: backlog, epic: epic-1-i1, created: 2026-09-11, parent: CC-019,
      impact: user-visible, effort: m,
      title: "WeeklyCalendarView cards have no event thumbnail today — add one, enlarging the favorite icon when the image is missing/expired",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
@@ -740,7 +740,7 @@ items:
      note: "Reported by user via bmad-help via two reference screenshots of a wide-row 'calendar view' card — distinct from the masonry EventCard discussed under CC-019/IDEA-017 — showing: date box + title/venue + status/nearby badges on the left, and an event thumbnail with the existing heart+favorite-count overlay on the right. The second screenshot shows the same row with the image missing/expired: the thumbnail area is blank (no placeholder, see FIND-023) and the favorite heart icon renders noticeably larger and without its usual pill background, standing alone where the image would have been. Verified this is genuinely new scope, not an existing gap: neither DESIGN.md's `components.calendar.mobile_day_list`/`event_card_compact` tokens nor WeeklyCalendarView.tsx render any image today — 1-3g's AC14 (1-3g-build-the-reusable-weeklycalendarview-component.md) only ever added a `favoriteCount` text line, no thumbnail. FULLY SPEC'D (2026-09-11 bmad-ux pass, follow-up to the same-day bmad-help session): row composition (date box + content column + thumbnail) tokenized as `event_card_compact`/`event_card_compact_thumbnail_fallback` in DESIGN.md, behavior in EXPERIENCE.md's new 'Calendar Row Card: Thumbnail and Fallback' section. Also resolved: this card's date box shows *till/end* info, not a redundant repeat of the start date the surrounding day/date container already conveys — so no separate event_card_till_badge on this surface, one box does both jobs (user-confirmed 2026-09-11). Still open, deliberately not decided by design alone: which WeeklyCalendarView.tsx render path this attaches to — the existing grouped mobile_day_list per-schedule card (no date box today, since day_row_header already anchors the group's start date), a new flatter/ungrouped surface, or both — an architecture call for whoever picks this up via bmad-create-story against Story 1.3g. User explicitly directed (2026-09-11): keep this as a backlog item, not a story-file amendment, until picked up."}
 
   IDEA-017:
-    {type: idea, status: backlog, created: 2026-09-11, parent: CC-019,
+    {type: idea, status: backlog, epic: epic-1-i1, created: 2026-09-11, parent: CC-019,
      impact: user-visible, effort: m,
      title: "Masonry EventCard default-state (prominentPoster=false) date box needs to move beside a small thumbnail, not stay overlaid on a full-width poster",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
@@ -771,7 +771,7 @@ items:
      note: "Reported by user via bmad-help ('feed, discovery, favorite has same set of buttons including location, ai-filter buttons'). Verified by comparing all 3 callers of EventDiscoveryPanel: home-content.tsx (Discovery) passes real `isAuthenticated`/`savedLocations`/`onSelectLocation` from `nearbyFilter` plus `showAITrigger={aiFilter.filterHubProps.showAITrigger}` — Type, Category, Location and AI-filter buttons all render (FilterHub.tsx only renders the Nearby-location popover when `isAuthenticated`, and the AI sparkle button only when `showAITrigger`). feed/feed-content.tsx hardcodes `isAuthenticated={false}`, `savedLocations={[]}`, `onSelectLocation={() => {}}` (line ~242-250) so the Location button never renders, but does pass `showAITrigger` — AI button present, Location button missing. favorites/favorites-content.tsx hardcodes the same `isAuthenticated={false}`/`savedLocations={[]}` (line ~314-322) AND never passes `showAITrigger` at all — both Location and AI-filter buttons missing, leaving only Type/Category. Fix: wire Feed and Favorites to real auth/saved-location state and an `aiFilter` instance the same way Discovery does, so Type/Category/Location/AI-filter render identically on all three surfaces."}
 
   IDEA-019:
-    {type: idea, status: backlog, created: 2026-09-11,
+    {type: idea, status: backlog, epic: epic-0-i5, created: 2026-09-11,
      impact: user-visible, effort: s,
      title: "Add a Happening now / Upcoming / All temporal filter to the event list filter row (card view only)",
      ref: [], touches: [web:events, pkg:ui, cross:ux-tokens],
@@ -820,7 +820,7 @@ items:
 
   # ── 2026-09-11 (bmad-help geoapify-country-bias session) ────────────────────
   BUG-027:
-    {type: bug, status: backlog, created: 2026-09-11,
+    {type: bug, status: backlog, epic: epic-0-i7, created: 2026-09-11,
      impact: user-visible, effort: m,
      title: "Geoapify schedule-location geocoding has no country bias, so same-named venues outside the account's own country can be matched",
      ref: [], touches: [app:backend, cross:ai-extraction],
@@ -830,7 +830,7 @@ items:
      AMENDED (2026-09-11, same session): user proposed also capturing a confidence score per resolved location. Confirmed feasible and cheap to fold into this same fix — Geoapify's geocode/search and /reverse responses already carry a `rank.confidence` (0-1) and `rank.match_type` (e.g. `full_match`, `inner_part`) per result, currently discarded entirely by all three geoapify-client.ts response mappers (only lat/lon/formatted/place_id/timezone/city/province are read today). Recommended: add `confidence?: number` (and ideally `matchType?: string`) to `LocationDetails` and map both through geocodeAddress/reverseGeocode/getPlaceDetails in the same pass as the country field from this item. Confidence is a complementary signal to the country-bias fix above, not a substitute for it — a wrong-country match can still score high confidence when Geoapify's best global text match genuinely sits in another country with nothing telling it to prefer the account's own, and a low-confidence match can equally occur inside the right country (vague/misspelled venue names) — both defenses are needed together. Suggested starting bar: confidence >= 0.5 AND match_type === 'full_match' to treat a resolution as trustworthy, tuned from real data once shipped rather than fixed in advance. See IDEA-023 for how this feeds the event-detail map link decision."}
 
   IDEA-023:
-    {type: idea, status: backlog, created: 2026-09-11, parent: BUG-027,
+    {type: idea, status: backlog, epic: epic-0-i7, created: 2026-09-11, parent: BUG-027,
      impact: cosmetic, effort: s,
      title: "Gate the event-detail Google Maps link on location confidence: use the coordinate when trustworthy, fall back to enriched place text when not",
      ref: [], touches: [web:events, app:backend],

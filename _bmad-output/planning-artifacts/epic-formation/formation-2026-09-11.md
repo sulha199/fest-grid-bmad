@@ -367,10 +367,57 @@ there — plus a handful of rows genuinely blocked or awaiting spec work.
 
 ---
 
-## 7. Next steps
+## 7. Steps 5-7 executed — 2026-09-11, reviewing session
 
-Nothing is written. To proceed: apply this report's rulings and dispositions in one commit spanning
-`epics.md` (append `epic-1-i1` and `epic-0-i7`'s full story lists, including `z`'s acceptance
-criteria, not yet drafted), `sprint-status.yaml` (register both epics' story keys), and `backlog.yaml`
-(stamp `epic:`/`adopt`/`sweep`/`reprice_on`/`blocked`/`skipped`/effort-based disposition per §5 above
-on all 41 rows) — gate ritual steps 5–7. Then `bmad-epic-readiness-check` on both epics (step 8).
+Written in one commit across all three files, per the gate's "they move together" rule.
+
+- **`epics.md`** — `Epic 0.i7` (a/b/c/z) inserted with the Epic 0 improvement epics; a new
+  `## Epic 1 (Core App and Event Discovery) — improvement epics` section added for `Epic 1.i1`
+  (a/b/c/d/e/z). Both `z` stories carry real, executable acceptance criteria, written before any
+  other story's per §3.
+- **`sprint-status.yaml`** — both epic keys and all eleven story keys registered, inserted
+  positionally.
+- **`backlog.yaml`** — `epic:` stamped on the 7 members, plus FIND-008 (`epic-0-i6`) and IDEA-019
+  (`epic-0-i5`). IDEA-001 moved to `skipped` with its note prefixed `value: …` (check 12) and the
+  original reason preserved beneath it.
+
+**Two settled epics gained a story, deliberately and not silently.** `adopt` and `sweep` mean the
+row joins an existing epic, so stamping `epic:` while leaving that epic without a story for it would
+be exactly the drift §5 forbids. `0-i6d` (FIND-008, adoption — it violates i6's existing invariant)
+and `0-i5d` (IDEA-019, sweep — new behaviour riding i5's mechanism, not a violation of its
+invariant) were added, and both epics' `z` dependency lists updated. Neither invariant changed.
+
+**BUG-014 + BUG-015 were NOT stamped, and this is a judgment call worth flagging.** §5 dispositions
+them `sweep: Epic 3`, inherited from the 2026-09-08 report. Epic 3 is `in-progress` with a story
+numbering convention this pass does not know, and inserting a sweep story into a live epic is a
+heavier act than adding one to a `backlog` epic. They keep their `sweep: Epic 3` disposition in this
+report and carry no `epic:` stamp, so the board does not claim a membership no story backs. **Owed:
+place that sweep story when Epic 3's numbering is settled by someone who owns it.**
+
+**Coverage after the write, board-wide** (all 63 open rows, strict epic-member definition):
+
+| Impact | Clustered | Total | % |
+|---|---|---|---|
+| user-visible | 11 | 27 | **40%** |
+| internal | 9 | 18 | 50% |
+| latent | 6 | 10 | 60% |
+| cosmetic | 5 | 7 | 71% |
+| compliance | 1 | 1 | 100% |
+| **Total** | **32** | **63** | **50%** |
+
+`user-visible` was 30% when the bias was first measured and 21% after the board grew. The movement
+came from the two-axis correction admitting a cluster the mechanism test would have rejected, not
+from the feature-axis sweep, which found nothing. Runner clean at every step.
+
+## 8. Next steps
+
+Steps 5-7 are done (§7). Remaining:
+
+1. **`bmad-epic-readiness-check` on `epic-0-i7` and `epic-1-i1`** — gate ritual step 8. This is where
+   each `a` story is validated, replaced or dropped; §6 of the gate warns that if `a` is reshaped,
+   every row re-scored against it must be re-examined.
+2. **Place the `sweep: Epic 3` story** for BUG-014 + BUG-015 (§7).
+3. **IDEA-003's note is stale** — it says "no UX design exists yet" while `EXPERIENCE.md`'s
+   "Mobile Multi-Day Calendar Spanning" section specifies the behaviour. Fix the note.
+4. **`epic-1-i1`'s open architecture question** — which `WeeklyCalendarView.tsx` render path Story
+   1.i1d attaches to. Deliberately left for readiness-check, not design.
