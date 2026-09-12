@@ -365,6 +365,13 @@
       "when": 1789202872632,
       "tag": "0051_wild_scorpion",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "6",
+      "when": 1789214400000,
+      "tag": "0052_evict_stale_geolocation_cache",
+      "breakpoints": true
     }
   ]
 }

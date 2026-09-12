@@ -337,6 +337,40 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+### AD-14: Geoapify Confidence Signal Propagation
+
+*   **Binds:** Every `resolveLocation()`/`resolveLocationSeam()` call site that trusts a Geoapify
+    result — this epic's 7 known consumers (`apps/backend/src/schema/resolvers.ts` and
+    `apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts`) — and every Geoapify
+    response mapper in `apps/backend/src/lib/geolocation/geoapify-client.ts`. Introduced by Story
+    0.i7a; the CI-enforced consumer ratchet is Story 0.i7z.
+*   **Prevents:** A consumer silently trusting a Geoapify coordinate/place while ignoring the
+    `confidence`/`matchType` signal that says how ambiguous that match was (the BUG-027 failure
+    class); a low- or synthetic-confidence result being treated as authoritative simply because it
+    was Geoapify's top-ranked entry; and, on the schedule-location path, a same-named venue abroad
+    being preferred over the local one because the account's own country was not used as a search
+    bias.
+*   **Rule:**
+    1.  **Every mapper populates the signal.** `geocodeAddress` and `reverseGeocode` spread
+        Geoapify's `rank.confidence`/`rank.match_type` and `country_code` onto `LocationDetails`
+        (conditionally, only when present — never as an `undefined` key). `getPlaceDetails` is a
+        direct ID lookup with no `rank`, so it sets a synthetic `confidence: 1` /
+        `matchType: 'PLACE_ID_EXACT'` meaning "no ambiguity left to resolve"; its `countryCode`
+        is populated conditionally from `properties.country_code`.
+    2.  **Every new consumer must read the signal before trusting a result.** Any code that newly
+        consumes a `LocationDetails` produced by a Geoapify mapper must consider `confidence`/
+        `matchType` (and, where re-ranking applies, the full candidate set) before treating a
+        coordinate or place as authoritative. Absence of the signal means "untrusted" — the
+        graceful-degradation posture AC 4 of Story 0.i7a accepts.
+    3.  **Country bias is part of the resolution identity.** The schedule-location geocoding path
+        passes the account's own `defaultLocation.countryCode` as `bias=countrycode:xx`, and the
+        ADDRESS cache key folds that bias in, so two accounts geocoding the identical address with
+        different biases can never be served each other's cached result. When no bias is known, the
+        parameter (and its cache-key segment) is omitted entirely — self-healing, not a gap.
+
+---
+
+
 ## Related Documents
 
 - [Infrastructure](../../docs/infrastructure/index.md)

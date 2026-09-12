@@ -1,0 +1,14 @@
+-- Migration 0052 evicts the entire geolocation_cache table once, on the deploy that
+-- ships Story 0.i7a (Geoapify Confidence Signal Propagation, AD-14).
+--
+-- Before this story, cached LocationDetails blobs never carried a `rank.confidence` /
+-- `rank.match_type` / `country_code` signal; geocode/reverse-geocode caches wrote only a
+-- subset of fields. AD-8 already treats geolocation_cache as evict/replace-only (it is a
+-- pure cache with no TTL/versioning), so this TRUNCATE introduces no new architectural
+-- pattern — it simply guarantees no caller is served a pre-confidence blob
+-- indefinitely after the mappers begin populating the new fields.
+--
+-- TRUNCATE is intentional (vs DELETE): it resets the table and is safe here because
+-- geolocation_cache is disposable. Idempotent by nature — running it on an already-empty
+-- table is a no-op, so it also guards the from-scratch/fresh-DB CI path.
+TRUNCATE TABLE "geolocation_cache";

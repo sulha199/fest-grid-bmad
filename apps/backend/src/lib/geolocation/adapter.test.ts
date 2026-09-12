@@ -49,7 +49,7 @@ test('adapter resolveLocation integration', async (t) => {
     // Check DB
     const cachedRows = await db.select().from(geolocationCache);
     assert.equal(cachedRows.length, 1);
-    assert.equal(cachedRows[0].cacheKey, 'geocode:123 main st, chicago');
+    assert.equal(cachedRows[0].cacheKey, 'geocode:123 main st, chicago|bias:none');
     assert.equal(cachedRows[0].queryType, 'GEOCODE');
   });
 
@@ -57,7 +57,7 @@ test('adapter resolveLocation integration', async (t) => {
     fetchMock.mock.resetCalls();
     // Write manually first to set up hit
     await db.insert(geolocationCache).values({
-      cacheKey: 'geocode:123 main st, chicago',
+      cacheKey: 'geocode:123 main st, chicago|bias:none',
       queryType: 'GEOCODE',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       result: locationDetails as any
@@ -86,6 +86,43 @@ test('adapter resolveLocation integration', async (t) => {
     const cachedRows = await db.select().from(geolocationCache);
     assert.equal(cachedRows.length, 0);
   });
+});
+
+test('adapter resolveLocation with countryBias folds bias into cache key', async () => {
+  await db.delete(geolocationCache);
+
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({
+      results: [{
+        lat: 41.8781,
+        lon: -87.6298,
+        formatted: '123 Main St, Chicago, IL',
+        place_id: 'place123',
+        timezone: { name: 'America/Chicago' },
+        rank: { confidence: 0.9, match_type: 'full_match' },
+        country_code: 'us'
+      }]
+    })
+  }));
+
+  try {
+    const result = await resolveLocation({ kind: 'ADDRESS', address: '123 Main St, Chicago', countryBias: 'us' });
+
+    assert.equal(result.placeId, 'place123');
+    assert.equal(result.confidence, 0.9);
+    assert.equal(result.matchType, 'full_match');
+    assert.equal(result.countryCode, 'us');
+
+    const cachedRows = await db.select().from(geolocationCache);
+    assert.equal(cachedRows.length, 1);
+    // Bias is part of the cache identity so a differently-biased account can't be served
+    // this cached result (Task 1, Design Decision 3).
+    assert.equal(cachedRows[0].cacheKey, 'geocode:123 main st, chicago|bias:us');
+  } finally {
+    fetchMock.mock.restore();
+    await db.delete(geolocationCache);
+  }
 });
 
 test('adapter getAddressPredictions', async (t) => {

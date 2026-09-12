@@ -10,9 +10,24 @@ test('buildLocationCacheKey normalizes ADDRESS query', () => {
   const key1 = buildLocationCacheKey(query1);
   const key2 = buildLocationCacheKey(query2);
   
-  assert.equal(key1, 'geocode:123 main st, chicago');
-  assert.equal(key2, 'geocode:123 main st, chicago');
+  assert.equal(key1, 'geocode:123 main st, chicago|bias:none');
+  assert.equal(key2, 'geocode:123 main st, chicago|bias:none');
   assert.equal(key1, key2);
+});
+
+test('buildLocationCacheKey folds countryBias into the ADDRESS key', () => {
+  const noBias: GeolocationQuery = { kind: 'ADDRESS', address: 'Main Square' };
+  const usBias: GeolocationQuery = { kind: 'ADDRESS', address: 'Main Square', countryBias: 'us' };
+  const deBias: GeolocationQuery = { kind: 'ADDRESS', address: 'Main Square', countryBias: 'de' };
+
+  assert.equal(buildLocationCacheKey(noBias), 'geocode:main square|bias:none');
+  assert.equal(buildLocationCacheKey(usBias), 'geocode:main square|bias:us');
+  assert.equal(buildLocationCacheKey(deBias), 'geocode:main square|bias:de');
+
+  // Identical address with different biases MUST NOT share a cache entry.
+  assert.notEqual(buildLocationCacheKey(usBias), buildLocationCacheKey(deBias));
+  // Bias text is not lowercased (it is already a code, matching Geoapify's bias=countrycode:xx).
+  assert.equal(buildLocationCacheKey({ kind: 'ADDRESS', address: '  MAIN  SQUARE ', countryBias: 'US' }), 'geocode:main square|bias:US');
 });
 
 test('buildLocationCacheKey uses verbatim PLACE_ID query', () => {

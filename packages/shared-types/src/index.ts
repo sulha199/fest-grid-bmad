@@ -68,6 +68,23 @@ export interface LocationDetails {
   province?: string;
   adminArea?: string;
   venueType?: string;
+  /**
+   * Geoapify's `rank.confidence` for this match (range ~0-1). Optional: pre-existing
+   * cache rows and partial test fixtures won't have it until the value is re-resolved.
+   * Absent means "no confidence signal captured", which downstream consumers (Story 0.i7c)
+   * treat as untrusted.
+   */
+  confidence?: number;
+  /**
+   * Geoapify's `rank.match_type` (e.g. 'full_match', 'postcode_match'). For Place Details
+   * lookups (which have no `rank` at all) this is the synthetic 'PLACE_ID_EXACT'.
+   */
+  matchType?: string;
+  /**
+   * ISO 3166-1 alpha-2 country code from Geoapify's `country_code`, used as a country
+   * bias signal for schedule-location geocoding (Story 0.i7a, AD-14).
+   */
+  countryCode?: string;
 }
 
 export interface Schedule {

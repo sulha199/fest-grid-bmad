@@ -397,8 +397,11 @@ export type LocationDetails = {
   __typename?: 'LocationDetails';
   adminArea?: Maybe<Scalars['String']['output']>;
   city?: Maybe<Scalars['String']['output']>;
+  confidence?: Maybe<Scalars['Float']['output']>;
   coordinates: Coordinates;
+  countryCode?: Maybe<Scalars['String']['output']>;
   formattedAddress?: Maybe<Scalars['String']['output']>;
+  matchType?: Maybe<Scalars['String']['output']>;
   placeId?: Maybe<Scalars['String']['output']>;
   placeName?: Maybe<Scalars['String']['output']>;
   provider?: Maybe<GeolocationProvider>;
@@ -1762,8 +1765,11 @@ export interface JsonScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes
 export type LocationDetailsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['LocationDetails'] = ResolversParentTypes['LocationDetails']> = ResolversObject<{
   adminArea?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   city?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  confidence?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
   coordinates?: Resolver<ResolversTypes['Coordinates'], ParentType, ContextType>;
+  countryCode?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   formattedAddress?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  matchType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   placeId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   placeName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   provider?: Resolver<Maybe<ResolversTypes['GeolocationProvider']>, ParentType, ContextType>;

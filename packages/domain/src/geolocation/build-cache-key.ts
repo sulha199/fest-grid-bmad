@@ -7,7 +7,10 @@ export function buildLocationCacheKey(query: GeolocationQuery): string {
         .trim()
         .toLowerCase()
         .replace(/\s+/g, ' ');
-      return `geocode:${normalized}`;
+      // countryBias is part of the cache identity: two accounts geocoding the identical
+      // address string with different country biases must not share a cached result
+      // (Design Decision 3, Story 0.i7a). 'none' is the sentinel for "no bias".
+      return `geocode:${normalized}|bias:${query.countryBias ?? 'none'}`;
     }
     case 'PLACE_ID': {
       return `place:${query.placeId}`;

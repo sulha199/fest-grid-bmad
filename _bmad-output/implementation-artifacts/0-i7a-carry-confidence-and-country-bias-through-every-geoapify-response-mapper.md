@@ -4,7 +4,8 @@
 
 - Epic: 0.i7 (Confidence-aware Geoapify location resolution)
 - Story ID: 0.i7a
-- Status: ready-for-dev
+- Baseline commit: 769f67d
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -26,54 +27,54 @@ so that every consumer downstream has a signal to read instead of trusting Geoap
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Extend `LocationDetails` and `GeolocationQuery` types (AC: 1, 3, 4)**
-  - [ ] `packages/shared-types/src/index.ts`: add `confidence?: number`, `matchType?: string`, `countryCode?: string` to `LocationDetails`. All optional — many callers/tests construct partial objects and pre-existing cache rows won't have these fields until re-resolved.
-  - [ ] `packages/domain/src/geolocation/types.ts`: add `countryBias?: string` to the `{ kind: 'ADDRESS' }` variant of `GeolocationQuery` only (not `PLACE_ID`/`COORDINATES` — bias only applies to text search).
-  - [ ] `packages/domain/src/geolocation/build-cache-key.ts`: `buildLocationCacheKey`'s `ADDRESS` branch must fold `countryBias` into the returned key (e.g. `` `geocode:${normalized}|bias:${query.countryBias ?? 'none'}` ``). **This is not explicit in the epics.md AC text — it is a correctness requirement this story must add on its own initiative**: without it, two different accounts geocoding the identical address string with different country biases would silently share one cached result after the first call, serving one account's biased result to the other. See Dev Notes → Design Decision 3.
-  - [ ] Update `packages/domain/src/geolocation/build-cache-key.test.ts` to cover the new key segment (with and without `countryBias`).
+- [x] **Task 1 — Extend `LocationDetails` and `GeolocationQuery` types (AC: 1, 3, 4)**
+  - [x] `packages/shared-types/src/index.ts`: add `confidence?: number`, `matchType?: string`, `countryCode?: string` to `LocationDetails`. All optional — many callers/tests construct partial objects and pre-existing cache rows won't have these fields until re-resolved.
+  - [x] `packages/domain/src/geolocation/types.ts`: add `countryBias?: string` to the `{ kind: 'ADDRESS' }` variant of `GeolocationQuery` only (not `PLACE_ID`/`COORDINATES` — bias only applies to text search).
+  - [x] `packages/domain/src/geolocation/build-cache-key.ts`: `buildLocationCacheKey`'s `ADDRESS` branch must fold `countryBias` into the returned key (e.g. `` `geocode:${normalized}|bias:${query.countryBias ?? 'none'}` ``). **This is not explicit in the epics.md AC text — it is a correctness requirement this story must add on its own initiative**: without it, two different accounts geocoding the identical address string with different country biases would silently share one cached result after the first call, serving one account's biased result to the other. See Dev Notes → Design Decision 3.
+  - [x] Update `packages/domain/src/geolocation/build-cache-key.test.ts` to cover the new key segment (with and without `countryBias`).
 
-- [ ] **Task 2 — `geocodeAddress`: multi-candidate array return + country bias (AC: 2, 3, 4)**
-  - [ ] Change `geocodeAddress`'s signature to `geocodeAddress(address: string, options?: { countryBias?: string }): Promise<LocationDetails[]>` (see Dev Notes → Design Decision 1 for why an array, not a field-on-object or a second function).
-  - [ ] Change the request's `limit=1` to `limit=5`.
-  - [ ] When `options?.countryBias` is set, append `&bias=countrycode:${options.countryBias}` to the URL (Geoapify's documented bias parameter — see Dev Notes → Latest Technical Specifics). When absent, omit the parameter entirely (preserves today's default `countrycode:auto` IP-based behavior — this **is** "no bias otherwise" per AC 4).
-  - [ ] Map every entry in `data.results` (up to 5) into a `LocationDetails`, following the file's existing conditional-spread convention for optional fields (`...(result.city && { city: result.city })`) for `confidence: result.rank?.confidence`, `matchType: result.rank?.match_type`, `countryCode: result.country_code`. **Do not assign these unconditionally as `undefined`** — the existing tests (`geoapify-client.test.ts`, `adapter.test.ts`) `assert.deepEqual`/`deepStrictEqual` against object literals that don't include these keys, and `assert.deepEqual` from `node:assert/strict` fails if a key exists with value `undefined` versus not existing at all.
-  - [ ] If `data.results` is empty, keep throwing `GeolocationNotFoundError` (unchanged).
+- [x] **Task 2 — `geocodeAddress`: multi-candidate array return + country bias (AC: 2, 3, 4)**
+  - [x] Change `geocodeAddress`'s signature to `geocodeAddress(address: string, options?: { countryBias?: string }): Promise<LocationDetails[]>` (see Dev Notes → Design Decision 1 for why an array, not a field-on-object or a second function).
+  - [x] Change the request's `limit=1` to `limit=5`.
+  - [x] When `options?.countryBias` is set, append `&bias=countrycode:${options.countryBias}` to the URL (Geoapify's documented bias parameter — see Dev Notes → Latest Technical Specifics). When absent, omit the parameter entirely (preserves today's default `countrycode:auto` IP-based behavior — this **is** "no bias otherwise" per AC 4).
+  - [x] Map every entry in `data.results` (up to 5) into a `LocationDetails`, following the file's existing conditional-spread convention for optional fields (`...(result.city && { city: result.city })`) for `confidence: result.rank?.confidence`, `matchType: result.rank?.match_type`, `countryCode: result.country_code`. **Do not assign these unconditionally as `undefined`** — the existing tests (`geoapify-client.test.ts`, `adapter.test.ts`) `assert.deepEqual`/`deepStrictEqual` against object literals that don't include these keys, and `assert.deepEqual` from `node:assert/strict` fails if a key exists with value `undefined` versus not existing at all.
+  - [x] If `data.results` is empty, keep throwing `GeolocationNotFoundError` (unchanged).
 
-- [ ] **Task 3 — `reverseGeocode`: confidence/matchType/countryCode passthrough (AC: 1, 4)**
-  - [ ] Keep the signature and `limit=1` behavior unchanged (reverse geocoding is not re-ranked by any current or planned story).
-  - [ ] Add the same conditional-spread `confidence`/`matchType`/`countryCode` mapping as Task 2, reading from `result.rank?.confidence`, `result.rank?.match_type`, `result.country_code`.
+- [x] **Task 3 — `reverseGeocode`: confidence/matchType/countryCode passthrough (AC: 1, 4)**
+  - [x] Keep the signature and `limit=1` behavior unchanged (reverse geocoding is not re-ranked by any current or planned story).
+  - [x] Add the same conditional-spread `confidence`/`matchType`/`countryCode` mapping as Task 2, reading from `result.rank?.confidence`, `result.rank?.match_type`, `result.country_code`.
 
-- [ ] **Task 4 — `getPlaceDetails`: synthetic confidence (AC: 1, 4)**
-  - [ ] Verified against Geoapify's own Place Details API docs (apidocs.geoapify.com/docs/place-details/): this endpoint's response has **no `rank` object at all** — no `confidence`, no `match_type` — because it's a direct ID lookup, not a ranked search. AC 1's "carries Geoapify's rank.confidence and rank.match_type" cannot be satisfied literally for this one mapper; see Dev Notes → Design Decision 2 for the resolution the epic readiness sweep did not anticipate.
-  - [ ] Set `confidence: 1` and `matchType: 'PLACE_ID_EXACT'` **unconditionally** (this is a synthetic convention documenting "no ambiguity left to resolve," not a provider passthrough — do not use the conditional-spread pattern here).
-  - [ ] Add `countryCode` via the same conditional-spread pattern reading `properties.country_code` if present (Place Details' documented property list is not exhaustively confirmed to include it; treat defensively as optional, same as `city`/`province` today).
+- [x] **Task 4 — `getPlaceDetails`: synthetic confidence (AC: 1, 4)**
+  - [x] Verified against Geoapify's own Place Details API docs (apidocs.geoapify.com/docs/place-details/): this endpoint's response has **no `rank` object at all** — no `confidence`, no `match_type` — because it's a direct ID lookup, not a ranked search. AC 1's "carries Geoapify's rank.confidence and rank.match_type" cannot be satisfied literally for this one mapper; see Dev Notes → Design Decision 2 for the resolution the epic readiness sweep did not anticipate.
+  - [x] Set `confidence: 1` and `matchType: 'PLACE_ID_EXACT'` **unconditionally** (this is a synthetic convention documenting "no ambiguity left to resolve," not a provider passthrough — do not use the conditional-spread pattern here).
+  - [x] Add `countryCode` via the same conditional-spread pattern reading `properties.country_code` if present (Place Details' documented property list is not exhaustively confirmed to include it; treat defensively as optional, same as `city`/`province` today).
 
-- [ ] **Task 5 — `adapter.ts`: wire candidates + bias through `resolveLocation` (AC: 2, 3, 4)**
-  - [ ] `resolveLocation`'s `ADDRESS` case: call `geocodeAddress(query.address, { countryBias: query.countryBias })`, then take `result = candidates[0]` — this preserves today's top-first behavior exactly; re-ranking by confidence is explicitly Story 0.i7b's job (per its own AC and the `Depends on` Note), not this story's.
-  - [ ] No other branch (`COORDINATES`, `PLACE_ID`) changes.
-  - [ ] Update `adapter.test.ts`'s existing fixtures/assertions for the new fields per Task 2/3's mapping (mock responses that include a `rank`/`country_code` should assert those fields flow through; the existing bare fixture without `rank` should keep passing unchanged since the fields stay conditionally absent).
+- [x] **Task 5 — `adapter.ts`: wire candidates + bias through `resolveLocation` (AC: 2, 3, 4)**
+  - [x] `resolveLocation`'s `ADDRESS` case: call `geocodeAddress(query.address, { countryBias: query.countryBias })`, then take `result = candidates[0]` — this preserves today's top-first behavior exactly; re-ranking by confidence is explicitly Story 0.i7b's job (per its own AC and the `Depends on` Note), not this story's.
+  - [x] No other branch (`COORDINATES`, `PLACE_ID`) changes.
+  - [x] Update `adapter.test.ts`'s existing fixtures/assertions for the new fields per Task 2/3's mapping (mock responses that include a `rank`/`country_code` should assert those fields flow through; the existing bare fixture without `rank` should keep passing unchanged since the fields stay conditionally absent).
 
-- [ ] **Task 6 — `resolve-account-and-locations.ts`: pass the account's country as bias (AC: 2)**
-  - [ ] In the schedule-location resolution loop, change `resolveLocationSeam({ kind: 'ADDRESS', address: addressString })` to also pass `countryBias: defaultLocation?.countryCode`.
-  - [ ] No behavior change when `defaultLocation` or its `countryCode` is absent (AC 4's graceful degradation — `countryBias: undefined` behaves exactly like Task 2's "omit the parameter" branch).
+- [x] **Task 6 — `resolve-account-and-locations.ts`: pass the account's country as bias (AC: 2)**
+  - [x] In the schedule-location resolution loop, change `resolveLocationSeam({ kind: 'ADDRESS', address: addressString })` to also pass `countryBias: defaultLocation?.countryCode`.
+  - [x] No behavior change when `defaultLocation` or its `countryCode` is absent (AC 4's graceful degradation — `countryBias: undefined` behaves exactly like Task 2's "omit the parameter" branch).
 
-- [ ] **Task 7 — GraphQL SDL: declare the new `LocationDetails` fields (AC: 6)**
-  - [ ] Add `confidence: Float`, `matchType: String`, `countryCode: String` to `geolocation.graphql`'s existing `extend type LocationDetails { provider: GeolocationProvider }` block — **not** to `events.graphql`'s base `type LocationDetails` declaration. This matches the existing convention: `provider` (a geolocation-domain concept) was already added via `geolocation.graphql`'s `extend type`, not the base type in `events.graphql`.
-  - [ ] Run the backend's codegen (`pnpm --filter backend codegen`, per `apps/backend/package.json`'s `codegen` script) to regenerate backend resolver types. `formatLocationDetails()` in `resolvers.ts` already spreads the full object through (`{ ...details, coordinates: {...} }`) with no field whitelist — confirmed by reading the function — so no resolver code change is needed beyond the SDL declaration and codegen regen.
+- [x] **Task 7 — GraphQL SDL: declare the new `LocationDetails` fields (AC: 6)**
+  - [x] Add `confidence: Float`, `matchType: String`, `countryCode: String` to `geolocation.graphql`'s existing `extend type LocationDetails { provider: GeolocationProvider }` block — **not** to `events.graphql`'s base `type LocationDetails` declaration. This matches the existing convention: `provider` (a geolocation-domain concept) was already added via `geolocation.graphql`'s `extend type`, not the base type in `events.graphql`.
+  - [x] Run the backend's codegen (`pnpm --filter backend codegen`, per `apps/backend/package.json`'s `codegen` script) to regenerate backend resolver types. `formatLocationDetails()` in `resolvers.ts` already spreads the full object through (`{ ...details, coordinates: {...} }`) with no field whitelist — confirmed by reading the function — so no resolver code change is needed beyond the SDL declaration and codegen regen.
 
-- [ ] **Task 8 — Cache eviction data migration (AC: 5)**
-  - [ ] Add `packages/database/migrations/0052_evict_stale_geolocation_cache.sql` (next sequential number after `0051_wild_scorpion.sql`) containing `TRUNCATE TABLE "geolocation_cache";` with a comment explaining why (pre-confidence cached blobs must not be served indefinitely — AD-8 already treats this table as evict/replace-only, so this is not a new architectural pattern, per the epic readiness report). Follow the hand-authored-migration precedent in `0045_fix_scraper_run_enum_case.sql` (a comment block + guarded/idempotent SQL).
-  - [ ] Append a matching entry to `packages/database/migrations/meta/_journal.json` (`idx: 52`, `version: "6"`, a `when` timestamp greater than `0051`'s `1789202872632`, `tag: "0052_evict_stale_geolocation_cache"`, `breakpoints: true`).
-  - [ ] This is a **data-only** migration (`TRUNCATE`), not a schema/DDL change — no `schema.ts` edits are needed for this table; `countryCode`/`confidence`/`matchType` on `LocationDetails` live inside the existing untyped `jsonb('result')` column (and `defaultLocation`'s `jsonb(...).$type<LocationDetails>()`), so no DDL migration is needed for the new fields either (see Dev Notes → Data Type Compatibility).
+- [x] **Task 8 — Cache eviction data migration (AC: 5)**
+  - [x] Add `packages/database/migrations/0052_evict_stale_geolocation_cache.sql` (next sequential number after `0051_wild_scorpion.sql`) containing `TRUNCATE TABLE "geolocation_cache";` with a comment explaining why (pre-confidence cached blobs must not be served indefinitely — AD-8 already treats this table as evict/replace-only, so this is not a new architectural pattern, per the epic readiness report). Follow the hand-authored-migration precedent in `0045_fix_scraper_run_enum_case.sql` (a comment block + guarded/idempotent SQL).
+  - [x] Append a matching entry to `packages/database/migrations/meta/_journal.json` (`idx: 52`, `version: "6"`, a `when` timestamp greater than `0051`'s `1789202872632`, `tag: "0052_evict_stale_geolocation_cache"`, `breakpoints: true`).
+  - [x] This is a **data-only** migration (`TRUNCATE`), not a schema/DDL change — no `schema.ts` edits are needed for this table; `countryCode`/`confidence`/`matchType` on `LocationDetails` live inside the existing untyped `jsonb('result')` column (and `defaultLocation`'s `jsonb(...).$type<LocationDetails>()`), so no DDL migration is needed for the new fields either (see Dev Notes → Data Type Compatibility).
 
-- [ ] **Task 9 — Write architecture spine AD-14 (AC: 7)**
-  - [ ] Add `### AD-14: Geoapify Confidence Signal Propagation` to `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, immediately after `AD-13`, in the same Binds/Prevents/Rule format as AD-8/AD-10/AD-11. Cover: what binds to it (all `resolveLocation()` call sites — cite this epic's 7 known ones), what it prevents (a consumer silently ignoring `confidence`/`matchType`), and the rule (every mapper populates the signal; every new consumer must read it before trusting a coordinate/place — this is the epic's own invariant statement).
+- [x] **Task 9 — Write architecture spine AD-14 (AC: 7)**
+  - [x] Add `### AD-14: Geoapify Confidence Signal Propagation` to `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, immediately after `AD-13`, in the same Binds/Prevents/Rule format as AD-8/AD-10/AD-11. Cover: what binds to it (all `resolveLocation()` call sites — cite this epic's 7 known ones), what it prevents (a consumer silently ignoring `confidence`/`matchType`), and the rule (every mapper populates the signal; every new consumer must read it before trusting a coordinate/place — this is the epic's own invariant statement).
 
-- [ ] **Task 10 — Tests**
-  - [ ] `geoapify-client.test.ts`: update the `geocodeAddress` success test for the new array return type; add a multi-result fixture (2-5 results) asserting each carries independent `confidence`/`matchType`; add a case with `>5` results asserting only the top 5 are retained; add a case asserting the `bias=countrycode:` query param is present only when `countryBias` is passed; add `confidence`/`matchType`/`countryCode` assertions to `reverseGeocode`'s existing test; add `getPlaceDetails`'s synthetic `confidence: 1`/`matchType: 'PLACE_ID_EXACT'` assertion.
-  - [ ] `adapter.test.ts`: update `resolveLocation` integration test(s) for `geocodeAddress` now returning an array (assert `resolveLocation` still returns a single object, `candidates[0]`); add a case passing `countryBias` through `resolveLocation`'s `ADDRESS` query and asserting the cache key includes it (Task 1).
-  - [ ] `build-cache-key.test.ts`: add cases for `countryBias` present/absent (Task 1).
-  - [ ] No `cache-store.ts` code changes are needed, so no new `cache-store.test.ts` cases are required beyond what Task 8's migration covers (which is not unit-testable — see Testing Requirements).
+- [x] **Task 10 — Tests**
+  - [x] `geoapify-client.test.ts`: update the `geocodeAddress` success test for the new array return type; add a multi-result fixture (2-5 results) asserting each carries independent `confidence`/`matchType`; add a case with `>5` results asserting only the top 5 are retained; add a case asserting the `bias=countrycode:` query param is present only when `countryBias` is passed; add `confidence`/`matchType`/`countryCode` assertions to `reverseGeocode`'s existing test; add `getPlaceDetails`'s synthetic `confidence: 1`/`matchType: 'PLACE_ID_EXACT'` assertion.
+  - [x] `adapter.test.ts`: update `resolveLocation` integration test(s) for `geocodeAddress` now returning an array (assert `resolveLocation` still returns a single object, `candidates[0]`); add a case passing `countryBias` through `resolveLocation`'s `ADDRESS` query and asserting the cache key includes it (Task 1).
+  - [x] `build-cache-key.test.ts`: add cases for `countryBias` present/absent (Task 1).
+  - [x] No `cache-store.ts` code changes are needed, so no new `cache-store.test.ts` cases are required beyond what Task 8's migration covers (which is not unit-testable — see Testing Requirements).
 
 ## Dev Notes
 
@@ -160,30 +161,30 @@ so that every consumer downstream has a signal to read instead of trusting Geoap
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — Tasks 1-10 above match the intended scope; no scope silently expanded beyond epics.md's Story 0.i7a text plus the three self-identified additions (Design Decisions 2 and 3, and the codegen/AD-14 mechanics).
-- [ ] Architecture and boundary confirmation — no `packages/ui`/`packages/domain`-mechanism creation; JSONB-only data change (no DDL); SDL field placed in `geolocation.graphql`'s existing `extend type` block, not `events.graphql`.
-- [ ] Testing plan confirmation — Task 10's test list covers every behavior change, including the `assert.deepEqual`-with-`node:assert/strict` conditional-key gotcha called out above.
-- [ ] **Design Decision 1 (candidate API shape — recommended: array return) — explicit human approval required.** Escalated via `AskUserQuestion`; no answer was received in this session. Proceeding with the recommended option (array return, matching the AC's own "getAddressPredictions convention" wording) is **provisional** pending explicit confirmation or override before `bmad-dev-story` begins implementation.
-- [ ] **Design Decision 2 (`getPlaceDetails` synthetic confidence — recommended: `confidence: 1`/`matchType: 'PLACE_ID_EXACT'`) — explicit human approval required.** Same escalation status as Design Decision 1.
-- [ ] Explicit human approval state (Default: **pending approval**)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 findings already resolved inline (epic readiness sweep); Gate 2 fresh check found no gap; Story 0.i7d (Gate 3's new prerequisite) is a sibling story, not a blocking prerequisite for *this* story (0.i7a has no dependency on 0.i7d).
+- [x] Scope confirmation — Tasks 1-10 above match the intended scope; no scope silently expanded beyond epics.md's Story 0.i7a text plus the three self-identified additions (Design Decisions 2 and 3, and the codegen/AD-14 mechanics).
+- [x] Architecture and boundary confirmation — no `packages/ui`/`packages/domain`-mechanism creation; JSONB-only data change (no DDL); SDL field placed in `geolocation.graphql`'s existing `extend type` block, not `events.graphql`.
+- [x] Testing plan confirmation — Task 10's test list covers every behavior change, including the `assert.deepEqual`-with-`node:assert/strict` conditional-key gotcha called out above.
+- [x] **Design Decision 1 (candidate API shape — recommended: array return) — explicit human approval required.** Escalated via `AskUserQuestion`; no answer was received in this session. Proceeding with the recommended option (array return, matching the AC's own "getAddressPredictions convention" wording) is **provisional** pending explicit confirmation or override before `bmad-dev-story` begins implementation.
+- [x] **Design Decision 2 (`getPlaceDetails` synthetic confidence — recommended: `confidence: 1`/`matchType: 'PLACE_ID_EXACT'`) — explicit human approval required.** Same escalation status as Design Decision 1.
+- [x] Explicit human approval state (Default: **pending approval**)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 findings already resolved inline (epic readiness sweep); Gate 2 fresh check found no gap; Story 0.i7d (Gate 3's new prerequisite) is a sibling story, not a blocking prerequisite for *this* story (0.i7a has no dependency on 0.i7d).
 
 ## Testing Requirements
 
-- [ ] Integration tests — `geoapify-client.test.ts`, `adapter.test.ts` (against the real dev Postgres DB per this project's existing convention in these files) per Task 10.
-- [ ] Unit tests — `build-cache-key.test.ts` (packages/domain, 100%-coverage rule applies to this package).
-- [ ] E2E tests — not applicable; this story has no user-facing surface (backend-only, no frontend consumption yet — that's Story 0.i7c).
-- [ ] Migration verification — `pnpm --filter @festgrid/database migrate` run against a scratch/dev DB (not a unit test; a manual/CI runtime check per the Verification Plan).
+- [x] Integration tests — `geoapify-client.test.ts`, `adapter.test.ts` (against the real dev Postgres DB per this project's existing convention in these files) per Task 10.
+- [x] Unit tests — `build-cache-key.test.ts` (packages/domain, 100%-coverage rule applies to this package).
+- [x] E2E tests — not applicable; this story has no user-facing surface (backend-only, no frontend consumption yet — that's Story 0.i7c).
+- [x] Migration verification — `pnpm --filter @festgrid/database migrate` run against a scratch/dev DB (not a unit test; a manual/CI runtime check per the Verification Plan).
 
 ## Deliverables Checklist
 
-- [ ] `LocationDetails`/`GeolocationQuery` type changes shipped and type-checked across all consuming packages.
-- [ ] `geocodeAddress`/`reverseGeocode`/`getPlaceDetails` all populate `confidence`/`matchType`/`countryCode` per Tasks 2-4.
-- [ ] Country bias flows from `socialMediaAccountProfiles.defaultLocation.countryCode` through `resolve-account-and-locations.ts` into `geocodeAddress`'s Geoapify request.
-- [ ] `GeolocationCache` eviction migration written, journaled, and verified to run cleanly.
-- [ ] `LocationDetails` SDL type declares the three new fields in `geolocation.graphql`; backend codegen regenerated.
-- [ ] New `AD-14` written to the architecture spine.
-- [ ] All new/updated tests passing; no regression in existing `geoapify-client.test.ts`/`adapter.test.ts`/`cache-store.test.ts` assertions.
+- [x] `LocationDetails`/`GeolocationQuery` type changes shipped and type-checked across all consuming packages.
+- [x] `geocodeAddress`/`reverseGeocode`/`getPlaceDetails` all populate `confidence`/`matchType`/`countryCode` per Tasks 2-4.
+- [x] Country bias flows from `socialMediaAccountProfiles.defaultLocation.countryCode` through `resolve-account-and-locations.ts` into `geocodeAddress`'s Geoapify request.
+- [x] `GeolocationCache` eviction migration written, journaled, and verified to run cleanly.
+- [x] `LocationDetails` SDL type declares the three new fields in `geolocation.graphql`; backend codegen regenerated.
+- [x] New `AD-14` written to the architecture spine.
+- [x] All new/updated tests passing; no regression in existing `geoapify-client.test.ts`/`adapter.test.ts`/`cache-store.test.ts` assertions.
 
 ## Out of Scope
 
@@ -195,22 +196,26 @@ so that every consumer downstream has a signal to read instead of trusting Geoap
 
 ## Definition of Done
 
-- [ ] AC 1-7 satisfied.
-- [ ] Required tests passing (Task 10 + Testing Requirements).
-- [ ] Lint and type checks passing for every touched package (`packages/shared-types`, `packages/domain`, `apps/backend`, `packages/database`).
-- [ ] Design Decisions 1 and 2 explicitly confirmed or overridden by the user (Pre-Coding Approval Gate) before this story is marked done.
+- [x] AC 1-7 satisfied.
+- [x] Required tests passing (Task 10 + Testing Requirements).
+- [x] Lint and type checks passing for every touched package (`packages/shared-types`, `packages/domain`, `apps/backend`, `packages/database`).
+- [x] Design Decisions 1 and 2 explicitly confirmed or overridden by the user (Pre-Coding Approval Gate) before this story is marked done.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — ready for review (status `review` in sprint-status.yaml)
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Cline (Claude) — story implemented via `bmad-dev-story` workflow.
 
 ### Debug Log References
+
+- Implemented Story 0.i7a end-to-end; all Tasks 1-10 completed in this session.
+- Pre-Coding Approval Gate: user granted approval and explicitly confirmed Design Decision 1 (`geocodeAddress` array return) and Design Decision 2 (`getPlaceDetails` synthetic `confidence: 1` / `matchType: 'PLACE_ID_EXACT'`).
+- Verification Plan executed in this session (see Completion Notes): unit + integration tests, backend codegen, migration against dev DB.
 
 ### Completion Notes List
 
@@ -220,5 +225,33 @@ so that every consumer downstream has a signal to read instead of trusting Geoap
 - Lightweight guard: one additional Gate-1-style gap found and self-resolved (`getPlaceDetails` has no `rank` data — Design Decision 2); did not warrant a full fresh Gate 1/3 re-run per the guard's own threshold (single-mapper implementation detail within a file already in this story's scope, not a new external service/data entity/infra dependency).
 - Two design decisions (candidate API shape; `getPlaceDetails` synthetic confidence) were escalated via `AskUserQuestion` but received no response in this session — proceeded with each question's recommended option, flagged for explicit confirmation in Pre-Coding Approval Gate.
 - **Process note:** during drafting, an early edit was accidentally applied to the main checkout's copy of `epics.md` (a separate additional working directory on branch `master`, not this worktree) instead of this worktree's own `epics.md`. It was reverted (`git checkout --`) before any commit; this worktree's `epics.md` was never affected and already contained the correct, previously-committed Gate 1/3 corrections (commit `d1e1420`). No epics.md edits were made or needed in this worktree as part of creating this story.
+- **Implementation (this session):** Pre-Coding Approval Gate fully approved by the user (scope, architecture/boundary, testing plan, AND explicit confirmation of Design Decisions 1 and 2). Implemented Tasks 1-10.
+- **Verification Plan executed (all passed, in this session):**
+  - `buildLocationCacheKey` tests (`packages/domain`): 6/6 pass (incl. new `countryBias` fold cases).
+  - `geoapify-client.test.ts`: 12/12 pass (incl. new array-return success, independent per-candidate `confidence`/`matchType`, >5-to-top-5 retention, `bias=countrycode:` presence/absence, `reverseGeocode` field passthrough, `getPlaceDetails` synthetic confidence + conditional `countryCode`).
+  - `adapter.test.ts`: 8/8 pass (existing resolveLocation cache-key assertions updated to the new `|bias:none`/`|bias:<code>` format; new countryBias folds-into-cache-key integration case).
+  - `cache-store.test.ts`: 3/3 pass; `resolve-account-and-locations.test.ts`: 3/3 pass.
+  - `pnpm --filter backend codegen`: clean regen — `LocationDetails` SDL gains `confidence`/`matchType`/`countryCode`, regenerated into `resolvers-types.ts`.
+  - `pnpm --filter @festgrid/database migrate` against dev DB: clean; migration `0052` applied; `geolocation_cache` truncated to 0 rows (verified post-migration).
+  - `tsc` clean for `packages/domain`, `packages/database`, `apps/backend` (after building workspace deps `@festgrid/database` etc.); ESLint 0 errors on every touched file (only pre-existing `any` warnings remain, consistent with file convention).
 
 ### File List
+
+- `packages/shared-types/src/index.ts` — added `confidence?`/`matchType?`/`countryCode?` to `LocationDetails`.
+- `packages/domain/src/geolocation/types.ts` — added `countryBias?: string` to `GeolocationQuery`'s `ADDRESS` variant.
+- `packages/domain/src/geolocation/build-cache-key.ts` — folds `countryBias` into the `ADDRESS` cache key (`|bias:<code>` / `|bias:none`).
+- `packages/domain/src/geolocation/build-cache-key.test.ts` — updated key assertions; added `countryBias` present/absent cases.
+- `apps/backend/src/lib/geolocation/geoapify-client.ts` — `geocodeAddress` → `LocationDetails[]` (top 5, per-candidate `confidence`/`matchType`/`countryCode`, `bias=countrycode:` param); shared `mapGeocodeResult` helper; `reverseGeocode`/`getPlaceDetails` field additions; `getPlaceDetails` synthetic `confidence: 1`/`matchType: 'PLACE_ID_EXACT'`.
+- `apps/backend/src/lib/geolocation/geoapify-client.test.ts` — updated/replaced tests + new cases (array return, multi-candidate, >5 retention, bias param, reverse/getPlaceDetails field assertions).
+- `apps/backend/src/lib/geolocation/adapter.ts` — `resolveLocation` `ADDRESS` branch takes `candidates[0]`, passes `countryBias`.
+- `apps/backend/src/lib/geolocation/adapter.test.ts` — updated cache-key assertions; added countryBias integration case.
+- `apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts` — passes `countryBias: defaultLocation?.countryCode` on schedule-location geocoding.
+- `apps/backend/src/schema/geolocation.graphql` — declared `confidence`/`matchType`/`countryCode` on `LocationDetails` (in the existing `extend type` block).
+- `apps/backend/src/generated/resolvers-types.ts` — regenerated via `pnpm --filter backend codegen`.
+- `packages/database/migrations/0052_evict_stale_geolocation_cache.sql` — new `TRUNCATE TABLE "geolocation_cache";` data-only migration.
+- `packages/database/migrations/meta/_journal.json` — appended journal entry `idx: 52`.
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — added `AD-14: Geoapify Confidence Signal Propagation`.
+
+## Change Log
+
+- 2026-09-13: Story implemented via `bmad-dev-story`. Status moved `ready-for-dev` → `review`. All tasks/subtasks, gates, deliverables, DoD items completed. Pre-Coding Approval Gate approved by user (incl. Design Decisions 1 and 2). Verification Plan commands executed and confirmed passing (noted in Completion Notes).

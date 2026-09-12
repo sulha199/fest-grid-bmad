@@ -52,7 +52,12 @@ export async function resolveAccountAndLocations(
       try {
         const resolved = await resolveLocationSeam({
           kind: 'ADDRESS',
-          address: addressString
+          address: addressString,
+          // Bias Geoapify search toward the account's own country so a same-named venue
+          // abroad is not preferred over the local one. Gracefully no-ops (behaves like
+          // "no bias") when defaultLocation or its countryCode is absent (first-time
+          // resolution, or a cached defaultLocation predating this field) — AD-14.
+          countryBias: defaultLocation?.countryCode
         });
         resolvedScheduleLocations.set(i, resolved);
       } catch (error) {

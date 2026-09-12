@@ -4,6 +4,9 @@ enum GeolocationProvider {
 
 extend type LocationDetails {
   provider: GeolocationProvider
+  confidence: Float
+  matchType: String
+  countryCode: String
 }
 
 extend type Query {

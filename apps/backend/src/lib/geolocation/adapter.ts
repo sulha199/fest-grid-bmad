@@ -16,7 +16,10 @@ export async function resolveLocation(query: GeolocationQuery): Promise<Location
   
   switch (query.kind) {
     case 'ADDRESS':
-      result = await geocodeAddress(query.address);
+      // geocodeAddress now returns up to 5 ranked candidates; take the top one to
+      // preserve today's top-first behavior exactly. Re-ranking by confidence is
+      // explicitly Story 0.i7b's job, not this story's.
+      result = (await geocodeAddress(query.address, { countryBias: query.countryBias }))[0];
       queryType = 'GEOCODE';
       break;
     case 'COORDINATES':
