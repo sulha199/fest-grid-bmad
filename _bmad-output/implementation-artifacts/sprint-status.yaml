@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-08-29T18:00:00Z
+# last_updated: 2026-09-12T00:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -875,7 +875,7 @@ development_status:
   # implemented-but-not-yet-code-reviewed entries (e.g. 3-3b). See the story
   # file's own Completion Status/Dev Agent Record for full detail.
   3-3c-define-the-scraper-adapter-interface-and-platform-slug-registry: review
-  3-3e-persist-all-carousel-image-urls-for-a-scraped-post: backlog
+  3-3e-persist-all-carousel-image-urls-for-a-scraped-post: ready-for-dev
   # added 2026-09-03 via bmad-correct-course (sprint-change-proposal-2026-09-03-carousel-multi-image-extraction.md):
   # closes a real data-loss gap -- instagram-adapter.ts only ever captured the
   # cover image (item.displayUrl); Apify's own childPosts array (all carousel
@@ -1142,6 +1142,12 @@ development_status:
   # remains outstanding -- manual/external, coordinated separately per explicit user
   # instruction, not blocking this story's move to review.
   3-4q-fix-brightdata-auth-failure-and-alert-moderators-when-a-scraper-provider-goes-down: review
+  # added 2026-09-11 via bmad-epic-readiness-check (Epic 3 Gate 1 re-sweep): Story 3-4q closed
+  # the silent-failure/no-alerting gap for Bright Data only; Story 3-4's own Apify failure
+  # paths (AC5 capacity-skip, AC7 per-account error catch) still use console.error-only
+  # logging, the same shape 3-4q was written to fix. Mirrors 3-4q's moderator-alert-email
+  # mechanism and cooldown pattern for Apify. See epics.md Story 3.4r for full ACs/Note.
+  3-4r-fix-apify-failure-alerting-symmetric-to-brightdata: backlog
   # added 2026-08-19 via bmad-create-story: user-identified linking gap during /bmad-help
   # investigation. Story 3-4j captures scraper_actor_runs table but doesn't thread the run ID
   # to posts/unprocessed_payloads, leaving moderator UI (3-4k) unable to display "posts from

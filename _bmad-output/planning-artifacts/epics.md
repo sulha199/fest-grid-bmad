@@ -2208,6 +2208,24 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.4a (the `attemptBrightDataTrigger` code path this instruments), Story 3.10 (the cooldown-column pattern this reuses), the existing dangerous-report moderator-alert pattern (`send-dangerous-report-moderator-alerts.ts`).
 
+### Story 3.4r: Fix Apify failure alerting to match Bright Data's outage observability
+
+**As a** platform operator,
+**I want** Apify's trigger/call failures to be surfaced to moderators (not just swallowed to a Lambda console log nobody watches) once they persist for more than a day, mirroring Story 3.4q's Bright Data alert,
+**So that** an Apify outage — sync-path (vote checks, subscribe-time account validation) or batch-path fallback — can't silently degrade scraping capacity for days without anyone noticing, especially since Apify is the fallback vendor Bright Data's own outage (3.4q) silently pushed 100% of traffic onto.
+
+**Acceptance Criteria:**
+
+1.  **Given** Story 3.4's AC5 (capacity-exhaustion skip) and AC7 (per-account failure catch) both currently handle failure via `console.error`/logging only, **when** every Apify call attempt fails (capacity-exhausted skip, or a real trigger/call error) across an entire day's batch run for `N` consecutive days (`N` configurable, default 2, matching Story 3.4q's default), **then** all users with `role = 'moderator'` are emailed a new templated alert — reusing the exact `send-dangerous-report-moderator-alerts.ts`-pattern mechanism Story 3.4q already built for Bright Data, not a new alerting mechanism.
+2.  **And** once sent, the alert respects the same cooldown convention Story 3.4q uses (default 3 days, `users.lastQuotaWarningEmailSentAt`-style cooldown column), scoped per-vendor so an Apify alert and a Bright Data alert can both be active independently without interfering with each other's cooldowns.
+3.  **And** this story's failure-tracking must distinguish "capacity-exhausted skip" (AC5, an expected/self-imposed limit) from "real vendor error" (AC7, an actual outage) in the alert's own content/subject, so a moderator receiving the alert knows which condition triggered it — Story 3.4q's Bright Data case only ever had one failure mode (auth error), so this distinction wasn't needed there.
+4.  **And** this story does not change Apify's existing silent-fallback/skip behavior itself (a deliberate resiliency feature, per Story 3.4q's own precedent) — it only adds the missing observability on top of it.
+5.  **And**, given both Apify and Bright Data can now independently alert, a regression/integration test confirms a simultaneous dual-vendor outage (the exact scenario Story 3.4q's own incident narrowly avoided catching, since Bright Data going down silently routed all load onto Apify) produces two independent moderator alerts, not one that masks the other.
+
+**Note (2026-09-11, added via `bmad-epic-readiness-check` epic-wide Gate 1 sweep):** Story 3.4q closed this exact silent-failure gap for Bright Data only, root-caused from a real production incident where Bright Data's `401` auth failure went unnoticed for 3+ days while Apify absorbed 100% of scrape traffic. The epic-wide sweep found Story 3.4's own AC5/AC7 Apify failure paths use the identical `console.error`-only shape Story 3.4q was written to fix — Apify is both the sync-path primary (vote checks, subscribe-time account validation) and the batch-path fallback, so an Apify outage (especially one coinciding with Bright Data being down, as it recently was) is currently invisible to moderators. Classified as a single-story architecture split (Gate 1) rather than an Epic 0 tooling story, since no other epic calls these scraper vendors — positioned as a lettered suffix directly off Story 3.4q, matching the 3.4e/3.4f/3.4p/3.4q bug-fix-family precedent.
+
+**Depends on:** Story 3.4 (the Apify failure paths this instruments), Story 3.4q (the moderator-alert mechanism/cooldown pattern this reuses).
+
 ### Story 3.5: Add new posts to a processing queue
 
 **As a** system,
