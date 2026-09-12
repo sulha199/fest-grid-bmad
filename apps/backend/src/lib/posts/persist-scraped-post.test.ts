@@ -314,4 +314,96 @@ test('persistScrapedPost integration tests', async (t) => {
     assert.strictEqual(result2.post.videoUrl, 'https://test.com/video_i_first.mp4');
   });
 
+  await t.test('(j) additionalImageUrls round-trips into the additional_image_urls jsonb column on insert', async () => {
+    const postUrl = 'https://instagram.com/p/carousel_roundtrip_' + Date.now();
+    const urls = [
+      'https://test.com/carousel_roundtrip_slide2.jpg',
+      'https://test.com/carousel_roundtrip_slide3.jpg',
+      'https://test.com/carousel_roundtrip_slide4.jpg',
+    ];
+    const result = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Carousel post',
+      imageUrl: 'https://test.com/carousel_roundtrip_cover.jpg',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+      additionalImageUrls: urls,
+    });
+
+    assert.strictEqual(result.alreadyExisted, false);
+    assert.deepStrictEqual(result.post.additionalImageUrls, urls);
+
+    // Read back directly from the DB to confirm raw jsonb storage
+    const [dbPost] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, result.post.id));
+    assert.deepStrictEqual(dbPost.additionalImageUrls, urls);
+  });
+
+  await t.test('(k) omitting additionalImageUrls persists null in the jsonb column', async () => {
+    const postUrl = 'https://instagram.com/p/no_carousel_' + Date.now();
+    const result = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Single image post',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+    });
+
+    assert.strictEqual(result.alreadyExisted, false);
+    const [dbPost] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, result.post.id));
+    assert.strictEqual(dbPost.additionalImageUrls, null);
+  });
+
+  await t.test('(l) a large additionalImageUrls array persists in full, uncapped (AC3 no-cap)', async () => {
+    const postUrl = 'https://instagram.com/p/large_carousel_' + Date.now();
+    const urls = Array.from({ length: 8 }, (_, i) => `https://test.com/slide_${i + 2}.jpg`);
+    const result = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Large carousel post',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+      additionalImageUrls: urls,
+    });
+
+    assert.strictEqual(result.alreadyExisted, false);
+    assert.strictEqual(result.post.additionalImageUrls!.length, 8);
+    const [dbPost] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, result.post.id));
+    assert.deepStrictEqual(dbPost.additionalImageUrls, urls);
+  });
+
+  await t.test('(m) re-persisting an existing postUrl with a different additionalImageUrls does not overwrite the stored value', async () => {
+    const postUrl = 'https://instagram.com/p/no_overwrite_carousel_' + Date.now();
+    const result1 = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Original carousel',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+      additionalImageUrls: ['https://test.com/orig_slide2.jpg'],
+    });
+    assert.strictEqual(result1.alreadyExisted, false);
+
+    const result2 = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Updated content ignored',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+      additionalImageUrls: ['https://test.com/new_slide2.jpg'],
+    });
+
+    assert.strictEqual(result2.alreadyExisted, true);
+    assert.deepStrictEqual(result2.post.additionalImageUrls, ['https://test.com/orig_slide2.jpg']);
+  });
+
 });

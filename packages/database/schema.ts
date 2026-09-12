@@ -266,6 +266,11 @@ export const posts = pgTable('posts', {
   imageUrlExpiresAt: timestamp('image_url_expires_at', { withTimezone: true }),
   // Hashtags from the scraper adapter (Instagram/Apify today); powers #-prefixed hashtag search (added 2026-08-28)
   hashtags: text('hashtags').array(),
+  // Image URLs of every slide in a carousel/Sidecar post (excluding the cover in image_url).
+  // Nullable jsonb array, populated at persistence time (insert only, no backfill). Extraction-time
+  // input for Story 3.6l's multi-image AI request -- never displayed in any UI. No index: nothing
+  // queries by this column.
+  additionalImageUrls: jsonb('additional_image_urls').$type<string[]>(),
   ...timestamps,
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),

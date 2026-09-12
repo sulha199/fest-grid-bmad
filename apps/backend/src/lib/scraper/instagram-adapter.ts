@@ -71,6 +71,9 @@ interface ApifyPostItem {
   ownerFullName?: string;
   ownerUsername?: string;
   hashtags?: string[];
+  // Carousel (Sidecar) post marks: `type: 'Sidecar'` with childPosts[] holding every slide
+  type?: string;
+  childPosts?: { displayUrl?: string }[];
 }
 
 // Raw profile item from Apify
@@ -114,7 +117,7 @@ type ActorInputFor<T extends ActorId> = ActorRegistry[T]['input'];
 type ActorOutputFor<T extends ActorId> = ActorRegistry[T]['output'];
 
 // Parser version — increment when output types change (tracks data schema evolution)
-const APIFY_PARSER_VERSION = '3.4m';
+const APIFY_PARSER_VERSION = '3.3e';
 
 const GET_POST_BY_URL_ACTOR = 'apify/instagram-post-scraper';
 const LOOKUP_ACCOUNT_PROFILE_ACTOR = 'apify/instagram-post-scraper';
@@ -253,6 +256,15 @@ export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost 
     ...(Array.isArray(item.hashtags) && item.hashtags.length > 0 && {
       hashtags: item.hashtags.map((tag: string) => tag.toLowerCase()),
     }),
+    // Carousel/Sidecar post (AC1/AC2): capture every slide's image URL beyond the cover, in Apify's
+    // childPosts slide order, dropping falsy/missing displayUrl entries defensively. Omitted entirely
+    // for non-Sidecar items or those with no childPosts (no behavior change for single-image posts).
+    ...(item.type === 'Sidecar' && Array.isArray(item.childPosts) && item.childPosts.length > 0 && (() => {
+      const additionalImageUrls = item.childPosts
+        .map((cp: { displayUrl?: string }) => cp.displayUrl)
+        .filter((url: string | undefined): url is string => Boolean(url));
+      return additionalImageUrls.length > 0 ? { additionalImageUrls } : {};
+    })()),
   };
 
   const isValid = validateScrapedPost(candidate);

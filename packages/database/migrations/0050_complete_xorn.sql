@@ -1,0 +1,1 @@
+ALTER TABLE "posts" ADD COLUMN "additional_image_urls" jsonb;

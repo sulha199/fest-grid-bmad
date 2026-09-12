@@ -14,6 +14,13 @@ export interface ScrapedPost {
   ownerDisplayName?: string;
   ownerUsername?: string;
   hashtags?: string[];
+  /**
+   * Image URLs of every slide in a multi-image (carousel/Sidecar) Instagram post, in slide order,
+   * excluding the cover (which stays in `imageUrl`). Populated only for Apify Sidecar items
+   * (`item.childPosts[].displayUrl`). Extraction-time-only: never displayed in any UI, and Story
+   * 3.6l decides how many are actually sent to Gemini.
+   */
+  additionalImageUrls?: string[];
 }
 
 export interface AccountProfileLookupResult {

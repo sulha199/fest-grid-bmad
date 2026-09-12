@@ -33,6 +33,8 @@ async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: ScrapedPost[
       locationName: post.locationName || null,
       ownerDisplayName: post.ownerDisplayName || null,
       ownerUsername: post.ownerUsername || null,
+      hashtags: post.hashtags || null,
+      additionalImageUrls: post.additionalImageUrls || null,
     });
     persisted += 1;
   }

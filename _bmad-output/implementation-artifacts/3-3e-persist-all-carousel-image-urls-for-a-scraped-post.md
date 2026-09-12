@@ -1,10 +1,14 @@
+---
+baseline_commit: 80d3db100d5d61406fc9af9078d537fe2176a65a
+---
+
 # Story 3.3e: Persist all carousel image URLs for a scraped post
 
 ## Story Details
 
 - Epic: 3
 - Story ID: 3.3e
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,55 +35,55 @@ so that Story 3.6l's multi-image AI extraction has access to schedule informatio
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1, AC2, AC5): Extend the `ScrapedPost` domain type and its AJV contract**
-  - [ ] Add `additionalImageUrls?: string[]` to the `ScrapedPost` interface in `packages/domain/src/scraper/types.ts` (exported via `packages/domain/src/scraper/index.ts` → `packages/domain/src/index.ts`, already wildcard re-exported — no barrel change needed).
-  - [ ] Add a matching `additionalImageUrls: { type: 'array', items: { type: 'string' }, nullable: true }` property to `scrapedPostSchema` in `apps/backend/src/validation/scraped-post.schema.ts`, following the exact existing `hashtags` pattern (optional in TS, `nullable: true` in the JSONSchemaType, not in `required`). **This is load-bearing, not cosmetic:** the schema has `additionalProperties: false`, so without this addition, any real Sidecar post scraped after this ships would start *failing* AJV validation (rejected as carrying an undeclared property) and get diverted to `persistUnprocessedPayload` instead of stored — the exact opposite of this story's intent.
+- [x] **Task 1 (AC1, AC2, AC5): Extend the `ScrapedPost` domain type and its AJV contract**
+  - [x] Add `additionalImageUrls?: string[]` to the `ScrapedPost` interface in `packages/domain/src/scraper/types.ts` (exported via `packages/domain/src/scraper/index.ts` → `packages/domain/src/index.ts`, already wildcard re-exported — no barrel change needed).
+  - [x] Add a matching `additionalImageUrls: { type: 'array', items: { type: 'string' }, nullable: true }` property to `scrapedPostSchema` in `apps/backend/src/validation/scraped-post.schema.ts`, following the exact existing `hashtags` pattern (optional in TS, `nullable: true` in the JSONSchemaType, not in `required`). **This is load-bearing, not cosmetic:** the schema has `additionalProperties: false`, so without this addition, any real Sidecar post scraped after this ships would start *failing* AJV validation (rejected as carrying an undeclared property) and get diverted to `persistUnprocessedPayload` instead of stored — the exact opposite of this story's intent.
 
-- [ ] **Task 2 (AC1, AC2): Capture carousel slide URLs in `instagram-adapter.ts`'s Apify item mapping**
-  - [ ] Extend the raw `ApifyPostItem` interface (`apps/backend/src/lib/scraper/instagram-adapter.ts`) with `type?: string;` and `childPosts?: { displayUrl?: string }[];`.
-  - [ ] In `mapApifyItemToScrapedPost`, when `item.type === 'Sidecar'` and `Array.isArray(item.childPosts)`, derive `additionalImageUrls` as `item.childPosts.map(cp => cp.displayUrl).filter((url): url is string => Boolean(url))` (slide order preserved, matching Apify's own array order; falsy/missing `displayUrl` entries dropped defensively) and include it in the `candidate` object only when non-empty (`...(additionalImageUrls.length > 0 && { additionalImageUrls })`), matching this function's existing conditional-spread style for every other optional field. For a non-Sidecar item or one with no `childPosts`, omit the field entirely (AC2) — no behavior change.
-  - [ ] Bump `APIFY_PARSER_VERSION` from `'3.4m'` to `'3.3e'`, per this file's established convention of stamping the constant with whichever story last changed the Apify→`ScrapedPost` mapping (confirmed via `git log -p` on this file: `3.4g` → `3.4m` was the prior bump, itself for a mapping change).
-  - [ ] Note (edge case, documented not asked): a Sidecar `childPost` can itself be a video slide, whose `displayUrl` is that video's thumbnail frame, not a "real" photo. AC1's wording ("every slide's image URL beyond the cover... `item.childPosts[].displayUrl`") does not gate on child-post type, so this task includes every child's `displayUrl` unconditionally, matching Story 3.6l's downstream intent (any slide, including a video thumbnail, may carry schedule text Gemini's vision call can read).
+- [x] **Task 2 (AC1, AC2): Capture carousel slide URLs in `instagram-adapter.ts`'s Apify item mapping**
+  - [x] Extend the raw `ApifyPostItem` interface (`apps/backend/src/lib/scraper/instagram-adapter.ts`) with `type?: string;` and `childPosts?: { displayUrl?: string }[];`.
+  - [x] In `mapApifyItemToScrapedPost`, when `item.type === 'Sidecar'` and `Array.isArray(item.childPosts)`, derive `additionalImageUrls` as `item.childPosts.map(cp => cp.displayUrl).filter((url): url is string => Boolean(url))` (slide order preserved, matching Apify's own array order; falsy/missing `displayUrl` entries dropped defensively) and include it in the `candidate` object only when non-empty (`...(additionalImageUrls.length > 0 && { additionalImageUrls })`), matching this function's existing conditional-spread style for every other optional field. For a non-Sidecar item or one with no `childPosts`, omit the field entirely (AC2) — no behavior change.
+  - [x] Bump `APIFY_PARSER_VERSION` from `'3.4m'` to `'3.3e'`, per this file's established convention of stamping the constant with whichever story last changed the Apify→`ScrapedPost` mapping (confirmed via `git log -p` on this file: `3.4g` → `3.4m` was the prior bump, itself for a mapping change).
+  - [x] Note (edge case, documented not asked): a Sidecar `childPost` can itself be a video slide, whose `displayUrl` is that video's thumbnail frame, not a "real" photo. AC1's wording ("every slide's image URL beyond the cover... `item.childPosts[].displayUrl`") does not gate on child-post type, so this task includes every child's `displayUrl` unconditionally, matching Story 3.6l's downstream intent (any slide, including a video thumbnail, may carry schedule text Gemini's vision call can read).
 
-- [ ] **Task 3 (AC3): Add the `additional_image_urls` column and generate its migration**
-  - [ ] In `packages/database/schema.ts`'s `posts` pgTable (line ~250), add `additionalImageUrls: jsonb('additional_image_urls').$type<string[]>(),` — nullable (no `.notNull()`), no default, no index (nothing queries by this column), matching the existing `defaultLocation`/`locationDetails` `.$type<T>()` jsonb convention rather than `hashtags`' `text().array()` approach (this field's shape is closer to those `$type` jsonb columns than to the flat hashtag array).
-  - [ ] Run `pnpm --filter @festgrid/database run generate` to produce the next `drizzle-kit`-generated migration (`packages/database/migrations/00XX_*.sql`, following `0049_lyrical_ultimatum.sql`) — plain `ALTER TABLE posts ADD COLUMN additional_image_urls jsonb;`, no hand-edit expected (unlike the partial-index/`WHERE`-clause or `.using('gin')` gaps seen in prior stories — this is neither).
-  - [ ] Run `pnpm --filter @festgrid/database run migrate` to apply it locally; confirm the column exists via a live-DB query (matching Story 3.3c's own precedent of a "live-DB column-existence check" before merge).
+- [x] **Task 3 (AC3): Add the `additional_image_urls` column and generate its migration**
+  - [x] In `packages/database/schema.ts`'s `posts` pgTable (line ~250), add `additionalImageUrls: jsonb('additional_image_urls').$type<string[]>(),` — nullable (no `.notNull()`), no default, no index (nothing queries by this column), matching the existing `defaultLocation`/`locationDetails` `.$type<T>()` jsonb convention rather than `hashtags`' `text().array()` approach (this field's shape is closer to those `$type` jsonb columns than to the flat hashtag array).
+  - [x] Run `pnpm --filter @festgrid/database run generate` to produce the next `drizzle-kit`-generated migration (`packages/database/migrations/00XX_*.sql`, following `0049_lyrical_ultimatum.sql`) — plain `ALTER TABLE posts ADD COLUMN additional_image_urls jsonb;`, no hand-edit expected (unlike the partial-index/`WHERE`-clause or `.using('gin')` gaps seen in prior stories — this is neither).
+  - [x] Run `pnpm --filter @festgrid/database run migrate` to apply it locally; confirm the column exists via a live-DB query (matching Story 3.3c's own precedent of a "live-DB column-existence check" before merge).
 
-- [ ] **Task 4 (AC3): Thread `additionalImageUrls` through `persistScrapedPost`**
-  - [ ] Add `additionalImageUrls?: string[] | null` to `PersistScrapedPostParams` in `apps/backend/src/lib/posts/persist-scraped-post.ts`, destructure it, and include it in `insertValues` for the new-row insert path.
-  - [ ] Do **not** add it to the existing-row `backfillPatch` branch. Matches this file's actual existing precedent: only `imageUrl`/`videoUrl` get backfilled-if-missing on a duplicate-post match; every other optional field (`content`, `hashtags`, `locationName`, `ownerDisplayName`, `ownerUsername`) is populated once, at first insert, and left alone on every subsequent re-scrape match. `additionalImageUrls` follows that majority pattern, not the `imageUrl`/`videoUrl` special case.
+- [x] **Task 4 (AC3): Thread `additionalImageUrls` through `persistScrapedPost`**
+  - [x] Add `additionalImageUrls?: string[] | null` to `PersistScrapedPostParams` in `apps/backend/src/lib/posts/persist-scraped-post.ts`, destructure it, and include it in `insertValues` for the new-row insert path.
+  - [x] Do **not** add it to the existing-row `backfillPatch` branch. Matches this file's actual existing precedent: only `imageUrl`/`videoUrl` get backfilled-if-missing on a duplicate-post match; every other optional field (`content`, `hashtags`, `locationName`, `ownerDisplayName`, `ownerUsername`) is populated once, at first insert, and left alone on every subsequent re-scrape match. `additionalImageUrls` follows that majority pattern, not the `imageUrl`/`videoUrl` special case.
 
-- [ ] **Task 5 (AC1's wiring, AC6): Forward `additionalImageUrls` (and fix `hashtags`) from the scrape-job call site**
-  - [ ] In `apps/backend/src/lib/scraper/process-scrape-job.ts`'s `persistScrapedPosts()` helper, add `additionalImageUrls: post.additionalImageUrls || null,` to the `persistScrapedPost` call — without this, `instagram-adapter.ts`/`persist-scraped-post.ts`'s changes above are dead code on the actual production path (Story 3.4's daily batch and on-demand new-subscribe scrapes both funnel through this one helper).
-  - [ ] AC6: in the same call, add `hashtags: post.hashtags || null,` (the sibling gap found while tracing this call site — see the Note above).
-  - [ ] Explicitly out of scope for this task: `process-brightdata-result.ts` / `brightdata-record-mapper.ts` (Bright Data path) — not touched, since AC1 scopes `additionalImageUrls` to Apify/`instagram-adapter.ts` only, Bright Data's own mapper has no `childPosts`-equivalent data, and this story does not otherwise open that file (see the Note above on why its own separate `hashtags` gap is left alone here).
+- [x] **Task 5 (AC1's wiring, AC6): Forward `additionalImageUrls` (and fix `hashtags`) from the scrape-job call site**
+  - [x] In `apps/backend/src/lib/scraper/process-scrape-job.ts`'s `persistScrapedPosts()` helper, add `additionalImageUrls: post.additionalImageUrls || null,` to the `persistScrapedPost` call — without this, `instagram-adapter.ts`/`persist-scraped-post.ts`'s changes above are dead code on the actual production path (Story 3.4's daily batch and on-demand new-subscribe scrapes both funnel through this one helper).
+  - [x] AC6: in the same call, add `hashtags: post.hashtags || null,` (the sibling gap found while tracing this call site — see the Note above).
+  - [x] Explicitly out of scope for this task: `process-brightdata-result.ts` / `brightdata-record-mapper.ts` (Bright Data path) — not touched, since AC1 scopes `additionalImageUrls` to Apify/`instagram-adapter.ts` only, Bright Data's own mapper has no `childPosts`-equivalent data, and this story does not otherwise open that file (see the Note above on why its own separate `hashtags` gap is left alone here).
 
-- [ ] **Task 6 (AC4): Populate `ProcessingJobMessage.additionalImageUrls` from the persisted column**
-  - [ ] Add `additionalImageUrls?: string[];` to `ProcessingJobMessage` in `packages/domain/src/posts/types.ts`.
-  - [ ] In `enqueuePostForProcessing` (`apps/backend/src/lib/posts/enqueue-post-for-processing.ts`), add `additionalImageUrls: post.additionalImageUrls ?? undefined,` to the built `message`, matching this function's existing `?? undefined` normalization pattern for every other optional field.
+- [x] **Task 6 (AC4): Populate `ProcessingJobMessage.additionalImageUrls` from the persisted column**
+  - [x] Add `additionalImageUrls?: string[];` to `ProcessingJobMessage` in `packages/domain/src/posts/types.ts`.
+  - [x] In `enqueuePostForProcessing` (`apps/backend/src/lib/posts/enqueue-post-for-processing.ts`), add `additionalImageUrls: post.additionalImageUrls ?? undefined,` to the built `message`, matching this function's existing `?? undefined` normalization pattern for every other optional field.
 
-- [ ] **Task 7 (Testing, AC1/AC2): Extend `instagram-adapter.test.ts`**
-  - [ ] New case: a Sidecar item with a 3-entry `childPosts` array (each with a `displayUrl`) maps to a `ScrapedPost` whose `additionalImageUrls` matches those URLs in the same order, and whose `imageUrl` still equals only `item.displayUrl` (the cover).
-  - [ ] New case: a Sidecar item with one `childPosts` entry missing `displayUrl` — that entry is dropped, the rest are kept.
-  - [ ] New case: a non-Sidecar item (`type: 'Image'` or `type` absent) — `additionalImageUrls` is `undefined`/absent on the result, matching today's behavior exactly (regression guard for AC2).
-  - [ ] New case: a Sidecar item with `childPosts` absent/not an array — treated the same as AC2 (no field), not a crash.
+- [x] **Task 7 (Testing, AC1/AC2): Extend `instagram-adapter.test.ts`**
+  - [x] New case: a Sidecar item with a 3-entry `childPosts` array (each with a `displayUrl`) maps to a `ScrapedPost` whose `additionalImageUrls` matches those URLs in the same order, and whose `imageUrl` still equals only `item.displayUrl` (the cover).
+  - [x] New case: a Sidecar item with one `childPosts` entry missing `displayUrl` — that entry is dropped, the rest are kept.
+  - [x] New case: a non-Sidecar item (`type: 'Image'` or `type` absent) — `additionalImageUrls` is `undefined`/absent on the result, matching today's behavior exactly (regression guard for AC2).
+  - [x] New case: a Sidecar item with `childPosts` absent/not an array — treated the same as AC2 (no field), not a crash.
 
-- [ ] **Task 8 (Testing, AC1): Extend the AJV schema test coverage for `scrapedPostSchema`**
-  - [ ] Confirm (new or existing test) that a `ScrapedPost` candidate carrying `additionalImageUrls` passes validation, and that omitting it still passes (matches `hashtags`' existing test treatment, if any exists — else add alongside it).
+- [x] **Task 8 (Testing, AC1): Extend the AJV schema test coverage for `scrapedPostSchema`**
+  - [x] Confirm (new or existing test) that a `ScrapedPost` candidate carrying `additionalImageUrls` passes validation, and that omitting it still passes (matches `hashtags`' existing test treatment, if any exists — else add alongside it).
 
-- [ ] **Task 9 (Testing, AC3): Extend `persist-scraped-post.test.ts`**
-  - [ ] New case: passing `additionalImageUrls` on a new-row insert round-trips it into the `additional_image_urls` jsonb column (read back via a direct `db.select()`, matching this file's existing `imageUrlExpiresAt`-style direct-DB-read assertions).
-  - [ ] New case: omitting it persists `null` (matching the existing `videoUrl`-defaults-to-null case's assertion style).
-  - [ ] New case (AC3's "no cap" wording): a large `additionalImageUrls` array (e.g. 8 entries) persists in full, uncapped, confirming no truncation happens at this layer.
-  - [ ] Confirm (per Task 4) that re-persisting an already-existing `postUrl` with a *different* `additionalImageUrls` value does **not** overwrite the original row's value — matching the established `content`/no-backfill-except-imageUrl-videoUrl precedent this task deliberately follows.
+- [x] **Task 9 (Testing, AC3): Extend `persist-scraped-post.test.ts`**
+  - [x] New case: passing `additionalImageUrls` on a new-row insert round-trips it into the `additional_image_urls` jsonb column (read back via a direct `db.select()`, matching this file's existing `imageUrlExpiresAt`-style direct-DB-read assertions).
+  - [x] New case: omitting it persists `null` (matching the existing `videoUrl`-defaults-to-null case's assertion style).
+  - [x] New case (AC3's "no cap" wording): a large `additionalImageUrls` array (e.g. 8 entries) persists in full, uncapped, confirming no truncation happens at this layer.
+  - [x] Confirm (per Task 4) that re-persisting an already-existing `postUrl` with a *different* `additionalImageUrls` value does **not** overwrite the original row's value — matching the established `content`/no-backfill-except-imageUrl-videoUrl precedent this task deliberately follows.
 
-- [ ] **Task 10 (Testing, AC6): Update/extend `process-scrape-job.ts`'s existing test suite**
-  - [ ] Confirm the `persistScrapedPost` call built from a mapped `ScrapedPost` now includes both `additionalImageUrls` and `hashtags` when present on the source post (a spy/mock assertion on the `persistScrapedPost` call args, matching however this file's current tests already assert call shape — read the existing test file first to match its mocking convention exactly).
+- [x] **Task 10 (Testing, AC6): Update/extend `process-scrape-job.ts`'s existing test suite**
+  - [x] Confirm the `persistScrapedPost` call built from a mapped `ScrapedPost` now includes both `additionalImageUrls` and `hashtags` when present on the source post (a spy/mock assertion on the `persistScrapedPost` call args, matching however this file's current tests already assert call shape — read the existing test file first to match its mocking convention exactly).
 
-- [ ] **Task 11 (Testing, AC4): Update `enqueue-post-for-processing.test.ts`**
-  - [ ] New case: a persisted post with a populated `additionalImageUrls` column produces a `ProcessingJobMessage` carrying the same array.
-  - [ ] Confirm a post with `additionalImageUrls: null` produces a message where the field is `undefined` (not `null`), matching this function's `?? undefined` convention for every other optional field.
+- [x] **Task 11 (Testing, AC4): Update `enqueue-post-for-processing.test.ts`**
+  - [x] New case: a persisted post with a populated `additionalImageUrls` column produces a `ProcessingJobMessage` carrying the same array.
+  - [x] Confirm a post with `additionalImageUrls: null` produces a message where the field is `undefined` (not `null`), matching this function's `?? undefined` convention for every other optional field.
 
 ## Dev Notes
 
@@ -136,10 +140,10 @@ so that Story 3.6l's multi-image AI extraction has access to schedule informatio
 
 ## Global Rules References
 
-- [ ] `_bmad-output/project-context.md` — Database & Performance (Drizzle ORM types, `packages/database/.env` vs. Supabase pooler), Data Type Compatibility auto-check rule, Adapter Pattern (external AI/scraper services).
-- [ ] `_bmad-output/planning-artifacts/story-content-structure.md` — canonical section order/status vocabulary followed by this file.
-- [ ] `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — AD-12, AD-13 (see References above).
-- [ ] `docs/infrastructure/2-backend.md` — confirms `AIProcessingQueue`'s existence/role; this story adds no new infra, so no shard update is needed.
+- [x] `_bmad-output/project-context.md` — Database & Performance (Drizzle ORM types, `packages/database/.env` vs. Supabase pooler), Data Type Compatibility auto-check rule, Adapter Pattern (external AI/scraper services).
+- [x] `_bmad-output/planning-artifacts/story-content-structure.md` — canonical section order/status vocabulary followed by this file.
+- [x] `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — AD-12, AD-13 (see References above).
+- [x] `docs/infrastructure/2-backend.md` — confirms `AIProcessingQueue`'s existence/role; this story adds no new infra, so no shard update is needed.
 
 ## Implementation Plan (Rule-Compliant)
 
@@ -173,26 +177,26 @@ so that Story 3.6l's multi-image AI extraction has access to schedule informatio
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — AC1-5 (carousel capture/persist/message-threading) plus AC6 (hashtags-forwarding bug fix, independently droppable if the user overrides the defaulted `AskUserQuestion`).
-- [ ] Architecture and boundary confirmation — no `packages/domain` DB/Node coupling introduced; no GraphQL/UI surface added (AC5); AD-12/AD-13 boundaries respected.
-- [ ] Testing plan confirmation — Tasks 7-11 cover mapping, AJV, persistence, call-site wiring, and message-building.
-- [ ] Explicit human approval state (Default: pending approval).
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 cited from the swept `epic-3-readiness.md` (no gap for this story); Gate 2 run fresh (no gap); no prerequisite story required.
+- [x] Scope confirmation — AC1-5 (carousel capture/persist/message-threading) plus AC6 (hashtags-forwarding bug fix, independently droppable if the user overrides the defaulted `AskUserQuestion`).
+- [x] Architecture and boundary confirmation — no `packages/domain` DB/Node coupling introduced; no GraphQL/UI surface added (AC5); AD-12/AD-13 boundaries respected.
+- [x] Testing plan confirmation — Tasks 7-11 cover mapping, AJV, persistence, call-site wiring, and message-building.
+- [x] Explicit human approval state (Default: pending approval).
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 cited from the swept `epic-3-readiness.md` (no gap for this story); Gate 2 run fresh (no gap); no prerequisite story required.
 
 ## Testing Requirements
 
-- [ ] Integration tests — Tasks 7, 8, 9, 10, 11 (all `node:test`/`assert`-based, matching this codebase's actual backend testing convention for these files).
-- [ ] E2E tests — not applicable; this is a backend-only data-pipeline story with no user-facing flow (per project-context.md's testing-trophy philosophy, E2E is reserved for critical user flows, and this story has none).
+- [x] Integration tests — Tasks 7, 8, 9, 10, 11 (all `node:test`/`assert`-based, matching this codebase's actual backend testing convention for these files).
+- [x] E2E tests — not applicable; this is a backend-only data-pipeline story with no user-facing flow (per project-context.md's testing-trophy philosophy, E2E is reserved for critical user flows, and this story has none).
 
 ## Deliverables Checklist
 
-- [ ] `ScrapedPost`/`scrapedPostSchema` extended with `additionalImageUrls` (Task 1).
-- [ ] `instagram-adapter.ts` captures carousel slide URLs from Apify Sidecar items; `APIFY_PARSER_VERSION` bumped (Task 2).
-- [ ] `posts.additional_image_urls` jsonb column added via generated migration, applied locally (Task 3).
-- [ ] `persistScrapedPost` persists the new field on insert only, no backfill (Task 4).
-- [ ] `process-scrape-job.ts` forwards both `additionalImageUrls` and `hashtags` (Task 5, AC6).
-- [ ] `ProcessingJobMessage`/`enqueuePostForProcessing` carry the field onto the `AIProcessingQueue` (Task 6).
-- [ ] All new/updated tests (Tasks 7-11) passing.
+- [x] `ScrapedPost`/`scrapedPostSchema` extended with `additionalImageUrls` (Task 1).
+- [x] `instagram-adapter.ts` captures carousel slide URLs from Apify Sidecar items; `APIFY_PARSER_VERSION` bumped (Task 2).
+- [x] `posts.additional_image_urls` jsonb column added via generated migration, applied locally (Task 3).
+- [x] `persistScrapedPost` persists the new field on insert only, no backfill (Task 4).
+- [x] `process-scrape-job.ts` forwards both `additionalImageUrls` and `hashtags` (Task 5, AC6).
+- [x] `ProcessingJobMessage`/`enqueuePostForProcessing` carry the field onto the `AIProcessingQueue` (Task 6).
+- [x] All new/updated tests (Tasks 7-11) passing.
 
 ## Out of Scope
 
@@ -203,23 +207,48 @@ so that Story 3.6l's multi-image AI extraction has access to schedule informatio
 
 ## Definition of Done
 
-- [ ] AC1-6 satisfied.
-- [ ] Required tests (Tasks 7-11) passing; no decrease in overall backend test coverage.
-- [ ] Lint and type checks passing for `packages/domain`, `packages/database`, `apps/backend`.
-- [ ] Migration generated, applied locally, and column existence verified live.
+- [x] AC1-6 satisfied.
+- [x] Required tests (Tasks 7-11) passing; no decrease in overall backend test coverage.
+- [x] Lint and type checks passing for `packages/domain`, `packages/database`, `apps/backend`.
+- [x] Migration generated, applied locally, and column existence verified live.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — implementation finished, moved to review (all AC1-6 and Tasks 1-11 done; migration applied locally; tests/lint/type all pass)
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-5 (bmad-dev-story)
 
 ### Debug Log References
 
+- `apps/backend/test-full.log` — full backend test suite run (deleted after verification; see Completion Notes for summary)
+
 ### Completion Notes List
 
+- **Prior interrupted run:** The working tree already contained a partial implementation of this story (Tasks 1-7 source + `instagram-adapter.test.ts`, migration `0050_complete_xorn.sql`, `ScrapedPost`/`ProcessingJobMessage` type fields, AJV schema, `persistScrapedPost` threading, `process-scrape-job.ts` forwarding, status set to in-progress). The remaining testing tasks (8-11) were not done.
+- **Approval:** Pre-Coding Approval Gate was unchecked (pending approval). Via `AskUserQuestion`, the user granted approval to proceed & finish, chose to **keep AC6** (hashtags-forwarding fix), accepted the 3.3a/3.3c review-status dependency gap, and asked to try the local DB for the live migration/column check. All gate checkboxes now marked done.
+- **Completed Tasks 8-11:** Added AJV `scrapedPostSchema` tests in `validate.test.ts` (pass with `additionalImageUrls`, omit still passes, rejects undeclared property); added `persist-scraped-post.test.ts` cases (j-k-l-m: jsonb round-trip, null default, 8-entry no-cap, no-overwrite-on-dedupe); added a `process-scrape-job.test.ts` subtest proving `hashtags` (AC6) + `additionalImageUrls` are forwarded through the main scrape path; added `enqueue-post-for-processing.test.ts` cases (d-e: message carries array, null→undefined).
+- **Verified (executed, not just asserted):** `pnpm --filter @festgrid/database run generate` → "No schema changes, nothing to migrate" (0050 already generated); `pnpm --filter @festgrid/database run migrate` → "Migrations completed successfully" against local DB (localhost:5432); live `information_schema` query confirmed `posts.additional_image_urls` jsonb and `hashtags` ARRAY both exist. `npx tsc --noEmit` clean in packages/domain, packages/database, apps/backend. Lint clean: backend 0 errors (pre-existing warnings only), domain & database clean (--max-warnings 0). Story test files all pass (55/55 targeted across the 4 DB-backed test files + 5/5 validate.test.ts), and the full `pnpm --filter @festgrid/backend test` run passed with 0 failures.
+- **Dependencies accepted per user:** Story 3.3a and Story 3.3c are in `review` (not `done`) in sprint-status.yaml; user chose to proceed (gap accepted) since their contracts are functionally complete and the code builds against them.
+- **Out of scope honored:** no GraphQL/UI surface (AC5), no Bright Data path changes, no `build-gemini-request.ts`/`process-ai-job.ts` consumption (Story 3.6l's scope), no backfill.
+
 ### File List
+
+- `packages/domain/src/scraper/types.ts` — added `ScrapedPost.additionalImageUrls?: string[]` (Task 1)
+- `packages/domain/src/posts/types.ts` — added `ProcessingJobMessage.additionalImageUrls?: string[]` (Task 6)
+- `apps/backend/src/validation/scraped-post.schema.ts` — added `additionalImageUrls` AJV property (Task 1)
+- `apps/backend/src/validation/validate.test.ts` — added `scrapedPostSchema` AJV test (Task 8)
+- `apps/backend/src/lib/scraper/instagram-adapter.ts` — `ApifyPostItem.type`/`childPosts` extension, `mapApifyItemToScrapedPost` carousel logic, `APIFY_PARSER_VERSION` bump to `3.3e` (Task 2)
+- `apps/backend/src/lib/scraper/instagram-adapter.test.ts` — 4 new Sidecar mapping cases (Task 7)
+- `packages/database/schema.ts` — added `additional_image_urls` jsonb column on `posts` (Task 3)
+- `packages/database/migrations/0050_complete_xorn.sql` + `migrations/meta/_journal.json` + `migrations/meta/0050_snapshot.json` — generated migration (Task 3)
+- `apps/backend/src/lib/posts/persist-scraped-post.ts` — threaded `additionalImageUrls` into insert-only path (Task 4)
+- `apps/backend/src/lib/posts/persist-scraped-post.test.ts` — new cases (j-m) (Task 9)
+- `apps/backend/src/lib/scraper/process-scrape-job.ts` — forwarded `additionalImageUrls` and `hashtags` (AC6) (Task 5)
+- `apps/backend/src/lib/scraper/process-scrape-job.test.ts` — new carousel/hashtags persistence subtest (Task 10)
+- `apps/backend/src/lib/posts/enqueue-post-for-processing.ts` — populated `additionalImageUrls` on `ProcessingJobMessage` (Task 6)
+- `apps/backend/src/lib/posts/enqueue-post-for-processing.test.ts` — new cases (d-e) (Task 11)
+- `_bmad-output/implementation-artifacts/3-3e-persist-all-carousel-image-urls-for-a-scraped-post.md` — this story file (status → review, tasks/gates checked, completion record)

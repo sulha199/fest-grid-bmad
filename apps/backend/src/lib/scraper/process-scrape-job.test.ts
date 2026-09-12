@@ -331,6 +331,69 @@ test('process-scrape-job integration tests', async (t) => {
     assert.ok(updatedProfile.lastScrapedAt);
   });
 
+  await t.test('persists hashtags and additionalImageUrls from a carousel ScrapedPost through the main scrape path (AC6 + carousel wiring)', async () => {
+    const mockPlatform = 'test-fake-platform-carousel' as any;
+    const uniqueUrlBase = `https://fake.com/${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const fakeAdapter: ScraperAdapter = {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        return [
+          {
+            content: 'Carousel post with hashtags',
+            postUrl: `${uniqueUrlBase}/p/carousel`,
+            publishedAt: '2026-08-08T12:00:00Z',
+            hashtags: ['festival', 'music'],
+            additionalImageUrls: [
+              'https://fake.com/slide2.jpg',
+              'https://fake.com/slide3.jpg',
+            ],
+          },
+        ];
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(username: string): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(url: string): Promise<ScrapedPost | null> {
+        return null;
+      },
+    };
+
+    registerScraperAdapter(mockPlatform, fakeAdapter);
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-carousel-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Carousel Account',
+      username: 'fake_acc_carousel',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    const job = {
+      profileId: profile.id,
+      platform: mockPlatform,
+      accountId: profile.accountId,
+      username: profile.username,
+    };
+
+    await processScrapeJob(job);
+
+    const dbPosts = await db.select().from(posts).where(eq(posts.accountId, profile.id));
+    assert.strictEqual(dbPosts.length, 1);
+    createdPosts.push(dbPosts[0].id);
+
+    // AC6: hashtags must now be forwarded through the main scrape path's persistScrapedPost call
+    assert.deepStrictEqual(dbPosts[0].hashtags, ['festival', 'music']);
+    // Carousel wiring: additionalImageUrls persisted
+    assert.deepStrictEqual(dbPosts[0].additionalImageUrls, [
+      'https://fake.com/slide2.jpg',
+      'https://fake.com/slide3.jpg',
+    ]);
+  });
+
   await t.test('calls backfillAccountProfileAndInferDefaultLocationSeam on successful scrape and handles throw gracefully', async (subT) => {
     const {
       backfillAccountProfileAndInferDefaultLocationSeam,

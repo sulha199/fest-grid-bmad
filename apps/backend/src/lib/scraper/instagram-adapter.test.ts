@@ -30,6 +30,106 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(result!.originalPostUrl, 'https://www.instagram.com/p/C_abc123/');
   });
 
+  await t.test('mapApifyItemToScrapedPost captures every slide URL of a Sidecar (carousel) item beyond the cover', async () => {
+    const item = {
+      type: 'Sidecar',
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_sidecar_1/',
+      caption: 'Carousel caption',
+      displayUrl: 'https://www.instagram.com/p/C_sidecar_1/cover.jpg',
+      childPosts: [
+        { displayUrl: 'https://www.instagram.com/p/C_sidecar_1/slide2.jpg' },
+        { displayUrl: 'https://www.instagram.com/p/C_sidecar_1/slide3.jpg' },
+        { displayUrl: 'https://www.instagram.com/p/C_sidecar_1/slide4.jpg' },
+      ],
+    };
+
+    const result = await mapApifyItemToScrapedPost(item);
+
+    assert.ok(result !== null);
+    // imageUrl stays the cover only
+    assert.strictEqual(result!.imageUrl, 'https://www.instagram.com/p/C_sidecar_1/cover.jpg');
+    // every slide captured, in order, whose displayUrl is present
+    assert.deepStrictEqual(result!.additionalImageUrls, [
+      'https://www.instagram.com/p/C_sidecar_1/slide2.jpg',
+      'https://www.instagram.com/p/C_sidecar_1/slide3.jpg',
+      'https://www.instagram.com/p/C_sidecar_1/slide4.jpg',
+    ]);
+  });
+
+  await t.test('mapApifyItemToScrapedPost drops a childPost missing displayUrl and keeps the rest', async () => {
+    const item = {
+      type: 'Sidecar',
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_sidecar_2/',
+      caption: 'Carousel with a missing slide',
+      displayUrl: 'https://www.instagram.com/p/C_sidecar_2/cover.jpg',
+      childPosts: [
+        { displayUrl: 'https://www.instagram.com/p/C_sidecar_2/slide2.jpg' },
+        {}, // missing displayUrl -> dropped
+        { displayUrl: 'https://www.instagram.com/p/C_sidecar_2/slide3.jpg' },
+      ],
+    };
+
+    const result = await mapApifyItemToScrapedPost(item);
+
+    assert.ok(result !== null);
+    assert.deepStrictEqual(result!.additionalImageUrls, [
+      'https://www.instagram.com/p/C_sidecar_2/slide2.jpg',
+      'https://www.instagram.com/p/C_sidecar_2/slide3.jpg',
+    ]);
+  });
+
+  await t.test('mapApifyItemToScrapedPost leaves additionalImageUrls absent for a non-Sidecar item (regression guard AC2)', async () => {
+    const imageItem = {
+      type: 'Image',
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_image_1/',
+      caption: 'Single image',
+      displayUrl: 'https://www.instagram.com/p/C_image_1/img.jpg',
+    };
+    const imageResult = await mapApifyItemToScrapedPost(imageItem);
+    assert.ok(imageResult !== null);
+    assert.strictEqual(imageResult!.additionalImageUrls, undefined);
+    assert.strictEqual(imageResult!.imageUrl, 'https://www.instagram.com/p/C_image_1/img.jpg');
+
+    // Also when `type` is entirely absent
+    const noTypeItem = {
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_notype_1/',
+      caption: 'No type field',
+      displayUrl: 'https://www.instagram.com/p/C_notype_1/img.jpg',
+    };
+    const noTypeResult = await mapApifyItemToScrapedPost(noTypeItem);
+    assert.ok(noTypeResult !== null);
+    assert.strictEqual(noTypeResult!.additionalImageUrls, undefined);
+  });
+
+  await t.test('mapApifyItemToScrapedPost treats a Sidecar item with absent/non-array childPosts as non-carousel (no crash)', async () => {
+    const emptyChildPosts = {
+      type: 'Sidecar',
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_empty_1/',
+      caption: 'Empty childPosts',
+      displayUrl: 'https://www.instagram.com/p/C_empty_1/cover.jpg',
+      childPosts: [],
+    };
+    const result = await mapApifyItemToScrapedPost(emptyChildPosts);
+    assert.ok(result !== null);
+    assert.strictEqual(result!.additionalImageUrls, undefined);
+
+    const noChildPosts = {
+      type: 'Sidecar',
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_nochild_1/',
+      caption: 'No childPosts at all',
+      displayUrl: 'https://www.instagram.com/p/C_nochild_1/cover.jpg',
+    };
+    const noChildResult = await mapApifyItemToScrapedPost(noChildPosts);
+    assert.ok(noChildResult !== null);
+    assert.strictEqual(noChildResult!.additionalImageUrls, undefined);
+  });
+
   t.afterEach(async () => {
     await clearApifyProviderUsage();
     setCallApifyActor(originalCallApifyActor);

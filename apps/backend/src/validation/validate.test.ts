@@ -2,7 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { compileValidator } from './validate';
 import { extractedEventSchema } from './extracted-event.schema';
-import { GeminiExtractionPayload } from '@festgrid/domain';
+import { scrapedPostSchema } from './scraped-post.schema';
+import { GeminiExtractionPayload, ScrapedPost } from '@festgrid/domain';
 
 describe('Runtime Schema Validation (AJV)', () => {
   it('should pass validation for a valid payload', () => {
@@ -73,5 +74,43 @@ describe('Runtime Schema Validation (AJV)', () => {
     assert.notStrictEqual(validate.errors, null);
     const errorPaths = validate.errors?.map(e => e.instancePath);
     assert.ok(errorPaths?.includes('/types/0')); // invalid enum value
+  });
+});
+
+describe('scrapedPostSchema (AJV) for ScrapedPost', () => {
+  it('passes a Sidecar ScrapedPost carrying additionalImageUrls, and omits the field for a single-image post', () => {
+    const validate = compileValidator<ScrapedPost>(scrapedPostSchema);
+
+    const sidecar: ScrapedPost = {
+      content: 'Carousel caption',
+      postUrl: 'https://instagram.com/p/C_sidecar/',
+      publishedAt: '2026-08-08T00:00:00Z',
+      imageUrl: 'https://instagram.com/p/C_sidecar/cover.jpg',
+      additionalImageUrls: [
+        'https://instagram.com/p/C_sidecar/slide2.jpg',
+        'https://instagram.com/p/C_sidecar/slide3.jpg',
+      ],
+    };
+    assert.strictEqual(validate(sidecar), true);
+    assert.strictEqual(validate.errors, null);
+
+    const single: ScrapedPost = {
+      content: 'Single image post',
+      postUrl: 'https://instagram.com/p/C_image/',
+      publishedAt: '2026-08-08T00:00:00Z',
+    };
+    assert.strictEqual(validate(single), true);
+    assert.strictEqual(validate.errors, null);
+  });
+
+  it('rejects an undeclared property on a ScrapedPost (additionalProperties: false is load-bearing)', () => {
+    const validate = compileValidator<ScrapedPost>(scrapedPostSchema);
+    const withUnknown = {
+      content: 'Should fail',
+      postUrl: 'https://instagram.com/p/C_unknown/',
+      publishedAt: '2026-08-08T00:00:00Z',
+      someUnknownField: 'x',
+    };
+    assert.strictEqual(validate(withUnknown as any), false);
   });
 });

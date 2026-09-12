@@ -111,4 +111,60 @@ test("enqueuePostForProcessing integration tests", async (t) => {
 
     assert.strictEqual(callCount, 0);
   });
+
+  await t.test("(d) a post with additionalImageUrls populated produces a message carrying the same array (AC4)", async () => {
+    let sentBody = "";
+    setSendSqsMessage(async (_queueUrl, body) => {
+      sentBody = body;
+    });
+
+    process.env.AI_PROCESSING_QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/12345/AIProcessingQueue";
+
+    const carouselImageUrls = ["https://test.com/slide2.jpg", "https://test.com/slide3.jpg"];
+
+    const [post] = await db
+      .insert(posts)
+      .values({
+        accountId: profile.id,
+        platform: 'instagram',
+        content: "Carousel event post content",
+        imageUrl: "https://test.com/cover.jpg",
+        postUrl: "https://instagram.com/p/test_enqueue_carousel_" + Date.now(),
+        publishedAt: new Date(),
+        isExtracted: false,
+        additionalImageUrls: carouselImageUrls,
+      })
+      .returning();
+
+    await enqueuePostForProcessing(post.id);
+
+    const parsed = JSON.parse(sentBody);
+    assert.deepStrictEqual(parsed.additionalImageUrls, carouselImageUrls);
+  });
+
+  await t.test("(e) a post with additionalImageUrls null produces a message where the field is undefined (not null)", async () => {
+    let sentBody = "";
+    setSendSqsMessage(async (_queueUrl, body) => {
+      sentBody = body;
+    });
+
+    process.env.AI_PROCESSING_QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/12345/AIProcessingQueue";
+
+    const [post] = await db
+      .insert(posts)
+      .values({
+        accountId: profile.id,
+        platform: 'instagram',
+        content: "Single image post content",
+        postUrl: "https://instagram.com/p/test_enqueue_plain_" + Date.now(),
+        publishedAt: new Date(),
+        isExtracted: false,
+      })
+      .returning();
+
+    await enqueuePostForProcessing(post.id);
+
+    const parsed = JSON.parse(sentBody);
+    assert.strictEqual(parsed.additionalImageUrls, undefined);
+  });
 });

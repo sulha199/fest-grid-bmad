@@ -17,6 +17,7 @@ interface PersistScrapedPostParams {
   ownerDisplayName?: string | null;
   ownerUsername?: string | null;
   hashtags?: string[] | null;
+  additionalImageUrls?: string[] | null;
 }
 
 export async function persistScrapedPost({
@@ -33,6 +34,7 @@ export async function persistScrapedPost({
   ownerDisplayName,
   ownerUsername,
   hashtags,
+  additionalImageUrls,
 }: PersistScrapedPostParams) {
   // 1. Try to find the existing post using the dual-lookup logic
   const conditions = originalPostUrl
@@ -89,6 +91,7 @@ export async function persistScrapedPost({
     ownerUsername,
     hashtags,
     imageUrlExpiresAt,
+    additionalImageUrls,
   };
 
   try {

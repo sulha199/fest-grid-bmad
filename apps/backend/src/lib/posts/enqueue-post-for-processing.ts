@@ -32,6 +32,7 @@ export async function enqueuePostForProcessing(postId: string): Promise<void> {
     publishedAt: post.publishedAt.toISOString(),
     ownerDisplayName: post.ownerDisplayName ?? undefined,
     ownerUsername: post.ownerUsername ?? undefined,
+    additionalImageUrls: post.additionalImageUrls ?? undefined,
   };
 
   if (env.aiProcessingQueueUrl) {
