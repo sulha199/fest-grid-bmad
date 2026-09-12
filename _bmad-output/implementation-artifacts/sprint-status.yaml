@@ -935,7 +935,13 @@ development_status:
   # tracking had drifted from real state). No response from either as of
   # 2026-09-07. No follow-up drafted, no abandon decision made yet -- still
   # genuinely open, unlike 3-4b.
-  3-4c-explore-whitelisted-access-with-instagram-viewer-sites: backlog
+  # CLOSED 2026-09-12 via bmad-create-story: neither storiesig.info nor
+  # imginn.com ever responded (outreach sent mid-to-late August 2026, 4+ weeks
+  # of silence past the story's own follow-up window). Drafted storiesig.info
+  # nudge was never sent -- user decided no-go rather than nudging further,
+  # mirroring 3-4b's own closure reasoning. mollygram.com never contacted
+  # (deprioritized, wrong shape). Story will not proceed unless reopened.
+  3-4c-explore-whitelisted-access-with-instagram-viewer-sites: wont-do
   # added 2026-08-14 via bmad-help/architect analysis of docs/assets/Apify actor
   # costing and facts.md; corrected same day. None of the four actors evaluated
   # publish a run-duration SLA, and two synchronous call sites (getPostByUrl,

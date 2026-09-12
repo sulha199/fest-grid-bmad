@@ -4,9 +4,11 @@
 
 - Epic: 3
 - Story ID: 3.4c
-- Status: backlog
+- Status: wont-do (closed 2026-09-12 — neither vendor responded)
 
-## STATUS — EXPLORATORY OUTREACH ONLY
+## STATUS — CLOSED, NO-GO (2026-09-12)
+
+This story is closed. Both storiesig.info and imginn.com went unanswered for 4+ weeks after outreach (sent mid-to-late August 2026), and the drafted storiesig.info follow-up nudge (below) was never sent — the user chose to record a no-go decision rather than nudge further, mirroring Story 3.4b's own closure reasoning (3+ weeks of silence → close rather than continue chasing). **No adapter code was or will be written under this story as currently scoped.** If either vendor ever reaches out unprompted, or a future retry is deliberately chosen, reopen this story rather than treating this closure as permanent policy — see Story 3.4b's own reopen language for the precedent.
 
 This story is not implementation-ready. Unlike Story 3.4b (which is blocked on a legal yes/no), this one is blocked on whether a **workable business offer exists at all** — there may be no reply, no free/cheap tier, or terms that don't fit an MVP-stage budget. No adapter code should be written under this story until a concrete offer is on the table and evaluated as actually worth building against (cost, reliability, and whether it covers "get an account's recent posts," not just single-item downloads).
 
@@ -119,9 +121,10 @@ The larger realistic risk here is not legal (sanctioned access resolves that for
 
 ### Vendor Responses (fill in once received)
 
-- **storiesig.info:** Outreach sent mid-to-late August 2026 (exact date not recorded by the user). **No response as of 2026-09-07** — 2-3+ weeks of silence despite their API FAQ explicitly inviting contact, which was the higher-confidence lead of the two sent.
-- **imginn.com:** Outreach sent mid-to-late August 2026 (exact date not recorded by the user). **No response as of 2026-09-07** — consistent with the story's own pre-outreach estimate (~25-35% reply chance via a generic, non-business contact address).
-- **mollygram.com:** Not contacted (deprioritized per Dev Notes — wrong shape, single-item downloader not a per-account feed).
+- **storiesig.info: closed 2026-09-12, no response received.** Outreach sent mid-to-late August 2026 (exact date not recorded by the user). No response as of 2026-09-07 (2-3+ weeks of silence despite their API FAQ explicitly inviting contact, the higher-confidence lead of the two sent); still no response as of 2026-09-12 (4+ weeks total). The drafted follow-up nudge (Vendor Outreach section above) was never sent — the user decided, given the prolonged silence, to close this out rather than nudge further.
+- **imginn.com: closed 2026-09-12, no response received.** Outreach sent mid-to-late August 2026 (exact date not recorded by the user). No response as of 2026-09-07 or 2026-09-12 — consistent with the story's own pre-outreach estimate (~25-35% reply chance via a generic, non-business contact address). No nudge was ever planned for this channel (see Dev Notes above).
+- **mollygram.com:** Not contacted (deprioritized per Dev Notes — wrong shape, single-item downloader not a per-account feed). Moot now that the story is closed on the other two leads.
+- **Overall: this closes the story entirely. 3.4c will not be built as currently scoped.** No workable offer was ever received from either pursued vendor.
 
 ### References
 
@@ -170,8 +173,8 @@ The larger realistic risk here is not legal (sanctioned access resolves that for
 
 - [x] storiesig.info outreach email sent (mid-to-late August 2026).
 - [x] imginn.com outreach email sent (mid-to-late August 2026).
-- [ ] mollygram.com inquiry sent (optional, lower priority — still not sent, deprioritized).
-- [x] No response from either recorded in this file's "Vendor Responses" section as of 2026-09-07. No abandonment decision made yet — see Completion Status.
+- [ ] mollygram.com inquiry sent (optional, lower priority — never sent, deprioritized; moot now that the story is closed).
+- [x] No response from either vendor recorded in this file's "Vendor Responses" section, and a documented decision to abandon this story made 2026-09-12 (both leads closed, no response from either after 4+ weeks).
 
 ## Out of Scope
 
@@ -181,13 +184,13 @@ The larger realistic risk here is not legal (sanctioned access resolves that for
 
 ## Definition of Done
 
-- [ ] Outreach sent to storiesig.info and imginn.com (and optionally mollygram.com).
-- [ ] Response(s), or an explicit non-response after a reasonable follow-up window, recorded in this file.
-- [ ] A clear go/no-go decision recorded, with reasoning (cost, shape-fit, sanctioned-in-writing), before this story is ever moved to `ready-for-dev`.
+- [x] Outreach sent to storiesig.info and imginn.com (mollygram.com deprioritized and never sent, per Dev Notes).
+- [x] Response(s), or an explicit non-response after a reasonable follow-up window, recorded in this file — no response from either after 4+ weeks (2026-09-12).
+- [x] A clear go/no-go decision recorded, with reasoning: 4+ weeks of total silence from both pursued vendors, past the story's own 1-2 week follow-up window, and the user chose to close out rather than nudge further (the drafted storiesig.info nudge was never sent). **This story will not proceed to `ready-for-dev` unless reopened.**
 
 ## Completion Status
 
-- [ ] In progress — storiesig.info and imginn.com outreach sent mid-to-late August 2026; no response from either as of 2026-09-07 (2-3+ weeks). Neither a workable offer nor an explicit decline has come in. A follow-up nudge to storiesig.info is now drafted (Vendor Outreach section above, added 2026-09-07) and ready to send — no nudge is planned for imginn.com (weak/non-business contact channel, second unsolicited email risks reading as spam). Sending the nudge, or documenting a decision to abandon this avenue instead, is the open next step per Definition of Done below.
+- [x] Closed 2026-09-12 — both pursued vendors (storiesig.info, imginn.com) resolved with no path forward: neither ever responded after 4+ weeks. mollygram.com was never contacted (deprioritized, wrong shape). Story abandoned, no code was or will be written under it as currently scoped. Reopen only on a new, explicit decision (e.g. an unprompted vendor reply) — matching Story 3.4b's own reopen precedent.
 
 ## Dev Agent Record
 
