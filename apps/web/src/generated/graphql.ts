@@ -419,8 +419,11 @@ export type LocationDetails = {
   __typename?: 'LocationDetails';
   adminArea?: Maybe<Scalars['String']['output']>;
   city?: Maybe<Scalars['String']['output']>;
+  confidence?: Maybe<Scalars['Float']['output']>;
   coordinates: Coordinates;
+  countryCode?: Maybe<Scalars['String']['output']>;
   formattedAddress?: Maybe<Scalars['String']['output']>;
+  matchType?: Maybe<Scalars['String']['output']>;
   placeId?: Maybe<Scalars['String']['output']>;
   placeName?: Maybe<Scalars['String']['output']>;
   provider?: Maybe<GeolocationProvider>;
