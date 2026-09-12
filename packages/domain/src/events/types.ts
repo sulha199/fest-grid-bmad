@@ -24,6 +24,10 @@ export interface GeminiExtractionPayload {
   hasPrivateContact?: boolean;
   description?: string;
   confidenceScore: number;
+  // Story 3.6l — model-self-reported completeness signal, logging-only, never persisted
+  // (absent from ExtractedEventMessage/EventInsertValues/schedules and any DB-facing type).
+  minScheduleCount?: number;
+  expectedScheduleNames?: string[];
 }
 
 export type ScheduleTimezoneStatus = 'RESOLVED' | 'NEEDS_CLARIFICATION';

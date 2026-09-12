@@ -1397,7 +1397,7 @@ development_status:
   # UI must visibly explain to the submitting user why performers were withheld, not
   # silently suppress them. See story file's Dev Notes for full reasoning.
   3-6k-childrens-data-keyword-filter-tier-1-pre-ingestion-suppression: review
-  3-6l-extract-events-from-multi-image-carousel-posts-using-a-single-batched-gemini-request: ready-for-dev
+  3-6l-extract-events-from-multi-image-carousel-posts-using-a-single-batched-gemini-request: review
   # added 2026-09-03 via bmad-correct-course (sprint-change-proposal-2026-09-03-carousel-multi-image-extraction.md):
   # triggering issue -- a real laridijogja carousel post whose per-event
   # schedules lived on slides 2-6, not the cover image or caption, which

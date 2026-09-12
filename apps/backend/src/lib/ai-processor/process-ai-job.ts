@@ -93,6 +93,19 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     return;
   }
 
+  // 5.5. Incomplete-extraction logging signal (Story 3.6l, AC5/AC6). Only reached when
+  // isEvent === true. When the model self-reported a minScheduleCount and the parsed,
+  // AJV-validated schedules fall short of it, log a warning for moderator visibility.
+  // Logging signal only — no additional Gemini call, no automatic re-trigger, and the two
+  // new fields are never persisted anywhere (AD-13 rule 3).
+  if (payload.minScheduleCount !== undefined && payload.schedules.length < payload.minScheduleCount) {
+    console.warn(
+      `[processAiJob] Incomplete extraction for post ${message.postId}: ` +
+        `minScheduleCount=${payload.minScheduleCount}, actual schedules=${payload.schedules.length}, ` +
+        `expectedScheduleNames=${JSON.stringify(payload.expectedScheduleNames ?? [])}`
+    );
+  }
+
   // 6. Resolve account and locations
   const {
     sourceSocialMediaAccountId,

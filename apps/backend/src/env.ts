@@ -17,6 +17,10 @@ export interface BackendEnv {
   geminiPostsPerKeyPerCycle: number;
   apiKeyUsageCycleDays: number;
   webAppBaseUrl: string;
+  // Batch cap for how many additional carousel (Sidecar) slide images are sent to Gemini in a
+  // single extraction request, beyond the cover image (Story 3.6l). Keeps the AI Processor
+  // Lambda inside its fixed 300s timeout (AD-13) and bounds per-request token usage.
+  maxCarouselImages: number;
   scrapingQueueUrl?: string;
   scrapeInlineFallbackEnabled: boolean;
   aiProcessingQueueUrl?: string;
@@ -155,6 +159,8 @@ export function loadBackendEnv(): BackendEnv {
     apifyApiToken: process.env.APIFY_API_TOKEN,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeResultsLimit: parseInt(process.env.SCRAPE_RESULTS_LIMIT || '30', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    maxCarouselImages: parseInt(process.env.MAX_CAROUSEL_IMAGES || '5', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeInitialLookbackDays: parseInt(process.env.SCRAPE_INITIAL_LOOKBACK_DAYS || '7', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

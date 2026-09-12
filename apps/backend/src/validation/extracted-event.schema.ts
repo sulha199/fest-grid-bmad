@@ -45,7 +45,13 @@ export const extractedEventSchema: JSONSchemaType<GeminiExtractionPayload> = {
     contactInfo: { type: 'string', nullable: true },
     hasPrivateContact: { type: 'boolean', nullable: true },
     description: { type: 'string', nullable: true },
-    confidenceScore: { type: 'number', minimum: 0, maximum: 1 }
+    confidenceScore: { type: 'number', minimum: 0, maximum: 1 },
+    // Story 3.6l — model-self-reported completeness signal, logging-only, never persisted.
+    // Load-bearing: `additionalProperties: false` below means real Gemini responses carrying
+    // these fields would fail AJV validation (and be silently dropped) unless they are declared
+    // here in the same change as the Gemini-side schema (Task 3).
+    minScheduleCount: { type: 'number', nullable: true },
+    expectedScheduleNames: { type: 'array', items: { type: 'string' }, nullable: true }
   },
   required: ['isEvent', 'eventName', 'types', 'categories', 'schedules', 'confidenceScore'],
   additionalProperties: false

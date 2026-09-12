@@ -1,6 +1,7 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
 import { type ProcessingJobMessage } from '@festgrid/domain/posts';
 import { type GeminiCallRequest } from '../ai-gateway/gemini-client.js';
+import { loadBackendEnv } from '../../env.js';
 
 export const geminiExtractionResponseSchema = {
   type: 'OBJECT',
@@ -41,7 +42,13 @@ export const geminiExtractionResponseSchema = {
     contactInfo: { type: 'STRING' },
     hasPrivateContact: { type: 'BOOLEAN' },
     description: { type: 'STRING' },
-    confidenceScore: { type: 'NUMBER' }
+    confidenceScore: { type: 'NUMBER' },
+    // Model-self-reported completeness signal (Story 3.6l). Optional — never in `required`,
+    // never persisted anywhere. `minScheduleCount` is a best-effort count of distinct
+    // schedules/events the caption + all provided images appear to describe; the producer of
+    // the request only logs when the parsed schedules fall short of it.
+    minScheduleCount: { type: 'NUMBER' },
+    expectedScheduleNames: { type: 'ARRAY', items: { type: 'STRING' } }
   },
   required: ['isEvent', 'eventName', 'types', 'categories', 'schedules', 'confidenceScore']
 };
@@ -55,6 +62,7 @@ export interface BuildGeminiExtractionRequestResult {
 export async function buildGeminiExtractionRequest(
   message: ProcessingJobMessage
 ): Promise<BuildGeminiExtractionRequestResult> {
+  const env = loadBackendEnv();
   const allowedTypes = Object.values(EventType).join(', ');
   const allowedCategories = Object.values(EventCategory).join(', ');
 
@@ -71,6 +79,8 @@ export async function buildGeminiExtractionRequest(
 7. Assign a confidenceScore between 0 and 1 indicating your confidence in the extraction.
 8. Use the provided account name metadata (if present) to help disambiguate ambiguous location or venue references in the post text.
 9. A performer's name must still be extracted normally into that schedule's performers array. However, any personal contact detail belonging to a specific performer (a phone number, an email address, or a booking/management link, including a wa.me link) or any photo/image reference or URL associated with a specific performer -- wherever it appears in the caption text or the image -- must never be copied into description, contactInfo, organizerName, or any schedule field (title, location, performers). If such a detail is present in the source, omit it entirely from the extraction rather than including it in any field.
+10. When more than one image is provided alongside the caption, the images are sequential slides (pages) of one social media post in their given order -- not independent posts. Schedule information may be split across multiple slides (for example, one slide may list dates while another lists details). Extract schedule information from across all provided images, and merge/attribute schedule entries that describe the same event into one combined entry in the schedules array rather than treating each image as a separate or competing event.
+11. Self-report your extraction completeness: set minScheduleCount to the best-effort count of distinct schedules/events the caption and all provided images together appear to describe (whether or not every field was extractable, and for the single-image case just the events apparent from the single image and caption). Set expectedScheduleNames to an array of the name/title text of the schedules you can identify, even when some of their other fields could not be extracted. Report a single number/count and names you are reasonably confident about; these are advisory only and are never required to be perfectly exhaustive.
 
 The social media post was published on ${publishDate}. Use this publish date as an explicit anchor for date and year inference:
 - When a schedule's date text (in the caption or image) does not state an explicit year, infer the year using this publish date as the anchor, assuming the event is happening at or after the publish date. Prefer the current or next real-world occurrence over defaulting to any other year, and never infer a year that would place the event further in the past than the publish date itself unless the source text explicitly states a past year.
@@ -113,6 +123,41 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
           }
         }
       ];
+
+      // Story 3.6l: batch any additional carousel (Sidecar) slide images into the SAME request,
+      // in slide order, stopping at MAX_CAROUSEL_IMAGES. AD-13: batched not sequential — a carousel
+      // post still costs exactly one Gemini call. Each slide is fetched inside its OWN try/catch so
+      // a single slide failure can never trigger the outer cover-failure fallback below (which would
+      // otherwise wipe out the already-succeeded cover image and switch to text-only).
+      if (message.additionalImageUrls?.length) {
+        const slidesToFetch = message.additionalImageUrls.slice(0, env.maxCarouselImages);
+        for (const slideUrl of slidesToFetch) {
+          try {
+            const slideResponse = await fetch(slideUrl);
+            if (!slideResponse.ok) {
+              console.error(`Carousel slide-fetch failed for post ${message.postId} (status ${slideResponse.status}); skipping slide`, slideUrl);
+              continue;
+            }
+            const slideContentType = slideResponse.headers.get('content-type') || 'image/jpeg';
+            if (!slideContentType.startsWith('image/')) {
+              console.error(`Carousel slide content-type is not an image: ${slideContentType}; skipping slide for post ${message.postId}`, slideUrl);
+              continue;
+            }
+            const slideArrayBuffer = await slideResponse.arrayBuffer();
+            const slideBuffer = Buffer.from(slideArrayBuffer);
+            contents.push({
+              inlineData: {
+                mimeType: slideContentType,
+                data: slideBuffer.toString('base64')
+              }
+            });
+          } catch (error) {
+            // Best-effort: skip only this slide; the cover and all other successfully-fetched
+            // slides remain in the request (AC2).
+            console.error(`Carousel slide-fetch threw for post ${message.postId}; skipping slide`, slideUrl, error);
+          }
+        }
+      }
     } catch (error) {
       console.error(`Multimodal extraction image-fetch failed for post ${message.postId}:`, error);
       // Fallback to text-only caption extraction

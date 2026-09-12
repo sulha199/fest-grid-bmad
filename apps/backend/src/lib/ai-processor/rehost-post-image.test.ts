@@ -48,6 +48,7 @@ test('rehostPostImage integration/unit tests', async (t) => {
     webAppBaseUrl: 'http://localhost:3000',
     locationInferenceConfidenceThreshold: 0.5,
     scrapeResultsLimit: 10,
+    maxCarouselImages: 5,
     scrapeInitialLookbackDays: 7,
     scrapeSkipRecentHours: 20,
     scraperMonthlyBudgetUsd: 5.0,
