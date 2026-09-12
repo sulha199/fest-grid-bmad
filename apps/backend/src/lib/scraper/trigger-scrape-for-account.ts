@@ -20,14 +20,14 @@ export async function triggerScrapeForAccount(scrapeTarget: ScrapeTarget, newerT
     try {
       // Try Apify async trigger first
       const apifyAsyncTriggered = await attemptApifyAsyncTrigger(scrapeTarget, newerThan);
-      if (apifyAsyncTriggered) {
+      if (apifyAsyncTriggered.success) {
         return;
       }
 
       // Fall back to Bright Data for Instagram
       if (scrapeTarget.platform === 'instagram') {
         const brightDataTriggered = await attemptBrightDataTrigger(scrapeTarget, newerThan);
-        if (brightDataTriggered) {
+        if (brightDataTriggered.success) {
           return;
         }
       }

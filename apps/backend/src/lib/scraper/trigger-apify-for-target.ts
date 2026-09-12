@@ -4,21 +4,24 @@ import { recordProviderUsage, isProviderCapacityAvailable } from './usage-store.
 import { loadBackendEnv } from '../../env.js';
 import { recordActorRunStart } from './record-actor-run.js';
 import type { ScrapeTarget as FullScrapeTarget } from './get-scrape-targets.js';
+import type { ScraperTriggerResult } from './scraper-trigger-result.js';
 
 export type ScrapeTarget = Pick<FullScrapeTarget, 'profileId' | 'username'>;
 
 export let attemptApifyAsyncTrigger = async (
   target: ScrapeTarget,
   newerThan: string
-): Promise<boolean> => {
+): Promise<ScraperTriggerResult> => {
   const env = loadBackendEnv();
 
-  // Check capacity availability
-  try {
-    await isProviderCapacityAvailable('apify');
-  } catch {
+  // Check capacity availability. NOTE: isProviderCapacityAvailable returns a plain
+  // boolean and never throws, so we must inspect its return value directly (the old
+  // try/catch here was dead code that never actually skipped on capacity exhaustion --
+  // Story 3.4r Task 1).
+  const hasCapacity = await isProviderCapacityAvailable('apify');
+  if (!hasCapacity) {
     // Capacity exhausted, fall back to sync path
-    return false;
+    return { success: false, failureReason: 'CAPACITY_EXHAUSTED' };
   }
 
   try {
@@ -77,10 +80,10 @@ export let attemptApifyAsyncTrigger = async (
     // Record usage (nominal trigger-time accounting)
     await recordProviderUsage('apify', 1);
 
-    return true;
+    return { success: true };
   } catch (error) {
     console.error(`Failed to trigger Apify async job for ${target.username}:`, error);
-    return false;
+    return { success: false, failureReason: 'TRIGGER_ERROR' };
   }
 };
 

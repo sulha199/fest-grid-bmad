@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-12T00:00:00Z # (create-story 3.4r: ready-for-dev)
+last_updated: 2026-09-12T00:00:00Z # (dev-story 3.4r: review)
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1153,7 +1153,7 @@ development_status:
   # paths (AC5 capacity-skip, AC7 per-account error catch) still use console.error-only
   # logging, the same shape 3-4q was written to fix. Mirrors 3-4q's moderator-alert-email
   # mechanism and cooldown pattern for Apify. See epics.md Story 3.4r for full ACs/Note.
-  3-4r-fix-apify-failure-alerting-symmetric-to-brightdata: ready-for-dev
+  3-4r-fix-apify-failure-alerting-symmetric-to-brightdata: review
   # 2026-09-12 via bmad-create-story: story drafted. Resolved 3 real design tradeoffs with
   # the user via AskUserQuestion before drafting: (1) attemptApifyAsyncTrigger/attemptBrightDataTrigger
   # both converted to a shared discriminated ScraperTriggerResult return type (single source of

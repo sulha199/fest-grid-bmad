@@ -8,6 +8,8 @@ import { sendScraperProviderDownAlerts } from './send-scraper-provider-down-aler
 test('sendScraperProviderDownAlerts tests', async (t) => {
   const testRunId = Date.now();
   const provider = `test-provider-${testRunId}`;
+  const provider2 = `test-provider2-${testRunId}`;
+  const provider3 = `test-provider3-${testRunId}`;
   const createdUsers: any[] = [];
 
   t.after(async () => {
@@ -15,6 +17,8 @@ test('sendScraperProviderDownAlerts tests', async (t) => {
       await db.delete(users).where(inArray(users.id, createdUsers.map((u) => u.id)));
     }
     await db.delete(scraperProviderHealth).where(eq(scraperProviderHealth.provider, provider));
+    await db.delete(scraperProviderHealth).where(eq(scraperProviderHealth.provider, provider2));
+    await db.delete(scraperProviderHealth).where(eq(scraperProviderHealth.provider, provider3));
   });
 
   const createUser = async (email: string, name: string, role: 'user' | 'moderator') => {
@@ -23,13 +27,18 @@ test('sendScraperProviderDownAlerts tests', async (t) => {
     return user;
   };
 
-  const seedHealthRow = async (consecutiveFailureDays: number, lastAlertSentAt: Date | null = null) => {
+  const seedHealthRow = async (
+    consecutiveFailureDays: number,
+    lastAlertSentAt: Date | null = null,
+    lastFailureReason: string | null = null
+  ) => {
     await db.delete(scraperProviderHealth).where(eq(scraperProviderHealth.provider, provider));
     await db.insert(scraperProviderHealth).values({
       provider,
       consecutiveFailureDays,
       lastCheckedAt: new Date(),
       lastAlertSentAt: lastAlertSentAt ?? undefined,
+      lastFailureReason,
     });
   };
 
@@ -134,5 +143,68 @@ test('sendScraperProviderDownAlerts tests', async (t) => {
       .from(scraperProviderHealth)
       .where(eq(scraperProviderHealth.provider, provider));
     assert.ok(row.lastAlertSentAt, 'lastAlertSentAt should still be stamped since mod2 succeeded');
+  });
+
+  await t.test('dual vendors past threshold: independent, non-masking dispatches with per-provider cooldown', async () => {
+    // Two independent eligible providers (both fresh, never alerted, past threshold) with
+    // distinct failure reasons/days -- a simultaneous dual-vendor outage (AC5).
+    await seedHealthRow(5, null, 'TRIGGER_ERROR');
+    await db.delete(scraperProviderHealth).where(eq(scraperProviderHealth.provider, provider2));
+    await db.insert(scraperProviderHealth).values({
+      provider: provider2,
+      consecutiveFailureDays: 7,
+      lastFailureReason: 'CAPACITY_EXHAUSTED',
+      lastCheckedAt: new Date(),
+    });
+    // A third provider that is just-alerted (in cooldown) must NOT block the two eligible
+    // providers above, nor be dispatched itself.
+    await db.delete(scraperProviderHealth).where(eq(scraperProviderHealth.provider, provider3));
+    await db.insert(scraperProviderHealth).values({
+      provider: provider3,
+      consecutiveFailureDays: 6,
+      lastFailureReason: 'TRIGGER_ERROR',
+      lastCheckedAt: new Date(),
+      lastAlertSentAt: new Date(),
+    });
+
+    const calls: any[] = [];
+    const mockSendTemplatedEmail = async (templateKey: string, to: string, variables: any) => {
+      calls.push({ templateKey, to, variables });
+      return 'mock-msg-id';
+    };
+
+    await sendScraperProviderDownAlerts({ sendTemplatedEmail: mockSendTemplatedEmail as any });
+
+    const provider1Calls = calls.filter((c) => c.variables?.provider === provider);
+    const provider2Calls = calls.filter((c) => c.variables?.provider === provider2);
+    const provider3Calls = calls.filter((c) => c.variables?.provider === provider3);
+
+    // Both eligible providers dispatch independently in the same call -- neither masks the other.
+    assert.ok(provider1Calls.length >= 2, 'Eligible provider 1 should be emailed to all moderators');
+    assert.ok(provider2Calls.length >= 2, 'Eligible provider 2 should be emailed to all moderators');
+    // The in-cooldown provider is skipped while the fresh ones still fire.
+    assert.strictEqual(provider3Calls.length, 0, 'In-cooldown provider should be skipped');
+
+    // Each eligible provider carries its own distinct content (reason + days) -- no overwrite.
+    provider1Calls.forEach((c) => {
+      assert.strictEqual(c.variables.consecutiveFailureDays, 5);
+      assert.ok(c.variables.failureReasonSummary.includes('real trigger/API error'));
+    });
+    provider2Calls.forEach((c) => {
+      assert.strictEqual(c.variables.consecutiveFailureDays, 7);
+      assert.ok(c.variables.failureReasonSummary.includes('capacity/budget limit'));
+    });
+
+    // markProviderAlertSent is applied independently per dispatched provider.
+    const [row1] = await db
+      .select()
+      .from(scraperProviderHealth)
+      .where(eq(scraperProviderHealth.provider, provider));
+    const [row2] = await db
+      .select()
+      .from(scraperProviderHealth)
+      .where(eq(scraperProviderHealth.provider, provider2));
+    assert.ok(row1.lastAlertSentAt, 'Eligible provider 1 should be marked sent');
+    assert.ok(row2.lastAlertSentAt, 'Eligible provider 2 should be marked sent');
   });
 });

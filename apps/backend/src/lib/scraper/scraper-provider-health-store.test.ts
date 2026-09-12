@@ -92,4 +92,57 @@ test('scraper-provider-health-store tracking', async (t) => {
       'Should be returned again once the cooldown window has elapsed'
     );
   });
+
+  await t.test('a full-failure day persists the failure reason', async () => {
+    await recordProviderHealthCheck(provider, {
+      attempted: 2,
+      succeeded: 0,
+      failureReason: 'TRIGGER_ERROR',
+    });
+
+    const [row] = await db
+      .select()
+      .from(scraperProviderHealth)
+      .where(eq(scraperProviderHealth.provider, provider));
+
+    assert.strictEqual(row.lastFailureReason, 'TRIGGER_ERROR');
+  });
+
+  await t.test('any success resets the failure reason to null', async () => {
+    // Guarantee a prior full-failure day with a reason.
+    await recordProviderHealthCheck(provider, {
+      attempted: 2,
+      succeeded: 0,
+      failureReason: 'CAPACITY_EXHAUSTED',
+    });
+    // Now a successful day resets both the counter and the reason.
+    await recordProviderHealthCheck(provider, { attempted: 4, succeeded: 1 });
+
+    const [row] = await db
+      .select()
+      .from(scraperProviderHealth)
+      .where(eq(scraperProviderHealth.provider, provider));
+
+    assert.strictEqual(row.consecutiveFailureDays, 0);
+    assert.strictEqual(row.lastFailureReason, null);
+  });
+
+  await t.test('getProvidersNeedingAlert returns the current lastFailureReason in its rows', async () => {
+    // Two full-failure days so the provider clears the threshold of 2.
+    await recordProviderHealthCheck(provider, {
+      attempted: 2,
+      succeeded: 0,
+      failureReason: 'TRIGGER_ERROR',
+    });
+    await recordProviderHealthCheck(provider, {
+      attempted: 2,
+      succeeded: 0,
+      failureReason: 'TRIGGER_ERROR',
+    });
+
+    const rows = await getProvidersNeedingAlert(2, 3);
+    const matching = rows.find((r) => r.provider === provider);
+    assert.ok(matching, 'Expected provider past threshold to be returned');
+    assert.strictEqual(matching.lastFailureReason, 'TRIGGER_ERROR');
+  });
 });

@@ -358,6 +358,13 @@
       "when": 1789175204202,
       "tag": "0050_complete_xorn",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "6",
+      "when": 1789202872632,
+      "tag": "0051_wild_scorpion",
+      "breakpoints": true
     }
   ]
 }

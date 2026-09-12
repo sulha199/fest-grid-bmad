@@ -106,7 +106,7 @@ test('subscribe-to-account tests', async (t) => {
     // Mock Apify async trigger to succeed
     setAttemptApifyAsyncTrigger(async () => {
       apifyAsyncCalled = true;
-      return true;
+      return { success: true };
     });
     // Classification now gates the scrape trigger (Story 3.4n) — mock it to resolve to a
     // scrape-eligible account type so this test still exercises the Apify-async path it intends to.
@@ -129,7 +129,7 @@ test('subscribe-to-account tests', async (t) => {
 
   await t.test('falls back to Bright Data when Apify async fails', async () => {
     // Mock Apify async to fail
-    setAttemptApifyAsyncTrigger(async () => false);
+    setAttemptApifyAsyncTrigger(async () => ({ success: false, failureReason: 'TRIGGER_ERROR' }));
     // Classification gates the scrape trigger — mock it so the fallback path still fires.
     mockOrganizerConfirmedClassification('testaccount2');
 
@@ -149,7 +149,7 @@ test('subscribe-to-account tests', async (t) => {
 
   await t.test('returns existing subscription if already subscribed', async () => {
     // Mock Apify async to succeed
-    setAttemptApifyAsyncTrigger(async () => true);
+    setAttemptApifyAsyncTrigger(async () => ({ success: true }));
     // Classification gates the scrape trigger on the first (insert) call this test makes.
     mockOrganizerConfirmedClassification('testaccount3');
 
@@ -200,7 +200,7 @@ test('subscribe-to-account tests', async (t) => {
     let scrapeCalledA = false;
     setAttemptApifyAsyncTrigger(async () => {
       scrapeCalledA = true;
-      return true;
+      return { success: true };
     });
     setGetAccountClassificationProfileSeam(async () => ({
       username: 'org_user',
@@ -226,7 +226,7 @@ test('subscribe-to-account tests', async (t) => {
     let scrapeCalledB = false;
     setAttemptApifyAsyncTrigger(async () => {
       scrapeCalledB = true;
-      return true;
+      return { success: true };
     });
     setGetAccountClassificationProfileSeam(async () => ({
       username: 'pers_user',
@@ -252,7 +252,7 @@ test('subscribe-to-account tests', async (t) => {
     let scrapeCalledC = false;
     setAttemptApifyAsyncTrigger(async () => {
       scrapeCalledC = true;
-      return true;
+      return { success: true };
     });
     setGetAccountClassificationProfileSeam(async () => ({
       username: 'cur_user',
@@ -278,7 +278,7 @@ test('subscribe-to-account tests', async (t) => {
     let scrapeCalledD = false;
     setAttemptApifyAsyncTrigger(async () => {
       scrapeCalledD = true;
-      return true;
+      return { success: true };
     });
     setGetAccountClassificationProfileSeam(async () => ({
       username: 'low_user',
@@ -304,7 +304,7 @@ test('subscribe-to-account tests', async (t) => {
     let scrapeCalledE = false;
     setAttemptApifyAsyncTrigger(async () => {
       scrapeCalledE = true;
-      return true;
+      return { success: true };
     });
     setGetAccountClassificationProfileSeam(async () => {
       throw new Error('Apify down');

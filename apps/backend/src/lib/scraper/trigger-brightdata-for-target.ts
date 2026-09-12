@@ -3,16 +3,17 @@ import { triggerBrightDataJob, mapBrightDataDateToStartDate } from './brightdata
 import { createPendingJob } from './brightdata-pending-jobs-store.js';
 import { loadBackendEnv } from '../../env.js';
 import { recordActorRunStart } from './record-actor-run.js';
+import type { ScraperTriggerResult } from './scraper-trigger-result.js';
 
-export async function attemptBrightDataTrigger(
+export let attemptBrightDataTrigger = async (
   target: { profileId: string; username: string },
   newerThan: string
-): Promise<boolean> {
+): Promise<ScraperTriggerResult> => {
   try {
     const hasCapacity = await isProviderCapacityAvailable('brightdata');
     if (!hasCapacity) {
       console.log(`Bright Data capacity exhausted for ${target.username}`);
-      return false;
+      return { success: false, failureReason: 'CAPACITY_EXHAUSTED' };
     }
 
     const env = loadBackendEnv();
@@ -56,11 +57,15 @@ export async function attemptBrightDataTrigger(
     // Record usage
     await recordProviderUsage('brightdata', 1);
 
-    return true;
+    return { success: true };
   } catch (error) {
     console.error(`Failed to trigger Bright Data job for ${target.username}:`, error);
-    return false;
+    return { success: false, failureReason: 'TRIGGER_ERROR' };
   }
+};
+
+export function setAttemptBrightDataTrigger(fn: typeof attemptBrightDataTrigger) {
+  attemptBrightDataTrigger = fn;
 }
 
 async function generateWebhookToken(): Promise<string> {

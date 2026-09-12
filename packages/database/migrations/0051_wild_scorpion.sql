@@ -1,0 +1,1 @@
+ALTER TABLE "scraper_provider_health" ADD COLUMN "last_failure_reason" text;

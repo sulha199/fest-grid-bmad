@@ -50,7 +50,8 @@ test('trigger-apify-for-target tests', async (t) => {
       '2026-08-01T00:00:00Z'
     );
 
-    assert.strictEqual(result, false);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.failureReason, 'CAPACITY_EXHAUSTED');
 
     // Verify no pending job created
     const jobs = await db
@@ -93,7 +94,7 @@ test('trigger-apify-for-target tests', async (t) => {
         runId: 'run-sim-123',
         webhookToken: randomBytes(24).toString('hex'),
       });
-      return true;
+      return { success: true };
     });
 
     const result = await attemptApifyAsyncTrigger(
@@ -101,7 +102,7 @@ test('trigger-apify-for-target tests', async (t) => {
       '2026-08-01T00:00:00Z'
     );
 
-    assert.strictEqual(result, true);
+    assert.strictEqual(result.success, true);
 
     // Verify pending job was created
     const jobs = await db
@@ -118,7 +119,7 @@ test('trigger-apify-for-target tests', async (t) => {
     // Mock failure scenario
     setAttemptApifyAsyncTrigger(async (target, newerThan) => {
       // Simulate error scenario
-      return false;
+      return { success: false, failureReason: 'TRIGGER_ERROR' };
     });
 
     const result = await attemptApifyAsyncTrigger(
@@ -126,7 +127,8 @@ test('trigger-apify-for-target tests', async (t) => {
       '2026-08-01T00:00:00Z'
     );
 
-    assert.strictEqual(result, false);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.failureReason, 'TRIGGER_ERROR');
 
     // Verify no pending job created
     const jobs = await db

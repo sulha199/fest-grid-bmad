@@ -88,9 +88,12 @@ Please review this item and take appropriate action on the Moderator Items page:
   SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT: {
     subject: '[FestDaily Moderation] Scraper provider "{{provider}}" has been down for {{consecutiveFailureDays}} consecutive days',
     html: `<p>The scraper provider "<strong>{{provider}}</strong>" has failed every trigger attempt for <strong>{{consecutiveFailureDays}}</strong> consecutive days.</p>
+<p>{{failureReasonSummary}}</p>
 <p>Scrape traffic may be silently funneling entirely onto the remaining provider's budget. Please investigate the provider's credentials/status.</p>
 <p>Review scraper status on the Moderator Tools page: <a href="{{moderatorReviewUrl}}">{{moderatorReviewUrl}}</a></p>`,
     text: `The scraper provider "{{provider}}" has failed every trigger attempt for {{consecutiveFailureDays}} consecutive days.
+
+{{failureReasonSummary}}
 
 Scrape traffic may be silently funneling entirely onto the remaining provider's budget. Please investigate the provider's credentials/status.
 

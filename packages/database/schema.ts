@@ -192,6 +192,7 @@ export const scraperProviderHealth = pgTable('scraper_provider_health', {
   id: uuid('id').defaultRandom().primaryKey(),
   provider: text('provider').notNull().unique(),
   consecutiveFailureDays: integer('consecutive_failure_days').default(0).notNull(),
+  lastFailureReason: text('last_failure_reason'),
   lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
   lastAlertSentAt: timestamp('last_alert_sent_at', { withTimezone: true }),
   ...timestamps,

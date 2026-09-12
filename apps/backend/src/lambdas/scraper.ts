@@ -7,6 +7,10 @@ import { attemptBrightDataTrigger } from '../lib/scraper/trigger-brightdata-for-
 import { attemptApifyAsyncTrigger } from '../lib/scraper/trigger-apify-for-target.js';
 import { runStaleJobSweep } from '../lib/scraper/stale-job-sweep.js';
 import { recordProviderHealthCheck } from '../lib/scraper/scraper-provider-health-store.js';
+import {
+  tallyScraperProviderResults,
+  type ScraperTargetProviderMarker,
+} from '../lib/scraper/tally-scraper-provider-results.js';
 
 export const handler = async (
   event: SQSEvent | EventBridgeEvent<string, unknown>,
@@ -40,39 +44,45 @@ export const handler = async (
       console.log(`Found ${targets.length} distinct targets to scrape`);
 
       const results = await Promise.allSettled(
-        targets.map(async (target) => {
+        targets.map(async (target): Promise<{ brightData: ScraperTargetProviderMarker; apify: ScraperTargetProviderMarker }> => {
           const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
           // Try Bright Data first for Instagram
           if (target.platform === 'instagram') {
-            const brightDataTriggered = await attemptBrightDataTrigger(target, newerThan);
-            if (brightDataTriggered) {
+            const brightDataResult = await attemptBrightDataTrigger(target, newerThan);
+            if (brightDataResult.success) {
               console.log(`Triggered Bright Data job for ${target.username}`);
-              return { brightDataAttempted: true, brightDataSucceeded: true };
+              return { brightData: { attempted: true, succeeded: true }, apify: { attempted: false } };
             }
 
             // Fall back to Apify async trigger for all platforms
-            const apifyAsyncTriggered = await attemptApifyAsyncTrigger(target, newerThan);
-            if (apifyAsyncTriggered) {
+            const apifyResult = await attemptApifyAsyncTrigger(target, newerThan);
+            if (apifyResult.success) {
               console.log(`Triggered Apify async job for ${target.username}`);
-              return { brightDataAttempted: true, brightDataSucceeded: false };
+              return {
+                brightData: { attempted: true, succeeded: false, failureReason: brightDataResult.failureReason },
+                apify: { attempted: true, succeeded: true },
+              };
             }
 
             // Fall back to SQS queue if both async tiers fail
             await enqueueScrapeJob(target);
-            return { brightDataAttempted: true, brightDataSucceeded: false };
+            return {
+              brightData: { attempted: true, succeeded: false, failureReason: brightDataResult.failureReason },
+              apify: { attempted: true, succeeded: false, failureReason: apifyResult.failureReason },
+            };
           }
 
           // Fall back to Apify async trigger for all platforms
-          const apifyAsyncTriggered = await attemptApifyAsyncTrigger(target, newerThan);
-          if (apifyAsyncTriggered) {
+          const apifyResult = await attemptApifyAsyncTrigger(target, newerThan);
+          if (apifyResult.success) {
             console.log(`Triggered Apify async job for ${target.username}`);
-            return { brightDataAttempted: false };
+            return { brightData: { attempted: false }, apify: { attempted: true, succeeded: true } };
           }
 
           // Fall back to SQS queue if both async tiers fail
           await enqueueScrapeJob(target);
-          return { brightDataAttempted: false };
+          return { brightData: { attempted: false }, apify: { attempted: true, succeeded: false, failureReason: apifyResult.failureReason } };
         })
       );
 
@@ -83,28 +93,31 @@ export const handler = async (
         console.log(`Successfully dispatched all ${targets.length} scrape jobs`);
       }
 
-      // Tally Bright Data attempts/successes across the batch and record a health
-      // check, so a persistently-failing provider can be surfaced to moderators
-      // (Story 3.4q) -- purely additive observability, no change to the fallback
-      // control flow above.
-      let brightDataAttempted = 0;
-      let brightDataSucceeded = 0;
-      for (const result of results) {
-        if (result.status === 'fulfilled' && result.value?.brightDataAttempted) {
-          brightDataAttempted += 1;
-          if (result.value.brightDataSucceeded) {
-            brightDataSucceeded += 1;
-          }
-        }
-      }
-      if (brightDataAttempted > 0) {
+      // Tally per-provider attempts/successes across the batch and record a health check
+      // for each provider with any attempt, so a persistently-failing provider can be
+      // surfaced to moderators (Story 3.4q / Story 3.4r) -- purely additive observability,
+      // no change to the fallback control flow above.
+      const fulfilledResults = results.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+
+      const brightDataTally = tallyScraperProviderResults(
+        fulfilledResults.map((r) => r.brightData)
+      );
+      if (brightDataTally.attempted > 0) {
         try {
-          await recordProviderHealthCheck('brightdata', {
-            attempted: brightDataAttempted,
-            succeeded: brightDataSucceeded,
-          });
+          await recordProviderHealthCheck('brightdata', brightDataTally);
         } catch (healthCheckErr) {
           console.error('Failed to record Bright Data provider health check:', healthCheckErr);
+        }
+      }
+
+      const apifyTally = tallyScraperProviderResults(
+        fulfilledResults.map((r) => r.apify)
+      );
+      if (apifyTally.attempted > 0) {
+        try {
+          await recordProviderHealthCheck('apify', apifyTally);
+        } catch (healthCheckErr) {
+          console.error('Failed to record Apify provider health check:', healthCheckErr);
         }
       }
     } catch (err) {

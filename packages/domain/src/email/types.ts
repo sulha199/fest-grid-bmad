@@ -53,6 +53,7 @@ export interface EmailTemplateVariables {
     provider: string;
     consecutiveFailureDays: number;
     moderatorReviewUrl: string;
+    failureReasonSummary: string;
   };
 }
 

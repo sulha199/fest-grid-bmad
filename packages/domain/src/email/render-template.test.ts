@@ -114,6 +114,7 @@ test('renderEmailTemplate tests', async (t) => {
       provider: 'brightdata',
       consecutiveFailureDays: 2,
       moderatorReviewUrl: 'https://festdaily.app/moderator/tools',
+      failureReasonSummary: 'Every attempt returned a real trigger/API error (an actual vendor or credential problem, not a capacity limit).',
     });
 
     assert.ok(result.subject.includes('brightdata'));
@@ -121,9 +122,11 @@ test('renderEmailTemplate tests', async (t) => {
     assert.ok(result.html.includes('brightdata'));
     assert.ok(result.html.includes('2'));
     assert.ok(result.html.includes('https://festdaily.app/moderator/tools'));
+    assert.ok(result.html.includes('real trigger/API error'));
     assert.ok(result.text.includes('brightdata'));
     assert.ok(result.text.includes('2'));
     assert.ok(result.text.includes('https://festdaily.app/moderator/tools'));
+    assert.ok(result.text.includes('real trigger/API error'));
   });
 
   await t.test('throws descriptive error if template is called with missing variable', () => {
