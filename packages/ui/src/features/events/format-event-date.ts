@@ -99,14 +99,18 @@ export function getEventDayDiff(dateObj: Date, timezone: string | undefined): nu
  * `formatEventStatus` and the masonry TILL badge can reuse it rather than duplicating it.
  */
 export function combineDateTime(dateInput: Date | string, timeStr?: string | null): Date {
-  const dateStr = typeof dateInput === 'string' ? dateInput : dateInput.toISOString();
-  if (timeStr) {
-    const datePart = dateStr.split('T')[0];
-    const combined = `${datePart}T${timeStr}`;
-    const d = new Date(combined);
+  const base = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  if (timeStr && !isNaN(base.getTime())) {
+    const [h = 0, m = 0, s = 0] = timeStr.split(':').map((n) => parseInt(n, 10));
+    // Build from local date components rather than the UTC ISO date part: for a Date
+    // carrying a local wall-clock time after UTC midnight (e.g. 03:00 WIB == 20:00 UTC
+    // the previous day), `toISOString()` would yield the wrong calendar date and shift
+    // event times a day back. Event start/end times are local wall-clock values, so the
+    // combination must stay in local time.
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m, s, 0);
     if (!isNaN(d.getTime())) return d;
   }
-  return new Date(dateStr);
+  return new Date(base.getTime());
 }
 
 export interface EventStatusLabels {
