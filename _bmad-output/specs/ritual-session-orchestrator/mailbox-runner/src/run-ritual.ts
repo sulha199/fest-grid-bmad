@@ -36,6 +36,7 @@ import path from "node:path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { ensureMailboxDirs, writePendingRequest, pollForAnswer, markResolved } from "./mailbox.js";
 import { getSkillConfig, knownSkills, setConfigOverride, activeConfigPath, type ClaudeEffort } from "./skill-config.js";
+import { loadDotEnv } from "./load-env.js";
 
 interface Args {
   prompt: string;
@@ -77,6 +78,7 @@ function parseArgs(argv: string[]): Args {
   const mailbox = get("--mailbox");
   const label = get("--label") ?? (skill && story ? `${story}/${skill}` : undefined);
   const cwd = get("--cwd") ?? process.cwd();
+  loadDotEnv(cwd);
   const model = get("--model") ?? skillConfig?.model;
   const effort = (get("--effort") as ClaudeEffort | undefined) ?? skillConfig?.effort;
   const resume = get("--resume");

@@ -44,6 +44,7 @@ import { fileURLToPath } from "node:url";
 import { readFile } from "node:fs/promises";
 import { summarizeTestOutput, formatSummary } from "./test-output-summary.js";
 import { summarizeBuildOrLintOutput, formatBuildLintSummary } from "./build-lint-output-summary.js";
+import { loadDotEnv } from "./load-env.js";
 
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
 const TSX_CLI_PATH = path.join(SRC_DIR, "..", "node_modules", "tsx", "dist", "cli.mjs");
@@ -119,6 +120,7 @@ function formatFailureSummary(kind: CheckKind, rawOutput: string): string {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  loadDotEnv(args.cwd);
   const configFlags = args.config ? ["--config", args.config] : [];
 
   console.log(`[run-act-with-checks] step 1/2: dispatching --skill ${args.skill} --story ${args.story}`);

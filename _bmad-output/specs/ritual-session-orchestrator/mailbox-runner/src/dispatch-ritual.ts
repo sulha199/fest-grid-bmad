@@ -36,6 +36,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getSkillConfig, knownSkills, setConfigOverride, activeConfigPath } from "./skill-config.js";
+import { loadDotEnv } from "./load-env.js";
 
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
 
@@ -50,6 +51,8 @@ async function main() {
   if (!skill) {
     throw new Error(`Required: --skill <name> [--story <id>] [--config <preset-name-or-path>] [...other flags, passed through]. Known skills: ${knownSkills().join(", ")}`);
   }
+
+  loadDotEnv(getArg(argv, "--cwd") ?? process.cwd());
 
   const configFlag = getArg(argv, "--config");
   if (configFlag) setConfigOverride(configFlag);

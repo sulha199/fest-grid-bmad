@@ -169,6 +169,7 @@ import { ClineCore, createTool } from "@cline/sdk";
 import type { CoreSessionEvent, AgentToolContext } from "@cline/core";
 import { ensureMailboxDirs, writePendingRequest, pollForAnswer, markResolved } from "./mailbox.js";
 import { getSkillConfig, knownSkills, setConfigOverride, activeConfigPath, type ReasoningEffort } from "./skill-config.js";
+import { loadDotEnv } from "./load-env.js";
 
 interface Args {
   prompt: string;
@@ -217,6 +218,7 @@ function parseArgs(argv: string[]): Args {
   const mailbox = get("--mailbox");
   const label = get("--label") ?? (skill && story ? `${story}/${skill}` : undefined);
   const cwd = get("--cwd") ?? process.cwd();
+  loadDotEnv(cwd);
   // skillConfig is a ClineVertexSkillConfig (gcpRegion) or a
   // ClineProviderSkillConfig (provider/apiKeyEnv/baseUrl) -- narrow by field
   // presence rather than a discriminant tag, since both share runtime:"cline".
