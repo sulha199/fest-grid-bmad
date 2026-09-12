@@ -63,7 +63,7 @@ export function findStatusEntry(devStatus: Record<string, string>, dottedKey: st
  *  handful still backlog -- fixed, not a design change.) */
 export function listStoryKeysForEpic(devStatus: Record<string, string>, epicNumber: string): string[] {
   const prefix = `${epicNumber}-`;
-  const storyKeyRe = /^\d+-\d+[a-z]?-/;
+  const storyKeyRe = /^\d+-i?\d+[a-z]?-/;
   return Object.keys(devStatus).filter((k) => k.startsWith(prefix) && storyKeyRe.test(k) && devStatus[k] === "backlog");
 }
 
@@ -74,10 +74,14 @@ export interface EpicStorySection {
   bodyText: string; // full section text (heading to next heading), for --since-proposal matching
 }
 
-const STORY_HEADER_RE = /^#{2,4}\s+Story\s+(\d+\.\d+[a-z]?):\s*(.+)$/;
+// Story-number component is `i?\d+[a-z]?` rather than plain `\d+[a-z]?` to also accept
+// bmad-form-epics' improvement-epic story keys ("0.i7a", "1.i1a", "2.i1z") alongside the
+// original numeric convention ("3.6h", "0.24") -- found broken on a real run against
+// epic-0-i7 (2026-09-13): every "### Story 0.i7a:" section silently failed to match.
+const STORY_HEADER_RE = /^#{2,4}\s+Story\s+(\d+\.i?\d+[a-z]?):\s*(.+)$/;
 const HEADING_RE = /^#{2,4}\s+/;
 const DEPENDS_ON_RE = /\*\*Depends on:\*\*\s*(.+)$/m;
-const STORY_REF_RE = /Story\s+((?:\d+\.\d+[a-z]?)(?:\/\d+\.\d+[a-z]?)*)/g;
+const STORY_REF_RE = /Story\s+((?:\d+\.i?\d+[a-z]?)(?:\/\d+\.i?\d+[a-z]?)*)/g;
 
 /**
  * Known limitation: dependency extraction is a regex match on the literal
