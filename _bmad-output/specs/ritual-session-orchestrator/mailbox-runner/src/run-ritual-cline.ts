@@ -360,6 +360,42 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Fix for the "session ended, reason=completed, process never exits" anomaly
+// documented in ../README.md's Resume section (reproduced identically on
+// Stories 3.4r and 3.6l, 2026-09-12/13): cline.dispose() is already awaited
+// in runOneAttempt's own `finally` block, so by the time main() reaches this
+// point, the SDK's own cleanup promise has resolved -- yet the process still
+// doesn't exit. That means dispose() resolving is not sufficient: something
+// it starts (a keep-alive HTTP agent, a gRPC channel for Vertex, a socket
+// pool, a worker thread -- @cline/sdk internals, not inspectable from here)
+// stays referenced and keeps Node's event loop alive after the promise it
+// returned has settled. The existing idle watchdog can't catch this because
+// it only reacts to SDK *events*, and the final result event already arrived
+// -- there is nothing further to watch for from the SDK's side.
+//
+// The only fix that doesn't depend on identifying the exact leaked handle is
+// a hard timeout on the exit path itself: once this script knows its own
+// outcome, arm an unref'd timer that force-exits if Node hasn't already shut
+// down on its own by then. unref() is what makes this safe to call on every
+// run, not just stalled ones: an unref'd timer never keeps the event loop
+// alive by itself, so on the normal/fast path (nothing leaked) Node drains
+// and exits immediately, the timer is discarded, and this adds zero delay.
+// Only when something else is already keeping the process alive does the
+// timer's wall-clock deadline actually get reached and fire.
+const HARD_EXIT_GRACE_MS = 15 * 1000;
+
+function scheduleHardExit(exitCode: number): void {
+  const timer = setTimeout(() => {
+    console.error(
+      `[run-ritual-cline] process did not exit naturally ${HARD_EXIT_GRACE_MS}ms after finishing (exit code ${exitCode}) -- ` +
+        "forcing exit. This is the documented dispose()/cleanup exit-hang anomaly (see ../README.md's Resume section), " +
+        "not a problem with this run's own result -- that result was already logged/committed above."
+    );
+    process.exit(exitCode);
+  }, HARD_EXIT_GRACE_MS);
+  timer.unref();
+}
+
 /** Runs one full Cline session start-to-finish. Throws on any hard failure
  *  (including a transient network death) -- the caller in main() decides
  *  whether that's worth retrying from scratch. */
@@ -565,7 +601,9 @@ async function main() {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const { endedReason } = await runOneAttempt(args, attempt);
-      process.exitCode = endedReason === "completed" || !endedReason ? 0 : 1;
+      const exitCode = endedReason === "completed" || !endedReason ? 0 : 1;
+      process.exitCode = exitCode;
+      scheduleHardExit(exitCode);
       return;
     } catch (err) {
       lastError = err;
@@ -587,4 +625,5 @@ async function main() {
 main().catch((err) => {
   console.error("[run-ritual-cline] fatal error:", err);
   process.exitCode = 1;
+  scheduleHardExit(1);
 });
