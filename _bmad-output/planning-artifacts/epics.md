@@ -3999,8 +3999,12 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **When** each maps a Geoapify response,
 *   **Then** the returned `LocationDetails` carries Geoapify's `rank.confidence` and `rank.match_type`.
 *   **And** schedule-location geocoding passes the account's own country as a bias, so a same-named venue abroad is not preferred over the local one.
+*   **And** `geocodeAddress`'s address-search lookups (the sub-venue/address-search path) request and retain the top 5 Geoapify candidates (matching the existing `getAddressPredictions` autocomplete convention), each carrying its own `confidence`/`matchType`, instead of discarding all but `data.results[0]` — giving Story 0.i7b a real candidate set to re-rank. `getPlaceDetails` and `reverseGeocode` remain single-result lookups; they are not search calls.
+*   **And** `LocationDetails` gains a `countryCode` field, populated by all three mappers from Geoapify's response; the schedule-location country bias reads it from the account's own `defaultLocation.countryCode` when present, and applies no bias when absent (covering first-time resolution and accounts whose cached `defaultLocation` predates this field) — an accepted, self-healing degradation, not a blocking gap.
+*   **And** existing `GeolocationCache` rows (written before this story) are evicted/replaced (per Architecture Spine AD-8, which already treats this table as evict/replace-only) rather than left to serve pre-`confidence` blobs to `adapter.ts` callers indefinitely.
+*   **And** `events.graphql`'s and `geolocation.graphql`'s `LocationDetails` SDL type declares the new `confidence`/`matchType`/`countryCode` fields, so the resolver layer (which already spreads the full object through via `formatLocationDetails`) can expose them once a consumer's query requests them.
 
-**Note:** Establishes a new invariant — a new `AD-n` on the architecture spine is written in this story, not deferred to `z` (gate §6).
+**Note:** Establishes a new invariant — a new `AD-n` on the architecture spine is written in this story, not deferred to `z` (gate §6). Amended 2026-09-13 via `bmad-epic-readiness-check` (Gate 1): the original AC assumed a single-candidate fetch could support 0.i7b's re-ranking, an account-level country field that doesn't exist anywhere in the schema, and a cache layer that would silently keep serving pre-`confidence` blobs forever (no TTL/versioning, per `cache-store.ts`). All three are corrected above rather than left to surface mid-implementation. Country-bias degradation accepted by user via AskUserQuestion.
 
 ### Story 0.i7b: Re-rank sub-venue matches using the confidence signal
 
@@ -4016,6 +4020,8 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Story 0.i7a.
 
+**Note:** Requires 0.i7a's `geocodeAddress` candidate-retention amendment (top-5 candidates, not just `data.results[0]`) — without it there is no candidate list to re-rank. Surfaced during `epic-0-i7`'s `bmad-epic-readiness-check` (Gate 1).
+
 ### Story 0.i7c: Gate the event-detail map link on location confidence
 
 **As a** developer,
@@ -4028,8 +4034,28 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **When** the event-detail map link renders,
 *   **Then** it falls back to a text query rather than linking the coordinate.
 *   **And** above the threshold it links the coordinate as today.
+*   **And** `apps/web`'s event-detail query selection set requests `locationDetails.confidence`/`matchType` (exposed per 0.i7a's SDL change) and codegen is regenerated, so `mapper.ts` can read a real `confidence` value from the query response, not just from the backend JSONB.
 
 **Depends on:** Story 0.i7a.
+
+**Note:** Amended 2026-09-13 via `bmad-epic-readiness-check` (Gate 1) — the original AC assumed `mapper.ts` could already read `s.locationDetails.confidence`, but the GraphQL SDL/query/codegen chain that would carry it from backend to frontend didn't exist. Added as the final AC rather than a separate story since this story is the one consuming the field.
+
+### Story 0.i7d: Expose confidence/matchType through the remaining Geoapify-consuming mutations and the location-preview query
+
+**As a** developer,
+**I want** `setAccountDefaultLocation`, `editAccountDefaultLocation`, `createUserLocation`, `updateUserLocation`, and the `previewLocation` query (all in `apps/backend/src/schema/resolvers.ts`) to expose `confidence`/`matchType` on the `LocationDetails` they return instead of silently discarding it,
+**So that** the epic's invariant ("no consumer uses a Geoapify-resolved location without reading its confidence signal") actually holds for every call site into `resolveLocation`, not just the two originally scoped, and Story 0.i7z's ratchet has real behavior to enforce rather than policing consumers that were never built to read the signal.
+
+**Acceptance Criteria:**
+
+*   **Given** `setAccountDefaultLocation`, `editAccountDefaultLocation`, `createUserLocation`, `updateUserLocation`, or `previewLocation` resolves a location via `resolveLocation`,
+*   **When** it returns that location through its GraphQL response,
+*   **Then** the response type exposes `confidence`/`matchType` (via the same `LocationDetails` SDL fields 0.i7a adds) rather than the caller only ever seeing the coordinate/address fields.
+*   **And** no new UX gating/warning behavior is required by this story — these flows are user-supervised (search/autocomplete/map-pin selection, or a moderator's explicit correction), a different trust model from 0.i7b/0.i7c's AI-best-effort matching; exposing the signal (not discarding it) is what closes the Gate 3 gap. A future story may add UI that reacts to a low-confidence result on these flows; that is out of scope here.
+
+**Depends on:** Story 0.i7a.
+
+**Note:** Added 2026-09-13 via `bmad-epic-readiness-check` (Gate 3): the epic's invariant is unqualified ("no consumer..."), but only 2 of 7 known `resolveLocation()` call sites had any story touching their confidence handling. User confirmed via AskUserQuestion to widen coverage to all 7 rather than carve out a subset. This story is the minimal, honest way to make that widened ratchet enforce something real instead of failing CI against consumers no story ever built to read the signal.
 
 ### Story 0.i7z: Ratchet — no consumer trusts a Geoapify result without its confidence signal
 
@@ -4042,11 +4068,11 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **Given** the full codebase,
 *   **When** the check runs in CI,
 *   **Then** it fails if any of `geocodeAddress`, `reverseGeocode` or `getPlaceDetails` in `geoapify-client.ts` returns a `LocationDetails` that drops `confidence`/`matchType`.
-*   **And** it fails if either the schedule-location call site (`resolve-account-and-locations.ts`) or the event-detail map-link builder (`mapper.ts`) consumes a resolved location without reading `confidence`/`matchType` first.
+*   **And** it fails if any of the following consumers reads a resolved location without checking `confidence`/`matchType` first: the schedule-location call site (`resolve-account-and-locations.ts`), the event-detail map-link builder (`mapper.ts`), or (all in `apps/backend/src/schema/resolvers.ts`) the `setAccountDefaultLocation`, `editAccountDefaultLocation`, `createUserLocation`, or `updateUserLocation` mutations, or the `previewLocation` query.
 
-**Depends on:** Stories 0.i7a, 0.i7b, 0.i7c.
+**Depends on:** Stories 0.i7a, 0.i7b, 0.i7c, 0.i7d.
 
-**Note:** Formed 2026-09-11 via `bmad-form-epics` from BUG-027, BUG-017, IDEA-023. Invariant rewritten at the human checkpoint from an earlier two-clause form whose second half ("prefers a correct match over blindly trusting") was unfalsifiable; these `z` criteria test the replacement directly. See `planning-artifacts/epic-formation/checkpoint-2026-09-11.md` §2.
+**Note:** Formed 2026-09-11 via `bmad-form-epics` from BUG-027, BUG-017, IDEA-023. Invariant rewritten at the human checkpoint from an earlier two-clause form whose second half ("prefers a correct match over blindly trusting") was unfalsifiable; these `z` criteria test the replacement directly. See `planning-artifacts/epic-formation/checkpoint-2026-09-11.md` §2. Widened 2026-09-13 via `bmad-epic-readiness-check` (Gate 3): the original AC named only 2 of 7 known `resolveLocation()` call sites, understating what the epic's own unqualified invariant claims to cover. User confirmed via AskUserQuestion to widen to all 7 (new Story 0.i7d provides the 5 additional consumers something real to enforce) rather than carve out a subset as a different trust model.
 
 ---
 

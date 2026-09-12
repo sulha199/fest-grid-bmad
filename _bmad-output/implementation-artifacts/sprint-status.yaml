@@ -289,6 +289,14 @@ development_status:
   0-i7a-carry-confidence-and-country-bias-through-every-geoapify-response-mapper: backlog
   0-i7b-re-rank-sub-venue-matches-using-the-confidence-signal: backlog
   0-i7c-gate-the-event-detail-map-link-on-location-confidence: backlog
+  # added 2026-09-13 via bmad-epic-readiness-check (Gate 3): the epic's invariant is
+  # unqualified ("no consumer..."), but the original 0.i7z ratchet only named 2 of 7
+  # known resolveLocation() call sites. User confirmed via AskUserQuestion to widen
+  # to all 7; this story exposes confidence/matchType through the other 5
+  # (setAccountDefaultLocation/editAccountDefaultLocation/createUserLocation/
+  # updateUserLocation/previewLocation) so 0.i7z's widened ratchet has something
+  # real to enforce. See epics.md Story 0.i7d note.
+  0-i7d-expose-confidence-matchtype-through-the-remaining-geoapify-consumers: backlog
   0-i7z-ratchet-no-consumer-trusts-a-geoapify-result-without-its-confidence-signal: backlog
   epic-1-i1: backlog
   1-i1a-extend-the-shared-event-card-primitive-to-own-thumbnail-sizing-and-fallback: backlog
