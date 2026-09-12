@@ -1,0 +1,14 @@
+{
+  "_preset": "all-claude-deepseek-medium",
+  "_description": "Mirrors all-claude-medium.json (Claude sonnet-5, medium effort, everywhere) except bmad-dev-story and bmad-quick-dev, which delegate to cline against DeepInfra's OpenAI-compatible endpoint running deepseek-ai/DeepSeek-V4-Flash-0731. Requires DEEPINFRA_API_KEY to be set. Verified 2026-09-12: a live round-trip via --config all-claude-deepseek-medium --skill bmad-quick-dev completed with reason=completed and the expected model reply -- see run-ritual-cline.ts's file header. cline-cli's Vertex/SAP AI Core delegation paths had unresolved hard auth/billing failures as of 2026-09-07 (see backlog.yaml's cline-cli hang saga finding) -- this preset uses a different, now-confirmed-working provider, not a fix for that unrelated issue.",
+
+  "bmad-create-story": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
+  "bmad-epic-readiness-check": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
+  "bmad-correct-course": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
+  "bmad-architecture": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
+  "bmad-prd": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "high" },
+  "bmad-code-review": { "runtime": "claude", "model": "claude-sonnet-5", "effort": "medium" },
+
+  "bmad-dev-story": { "runtime": "cline", "provider": "openai-compatible", "apiKeyEnv": "DEEPINFRA_API_KEY", "baseUrl": "https://api.deepinfra.com/v1/openai", "model": "deepseek-ai/DeepSeek-V4-Flash-0731", "reasoningEffort": "medium" },
+  "bmad-quick-dev": { "runtime": "cline", "provider": "openai-compatible", "apiKeyEnv": "DEEPINFRA_API_KEY", "baseUrl": "https://api.deepinfra.com/v1/openai", "model": "deepseek-ai/DeepSeek-V4-Flash-0731", "reasoningEffort": "medium" }
+}
