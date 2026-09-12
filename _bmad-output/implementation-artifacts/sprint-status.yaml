@@ -1464,7 +1464,7 @@ development_status:
   # 3.6h shipping first. See epics.md Story 3.7c/3.7d notes. 3.7c's prominent-
   # card visual spec awaits reference card-layout images from the product
   # owner (not yet provided) before bmad-create-story can fully draft it.
-  3-7c-event-list-image-display-hotlink-only-with-graceful-degrade-and-opted-in-prominent-card: ready-for-dev
+  3-7c-event-list-image-display-hotlink-only-with-graceful-degrade-and-opted-in-prominent-card: review
   # regenerated 2026-09-04 via bmad-create-story: full context engine pass. Gate 1
   # (run fresh, Winston persona -- epic-3-readiness.md predates 3.7c/3.7d, never
   # covered them) found this story cannot be frontend-only: AC3/AC4's opt-in-aware

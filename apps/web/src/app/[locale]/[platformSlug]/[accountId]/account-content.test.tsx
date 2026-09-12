@@ -90,7 +90,8 @@ let mockEventsItems: any[] = [
     eventName: 'Account Event 1',
     slug: 'account-event-1',
     isFavorited: false,
-    imageUrl: null,
+    imageUrl: 'http://test.com/event-cover.jpg',
+    durableImageUrl: 'http://test.com/event-cover.jpg',
     location: 'Location 1',
     types: ['FESTIVAL'],
     categories: ['MUSIC'],
@@ -201,5 +202,35 @@ describe('AccountContent', () => {
     await waitFor(() => {
       expect(screen.getByText('Account Event 1')).toBeInTheDocument();
     });
+  });
+
+  it('never renders the account profile avatar URL inside an event card image slot (Story 3.7c AC2)', async () => {
+    renderWithProviders(
+      <AccountContent platformSlug="ig" accountId="17841400000" profile={defaultProfile} />
+    );
+
+    // Wait for infinite query to resolve and render the event card
+    await waitFor(() => {
+      expect(screen.getByText('Account Event 1')).toBeInTheDocument();
+    });
+
+    // The profile avatar URL is legitimately rendered exactly once — by the
+    // AccountAvatar in the profile header (existing correct behavior).
+    const allImages = Array.from(document.querySelectorAll('img'));
+    const avatarImages = allImages.filter(
+      (img) => img.getAttribute('src') === 'http://test.com/avatar.png'
+    );
+    expect(avatarImages).toHaveLength(1);
+
+    // The rendered event card uses its own, deliberately-distinct cover image —
+    // the profile avatar URL is never reused as an event-card image-slot prop.
+    const cardImages = allImages.filter(
+      (img) => img.getAttribute('src') === 'http://test.com/event-cover.jpg'
+    );
+    expect(cardImages.length).toBeGreaterThan(0);
+    expect(
+      allImages.some((img) => img.getAttribute('src') === 'http://test.com/avatar.png' &&
+        img.closest('article'))
+    ).toBe(false);
   });
 });

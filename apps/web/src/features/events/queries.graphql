@@ -1,3 +1,4 @@
+# Story 3.7c AC1: do not add sourceSocialMediaAccountProfile/profileImageUrl here — see queries.graphql.test.ts.
 query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
   events(limit: $limit, offset: $offset, query: $query) {
     items {

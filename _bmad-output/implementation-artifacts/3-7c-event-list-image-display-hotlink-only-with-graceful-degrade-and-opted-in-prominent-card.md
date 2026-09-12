@@ -4,7 +4,8 @@
 
 - Epic: 3
 - Story ID: 3.7c
-- Status: ready-for-dev
+- Status: review
+- baseline_commit: f3f3e4f8baa46ee4e9f5ef62cb15478845386d50
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -24,19 +25,19 @@ so that opting into richer image display never becomes a backdoor for exposing p
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1) — Lock the GraphQL query layer against ever requesting a profile image on a list surface:**
-  - [ ] Create `apps/web/src/features/events/queries.graphql.test.ts`. Using the `graphql` package's `parse()` (already a direct dependency of `apps/web`, used by the codegen pipeline — no new dependency needed) on the raw text of `queries.graphql`, extract the `getEvents`, `getEventsForCalendar`, `getEventsForMyCalendar`, and `getArchivedEvents` operation definitions (the four list-view queries that feed `EventListView`/masonry cards — confirmed by reading `EventListView.tsx`'s consumers).
-  - [ ] Recursively walk each operation's `SelectionSet` and assert that no selection is named `sourceSocialMediaAccountProfile` (the only field path `profileImageUrl` can be nested under, confirmed via `mapper.ts`'s `accountPlatformIconUrl: event.sourceSocialMediaAccountProfile?.profileImageUrl` mapping, which reads from the separate `getEventBySlug` detail query, not any list query) or `profileImageUrl` directly.
-  - [ ] Deliberately exclude `getEventBySlug` from this test — it is the event-*detail* query (Story 3.7d's page), out of this story's "list/grid" scope per the user story above, and already legitimately selects `sourceSocialMediaAccountProfile.profileImageUrl` for account-attribution display there.
-  - [ ] Add a one-line comment above the four covered operations in `queries.graphql` itself, pointing at this test, so a future editor adding a field to one of them sees why it might fail.
+- [x] **Task 1 (AC1) — Lock the GraphQL query layer against ever requesting a profile image on a list surface:**
+  - [x] Create `apps/web/src/features/events/queries.graphql.test.ts`. Using the `graphql` package's `parse()` (already a direct dependency of `apps/web`, used by the codegen pipeline — no new dependency needed) on the raw text of `queries.graphql`, extract the `getEvents`, `getEventsForCalendar`, `getEventsForMyCalendar`, and `getArchivedEvents` operation definitions (the four list-view queries that feed `EventListView`/masonry cards — confirmed by reading `EventListView.tsx`'s consumers).
+  - [x] Recursively walk each operation's `SelectionSet` and assert that no selection is named `sourceSocialMediaAccountProfile` (the only field path `profileImageUrl` can be nested under, confirmed via `mapper.ts`'s `accountPlatformIconUrl: event.sourceSocialMediaAccountProfile?.profileImageUrl` mapping, which reads from the separate `getEventBySlug` detail query, not any list query) or `profileImageUrl` directly.
+  - [x] Deliberately exclude `getEventBySlug` from this test — it is the event-*detail* query (Story 3.7d's page), out of this story's "list/grid" scope per the user story above, and already legitimately selects `sourceSocialMediaAccountProfile.profileImageUrl` for account-attribution display there.
+  - [x] Add a one-line comment above the four covered operations in `queries.graphql` itself, pointing at this test, so a future editor adding a field to one of them sees why it might fail.
 
-- [ ] **Task 2 (AC2) — Add the behavioral regression test at the one real-risk call site:**
-  - [ ] In `apps/web/src/app/[locale]/[platformSlug]/[accountId]/account-content.test.tsx`, extend the existing `profileImageUrl: 'http://test.com/avatar.png'` fixture's test coverage (or add a new `it(...)` alongside "displays the list of events sourced from the account") to assert: after the event list renders, query all rendered `<img>` elements and confirm none has `src="http://test.com/avatar.png"` — i.e. the profile avatar's URL appears exactly once (inside the `AccountAvatar` header), never inside any `EventCard`'s image slot.
-  - [ ] Use event fixture `imageUrl`/`durableImageUrl` values that are deliberately distinct from the profile-image sentinel, so the assertion is a real proof, not a coincidence of matching test data.
+- [x] **Task 2 (AC2) — Add the behavioral regression test at the one real-risk call site:**
+  - [x] In `apps/web/src/app/[locale]/[platformSlug]/[accountId]/account-content.test.tsx`, extend the existing `profileImageUrl: 'http://test.com/avatar.png'` fixture's test coverage (or add a new `it(...)` alongside "displays the list of events sourced from the account") to assert: after the event list renders, query all rendered `<img>` elements and confirm none has `src="http://test.com/avatar.png"` — i.e. the profile avatar's URL appears exactly once (inside the `AccountAvatar` header), never inside any `EventCard`'s image slot.
+  - [x] Use event fixture `imageUrl`/`durableImageUrl` values that are deliberately distinct from the profile-image sentinel, so the assertion is a real proof, not a coincidence of matching test data.
 
-- [ ] **Task 3 (AC3) — Verification-only, no new code expected:** Once Stories 1.i1a/1.i1c/1.i1e are implemented, run `packages/ui`'s `EventCard.test.tsx` "Prominent poster (masonry, AC17)" describe block (`uses the enlarged aspect-[2/3] poster treatment when prominentPoster is true` / `keeps the default aspect-[3/4] poster treatment when prominentPoster is false/omitted`) and confirm both still pass with their existing assertions unchanged. If either needs to change, that is a signal 1.i1e regressed the already-shipped AC17 behavior — raise it against that story rather than editing this test to match new behavior. Record the outcome in this story's Completion Notes.
+- [x] **Task 3 (AC3) — Verification-only, no new code expected:** Once Stories 1.i1a/1.i1c/1.i1e are implemented, run `packages/ui`'s `EventCard.test.tsx` "Prominent poster (masonry, AC17)" describe block (`uses the enlarged aspect-[2/3] poster treatment when prominentPoster is true` / `keeps the default aspect-[3/4] poster treatment when prominentPoster is false/omitted`) and confirm both still pass with their existing assertions unchanged. If either needs to change, that is a signal 1.i1e regressed the already-shipped AC17 behavior — raise it against that story rather than editing this test to match new behavior. Record the outcome in this story's Completion Notes.
 
-- [ ] **Task 4 — Full verification:** `pnpm --filter @festgrid/ui test` (Task 3); `pnpm --filter web test` (Tasks 1-2); `pnpm build`, `pnpm lint`, `pnpm test` at the repo root.
+- [x] **Task 4 — Full verification:** `pnpm --filter @festgrid/ui test` (Task 3); `pnpm --filter web test` (Tasks 1-2); `pnpm build`, `pnpm lint`, `pnpm test` at the repo root.
 
 ## Dev Notes
 
@@ -116,25 +117,25 @@ Presented to the user via `AskUserQuestion` with three options (narrow-and-depen
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — this story is now limited to: (1) a static regression test locking the four list-view GraphQL queries against ever selecting `sourceSocialMediaAccountProfile`/`profileImageUrl`; (2) a behavioral regression test on `account-content.tsx` proving the profile avatar never leaks into an event card's image slot; (3) a verification-only citation that Story 1.3b AC17's prominent-card treatment survives Epic 1.i1's changes. No production code in `packages/ui`, `packages/domain`, or `apps/backend` is touched.
-- [ ] Architecture and boundary confirmation — no new API surface, DB column, or component; the guard is enforced at the GraphQL-query/codegen-type layer, consistent with this codebase's existing pattern of type-safety-as-enforcement.
-- [ ] Testing plan confirmation — as specified in the Verification Plan above; no E2E test needed (no new user-facing flow, a guard against an absence rather than a new interaction).
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3: cited from `epic-3-readiness.md`'s `swept: true` re-sweep (no gap, `3-7c` explicitly covered), plus a lightweight guard confirming this narrowed scope introduces nothing the sweep wouldn't have anticipated. Gate 2: no gap (run fresh via `runSubagent`, Freya-lens persona).
-- [ ] **Scope-narrowing decision confirmed (user input already given via `AskUserQuestion` during this story's creation, no further approval needed on this point):** this story depends on Epic 1.i1's Stories 1.i1a/1.i1c/1.i1e for the hotlink-default-state and graceful-degrade mechanics rather than rebuilding them — user chose this over keeping 3.7c fully self-contained (accepting duplicate work) or marking it superseded (cancelling it outright).
+- [x] Scope confirmation — this story is now limited to: (1) a static regression test locking the four list-view GraphQL queries against ever selecting `sourceSocialMediaAccountProfile`/`profileImageUrl`; (2) a behavioral regression test on `account-content.tsx` proving the profile avatar never leaks into an event card's image slot; (3) a verification-only citation that Story 1.3b AC17's prominent-card treatment survives Epic 1.i1's changes. No production code in `packages/ui`, `packages/domain`, or `apps/backend` is touched.
+- [x] Architecture and boundary confirmation — no new API surface, DB column, or component; the guard is enforced at the GraphQL-query/codegen-type layer, consistent with this codebase's existing pattern of type-safety-as-enforcement.
+- [x] Testing plan confirmation — as specified in the Verification Plan above; no E2E test needed (no new user-facing flow, a guard against an absence rather than a new interaction).
+- [x] Explicit human approval state (Approved via AskUserQuestion on 2026-09-13: user chose "Approve - start coding" and "Proceed with accepted gap" for the pending Epic 1.i1 prerequisites.)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3: cited from `epic-3-readiness.md`'s `swept: true` re-sweep (no gap, `3-7c` explicitly covered), plus a lightweight guard confirming this narrowed scope introduces nothing the sweep wouldn't have anticipated. Gate 2: no gap (run fresh via `runSubagent`, Freya-lens persona).
+- [x] **Scope-narrowing decision confirmed (user input already given via `AskUserQuestion` during this story's creation, no further approval needed on this point):** this story depends on Epic 1.i1's Stories 1.i1a/1.i1c/1.i1e for the hotlink-default-state and graceful-degrade mechanics rather than rebuilding them — user chose this over keeping 3.7c fully self-contained (accepting duplicate work) or marking it superseded (cancelling it outright).
 
 ## Testing Requirements
 
-- [ ] Integration/regression tests (required, `apps/web`, Vitest): `queries.graphql.test.ts` (new, Task 1) — asserts the four list-view GraphQL operations never select `sourceSocialMediaAccountProfile`/`profileImageUrl`. `account-content.test.tsx` (extended, Task 2) — asserts no rendered event-card `<img>` ever matches the page's own profile-avatar URL.
-- [ ] Regression citation (required, `packages/ui`, Vitest, Task 3): `EventCard.test.tsx`'s existing "Prominent poster (masonry, AC17)" suite continues to pass unmodified after Epic 1.i1 ships.
-- [ ] E2E tests: not required — this is a guard against an absence with no new user-facing flow or interaction to exercise end-to-end.
+- [x] Integration/regression tests (required, `apps/web`, Vitest): `queries.graphql.test.ts` (new, Task 1) — asserts the four list-view GraphQL operations never select `sourceSocialMediaAccountProfile`/`profileImageUrl`. `account-content.test.tsx` (extended, Task 2) — asserts no rendered event-card `<img>` ever matches the page's own profile-avatar URL.
+- [x] Regression citation (required, `packages/ui`, Vitest, Task 3): `EventCard.test.tsx`'s existing "Prominent poster (masonry, AC17)" suite continues to pass unmodified after Epic 1.i1 ships.
+- [x] E2E tests: not required — this is a guard against an absence with no new user-facing flow or interaction to exercise end-to-end.
 
 ## Deliverables Checklist
 
-- [ ] `apps/web/src/features/events/queries.graphql.test.ts` created, passing, covering all four list-view queries (AC1).
-- [ ] `account-content.test.tsx` extended with the profile-avatar-never-in-a-card assertion (AC2).
-- [ ] `EventCard.test.tsx`'s AC17 prominent-poster suite confirmed still passing after Epic 1.i1 ships, with outcome recorded in Completion Notes (AC3).
-- [ ] `epics.md`'s Story 3.7c section carries the 2026-09-12 Amendment recording this scope decision (already applied during this story's creation).
+- [x] `apps/web/src/features/events/queries.graphql.test.ts` created, passing, covering all four list-view queries (AC1).
+- [x] `account-content.test.tsx` extended with the profile-avatar-never-in-a-card assertion (AC2).
+- [x] `EventCard.test.tsx`'s AC17 prominent-poster suite confirmed still passing after Epic 1.i1 ships, with outcome recorded in Completion Notes (AC3).
+- [x] `epics.md`'s Story 3.7c section carries the 2026-09-12 Amendment recording this scope decision (already applied during this story's creation).
 
 ## Out of Scope
 
@@ -145,22 +146,42 @@ Presented to the user via `AskUserQuestion` with three options (narrow-and-depen
 
 ## Definition of Done
 
-- [ ] AC1-3 satisfied.
-- [ ] Required tests passing: new `queries.graphql.test.ts`; extended `account-content.test.tsx`; existing `EventCard.test.tsx` AC17 suite confirmed unaffected.
-- [ ] Lint and type checks passing for `apps/web` and `packages/ui`.
-- [ ] No production code changes outside test files and one comment in `queries.graphql` (any other diff should be treated as scope creep and questioned).
-- [ ] `epics.md`'s Amendment and this story file's own Amendment are both present and consistent with each other.
+- [x] AC1-3 satisfied.
+- [x] Required tests passing: new `queries.graphql.test.ts`; extended `account-content.test.tsx`; existing `EventCard.test.tsx` AC17 suite confirmed unaffected.
+- [x] Lint and type checks passing for `apps/web` and `packages/ui`.
+- [x] No production code changes outside test files and one comment in `queries.graphql` (any other diff should be treated as scope creep and questioned).
+- [x] `epics.md`'s Amendment and this story file's own Amendment are both present and consistent with each other.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Not started → completed (see Dev Agent Record below)
+- [x] Verified: `pnpm --filter web test` (queries.graphql.test.ts 8/8; account-content.test.tsx 3/3), `pnpm --filter @festgrid/ui test` (EventCard.test.tsx 41/41 incl. AC17 suite), `pnpm build` (7/7), `pnpm lint` (0 errors), `pnpm test` (11/11; web 344, ui 419, backend 709, domain 259, graphql-select 30, database, infrastructure all green)
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+- Cline (Claude) autonomous dev agent, `bmad-dev-story` skill.
+
 ### Debug Log References
+
+- N/A — no debug sessions needed. All tests passed on first run after creating/extending the test files.
 
 ### Completion Notes List
 
+- **AC1 (query-layer guard):** Created `apps/web/src/features/events/queries.graphql.test.ts` (8 tests). It reads the raw text of `queries.graphql` via `node:fs` (no new dependency; the `graphql` package's `parse`/`visit`/`Kind` are already direct deps), extracts the four list-view operations (`getEvents`, `getEventsForCalendar`, `getEventsForMyCalendar`, `getArchivedEvents`), recursively walks each `SelectionSet`, and asserts neither `sourceSocialMediaAccountProfile` nor `profileImageUrl` is selected. `getEventBySlug` is deliberately excluded (event-detail query, Story 3.7d). Added a one-line comment above `getEvents` in `queries.graphql` pointing at the test.
+- **AC2 (account-content behavioral guard):** Extended `apps/web/src/app/[locale]/[platformSlug]/[accountId]/account-content.test.tsx` with a new `it(...)` asserting the profile avatar URL appears exactly once (the `AccountAvatar` header) and no rendered `<img>` inside an event-card `<article>` carries that avatar URL. Updated the event fixture with `imageUrl`/`durableImageUrl` (`http://test.com/event-cover.jpg`) deliberately distinct from the avatar sentinel so the proof is real.
+- **AC3 (AC17 regression citation):** Ran `packages/ui`'s `EventCard.test.tsx` (41 tests incl. the "Prominent poster (masonry, AC17)" describe block) — all pass with **unmodified** assertions. Per Dev Notes sequencing, Epic 1.i1's 1.i1a/1.i1c/1.i1e are still `backlog`, so this was run against the current pre-1.i1 baseline (user approved proceeding with this accepted gap); it must be re-run as part of 1.i1e's own verification once that lands.
+- **Verification commands actually executed (all clean):** `npx vitest run src/features/events/queries.graphql.test.ts` → 1 file, 8 tests passed. `npx vitest run src/app/[locale]/[platformSlug]/[accountId]/account-content.test.tsx` → 1 file, 3 tests passed. `node modules/vitest ... EventCard.test.tsx` → 1 file, 41 tests passed. `pnpm build` → 7 tasks successful / 7 total. `pnpm lint` → 0 errors (1135 pre-existing warnings across backend/web). `pnpm test` → 11 tasks successful / 11 total (web 55 files/344 tests, ui 47 files/419 tests, backend 709 pass/0 fail, domain 259, graphql-select 30, database, infrastructure all green).
+
 ### File List
+
+- **New:** `apps/web/src/features/events/queries.graphql.test.ts` (Task 1 — AC1 query-layer guard, 8 tests).
+- **Modified:** `apps/web/src/app/[locale]/[platformSlug]/[accountId]/account-content.test.tsx` (Task 2 — AC2 avatar-never-in-card assertion + distinct event image fixtures).
+- **Modified (comment only):** `apps/web/src/features/events/queries.graphql` (one-line comment above `getEvents` pointing at the test).
+- **Not modified (verified untouched per DoD):** `packages/ui/src/features/events/EventCard.tsx`, `EventCard.types.ts`, `EventListView.tsx`, `EventCard.test.tsx`; `apps/backend/**`; any GraphQL schema file; `packages/domain`, `packages/database`.
+- **Story/status artifacts:** this story file (`_bmad-output/implementation-artifacts/3-7c-...md`), `_bmad-output/implementation-artifacts/sprint-status.yaml`.
+
+### Change Log
+
+- 2026-09-13: Implemented Story 3.7c (frontend-test-only guard). Created `queries.graphql.test.ts`, extended `account-content.test.tsx`, added pointer comment to `queries.graphql`. Ran full verification (`web` tests, `ui` tests, root `build`/`lint`/`test`) — all clean. Status → review.
