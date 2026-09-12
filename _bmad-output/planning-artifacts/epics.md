@@ -2541,7 +2541,9 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Note (2026-09-02, added via `bmad-correct-course`, `sprint-change-proposal-2026-09-02.md`):** Implements the minimization doc's §3.1/§3.2 display decisions. The "opted-in gets a visually distinct card, sourced from `durableImageUrl`" design was explicitly confirmed during this correct-course session as the resolution that makes Story 3.6g/3.6h's opt-in flag a felt product incentive, not just a legal formality.
 
-**Depends on:** Story 1.3b (EventCard), Story 3.6h.
+**Amendment (2026-09-12, added via `bmad-create-story` while drafting this story):** Found that AC1/AC2 above (hotlink-default-state rendering + graceful-degrade fallback) had already been independently re-specified — via the same reference screenshots this story's own last AC bullet anticipated — as `Epic 1.i1`'s Stories **1.i1a** (shared `event_card_*` primitive owning image-slot sizing/fallback), **1.i1c** (replace the local placeholder with the shared fallback), and **1.i1e** (adopt the primitive into the masonry default state), all formed 2026-09-11 via `bmad-form-epics` from `FIND-023`/`IDEA-017` and still `backlog`, unimplemented. AC3 (opted-in prominent card) is unaffected either way — Story 1.3b's AC17 already ships it, and 1.i1e's own AC explicitly keeps it unchanged. User confirmed via `AskUserQuestion` (offered: narrow-and-depend / keep-self-contained / mark-superseded) to narrow this story rather than duplicate that work: this story's own implementation is now limited to AC4 (the `profileImageUrl`-never-rendered guard, which no story in Epic 1.i1 covers) plus a regression check that AC3's already-shipped path survives 1.i1e's changes intact. See the story file for the full narrowed AC/task list.
+
+**Depends on:** Story 1.3b (EventCard), Story 3.6h, Story 1.i1a, Story 1.i1c, Story 1.i1e (added 2026-09-12).
 
 ### Story 3.7d: Event-detail image display — oEmbed transition with fallback
 
