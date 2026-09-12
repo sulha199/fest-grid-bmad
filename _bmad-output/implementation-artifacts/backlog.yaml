@@ -627,12 +627,13 @@ items:
      note: "From apps/ux-rework2.md L6, dup. L18, via ux-rework2-tracking.md item #2 — deferred in the user's own words ('put to deferred for better planning'), never re-triaged since. Story 5.4 (inactive-account-warning) ships a simpler 30-day-no-post isInactive flag that doesn't cover run-status, so this nuance was never actually captured as its own row before this audit."}
 
   BUG-017:
-    {type: bug, status: backlog, epic: epic-0-i7, created: 2026-09-06,
+    {type: bug, status: promoted, epic: epic-0-i7, created: 2026-09-06,
      impact: user-visible, effort: s,
      title: "Geoapify rank.confidence returns wrong location for sub-venues (e.g. 'Grand Atrium, Pakuwon Mall Jogja')",
      ref: [],
+     stories: [0-i7b-re-rank-sub-venue-matches-using-the-confidence-signal],
      touches: [web:locations, app:backend],
-     note: "From apps/ux-rework2.md L45, via ux-rework2-tracking.md item #20. Research task, not yet started — investigate whether rank/rank.confidence can filter or re-rank Geoapify results before any fix is scoped. No backlog row existed before this audit."}
+     note: "PROMOTED (2026-09-13 via bmad-dev-story, user-confirmed): fully covered by Story 0.i7b — selectBestCandidate re-ranks the retained candidate set by confidence (matchType-priority tiebreak) in resolveLocation's ADDRESS branch, so a low-confidence Geoapify top hit no longer wins over a correct, lower-ranked sub-venue. Threshold/filtering and event-detail map-link follow-through remain IDEA-023/Story 0.i7c."}
 
   BUG-018:
     {type: bug, status: backlog, created: 2026-09-07,

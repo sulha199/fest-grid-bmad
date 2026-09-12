@@ -125,6 +125,55 @@ test('adapter resolveLocation with countryBias folds bias into cache key', async
   }
 });
 
+test('adapter resolveLocation re-ranks ADDRESS by confidence (BUG-017)', async () => {
+  await db.delete(geolocationCache);
+
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({
+      results: [
+        // Position 0: a generic/low-confidence top hit (the wrong sub-venue).
+        {
+          lat: -7.7831,
+          lon: 110.3854,
+          formatted: 'Pakuwon Mall Jogja, Yogyakarta',
+          place_id: 'generic_top_hit',
+          timezone: { name: 'Asia/Jakarta' },
+          rank: { confidence: 0.4, match_type: 'match_by_city_or_district' },
+          country_code: 'id'
+        },
+        // A later, more specific, higher-confidence match: the correct sub-venue.
+        {
+          lat: -7.7812,
+          lon: 110.3839,
+          formatted: 'Grand Atrium, Pakuwon Mall Jogja, Yogyakarta',
+          place_id: 'correct_subvenue',
+          timezone: { name: 'Asia/Jakarta' },
+          rank: { confidence: 0.9, match_type: 'match_by_building' },
+          country_code: 'id'
+        }
+      ]
+    })
+  }));
+
+  try {
+    const result = await resolveLocation({ kind: 'ADDRESS', address: 'Grand Atrium, Pakuwon Mall Jogja' });
+
+    // The higher-confidence, later-position candidate wins over the first result.
+    assert.equal(result.placeId, 'correct_subvenue');
+    assert.equal(result.confidence, 0.9);
+    assert.deepEqual(result.coordinates, { latitude: -7.7812, longitude: 110.3839 });
+
+    // The re-ranked candidate is still written through to the cache as today.
+    const cachedRows = await db.select().from(geolocationCache);
+    assert.equal(cachedRows.length, 1);
+    assert.equal(cachedRows[0].queryType, 'GEOCODE');
+  } finally {
+    fetchMock.mock.restore();
+    await db.delete(geolocationCache);
+  }
+});
+
 test('adapter getAddressPredictions', async (t) => {
   const fetchMock = mock.method(globalThis, 'fetch', async () => ({
     ok: true,

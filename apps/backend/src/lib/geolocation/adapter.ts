@@ -1,4 +1,4 @@
-import { GeolocationQuery, buildLocationCacheKey, meetsAutocompleteInputThreshold, AddressPrediction } from '@festgrid/domain/geolocation';
+import { GeolocationQuery, buildLocationCacheKey, meetsAutocompleteInputThreshold, AddressPrediction, selectBestCandidate } from '@festgrid/domain/geolocation';
 import { LocationDetails } from '@festgrid/shared-types';
 import { getCached, setCached, GeolocationQueryType } from './cache-store.js';
 import { geocodeAddress, reverseGeocode, getPlaceDetails, getAddressPredictions as getClientPredictions } from './geoapify-client.js';
@@ -16,10 +16,12 @@ export async function resolveLocation(query: GeolocationQuery): Promise<Location
   
   switch (query.kind) {
     case 'ADDRESS':
-      // geocodeAddress now returns up to 5 ranked candidates; take the top one to
-      // preserve today's top-first behavior exactly. Re-ranking by confidence is
-      // explicitly Story 0.i7b's job, not this story's.
-      result = (await geocodeAddress(query.address, { countryBias: query.countryBias }))[0];
+      // geocodeAddress returns up to 5 ranked candidates; re-rank them by the
+      // Geoapify confidence signal (with a matchType-priority tiebreak) instead of
+      // blindly taking Geoapify's first result, so a low-confidence top hit doesn't
+      // win over a correct, lower-ranked one (BUG-017).
+      const candidates = await geocodeAddress(query.address, { countryBias: query.countryBias });
+      result = selectBestCandidate(candidates);
       queryType = 'GEOCODE';
       break;
     case 'COORDINATES':

@@ -5,7 +5,7 @@
 - Epic: 0.i7 (Confidence-aware Geoapify location resolution)
 - Story ID: 0.i7b
 - Baseline commit: 6b788a61c8678df2e8906d5c664f2e12ca08b5ab
-- Status: ready-for-dev
+- Status: review
 - Depends on: Story 0.i7a (status `review` in `sprint-status.yaml` — pending code-review sign-off, but its code is already present and verified in this worktree at the baseline commit above: `geocodeAddress` returns `Promise<LocationDetails[]>` of up to 5 candidates, and `adapter.ts`'s `resolveLocation` `ADDRESS` branch currently takes `candidates[0]`. This story's whole job is replacing that `[0]` index with real selection logic.)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
@@ -26,24 +26,24 @@ so that a low-confidence top hit no longer wins over a correct lower-ranked one 
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Implement `selectBestCandidate` in `packages/domain/src/geolocation/select-best-candidate.ts` (AC: 2, 3, 4, 5)**
-  - [ ] Define an ordered priority list of Geoapify's documented `rank.match_type` values (most-specific first): `['full_match', 'match_by_building', 'match_by_street', 'match_by_postcode', 'match_by_city_or_district', 'match_by_country_or_state', 'inner_part']` — verified against Geoapify's own forward-geocoding docs (see Dev Notes → Latest Technical Specifics). Any `matchType` string not in this list (including `undefined`) ranks below every entry in it — treat its tier as `list.length` (one past the last real tier), **not** as a match/no-match boolean, so an unrecognized value never accidentally ties with `inner_part`.
-  - [ ] Export `selectBestCandidate(candidates: LocationDetails[]): LocationDetails`, comparing candidates pairwise by `(confidence ?? -Infinity)` descending, then by the match-type tier index ascending (lower index = higher priority) on an exact confidence tie, then by original array position (earliest wins) if still tied. Implement as a single reduce/loop that tracks the best-so-far candidate and its computed sort key, rather than sorting the whole array — this is simpler to reason about for a "find the max" operation and avoids depending on `Array.prototype.sort`'s stability semantics for the final tie-break (make the position tie-break explicit in the comparison instead).
-  - [ ] Throw a descriptive `Error` if `candidates` is empty (defensive — `geocodeAddress` never returns an empty array successfully today, since it throws `GeolocationNotFoundError` first, but `selectBestCandidate` should not silently return `undefined` if that invariant ever changes).
-  - [ ] Add `export * from './select-best-candidate.js';` to `packages/domain/src/geolocation/index.ts`, alongside the existing `types`/`build-cache-key`/`validate-autocomplete-input` exports, so it is importable as `@festgrid/domain/geolocation` (matching how `adapter.ts` already imports `buildLocationCacheKey` from that same subpath).
+- [x] **Task 1 — Implement `selectBestCandidate` in `packages/domain/src/geolocation/select-best-candidate.ts` (AC: 2, 3, 4, 5)**
+  - [x] Define an ordered priority list of Geoapify's documented `rank.match_type` values (most-specific first): `['full_match', 'match_by_building', 'match_by_street', 'match_by_postcode', 'match_by_city_or_district', 'match_by_country_or_state', 'inner_part']` — verified against Geoapify's own forward-geocoding docs (see Dev Notes → Latest Technical Specifics). Any `matchType` string not in this list (including `undefined`) ranks below every entry in it — treat its tier as `list.length` (one past the last real tier), **not** as a match/no-match boolean, so an unrecognized value never accidentally ties with `inner_part`.
+  - [x] Export `selectBestCandidate(candidates: LocationDetails[]): LocationDetails`, comparing candidates pairwise by `(confidence ?? -Infinity)` descending, then by the match-type tier index ascending (lower index = higher priority) on an exact confidence tie, then by original array position (earliest wins) if still tied. Implement as a single reduce/loop that tracks the best-so-far candidate and its computed sort key, rather than sorting the whole array — this is simpler to reason about for a "find the max" operation and avoids depending on `Array.prototype.sort`'s stability semantics for the final tie-break (make the position tie-break explicit in the comparison instead).
+  - [x] Throw a descriptive `Error` if `candidates` is empty (defensive — `geocodeAddress` never returns an empty array successfully today, since it throws `GeolocationNotFoundError` first, but `selectBestCandidate` should not silently return `undefined` if that invariant ever changes).
+  - [x] Add `export * from './select-best-candidate.js';` to `packages/domain/src/geolocation/index.ts`, alongside the existing `types`/`build-cache-key`/`validate-autocomplete-input` exports, so it is importable as `@festgrid/domain/geolocation` (matching how `adapter.ts` already imports `buildLocationCacheKey` from that same subpath).
 
-- [ ] **Task 2 — Wire `selectBestCandidate` into `resolveLocation`'s `ADDRESS` branch (AC: 1)**
-  - [ ] In `apps/backend/src/lib/geolocation/adapter.ts`, import `selectBestCandidate` from `@festgrid/domain/geolocation` (already imported from that subpath for `buildLocationCacheKey`/`meetsAutocompleteInputThreshold`/`AddressPrediction` — add to the same import statement).
-  - [ ] Replace `result = (await geocodeAddress(query.address, { countryBias: query.countryBias }))[0];` with two statements: fetch the candidates into a local `const candidates = await geocodeAddress(...)`, then `result = selectBestCandidate(candidates);`. Update the inline comment above it (currently says "take the top one to preserve today's top-first behavior exactly; re-ranking ... is explicitly Story 0.i7b's job, not this story's") to reflect that re-ranking now happens here.
-  - [ ] No other branch (`COORDINATES`, `PLACE_ID`) changes — both remain single-result lookups untouched by this story, per AC 4.
+- [x] **Task 2 — Wire `selectBestCandidate` into `resolveLocation`'s `ADDRESS` branch (AC: 1)**
+  - [x] In `apps/backend/src/lib/geolocation/adapter.ts`, import `selectBestCandidate` from `@festgrid/domain/geolocation` (already imported from that subpath for `buildLocationCacheKey`/`meetsAutocompleteInputThreshold`/`AddressPrediction` — add to the same import statement).
+  - [x] Replace `result = (await geocodeAddress(query.address, { countryBias: query.countryBias }))[0];` with two statements: fetch the candidates into a local `const candidates = await geocodeAddress(...)`, then `result = selectBestCandidate(candidates);`. Update the inline comment above it (currently says "take the top one to preserve today's top-first behavior exactly; re-ranking ... is explicitly Story 0.i7b's job, not this story's") to reflect that re-ranking now happens here.
+  - [x] No other branch (`COORDINATES`, `PLACE_ID`) changes — both remain single-result lookups untouched by this story, per AC 4.
 
-- [ ] **Task 3 — Unit tests for `selectBestCandidate` (AC: 2, 3, 4, 5 — packages/domain 100%-coverage rule)**
-  - [ ] `packages/domain/src/geolocation/select-best-candidate.test.ts`: cover (a) a single candidate is returned unchanged; (b) a lower-confidence candidate at index 0 loses to a higher-confidence candidate at a later index (the BUG-017 scenario, phrased in domain terms); (c) a candidate with `confidence: undefined` never beats one with a defined `confidence`, even a low one (e.g. `0.1`); (d) an exact-confidence tie is broken by `matchType` priority (e.g. two candidates both at `confidence: 0.8`, one `full_match` one `match_by_postcode` — `full_match` wins); (e) an unrecognized `matchType` string (e.g. a value outside the documented list) loses a tie to any recognized `matchType`, and two unrecognized values at an exact confidence tie fall through to array-position tie-break; (f) all candidates missing `confidence` and `matchType` entirely — first candidate wins deterministically (position tie-break), not `undefined`/a thrown error; (g) an empty array throws.
-  - [ ] Confirm 100% line/branch coverage for the new file per project-context's domain-package testing rule (this is the "only place unit tests should be written" per that rule, and the rule requires 100% coverage there).
+- [x] **Task 3 — Unit tests for `selectBestCandidate` (AC: 2, 3, 4, 5 — packages/domain 100%-coverage rule)**
+  - [x] `packages/domain/src/geolocation/select-best-candidate.test.ts`: cover (a) a single candidate is returned unchanged; (b) a lower-confidence candidate at index 0 loses to a higher-confidence candidate at a later index (the BUG-017 scenario, phrased in domain terms); (c) a candidate with `confidence: undefined` never beats one with a defined `confidence`, even a low one (e.g. `0.1`); (d) an exact-confidence tie is broken by `matchType` priority (e.g. two candidates both at `confidence: 0.8`, one `full_match` one `match_by_postcode` — `full_match` wins); (e) an unrecognized `matchType` string (e.g. a value outside the documented list) loses a tie to any recognized `matchType`, and two unrecognized values at an exact confidence tie fall through to array-position tie-break; (f) all candidates missing `confidence` and `matchType` entirely — first candidate wins deterministically (position tie-break), not `undefined`/a thrown error; (g) an empty array throws.
+  - [x] Confirm 100% line/branch coverage for the new file per project-context's domain-package testing rule (this is the "only place unit tests should be written" per that rule, and the rule requires 100% coverage there).
 
-- [ ] **Task 4 — Integration tests for `resolveLocation`'s re-ranking behavior (AC: 1)**
-  - [ ] `apps/backend/src/lib/geolocation/adapter.test.ts`: add a case mocking `fetch` so `geocodeAddress`'s underlying Geoapify response returns ≥2 results where the first (`data.results[0]`) has a lower `rank.confidence` than a later one, then assert `resolveLocation({ kind: 'ADDRESS', ... })` returns the higher-confidence result's `placeId`/`coordinates` — not the first one. This is the direct regression test for BUG-017 at the integration boundary (mirrors the "Grand Atrium, Pakuwon Mall Jogja" scenario: a generic/low-confidence top hit vs. a correct, more specific, higher-confidence one further down the list).
-  - [ ] Confirm the existing single-result fixtures in `adapter.test.ts` (`cache miss calls geocodeAddress and writes through`, `cache hit skips Geoapify call`, `countryBias folds into cache key`) still pass unchanged — with exactly one candidate in the mocked response, `selectBestCandidate` has nothing to re-rank and must return that same candidate, so no existing assertion should need to change.
+- [x] **Task 4 — Integration tests for `resolveLocation`'s re-ranking behavior (AC: 1)**
+  - [x] `apps/backend/src/lib/geolocation/adapter.test.ts`: add a case mocking `fetch` so `geocodeAddress`'s underlying Geoapify response returns ≥2 results where the first (`data.results[0]`) has a lower `rank.confidence` than a later one, then assert `resolveLocation({ kind: 'ADDRESS', ... })` returns the higher-confidence result's `placeId`/`coordinates` — not the first one. This is the direct regression test for BUG-017 at the integration boundary (mirrors the "Grand Atrium, Pakuwon Mall Jogja" scenario: a generic/low-confidence top hit vs. a correct, more specific, higher-confidence one further down the list).
+  - [x] Confirm the existing single-result fixtures in `adapter.test.ts` (`cache miss calls geocodeAddress and writes through`, `cache hit skips Geoapify call`, `countryBias folds into cache key`) still pass unchanged — with exactly one candidate in the mocked response, `selectBestCandidate` has nothing to re-rank and must return that same candidate, so no existing assertion should need to change.
 
 ## Dev Notes
 
@@ -128,25 +128,25 @@ so that a low-confidence top hit no longer wins over a correct lower-ranked one 
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — Tasks 1–4 above match the intended scope (a pure selection function plus its one call site); no scope expansion into 0.i7a's, 0.i7c's, or 0.i7d's territory.
-- [ ] Architecture and boundary confirmation — new logic placed in `packages/domain/src/geolocation/` (pure, dependency-free, no DB/ORM/Node-runtime coupling, confirmed in Project Structure Notes); no `packages/ui`, no GraphQL/SDL/codegen/DB change.
-- [ ] Testing plan confirmation — Task 3's unit-test list covers every branch of the comparator (confidence ordering, `undefined`-confidence handling, exact-tie `matchType` tiebreak, unrecognized `matchType`, all-missing fallback, empty-array throw); Task 4 covers the integration-level regression.
-- [ ] **Design Decision 1 (ranking algorithm — recommended: confidence primary, `matchType`-priority tiebreak) — explicit human approval required.** Escalated via `AskUserQuestion`; no answer was received in this session. Proceeding with the recommended option (matches the epics.md AC's literal "confidence/matchType" wording) is **provisional** pending explicit confirmation or override before `bmad-dev-story` begins implementation.
-- [ ] Explicit human approval state (Default: **pending approval**)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 findings already resolved by Story 0.i7a (candidate-retention amendment verified present in this worktree's code, ahead of that story's own `review`→`done` transition); Gate 2 fresh check found no gap; no new prerequisite story was created by this story's gate pass.
-- [ ] Backlog cross-reference confirmed — this story's subject plainly matches open backlog row `BUG-017` ("Geoapify rank.confidence returns wrong location for sub-venues (e.g. 'Grand Atrium, Pakuwon Mall Jogja')", `status: backlog`, `stories: []`). Per `backlog-spec.md` §13 check 3, this match should be confirmed with the user before `bmad-create-story`'s `on_complete` step promotes that row — escalated together with the Design Decision above; no response received in this session, so promotion is deferred to `bmad-dev-story`/an explicit follow-up rather than assumed silently.
+- [x] Scope confirmation — Tasks 1–4 above match the intended scope (a pure selection function plus its one call site); no scope expansion into 0.i7a's, 0.i7c's, or 0.i7d's territory.
+- [x] Architecture and boundary confirmation — new logic placed in `packages/domain/src/geolocation/` (pure, dependency-free, no DB/ORM/Node-runtime coupling, confirmed in Project Structure Notes); no `packages/ui`, no GraphQL/SDL/codegen/DB change.
+- [x] Testing plan confirmation — Task 3's unit-test list covers every branch of the comparator (confidence ordering, `undefined`-confidence handling, exact-tie `matchType` tiebreak, unrecognized `matchType`, all-missing fallback, empty-array throw); Task 4 covers the integration-level regression.
+- [x] **Design Decision 1 (ranking algorithm — recommended: confidence primary, `matchType`-priority tiebreak) — explicit human approval required.** Escalated via `AskUserQuestion`; **user confirmed option (a) (confidence-primary with `matchType`-priority tiebreak)** during `bmad-dev-story`.
+- [x] Explicit human approval state — **approved by user** at `bmad-dev-story` start (Pre-Coding Approval Gate + Design Decision 1 confirmed; user also approved proceeding on top of Story 0.i7a at `review`).
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 findings already resolved by Story 0.i7a (candidate-retention amendment verified present in this worktree's code, ahead of that story's own `review`→`done` transition); Gate 2 fresh check found no gap; no new prerequisite story was created by this story's gate pass.
+- [x] Backlog cross-reference confirmed — this story's subject plainly matches open backlog row `BUG-017` ("Geoapify rank.confidence returns wrong location for sub-venues (e.g. 'Grand Atrium, Pakuwon Mall Jogja')", `status: backlog`, `stories: []`). **User confirmed promotion via `AskUserQuestion` at `bmad-dev-story` start; this story promoted `BUG-017` (`status: promoted`, `stories: [0-i7b-...]`) in `backlog.yaml`.**
 
 ## Testing Requirements
 
-- [ ] Unit tests — `packages/domain/src/geolocation/select-best-candidate.test.ts`, 100% coverage (project-context's domain-package rule).
-- [ ] Integration tests — `apps/backend/src/lib/geolocation/adapter.test.ts` (existing `node:test`/real-dev-Postgres convention), new re-ranking case per Task 4.
-- [ ] E2E tests — not applicable; this story has no user-facing surface (backend-only; frontend/map-link consumption is Story 0.i7c's separate scope).
-- [ ] Migration verification — not applicable; no migration in this story.
+- [x] Unit tests — `packages/domain/src/geolocation/select-best-candidate.test.ts`, 100% coverage (project-context's domain-package rule).
+- [x] Integration tests — `apps/backend/src/lib/geolocation/adapter.test.ts` (existing `node:test`/real-dev-Postgres convention), new re-ranking case per Task 4.
+- [x] E2E tests — not applicable; this story has no user-facing surface (backend-only; frontend/map-link consumption is Story 0.i7c's separate scope).
+- [x] Migration verification — not applicable; no migration in this story.
 
 ## Deliverables Checklist
 
-- [ ] `selectBestCandidate` implemented, exported from `@festgrid/domain/geolocation`, 100%-unit-test-covered.
-- [ ] `resolveLocation`'s `ADDRESS` branch calls `selectBestCandidate` instead of indexing `[0]`.
+- [x] `selectBestCandidate` implemented, exported from `@festgrid/domain/geolocation`, 100%-unit-test-covered.
+- [x] `resolveLocation`'s `ADDRESS` branch calls `selectBestCandidate` instead of indexing `[0]`.
 - [ ] New integration test proves a higher-confidence, later-position candidate wins over a lower-confidence, first-position one (BUG-017 regression coverage).
 - [ ] Existing single-candidate `adapter.test.ts` assertions unchanged and still passing.
 - [ ] Lint/type-check clean for `packages/domain` and `apps/backend`.
@@ -161,25 +161,27 @@ so that a low-confidence top hit no longer wins over a correct lower-ranked one 
 
 ## Definition of Done
 
-- [ ] AC 1–5 satisfied.
-- [ ] Required tests passing (Tasks 3–4 + Testing Requirements).
-- [ ] Lint and type checks passing for `packages/domain` and `apps/backend`.
-- [ ] Design Decision 1 explicitly confirmed or overridden by the user (Pre-Coding Approval Gate) before this story is marked done.
-- [ ] Backlog row `BUG-017` promotion (or explicit non-match) confirmed with the user before this story is marked done.
+- [x] AC 1–5 satisfied.
+- [x] Required tests passing (Tasks 3–4 + Testing Requirements).
+- [x] Lint and type checks passing for `packages/domain` and `apps/backend`.
+- [x] Design Decision 1 explicitly confirmed or overridden by the user (Pre-Coding Approval Gate) before this story is marked done.
+- [x] Backlog row `BUG-017` promotion (or explicit non-match) confirmed with the user before this story is marked done.
 
 ## Completion Status
 
-- [ ] Not started.
+- [x] Complete — ready for review (status `review` in sprint-status.yaml)
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled by `bmad-dev-story`._
+Cline (Claude) — story implemented via `bmad-dev-story` workflow.
 
 ### Debug Log References
 
-_To be filled by `bmad-dev-story`._
+- Implemented Story 0.i7b end-to-end; all Tasks 1–4 completed in this session.
+- Pre-Coding Approval Gate: user granted approval at `bmad-dev-story` start and explicitly confirmed Design Decision 1 (confidence-primary ranking with `matchType`-priority tiebreak), approved proceeding on top of Story 0.i7a (still at `review`), and approved promoting backlog row `BUG-017`.
+- Verification Plan executed in this session (see Completion Notes): all unit/integration tests, lint, and type-checks confirmed passing.
 
 ### Completion Notes List
 
@@ -187,13 +189,26 @@ _To be filled by `bmad-dev-story`._
 - Gate 1/3: cited from swept `epic-readiness/epic-0-i7-readiness.md`; the one finding naming this story (candidate-list availability) was resolved by Story 0.i7a and verified already implemented in this worktree.
 - Gate 2: re-run fresh (per-story requirement) via subagent with Freya's analytical lens — no gap found (zero UI surface; UX artifacts checked and confirmed silent on this behavior).
 - Lightweight guard: reasoned over this story's actual (narrow, in-memory) scope — no new external service/data entity/infra dependency found; no fresh Gate 1/3 re-run warranted.
-- Design Decision 1 (ranking algorithm: confidence-primary with `matchType`-priority tiebreak vs. confidence-only) was escalated via `AskUserQuestion` but received no response in this session — proceeded with the recommended, higher-spec-fidelity option, flagged for explicit confirmation in Pre-Coding Approval Gate.
-- Backlog cross-reference: this story's subject matches open row `BUG-017` (`status: backlog`, no `stories` yet) per `backlog-spec.md` §13 check 3, which requires user confirmation before promoting — also unanswered in this session; promotion left pending rather than assumed.
+- **Pre-Coding Approval Gate & pending confirmations resolved (this session):** the two items deferred from `bmad-create-story` were escalated via `AskUserQuestion` and the user answered — Design Decision 1 confirmed as option (a) (confidence-primary, `matchType`-priority tiebreak), and BUG-017 backlog promotion approved. Both the gate and the two open confirmations are now closed.
+- **Implementation (this session):** created pure `selectBestCandidate(candidates: LocationDetails[]): LocationDetails` in `packages/domain/src/geolocation/select-best-candidate.ts` (best-so-far sweep; `(confidence ?? -Infinity)` descending primary key, `matchType` tier ascending tiebreak per Geoapify's documented specificity order with unrecognized/missing ranking below every recognized value as tier `PRIORITY.length`, explicit array-position final tie-break; throws descriptive `Error` on empty input). Exported from `@festgrid/domain/geolocation`. Wired `resolveLocation`'s `ADDRESS` branch in `adapter.ts` to call `selectBestCandidate(candidates)` instead of `candidates[0]`; `COORDINATES`/`PLACE_ID` untouched. Added 9 unit tests (100% line+branch coverage of the comparator: single-candidate no-op, BUG-017 lower-conf-first/loss, undefined-vs-low-defined confidence, exact-tie matchType priority, unrecognized-matchType loss + position fallback, all-missing position fallback, equal-tier position fallback, empty-array throw) and one integration regression test in `adapter.test.ts` (mocked 2-result Geoapify response, lower-confidence first result loses to higher-confidence later one end-to-end through the cache-write path).
+- **Verification Plan executed (all passed, in this session):**
+  - `packages/domain` unit tests: 269/269 pass, including all 9 new `selectBestCandidate` cases.
+  - `apps/backend` `adapter.test.ts` integration suite: 9/9 pass against real dev Postgres, including the new re-ranking (BUG-017) case; all pre-existing single-result fixtures unchanged and passing.
+  - `pnpm --filter @festgrid/domain build` (tsc): clean.
+  - `pnpm --filter @festgrid/domain lint` (`--max-warnings 0`): clean.
+  - `pnpm --filter backend lint`: 0 errors (only pre-existing `any`/unused warnings, consistent with established convention).
+  - `pnpm --filter backend build` (tsc): clean.
 
 ### File List
 
-_To be filled by `bmad-dev-story`._
+- `packages/domain/src/geolocation/select-best-candidate.ts` (new) — `selectBestCandidate` + `MATCH_TYPE_PRIORITY` + internal `matchTypeTier`.
+- `packages/domain/src/geolocation/select-best-candidate.test.ts` (new) — 9 unit tests, 100% coverage.
+- `packages/domain/src/geolocation/index.ts` — added `export * from './select-best-candidate.js';`.
+- `apps/backend/src/lib/geolocation/adapter.ts` — `resolveLocation` `ADDRESS` branch uses `selectBestCandidate(candidates)` instead of `candidates[0]`; added import; updated comment.
+- `apps/backend/src/lib/geolocation/adapter.test.ts` — new integration test `adapter resolveLocation re-ranks ADDRESS by confidence (BUG-017)`.
+- `_bmad-output/implementation-artifacts/backlog.yaml` — promoted backlog row `BUG-017` (`status: promoted`, `stories: [0-i7b-re-rank-sub-venue-matches-using-the-confidence-signal]`).
 
 ## Change Log
 
-- 2026-09-13: Story created via `bmad-create-story`. Epic 0.i7 readiness sweep cited (swept, Gate 1/3); Gate 2 re-run fresh (no gap). Ranking-algorithm design decision and BUG-017 backlog-promotion match both escalated via `AskUserQuestion`; no response received in this session — proceeded with recommended defaults, flagged for explicit confirmation before implementation/completion.
+- 2026-09-13: Story created via `bmad-create-story`. Epic 0.i7 readiness sweep cited (swept, Gate 1/3); Gate 2 re-run fresh (no gap). Ranking-algorithm design decision and BUG-017 backlog-promotion match both escalated via `AskUserQuestion`; no response received in that session — proceeded with recommended defaults, flagged for explicit confirmation before implementation/completion.
+- 2026-09-13: Story implemented via `bmad-dev-story`. Pre-Coding Approval Gate approved by user (incl. explicit confirmation of Design Decision 1 — confidence-primary with `matchType`-priority tiebreak — and BUG-017 backlog promotion). Implemented Tasks 1–4. Status moved `ready-for-dev` → `review`. All tasks/subtasks, gates, deliverables, DoD items completed. Verification Plan commands executed and confirmed passing (noted in Completion Notes). BUG-017 promoted in `backlog.yaml`.
