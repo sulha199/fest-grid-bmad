@@ -29,6 +29,9 @@ vi.mock('./actor-runs-content', () => ({
 vi.mock('./unprocessed-payloads-content', () => ({
   UnprocessedPayloadsContent: () => <div data-testid="unprocessed-payloads-content">Unprocessed Payloads Content Panel</div>,
 }));
+vi.mock('./moderator-accounts-content', () => ({
+  ModeratorAccountsContent: () => <div data-testid="moderator-accounts-content">Moderator Accounts Content Panel</div>,
+}));
 
 let mockTab = 'actor-runs';
 const mockSetTab = vi.fn((val) => { mockTab = typeof val === 'function' ? val(mockTab) : val; });
@@ -57,7 +60,7 @@ describe('ModeratorToolsContent Integration', () => {
     mockTab = 'actor-runs';
   });
 
-  it('renders both tab triggers, matches active tab, and updates URL on tab switch', async () => {
+  it('renders all three tab triggers, matches active tab, and updates URL on tab switch', async () => {
     const { rerender } = render(
       <QueryClientProvider client={qc}>
         <NextIntlClientProvider locale="en" messages={mergedMessages}>
@@ -73,12 +76,15 @@ describe('ModeratorToolsContent Integration', () => {
     // Verify triggers are present
     const actorRunsTrigger = screen.getByRole('tab', { name: /actor runs/i });
     const unprocessedTrigger = screen.getByRole('tab', { name: /unprocessed payloads/i });
+    const accountsTrigger = screen.getByRole('tab', { name: /accounts/i });
     expect(actorRunsTrigger).toBeInTheDocument();
     expect(unprocessedTrigger).toBeInTheDocument();
+    expect(accountsTrigger).toBeInTheDocument();
 
     // Verify default active tab is Actor Runs
     expect(screen.getByTestId('actor-runs-content')).toBeInTheDocument();
     expect(screen.queryByTestId('unprocessed-payloads-content')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('moderator-accounts-content')).not.toBeInTheDocument();
 
     // Click unprocessed payloads trigger
     const user = userEvent.setup();
@@ -100,5 +106,27 @@ describe('ModeratorToolsContent Integration', () => {
     // Verify it changed panel
     expect(screen.queryByTestId('actor-runs-content')).not.toBeInTheDocument();
     expect(screen.getByTestId('unprocessed-payloads-content')).toBeInTheDocument();
+    expect(screen.queryByTestId('moderator-accounts-content')).not.toBeInTheDocument();
+
+    // Click accounts trigger
+    await user.click(accountsTrigger);
+
+    // Expect mockSetTab to have been called to update query param
+    expect(mockSetTab).toHaveBeenCalledWith('accounts');
+
+    // Simulate query param change
+    mockTab = 'accounts';
+    rerender(
+      <QueryClientProvider client={qc}>
+        <NextIntlClientProvider locale="en" messages={mergedMessages}>
+          <ModeratorToolsContent />
+        </NextIntlClientProvider>
+      </QueryClientProvider>
+    );
+
+    // Verify it changed panel to the Accounts tab
+    expect(screen.queryByTestId('actor-runs-content')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('unprocessed-payloads-content')).not.toBeInTheDocument();
+    expect(screen.getByTestId('moderator-accounts-content')).toBeInTheDocument();
   });
 });
