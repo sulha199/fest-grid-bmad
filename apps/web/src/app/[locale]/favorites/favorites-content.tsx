@@ -326,7 +326,6 @@ export function FavoritesContent() {
             id: "card",
             label: "Card View",
             content: (
-              <div className="flex flex-col gap-4">
                 <EventListView
                   status={listStatus}
                 events={events}
@@ -463,7 +462,6 @@ export function FavoritesContent() {
                 isFetchingNextPage={isFetchingNextPage}
                 loadingMoreLabel={t("loadingMore")}
               />
-              </div>
             )
           }
         ]}

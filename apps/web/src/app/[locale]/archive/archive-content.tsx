@@ -121,9 +121,8 @@ export function ArchiveContent() {
         <h1 className="text-3xl font-bold">{t("title")}</h1>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <EventListView
-          status={listStatus}
+      <EventListView
+        status={listStatus}
         events={events as any}
         errorMessage={t("errorState")}
         errorDetail={error?.message || "Unknown error"}
@@ -170,7 +169,6 @@ export function ArchiveContent() {
         isFetchingNextPage={isFetchingNextPage}
         loadingMoreLabel={t("loadingMore")}
       />
-      </div>
 
     </PageContainer>
   )

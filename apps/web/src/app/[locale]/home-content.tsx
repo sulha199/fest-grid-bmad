@@ -236,39 +236,37 @@ export function HomeContent() {
             label: t('viewSwitcherCardLabel'),
             icon: <LayoutGrid className="w-4 h-4" />,
             content: (
-              <div className="flex flex-col gap-4">
-                <EventListView
-                  status={status === 'pending' ? 'loading' : status}
-                  events={events}
-                  errorMessage={t('errorState')}
-                  errorDetail={error?.message || JSON.stringify(error)}
-                  emptyState={
-                    <div className="text-center py-10 text-muted-foreground">
-                      {q.trim() ? t('searchEmptyState') : t('emptyState')}
-                    </div>
-                  }
-                  cardLabels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
-                  getCardProps={(event) => ({
-                    isFavorited: event.isFavorited,
-                    favoriteCount: event.favoriteCount,
-                    onFavoriteToggle: () => {
-                      if (!session) {
-                        setIsLoginModalOpen(true)
-                        return
-                      }
-                      toggleFavorite({ eventId: event.id })
-                    },
-                    onClick: () => {
-                      const paramsStr = searchParams.toString()
-                      const url = `/events/${event.slug}?fromList=true${paramsStr ? `&${paramsStr}` : ''}`
-                      router.push(url)
-                    },
-                  })}
-                  sentinelRef={sentinelRef}
-                  isFetchingNextPage={isFetchingNextPage}
-                  loadingMoreLabel={t('loadingMore')}
-                />
-              </div>
+              <EventListView
+                status={status === 'pending' ? 'loading' : status}
+                events={events}
+                errorMessage={t('errorState')}
+                errorDetail={error?.message || JSON.stringify(error)}
+                emptyState={
+                  <div className="text-center py-10 text-muted-foreground">
+                    {q.trim() ? t('searchEmptyState') : t('emptyState')}
+                  </div>
+                }
+                cardLabels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
+                getCardProps={(event) => ({
+                  isFavorited: event.isFavorited,
+                  favoriteCount: event.favoriteCount,
+                  onFavoriteToggle: () => {
+                    if (!session) {
+                      setIsLoginModalOpen(true)
+                      return
+                    }
+                    toggleFavorite({ eventId: event.id })
+                  },
+                  onClick: () => {
+                    const paramsStr = searchParams.toString()
+                    const url = `/events/${event.slug}?fromList=true${paramsStr ? `&${paramsStr}` : ''}`
+                    router.push(url)
+                  },
+                })}
+                sentinelRef={sentinelRef}
+                isFetchingNextPage={isFetchingNextPage}
+                loadingMoreLabel={t('loadingMore')}
+              />
             )
           },
           {

@@ -80,9 +80,6 @@
     "searchClearLabel": "Hapus pencarian",
     "showFiltersLabel": "Tampilkan filter",
     "favoriteButtonLabel": "Alihkan Favorit",
-    "layoutSwitcherListLabel": "Tampilan Daftar",
-    "layoutSwitcherMasonryLabel": "Tampilan Kolase",
-    "layoutSwitcherAnnouncement": "Beralih ke {layout}",
     "calendarPrevWeekLabel": "Minggu sebelumnya",
     "calendarNextWeekLabel": "Minggu berikutnya",
     "calendarTodayLabel": "Hari Ini",
@@ -292,9 +289,6 @@
     "viewSwitcherCardLabel": "Tampilan Kartu",
     "viewSwitcherCalendarLabel": "Tampilan Kalender",
     "viewSwitcherAnnouncement": "Beralih ke {view}",
-    "layoutSwitcherListLabel": "Tampilan Daftar",
-    "layoutSwitcherMasonryLabel": "Tampilan Kolase",
-    "layoutSwitcherAnnouncement": "Beralih ke {layout}",
     "calendarPrevWeekLabel": "Minggu sebelumnya",
     "calendarNextWeekLabel": "Minggu berikutnya",
     "calendarTodayLabel": "Hari Ini",
@@ -319,9 +313,6 @@
     "searchClearLabel": "Hapus pencarian",
     "showFiltersLabel": "Tampilkan filter",
     "favoriteButtonLabel": "Hapus dari Favorit",
-    "layoutSwitcherListLabel": "Tampilan Daftar",
-    "layoutSwitcherMasonryLabel": "Tampilan Kolase",
-    "layoutSwitcherAnnouncement": "Beralih ke {layout}",
     "calendarPrevWeekLabel": "Minggu sebelumnya",
     "calendarNextWeekLabel": "Minggu berikutnya",
     "calendarTodayLabel": "Hari Ini",
@@ -344,10 +335,7 @@
     "showFiltersLabel": "Tampilkan filter",
     "favoriteButtonLabel": "Hapus dari Favorit",
     "pendingRemovalToastMessage": "Acara ditandai untuk dihapus",
-    "undoLabel": "Urungkan",
-    "layoutSwitcherListLabel": "Tampilan Daftar",
-    "layoutSwitcherMasonryLabel": "Tampilan Kolase",
-    "layoutSwitcherAnnouncement": "Beralih ke {layout}"
+    "undoLabel": "Urungkan"
   },
   "ArchivePage": {
     "title": "Arsip Saya",
@@ -357,10 +345,7 @@
     "loadingMore": "Memuat lebih banyak acara yang diarsipkan...",
     "reasonExpired": "Kedaluwarsa",
     "reasonRemoved": "Dihapus oleh Moderasi",
-    "reasonHiddenByMe": "Disembunyikan oleh Saya",
-    "layoutSwitcherListLabel": "Tampilan Daftar",
-    "layoutSwitcherMasonryLabel": "Tampilan Kolase",
-    "layoutSwitcherAnnouncement": "Beralih ke {layout}"
+    "reasonHiddenByMe": "Disembunyikan oleh Saya"
   },
   "ReportsPage": {
     "title": "Laporan Saya",

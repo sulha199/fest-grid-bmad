@@ -251,48 +251,46 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
             id: "card",
             label: "Card View",
             content: (
-              <div className="flex flex-col gap-4">
-                <EventListView
-                  status={listStatus === "pending" ? "loading" : listStatus}
-                  events={events}
-                  errorMessage={t("errorState")}
-                  errorDetail={error?.message || "Unknown error"}
-                  emptyState={
-                    <div className="text-center py-10 space-y-4">
-                      <p className="text-muted-foreground">
-                        {q.trim() || types.length > 0 || categories.length > 0
-                          ? t("searchEmptyState")
-                          : t("emptyState")}
-                      </p>
-                    </div>
-                  }
-                  cardLabels={{
-                    favoriteToggle: t("favoriteButtonLabel") || "Toggle Favorite",
-                    priceFrom: t("priceFrom") || "From",
-                    categoryLabels,
-                    typeLabels,
-                  }}
-                  getCardProps={(event) => ({
-                    isFavorited: event.isFavorited,
-                    favoriteCount: event.favoriteCount,
-                    onFavoriteToggle: () => {
-                      if (!session) {
-                        setIsLoginModalOpen(true);
-                      } else {
-                        toggleFavorite({ eventId: event.id });
-                      }
-                    },
-                    onClick: () => {
-                      const params = new URLSearchParams(searchParams.toString());
-                      params.set("fromList", "account");
-                      router.push(`/events/${event.slug}?${params.toString()}`);
-                    },
-                  })}
-                  sentinelRef={sentinelRef}
-                  isFetchingNextPage={isFetchingNextPage}
-                  loadingMoreLabel={t("loadingMore")}
-                />
-              </div>
+              <EventListView
+                status={listStatus === "pending" ? "loading" : listStatus}
+                events={events}
+                errorMessage={t("errorState")}
+                errorDetail={error?.message || "Unknown error"}
+                emptyState={
+                  <div className="text-center py-10 space-y-4">
+                    <p className="text-muted-foreground">
+                      {q.trim() || types.length > 0 || categories.length > 0
+                        ? t("searchEmptyState")
+                        : t("emptyState")}
+                    </p>
+                  </div>
+                }
+                cardLabels={{
+                  favoriteToggle: t("favoriteButtonLabel") || "Toggle Favorite",
+                  priceFrom: t("priceFrom") || "From",
+                  categoryLabels,
+                  typeLabels,
+                }}
+                getCardProps={(event) => ({
+                  isFavorited: event.isFavorited,
+                  favoriteCount: event.favoriteCount,
+                  onFavoriteToggle: () => {
+                    if (!session) {
+                      setIsLoginModalOpen(true);
+                    } else {
+                      toggleFavorite({ eventId: event.id });
+                    }
+                  },
+                  onClick: () => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set("fromList", "account");
+                    router.push(`/events/${event.slug}?${params.toString()}`);
+                  },
+                })}
+                sentinelRef={sentinelRef}
+                isFetchingNextPage={isFetchingNextPage}
+                loadingMoreLabel={t("loadingMore")}
+              />
             ),
           },
           {

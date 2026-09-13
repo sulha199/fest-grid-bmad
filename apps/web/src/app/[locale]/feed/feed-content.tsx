@@ -260,9 +260,8 @@ export function FeedContent() {
             id: "card",
             label: "Card View",
             content: (
-              <div className="flex flex-col gap-4">
-                <EventListView
-                  status={listStatus === "pending" ? "loading" : listStatus}
+              <EventListView
+                status={listStatus === "pending" ? "loading" : listStatus}
                 events={events}
                 errorMessage={t("errorState")}
                 errorDetail={error?.message || "Unknown error"}
@@ -303,7 +302,6 @@ export function FeedContent() {
                 isFetchingNextPage={isFetchingNextPage}
                 loadingMoreLabel={t("loadingMore")}
               />
-              </div>
             ),
           },
           {
