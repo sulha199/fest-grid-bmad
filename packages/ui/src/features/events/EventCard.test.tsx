@@ -96,6 +96,25 @@ describe('EventCard', () => {
     expect(screen.getByText(expectedDate('en-US', defaultProps.startDate))).toBeInTheDocument();
   });
 
+  // DW-070 (BUG-013): a bad `startDate` can still yield an Invalid Date inside
+  // combineDateTime (its isNaN guard only covers its internal date+time fallback), and
+  // that NaN must not propagate unguarded into getEventDayDiff/formatRelativeDayOrDate
+  // (or formatShortEventDateTime, which calls getEventDayDiff internally) and throw in
+  // Intl formatting. Both variants must instead degrade to a blank date without crashing.
+  it('degrades to a blank date (no throw) when given an invalid startDate (standard variant)', () => {
+    render(
+      <EventCard eventName="Broken Date Card" startDate={new Date('not-a-real-date')} locale="en-US" />
+    );
+    expect(screen.getByText('Broken Date Card')).toBeInTheDocument();
+  });
+
+  it('degrades to a blank date (no throw) when given an invalid startDate (masonry variant)', () => {
+    render(
+      <EventCard eventName="Broken Date Card Masonry" startDate="not-a-real-date" variant="masonry" locale="en-US" />
+    );
+    expect(screen.getByText('Broken Date Card Masonry')).toBeInTheDocument();
+  });
+
   it('renders the guaranteed fields only (minimal render)', () => {
     render(<EventCard {...defaultProps} />);
     

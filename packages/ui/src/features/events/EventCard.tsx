@@ -155,8 +155,22 @@ export function EventCard({
   const hasTime = !!startTime;
 
   const dateObj = combineDateTime(startDate, startTime);
-  const dayDiff = getEventDayDiff(dateObj, activeTimezone);
-  const formattedDate = formatRelativeDayOrDate(activeLocale, activeTimezone, dateObj, defaultLabels, dayDiff);
+
+  // DW-070 (BUG-013): `combineDateTime`'s own isNaN guard only covers its internal
+  // date+time-combining fallback — a genuinely unusable `startDate` can still produce
+  // an Invalid Date (getTime() === NaN). NaN must never reach getEventDayDiff /
+  // formatRelativeDayOrDate (or formatShortEventDateTime, which calls getEventDayDiff
+  // internally) unguarded, or Intl formatting throws. Guard the downstream propagation
+  // once here and degrade gracefully to a blank date instead.
+  const dateIsValid = !isNaN(dateObj.getTime());
+
+  const dayDiff = dateIsValid ? getEventDayDiff(dateObj, activeTimezone) : NaN;
+  const formattedDate = dateIsValid
+    ? formatRelativeDayOrDate(activeLocale, activeTimezone, dateObj, defaultLabels, dayDiff)
+    : '';
+  const dateBoxText = dateIsValid
+    ? formatShortEventDateTime(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)
+    : '';
 
   const finalImageAlt = imageAlt || eventName;
 
@@ -292,7 +306,7 @@ export function EventCard({
             <div ref={dateBoxRef} className="shrink-0">
               <EventCardDateBox>
                 {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
-                {formatShortEventDateTime(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)}
+                {dateBoxText}
                 {tillBadgeText && (
                   <span className={TILL_BADGE_CLASS}>{tillBadgeText}</span>
                 )}
@@ -321,7 +335,7 @@ export function EventCard({
             {variant === 'masonry' && (
               <div className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground">
                 {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
-                {formatShortEventDateTime(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)}
+                {dateBoxText}
                 {tillBadgeText && (
                   <span className={TILL_BADGE_CLASS}>{tillBadgeText}</span>
                 )}
