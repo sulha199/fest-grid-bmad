@@ -301,7 +301,16 @@ development_status:
   epic-1-i1: in-progress
   1-i1a-extend-the-shared-event-card-primitive-to-own-thumbnail-sizing-and-fallback: review
   1-i1b-tie-the-favorite-icon-size-to-the-date-badge-token: review
-  1-i1c-replace-the-local-broken-image-placeholder-with-the-shared-fallback: ready-for-dev
+  # (dev-story 1.i1c: ready-for-dev -> review. Implemented — EventCard.tsx's broken-image
+  # else-branch now renders a reserved-blank `null` fallback (no placeholder text/icon,
+  # wrapper footprint unchanged => no reflow), imageFallbackAlt removed from EventCardLabels,
+  # 2 tests rewritten + 2 new masonry-variant sizing tests added. Verified: src/features/events
+  # 13 files / 229 tests green (incl. EventCardMediaPrimitives.test.tsx — no coupling), eslint
+  # 0 errors/0 warnings, tsc --noEmit clean for the changed files (only pre-existing baseUrl
+  # deprecation line remains). The ui package has no lint/build npm scripts, so the story's
+  # lint/build plan items ran via direct eslint + tsc --noEmit, same as 1.i1a/1.i1b. Depends on
+  # 1.i1a/1.i1b [both review, code merged: 7bf9926 / de9f3c6].)
+  1-i1c-replace-the-local-broken-image-placeholder-with-the-shared-fallback: review
   1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row: backlog
   1-i1e-adopt-the-primitive-into-the-masonry-default-state: backlog
   1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: backlog

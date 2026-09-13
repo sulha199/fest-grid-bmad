@@ -172,23 +172,55 @@ describe('EventCard', () => {
 
   it('handles image error fallback', () => {
     render(<EventCard {...defaultProps} imageUrl="http://example.com/bad-image.jpg" />);
-    
+
     const img = screen.getByRole('img', { name: 'Summer Music Festival' });
-    
+    const imgContainer = img.parentElement;
+
     // Simulate image load error
     fireEvent.error(img);
-    
-    // The image tag should be gone or replaced with fallback
+
+    // The image tag is removed and no placeholder text/icon renders instead
     expect(screen.queryByRole('img', { name: 'Summer Music Festival' })).not.toBeInTheDocument();
-    
-    // Fallback text or element should exist
-    expect(screen.getByText('No image available')).toBeInTheDocument();
+    expect(screen.queryByText('No image available')).not.toBeInTheDocument();
+
+    // No reflow: the wrapper div keeps its variant-appropriate footprint (standard => h-48)
+    expect(imgContainer).not.toBeNull();
+    expect(imgContainer).toHaveClass('h-48');
+    expect(imgContainer).toHaveClass('bg-muted');
   });
 
   it('renders no-imageUrl fallback immediately', () => {
-    render(<EventCard {...defaultProps} />);
-    // No imageUrl provided, should show fallback
-    expect(screen.getByText('No image available')).toBeInTheDocument();
+    const { container } = render(<EventCard {...defaultProps} />);
+    // No imageUrl provided: reserved blank slot, no placeholder text/icon, no img
+    expect(screen.queryByText('No image available')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    const wrapper = container.querySelector('.relative.w-full.bg-muted.overflow-hidden.h-48');
+    expect(wrapper).not.toBeNull();
+    expect(wrapper).toHaveClass('h-48');
+  });
+
+  it('renders a blank, correctly-sized fallback on masonry with prominentPoster=false', () => {
+    const { container } = render(<EventCard {...defaultProps} variant="masonry" />);
+    // No placeholder text/icon and no img
+    expect(screen.queryByText('No image available')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    // Wrapper div keeps its variant-appropriate sizing class (default aspect-[3/4])
+    const wrapper = container.querySelector('.relative.w-full.bg-muted.overflow-hidden');
+    expect(wrapper).not.toBeNull();
+    expect(wrapper).toHaveClass('aspect-[3/4]');
+    expect(wrapper).not.toHaveClass('aspect-[2/3]');
+  });
+
+  it('renders a blank, correctly-sized fallback on masonry with prominentPoster=true', () => {
+    const { container } = render(<EventCard {...defaultProps} variant="masonry" prominentPoster />);
+    // No placeholder text/icon and no img
+    expect(screen.queryByText('No image available')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    // Wrapper div keeps its variant-appropriate sizing class (prominent poster => aspect-[2/3])
+    const wrapper = container.querySelector('.relative.w-full.bg-muted.overflow-hidden');
+    expect(wrapper).not.toBeNull();
+    expect(wrapper).toHaveClass('aspect-[2/3]');
+    expect(wrapper).not.toHaveClass('aspect-[3/4]');
   });
 
   it('applies pending-removal visual state when pendingRemoval is true', () => {

@@ -66,7 +66,6 @@ export function EventCard({
   distanceKm,
 }: EventCardProps) {
   const defaultLabels = {
-    imageFallbackAlt: 'No image available',
     loading: 'Loading event details',
     favoriteToggle: 'Toggle favorite',
     priceFrom: 'From',
@@ -118,7 +117,6 @@ export function EventCard({
   const dayDiff = getEventDayDiff(dateObj, activeTimezone);
   const formattedDate = formatRelativeDayOrDate(activeLocale, activeTimezone, dateObj, defaultLabels, dayDiff);
 
-  const fallbackAlt = defaultLabels.imageFallbackAlt;
   const finalImageAlt = imageAlt || eventName;
 
   // AC14 — TILL sub-badge (masonry only): "till hh:mm" / bare "till" / no badge.
@@ -234,11 +232,7 @@ export function EventCard({
               onError={() => setImgError(true)}
               className="object-cover w-full h-full"
             />
-          ) : (
-            <div className="flex flex-col items-center justify-center text-muted-foreground">
-              <span className="text-sm font-medium">{fallbackAlt}</span>
-            </div>
-          )}
+          ) : null}
         </div>
 
         {variant === 'masonry' ? (

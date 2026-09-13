@@ -1,7 +1,6 @@
 import { MouseEventHandler } from 'react';
 
 export interface EventCardLabels {
-  imageFallbackAlt?: string;
   loading?: string;
   favoriteToggle?: string;
   /** Label shown before the starting price (e.g. "From"). Defaults to "From" if not provided. */

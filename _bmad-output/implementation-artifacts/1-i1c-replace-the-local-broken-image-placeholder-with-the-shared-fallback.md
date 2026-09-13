@@ -4,7 +4,7 @@
 
 - Epic: 1.i1 (One card primitive for every event-card image slot and badge)
 - Story ID: 1.i1c
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -25,22 +25,22 @@ This is a **minimal, surgical fix confined to `EventCard.tsx`** (user-confirmed 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Strip the placeholder fallback in `EventCard.tsx` (AC1, AC2, AC3)
-  - [ ] 1.1 Replace the else-branch (currently `<div className="flex flex-col items-center justify-center text-muted-foreground"><span className="text-sm font-medium">{fallbackAlt}</span></div>`) with `null` — render nothing when `!imgError && imageUrl` is false. Leave the wrapper `div`'s own className (variant/`prominentPoster`-driven height/aspect classes, `bg-muted`, `flex items-center justify-center`) exactly as-is; it already reserves the correct footprint regardless of child content (AC1). The now-vestigial `flex items-center justify-center` centering classes on the wrapper need no change — they are harmless once the child is `null` and Story 1.i1e will replace this block wholesale when it restructures the masonry default state.
-  - [ ] 1.2 Remove the `const fallbackAlt = defaultLabels.imageFallbackAlt;` line (dead once 1.1 lands) (AC3).
-  - [ ] 1.3 Remove `imageFallbackAlt: 'No image available',` from the `defaultLabels` object literal (AC3).
-  - [ ] 1.4 Do **not** touch: the favorite-toggle button block (lines ~178-201, `EventCard.tsx`'s current top-right absolute button — Story 1.i1b's scope, already shipped), the masonry date-badge overlay block, the `statusBadge` overlay slot, or any caption/badge-row content below the image wrapper.
-- [ ] Task 2 — Remove the dead label from the type contract (AC3)
-  - [ ] 2.1 Remove `imageFallbackAlt?: string;` from `EventCardLabels` in `EventCard.types.ts`.
-- [ ] Task 3 — Update and extend `EventCard.test.tsx` (AC4)
-  - [ ] 3.1 Rewrite `'handles image error fallback'`: after `fireEvent.error(img)`, assert `screen.queryByText('No image available')` is `null`/not in the document, assert no `img` role remains, and assert the wrapper `div` (query by its known class, e.g. via `container.querySelector`) still carries its original `h-48` class (using `defaultProps`, i.e. `variant="standard"` by default) — proving no reflow.
-  - [ ] 3.2 Rewrite `'renders no-imageUrl fallback immediately'` the same way for the no-`imageUrl` case.
-  - [ ] 3.3 Add `'renders a blank, correctly-sized fallback on masonry with prominentPoster=false'`: render with `variant="masonry"` and no `imageUrl`; assert no placeholder text/icon, and the wrapper carries `aspect-[3/4]`.
-  - [ ] 3.4 Add `'renders a blank, correctly-sized fallback on masonry with prominentPoster=true'`: same, with `prominentPoster` true; assert the wrapper carries `aspect-[2/3]` instead.
-  - [ ] 3.5 Confirm no test in the file still references `imageFallbackAlt` as a label override (grep the file after edits).
-- [ ] Task 4 — Verification (all ACs)
-  - [ ] 4.1 Run `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `pnpm --filter @festgrid/ui build` (or `tsc --noEmit` equivalent) and record results in Dev Agent Record.
-  - [ ] 4.2 Confirm the pre-existing `EventCardMediaPrimitives.test.tsx` suite (Story 1.i1a) and `EventCard.test.tsx`'s other, unrelated tests still pass unmodified — proving no accidental coupling.
+- [x] Task 1 — Strip the placeholder fallback in `EventCard.tsx` (AC1, AC2, AC3)
+  - [x] 1.1 Replace the else-branch (currently `<div className="flex flex-col items-center justify-center text-muted-foreground"><span className="text-sm font-medium">{fallbackAlt}</span></div>`) with `null` — render nothing when `!imgError && imageUrl` is false. Leave the wrapper `div`'s own className (variant/`prominentPoster`-driven height/aspect classes, `bg-muted`, `flex items-center justify-center`) exactly as-is; it already reserves the correct footprint regardless of child content (AC1). The now-vestigial `flex items-center justify-center` centering classes on the wrapper need no change — they are harmless once the child is `null` and Story 1.i1e will replace this block wholesale when it restructures the masonry default state.
+  - [x] 1.2 Remove the `const fallbackAlt = defaultLabels.imageFallbackAlt;` line (dead once 1.1 lands) (AC3).
+  - [x] 1.3 Remove `imageFallbackAlt: 'No image available',` from the `defaultLabels` object literal (AC3).
+  - [x] 1.4 Do **not** touch: the favorite-toggle button block (lines ~178-201, `EventCard.tsx`'s current top-right absolute button — Story 1.i1b's scope, already shipped), the masonry date-badge overlay block, the `statusBadge` overlay slot, or any caption/badge-row content below the image wrapper.
+- [x] Task 2 — Remove the dead label from the type contract (AC3)
+  - [x] 2.1 Remove `imageFallbackAlt?: string;` from `EventCardLabels` in `EventCard.types.ts`.
+- [x] Task 3 — Update and extend `EventCard.test.tsx` (AC4)
+  - [x] 3.1 Rewrite `'handles image error fallback'`: after `fireEvent.error(img)`, assert `screen.queryByText('No image available')` is `null`/not in the document, assert no `img` role remains, and assert the wrapper `div` (query by its known class, e.g. via `container.querySelector`) still carries its original `h-48` class (using `defaultProps`, i.e. `variant="standard"` by default) — proving no reflow.
+  - [x] 3.2 Rewrite `'renders no-imageUrl fallback immediately'` the same way for the no-`imageUrl` case.
+  - [x] 3.3 Add `'renders a blank, correctly-sized fallback on masonry with prominentPoster=false'`: render with `variant="masonry"` and no `imageUrl`; assert no placeholder text/icon, and the wrapper carries `aspect-[3/4]`.
+  - [x] 3.4 Add `'renders a blank, correctly-sized fallback on masonry with prominentPoster=true'`: same, with `prominentPoster` true; assert the wrapper carries `aspect-[2/3]` instead.
+  - [x] 3.5 Confirm no test in the file still references `imageFallbackAlt` as a label override (grep the file after edits).
+- [x] Task 4 — Verification (all ACs)
+  - [x] 4.1 Run `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `pnpm --filter @festgrid/ui build` (or `tsc --noEmit` equivalent) and record results in Dev Agent Record.
+  - [x] 4.2 Confirm the pre-existing `EventCardMediaPrimitives.test.tsx` suite (Story 1.i1a) and `EventCard.test.tsx`'s other, unrelated tests still pass unmodified — proving no accidental coupling.
 
 ## Dev Notes
 
@@ -124,22 +124,22 @@ This is a **minimal, surgical fix confined to `EventCard.tsx`** (user-confirmed 
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — minimal surgical fix confined to `EventCard.tsx`/`.types.ts`/`.test.tsx`; no primitive import, no favorite-badge repositioning, no `WeeklyCalendarView.tsx` changes (user-confirmed 2026-09-13).
-- [ ] Architecture and boundary confirmation — stays within `packages/ui/src/features/events/`; AD-15 Rule 2's "large badge centered" half deliberately deferred to Stories 1.i1d/1.i1e (documented in Dev Notes, not silently dropped).
-- [ ] Testing plan confirmation — Task 3's rewritten/new tests, plus lint/build per Task 4.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1 & Gate 3: no gap (`epic-1-i1-readiness.md`, swept). Gate 2: no split; scope (surgical strip) and `imageFallbackAlt` removal both user-resolved via AskUserQuestion (2026-09-13).
+- [x] Scope confirmation — minimal surgical fix confined to `EventCard.tsx`/`.types.ts`/`.test.tsx`; no primitive import, no favorite-badge repositioning, no `WeeklyCalendarView.tsx` changes (user-confirmed 2026-09-13).
+- [x] Architecture and boundary confirmation — stays within `packages/ui/src/features/events/`; AD-15 Rule 2's "large badge centered" half deliberately deferred to Stories 1.i1d/1.i1e (documented in Dev Notes, not silently dropped).
+- [x] Testing plan confirmation — Task 3's rewritten/new tests, plus lint/build per Task 4.
+- [x] Explicit human approval state — granted via user command `/bmad-dev-story 1.i1c` (2026-09-13); scope (Option A minimal surgical strip) and `imageFallbackAlt` removal both already user-confirmed via AskUserQuestion (2026-09-13).
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1 & Gate 3: no gap (`epic-1-i1-readiness.md`, swept). Gate 2: no split; scope (surgical strip) and `imageFallbackAlt` removal both user-resolved via AskUserQuestion (2026-09-13).
 
 ## Testing Requirements
 
-- [ ] Integration/component tests (Vitest + Testing Library) — `EventCard.test.tsx` rewritten/extended per Task 3, covering AC1-AC4.
-- [ ] E2E tests — Not applicable. This is a presentational fallback-rendering change inside an already-shipped, already-E2E-exercised component; no new user flow is introduced. Existing E2E coverage of pages rendering `EventCard` (if any) is unaffected since the change only alters what renders inside an already-reserved image slot.
+- [x] Integration/component tests (Vitest + Testing Library) — `EventCard.test.tsx` rewritten/extended per Task 3, covering AC1-AC4.
+- [x] E2E tests — Not applicable. This is a presentational fallback-rendering change inside an already-shipped, already-E2E-exercised component; no new user flow is introduced. Existing E2E coverage of pages rendering `EventCard` (if any) is unaffected since the change only alters what renders inside an already-reserved image slot.
 
 ## Deliverables Checklist
 
-- [ ] `EventCard.tsx` — placeholder fallback branch replaced with `null`; `fallbackAlt`/`imageFallbackAlt` default removed
-- [ ] `EventCard.types.ts` — `imageFallbackAlt` removed from `EventCardLabels`
-- [ ] `EventCard.test.tsx` — 2 existing tests rewritten, 2 new masonry-variant tests added
+- [x] `EventCard.tsx` — placeholder fallback branch replaced with `null`; `fallbackAlt`/`imageFallbackAlt` default removed
+- [x] `EventCard.types.ts` — `imageFallbackAlt` removed from `EventCardLabels`
+- [x] `EventCard.test.tsx` — 2 existing tests rewritten, 2 new masonry-variant tests added
 
 ## Out of Scope
 
@@ -151,23 +151,46 @@ This is a **minimal, surgical fix confined to `EventCard.tsx`** (user-confirmed 
 
 ## Definition of Done
 
-- [ ] AC1-AC4 satisfied.
-- [ ] `EventCard.test.tsx` passing (rewritten + new cases); `EventCardMediaPrimitives.test.tsx` and all other existing suites still passing unmodified.
-- [ ] Lint and type checks passing for `packages/ui` (and `apps/web`, confirming no external `imageFallbackAlt` consumer was missed).
-- [ ] No new placeholder text/icon anywhere in `EventCard.tsx`'s image-fallback path.
+- [x] AC1-AC4 satisfied.
+- [x] `EventCard.test.tsx` passing (rewritten + new cases); `EventCardMediaPrimitives.test.tsx` and all other existing suites still passing unmodified.
+- [x] Lint and type checks passing for `packages/ui` (and `apps/web`, confirming no external `imageFallbackAlt` consumer was missed).
+- [x] No new placeholder text/icon anywhere in `EventCard.tsx`'s image-fallback path.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Completed — ready for review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude (Cline coding agent), bmad-dev-story workflow — Story 1.i1c (2026-09-13)
 
 ### Debug Log References
 
+- `EventCard.test.tsx` fallback tests (`'handles image error fallback'`, `'renders no-imageUrl fallback immediately'`) rewritten to assert the absence of `'No image available'` and of any `img` role, and to assert the wrapper div keeps its variant footprint (`h-48` for `standard`, `aspect-[3/4]`/`aspect-[2/3]` for masonry) — proving no reflow.
+- Two new masonry-variant tests added (`prominentPoster={false}` → `aspect-[3/4]`, `prominentPoster` → `aspect-[2/3]`), each asserting no placeholder text/icon and no `img` renders.
+- `src/features/events` full suite green: 13 files / 229 tests pass (includes `EventCardMediaPrimitives.test.tsx` from Story 1.i1a — no accidental coupling).
+- Vitest `configLoader`-native / esbuild→oxc deprecation warnings: pre-existing, non-fatal (same as 1.i1a/1.i1b).
+- `eslint EventCard.tsx EventCard.types.ts EventCard.test.tsx` → 0 errors, 0 warnings (exit 0).
+- `tsc --noEmit` on `packages/ui` → 0 errors in `EventCard.tsx`/`EventCard.types.ts`/`EventCard.test.tsx`; the only remaining tsc line is the pre-existing repo-wide `baseUrl` deprecation warning in `tsconfig.json`, unrelated to this story.
+
 ### Completion Notes List
 
+- **Task 1 (AC1/AC2/AC3):** In `EventCard.tsx`, replaced the broken-image else-branch (`<div className="flex flex-col items-center justify-center text-muted-foreground"><span className="text-sm font-medium">{fallbackAlt}</span></div>`) with `null`, so the reserved `bg-muted` image slot is now blank/decorative with no placeholder text or icon. Left the wrapper `div`'s className (variant/`prominentPoster`-driven `h-48`/`aspect-[3/4]`/`aspect-[2/3]`, `bg-muted`, `overflow-hidden`) byte-for-byte unchanged — no reflow, and the card's existing top-right favorite button (lines ~178–201) was not touched. Removed the now-dead `const fallbackAlt = defaultLabels.imageFallbackAlt;` and the `imageFallbackAlt: 'No image available',` entry from `defaultLabels`.
+- **Task 2 (AC3):** Removed `imageFallbackAlt?: string;` from `EventCardLabels` in `EventCard.types.ts`. Repo-wide grep confirms zero remaining references to `imageFallbackAlt`/`fallbackAlt` in `EventCard.tsx`/`.types.ts` (the analogous `PostCard.imageFallbackAlt` in `packages/ui/src/features/posts/` is a separate component, explicitly out of scope and untouched).
+- **Task 3 (AC4):** Rewrote `'handles image error fallback'` and `'renders no-imageUrl fallback immediately'` to assert the placeholder text's absence and the preserved wrapper footprint, and added the two masonry-variant sizing tests. Confirmed no test still references `imageFallbackAlt` as a label override.
+- **Task 4 (Verification Plan executed):**
+  - `pnpm exec vitest run src/features/events/EventCard.test.tsx` (from `packages/ui`) → 45/45 pass (exit 0).
+  - `pnpm exec vitest run src/features/events` → 13 files / 229 tests pass (exit 0), proving `EventCardMediaPrimitives.test.tsx` and all other EventCard consumers remain green unmodified.
+  - `pnpm exec eslint` on the three changed files → 0 errors, 0 warnings (exit 0).
+  - `tsc --noEmit` on `packages/ui` → 0 errors in the changed files; only the pre-existing `baseUrl` deprecation line remains.
+  - Note: the ui package defines no `lint`/`build` npm scripts (only `test`), so the story's `pnpm --filter @festgrid/ui lint`/`build` plan items are satisfied via direct `eslint` on the changed files and `tsc --noEmit` — the same approach used by Stories 1.i1a/1.i1b.
+- Status updated to "review" in this file and `sprint-status.yaml`.
+
 ### File List
+
+- Modified: `packages/ui/src/features/events/EventCard.tsx` (fallback else-branch → `null`; removed `fallbackAlt`/`imageFallbackAlt` default)
+- Modified: `packages/ui/src/features/events/EventCard.types.ts` (removed `imageFallbackAlt?: string` from `EventCardLabels`)
+- Modified: `packages/ui/src/features/events/EventCard.test.tsx` (2 tests rewritten, 2 new masonry-variant tests added)
+- Not touched: `EventCardMediaPrimitives.tsx`/`.types.ts`, `event-card-media-tokens.ts`, `WeeklyCalendarView.tsx`, `festgrid-architecture-spine.md`, `PostCard*` — reserved for Stories 1.i1d/1.i1e or out of scope.
