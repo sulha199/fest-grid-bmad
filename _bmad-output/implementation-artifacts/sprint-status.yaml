@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-13T00:00:00Z # (dev-story 0.i7d: review, Pre-Coding Approval Gate approved by user [DD-1 option (a) pure-exposure-only confirmed, proceed on 0.i7a accepted gap at review], Tasks 1-5 complete, codegen + full web test 59/359 pass + lint clean, pre-existing apps/web tsc test-file errors flagged out of scope; create-story 0.i7d: ready-for-dev, Gate 1/3 cited from swept epic-0-i7 readiness report [this story is itself that sweep's Gate 3 output], Gate 2 re-run fresh (no gap), Design Decision 1 (0.i7z ratchet-wording mismatch, resolvers.ts vs apps/web .graphql files) escalated via AskUserQuestion with no response (proceeded with recommended pure-exposure-only default, flagged for confirmation before dev-story); earlier create-story 0.i7c: ready-for-dev, Gate 1/3 cited from swept epic-0-i7 readiness report, Gate 2 re-run fresh (no gap), gating-predicate Design Decision escalated via AskUserQuestion with no response (proceeded with recommended default); earlier dev-story 0.i7b review + create-story 0.i7b/0.i7a/3.7c/3.6l entries and sweeps as recorded previously)
+last_updated: 2026-09-13T00:00:00Z # (create-story 0.i7z: ready-for-dev, Gate 1/3 cited from swept epic-0-i7 readiness report, Gate 2 re-run fresh (no gap); audit of Stories 0.i7a-0.i7d's shipped tests found all 4 literal epics.md AC clauses already enforced by existing regression tests (geoapify-client.test.ts, select-best-candidate.test.ts + adapter.test.ts BUG-017 case, is-location-trustworthy.test.ts + mapper.test.ts, and 0.i7d's three .graphql.test.ts guards), all running under pnpm run test in ci.yml; Design Decision 1 (audit+traceability-only via AD-14 "Enforced by" citations + 8 test-file comments, vs. a duplicate test file, vs. a silent no-op) escalated via AskUserQuestion with no response (proceeded with recommended audit-only default, flagged for confirmation before dev-story); earlier dev-story 0.i7d: review, Pre-Coding Approval Gate approved by user [DD-1 option (a) pure-exposure-only confirmed, proceed on 0.i7a accepted gap at review], Tasks 1-5 complete, codegen + full web test 59/359 pass + lint clean, pre-existing apps/web tsc test-file errors flagged out of scope; earlier create-story 0.i7d/0.i7c/0.i7b/0.i7a/3.7c/3.6l entries and sweeps as recorded previously)
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -297,7 +297,7 @@ development_status:
   # updateUserLocation/previewLocation) so 0.i7z's widened ratchet has something
   # real to enforce. See epics.md Story 0.i7d note.
   0-i7d-expose-confidence-matchtype-through-the-remaining-geoapify-consumers: review
-  0-i7z-ratchet-no-consumer-trusts-a-geoapify-result-without-its-confidence-signal: backlog
+  0-i7z-ratchet-no-consumer-trusts-a-geoapify-result-without-its-confidence-signal: ready-for-dev
   epic-1-i1: backlog
   1-i1a-extend-the-shared-event-card-primitive-to-own-thumbnail-sizing-and-fallback: backlog
   1-i1b-tie-the-favorite-icon-size-to-the-date-badge-token: backlog
