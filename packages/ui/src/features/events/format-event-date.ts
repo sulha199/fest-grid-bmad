@@ -284,3 +284,45 @@ export function formatShortEventDateTime(
     }
   }
 }
+
+/**
+ * Computes the till/end text for the WeeklyCalendarView list-variant's date box
+ * (Story 1.i1d AC4). Unlike `EventCard`'s own TILL badge, this is keyed off the
+ * segment's *own calendar day* (`currentDayStr`), never off "now", so it always
+ * returns non-empty content:
+ *  - segment continues past this calendar day (`currentDayStr < effectiveEnd`)
+ *    → bare `tillLabel` ("till");
+ *  - segment is this day's last/only day and a distinct end time is known
+ *    → `"{tillLabel} {formatted end time}"` via `combineDateTime` + `formatEventTime`;
+ *  - every other case (explicit end date with no end time, or no end info at all)
+ *    → bare `tillLabel`.
+ */
+export function computeCalendarSegmentTillText(
+  locale: string,
+  timezone: string | undefined,
+  currentDayStr: string,
+  startDate: string,
+  endDate: string | null | undefined,
+  endTime: string | null | undefined,
+  tillLabel: string
+): string {
+  // Absent end date falls back to start date ("ends same day as start", matching
+  // EventCard AC14's shared convention).
+  const effectiveEnd = endDate ?? startDate;
+
+  // String comparison is safe here: both `currentDayStr` and `effectiveEnd` are
+  // YYYY-MM-DD ISO date strings.
+  if (currentDayStr < effectiveEnd) {
+    return tillLabel;
+  }
+
+  // This is the segment's last/only day.
+  if (endTime && effectiveEnd) {
+    const endDateTime = combineDateTime(effectiveEnd, endTime);
+    const formattedTime = formatEventTime(locale, timezone, endDateTime);
+    return `${tillLabel} ${formattedTime}`;
+  }
+
+  return tillLabel;
+}
+

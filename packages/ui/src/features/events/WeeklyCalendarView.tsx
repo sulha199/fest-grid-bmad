@@ -9,6 +9,8 @@ import type {
   WeeklyCalendarViewScheduleShape,
 } from './WeeklyCalendarView.types';
 import { getWeekStart, getWeekEnd } from '../../hooks';
+import { EventCardMediaSlot, EventCardDateBox } from './EventCardMediaPrimitives';
+import { computeCalendarSegmentTillText } from './format-event-date';
 
 // Design system styles from DESIGN.md
 const CALENDAR_BASE_CLASS = "border border-gray-200 rounded-lg";
@@ -191,9 +193,11 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   getWeekRange,
   onToday,
   onPrevWeek,
+  isPrevWeekDisabled = false,
   onNextWeek,
   onSelectWeek,
   onScheduleClick,
+  onFavoriteToggle,
   status,
   errorMessage,
   errorDetail,
@@ -228,6 +232,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     loadingText: 'Loading calendar view...',
     favoritedBadgeLabel: 'Favorited',
     addedToCalendarBadgeLabel: 'Added to calendar',
+    tillLabel: 'till',
+    favoriteToggleLabel: 'Toggle favorite',
     ...labels,
   };
 
@@ -522,8 +528,9 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className={NAV_BUTTON_CLASS}
+            className={`${NAV_BUTTON_CLASS} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100`}
             onClick={onPrevWeek}
+            disabled={isPrevWeekDisabled}
             aria-label={defaultLabels.prevWeekLabel}
           >
             <ChevronLeft className="w-4 h-4" />
@@ -592,6 +599,9 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                   locale={activeLocale}
                   timezone={activeTimezone}
                   onScheduleClick={onScheduleClick}
+                  onFavoriteToggle={onFavoriteToggle}
+                  favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
+                  tillLabel={defaultLabels.tillLabel}
                   onKeyDown={(e) => handleGridKeyDown(e, dayIdx, cardIdx)}
                   onFocus={() => setActiveCardCoords({ dayIdx, cardIdx })}
                   favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
@@ -650,6 +660,9 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                           handleClosePopover();
                           onScheduleClick(s);
                         }}
+                        onFavoriteToggle={onFavoriteToggle}
+                        favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
+                        tillLabel={defaultLabels.tillLabel}
                         favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
                         addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
                       />
@@ -699,6 +712,9 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                       locale={activeLocale}
                       timezone={activeTimezone}
                       onScheduleClick={onScheduleClick}
+                      onFavoriteToggle={onFavoriteToggle}
+                      favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
+                      tillLabel={defaultLabels.tillLabel}
                       variant="list"
                       currentDayStr={dateISO}
                       multiDaySegmentLabel={labels?.multiDaySegmentLabel}
@@ -724,6 +740,9 @@ interface CalendarCardProps<TSchedule> {
   locale: string;
   timezone: string | undefined;
   onScheduleClick: (schedule: TSchedule) => void;
+  onFavoriteToggle?: (schedule: TSchedule) => void;
+  favoriteToggleLabel?: string;
+  tillLabel?: string;
   onKeyDown?: (e: React.KeyboardEvent) => void;
   onFocus?: () => void;
   favoritedBadgeLabel?: string;
@@ -744,6 +763,9 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   locale,
   timezone,
   onScheduleClick,
+  onFavoriteToggle,
+  favoriteToggleLabel,
+  tillLabel,
   onKeyDown,
   onFocus,
   favoritedBadgeLabel,
@@ -843,12 +865,81 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
       : `Day ${dayNumber} of ${totalDays}`;
   }, [variant, isMultiDay, currentDayStr, schedule.eventStartDate, schedule.eventEndDate, multiDaySegmentLabel]);
 
+  // Task 3 (Story 1.i1d AC1/AC2/AC4/AC5/AC6/AC7): the `variant === 'list'` (Mobile
+  // Vertical Day List) render path restructured into a non-interactive chrome div
+  // containing a sibling (event-schedule-click button + EventCardMediaSlot), so the
+  // primitive's internal favorite-toggle <button> is never nested inside the
+  // schedule-click <button> (AC7, mirrors EventCard.tsx's article > button + RootTag).
+  // The `variant === 'grid'` path below is deliberately untouched (AC8).
+  if (variant === 'list') {
+    const tillText = computeCalendarSegmentTillText(
+      locale,
+      timezone,
+      currentDayStr || '',
+      schedule.eventStartDate,
+      schedule.eventEndDate,
+      schedule.eventEndTime,
+      tillLabel || 'till'
+    );
+
+    return (
+      <div className="relative w-full">
+        <div className={`${baseButtonClass} ${multiDayRoundingClass} w-full flex items-stretch gap-2`}>
+          <button
+            id={elementId}
+            type="button"
+            tabIndex={0}
+            className="min-w-0 flex-1 flex items-stretch gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:z-10 rounded-md"
+            onClick={() => onScheduleClick(schedule)}
+            onKeyDown={handleKeyDownLocal}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+          >
+            <EventCardDateBox>{tillText}</EventCardDateBox>
+            <span className="flex min-w-0 w-full flex-col text-left">
+              <span className="flex items-center gap-1 w-full truncate text-left">
+                {schedule.isFavorited && (
+                  <Heart className="w-3 h-3 text-rose-500 fill-rose-500 shrink-0 inline" aria-label={favoritedBadgeLabel || 'Favorited'} data-testid="heart-icon" />
+                )}
+                {schedule.isAddedToCalendar && (
+                  <CalendarPlus className="w-3 h-3 text-emerald-600 shrink-0 inline" aria-label={addedToCalendarBadgeLabel || 'Added to calendar'} data-testid="calendar-plus-icon" />
+                )}
+                <span className={`${weightClass} truncate block`}>{schedule.eventName}</span>
+              </span>
+              {schedule.favoriteCount !== undefined && schedule.favoriteCount > 0 && (
+                <span className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5" data-testid="favorite-count-line" aria-label="Favorites">
+                  {!schedule.isFavorited && <Heart className="w-2.5 h-2.5 text-rose-500 shrink-0 inline" aria-hidden="true" />}
+                  <span>{schedule.favoriteCount}</span>
+                </span>
+              )}
+              {isMultiDay && multiDayBadgeText && (
+                <span className="text-[10px] text-violet-600 flex items-center gap-1 mt-0.5" data-testid="multi-day-badge">
+                  <CalendarRange className="w-3 h-3 shrink-0 inline" aria-hidden="true" />
+                  <span>{multiDayBadgeText}</span>
+                </span>
+              )}
+            </span>
+          </button>
+          <EventCardMediaSlot
+            layout="fixed-square"
+            imageUrl={schedule.imageUrl}
+            imageAlt={schedule.eventName}
+            isFavorited={schedule.isFavorited}
+            favoriteCount={schedule.favoriteCount}
+            onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
+            labels={{ favoriteToggle: favoriteToggleLabel }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-full">
       <button
         id={elementId}
         type="button"
-        tabIndex={variant === 'list' ? 0 : (cardIdx >= 0 ? (isRovingActive ? 0 : -1) : 0)}
+        tabIndex={cardIdx >= 0 ? (isRovingActive ? 0 : -1) : 0}
         className={`${baseButtonClass} ${multiDayRoundingClass} w-full block`}
         onClick={() => onScheduleClick(schedule)}
         onPointerEnter={handlePointerEnter}
@@ -868,21 +959,10 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
             )}
             <span className={`${weightClass} truncate block`}>{schedule.eventName}</span>
           </span>
-          {variant === 'list' && (
-            <span className="text-[11px] text-gray-500 mt-0.5" data-testid="time-range-inline">
-              {tooltipText}
-            </span>
-          )}
           {schedule.favoriteCount !== undefined && schedule.favoriteCount > 0 && (
             <span className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5" data-testid="favorite-count-line" aria-label="Favorites">
               {!schedule.isFavorited && <Heart className="w-2.5 h-2.5 text-rose-500 shrink-0 inline" aria-hidden="true" />}
               <span>{schedule.favoriteCount}</span>
-            </span>
-          )}
-          {variant === 'list' && isMultiDay && multiDayBadgeText && (
-            <span className="text-[10px] text-violet-600 flex items-center gap-1 mt-0.5" data-testid="multi-day-badge">
-              <CalendarRange className="w-3 h-3 shrink-0 inline" aria-hidden="true" />
-              <span>{multiDayBadgeText}</span>
             </span>
           )}
         </span>

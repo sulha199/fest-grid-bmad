@@ -260,4 +260,27 @@ describe('CalendarView', () => {
       expect.stringContaining('/events/weekly-jazz-jam?fromList=true&q=jazz&types=MUSIC')
     );
   });
+
+  it('threads onFavoriteToggle through to the thumbnail favorite badge with the schedule eventId', async () => {
+    const onFavoriteToggle = vi.fn();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NuqsTestingAdapter>
+          <CalendarView q="jazz" types={['MUSIC']} categories={[]} onFavoriteToggle={onFavoriteToggle} />
+        </NuqsTestingAdapter>
+      </QueryClientProvider>
+    );
+
+    await screen.findByText('Weekly Jazz Jam');
+
+    // No cleanup() runs between tests in this file, so multiple renders accumulate;
+    // scope to the most recent mobile view (matching the file's queryAllByTestId pattern).
+    const mobileViews = rtlScreen.queryAllByTestId('mobile-calendar-view');
+    const mobileView = mobileViews[mobileViews.length - 1];
+    const favButton = within(mobileView).getByRole('button', { name: 'Toggle favorite' });
+    fireEvent.click(favButton);
+
+    expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
+    expect(onFavoriteToggle).toHaveBeenCalledWith('evt-1');
+  });
 });

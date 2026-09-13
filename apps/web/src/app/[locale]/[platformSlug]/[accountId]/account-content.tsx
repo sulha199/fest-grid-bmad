@@ -304,6 +304,13 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
                 types={types}
                 categories={categories}
                 profile={profile}
+                onFavoriteToggle={(eventId) => {
+                  if (!session) {
+                    setIsLoginModalOpen(true);
+                  } else {
+                    toggleFavorite({ eventId });
+                  }
+                }}
               />
             ),
           },

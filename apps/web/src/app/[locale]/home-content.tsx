@@ -275,7 +275,13 @@ export function HomeContent() {
             id: 'calendar',
             label: t('viewSwitcherCalendarLabel'),
             icon: <CalendarDays className="w-4 h-4" />,
-            content: <CalendarView q={q} types={types} categories={categories} nearby={resolvedNearby} />
+            content: <CalendarView q={q} types={types} categories={categories} nearby={resolvedNearby} onFavoriteToggle={(eventId) => {
+              if (!session) {
+                setIsLoginModalOpen(true);
+                return;
+              }
+              toggleFavorite({ eventId });
+            }} />
           }
         ]}
       />

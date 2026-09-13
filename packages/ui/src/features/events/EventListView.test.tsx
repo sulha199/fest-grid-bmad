@@ -368,7 +368,10 @@ describe('EventListView', () => {
       expect(durableCard?.querySelector('.aspect-\\[2\\/3\\]')).toBeInTheDocument();
       expect(durableCard?.querySelector('.aspect-\\[3\\/4\\]')).not.toBeInTheDocument();
 
-      expect(notDurableCard?.querySelector('.aspect-\\[3\\/4\\]')).toBeInTheDocument();
+      // prominentPoster=false now uses the top_row_default flex-fill thumbnail slot,
+      // not an aspect-ratio poster wrapper (Story 1.i1e AC1/AC2).
+      expect(notDurableCard?.querySelector('[data-event-card-media-slot]')).toBeInTheDocument();
+      expect(notDurableCard?.querySelector('.aspect-\\[3\\/4\\]')).not.toBeInTheDocument();
       expect(notDurableCard?.querySelector('.aspect-\\[2\\/3\\]')).not.toBeInTheDocument();
 
       // No skeleton-state equivalent is expected -- skeleton cards render no real event data.
