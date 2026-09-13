@@ -514,12 +514,12 @@ items:
      note: "DW-021, DW-022, DW-023. Leftover single-child flex wrapper divs, unused layoutSwitcher* locale keys, and stale ?layout= params the app now silently ignores."}
 
   FIND-014:
-    {type: finding, status: backlog, created: 2026-09-05,
+    {type: finding, status: done, created: 2026-09-05,
      impact: latent, effort: s,
      title: "Onboarding/settings dialogs only read the first GraphQL error, with inconsistent handling",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [web:onboarding, web:settings],
-     note: "DW-028, DW-029, DW-030 (absorbs duplicate DW-036, same first-error-only pattern). Inconsistent catch(err: any) typing, an unguarded dynamic import('sonner') inside a catch block, and err.response.errors?.[0] silently dropping further GraphQL errors."}
+     note: "DW-028, DW-029, DW-030 (absorbs duplicate DW-036, same first-error-only pattern). Inconsistent catch(err: any) typing, an unguarded dynamic import('sonner') inside a catch block, and err.response.errors?.[0] silently dropping further GraphQL errors. FIXED 2026-09-14 (bmad-quick-dev, commit 89c6b4e): normalized the two createApiKey call sites — onboarding-api-key-step.tsx and settings/account/api-key-form-dialog.tsx — to a consistent, properly-typed approach: onboarding's `catch (err: any)` is now bare `catch (err)` (DW-028) and both catch blocks extract EVERY non-empty GraphQL error message off `err.response?.errors` (DW-036) and join them (`messages.join('; ')`) instead of reading only `errors?.[0]` (DW-030), falling back to the generic i18n error toast only when there are no usable messages. api-key-form-dialog.tsx's unguarded dynamic `await import(\"sonner\")` inside its catch/success blocks (DW-029) is replaced with the codebase-wide static `import { toast } from \"sonner\"` used everywhere else (e.g. subscribe-account-dialog.tsx). Added multi-error regression tests to both onboarding-api-key-step.test.tsx and api-keys-content.test.tsx asserting a two-message ClientError surfaces as 'FIRST_ERROR; SECOND_ERROR'. Onboarding subscribe/notification steps left untouched (out of this row's scope — the DW records name only the two createApiKey sites). Verified via targeted vitest (13 tests pass) and next lint (no errors) on the changed files."}
 
   FIND-015:
     {type: finding, status: backlog, created: 2026-09-05,
