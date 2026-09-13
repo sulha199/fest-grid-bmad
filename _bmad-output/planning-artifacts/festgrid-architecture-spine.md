@@ -388,6 +388,48 @@ This document defines the core architectural invariants for the FestDaily applic
           integration case.
 
 ---
+### AD-15: Event Card Media Primitive
+
+*   **Binds:** Every event-card image/media slot and favorite badge across the shared `event_card_*`
+    primitive (`packages/ui/src/features/events/EventCardMediaPrimitives.tsx` — `EventCardMediaSlot`,
+    `EventCardFavoriteBadge`, `EventCardDateBox`) and the consumers that adopt it: Story 1.i1b re-points
+    `EventCard.tsx`'s existing corner-heart at the shared scale token, 1.i1c replaces its broken-image
+    fallback, 1.i1d/1.i1e adopt the primitive into `WeeklyCalendarView`'s compact row and `EventCard`'s
+    masonry default state. Introduced by Story 1.i1a (build-only — the primitive ships dark, tested but
+    not wired in); the CI-enforced consumer ratchet is Story 1.i1z, which enforces rather than introduces
+    this rule.
+*   **Prevents:** Each surface re-deciding image-slot sizing and fallback locally (the exact "every
+    surface re-decides" problem Epic 1.i1 exists to fix); the media slot's dimensions depending on the
+    image's natural size so a loaded/failed image reflows the card (FIND-023); an icon-to-date-badge
+    scale that silently diverges between the large fallback badge and the small corner badge (BUG-023).
+*   **Rule:**
+    1.  **Slot dimensions come from the surrounding chrome, never the image.** The media slot renders at a
+        footprint fixed by its layout — masonry `flex-fill` matches a sibling date box's own height via the
+        row's `items-stretch` (`flex-1 h-full min-w-0`); calendar-compact is a fixed `w-16 h-16 shrink-0` —
+        so nothing shifts when the image loads or fails.
+        - **Enforced by:** `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx` AC1
+          (`flex-fill`/`fixed-square` className-shape assertions). (Story 1.i1a; ratchet = Story 1.i1z.)
+    2.  **Fallback is reserved-blank, not a placeholder.** A missing/errored image renders zero content in
+        the reserved slot — no icon, no filler, no "No image available" text — keeping the exact AC1
+        footprint. Only the large favorite badge (rule 3) renders, centered in the slot's place.
+        - **Enforced by:** the same test file's AC3 suite (blank-reserved assertions + `onError` switch).
+    3.  **One shared icon-scale token family, CSS-custom-property driven.** Both badge scales derive their
+        icon size from a single exported ratio family keyed off the date box's `text-xs` (12px) via
+        `calc(var(--event-card-badge-font-size,0.75rem) * <ratio>)` — the mechanism that works because the
+        date box and badge are DOM *siblings* (plain `em` inheritance only flows down a subtree). `large`
+        is calibrated to DESIGN.md's explicit 24px target (ratio 2); `default` is a distinct smaller ratio
+        (5/3 → 20px, matching EventCard's current corner heart so 1.i1b reads as a proportion fix). No
+        consumer computes pixels; nothing hardcodes a fixed pixel `w-*`/`h-*` class on either variant.
+        - **Enforced by:** the same test file's AC2 suite (ratio values + distinct computed sizes).
+    4.  **The favorite badge is always one live control, at a real tap target.** Both scales render as a
+        single focusable favorite-toggle `<button>` sharing one accessible name/role — never a decorative
+        label, never an extra independent focus stop. The `large` fallback variant keeps a `min-h-11
+        min-w-11` (≥44px) tap target per `components.nav.item_hit_area`'s convention and
+        EXPERIENCE.md's reachable-control rule.
+        - **Enforced by:** the same test file's AC4 suite (single-focusable + min hit area).
+
+---
+
 
 
 ## Related Documents
