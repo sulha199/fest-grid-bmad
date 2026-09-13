@@ -554,12 +554,12 @@ items:
      note: "DW-074, DW-075, DW-076, DW-077, DW-078, DW-083, DW-084, DW-085, DW-086. No production widgets exist yet, so all latent: missing timezone handling, a hardcoded 90-day fallback window, an epoch-fallback trick, no offsetAmount bounds, an unvalidated 'as any' cast on Widget.filters, no pagination/quota on two mutations, unmapped DB exceptions, and a caveat-joining blemish in the summary renderer."}
 
   FIND-019:
-    {type: finding, status: backlog, created: 2026-09-05,
+    {type: finding, status: done, created: 2026-09-05,
      impact: internal, effort: s,
      title: "ModeratorToolsContent test has no Accounts-tab coverage and an inaccurate test name",
      ref: [implementation-artifacts/deferred-work.md],
      touches: [web:moderation],
-     note: "Deferred from: moderator-tools-test-missing-message (2026-09-05). 2 findings."}
+     note: "Deferred from: moderator-tools-test-missing-message (2026-09-05). 2 findings. FIXED 2026-09-14 (bmad-quick-dev, commit 3af8d50): mocked `./moderator-accounts-content` in moderator-tools-content.test.tsx the same way its sibling tab content components are already mocked (removing the inconsistent unmocked third tab), and added real assertions for the Accounts tab: its trigger renders and is labeled correctly (getByRole('tab', { name: /accounts/i })), it is not mounted by default, and it mounts `ModeratorAccountsContent` on tab-switch along with the URL-param update. Also renamed the `it(...)` description from the inaccurate \"renders both tab triggers...\" to \"renders all three tab triggers, matches active tab, and updates URL on tab switch\". Verified via targeted vitest (moderator/tools directory: 26 tests pass), lint clean (only two pre-existing any-type warnings)."}
 
   FIND-020:
     {type: finding, status: backlog, created: 2026-09-05,
