@@ -327,7 +327,13 @@ development_status:
   # pre-existing unrelated errors + tsconfig baseUrl deprecation remain out of scope, same
   # precedent as 1.i1a/1.i1c/1.i1d]. Depends on 1.i1a/1.i1c [merged].)
   1-i1e-adopt-the-primitive-into-the-masonry-default-state: review
-  1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: ready-for-dev
+  # (dev-story 1.i1z: ready-for-dev -> review. Implemented — audit + traceability only per user-resolved
+  # Design Decisions 1 & 2. AC 1-3 re-confirmed already-enforced by existing tests; AC 4 delivered as
+  # AD-15 Rules 1/2 "Enforced by" citations + narrowed-scope sentence; AC 5 delivered as 5 ratchet-marking
+  # comments across EventCardMediaPrimitives.test.tsx (2), EventCard.test.tsx (2), WeeklyCalendarView.test.tsx (3).
+  # Verified: 3 touched files 103 tests green, full packages/ui 48 files / 465 tests green, eslint 0 errors,
+  # ci.yml already covers packages/ui — no CI change. No new test/production code. Depends on 1.i1a/1.i1c/1.i1d/1.i1e [all review].)
+  1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: review
   epic-1: in-progress
   1-1-create-initial-database-tables: done
   1-2-seed-database-with-mock-data: done

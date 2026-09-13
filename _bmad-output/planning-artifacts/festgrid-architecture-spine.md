@@ -397,7 +397,14 @@ This document defines the core architectural invariants for the FestDaily applic
     fallback, 1.i1d/1.i1e adopt the primitive into `WeeklyCalendarView`'s compact row and `EventCard`'s
     masonry default state. Introduced by Story 1.i1a (build-only — the primitive ships dark, tested but
     not wired in); the CI-enforced consumer ratchet is Story 1.i1z, which enforces rather than introduces
-    this rule.
+    this rule. That ratchet's scope is narrowed to the primitive itself plus its two adopting consumers —
+    `EventCard.tsx`'s masonry `prominentPoster=false` (default) branch and `WeeklyCalendarView.tsx`'s
+    `CalendarCard` `variant='list'` branch. `EventCard.tsx`'s `variant="standard"` and masonry
+    `prominentPoster=true` branches, and `CalendarCard`'s `variant='grid'` path, are explicitly excluded:
+    Stories 1.i1c/1.i1d deliberately left those branches on their local sizing by user-confirmed scope
+    decision, and the 2026-09-11 epic-formation checkpoint accepted that Epic 1.i1's surfaces need not be
+    fully cross-surface consistent. The ratchet is fulfilled by citation + comment-marking (the specific
+    tests named in Rules 1–2 below carry Story 1.i1z ratchet comments), not by a new duplicate test suite.
 *   **Prevents:** Each surface re-deciding image-slot sizing and fallback locally (the exact "every
     surface re-decides" problem Epic 1.i1 exists to fix); the media slot's dimensions depending on the
     image's natural size so a loaded/failed image reflows the card (FIND-023); an icon-to-date-badge
@@ -408,11 +415,19 @@ This document defines the core architectural invariants for the FestDaily applic
         row's `items-stretch` (`flex-1 h-full min-w-0`); calendar-compact is a fixed `w-16 h-16 shrink-0` —
         so nothing shifts when the image loads or fails.
         - **Enforced by:** `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx` AC1
-          (`flex-fill`/`fixed-square` className-shape assertions). (Story 1.i1a; ratchet = Story 1.i1z.)
+          (`flex-fill`/`fixed-square` className-shape assertions) — the primitive's own shape half of the
+          proof (Story 1.i1a; ratchet = Story 1.i1z) — plus the two adopting consumers' own tests:
+          `EventCard.test.tsx`'s `renders a blank, flex-fill fallback on masonry default (prominentPoster=false, top_row_default)`
+          and `WeeklyCalendarView.test.tsx`'s `renders the thumbnail image and its favorite badge when imageUrl is present (AC1)`.
     2.  **Fallback is reserved-blank, not a placeholder.** A missing/errored image renders zero content in
         the reserved slot — no icon, no filler, no "No image available" text — keeping the exact AC1
         footprint. Only the large favorite badge (rule 3) renders, centered in the slot's place.
-        - **Enforced by:** the same test file's AC3 suite (blank-reserved assertions + `onError` switch).
+        - **Enforced by:** the same test file's AC3 suite (blank-reserved assertions + `onError` switch),
+          plus the two consumers' reserved-blank tests: `EventCard.test.tsx`'s
+          `renders a blank, flex-fill fallback on masonry default (prominentPoster=false, top_row_default)` and
+          `renders a blank, correctly-sized fallback on masonry with prominentPoster=true`, and
+          `WeeklyCalendarView.test.tsx`'s `renders the reserved-blank fallback with a large centered favorite badge when imageUrl is absent (AC2)`
+          and `switches to the reserved-blank fallback when the image onError fires (AC2)`.
     3.  **One shared icon-scale token family, CSS-custom-property driven.** Both badge scales derive their
         icon size from a single exported ratio family keyed off the date box's `text-xs` (12px) via
         `calc(var(--event-card-badge-font-size,0.75rem) * <ratio>)` — the mechanism that works because the

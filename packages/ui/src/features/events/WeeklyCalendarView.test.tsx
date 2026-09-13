@@ -753,6 +753,9 @@ describe('WeeklyCalendarView', () => {
       expect(favLine).toHaveAttribute('aria-label', 'Favorites');
     });
 
+    // Story 1.i1z CI ratchet — AC1 for the calendar compact-row surface: this test fails if
+    // `CalendarCard`'s `variant='list'` branch reverts to local hardcoded sizing instead of the
+    // `event_card_*` primitive. Part of Story 1.i1z.
     it('renders the thumbnail image and its favorite badge when imageUrl is present (AC1)', () => {
       const onFavoriteToggle = vi.fn();
       const schedule = [
@@ -789,6 +792,8 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
     });
 
+    // Story 1.i1z CI ratchet — AC2/AC3 for the calendar compact-row surface: this test proves the
+    // reserved-blank footprint with no reflow and no placeholder when `imageUrl` is absent. Part of Story 1.i1z.
     it('renders the reserved-blank fallback with a large centered favorite badge when imageUrl is absent (AC2)', () => {
       const onFavoriteToggle = vi.fn();
       const schedule = [
@@ -819,6 +824,8 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
     });
 
+    // Story 1.i1z CI ratchet — AC2/AC3 for the calendar compact-row surface: this test proves the
+    // reserved-blank footprint with no reflow when the image `onError` fires. Part of Story 1.i1z.
     it('switches to the reserved-blank fallback when the image onError fires (AC2)', () => {
       const onFavoriteToggle = vi.fn();
       const schedule = [

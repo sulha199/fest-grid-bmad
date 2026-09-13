@@ -1,5 +1,5 @@
 ---
-baseline_commit: fe877f0726d31ad5e1c756aad7cbbd90d654fa5b
+baseline_commit: 44fec2522f39cfbe7138a6b3045aa98705270847
 ---
 
 # Story 1.i1z: Ratchet — no card surface sizes or falls back locally
@@ -8,7 +8,7 @@ baseline_commit: fe877f0726d31ad5e1c756aad7cbbd90d654fa5b
 
 - Epic: 1.i1 (One card primitive for every event-card image slot and badge)
 - Story ID: 1.i1z
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -28,34 +28,34 @@ so that a fifth card surface cannot reintroduce its own image sizing or its own 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Re-confirm AC1 coverage (narrowed scope) by direct read (AC: #1)
-  - [ ] Subtask 1.1: Re-read `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx`'s `describe('EventCardMediaSlot - AC1 ...')` block (lines 19–44) and confirm its `flex-fill`→`flex-1 h-full min-w-0` / `fixed-square`→`w-16 h-16 shrink-0` className-shape assertions would fail if the primitive's own layout classes regressed.
-  - [ ] Subtask 1.2: Re-read `EventCard.test.tsx`'s `'renders a blank, flex-fill fallback on masonry default (prominentPoster=false, top_row_default)'` test (~line 202) and confirm its `[data-event-card-media-slot]`/`[data-event-card-date-box]` presence + class assertions, plus the `.aspect-\[3\/4\]` absence assertion, would fail if `EventCard.tsx`'s masonry-default branch reverted to local hardcoded sizing instead of the primitive.
-  - [ ] Subtask 1.3: Re-read `WeeklyCalendarView.test.tsx`'s `'renders the thumbnail image and its favorite badge when imageUrl is present (AC1)'` test (~line 756) and confirm its `[data-event-card-media-slot]` presence assertion would fail if `CalendarCard`'s `variant='list'` branch reverted to local hardcoded sizing.
-  - [ ] Subtask 1.4: Confirm together (1.1 + 1.2, and 1.1 + 1.3) prove the narrowed AC1 invariant end-to-end for both in-scope consumers. No code change expected — verification-only; if a gap is found, add the missing assertion here rather than deferring.
-- [ ] Task 2: Re-confirm AC2 coverage by direct read (AC: #2)
-  - [ ] Subtask 2.1: Re-read `EventCard.test.tsx`'s 4 existing `queryByText('No image available')` absence assertions (~lines 184, 195, 205, 221 — covering `standard` with an errored image, `standard` with no `imageUrl`, masonry-default, and masonry-prominent) and confirm each would fail if placeholder text were reintroduced in any of those 4 states.
-  - [ ] Subtask 2.2: Re-read `WeeklyCalendarView.test.tsx`'s calendar-list fallback tests (~lines 792, 822) and confirm neither renders nor could silently regress into placeholder text (the component has never had a text-fallback branch — it was built directly against the primitive by Story 1.i1d).
-  - [ ] Subtask 2.3: Confirm `CalendarCard`'s `variant='grid'` path renders no image/thumbnail at all (re-read `WeeklyCalendarView.tsx` lines ~935–982) — no image-fallback branch exists there, so AC2 has nothing to enforce on that path.
-  - [ ] Subtask 2.4: Confirm `EventImage.tsx`'s `ImageIcon` fallback (lines 96–101) is out of AC2's scope per the epic readiness report's disambiguation note (a different, non-card component) — no action needed, documented in Dev Notes.
-- [ ] Task 3: Re-confirm AC3 coverage by direct read (AC: #3)
-  - [ ] Subtask 3.1: Re-read `EventCard.test.tsx`'s `'renders a blank, flex-fill fallback on masonry default...'` (~line 202) and `'renders a blank, correctly-sized fallback on masonry with prominentPoster=true'` (~line 218) tests — confirm both assert the reserved footprint (`flex-1`/`h-full` or `aspect-[2/3]`) survives with no image/no placeholder, proving masonry-default and masonry-prominent.
-  - [ ] Subtask 3.2: Re-read `WeeklyCalendarView.test.tsx`'s `'renders the reserved-blank fallback with a large centered favorite badge when imageUrl is absent (AC2)'` (~line 792) and `'switches to the reserved-blank fallback when the image onError fires (AC2)'` (~line 822) tests — confirm both prove the calendar-list row's reserved footprint with no reflow.
-  - [ ] Subtask 3.3: Confirm together these 4 tests satisfy AC3's "a test asserts every card surface" for all 3 named surfaces. No code change expected.
-- [ ] Task 4: Add "Enforced by" traceability to Architecture Spine AD-15 (AC: #4)
-  - [ ] Subtask 4.1: In `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, under AD-15's Rule 1 (~line 410–411), append a consumer-level citation: `EventCard.tsx`'s masonry-default test and `WeeklyCalendarView.tsx`'s AC1 thumbnail-present test, alongside the existing primitive-level citation.
-  - [ ] Subtask 4.2: Under AD-15's Rule 2 (~line 415), append citations to `EventCard.test.tsx`'s masonry-default and masonry-prominent reserved-blank tests, and `WeeklyCalendarView.test.tsx`'s two AC2 reserved-blank tests.
-  - [ ] Subtask 4.3: Update AD-15's "the CI-enforced consumer ratchet is Story 1.i1z" sentence (~line 399) to state: the ratchet's scope is narrowed to the primitive itself plus its two adopting consumers (masonry-default, calendar-list); `EventCard.tsx`'s `standard`/`prominentPoster=true` branches and `CalendarCard`'s `variant='grid'` path are explicitly excluded (cite Stories 1.i1c/1.i1d's own scope decisions and the epic-formation checkpoint); and the ratchet is fulfilled by citation + comment-marking (Task 5), not a new test suite.
-- [ ] Task 5: Mark the enforcing test files/blocks as part of the Story 1.i1z ratchet (AC: #5)
-  - [ ] Subtask 5.1: Add an inline comment directly above `EventCardMediaPrimitives.test.tsx`'s `describe('EventCardMediaSlot - AC1 ...', ...)` block identifying it as enforcing AD-15 Rule 1 / Story 1.i1z AC1 (the primitive's own shape half of the proof).
-  - [ ] Subtask 5.2: Add an inline comment directly above `EventCardMediaPrimitives.test.tsx`'s `describe('EventCardMediaSlot fallback - AC3 ...', ...)` block identifying it as enforcing AD-15 Rule 2 / Story 1.i1z AC2/AC3.
-  - [ ] Subtask 5.3: Add an inline comment directly above `EventCard.test.tsx`'s `'renders a blank, flex-fill fallback on masonry default...'` test (~line 202) identifying it as the Story 1.i1z AC1/AC3 ratchet for the masonry-default surface.
-  - [ ] Subtask 5.4: Add an inline comment directly above `EventCard.test.tsx`'s `'renders a blank, correctly-sized fallback on masonry with prominentPoster=true'` test (~line 218) identifying it as the Story 1.i1z AC2/AC3 ratchet for the masonry-prominent surface — note in the comment that this surface is intentionally excluded from AC1 (legacy, non-primitive sizing).
-  - [ ] Subtask 5.5: Add inline comments directly above `WeeklyCalendarView.test.tsx`'s 3 relevant tests (~lines 756, 792, 822, all inside `describe('Mobile Vertical List View (AC15)', ...)`) identifying them as the Story 1.i1z AC1/AC2/AC3 ratchet for the calendar compact-row surface.
-- [ ] Task 6: Verification (AC: all)
-  - [ ] Subtask 6.1: Run `pnpm --filter @festgrid/ui test` (or `vitest run` from `packages/ui`) and confirm all pre-existing tests in the 3 touched test files still pass unchanged — this story's only production-adjacent edits are comments, so zero behavioral difference is expected.
-  - [ ] Subtask 6.2: Run `pnpm --filter @festgrid/ui lint` and confirm no new lint errors from the added comments.
-  - [ ] Subtask 6.3: Confirm `.github/workflows/ci.yml`'s `ci` job's `Run tests` step (`pnpm run test`, i.e. `turbo run test --filter=!@festgrid/ai-dev-orchestrator`) already includes `packages/ui` in its scope (it does — not excluded by the `ai-dev-orchestrator` filter), so no CI workflow file change is needed for this story.
+- [x] Task 1: Re-confirm AC1 coverage (narrowed scope) by direct read (AC: #1)
+  - [x] Subtask 1.1: Re-read `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx`'s `describe('EventCardMediaSlot - AC1 ...')` block (lines 19–44) and confirm its `flex-fill`→`flex-1 h-full min-w-0` / `fixed-square`→`w-16 h-16 shrink-0` className-shape assertions would fail if the primitive's own layout classes regressed.
+  - [x] Subtask 1.2: Re-read `EventCard.test.tsx`'s `'renders a blank, flex-fill fallback on masonry default (prominentPoster=false, top_row_default)'` test (~line 202) and confirm its `[data-event-card-media-slot]`/`[data-event-card-date-box]` presence + class assertions, plus the `.aspect-\[3\/4\]` absence assertion, would fail if `EventCard.tsx`'s masonry-default branch reverted to local hardcoded sizing instead of the primitive.
+  - [x] Subtask 1.3: Re-read `WeeklyCalendarView.test.tsx`'s `'renders the thumbnail image and its favorite badge when imageUrl is present (AC1)'` test (~line 756) and confirm its `[data-event-card-media-slot]` presence assertion would fail if `CalendarCard`'s `variant='list'` branch reverted to local hardcoded sizing.
+  - [x] Subtask 1.4: Confirm together (1.1 + 1.2, and 1.1 + 1.3) prove the narrowed AC1 invariant end-to-end for both in-scope consumers. No code change expected — verification-only; if a gap is found, add the missing assertion here rather than deferring.
+- [x] Task 2: Re-confirm AC2 coverage by direct read (AC: #2)
+  - [x] Subtask 2.1: Re-read `EventCard.test.tsx`'s 4 existing `queryByText('No image available')` absence assertions (~lines 184, 195, 205, 221 — covering `standard` with an errored image, `standard` with no `imageUrl`, masonry-default, and masonry-prominent) and confirm each would fail if placeholder text were reintroduced in any of those 4 states.
+  - [x] Subtask 2.2: Re-read `WeeklyCalendarView.test.tsx`'s calendar-list fallback tests (~lines 792, 822) and confirm neither renders nor could silently regress into placeholder text (the component has never had a text-fallback branch — it was built directly against the primitive by Story 1.i1d).
+  - [x] Subtask 2.3: Confirm `CalendarCard`'s `variant='grid'` path renders no image/thumbnail at all (re-read `WeeklyCalendarView.tsx` lines ~935–982) — no image-fallback branch exists there, so AC2 has nothing to enforce on that path.
+  - [x] Subtask 2.4: Confirm `EventImage.tsx`'s `ImageIcon` fallback (lines 96–101) is out of AC2's scope per the epic readiness report's disambiguation note (a different, non-card component) — no action needed, documented in Dev Notes.
+- [x] Task 3: Re-confirm AC3 coverage by direct read (AC: #3)
+  - [x] Subtask 3.1: Re-read `EventCard.test.tsx`'s `'renders a blank, flex-fill fallback on masonry default...'` (~line 202) and `'renders a blank, correctly-sized fallback on masonry with prominentPoster=true'` (~line 218) tests — confirm both assert the reserved footprint (`flex-1`/`h-full` or `aspect-[2/3]`) survives with no image/no placeholder, proving masonry-default and masonry-prominent.
+  - [x] Subtask 3.2: Re-read `WeeklyCalendarView.test.tsx`'s `'renders the reserved-blank fallback with a large centered favorite badge when imageUrl is absent (AC2)'` (~line 792) and `'switches to the reserved-blank fallback when the image onError fires (AC2)'` (~line 822) tests — confirm both prove the calendar-list row's reserved footprint with no reflow.
+  - [x] Subtask 3.3: Confirm together these 4 tests satisfy AC3's "a test asserts every card surface" for all 3 named surfaces. No code change expected.
+- [x] Task 4: Add "Enforced by" traceability to Architecture Spine AD-15 (AC: #4)
+  - [x] Subtask 4.1: In `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, under AD-15's Rule 1 (~line 410–411), append a consumer-level citation: `EventCard.tsx`'s masonry-default test and `WeeklyCalendarView.tsx`'s AC1 thumbnail-present test, alongside the existing primitive-level citation.
+  - [x] Subtask 4.2: Under AD-15's Rule 2 (~line 415), append citations to `EventCard.test.tsx`'s masonry-default and masonry-prominent reserved-blank tests, and `WeeklyCalendarView.test.tsx`'s two AC2 reserved-blank tests.
+  - [x] Subtask 4.3: Update AD-15's "the CI-enforced consumer ratchet is Story 1.i1z" sentence (~line 399) to state: the ratchet's scope is narrowed to the primitive itself plus its two adopting consumers (masonry-default, calendar-list); `EventCard.tsx`'s `standard`/`prominentPoster=true` branches and `CalendarCard`'s `variant='grid'` path are explicitly excluded (cite Stories 1.i1c/1.i1d's own scope decisions and the epic-formation checkpoint); and the ratchet is fulfilled by citation + comment-marking (Task 5), not a new test suite.
+- [x] Task 5: Mark the enforcing test files/blocks as part of the Story 1.i1z ratchet (AC: #5)
+  - [x] Subtask 5.1: Add an inline comment directly above `EventCardMediaPrimitives.test.tsx`'s `describe('EventCardMediaSlot - AC1 ...', ...)` block identifying it as enforcing AD-15 Rule 1 / Story 1.i1z AC1 (the primitive's own shape half of the proof).
+  - [x] Subtask 5.2: Add an inline comment directly above `EventCardMediaPrimitives.test.tsx`'s `describe('EventCardMediaSlot fallback - AC3 ...', ...)` block identifying it as enforcing AD-15 Rule 2 / Story 1.i1z AC2/AC3.
+  - [x] Subtask 5.3: Add an inline comment directly above `EventCard.test.tsx`'s `'renders a blank, flex-fill fallback on masonry default...'` test (~line 202) identifying it as the Story 1.i1z AC1/AC3 ratchet for the masonry-default surface.
+  - [x] Subtask 5.4: Add an inline comment directly above `EventCard.test.tsx`'s `'renders a blank, correctly-sized fallback on masonry with prominentPoster=true'` test (~line 218) identifying it as the Story 1.i1z AC2/AC3 ratchet for the masonry-prominent surface — note in the comment that this surface is intentionally excluded from AC1 (legacy, non-primitive sizing).
+  - [x] Subtask 5.5: Add inline comments directly above `WeeklyCalendarView.test.tsx`'s 3 relevant tests (~lines 756, 792, 822, all inside `describe('Mobile Vertical List View (AC15)', ...)`) identifying them as the Story 1.i1z AC1/AC2/AC3 ratchet for the calendar compact-row surface.
+- [x] Task 6: Verification (AC: all)
+  - [x] Subtask 6.1: Run `pnpm --filter @festgrid/ui test` (or `vitest run` from `packages/ui`) and confirm all pre-existing tests in the 3 touched test files still pass unchanged — this story's only production-adjacent edits are comments, so zero behavioral difference is expected.
+  - [x] Subtask 6.2: Run `pnpm --filter @festgrid/ui lint` and confirm no new lint errors from the added comments.
+  - [x] Subtask 6.3: Confirm `.github/workflows/ci.yml`'s `ci` job's `Run tests` step (`pnpm run test`, i.e. `turbo run test --filter=!@festgrid/ai-dev-orchestrator`) already includes `packages/ui` in its scope (it does — not excluded by the `ai-dev-orchestrator` filter), so no CI workflow file change is needed for this story.
 
 ## Dev Notes
 
@@ -173,7 +173,7 @@ Explicitly **excluded**, and expected to remain on local/legacy patterns indefin
 - [x] **Design Decision 1 (sweep scope: narrow to 3 named surfaces vs. directory-wide-with-allowlist vs. split-out-a-migration-prerequisite) — explicit human approval GRANTED via `AskUserQuestion`, 2026-09-13.** User selected the narrow-scope option.
 - [x] **Design Decision 2 (enforcement mechanism: audit + traceability only vs. a new consolidated test file) — explicit human approval GRANTED via `AskUserQuestion`, 2026-09-13.** User selected audit + traceability only.
 - [x] **Gate 1/2/3 prerequisites confirmed done or gap accepted** — Gate 1/3 findings already resolved via the epic readiness sweep (no story-specific correction needed); Gate 2 fresh check found no gap. Depends-on Stories 1.i1a/1.i1c/1.i1d/1.i1e are all at `review` status in this worktree (code merged per git log) as of this story's creation.
-- [ ] **Explicit human approval to begin implementation** — **Default: pending approval**, per this workflow's convention (the `/bmad-dev-story` invocation is treated as the grant of approval to implement, matching Stories 0.i7z/1.i1e's precedent). Both Design Decisions above are already resolved; only the implementation-start gate itself remains pending.
+- [x] **Explicit human approval to begin implementation** — granted via this `/bmad-dev-story` invocation (matching Stories 0.i7z/1.i1e's precedent).
 
 ## Testing Requirements
 
@@ -185,11 +185,11 @@ Explicitly **excluded**, and expected to remain on local/legacy patterns indefin
 
 ## Deliverables Checklist
 
-- [ ] Architecture Spine AD-15 gains "Enforced by" citations for Rules 1–2, and its "CI-enforced consumer ratchet is Story 1.i1z" sentence is updated to state the narrowed scope and citation-based fulfillment.
-- [ ] `EventCardMediaPrimitives.test.tsx` carries 2 comments identifying its AC1/AC3 `describe` blocks as the Story 1.i1z ratchet.
-- [ ] `EventCard.test.tsx` carries 2 comments identifying its masonry-default/masonry-prominent fallback tests as the Story 1.i1z ratchet.
-- [ ] `WeeklyCalendarView.test.tsx` carries 3 comments identifying its calendar-list AC1/AC2 tests as the Story 1.i1z ratchet.
-- [ ] Full test suite (`packages/ui`) passes unchanged; lint clean.
+- [x] Architecture Spine AD-15 gains "Enforced by" citations for Rules 1–2, and its "CI-enforced consumer ratchet is Story 1.i1z" sentence is updated to state the narrowed scope and citation-based fulfillment.
+- [x] `EventCardMediaPrimitives.test.tsx` carries 2 comments identifying its AC1/AC3 `describe` blocks as the Story 1.i1z ratchet.
+- [x] `EventCard.test.tsx` carries 2 comments identifying its masonry-default/masonry-prominent fallback tests as the Story 1.i1z ratchet.
+- [x] `WeeklyCalendarView.test.tsx` carries 3 comments identifying its calendar-list AC1/AC2 tests as the Story 1.i1z ratchet.
+- [x] Full test suite (`packages/ui`) passes unchanged; lint clean.
 
 ## Out of Scope
 
@@ -201,33 +201,44 @@ Explicitly **excluded**, and expected to remain on local/legacy patterns indefin
 
 ## Definition of Done
 
-- [ ] AC 1–5 satisfied (AC 1–3 confirmed already-enforced by existing tests via Tasks 1–3; AC 4–5 delivered by Tasks 4–5).
-- [ ] Required tests passing — all 3 touched test files pass unchanged (Task 6).
-- [ ] Lint and type checks passing for `packages/ui` (the architecture-spine doc edit has no lint/type surface).
-- [ ] Story status updated to `review` in this file and in `sprint-status.yaml`.
+- [x] AC 1–5 satisfied (AC 1–3 confirmed already-enforced by existing tests via Tasks 1–3; AC 4–5 delivered by Tasks 4–5).
+- [x] Required tests passing — all 3 touched test files pass unchanged (Task 6).
+- [x] Lint and type checks passing for `packages/ui` (the architecture-spine doc edit has no lint/type surface).
+- [x] Story status updated to `review` in this file and in `sprint-status.yaml`.
 
 ## Completion Status
 
-Story created via `bmad-create-story` (2026-09-13) — not yet implemented. Both required design tradeoffs (sweep scope; enforcement mechanism) were escalated to and resolved by the user during creation, per this workflow's design-decision-escalation rule. Gate 1/3 cited from the swept `epic-1-i1-readiness.md`; Gate 2 run fresh (NO SPLIT). Status: **ready-for-dev**.
+Story created via `bmad-create-story` (2026-09-13) — implementation complete via `bmad-dev-story` (2026-09-13): Audit + traceability delivered per Design Decisions 1 & 2. AC 1–3 re-confirmed already-enforced by existing tests (Tasks 1–3); AC 4 delivered (AD-15 "Enforced by" citations + narrowed-scope sentence); AC 5 delivered (5 ratchet-marking comments across 3 test files). Verification: 3 touched test files green (103 tests), full `packages/ui` suite green (48 files / 465 tests), eslint 0 errors (11 pre-existing warnings in `WeeklyCalendarView.test.tsx`), CI workflow already runs `packages/ui`. Status: **review**.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_Not yet implemented — pending `bmad-dev-story`._
+Anthropic Claude (Cline autonomous coding agent), via `bmad-dev-story`.
 
 ### Debug Log References
 
-_Not yet implemented._
+- `packages/ui` full vitest run — 48 files / 465 tests passed (incl. the 3 touched files, 103 tests) after comment-only edits.
+- Direct `eslint` on the 3 touched test files — 0 errors (11 pre-existing warnings in `WeeklyCalendarView.test.tsx`, unrelated to this story's comments).
+- `.github/workflows/ci.yml` `ci` job — `Run tests` step (`pnpm run test` = `turbo run test --filter=!@festgrid/ai-dev-orchestrator`) already includes `@festgrid/ui`; no workflow change needed.
 
 ### Completion Notes List
 
-_Not yet implemented._
+- Fixed baseline (current HEAD `44fec25`) — story implemented and committed on top of the Story 1.i1z creation commit. This story is **documentation/traceability only** (Design Decision 2), so it adds no test logic and no production code.
+- **Tasks 1–3 (audit, verified by direct read):** narrowed AC1, full AC2, and AC3 are all already enforced by existing tests — `EventCardMediaPrimitives.test.tsx`'s AC1 (className-shape) & AC3 (blank-reserved + onError) suites; `EventCard.test.tsx`'s 4 "No image available" absence assertions + masonry-default (flex-fill/`[data-event-card-media-slot]`/`.aspect-[3/4]`-absence) & masonry-prominent (`aspect-[2/3]`) reserved-blank tests; `WeeklyCalendarView.test.tsx`'s AC1 thumbnail-present + two AC2 reserved-blank tests. Every named surface (primitive, masonry-default, masonry-prominent for AC2/AC3, calendar-list) is covered.
+- **Task 4 (AD-15):** appended consumer-level "Enforced by" citations to Rules 1 & 2 naming the exact consumer test files/test names, and rewrote the "CI-enforced consumer ratchet is Story 1.i1z" sentence to state the narrowed scope (primitive + masonry-default + calendar-list), the explicit exclusions (`standard`/`prominentPoster=true`, `variant='grid'`), and that the ratchet is fulfilled by citation + comment-marking, not a new test suite.
+- **Task 5 (comments):** added 2 comments to `EventCardMediaPrimitives.test.tsx`, 2 to `EventCard.test.tsx`, 3 to `WeeklyCalendarView.test.tsx`, each identifying the block as the Story 1.i1z ratchet for the relevant AC/surface.
+- **Task 6 (verification):** `pnpm exec vitest run` on the 3 touched files → 103 passed; full `packages/ui` suite → 48 files / 465 passed; `eslint` on the 3 touched files → 0 errors; CI workflow already covers `packages/ui`. All Verification Plan commands executed and confirmed clean.
 
 ### File List
 
-_Not yet implemented._
+- **Modified:** `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — AD-15 Rules 1 & 2 "Enforced by" citations + narrowed-scope "CI-enforced consumer ratchet" sentence (Task 4).
+- **Modified:** `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx` — 2 ratchet-marking comments above AC1 / AC3 `describe` blocks (Task 5.1–5.2).
+- **Modified:** `packages/ui/src/features/events/EventCard.test.tsx` — 2 ratchet-marking comments above masonry-default / masonry-prominent fallback tests (Task 5.3–5.4).
+- **Modified:** `packages/ui/src/features/events/WeeklyCalendarView.test.tsx` — 3 ratchet-marking comments above the calendar-list AC1/AC2 tests (Task 5.5).
+- **Not touched:** `EventCardMediaPrimitives.tsx`, `EventCard.tsx`, `EventCard.types.ts`, `WeeklyCalendarView.tsx`/`.types.ts`, `event-card-media-tokens.ts`, `EventImage.tsx`, `.github/workflows/ci.yml` — no production/CI code change in this story (Design Decision 2). No new files.
 
 ## Change Log
 
 - 2026-09-13: Story created via `bmad-create-story`. Epic 1.i1 readiness sweep cited (Gate 1/3, `swept: true`, `stories_covered` includes `1.i1z`); Gate 2 re-run fresh (no gap — verbatim subagent verdict recorded in Dev Notes). Two design tradeoffs escalated via `AskUserQuestion` and explicitly resolved by the user: (1) the repo-wide sweep's scope is narrowed to the primitive itself plus its two adopting consumers (masonry-default, calendar-list), excluding `EventCard.tsx`'s `standard`/`prominentPoster=true` branches and `CalendarCard`'s `variant='grid'` path, which were deliberately left un-migrated by Stories 1.i1c/1.i1d and which the epic-formation checkpoint already accepted as permissibly inconsistent; (2) given that narrowed scope, an audit found the invariant already fully proven by ~8 existing tests (mirroring Story 0.i7z's precedent), so the story's deliverable is audit + traceability only (AD-15 "Enforced by" citations + 5 test-block ratchet-marking comments), not a new duplicate test file.
+- 2026-09-13: Implemented via `bmad-dev-story` (`ready-for-dev` → `review`). Delivered exactly the audited audit + traceability scope: (a) AD-15 Rules 1 & 2 gained consumer-level "Enforced by" citations (exact test file paths + test names for `EventCard.test.tsx`'s masonry-default/masonry-prominent reserved-blank tests and `WeeklyCalendarView.test.tsx`'s AC1/AC2 tests), and the "CI-enforced consumer ratchet is Story 1.i1z" sentence now states the narrowed scope and citation+comment-based fulfillment; (b) 2 ratchet-marking comments added to `EventCardMediaPrimitives.test.tsx`, 2 to `EventCard.test.tsx`, 3 to `WeeklyCalendarView.test.tsx`. Verification executed (not assumed): 3 touched files → 103 tests passed; full `packages/ui` suite → 48 files / 465 tests passed; `eslint` on touched files → 0 errors (11 pre-existing warnings in `WeeklyCalendarView.test.tsx`); confirmed `ci.yml`'s `Run tests` step already includes `@festgrid/ui`, so no CI change. No production code or new tests added (Design Decision 2). Story status set to `review`.

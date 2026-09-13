@@ -16,6 +16,9 @@ function slotRoot(container: HTMLElement): HTMLElement {
   return el as HTMLElement;
 }
 
+// Story 1.i1z CI ratchet — AD-15 Rule 1 / AC1 (primitive's own shape half of the proof):
+// these className-shape assertions fail if the primitive's own layout classes regress.
+// This block is part of the Story 1.i1z ratchet; weakening/deleting it is a deliberate, visible act.
 describe('EventCardMediaSlot - AC1 (dimensions come from the surrounding chrome, never the image)', () => {
   afterEach(() => cleanup());
 
@@ -72,6 +75,9 @@ describe('EventCardFavoriteBadge - AC2 (icon size derives from the shared token,
   });
 });
 
+// Story 1.i1z CI ratchet — AD-15 Rule 2 / AC2+AC3: these blank-reserved + onError-switch assertions
+// fail if a placeholder icon/text or an unreserved (reflowing) fallback is reintroduced into the
+// primitive. This block is part of the Story 1.i1z ratchet.
 describe('EventCardMediaSlot fallback - AC3 (reserved blank, no placeholder icon/text)', () => {
   afterEach(() => cleanup());
 

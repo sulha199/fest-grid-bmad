@@ -199,6 +199,9 @@ describe('EventCard', () => {
     expect(wrapper).toHaveClass('h-48');
   });
 
+  // Story 1.i1z CI ratchet — AC1/AC3 for the masonry-default surface: this test fails if
+  // `EventCard.tsx`'s masonry `prominentPoster=false` branch reverts to local hardcoded sizing or a
+  // non-reserved fallback instead of routing through the `event_card_*` primitive. Part of Story 1.i1z.
   it('renders a blank, flex-fill fallback on masonry default (prominentPoster=false, top_row_default)', () => {
     const { container } = render(<EventCard {...defaultProps} variant="masonry" />);
     // Reserved-blank fallback: no placeholder text/icon and no img
@@ -215,6 +218,9 @@ describe('EventCard', () => {
     expect(container.querySelector('.aspect-\\[3\\/4\\]')).toBeNull();
   });
 
+  // Story 1.i1z CI ratchet — AC2/AC3 for the masonry-prominent surface: this test fails if a
+  // placeholder/icon or an unreserved (reflowing) fallback is reintroduced here. Note: this surface is
+  // intentionally EXCLUDED from AC1 (legacy, non-primitive `aspect-[2/3]` sizing per Story 1.i1c).
   it('renders a blank, correctly-sized fallback on masonry with prominentPoster=true', () => {
     const { container } = render(<EventCard {...defaultProps} variant="masonry" prominentPoster />);
     // No placeholder text/icon and no img
