@@ -401,12 +401,12 @@ items:
      note: "DW-034. Four onSuccess handlers in EventDetailWrapper.tsx read data.toggleFavorite/toggleCalendarAddition unguarded; confirmed pre-existing."}
 
   BUG-010:
-    {type: bug, status: backlog, created: 2026-09-05,
+    {type: bug, status: done, created: 2026-09-05,
      impact: user-visible, effort: s,
      title: "EventCard renders server-side with no app-wide timezone wired at the layout root",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [cross:i18n, pkg:ui],
-     note: "DW-045. useScopedTimezone plumbing exists but layout.tsx passes no real timeZone value, risking a server/browser hydration mismatch."}
+     note: "DW-045. useScopedTimezone plumbing exists but layout.tsx passes no real timeZone value, risking a server/browser hydration mismatch. FIXED 2026-09-14 (bmad-quick-dev, commit e138964): apps/web/src/app/[locale]/layout.tsx now passes a real, deterministic IANA timezone into the layout-root ScopedLocaleProvider via a new timezoneIntlMap that mirrors the existing localeIntlTagMap (en -> America/New_York, id -> Asia/Jakarta), wired as timezone={timezoneIntlMap[locale]} on the ScopedLocaleProvider. useScopedTimezone() (and everything downstream, e.g. EventCard's date/time formatting) now actually receives a value server-side, and because the value is a compile-time constant identical on server and browser it removes the prior hydration-mismatch risk where EventCard fell back to the runtime default timezone. Route-locale-derived app-wide fallback only — per-event LocationDetails.timezone on the event's location remains the intended per-event source for a future pass, overriding this default via an explicit EventCard timezone prop when wired. Verified: layout.tsx lint clean, and tsc reports no errors for that file (the repo's other tsc errors are pre-existing and confined to test/e2e/generated files, untouched by this change)."}
 
   BUG-011:
     {type: bug, status: backlog, created: 2026-09-05,
