@@ -2,6 +2,7 @@ import { GetEventBySlugQuery } from '@/generated/graphql';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from '@festgrid/ui';
 import { useTranslations } from 'next-intl';
 import { getPlatformSlug } from '@festgrid/domain/scraper';
+import { isLocationTrustworthy } from '@festgrid/domain/geolocation';
 
 export function useEventDetailViewLabels(): EventDetailViewLabels {
   const t = useTranslations('EventDetailsPage');
@@ -47,7 +48,7 @@ export function mapGraphQLEventToDetailViewProps(
 ): Omit<EventDetailViewProps, 'labels'> & { labels: EventDetailViewLabels } {
   const mappedSchedules: ScheduleDetail[] = (event.schedules || []).map((s) => {
     let mapUrl: string | null = null;
-    if (s.locationDetails?.coordinates) {
+    if (s.locationDetails?.coordinates && isLocationTrustworthy(s.locationDetails)) {
       const { lat, lng } = s.locationDetails.coordinates;
       mapUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
     } else if (s.location) {

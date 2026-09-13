@@ -97,6 +97,8 @@ query getEventBySlug($slug: String!) {
         placeId
         formattedAddress
         timezone
+        confidence
+        matchType
       }
       ticketPrice
       ticketUrl

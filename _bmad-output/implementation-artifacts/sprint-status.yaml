@@ -288,7 +288,7 @@ development_status:
   epic-0-i7: in-progress
   0-i7a-carry-confidence-and-country-bias-through-every-geoapify-response-mapper: review
   0-i7b-re-rank-sub-venue-matches-using-the-confidence-signal: review
-  0-i7c-gate-the-event-detail-map-link-on-location-confidence: ready-for-dev
+  0-i7c-gate-the-event-detail-map-link-on-location-confidence: review
   # added 2026-09-13 via bmad-epic-readiness-check (Gate 3): the epic's invariant is
   # unqualified ("no consumer..."), but the original 0.i7z ratchet only named 2 of 7
   # known resolveLocation() call sites. User confirmed via AskUserQuestion to widen
