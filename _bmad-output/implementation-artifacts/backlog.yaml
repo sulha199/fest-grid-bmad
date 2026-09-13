@@ -458,12 +458,12 @@ items:
      note: "DW-001, DW-003. The unfavorite/decrement path across all 4 patched favorite caches is untested; the overflow-anchor scroll-flicker fix has no Playwright spec since jsdom can't exercise CSS scroll anchoring."}
 
   FIND-007:
-    {type: finding, status: backlog, created: 2026-09-05,
+    {type: finding, status: documented, created: 2026-09-05,
      impact: internal, effort: s,
      title: "cline-cli hang saga: one root cause fixed and verified, later recurrences still unexplained",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [cross:process],
-     note: "DW-002, DW-004, DW-007 (chronological order is 007, then 004, then 002). DW-007's stale-hub-manifest fix was verified working at the time; DW-004's batch-10 and DW-002's batch-11 hangs are separate, later, still-unexplained recurrences."}
+     note: "DW-002, DW-004, DW-007 (chronological order is 007, then 004, then 002). DW-007's stale-hub-manifest fix was verified working at the time; DW-004's batch-10 and DW-002's batch-11 hangs are separate, later, still-unexplained recurrences. 2026-09-14 (bmad-quick-dev, 'documented'): record-consolidation half completed via docs/infrastructure/incidents/2026-09-01-cline-cli-hang-saga.md (commit 2c0aa58); later recurrences still unexplained, so no speculative fix attempted. The SDK act-path runner already has an idle watchdog + logging; CLI-path --timeout gap and a hang-detection heartbeat are recorded there for the next recurrence, deliberately not wired into live mailbox-runner tooling."}
 
   FIND-008:
     {type: finding, status: backlog, epic: epic-0-i6, created: 2026-09-05,

@@ -27,7 +27,7 @@ records:
     still_live_evidence: "Tooling/runtime behavior on the operator's machine, not mechanically checkable via repo grep"
     touches: [cross:process]
     duplicate_of: null
-    notes: "Part of an escalating cline-cli hang saga also covered by DW-004 (batch-10) and DW-007 (batch-9), which appear later in this file; those two go chronologically earlier in real time despite the higher DW id. See DW-007 for the eventual root-cause/fix."
+    notes: "Part of an escalating cline-cli hang saga also covered by DW-004 (batch-10) and DW-007 (batch-9), which appear later in this file; those two go chronologically earlier in real time despite the higher DW id. See DW-007 for the eventual root-cause/fix. Consolidated into docs/infrastructure/incidents/2026-09-01-cline-cli-hang-saga.md (FIND-007, 2026-09-14)."
 
   - id: DW-003
     section: "verification of ux-rework2-batch-10 (FilterHub collapse fixes)"
@@ -57,7 +57,7 @@ records:
     still_live_evidence: "scripts/cline-worktree.ps1 confirmed present in repo (glob), consistent with the evidence text; the hang behavior itself is not repo-checkable"
     touches: [cross:process]
     duplicate_of: DW-002
-    notes: "Distinct root cause from DW-007's batch-9 stale-manifest fix (which appears later in file order but chronologically precedes this one)."
+    notes: "Distinct root cause from DW-007's batch-9 stale-manifest fix (which appears later in file order but chronologically precedes this one). Consolidated into docs/infrastructure/incidents/2026-09-01-cline-cli-hang-saga.md (FIND-007, 2026-09-14)."
 
   - id: DW-005
     section: "verification of ux-rework2-batch-9 (Post Selection AccountAvatar reuse)"
@@ -102,7 +102,7 @@ records:
     still_live_evidence: "Fix concerns local machine state (~/.cline) outside this repo, not mechanically checkable via repo grep; document reports it verified fixed at the time"
     touches: [cross:process]
     duplicate_of: DW-004
-    notes: "This is chronologically the earliest of the three cline-cli hang entries (root-causes and fixes the stale-manifest class) even though it has the highest DW id in this file; DW-004's batch-10 hangs and DW-002's batch-11 hangs are separate, later, still-unexplained recurrences."
+    notes: "This is chronologically the earliest of the three cline-cli hang entries (root-causes and fixes the stale-manifest class) even though it has the highest DW id in this file; DW-004's batch-10 hangs and DW-002's batch-11 hangs are separate, later, still-unexplained recurrences. Consolidated into docs/infrastructure/incidents/2026-09-01-cline-cli-hang-saga.md (FIND-007, 2026-09-14)."
 
   - id: DW-008
     section: "pnpm test full-suite check during ux-rework2-batch-9"
