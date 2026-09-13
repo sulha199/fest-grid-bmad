@@ -70,6 +70,7 @@ export default function AccountCalendarView({ q, types, categories, profile, onF
     handleNextWeek,
     handleSelectWeek,
     handleToday,
+    isPrevWeekDisabled,
   } = useWeeklyCalendarController({
     week,
     setWeek: (newWeek: string) => {
@@ -117,6 +118,7 @@ export default function AccountCalendarView({ q, types, categories, profile, onF
       getWeekRange={getWeekRange}
       onToday={handleToday}
       onPrevWeek={handlePrevWeek}
+      isPrevWeekDisabled={isPrevWeekDisabled}
       onNextWeek={handleNextWeek}
       onSelectWeek={handleSelectWeek}
       onScheduleClick={handleScheduleClick}

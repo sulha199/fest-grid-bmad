@@ -98,9 +98,11 @@ describe('useWeeklyCalendarController', () => {
   it('navigates previous week, next week, today, and an arbitrary picked date, and fires callbacks', () => {
     const setWeekMock = vi.fn();
     const onNavigateMock = vi.fn();
+    // Week is one week ahead of today so handlePrevWeek is not disabled (see the
+    // dedicated isPrevWeekDisabled tests below for the at/before-today boundary).
     const { result } = renderHook(() =>
       useWeeklyCalendarController({
-        week: '2026-08-10',
+        week: '2026-08-17',
         setWeek: setWeekMock,
         todayStr: '2026-08-10',
         rawEvents: [],
@@ -113,26 +115,65 @@ describe('useWeeklyCalendarController', () => {
     act(() => {
       result.current.handlePrevWeek();
     });
-    expect(setWeekMock).toHaveBeenLastCalledWith('2026-08-03');
-    expect(onNavigateMock).toHaveBeenLastCalledWith('previous', '2026-08-03');
+    expect(setWeekMock).toHaveBeenLastCalledWith('2026-08-10');
+    expect(onNavigateMock).toHaveBeenLastCalledWith('previous', '2026-08-10');
 
     act(() => {
       result.current.handleNextWeek();
     });
-    expect(setWeekMock).toHaveBeenLastCalledWith('2026-08-17');
-    expect(onNavigateMock).toHaveBeenLastCalledWith('next', '2026-08-17');
+    expect(setWeekMock).toHaveBeenLastCalledWith('2026-08-24');
+    expect(onNavigateMock).toHaveBeenLastCalledWith('next', '2026-08-24');
 
     act(() => {
-      result.current.handleSelectWeek('2026-08-14');
+      result.current.handleSelectWeek('2026-08-21');
     });
-    expect(setWeekMock).toHaveBeenLastCalledWith('2026-08-10');
-    expect(onNavigateMock).toHaveBeenLastCalledWith('select', '2026-08-10');
+    expect(setWeekMock).toHaveBeenLastCalledWith('2026-08-17');
+    expect(onNavigateMock).toHaveBeenLastCalledWith('select', '2026-08-17');
 
     act(() => {
       result.current.handleToday();
     });
     expect(setWeekMock).toHaveBeenLastCalledWith('2026-08-10');
     expect(onNavigateMock).toHaveBeenLastCalledWith('today', '2026-08-10');
+  });
+
+  it('disables and no-ops previous-week navigation once the displayed week is today\'s week or earlier', () => {
+    const setWeekMock = vi.fn();
+    const onNavigateMock = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ week }) =>
+        useWeeklyCalendarController({
+          week,
+          setWeek: setWeekMock,
+          todayStr: '2026-08-10',
+          rawEvents: [],
+          queryStatus: 'success',
+          queryError: null,
+          onNavigate: onNavigateMock,
+        }),
+      { initialProps: { week: '2026-08-10' } }
+    );
+
+    // Displaying today's own week: prev is disabled and a no-op.
+    expect(result.current.isPrevWeekDisabled).toBe(true);
+    act(() => {
+      result.current.handlePrevWeek();
+    });
+    expect(setWeekMock).not.toHaveBeenCalled();
+    expect(onNavigateMock).not.toHaveBeenCalled();
+
+    // A week further in the past (should not normally be reachable once the
+    // control is disabled, but the handler itself still guards defensively).
+    rerender({ week: '2026-08-03' });
+    expect(result.current.isPrevWeekDisabled).toBe(true);
+    act(() => {
+      result.current.handlePrevWeek();
+    });
+    expect(setWeekMock).not.toHaveBeenCalled();
+
+    // A week ahead of today: prev is enabled again.
+    rerender({ week: '2026-08-17' });
+    expect(result.current.isPrevWeekDisabled).toBe(false);
   });
 
   it('maps queryStatus to UI loading/success/error status and formats errors', () => {

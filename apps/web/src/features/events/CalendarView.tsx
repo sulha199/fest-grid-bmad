@@ -67,6 +67,7 @@ export function CalendarView({ q, types, categories, nearby, onFavoriteToggle }:
     handleNextWeek,
     handleSelectWeek,
     handleToday,
+    isPrevWeekDisabled,
   } = useWeeklyCalendarController({
     week,
     setWeek: (newWeek: string) => {
@@ -114,6 +115,7 @@ export function CalendarView({ q, types, categories, nearby, onFavoriteToggle }:
       getWeekRange={getWeekRange}
       onToday={handleToday}
       onPrevWeek={handlePrevWeek}
+      isPrevWeekDisabled={isPrevWeekDisabled}
       onNextWeek={handleNextWeek}
       onSelectWeek={handleSelectWeek}
       onScheduleClick={handleScheduleClick}

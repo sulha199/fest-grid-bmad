@@ -177,6 +177,20 @@ describe('WeeklyCalendarView', () => {
     expect(onNextWeek).toHaveBeenCalledTimes(1);
   });
 
+  it('disables the Previous week control and ignores clicks when isPrevWeekDisabled is true', () => {
+    const onPrevWeek = vi.fn();
+
+    render(
+      <WeeklyCalendarView {...defaultProps} onPrevWeek={onPrevWeek} isPrevWeekDisabled />
+    );
+
+    const prevButton = screen.getByLabelText('Previous week');
+    expect(prevButton).toBeDisabled();
+
+    fireEvent.click(prevButton);
+    expect(onPrevWeek).not.toHaveBeenCalled();
+  });
+
   it('opens the week picker and calls onSelectWeek with the picked date', () => {
     const onSelectWeek = vi.fn();
 

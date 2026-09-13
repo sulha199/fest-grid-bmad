@@ -65,6 +65,7 @@ export function FeedCalendarView({ q, types, categories, subscriptions, onFavori
     handleNextWeek,
     handleSelectWeek,
     handleToday,
+    isPrevWeekDisabled,
   } = useWeeklyCalendarController({
     week,
     setWeek: (newWeek: string) => {
@@ -104,6 +105,7 @@ export function FeedCalendarView({ q, types, categories, subscriptions, onFavori
       maxEventsPerDay={5}
       onToday={handleToday}
       onPrevWeek={handlePrevWeek}
+      isPrevWeekDisabled={isPrevWeekDisabled}
       onNextWeek={handleNextWeek}
       onSelectWeek={handleSelectWeek}
       onScheduleClick={handleScheduleClick}

@@ -70,6 +70,8 @@ export interface WeeklyCalendarViewProps<TSchedule extends WeeklyCalendarViewSch
   getWeekRange?: (date: Date) => { start: Date; end: Date };
   onToday: () => void;
   onPrevWeek: () => void;
+  /** Disables the "Previous week" control — the calendar never navigates further into the past than today's week. */
+  isPrevWeekDisabled?: boolean;
   onNextWeek: () => void;
   onSelectWeek?: (date: string) => void;
   onScheduleClick: (schedule: TSchedule) => void;

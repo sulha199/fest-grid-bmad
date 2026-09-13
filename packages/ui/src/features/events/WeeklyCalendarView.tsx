@@ -193,6 +193,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   getWeekRange,
   onToday,
   onPrevWeek,
+  isPrevWeekDisabled = false,
   onNextWeek,
   onSelectWeek,
   onScheduleClick,
@@ -527,8 +528,9 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className={NAV_BUTTON_CLASS}
+            className={`${NAV_BUTTON_CLASS} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100`}
             onClick={onPrevWeek}
+            disabled={isPrevWeekDisabled}
             aria-label={defaultLabels.prevWeekLabel}
           >
             <ChevronLeft className="w-4 h-4" />

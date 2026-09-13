@@ -49,6 +49,8 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
 
   const weekStart = useMemo(() => getWeekStart(week), [week]);
   const weekEnd = useMemo(() => getWeekEnd(weekStart), [weekStart]);
+  const currentWeekStart = useMemo(() => getWeekStart(todayStr), [todayStr]);
+  const isPrevWeekDisabled = weekStart <= currentWeekStart;
 
   const schedules = useMemo(() => {
     const events = rawEvents ?? [];
@@ -72,6 +74,7 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
   }, [rawEvents]);
 
   const handlePrevWeek = () => {
+    if (isPrevWeekDisabled) return;
     const current = parseDateOnly(weekStart);
     const newWeek = formatIsoDate(shiftDate(current, -7));
     setWeek(newWeek);
@@ -122,5 +125,6 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
     handleNextWeek,
     handleSelectWeek,
     handleToday,
+    isPrevWeekDisabled,
   };
 }

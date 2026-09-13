@@ -74,6 +74,7 @@ export function MyCalendarContent() {
     handleNextWeek,
     handleSelectWeek,
     handleToday,
+    isPrevWeekDisabled,
   } = useWeeklyCalendarController({
     week,
     setWeek: (newWeek: string) => {
@@ -221,6 +222,7 @@ export function MyCalendarContent() {
         getWeekRange={getWeekRange}
         onToday={handleToday}
         onPrevWeek={handlePrevWeek}
+        isPrevWeekDisabled={isPrevWeekDisabled}
         onNextWeek={handleNextWeek}
         onSelectWeek={handleSelectWeek}
         onScheduleClick={handleScheduleClick}
