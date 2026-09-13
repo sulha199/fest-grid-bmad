@@ -53,11 +53,13 @@ export function OnboardingApiKeyStep() {
       setStepCompleted(true);
       toast.success(t('apiKeySuccessToast'));
       setApiKeyVal('');
-    } catch (err: any) {
+    } catch (err) {
       if (err instanceof ClientError) {
-        const msg = err.response?.errors?.[0]?.message;
-        if (msg) {
-          toast.error(msg);
+        const messages = (err.response?.errors ?? [])
+          .map((e) => e.message.trim())
+          .filter((msg) => msg.length > 0);
+        if (messages.length > 0) {
+          toast.error(messages.join('; '));
           return;
         }
       }

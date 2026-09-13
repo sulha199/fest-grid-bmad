@@ -135,6 +135,28 @@ describe('OnboardingApiKeyStep', () => {
     });
   });
 
+  it('shows all GraphQL error messages on invalid-key rejection, not just the first', async () => {
+    const { ClientError } = await import('graphql-request');
+    mockMutateAsync.mockRejectedValueOnce(
+      new ClientError(
+        { errors: [{ message: 'FIRST_ERROR' }, { message: 'SECOND_ERROR' }] } as any,
+        { status: 400 } as any
+      )
+    );
+
+    render(<OnboardingApiKeyStep />);
+
+    const input = screen.getByPlaceholderText('apiKeyPlaceholder');
+    fireEvent.change(input, { target: { value: 'GEMINI-TEST-KEY' } });
+    const submitBtn = screen.getByText('apiKeySubmitLabel');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalledWith('FIRST_ERROR; SECOND_ERROR');
+    });
+  });
+
   it('shows generic fallback toast for a non-GraphQL error', async () => {
     mockMutateAsync.mockRejectedValueOnce(new Error('Network Error'));
 

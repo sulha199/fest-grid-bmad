@@ -7,6 +7,7 @@ import { graphqlClient } from "@/lib/graphql-client"
 import { useCreateApiKeyMutation } from "@/generated/graphql"
 import { useQueryClient } from "@tanstack/react-query"
 import { ClientError } from "graphql-request"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -66,19 +67,20 @@ export function ApiKeyFormDialog({ isOpen, onClose }: ApiKeyFormDialogProps) {
         }
       })
 
-      const { toast } = await import("sonner")
       toast.success(t("addSuccessToast"))
       setKey("")
       onClose()
     } catch (err) {
       console.error(err)
-      const { toast } = await import("sonner")
-      if (err instanceof ClientError) {
-        const msg = err.response?.errors?.[0]?.message;
-        if (msg) {
-          toast.error(msg);
-          return;
-        }
+      const messages =
+        err instanceof ClientError
+          ? (err.response?.errors ?? [])
+              .map((e) => e.message.trim())
+              .filter((msg) => msg.length > 0)
+          : []
+      if (messages.length > 0) {
+        toast.error(messages.join("; "))
+        return
       }
       toast.error(t("addErrorToast"))
     } finally {

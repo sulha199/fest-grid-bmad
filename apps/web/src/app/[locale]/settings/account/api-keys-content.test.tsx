@@ -249,6 +249,37 @@ describe('ApiKeysContent', () => {
     });
   });
 
+  it('shows all GraphQL error messages in the dialog, not just the first', async () => {
+    mockSession = { user: { id: 'user-1', email: 'user@test.dev' } };
+
+    renderWithProviders(<ApiKeysContent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('My API Keys')).toBeInTheDocument();
+    });
+
+    const { ClientError } = await import('graphql-request');
+    vi.mocked(graphqlClient.request).mockRejectedValueOnce(
+      new ClientError(
+        { errors: [{ message: 'FIRST_ERROR' }, { message: 'SECOND_ERROR' }] } as any,
+        { status: 400 } as any
+      )
+    );
+
+    const addBtn = screen.getByRole('button', { name: 'Add API Key' });
+    fireEvent.click(addBtn);
+
+    const keyInput = screen.getByLabelText('API Key');
+    fireEvent.change(keyInput, { target: { value: 'GEMINI-TEST-KEY' } });
+
+    const submitBtn = screen.getByRole('button', { name: 'Add Key' });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/FIRST_ERROR; SECOND_ERROR/)).toBeInTheDocument();
+    });
+  });
+
   it('shows generic fallback toast for a non-GraphQL error in the dialog', async () => {
     mockSession = { user: { id: 'user-1', email: 'user@test.dev' } };
 
