@@ -9,7 +9,7 @@ export function Logo({ className }: { className?: string }) {
       {/* Logotype: hidden on tablet rail (hidden xl:flex) */}
       <div className="text-xl tracking-tight hidden xl:flex items-baseline">
         <span className="font-bold">Fest</span>
-        <span className="font-light">Grid</span>
+        <span className="font-light">Daily</span>
       </div>
     </div>
   );
