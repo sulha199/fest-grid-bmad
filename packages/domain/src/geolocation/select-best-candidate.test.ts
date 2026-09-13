@@ -1,3 +1,7 @@
+// Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 2 (re-ranking beats position).
+// Pure-function unit coverage of `selectBestCandidate`'s confidence-primary /
+// matchType-tiebreak / position-fallback selection. Fails if the ADDRESS branch of
+// `resolveLocation` ever reverts to `candidates[0]`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { selectBestCandidate } from './select-best-candidate.js';

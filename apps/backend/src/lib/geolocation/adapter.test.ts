@@ -125,6 +125,9 @@ test('adapter resolveLocation with countryBias folds bias into cache key', async
   }
 });
 
+// Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 2 (re-ranking beats position).
+// End-to-end proof that `resolveLocation`'s ADDRESS branch actually calls
+// `selectBestCandidate` on real mock candidates (not just that the pure function exists).
 test('adapter resolveLocation re-ranks ADDRESS by confidence (BUG-017)', async () => {
   await db.delete(geolocationCache);
 

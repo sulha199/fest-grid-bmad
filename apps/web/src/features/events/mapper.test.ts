@@ -94,7 +94,10 @@ function toSchedule(event: NonNullable<GetEventBySlugQuery['eventBySlug']>) {
   return mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k).schedules[0];
 }
 
-describe('mapGraphQLEventToDetailViewProps mapUrl gating (Story 0.i7c)', () => {
+// Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 3 consumer: this mapper is the
+// event-detail map-link gate. Proves `mapper.ts` calls `isLocationTrustworthy` and branches
+// `mapUrl` on its result (coordinate link when trustworthy, text-query fallback otherwise).
+describe('mapGraphQLEventToDetailViewProps mapUrl gating (Story 0.i7c / 0.i7z)', () => {
   it('links the raw coordinate for a trustworthy (confidence>=0.5, full_match) locationDetails', () => {
     const event = buildEvent({
       locationDetails: {

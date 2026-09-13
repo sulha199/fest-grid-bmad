@@ -1,3 +1,7 @@
+// Story 0.i7z ratchet — AD-14 Rule 1 ("Every mapper populates the signal") / Story 0.i7z AC 1.
+// The deepEqual/deepStrictEqual assertions below on the full mapped `LocationDetails` object
+// fail if `confidence`, `matchType`, or `countryCode` are dropped from `geocodeAddress`,
+// `reverseGeocode`, or `getPlaceDetails` output.
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { 

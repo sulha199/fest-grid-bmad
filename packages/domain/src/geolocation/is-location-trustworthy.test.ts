@@ -1,3 +1,7 @@
+// Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 3 (map-link gate).
+// Pure-function unit coverage of the `confidence >= 0.5 AND matchType === 'full_match'`
+// predicate (including boundary / null / undefined and AND-not-OR semantics). Fails if
+// `isLocationTrustworthy`'s threshold check is removed or weakened.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {

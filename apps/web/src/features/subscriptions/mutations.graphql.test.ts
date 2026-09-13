@@ -16,6 +16,8 @@ import {
 // request `confidence` and `matchType` on the `LocationDetails` they return
 // (`defaultLocation`), so the shared SDL fields Story 0.i7a added are not
 // silently discarded by these consumers.
+// Also Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 4 (GraphQL exposure): removing
+// either field from any of the five instrumented operations breaks this guard.
 const MUTATION_NAMES = ['setAccountDefaultLocation', 'editAccountDefaultLocation'] as const;
 const REQUIRED_FIELD_NAMES = ['confidence', 'matchType'] as const;
 

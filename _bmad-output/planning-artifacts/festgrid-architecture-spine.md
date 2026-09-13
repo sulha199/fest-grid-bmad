@@ -343,7 +343,10 @@ This document defines the core architectural invariants for the FestDaily applic
     result — this epic's 7 known consumers (`apps/backend/src/schema/resolvers.ts` and
     `apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts`) — and every Geoapify
     response mapper in `apps/backend/src/lib/geolocation/geoapify-client.ts`. Introduced by Story
-    0.i7a; the CI-enforced consumer ratchet is Story 0.i7z.
+    0.i7a; the CI-enforced consumer ratchet is Story 0.i7z. The ratchet is fulfilled by
+    citation to prior stories' already-shipped regression tests (each rule's "Enforced by"
+    lines below) plus Story 0.i7z's header-comment marking of those test files — it is not a
+    separate 0.i7z-specific test suite.
 *   **Prevents:** A consumer silently trusting a Geoapify coordinate/place while ignoring the
     `confidence`/`matchType` signal that says how ambiguous that match was (the BUG-027 failure
     class); a low- or synthetic-confidence result being treated as authoritative simply because it
@@ -357,16 +360,32 @@ This document defines the core architectural invariants for the FestDaily applic
         direct ID lookup with no `rank`, so it sets a synthetic `confidence: 1` /
         `matchType: 'PLACE_ID_EXACT'` meaning "no ambiguity left to resolve"; its `countryCode`
         is populated conditionally from `properties.country_code`.
+        - **Enforced by:** `apps/backend/src/lib/geolocation/geoapify-client.test.ts` — its
+          `deepEqual`/`deepStrictEqual` assertions on the full mapped `LocationDetails` object
+          fail if `confidence`, `matchType`, or `countryCode` are dropped from any of the three
+          mappers' output. (Story 0.i7z AC 1 ratchet.)
     2.  **Every new consumer must read the signal before trusting a result.** Any code that newly
         consumes a `LocationDetails` produced by a Geoapify mapper must consider `confidence`/
         `matchType` (and, where re-ranking applies, the full candidate set) before treating a
         coordinate or place as authoritative. Absence of the signal means "untrusted" — the
         graceful-degradation posture AC 4 of Story 0.i7a accepts.
+        - **Enforced by:** re-ranking — `packages/domain/src/geolocation/select-best-candidate.test.ts`
+          (pure-function coverage of `selectBestCandidate`) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s
+          `'adapter resolveLocation re-ranks ADDRESS by confidence (BUG-017)'` integration test;
+          map-link gate — `packages/domain/src/geolocation/is-location-trustworthy.test.ts` +
+          `apps/web/src/features/events/mapper.test.ts`; GraphQL exposure — the three
+          `apps/web` `.graphql.test.ts` AST guard tests from Story 0.i7d
+          (`apps/web/src/features/subscriptions/mutations.graphql.test.ts`,
+          `apps/web/src/features/locations/mutations.graphql.test.ts`,
+          `apps/web/src/features/locations/queries.graphql.test.ts`). (Story 0.i7z AC 2–4 ratchet.)
     3.  **Country bias is part of the resolution identity.** The schedule-location geocoding path
         passes the account's own `defaultLocation.countryCode` as `bias=countrycode:xx`, and the
         ADDRESS cache key folds that bias in, so two accounts geocoding the identical address with
         different biases can never be served each other's cached result. When no bias is known, the
         parameter (and its cache-key segment) is omitted entirely — self-healing, not a gap.
+        - **Enforced by:** `packages/domain/src/geolocation/build-cache-key.test.ts` (countryBias
+          cache-key folding) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s countryBias
+          integration case.
 
 ---
 

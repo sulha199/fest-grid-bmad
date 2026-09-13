@@ -17,6 +17,8 @@ import {
 // (`locationDetails`), so the shared SDL fields Story 0.i7a added are not
 // silently discarded by these consumers. `deleteUserLocation` is intentionally
 // excluded — it does not resolve or return a `LocationDetails`.
+// Also Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 4 (GraphQL exposure): removing
+// either field from any of the five instrumented operations breaks this guard.
 const MUTATION_NAMES = ['createUserLocation', 'updateUserLocation'] as const;
 const REQUIRED_FIELD_NAMES = ['confidence', 'matchType'] as const;
 

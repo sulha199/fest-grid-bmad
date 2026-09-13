@@ -18,6 +18,8 @@ import {
 // `getMyLocations`/`addressAutocomplete` are intentionally excluded — the former is
 // a read-only listing of already-stored rows (not a resolution point) and the
 // latter calls `getAddressPredictions`, which never goes through `resolveLocation`.
+// Also Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 4 (GraphQL exposure): removing
+// either field from any of the five instrumented operations breaks this guard.
 const QUERY_NAMES = ['previewLocation'] as const;
 const REQUIRED_FIELD_NAMES = ['confidence', 'matchType'] as const;
 
