@@ -43,6 +43,22 @@ const localeIntlTagMap: Record<string, string> = {
   id: 'id-ID',
 };
 
+// BUG-010: wire a real, deterministic app-wide IANA timezone into the layout root's
+// ScopedLocaleProvider so useScopedTimezone() (and everything downstream, e.g. EventCard's
+// date/time formatting) actually receives a value server-side. The value is a compile-time
+// constant derived from the route's bare locale, mirroring localeIntlTagMap above — because
+// it is identical on server and browser, it removes the prior server/browser hydration
+// mismatch (where EventCard fell back to the *runtime* default timezone, which can differ
+// between the two and across request/rendering). Regional default chosen to match each
+// locale's BCP-47 region (en-US → America/New_York, id-ID → Asia/Jakarta). This is an
+// app-wide fallback only — per-event timezones (LocationDetails.timezone on the event's
+// location) remain the intended per-event source for a future pass, overriding this default
+// via an explicit EventCard `timezone` prop when wired.
+const timezoneIntlMap: Record<string, string> = {
+  en: 'America/New_York',
+  id: 'Asia/Jakarta',
+};
+
 export default async function RootLayout({
   children,
   modal,
@@ -77,7 +93,10 @@ export default async function RootLayout({
               <QueryProvider>
                 <NuqsAdapter>
                   <AuthSessionProvider>
-                    <ScopedLocaleProvider locale={localeIntlTagMap[locale] ?? locale}>
+                    <ScopedLocaleProvider
+                      locale={localeIntlTagMap[locale] ?? locale}
+                      timezone={timezoneIntlMap[locale]}
+                    >
                       <AppShellWrapper>
                         {children}
                         {modal}
