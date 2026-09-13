@@ -14,6 +14,7 @@ import {
   getLocalDateInTimezone,
   getCalendarDayDifference,
 } from './format-event-date';
+import { eventCardBadgeIconSizeClass } from './event-card-media-tokens';
 
 /**
  * EventCard is a reusable, framework-agnostic presentation component for displaying
@@ -188,7 +189,7 @@ export function EventCard({
           }`}
         >
           <Heart
-            className={`w-5 h-5 ${isFavorited ? 'fill-red-600 text-red-600' : 'text-black'}`}
+            className={`${eventCardBadgeIconSizeClass('default')} ${isFavorited ? 'fill-red-600 text-red-600' : 'text-black'}`}
             fill={isFavorited ? 'currentColor' : 'none'}
           />
           {favoriteCount !== undefined && (

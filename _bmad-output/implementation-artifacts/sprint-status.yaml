@@ -300,7 +300,7 @@ development_status:
   0-i7z-ratchet-no-consumer-trusts-a-geoapify-result-without-its-confidence-signal: review
   epic-1-i1: in-progress
   1-i1a-extend-the-shared-event-card-primitive-to-own-thumbnail-sizing-and-fallback: review
-  1-i1b-tie-the-favorite-icon-size-to-the-date-badge-token: ready-for-dev
+  1-i1b-tie-the-favorite-icon-size-to-the-date-badge-token: review
   1-i1c-replace-the-local-broken-image-placeholder-with-the-shared-fallback: backlog
   1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row: backlog
   1-i1e-adopt-the-primitive-into-the-masonry-default-state: backlog

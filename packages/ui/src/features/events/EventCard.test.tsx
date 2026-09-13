@@ -3,6 +3,7 @@ import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { EventCard } from './EventCard';
+import { eventCardBadgeIconSizeClass } from './event-card-media-tokens';
 import { ScopedLocaleProvider } from '../../hooks/useScopedLocale';
 
 // Mirrors EventCard's own Intl.DateTimeFormat options, so expected values are
@@ -458,6 +459,50 @@ describe('EventCard', () => {
 
       expect(screen.queryByLabelText(/favorite/i)).not.toBeInTheDocument();
       expect(screen.queryByText('42')).not.toBeInTheDocument();
+    });
+
+    it('sizes the heart icon by the shared badge-scale token, not hardcoded w-5 h-5', () => {
+      const onFavoriteToggle = vi.fn();
+      render(
+        <EventCard {...defaultProps} onFavoriteToggle={onFavoriteToggle} isFavorited={false} />
+      );
+
+      const btn = screen.getByLabelText(/favorite/i);
+      const heart = btn.querySelector('svg');
+      expect(heart).not.toBeNull();
+      // jsdom returns an SVGAnimatedString for svg.className, so read the class attribute.
+      const cls = heart?.getAttribute('class') as string;
+      expect(cls).toContain(eventCardBadgeIconSizeClass('default'));
+      expect(cls).not.toContain('w-5');
+      expect(cls).not.toContain('h-5');
+    });
+
+    it('keeps the count-span classes and the button positioning/background classes unchanged', () => {
+      const onFavoriteToggle = vi.fn();
+      render(
+        <EventCard
+          {...defaultProps}
+          onFavoriteToggle={onFavoriteToggle}
+          favoriteCount={42}
+        />
+      );
+
+      const btn = screen.getByLabelText(/favorite/i);
+      expect(btn).toHaveTextContent('42');
+      // Button positioning + pill background stay byte-for-byte the same (AC2).
+      expect(btn.className).toContain('absolute');
+      expect(btn.className).toContain('top-3');
+      expect(btn.className).toContain('right-3');
+      expect(btn.className).toContain('z-10');
+      expect(btn.className).toContain('rounded-full');
+      expect(btn.className).toContain('bg-background/80');
+      expect(btn.className).toContain('backdrop-blur-sm');
+      expect(btn.className).toContain('shadow-sm');
+      expect(btn.className).toContain('hover:bg-background');
+      // The count span's own classes remain intact (AC2).
+      const span = btn.querySelector('span');
+      expect(span?.className).toContain('text-black');
+      expect(span?.className).toContain('pr-0.5');
     });
   });
 
