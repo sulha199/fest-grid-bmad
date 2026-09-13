@@ -9,6 +9,7 @@ describe('useWeeklyCalendarController', () => {
       slug: 'event-one',
       eventName: 'Event One',
       isFavorited: true,
+      imageUrl: 'https://img.example/event-one.jpg',
       schedules: [
         {
           id: 'schedule-1',
@@ -75,6 +76,8 @@ describe('useWeeklyCalendarController', () => {
       eventEndTime: '12:00:00',
       isFavorited: true,
       isAddedToCalendar: true,
+      eventId: 'event-1',
+      imageUrl: 'https://img.example/event-one.jpg',
     });
     expect(result.current.schedules[1]).toEqual({
       id: 'schedule-2',
@@ -87,6 +90,8 @@ describe('useWeeklyCalendarController', () => {
       eventEndTime: '16:00:00',
       isFavorited: true,
       isAddedToCalendar: false,
+      eventId: 'event-1',
+      imageUrl: 'https://img.example/event-one.jpg',
     });
   });
 

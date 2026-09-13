@@ -65,6 +65,8 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
         isFavorited: !!event.isFavorited,
         favoriteCount: event.favoriteCount,
         isAddedToCalendar: !!schedule.isAddedToCalendar,
+        eventId: event.id,
+        imageUrl: event.imageUrl,
       }));
     });
   }, [rawEvents]);

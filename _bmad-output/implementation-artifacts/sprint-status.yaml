@@ -311,7 +311,11 @@ development_status:
   # lint/build plan items ran via direct eslint + tsc --noEmit, same as 1.i1a/1.i1b. Depends on
   # 1.i1a/1.i1b [both review, code merged: 7bf9926 / de9f3c6].)
   1-i1c-replace-the-local-broken-image-placeholder-with-the-shared-fallback: review
-  1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row: ready-for-dev
+  # (dev-story 1.i1d: ready-for-dev -> review. Implemented — adopted the shared
+  # primitive into CalendarCard's variant='list' row + wired favorite-toggle into all
+  # 4 calendar consumer pages. Ui tests 296 passed, CalendarView.test 4 passed, eslint
+  # clean; touched files type-clean. Depends on 1.i1a/1.i1b/1.i1c [all review].)
+  1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row: review
   1-i1e-adopt-the-primitive-into-the-masonry-default-state: backlog
   1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: backlog
   epic-1: in-progress

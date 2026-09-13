@@ -17,9 +17,10 @@ interface CalendarViewProps {
   types: string[];
   categories: string[];
   nearby?: NearbyFilterInput;
+  onFavoriteToggle?: (eventId: string) => void;
 }
 
-export function CalendarView({ q, types, categories, nearby }: CalendarViewProps) {
+export function CalendarView({ q, types, categories, nearby, onFavoriteToggle }: CalendarViewProps) {
   const t = useTranslations('DiscoveryPage');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -116,6 +117,11 @@ export function CalendarView({ q, types, categories, nearby }: CalendarViewProps
       onNextWeek={handleNextWeek}
       onSelectWeek={handleSelectWeek}
       onScheduleClick={handleScheduleClick}
+      onFavoriteToggle={
+        onFavoriteToggle
+          ? (schedule) => schedule.eventId && onFavoriteToggle(schedule.eventId)
+          : undefined
+      }
       status={status === 'pending' ? 'loading' : (status as any)}
       errorMessage={errorMessage}
       errorDetail={errorDetail}

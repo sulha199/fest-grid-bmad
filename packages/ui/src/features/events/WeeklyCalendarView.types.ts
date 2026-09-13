@@ -10,6 +10,10 @@ export interface WeeklyCalendarViewScheduleShape {
   isFavorited?: boolean;
   isAddedToCalendar?: boolean;
   favoriteCount?: number;
+  /** Parent event's id, mapped from the already-fetched `event.id` (Story 1.i1d AC3/AC7). */
+  eventId?: string;
+  /** Parent event's poster image URL, mapped from the already-fetched `event.imageUrl` (Story 1.i1d AC1/AC2). */
+  imageUrl?: string;
 }
 
 export interface WeeklyCalendarViewLabels {
@@ -52,6 +56,10 @@ export interface WeeklyCalendarViewLabels {
   closePopoverLabel?: string;
   /** Shown while `status === 'loading'` (aria-label on the skeleton grid) */
   loadingText?: string;
+  /** Prefix text for the list-variant date box's till/end content (default "till", AC4/AC9). */
+  tillLabel?: string;
+  /** Accessible name for the list-variant thumbnail's favorite-toggle badge (default "Toggle favorite", AC3/AC9). */
+  favoriteToggleLabel?: string;
 }
 
 export interface WeeklyCalendarViewProps<TSchedule extends WeeklyCalendarViewScheduleShape = WeeklyCalendarViewScheduleShape> {
@@ -65,6 +73,8 @@ export interface WeeklyCalendarViewProps<TSchedule extends WeeklyCalendarViewSch
   onNextWeek: () => void;
   onSelectWeek?: (date: string) => void;
   onScheduleClick: (schedule: TSchedule) => void;
+  /** Optional: fired with the exact schedule when its thumbnail favorite badge is toggled (AC3/AC7). */
+  onFavoriteToggle?: (schedule: TSchedule) => void;
   status: 'loading' | 'error' | 'success';
   errorMessage?: string;
   errorDetail?: string;

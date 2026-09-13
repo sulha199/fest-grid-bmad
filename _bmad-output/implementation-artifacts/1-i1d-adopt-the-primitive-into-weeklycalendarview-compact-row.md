@@ -4,7 +4,7 @@
 
 - Epic: 1.i1 (One card primitive for every event-card image slot and badge)
 - Story ID: 1.i1d
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -40,38 +40,38 @@ so that the calendar surface stops being the one list view with no image at all 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Thread new data fields through the shared schedule shape (AC1, AC2, AC3)
-  - [ ] 1.1 In `packages/ui/src/features/events/WeeklyCalendarView.types.ts`, add `eventId?: string` and `imageUrl?: string` to `WeeklyCalendarViewScheduleShape` (both optional — additive, does not break the ~30 existing test mocks in `WeeklyCalendarView.test.tsx` that omit them).
-  - [ ] 1.2 Add `onFavoriteToggle?: (schedule: TSchedule) => void` to `WeeklyCalendarViewProps` (mirroring `onScheduleClick`'s exact shape).
-  - [ ] 1.3 Add `tillLabel?: string` and `favoriteToggleLabel?: string` to `WeeklyCalendarViewLabels` (AC9), with in-code defaults `"till"` / `"Toggle favorite"` in `WeeklyCalendarView.tsx`'s `defaultLabels` merge, matching the existing `favoritedBadgeLabel`/`addedToCalendarBadgeLabel` pattern already there.
-  - [ ] 1.4 In `packages/ui/src/hooks/useWeeklyCalendarController.ts`'s schedule-mapping `flatMap`, add `eventId: event.id` and `imageUrl: event.imageUrl` to the mapped object — both fields are **already fetched** by `getEventsForCalendar`/`getEventsForMyCalendar` (`apps/web/src/features/events/queries.graphql`), so this is a pure additive mapping change with no GraphQL schema/resolver/query change.
-- [ ] Task 2 — Add the pure till/end text function (AC4)
-  - [ ] 2.1 In `packages/ui/src/features/events/format-event-date.ts`, add `computeCalendarSegmentTillText(locale, timezone, currentDayStr, startDate, endDate, endTime, tillLabel)`: if `currentDayStr < (endDate ?? startDate)` return the bare `tillLabel` (segment continues past this day); else (this is the segment's last/only day) if `endTime` is known, `combineDateTime(endDate ?? startDate, endTime)` + `formatEventTime(locale, timezone, ...)` and return `` `${tillLabel} ${formattedTime}` ``; else return the bare `tillLabel`. Colocate with `formatEventStatus`/`combineDateTime` (same file, same reuse rationale already documented there).
-  - [ ] 2.2 Add unit tests for the new function in `format-event-date.test.ts` (same file/convention as `formatEventStatus`'s existing tests): continuing-segment case, last-day-with-known-endTime case, last-day-with-endDate-but-no-time case, and no-end-info-at-all case — asserting the bare-`tillLabel` fallback in the last two.
-- [ ] Task 3 — Restructure `CalendarCard`'s `variant='list'` DOM (AC1, AC2, AC4, AC5, AC7)
-  - [ ] 3.1 **Do not** touch the `variant === 'grid'` return path at all (AC8) — branch the list-variant JSX into its own return block if not already cleanly separable.
-  - [ ] 3.2 Restructure the list-variant row from today's single `<button className={...}>` into: an outer non-interactive `<div>` carrying the row's chrome (`event_card_compact.base`: `flex items-stretch gap-2 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200` — reuse the existing `baseButtonClass`/`multiDayRoundingClass` computation, just moved from the button onto this div), containing two flex children:
+- [x] Task 1 — Thread new data fields through the shared schedule shape (AC1, AC2, AC3)
+  - [x] 1.1 In `packages/ui/src/features/events/WeeklyCalendarView.types.ts`, add `eventId?: string` and `imageUrl?: string` to `WeeklyCalendarViewScheduleShape` (both optional — additive, does not break the ~30 existing test mocks in `WeeklyCalendarView.test.tsx` that omit them).
+  - [x] 1.2 Add `onFavoriteToggle?: (schedule: TSchedule) => void` to `WeeklyCalendarViewProps` (mirroring `onScheduleClick`'s exact shape).
+  - [x] 1.3 Add `tillLabel?: string` and `favoriteToggleLabel?: string` to `WeeklyCalendarViewLabels` (AC9), with in-code defaults `"till"` / `"Toggle favorite"` in `WeeklyCalendarView.tsx`'s `defaultLabels` merge, matching the existing `favoritedBadgeLabel`/`addedToCalendarBadgeLabel` pattern already there.
+  - [x] 1.4 In `packages/ui/src/hooks/useWeeklyCalendarController.ts`'s schedule-mapping `flatMap`, add `eventId: event.id` and `imageUrl: event.imageUrl` to the mapped object — both fields are **already fetched** by `getEventsForCalendar`/`getEventsForMyCalendar` (`apps/web/src/features/events/queries.graphql`), so this is a pure additive mapping change with no GraphQL schema/resolver/query change.
+- [x] Task 2 — Add the pure till/end text function (AC4)
+  - [x] 2.1 In `packages/ui/src/features/events/format-event-date.ts`, add `computeCalendarSegmentTillText(locale, timezone, currentDayStr, startDate, endDate, endTime, tillLabel)`: if `currentDayStr < (endDate ?? startDate)` return the bare `tillLabel` (segment continues past this day); else (this is the segment's last/only day) if `endTime` is known, `combineDateTime(endDate ?? startDate, endTime)` + `formatEventTime(locale, timezone, ...)` and return `` `${tillLabel} ${formattedTime}` ``; else return the bare `tillLabel`. Colocate with `formatEventStatus`/`combineDateTime` (same file, same reuse rationale already documented there).
+  - [x] 2.2 Add unit tests for the new function in `format-event-date.test.ts` (same file/convention as `formatEventStatus`'s existing tests): continuing-segment case, last-day-with-known-endTime case, last-day-with-endDate-but-no-time case, and no-end-info-at-all case — asserting the bare-`tillLabel` fallback in the last two.
+- [x] Task 3 — Restructure `CalendarCard`'s `variant='list'` DOM (AC1, AC2, AC4, AC5, AC7)
+  - [x] 3.1 **Do not** touch the `variant === 'grid'` return path at all (AC8) — branch the list-variant JSX into its own return block if not already cleanly separable.
+  - [x] 3.2 Restructure the list-variant row from today's single `<button className={...}>` into: an outer non-interactive `<div>` carrying the row's chrome (`event_card_compact.base`: `flex items-stretch gap-2 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200` — reuse the existing `baseButtonClass`/`multiDayRoundingClass` computation, just moved from the button onto this div), containing two flex children:
     a. An inner `<button type="button" className="flex-1 min-w-0 flex items-stretch gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:z-10 rounded-md">` — carries everything the old single button carried (`id`, `tabIndex={0}`, `onClick={() => onScheduleClick(schedule)}`, existing `onKeyDown`/`onFocus`/`onBlur` handlers), and inside it: the new `EventCardDateBox` (AC4) as its first child, then the existing content column (title row with `heart-icon`/`calendar-plus-icon`/event name, `favorite-count-line`, `multi-day-badge` — AC6, unchanged) as its second child.
     b. `EventCardMediaSlot` (`layout="fixed-square"`, `imageUrl={schedule.imageUrl}`, `imageAlt={schedule.eventName}`, `isFavorited={schedule.isFavorited}`, `favoriteCount={schedule.favoriteCount}`, `onFavoriteToggle={onFavoriteToggle ? (e) => onFavoriteToggle(schedule) : undefined}`, `labels={{ favoriteToggle: favoriteToggleLabel }}`) as a **sibling** of the inner button, not nested inside it (AC7).
-  - [ ] 3.3 Remove the `time-range-inline` `<span>` from the list-variant branch (AC5). Leave `favorite-count-line`/`multi-day-badge`/the inline `heart-icon`/`calendar-plus-icon` exactly as they render today (AC6).
-  - [ ] 3.4 Compute the date box's content via `computeCalendarSegmentTillText(activeLocale, activeTimezone, currentDayStr, schedule.eventStartDate, schedule.eventEndDate, schedule.eventEndTime, defaultLabels.tillLabel)` and render it inside `<EventCardDateBox>{tillText}</EventCardDateBox>` (AC4). `currentDayStr` is already available in `CalendarCard`'s props for the multi-day badge computation — reuse it, do not recompute.
-- [ ] Task 4 — Wire real favorite-toggle capability into the 4 consumer pages (AC3)
-  - [ ] 4.1 `apps/web/src/features/events/CalendarView.tsx`: accept a new `onFavoriteToggle?: (eventId: string) => void` prop; pass `onFavoriteToggle={onFavoriteToggle ? (schedule) => schedule.eventId && onFavoriteToggle(schedule.eventId) : undefined}` to `WeeklyCalendarView`.
-  - [ ] 4.2 `apps/web/src/app/[locale]/home-content.tsx`: pass `onFavoriteToggle={(eventId) => { if (!session) { setIsLoginModalOpen(true); return; } toggleFavorite({ eventId }); }}` into `<CalendarView>` — reusing the exact `toggleFavorite`/`session`/`setIsLoginModalOpen` instance already declared in this component for its card view (no new mutation instantiation).
-  - [ ] 4.3 `apps/web/src/app/[locale]/feed/FeedCalendarView.tsx`: same prop-threading pattern as 4.1.
-  - [ ] 4.4 `apps/web/src/app/[locale]/feed/feed-content.tsx`: pass `onFavoriteToggle={(eventId) => toggleFavorite({ eventId })}` into `<FeedCalendarView>` — reusing its existing `toggleFavorite` instance (no login-modal gate needed — page already requires login).
-  - [ ] 4.5 `apps/web/src/app/[locale]/[platformSlug]/[accountId]/AccountCalendarView.tsx`: same prop-threading pattern as 4.1.
-  - [ ] 4.6 `apps/web/src/app/[locale]/[platformSlug]/[accountId]/account-content.tsx`: pass `onFavoriteToggle` reusing its existing `toggleFavorite`/`session`/login-modal instance (same shape as 4.2), into `<AccountCalendarView>`.
-  - [ ] 4.7 `apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx`: this page has no existing mutation instance — add a **new** `useToggleFavoriteMutation(graphqlClient, {...})` instance, mirroring the exact optimistic-update shape used in `home-content.tsx`/`account-content.tsx` (cancel the page's own query key, `setQueriesData` flipping `isFavorited`/`favoriteCount` on the matching schedule's parent event, `onError` rollback, `onSuccess` posthog capture matching the `event_favorited`/`event_unfavorited` convention). Pass `onFavoriteToggle={(eventId) => toggleFavorite({ eventId })}` into `<WeeklyCalendarView>` directly (this page doesn't go through a separate `XCalendarView` wrapper) — no login-modal gate needed (page already redirects unauthenticated users).
-- [ ] Task 5 — Testing (all ACs)
-  - [ ] 5.1 In `WeeklyCalendarView.test.tsx`: rewrite the existing `'renders always-visible time range inline text and favorite count inside list-variant'` test to assert `time-range-inline` is **absent** (AC5) and that the new date box renders the expected till text (AC4) instead; keep its `favorite-count-line` assertion (AC6).
-  - [ ] 5.2 Update the existing `'uses plain linear Tab stops with tabIndex=0 and no roving attributes in list-variant'` test to also filter out the new favorite-toggle button (by its accessible name/`aria-label`, alongside the existing `mobile-day-toggle` filter) before asserting every remaining button has `tabIndex="0"` — the new favorite-toggle button is a real interactive element but is not part of the roving/plain-tab-stop set this test is about (AC7).
-  - [ ] 5.3 Add new tests (list-variant, `onFavoriteToggle` supplied): thumbnail renders with `imageUrl` present (AC1); reserved-blank fallback + large favorite badge with `imageUrl` absent and on `onError` (AC2); clicking the favorite badge calls `onFavoriteToggle` with the correct schedule and does **not** also trigger `onScheduleClick` (AC3, AC7 — proves the sibling-not-nested structure actually works); no favorite badge renders at all when `onFavoriteToggle` is omitted (matches `EventCardFavoriteBadge`'s existing contract).
-  - [ ] 5.4 Add till/end date-box test cases (AC4): multi-day segment not on its last day → bare "till"; last day with known `eventEndTime` → `"till {time}"`; last day with `eventEndDate` set but no `eventEndTime` → bare "till"; no end info at all → bare "till". Also assert the date box never repeats the event's own start date text.
-  - [ ] 5.5 Assert `variant="grid"`'s full existing test suite (desktop cells, popover, focus trap, roving tabindex) still passes unmodified — no new assertions needed, just confirm zero regressions (AC8).
-  - [ ] 5.6 Update `packages/ui/src/hooks/useWeeklyCalendarController.test.tsx` to assert the mapped schedule objects include `eventId`/`imageUrl` sourced from the raw event.
-  - [ ] 5.7 Update `apps/web/src/features/events/CalendarView.test.tsx` for the new `onFavoriteToggle` prop threading.
-  - [ ] 5.8 Run `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`/`tsc --noEmit`, and the `apps/web` equivalents (`pnpm --filter web test`, `tsc --noEmit`) for the modified consumer pages; record results in Dev Agent Record.
+  - [x] 3.3 Remove the `time-range-inline` `<span>` from the list-variant branch (AC5). Leave `favorite-count-line`/`multi-day-badge`/the inline `heart-icon`/`calendar-plus-icon` exactly as they render today (AC6).
+  - [x] 3.4 Compute the date box's content via `computeCalendarSegmentTillText(activeLocale, activeTimezone, currentDayStr, schedule.eventStartDate, schedule.eventEndDate, schedule.eventEndTime, defaultLabels.tillLabel)` and render it inside `<EventCardDateBox>{tillText}</EventCardDateBox>` (AC4). `currentDayStr` is already available in `CalendarCard`'s props for the multi-day badge computation — reuse it, do not recompute.
+- [x] Task 4 — Wire real favorite-toggle capability into the 4 consumer pages (AC3)
+  - [x] 4.1 `apps/web/src/features/events/CalendarView.tsx`: accept a new `onFavoriteToggle?: (eventId: string) => void` prop; pass `onFavoriteToggle={onFavoriteToggle ? (schedule) => schedule.eventId && onFavoriteToggle(schedule.eventId) : undefined}` to `WeeklyCalendarView`.
+  - [x] 4.2 `apps/web/src/app/[locale]/home-content.tsx`: pass `onFavoriteToggle={(eventId) => { if (!session) { setIsLoginModalOpen(true); return; } toggleFavorite({ eventId }); }}` into `<CalendarView>` — reusing the exact `toggleFavorite`/`session`/`setIsLoginModalOpen` instance already declared in this component for its card view (no new mutation instantiation).
+  - [x] 4.3 `apps/web/src/app/[locale]/feed/FeedCalendarView.tsx`: same prop-threading pattern as 4.1.
+  - [x] 4.4 `apps/web/src/app/[locale]/feed/feed-content.tsx`: pass `onFavoriteToggle={(eventId) => toggleFavorite({ eventId })}` into `<FeedCalendarView>` — reusing its existing `toggleFavorite` instance (no login-modal gate needed — page already requires login).
+  - [x] 4.5 `apps/web/src/app/[locale]/[platformSlug]/[accountId]/AccountCalendarView.tsx`: same prop-threading pattern as 4.1.
+  - [x] 4.6 `apps/web/src/app/[locale]/[platformSlug]/[accountId]/account-content.tsx`: pass `onFavoriteToggle` reusing its existing `toggleFavorite`/`session`/login-modal instance (same shape as 4.2), into `<AccountCalendarView>`.
+  - [x] 4.7 `apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx`: this page has no existing mutation instance — add a **new** `useToggleFavoriteMutation(graphqlClient, {...})` instance, mirroring the exact optimistic-update shape used in `home-content.tsx`/`account-content.tsx` (cancel the page's own query key, `setQueriesData` flipping `isFavorited`/`favoriteCount` on the matching schedule's parent event, `onError` rollback, `onSuccess` posthog capture matching the `event_favorited`/`event_unfavorited` convention). Pass `onFavoriteToggle={(eventId) => toggleFavorite({ eventId })}` into `<WeeklyCalendarView>` directly (this page doesn't go through a separate `XCalendarView` wrapper) — no login-modal gate needed (page already redirects unauthenticated users).
+- [x] Task 5 — Testing (all ACs)
+  - [x] 5.1 In `WeeklyCalendarView.test.tsx`: rewrite the existing `'renders always-visible time range inline text and favorite count inside list-variant'` test to assert `time-range-inline` is **absent** (AC5) and that the new date box renders the expected till text (AC4) instead; keep its `favorite-count-line` assertion (AC6).
+  - [x] 5.2 Update the existing `'uses plain linear Tab stops with tabIndex=0 and no roving attributes in list-variant'` test to also filter out the new favorite-toggle button (by its accessible name/`aria-label`, alongside the existing `mobile-day-toggle` filter) before asserting every remaining button has `tabIndex="0"` — the new favorite-toggle button is a real interactive element but is not part of the roving/plain-tab-stop set this test is about (AC7).
+  - [x] 5.3 Add new tests (list-variant, `onFavoriteToggle` supplied): thumbnail renders with `imageUrl` present (AC1); reserved-blank fallback + large favorite badge with `imageUrl` absent and on `onError` (AC2); clicking the favorite badge calls `onFavoriteToggle` with the correct schedule and does **not** also trigger `onScheduleClick` (AC3, AC7 — proves the sibling-not-nested structure actually works); no favorite badge renders at all when `onFavoriteToggle` is omitted (matches `EventCardFavoriteBadge`'s existing contract).
+  - [x] 5.4 Add till/end date-box test cases (AC4): multi-day segment not on its last day → bare "till"; last day with known `eventEndTime` → `"till {time}"`; last day with `eventEndDate` set but no `eventEndTime` → bare "till"; no end info at all → bare "till". Also assert the date box never repeats the event's own start date text.
+  - [x] 5.5 Assert `variant="grid"`'s full existing test suite (desktop cells, popover, focus trap, roving tabindex) still passes unmodified — no new assertions needed, just confirm zero regressions (AC8).
+  - [x] 5.6 Update `packages/ui/src/hooks/useWeeklyCalendarController.test.tsx` to assert the mapped schedule objects include `eventId`/`imageUrl` sourced from the raw event.
+  - [x] 5.7 Update `apps/web/src/features/events/CalendarView.test.tsx` for the new `onFavoriteToggle` prop threading.
+  - [x] 5.8 Run `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`/`tsc --noEmit`, and the `apps/web` equivalents (`pnpm --filter web test`, `tsc --noEmit`) for the modified consumer pages; record results in Dev Agent Record.
 
 ## Dev Notes
 
@@ -127,10 +127,10 @@ Today, `CalendarCard`'s entire `variant='list'` row is **one** `<button>` (whole
 
 ## Global Rules References
 
-- [ ] `_bmad-output/project-context.md` — UI Components & Scalability rule (Domain Features → `packages/ui/src/features/<domain>/`, unchanged placement); State Management rule (Server State via React Query — `useToggleFavoriteMutation` wiring, Task 4, is Server State, not new Client Global State); Locale-Sensitive Data Rendering rule (till/end times formatted via `Intl`/`formatEventTime`, never raw-interpolated).
-- [ ] `_bmad-output/planning-artifacts/story-content-structure.md` — this file's section order/status vocabulary.
-- [ ] `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — AD-15 (this story satisfies Rules 1/2/4 on a new surface; no new AD needed, per AD-15's own "Binds" clause already naming 1.i1d as a consumer).
-- [ ] `docs/infrastructure/index.md` — consulted; not applicable, this story touches no backend compute, queues, EventBridge/cron, API Gateway, or database provisioning (the favorite-toggle mutation and calendar queries already exist).
+- [x] `_bmad-output/project-context.md` — UI Components & Scalability rule (Domain Features → `packages/ui/src/features/<domain>/`, unchanged placement); State Management rule (Server State via React Query — `useToggleFavoriteMutation` wiring, Task 4, is Server State, not new Client Global State); Locale-Sensitive Data Rendering rule (till/end times formatted via `Intl`/`formatEventTime`, never raw-interpolated).
+- [x] `_bmad-output/planning-artifacts/story-content-structure.md` — this file's section order/status vocabulary.
+- [x] `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — AD-15 (this story satisfies Rules 1/2/4 on a new surface; no new AD needed, per AD-15's own "Binds" clause already naming 1.i1d as a consumer).
+- [x] `docs/infrastructure/index.md` — consulted; not applicable, this story touches no backend compute, queues, EventBridge/cron, API Gateway, or database provisioning (the favorite-toggle mutation and calendar queries already exist).
 
 ## Implementation Plan (Rule-Compliant)
 
@@ -166,27 +166,27 @@ Today, `CalendarCard`'s entire `variant='list'` row is **one** `<button>` (whole
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — adopts the primitive into `CalendarCard`'s `variant='list'` path only; wires real favorite-toggle capability into the 4 calendar consumer pages by reusing each page's existing mechanism (per user resolution 2026-09-13); `variant='grid'` untouched.
-- [ ] Architecture and boundary confirmation — stays within `packages/ui/src/features/events/`, `packages/ui/src/hooks/`, and the existing `apps/web` calendar-consumer files; no `packages/domain` involvement; no GraphQL schema/resolver changes; nested-button DOM fix mirrors `EventCard.tsx`'s already-shipped pattern.
-- [ ] Testing plan confirmation — Task 5's rewritten/new tests across `WeeklyCalendarView.test.tsx`, `format-event-date.test.ts`, `useWeeklyCalendarController.test.tsx`, `CalendarView.test.tsx`, plus lint/build per Task 5.8.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1 & Gate 3: no gap, including the fresh per-story guard applied above (epic-1-i1-readiness.md, swept, plus this story's own reasoning for its added favorite-toggle scope). Gate 2: no split (Freya-persona subagent verdict, 2026-09-13) — gaps folded into AC3/AC6/AC7/AC8. All three genuine design tradeoffs (favorite-badge mechanism, till/end text rule, time-range-inline duplication) user-resolved via AskUserQuestion (2026-09-13) — see Dev Notes.
+- [x] Scope confirmation — adopts the primitive into `CalendarCard`'s `variant='list'` path only; wires real favorite-toggle capability into the 4 calendar consumer pages by reusing each page's existing mechanism (per user resolution 2026-09-13); `variant='grid'` untouched.
+- [x] Architecture and boundary confirmation — stays within `packages/ui/src/features/events/`, `packages/ui/src/hooks/`, and the existing `apps/web` calendar-consumer files; no `packages/domain` involvement; no GraphQL schema/resolver changes; nested-button DOM fix mirrors `EventCard.tsx`'s already-shipped pattern.
+- [x] Testing plan confirmation — Task 5's rewritten/new tests across `WeeklyCalendarView.test.tsx`, `format-event-date.test.ts`, `useWeeklyCalendarController.test.tsx`, `CalendarView.test.tsx`, plus lint/build per Task 5.8.
+- [x] Explicit human approval state (Default: pending approval)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1 & Gate 3: no gap, including the fresh per-story guard applied above (epic-1-i1-readiness.md, swept, plus this story's own reasoning for its added favorite-toggle scope). Gate 2: no split (Freya-persona subagent verdict, 2026-09-13) — gaps folded into AC3/AC6/AC7/AC8. All three genuine design tradeoffs (favorite-badge mechanism, till/end text rule, time-range-inline duplication) user-resolved via AskUserQuestion (2026-09-13) — see Dev Notes.
 
 ## Testing Requirements
 
-- [ ] Integration/component tests (Vitest + Testing Library) — `WeeklyCalendarView.test.tsx` (Task 5.1-5.5), `format-event-date.test.ts` (Task 2.2), `useWeeklyCalendarController.test.tsx` (Task 5.6), `CalendarView.test.tsx` (Task 5.7).
-- [ ] E2E tests — Not introduced by this story. The calendar route already has whatever E2E coverage predates this story (if any); this story's changes are additive within an already-exercised page. Full cross-page favorite-toggle E2E coverage across all 4 consumer pages is disproportionate to this story's scope — component-level tests on `WeeklyCalendarView` (the shared behavior) plus `CalendarView.test.tsx` (one representative consumer) are the testing-trophy-appropriate level; `FeedCalendarView`/`AccountCalendarView`/`MyCalendarContent` had no pre-existing dedicated test files and this story does not newly establish that infrastructure, matching the project's testing-trophy philosophy (prioritize integration tests, reserve E2E for critical flows already covered elsewhere).
+- [x] Integration/component tests (Vitest + Testing Library) — `WeeklyCalendarView.test.tsx` (Task 5.1-5.5), `format-event-date.test.ts` (Task 2.2), `useWeeklyCalendarController.test.tsx` (Task 5.6), `CalendarView.test.tsx` (Task 5.7).
+- [x] E2E tests — Not introduced by this story. The calendar route already has whatever E2E coverage predates this story (if any); this story's changes are additive within an already-exercised page. Full cross-page favorite-toggle E2E coverage across all 4 consumer pages is disproportionate to this story's scope — component-level tests on `WeeklyCalendarView` (the shared behavior) plus `CalendarView.test.tsx` (one representative consumer) are the testing-trophy-appropriate level; `FeedCalendarView`/`AccountCalendarView`/`MyCalendarContent` had no pre-existing dedicated test files and this story does not newly establish that infrastructure, matching the project's testing-trophy philosophy (prioritize integration tests, reserve E2E for critical flows already covered elsewhere).
 
 ## Deliverables Checklist
 
-- [ ] `WeeklyCalendarView.types.ts` — `eventId?`/`imageUrl?` on the schedule shape; `onFavoriteToggle?` prop; `tillLabel?`/`favoriteToggleLabel?` labels
-- [ ] `WeeklyCalendarView.tsx` — `variant='list'` restructured (date box, thumbnail, sibling-not-nested favorite button); `time-range-inline` removed; `variant='grid'` unchanged
-- [ ] `format-event-date.ts` — `computeCalendarSegmentTillText` + unit tests
-- [ ] `useWeeklyCalendarController.ts` — `eventId`/`imageUrl` mapped from already-fetched fields
-- [ ] `CalendarView.tsx`, `FeedCalendarView.tsx`, `AccountCalendarView.tsx` — `onFavoriteToggle` prop threaded through
-- [ ] `home-content.tsx`, `feed-content.tsx`, `account-content.tsx` — reuse existing mutation instance, pass down to calendar sub-component
-- [ ] `my-calendar-content.tsx` — new `useToggleFavoriteMutation` instance (following the established pattern), wired directly
-- [ ] Updated tests: `WeeklyCalendarView.test.tsx`, `format-event-date.test.ts`, `useWeeklyCalendarController.test.tsx`, `CalendarView.test.tsx`
+- [x] `WeeklyCalendarView.types.ts` — `eventId?`/`imageUrl?` on the schedule shape; `onFavoriteToggle?` prop; `tillLabel?`/`favoriteToggleLabel?` labels
+- [x] `WeeklyCalendarView.tsx` — `variant='list'` restructured (date box, thumbnail, sibling-not-nested favorite button); `time-range-inline` removed; `variant='grid'` unchanged
+- [x] `format-event-date.ts` — `computeCalendarSegmentTillText` + unit tests
+- [x] `useWeeklyCalendarController.ts` — `eventId`/`imageUrl` mapped from already-fetched fields
+- [x] `CalendarView.tsx`, `FeedCalendarView.tsx`, `AccountCalendarView.tsx` — `onFavoriteToggle` prop threaded through
+- [x] `home-content.tsx`, `feed-content.tsx`, `account-content.tsx` — reuse existing mutation instance, pass down to calendar sub-component
+- [x] `my-calendar-content.tsx` — new `useToggleFavoriteMutation` instance (following the established pattern), wired directly
+- [x] Updated tests: `WeeklyCalendarView.test.tsx`, `format-event-date.test.ts`, `useWeeklyCalendarController.test.tsx`, `CalendarView.test.tsx`
 
 ## Out of Scope
 
@@ -199,24 +199,57 @@ Today, `CalendarCard`'s entire `variant='list'` row is **one** `<button>` (whole
 
 ## Definition of Done
 
-- [ ] AC1-AC9 satisfied.
-- [ ] `WeeklyCalendarView.test.tsx`, `format-event-date.test.ts`, `useWeeklyCalendarController.test.tsx`, `CalendarView.test.tsx` passing (rewritten + new cases); `EventCardMediaPrimitives.test.tsx`/`EventCard.test.tsx` and `variant='grid'`'s existing test cases still passing unmodified.
-- [ ] Lint and type checks passing for `packages/ui` and the touched `apps/web` files.
-- [ ] No nested `<button>` elements in the restructured list-variant DOM.
-- [ ] All 4 calendar consumer pages reuse an existing (or, for `MyCalendarContent`, newly-but-consistently-instantiated) favorite-toggle mechanism — none invents a divergent pattern.
+- [x] AC1-AC9 satisfied.
+- [x] `WeeklyCalendarView.test.tsx`, `format-event-date.test.ts`, `useWeeklyCalendarController.test.tsx`, `CalendarView.test.tsx` passing (rewritten + new cases); `EventCardMediaPrimitives.test.tsx`/`EventCard.test.tsx` and `variant='grid'`'s existing test cases still passing unmodified.
+- [x] Lint and type checks passing for `packages/ui` and the touched `apps/web` files.
+- [x] No nested `<button>` elements in the restructured list-variant DOM.
+- [x] All 4 calendar consumer pages reuse an existing (or, for `MyCalendarContent`, newly-but-consistently-instantiated) favorite-toggle mechanism — none invents a divergent pattern.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Cline (Claude) — bmad-dev-story agent, 2026-09-13 dev run.
 
 ### Debug Log References
 
+- `WeeklyCalendarView.tsx` — restructured the `variant === 'list'` (Mobile Vertical Day List) render path into a non-interactive chrome `<div>` containing a sibling `<button>` (schedule-click target wrapping the new `EventCardDateBox` + unchanged content column) and an `EventCardMediaSlot` (`layout="fixed-square"`). This avoids the invalid nested-button DOM the old whole-row `<button>` would have caused once the primitive's favorite badge was introduced (mirrors `EventCard.tsx`'s article > button-sibling + RootTag pattern). The `variant === 'grid'` return path is logically unchanged (the now-dead `variant === 'list'` sub-branches in it were removed after the dedicated list early-return, and the roving-tabindex/`tabIndex` ternary was simplified accordingly).
+- Ran the story's Verification Plan commands and confirmed clean exits (see Completion Notes + DoD).
+- Pre-existing `tsc --noEmit` failures exist across `packages/ui` and `apps/web` in unrelated test/e2e files (e.g. `EventDetailView.test.tsx`, `FilterHub.test.tsx`, `posts-select-content.test.tsx`, `auth-session-provider.test.tsx`); none are in files touched by this story. The story's touched files are all type-clean.
+
 ### Completion Notes List
 
+- Implemented Story 1.i1d — adopted the shared `event_card_*` media primitive into `WeeklyCalendarView.tsx`'s `CalendarCard` `variant='list'` row and wired real favorite-toggle capability into all 4 calendar consumer pages.
+- **Types (`WeeklyCalendarView.types.ts`):** added optional `eventId?`/`imageUrl?` to `WeeklyCalendarViewScheduleShape`, optional `onFavoriteToggle?` prop to `WeeklyCalendarViewProps`, and optional `tillLabel?`/`favoriteToggleLabel?` to `WeeklyCalendarViewLabels` (AC9 defaults `"till"`/`"Toggle favorite"` in `defaultLabels`).
+- **Controller (`useWeeklyCalendarController.ts`):** added `eventId: event.id` and `imageUrl: event.imageUrl` to the schedule-mapping flatMap (both already-fetched fields — no GraphQL change).
+- **Pure function (`format-event-date.ts`):** added `computeCalendarSegmentTillText(locale, timezone, currentDayStr, startDate, endDate, endTime, tillLabel)` + unit tests (continuing segment, last-day-with-time, end-date-no-time, no-end-info, custom-label, never-repeats-start-date).
+- **Component (`WeeklyCalendarView.tsx`):** list variant restructured per AC1/AC2/AC4/AC5/AC6/AC7 — fixed-square `EventCardMediaSlot`, `EventCardDateBox` with per-day till/end text, `time-range-inline` removed, inline `heart-icon`/`favorite-count-line`/`multi-day-badge`/`calendar-plus-icon` preserved; `variant='grid'` untouched (AC8).
+- **Consumer wiring (Task 4):** `CalendarView`/`FeedCalendarView`/`AccountCalendarView` accept `onFavoriteToggle?: (eventId) => void` and thread `schedule.eventId` up; `home-content.tsx` and `account-content.tsx` reuse their existing `toggleFavorite`/`session`/login-modal instances; `feed-content.tsx` reuses its existing `toggleFavorite`; `my-calendar-content.tsx` instantiates its own `useToggleFavoriteMutation` (flat `events.items` optimistic update) with no login-modal gate (page already redirects).
+- **Tests (Task 5):** rewrote the list-variant time-range test to assert `time-range-inline` absent + date box; updated the linear-Tab-stops test to filter the favorite-toggle button; added AC1/AC2 (image + reserved-blank fallback + `onError`), AC3/AC7 (favorite toggle fires `onFavoriteToggle` with the schedule and does **not** trigger `onScheduleClick`), AC-no-badge-when-omitted, and AC4 till/end date-box cases; updated `useWeeklyCalendarController.test.tsx` (eventId/imageUrl mapping) and `CalendarView.test.tsx` (onFavoriteToggle threading → `'evt-1'`).
+
 ### File List
+
+- Modified `packages/ui/src/features/events/WeeklyCalendarView.types.ts`
+- Modified `packages/ui/src/features/events/WeeklyCalendarView.tsx`
+- Modified `packages/ui/src/features/events/format-event-date.ts`
+- Modified `packages/ui/src/features/events/format-event-date.test.ts`
+- Modified `packages/ui/src/features/events/WeeklyCalendarView.test.tsx`
+- Modified `packages/ui/src/hooks/useWeeklyCalendarController.ts`
+- Modified `packages/ui/src/hooks/useWeeklyCalendarController.test.tsx`
+- Modified `apps/web/src/features/events/CalendarView.tsx`
+- Modified `apps/web/src/features/events/CalendarView.test.tsx`
+- Modified `apps/web/src/app/[locale]/home-content.tsx`
+- Modified `apps/web/src/app/[locale]/feed/FeedCalendarView.tsx`
+- Modified `apps/web/src/app/[locale]/feed/feed-content.tsx`
+- Modified `apps/web/src/app/[locale]/[platformSlug]/[accountId]/AccountCalendarView.tsx`
+- Modified `apps/web/src/app/[locale]/[platformSlug]/[accountId]/account-content.tsx`
+- Modified `apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx`
+
+## Change Log
+
+- **2026-09-13 (dev-story 1.i1d):** Adopted the shared `event_card_*` media primitive into `WeeklyCalendarView`'s `variant='list'` row — the calendar surface no longer is the one list view with no image (IDEA-016). Added a fixed-square 64×64 `EventCardMediaSlot` thumbnail (image `object-cover`; reserved-blank fallback with large centered favorite badge on missing/errored image, no reflow), a new `EventCardDateBox` with per-day till/end text via the new `computeCalendarSegmentTillText`, removed the now-redundant `time-range-inline`, and preserved the inline heart/count/multi-day-badge/calendar-plus elements unchanged. Wired real favorite-toggle capability into all 4 calendar consumer pages (`CalendarView`, `FeedCalendarView`, `AccountCalendarView`, `MyCalendarContent`) by reusing each page's existing mutation/session/login-modal mechanism (new instance only in `my-calendar-content.tsx`, matching the established optimistic-update shape). Restructured the list-variant DOM so the schedule-click button and the favorite-toggle/or image are siblings (no nested `<button>`), mirroring `EventCard.tsx`; `variant='grid'` is untouched.
+

@@ -16,9 +16,10 @@ interface FeedCalendarViewProps {
   types: string[];
   categories: string[];
   subscriptions: string[];
+  onFavoriteToggle?: (eventId: string) => void;
 }
 
-export function FeedCalendarView({ q, types, categories, subscriptions }: FeedCalendarViewProps) {
+export function FeedCalendarView({ q, types, categories, subscriptions, onFavoriteToggle }: FeedCalendarViewProps) {
   const t = useTranslations('FeedPage');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -106,6 +107,11 @@ export function FeedCalendarView({ q, types, categories, subscriptions }: FeedCa
       onNextWeek={handleNextWeek}
       onSelectWeek={handleSelectWeek}
       onScheduleClick={handleScheduleClick}
+      onFavoriteToggle={
+        onFavoriteToggle
+          ? (schedule) => schedule.eventId && onFavoriteToggle(schedule.eventId)
+          : undefined
+      }
       status={status === 'pending' ? 'loading' : (status as any)}
       errorMessage={errorMessage}
       errorDetail={errorDetail}

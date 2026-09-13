@@ -644,7 +644,7 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).queryByText(/\+.*more/)).not.toBeInTheDocument();
     });
 
-    it('renders always-visible time range inline text and favorite count inside list-variant', () => {
+    it('renders the new date box (till text) and favorite count, with no redundant time-range-inline in list-variant', () => {
       const schedule = [
         {
           id: '1',
@@ -658,7 +658,7 @@ describe('WeeklyCalendarView', () => {
         }
       ];
 
-      render(
+      const { container } = render(
         <ScopedLocaleProvider locale="en-US">
           <WeeklyCalendarView
             {...defaultProps}
@@ -668,13 +668,17 @@ describe('WeeklyCalendarView', () => {
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      
-      // Inline time range text
-      const inlineTime = within(mobileView).getByTestId('time-range-inline');
-      expect(inlineTime).toBeInTheDocument();
-      expect(inlineTime).toHaveTextContent(/18:00|6:00/);
 
-      // Favorite count line
+      // AC5 — the always-visible inline time range text is removed (redundant with the date box).
+      expect(within(mobileView).queryByTestId('time-range-inline')).not.toBeInTheDocument();
+
+      // AC4 — the new date box renders till/end timing content for this day's segment.
+      const dateBox = container.querySelector('[data-event-card-date-box]');
+      expect(dateBox).not.toBeNull();
+      expect(dateBox).toHaveTextContent(/till/);
+      expect(dateBox).toHaveTextContent(/9:00 PM/);
+
+      // AC6 — the favorite count line is unchanged.
       const favLine = within(mobileView).getByTestId('favorite-count-line');
       expect(favLine).toBeInTheDocument();
       expect(favLine).toHaveTextContent('15');
@@ -688,10 +692,13 @@ describe('WeeklyCalendarView', () => {
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      // filter out the day header toggle buttons (identified by their own
-      // data-testid, not aria-expanded -- a CalendarCard could legitimately
-      // gain its own aria-expanded usage in the future)
-      const cards = within(mobileView).getAllByRole('button').filter(b => b.getAttribute('data-testid') !== 'mobile-day-toggle');
+      // filter out the day header toggle buttons (identified by their own data-testid)
+      // and the thumbnail favorite-toggle buttons (identified by their accessible name)
+      // before asserting tabIndex — neither is part of the plain-linear-tabstop set.
+      const cards = within(mobileView).getAllByRole('button').filter(b =>
+        b.getAttribute('data-testid') !== 'mobile-day-toggle' &&
+        b.getAttribute('aria-label') !== 'Toggle favorite'
+      );
 
       cards.forEach((card) => {
         expect(card).toHaveAttribute('tabIndex', '0');
@@ -730,6 +737,261 @@ describe('WeeklyCalendarView', () => {
       // The count line still carries an accessible label even with its icon
       // suppressed, so screen-reader users aren't left with a bare number.
       expect(favLine).toHaveAttribute('aria-label', 'Favorites');
+    });
+
+    it('renders the thumbnail image and its favorite badge when imageUrl is present (AC1)', () => {
+      const onFavoriteToggle = vi.fn();
+      const schedule = [
+        {
+          id: 'thumb-1',
+          eventSlug: 'test',
+          eventName: 'Thumbnail Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+          imageUrl: 'https://img.example/thumb.jpg',
+          isFavorited: true,
+          favoriteCount: 7,
+        }
+      ];
+      const { container } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={schedule}
+            onFavoriteToggle={onFavoriteToggle}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const slot = container.querySelector('[data-event-card-media-slot]');
+      expect(slot).not.toBeNull();
+
+      const img = slot?.querySelector('img');
+      expect(img).not.toBeNull();
+      expect(img).toHaveAttribute('src', 'https://img.example/thumb.jpg');
+
+      // Favorite badge is always a live control when onFavoriteToggle is supplied (AD-15 Rule 4).
+      expect(within(mobileView).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+    });
+
+    it('renders the reserved-blank fallback with a large centered favorite badge when imageUrl is absent (AC2)', () => {
+      const onFavoriteToggle = vi.fn();
+      const schedule = [
+        {
+          id: 'noimg-1',
+          eventSlug: 'test',
+          eventName: 'No Image Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+          isFavorited: false,
+        }
+      ];
+      const { container } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={schedule}
+            onFavoriteToggle={onFavoriteToggle}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const slot = container.querySelector('[data-event-card-media-slot]');
+      expect(slot).not.toBeNull();
+      // Reserved-blank fallback: no <img> at all, and the large favorite control renders.
+      expect(slot?.querySelector('img')).toBeNull();
+      expect(within(mobileView).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+    });
+
+    it('switches to the reserved-blank fallback when the image onError fires (AC2)', () => {
+      const onFavoriteToggle = vi.fn();
+      const schedule = [
+        {
+          id: 'err-1',
+          eventSlug: 'test',
+          eventName: 'Broken Image Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+          imageUrl: 'https://img.example/broken.jpg',
+          isFavorited: false,
+        }
+      ];
+      const { container } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={schedule}
+            onFavoriteToggle={onFavoriteToggle}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const slot = container.querySelector('[data-event-card-media-slot]') as HTMLElement;
+      expect(slot).not.toBeNull();
+      const img = slot.querySelector('img');
+      expect(img).not.toBeNull();
+
+      fireEvent.error(img as Element);
+
+      // After the error, the reserved 64x64 slot keeps its footprint (no reflow) but the image is gone.
+      expect(slot.querySelector('img')).toBeNull();
+      // The favorite badge (large, centered) still renders and remains interactive.
+      expect(within(slot).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+    });
+
+    it('fires onFavoriteToggle with the exact schedule and does not trigger onScheduleClick (AC3/AC7)', () => {
+      const onFavoriteToggle = vi.fn();
+      const onScheduleClick = vi.fn();
+      const schedule = [
+        {
+          id: 'click-1',
+          eventSlug: 'test',
+          eventName: 'Clickable Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+          imageUrl: 'https://img.example/click.jpg',
+          isFavorited: true,
+        }
+      ];
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={schedule}
+            onScheduleClick={onScheduleClick}
+            onFavoriteToggle={onFavoriteToggle}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const favButton = within(mobileView).getByRole('button', { name: 'Toggle favorite' });
+      fireEvent.click(favButton);
+
+      expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
+      expect(onFavoriteToggle).toHaveBeenCalledWith(schedule[0]);
+      // Sibling-not-nested structure: toggling favorite must not navigate to the event.
+      expect(onScheduleClick).not.toHaveBeenCalled();
+    });
+
+    it('renders no favorite badge at all when onFavoriteToggle is omitted', () => {
+      const schedule = [
+        {
+          id: 'ro-1',
+          eventSlug: 'test',
+          eventName: 'Read Only Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+          imageUrl: 'https://img.example/ro.jpg',
+          isFavorited: true,
+        }
+      ];
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} schedules={schedule} />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      expect(within(mobileView).queryByRole('button', { name: 'Toggle favorite' })).not.toBeInTheDocument();
+    });
+
+    it('shows a bare till on a continuing multi-day segment before its last day (AC4)', () => {
+      const { container } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={[
+              {
+                id: 'md-1',
+                eventSlug: 'test',
+                eventName: 'Multi Day Event',
+                isMainSchedule: true,
+                eventStartDate: '2026-08-05',
+                eventEndDate: '2026-08-07',
+              }
+            ]}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      // Day 05 is the first expanded day, so its date box is the first in the list.
+      const dateBox = container.querySelector('[data-event-card-date-box]');
+      expect(dateBox).not.toBeNull();
+      expect(dateBox).toHaveTextContent('till');
+      expect((dateBox as HTMLElement).textContent).not.toMatch(/[0-9]:[0-9]{2}/);
+    });
+
+    it('shows "till {time}" on the last day when an end time is known, and never the start date (AC4)', () => {
+      const { container } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={[
+              {
+                id: 'lt-1',
+                eventSlug: 'test',
+                eventName: 'Last Day Event',
+                isMainSchedule: true,
+                eventStartDate: '2026-08-05',
+                eventStartTime: '18:00:00',
+                eventEndTime: '21:00:00',
+              }
+            ]}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const dateBox = container.querySelector('[data-event-card-date-box]') as HTMLElement;
+      expect(dateBox).not.toBeNull();
+      expect(dateBox.textContent).toBe('till 9:00 PM');
+      // The date box never repeats the event's own start date text.
+      expect(dateBox.textContent).not.toContain('Aug 5');
+    });
+
+    it('falls back to a bare till with an end date but no time, and with no end info at all (AC4)', () => {
+      const { container: c1 } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={[
+              {
+                id: 'nt-1',
+                eventSlug: 'test',
+                eventName: 'End Date No Time',
+                isMainSchedule: true,
+                eventStartDate: '2026-08-05',
+                eventEndDate: '2026-08-05',
+              }
+            ]}
+          />
+        </ScopedLocaleProvider>
+      );
+      const dateBox1 = c1.querySelector('[data-event-card-date-box]') as HTMLElement;
+      expect(dateBox1).not.toBeNull();
+      expect(dateBox1.textContent).toBe('till');
+
+      const { container: c2 } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={[
+              {
+                id: 'ni-1',
+                eventSlug: 'test',
+                eventName: 'No End Info',
+                isMainSchedule: true,
+                eventStartDate: '2026-08-05',
+              }
+            ]}
+          />
+        </ScopedLocaleProvider>
+      );
+      const dateBox2 = c2.querySelector('[data-event-card-date-box]') as HTMLElement;
+      expect(dateBox2).not.toBeNull();
+      expect(dateBox2.textContent).toBe('till');
     });
   });
   describe('Mobile Day Collapse State', () => {
