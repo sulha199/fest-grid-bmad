@@ -3,7 +3,12 @@ import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { EventCard } from './EventCard';
-import { eventCardBadgeIconSizeClass } from './event-card-media-tokens';
+import {
+  EVENT_CARD_BADGE_FONT_SIZE_VAR,
+  EVENT_CARD_BADGE_FONT_SIZE,
+  EVENT_CARD_BADGE_ICON_SCALE_DEFAULT,
+  EVENT_CARD_BADGE_MIN_TOUCH_REM,
+} from './event-card-media-tokens';
 import { ScopedLocaleProvider } from '../../hooks/useScopedLocale';
 
 // Mirrors EventCard's own Intl.DateTimeFormat options, so expected values are
@@ -515,11 +520,14 @@ describe('EventCard', () => {
       const btn = screen.getByLabelText(/favorite/i);
       const heart = btn.querySelector('svg');
       expect(heart).not.toBeNull();
-      // jsdom returns an SVGAnimatedString for svg.className, so read the class attribute.
-      const cls = heart?.getAttribute('class') as string;
-      expect(cls).toContain(eventCardBadgeIconSizeClass('default'));
-      expect(cls).not.toContain('w-5');
-      expect(cls).not.toContain('h-5');
+      // The size is applied as an inline style (not a Tailwind class -- a class built via
+      // runtime string interpolation is invisible to Tailwind's static content scanner and
+      // generates no CSS, which is the bug this token was rewritten to avoid). Built
+      // independently from the raw exported constants here, rather than calling
+      // eventCardBadgeIconSizeStyle itself, so a wrong formula inside that function
+      // would actually fail this assertion instead of matching it by construction.
+      const expectedWidth = `calc(var(${EVENT_CARD_BADGE_FONT_SIZE_VAR},${EVENT_CARD_BADGE_FONT_SIZE})*${EVENT_CARD_BADGE_ICON_SCALE_DEFAULT})`;
+      expect(heart?.style.width).toBe(expectedWidth);
     });
 
     it('keeps the count-span classes and the button positioning/background classes unchanged', () => {
@@ -825,6 +833,18 @@ describe('EventCard', () => {
       expect(rootButton).toBeDefined();
       expect(children.indexOf(favWrapper)).toBeGreaterThanOrEqual(0);
       expect(children.indexOf(favWrapper)).toBeLessThan(children.indexOf(rootButton));
+    });
+
+    // Regression test for the clipping bug: the no-thumbnail favorite badge is
+    // min-h-11, but its wrapper's `height` here tracks the date box's own measured
+    // height, which can be shorter -- without a minHeight floor, the badge overflows
+    // its wrapper and gets clipped by the article's overflow-hidden (only the heart's
+    // bottom point remained visible; confirmed live via Playwright against a seeded card).
+    it('never lets the favorite-badge wrapper be shorter than the badge\'s own min-h-11 touch target', () => {
+      render(<EventCard {...defaultProps} variant="masonry" onFavoriteToggle={vi.fn()} />);
+      const favButton = screen.getByRole('button', { name: 'Toggle favorite' });
+      const favWrapper = favButton.parentElement as HTMLElement;
+      expect(favWrapper.style.minHeight).toBe(`${EVENT_CARD_BADGE_MIN_TOUCH_REM}rem`);
     });
   });
 

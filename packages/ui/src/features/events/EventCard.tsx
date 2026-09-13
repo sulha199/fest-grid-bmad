@@ -14,7 +14,10 @@ import {
   getLocalDateInTimezone,
   getCalendarDayDifference,
 } from './format-event-date';
-import { eventCardBadgeIconSizeClass } from './event-card-media-tokens';
+import {
+  eventCardBadgeIconSizeStyle,
+  EVENT_CARD_BADGE_MIN_TOUCH_REM,
+} from './event-card-media-tokens';
 import {
   EventCardDateBox,
   EventCardMediaSlot,
@@ -225,7 +228,10 @@ export function EventCard({
           }`}
         >
           <Heart
-            className={`${eventCardBadgeIconSizeClass('default')} ${isFavorited ? 'fill-red-600 text-red-600' : 'text-black'}`}
+            // lucide's own `size` prop would be silently overridden by this `style` --
+            // don't add one here without removing/reconciling this instead.
+            style={eventCardBadgeIconSizeStyle('default')}
+            className={isFavorited ? 'fill-red-600 text-red-600' : 'text-black'}
             fill={isFavorited ? 'currentColor' : 'none'}
           />
           {favoriteCount !== undefined && (
@@ -257,6 +263,12 @@ export function EventCard({
                   top: 0,
                   right: 0,
                   height: dateBoxSize.h ? `${dateBoxSize.h}px` : undefined,
+                  // CSS min-height (not a JS Math.max on a px literal) so this never drops
+                  // below the favorite badge's own min-h-11 touch target, and stays correct
+                  // under browser zoom / root font-size changes -- a fixed box shorter than
+                  // the badge's minimum forced it to overflow and get clipped by the
+                  // article's overflow-hidden (only the heart's bottom point showed).
+                  minHeight: `${EVENT_CARD_BADGE_MIN_TOUCH_REM}rem`,
                 }
               : undefined
           }

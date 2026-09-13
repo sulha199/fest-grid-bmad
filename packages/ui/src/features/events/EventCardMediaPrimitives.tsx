@@ -23,7 +23,8 @@ import { Heart } from 'lucide-react';
 import {
   EVENT_CARD_BADGE_FONT_SIZE,
   EVENT_CARD_BADGE_FONT_SIZE_VAR,
-  eventCardBadgeIconSizeClass,
+  EVENT_CARD_BADGE_MIN_TOUCH_REM,
+  eventCardBadgeIconSizeStyle,
 } from './event-card-media-tokens';
 import type {
   EventCardMediaSlotProps,
@@ -97,7 +98,16 @@ export function EventCardMediaSlot({
         // favorite badge renders (AC2/AC4).
         !hideFavoriteBadge &&
         onFavoriteToggle && (
-          <div className="flex items-center justify-center w-full h-full">
+          // min-height guards this the same way EventCard.tsx's own sibling-badge
+          // wrapper does: a `layout="flex-fill"` slot inherits a short height from
+          // whatever row it's stretched to match (e.g. a short date box), which is
+          // shorter than the `large` badge's own min-h-11 touch target below --
+          // without this, the badge overflows and gets clipped by this slot's own
+          // `overflow-hidden` (see event-card-media-tokens.ts EVENT_CARD_BADGE_MIN_TOUCH_REM).
+          <div
+            className="flex items-center justify-center w-full h-full"
+            style={{ minHeight: `${EVENT_CARD_BADGE_MIN_TOUCH_REM}rem` }}
+          >
             <EventCardFavoriteBadge
               scale="large"
               isFavorited={isFavorited}
@@ -134,7 +144,7 @@ export function EventCardFavoriteBadge({
     return null;
   }
 
-  const iconClass = eventCardBadgeIconSizeClass(scale);
+  const iconSizeStyle = eventCardBadgeIconSizeStyle(scale);
   const isLarge = scale === 'large';
 
   return (
@@ -155,13 +165,16 @@ export function EventCardFavoriteBadge({
       }
     >
       <Heart
-        className={`${iconClass} ${
+        // lucide's own `size` prop would be silently overridden by this `style` --
+        // don't add one here without removing/reconciling this instead.
+        style={iconSizeStyle}
+        className={
           isLarge
             ? 'text-rose-500'
             : isFavorited
               ? 'fill-red-600 text-red-600'
               : 'text-black'
-        }`}
+        }
         fill={isFavorited ? 'currentColor' : 'none'}
       />
       {favoriteCount !== undefined && (

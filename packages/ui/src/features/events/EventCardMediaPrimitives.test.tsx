@@ -7,8 +7,18 @@ import {
   EVENT_CARD_BADGE_ICON_SCALE_LARGE,
   EVENT_CARD_BADGE_ICON_SCALE_DEFAULT,
   EVENT_CARD_BADGE_FONT_SIZE,
-  eventCardBadgeIconSizeClass,
+  EVENT_CARD_BADGE_FONT_SIZE_VAR,
+  EVENT_CARD_BADGE_MIN_TOUCH_REM,
+  eventCardBadgeIconSizeStyle,
 } from './event-card-media-tokens';
+
+// Built independently from the raw exported constants, not by calling
+// eventCardBadgeIconSizeStyle itself -- so a wrong formula inside that function
+// (wrong ratio, wrong var name, wrong operator) actually fails these assertions
+// instead of trivially matching them by construction.
+function expectedIconSize(ratio: number): string {
+  return `calc(var(${EVENT_CARD_BADGE_FONT_SIZE_VAR},${EVENT_CARD_BADGE_FONT_SIZE})*${ratio})`;
+}
 
 function slotRoot(container: HTMLElement): HTMLElement {
   const el = container.querySelector('[data-event-card-media-slot]');
@@ -51,9 +61,10 @@ describe('EventCardFavoriteBadge - AC2 (icon size derives from the shared token,
 
   it('calibrates the large scale to exactly 2x (24px / 12px text-xs), per DESIGN.md', () => {
     expect(EVENT_CARD_BADGE_ICON_SCALE_LARGE).toBe(2);
-    const largeIconClass = eventCardBadgeIconSizeClass('large');
-    expect(largeIconClass).toContain('*2');
-    expect(largeIconClass).toContain('var(--event-card-badge-font-size');
+    const largeStyle = eventCardBadgeIconSizeStyle('large');
+    const expected = expectedIconSize(EVENT_CARD_BADGE_ICON_SCALE_LARGE);
+    expect(largeStyle.width).toBe(expected);
+    expect(largeStyle.height).toBe(expected);
   });
 
   it('uses a distinct, smaller ratio for the default scale (close to EventCard current 20px corner heart)', () => {
@@ -61,17 +72,26 @@ describe('EventCardFavoriteBadge - AC2 (icon size derives from the shared token,
     expect(defaultRatio).toBeLessThan(EVENT_CARD_BADGE_ICON_SCALE_LARGE);
     expect(12 * defaultRatio).toBeCloseTo(20, 4);
 
-    const largeIconClass = eventCardBadgeIconSizeClass('large');
-    const defaultIconClass = eventCardBadgeIconSizeClass('default');
-    expect(defaultIconClass).not.toBe(largeIconClass);
+    const defaultStyle = eventCardBadgeIconSizeStyle('default');
+    const expected = expectedIconSize(defaultRatio);
+    expect(defaultStyle.width).toBe(expected);
+    expect(defaultStyle.height).toBe(expected);
   });
 
-  it('renders a large badge whose icon spans the full calibrated size', () => {
+  // Regression test for the bug this fix addresses: the icon size used to be built as a
+  // Tailwind arbitrary-value class via runtime string interpolation
+  // (`w-[calc(var(...)*ratio)]`), which Tailwind's static content scanner can never see,
+  // so no CSS rule was ever generated for it — the icon silently fell back to lucide's
+  // default 24x24 regardless of scale. Asserting the *inline style* actually reaches the
+  // SVG element (not just that a class string contains the right substring) is what would
+  // have caught that.
+  it('renders a large badge whose icon carries the calibrated size as an inline style', () => {
     render(<EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />);
     const heart = screen.getByRole('button').querySelector('svg');
     expect(heart).not.toBeNull();
-    // jsdom returns an SVGAnimatedString for svg.className, so read the class attribute.
-    expect(heart?.getAttribute('class')).toContain('*2');
+    const expected = expectedIconSize(EVENT_CARD_BADGE_ICON_SCALE_LARGE);
+    expect(heart?.style.width).toBe(expected);
+    expect(heart?.style.height).toBe(expected);
   });
 });
 
@@ -125,6 +145,17 @@ describe('EventCardMediaSlot - AC4 (one live favorite-toggle control, adequate t
     const badge = container.querySelector('button');
     expect(badge?.className).toContain('min-h-11');
     expect(badge?.className).toContain('min-w-11');
+  });
+
+  // Regression test: a `layout="flex-fill"` slot inherits its height from whatever row
+  // it's stretched to match (e.g. a short date box), which can be shorter than the badge's
+  // own min-h-11 above -- without a minHeight floor on this wrapper, the badge overflows
+  // and gets clipped by the slot's own overflow-hidden (`slotRoot`'s className).
+  it('never lets the large-badge wrapper be shorter than the badge\'s own min-h-11 touch target', () => {
+    const { container } = render(<EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />);
+    const badge = container.querySelector('button');
+    const wrapper = badge?.parentElement as HTMLElement;
+    expect(wrapper.style.minHeight).toBe(`${EVENT_CARD_BADGE_MIN_TOUCH_REM}rem`);
   });
 
   it('keeps the large badge the same reachable favorite-toggle control as the small one', () => {
