@@ -425,12 +425,13 @@ items:
      note: "DW-069. Affects verifyGeminiApiKey's synchronous createApiKey path directly, not just background jobs."}
 
   BUG-013:
-    {type: bug, status: backlog, created: 2026-09-05,
+    {type: bug, status: done, created: 2026-09-05,
      impact: user-visible, effort: xs,
      title: "EventCard date-formatting fallback chain can still propagate a NaN date past its own guard",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [pkg:ui, web:events],
-     note: "DW-070. The isNaN check only covers parseDateTime's internal fallback; the resulting dateObj is passed unguarded into getEventDayDiff/formatRelativeDayOrDate."}
+     note: "DW-070. The isNaN check only covers parseDateTime's internal fallback; the resulting dateObj is passed unguarded into getEventDayDiff/formatRelativeDayOrDate. FIXED 2026-09-14 (bmad-quick-dev, commit d9630b8): EventCard.tsx now derives a single `dateIsValid = !isNaN(combineDateTime(startDate, startTime).getTime())` guard and only calls getEventDayDiff/formatRelativeDayOrDate (and formatShortEventDateTime, which calls getEventDayDiff internally) when valid — on an Invalid Date it degrades to a blank date instead of letting NaN reach the Intl formatters and throw. Both the standard and masonry variants route through the guarded formattedDate/dateBoxText, so an invalid startDate can no longer propagate unguarded. Added EventCard.tsx regression tests (standard + masonry) asserting an invalid startDate renders the card without throwing. Scope strictly kept to BUG-013 (guarding the downstream propagation); BUG-010 (timezone wiring) and FIND-009 (test fake-timer rollover) left untouched."}
+
 
   BUG-014:
     {type: bug, status: backlog, created: 2026-09-05,
