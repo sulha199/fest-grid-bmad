@@ -474,12 +474,12 @@ items:
      note: "DW-005."}
 
   FIND-009:
-    {type: finding, status: backlog, created: 2026-09-05,
+    {type: finding, status: done, created: 2026-09-05,
      impact: internal, effort: xs,
      title: "packages/ui tests fail on wall-clock date rollover (EventCard, WeeklyCalendarView)",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [pkg:ui, web:events],
-     note: "DW-008, DW-031. Missing vi.useFakeTimers()/setSystemTime; the known recurring trap. Absorbs BUG-006, which recorded the same defect as a product day-diff bug — disproved against format-event-date.ts:66-71, see that row."}
+     note: "DW-008, DW-031. Missing vi.useFakeTimers()/setSystemTime; the known recurring trap. Absorbs BUG-006, which recorded the same defect as a product day-diff bug — disproved against format-event-date.ts:66-71, see that row. FIXED 2026-09-14 (bmad-quick-dev, commit 71e690b): pinned the wall clock in the packages/ui date-relative tests that relied on the real clock, matching the repo convention (vi.useFakeTimers()+vi.setSystemTime, 2026-08-12T12:00:00Z reference). EventCard.test.tsx: added beforeAll/afterAll fake-timer pinning to the 'Relative-day date display' block (Today/Tomorrow/weekday/absolute fallback + Masonry badge display) and the 'TILL badge (masonry, AC14)' block (which derives yesterday/today/tomorrow from the wall clock). WeeklyCalendarView.test.tsx: pinned the clock inline in 'opens the week picker and calls onSelectWeek with the picked date' (restored via useRealTimers in a finally) so the date-picker opens on August 2026 and day '10' resolves to the fixture's 2026-08-10 instead of drifting to the current month. Verified via targeted vitest: EventCard/WeeklyCalendarView/EventCardMediaPrimitives/EventListView (124 tests) and full src/features/events + useWeeklyCalendarController run (14 files, 263 tests) all pass. Product formatter untouched — confirmed this is a test-harness gap only (epic-formation verdict)."}
 
   FIND-010:
     {type: finding, status: backlog, created: 2026-09-05,
