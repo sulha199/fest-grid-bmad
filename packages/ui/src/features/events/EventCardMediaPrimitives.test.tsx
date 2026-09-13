@@ -156,6 +156,60 @@ describe('EventCardFavoriteBadge - AC5 (i18n label plumbing matching EventCard c
   });
 });
 
+describe('EventCardMediaSlot additive props (Story 1.i1e)', () => {
+  afterEach(() => cleanup());
+
+  it('hideFavoriteBadge suppresses the internal badge in both branches even when onFavoriteToggle is provided', () => {
+    const { container: imagePresentContainer } = render(
+      <EventCardMediaSlot layout="flex-fill" imageUrl="/a.jpg" onFavoriteToggle={vi.fn()} hideFavoriteBadge />
+    );
+    expect(imagePresentContainer.querySelector('button')).toBeNull();
+
+    const { container: fallbackContainer } = render(
+      <EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} hideFavoriteBadge />
+    );
+    expect(fallbackContainer.querySelector('button')).toBeNull();
+    expect(fallbackContainer.querySelector('img')).toBeNull();
+  });
+
+  it('renders the internal badge normally when hideFavoriteBadge is omitted (defaults falsy)', () => {
+    const { container } = render(
+      <EventCardMediaSlot layout="flex-fill" imageUrl="/a.jpg" onFavoriteToggle={vi.fn()} />
+    );
+    expect(container.querySelectorAll('button')).toHaveLength(1);
+  });
+
+  it('fires onImagePresenceChange(true) on mount with a valid imageUrl, then false after the img onError fires', () => {
+    const onImagePresenceChange = vi.fn();
+    const { container } = render(
+      <EventCardMediaSlot
+        layout="flex-fill"
+        imageUrl="/a.jpg"
+        onFavoriteToggle={vi.fn()}
+        onImagePresenceChange={onImagePresenceChange}
+      />
+    );
+    // Initial mount value, before any error.
+    expect(onImagePresenceChange).toHaveBeenCalledWith(true);
+
+    const img = container.querySelector('img');
+    fireEvent.error(img as HTMLImageElement);
+    expect(onImagePresenceChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it('fires onImagePresenceChange(false) on mount when no imageUrl is provided', () => {
+    const onImagePresenceChange = vi.fn();
+    render(
+      <EventCardMediaSlot
+        layout="flex-fill"
+        onFavoriteToggle={vi.fn()}
+        onImagePresenceChange={onImagePresenceChange}
+      />
+    );
+    expect(onImagePresenceChange).toHaveBeenCalledWith(false);
+  });
+});
+
 describe('EventCardDateBox', () => {
   afterEach(() => cleanup());
 

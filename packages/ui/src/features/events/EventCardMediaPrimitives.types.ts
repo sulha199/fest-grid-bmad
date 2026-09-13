@@ -41,6 +41,22 @@ export interface EventCardMediaSlotProps {
   labels?: EventCardFavoriteBadgeLabels;
   /** Extra classes appended to the slot root (e.g. margin in a composed row). */
   className?: string;
+  /**
+   * When true, suppress the slot's own internal favorite badge in BOTH branches
+   * (the image-present corner pill and the reserved-blank large fallback), so a
+   * caller can compose an external favorite control instead (e.g. a
+   * `RootTag`-external sibling, per Story 1.i1e's nested-button-avoidance design).
+   * Defaults to `false` — omitted callers keep today's exact behavior.
+   */
+  hideFavoriteBadge?: boolean;
+  /**
+   * Optional callback fired with the current image-presence state
+   * (`true` = a valid image is present and not errored, `false` = absent or
+   * errored) whenever it changes — including on the initial mount value — so an
+   * external caller composing its own favorite badge knows which the slot's
+   * badge scale (`'default'` vs `'large'`) would apply. Safe to omit.
+   */
+  onImagePresenceChange?: (imagePresent: boolean) => void;
 }
 
 /** Label overrides for the favorite-toggle control (AC5 — matches `EventCardLabels.favoriteToggle`). */

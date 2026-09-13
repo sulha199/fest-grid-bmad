@@ -199,16 +199,20 @@ describe('EventCard', () => {
     expect(wrapper).toHaveClass('h-48');
   });
 
-  it('renders a blank, correctly-sized fallback on masonry with prominentPoster=false', () => {
+  it('renders a blank, flex-fill fallback on masonry default (prominentPoster=false, top_row_default)', () => {
     const { container } = render(<EventCard {...defaultProps} variant="masonry" />);
-    // No placeholder text/icon and no img
+    // Reserved-blank fallback: no placeholder text/icon and no img
     expect(screen.queryByText('No image available')).not.toBeInTheDocument();
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
-    // Wrapper div keeps its variant-appropriate sizing class (default aspect-[3/4])
-    const wrapper = container.querySelector('.relative.w-full.bg-muted.overflow-hidden');
-    expect(wrapper).not.toBeNull();
-    expect(wrapper).toHaveClass('aspect-[3/4]');
-    expect(wrapper).not.toHaveClass('aspect-[2/3]');
+    // The media slot keeps its flex-fill footprint (no reflow/no collapse on error)
+    const slot = container.querySelector('[data-event-card-media-slot]');
+    expect(slot).not.toBeNull();
+    expect(slot).toHaveClass('flex-1');
+    expect(slot).toHaveClass('h-full');
+    // The date box (base_default primitive) is a flex sibling (top_row_default)
+    expect(container.querySelector('[data-event-card-date-box]')).not.toBeNull();
+    // No full-width aspect-ratio poster wrapper in the default state
+    expect(container.querySelector('.aspect-\\[3\\/4\\]')).toBeNull();
   });
 
   it('renders a blank, correctly-sized fallback on masonry with prominentPoster=true', () => {
@@ -292,7 +296,7 @@ describe('EventCard', () => {
     expect(screen.getByText('Archived')).toBeInTheDocument();
   });
 
-  it('renders masonry variant with aspect-ratio image class and reduced caption', () => {
+  it('renders masonry variant with a flex-fill thumbnail (not an aspect poster) and reduced caption', () => {
     render(
       <EventCard
         {...defaultProps}
@@ -307,10 +311,13 @@ describe('EventCard', () => {
 
     const img = screen.getByRole('img', { name: 'Summer Music Festival' });
     expect(img).toBeInTheDocument();
-    
-    const imgContainer = img.parentElement;
-    expect(imgContainer).toHaveClass('aspect-[3/4]');
-    expect(imgContainer).not.toHaveClass('h-48');
+
+    // The image renders inside the flex-fill thumbnail slot, not a full-width aspect-[3/4] poster
+    const slot = img.closest('[data-event-card-media-slot]');
+    expect(slot).not.toBeNull();
+    expect(slot).toHaveClass('flex-1');
+    expect(slot).toHaveClass('h-full');
+    expect(slot).not.toHaveClass('h-48');
 
     expect(screen.getByText('Summer Music Festival')).toBeInTheDocument();
     expect(screen.getByText('Great Hall')).toBeInTheDocument();
@@ -402,9 +409,9 @@ describe('EventCard', () => {
           />
         );
 
-        // Both the top-left date pill (AC12) and the below-image status badge (AC15) render
-        // "Tomorrow" for a dayDiff===1 event -- scope to the date pill specifically.
-        const datePill = container.querySelector('.top-3.left-3');
+        // Both the date box (AC12) and the below-image status badge (AC15) render
+        // "Tomorrow" for a dayDiff===1 event -- scope to the date box (primitive) specifically.
+        const datePill = container.querySelector('[data-event-card-date-box]');
         expect(datePill).toHaveTextContent('Tomorrow');
         expect(screen.getAllByText('Tomorrow').length).toBe(2);
       });
@@ -630,6 +637,66 @@ describe('EventCard', () => {
 
       expect(screen.getByText(`till ${expectedTime}`)).toBeInTheDocument();
     });
+
+    it('renders the TILL badge in the amber/corner treatment for prominentPoster=false (top_row_default)', () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const today = new Date();
+      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
+        new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 0)
+      );
+
+      render(
+        <EventCard
+          eventName="Amber Default"
+          startDate={yesterday}
+          startTime="00:00:01"
+          endDate={today}
+          endTime="23:59:00"
+          variant="masonry"
+          locale="en-US"
+        />
+      );
+
+      const badge = screen.getByText(`till ${expectedTime}`);
+      expect(badge).toHaveClass('bg-amber-700');
+      expect(badge).toHaveClass('text-white');
+      expect(badge).toHaveClass('-top-1.5');
+      expect(badge).toHaveClass('-left-1.5');
+      expect(badge).not.toHaveClass('bg-foreground');
+      expect(badge).not.toHaveClass('-bottom-1.5');
+    });
+
+    it('renders the TILL badge in the amber/corner treatment for prominentPoster=true as well (AC3 both-states scope)', () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const today = new Date();
+      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
+        new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 0)
+      );
+
+      render(
+        <EventCard
+          eventName="Amber Prominent"
+          startDate={yesterday}
+          startTime="00:00:01"
+          endDate={today}
+          endTime="23:59:00"
+          variant="masonry"
+          prominentPoster
+          imageUrl="http://example.com/image.jpg"
+          locale="en-US"
+        />
+      );
+
+      const badge = screen.getByText(`till ${expectedTime}`);
+      expect(badge).toHaveClass('bg-amber-700');
+      expect(badge).toHaveClass('text-white');
+      expect(badge).toHaveClass('-top-1.5');
+      expect(badge).toHaveClass('-left-1.5');
+      expect(badge).not.toHaveClass('bg-foreground');
+      expect(badge).not.toHaveClass('-bottom-1.5');
+    });
   });
 
   describe('Status badge (masonry, AC15) and Nearby badge (AC16)', () => {
@@ -685,7 +752,7 @@ describe('EventCard', () => {
       expect(imgContainer).not.toHaveClass('aspect-[3/4]');
     });
 
-    it('keeps the default aspect-[3/4] poster treatment when prominentPoster is false/omitted', () => {
+    it('renders the flex-fill thumbnail treatment (no aspect poster) when prominentPoster is false/omitted', () => {
       render(
         <EventCard
           {...defaultProps}
@@ -695,9 +762,63 @@ describe('EventCard', () => {
         />
       );
       const img = screen.getByRole('img', { name: 'Summer Music Festival' });
-      const imgContainer = img.parentElement;
-      expect(imgContainer).toHaveClass('aspect-[3/4]');
-      expect(imgContainer).not.toHaveClass('aspect-[2/3]');
+      // Default state uses the flex-fill thumbnail slot, not a full-width aspect poster
+      const slot = img.closest('[data-event-card-media-slot]');
+      expect(slot).not.toBeNull();
+      expect(slot).toHaveClass('flex-1');
+      expect(slot).toHaveClass('h-full');
+      expect(slot).not.toHaveClass('aspect-[3/4]');
+      expect(slot).not.toHaveClass('aspect-[2/3]');
+    });
+  });
+
+  describe('Masonry default state favorite composition (AC4/AC5/AC6)', () => {
+    it('renders exactly one focusable favorite-toggle control (outer top-right button suppressed) when onFavoriteToggle is provided', () => {
+      const { container } = render(
+        <EventCard {...defaultProps} variant="masonry" imageUrl="http://example.com/image.jpg" onFavoriteToggle={vi.fn()} />
+      );
+      // No href/onClick here, so RootTag is a <div> — the ONLY button on the card is the favorite control.
+      expect(container.querySelectorAll('button')).toHaveLength(1);
+      expect(screen.getAllByRole('button', { name: 'Toggle favorite' })).toHaveLength(1);
+    });
+
+    it('calls onFavoriteToggle — and not the card onClick/navigation — when the sibling favorite badge is clicked', () => {
+      const onFavoriteToggle = vi.fn();
+      const onClick = vi.fn();
+      render(
+        <EventCard {...defaultProps} variant="masonry" imageUrl="http://example.com/image.jpg" onFavoriteToggle={onFavoriteToggle} onClick={onClick} />
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Toggle favorite' }));
+      expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it('navigates (fires the card onClick) when clicking the thumbnail image area, not the favorite button (AC6)', () => {
+      const onClick = vi.fn();
+      const onFavoriteToggle = vi.fn();
+      render(
+        <EventCard {...defaultProps} variant="masonry" imageUrl="http://example.com/image.jpg" onFavoriteToggle={onFavoriteToggle} onClick={onClick} />
+      );
+      fireEvent.click(screen.getByRole('img', { name: 'Summer Music Festival' }));
+      expect(onClick).toHaveBeenCalledTimes(1);
+      expect(onFavoriteToggle).not.toHaveBeenCalled();
+    });
+
+    it('places the favorite control before the navigate-to-event root among <article> children (tab order, AC5)', () => {
+      const { container } = render(
+        <EventCard {...defaultProps} variant="masonry" imageUrl="http://example.com/image.jpg" onFavoriteToggle={vi.fn()} onClick={vi.fn()} />
+      );
+      const article = container.querySelector('article') as HTMLElement;
+      const favButton = screen.getByRole('button', { name: 'Toggle favorite' });
+      const favWrapper = favButton.parentElement as HTMLElement;
+      const rootButton = Array.from(article.children).find(
+        (child) => child.tagName === 'BUTTON' || child.tagName === 'A'
+      ) as HTMLElement;
+      const children = Array.from(article.children);
+      expect(favWrapper).not.toBeNull();
+      expect(rootButton).toBeDefined();
+      expect(children.indexOf(favWrapper)).toBeGreaterThanOrEqual(0);
+      expect(children.indexOf(favWrapper)).toBeLessThan(children.indexOf(rootButton));
     });
   });
 

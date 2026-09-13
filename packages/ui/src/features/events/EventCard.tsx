@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useLayoutEffect, useRef } from 'react';
 import { MapPin, Heart, Clock, Navigation } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
@@ -15,6 +15,21 @@ import {
   getCalendarDayDifference,
 } from './format-event-date';
 import { eventCardBadgeIconSizeClass } from './event-card-media-tokens';
+import {
+  EventCardDateBox,
+  EventCardMediaSlot,
+  EventCardFavoriteBadge,
+} from './EventCardMediaPrimitives';
+
+/**
+ * Shared TILL-badge treatment (Story 1.i1e, Task 3): the solid-amber, top-left-corner
+ * tag anchored to whichever date-box container is present in either `prominentPoster`
+ * state — `DESIGN.md` § event_card_till_badge.base. Shared via one constant (not
+ * duplicated by hand) so both the `prominentPoster=true` overlay and the
+ * `prominentPoster=false` `EventCardDateBox` composition can never drift apart.
+ */
+const TILL_BADGE_CLASS =
+  'absolute -top-1.5 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-[10px] font-semibold leading-none shadow-sm whitespace-nowrap';
 
 /**
  * EventCard is a reusable, framework-agnostic presentation component for displaying
@@ -86,6 +101,29 @@ export function EventCard({
   };
 
   const [imgError, setImgError] = useState(false);
+
+  // Story 1.i1e — masonry `prominentPoster=false` ("masonry default") composition.
+  const isMasonryDefault = variant === 'masonry' && !prominentPoster;
+
+  // Task 2.2 — whether the default-state thumbnail currently has a valid image, so
+  // the RootTag-external favorite badge knows its scale ('default' vs 'large').
+  // Seeded from the imageUrl prop and kept current via EventCardMediaSlot's
+  // onImagePresenceChange. Local component state only — not Server/URL/Global.
+  const [defaultThumbnailImagePresent, setDefaultThumbnailImagePresent] = useState<boolean>(() => !!imageUrl);
+
+  // Task 2.3 — sibling favorite badge (large / image-absent case) centering: measured
+  // once on layout from the date box's own box so the badge centers within just the
+  // thumbnail, not the whole row (jsdom yields 0×0, so tests assert the mechanism,
+  // not exact pixels — confirm the final visual against the reference screenshot).
+  const dateBoxRef = useRef<HTMLDivElement | null>(null);
+  const [dateBoxSize, setDateBoxSize] = useState({ w: 0, h: 0 });
+  useLayoutEffect(() => {
+    const el = dateBoxRef.current;
+    if (el) {
+      setDateBoxSize({ w: el.offsetWidth, h: el.offsetHeight });
+    }
+  }, []);
+
   const contextLocale = useScopedLocale();
   const contextTimezone = useScopedTimezone();
   // `||` (not `??`) so an accidental empty-string prop also falls through to context/default
@@ -173,7 +211,7 @@ export function EventCard({
       }`}
       aria-disabled={pendingRemoval}
     >
-      {onFavoriteToggle && (
+      {onFavoriteToggle && !isMasonryDefault && (
         <button
           type="button"
           onClick={(e) => {
@@ -198,42 +236,95 @@ export function EventCard({
         </button>
       )}
 
+      {/* Story 1.i1e — masonry-default (prominentPoster=false) favorite control.
+          The single live favorite control is an EventCardFavoriteBadge composed as a
+          DOM sibling of RootTag (never nested inside its <a>/<button>), at the same
+          position today's outer button occupies — which is what keeps AC5's tab order
+          (favorite BEFORE the navigate root) with no new logic. Scale follows the
+          thumbnail's image presence: 'default' corner pill over the image, or 'large'
+          centered control in the reserved-blank fallback. */}
+      {isMasonryDefault && onFavoriteToggle && (
+        <div
+          className={
+            defaultThumbnailImagePresent
+              ? 'absolute top-1 right-1 z-10'
+              : 'absolute z-10 flex items-center justify-center'
+          }
+          style={
+            !defaultThumbnailImagePresent
+              ? {
+                  left: `calc(${dateBoxSize.w}px + 0.5rem)`,
+                  top: 0,
+                  right: 0,
+                  height: dateBoxSize.h ? `${dateBoxSize.h}px` : undefined,
+                }
+              : undefined
+          }
+        >
+          <EventCardFavoriteBadge
+            scale={defaultThumbnailImagePresent ? 'default' : 'large'}
+            isFavorited={isFavorited}
+            favoriteCount={favoriteCount}
+            onFavoriteToggle={onFavoriteToggle}
+            labels={{ favoriteToggle: defaultLabels.favoriteToggle }}
+          />
+        </div>
+      )}
+
       <RootTag 
         {...interactiveProps} 
         className="flex-1 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <div
-          className={`relative ${
-            variant === 'masonry'
-              ? prominentPoster
-                ? 'aspect-[2/3]'
-                : 'aspect-[3/4]'
-              : 'h-48'
-          } w-full bg-muted overflow-hidden flex items-center justify-center`}
-        >
-          {statusBadge && (
-            <div className="absolute top-2 right-2 z-10">{statusBadge}</div>
-          )}
-          {variant === 'masonry' && (
-            <div className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground">
-              {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
-              {formatShortEventDateTime(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)}
-              {tillBadgeText && (
-                <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 z-20 px-1.5 py-0.5 rounded-full bg-foreground text-background text-[10px] font-semibold leading-none shadow-sm whitespace-nowrap">
-                  {tillBadgeText}
-                </span>
-              )}
+        {isMasonryDefault ? (
+          <div className="relative flex items-stretch gap-2">
+            <div ref={dateBoxRef} className="shrink-0">
+              <EventCardDateBox>
+                {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
+                {formatShortEventDateTime(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)}
+                {tillBadgeText && (
+                  <span className={TILL_BADGE_CLASS}>{tillBadgeText}</span>
+                )}
+              </EventCardDateBox>
             </div>
-          )}
-          {!imgError && imageUrl ? (
-            <img 
-              src={imageUrl} 
-              alt={finalImageAlt}
-              onError={() => setImgError(true)}
-              className="object-cover w-full h-full"
+            <EventCardMediaSlot
+              layout="flex-fill"
+              imageUrl={imageUrl}
+              imageAlt={finalImageAlt}
+              hideFavoriteBadge
+              onImagePresenceChange={setDefaultThumbnailImagePresent}
             />
-          ) : null}
-        </div>
+            {statusBadge && (
+              <div className="absolute top-2 right-2 z-10">{statusBadge}</div>
+            )}
+          </div>
+        ) : (
+          <div
+            className={`relative ${
+              variant === 'masonry' ? 'aspect-[2/3]' : 'h-48'
+            } w-full bg-muted overflow-hidden flex items-center justify-center`}
+          >
+            {statusBadge && (
+              <div className="absolute top-2 right-2 z-10">{statusBadge}</div>
+            )}
+            {variant === 'masonry' && (
+              <div className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground">
+                {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
+                {formatShortEventDateTime(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)}
+                {tillBadgeText && (
+                  <span className={TILL_BADGE_CLASS}>{tillBadgeText}</span>
+                )}
+              </div>
+            )}
+            {!imgError && imageUrl ? (
+              <img 
+                src={imageUrl} 
+                alt={finalImageAlt}
+                onError={() => setImgError(true)}
+                className="object-cover w-full h-full"
+              />
+            ) : null}
+          </div>
+        )}
 
         {variant === 'masonry' ? (
           <div className="p-3 flex-1 flex flex-col gap-2">

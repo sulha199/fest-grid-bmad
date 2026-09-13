@@ -18,7 +18,7 @@
  * @see event-card-media-tokens.ts        — the icon-scale CSS-custom-property token family
  * @see EventCardMediaPrimitives.types.ts — exported prop interfaces
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart } from 'lucide-react';
 import {
   EVENT_CARD_BADGE_FONT_SIZE,
@@ -49,10 +49,19 @@ export function EventCardMediaSlot({
   onFavoriteToggle,
   labels,
   className = '',
+  hideFavoriteBadge = false,
+  onImagePresenceChange,
 }: EventCardMediaSlotProps) {
   // Same onError detection EventCard.tsx's existing `imgError` state uses (AC3).
   const [imgError, setImgError] = useState(false);
   const imagePresent = !!imageUrl && !imgError;
+
+  // Notify an external caller (only when one is supplied) of the local
+  // image-presence state, including the initial mount value — Story 1.i1e uses
+  // this so a RootTag-external favorite badge knows the active scale.
+  useEffect(() => {
+    onImagePresenceChange?.(imagePresent);
+  }, [imagePresent, onImagePresenceChange]);
 
   const layoutClasses =
     layout === 'flex-fill' ? 'flex-1 h-full min-w-0' : 'w-16 h-16 shrink-0';
@@ -71,7 +80,7 @@ export function EventCardMediaSlot({
             onError={() => setImgError(true)}
             className="object-cover w-full h-full"
           />
-          {onFavoriteToggle && (
+          {!hideFavoriteBadge && onFavoriteToggle && (
             <EventCardFavoriteBadge
               scale="default"
               isFavorited={isFavorited}
@@ -86,6 +95,7 @@ export function EventCardMediaSlot({
         // Reserved-blank fallback (AC3): no image, no placeholder icon, no placeholder
         // text — the slot keeps its exact AC1 footprint and only the large, centered
         // favorite badge renders (AC2/AC4).
+        !hideFavoriteBadge &&
         onFavoriteToggle && (
           <div className="flex items-center justify-center w-full h-full">
             <EventCardFavoriteBadge

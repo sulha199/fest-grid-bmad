@@ -4,7 +4,7 @@
 
 - **Epic:** 1.i1 — One card primitive for every event-card image slot and badge
 - **Story ID:** 1.i1e
-- **Status:** ready-for-dev
+- **Status:** review
 
 ## Story
 
@@ -48,39 +48,39 @@
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Extend `EventCardMediaSlot` additively so a caller can compose its own external favorite control** (AC4, AC6)
-  - [ ] 1.1 Add optional `hideFavoriteBadge?: boolean` (default `false`) to `EventCardMediaSlotProps`. When `true`, suppress the slot's own internal `EventCardFavoriteBadge` rendering in **both** branches (image-present corner badge and reserved-blank-fallback large badge) — the slot renders only the image/blank content.
-  - [ ] 1.2 Add optional `onImagePresenceChange?: (imagePresent: boolean) => void` to `EventCardMediaSlotProps`, invoked (e.g. via a `useEffect` keyed on the slot's internal `imagePresent = !!imageUrl && !imgError`) whenever that value changes — including the initial mount value — so an external caller composing its own favorite badge knows which scale (`'default'` vs `'large'`) applies.
-  - [ ] 1.3 Update `EventCardMediaPrimitives.types.ts` with both new optional props and their doc comments (mirror the existing prop-doc style in that file).
-  - [ ] 1.4 Extend `EventCardMediaPrimitives.test.tsx`: `hideFavoriteBadge` suppresses the internal badge in both branches even when `onFavoriteToggle` is provided; `onImagePresenceChange` fires `true` on mount with a valid `imageUrl`, `false` with no `imageUrl`, and flips to `false` after the `<img>`'s `onError` fires.
-  - [ ] 1.5 Confirm every existing caller (this file's own tests, Story 1.i1d's `WeeklyCalendarView.tsx` adoption) is unaffected — both new props are optional and default to today's exact behavior when omitted.
+- [x] **Task 1: Extend `EventCardMediaSlot` additively so a caller can compose its own external favorite control** (AC4, AC6)
+  - [x] 1.1 Add optional `hideFavoriteBadge?: boolean` (default `false`) to `EventCardMediaSlotProps`. When `true`, suppress the slot's own internal `EventCardFavoriteBadge` rendering in **both** branches (image-present corner badge and reserved-blank-fallback large badge) — the slot renders only the image/blank content.
+  - [x] 1.2 Add optional `onImagePresenceChange?: (imagePresent: boolean) => void` to `EventCardMediaSlotProps`, invoked (e.g. via a `useEffect` keyed on the slot's internal `imagePresent = !!imageUrl && !imgError`) whenever that value changes — including the initial mount value — so an external caller composing its own favorite badge knows which scale (`'default'` vs `'large'`) applies.
+  - [x] 1.3 Update `EventCardMediaPrimitives.types.ts` with both new optional props and their doc comments (mirror the existing prop-doc style in that file).
+  - [x] 1.4 Extend `EventCardMediaPrimitives.test.tsx`: `hideFavoriteBadge` suppresses the internal badge in both branches even when `onFavoriteToggle` is provided; `onImagePresenceChange` fires `true` on mount with a valid `imageUrl`, `false` with no `imageUrl`, and flips to `false` after the `<img>`'s `onError` fires.
+  - [x] 1.5 Confirm every existing caller (this file's own tests, Story 1.i1d's `WeeklyCalendarView.tsx` adoption) is unaffected — both new props are optional and default to today's exact behavior when omitted.
 
-- [ ] **Task 2: Restructure `EventCard.tsx`'s masonry branch for `prominentPoster=false`** (AC1, AC4, AC5, AC6, AC8)
-  - [ ] 2.1 For `variant === 'masonry' && !prominentPoster` only, replace the current `aspect-[3/4]` image wrapper with the `top_row_default` composition: a `relative flex items-stretch gap-2` row (the `relative` preserves `statusBadge`'s existing absolute-overlay contract, AC8) containing `EventCardDateBox` (wrapping the existing `formatShortEventDateTime` + conditional Clock-icon content, unchanged logic) beside `EventCardMediaSlot layout="flex-fill" hideFavoriteBadge onImagePresenceChange={...}`.
-  - [ ] 2.2 Track new local state (e.g. `defaultThumbnailImagePresent`), seeded from `!!imageUrl`, updated via `onImagePresenceChange` — local component state only, not Server/URL/Global (see Global Rules References).
-  - [ ] 2.3 Render `EventCardFavoriteBadge` (imported standalone, exactly as Story 1.i1b already does for the icon-size token) as a **DOM sibling of `RootTag`**, gated on `onFavoriteToggle` exactly like today's outer button, at the **same DOM position** today's outer button occupies (a direct child of `<article>`, immediately before `RootTag` — this is what makes AC5's tab-order requirement hold with no new logic). See the "Favorite-Badge Sibling Positioning" guardrail below for the exact `scale`/positioning-class mechanics.
-  - [ ] 2.4 Suppress today's existing outer top-right favorite `<button>` specifically when `variant === 'masonry' && !prominentPoster` — it must remain byte-for-byte unchanged for `standard` and for `masonry && prominentPoster`.
-  - [ ] 2.5 Leave `prominentPoster=true`'s entire branch (full-width poster, `base` date-box overlay, outer top-right button) untouched except the TILL-badge restyle (Task 3).
+- [x] **Task 2: Restructure `EventCard.tsx`'s masonry branch for `prominentPoster=false`** (AC1, AC4, AC5, AC6, AC8)
+  - [x] 2.1 For `variant === 'masonry' && !prominentPoster` only, replace the current `aspect-[3/4]` image wrapper with the `top_row_default` composition: a `relative flex items-stretch gap-2` row (the `relative` preserves `statusBadge`'s existing absolute-overlay contract, AC8) containing `EventCardDateBox` (wrapping the existing `formatShortEventDateTime` + conditional Clock-icon content, unchanged logic) beside `EventCardMediaSlot layout="flex-fill" hideFavoriteBadge onImagePresenceChange={...}`.
+  - [x] 2.2 Track new local state (e.g. `defaultThumbnailImagePresent`), seeded from `!!imageUrl`, updated via `onImagePresenceChange` — local component state only, not Server/URL/Global (see Global Rules References).
+  - [x] 2.3 Render `EventCardFavoriteBadge` (imported standalone, exactly as Story 1.i1b already does for the icon-size token) as a **DOM sibling of `RootTag`**, gated on `onFavoriteToggle` exactly like today's outer button, at the **same DOM position** today's outer button occupies (a direct child of `<article>`, immediately before `RootTag` — this is what makes AC5's tab-order requirement hold with no new logic). See the "Favorite-Badge Sibling Positioning" guardrail below for the exact `scale`/positioning-class mechanics.
+  - [x] 2.4 Suppress today's existing outer top-right favorite `<button>` specifically when `variant === 'masonry' && !prominentPoster` — it must remain byte-for-byte unchanged for `standard` and for `masonry && prominentPoster`.
+  - [x] 2.5 Leave `prominentPoster=true`'s entire branch (full-width poster, `base` date-box overlay, outer top-right button) untouched except the TILL-badge restyle (Task 3).
 
-- [ ] **Task 3: Restyle/reposition the TILL badge for both `prominentPoster` states** (AC3, AC7)
-  - [ ] 3.1 Change the TILL badge's className from `absolute -bottom-1.5 left-1/2 -translate-x-1/2 z-20 px-1.5 py-0.5 rounded-full bg-foreground text-background text-[10px] font-semibold leading-none shadow-sm whitespace-nowrap` to `absolute -top-1.5 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-[10px] font-semibold leading-none shadow-sm whitespace-nowrap` (`DESIGN.md` § `event_card_till_badge.base`) — apply via one shared fragment/constant consumed by both the `prominentPoster=true` `base` overlay and the new `base_default`/`EventCardDateBox` composition, rather than duplicating the class string by hand in two places (avoids future drift, mirrors how `formatShortEventDateTime`/Clock-icon content is already shared).
-  - [ ] 3.2 Do **not** change `tillBadgeText`'s computation (the `started` gate, `endDayDiff` branching) — style/position only (AC7).
-  - [ ] 3.3 Confirm the date box's container remains a valid positioning root for the badge's negative-offset corner anchor in both cases: `base` (prominentPoster=true) is itself `absolute`, already a containing block; `EventCardDateBox`'s primitive class already includes `relative` (see `EventCardMediaPrimitives.tsx`), so no additional class is needed there.
+- [x] **Task 3: Restyle/reposition the TILL badge for both `prominentPoster` states** (AC3, AC7)
+  - [x] 3.1 Change the TILL badge's className from `absolute -bottom-1.5 left-1/2 -translate-x-1/2 z-20 px-1.5 py-0.5 rounded-full bg-foreground text-background text-[10px] font-semibold leading-none shadow-sm whitespace-nowrap` to `absolute -top-1.5 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-[10px] font-semibold leading-none shadow-sm whitespace-nowrap` (`DESIGN.md` § `event_card_till_badge.base`) — apply via one shared fragment/constant consumed by both the `prominentPoster=true` `base` overlay and the new `base_default`/`EventCardDateBox` composition, rather than duplicating the class string by hand in two places (avoids future drift, mirrors how `formatShortEventDateTime`/Clock-icon content is already shared).
+  - [x] 3.2 Do **not** change `tillBadgeText`'s computation (the `started` gate, `endDayDiff` branching) — style/position only (AC7).
+  - [x] 3.3 Confirm the date box's container remains a valid positioning root for the badge's negative-offset corner anchor in both cases: `base` (prominentPoster=true) is itself `absolute`, already a containing block; `EventCardDateBox`'s primitive class already includes `relative` (see `EventCardMediaPrimitives.tsx`), so no additional class is needed there.
 
-- [ ] **Task 4: Update `EventCard.test.tsx`** (all ACs)
-  - [ ] 4.1 Rewrite `'renders a blank, correctly-sized fallback on masonry with prominentPoster=false'` (current ~line 202) for the new `top_row_default` + `EventCardMediaSlot` fallback shape: assert the large centered favorite badge renders in the thumbnail's reserved slot, no placeholder text/icon, and the row/thumbnail retain their layout classes on error (no reflow).
-  - [ ] 4.2 Rewrite `'renders masonry variant with aspect-ratio image class and reduced caption'` (current ~line 295) — the image now renders inside the `flex-1 h-full min-w-0` thumbnail, not a full `aspect-[3/4]` container; update the container-class assertions accordingly.
-  - [ ] 4.3 Rewrite `'keeps the default aspect-[3/4] poster treatment when prominentPoster is false/omitted'` (current ~line 688, inside `describe('Prominent poster (masonry, AC17)')`) — default state no longer has an `aspect-[3/4]` poster; replace with an assertion on the new flex-fill thumbnail shape. Leave the sibling `'uses the enlarged aspect-[2/3] poster treatment when prominentPoster is true'` test unchanged (AC2).
-  - [ ] 4.4 Update the `describe('TILL badge (masonry, AC14)')` block (current ~line 541) to assert the new `bg-amber-700`/`-top-1.5 -left-1.5` classes (not the old `bg-foreground`/`-bottom-1.5` ones) — for **both** `prominentPoster` values (AC3), while keeping every existing eligibility/text assertion unchanged (AC7).
-  - [ ] 4.5 Add: a test asserting exactly one focusable favorite-toggle element exists in the whole rendered card when `variant="masonry" prominentPoster={false}"` and `onFavoriteToggle` is provided (AC4); a test that clicking the sibling favorite badge calls `onFavoriteToggle` without invoking the card's own `onClick`/navigation (stopPropagation/preventDefault contract, already implemented by `EventCardFavoriteBadge`'s own `onClick`); a test that clicking the thumbnail's image area (not the favorite button) still fires the card's `onClick`/navigates via `href` (AC6); a DOM-order assertion that the favorite control still precedes the card's clickable root among `<article>`'s children (AC5).
-  - [ ] 4.6 Add a masonry-default `prominentPoster={true}` TILL-badge case confirming the amber/corner styling now also applies there (AC3's both-states scope).
+- [x] **Task 4: Update `EventCard.test.tsx`** (all ACs)
+  - [x] 4.1 Rewrite `'renders a blank, correctly-sized fallback on masonry with prominentPoster=false'` (current ~line 202) for the new `top_row_default` + `EventCardMediaSlot` fallback shape: assert the large centered favorite badge renders in the thumbnail's reserved slot, no placeholder text/icon, and the row/thumbnail retain their layout classes on error (no reflow).
+  - [x] 4.2 Rewrite `'renders masonry variant with aspect-ratio image class and reduced caption'` (current ~line 295) — the image now renders inside the `flex-1 h-full min-w-0` thumbnail, not a full `aspect-[3/4]` container; update the container-class assertions accordingly.
+  - [x] 4.3 Rewrite `'keeps the default aspect-[3/4] poster treatment when prominentPoster is false/omitted'` (current ~line 688, inside `describe('Prominent poster (masonry, AC17)')`) — default state no longer has an `aspect-[3/4]` poster; replace with an assertion on the new flex-fill thumbnail shape. Leave the sibling `'uses the enlarged aspect-[2/3] poster treatment when prominentPoster is true'` test unchanged (AC2).
+  - [x] 4.4 Update the `describe('TILL badge (masonry, AC14)')` block (current ~line 541) to assert the new `bg-amber-700`/`-top-1.5 -left-1.5` classes (not the old `bg-foreground`/`-bottom-1.5` ones) — for **both** `prominentPoster` values (AC3), while keeping every existing eligibility/text assertion unchanged (AC7).
+  - [x] 4.5 Add: a test asserting exactly one focusable favorite-toggle element exists in the whole rendered card when `variant="masonry" prominentPoster={false}"` and `onFavoriteToggle` is provided (AC4); a test that clicking the sibling favorite badge calls `onFavoriteToggle` without invoking the card's own `onClick`/navigation (stopPropagation/preventDefault contract, already implemented by `EventCardFavoriteBadge`'s own `onClick`); a test that clicking the thumbnail's image area (not the favorite button) still fires the card's `onClick`/navigates via `href` (AC6); a DOM-order assertion that the favorite control still precedes the card's clickable root among `<article>`'s children (AC5).
+  - [x] 4.6 Add a masonry-default `prominentPoster={true}` TILL-badge case confirming the amber/corner styling now also applies there (AC3's both-states scope).
 
-- [ ] **Task 5: Full verification pass** (all ACs)
-  - [ ] 5.1 `pnpm exec vitest run src/features/events/EventCardMediaPrimitives.test.tsx` (from `packages/ui`)
-  - [ ] 5.2 `pnpm exec vitest run src/features/events/EventCard.test.tsx`
-  - [ ] 5.3 `pnpm exec vitest run src/features/events` (full folder — catches `EventListView.test.tsx`/`WeeklyCalendarView.test.tsx` for accidental coupling)
-  - [ ] 5.4 `pnpm exec eslint` on every changed file — 0 errors/warnings
-  - [ ] 5.5 `tsc --noEmit` on `packages/ui` — 0 new errors in changed files
+- [x] **Task 5: Full verification pass** (all ACs)
+  - [x] 5.1 `pnpm exec vitest run src/features/events/EventCardMediaPrimitives.test.tsx` (from `packages/ui`)
+  - [x] 5.2 `pnpm exec vitest run src/features/events/EventCard.test.tsx`
+  - [x] 5.3 `pnpm exec vitest run src/features/events` (full folder — catches `EventListView.test.tsx`/`WeeklyCalendarView.test.tsx` for accidental coupling)
+  - [x] 5.4 `pnpm exec eslint` on every changed file — 0 errors/warnings
+  - [x] 5.5 `tsc --noEmit` on `packages/ui` — 0 new errors in changed files
 
 ## Dev Notes
 
@@ -174,11 +174,11 @@ Positioning math, since the sibling badge's `absolute` anchor is `<article>` (wh
 
 ## Pre-Coding Approval Gate
 
-- [ ] **Scope confirmed:** adopt the existing `event_card_*` primitive into `EventCard`'s masonry `prominentPoster=false` state; extend `EventCardMediaSlot` additively (two new optional props); restyle the TILL badge for **both** `prominentPoster` states; suppress the duplicate favorite control for this state via a sibling-positioned `EventCardFavoriteBadge`.
-- [ ] **Architecture/boundary confirmed:** Gate 1 and Gate 3 sourced from the swept `epic-1-i1-readiness.md` (no gap); Gate 2 run fresh for this story (NO SPLIT verdict, three gaps folded into AC4/AC5/AC7); no `packages/domain` involvement; no prerequisite story or `sprint-status.yaml`/`epics.md` addition required.
-- [ ] **Design fidelity confirmed:** both open design questions resolved via `AskUserQuestion` on 2026-09-13 — TILL badge styling applies to both `prominentPoster` states (AC3); the favorite control is a `RootTag`-external sibling while the thumbnail image itself stays inside `RootTag` and fully clickable (AC4/AC6) — captured verbatim in Dev Notes › User-Resolved Design Decisions.
-- [ ] **Testing plan confirmed:** Task 4 (test rewrites/additions) and Task 5 (full verification commands) above.
-- [ ] **Human approval:** **PENDING** — default state per `story-content-structure.md`; awaiting explicit approval before implementation begins.
+- [x] **Scope confirmed:** adopt the existing `event_card_*` primitive into `EventCard`'s masonry `prominentPoster=false` state; extend `EventCardMediaSlot` additively (two new optional props); restyle the TILL badge for **both** `prominentPoster` states; suppress the duplicate favorite control for this state via a sibling-positioned `EventCardFavoriteBadge`.
+- [x] **Architecture/boundary confirmed:** Gate 1 and Gate 3 sourced from the swept `epic-1-i1-readiness.md` (no gap); Gate 2 run fresh for this story (NO SPLIT verdict, three gaps folded into AC4/AC5/AC7); no `packages/domain` involvement; no prerequisite story or `sprint-status.yaml`/`epics.md` addition required.
+- [x] **Design fidelity confirmed:** both open design questions resolved via `AskUserQuestion` on 2026-09-13 — TILL badge styling applies to both `prominentPoster` states (AC3); the favorite control is a `RootTag`-external sibling while the thumbnail image itself stays inside `RootTag` and fully clickable (AC4/AC6) — captured verbatim in Dev Notes › User-Resolved Design Decisions.
+- [x] **Testing plan confirmed:** Task 4 (test rewrites/additions) and Task 5 (full verification commands) above.
+- [x] **Human approval:** **GRANTED** 2026-09-13 — user invoked `/bmad-dev-story 1.i1e`, which is the explicit instruction to implement this story (per `story-content-structure.md`'s gate, the dev-story invocation is the grant of approval).
 
 ## Testing Requirements
 
@@ -190,12 +190,12 @@ c. **No coverage decrease:** Task 5's full-folder `vitest run src/features/event
 
 ## Deliverables Checklist
 
-- [ ] `EventCardMediaPrimitives.tsx` — `hideFavoriteBadge`/`onImagePresenceChange` implemented on `EventCardMediaSlot`.
-- [ ] `EventCardMediaPrimitives.types.ts` — new optional props documented.
-- [ ] `EventCardMediaPrimitives.test.tsx` — new prop coverage passing.
-- [ ] `EventCard.tsx` — `prominentPoster=false` masonry branch restructured; TILL badge restyled for both states; outer favorite button suppressed for this state only.
-- [ ] `EventCard.test.tsx` — all rewritten/new tests passing; no unrelated test broken.
-- [ ] Verification Plan (all 5 commands) executed and clean.
+- [x] `EventCardMediaPrimitives.tsx` — `hideFavoriteBadge`/`onImagePresenceChange` implemented on `EventCardMediaSlot`.
+- [x] `EventCardMediaPrimitives.types.ts` — new optional props documented.
+- [x] `EventCardMediaPrimitives.test.tsx` — new prop coverage passing.
+- [x] `EventCard.tsx` — `prominentPoster=false` masonry branch restructured; TILL badge restyled for both states; outer favorite button suppressed for this state only.
+- [x] `EventCard.test.tsx` — all rewritten/new tests passing; no unrelated test broken.
+- [x] Verification Plan (all 5 commands) executed and clean.
 
 ## Out of Scope
 
@@ -207,34 +207,48 @@ c. **No coverage decrease:** Task 5's full-folder `vitest run src/features/event
 
 ## Definition of Done
 
-- [ ] All 8 Acceptance Criteria satisfied and verified by tests.
-- [ ] Task 5's full verification pass (vitest × 3, eslint, tsc) is clean.
-- [ ] No regression in `EventListView.test.tsx`/`WeeklyCalendarView.test.tsx` or any other existing suite.
-- [ ] Gate 2's three folded-in gaps (AC4, AC5, AC7) are each covered by an explicit test, not just implied by the implementation.
-- [ ] Story status updated to `review` in this file and in `sprint-status.yaml`.
+- [x] All 8 Acceptance Criteria satisfied and verified by tests.
+- [x] Task 5's full verification pass (vitest × 3, eslint, tsc) is clean.
+- [x] No regression in `EventListView.test.tsx`/`WeeklyCalendarView.test.tsx` or any other existing suite.
+- [x] Gate 2's three folded-in gaps (AC4, AC5, AC7) are each covered by an explicit test, not just implied by the implementation.
+- [x] Story status updated to `review` in this file and in `sprint-status.yaml`.
 
 ## Completion Status
 
-Ultimate context engine analysis completed — comprehensive developer guide created. Status: **ready-for-dev**.
+Story implemented (2026-09-13, `bmad-dev-story`) — all Tasks 1–5 and all 8 Acceptance Criteria satisfied; Verification Plan executed clean (see Dev Agent Record). Status: **review**.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled by `bmad-dev-story`._
+Cline (Claude) — `bmad-dev-story` agent, 2026-09-13 dev run.
 
 ### Debug Log References
 
-_To be filled by `bmad-dev-story`._
+- `EventCardMediaPrimitives.tsx` — added two **additive** optional props to `EventCardMediaSlot` (`hideFavoriteBadge`, `onImagePresenceChange`) and a `useEffect` notifying `onImagePresenceChange` with the local `imagePresent = !!imageUrl && !imgError` value (including initial mount). Both default to today's exact behavior when omitted, so Stories 1.i1a's own tests and 1.i1d's `WeeklyCalendarView.tsx` adoption are unaffected.
+- `EventCard.tsx` — for `masonry && !prominentPoster` only, replaced the `aspect-[3/4]` image wrapper with the `top_row_default` composition: a `relative flex items-stretch gap-2` row containing `EventCardDateBox` (+ conditional Clock) beside `EventCardMediaSlot layout="flex-fill" hideFavoriteBadge onImagePresenceChange`; the TILL badge is now a shared `TILL_BADGE_CLASS` constant (`bg-amber-700`/`-top-1.5 -left-1.5`) consumed by BOTH `prominentPoster` states (Task 3); the outer top-right favorite button is suppressed for this state (Task 2.4) and the single live favorite control is an `EventCardFavoriteBadge` composed as a DOM sibling of `RootTag` (Task 2.3) — `scale` follows `defaultThumbnailImagePresent`; for the image-absent (large) case the sibling wrapper is absolutely positioned/centered over the thumbnail using the date box's measured box (`dateBoxRef`/`useLayoutEffect`) per the story's guardrail fallback (no `display: contents` on `RootTag`, avoiding its `<button>` quirks).
+- `EventCard.test.tsx` — rewrote the 3 masonry-default tests for the flex-fill thumbnail shape; updated the "Tomorrow" date-pill selector from `.top-3.left-3` to `[data-event-card-date-box]`; added TILL-badge amber/corner assertions for both `prominentPoster` states; added the AC4/AC5/AC6 favorite-composition describe (single live focusable control, click propagation, thumbnail-navigation, DOM tab order).
+- `EventListView.test.tsx` — the non-durable (`prominentPoster=false`) masonry card no longer has `aspect-[3/4]`; updated the derived-`prominentPoster` test to assert the flex-fill `[data-event-card-media-slot]` instead (required to keep the full-folder verification clean).
+- Verification Plan (Task 5) executed — see Completion Notes for command results.
 
 ### Completion Notes List
 
-_To be filled by `bmad-dev-story`._
+- Implemented Story 1.i1e — adopted the shared `event_card_*` primitive into `EventCard`'s masonry `prominentPoster=false` (default) state and restyled the TILL badge for both states.
+- **`EventCardMediaPrimitives.tsx` / `.types.ts`:** added optional `hideFavoriteBadge?: boolean` and `onImagePresenceChange?: (imagePresent) => void` to `EventCardMediaSlotProps` with doc comments (Task 1); the slot suppresses its internal badge in both branches when `hideFavoriteBadge` and reports presence on mount/change.
+- **`EventCard.tsx`:** masonry-default now renders the `top_row_default` row (date box + flex-fill thumbnail via the primitive); TILL badge uses one shared `TILL_BADGE_CLASS` (`bg-amber-700 text-white -top-1.5 -left-1.5`) in both `prominentPoster` states (AC3); outer favorite button suppressed + a `RootTag`-external `EventCardFavoriteBadge` sibling is the single live favorite control (AC4/AC5/AC6); `prominentPoster=true` branch untouched except the TILL restyle (AC2); badge_row/caption (AC8) and TILL eligibility logic (AC7) unchanged.
+- **Tests (Task 4):** rewrote masonry-default fallback/masonry/prominent-poster tests; added TILL amber-both-states cases (4.4/4.6) and the AC4/AC5/AC6 favorite-composition cases (4.5); extended `EventCardMediaPrimitives.test.tsx` with the two new props' coverage (Task 1.4); updated `EventListView.test.tsx` for the new default-state thumbnail.
+- **Verification Plan (Task 5) — executed, all clean:** (1) `pnpm exec vitest run src/features/events/EventCardMediaPrimitives.test.tsx` → 20/20 passed; (2) `pnpm exec vitest run src/features/events/EventCard.test.tsx` → 51/51 passed; (3) `pnpm exec vitest run src/features/events` (full folder) → 253/253 across 13 files (no coupling into `EventListView`/`WeeklyCalendarView`); (4) `pnpm exec eslint` on all 6 changed files → 0 errors/warnings; (5) `tsc --noEmit` on `packages/ui` → 0 errors in changed files. The bare `tsc --noEmit` hits a pre-existing `tsconfig.json` `baseUrl` deprecation (TS5101) plus 57 pre-existing type errors in unrelated test files (`EventDetailView.test.tsx`, `FilterHub.test.tsx`, `EventDiscoveryPanel.test.tsx`, `useCurrentLocationCapture.test.ts`, etc.); none are in files touched by this story — all story files are type-clean, matching the pre-existing-error-outs-of-scope precedent from Stories 1.i1a/1.i1c/1.i1d.
 
 ### File List
 
-_To be filled by `bmad-dev-story`._
+- Modified `packages/ui/src/features/events/EventCardMediaPrimitives.tsx`
+- Modified `packages/ui/src/features/events/EventCardMediaPrimitives.types.ts`
+- Modified `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx`
+- Modified `packages/ui/src/features/events/EventCard.tsx`
+- Modified `packages/ui/src/features/events/EventCard.test.tsx`
+- Modified `packages/ui/src/features/events/EventListView.test.tsx`
 
 ## Change Log
 
+- **2026-09-13 (bmad-dev-story):** Implemented Story 1.i1e — adopted the `event_card_*` primitive into `EventCard`'s masonry `prominentPoster=false` state (`top_row_default` row of `EventCardDateBox` + flex-fill `EventCardMediaSlot`); extended `EventCardMediaSlot` additively (`hideFavoriteBadge`, `onImagePresenceChange`); restyled the TILL badge for BOTH `prominentPoster` states via a shared `TILL_BADGE_CLASS` (`bg-amber-700`/corner); suppressed the outer duplicate favorite button and composed the single live favorite control as a `RootTag`-external `EventCardFavoriteBadge` sibling (AC4/AC5/AC6). All 8 ACs and Tasks 1–5 complete; Verification Plan commands executed clean (vitest ×3 → 20+51+253 passing, eslint clean, tsc 0 errors in changed files with pre-existing unrelated errors out of scope). Status → **review**.
 - **2026-09-13 (bmad-create-story):** Initial story creation. Gate 1/3 sourced from the swept `epic-1-i1-readiness.md`; Gate 2 run fresh (NO SPLIT, 3 gaps folded into AC4/AC5/AC7). Two design decisions resolved via `AskUserQuestion`: TILL badge styling applies to both `prominentPoster` states; the favorite-toggle control is pulled out as a `RootTag`-external sibling while the thumbnail image itself stays inside `RootTag` and fully clickable, per the user's explicit "absolute sibling + stopPropagation" guidance.
