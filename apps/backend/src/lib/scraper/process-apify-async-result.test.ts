@@ -68,7 +68,8 @@ test('process-apify-async-result tests', async (t) => {
     const persistedPosts = await db
       .select()
       .from(posts)
-      .where(eq(posts.accountId, testProfileId));
+      .where(eq(posts.accountId, testProfileId))
+      .orderBy(posts.postUrl);
 
     assert.strictEqual(persistedPosts.length, 2);
     assert.strictEqual(persistedPosts[0].content, 'First post');
@@ -203,7 +204,8 @@ test('process-apify-async-result tests', async (t) => {
     const persistedPosts = await db
       .select()
       .from(posts)
-      .where(eq(posts.accountId, testProfileId));
+      .where(eq(posts.accountId, testProfileId))
+      .orderBy(posts.postUrl);
 
     assert.strictEqual(persistedPosts.length, 2);
     assert.strictEqual(persistedPosts[0].content, 'Valid post 1');

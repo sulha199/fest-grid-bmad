@@ -2,7 +2,15 @@
 backlog_id: IDEA-002
 title: "Flaky order-dependent assertion in process-apify-async-result.test.ts"
 captured: 2026-09-12
+status: fixed
+resolved: 2026-09-13
 ---
+
+**Fixed 2026-09-13** (Story 0.i7c's `bmad-quick-dev` auto-dispatch, after this exact
+flake reproduced again under full-suite load): both affected queries in
+`process-apify-async-result.test.ts` now add `.orderBy(posts.postUrl)`, matching this
+row's own root-cause diagnosis below (no explicit tiebreaker on the previously
+timestamp-implicit ordering).
 
 `apps/backend/src/lib/scraper/process-apify-async-result.test.ts`'s "skips AJV-invalid
 items and persists valid ones" test fails intermittently when run as part of the full
