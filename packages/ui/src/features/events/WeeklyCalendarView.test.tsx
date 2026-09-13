@@ -192,19 +192,29 @@ describe('WeeklyCalendarView', () => {
   });
 
   it('opens the week picker and calls onSelectWeek with the picked date', () => {
-    const onSelectWeek = vi.fn();
+    // FIND-009: freeze the clock to a date inside August 2026 so the popover
+    // date-picker opens on August and clicking day "10" resolves to the fixture's
+    // 2026-08-10 — with the real wall clock this drifted to the current month/year
+    // (e.g. 2026-09-10) and failed on date rollover.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-12T12:00:00Z'));
+    try {
+      const onSelectWeek = vi.fn();
 
-    render(
-      <WeeklyCalendarView
-        {...defaultProps}
-        onSelectWeek={onSelectWeek}
-      />
-    );
+      render(
+        <WeeklyCalendarView
+          {...defaultProps}
+          onSelectWeek={onSelectWeek}
+        />
+      );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select week' }));
-    fireEvent.click(screen.getAllByText('10')[0]);
+      fireEvent.click(screen.getByRole('button', { name: 'Select week' }));
+      fireEvent.click(screen.getAllByText('10')[0]);
 
-    expect(onSelectWeek).toHaveBeenCalledWith('2026-08-10');
+      expect(onSelectWeek).toHaveBeenCalledWith('2026-08-10');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders compact schedule cards with correct title weights', () => {

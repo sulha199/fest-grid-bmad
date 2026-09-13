@@ -1,7 +1,7 @@
 /// <reference types="@testing-library/jest-dom" />
 import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
 import { EventCard } from './EventCard';
 import {
   EVENT_CARD_BADGE_FONT_SIZE_VAR,
@@ -358,6 +358,20 @@ describe('EventCard', () => {
   });
 
   describe('Relative-day date display', () => {
+    // FIND-009: freeze the clock to a fixed reference instant so every relative-day
+    // assertion ("Today"/"Tomorrow"/weekday/absolute fallback) is deterministic
+    // regardless of the real wall-clock date — otherwise these tests drift and fail
+    // on date rollover (midnight / month / year boundaries). Same 2026-08-12 reference
+    // instant used across the repo (CalendarView, WeeklyCalendarView, etc.).
+    beforeAll(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-12T12:00:00Z'));
+    });
+
+    afterAll(() => {
+      vi.useRealTimers();
+    });
+
     it('renders "Today" for dates 0 days out', () => {
       const today = new Date();
       render(<EventCard eventName="Today Event" startDate={today} locale="en-US" />);
@@ -579,6 +593,19 @@ describe('EventCard', () => {
   });
 
   describe('TILL badge (masonry, AC14)', () => {
+    // FIND-009: this block derives yesterday/today/tomorrow from the real wall clock,
+    // so a midnight rollover mid-test makes the fixture "today" and EventCard's own
+    // internal "now" disagree. Freeze the clock to the same repo reference instant so
+    // every TILL/day-diff assertion is deterministic.
+    beforeAll(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-12T12:00:00Z'));
+    });
+
+    afterAll(() => {
+      vi.useRealTimers();
+    });
+
     it('renders no TILL badge when the event has not started yet', () => {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
