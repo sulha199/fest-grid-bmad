@@ -14,6 +14,8 @@ mutation setAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLoc
       }
       formattedAddress
       placeName
+      confidence
+      matchType
     }
   }
 }
@@ -28,6 +30,8 @@ mutation editAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLo
       }
       formattedAddress
       placeName
+      confidence
+      matchType
     }
     hasPendingDefaultLocationReview
   }

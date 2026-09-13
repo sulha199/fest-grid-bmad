@@ -296,7 +296,7 @@ development_status:
   # (setAccountDefaultLocation/editAccountDefaultLocation/createUserLocation/
   # updateUserLocation/previewLocation) so 0.i7z's widened ratchet has something
   # real to enforce. See epics.md Story 0.i7d note.
-  0-i7d-expose-confidence-matchtype-through-the-remaining-geoapify-consumers: ready-for-dev
+  0-i7d-expose-confidence-matchtype-through-the-remaining-geoapify-consumers: review
   0-i7z-ratchet-no-consumer-trusts-a-geoapify-result-without-its-confidence-signal: backlog
   epic-1-i1: backlog
   1-i1a-extend-the-shared-event-card-primitive-to-own-thumbnail-sizing-and-fallback: backlog

@@ -9,6 +9,8 @@ mutation createUserLocation($input: CreateUserLocationInput!) {
         lat
         lng
       }
+      confidence
+      matchType
     }
     radius
     createdAt
@@ -27,6 +29,8 @@ mutation updateUserLocation($id: ID!, $input: UpdateUserLocationInput!) {
         lat
         lng
       }
+      confidence
+      matchType
     }
     radius
     createdAt

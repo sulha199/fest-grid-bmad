@@ -1564,7 +1564,7 @@ export type CreateUserLocationMutationVariables = Exact<{
 }>;
 
 
-export type CreateUserLocationMutation = { createUserLocation: { id: string, name: string, radius: number, createdAt: string, updatedAt: string, locationDetails: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } } };
+export type CreateUserLocationMutation = { createUserLocation: { id: string, name: string, radius: number, createdAt: string, updatedAt: string, locationDetails: { formattedAddress: string | null, placeName: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } } };
 
 export type UpdateUserLocationMutationVariables = Exact<{
   id: string | number;
@@ -1572,7 +1572,7 @@ export type UpdateUserLocationMutationVariables = Exact<{
 }>;
 
 
-export type UpdateUserLocationMutation = { updateUserLocation: { id: string, name: string, radius: number, createdAt: string, updatedAt: string, locationDetails: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } } };
+export type UpdateUserLocationMutation = { updateUserLocation: { id: string, name: string, radius: number, createdAt: string, updatedAt: string, locationDetails: { formattedAddress: string | null, placeName: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } } };
 
 export type DeleteUserLocationMutationVariables = Exact<{
   id: string | number;
@@ -1601,7 +1601,7 @@ export type PreviewLocationQueryVariables = Exact<{
 }>;
 
 
-export type PreviewLocationQuery = { previewLocation: { formattedAddress: string | null, placeName: string | null, provider: GeolocationProvider | null, coordinates: { lat: number, lng: number } } };
+export type PreviewLocationQuery = { previewLocation: { formattedAddress: string | null, placeName: string | null, provider: GeolocationProvider | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } };
 
 export type GetReportedEventsQueryVariables = Exact<{
   status?: ReportStatus | null | undefined;
@@ -1775,7 +1775,7 @@ export type SetAccountDefaultLocationMutationVariables = Exact<{
 }>;
 
 
-export type SetAccountDefaultLocationMutation = { setAccountDefaultLocation: { id: string, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } };
+export type SetAccountDefaultLocationMutation = { setAccountDefaultLocation: { id: string, defaultLocation: { formattedAddress: string | null, placeName: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } };
 
 export type EditAccountDefaultLocationMutationVariables = Exact<{
   accountId: string | number;
@@ -1784,7 +1784,7 @@ export type EditAccountDefaultLocationMutationVariables = Exact<{
 }>;
 
 
-export type EditAccountDefaultLocationMutation = { editAccountDefaultLocation: { id: string, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } };
+export type EditAccountDefaultLocationMutation = { editAccountDefaultLocation: { id: string, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } };
 
 export type TriggerAccountScrapeMutationVariables = Exact<{
   accountId: string | number;
@@ -2899,6 +2899,8 @@ export const CreateUserLocationDocument = new TypedDocumentString(`
         lat
         lng
       }
+      confidence
+      matchType
     }
     radius
     createdAt
@@ -2936,6 +2938,8 @@ export const UpdateUserLocationDocument = new TypedDocumentString(`
         lat
         lng
       }
+      confidence
+      matchType
     }
     radius
     createdAt
@@ -3061,6 +3065,8 @@ export const PreviewLocationDocument = new TypedDocumentString(`
       lng
     }
     provider
+    confidence
+    matchType
   }
 }
     `);
@@ -3834,6 +3840,8 @@ export const SetAccountDefaultLocationDocument = new TypedDocumentString(`
       }
       formattedAddress
       placeName
+      confidence
+      matchType
     }
   }
 }
@@ -3871,6 +3879,8 @@ export const EditAccountDefaultLocationDocument = new TypedDocumentString(`
       }
       formattedAddress
       placeName
+      confidence
+      matchType
     }
     hasPendingDefaultLocationReview
   }

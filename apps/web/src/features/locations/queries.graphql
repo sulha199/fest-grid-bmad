@@ -32,5 +32,7 @@ query previewLocation($latitude: Float, $longitude: Float, $placeId: String) {
       lng
     }
     provider
+    confidence
+    matchType
   }
 }
