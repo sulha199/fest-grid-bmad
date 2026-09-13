@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-13T00:00:00Z # (dev-story 0.i7z: review, Design Decision 1 explicitly approved by user via AskUserQuestion [audit + traceability only confirmed], Tasks 1-7 complete, AD-14 "Enforced by" citations added under Rules 1-3 + ratchet sentence clarified, all 8 enforcing test files/blocks marked with Story 0.i7z ratchet comments, domain 278/278 + backend geolocation 21/21 + web target 15/15 pass + lint clean (0 errors) for all three packages, domain/backend tsc builds pass, web tsc --noEmit 13 pre-existing errors all unrelated to this story [out of scope], ci.yml already covers all three packages via pnpm run test — no CI change; earlier create-story 0.i7z entry and prior dev-story 0.i7d and create-story entries as recorded previously)
+last_updated: 2026-09-13T00:00:00Z # (create-story 1.i1a: ready-for-dev, epic-1-i1 moved backlog->in-progress [first story in epic]. Cited epic-1-i1-readiness.md [swept:true] for Gate 1/3 [no gap]; ran Gate 2 fresh via subagent [no split; added AC4 tap-target/focus-order coverage the draft ACs missed]. Icon-to-date-badge-font-size scale ratio/mechanism was undecided in DESIGN.md [only the large badge's 24px target was fixed] and feeds a new architecture-spine invariant [AD-15] that Story 1.i1b later binds EventCard's existing corner icon to, so it was surfaced to the user via AskUserQuestion rather than guessed: resolved as one shared ratio-based token family for both badge sizes, implemented via CSS custom property/calc [not literal em-nesting, since the date box and favorite badge are DOM siblings, not ancestor/descendant]. Story is build-only [primitive under packages/ui/src/features/events/, no EventCard.tsx/WeeklyCalendarView.tsx changes — those are 1.i1b-1.i1e]; earlier entries as recorded previously)
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -298,8 +298,8 @@ development_status:
   # real to enforce. See epics.md Story 0.i7d note.
   0-i7d-expose-confidence-matchtype-through-the-remaining-geoapify-consumers: review
   0-i7z-ratchet-no-consumer-trusts-a-geoapify-result-without-its-confidence-signal: review
-  epic-1-i1: backlog
-  1-i1a-extend-the-shared-event-card-primitive-to-own-thumbnail-sizing-and-fallback: backlog
+  epic-1-i1: in-progress
+  1-i1a-extend-the-shared-event-card-primitive-to-own-thumbnail-sizing-and-fallback: ready-for-dev
   1-i1b-tie-the-favorite-icon-size-to-the-date-badge-token: backlog
   1-i1c-replace-the-local-broken-image-placeholder-with-the-shared-fallback: backlog
   1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row: backlog
