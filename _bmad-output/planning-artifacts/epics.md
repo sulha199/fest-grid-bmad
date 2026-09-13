@@ -3105,6 +3105,8 @@ Users are guided through the initial setup and can manually select posts for eve
 
 **Note:** This story exists because of Gate 2 (`story-split-gate.md`), surfaced during drafting of Story 5.1 via a fresh Freya/Winston-persona subagent review. Splitting `PostCard` as a reusable component ensures dedicated focus on post rendering, image fallback robust error-handling, skeletons, and selectable checkbox interactions before the main screen is wired. Single-story UI split, lettered suffix off Story 5.1.
 
+**Stale-reference flag (2026-09-13, added via the Epic 1.i1 readiness sweep):** The AC above cites `EventCard.tsx:155-164`'s text-based "No image available" fallback as the pattern to match. Epic 1.i1's Stories 1.i1a/1.i1c replace that exact branch with a reserved-but-blank, no-text/no-icon `event_card_*` primitive fallback. Once those ship (they are upstream and unrelated to Epic 5's own start), this citation will point at code that no longer exists. When this story is actually drafted via `bmad-create-story`, re-derive the current fallback pattern from the shipped primitive instead of trusting this line citation.
+
 **Depends on:** Story 5.1a.
 
 ### Story 5.1: Manual post selection screen
@@ -4145,7 +4147,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Stories 1.i1a, 1.i1c.
 
-**Note:** Which `WeeklyCalendarView.tsx` render path this attaches to — the grouped `mobile_day_list` per-schedule card, a new ungrouped surface, or both — is deliberately open and is an architecture call for `bmad-epic-readiness-check`, not a design one (IDEA-016's note, user-confirmed 2026-09-11).
+**Note:** Which `WeeklyCalendarView.tsx` render path this attaches to was deliberately left open pending an architecture call from `bmad-epic-readiness-check` (IDEA-016's note, user-confirmed 2026-09-11). **Resolved 2026-09-13 via the Epic 1.i1 readiness sweep:** `WeeklyCalendarView.tsx` has exactly one per-schedule card component, `CalendarCard`, parameterized by `variant: 'grid' | 'list'`. `variant='list'` is used in exactly one place — the Mobile Vertical Day List (`mobile_day_list`, `data-testid="mobile-calendar-view"`), the grouped per-day compact row. `variant='grid'` drives the desktop grid cells and the "+N more" popover, which is a denser grid cell, not a row/card surface — there is no second, ungrouped compact-row surface anywhere in the file, so "both" is not an option. **This story attaches the primitive to `CalendarCard`'s `variant='list'` render path only.**
 
 ### Story 1.i1e: Adopt the primitive into the masonry default state
 

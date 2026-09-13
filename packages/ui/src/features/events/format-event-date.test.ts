@@ -9,6 +9,7 @@ import {
   formatRelativeDayOrDate,
   formatShortEventDateTime,
   formatEventStatus,
+  computeCalendarSegmentTillText,
 } from './format-event-date';
 
 // Fixed local reference instant used by formatEventStatus tests below, so every
@@ -231,3 +232,42 @@ describe('format-event-date helpers', () => {
     });
   });
 });
+
+describe('computeCalendarSegmentTillText (Story 1.i1d AC4)', () => {
+  it('returns the bare till label for a continuing multi-day segment (its day is before the end day)', () => {
+    expect(
+      computeCalendarSegmentTillText('en-US', undefined, '2026-08-05', '2026-08-05', '2026-08-07', '21:00:00', 'till')
+    ).toBe('till');
+  });
+
+  it('returns "till {formatted time}" on the segment\'s last day when an end time is known', () => {
+    expect(
+      computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'till')
+    ).toBe('till 9:00 PM');
+  });
+
+  it('returns the bare till label on the last day with an explicit end date but no end time', () => {
+    expect(
+      computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', null, 'till')
+    ).toBe('till');
+  });
+
+  it('returns the bare till label when there is no end information at all (single-day)', () => {
+    expect(
+      computeCalendarSegmentTillText('en-US', undefined, '2026-08-05', '2026-08-05', undefined, undefined, 'till')
+    ).toBe('till');
+  });
+
+  it('never repeats the event\'s own start date as the date box text', () => {
+    const result = computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'till');
+    expect(result).not.toContain('Aug 5');
+    expect(result).not.toContain('2026');
+  });
+
+  it('honors a custom till label', () => {
+    expect(
+      computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'bis')
+    ).toBe('bis 9:00 PM');
+  });
+});
+

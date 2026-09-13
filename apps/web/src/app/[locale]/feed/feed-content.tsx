@@ -310,7 +310,7 @@ export function FeedContent() {
             id: "calendar",
             label: "Calendar View",
             content: (
-              <FeedCalendarView q={q} types={types} categories={categories} subscriptions={subscriptionsQuery} />
+              <FeedCalendarView q={q} types={types} categories={categories} subscriptions={subscriptionsQuery} onFavoriteToggle={(eventId) => toggleFavorite({ eventId })} />
             ),
           },
         ]}

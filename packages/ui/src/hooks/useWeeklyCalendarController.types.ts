@@ -20,4 +20,6 @@ export interface WeeklyCalendarControllerResult<TSchedule = any> {
   handleNextWeek: () => void;
   handleSelectWeek: (dateStr: string) => void;
   handleToday: () => void;
+  /** True when the currently-displayed week is today's week (or earlier) — the calendar never navigates further into the past. */
+  isPrevWeekDisabled: boolean;
 }

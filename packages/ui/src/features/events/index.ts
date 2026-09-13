@@ -22,3 +22,7 @@ export * from './format-event-date';
 
 export * from './AIFilterOverlay';
 
+export * from './EventCardMediaPrimitives';
+export * from './EventCardMediaPrimitives.types';
+export * from './event-card-media-tokens';
+

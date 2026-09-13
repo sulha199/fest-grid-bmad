@@ -21,9 +21,10 @@ interface AccountCalendarViewProps {
     platform: string;
     displayName: string;
   };
+  onFavoriteToggle?: (eventId: string) => void;
 }
 
-export default function AccountCalendarView({ q, types, categories, profile }: AccountCalendarViewProps) {
+export default function AccountCalendarView({ q, types, categories, profile, onFavoriteToggle }: AccountCalendarViewProps) {
   const t = useTranslations('AccountPage');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -69,6 +70,7 @@ export default function AccountCalendarView({ q, types, categories, profile }: A
     handleNextWeek,
     handleSelectWeek,
     handleToday,
+    isPrevWeekDisabled,
   } = useWeeklyCalendarController({
     week,
     setWeek: (newWeek: string) => {
@@ -116,9 +118,15 @@ export default function AccountCalendarView({ q, types, categories, profile }: A
       getWeekRange={getWeekRange}
       onToday={handleToday}
       onPrevWeek={handlePrevWeek}
+      isPrevWeekDisabled={isPrevWeekDisabled}
       onNextWeek={handleNextWeek}
       onSelectWeek={handleSelectWeek}
       onScheduleClick={handleScheduleClick}
+      onFavoriteToggle={
+        onFavoriteToggle
+          ? (schedule) => schedule.eventId && onFavoriteToggle(schedule.eventId)
+          : undefined
+      }
       status={status === 'pending' ? 'loading' : (status as any)}
       errorMessage={errorMessage}
       errorDetail={errorDetail}

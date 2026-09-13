@@ -3,7 +3,8 @@
 import React, { useMemo, useEffect } from 'react';
 import { useQueryState, parseAsString, parseAsBoolean } from 'nuqs';
 import { useTranslations } from 'next-intl';
-import { useGetEventsForMyCalendarQuery } from '@/generated/graphql';
+import { useQueryClient } from '@tanstack/react-query';
+import { useGetEventsForMyCalendarQuery, useToggleFavoriteMutation } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { buildMyCalendarQueryCondition } from '@festgrid/domain/events';
 import { WeeklyCalendarView, Checkbox, useWeeklyCalendarController, getWeekStart, getWeekEnd, PageContainer } from '@festgrid/ui';
@@ -73,6 +74,7 @@ export function MyCalendarContent() {
     handleNextWeek,
     handleSelectWeek,
     handleToday,
+    isPrevWeekDisabled,
   } = useWeeklyCalendarController({
     week,
     setWeek: (newWeek: string) => {
@@ -142,6 +144,51 @@ export function MyCalendarContent() {
     return { start, end };
   };
 
+  // Task 4.7 (Story 1.i1d AC3): this page has no sibling card view, so it
+  // instantiates its own favorite-toggle mutation, reusing the exact
+  // optimistic-update shape used by home-content.tsx/account-content.tsx but
+  // flattened for this page's non-infinite (single `events.items`) query shape.
+  // The React Query hook is defined unconditionally (before the `if (!session)`
+  // early return) to satisfy React's Rules of Hooks.
+  const queryClient = useQueryClient();
+  const { mutate: toggleFavorite } = useToggleFavoriteMutation(graphqlClient, {
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: ['events', 'my-calendar'] });
+      const previousData = queryClient.getQueryData(['events', 'my-calendar', queryCondition]);
+
+      queryClient.setQueriesData({ queryKey: ['events', 'my-calendar'] }, (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          events: {
+            ...old.events,
+            items: old.events.items.map((item: any) =>
+              item.id === variables.eventId
+                ? {
+                    ...item,
+                    isFavorited: !item.isFavorited,
+                    favoriteCount: Math.max(0, (item.favoriteCount ?? 0) + (item.isFavorited ? -1 : 1)),
+                  }
+                : item
+            ),
+          },
+        };
+      });
+
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['events', 'my-calendar', queryCondition], context.previousData);
+      }
+    },
+    onSuccess: (data, variables) => {
+      posthog.capture(data.toggleFavorite.isFavorited ? 'event_favorited' : 'event_unfavorited', {
+        eventId: variables.eventId,
+      });
+    },
+  });
+
   if (!session) {
     return null;
   }
@@ -175,9 +222,11 @@ export function MyCalendarContent() {
         getWeekRange={getWeekRange}
         onToday={handleToday}
         onPrevWeek={handlePrevWeek}
+        isPrevWeekDisabled={isPrevWeekDisabled}
         onNextWeek={handleNextWeek}
         onSelectWeek={handleSelectWeek}
         onScheduleClick={handleScheduleClick}
+        onFavoriteToggle={(eventId) => toggleFavorite({ eventId })}
         status={status === 'pending' ? 'loading' : (status as any)}
         errorMessage={errorMessage}
         errorDetail={errorDetail}
