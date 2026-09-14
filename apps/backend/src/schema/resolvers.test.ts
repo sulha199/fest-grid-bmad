@@ -253,10 +253,21 @@ test('events resolver integration via Yoga', async (t) => {
     };
 
     // Both events have ONLY past schedules (no upcoming), and NONE is
-    // main-flagged. They remain visible to the default events query because at
-    // least one schedule ended within the 7-day hide window. Previously the SQL
-    // COALESCE fell through to NULL here (arbitrary order); it must now fall
-    // back to the earliest-start schedule date across all schedules.
+    // main-flagged. The anonymous default (N=0, no grace window) would hide
+    // both outright, which would test visibility rather than the thing this
+    // test actually targets: given they ARE visible, which schedule date do
+    // they sort by. So authenticate as a user with a deliberately larger
+    // custom hidePastEventsAfterDays (AC2) to keep both visible regardless of
+    // whatever the anonymous default happens to be, and isolate the
+    // sort-fallback assertion. Previously the SQL COALESCE fell through to
+    // NULL here (arbitrary order); it must now fall back to the earliest-start
+    // schedule date across all schedules.
+    const [sortFallbackUser] = await db.insert(users).values({
+      email: `sort-fallback-${Math.random()}@example.com`,
+      name: 'Sort Fallback Test User',
+      role: 'user',
+    }).returning();
+
     const [earlierEvent] = await db.insert(events).values({
       eventName: '2.7 fallback - earlier earliest-start',
       location: 'Test City',
@@ -281,6 +292,23 @@ test('events resolver integration via Yoga', async (t) => {
 
     t.after(async () => {
       await db.delete(events).where(inArray(events.id, createdEventIds));
+      await db.delete(userSettings).where(eq(userSettings.userId, sortFallbackUser.id));
+      await db.delete(users).where(eq(users.id, sortFallbackUser.id));
+    });
+
+    mockUser = { userId: sortFallbackUser.id, role: sortFallbackUser.role };
+    await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            updateUserSettings(input: { hidePastEventsAfterDays: 14 }) {
+              hidePastEventsAfterDays
+            }
+          }
+        `,
+      }),
     });
 
     const response = await yoga.fetch('http://yoga/graphql', {
@@ -296,6 +324,7 @@ test('events resolver integration via Yoga', async (t) => {
         `,
       }),
     });
+    mockUser = null;
 
     const result = await response.json();
     assert.ok(!result.errors, 'GraphQL errors returned');
@@ -979,7 +1008,7 @@ test('events resolver integration via Yoga', async (t) => {
 
       const result = await response.json();
       assert.ok(!result.errors, 'GraphQL errors returned: ' + JSON.stringify(result.errors));
-      assert.strictEqual(result.data.mySettings.hidePastEventsAfterDays, 7);
+      assert.strictEqual(result.data.mySettings.hidePastEventsAfterDays, 0);
       assert.strictEqual(result.data.mySettings.pushNotificationsEnabled, true);
 
       // Verify row exists in DB
@@ -1039,8 +1068,8 @@ test('events resolver integration via Yoga', async (t) => {
       const result1 = await res1.json();
       assert.ok(!result1.errors, 'Mutation 1 failed');
       assert.strictEqual(result1.data.updateUserSettings.pushNotificationsEnabled, false);
-      // hidePastEventsAfterDays should remain default (7)
-      assert.strictEqual(result1.data.updateUserSettings.hidePastEventsAfterDays, 7);
+      // hidePastEventsAfterDays should remain default (0)
+      assert.strictEqual(result1.data.updateUserSettings.hidePastEventsAfterDays, 0);
 
       // 2. Update only hidePastEventsAfterDays to 14
       const res2 = await yoga.fetch('http://yoga/graphql', {
@@ -1185,6 +1214,15 @@ test('events resolver integration via Yoga', async (t) => {
       types: ['FESTIVAL'],
     });
 
+    // Boundary fixture for the N=0 default: ends exactly today, so it must stay visible
+    // under the no-grace-window default (only events that ended before today are hidden).
+    const eventD = await createTestEvent({
+      eventName: 'Boundary Event D (Ends Today)',
+      startDate: daysAgo(1),
+      endDate: daysAgo(0),
+      types: ['FESTIVAL'],
+    });
+
     const eventC = await createTestEvent({
       eventName: 'Active Event C (Main ended, sub-schedule active)',
       startDate: daysAgo(12),
@@ -1205,7 +1243,7 @@ test('events resolver integration via Yoga', async (t) => {
       await db.delete(users).where(eq(users.id, testUser.id));
     });
 
-    await t.test('anonymous caller uses fixed default N=7 (AC1, AC3, AC4)', async () => {
+    await t.test('anonymous caller uses fixed default N=0 (AC1, AC3, AC4)', async () => {
       mockUser = null;
       const response = await yoga.fetch('http://yoga/graphql', {
         method: 'POST',
@@ -1226,8 +1264,9 @@ test('events resolver integration via Yoga', async (t) => {
       const ids = new Set(items.map((i: any) => i.id));
 
       assert.ok(!ids.has(eventA.id), 'Event A (ended 10 days ago) should be hidden');
-      assert.ok(ids.has(eventB.id), 'Event B (ended 3 days ago) should be visible');
+      assert.ok(!ids.has(eventB.id), 'Event B (ended 3 days ago) should now be hidden under the N=0 default (no grace window)');
       assert.ok(ids.has(eventC.id), 'Event C with active sub-schedule should be visible');
+      assert.ok(ids.has(eventD.id), 'Event D (ends today) should still be visible at the N=0 boundary');
     });
 
     await t.test('authenticated caller uses custom settings N (AC1, AC2, AC4)', async () => {
@@ -1290,7 +1329,7 @@ test('events resolver integration via Yoga', async (t) => {
       const items = result.data.events.items;
       const ids = new Set(items.map((i: any) => i.id));
 
-      assert.ok(ids.has(eventB.id), 'Event B should match (type is FESTIVAL and ended 3 days ago)');
+      assert.ok(ids.has(eventD.id), 'Event D should match (type is FESTIVAL and still within the N=0 default boundary)');
       assert.ok(!ids.has(eventC.id), 'Event C should not match (type is not FESTIVAL)');
     });
 

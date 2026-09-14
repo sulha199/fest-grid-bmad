@@ -393,6 +393,13 @@
       "when": 1789455600000,
       "tag": "0055_fix_schedule_event_date_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "6",
+      "when": 1789404162279,
+      "tag": "0056_wide_chimera",
+      "breakpoints": true
     }
   ]
 }

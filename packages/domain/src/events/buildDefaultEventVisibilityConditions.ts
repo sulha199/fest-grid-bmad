@@ -1,6 +1,6 @@
 import { QueryCondition } from '../query/queryDsl.js';
 
-export const DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS = 7;
+export const DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS = 0;
 
 export interface BuildDefaultEventVisibilityConditionsInput {
   hidePastEventsAfterDays: number;

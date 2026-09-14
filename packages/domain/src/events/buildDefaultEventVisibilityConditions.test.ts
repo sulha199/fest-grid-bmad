@@ -7,8 +7,8 @@ import {
 import { TerminalCondition } from '../query/queryDsl.js';
 
 test('buildDefaultEventVisibilityConditions', async (t) => {
-  await t.test('uses default threshold math with N=7 against injected fixed now', () => {
-    // 2026-08-15 UTC midnight -> threshold should be 2026-08-08
+  await t.test('uses default threshold math with N=0 against injected fixed now', () => {
+    // 2026-08-15 UTC midnight -> threshold should be 2026-08-15 itself (no grace window)
     const now = new Date(Date.UTC(2026, 7, 15, 12, 34, 56)); // Aug is 7 in JS Date (0-indexed)
     const res = buildDefaultEventVisibilityConditions({
       hidePastEventsAfterDays: DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS,
@@ -19,7 +19,7 @@ test('buildDefaultEventVisibilityConditions', async (t) => {
     const cond = res[0] as TerminalCondition;
     assert.strictEqual(cond.field, 'scheduleDateRange');
     assert.strictEqual(cond.operator, 'overlaps');
-    assert.deepStrictEqual(cond.value, { from: '2026-08-08', to: null });
+    assert.deepStrictEqual(cond.value, { from: '2026-08-15', to: null });
   });
 
   await t.test('uses custom N threshold math (e.g. N=14) against injected fixed now', () => {
