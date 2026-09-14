@@ -3,6 +3,7 @@ import { triggerBrightDataJob, mapBrightDataDateToStartDate } from './brightdata
 import { createPendingJob } from './brightdata-pending-jobs-store.js';
 import { loadBackendEnv } from '../../env.js';
 import { recordActorRunStart } from './record-actor-run.js';
+import { generateWebhookToken } from './generate-webhook-token.js';
 import type { ScraperTriggerResult } from './scraper-trigger-result.js';
 
 export let attemptBrightDataTrigger = async (
@@ -17,7 +18,7 @@ export let attemptBrightDataTrigger = async (
     }
 
     const env = loadBackendEnv();
-    const webhookToken = await generateWebhookToken();
+    const webhookToken = generateWebhookToken();
     const webhookUrl = `${env.brightdataWebhookBaseUrl}?jobToken=${webhookToken}`;
 
     const startDate = mapBrightDataDateToStartDate(newerThan);
@@ -66,9 +67,4 @@ export let attemptBrightDataTrigger = async (
 
 export function setAttemptBrightDataTrigger(fn: typeof attemptBrightDataTrigger) {
   attemptBrightDataTrigger = fn;
-}
-
-async function generateWebhookToken(): Promise<string> {
-  const crypto = await import('crypto');
-  return crypto.randomBytes(24).toString('hex');
 }

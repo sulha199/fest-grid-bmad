@@ -3,6 +3,7 @@ import { createPendingJob } from './apify-pending-jobs-store.js';
 import { recordProviderUsage, isProviderCapacityAvailable } from './usage-store.js';
 import { loadBackendEnv } from '../../env.js';
 import { recordActorRunStart } from './record-actor-run.js';
+import { generateWebhookToken } from './generate-webhook-token.js';
 import type { ScrapeTarget as FullScrapeTarget } from './get-scrape-targets.js';
 import type { ScraperTriggerResult } from './scraper-trigger-result.js';
 
@@ -26,9 +27,7 @@ export let attemptApifyAsyncTrigger = async (
 
   try {
     // Generate token BEFORE making the trigger call
-    const webhookToken = Array.from({ length: 24 }, () =>
-      Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
-    ).join('');
+    const webhookToken = generateWebhookToken();
 
     // Build webhook URL
     const webhookUrl = `${env.apifyWebhookBaseUrl}?jobToken=${webhookToken}`;
