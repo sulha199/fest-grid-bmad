@@ -23,7 +23,12 @@ export async function resolveInstagramOEmbed(postUrl: string): Promise<Instagram
 
   let result: InstagramOEmbedAdapterResult;
   try {
-    const url = `${INSTAGRAM_OEMBED_ENDPOINT}?url=${encodeURIComponent(postUrl)}`;
+    // `omitscript=true` drops Meta's own inline <script src=".../embed.js"> tag from the
+    // returned `html` (the blockquote stays). The frontend (InstagramEmbed.tsx's
+    // loadInstagramEmbedScript) already loads embed.js once per page itself, so the inline
+    // script would be redundant — and omitting it keeps the cached payload and the GraphQL
+    // wire smaller. No behavior change: the embed still renders via the separately-loaded script.
+    const url = `${INSTAGRAM_OEMBED_ENDPOINT}?url=${encodeURIComponent(postUrl)}&omitscript=true`;
     const response = await fetch(url);
 
     if (!response.ok) {

@@ -36,6 +36,7 @@ test('instagram-oembed adapter resolveInstagramOEmbed', async (t) => {
     const calledUrl = fetchMock.mock.calls[0].arguments[0] as string;
     assert.match(calledUrl, /^https:\/\/graph\.facebook\.com\/v25\.0\/instagram_oembed\?url=/);
     assert.ok(calledUrl.includes(encodeURIComponent(postUrl)));
+    assert.ok(calledUrl.includes('omitscript=true'), 'should request omitscript=true since the frontend loads embed.js itself');
     assert.ok(!calledUrl.includes('access_token'));
   });
 
