@@ -167,6 +167,147 @@ test('events resolver integration via Yoga', async (t) => {
     );
   });
 
+  await t.test('events - same-date upcoming tie between two schedules with different times resolves to that date for sort (Story 2.7)', async (t) => {
+    const createdEventIds: string[] = [];
+
+    // One event carries two upcoming schedules on the SAME date with different
+    // times; a second event's upcoming schedule is strictly later. The tie must
+    // resolve without error and the event must sort by its shared upcoming date.
+    const [tieEvent] = await db.insert(events).values({
+      eventName: '2.7 sort - same-date tie',
+      location: 'Test City',
+    }).returning();
+    createdEventIds.push(tieEvent.id);
+    await db.insert(schedules).values([
+      {
+        eventId: tieEvent.id,
+        eventStartDate: '2030-08-10',
+        eventStartTime: '18:00:00',
+        eventEndDate: '2030-08-10',
+        isMainSchedule: true,
+      },
+      {
+        eventId: tieEvent.id,
+        eventStartDate: '2030-08-10',
+        eventStartTime: '09:00:00',
+        eventEndDate: '2030-08-10',
+        isMainSchedule: false,
+      },
+    ]);
+
+    const [lateEvent] = await db.insert(events).values({
+      eventName: '2.7 sort - same-date tie, later',
+      location: 'Test City',
+    }).returning();
+    createdEventIds.push(lateEvent.id);
+    await db.insert(schedules).values({
+      eventId: lateEvent.id,
+      eventStartDate: '2030-08-20',
+      eventEndDate: '2030-08-20',
+      isMainSchedule: true,
+    });
+
+    t.after(async () => {
+      await db.delete(events).where(inArray(events.id, createdEventIds));
+    });
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            events(limit: 1000) {
+              items { id eventName }
+            }
+          }
+        `,
+      }),
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, 'GraphQL errors returned');
+    const items = result.data.events.items as { id: string; eventName: string }[];
+    const ids = items.map((i) => i.id);
+    assert.ok(ids.indexOf(tieEvent.id) !== -1, 'tie event should be present');
+    assert.ok(ids.indexOf(lateEvent.id) !== -1, 'later event should be present');
+    assert.ok(
+      ids.indexOf(tieEvent.id) < ids.indexOf(lateEvent.id),
+      'event whose upcoming schedule is on the same-date tie (2030-08-10) should sort before the later event (2030-08-20)'
+    );
+  });
+
+  await t.test('events - nothing upcoming and no main-flagged schedule falls back to earliest-start date for sort (Story 2.7)', async (t) => {
+    const createdEventIds: string[] = [];
+
+    // Helper: UTC date string n days from today.
+    const daysFromToday = (n: number): string => {
+      const d = new Date();
+      const y = d.getUTCFullYear();
+      const m = d.getUTCMonth();
+      const day = d.getUTCDate();
+      const target = new Date(Date.UTC(y, m, day));
+      target.setUTCDate(target.getUTCDate() + n);
+      return `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, '0')}-${String(target.getUTCDate()).padStart(2, '0')}`;
+    };
+
+    // Both events have ONLY past schedules (no upcoming), and NONE is
+    // main-flagged. They remain visible to the default events query because at
+    // least one schedule ended within the 7-day hide window. Previously the SQL
+    // COALESCE fell through to NULL here (arbitrary order); it must now fall
+    // back to the earliest-start schedule date across all schedules.
+    const [earlierEvent] = await db.insert(events).values({
+      eventName: '2.7 fallback - earlier earliest-start',
+      location: 'Test City',
+    }).returning();
+    createdEventIds.push(earlierEvent.id);
+    await db.insert(schedules).values([
+      { eventId: earlierEvent.id, eventStartDate: daysFromToday(-9), eventEndDate: daysFromToday(-8), isMainSchedule: false },
+      { eventId: earlierEvent.id, eventStartDate: daysFromToday(-6), eventEndDate: daysFromToday(-5), isMainSchedule: false },
+    ]);
+
+    const [laterEvent] = await db.insert(events).values({
+      eventName: '2.7 fallback - later earliest-start',
+      location: 'Test City',
+    }).returning();
+    createdEventIds.push(laterEvent.id);
+    await db.insert(schedules).values({
+      eventId: laterEvent.id,
+      eventStartDate: daysFromToday(-3),
+      eventEndDate: daysFromToday(-2),
+      isMainSchedule: false,
+    });
+
+    t.after(async () => {
+      await db.delete(events).where(inArray(events.id, createdEventIds));
+    });
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            events(limit: 1000) {
+              items { id eventName }
+            }
+          }
+        `,
+      }),
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, 'GraphQL errors returned');
+    const items = result.data.events.items as { id: string; eventName: string }[];
+    const ids = items.map((i) => i.id);
+    assert.ok(ids.indexOf(earlierEvent.id) !== -1, 'earlier event should be present');
+    assert.ok(ids.indexOf(laterEvent.id) !== -1, 'later event should be present');
+    assert.ok(
+      ids.indexOf(earlierEvent.id) < ids.indexOf(laterEvent.id),
+      'event with an earlier earliest-start date should sort before one whose earliest past schedule is later'
+    );
+  });
+
   await t.test('events - scheduleDateRange overlaps filtering (Story 1.3h)', async (t) => {
     const createdEventIds: string[] = [];
 

@@ -37,6 +37,24 @@ test('selectDisplaySchedule', async (t) => {
     assert.strictEqual(result.eventStartDate, '2026-09-30');
   });
 
+  await t.test('breaks a same-date upcoming tie by the earlier start time', () => {
+    const result = selectDisplaySchedule([
+      sched({ eventStartDate: '2026-09-20', eventStartTime: '18:00:00', eventEndDate: '2026-09-20' }),
+      sched({ eventStartDate: '2026-09-20', eventStartTime: '09:00:00', eventEndDate: '2026-09-20' }),
+    ], NOW);
+    assert.ok(result);
+    assert.strictEqual(result.eventStartTime, '09:00:00');
+  });
+
+  await t.test('sorts a schedule with no start time after a same-date one that has one (NULLs last)', () => {
+    const result = selectDisplaySchedule([
+      sched({ eventStartDate: '2026-09-20', eventEndDate: '2026-09-20' }), // no time
+      sched({ eventStartDate: '2026-09-20', eventStartTime: '12:00:00', eventEndDate: '2026-09-20' }),
+    ], NOW);
+    assert.ok(result);
+    assert.strictEqual(result.eventStartTime, '12:00:00');
+  });
+
   await t.test('treats a schedule with no end date as upcoming when its start date is today or later', () => {
     const result = selectDisplaySchedule([
       sched({ isMainSchedule: true, eventStartDate: '2026-09-10', eventEndDate: null }),
@@ -66,13 +84,13 @@ test('selectDisplaySchedule', async (t) => {
     assert.strictEqual(result.eventStartDate, '2026-08-16');
   });
 
-  await t.test('falls back to the first schedule when nothing is upcoming and no main schedule exists', () => {
+  await t.test('falls back to the earliest-start schedule when nothing is upcoming and no main schedule exists', () => {
     const result = selectDisplaySchedule([
       sched({ eventStartDate: '2026-09-01', eventEndDate: '2026-09-05' }),
       sched({ eventStartDate: '2026-08-10', eventEndDate: '2026-08-12' }),
     ], NOW);
     assert.ok(result);
-    assert.strictEqual(result.eventStartDate, '2026-09-01');
+    assert.strictEqual(result.eventStartDate, '2026-08-10');
   });
 
   await t.test('returns the single past schedule as a last-resort fallback', () => {

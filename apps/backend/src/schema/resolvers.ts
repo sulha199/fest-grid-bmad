@@ -3112,11 +3112,15 @@ Constraints and Guidelines:
       if (sortByFavoritedAt) {
         itemsQuery.orderBy(desc(favorites.createdAt));
       } else {
-        // Story 2.7 — order by the event's next-upcoming schedule date (falling
-        // back to its main schedule date), not its main schedule date alone.
-        // The join above is still required for WHERE fields (performers,
-        // scheduleLocation, scheduleCoordinates); sorting uses a correlated
-        // subquery so it considers every schedule for the event.
+        // Story 2.7 — order by the event's next-upcoming schedule date, falling
+        // back to its main schedule date, then to its earliest-start schedule
+        // date. Keep this chain (upcoming → main → earliest-start) in sync with
+        // `packages/domain/src/events/selectDisplaySchedule.ts` (the shared
+        // display/sort contract), including the same-date tie-break on
+        // event_start_time ASC NULLS LAST. The join above is still required for
+        // WHERE fields (performers, scheduleLocation, scheduleCoordinates);
+        // sorting uses a correlated subquery so it considers every schedule for
+        // the event.
         itemsQuery.orderBy(sql`
           COALESCE(
             (SELECT s2.event_start_date FROM schedules s2
@@ -3127,6 +3131,10 @@ Constraints and Guidelines:
             (SELECT s3.event_start_date FROM schedules s3
               WHERE s3.event_id = ${events.id} AND s3.is_main_schedule = true
               ORDER BY s3.event_start_date ASC, s3.event_start_time ASC NULLS LAST
+              LIMIT 1),
+            (SELECT s4.event_start_date FROM schedules s4
+              WHERE s4.event_id = ${events.id}
+              ORDER BY s4.event_start_date ASC, s4.event_start_time ASC NULLS LAST
               LIMIT 1)
           ) ASC
         `);

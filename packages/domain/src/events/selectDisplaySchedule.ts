@@ -24,11 +24,17 @@ function toUtcDateOnly(d: Date): string {
  * Story 2.7 — pick the schedule used to display a single event (and, in the
  * backend, its default sort key).
  *
- * Rule: prefer the next-upcoming schedule — among schedules that are still
- * ongoing or upcoming (eventEndDate >= now, falling back to eventStartDate
- * when no end date is known), take the one with the earliest eventStartDate.
- * If no schedule is upcoming, fall back to the main schedule, then to the
- * first schedule in the list.
+ * Rule (shared with the backend `Query.events` ORDER BY subquery in
+ * `apps/backend/src/schema/resolvers.ts` — keep the two in sync):
+ *   1. Prefer the next-upcoming schedule — among schedules that are still
+ *      ongoing or upcoming (eventEndDate >= now, falling back to
+ *      eventStartDate when no end date is known), take the one with the
+ *      earliest eventStartDate, breaking same-date ties by the earliest
+ *      eventStartTime (NULLs last).
+ *   2. If no schedule is upcoming, fall back to the main schedule
+ *      (isMainSchedule = true).
+ *   3. If there is still no main schedule, fall back to the schedule with the
+ *      earliest eventStartDate among all schedules (same time tie-break).
  *
  * Dates are compared as 'YYYY-MM-DD' strings (which order lexicographically
  * like dates) against a UTC "now", mirroring the UTC-day math used by
@@ -51,10 +57,38 @@ export function selectDisplaySchedule<T extends SelectableSchedule>(
   });
 
   if (upcoming.length > 0) {
-    return [...upcoming].sort((a, b) =>
-      a.eventStartDate.localeCompare(b.eventStartDate)
-    )[0];
+    return [...upcoming].sort(byEarliestStart)[0];
   }
 
-  return schedules.find((s) => s.isMainSchedule) ?? schedules[0] ?? null;
+  return (
+    schedules.find((s) => s.isMainSchedule) ||
+    [...schedules].sort(byEarliestStart)[0] ||
+    null
+  );
+}
+
+/**
+ * Compare two schedules so the "earliest-start" wins: ascending by
+ * eventStartDate, then ascending by eventStartTime with NULLs sorted last —
+ * mirroring the SQL `ORDER BY event_start_date ASC, event_start_time ASC
+ * NULLS LAST` used by the backend `Query.events` sort subquery.
+ */
+function byEarliestStart(a: SelectableSchedule, b: SelectableSchedule): number {
+  const dateCmp = a.eventStartDate.localeCompare(b.eventStartDate);
+  if (dateCmp !== 0) {
+    return dateCmp;
+  }
+
+  const timeA = a.eventStartTime ?? null;
+  const timeB = b.eventStartTime ?? null;
+  if (timeA === timeB) {
+    return 0;
+  }
+  if (timeA === null) {
+    return 1; // NULLs last
+  }
+  if (timeB === null) {
+    return -1; // NULLs last
+  }
+  return timeA.localeCompare(timeB);
 }
