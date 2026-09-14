@@ -8,6 +8,10 @@ import { attemptApifyAsyncTrigger } from '../lib/scraper/trigger-apify-for-targe
 import { runStaleJobSweep } from '../lib/scraper/stale-job-sweep.js';
 import { recordProviderHealthCheck } from '../lib/scraper/scraper-provider-health-store.js';
 import {
+  recordScraperBatchRunStart,
+  completeScraperBatchRun,
+} from '../lib/scraper/record-scraper-batch-run.js';
+import {
   tallyScraperProviderResults,
   type ScraperTargetProviderMarker,
 } from '../lib/scraper/tally-scraper-provider-results.js';
@@ -39,7 +43,17 @@ export const handler = async (
   } else {
     // EventBridge Event: Trigger batch targeting and dispatch to Bright Data (Instagram) or Apify (fallback)
     console.log('Triggering daily batch scrape targets extraction');
+    let batchRunId: string | null = null;
     try {
+      // Open the per-cycle audit row for THIS EventBridge invocation (IDEA-013). Purely
+      // additive observability (sibling of the recordProviderHealthCheck calls below) -- a
+      // failure to record must never abort the actual scrape, so we swallow it here.
+      try {
+        batchRunId = await recordScraperBatchRunStart();
+      } catch (startErr) {
+        console.error('Failed to record scraper batch run start:', startErr);
+      }
+
       const targets = await getBatchScrapeTargets();
       console.log(`Found ${targets.length} distinct targets to scrape`);
 
@@ -120,8 +134,42 @@ export const handler = async (
           console.error('Failed to record Apify provider health check:', healthCheckErr);
         }
       }
+      // Close the per-cycle audit row for this invocation (IDEA-013): record how many
+      // targets were found and how many dispatches ultimately succeeded/failed, so a
+      // '0 targets found' cycle is distinguishable from a missed cron. A target counts as
+      // dispatched-succeeded if EITHER provider tier succeeded for it.
+      const dispatchedSucceeded = fulfilledResults.filter(
+        (r) => r.brightData.succeeded || r.apify.succeeded
+      ).length;
+      const dispatchedFailed = targets.length - dispatchedSucceeded;
+
+      if (batchRunId) {
+        try {
+          await completeScraperBatchRun(batchRunId, {
+            targetsFound: targets.length,
+            dispatchedSucceeded,
+            dispatchedFailed,
+          });
+        } catch (completeErr) {
+          console.error('Failed to record scraper batch run completion:', completeErr);
+        }
+      }
     } catch (err) {
       console.error('Failed to retrieve or dispatch batch scrape targets:', err);
+      // Still record that the cron fired (leaving the row completed with zero tallies) even
+      // when the batch itself failed, so a mid-batch crash isn't confused with a never-fired
+      // cron in scraper_batch_runs (IDEA-013).
+      if (batchRunId) {
+        try {
+          await completeScraperBatchRun(batchRunId, {
+            targetsFound: 0,
+            dispatchedSucceeded: 0,
+            dispatchedFailed: 0,
+          });
+        } catch (completeErr) {
+          console.error('Failed to record scraper batch run completion on error path:', completeErr);
+        }
+      }
       throw err;
     }
   }

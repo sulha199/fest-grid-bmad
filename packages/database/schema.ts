@@ -198,6 +198,26 @@ export const scraperProviderHealth = pgTable('scraper_provider_health', {
   ...timestamps,
 });
 
+// One row per EventBridge daily batch-scrape invocation (IDEA-013) -- an append-only
+// per-cycle audit record so we can tell 'the cron fired and found 0 targets' apart from
+// 'the cron never fired'. The EventBridge branch of apps/backend/src/lambdas/scraper.ts
+// inserts a row at the start of a batch and completes it at the end (startedAt -> a
+// completion row records targetsFound plus how many dispatches succeeded/failed), in the
+// same additive-observability shape as scraperProviderHealth's recordProviderHealthCheck.
+// Purely observability -- no reads/writes elsewhere -- so it is deliberately NOT a
+// soft-delete table (AD-8 exempts append-only log/audit tables like this one).
+export const scraperBatchRuns = pgTable('scraper_batch_runs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  targetsFound: integer('targets_found').default(0).notNull(),
+  dispatchedSucceeded: integer('dispatched_succeeded').default(0).notNull(),
+  dispatchedFailed: integer('dispatched_failed').default(0).notNull(),
+  ...timestamps,
+}, (t) => ({
+  startedAtIdx: index('idx_scraper_batch_runs_started_at').on(t.startedAt),
+}));
+
 export const subscriptions = pgTable('subscriptions', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
