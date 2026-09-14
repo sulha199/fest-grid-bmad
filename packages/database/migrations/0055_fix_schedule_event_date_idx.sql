@@ -1,0 +1,22 @@
+-- Story 2.7 review follow-up: schedule_event_date_idx (migration 0054) was created as a plain
+-- btree on (event_id, event_start_date, event_end_date), but its own code comment claimed it
+-- served reads filtered on COALESCE(event_end_date, event_start_date) -- a mismatch that meant
+-- the ORDER BY subquery in Query.events (resolvers.ts, the "next-upcoming schedule" sort) could
+-- only use the index for the event_id lookup, applying the COALESCE filter as a post-scan Filter
+-- instead of an Index Cond. Confirmed via EXPLAIN ANALYZE at ~30k-event/~48k-schedule volume
+-- against a realistic Query.events shape (WHERE + ORDER BY + LIMIT/OFFSET): switching to a real
+-- expression index on COALESCE(event_end_date, event_start_date) turns the per-event correlated
+-- subquery scan (SubPlan 1 in the plan) from "Bitmap Heap Scan + Filter" into a direct
+-- "Index Scan" with the COALESCE condition pushed into Index Cond, cutting total query execution
+-- time by ~40% (measured ~200-220ms -> ~115-135ms) at that volume, with no regression to the
+-- index's other read pattern (the s3 fallback subquery, filtered on event_id + is_main_schedule).
+-- See Dev Agent Record in 2-7-automatically-hide-past-events.md for the full before/after plans.
+--
+-- Drizzle-kit 0.21.4's schema builder (packages/database/schema.ts) has no way to declare an
+-- expression index -- same class of gap as the pre-existing WHERE-clause/GIN hand-edit precedent
+-- (see event_name_idx/post_hashtags_idx above) -- so this migration is hand-written rather than
+-- `drizzle-kit generate`d; schema.ts's `eventDateIdx` builder call is left as the closest
+-- expressible approximation, with a comment pointing here for the real index shape.
+DROP INDEX IF EXISTS "schedule_event_date_idx";
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "schedule_event_date_idx" ON "schedules" ("event_id", (COALESCE("event_end_date", "event_start_date")), "event_start_date", "event_start_time");

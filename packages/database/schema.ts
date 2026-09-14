@@ -383,8 +383,17 @@ export const schedules = pgTable('schedules', {
   performersIdx: index('schedule_performers_idx').on(t.performers),
   locationIdx: index('schedule_location_idx').on(t.location),
   coordinatesIdx: index('schedule_coordinates_idx').on(t.latitude, t.longitude),
-  // Story 2.7 — next-upcoming display/sort selection reads
-  // (event_id, COALESCE(event_end_date, event_start_date), event_start_date).
+  // Story 2.7 — next-upcoming display/sort selection reads (resolvers.ts's Query.events
+  // ORDER BY subquery). The column list below is a builder-level approximation only:
+  // drizzle-kit 0.21.4's index() builder cannot express an expression index (same class of
+  // gap as post_hashtags_idx's GIN/`.where()` hand-edits above). The index as actually
+  // created in the database (migration 0055_fix_schedule_event_date_idx.sql) is
+  // ("event_id", (COALESCE("event_end_date", "event_start_date")), "event_start_date",
+  // "event_start_time") — confirmed via EXPLAIN ANALYZE at ~30k-event volume to push the
+  // query's COALESCE filter into an Index Cond (not a post-scan Filter), cutting execution
+  // time ~40% vs. the plain (event_id, event_start_date, event_end_date) shape this builder
+  // call alone would generate. Do not `drizzle-kit generate` over this — it will not detect
+  // or preserve the expression index.
   eventDateIdx: index('schedule_event_date_idx').on(t.eventId, t.eventStartDate, t.eventEndDate),
 }));
 
