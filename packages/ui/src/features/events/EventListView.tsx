@@ -59,6 +59,13 @@ export function EventListView<TEvent extends EventListViewItem>({
             // back to the main schedule, then the first schedule), instead of
             // always preferring the main schedule.
             const displaySchedule = selectDisplaySchedule(event.schedules ?? []);
+            // Story 2.7 — the display schedule drives the shown date, but price
+            // (and by extension any other main-schedule-only field this pattern is
+            // applied to) inherits from the main schedule when the picked schedule
+            // lacks it (sub-schedules are typically sparser than the main schedule
+            // for AI/poster-extracted events).
+            const mainSchedule =
+              event.schedules?.find((s) => s.isMainSchedule) ?? null;
 
             const derivedProps = {
               eventName: event.eventName,
@@ -70,7 +77,10 @@ export function EventListView<TEvent extends EventListViewItem>({
               locationName: event.location ?? undefined,
               categories: event.categories ?? [],
               types: event.types ?? [],
-              priceFrom: displaySchedule?.ticketPrice ?? undefined,
+              priceFrom:
+                displaySchedule?.ticketPrice ??
+                mainSchedule?.ticketPrice ??
+                undefined,
               prominentPoster: event.durableImageUrl != null,
               labels: cardLabels,
               variant: 'masonry' as const,

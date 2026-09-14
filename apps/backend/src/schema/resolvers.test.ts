@@ -2,7 +2,8 @@ import test, { mock } from 'node:test';
 import * as assert from 'node:assert';
 import crypto from 'node:crypto';
 import { createSchema, createYoga } from 'graphql-yoga';
-import { resolvers } from './resolvers.js';
+import { GraphQLError } from 'graphql';
+import { resolvers, setEventsAuthProbe, eventsAuthProbe } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
@@ -874,6 +875,44 @@ test('events resolver integration via Yoga', async (t) => {
       assert.ok(ids.has(eventB.id), 'should find event B (near loc 2)');
       assert.ok(!ids.has(eventC.id), 'should not find event C (far)');
     });
+  });
+
+  await t.test('events - non-UNAUTHENTICATED auth errors propagate instead of falling back to anonymous (Story 2.7 narrowed auth-catch regression)', async (t) => {
+    // `Query.events`'s silent auth probe swallows only `UNAUTHENTICATED` errors
+    // (so anonymous callers are allowed) and must re-throw any OTHER error a
+    // genuinely-authenticated caller triggers — otherwise a non-auth failure in
+    // `requireAuth` would silently force the anonymous default (N=7) and drop the
+    // self-hide exclusion, showing up to N extra days of events the user expected
+    // hidden. `requireAuth` today can only ever throw `UNAUTHENTICATED`, so the
+    // re-throw branch is unreachable via a real context; inject a different error
+    // through the story seam and assert it propagates.
+    const originalProbe = eventsAuthProbe;
+    setEventsAuthProbe(() => {
+      const err = new GraphQLError('boom from auth layer', { extensions: { code: 'INTERNAL' } });
+      throw err;
+    });
+    t.after(() => setEventsAuthProbe(originalProbe));
+
+    mockUser = null; // even an anonymous-looking context must not swallow a non-UNAUTHENTICATED error
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            events(limit: 5) {
+              items { id }
+              totalCount
+            }
+          }
+        `
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(result.errors, 'non-UNAUTHENTICATED auth error must propagate');
+    assert.strictEqual(result.errors[0].extensions?.code, 'INTERNAL');
+    assert.strictEqual(result.errors[0].message, 'boom from auth layer');
   });
 
   await t.test('userSettings integration tests (Story 2.6a)', async (t) => {

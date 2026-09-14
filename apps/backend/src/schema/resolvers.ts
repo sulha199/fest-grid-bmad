@@ -46,6 +46,20 @@ const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema)
 const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);
 const validateExtractedEvent = compileValidator<any>(extractedEventSchema);
 
+/**
+ * Story 2.7 — seam for the `Query.events` silent-auth probe. The resolver probes
+ * auth via `requireAuth` in a try/catch that swallows only `UNAUTHENTICATED`
+ * and re-throws anything else. `requireAuth` today can only ever throw the
+ * `UNAUTHENTICATED` shape, so the re-throw branch is unreachable through a real
+ * context; this setter lets a regression test inject a non-`UNAUTHENTICATED`
+ * error and assert it propagates. Follows the repo's setter-based seam
+ * convention (e.g. `setSendSqsMessage`). Defaults to the real `requireAuth`.
+ */
+export let eventsAuthProbe = requireAuth;
+export function setEventsAuthProbe(fn: typeof requireAuth): void {
+  eventsAuthProbe = fn;
+}
+
 function formatAjvInstancePath(instancePath: string, missingProperty?: string): string {
   if (!instancePath) {
     return missingProperty || '';
@@ -2871,7 +2885,7 @@ Constraints and Guidelines:
       // Check auth silently for filter correlations
       let userId: string | null = null;
       try {
-        const authUser = requireAuth(context);
+        const authUser = eventsAuthProbe(context);
         userId = authUser.userId;
       } catch (err) {
         // Public events query: swallow only UNAUTHENTICATED errors from the

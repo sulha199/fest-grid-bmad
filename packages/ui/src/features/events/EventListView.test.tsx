@@ -4,6 +4,7 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { EventListView } from './EventListView';
 import { EventListViewItem } from './EventListView.types';
+import { ScopedLocaleProvider } from '../../hooks/useScopedLocale';
 
 const mockEvents: EventListViewItem[] = [
   {
@@ -274,8 +275,14 @@ describe('EventListView', () => {
       expect(screen.getByText(/till/i)).toBeInTheDocument();
     });
 
-    it('falls back to the first schedule when no schedule is marked isMainSchedule, threading that schedule\'s end fields too', () => {
+    it('selects a lone non-main schedule that is still ending today as upcoming (not a past fallback) and threads its end fields too', () => {
       vi.useFakeTimers();
+      // "now" is inside this single schedule's day (starts 10:00, ends 18:00 on
+      // 2026-01-01, now is 14:00). Its eventEndDate (2026-01-01T18:00:00Z)
+      // still compares >= today's date-only string ("2026-01-01"), so under the
+      // Story 2.7 algorithm it is selected via the *upcoming* branch — not the
+      // all-ended fallback branch. This test pinpoints that distinction and
+      // sanity-checks that its end fields are still threaded into the card.
       vi.setSystemTime(new Date('2026-01-01T14:00:00Z'));
 
       const eventNoMain: EventListViewItem = {
@@ -305,6 +312,55 @@ describe('EventListView', () => {
       );
 
       expect(screen.getByText(/till/i)).toBeInTheDocument();
+    });
+
+    it('falls back to the earliest-start schedule (all-ended, no main-flagged) for display (real, unmocked Story 2.7 fallback)', () => {
+      vi.useFakeTimers();
+      // Fixed "now": well after BOTH schedules have fully ended, and neither is
+      // main-flagged — so the Story 2.7 algorithm must take the fallback branch
+      // (no upcoming, no main) and pick the earliest-start schedule (Schedule A
+      // on 2026-01-05), not Schedule B (2026-02-10). This is the genuine
+      // fallback-to-first path; the sibling test above only exercises the earlier
+      // upcoming-branch selection, which is why this real (unmocked) case exists.
+      vi.setSystemTime(new Date('2026-09-01T12:00:00Z'));
+
+      const eventAllEnded: EventListViewItem = {
+        id: 'all-ended',
+        slug: 'all-ended',
+        eventName: 'All End Dates Passed',
+        schedules: [
+          {
+            isMainSchedule: false,
+            eventStartDate: '2026-01-05T10:00:00Z',
+            eventEndDate: '2026-01-05T18:00:00Z',
+          },
+          {
+            isMainSchedule: false,
+            eventStartDate: '2026-02-10T15:00:00Z',
+            eventEndDate: '2026-02-10T21:00:00Z',
+          },
+        ],
+      };
+
+      render(
+        <ScopedLocaleProvider locale="en-US" timezone="UTC">
+          <EventListView
+            status="success"
+            events={[eventAllEnded]}
+            emptyState={<div>Empty</div>}
+            getCardProps={() => ({})}
+            sentinelRef={vi.fn()}
+            isFetchingNextPage={false}
+            loadingMoreLabel="Loading more..."
+          />
+        </ScopedLocaleProvider>
+      );
+
+      // The fallback branch must display the earliest-start schedule (A: Jan 5),
+      // never Schedule B (Feb 10) — proving the real selection reached the card.
+      expect(screen.getByText(/Jan 5/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Feb 10/i)).not.toBeInTheDocument();
+      expect(screen.getByText('All End Dates Passed')).toBeInTheDocument();
     });
 
     it('does not show a TILL badge when the schedule has no eventEndDate (negative-space check for the endDate/endTime derivation)', () => {
