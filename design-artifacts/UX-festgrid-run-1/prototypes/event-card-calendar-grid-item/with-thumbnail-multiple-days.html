@@ -1,0 +1,109 @@
+<!-- Source: imports/event-card-calendar-grid-item/with-thumbnail-multiple-days.png -- event-card-calendar-grid-item / with-thumbnail-multiple-days -->
+<!-- REVISED 2026-09-14 (user's view-mode-organized rules pass) -- a structural rework of the attachment
+     mechanism, not just a styling fix:
+     1. The "Day X of N" / "in (x) day" badge is REMOVED entirely -- the user's rule: this information is
+        implicit from the card's own position in the calendar, so no redundant text label is needed. This
+        reverses this pass's own earlier addition of a multi_day_badge token for this card.
+     2. A multi-day schedule renders as ONE card spanning across its N day-columns, not as a fixed-width item in
+        a per-day popover list -- a real change to where/how this card attaches, not just what it displays.
+        Because the card's width is now `N * day_cell_width` (plus any inter-column gap) instead of a fixed
+        ~200px, the title/venue area has however much room the span gives it, per the user's rule ("event title
+        and venue name area's width could expand adapting the card width").
+     3. This reopens (in the multi-day case only) the earlier finding that a thumbnail-bearing card can't fit a
+        single ~174px day_cell -- it no longer needs to: a 2-day span already gives it ~348px+ (2 columns), which
+        comfortably fits the with-image 3-column composition. The single-day case is unaffected and unchanged:
+        single-day events never show a thumbnail at all (see thumbnail-fallback.html) and still resolve via
+        day_cell (direct) + "+N more" popover (overflow), per the prior real-size finding for that composition.
+     4. Category/type badge still replaced by a <8km-gated radius/distance badge.
+
+     REVISED 2026-09-14, round 4 (user feedback):
+     5. Thumbnail is explicitly 1:1 (`aspect-square`), and its wrapper now spans the FULL height of the
+        title+venue content column (`h-full`, via the row's own `items-stretch`) rather than a fixed w-14 h-14
+        sized independently -- the square thumbnail is centered both vertically and horizontally within that
+        taller area, so if the title wraps to more lines than the thumbnail's own height needs, the thumbnail
+        centers in the extra vertical room rather than pinning to the top.
+     6. The "Now" (happeningNow) status badge is dropped from this composition entirely -- not needed on the
+        multi-day/thumbnail view.
+
+     REVISED 2026-09-14, round 5 (user feedback): the favorite area (`side_stack`) now also centers both
+     vertically and horizontally, matching the thumbnail wrapper's own centering treatment -- was `items-end`
+     (right-aligned, top-anchored by default flex behavior) with no vertical centering; now `items-center
+     justify-center` so it centers within the row's full stretched height, and its own (possibly narrower)
+     children center under/above each other rather than right-aligning to the row's edge.
+
+     Real-grid sizing: day_cell width computed the same way as this pass's earlier finding --
+     content=1280-64=1216 (1280px viewport, sm:p-8/32px page padding), day_cell width=1216/7=174px. The spanning
+     bar below covers a 3-day span = 3*174px = 522px (ignoring the ~1px divide-x borders between columns, which
+     the real spanning element sits on top of/overlaps the same way the existing single-day multi-day-event bar
+     mechanism already does per WeeklyCalendarView.tsx's multiDayRoundingClass). -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          background: 'hsl(210 20% 98%)',
+          foreground: 'hsl(221 39% 11%)',
+          secondary: 'hsl(238 82% 67%)',
+          'secondary-foreground': 'hsl(210 40% 98%)',
+          muted: 'hsl(210 40% 96.1%)',
+          'muted-foreground': 'hsl(215.4 16.3% 46.9%)',
+        }
+      }
+    }
+  }
+</script>
+<style>body{font-family:Inter,sans-serif;}</style>
+
+<div class="p-6 bg-slate-100 min-h-screen flex flex-col items-start gap-2">
+  <span class="text-xs font-mono text-slate-500 max-w-[540px]">A 3-day span at the real 174px day_cell width (1280px viewport) -- day-column headers shown for context; the card below ignores their boundaries and renders as one continuous 522px-wide bar (174px x 3), ignoring "Day X of N" entirely since position already conveys span.</span>
+  <div class="flex" style="width: 522px;">
+    <div class="flex-1 text-xs text-center font-medium py-2 bg-gray-50 border-b border-r border-gray-200">Mon 12</div>
+    <div class="flex-1 text-xs text-center font-medium py-2 bg-gray-50 border-b border-r border-gray-200">Tue 13</div>
+    <div class="flex-1 text-xs text-center font-medium py-2 bg-gray-50 border-b border-gray-200">Wed 14</div>
+  </div>
+  <!-- event_card_calendar_grid_item spanning bar: width = N * day_cell_width, one continuous element -->
+  <div class="flex items-center gap-2 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200" style="width: 522px;">
+    <!-- event_card_calendar_grid_item.image: only rendered because this is multi-day + image OK. Wrapper spans
+         the full row height (matching the title+venue column below) and centers the 1:1 square thumbnail within
+         it, both axes. -->
+    <div class="h-full w-14 flex items-center justify-center shrink-0">
+      <div class="relative w-full aspect-square rounded-md overflow-hidden bg-gradient-to-br from-sky-300 to-sky-500">
+        <div class="absolute inset-0 flex flex-col items-center justify-center text-white">
+          <span class="text-[8px] font-black leading-tight text-center px-0.5">BCA AUTO SHOW</span>
+        </div>
+      </div>
+    </div>
+    <!-- event_card_calendar_grid_item.content -- title/venue area gets the full spanned width, no multi-day badge -->
+    <div class="flex-1 min-w-0 flex flex-col gap-1 justify-center">
+      <div class="text-sm font-bold text-foreground">BCA Auto Show 2026: International Edition, 3-Day Exhibition</div>
+      <div class="text-xs text-muted-foreground line-clamp-2">Ambarrukmo Plaza Convention Center, Yogyakarta</div>
+    </div>
+    <!-- event_card_calendar_grid_item.side_stack -- no "Now" status badge on this composition -- centered both axes -->
+    <div class="h-full flex flex-col items-center justify-center gap-1 shrink-0">
+      <div class="flex flex-col items-center justify-center gap-0.5 min-h-11 min-w-11 text-sm font-medium text-foreground">
+        <svg class="w-6 h-6 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
+        <span>1.2k</span>
+      </div>
+      <!-- radius/distance badge, <8km gated, replacing the category/type badge -->
+      <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+        2.4 km
+      </span>
+    </div>
+  </div>
+
+  <span class="text-xs font-mono text-slate-500 mt-4 max-w-[220px]">For comparison: a 1-day span at the same 174px day_cell width -- notice how much less room the title/venue area gets. This is the widest a single-day event's own composition needs to handle if it ever were multi-day, but single-day events never show a thumbnail at all (see thumbnail-fallback.html).</span>
+  <div class="flex items-center gap-2 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200" style="width: 174px;">
+    <div class="h-full w-14 flex items-center justify-center shrink-0">
+      <div class="relative w-full aspect-square rounded-md overflow-hidden bg-gradient-to-br from-sky-300 to-sky-500">
+        <div class="absolute inset-0 flex flex-col items-center justify-center text-white">
+          <span class="text-[7px] font-black leading-tight text-center px-0.5">BCA AUTO SHOW</span>
+        </div>
+      </div>
+    </div>
+    <div class="flex-1 min-w-0 flex flex-col gap-1 justify-center">
+      <div class="text-xs font-bold text-foreground line-clamp-2">BCA Auto Show 2026</div>
+    </div>
+  </div>
+</div>

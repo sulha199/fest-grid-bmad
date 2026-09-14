@@ -1,0 +1,200 @@
+<!-- Source: imports/event-card-masonry/prominent-poster.png -- event-card-masonry / prominent-poster (prominentPoster=true, unchanged since Story 1.3b AC17) -->
+<!-- REVISED 2026-09-14, round 7 (user feedback) -- corrects round 6's padding-based fix, which the user flagged
+     as the wrong mechanism:
+     Panel A (HAS a TILL badge): round 6 gave the date pill asymmetric padding (px-2 pt-3 pb-1) so its text sat
+     lower, clearing the TILL tag's fixed corner offset. User's rule: the date pill's padding must be the SAME on
+     all sides (uniform, like every other pill in this workspace) -- the TILL tag's position should be the only
+     thing that moves. Fixed by: (1) date pill padding reverted to uniform `p-2`. (2) TILL tag's own offset
+     increased from the standard `-top-1.5` to `-top-3` so it clears the text purely via its own position, no
+     padding trick involved. (3) Since a `-top-3` offset would push the tag 4px above the poster's own top edge if
+     the pill stayed at `top-2` (clipped by the poster's `overflow-hidden`), the date pill (and the favorite pill,
+     to stay vertically aligned with it) both move down to `top-5` -- enough clearance for the tag to sit fully
+     inside the poster with a small margin, per the rule "date badge and favorite badge may need to be moved down
+     to follow up these [changes]."
+     Panel B (NO TILL badge): unchanged -- top-2, uniform p-2 padding, no adjustment needed since there's no
+     corner tag to clear.
+
+     REVISED 2026-09-14, round 6, general rules:
+     - Favorite badge font size is now >= the TILL badge's font size everywhere (both are text-[11px] here,
+       already equal -- satisfies the rule as written).
+     - The "Now" (happeningNow) status badge gets a distinctly more noticeable color -- solid emerald green
+       (bg-emerald-600/text-white) instead of the neutral bg-muted/text-muted-foreground all 8 status states
+       otherwise share. This is a scoped exception for this one state's visual weight, not a reversal of the
+       2026-09-04 "one neutral style for all 8 states" decision for the other 7 states.
+
+     REVISED 2026-09-14, round 4: every TILL/favorite/radius/"Now" badge font size bumped to >=11px.
+
+     REVISED 2026-09-14 (user's view-mode-organized rules pass):
+     1. Thumbnail aspect ratio changed to 1:1 (square) -- was aspect-[2/3] (a tall portrait poster).
+     2. Title wraps up to 2 lines at a smaller font; venue stays single-line (truncate).
+     3. Category/type badge replaced by a <8km-gated radius/distance badge.
+     Real-grid sizing: same masonry grid as the other two states -- rendered at 175px, the mobile 2-col width
+     (390px viewport), the tightest real case. The card's own 230px max-width cap (round 7, see
+     default-with-thumbnail.html's comment) has no effect at this width -- 175px is already narrower than the
+     cap.
+
+     REVISED 2026-09-14, round 8 (user request): added Panels C and D -- the same has-till/no-till pair as A/B,
+     rendered at the desktop xl:5-col slot (269px) capped to the 230px max-width, matching the single-wrapper
+     pattern (`w-[269px] max-w-[230px]`, no separate inner max-width div) used by default-with-thumbnail.html and
+     default-thumbnail-fallback.html's own desktop panels. Position math (date pill p-1/top-5, TILL at -top-3,
+     favorite pill at top-5 for the has-till case) is unchanged from the mobile panels -- the poster's own
+     aspect-square sizing means it's larger at 230px than 175px, so there's if anything more clearance, not less.
+     Title/venue text sized up (text-base/text-sm) to match the other masonry files' desktop-panel convention;
+     TILL/favorite/radius/"Now" badges stay at text-[11px], unchanged from mobile -- the 12px-mobile/14px-desktop
+     TILL sizing rule was explicitly scoped to non-prominent cards only, not this one. -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          background: 'hsl(210 20% 98%)',
+          foreground: 'hsl(221 39% 11%)',
+          card: 'hsl(0 0% 100%)',
+          primary: 'hsl(217 33% 17%)',
+          secondary: 'hsl(238 82% 67%)',
+          'secondary-foreground': 'hsl(210 40% 98%)',
+          muted: 'hsl(210 40% 96.1%)',
+          'muted-foreground': 'hsl(215.4 16.3% 46.9%)',
+        }
+      }
+    }
+  }
+</script>
+<style>body{font-family:Inter,sans-serif;}</style>
+
+<div class="p-6 bg-slate-100 min-h-screen flex flex-wrap items-start gap-8 justify-center">
+  <div class="flex flex-col items-center gap-2">
+    <span class="text-xs font-mono text-slate-500 max-w-[175px]">Panel A -- HAS a TILL badge (ends tomorrow or later). Uniform p-2 padding on the date pill; TILL tag repositioned (-top-3) to clear the text; date+favorite pills both moved to top-5 to give the tag room.</span>
+    <div class="w-[175px] rounded-lg shadow-md bg-background overflow-hidden">
+      <!-- event_card_masonry.image_prominent -- 1:1 square, changed from aspect-[2/3] -->
+      <div class="relative w-full aspect-square bg-slate-900 overflow-hidden">
+        <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white">
+          <span class="text-xs font-bold tracking-tight">AI TECH</span>
+          <span class="text-[11px] font-extrabold tracking-tight">SUMMIT</span>
+        </div>
+        <!-- event_card_date_box.base (overlay, glassmorphism) -- moved to top-5 to give the repositioned TILL tag room to clear the poster's own edge; uniform p-2 padding, same as every other pill -->
+        <div class="absolute top-5 left-2 z-10 flex items-center gap-1 p-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-[12px] font-semibold text-foreground">
+          <!-- TILL tag: offset increased from the standard -top-1.5 to -top-3 -- position-only fix, no padding trick -- clears the pill's text with a small gap -->
+          <span class="absolute -top-3 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
+          SEP 25
+        </div>
+        <!-- favorite pill -- moved to top-5 to match the date pill's new position -->
+        <div class="absolute top-5 right-2 z-10 flex items-center text-[12px]  gap-1 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
+          <svg class="w-3 h-3 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
+          <span class="text-[12px] font-semibold">2.1k</span>
+        </div>
+      </div>
+      <div class="p-2 flex flex-col gap-1">
+        <div class="flex items-center gap-1 flex-wrap">
+          <span class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+            2.7 km
+          </span>
+          <!-- "Now" status badge -- more noticeable solid emerald, was neutral bg-muted -->
+          <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
+        </div>
+        <div class="text-sm font-bold text-foreground leading-tight line-clamp-2">Quantum Leap Symposium: The Global Tour</div>
+        <div class="text-xs text-muted-foreground truncate">The Glass Atrium</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-col items-center gap-2">
+    <span class="text-xs font-mono text-slate-500 max-w-[175px]">Panel B -- NO TILL badge (ends today). Date pill and favorite pill unchanged at top-2, plain py-1 padding.</span>
+    <div class="w-[175px] rounded-lg shadow-md bg-background overflow-hidden">
+      <div class="relative w-full aspect-square bg-slate-900 overflow-hidden">
+        <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white">
+          <span class="text-xs font-bold tracking-tight">JAZZ</span>
+          <span class="text-[11px] font-extrabold tracking-tight">NIGHT LIVE</span>
+        </div>
+        <!-- date pill -- unchanged top-2, no TILL tag on this card -->
+        <div class="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-[12px] font-semibold text-foreground">
+          TODAY
+        </div>
+        <!-- favorite pill -- unchanged top-2 -->
+        <div class=" text-[12px] absolute top-2 right-2 z-10 flex items-center gap-1 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
+          <svg class="w-3 h-3 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
+          <span class="font-semibold">412</span>
+        </div>
+      </div>
+      <div class="p-2 flex flex-col gap-1">
+        <div class="flex items-center gap-1 flex-wrap">
+          <span class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+            0.8 km
+          </span>
+          <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
+        </div>
+        <div class="text-sm font-bold text-foreground leading-tight line-clamp-2">Jazz Night Live</div>
+        <div class="text-xs text-muted-foreground truncate">Rooftop Bar</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-col items-center gap-2">
+    <span class="text-xs font-mono text-slate-500 max-w-[230px]">Panel C -- desktop xl:5-col slot, card capped at max-w-230px. HAS a TILL badge -- same position fix as Panel A (uniform p-1 date-pill padding, TILL at -top-3, date+favorite pills at top-5); title/venue text sized up to match the other masonry files' desktop panels.</span>
+    <!-- single wrapper div: width set to the real 269px slot, capped by max-width to 230px -- same pattern as default-with-thumbnail.html/default-thumbnail-fallback.html's own desktop panels -->
+    <div class="w-[269px] max-w-[230px] bg-slate-50">
+      <div class="rounded-lg shadow-md bg-background overflow-hidden">
+        <div class="relative w-full aspect-square bg-slate-900 overflow-hidden">
+          <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white">
+            <span class="text-base font-bold tracking-tight">AI TECH</span>
+            <span class="text-sm font-extrabold tracking-tight">SUMMIT</span>
+          </div>
+          <div class="absolute top-5 left-2 z-10 flex items-center gap-1 p-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-sm font-semibold text-foreground">
+            <span class="absolute -top-3 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
+            SEP 25
+          </div>
+          <div class="text-sm absolute top-5 right-2 z-10 flex items-center gap-1 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
+            <svg class="w-3 h-3 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
+            <span class="font-semibold">2.1k</span>
+          </div>
+        </div>
+        <div class="p-2 flex flex-col gap-1">
+          <div class="flex items-center gap-1 flex-wrap">
+            <span class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground">
+              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+              2.7 km
+            </span>
+            <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
+          </div>
+          <div class="text-base font-bold text-foreground leading-tight line-clamp-2">Quantum Leap Symposium: The Global Tour</div>
+          <div class="text-sm text-muted-foreground truncate">The Glass Atrium</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-col items-center gap-2">
+    <span class="text-xs font-mono text-slate-500 max-w-[230px]">Panel D -- desktop xl:5-col slot, card capped at max-w-230px. NO TILL badge -- same as Panel B, both pills at top-2, plain py-1 padding.</span>
+    <div class="w-[269px] max-w-[230px] bg-slate-50">
+      <div class="rounded-lg shadow-md bg-background overflow-hidden">
+        <div class="relative w-full aspect-square bg-slate-900 overflow-hidden">
+          <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white">
+            <span class="text-base font-bold tracking-tight">JAZZ</span>
+            <span class="text-sm font-extrabold tracking-tight">NIGHT LIVE</span>
+          </div>
+          <div class="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-sm font-semibold text-foreground">
+            TODAY
+          </div>
+          <div class="text-sm absolute top-2 right-2 z-10 flex items-center gap-1 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
+            <svg class="w-3 h-3 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
+            <span class=" font-semibold">412</span>
+          </div>
+        </div>
+        <div class="p-2 flex flex-col gap-1">
+          <div class="flex items-center gap-1 flex-wrap">
+            <span class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground">
+              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+              0.8 km
+            </span>
+            <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
+          </div>
+          <div class="text-base font-bold text-foreground leading-tight line-clamp-2">Jazz Night Live</div>
+          <div class="text-sm text-muted-foreground truncate">Rooftop Bar</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

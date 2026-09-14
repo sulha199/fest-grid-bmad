@@ -1,0 +1,123 @@
+<!-- Source: imports/event-card-masonry/default-thumbnail-fallback.png -- event-card-masonry / default-thumbnail-fallback (prominentPoster=false, image missing/expired) -->
+<!-- REVISED 2026-09-14, round 4 (user feedback): within the reserved slot (unchanged size -- masonry keeps its
+     reserved-space convention), the favorite icon now grows to actively occupy more of that available space
+     instead of sitting small and centered with lots of empty room around it. Icon size scales with how much
+     reserved space is actually available -- shown at both real widths below (175px mobile reserves less height
+     than the 269px desktop card's taller date box, so the icon is correspondingly smaller there; this file's own
+     desktop panel is new this round, added specifically to demonstrate that scaling, matching the pattern
+     applied to the fallback prototypes for the other two card families).
+     Also this round: every TILL/favorite/radius/"Now" badge font size bumped to >=11px.
+
+     REVISED 2026-09-14, round 5 (user feedback): favorite icon grows even further (bigger than round 4), still
+     centered both vertically and horizontally within the reserved slot (already true via items-center
+     justify-center on both the slot and the button -- confirmed, not changed). TILL badge font size set to
+     ~12px mobile (text-xs) / ~14px desktop (text-sm), superseding round 4's generic >=11px floor with these more
+     specific target sizes for non-prominent cards.
+
+     REVISED 2026-09-14, round 6 (user feedback): favorite badge font size already >= TILL's at both widths (no
+     change needed -- mobile: favorite text-sm/14px vs TILL text-xs/12px; desktop: favorite text-base/16px vs
+     TILL text-sm/14px). The "Now" status badge gets a more noticeable solid emerald color (bg-emerald-600/
+     text-white), replacing the neutral bg-muted -- see prominent-poster.html's comment for the scoping note.
+     (Correction: the desktop panel's "Now" badge was missed in this edit -- its exact class string (text-xs) at
+     the time differed from the mobile panel's (text-[11px]) target string, so a single find/replace didn't catch
+     both. Fixed this round.)
+
+     REVISED 2026-09-14, round 7 (user feedback): the masonry card's own max-width is capped at 230px -- see
+     default-with-thumbnail.html's comment for the full rationale (same cap, same card family). The desktop panel
+     below now renders the card at 230px inside a 269px slot wrapper, left-aligned.
+
+     REVISED 2026-09-14, round 3 (user's view-mode-organized rules pass) -- same three changes as
+     default-with-thumbnail.html: title wraps up to 2 lines at a smaller font, venue stays single-line
+     (truncate), category/type badge replaced by a <8km-gated radius/distance badge, "happeningNow" label
+     shortened to "Now". Unlike the calendar-row and calendar-grid-item cards, masonry KEEPS its
+     reserved-space-not-reflow convention for the missing-image fallback -- confirmed by the user's rules: only
+     the favorite icon getting bigger/stacked is called out for this state, not "no area for image" the way it's
+     explicitly called out for the other two card families.
+     Real-grid sizing: same math as default-with-thumbnail.html -- 175px (mobile, 390px viewport, 2-col) and
+     269px (desktop, 1440px viewport, xl:5-col). -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          background: 'hsl(210 20% 98%)',
+          foreground: 'hsl(221 39% 11%)',
+          card: 'hsl(0 0% 100%)',
+          primary: 'hsl(217 33% 17%)',
+          secondary: 'hsl(238 82% 67%)',
+          'secondary-foreground': 'hsl(210 40% 98%)',
+          muted: 'hsl(210 40% 96.1%)',
+          'muted-foreground': 'hsl(215.4 16.3% 46.9%)',
+        }
+      }
+    }
+  }
+</script>
+<style>body{font-family:Inter,sans-serif;}</style>
+
+<div class="p-6 bg-slate-100 min-h-screen flex flex-wrap items-start gap-8 justify-center">
+  <div class="flex flex-col items-center gap-2">
+    <span class="text-xs font-mono text-slate-500">175px -- mobile 2-col (390px viewport)</span>
+    <div class="w-[175px] rounded-lg shadow-md bg-background overflow-hidden">
+      <div class="p-2 flex items-stretch gap-1.5">
+        <!-- event_card_date_box.base_default (two-tier stacked) -->
+        <div class="relative flex flex-col justify-center gap-0.5 px-2.5 py-2 rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none">
+          <span class="absolute -top-1.5 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-xs font-semibold leading-none shadow-sm whitespace-nowrap px-1 py-1">TILL</span>
+          <span class="text-xs font-bold uppercase tracking-wide pt-1.5">Oct</span>
+          <span class="text-2xl font-extrabold leading-none">12</span>
+        </div>
+        <!-- event_card_masonry.thumbnail_default_fallback: reserved slot, nothing renders, large centered favorite badge -->
+        <div class="relative flex-1 h-full min-w-0 rounded-md flex items-center justify-center">
+          <button type="button" class="flex flex-col items-center justify-center gap-0.5 min-h-11 min-w-11 text-sm font-medium text-foreground">
+            <svg class="w-10 h-10 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
+            <span>1.2k</span>
+          </button>
+        </div>
+      </div>
+      <div class="px-2 pb-2 flex flex-col gap-1">
+        <div class="flex items-center gap-1 flex-wrap">
+          <span class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+            4.1 km
+          </span>
+          <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
+        </div>
+        <div class="text-sm font-bold text-foreground leading-tight line-clamp-2">AI Tech Summit 2026: International Edition</div>
+        <div class="text-xs text-muted-foreground truncate">Blue Note Lounge</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-col items-center gap-2">
+    <span class="text-xs font-mono text-slate-500">269px xl:5-col slot, card capped at max-w-230px (1440px viewport)</span>
+    <div class="w-[269px] max-w-[230px] bg-slate-50">
+    <div class="rounded-lg shadow-md bg-background overflow-hidden">
+      <div class="p-3 flex items-stretch gap-2">
+        <div class="relative flex flex-col justify-center gap-0.5 px-4 py-3 rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none">
+          <span class="absolute -top-1.5 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-sm font-semibold leading-none shadow-sm whitespace-nowrappx-1 py-1 px-1 py-1">TILL</span>
+          <span class="text-lg font-bold uppercase tracking-wide pt-2">Oct</span>
+          <span class="text-5xl font-extrabold leading-none">12</span>
+        </div>
+        <div class="relative flex-1 h-full min-w-0 rounded-md flex items-center justify-center">
+          <button type="button" class="flex flex-col items-center justify-center gap-1 min-h-11 min-w-11 text-base font-medium text-foreground">
+            <svg class="w-16 h-16 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
+            <span>1.2k</span>
+          </button>
+        </div>
+      </div>
+      <div class="px-3 pb-3 flex flex-col gap-2">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+            4.1 km
+          </span>
+          <span class="inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
+        </div>
+        <div class="text-base font-bold text-foreground leading-tight line-clamp-2">AI Tech Summit 2026: International Edition</div>
+        <div class="text-sm text-muted-foreground truncate">Blue Note Lounge</div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>

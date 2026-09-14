@@ -1,0 +1,130 @@
+<!-- Source: imports/event-card-masonry/default-with-thumbnail.png -- event-card-masonry / default-with-thumbnail (prominentPoster=false, hasStarted=true) -->
+<!-- REVISED 2026-09-14 (user's view-mode-organized rules pass):
+     1. Title wraps up to 2 lines (line-clamp-2), font size reduced from text-lg/text-sm to text-sm/text-xs
+        (user: "font size could be smaller compared to the screenshot") to leave more room for a 2-line title in
+        a narrow card. Venue stays a single line (truncate) -- unchanged rule, made explicit here.
+     2. The category/type badge ("Music") is replaced by a distance-based radius badge -- shown only when the
+        event is <8km away, omitted entirely otherwise (never an empty placeholder). Computed client-side against
+        the active filter location if one is selected, else the viewer's current location coordinate.
+     3. The "happeningNow" status state's label is shortened to a single translatable word, "Now" (was "Happening
+        Now") -- decided this pass; the underlying 8-state neutral-style badge itself is unchanged.
+     Deliberate deviation carried over: badge_row's status pill still uses the project's established neutral
+     bg-muted/text-muted-foreground token rather than the PNG's literal green rendering.
+     Real-grid sizing (not the PNG's arbitrary canvas size): components.grid.masonry is GridContainer(baseCols=2,
+     colsStep=1) -> grid-cols-2/md:3/lg:4/xl:5/2xl:6, gap-x-2 (8px), inside page_container.full_width's p-4 (16px,
+     <640px) / sm:p-8 (32px, >=640px) side padding.
+       Mobile (390px viewport, 2 cols, 16px page padding): content=390-32=358; card=(358-8gap)/2 = 175px.
+       Desktop (1440px viewport, xl:5 cols, 32px page padding): content=1440-64=1376; card=(1376-4*8gap)/5 = 269px.
+     Both widths rendered below, using a longer title so the 2-line wrap behavior is actually visible rather than
+     coincidentally fitting on one line.
+     REVISED 2026-09-14, round 4: every TILL/favorite/radius/"Now" badge font size bumped to >=11px (several were
+     9-10px in the narrow 175px panel).
+     REVISED 2026-09-14, round 5 (user feedback, non-prominent-card-specific sizing): TILL badge font size set to
+     ~12px on mobile (text-xs) and ~14px on desktop (text-sm), superseding round 4's generic >=11px floor with
+     these more specific target sizes for this badge on non-prominent cards.
+     REVISED 2026-09-14, round 6 (user feedback): favorite badge font size must be >= the TILL badge's -- the
+     mobile panel's favorite count was still text-[11px] (11px) against the round-5 TILL bump to text-xs (12px),
+     violating the rule; bumped favorite to text-xs (12px) to match. The desktop panel was already compliant
+     (both text-sm, 14px). Also: the "Now" status badge gets a more noticeable solid emerald color
+     (bg-emerald-600/text-white), replacing the neutral bg-muted -- see prominent-poster.html's comment for the
+     scoping note (this state only, not a reversal of the other 7 states' shared neutral style).
+
+     REVISED 2026-09-14, round 7 (user feedback): the masonry card's own max-width is capped at 230px -- at the
+     xl:5-col desktop grid slot (269px), the card no longer fills the full slot width; it renders at 230px,
+     left-aligned within the wider grid cell (default CSS Grid item alignment), leaving the remaining ~39px as
+     unused cell space. The mobile 2-col slot (175px) is already narrower than the cap, so it's unaffected. -->
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          background: 'hsl(210 20% 98%)',
+          foreground: 'hsl(221 39% 11%)',
+          card: 'hsl(0 0% 100%)',
+          primary: 'hsl(217 33% 17%)',
+          secondary: 'hsl(238 82% 67%)',
+          'secondary-foreground': 'hsl(210 40% 98%)',
+          muted: 'hsl(210 40% 96.1%)',
+          'muted-foreground': 'hsl(215.4 16.3% 46.9%)',
+        }
+      }
+    }
+  }
+</script>
+<style>body{font-family:Inter,sans-serif;}</style>
+
+<div class="p-6 bg-slate-100 min-h-screen flex flex-wrap items-start gap-8 justify-center">
+  <div class="flex flex-col items-center gap-2">
+    <span class="text-xs font-mono text-slate-500">175px -- mobile 2-col (390px viewport)</span>
+    <div class="w-[175px] rounded-lg shadow-md bg-background overflow-hidden">
+      <div class="p-2 flex items-stretch gap-1.5">
+        <!-- event_card_date_box.base_default (two-tier stacked) -->
+        <div class="relative flex flex-col justify-center gap-0.5 px-2.5 py-2 rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none">
+          <span class="absolute px-1 py-1 -top-1.5 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-xs font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
+          <span class="text-xs font-bold uppercase tracking-wide pt-1.5">Oct</span>
+          <span class="text-2xl font-extrabold leading-none">12</span>
+        </div>
+        <!-- event_card_masonry.thumbnail_default -->
+        <div class="relative flex-1 h-full min-w-0 rounded-md overflow-hidden bg-slate-900">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23151b3d'/%3E%3C/svg%3E" class="w-full h-full object-cover" alt="AI Tech Summit" />
+          <div class="absolute top-0.5 right-0.5 z-10 flex items-center gap-0.5 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
+            <svg class="w-2.5 h-2.5 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
+            <span class="text-xs font-semibold">1.2k</span>
+          </div>
+        </div>
+      </div>
+      <div class="px-2 pb-2 flex flex-col gap-1">
+        <div class="flex items-center gap-1 flex-wrap">
+          <!-- event_card_nearby_badge (radius distance), replacing the category/type badge -- shown only when <8km -->
+          <span class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+            4.1 km
+          </span>
+          <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
+        </div>
+        <div class="text-sm font-bold text-foreground leading-tight line-clamp-2">AI Tech Summit 2026: International Edition</div>
+        <div class="text-xs text-muted-foreground truncate">Blue Note Lounge</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-col items-center gap-2">
+    <span class="text-xs font-mono text-slate-500">269px xl:5-col slot, card capped at max-w-230px (1440px viewport)</span>
+    <!-- outer div represents the real 269px grid cell; the card itself caps at 230px, left-aligned within it -->
+    <div class="w-[269px] max-w-[230px] bg-slate-50">
+    <div class="rounded-lg shadow-md bg-background overflow-hidden">
+      <div class="p-3 flex items-stretch gap-2">
+        <div class="relative flex flex-col justify-center gap-0.5 px-4 py-3 rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none">
+          <span class="absolute px-1 py-1 -top-1.5 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-sm font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
+          <span class="text-lg font-bold uppercase tracking-wide pt-2">Oct</span>
+          <span class="text-5xl font-extrabold leading-none">12</span>
+        </div>
+        <div class="relative flex-1 min-w-0 rounded-md overflow-hidden bg-slate-900">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23151b3d'/%3E%3C/svg%3E" class="w-full h-full object-cover" alt="AI Tech Summit" />
+          <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white">
+            <span class="text-xl font-bold tracking-tight">AI TECH</span>
+            <span class="text-lg font-extrabold tracking-tight">SUMMIT</span>
+          </div>
+          <div class="absolute top-1 right-1 z-10 flex items-center gap-1.5 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
+            <svg class="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
+            <span class="text-sm font-semibold">1.2k</span>
+          </div>
+        </div>
+      </div>
+      <div class="px-3 pb-3 flex flex-col gap-2">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+            4.1 km
+          </span>
+          <span class="inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
+        </div>
+        <div class="text-base font-bold text-foreground leading-tight line-clamp-2">AI Tech Summit 2026: International Edition</div>
+        <div class="text-sm text-muted-foreground truncate">Blue Note Lounge</div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
