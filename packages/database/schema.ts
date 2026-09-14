@@ -383,6 +383,9 @@ export const schedules = pgTable('schedules', {
   performersIdx: index('schedule_performers_idx').on(t.performers),
   locationIdx: index('schedule_location_idx').on(t.location),
   coordinatesIdx: index('schedule_coordinates_idx').on(t.latitude, t.longitude),
+  // Story 2.7 — next-upcoming display/sort selection reads
+  // (event_id, COALESCE(event_end_date, event_start_date), event_start_date).
+  eventDateIdx: index('schedule_event_date_idx').on(t.eventId, t.eventStartDate, t.eventEndDate),
 }));
 
 export const favorites = pgTable('favorites', {

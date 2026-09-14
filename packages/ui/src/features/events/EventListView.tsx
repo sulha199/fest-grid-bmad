@@ -1,6 +1,7 @@
 import { EventCard } from './EventCard';
 import { EventListViewItem, EventListViewProps } from './EventListView.types';
 import { GridContainer } from '../../core/grid-container';
+import { selectDisplaySchedule } from '@festgrid/domain/events';
 
 export function EventListView<TEvent extends EventListViewItem>({
   status,
@@ -54,21 +55,22 @@ export function EventListView<TEvent extends EventListViewItem>({
       <>
         <GridContainer baseCols={2} colsStep={1} gap="gap-x-2 gap-y-6" className={className}>
           {events.map((event) => {
-            const mainSchedule =
-              event.schedules?.find((s) => s.isMainSchedule) ||
-              event.schedules?.[0];
+            // Story 2.7 — prefer the next-upcoming schedule for display (falling
+            // back to the main schedule, then the first schedule), instead of
+            // always preferring the main schedule.
+            const displaySchedule = selectDisplaySchedule(event.schedules ?? []);
 
             const derivedProps = {
               eventName: event.eventName,
-              startDate: mainSchedule?.eventStartDate || '',
-              startTime: mainSchedule?.eventStartTime ?? null,
-              endDate: mainSchedule?.eventEndDate ?? undefined,
-              endTime: mainSchedule?.eventEndTime ?? null,
+              startDate: displaySchedule?.eventStartDate || '',
+              startTime: displaySchedule?.eventStartTime ?? null,
+              endDate: displaySchedule?.eventEndDate ?? undefined,
+              endTime: displaySchedule?.eventEndTime ?? null,
               imageUrl: event.imageUrl ?? undefined,
               locationName: event.location ?? undefined,
               categories: event.categories ?? [],
               types: event.types ?? [],
-              priceFrom: mainSchedule?.ticketPrice ?? undefined,
+              priceFrom: displaySchedule?.ticketPrice ?? undefined,
               prominentPoster: event.durableImageUrl != null,
               labels: cardLabels,
               variant: 'masonry' as const,

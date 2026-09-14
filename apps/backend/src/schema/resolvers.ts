@@ -2873,8 +2873,13 @@ Constraints and Guidelines:
       try {
         const authUser = requireAuth(context);
         userId = authUser.userId;
-      } catch {
-        // Not authenticated
+      } catch (err) {
+        // Public events query: swallow only UNAUTHENTICATED errors from the
+        // silent auth probe. Any other error is a genuine failure and must
+        // propagate instead of being hidden.
+        if ((err as { extensions?: { code?: string } })?.extensions?.code !== 'UNAUTHENTICATED') {
+          throw err;
+        }
       }
 
       let hidePastEventsAfterDays = DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS;
@@ -2891,6 +2896,11 @@ Constraints and Guidelines:
       const utcMidnight = new Date(Date.UTC(utcYear, utcMonth, utcDate));
       utcMidnight.setUTCDate(utcMidnight.getUTCDate() - hidePastEventsAfterDays);
       const threshold = `${utcMidnight.getUTCFullYear()}-${String(utcMidnight.getUTCMonth() + 1).padStart(2, '0')}-${String(utcMidnight.getUTCDate()).padStart(2, '0')}`;
+
+      // Story 2.7 — the display/sort key uses the next-upcoming schedule,
+      // defined as one whose (end ?? start) date is today or later (UTC),
+      // picked by the earliest start date, falling back to the main schedule.
+      const today = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
 
       const defaultVisibilityConditions = buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays, userId });
 
@@ -3102,7 +3112,24 @@ Constraints and Guidelines:
       if (sortByFavoritedAt) {
         itemsQuery.orderBy(desc(favorites.createdAt));
       } else {
-        itemsQuery.orderBy(asc(schedules.eventStartDate), asc(schedules.eventStartTime));
+        // Story 2.7 — order by the event's next-upcoming schedule date (falling
+        // back to its main schedule date), not its main schedule date alone.
+        // The join above is still required for WHERE fields (performers,
+        // scheduleLocation, scheduleCoordinates); sorting uses a correlated
+        // subquery so it considers every schedule for the event.
+        itemsQuery.orderBy(sql`
+          COALESCE(
+            (SELECT s2.event_start_date FROM schedules s2
+              WHERE s2.event_id = ${events.id}
+                AND COALESCE(s2.event_end_date, s2.event_start_date) >= ${today}
+              ORDER BY s2.event_start_date ASC, s2.event_start_time ASC NULLS LAST
+              LIMIT 1),
+            (SELECT s3.event_start_date FROM schedules s3
+              WHERE s3.event_id = ${events.id} AND s3.is_main_schedule = true
+              ORDER BY s3.event_start_date ASC, s3.event_start_time ASC NULLS LAST
+              LIMIT 1)
+          ) ASC
+        `);
       }
       itemsQuery.limit(qLimit + 1).offset(qOffset);
 

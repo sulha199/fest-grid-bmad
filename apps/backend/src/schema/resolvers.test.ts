@@ -90,6 +90,83 @@ test('events resolver integration via Yoga', async (t) => {
     assert.ok(Array.isArray(result.data.events.items), 'should return array');
   });
 
+  await t.test('events - default sort uses next-upcoming schedule date (Story 2.7)', async (t) => {
+    const createdEventIds: string[] = [];
+
+    async function createEventWithSchedule(opts: {
+      eventName: string;
+      mainStartDate: string;
+      mainEndDate?: string | null;
+      upcomingStartDate?: string;
+      upcomingEndDate?: string | null;
+    }) {
+      const [event] = await db.insert(events).values({
+        eventName: opts.eventName,
+        location: 'Test City',
+      }).returning();
+      createdEventIds.push(event.id);
+      await db.insert(schedules).values({
+        eventId: event.id,
+        eventStartDate: opts.mainStartDate,
+        eventEndDate: opts.mainEndDate ?? null,
+        isMainSchedule: true,
+      });
+      if (opts.upcomingStartDate) {
+        await db.insert(schedules).values({
+          eventId: event.id,
+          eventStartDate: opts.upcomingStartDate,
+          eventEndDate: opts.upcomingEndDate ?? null,
+          isMainSchedule: false,
+        });
+      }
+      return event;
+    }
+
+    // Event A: main schedule far away, but a sooner next-upcoming (non-main) schedule.
+    const eventA = await createEventWithSchedule({
+      eventName: '2.7 sort - next-upcoming sooner',
+      mainStartDate: '2030-08-20',
+      upcomingStartDate: '2030-08-02',
+      upcomingEndDate: '2030-08-03',
+    });
+    // Event B: only a main schedule, later than A's next-upcoming schedule.
+    const eventB = await createEventWithSchedule({
+      eventName: '2.7 sort - main-only later',
+      mainStartDate: '2030-08-05',
+    });
+
+    t.after(async () => {
+      await db.delete(events).where(inArray(events.id, createdEventIds));
+    });
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          query {
+            events(limit: 1000) {
+              items { id eventName }
+            }
+          }
+        `,
+      }),
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, 'GraphQL errors returned');
+    const items = result.data.events.items as { id: string; eventName: string }[];
+    const ids = items.map((i) => i.id);
+    assert.ok(ids.indexOf(eventA.id) !== -1, 'event A should be present');
+    assert.ok(ids.indexOf(eventB.id) !== -1, 'event B should be present');
+    // A's next-upcoming schedule (2030-08-02) must sort before B's main (2030-08-05),
+    // even though A's main schedule (2030-08-20) is later than B's.
+    assert.ok(
+      ids.indexOf(eventA.id) < ids.indexOf(eventB.id),
+      'event with sooner next-upcoming schedule should sort first'
+    );
+  });
+
   await t.test('events - scheduleDateRange overlaps filtering (Story 1.3h)', async (t) => {
     const createdEventIds: string[] = [];
 

@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "schedule_event_date_idx" ON "schedules" ("event_id","event_start_date","event_end_date");
