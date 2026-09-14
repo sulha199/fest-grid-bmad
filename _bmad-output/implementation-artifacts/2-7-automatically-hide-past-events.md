@@ -1,5 +1,7 @@
 ---
 baseline_commit: 46388b1f23346000cb8760e8d664a9bdfbf09c55
+status: done
+review_loop_iteration: 0
 ---
 
 # Story 2.7: Automatically hide past events
@@ -69,6 +71,19 @@ so that the main event feed and my personal lists stay clean and relevant.
   - [x] `pnpm build` / `pnpm lint` clean at the repo root for touched packages (`packages/domain`, `packages/graphql-select`, `apps/backend`).
   - [x] GraphiQL/`curl` smoke test: query `events` as both an anonymous and an authenticated caller against real seeded data (including at least one clearly past event), confirm the past event is excluded by default and confirm `updateUserSettings(hidePastEventsAfterDays: ...)` changes the authenticated caller's cutoff.
   - [x] Confirm no codegen re-run is needed in either `apps/backend` or `apps/web` — `EventQueryConditionInput.value` is already untyped `JSON` (`apps/backend/src/schema/events.graphql:97`), so the `to: null` shape change requires no `.graphql`/SDL change (AC7 does not touch generated types).
+
+### Review Findings
+
+**Context:** This review's spec-frontmatter `baseline_commit` did not resolve to any object in the repo (not even a dangling one) — history for this story appears to have been rebased/squashed. Per user direction, the review pivoted from a diff-based read to auditing the CURRENT implementation directly, focused on a live report that Discovery/Feed/Favorites still show past/ended events. Verified via direct SQL against local dev data, a live `curl` against the actually-running dev backend, and the full automated test suite (66/66 backend integration + 7/7 domain + 24/24 `drizzle-where`, all green, including every Story 2.7 AC1–AC8 subtest) — the resolver's own visibility gate is correct on all paths exercised. Three independent adversarial passes (Blind Hunter, Edge Case Hunter, Acceptance Auditor) converged on the finding below as the most likely explanation for the live report.
+
+- [ ] [Review][Patch] Card/list display shows the (past) main-schedule date for events kept visible only by a live sub-schedule (AC4) — `packages/ui/src/features/events/EventListView.tsx:57-71` always reads `event.schedules.find(s => s.isMainSchedule)` for the displayed `startDate`/`endDate`/`priceFrom`, and `apps/backend/src/schema/resolvers.ts:3082,3105` (`mainSchedulesOnly` join) sorts the list by that same main schedule — independent of `buildDefaultEventVisibilityConditions`'s EXISTS-across-all-schedules visibility gate (`packages/graphql-select/drizzle-where.ts:90-95`), which correctly keeps such an event in the result set per AC4. Net effect: an event whose main schedule ended weeks/months ago, but has one still-upcoming sub-schedule, is AC4-compliant yet renders with a stale date on Discovery/Feed/Favorites — reads exactly like "a past event is still showing" even though the resolver behaved as specified. Reproduced against local dev data (event `40000000-0000-0000-0000-000000000003`: main schedule 2026-08-17, sub-schedule 2027-11-16 — included in `events` results, main-schedule date used for display/sort). **Decision (user, 2026-09-14):** switch to the next-upcoming (nearest-to-now, not-yet-passed) schedule for both display and sort whenever the main schedule has already ended and a later schedule qualifies — do not leave the main schedule's stale date showing. [`packages/ui/src/features/events/EventListView.tsx:57-71`, `apps/backend/src/schema/resolvers.ts:3065-3068,3082,3105`]
+
+- [ ] [Review][Patch] `Query.events`' blanket `try { requireAuth(context) } catch {}` (`apps/backend/src/schema/resolvers.ts:2873-2878`) swallows any exception, not just "not authenticated" — if `requireAuth` ever throws for an unrelated reason for a genuinely logged-in caller, `userId` silently falls back to `null`, which both (a) forces the anonymous default `hidePastEventsAfterDays = 7` instead of that user's own configured value, and (b) drops the `isReportedByCurrentUser` self-hide exclusion (`resolvers.ts:2995-3002`) — a user with a stricter custom setting (e.g. `N=1`) would silently see up to 6 extra days of events they expected hidden, with no error surfaced. Fix: narrow the catch to the expected unauthenticated case (e.g. re-throw anything whose `extensions.code !== 'UNAUTHENTICATED'`) rather than swallowing every error type.
+
+- [x] [Review][Defer] `getOrCreateUserSettings`'s post-insert re-select (`apps/backend/src/lib/user-settings/get-or-create-user-settings.ts:24-29`) can return an empty array in a race/replica-lag scenario; the caller (`resolvers.ts:2883`) dereferences `.hidePastEventsAfterDays` with no null guard, which would throw rather than gracefully falling back to the documented anonymous default — deferred, pre-existing, rare race window, not evidenced in current data.
+- [x] [Review][Defer] No unique/partial index enforces at most one `isMainSchedule = true` row per `eventId` in `schedules` (`packages/database/schema.ts:361-365`) — a future duplicate-main-schedule insert would fan out duplicate result rows via the `mainSchedulesOnly` join (`resolvers.ts:3065-3068,3082,3118`) — deferred, pre-existing schema gap predating this story, no evidence of duplicates in current data.
+- [x] [Review][Defer] The "is this event past" threshold is independently re-derived with separate `now()` captures in three places — `resolvers.ts:2886-2893` (feeds `isPastEvent`, used only by the archived-view branch), `buildDefaultEventVisibilityConditions.ts:16-26` (the actual default-visibility gate), and `resolvers.ts:3656-3662` (`Event.isExpiredForCurrentUser`) — currently consistent (confirmed by passing tests) but a future edit to one copy without the others would let them silently disagree — deferred, cross-story tech debt, consolidate into one shared helper when convenient.
+- [x] [Review][Defer] Discovery's `apps/web/src/app/[locale]/page.tsx` is missing `export const dynamic = 'force-dynamic'`, unlike Feed/Favorites/Archive/My-Calendar's page.tsx files — verified `HomeContent` fetches entirely client-side so this doesn't appear to cause stale event data, but the inconsistency is unexplained and worth aligning for consistency — deferred, low risk.
 
 ## Dev Notes
 
@@ -230,3 +245,36 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 - `apps/backend/src/schema/resolvers.test.ts` (Added past-event filtering integration tests)
 - `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (Updated DSL query specs)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (Updated story status to review)
+
+## Suggested Review Order
+
+**Default visibility wiring (design intent)**
+
+- Past-event gate resolved per caller, then AND-composed with the caller's own DSL query
+  [`resolvers.ts:2880`](../../apps/backend/src/schema/resolvers.ts#L2880)
+
+- Default-visibility conditions injected into the events where-clause composition
+  [`resolvers.ts:3036`](../../apps/backend/src/schema/resolvers.ts#L3036)
+
+**Domain logic (pure, units-tested)**
+
+- Computes the UTC-midnight `N`-day threshold and returns the past-event rule entry
+  [`buildDefaultEventVisibilityConditions.ts:11`](../../packages/domain/src/events/buildDefaultEventVisibilityConditions.ts#L11)
+
+**DSL operator extension**
+
+- `overlaps` gains an open-ended `to: null` upper bound for the past-event window
+  [`drizzle-where.ts:80`](../../packages/graphql-select/drizzle-where.ts#L80)
+
+**Docs**
+
+- AD-1 Fields & Operators updated for the new `overlaps` `to: null` capability
+  [`festgrid-architecture-spine.md:143`](../../_bmad-output/planning-artifacts/festgrid-architecture-spine.md#L143)
+
+**Tests & config (peripherals)**
+
+- Unit tests: threshold math, `N=0` boundary, `overlaps` `to: null`
+  [`buildDefaultEventVisibilityConditions.test.ts:1`](../../packages/domain/src/events/buildDefaultEventVisibilityConditions.test.ts#L1)
+
+- Integration: anonymous default / authenticated custom N / multi-schedule / composition / detail bypass
+  [`resolvers.test.ts:844`](../../apps/backend/src/schema/resolvers.test.ts#L844)
