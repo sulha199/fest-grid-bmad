@@ -230,10 +230,10 @@ items:
      note: "Field exists in epics.md Story 1.3g and in the resolver; PRD 3.2 was skipped."}
 
   IDEA-003:
-    {type: idea, status: backlog, created: 2026-08-24, parent: CC-014,
+    {type: idea, status: triaged, created: 2026-08-24, parent: CC-014,
      impact: user-visible, effort: m,
      title: "Mobile calendar multi-day-span rendering — no UX design exists yet",
-     ref: [], touches: [web:events, cross:ux-tokens],
+     ref: [], touches: [web:events/WeeklyCalendarView, cross:ux-tokens],
      note: "CC-014 item #11, explicitly deferred to a future scoped bmad-ux pass."}
 
   IDEA-004:
@@ -264,7 +264,7 @@ items:
      note: "AD-12 Rules 1 and 3 were later corrected to consent-gated form by CC-018 — this item is partially superseded but its Track A infra chain stands."}
 
   IDEA-005:
-    {type: idea, status: backlog, created: 2026-08-25, parent: CC-015,
+    {type: idea, status: triaged, created: 2026-08-25, parent: CC-015,
      impact: user-visible, effort: l,
      title: "Push-notification-triggered image cache warming",
      ref: [], touches: [cross:notifications, app:infrastructure],
@@ -280,7 +280,7 @@ items:
      note: "Deliberately bypassed bmad-create-story (landed as direct edits + code, commit a0fc985), matching Story 3.4m's precedent."}
 
   BUG-003:
-    {type: bug, status: backlog, created: 2026-08-28, parent: CC-016,
+    {type: bug, status: triaged, created: 2026-08-28, parent: CC-016,
      impact: user-visible, effort: m, epic: epic-0-i1,
      title: "No email notification when a location change enters AWAITING_APPROVAL",
      ref: [], touches: [app:backend, cross:notifications],
@@ -314,7 +314,7 @@ items:
      note: "Most active item on the board — 2 in-progress, 2 ready-for-dev, 1 backlog. Closed the live legal gap where 3.6e/3.6f re-hosted unconditionally; the opt-in gate now exists via 3.6h and is confirmed in resolvers.ts."}
 
   IDEA-006:
-    {type: idea, status: backlog, created: 2026-09-02, parent: CC-018,
+    {type: idea, status: triaged, created: 2026-09-02, parent: CC-018,
      impact: user-visible, effort: l,
      title: "Epic 8 — self-service account claim and ownership verification",
      ref: [], touches: [web:accounts, cross:prd],
@@ -418,7 +418,7 @@ items:
      note: "DW-066, DW-067, DW-068, DW-082. Covers backfillAccountProfileAndInferDefaultLocation's unlocked duplicate-billable-call risk, no retry backoff on failed inference, createApiKey's fail-open trust in the error-shape classifier, and resolvePromptToEventFilter's missing rate limit."}
 
   BUG-012:
-    {type: bug, status: backlog, created: 2026-09-05,
+    {type: bug, status: triaged, created: 2026-09-05,
      impact: user-visible, effort: s, epic: epic-0-i2,
      title: "No request-level timeout in the Gemini adapter; a hung call blocks the caller indefinitely",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
@@ -435,7 +435,7 @@ items:
 
 
   BUG-014:
-    {type: bug, status: backlog, created: 2026-09-05,
+    {type: bug, status: triaged, created: 2026-09-05,
      impact: user-visible, effort: m,
      title: "Moderator payload reprocessing remains unbuilt after its false-success message was fixed",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
@@ -571,7 +571,7 @@ items:
      note: "Deferred from: quick-dev fix of scraper-audit-trail-alerting (2026-09-05). 5 findings (excludes the HTML-escaping finding, tracked separately as FIND-021 per its user-visible impact)."}
 
   FIND-021:
-    {type: finding, status: backlog, created: 2026-09-05,
+    {type: finding, status: triaged, created: 2026-09-05,
      impact: user-visible, effort: m, epic: epic-0-i1,
      title: "render-template.ts has no HTML-escaping; scraper-sourced content flows unescaped into moderator alert emails",
      ref: [implementation-artifacts/deferred-work.md],
@@ -605,7 +605,7 @@ items:
 
   # ── 2026-09-06 (ux-rework2 gap audit) ────────────────────────────────────────
   IDEA-008:
-    {type: idea, status: backlog, created: 2026-09-06,
+    {type: idea, status: triaged, created: 2026-09-06,
      impact: user-visible, effort: m,
      title: "Max 5 subscribed accounts (normal user), upgrade-account 'coming soon' CTA + PostHog event, moderator exempt",
      ref: [],
@@ -613,7 +613,7 @@ items:
      note: "From apps/ux-rework2.md L19-21, via ux-rework2-tracking.md item #7. PRD 8.2 (Phase 2 free_user tier) only vaguely caps accounts at 'e.g., 2' with no upgrade-CTA/PostHog/moderator-exemption language, and the number conflicts with this item's '5' — needs reconciling. Real feature work (server-side guard + upgrade UI flow + analytics), not polish; no backlog row or story existed before this audit. 2026-09-11 (bmad-prd, joint pass with IDEA-006): resolved to 5 — PRD 6 now states the cap plainly as `MAX_SUBSCRIBED_ACCOUNTS_FREE_USER` (default 5) with reasoning recorded (the old 'e.g., 2' was always a placeholder example, never a decided number; 5 is the only value actually arrived at deliberately, via this row's own ux-rework2 audit). PRD 6 also adds cap enforcement (counts active Subscription rows, not AccountVote), the moderator exemption (role-based, `UserRole.MODERATOR`, independent of tier), and the upgrade CTA + `subscription_cap_upgrade_cta_shown`/`_clicked` PostHog events in a defined 'coming soon' state. Interaction with IDEA-006's claim flow answered in the same PRD 6 edit: a claimed account's own Subscription still counts against the cap; the moderator exemption is a separate mechanism from a claimed owner's grant (PRD 3.17), not the same one. No open question remains on this row."}
 
   IDEA-009:
-    {type: idea, status: backlog, created: 2026-09-06,
+    {type: idea, status: triaged, created: 2026-09-06,
      impact: user-visible, effort: m, reprice_on: epic-0-i2,
      title: "Auto-extract posts on first subscribe (respecting Gemini's 500 RPD limit) + onboarding wizard redirect to feed",
      ref: [],
@@ -621,7 +621,7 @@ items:
      note: "From apps/ux-rework2.md L23, via ux-rework2-tracking.md item #9. Cross-cutting: rate-limit-aware auto-triggering against a shared Gemini quota, plus a wizard-routing change. No backlog row or story existed before this audit."}
 
   IDEA-010:
-    {type: idea, status: backlog, created: 2026-09-06,
+    {type: idea, status: triaged, created: 2026-09-06,
      impact: user-visible, effort: m,
      title: "Post Selection: distinguish genuinely-inactive account from scrape-run-in-progress or never-run",
      ref: [],
@@ -638,7 +638,7 @@ items:
      note: "PROMOTED (2026-09-13 via bmad-dev-story, user-confirmed): fully covered by Story 0.i7b — selectBestCandidate re-ranks the retained candidate set by confidence (matchType-priority tiebreak) in resolveLocation's ADDRESS branch, so a low-confidence Geoapify top hit no longer wins over a correct, lower-ranked sub-venue. Threshold/filtering and event-detail map-link follow-through remain IDEA-023/Story 0.i7c."}
 
   BUG-018:
-    {type: bug, status: backlog, created: 2026-09-07,
+    {type: bug, status: triaged, created: 2026-09-07,
      impact: user-visible, effort: s, epic: epic-0-i5,
      title: "Infinite-scroll next-page load doesn't preserve scroll position, forcing user to scroll up/down again to trigger the following page",
      ref: [],
@@ -646,7 +646,7 @@ items:
      note: "Reported by user on event-list-bug-fixes-pagination branch. When the list auto-loads the next page at the bottom, the viewport sometimes doesn't stay anchored on the previously-last item once new items render, so the bottom sentinel is no longer in view and the user must manually scroll up then down to re-trigger the next page load. Proposed fix to evaluate: a 'next-page-placeholder' element that keeps the intersection/scroll anchor stable across page appends."}
 
   BUG-019:
-    {type: bug, status: backlog, created: 2026-09-07,
+    {type: bug, status: triaged, created: 2026-09-07,
      impact: user-visible, effort: s, epic: epic-0-i5,
      title: "Changing category/type filter a second time (or later) sometimes appends the next page instead of reloading the whole list",
      ref: [],
@@ -654,7 +654,7 @@ items:
      note: "Reported by user on event-list-bug-fixes-pagination branch, same session as BUG-018. On subsequent filter changes, the event list occasionally fails to reset pagination state/cursor, so the next infinite-scroll load appends results from the old query instead of restarting from page 1 with the new filter, producing a mixed/incorrect list."}
 
   BUG-020:
-    {type: bug, status: backlog, created: 2026-09-07,
+    {type: bug, status: triaged, created: 2026-09-07,
      impact: user-visible, effort: m, epic: epic-0-i5,
      title: "Moderator tools tab-item pages lack previous-page navigation and total/page info in their simple pagination",
      ref: [],
@@ -697,7 +697,7 @@ items:
      note: "Reported by user via bmad-help. Verified in EventCard.tsx: the favorite button's Heart icon is hardcoded `w-5 h-5` (line ~191), independent of the masonry date badge's `text-xs` (line ~219) — no shared token links them, so the two can visually drift out of proportion. Fix should size the icon relative to the date badge's font size (e.g. an em-based or shared-token size) rather than a fixed pixel class. Promoted 2026-09-13 via bmad-create-story: Story 1.i1b implements this fix in full (surgical <Heart> className swap to Story 1.i1a's eventCardBadgeIconSizeClass token) — no remaining scope, no child row needed."}
 
   IDEA-012:
-    {type: idea, status: backlog, created: 2026-09-07,
+    {type: idea, status: triaged, created: 2026-09-07,
      impact: user-visible, effort: m,
      title: "Extract event links ({url, label?}[]) during AI extraction and display them in Event Detail",
      ref: [], touches: [cross:ai-extraction, app:backend, web:events, pkg:ui],
@@ -776,14 +776,14 @@ items:
      FIXED 2026-09-20 (bmad-quick-dev): applied the surgical option-1 fix. The collapsed and expanded branches share one simple sticky container whose className now toggles on the already-derived `isCollapsed` boolean — `bg-background` (solid) when collapsed, `bg-background/95` when expanded — while keeping `backdrop-blur-sm` and the border on both. This removes the translucent-plus-blur 'no background' reading specifically in the collapsed state, which is what the user reported. Verified: targeted EventDiscoveryPanel vitest suite passes (12/12). Status kept as 'done (needs visual confirmation)' rather than 'done' because the note explicitly flagged this as a live-rendering concern that cannot be confirmed from source alone — a human should still eyeball the collapsed sticky header against scrolled-under card content before treating the row as fully closed."}
 
   BUG-025:
-    {type: bug, status: backlog, created: 2026-09-11,
+    {type: bug, status: triaged, created: 2026-09-11,
      impact: user-visible, effort: s,
      title: "Feed and Favorites hardcode isAuthenticated=false and drop the location/AI-filter buttons Discovery has",
      ref: [], touches: [web:events, pkg:ui],
      note: "Reported by user via bmad-help ('feed, discovery, favorite has same set of buttons including location, ai-filter buttons'). Verified by comparing all 3 callers of EventDiscoveryPanel: home-content.tsx (Discovery) passes real `isAuthenticated`/`savedLocations`/`onSelectLocation` from `nearbyFilter` plus `showAITrigger={aiFilter.filterHubProps.showAITrigger}` — Type, Category, Location and AI-filter buttons all render (FilterHub.tsx only renders the Nearby-location popover when `isAuthenticated`, and the AI sparkle button only when `showAITrigger`). feed/feed-content.tsx hardcodes `isAuthenticated={false}`, `savedLocations={[]}`, `onSelectLocation={() => {}}` (line ~242-250) so the Location button never renders, but does pass `showAITrigger` — AI button present, Location button missing. favorites/favorites-content.tsx hardcodes the same `isAuthenticated={false}`/`savedLocations={[]}` (line ~314-322) AND never passes `showAITrigger` at all — both Location and AI-filter buttons missing, leaving only Type/Category. Fix: wire Feed and Favorites to real auth/saved-location state and an `aiFilter` instance the same way Discovery does, so Type/Category/Location/AI-filter render identically on all three surfaces."}
 
   IDEA-019:
-    {type: idea, status: backlog, epic: epic-0-i5, created: 2026-09-11,
+    {type: idea, status: triaged, epic: epic-0-i5, created: 2026-09-11,
      impact: user-visible, effort: s,
      title: "Add a Happening now / Upcoming / All temporal filter to the event list filter row (card view only)",
      ref: [], touches: [web:events, pkg:ui, cross:ux-tokens],
@@ -791,7 +791,7 @@ items:
 
   # ── 2026-09-11 (bmad-help event-extraction-recurrence-bug session) ──────────
   BUG-026:
-    {type: bug, status: backlog, created: 2026-09-11,
+    {type: bug, status: triaged, created: 2026-09-11,
      impact: user-visible, effort: m,
      title: "Recurring single-day-of-week schedules extract as one contiguous date span, silently matching every weekday inside it (not just the stated day)",
      ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md], touches: [cross:ai-extraction, cross:prd, app:backend, pkg:domain, web:events],
@@ -801,7 +801,7 @@ items:
 
   # ── 2026-09-11 (bmad-help instagram-embed-perf session) ─────────────────────
   IDEA-020:
-    {type: idea, status: backlog, created: 2026-09-11,
+    {type: idea, status: triaged, created: 2026-09-11,
      impact: user-visible, effort: l,
      title: "Instagram embed loads too slowly — generate embed markup client-side, cache Instagram's JS/CDN assets, and add a PWA install path to make that caching durable",
      ref: [], touches: [pkg:ui, app:backend, web:events, cross:process],
@@ -822,7 +822,7 @@ items:
      DONE 2026-09-14 (bmad-quick-dev, commit 406147a): added `&omitscript=true` to the oEmbed request URL in resolveInstagramOEmbed (apps/backend/src/lib/instagram-oembed/adapter.ts) so Meta's response `html` no longer carries its own inline `<script src=\"//www.instagram.com/embed.js\">` tag — the frontend (InstagramEmbed.tsx's loadInstagramEmbedScript) already loads embed.js once per page. Trims the cached payload (cache-store.ts + GraphQL wire) and removes one inline script tag the browser would otherwise parse per embed; no behavior change since embed.js is loaded separately. Added a regression assertion in adapter.test.ts that the request URL includes omitscript=true; adapter suite 9/9 passing, backend tsc clean, eslint 0 errors on changed files."}
 
   IDEA-022:
-    {type: idea, status: backlog, created: 2026-09-11, parent: IDEA-020,
+    {type: idea, status: superseded, created: 2026-09-11, parent: IDEA-020, superseded_by: IDEA-028,
      impact: user-visible, effort: m,
      title: "Split instagramEmbed out of getEventBySlug into its own query so the Instagram oEmbed round trip stops blocking the whole event-detail page",
      ref: [], touches: [app:backend, web:events],
@@ -874,7 +874,7 @@ items:
      AMENDED (2026-09-13, user via ritual HIL on epic-1-i1): confirmed this badge treatment should also apply to the DESKTOP calendar surface, not just this row's mobile/list-variant scope — see new sibling item IDEA-026 for the desktop half, since desktop's `CalendarCard variant='grid'` has no thumbnail/badge infrastructure at all today and needs its own design pass, not just this item's data-plumbing gap."}
 
   IDEA-026:
-    {type: idea, status: backlog, epic: epic-1-i1, created: 2026-09-13, parent: IDEA-016,
+    {type: idea, status: triaged, epic: epic-1-i1, created: 2026-09-13, parent: IDEA-016,
      impact: user-visible, effort: m,
      title: "Desktop calendar grid cards need the same thumbnail/badge treatment as the mobile compact row, with the date box flattened to inline text",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
@@ -892,7 +892,7 @@ items:
 
   # ── 2026-09-12 (bmad-create-story 3-3e persist-scraped-post call-site trace) ─
   FIND-024:
-    {type: finding, status: backlog, created: 2026-09-12,
+    {type: finding, status: triaged, created: 2026-09-12,
      impact: user-visible, effort: xs,
      title: "Bright Data scrape path never captures or forwards hashtags (and has no carousel/childPosts equivalent) to persistScrapedPost",
      ref: [implementation-artifacts/3-3e-persist-all-carousel-image-urls-for-a-scraped-post.md],
@@ -919,7 +919,7 @@ items:
 
   # ── 2026-09-14 (bmad-help bug report) ──────────────────────────────────────
   BUG-029:
-    {type: bug, status: backlog, created: 2026-09-14,
+    {type: bug, status: triaged, created: 2026-09-14,
      impact: user-visible, effort: s,
      title: "queryActorRuns returns HTTP 502 in production (moderator Actor Runs browser)",
      ref: [implementation-artifacts/3-4j-capture-scraper-actor-run-audit-trail-and-replay-by-run-id.md,
@@ -929,7 +929,7 @@ items:
 
   # ── 2026-09-15 (bmad-help) ──────────────────────────────────────────────────
   IDEA-027:
-    {type: idea, status: backlog, created: 2026-09-15,
+    {type: idea, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: m,
      title: "No UI for a user to view/edit their own account profile settings (display name, timezone, locale, email/password)",
      ref: [], touches: [web:accounts, web:settings, cross:prd],
@@ -937,7 +937,7 @@ items:
 
   # ── 2026-09-15 (bmad-agent-architect getEvents review) ──────────────────────
   BUG-030:
-    {type: bug, status: backlog, created: 2026-09-15,
+    {type: bug, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: m,
      title: "getEvents N+1: schedules/favoriteCount/isFavorited resolved per-row instead of batched, on the highest-traffic query",
      ref: [_bmad-output/project-context.md],
@@ -959,7 +959,7 @@ items:
      note: "Found via bmad-agent-architect review (2026-09-15). The useInfiniteQuery/useQuery hooks in apps/web/src/app/[locale]/home-content.tsx, feed/feed-content.tsx, and favorites/favorites-content.tsx all omit `staleTime`, so React Query's default of 0 applies — every remount or window refocus on Discovery, Feed, or Favorites refires a request against getEvents, the highest-traffic endpoint in the app. A short staleTime (e.g. 30s) would cut request volume for normal tab-switching/navigation without materially staling the data."}
 
   BUG-031:
-    {type: bug, status: backlog, created: 2026-09-15,
+    {type: bug, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Infinite scroll jumps to the very bottom after loading a page (mobile always, desktop sometimes)",
      ref: [],
@@ -977,7 +977,7 @@ items:
 
   # ── 2026-09-15 (bmad-architecture AD-16 session) ─────────────────────────────
   IDEA-028:
-    {type: idea, status: backlog, created: 2026-09-15,
+    {type: idea, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: l,
      title: "Platform-prefixed event slugs (Architecture Spine AD-16) — DB-free, truly-parallel Instagram oEmbed resolution for the event-detail page, superseding IDEA-022's sequential split",
      ref: [planning-artifacts/festgrid-architecture-spine.md,
@@ -992,7 +992,7 @@ items:
 
   # ── 2026-09-15 (bmad-agent-architect event-detail page perf audit) ──────────
   BUG-035:
-    {type: bug, status: backlog, created: 2026-09-15,
+    {type: bug, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: m,
      title: "eventBySlug's full resolver fan-out runs twice per page load — generateMetadata's server fetch is discarded, then EventDetailWrapper re-fetches the identical over-fetching query client-side",
      ref: [_bmad-output/project-context.md],
@@ -1000,7 +1000,7 @@ items:
      note: "Found via bmad-agent-architect audit (2026-09-15), following up on AD-16's event-detail perf-priority rule. apps/web/src/app/[locale]/events/[slug]/page.tsx:21 and the modal's @modal/(.)events/[slug]/page.tsx:21 both call graphqlClient.request(GetEventBySlugDocument, {slug}) server-side inside generateMetadata — but only read eventName/description from the result (page.tsx:23-26) before discarding it entirely. EventDetailWrapper.tsx:45-48 then fires the identical useGetEventBySlugQuery/document client-side after hydration. No React.cache()/unstable_cache anywhere in apps/web/src (verified), lib/graphql-client.ts is a bare graphql-request client with no dedup, and no HydrationBoundary/dehydrate seeds the client cache from the server fetch — so the entire resolver chain (BUG-033/BUG-034 below, plus sourceSocialMediaAccountProfile/isFavorited/favoriteCount/isHiddenForCurrentUser) runs fully twice per pageview, on both the full-page and modal-intercepted routes. Compounds itself further: EventDetailWrapper.tsx:317-326's router.prefetch() for the adjacent next/prev event (full-page route only, per its own code comment at 303-316) speculatively triggers this same doubled+over-fetching chain for a page the user may never open, discarded if they don't navigate. generateMetadata itself also over-fetches independently of the duplication — it needs only 2 scalar fields but requests the full document (schedules, isFavorited, favoriteCount, instagramEmbed, etc.), so even a standalone fix to the duplication should also narrow generateMetadata's own query. Fix direction (not yet designed): either seed the client React Query cache from generateMetadata's/a shared server fetch via HydrationBoundary+dehydrate, or give generateMetadata its own minimal query requesting only eventName/description so at minimum the wasted server-side fetch is cheap. Not yet scoped into a story."}
 
   BUG-033:
-    {type: bug, status: backlog, created: 2026-09-15,
+    {type: bug, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Schedule.isAddedToCalendar N+1 on the event-detail page — same shape as getEvents' BUG-030, scoped to one event's schedule list",
      ref: [_bmad-output/project-context.md],
@@ -1008,7 +1008,7 @@ items:
      note: "Found via bmad-agent-architect audit (2026-09-15). apps/backend/src/schema/resolvers.ts's Schedule.isAddedToCalendar field resolver (~3727-3741) is invoked once per schedule row returned by the schedules field (~3619-3625) — no DataLoader or batching exists anywhere in apps/backend/src (grepped, zero hits). For a multi-schedule (recurring/multi-day) event this is N separate DB round trips for a single eventBySlug call, doubled by BUG-035. Same defect class as BUG-030's getEvents N+1 (per-row field resolver instead of a batched/EXISTS-subquery form), just bounded by one event's schedule count instead of a full page of events — lower severity than BUG-030 but same fix pattern applies (batch via the schedule ids already known from the parent select, or a per-request DataLoader). Not yet scoped into a story."}
 
   BUG-034:
-    {type: bug, status: backlog, created: 2026-09-15,
+    {type: bug, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: xs,
      title: "favorites has no index with eventId as a leading column — favoriteCount full-scans the table on every eventBySlug call",
      ref: [_bmad-output/project-context.md],
@@ -1031,7 +1031,7 @@ items:
 
   # ── 2026-09-15 (bmad-help backlog capture) ──────────────────────────────────
   BUG-032:
-    {type: bug, status: backlog, created: 2026-09-15,
+    {type: bug, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Hashtags not persisted into the posts table (investigate & fix)",
      ref: [backlog/BUG-032-hashtags-not-persisted-into-post-table.md],
@@ -1039,7 +1039,7 @@ items:
      note: "Reported by user via bmad-help (2026-09-15). Related sibling FIND-024 already documents the Bright Data path never captures/forwards hashtags to persistScrapedPost (brightdata-record-mapper.ts, process-brightdata-result.ts); verify whether this report is that same root cause or a separate persistence gap on the Apify path (instagram-adapter.ts / process-scrape-job.ts, which FIND-024 says do capture hashtags) before scoping. Then land the fix + a regression test so hashtag search/display (IDEA-030 item 3) has data."}
 
   IDEA-029:
-    {type: idea, status: backlog, created: 2026-09-15,
+    {type: idea, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Reusable location link component (pin icon + name, opens map in new tab)",
      ref: [backlog/IDEA-029-reusable-location-link-component.md],
@@ -1047,15 +1047,15 @@ items:
      note: "Reported by user via bmad-help (2026-09-15). New reusable component taking a locationDetailObject prop: renders pin-location-icon + location name as text, always clickable and always opening the map in a new tab. Two confidence-based icon states: confirmed/acceptable confidence → open-in-new-tab icon (straight to the resolved map location); otherwise → search icon that opens the map with a query built from the location name. Consumers: event-detail page + its schedule (IDEA-033), and the reusable account element (IDEA-032)."}
 
   IDEA-030:
-    {type: idea, status: backlog, created: 2026-09-15,
+    {type: idea, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: m,
      title: "Event detail UI refinements (layout, published info, hashtags, badges, favorite/title)",
      ref: [backlog/IDEA-030-event-detail-ui.md],
-     touches: [web:events, web:posts, web:locations, pkg:ui, cross:i18n],
+     touches: [web:events, web:posts, pkg:ui, cross:i18n],
      note: "Reported by user via bmad-help (2026-09-15). Batched event-detail-page UI changes (full list in note file): (1) responsive layout — desktop keeps event-main-content on the right as today, mobile shows it at the top; (2) published-date inline with the view-original link in event-main-content using the existing short-date format (e.g. `Sep 7 · <Link><Platform-Icon> View Original ↗</Link>`), i18n'd; (3) hashtags at the bottom of event-main-content above the view-original link, each clicking to Discovery with the hashtag as an extra search-text param (needs BUG-032's data); (4) event-category/event-type badges clickable → Discovery with the related type/category; (5) favorite icon moved inlined to the right of the event title; (6) event title font smaller via `text-2xl`; (7) remove the top-of-page add-to-calendar icon. May fan into multiple stories."}
 
   IDEA-031:
-    {type: idea, status: backlog, created: 2026-09-15,
+    {type: idea, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Event detail platform account element (fallback icon, subscribe toggle)",
      ref: [backlog/IDEA-031-event-detail-platform-account-element.md],
@@ -1063,7 +1063,7 @@ items:
      note: "Reported by user via bmad-help (2026-09-15). Event-detail platform account element: (1) when the account has no profile image, fall back to the colored platform icon (reuse platform-registry.ts mapping); (2) replace the text 'subscribe' button with a subscribe/unsubscribe toggle — subscribe-action icon when not subscribed, subscribe-checked icon when subscribed, with a different icon color per state."}
 
   IDEA-032:
-    {type: idea, status: backlog, created: 2026-09-15,
+    {type: idea, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: m,
      title: "Platform account location info (moderator card + reusable account element)",
      ref: [backlog/IDEA-032-platform-account.md],
@@ -1071,7 +1071,7 @@ items:
      note: "Reported by user via bmad-help (2026-09-15). Two surfaces: (1) Moderator Tools accounts tab (moderator/tools?tab=accounts) account card gains location info plus an edit-location icon (opens a select-location popup) and a clear-location icon (opens a confirmation to set the account location to empty); (2) the reusable account element currently shows accountId beneath the link to the account page — replace accountId with <link-to-map>[Location name]<link-to-map> when the location is confirmed/good-confidence (IDEA-029 semantics), falling back to accountId otherwise."}
 
   IDEA-033:
-    {type: idea, status: backlog, created: 2026-09-15,
+    {type: idea, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Event detail schedule (smaller name, add-to-calendar action, location link)",
      ref: [backlog/IDEA-033-event-detail-schedule.md],
