@@ -22,7 +22,6 @@ const LABELS: EventDetailViewLabels = {
   favoriteButtonLabel: 'Favorite',
   removeFavoriteButtonLabel: 'Remove',
   addToCalendarButtonLabel: 'Add',
-  postedByLabel: 'Posted by',
   viewOriginalPostLabel: 'View original',
   viewSourceLabel: 'View source',
   addToCalendarDialogTitle: 'Add to calendar',

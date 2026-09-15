@@ -116,7 +116,6 @@
     "favoriteSuccessAnnouncement": "Event favorited",
     "unfavoriteSuccessAnnouncement": "Event removed from favorites",
     "favoriteErrorAnnouncement": "Something went wrong. Please try again.",
-    "postedByLabel": "Posted by:",
     "viewOriginalPostLabel": "View original post",
     "viewSourceLabel": "View source",
     "backToList": "Back to Events",

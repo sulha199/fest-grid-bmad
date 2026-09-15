@@ -17,7 +17,6 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
     favoriteButtonLabel: t('favoriteButtonLabel'),
     removeFavoriteButtonLabel: t('removeFavoriteButtonLabel'),
     addToCalendarButtonLabel: t('addToCalendarButtonLabel'),
-    postedByLabel: t('postedByLabel'),
     viewOriginalPostLabel: t('viewOriginalPostLabel'),
     viewSourceLabel: t('viewSourceLabel'),
     addToCalendarDialogTitle: t('addToCalendarDialogTitle'),

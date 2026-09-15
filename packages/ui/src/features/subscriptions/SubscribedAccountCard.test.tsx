@@ -115,4 +115,23 @@ describe('SubscribedAccountCard', () => {
     
     expect(screen.getByText('Following')).toBeInTheDocument();
   });
+
+  it('scales the displayName/username text when size="lg", unlike the default size', () => {
+    const { rerender } = render(<SubscribedAccountCard {...defaultProps} />);
+
+    expect(screen.getByText('Test User')).not.toHaveClass('text-lg');
+    expect(screen.getByText('@testuser')).toHaveClass('text-sm');
+
+    rerender(<SubscribedAccountCard {...defaultProps} size="lg" />);
+
+    expect(screen.getByText('Test User')).toHaveClass('text-lg');
+    expect(screen.getByText('@testuser')).toHaveClass('text-base');
+    expect(screen.getByText('@testuser')).not.toHaveClass('text-sm');
+
+    rerender(<SubscribedAccountCard {...defaultProps} size="sm" />);
+
+    expect(screen.getByText('Test User')).not.toHaveClass('text-lg');
+    expect(screen.getByText('@testuser')).toHaveClass('text-sm');
+    expect(screen.getByText('@testuser')).not.toHaveClass('text-base');
+  });
 });

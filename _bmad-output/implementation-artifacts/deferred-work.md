@@ -2,6 +2,12 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: find-011-cruft-cleanup (2026-09-15)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-011-cruft-cleanup.md`
+  summary: No test/lint guardrail enforces key parity between `EventDetailViewLabels` (and other label interfaces) and the `en.json`/`id.json` locale files, so a future prop removal or addition can silently desync from the translations.
+  evidence: Found via Blind Hunter review of this session's manual, symmetric `postedByLabel` removal across the type and both locale files — it was correct here by diligence, not by any enforced guardrail. Building that guardrail is a cross-cutting i18n testing concern, out of scope for this xs-effort cruft cleanup.
+
 ## Deferred from: moderator-tools-test-missing-message (2026-09-05)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-moderator-tools-test-missing-message.md`

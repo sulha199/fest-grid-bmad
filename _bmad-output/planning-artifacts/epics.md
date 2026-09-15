@@ -4103,6 +4103,8 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Note:** FIND-011 is a fractional member — its `EventDetailView` unused-prop finding is outside this card's contract and is not addressed here. Flagged as a carve candidate in the formation report; not carved now, the board is frozen for this pass.
 
+**Update 2026-09-15 (bmad-quick-dev, FIND-011):** The `size="lg"` text-scale AC (bullet 2 above) is already implemented in `SubscribedAccountCard.tsx` — done ahead of this story since it was trivial and zero-risk. Remaining scope for this story is BUG-005's degenerate-input fallback only.
+
 ### Story 0.i6b: Adopt the card into Post Selection
 
 **As a** developer,

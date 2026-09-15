@@ -12,6 +12,9 @@ export function SubscribedAccountCard({
   size,
   className = '',
 }: SubscribedAccountCardProps) {
+  const displayNameTextClass = size === 'lg' ? 'text-lg' : '';
+  const usernameTextClass = size === 'lg' ? 'text-base' : 'text-sm';
+
   return (
     <div className={`flex items-center justify-between w-full ${className}`}>
       <a
@@ -25,8 +28,8 @@ export function SubscribedAccountCard({
           size={size}
         />
         <div className="flex flex-col min-w-0">
-          <span className="truncate font-medium" title={account.displayName}>{account.displayName}</span>
-          <span className="truncate text-sm text-gray-500" title={account.username}>@{account.username}</span>
+          <span className={`truncate font-medium ${displayNameTextClass}`} title={account.displayName}>{account.displayName}</span>
+          <span className={`truncate text-gray-500 ${usernameTextClass}`} title={account.username}>@{account.username}</span>
         </div>
       </a>
       <div className="ml-4 flex-shrink-0">

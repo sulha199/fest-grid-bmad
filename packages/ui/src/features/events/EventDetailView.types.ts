@@ -33,7 +33,6 @@ export interface EventDetailViewLabels {
   favoriteButtonLabel: string;
   removeFavoriteButtonLabel: string;
   addToCalendarButtonLabel: string;
-  postedByLabel: string;
   viewOriginalPostLabel: string;
   viewSourceLabel: string;
   addToCalendarDialogTitle: string;

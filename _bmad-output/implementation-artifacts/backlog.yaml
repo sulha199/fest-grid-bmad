@@ -491,12 +491,12 @@ items:
      note: "DW-009, DW-016, DW-017, DW-018, DW-019, DW-020, DW-027. A loading-state flash, unmanaged focus on expand/collapse, an unpruned dayOverrides map, a loose test assertion, and an unresolved desktop/mobile calendar-layout unification question."}
 
   FIND-011:
-    {type: finding, status: triaged, created: 2026-09-05,
+    {type: finding, status: done, created: 2026-09-05,
      impact: internal, effort: xs, epic: epic-0-i6,
      title: "SubscribedAccountCard/EventDetailView carry minor unused-prop and unscaled-variant cruft",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [pkg:ui, cross:i18n, web:events/EventDetailView],
-     note: "DW-011, DW-014. postedByLabel is unused outside its own test fixture; size=\"lg\" doesn't scale the adjacent text, with no current caller to validate against."}
+     note: "DW-011, DW-014. Fixed 2026-09-15 (bmad-quick-dev): removed the unused postedByLabel field end-to-end (EventDetailViewLabels type, mapper.ts, both test fixtures, en/id.json); SubscribedAccountCard's size=\"lg\" now scales the adjacent displayName (text-lg) and username (text-base) text. The size=\"lg\" scaling is a fractional overlap with Story 0.i6a (still backlog) -- 0.i6a's remaining scope is BUG-005's degenerate-input fallback only."}
 
   FIND-012:
     {type: finding, status: backlog, created: 2026-09-05,

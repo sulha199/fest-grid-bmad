@@ -28,7 +28,6 @@ describe('EventDetailView', () => {
       favoriteButtonLabel: 'Add to Favorites',
       removeFavoriteButtonLabel: 'Remove from Favorites',
       addToCalendarButtonLabel: 'Add to Calendar',
-      postedByLabel: 'Posted by:',
       viewOriginalPostLabel: 'View original post',
       viewSourceLabel: 'View source',
       addToCalendarDialogTitle: 'Select Schedules',
