@@ -378,20 +378,22 @@ items:
      note: "DW-031. Verified 2026-09-05 against format-event-date.ts:66-71: getCalendarDayDifference anchors both sides to Date.UTC midnight from calendar-day parts, so diffMs is always an exact multiple of 86400000 and the floor is exact — no day-boundary defect exists in the product. The only real defect is the unmocked test clock, which is FIND-009. Kept as a row so the claim is not re-raised from the same evidence."}
 
   BUG-007:
-    {type: bug, status: triaged, created: 2026-09-05,
+    {type: bug, status: promoted, created: 2026-09-05,
      impact: latent, effort: s, epic: epic-2-i1,
      title: "handleAddToCalendar's Promise.all has no partial-failure recovery across multi-schedule events",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     stories: [2-i1a-fix-eventdetailwrappers-four-onsuccess-handlers],
      touches: [web:events/EventDetailWrapper],
      note: "DW-032. Predates ux-rework2 batch-2; that batch only added error announcement plus re-throw, not per-item success tracking."}
 
   BUG-008:
-    {type: bug, status: triaged, created: 2026-09-05,
+    {type: bug, status: promoted, created: 2026-09-05,
      impact: latent, effort: s, epic: epic-2-i1,
      title: "toggleFavorite onSuccess applies an unconditional favoriteCount +/-1 delta without state check",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     stories: [2-i1a-fix-eventdetailwrappers-four-onsuccess-handlers],
      touches: [web:events/EventDetailWrapper],
-     note: "DW-033. Matches an established but imperfect pattern already used by 3 other per-page favorite mutations."}
+     note: "DW-033. Matches an established but imperfect pattern already used by 3 other per-page favorite mutations. Story 2.i1a closes this via an additive ToggleFavoriteResult.favoriteCount field (backend) rather than a confirm-then-refetch rewrite -- per AskUserQuestion, 2026-09-16."}
 
   BUG-009:
     {type: bug, status: done, created: 2026-09-05,
