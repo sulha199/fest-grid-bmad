@@ -129,6 +129,7 @@
     "subscribeButtonLabel": "Berlangganan akun ini",
     "unsubscribeButtonLabel": "Berhenti berlangganan akun ini",
     "checkingSubscriptionLabel": "Memeriksa status langganan",
+    "unknownAccountLabel": "Akun tidak dikenal",
     "unsubscribeSuccessAnnouncement": "Berhenti berlangganan dari akun",
     "unsubscribeErrorAnnouncement": "Terjadi kesalahan. Silakan coba lagi.",
     "moreActionsButtonLabel": "Tindakan lainnya",

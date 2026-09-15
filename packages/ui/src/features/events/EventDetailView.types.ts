@@ -42,6 +42,7 @@ export interface EventDetailViewLabels {
   subscribeButtonLabel?: string;
   unsubscribeButtonLabel?: string;
   checkingSubscriptionLabel?: string;
+  unknownAccountLabel?: string;
   unsubscribeSuccessAnnouncement?: string;
   unsubscribeErrorAnnouncement?: string;
   moreActionsButtonLabel: string;

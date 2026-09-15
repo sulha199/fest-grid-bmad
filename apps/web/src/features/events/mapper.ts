@@ -38,6 +38,7 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
     subscribeButtonLabel: t('subscribeButtonLabel'),
     unsubscribeButtonLabel: t('unsubscribeButtonLabel'),
     checkingSubscriptionLabel: t('checkingSubscriptionLabel'),
+    unknownAccountLabel: t('unknownAccountLabel'),
     unsubscribeSuccessAnnouncement: t('unsubscribeSuccessAnnouncement'),
     unsubscribeErrorAnnouncement: t('unsubscribeErrorAnnouncement'),
   };

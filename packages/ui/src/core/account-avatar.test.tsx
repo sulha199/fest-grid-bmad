@@ -186,6 +186,43 @@ describe('AccountAvatar', () => {
     expect(img).toHaveAttribute('alt', 'User avatar');
   });
 
+  it('falls back to @username alt text when displayName is an empty string', () => {
+    render(
+      <AccountAvatar
+        profileImageUrl={null}
+        displayName=""
+        username="jane"
+      />
+    );
+
+    expect(screen.getByTestId('avatar-fallback-container')).toHaveAttribute('aria-label', '@jane');
+  });
+
+  it('falls back to default alt text when displayName and username are both empty strings', () => {
+    render(
+      <AccountAvatar
+        profileImageUrl={null}
+        displayName=""
+        username=""
+      />
+    );
+
+    expect(screen.getByTestId('avatar-fallback-container')).toHaveAttribute('aria-label', 'User avatar');
+  });
+
+  it('is unaffected by an empty username when displayName is present', () => {
+    render(
+      <AccountAvatar
+        profileImageUrl="https://example.com/avatar.jpg"
+        displayName="Jane Doe"
+        username=""
+      />
+    );
+
+    const img = screen.getByTestId('avatar-image');
+    expect(img).toHaveAttribute('alt', 'Jane Doe');
+  });
+
   it('renders the platform icon fallback when platform is provided and no profileImageUrl exists', () => {
     render(
       <AccountAvatar

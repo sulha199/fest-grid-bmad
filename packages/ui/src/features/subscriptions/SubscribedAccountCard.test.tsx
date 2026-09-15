@@ -180,6 +180,61 @@ describe('SubscribedAccountCard', () => {
     expect(screen.getByTestId('subscribe-toggle')).toHaveAttribute('aria-label', 'Following');
   });
 
+  it('falls back to @username as the primary label when displayName is empty, with no duplicate secondary line', () => {
+    const props = {
+      ...defaultProps,
+      account: { ...defaultProps.account, displayName: '' },
+    };
+    render(<SubscribedAccountCard {...props} />);
+
+    expect(screen.getByText('@testuser')).toBeInTheDocument();
+    // Only one "@testuser" text node should exist (primary label), not a duplicate secondary line.
+    expect(screen.getAllByText('@testuser')).toHaveLength(1);
+  });
+
+  it('falls back to the default "Unknown account" label when both displayName and username are empty', () => {
+    const props = {
+      ...defaultProps,
+      account: { ...defaultProps.account, displayName: '', username: '' },
+    };
+    render(<SubscribedAccountCard {...props} />);
+
+    expect(screen.getByText('Unknown account')).toBeInTheDocument();
+  });
+
+  it('uses labels.unknownAccountLabel to override the default fallback label', () => {
+    const props = {
+      ...defaultProps,
+      account: { ...defaultProps.account, displayName: '', username: '' },
+      labels: { unknownAccountLabel: 'Akun tidak dikenal' },
+    };
+    render(<SubscribedAccountCard {...props} />);
+
+    expect(screen.getByText('Akun tidak dikenal')).toBeInTheDocument();
+    expect(screen.queryByText('Unknown account')).not.toBeInTheDocument();
+  });
+
+  it('omits the secondary @username line (no bare @) when username is empty but displayName is present', () => {
+    const props = {
+      ...defaultProps,
+      account: { ...defaultProps.account, username: '' },
+    };
+    render(<SubscribedAccountCard {...props} />);
+
+    expect(screen.getByText('Test User')).toBeInTheDocument();
+    expect(screen.queryByText('@', { exact: false })).not.toBeInTheDocument();
+  });
+
+  it('renders a non-interactive wrapper (no link) when accountHref is empty or missing, while still showing avatar and identity text', () => {
+    const props = { ...defaultProps, accountHref: '' };
+    render(<SubscribedAccountCard {...props} />);
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByText('Test User')).toBeInTheDocument();
+    expect(screen.getByText('@testuser')).toBeInTheDocument();
+    expect(screen.getByTestId('avatar-image')).toBeInTheDocument();
+  });
+
   it('scales the displayName/username text when size="lg", unlike the default size', () => {
     const { rerender } = render(<SubscribedAccountCard {...defaultProps} />);
 

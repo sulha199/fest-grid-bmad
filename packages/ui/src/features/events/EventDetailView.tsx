@@ -213,6 +213,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   };
 
   const isTogglePending = isSubscribingToAccount || isUnsubscribingFromAccount;
+  const canActOnSubscription = !!(accountPlatform && accountUsername);
   const hasTags = (types && types.length > 0) || (categories && categories.length > 0);
   const hasSourceAttribution = originalPostUrl || sourcePostUrl;
 
@@ -256,25 +257,26 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
           {/* Header controls */}
           <div className="flex justify-between items-center gap-3 mb-2">
             <div className="flex-1 min-w-0">
-              {accountId && accountPlatform && accountUsername && accountHref && (
+              {accountId && (
                 <SubscribedAccountCard
                   account={{
                     accountId,
                     platform: accountPlatform,
                     username: accountUsername,
-                    displayName: accountName || accountUsername,
+                    displayName: accountName,
                     profileImageUrl: accountPlatformIconUrl,
                   }}
                   accountHref={accountHref}
                   isSubscribed={!!isSubscribedToAccount}
-                  onSubscribe={onSubscribeToAccount}
-                  onUnsubscribe={onUnsubscribeFromAccount}
+                  onSubscribe={canActOnSubscription ? onSubscribeToAccount : undefined}
+                  onUnsubscribe={canActOnSubscription ? onUnsubscribeFromAccount : undefined}
                   isStatusLoading={isSubscriptionStatusLoading}
                   isTogglePending={isTogglePending}
                   labels={{
                     subscribeLabel: labels.subscribeButtonLabel,
                     unsubscribeLabel: labels.unsubscribeButtonLabel,
                     checkingSubscriptionLabel: labels.checkingSubscriptionLabel,
+                    unknownAccountLabel: labels.unknownAccountLabel,
                   }}
                   size="sm"
                 />

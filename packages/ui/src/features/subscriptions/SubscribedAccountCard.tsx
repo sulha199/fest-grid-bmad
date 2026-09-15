@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { UserPlus, UserCheck } from 'lucide-react';
 import { AccountAvatar } from '../../core/account-avatar';
+import { getAccountIdentityLabel } from '../../core/account-identity';
 import type { SubscribedAccountCardProps } from './SubscribedAccountCard.types';
 
 export function SubscribedAccountCard({
@@ -31,24 +32,44 @@ export function SubscribedAccountCard({
     (!isSubscribed && !onSubscribe) ||
     (isSubscribed && !onUnsubscribe);
 
+  const primaryLabel = getAccountIdentityLabel(
+    account.displayName,
+    account.username,
+    labels?.unknownAccountLabel || 'Unknown account'
+  );
+
+  const identityContent = (
+    <>
+      <AccountAvatar
+        profileImageUrl={account.profileImageUrl}
+        displayName={account.displayName}
+        username={account.username}
+        size={size}
+        platform={account.platform}
+      />
+      <div className="flex flex-col min-w-0">
+        <span className={`truncate font-medium ${displayNameTextClass}`} title={primaryLabel}>{primaryLabel}</span>
+        {account.displayName && account.username && (
+          <span className={`truncate text-gray-500 ${usernameTextClass}`} title={account.username}>@{account.username}</span>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className={`flex items-center justify-between w-full ${className}`}>
-      <a
-        href={accountHref}
-        className="flex items-center gap-3 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-      >
-        <AccountAvatar
-          profileImageUrl={account.profileImageUrl}
-          displayName={account.displayName}
-          username={account.username}
-          size={size}
-          platform={account.platform}
-        />
-        <div className="flex flex-col min-w-0">
-          <span className={`truncate font-medium ${displayNameTextClass}`} title={account.displayName}>{account.displayName}</span>
-          <span className={`truncate text-gray-500 ${usernameTextClass}`} title={account.username}>@{account.username}</span>
+      {accountHref ? (
+        <a
+          href={accountHref}
+          className="flex items-center gap-3 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          {identityContent}
+        </a>
+      ) : (
+        <div className="flex items-center gap-3 min-w-0">
+          {identityContent}
         </div>
-      </a>
+      )}
       <div className="ml-4 flex-shrink-0">
         <button
           type="button"

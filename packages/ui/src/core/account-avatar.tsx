@@ -3,13 +3,14 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { PlatformIcon } from './platform-icon';
+import { getAccountIdentityLabel } from './account-identity';
 
 export interface AccountAvatarProps {
   profileImageUrl?: string | null;
   displayName?: string | null;
   username?: string | null;
   size?: 'xs' | 'sm' | 'lg';
-  platform?: string;
+  platform?: string | null;
 }
 
 const InstagramPlaceholder = ({ className }: { className?: string }) => (
@@ -44,7 +45,7 @@ export function AccountAvatar({
   }, [profileImageUrl]);
 
   // Construct fallback alt text or aria-label for accessibility
-  const altText = displayName || (username ? `@${username}` : 'User avatar');
+  const altText = getAccountIdentityLabel(displayName, username, 'User avatar');
 
   // Determine size-specific styling matching codebase conventions
   const sizeClasses =

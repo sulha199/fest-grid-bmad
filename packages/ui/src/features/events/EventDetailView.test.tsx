@@ -482,18 +482,19 @@ describe('EventDetailView', () => {
     expect(onSubscribe).toHaveBeenCalled();
   });
 
-  it('omits SubscribedAccountCard when essential account props are missing', () => {
-    // Missing accountId
+  it('omits SubscribedAccountCard entirely only when accountId is missing; disables (not hides) the toggle when platform/username is missing', () => {
+    // Missing accountId: no attribution to show at all — card omitted entirely.
     const { rerender } = render(<EventDetailView {...minimalProps} accountPlatform="instagram" accountUsername="org" />);
     expect(screen.queryByTestId('subscribe-toggle')).not.toBeInTheDocument();
 
-    // Missing accountPlatform
+    // Missing accountPlatform: card still renders (accountId present), but there
+    // isn't enough data to act on the subscription, so the toggle is disabled.
     rerender(<EventDetailView {...minimalProps} accountId="123" accountUsername="org" />);
-    expect(screen.queryByTestId('subscribe-toggle')).not.toBeInTheDocument();
+    expect(screen.getByTestId('subscribe-toggle')).toBeDisabled();
 
-    // Missing accountUsername
+    // Missing accountUsername: same disabled-not-hidden behavior.
     rerender(<EventDetailView {...minimalProps} accountId="123" accountPlatform="instagram" />);
-    expect(screen.queryByTestId('subscribe-toggle')).not.toBeInTheDocument();
+    expect(screen.getByTestId('subscribe-toggle')).toBeDisabled();
   });
 
   it('renders both SubscribedAccountCard and source post links simultaneously', () => {
