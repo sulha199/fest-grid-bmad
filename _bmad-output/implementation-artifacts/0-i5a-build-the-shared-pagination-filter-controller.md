@@ -8,7 +8,7 @@ baseline_commit: 4f2707d5820f85961e24b29225742355942e2103
 
 - Epic: 0.i5 (Shared list-pagination and filter-state controller)
 - Story ID: 0.i5a
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -28,13 +28,13 @@ so that every list view stops reinventing pagination and filter-reset locally, a
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Write the Filter Apply-Timing convention (AC: 4)**
-  - [ ] Add `### AD-18: Filter Apply-Timing Convention` to `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, immediately after `AD-17`, in the same Binds/Prevents/Rule format as AD-8/AD-10/AD-11/AD-14. **Binds:** every filter/facet control across list, discovery, and moderation surfaces. **Prevents:** a mix of "apply on every change" vs. "apply only after an explicit Apply button" behavior across different surfaces, and the append-instead-of-reload bug class (BUG-019) caused by a consumer forgetting to reset pagination state when a filter's committed value changes. **Rule:** filters apply immediately on change; discrete controls (checkboxes, toggles, multi-select facets, single-select dropdowns) commit on the same interaction that changes the value; continuous/free-text controls (search box, date-range text input) debounce internally via `useDebounce` (`packages/ui/src/hooks/useDebounce.ts`) before committing — the debounce delay is the only permitted "not instant" gap, there is never a second required user action to commit. Any list/pagination consumer of a filter's committed value must own its pagination/cursor state via `useListPaginationController` (this story) rather than hand-rolling a `useState` cursor that must be remembered to reset.
-  - [ ] Add one bullet under `project-context.md`'s "UI Patterns & UX Invariants" section referencing AD-18 by name and naming `useListPaginationController` as the required mechanism for any list/pagination consumer of a filter.
-  - [ ] No runtime code depends on this task; it is the documented convention that Tasks 2–4 implement and that sibling stories 0.i5b/0.i5c/0.i5d (already in epics.md) will adopt at their call sites.
+- [x] **Task 1 — Write the Filter Apply-Timing convention (AC: 4)**
+  - [x] Add `### AD-18: Filter Apply-Timing Convention` to `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, immediately after `AD-17`, in the same Binds/Prevents/Rule format as AD-8/AD-10/AD-11/AD-14. **Binds:** every filter/facet control across list, discovery, and moderation surfaces. **Prevents:** a mix of "apply on every change" vs. "apply only after an explicit Apply button" behavior across different surfaces, and the append-instead-of-reload bug class (BUG-019) caused by a consumer forgetting to reset pagination state when a filter's committed value changes. **Rule:** filters apply immediately on change; discrete controls (checkboxes, toggles, multi-select facets, single-select dropdowns) commit on the same interaction that changes the value; continuous/free-text controls (search box, date-range text input) debounce internally via `useDebounce` (`packages/ui/src/hooks/useDebounce.ts`) before committing — the debounce delay is the only permitted "not instant" gap, there is never a second required user action to commit. Any list/pagination consumer of a filter's committed value must own its pagination/cursor state via `useListPaginationController` (this story) rather than hand-rolling a `useState` cursor that must be remembered to reset.
+  - [x] Add one bullet under `project-context.md`'s "UI Patterns & UX Invariants" section referencing AD-18 by name and naming `useListPaginationController` as the required mechanism for any list/pagination consumer of a filter.
+  - [x] No runtime code depends on this task; it is the documented convention that Tasks 2–4 implement and that sibling stories 0.i5b/0.i5c/0.i5d (already in epics.md) will adopt at their call sites.
 
-- [ ] **Task 2 — Define `useListPaginationController`'s types (AC: 1, 2, 3)**
-  - [ ] New file `packages/ui/src/hooks/useListPaginationController.types.ts`, following the `useInfiniteScroll.types.ts`/`useWeeklyCalendarController.types.ts` sibling pattern (JSDoc on every field). Minimum shape:
+- [x] **Task 2 — Define `useListPaginationController`'s types (AC: 1, 2, 3)**
+  - [x] New file `packages/ui/src/hooks/useListPaginationController.types.ts`, following the `useInfiniteScroll.types.ts`/`useWeeklyCalendarController.types.ts` sibling pattern (JSDoc on every field). Minimum shape:
     ```ts
     export interface UseListPaginationControllerOptions<TFilterKey, TCursor> {
       /** Serializable snapshot of the active filter/query state. Compared each render (default: JSON.stringify equality) to detect a filter change. */
@@ -70,29 +70,29 @@ so that every list view stops reinventing pagination and filter-reset locally, a
       resetToFirstPage: () => void;
     }
     ```
-  - [ ] Naming/shape is a starting point, not a frozen contract — adjust field names during implementation if a cleaner shape emerges, but preserve the three semantic guarantees ACs 1–3 require (auto-reset-on-filterKey-change, no DOM-identity churn required for the reset, prev/next/total as consumer-driven data not controller-computed).
+  - [x] Naming/shape is a starting point, not a frozen contract — adjust field names during implementation if a cleaner shape emerges, but preserve the three semantic guarantees ACs 1–3 require (auto-reset-on-filterKey-change, no DOM-identity churn required for the reset, prev/next/total as consumer-driven data not controller-computed).
 
-- [ ] **Task 3 — Implement `useListPaginationController` (AC: 1, 2, 3)**
-  - [ ] New file `packages/ui/src/hooks/useListPaginationController.ts`, following `useInfiniteScroll.ts`'s file structure and JSDoc-with-`@example` header convention.
-  - [ ] Reset-on-filter-change: hold the previous `filterKey` in a `useRef`. Compare on every render via `isEqual` (default `JSON.stringify` equality — acceptable here since `filterKey` is expected to be a small, plain, serializable object per its documented contract, unlike the general-purpose caution against `JSON.stringify` deep-equality elsewhere). On mismatch, synchronously update state (cursor → `initialCursor`, history → `[]`, `resetToken` → `+1`) **during render** (the "compare ref, call setState conditionally during render" React pattern — not inside a `useEffect`) so that a re-render before any effect fires never returns a stale cursor paired with the new `filterKey`. Call `onReset` (if provided) via a `useEffect` keyed on `resetToken`, since side effects belong in effects, not render.
-  - [ ] Deliberately do **not** internally compose `useInfiniteScroll` — keep this hook's only job cursor/history/reset-token bookkeeping. A consumer opting into scroll-triggered fetching continues to call `useInfiniteScroll` itself exactly as `home-content.tsx` already does today, passing it `fetchNextPage`/`hasNextPage`/`isFetchingNextPage` from its own `useInfiniteQuery`. AC2's guarantee is structural: because this hook never returns anything that would force a consumer to change a list/sentinel's React `key`, a correctly-integrated consumer's sentinel DOM node and its `useInfiniteScroll` IntersectionObserver subscription stay mounted continuously across a filter-driven reset — only the underlying react-query `queryKey`/`cursor` value changes. Document this explicitly in the hook's top-of-file JSDoc as the required integration pattern, with an explicit "do NOT do this" counter-example (`<List key={resetToken}>`) since that is the anti-pattern this design exists to prevent.
-  - [ ] `goToNextPage(nextCursor)`: push current `cursor` onto history, set `cursor = nextCursor`.
-  - [ ] `goToPrevPage()`: pop last entry off history into `cursor`; no-op if history is empty.
-  - [ ] `pageIndex = history.length + 1`; `hasPrevPage = history.length > 0`.
-  - [ ] `reportPageMeta({ hasNextPage, totalCount })`: stores both into state, returned as `hasNextPage`/`totalCount`.
-  - [ ] `resetToFirstPage()`: same reset logic as the filterKey-change branch, callable directly.
+- [x] **Task 3 — Implement `useListPaginationController` (AC: 1, 2, 3)**
+  - [x] New file `packages/ui/src/hooks/useListPaginationController.ts`, following `useInfiniteScroll.ts`'s file structure and JSDoc-with-`@example` header convention.
+  - [x] Reset-on-filter-change: hold the previous `filterKey` in a `useRef`. Compare on every render via `isEqual` (default `JSON.stringify` equality — acceptable here since `filterKey` is expected to be a small, plain, serializable object per its documented contract, unlike the general-purpose caution against `JSON.stringify` deep-equality elsewhere). On mismatch, synchronously update state (cursor → `initialCursor`, history → `[]`, `resetToken` → `+1`) **during render** (the "compare ref, call setState conditionally during render" React pattern — not inside a `useEffect`) so that a re-render before any effect fires never returns a stale cursor paired with the new `filterKey`. Call `onReset` (if provided) via a `useEffect` keyed on `resetToken`, since side effects belong in effects, not render.
+  - [x] Deliberately do **not** internally compose `useInfiniteScroll` — keep this hook's only job cursor/history/reset-token bookkeeping. A consumer opting into scroll-triggered fetching continues to call `useInfiniteScroll` itself exactly as `home-content.tsx` already does today, passing it `fetchNextPage`/`hasNextPage`/`isFetchingNextPage` from its own `useInfiniteQuery`. AC2's guarantee is structural: because this hook never returns anything that would force a consumer to change a list/sentinel's React `key`, a correctly-integrated consumer's sentinel DOM node and its `useInfiniteScroll` IntersectionObserver subscription stay mounted continuously across a filter-driven reset — only the underlying react-query `queryKey`/`cursor` value changes. Document this explicitly in the hook's top-of-file JSDoc as the required integration pattern, with an explicit "do NOT do this" counter-example (`<List key={resetToken}>`) since that is the anti-pattern this design exists to prevent.
+  - [x] `goToNextPage(nextCursor)`: push current `cursor` onto history, set `cursor = nextCursor`.
+  - [x] `goToPrevPage()`: pop last entry off history into `cursor`; no-op if history is empty.
+  - [x] `pageIndex = history.length + 1`; `hasPrevPage = history.length > 0`.
+  - [x] `reportPageMeta({ hasNextPage, totalCount })`: stores both into state, returned as `hasNextPage`/`totalCount`.
+  - [x] `resetToFirstPage()`: same reset logic as the filterKey-change branch, callable directly.
 
-- [ ] **Task 4 — Export the hook (AC: 5)**
-  - [ ] Add `export * from './useListPaginationController';` and `export * from './useListPaginationController.types';` to `packages/ui/src/hooks/index.ts`, matching the existing pattern (already re-exported to `@festgrid/ui` consumers via `packages/ui/src/index.ts`'s `export * from './hooks'`).
+- [x] **Task 4 — Export the hook (AC: 5)**
+  - [x] Add `export * from './useListPaginationController';` and `export * from './useListPaginationController.types';` to `packages/ui/src/hooks/index.ts`, matching the existing pattern (already re-exported to `@festgrid/ui` consumers via `packages/ui/src/index.ts`'s `export * from './hooks'`).
 
-- [ ] **Task 5 — Tests (AC: 1, 2, 3, 5)**
-  - [ ] New file `packages/ui/src/hooks/useListPaginationController.test.ts`, `renderHook`/`rerender`/`act` from `@testing-library/react` + `vitest`, matching `useInfiniteScroll.test.ts`'s style.
-  - [ ] Filter-change reset: render with `filterKey: { types: ['MUSIC'] }`; call `goToNextPage`; assert `cursor`/`pageIndex`/`hasPrevPage` reflect page 2; rerender with a different `filterKey` (e.g. `{ types: ['FESTIVAL'] }`); assert cursor resets to `initialCursor`, history clears, `pageIndex` returns to 1, `resetToken` increments — all reflected in the **same render pass** as the `filterKey` change (i.e. assert the returned values from `rerender()`'s result directly, not after an extra `act()`/effect flush), proving AC1's "no fetch can occur with a stale cursor" guarantee.
-  - [ ] Custom `isEqual`: rerender with a `filterKey` that is referentially different but `isEqual`-equal; assert no reset occurs (cursor/pageIndex/resetToken unchanged).
-  - [ ] No-DOM-remount guarantee (AC2): assert that the **same hook instance** (no `renderHook` re-mount, only `rerender`) reflects the reset — this proves a consumer never needs to force React to recreate the hook/component tree to see a correct reset, which is the structural property that keeps a `useInfiniteScroll` sentinel mounted across the reset in a correctly-integrated consumer.
-  - [ ] `reportPageMeta`: assert `hasNextPage`/`totalCount` reflect the last-reported values and are cleared/reset appropriately on a filter-change reset (design decision: reset `hasNextPage`/`totalCount` to their initial undefined/false state on reset too, since they describe the old query's last-known page, not the new one — call this out explicitly in the hook's implementation).
-  - [ ] `goToPrevPage` no-ops at `pageIndex === 1`.
-  - [ ] `onReset` callback fires exactly once per actual `filterKey` change (not on every render, not when `isEqual` reports equality).
+- [x] **Task 5 — Tests (AC: 1, 2, 3, 5)**
+  - [x] New file `packages/ui/src/hooks/useListPaginationController.test.ts`, `renderHook`/`rerender`/`act` from `@testing-library/react` + `vitest`, matching `useInfiniteScroll.test.ts`'s style.
+  - [x] Filter-change reset: render with `filterKey: { types: ['MUSIC'] }`; call `goToNextPage`; assert `cursor`/`pageIndex`/`hasPrevPage` reflect page 2; rerender with a different `filterKey` (e.g. `{ types: ['FESTIVAL'] }`); assert cursor resets to `initialCursor`, history clears, `pageIndex` returns to 1, `resetToken` increments — all reflected in the **same render pass** as the `filterKey` change (i.e. assert the returned values from `rerender()`'s result directly, not after an extra `act()`/effect flush), proving AC1's "no fetch can occur with a stale cursor" guarantee.
+  - [x] Custom `isEqual`: rerender with a `filterKey` that is referentially different but `isEqual`-equal; assert no reset occurs (cursor/pageIndex/resetToken unchanged).
+  - [x] No-DOM-remount guarantee (AC2): assert that the **same hook instance** (no `renderHook` re-mount, only `rerender`) reflects the reset — this proves a consumer never needs to force React to recreate the hook/component tree to see a correct reset, which is the structural property that keeps a `useInfiniteScroll` sentinel mounted across the reset in a correctly-integrated consumer.
+  - [x] `reportPageMeta`: assert `hasNextPage`/`totalCount` reflect the last-reported values and are cleared/reset appropriately on a filter-change reset (design decision: reset `hasNextPage`/`totalCount` to their initial undefined/false state on reset too, since they describe the old query's last-known page, not the new one — call this out explicitly in the hook's implementation).
+  - [x] `goToPrevPage` no-ops at `pageIndex === 1`.
+  - [x] `onReset` callback fires exactly once per actual `filterKey` change (not on every render, not when `isEqual` reports equality).
 
 ## Dev Notes
 
@@ -188,26 +188,26 @@ Not applicable. This story introduces no user-facing strings — it is a headles
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — Tasks 1–5 above match the intended scope: build + document the shared controller and the apply-on-change rule; do NOT adopt the hook into any real page (Discovery, moderator tools) and do NOT touch BUG-019's concrete `home-content.tsx` call site (that is Story 0.i5b, already specified in `epics.md`).
-- [ ] Architecture and boundary confirmation — no `apps/web`/`apps/backend`/`packages/domain`/`packages/database` files touched; new hook lives in `packages/ui/src/hooks/` per the existing file-triplet convention; `packages/domain` applicability explicitly ruled out (Dev Notes).
-- [ ] Testing plan confirmation — Task 5's test list covers AC1 (reset-on-filter-change, including the same-render-pass guarantee), AC2 (no-remount-required structural guarantee), AC3 (prev/next/total bookkeeping), and AC5 (export + Vitest coverage matching sibling hooks).
-- [ ] Explicit human approval state (Default: **pending approval**)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates run fresh for this story (no swept `epic-0-i5-readiness.md` exists yet), all three found no gap (Dev Notes → Architecture & UX Gate Findings). Gate 2's non-blocking flag (future prev/next UI needs net-new UX spec work) is noted for 0.i5c/0.i5d's own creation, not a prerequisite for this story.
-- [ ] **Scope decision confirmed:** user was asked via `AskUserQuestion` how to reconcile this session's "fold BUG-019 into one story" instruction against the pre-existing epic-0.i5a/0.i5b split, and explicitly chose "create 0.i5a only, as originally formed." BUG-019's concrete fix is deferred to already-existing Story 0.i5b, not silently dropped — see Dev Notes and Out of Scope.
+- [x] Scope confirmation — Tasks 1–5 above match the intended scope: build + document the shared controller and the apply-on-change rule; do NOT adopt the hook into any real page (Discovery, moderator tools) and do NOT touch BUG-019's concrete `home-content.tsx` call site (that is Story 0.i5b, already specified in `epics.md`).
+- [x] Architecture and boundary confirmation — no `apps/web`/`apps/backend`/`packages/domain`/`packages/database` files touched; new hook lives in `packages/ui/src/hooks/` per the existing file-triplet convention; `packages/domain` applicability explicitly ruled out (Dev Notes).
+- [x] Testing plan confirmation — Task 5's test list covers AC1 (reset-on-filter-change, including the same-render-pass guarantee), AC2 (no-remount-required structural guarantee), AC3 (prev/next/total bookkeeping), and AC5 (export + Vitest coverage matching sibling hooks).
+- [x] Explicit human approval state — **approved** (via `AskUserQuestion`, 2026-09-15, "Approve, start coding")
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates run fresh for this story (no swept `epic-0-i5-readiness.md` exists yet), all three found no gap (Dev Notes → Architecture & UX Gate Findings). Gate 2's non-blocking flag (future prev/next UI needs net-new UX spec work) is noted for 0.i5c/0.i5d's own creation, not a prerequisite for this story.
+- [x] **Scope decision confirmed:** user was asked via `AskUserQuestion` how to reconcile this session's "fold BUG-019 into one story" instruction against the pre-existing epic-0.i5a/0.i5b split, and explicitly chose "create 0.i5a only, as originally formed." BUG-019's concrete fix is deferred to already-existing Story 0.i5b, not silently dropped — see Dev Notes and Out of Scope.
 
 ## Testing Requirements
 
 - [x] Unit tests — `packages/ui/src/hooks/useListPaginationController.test.ts` (Task 5), `@testing-library/react`'s `renderHook`/`rerender`/`act` + Vitest, matching `useInfiniteScroll.test.ts`'s existing style. `packages/ui` is not under the `packages/domain` 100%-coverage mandate, but should match the coverage depth of its sibling hook test files.
-- [ ] Integration tests — not applicable; no consumer wiring happens in this story (integration coverage for the hook-in-context lands with Stories 0.i5b/0.i5c/0.i5d).
-- [ ] E2E tests — not applicable; no user-facing surface changes in this story.
+- [x] Integration tests — not applicable; no consumer wiring happens in this story (integration coverage for the hook-in-context lands with Stories 0.i5b/0.i5c/0.i5d).
+- [x] E2E tests — not applicable; no user-facing surface changes in this story.
 
 ## Deliverables Checklist
 
-- [ ] `useListPaginationController` implemented, typed, and exported from `@festgrid/ui` per Tasks 2–4.
-- [ ] AC1 (reset-on-filter-change), AC2 (no-remount-required contract), AC3 (prev/next/total bookkeeping) all covered by passing unit tests.
-- [ ] `AD-18: Filter Apply-Timing Convention` written to the architecture spine, immediately after AD-17.
-- [ ] `project-context.md` gains the corresponding "UI Patterns & UX Invariants" bullet.
-- [ ] IDEA-011 and BUG-019's `stories` fields in `backlog.yaml` updated to reference this story per the on-complete backlog-promotion step (see Out of Scope re: BUG-019's remaining concrete-fix carve, already covered by existing Story 0.i5b — no new carve needed).
+- [x] `useListPaginationController` implemented, typed, and exported from `@festgrid/ui` per Tasks 2–4.
+- [x] AC1 (reset-on-filter-change), AC2 (no-remount-required contract), AC3 (prev/next/total bookkeeping) all covered by passing unit tests.
+- [x] `AD-18: Filter Apply-Timing Convention` written to the architecture spine, immediately after AD-17.
+- [x] `project-context.md` gains the corresponding "UI Patterns & UX Invariants" bullet.
+- [x] IDEA-011's `stories` field in `backlog.yaml` already references this story (set during `bmad-create-story`); BUG-019's `stories` field is deliberately left unset per its own AMENDED note — its concrete fix lands with Story 0.i5b, no new carve needed here.
 
 ## Out of Scope
 
@@ -220,21 +220,51 @@ Not applicable. This story introduces no user-facing strings — it is a headles
 
 ## Definition of Done
 
-- [ ] AC 1–5 satisfied.
-- [ ] Required tests passing (Task 5 + Testing Requirements).
-- [ ] Lint and type checks passing for `packages/ui`.
-- [ ] Pre-Coding Approval Gate's scope decision item explicitly confirmed before this story is marked done.
+- [x] AC 1–5 satisfied.
+- [x] Required tests passing (Task 5 + Testing Requirements).
+- [x] Lint and type checks passing for `packages/ui`.
+- [x] Pre-Coding Approval Gate's scope decision item explicitly confirmed before this story is marked done.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — ready for review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+Claude Sonnet 5 (claude-sonnet-5)
+
 ### Debug Log References
+
+None — implementation proceeded without needing a separate debug log; all verification commands and outcomes are captured in Completion Notes below.
 
 ### Completion Notes List
 
+- Implemented `useListPaginationController` (`packages/ui/src/hooks/useListPaginationController.ts` + `.types.ts`) per Tasks 2–3: reset-on-filterKey-change computed synchronously during render (compare-ref pattern, not `useEffect`), `resetToken` counter, cursor-history-backed `goToNextPage`/`goToPrevPage`, consumer-reported `reportPageMeta`/`hasNextPage`/`totalCount` (cleared on reset), and `resetToFirstPage`. Deliberately does not compose `useInfiniteScroll` (Task 3 requirement) — top-of-file JSDoc documents the required `resetToken`/`cursor`-into-`queryKey` integration contract with an explicit "do NOT do this" `<List key={resetToken}>` counter-example.
+- Exported the hook + types from `packages/ui/src/hooks/index.ts` (Task 4), matching the existing sibling-hook barrel pattern.
+- Added `packages/ui/src/hooks/useListPaginationController.test.ts` (Task 5): 9 tests covering AC1 (reset-on-filter-change reflected in the same render pass, custom `isEqual`), AC2 (no-remount-required — same `renderHook` result instance across the reset), AC3 (`goToNextPage`/`goToPrevPage`/`pageIndex`/`hasPrevPage`/`reportPageMeta`/`resetToFirstPage`), and `onReset` firing exactly once per actual filterKey change (not on mount, not on equal-by-`isEqual` rerenders).
+- Added `### AD-18: Filter Apply-Timing Convention` to `festgrid-architecture-spine.md`, immediately after AD-17, in the Binds/Prevents/Rule format matching AD-8/AD-10/AD-11/AD-14 (Task 1).
+- Added the corresponding bullet to `project-context.md`'s "UI Patterns & UX Invariants" section, referencing AD-18 and naming `useListPaginationController` as the required mechanism (Task 1).
+- Confirmed via `git status`/file list that only `packages/ui/src/hooks/*`, `festgrid-architecture-spine.md`, and `project-context.md` were touched — no `apps/web`, `apps/backend`, `packages/domain`, or `packages/database` files, matching the story's scope boundary and Implementation Plan's Verification Plan.
+- **Verification Plan commands actually executed (per persistent workflow fact — not inferred from the plan):**
+  - `pnpm --filter @festgrid/ui test -- useListPaginationController` → 9/9 new tests passed.
+  - `pnpm --filter @festgrid/ui test` (full package suite) → 51 test files / 485 tests passed, no regressions in sibling hooks.
+  - `pnpm lint` (repo root) → 0 errors (1136 pre-existing warnings, all in files this story did not touch).
+  - `pnpm build` (repo root) → 7/7 tasks successful, including `packages/ui`'s typecheck/build and `apps/web`'s Next.js build.
+  - Manual read-through confirmed AD-18 follows AD-14's exact Binds/Prevents/Rule structure and `project-context.md`'s new bullet sits under "UI Patterns & UX Invariants."
+
 ### File List
+
+- `packages/ui/src/hooks/useListPaginationController.ts` (new)
+- `packages/ui/src/hooks/useListPaginationController.types.ts` (new)
+- `packages/ui/src/hooks/useListPaginationController.test.ts` (new)
+- `packages/ui/src/hooks/index.ts` (modified — two barrel exports added)
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (modified — new AD-18 section)
+- `_bmad-output/project-context.md` (modified — new UI Patterns & UX Invariants bullet)
+- `_bmad-output/implementation-artifacts/0-i5a-build-the-shared-pagination-filter-controller.md` (modified — this story file: Pre-Coding Approval Gate, Tasks/Subtasks, Testing Requirements, Deliverables Checklist, Definition of Done, Completion Status, Dev Agent Record, Status)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — status transitions for `0-i5a-build-the-shared-pagination-filter-controller`)
+
+### Change Log
+
+- 2026-09-15: Story implemented end-to-end (Tasks 1–5). `useListPaginationController` built, tested (9 new unit tests, 485 total passing in `packages/ui`), and exported from `@festgrid/ui`. `AD-18: Filter Apply-Timing Convention` added to the architecture spine and `project-context.md`. `pnpm lint`/`pnpm build` both clean at the repo root. Status → review.

@@ -681,6 +681,46 @@ This document defines the core architectural invariants for the FestDaily applic
     O(N) per-row resolver calls, which Rule 2's simpler `IN (...)` query already fully achieves.
 
 ---
+### AD-18: Filter Apply-Timing Convention
+
+*   **Binds:** Every filter/facet control across list, discovery, and moderation surfaces —
+    `packages/ui/src/features/events/FilterHub.tsx`'s discrete facets (types/categories/etc.),
+    `SearchBar.tsx`'s free-text search, `apps/web/src/app/[locale]/moderator/tools/filter-panel.tsx`'s
+    controls, and any future filter control. Also binds every list/pagination consumer of a
+    filter's committed value — introduced by Story 0.i5a alongside the shared
+    `useListPaginationController` hook (`packages/ui/src/hooks/useListPaginationController.ts`),
+    which is the required mechanism this rule points those consumers at.
+*   **Prevents:** A mix of "apply on every change" vs. "apply only after an explicit Apply
+    button" behavior across different surfaces (the decorative, non-functional "Apply" button in
+    `moderator/tools/filter-panel.tsx` is the concrete example of this drift — its `onChange`
+    handlers already fire immediately, contradicting the button's implied semantics); and the
+    append-instead-of-reload bug class (BUG-019) caused by a consumer forgetting to reset
+    pagination state when a filter's committed value changes.
+*   **Rule:**
+    1.  **Filters apply immediately on change — there is no user-facing "Apply" action that gates
+        when a filter takes effect.** This is confirmed against `EXPERIENCE.md`'s Filter Hub spec
+        ("The event grid below will update in real-time with each selection"), and is already the
+        unanimous behavior of every discrete control in `FilterHub.tsx` today (`onChange`/`nuqs`
+        setters fire immediately, no Apply button exists there) — AD-18 codifies this as the
+        binding rule rather than introducing new behavior.
+    2.  **Discrete controls (checkboxes, toggles, multi-select facets, single-select dropdowns)
+        commit on the same interaction that changes the value.** No intermediate "staged" or
+        "pending" value is held back from taking effect.
+    3.  **Continuous/free-text controls (search box, date-range text input) debounce internally
+        via the existing shared `useDebounce` hook** (`packages/ui/src/hooks/useDebounce.ts`,
+        already used by `SearchBar.tsx`) before committing. The debounce delay is the only
+        permitted "not instant" gap between user input and a filter taking effect — there is
+        never a second required user action to commit a continuous control's value.
+    4.  **Any list/pagination consumer of a filter's committed value must own its pagination/
+        cursor state via `useListPaginationController`** (Story 0.i5a) rather than hand-rolling a
+        `useState` cursor that must be remembered to reset on filter change. This is what
+        structurally prevents BUG-019's failure mode from recurring at a new call site.
+        - **Enforced by:** `packages/ui/src/hooks/useListPaginationController.test.ts` (Story
+          0.i5a) proves the reset-on-filter-change contract in isolation; adoption at concrete
+          call sites (Discovery's `home-content.tsx`, moderator tools) and the CI-enforced
+          no-local-pagination-state ratchet land in Stories 0.i5b/0.i5c/0.i5d/0.i5z.
+
+---
 
 
 ## Related Documents

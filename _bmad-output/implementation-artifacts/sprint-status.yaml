@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-09-13T00:00:02Z
+# last_updated: 2026-09-15T00:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -274,7 +274,7 @@ development_status:
   0-i4d-remediate-find-003-verify-or-create-the-ux-rework-items-7-8-9-stories: backlog
   0-i4z-ratchet-the-check-runs-in-backlog-check-py-and-gates-its-exit-code: backlog
   epic-0-i5: in-progress
-  0-i5a-build-the-shared-pagination-filter-controller: ready-for-dev
+  0-i5a-build-the-shared-pagination-filter-controller: review
   0-i5b-adopt-the-controller-in-discovery-event-list-surfaces: backlog
   0-i5c-adopt-the-controller-in-the-moderator-tools-pages: backlog
   0-i5d-sweep-add-the-temporal-filter-to-the-filterhub: backlog
