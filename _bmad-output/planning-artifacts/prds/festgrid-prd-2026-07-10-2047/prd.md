@@ -1328,6 +1328,7 @@ interface AccountClaim {
 *   **Page Load Time (PLT):** Event discovery page should load in under 2 seconds on a standard 4G connection.
 *   **Time to Interactive (TTI):** Key interactive elements, like the search bar and filters, should be interactive within 1.5 seconds.
 *   **API Response Time:** 95% of API calls should complete in under 500ms.
+*   **`Query.events` (`getEvents`) is the highest-traffic endpoint in the system** (added 2026-09-15) — it is the single shared query backing Discovery, Feed, Favorites, and every calendar view, so its per-request cost is multiplied across the whole app rather than isolated to one screen. It **must** be held to a stricter budget than the general 500ms API target above, and any change to it or its field resolvers requires an explicit query-count/cost check (see `project-context.md`'s "Database & Performance" section for the current known N+1 hotspots to fix before this endpoint scales further).
 
 ### Scalability (MVP)
 *   The system should be able to handle 100 concurrent users with a response time degradation of no more than 15%.
