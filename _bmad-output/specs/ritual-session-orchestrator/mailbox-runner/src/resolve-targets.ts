@@ -40,10 +40,21 @@
  * checked against real sprint-status.yaml state rather than trusted from
  * the snapshot -- this project's own batches have repeatedly drifted from
  * parallel activity between checks.
+ *
+ * --context-file <path> optionally attaches per-(story, skill) extra prose to
+ * the saved state -- the auto-resolved-batch equivalent of a hand-authored
+ * batch-plan step's `context` field (see ritual-orchestrator SKILL.md). Shape:
+ *   { "3.6h": { "bmad-create-story": "...", "bmad-dev-story": "..." }, "3.6i": { "bmad-dev-story": "..." } }
+ * Keyed by dotted story key, then by skill name (a story dispatched under
+ * more than one skill across the batch -- e.g. create-story then dev-story --
+ * can carry different prose per skill). Passed through verbatim into
+ * --save-state's `context` field; resume-batch.ts carries it forward
+ * unchanged since it reads the same state file. Only meaningful together with
+ * --save-state -- silently ignored otherwise (nothing to attach it to).
  */
 
 import path from "node:path";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { loadSprintStatus, loadEpicsSections, findStatusEntry, listStoryKeysForEpic, dashKeyToDotted, type EpicStorySection } from "./bmad-artifacts.js";
 
 interface Args {
@@ -54,6 +65,7 @@ interface Args {
   implementationArtifacts: string;
   json: boolean;
   saveState?: string;
+  contextFile?: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -71,6 +83,7 @@ function parseArgs(argv: string[]): Args {
   const implementationArtifacts = get("--implementation-artifacts");
   const json = argv.includes("--json");
   const saveState = get("--save-state");
+  const contextFile = get("--context-file");
 
   if (!epicsFile || !implementationArtifacts) {
     throw new Error("Required: --epics-file <path> --implementation-artifacts <dir>, plus exactly one of --stories <a,b,c> | --epic <N> | --since-proposal <filename-or-path>");
@@ -79,7 +92,19 @@ function parseArgs(argv: string[]): Args {
   if (modesGiven !== 1) {
     throw new Error("Pass exactly one of --stories, --epic, --since-proposal.");
   }
-  return { stories, epic, sinceProposal, epicsFile, implementationArtifacts, json, saveState };
+  return { stories, epic, sinceProposal, epicsFile, implementationArtifacts, json, saveState, contextFile };
+}
+
+async function loadContextMap(contextFile: string | undefined, targets: string[]): Promise<Record<string, Record<string, string>> | undefined> {
+  if (!contextFile) return undefined;
+  const raw = JSON.parse(await readFile(contextFile, "utf-8")) as Record<string, Record<string, string>>;
+  const targetSet = new Set(targets);
+  for (const key of Object.keys(raw)) {
+    if (!targetSet.has(key)) {
+      console.error(`[resolve-targets] warning: --context-file has an entry for "${key}", which isn't in this batch's target set -- possible typo.`);
+    }
+  }
+  return raw;
 }
 
 function resolveInitialTargets(args: Args, devStatus: Record<string, string>, sections: Map<string, EpicStorySection>): string[] {
@@ -172,6 +197,7 @@ async function main() {
 
   checkOutOfSetDependencies(targets, sections, devStatus);
   const ordered = topoSort(targets, sections);
+  const context = await loadContextMap(args.contextFile, targets);
 
   if (args.saveState) {
     await writeFile(
@@ -184,6 +210,7 @@ async function main() {
           epicsFile: path.resolve(args.epicsFile),
           implementationArtifacts: path.resolve(args.implementationArtifacts),
           order: ordered,
+          ...(context ? { context } : {}),
         },
         null,
         2
@@ -191,6 +218,8 @@ async function main() {
       "utf-8"
     );
     console.error(`[resolve-targets] Batch state saved to ${args.saveState} -- pass it to resume-batch.ts if this run gets paused.`);
+  } else if (args.contextFile) {
+    console.error(`[resolve-targets] warning: --context-file given without --save-state -- context has nothing to attach to and will be dropped.`);
   }
 
   if (args.json) {

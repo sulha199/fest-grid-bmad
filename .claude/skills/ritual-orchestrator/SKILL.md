@@ -33,17 +33,39 @@ npx tsx src/resolve-targets.ts <scope-flags> \
 ```
 This topologically sorts by `epics.md`'s `**Depends on:**` lines and refuses on a cycle or an unmet (`backlog`-status) out-of-set dependency. Read its stdout for the resolved, ordered list before proceeding — do not assume the input order is the dispatch order.
 
+**Per-(story, skill) extra prose, auto-resolved batches**: if the user wants extra context/prose for specific (story, skill) combinations (same mechanism as a hand-authored batch-plan's `context` field — see Step 3), write it to a small JSON file first and pass `--context-file`:
+```json
+{ "3.6h": { "bmad-create-story": "...", "bmad-dev-story": "..." }, "3.6i": { "bmad-dev-story": "..." } }
+```
+```bash
+npx tsx src/resolve-targets.ts <scope-flags> --epics-file <path> --implementation-artifacts <path> \
+    --context-file <path/to/context.json> --save-state .batch-state.json
+```
+Only meaningful together with `--save-state` (it has nothing to attach to otherwise — the tool warns and drops it if `--save-state` is missing). Keyed by dotted story key, then by skill name, so the same story can carry different prose for `bmad-create-story` vs. `bmad-dev-story`. Persisted verbatim into the saved state file's `context` field.
+
 **Resuming a paused batch:** skip straight to:
 ```bash
 npx tsx src/resume-batch.ts --state .batch-state.json
 ```
-This re-checks each story's *real*, current `sprint-status.yaml` status (never trusts the saved snapshot — this repo's batches drift from parallel activity between checks) and prints only what's still `backlog`, in original order. Use that as the remaining target list.
+This re-checks each story's *real*, current `sprint-status.yaml` status (never trusts the saved snapshot — this repo's batches drift from parallel activity between checks) and prints only what's still `backlog`, in original order. Use that as the remaining target list. If the saved state has a `context` field, `resume-batch.ts` says so on stderr — read it directly from the `--state` file (it's carried through unchanged) when building `--prompt` in Step 3.
 
 ## Step 3: Dispatch each target, one at a time (sequential only — see README's Concurrency section for why)
 
 For each target story, in resolved order:
 
 1. **Pick the right entry point**: if the skill is `bmad-dev-story` or `bmad-quick-dev` (the "act" bucket), use `run-act-with-checks.ts` (it dispatches, then gates on lint+build+test, auto-dispatching a `bmad-quick-dev` fix on the first failing check). For every other skill (`bmad-create-story`, `bmad-epic-readiness-check`, `bmad-correct-course`, `bmad-architecture`, `bmad-prd`, `bmad-code-review`), use `dispatch-ritual.ts` directly.
+
+   **Per-(story, skill) extra prose**: two sources, same shape once resolved down to a `(story, skill) -> prose` lookup:
+   - **Hand-authored batch plan**: a step may carry an optional `context` string alongside `skill`/`story` — e.g. `{ "skill": "bmad-dev-story", "story": "3.7e", "context": "Cross-reference the 3.4p migration fix before touching parser_version_registry." }`. The same story can carry different `context` for different skills (its `bmad-create-story` step and its `bmad-dev-story` step are separate steps/objects, each with its own `context`).
+   - **Auto-resolved batch** (`resolve-targets.ts`/`resume-batch.ts`): if `--context-file` was passed at resolve time (Step 2), the saved state file's `context` field holds the same lookup, keyed `context[<story>][<skill>]`. Read it directly from the `--state`/`--save-state` JSON file — neither `resolve-targets.ts` nor `resume-batch.ts` prints it to stdout, it's meant to be read once per batch, not per dispatch.
+
+   When the target story/skill has a matching entry from either source, build `--prompt` explicitly instead of letting `--skill`/`--story` auto-compose it (both `dispatch-ritual.ts` and `run-ritual.ts` already support `--prompt` as a full override — see `run-ritual.ts`'s `parseArgs`):
+   ```
+   --prompt "/<skill> <story>
+
+   <context>"
+   ```
+   Omit `--prompt` entirely (fall back to the bare `/<skill> <story>` default) when there's no matching context.
 
    **cline-cli delegation is unreliable in this project, even under an all-Claude `--config`** (found 2026-09-07, Story 3.6k): a `bmad-dev-story` session picking up the repo's own `scripts/cline-worktree.ps1` convention will try to sub-delegate to cline-cli on its own initiative — that's a repo-level habit the inner agent follows, not something `--config`/`ritual-config.json` controls (those only pick the *outer* dispatch's runtime). This matches an already-tracked, still-open finding in `_bmad-output/implementation-artifacts/backlog.yaml` ("cline-cli hang saga"). If a dispatch comes back with an empty `[run-ritual] final result:` and no code changes, check for a `C:\wt\<story-slug>` worktree containing only a `.cline-story-prompt.md` (or a `cline-worktree.ps1` tool-approval request) before assuming it's an unrelated no-op — then resume the session (see 4a below) with an explicit instruction to bypass cline-cli and implement directly in the main repo instead.
 
@@ -52,10 +74,13 @@ For each target story, in resolved order:
    ```
    command: cd "_bmad-output/specs/ritual-session-orchestrator/mailbox-runner" && \
        npx tsx src/<run-act-with-checks.ts|dispatch-ritual.ts> --skill <skill> --story <id> \
-       --mailbox <mailbox-dir> --cwd <repo-root> [--config <preset>] 2>&1 | \
+       --mailbox <mailbox-dir> --cwd <repo-root> [--config <preset>] [--prompt "/<skill> <story>
+
+<context>"] 2>&1 | \
        grep -E --line-buffered "writing mailbox request|resolved|session ended|final result|\[run-act-with-checks\]|\[run-check|HALT|Error|ERROR|error TS[0-9]|Failed:|FAILED|Tasks:|exit code"
    description: "<story-id>/<skill> dispatch"
    ```
+   (include `--prompt` only when this (story, skill) has a matching `context` entry — hand-authored step or auto-resolved state file, per above)
 
    This one filter works for both Claude-side (`run-ritual.ts`) and Cline-side (`run-ritual-cline.ts`) children — both log `"... -> writing mailbox request <id>"` and `"request <id> resolved"` verbatim; `run-act-with-checks.ts` additionally surfaces its own lint/build/test verdict lines through the same inherited stdio chain. Monitor also always reports the exit code when the command ends, even if nothing matched the filter right at the end — a silent hang still surfaces as "still running" (no notification), so if a story goes far longer than its usual runtime with zero notifications, check on it rather than assuming it's fine.
 

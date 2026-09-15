@@ -18,7 +18,7 @@ Before dispatching anything, resolve these — ask the user in a single consolid
 - **Target scope**: one of `--stories a,b,c` | `--epic N` | `--since-proposal <file>` | a single `--story <id>`.
 - **Skill(s) to run** per target (usually one skill across the whole batch, e.g. `bmad-dev-story`; occasionally the user wants `bmad-create-story` first).
 - **Config preset** (optional) — a name from `mailbox-runner/config-presets/` (e.g. `all-claude-low`) or omit to use the active `ritual-config.json` default. Ask only if the user hasn't already said which cost tier they want.
-- **Repo root** (`--cwd`) — defaults to this project's root; only ask if the user is targeting a worktree (`.claude/worktrees/<name>`) instead.
+- **Repo root** (`--cwd`) — defaults to this project's root; only ask if the user is targeting a worktree (`.claude/worktrees/<name>`) instead. **This orchestrator session itself must stay in the main repo checkout — never call `EnterWorktree` on itself to "isolate" the batch.** Isolation for dispatched children is handled per-story via each script's own `--cwd`/worktree flags, not by relocating the orchestrator. Relocating this session has broken Remote Control resumability in practice (2026-09-13, job `fc1ef1c8`: the session called `EnterWorktree` mid-batch unprompted, VS Code never attached a terminal to it afterward, and the session became permanently unreachable from claude.ai).
 - **Fresh batch or resume** — if the user references a prior run or a `.batch-state.json`-style file exists that looks relevant, ask whether to resume it via `resume-batch.ts` instead of re-resolving from scratch.
 
 Pick a `--mailbox` dir once for the whole batch (default `../mailbox`, i.e. `_bmad-output/specs/ritual-session-orchestrator/mailbox`) and a state file path (default `.batch-state.json` inside `mailbox-runner/`) — reuse both for every step below.
@@ -33,11 +33,21 @@ npx tsx src/resolve-targets.ts <scope-flags> \
 ```
 This topologically sorts by `epics.md`'s `**Depends on:**` lines and refuses on a cycle or an unmet (`backlog`-status) out-of-set dependency. Read its stdout for the resolved, ordered list before proceeding — do not assume the input order is the dispatch order.
 
+**Per-(story, skill) extra prose, auto-resolved batches**: if the user wants extra context/prose for specific (story, skill) combinations (same mechanism as a hand-authored batch-plan's `context` field — see Step 3), write it to a small JSON file first and pass `--context-file`:
+```json
+{ "3.6h": { "bmad-create-story": "...", "bmad-dev-story": "..." }, "3.6i": { "bmad-dev-story": "..." } }
+```
+```bash
+npx tsx src/resolve-targets.ts <scope-flags> --epics-file <path> --implementation-artifacts <path> \
+    --context-file <path/to/context.json> --save-state .batch-state.json
+```
+Only meaningful together with `--save-state` (it has nothing to attach to otherwise — the tool warns and drops it if `--save-state` is missing). Keyed by dotted story key, then by skill name, so the same story can carry different prose for `bmad-create-story` vs. `bmad-dev-story`. Persisted verbatim into the saved state file's `context` field.
+
 **Resuming a paused batch:** skip straight to:
 ```bash
 npx tsx src/resume-batch.ts --state .batch-state.json
 ```
-This re-checks each story's *real*, current `sprint-status.yaml` status (never trusts the saved snapshot — this repo's batches drift from parallel activity between checks) and prints only what's still `backlog`, in original order. Use that as the remaining target list.
+This re-checks each story's *real*, current `sprint-status.yaml` status (never trusts the saved snapshot — this repo's batches drift from parallel activity between checks) and prints only what's still `backlog`, in original order. Use that as the remaining target list. If the saved state has a `context` field, `resume-batch.ts` says so on stderr — read it directly from the `--state` file (it's carried through unchanged) when building `--prompt` in Step 3.
 
 ## Step 3: Dispatch each target, one at a time (sequential only — see README's Concurrency section for why)
 
@@ -45,15 +55,32 @@ For each target story, in resolved order:
 
 1. **Pick the right entry point**: if the skill is `bmad-dev-story` or `bmad-quick-dev` (the "act" bucket), use `run-act-with-checks.ts` (it dispatches, then gates on lint+build+test, auto-dispatching a `bmad-quick-dev` fix on the first failing check). For every other skill (`bmad-create-story`, `bmad-epic-readiness-check`, `bmad-correct-course`, `bmad-architecture`, `bmad-prd`, `bmad-code-review`), use `dispatch-ritual.ts` directly.
 
+   **Per-(story, skill) extra prose**: two sources, same shape once resolved down to a `(story, skill) -> prose` lookup:
+   - **Hand-authored batch plan**: a step may carry an optional `context` string alongside `skill`/`story` — e.g. `{ "skill": "bmad-dev-story", "story": "3.7e", "context": "Cross-reference the 3.4p migration fix before touching parser_version_registry." }`. The same story can carry different `context` for different skills (its `bmad-create-story` step and its `bmad-dev-story` step are separate steps/objects, each with its own `context`).
+   - **Auto-resolved batch** (`resolve-targets.ts`/`resume-batch.ts`): if `--context-file` was passed at resolve time (Step 2), the saved state file's `context` field holds the same lookup, keyed `context[<story>][<skill>]`. Read it directly from the `--state`/`--save-state` JSON file — neither `resolve-targets.ts` nor `resume-batch.ts` prints it to stdout, it's meant to be read once per batch, not per dispatch.
+
+   When the target story/skill has a matching entry from either source, build `--prompt` explicitly instead of letting `--skill`/`--story` auto-compose it (both `dispatch-ritual.ts` and `run-ritual.ts` already support `--prompt` as a full override — see `run-ritual.ts`'s `parseArgs`):
+   ```
+   --prompt "/<skill> <story>
+
+   <context>"
+   ```
+   Omit `--prompt` entirely (fall back to the bare `/<skill> <story>` default) when there's no matching context.
+
+   **cline-cli delegation is unreliable in this project, even under an all-Claude `--config`** (found 2026-09-07, Story 3.6k): a `bmad-dev-story` session picking up the repo's own `scripts/cline-worktree.ps1` convention will try to sub-delegate to cline-cli on its own initiative — that's a repo-level habit the inner agent follows, not something `--config`/`ritual-config.json` controls (those only pick the *outer* dispatch's runtime). This matches an already-tracked, still-open finding in `_bmad-output/implementation-artifacts/backlog.yaml` ("cline-cli hang saga"). If a dispatch comes back with an empty `[run-ritual] final result:` and no code changes, check for a `C:\wt\<story-slug>` worktree containing only a `.cline-story-prompt.md` (or a `cline-worktree.ps1` tool-approval request) before assuming it's an unrelated no-op — then resume the session (see 4a below) with an explicit instruction to bypass cline-cli and implement directly in the main repo instead.
+
 2. **Launch it under `Monitor`, not a bare foreground call and not raw `run_in_background`** — a batch story can run for many minutes and needs to both (a) not block this session so a HIL question can be relayed the moment it's raised, and (b) not dump its full raw log into the conversation. Use `persistent: true` (duration is unpredictable) and filter to the signal lines, not the firehose:
 
    ```
    command: cd "_bmad-output/specs/ritual-session-orchestrator/mailbox-runner" && \
        npx tsx src/<run-act-with-checks.ts|dispatch-ritual.ts> --skill <skill> --story <id> \
-       --mailbox <mailbox-dir> --cwd <repo-root> [--config <preset>] 2>&1 | \
+       --mailbox <mailbox-dir> --cwd <repo-root> [--config <preset>] [--prompt "/<skill> <story>
+
+<context>"] 2>&1 | \
        grep -E --line-buffered "writing mailbox request|resolved|session ended|final result|\[run-act-with-checks\]|\[run-check|HALT|Error|ERROR|error TS[0-9]|Failed:|FAILED|Tasks:|exit code"
    description: "<story-id>/<skill> dispatch"
    ```
+   (include `--prompt` only when this (story, skill) has a matching `context` entry — hand-authored step or auto-resolved state file, per above)
 
    This one filter works for both Claude-side (`run-ritual.ts`) and Cline-side (`run-ritual-cline.ts`) children — both log `"... -> writing mailbox request <id>"` and `"request <id> resolved"` verbatim; `run-act-with-checks.ts` additionally surfaces its own lint/build/test verdict lines through the same inherited stdio chain. Monitor also always reports the exit code when the command ends, even if nothing matched the filter right at the end — a silent hang still surfaces as "still running" (no notification), so if a story goes far longer than its usual runtime with zero notifications, check on it rather than assuming it's fine.
 
@@ -66,6 +93,10 @@ For each target story, in resolved order:
    - Keep watching; the same Monitor call continues after you write the answer, no need to restart it.
 
 4. **On watch end**, read the exit code and the last matched summary line(s) (already in this conversation from the notifications — don't re-fetch the raw log unless something's unclear). A non-zero exit that wasn't already handled by `run-act-with-checks.ts`'s own auto-quick-dev-dispatch means STOP the batch and surface it to the user rather than continuing to the next story — same principle as the underlying scripts' own "does not loop" design.
+
+4a. **A dispatch can complete with exit 0 yet do nothing** — seen twice in practice (2026-09-07, Stories 3.4p/3.4q under `all-claude-low`): `run-ritual.ts`'s own `[run-ritual] final result:` line came back empty, no commit landed, and the story file's Dev Agent Record was untouched. Don't trust exit code or the checks alone — before treating any dev-story dispatch as real work, confirm at least one of: a new commit (`git log`), the story file's Completion Status/Dev Agent Record actually filled in (not template placeholders), or a real `git diff`/`git status` change. If it's an empty no-op, resume the exact same session and re-prompt it (`run-ritual.ts --resume-label "<story>/<skill>" --prompt "..."`, going around `dispatch-ritual.ts`) rather than starting a fresh dispatch from scratch — this has reliably produced the real implementation both times it was tried. If a dispatch instead HALTs on its own approval gate despite an answer already being written to `<mailbox-dir>/answers/`, don't assume the relay silently worked from `request <id> resolved` alone — if the child's own final text says it never got the approval, the answer's key format likely didn't match what it expected; resume the session again with the approval stated explicitly and unambiguously in the prompt text itself, not just in the mailbox answer file.
+
+4b. **After any out-of-band resume** (`run-ritual.ts --resume`/`--resume-label` invoked directly, as in 4a) — `run-act-with-checks.ts`'s automatic lint→build→test gate did NOT run, since that resume bypassed `dispatch-ritual.ts` entirely. Re-verify manually using `run-check.ts --kind lint|build|test` for each check — never a bare `pnpm lint`/`pnpm build`/`pnpm test`. This isn't just style: `run-check.ts` gives heartbeat/timeout safety, saves the full raw log to the mailbox dir, and (for test) parses output through `test-output-summary.ts` into a real pass/fail breakdown instead of an ad-hoc grep on ambiguous summary lines.
 
 5. **Verify before advancing**:
    ```bash

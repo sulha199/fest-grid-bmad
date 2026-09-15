@@ -40,6 +40,13 @@ interface BatchState {
   epicsFile: string;
   implementationArtifacts: string;
   order: string[];
+  // Optional per-(story, skill) extra prose from resolve-targets.ts's
+  // --context-file, e.g. { "3.6h": { "bmad-dev-story": "..." } }. Carried
+  // through unchanged -- this script only reports pending vs. done, it
+  // doesn't consume context itself. The dispatching session reads it
+  // straight from this same state file (args.state) when building each
+  // dispatch's --prompt, same as a hand-authored batch-plan step's context.
+  context?: Record<string, Record<string, string>>;
 }
 
 interface Args {
@@ -70,6 +77,9 @@ async function main() {
   console.error(
     `[resume-batch] Batch saved ${batchState.createdAt} (mode=${batchState.mode}), ${batchState.order.length} stories originally targeted.`
   );
+  if (batchState.context) {
+    console.error(`[resume-batch] Batch state has per-(story, skill) context for ${Object.keys(batchState.context).length} stories -- read it from --state "${args.state}" (its "context" field) when dispatching, same as a hand-authored batch-plan step's context.`);
+  }
 
   const stillPending: string[] = [];
   for (const key of batchState.order) {
