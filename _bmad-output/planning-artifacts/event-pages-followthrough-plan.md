@@ -33,8 +33,9 @@ IDEA-032 bundles two surfaces that belong to different epics:
 **Action:** split IDEA-032 into `parent: IDEA-032` + a new child id for the moderator-card half,
 per backlog-spec.md §6. Re-run `backlog-check.py` after.
 
-- [ ] IDEA-032 carved — child id assigned: `______`
-- [ ] Checker clean after carve
+- [x] IDEA-032 carved — child id assigned: `IDEA-034` (moderator-card half; IDEA-032 kept as
+      the reusable-account-element half, effort re-scored m→s on both sides of the split)
+- [x] Checker clean after carve (119 rows, `idea` count 33→34)
 
 ## Phase 1 — Pre-`correct-course` sharpening (resolve before drafting proposals)
 
@@ -88,7 +89,7 @@ Depends on: Phase 0's carve only (no architecture/UX gap).
 - [ ] FIND-030
 - [ ] IDEA-029
 - [ ] IDEA-032 (post-carve, Epic 1/3 half)
-- [ ] IDEA-032's carved-out child (Epic 4 half — separate follow-up, not tracked further here)
+- [ ] IDEA-034 (carved-out Epic 4 half — separate follow-up, not tracked further in this plan)
 - [ ] IDEA-033
 
 ## Explicitly out of scope for this plan (tracked elsewhere / no epic action needed)

@@ -1064,11 +1064,20 @@ items:
 
   IDEA-032:
     {type: idea, status: triaged, created: 2026-09-15,
-     impact: user-visible, effort: m,
-     title: "Platform account location info (moderator card + reusable account element)",
+     impact: user-visible, effort: s,
+     title: "Reusable account element: replace raw accountId with a location link when confidence is good",
+     ref: [backlog/IDEA-032-platform-account.md],
+     touches: [web:accounts, web:locations, pkg:ui],
+     note: "Reported by user via bmad-help (2026-09-15). The reusable account element currently shows accountId beneath the link to the account page — replace accountId with <link-to-map>[Location name]<link-to-map> when the location is confirmed/good-confidence (IDEA-029 semantics), falling back to accountId otherwise.
+     CARVED 2026-09-15 (§6, event-pages follow-through plan Phase 0): this row's original capture bundled a second, unrelated surface — the Moderator Tools accounts-tab card's location edit/clear icons (Epic 4, Data Quality and Moderation) — which shares no mechanism with this row's reusable-element change (Epic 1/3, event pages). Split out as IDEA-034 so this row stays a clean member of the IDEA-029 location-link mechanism cluster (see planning-artifacts/event-pages-followthrough-plan.md)."}
+
+  IDEA-034:
+    {type: idea, status: triaged, created: 2026-09-15, parent: IDEA-032,
+     impact: user-visible, effort: s,
+     title: "Moderator Tools accounts-tab card: add location info + edit/clear-location icons",
      ref: [backlog/IDEA-032-platform-account.md],
      touches: [web:moderation, web:accounts, web:locations, pkg:ui],
-     note: "Reported by user via bmad-help (2026-09-15). Two surfaces: (1) Moderator Tools accounts tab (moderator/tools?tab=accounts) account card gains location info plus an edit-location icon (opens a select-location popup) and a clear-location icon (opens a confirmation to set the account location to empty); (2) the reusable account element currently shows accountId beneath the link to the account page — replace accountId with <link-to-map>[Location name]<link-to-map> when the location is confirmed/good-confidence (IDEA-029 semantics), falling back to accountId otherwise."}
+     note: "Carved 2026-09-15 from IDEA-032 (§6) — that row's original capture bundled two unrelated surfaces. Moderator Tools accounts tab (moderator/tools?tab=accounts) account card gains location info plus an edit-location icon (opens a select-location popup) and a clear-location icon (opens a confirmation to set the account location to empty). Epic 4 (Data Quality and Moderation) surface, distinct from IDEA-032's now-narrowed Epic 1/3 reusable-account-element scope — not part of the IDEA-029 location-link mechanism cluster."}
 
   IDEA-033:
     {type: idea, status: triaged, created: 2026-09-15,

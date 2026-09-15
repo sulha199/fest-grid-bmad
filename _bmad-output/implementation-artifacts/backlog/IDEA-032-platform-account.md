@@ -4,6 +4,10 @@ title: "Platform account location info (moderator card + reusable account elemen
 captured: 2026-09-15
 ---
 
+**Carved 2026-09-15:** this capture bundled two unrelated surfaces. Surface 1 below
+(Moderator Tools accounts-tab card) is now tracked as **IDEA-034**. Surface 2 (reusable
+account element) stays on **IDEA-032**, this file's owning row. Both rows cite this file.
+
 # IDEA-032 — Platform account location info
 
 ## Capture
