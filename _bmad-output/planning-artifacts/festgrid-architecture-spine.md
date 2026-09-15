@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-08-24T00:00:00Z"
+updated: "2026-09-15T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -442,6 +442,106 @@ This document defines the core architectural invariants for the FestDaily applic
         min-w-11` (≥44px) tap target per `components.nav.item_hit_area`'s convention and
         EXPERIENCE.md's reachable-control rule.
         - **Enforced by:** the same test file's AC4 suite (single-focusable + min hit area).
+
+---
+
+### AD-16: Platform-Prefixed Event Slugs & Parallel oEmbed Resolution
+
+*   **Binds:** `events.slug` generation (today `packages/database/schema.ts`'s `generateSlug`
+    `$defaultFn`, `randomBytes(6).toString('hex')`), the `events`→`posts` ingestion insert path
+    (`packages/domain/src/events/build-event-insert-values.ts`,
+    `apps/backend/src/lib/ingestor/process-ingestion-job.ts`), the `eventBySlug` resolver and its
+    `Event.instagramEmbed` field resolver (`apps/backend/src/schema/resolvers.ts`), the Instagram
+    oEmbed adapter (`apps/backend/src/lib/instagram-oembed/adapter.ts`), and the event-detail route
+    components (`apps/web/src/app/[locale]/events/[slug]/page.tsx` and the intercepted
+    `@modal/(.)events/[slug]/page.tsx`). Corrects a drift in the PRD's §8.2/§4.1 slug description,
+    which claims Nano ID generation — the shipped mechanism has always been
+    `randomBytes(6).toString('hex')`; this AD fixes that description as well as extending the scheme.
+*   **Prevents:** A second, independently-maintained platform-code mapping — the slug's platform
+    segment **must** reuse `packages/domain/src/scraper/platform-registry.ts`'s `getPlatformSlug()`/
+    `getPlatformByCode()` (already the single source of truth for `instagram↔ig`, `twitter↔x`,
+    consumed today by `apps/web/src/app/[locale]/[platformSlug]/[accountId]/page.tsx`), never a
+    locally re-declared platform string. Also prevents: assuming Instagram's `/p/` and `/reel/`
+    permalink paths are interchangeable for Meta's oEmbed endpoint (unconfirmed by Meta's own docs —
+    see Rule 2); moving the Instagram oEmbed call, its cache, or its credentials out of
+    `apps/backend` into `apps/web` (would duplicate `instagramOembedCache` and split credential
+    ownership); and gating the event-detail page's primary content render on the oEmbed HTTP round
+    trip.
+*   **Rule:**
+    1.  **Slug shape:** `{platformSlug}_{postType}_{platformPostId}` (e.g. `ig_p_Cx9uWttkSN`,
+        `ig_reel_Cx9uWttkSN`), built from `getPlatformSlug()`'s existing output — never a new
+        mapping. Parsing splits on the first two `_` occurrences only (`platformSlug` and `postType`
+        are both fixed, known vocabularies that never themselves contain `_`); everything after the
+        second `_` is the opaque `platformPostId`, which may itself safely contain `_`/`-` since it
+        is never split further.
+    2.  **Capture the real permalink type, never assume one — parsed at post-scrape time, not
+        event-creation time.** `posts` gains two new nullable columns, `platformPostId: text` and
+        `platformPostType: text` (e.g. `'p' | 'reel'`), parsed once inside
+        `persistScrapedPost()` (`apps/backend/src/lib/posts/persist-scraped-post.ts`) — the same
+        function that already calls `parseImageUrlExpiry()` (`@festgrid/domain/scraper`) for AD-12's
+        `imageUrlExpiresAt`. A new sibling parser in that same `@festgrid/domain/scraper` module
+        derives `platformPostId`/`platformPostType` from `postUrl`/`originalPostUrl` at that call
+        site, alongside the existing expiry parse — never re-parsed later, and never deferred to
+        event-creation time (`buildEventInsertValues()`, rule 3), which runs on a `posts` row that
+        already exists and must only read these columns, not parse them. **Verified 2026-09-15:**
+        Meta's oEmbed docs (developers.facebook.com/docs/instagram-platform/oembed/) confirm the
+        endpoint supports photo/video/Reel/Feed posts but only show a `/p/` example; independent
+        tooling (microlink.io's embed generator, community shortcode-parsing regexes) treats `/p/`,
+        `/reel/`, and `/reels/` as distinct, non-interchangeable path prefixes. Given that ambiguity,
+        the real scraped path type is captured and replayed verbatim, never assumed.
+    3.  **Slug construction moves out of the DB-level default.** Drizzle's `$defaultFn` has no join
+        access to the referenced `posts` row, so it cannot see `platform`/`platformPostId`/
+        `platformPostType`. Slug generation moves into `buildEventInsertValues()`
+        (`packages/domain/src/events/build-event-insert-values.ts`), which already runs after the
+        source post is known and simply reads that post's already-populated `platformPostId`/
+        `platformPostType` (rule 2) to construct the slug — it performs no parsing of its own.
+    4.  **Fallback is the unchanged legacy generator, not new code.** Any event with no resolvable
+        `platformPostId`/`platformPostType` at insert time (no current ingestion path produces this,
+        but `events.postId`'s nullable `onDelete: 'set null'` FK and the PRD §8.2 future custom-slug
+        feature both mean it's not hypothetical) keeps `randomBytes(6).toString('hex')` unchanged.
+        The two formats are unambiguous by shape alone (`^[0-9a-f]{12}$`, no delimiter, vs. the new
+        underscore-delimited form) — no format-tagging column or migration flag needed.
+    5.  **Fix-going-forward only — no backfill.** Existing events keep their current hex slugs
+        permanently, consistent with AD-12 rule 5's precedent; regenerating would break every
+        already-shared/bookmarked/indexed event URL.
+    6.  **oEmbed resolution stays entirely backend-owned, but becomes DB-free.** A new resolver/query
+        in `apps/backend` reconstructs the Instagram permalink directly from the slug's
+        `platformPostId`/`platformPostType` (no join to `posts` required), then calls the existing
+        `resolveInstagramOEmbed()` adapter and `instagramOembedCache` unchanged. `apps/web` never
+        calls Meta directly and never owns oEmbed credentials or caching.
+    7.  **Primary content is never gated on the oEmbed call.** **Verified 2026-09-15:** this route
+        does not server-fetch its content at all — `page.tsx`'s only server-side
+        `graphqlClient.request()` call lives inside `generateMetadata()` (for the tab title/
+        description) and its result is discarded, never passed to the page body. The actual content
+        is fetched entirely client-side by `EventDetailWrapper.tsx` ("use client") via
+        `useGetEventBySlugQuery(graphqlClient, { slug })`, a React Query hook — matching AD-4's
+        Server State convention. Given that, splitting the gate means: strip `instagramEmbed` out of
+        `getEventBySlug.graphql`, and add a second, independent React Query hook (generated the same
+        way as `useGetEventBySlugQuery`) calling the new DB-free oEmbed query (rule 6), both invoked
+        in `EventDetailWrapper.tsx` on mount. React Query dispatches independent hooks' network
+        requests in parallel automatically — no explicit `Promise.all`/`race` orchestration needed.
+        Primary event-detail content renders off `useGetEventBySlugQuery`'s own `isPending`/`data`,
+        never waiting on Instagram; `InstagramEmbed.tsx` (Story 3-7d's dedicated component with its
+        own loading state machine) renders off the new hook's own independent `isPending`/`data`/
+        `error` state for its skeleton. The outer `<Suspense fallback={<RouteLoader />}>` in
+        `page.tsx`/the modal route is unrelated to this — it covers the route-shell boundary only
+        (project-context.md's Route-Level Suspense Fallback rule), not in-page data fetching, and is
+        unchanged by this AD.
+*   **Considered and rejected:** A 2-part slug (`{platformSlug}_{platformPostId}`) that always
+    reconstructs the URL as `instagram.com/p/{id}`, on the assumption that `/p/` resolves reels too.
+    Rejected — unverified against Meta's own documentation, and wrong would silently break the
+    entire optimization for every reel-sourced event with no visible failure signal until a user
+    actually opened one. A single `Promise.all` gating the whole page on both fetches together.
+    Rejected — still blocks the faster result on the slower one, only reducing total wait from
+    `sum` to `max`, not removing the gate. A literal `Promise.race`. Rejected — discards whichever
+    fetch loses, but both results are needed, not just the faster one. React 19 `use()` +
+    Suspense-boundary streaming of unawaited promises passed down from a Server Component. Rejected
+    on verification — this route's real content isn't server-fetched at all (rule 7), so there is no
+    Server Component data-fetch to split this way; adopting it here would introduce an SSR-streaming
+    pattern used nowhere else in the app instead of reusing the existing React Query convention
+    (AD-4). A direct-from-browser call to Meta's oEmbed endpoint, bypassing `apps/backend` entirely.
+    Rejected — duplicates the existing cache and credential ownership, and Meta's Graph API endpoint
+    isn't confirmed to accept unauthenticated browser CORS requests.
 
 ---
 
