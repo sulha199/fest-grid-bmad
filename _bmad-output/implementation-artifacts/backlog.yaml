@@ -483,12 +483,22 @@ items:
      note: "DW-008, DW-031. Missing vi.useFakeTimers()/setSystemTime; the known recurring trap. Absorbs BUG-006, which recorded the same defect as a product day-diff bug — disproved against format-event-date.ts:66-71, see that row. FIXED 2026-09-14 (bmad-quick-dev, commit 71e690b): pinned the wall clock in the packages/ui date-relative tests that relied on the real clock, matching the repo convention (vi.useFakeTimers()+vi.setSystemTime, 2026-08-12T12:00:00Z reference). EventCard.test.tsx: added beforeAll/afterAll fake-timer pinning to the 'Relative-day date display' block (Today/Tomorrow/weekday/absolute fallback + Masonry badge display) and the 'TILL badge (masonry, AC14)' block (which derives yesterday/today/tomorrow from the wall clock). WeeklyCalendarView.test.tsx: pinned the clock inline in 'opens the week picker and calls onSelectWeek with the picked date' (restored via useRealTimers in a finally) so the date-picker opens on August 2026 and day '10' resolves to the fixture's 2026-08-10 instead of drifting to the current month. Verified via targeted vitest: EventCard/WeeklyCalendarView/EventCardMediaPrimitives/EventListView (124 tests) and full src/features/events + useWeeklyCalendarController run (14 files, 263 tests) all pass. Product formatter untouched — confirmed this is a test-harness gap only (epic-formation verdict)."}
 
   FIND-010:
-    {type: finding, status: triaged, created: 2026-09-05,
+    {type: finding, status: promoted, created: 2026-09-05,
      impact: latent, effort: m,
      title: "ux-rework2 collapsible/sticky UI batches shipped without full focus or cleanup polish",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     stories: [0-i6f-platform-icon-fallback-and-functional-subscribe-unsubscribe-toggle],
      touches: [pkg:ui, web:events, web:subscriptions],
-     note: "DW-009, DW-016, DW-017, DW-018, DW-019, DW-020, DW-027. A loading-state flash, unmanaged focus on expand/collapse, an unpruned dayOverrides map, a loose test assertion, and an unresolved desktop/mobile calendar-layout unification question."}
+     note: "DW-009, DW-016, DW-017, DW-018, DW-019, DW-020, DW-027. A loading-state flash, unmanaged focus on expand/collapse, an unpruned dayOverrides map, a loose test assertion, and an unresolved desktop/mobile calendar-layout unification question.
+     PROMOTED 2026-09-16 (bmad-create-story, Story 0.i6f): only the DW-009 slice (subscribe-status loading flash) is covered — bundled with IDEA-031's toggle redesign since both touch the same subscribe-state rendering. Remaining DW-016/017/018/019/020/027 carved to child row FIND-033."}
+
+  FIND-033:
+    {type: finding, status: triaged, created: 2026-09-16, parent: FIND-010,
+     impact: latent, effort: m,
+     title: "ux-rework2 remaining polish: unmanaged expand/collapse focus, unpruned dayOverrides map, loose test assertion, calendar-layout question",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [pkg:ui, web:events],
+     note: "DW-016, DW-017, DW-018, DW-019, DW-020, DW-027 — carved from FIND-010 (bmad-create-story, Story 0.i6f) when only its DW-009 slice was promoted; this row keeps the remaining six DW items open rather than letting them vanish with the parent."}
 
   FIND-011:
     {type: finding, status: done, created: 2026-09-05,
@@ -1063,12 +1073,14 @@ items:
      note: "Reported by user via bmad-help (2026-09-15). Batched event-detail-page UI changes (full list in note file): (1) responsive layout — desktop keeps event-main-content on the right as today, mobile shows it at the top; (2) published-date inline with the view-original link in event-main-content using the existing short-date format (e.g. `Sep 7 · <Link><Platform-Icon> View Original ↗</Link>`), i18n'd; (3) hashtags at the bottom of event-main-content above the view-original link, each clicking to Discovery with the hashtag as an extra search-text param (needs BUG-032's data); (4) event-category/event-type badges clickable → Discovery with the related type/category; (5) favorite icon moved inlined to the right of the event title; (6) event title font smaller via `text-2xl`; (7) remove the top-of-page add-to-calendar icon. May fan into multiple stories."}
 
   IDEA-031:
-    {type: idea, status: triaged, created: 2026-09-15,
+    {type: idea, status: promoted, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Event detail platform account element (fallback icon, subscribe toggle)",
      ref: [backlog/IDEA-031-event-detail-platform-account-element.md],
+     stories: [0-i6f-platform-icon-fallback-and-functional-subscribe-unsubscribe-toggle],
      touches: [web:events, web:accounts, pkg:ui],
-     note: "Reported by user via bmad-help (2026-09-15). Event-detail platform account element: (1) when the account has no profile image, fall back to the colored platform icon (reuse platform-registry.ts mapping); (2) replace the text 'subscribe' button with a subscribe/unsubscribe toggle — subscribe-action icon when not subscribed, subscribe-checked icon when subscribed, with a different icon color per state."}
+     note: "Reported by user via bmad-help (2026-09-15). Event-detail platform account element: (1) when the account has no profile image, fall back to the colored platform icon; (2) replace the text 'subscribe' button with a subscribe/unsubscribe toggle — different icon per state, different icon color per state.
+     PROMOTED 2026-09-16 (bmad-create-story, Story 0.i6f): fully covered, bundled with FIND-010's DW-009 slice per event-pages-remaining-backlog-plan.md, homed under Epic 0.i6 (user-confirmed via AskUserQuestion) rather than that plan's original 'no epic' framing — same class of internal-contract-change-joins-directly precedent as Stories 0.i6d/0.i6e. Toggle built fully functional (real unsubscribe), not visual-only, per user's second AskUserQuestion confirmation. Corrected the note's platform-registry.ts pointer: that file has no icon/color mapping (slug/display-name only); the real reusable icon logic was SubscriptionPicker.tsx's private PlatformIcon, extracted to packages/ui/src/core/platform-icon.tsx by this story instead."}
 
   IDEA-032:
     {type: idea, status: triaged, created: 2026-09-15,

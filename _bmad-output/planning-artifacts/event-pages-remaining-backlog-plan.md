@@ -36,7 +36,7 @@ one session:
   rest can proceed independently. May fan into multiple stories per its own note.
 
 - [ ] BUG-019 + IDEA-011 story/quick-dev
-- [ ] FIND-010(DW-009) + IDEA-031 story
+- [x] FIND-010(DW-009) + IDEA-031 story — Story 0.i6f (2026-09-16, homed under Epic 0.i6 rather than "no epic", see its own note)
 - [ ] BUG-005 quick-dev
 - [ ] BUG-007 quick-dev
 - [ ] BUG-008 + FIND-006 story
@@ -136,7 +136,7 @@ itself.
 - [ ] IDEA-025
 - [ ] IDEA-026
 - [ ] IDEA-030
-- [ ] IDEA-031
+- [x] IDEA-031 — Story 0.i6f (2026-09-16)
 
 ## Explicitly not in this doc
 

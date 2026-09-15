@@ -4168,6 +4168,24 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Story 1.6d (`LocationLink`), Story 0.i6a (the card's base contract).
 
+### Story 0.i6f: Platform-icon avatar fallback and a functional subscribe/unsubscribe icon toggle
+
+**As a** developer,
+**I want** `AccountAvatar`'s fallback to show the account's platform icon instead of a generic silhouette, and `SubscribedAccountCard`'s subscribe control to become a fully functional two-state icon toggle (subscribe when not subscribed, unsubscribe when subscribed) that never flashes the wrong state while the subscription-status query is loading,
+**So that** IDEA-031's two requested UI changes ship together with FIND-010's DW-009 loading-flash bug fixed as part of the same subscribe-state rendering work (IDEA-031, FIND-010/DW-009).
+
+**Acceptance Criteria:**
+
+*   **Given** an account with no `profileImageUrl` and a known `platform`, **when** `AccountAvatar` renders its fallback, **then** it shows the platform's icon (colored) instead of today's generic silhouette; **and** given no `platform` is supplied, it renders today's silhouette unchanged.
+*   **And** the icon-selection logic is extracted from its current private home in `SubscriptionPicker.tsx` into one shared `packages/ui/src/core/platform-icon.tsx`, consumed by both callers — no duplicated logic.
+*   **And** `SubscribedAccountCard`'s subscribe control becomes a single icon toggle: activating it while not subscribed calls `onSubscribe` (unchanged), activating it while subscribed calls a new `onUnsubscribe` (previously impossible from this card).
+*   **And** while the subscription-status query is still loading for a logged-in user, the toggle shows a distinct neutral/pending state rather than flashing "not subscribed" (DW-009) — gated so an anonymous user (query deliberately disabled) is never stuck in that pending state.
+*   **And** `EventDetailWrapper.tsx` wires the unsubscribe direction to the already-existing `removeSubscription(id, action: SoftDeleteAction!)` mutation (AD-8-compliant, already used by the Settings page), capturing the real `Subscription.id` instead of discarding it.
+
+**Note:** Formed 2026-09-16 via `bmad-create-story` from `IDEA-031` + `FIND-010`'s `DW-009` slice, per `event-pages-remaining-backlog-plan.md`'s "one story" call. Homed under this epic rather than Epic 1/3, deviating from that plan's original "no epic" framing the same way `CC-021`/Story 0.i6e already deviated from `event-pages-followthrough-plan.md`'s framing — both are internal-contract changes to this card, the same class of change Story 0.i6d's own note set precedent for joining directly. Toggle scope (functional, not visual-only) and icon choice (`UserPlus`/`UserCheck`) confirmed with the user via `AskUserQuestion` during story creation. Full detail in `implementation-artifacts/0-i6f-platform-icon-fallback-and-functional-subscribe-unsubscribe-toggle.md`.
+
+**Depends on:** none (no code-level dependency on 0.i6a's narrowed remaining scope).
+
 ### Story 0.i6z: Ratchet — no display surface bypasses the card
 
 **As a** developer,
@@ -4182,9 +4200,9 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **And** a test asserts the card renders a defined fallback for degenerate input.
 *   **And** a test asserts the `size="lg"` variant scales its adjacent text.
 
-**Depends on:** Stories 0.i6a, 0.i6b, 0.i6c, 0.i6d, 0.i6e.
+**Depends on:** Stories 0.i6a, 0.i6b, 0.i6c, 0.i6d, 0.i6e, 0.i6f.
 
-**Note:** Formed 2026-09-08 via `bmad-form-epics` from FIND-011 (fractional, see Story 0.i6a), BUG-005, FIND-012. Internal only for all three — UI consistency, no PRD/spine interface change.
+**Note:** Formed 2026-09-08 via `bmad-form-epics` from FIND-011 (fractional, see Story 0.i6a), BUG-005, FIND-012. Internal only for all three — UI consistency, no PRD/spine interface change. Story 0.i6f added to this Depends-on list 2026-09-16 upon joining the epic (see its own Note).
 
 ---
 
