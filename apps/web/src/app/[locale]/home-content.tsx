@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query"
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader } from "@festgrid/ui"
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader, useListPaginationController, usePrefersReducedMotion } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
@@ -153,6 +153,17 @@ export function HomeContent() {
 
   const resolvedNearby = nearbyFilter.resolvedFilter;
 
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const pagination = useListPaginationController({
+    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter },
+    initialCursor: 0,
+    onReset: () => {
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+      }
+    },
+  });
+
   const {
     data,
     fetchNextPage,
@@ -161,7 +172,7 @@ export function HomeContent() {
     status,
     error
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ['events', { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }],
+    queryKey: ['events', { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
       const condition = aiFilter.activeFilter
         ? buildEventsQueryCondition({ filter: aiFilter.activeFilter })

@@ -363,7 +363,10 @@ test('search integration: submits DSL payload and renders search empty state', a
     });
   });
 
-  // Mock an empty result for the search
+  // Mock an empty result for the search. `once: true` (Story 0.i5b): now that a filter change
+  // always splices a fresh `resetToken` into `queryKey` (AD-18, closes BUG-019 structurally),
+  // clearing the search below issues a genuine new network request rather than reusing the
+  // initial mount's cached q="" response -- so this override must not also swallow that request.
   mswServer.use(
     graphql.query('getEvents', () => {
       return HttpResponse.json({
@@ -371,7 +374,7 @@ test('search integration: submits DSL payload and renders search empty state', a
           events: { hasMore: false, totalCount: 0, items: [] }
         }
       });
-    })
+    }, { once: true })
   );
 
   // Type something else to trigger new fetch with empty results

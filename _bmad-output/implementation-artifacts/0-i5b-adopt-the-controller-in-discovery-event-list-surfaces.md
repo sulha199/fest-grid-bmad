@@ -8,7 +8,7 @@ baseline_commit: c55b5e4
 
 - Epic: 0.i5 (Shared list-pagination and filter-state controller)
 - Story ID: 0.i5b
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -29,9 +29,9 @@ so that BUG-018 (scroll position) and BUG-019 (filter-change reset) are both clo
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Wire `useListPaginationController` into `home-content.tsx` (AC: 1, 2, 3)**
-  - [ ] Import `useListPaginationController` and `usePrefersReducedMotion` from `@festgrid/ui` in `apps/web/src/app/[locale]/home-content.tsx`.
-  - [ ] After `resolvedNearby` is computed (existing line ~154) and before the `useInfiniteQuery` call, add:
+- [x] **Task 1 — Wire `useListPaginationController` into `home-content.tsx` (AC: 1, 2, 3)**
+  - [x] Import `useListPaginationController` and `usePrefersReducedMotion` from `@festgrid/ui` in `apps/web/src/app/[locale]/home-content.tsx`.
+  - [x] After `resolvedNearby` is computed (existing line ~154) and before the `useInfiniteQuery` call, add:
     ```ts
     const prefersReducedMotion = usePrefersReducedMotion();
     const pagination = useListPaginationController({
@@ -44,29 +44,29 @@ so that BUG-018 (scroll position) and BUG-019 (filter-change reset) are both clo
       },
     });
     ```
-  - [ ] Update `useInfiniteQuery`'s `queryKey` to `['events', { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }, pagination.resetToken]` — append `resetToken` as a new final element; do not remove the existing filter object.
-  - [ ] Do **not** touch `initialPageParam`, `getNextPageParam`, `fetchNextPage`, `hasNextPage`, `isFetchingNextPage`, or the `useInfiniteScroll` call — these stay exactly as they are today (Story 0.i5a's Dev Notes: the controller is a `resetToken`-into-`queryKey` integration for infinite-scroll consumers, not a replacement pagination engine).
-  - [ ] Do not call `goToNextPage`/`goToPrevPage`/read `pageIndex` anywhere in this file — out of scope for the infinite-scroll consumer pattern (see AC3).
+  - [x] Update `useInfiniteQuery`'s `queryKey` to `['events', { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }, pagination.resetToken]` — append `resetToken` as a new final element; do not remove the existing filter object.
+  - [x] Do **not** touch `initialPageParam`, `getNextPageParam`, `fetchNextPage`, `hasNextPage`, `isFetchingNextPage`, or the `useInfiniteScroll` call — these stay exactly as they are today (Story 0.i5a's Dev Notes: the controller is a `resetToken`-into-`queryKey` integration for infinite-scroll consumers, not a replacement pagination engine).
+  - [x] Do not call `goToNextPage`/`goToPrevPage`/read `pageIndex` anywhere in this file — out of scope for the infinite-scroll consumer pattern (see AC3).
 
-- [ ] **Task 2 — Verify the favorite-toggle mutation's cache-key handling still matches (AC: 2)**
-  - [ ] `useToggleFavoriteMutation`'s `onMutate`/`onError` handlers reference `queryClient.cancelQueries({ queryKey: ['events'] })` (prefix match) and `queryClient.setQueriesData({ queryKey: ['events'] }, ...)` (prefix match) — both already match on the `['events']` prefix only, so appending `resetToken` as a new trailing queryKey element does not break these; `getQueryData`/`setQueryData` calls that reference the *exact* old key (`['events', { q, types, categories }]`, missing `nearby`/`aiFilter`/`resetToken` even before this story — a pre-existing minor inconsistency, not introduced by this story) should be left as-is unless verification in Task 4 shows they now misbehave. Do not silently "fix" this pre-existing key mismatch as a byproduct of this story; if verification surfaces it as newly broken, note it in Dev Agent Record and treat any speculative unrelated fix as out of scope.
+- [x] **Task 2 — Verify the favorite-toggle mutation's cache-key handling still matches (AC: 2)**
+  - [x] `useToggleFavoriteMutation`'s `onMutate`/`onError` handlers reference `queryClient.cancelQueries({ queryKey: ['events'] })` (prefix match) and `queryClient.setQueriesData({ queryKey: ['events'] }, ...)` (prefix match) — both already match on the `['events']` prefix only, so appending `resetToken` as a new trailing queryKey element does not break these; `getQueryData`/`setQueryData` calls that reference the *exact* old key (`['events', { q, types, categories }]`, missing `nearby`/`aiFilter`/`resetToken` even before this story — a pre-existing minor inconsistency, not introduced by this story) should be left as-is unless verification in Task 4 shows they now misbehave. Do not silently "fix" this pre-existing key mismatch as a byproduct of this story; if verification surfaces it as newly broken, note it in Dev Agent Record and treat any speculative unrelated fix as out of scope.
 
-- [ ] **Task 3 — Add `home-content.test.tsx` (AC: 5)**
-  - [ ] New file `apps/web/src/app/[locale]/home-content.test.tsx`, mirroring `feed-content.test.tsx`'s structure: mock `nuqs` (shared in-memory store keyed by query param, matching the existing pattern exactly so `q`/`types`/`categories` changes propagate like real URL state), mock `@/lib/graphql-client`'s `graphqlClient.request` with a spy returning `{ events: { items, hasMore, totalCount } }`, mock `@festgrid/ui`'s `useInfiniteScroll` to expose a `window.triggerScroll()` test helper (re-export all other `@festgrid/ui` members via `importOriginal`), mock `@festgrid/analytics`'s `usePostHog`.
-  - [ ] Test: renders populated event list on initial mount; asserts the first `graphqlClient.request` call's `variables.offset === 0`.
-  - [ ] Test: calling `window.triggerScroll()` after the first page loads (with `hasMore: true` on the first mocked response) fetches page 2; asserts the second call's `variables.offset === 10`.
-  - [ ] Test: after the page-2 fetch, changing `q` (via the mocked `nuqs` store, simulating `handleSearchSubmit`) causes the next `graphqlClient.request` call's `variables.offset === 0` (not `20`) — the direct regression proof for BUG-019 on this surface.
-  - [ ] Test: the same filter change triggers `window.scrollTo` with `{ top: 0, behavior: expect.stringMatching(/auto|smooth/) }` — spy on `window.scrollTo` via `vi.spyOn(window, 'scrollTo').mockImplementation(() => {})`, matching the existing spy pattern already used in `EventDiscoveryPanel.test.tsx`/`useCollapseHeaderOnScroll.test.ts`.
-  - [ ] Test: on initial mount (no filter change yet), `window.scrollTo` is **not** called — the reset-triggered scroll must not fire on first render, only on an actual `filterKey` change (matches `useListPaginationController`'s own `onReset` contract from Story 0.i5a: fires once per actual change, not on mount).
+- [x] **Task 3 — Add `home-content.test.tsx` (AC: 5)**
+  - [x] New file `apps/web/src/app/[locale]/home-content.test.tsx`, mirroring `feed-content.test.tsx`'s structure: mock `nuqs` (shared in-memory store keyed by query param, matching the existing pattern exactly so `q`/`types`/`categories` changes propagate like real URL state), mock `@/lib/graphql-client`'s `graphqlClient.request` with a spy returning `{ events: { items, hasMore, totalCount } }`, mock `@festgrid/ui`'s `useInfiniteScroll` to expose a `window.triggerScroll()` test helper (re-export all other `@festgrid/ui` members via `importOriginal`), mock `@festgrid/analytics`'s `usePostHog`.
+  - [x] Test: renders populated event list on initial mount; asserts the first `graphqlClient.request` call's `variables.offset === 0`.
+  - [x] Test: calling `window.triggerScroll()` after the first page loads (with `hasMore: true` on the first mocked response) fetches page 2; asserts the second call's `variables.offset === 10`.
+  - [x] Test: after the page-2 fetch, changing `q` (via the mocked `nuqs` store, simulating `handleSearchSubmit`) causes the next `graphqlClient.request` call's `variables.offset === 0` (not `20`) — the direct regression proof for BUG-019 on this surface.
+  - [x] Test: the same filter change triggers `window.scrollTo` with `{ top: 0, behavior: expect.stringMatching(/auto|smooth/) }` — spy on `window.scrollTo` via `vi.spyOn(window, 'scrollTo').mockImplementation(() => {})`, matching the existing spy pattern already used in `EventDiscoveryPanel.test.tsx`/`useCollapseHeaderOnScroll.test.ts`.
+  - [x] Test: on initial mount (no filter change yet), `window.scrollTo` is **not** called — the reset-triggered scroll must not fire on first render, only on an actual `filterKey` change (matches `useListPaginationController`'s own `onReset` contract from Story 0.i5a: fires once per actual change, not on mount).
 
-- [ ] **Task 4 — Verification (AC: all)**
-  - [ ] `pnpm --filter web test -- home-content` — all new tests green.
-  - [ ] `pnpm --filter web test` — no regressions in sibling `apps/web` tests (especially `EventDiscoveryPanel.test.tsx`, any test importing `home-content`).
-  - [ ] `pnpm lint` / `pnpm build` (repo root) — clean.
-  - [ ] Manual confirmation: `git diff`/file list shows only `apps/web/src/app/[locale]/home-content.tsx` (modified), `apps/web/src/app/[locale]/home-content.test.tsx` (new), and this story's own files touched in `apps/web` — no `packages/ui`, `packages/domain`, `apps/backend`, or `packages/database` changes (the controller itself is untouched, already shipped by 0.i5a).
+- [x] **Task 4 — Verification (AC: all)**
+  - [x] `pnpm --filter web test -- home-content` — all new tests green.
+  - [x] `pnpm --filter web test` — no regressions in sibling `apps/web` tests (especially `EventDiscoveryPanel.test.tsx`, any test importing `home-content`).
+  - [x] `pnpm lint` / `pnpm build` (repo root) — clean.
+  - [x] Manual confirmation: `git diff`/file list shows only `apps/web/src/app/[locale]/home-content.tsx` (modified), `apps/web/src/app/[locale]/home-content.test.tsx` (new), and this story's own files touched in `apps/web` — no `packages/ui`, `packages/domain`, `apps/backend`, or `packages/database` changes (the controller itself is untouched, already shipped by 0.i5a).
 
-- [ ] **Task 5 — Backlog note (AC: 4)**
-  - [ ] Add `IDEA-035` to `_bmad-output/implementation-artifacts/backlog.yaml`: proposes the scroll-to-top-on-filter-reset behavior this story adds to Discovery as a candidate cross-surface `EXPERIENCE.md`/AD-18-adjacent convention for other `useListPaginationController` adopters (Feed/Favorites, if/when they adopt the controller; Stories 0.i5c/0.i5d's moderator-tools/temporal-filter surfaces use prev/next navigation, not infinite scroll, so may or may not need the same treatment). Status `triaged`, not `promoted` — no story committed to writing this into `EXPERIENCE.md` yet.
+- [x] **Task 5 — Backlog note (AC: 4)**
+  - [x] Add `IDEA-035` to `_bmad-output/implementation-artifacts/backlog.yaml`: proposes the scroll-to-top-on-filter-reset behavior this story adds to Discovery as a candidate cross-surface `EXPERIENCE.md`/AD-18-adjacent convention for other `useListPaginationController` adopters (Feed/Favorites, if/when they adopt the controller; Stories 0.i5c/0.i5d's moderator-tools/temporal-filter surfaces use prev/next navigation, not infinite scroll, so may or may not need the same treatment). Status `triaged`, not `promoted` — no story committed to writing this into `EXPERIENCE.md` yet.
 
 ## Dev Notes
 
@@ -171,12 +171,12 @@ Not applicable. This story introduces no new user-facing strings — no new rend
 
 ## Deliverables Checklist
 
-- [ ] `home-content.tsx` calls `useListPaginationController` with the documented `filterKey`/`initialCursor`/`onReset` shape; `resetToken` spliced into `queryKey`.
-- [ ] `useInfiniteQuery`'s own pagination-accumulation model (`initialPageParam`/`getNextPageParam`) left unmodified.
-- [ ] Filter change scrolls the window to top via `usePrefersReducedMotion`-gated `window.scrollTo`.
-- [ ] New `home-content.test.tsx` covers AC1–AC5's behaviors, all green.
-- [ ] `IDEA-035` added to `backlog.yaml`.
-- [ ] `pnpm lint` / `pnpm build` clean at repo root.
+- [x] `home-content.tsx` calls `useListPaginationController` with the documented `filterKey`/`initialCursor`/`onReset` shape; `resetToken` spliced into `queryKey`.
+- [x] `useInfiniteQuery`'s own pagination-accumulation model (`initialPageParam`/`getNextPageParam`) left unmodified.
+- [x] Filter change scrolls the window to top via `usePrefersReducedMotion`-gated `window.scrollTo`.
+- [x] New `home-content.test.tsx` covers AC1–AC5's behaviors, all green.
+- [x] `IDEA-035` added to `backlog.yaml`.
+- [x] `pnpm lint` / `pnpm build` clean at repo root.
 
 ## Out of Scope
 
@@ -191,33 +191,47 @@ Not applicable. This story introduces no new user-facing strings — no new rend
 
 ## Definition of Done
 
-- [ ] AC 1–6 satisfied.
-- [ ] Required tests passing (Task 3 + Testing Requirements).
-- [ ] Lint and type checks passing for `apps/web`.
-- [ ] Pre-Coding Approval Gate's scroll-to-top scope decision explicitly confirmed before this story is marked done.
+- [x] AC 1–6 satisfied.
+- [x] Required tests passing (Task 3 + Testing Requirements).
+- [x] Lint and type checks passing for `apps/web`.
+- [x] Pre-Coding Approval Gate's scroll-to-top scope decision explicitly confirmed before this story is marked done.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — all tasks/subtasks done, tests passing, lint/build clean
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled by dev-story._
+Claude (Sonnet 5), via `bmad-dev-story`.
 
 ### Debug Log References
 
-_To be filled by dev-story._
+- Prerequisite-status check: Story 0.i5a is `review` (not `done`) in sprint-status.yaml — code committed at `460f0df` (485/485 `packages/ui` tests passing, lint/build clean at that commit). Surfaced to the user via `AskUserQuestion` before starting; user approved proceeding, and set a standing rule to always accept a `review`-status prerequisite (committed + green, just awaiting `bmad-code-review`) as safe to build against going forward.
+- `pnpm --filter web test -- home-content` — 4/4 new tests green.
+- `pnpm --filter web test` (full suite) — first run: 1 failure in `page.test.tsx`'s `search integration: submits DSL payload and renders search empty state` test. Root cause: that pre-existing test (which itself renders `HomeContent` via MSW, not this story's own new test file) asserted that clearing the search box instantly reverted to the cached `q=''` result without a new network round trip. That assumption is exactly the fragile-cache-coincidence behavior AD-18/this story's `resetToken` mechanism is designed to eliminate — after this story, a `q` change to a value already seen before still increments `resetToken` and forces a fresh fetch (by design, matching AC2's "even a consumer that forgets to spread filterKey" guarantee). The test's `mswServer.use(...)` override for the empty-search response had no `{ once: true }`, so it kept intercepting the new, correctly-triggered fetch. Fixed by adding `{ once: true }` to that one handler (see File List) so the subsequent real request falls through to the suite's default handler, which correctly returns `Test Event 1`. Re-ran full suite after the fix: 368/368 passing, 60/60 files.
+- `pnpm lint` (repo root) — clean (pre-existing `no-explicit-any`/`no-unused-vars` warnings only, no errors, none in touched files).
+- `pnpm build` (repo root) — clean, all routes compiled.
+- `python3 scripts/backlog-check.py` — checks 1–14 clean; `IDEA-035` (added during story creation) confirmed present and well-formed.
 
 ### Completion Notes List
 
-_To be filled by dev-story._
+- Wired `useListPaginationController` into `home-content.tsx` per AC1–AC3: `filterKey` matches the exact existing filter snapshot, `initialCursor: 0`, `onReset` fires `window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' })` via `usePrefersReducedMotion`. `resetToken` appended as the new trailing `queryKey` element, existing filter object left in place. `useInfiniteQuery`'s own `initialPageParam`/`getNextPageParam`/`fetchNextPage`/`hasNextPage`/`isFetchingNextPage`/`useInfiniteScroll` call are all byte-for-byte unchanged, and no `goToNextPage`/`goToPrevPage`/`pageIndex` calls were added — matches AC3.
+- Task 2: confirmed `useToggleFavoriteMutation`'s `onMutate`/`onError` prefix-matched `queryClient.cancelQueries`/`setQueriesData` calls (keyed on `['events']` only) are unaffected by the new trailing `resetToken` element. The pre-existing exact-key mismatch in `getQueryData`/`setQueryData` (missing `nearby`/`aiFilter`, predating this story) was verified via the full test run to NOT be newly broken by this change — left as-is per Task 2's explicit instruction, not silently fixed.
+- Task 3: added `apps/web/src/app/[locale]/home-content.test.tsx` (new), mirroring `feed-content.test.tsx`'s mocking pattern (`nuqs` shared in-memory store, `graphqlClient.request` spy, `@festgrid/ui`'s `useInfiniteScroll` overridden via `importOriginal` to expose `window.triggerScroll()`, `usePostHog` mocked). Since Discovery is usable unauthenticated, `useAuthSession` is mocked with `session: null` throughout, which keeps `useNearbyFilter`'s/`useAIFilter`'s own session-gated queries (`useGetMyLocationsQuery`, `useGetMyApiKeysQuery`) disabled and out of the way — the real, unmocked `useListPaginationController`/`usePrefersReducedMotion` are exercised for real (only `useInfiniteScroll` is overridden). 4 tests added covering AC5(a)–(d): initial render at offset 0, no `scrollTo` on mount, page-2 fetch at offset 10, and the combined filter-change-resets-to-offset-0 + scroll-to-top proof (BUG-019's direct regression proof for this surface).
+- **Deviation from the stated File Change Plan, required to keep the full suite green (not speculative):** discovered during Task 4 verification that `apps/web/src/app/[locale]/page.test.tsx` (a pre-existing, undocumented-by-this-story test file that already renders `HomeContent` via MSW) contradicts this story's Dev Notes claim that Discovery "currently has zero test coverage" — it does have coverage, just via a different (MSW-based) strategy than the `graphqlClient.request`-spy strategy used by every sibling `*-content.test.tsx`. One of its tests broke as a direct, intended consequence of AC2's fresh-query guarantee (see Debug Log). Fixed with a single-line, narrowly-scoped `{ once: true }` addition to that one MSW handler override — not a broader rewrite, not a speculative fix, and does not touch this story's own `packages/ui`/`packages/domain`/`apps/backend`/`packages/database` exclusion. Flagging in File List/Change Log rather than silently absorbing it.
+- `IDEA-035` was already present in `backlog.yaml` (added during `bmad-create-story` for this story) — Task 5 confirmed satisfied, no new edit needed this session.
 
 ### File List
 
-_To be filled by dev-story._
+- `apps/web/src/app/[locale]/home-content.tsx` (modified) — Task 1: `useListPaginationController`/`usePrefersReducedMotion` wiring, `resetToken` spliced into `queryKey`.
+- `apps/web/src/app/[locale]/home-content.test.tsx` (new) — Task 3: AC5 test coverage.
+- `apps/web/src/app/[locale]/page.test.tsx` (modified) — one `{ once: true }` addition to the search-integration test's empty-result MSW override; required to keep this pre-existing, previously-passing test correct under AC2's new fresh-query-on-filter-change guarantee (see Completion Notes' deviation note). No other change to this file.
+- `_bmad-output/implementation-artifacts/backlog.yaml` — unchanged this session; `IDEA-035` already present from story creation (Task 5 pre-satisfied).
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified) — `0-i5b-...` status `ready-for-dev` → `in-progress` → `review`.
+- `_bmad-output/implementation-artifacts/0-i5b-adopt-the-controller-in-discovery-event-list-surfaces.md` (this story file, modified) — Tasks/Subtasks, Dev Agent Record, File List, Change Log, Status.
 
 ### Change Log
 
-_To be filled by dev-story._
+- 2026-09-16: Implemented Story 0.i5b. Adopted `useListPaginationController` (Story 0.i5a) in `home-content.tsx`, closing BUG-019 structurally for Discovery and adding scroll-to-top-on-filter-reset (AC4, backlog `IDEA-035`). Added `home-content.test.tsx` (previously nonexistent, AC5). Fixed one pre-existing `page.test.tsx` test whose cache-coincidence assumption was invalidated by AC2's fresh-query-on-filter-change guarantee (`{ once: true }` on its MSW override). `pnpm --filter web test` (368/368), `pnpm lint`, `pnpm build` all clean. Status: `ready-for-dev` → `review`.
