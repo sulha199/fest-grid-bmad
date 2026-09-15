@@ -545,6 +545,142 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+### AD-17: Computed Event/Schedule Field Batching — Extended fieldMap, Not DataLoader
+
+*   **Binds:** `apps/backend/src/schema/resolvers.ts`'s `events` (`getEvents`), `event`, and
+    `eventBySlug` resolvers, their `Event.schedules`/`Event.isFavorited`/`Event.favoriteCount`/
+    `Event.isAddedToCalendar` and `Schedule.isAddedToCalendar` field resolvers, and
+    `packages/graphql-select/optimized-select.ts`'s `buildOptimizedDrizzleSelect` — the shared
+    helper all three top-level resolvers already call. Answers BUG-030 and BUG-033 (same defect
+    class, two different queries) and settles where BUG-034/BUG-035/FIND-027/FIND-028 land
+    relative to the fix (Rule 5).
+*   **Prevents:** A second, parallel batching mechanism (DataLoader) growing up alongside the
+    existing `fieldMap` `EXISTS`-subquery mechanism for what the schema treats as the same
+    category of thing — a computed field — so WHERE-filtering and output-selection diverge in
+    how they resolve the identical field; any future computed field being added as a new
+    per-row `Event.*`/`Schedule.*` field resolver by default, re-opening this exact class of N+1
+    (the standing rule already added to `project-context.md`'s Database & Performance section on
+    2026-09-15 already prevents this in principle — this AD supplies the actual mechanism that
+    rule pointed at); introducing a request-scoped loader-registry pattern into
+    `apps/backend/src/lib/auth/context.ts`/`server.ts`'s `createContext` for a coordination
+    problem this codebase doesn't actually have (Rule 4).
+*   **Rule:**
+    1.  **Scalar/boolean computed fields batch as correlated subqueries in the same flat
+        `SELECT` that already fetches the row — reusing, not duplicating, the `fieldMap`
+        mechanism.** `isFavorited`, `isAddedToCalendar`, and a new `favoriteCount` entry on
+        `Event` (the latter not in today's `fieldMap` at all — `count(*)` has no boolean
+        `EXISTS` precedent there, but is the same shape: a correlated subquery, `(SELECT
+        count(*) FROM favorites WHERE favorites.event_id = events.id AND
+        favorites.deleted_at IS NULL)`) are embedded directly in the `events`/`event`/
+        `eventBySlug` resolvers' own `db.select({...})` call, gated on the field actually being
+        requested (reusing `info`, the same signal `buildOptimizedDrizzleSelect` and Rule 3
+        below already use). `packages/graphql-select/optimized-select.ts` gains an optional
+        `virtualFields: Record<string, SQL>` parameter on `buildOptimizedDrizzleSelect` — for
+        any requested GraphQL field with no matching physical column, it checks `virtualFields`
+        and includes that expression in the returned `select()` object instead. The three
+        resolvers pass their existing `fieldMap`'s `isFavorited`/`isAddedToCalendar` entries
+        (already-built `exists(...)` Drizzle expressions, today only wired into
+        `buildDrizzleWhere` for `WHERE`) plus the new `favoriteCount` entry as this
+        `virtualFields` map — the exact expressions, not re-implementations, so `WHERE`
+        filtering and output selection can never drift onto two different definitions of
+        "favorited." `Event.isFavorited`/`Event.favoriteCount`/`Event.isAddedToCalendar` become
+        passthroughs reading the pre-populated parent value; the existing per-row query in each
+        stays only as a defensive fallback for a caller that somehow reaches the field resolver
+        without the value pre-populated (e.g. a future direct test/mutation payload) — never the
+        expected path once this ships.
+    2.  **The one-to-many `schedules` relation batches as one additional `IN (...)`-scoped query
+        issued inside the same top-level resolver, not a scalar subquery.** A list of objects
+        can't be embedded as a single correlated-subquery column without a materially new kind
+        of complexity (`json_agg`/`json_build_object` reimplementing GraphQL's own per-field
+        selection logic inside SQL) — that would be a second, bespoke mechanism, not a reuse of
+        Rule 1's. Instead: immediately after `events`/`event`/`eventBySlug` fetches its parent
+        row(s), when `schedules` (or a nested `Schedule` field, per Rule 3) was requested, issue
+        one `db.select({...buildOptimizedDrizzleSelect(schedules, info, {path: 'schedules',
+        virtualFields: {...}}), })().from(schedules).where(inArray(schedules.eventId, ids))`
+        query, group the rows by `eventId` in JS, and attach the result directly onto each
+        parent row as `item.schedules` before returning — the same "precompute on the parent row,
+        field resolver reads it back" idiom this resolver already uses for `imageUrl`/
+        `durableImageUrl`/`isImageStorageOptedIn` (`resolvers.ts`, `Event.durableImageUrl`:
+        `(parent) => parent.durableImageUrl || null`). `Event.schedules` becomes: read
+        `parent.schedules` if present, else fall back to its current per-row query (same
+        defensive-fallback posture as Rule 1). This applies identically whether the top-level
+        resolver returns one row (`event`/`eventBySlug`) or a full page (`events`) — an
+        `IN (...)` query over a one-element id array costs the same shape of query as over a
+        hundred, so no special-casing by resolver arity is needed.
+    3.  **`Schedule.isAddedToCalendar` (BUG-033) folds into Rule 2's SAME batched query, not a
+        separate mechanism.** The batched `schedules` query's own `virtualFields` map includes
+        an `isAddedToCalendar` entry — `exists(db.select(...).from(calendarAdditions).where(and(
+        eq(calendarAdditions.userId, userId), eq(calendarAdditions.scheduleId,
+        schedules.id), activeOnly(calendarAdditions))))` — gated on `userId` being known, exactly
+        mirroring Rule 1's `Event`-level booleans one level down. `Schedule.isAddedToCalendar`
+        becomes a passthrough reading `parent.isAddedToCalendar`, fallback-only otherwise. This
+        is what makes BUG-033 "the same defect class as BUG-030, on a different query" literally
+        true at the fix level too: `eventBySlug`'s single-event call and `events`' full-page call
+        both go through Rule 2/3's identical batched-schedules-query code path — there is no
+        `eventBySlug`-specific batching logic to write.
+    4.  **DataLoader (graphql-yoga's built-in context/dataloader pattern) was considered and
+        rejected** for both Rule 1 and Rule 2/3's fields. Every N+1 in scope here originates from
+        exactly one top-level resolver per operation (`events`, `event`, or `eventBySlug`) that
+        already fetches its own full ID set in a single query before any nested field resolver
+        runs — there is no scenario where two independent, uncoordinated parts of one GraphQL
+        operation each need the same batch of schedules/favorites rows, which is the coordination
+        problem DataLoader's per-tick call-coalescing actually solves. `dataloader` is not a
+        dependency anywhere in this codebase today, and no request-scoped loader-registry exists
+        in `createContext` (`apps/backend/src/lib/auth/context.ts`, `server.ts`) — adopting it
+        here would add a new cross-cutting request-lifecycle pattern (batch-fn wiring, cache-key
+        hygiene, per-request instantiation to avoid cross-request cache leaks) to solve a problem
+        the resolver's own existing structure already solves for free once the fetch is
+        deliberately sequenced (Rule 2). Reusing/extending `fieldMap` also keeps exactly one
+        mechanism — "a SQL expression per GraphQL field, gated by `info`" — governing both
+        `WHERE`-filtering (existing) and output-selection (this AD), instead of two conceptually
+        different batching systems for what the schema treats as one category of field.
+    5.  **BUG-034, BUG-035, FIND-027, FIND-028 relative to this mechanism — two stories, not one,
+        in the same story sequence:**
+        - **Story sequence item A — `Query.events` computed-field batching:** BUG-030 (Rules
+          1–2, applied to `events`) + **FIND-027** (gate the existing unconditional `totalCount`
+          second query on `info` field-selection, the same technique and the same function
+          being touched for BUG-030 — trivial to include, not worth a separate story) +
+          **BUG-034** (add the `(eventId)` partial index on `favorites`, matching AD-8 rule 3's
+          `idx_favorites_active` precedent/hand-edit workaround) — this is not an optional
+          companion, it's a **prerequisite**: Rule 1's `favoriteCount`/`isFavorited` correlated
+          subqueries run once per output row inside the SAME query plan, so without a usable
+          `eventId`-leading index they'd force a sequential scan of `favorites` once per row
+          inside one query execution — arguably worse than today's separate per-row queries,
+          not a fix. It ships in the same story as the subquery it makes viable. + **FIND-028**
+          (add `staleTime` to the three `getEvents` consumer hooks — `home-content.tsx`,
+          `feed-content.tsx`, `favorites-content.tsx` — the same query surface already being
+          touched/re-tested for BUG-030, trivial addition).
+        - **Story sequence item B — `eventBySlug`/event-detail-page hardening:** BUG-033
+          (Rules 2–3, applied to `event`/`eventBySlug` — reuses Story A's batched-schedules-query
+          code path, does not reimplement it) + **BUG-035** (the double-fetch dedup — either
+          `HydrationBoundary`/`dehydrate` seeding the client cache from `generateMetadata`'s
+          server fetch, or narrowing `generateMetadata`'s own query to the 2 scalar fields it
+          actually reads). BUG-035's own fix shape is **not decided by this AD** — it's a
+          frontend request-dedup/caching-architecture question, orthogonal to this AD's DB-layer
+          batching mechanism (a doubled-but-now-cheap fetch is still wasted work; a single
+          expensive fetch would still be bad) — left for story-drafting to resolve, same as its
+          backlog note already says ("Fix direction (not yet designed)").
+        - Story B is sequenced after Story A because Rule 3 reuses Rule 2's mechanism verbatim;
+          it is a separate story rather than folded into Story A because it's scoped to a
+          different route (event-detail page vs. the three list views) and BUG-035 is a
+          materially different fix category (frontend caching, not DB batching) that doesn't
+          belong bundled into Story A's DB-layer change set.
+*   **Considered and rejected:** Leaving `schedules` as a per-row field resolver while only
+    fixing the scalar fields (Rule 1) — rejected because `schedules{...}` is requested on every
+    item by the shared `getEvents.graphql` document (per BUG-030's own finding) and is exactly as
+    expensive per-row as the scalar fields; fixing three of four fields and leaving the most
+    commonly-requested one unbatched would not actually resolve BUG-030. A `json_agg`-based
+    single-query approach that inlines the entire `schedules` array (including
+    `isAddedToCalendar`) as one JSON column on the parent `SELECT`, avoiding Rule 2's second
+    query entirely — considered attractive for reducing query count from 2 to 1, but rejected:
+    it requires dynamically building a `json_build_object(...)` expression from `info`'s
+    requested `Schedule` sub-fields (reimplementing `buildOptimizedDrizzleSelect`'s own
+    field-to-column logic inside a SQL string rather than as typed Drizzle `select()` keys), a
+    new and meaningfully more complex code shape with no precedent anywhere in this codebase,
+    for a benefit (one fewer query) that doesn't move the needle relative to eliminating the
+    O(N) per-row resolver calls, which Rule 2's simpler `IN (...)` query already fully achieves.
+
+---
 
 
 ## Related Documents

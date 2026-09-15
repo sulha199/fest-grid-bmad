@@ -45,8 +45,16 @@ per backlog-spec.md §6. Re-run `backlog-check.py` after.
 | FIND-030 | none | Fix direction already stated in its own note (gate on `sourceSocialMediaAccountProfile` presence, or lift to shell level) — no architecture call needed, can go straight into the Epic 1 correct-course pass as a small item. |
 | IDEA-029, IDEA-033, IDEA-032 (Epic-1/3 half) | none | Already fully spec'd via tier-1 notes — no sharpening needed. |
 
-- [ ] `bmad-architecture` run for the batching-mechanism decision
-- [ ] Decision recorded (which mechanism, and why) — link/quote here once done: `______`
+- [x] `bmad-architecture` run for the batching-mechanism decision
+- [x] Decision recorded (which mechanism, and why): extend the existing `fieldMap`
+      `EXISTS`-subquery mechanism (not DataLoader) — scalar/boolean fields (`isFavorited`,
+      `isAddedToCalendar`, new `favoriteCount`) batch via a `virtualFields` param on
+      `buildOptimizedDrizzleSelect`, reusing the exact `fieldMap` expressions already built for
+      `WHERE`; the one-to-many `schedules` relation (and `Schedule.isAddedToCalendar`, BUG-033)
+      batches via one `IN (...)` query attached onto the parent row before return. Two stories in
+      one sequence: Story A = BUG-030 + FIND-027 + BUG-034 + FIND-028 (`Query.events`); Story B =
+      BUG-033 + BUG-035 (`eventBySlug`/event-detail), sequenced after A since it reuses A's
+      mechanism. See `festgrid-architecture-spine.md`'s **AD-17**.
 
 ## Phase 2 — `bmad-correct-course` against Epic 1
 
