@@ -40,8 +40,8 @@ one session:
 - [ ] BUG-005 quick-dev
 - [ ] BUG-007 quick-dev
 - [ ] BUG-008 + FIND-006 story
-- [ ] BUG-009 quick-dev
-- [ ] FIND-011 quick-dev
+- [x] BUG-009 quick-dev
+- [x] FIND-011 quick-dev
 - [ ] FIND-016 story (scope: 5 bundled DW items — confirm during drafting whether it stays one
       story or splits)
 - [ ] FIND-029 story (4 bundled findings)
@@ -115,14 +115,14 @@ itself.
 - [ ] BUG-005
 - [ ] BUG-007
 - [ ] BUG-008
-- [ ] BUG-009
+- [x] BUG-009
 - [ ] BUG-018
 - [ ] BUG-019
 - [ ] BUG-031
 - [ ] BUG-032
 - [ ] FIND-006 (closes via BUG-008/009, not independently)
 - [ ] FIND-010
-- [ ] FIND-011
+- [x] FIND-011
 - [ ] FIND-016
 - [ ] FIND-024
 - [ ] FIND-025
