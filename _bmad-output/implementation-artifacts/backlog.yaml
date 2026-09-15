@@ -1042,7 +1042,8 @@ items:
     {type: idea, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Reusable location link component (pin icon + name, opens map in new tab)",
-     ref: [backlog/IDEA-029-reusable-location-link-component.md],
+     ref: [backlog/IDEA-029-reusable-location-link-component.md,
+           planning-artifacts/sprint-change-proposal-2026-09-15-reusable-location-link.md],
      touches: [pkg:ui, web:events, web:locations],
      note: "Reported by user via bmad-help (2026-09-15). New reusable component taking a locationDetailObject prop: renders pin-location-icon + location name as text, always clickable and always opening the map in a new tab. Two confidence-based icon states: confirmed/acceptable confidence → open-in-new-tab icon (straight to the resolved map location); otherwise → search icon that opens the map with a query built from the location name. Consumers: event-detail page + its schedule (IDEA-033), and the reusable account element (IDEA-032)."}
 
@@ -1066,7 +1067,8 @@ items:
     {type: idea, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Reusable account element: replace raw accountId with a location link when confidence is good",
-     ref: [backlog/IDEA-032-platform-account.md],
+     ref: [backlog/IDEA-032-platform-account.md,
+           planning-artifacts/sprint-change-proposal-2026-09-15-reusable-location-link.md],
      touches: [web:accounts, web:locations, pkg:ui],
      note: "Reported by user via bmad-help (2026-09-15). The reusable account element currently shows accountId beneath the link to the account page — replace accountId with <link-to-map>[Location name]<link-to-map> when the location is confirmed/good-confidence (IDEA-029 semantics), falling back to accountId otherwise.
      CARVED 2026-09-15 (§6, event-pages follow-through plan Phase 0): this row's original capture bundled a second, unrelated surface — the Moderator Tools accounts-tab card's location edit/clear icons (Epic 4, Data Quality and Moderation) — which shares no mechanism with this row's reusable-element change (Epic 1/3, event pages). Split out as IDEA-034 so this row stays a clean member of the IDEA-029 location-link mechanism cluster (see planning-artifacts/event-pages-followthrough-plan.md)."}
@@ -1083,7 +1085,8 @@ items:
     {type: idea, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Event detail schedule (smaller name, add-to-calendar action, location link)",
-     ref: [backlog/IDEA-033-event-detail-schedule.md],
+     ref: [backlog/IDEA-033-event-detail-schedule.md,
+           planning-artifacts/sprint-change-proposal-2026-09-15-reusable-location-link.md],
      touches: [web:events, web:locations, pkg:ui],
      note: "Reported by user via bmad-help (2026-09-15). Event-detail schedule section, follow-up to IDEA-030's smaller event title: (1) shrink the schedule name by removing the `text-lg` class; (2) replace each schedule item's calendar icon with an add-to-calendar action icon that adds that specific schedule-item to the calendar — made bigger and more visible (distinct from IDEA-030 item 7, which removes the top-of-page icon); (3) show the schedule item's location via the reusable location link component (IDEA-029)."}
 
@@ -1097,4 +1100,13 @@ items:
      touches: [app:backend, web:events/getEvents, web:events/eventBySlug, web:events/EventDetailWrapper,
                pkg:graphql-select, pkg:database, cross:architecture],
      note: "Amends Epic 1 directly (epics.md) with two new sequenced stories — 1.3j (Query.events batching: BUG-030, FIND-027, BUG-034, FIND-028) and 1.6c (eventBySlug/event-detail hardening: BUG-033, BUG-035, FIND-030) — per AD-17's decided mechanism (festgrid-architecture-spine.md) and this proposal's own resolution of BUG-035's fix shape (HydrationBoundary+dehydrate). Not yet promoted to a story file — bmad-create-story is Phase 3, a separate later session per event-pages-followthrough-plan.md."}
+
+  CC-021:
+    {type: proposal, status: triaged, created: 2026-09-15,
+     impact: user-visible, effort: s,
+     title: "Reusable LocationLink component + adoption in event-detail schedule and SubscribedAccountCard",
+     ref: [planning-artifacts/event-pages-followthrough-plan.md,
+           planning-artifacts/sprint-change-proposal-2026-09-15-reusable-location-link.md],
+     touches: [pkg:ui, web:events, web:locations, web:accounts],
+     note: "Amends Epic 1 (Stories 1.6d mechanism + 1.6e event-detail-schedule adoption: IDEA-029, IDEA-033) and Epic 0's improvement epic 0.i6 directly (Story 0.i6e: IDEA-032's post-carve Epic-1/3 half) — not Epic 1/3 as event-pages-followthrough-plan.md's Phase 1 table originally framed the choice, since direct code inspection found SubscribedAccountCard is actually owned by Epic 0.i6, not Epic 1 or 3 (see the proposal's Section 2 for the full reasoning and the recorded assumption). Not yet promoted to a story file — bmad-create-story is Phase 3, a separate later session."}
 

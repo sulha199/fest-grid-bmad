@@ -77,10 +77,17 @@ Depends on: Phase 1's architecture decision.
 Rows: IDEA-029, IDEA-033, IDEA-032 (Epic-1/3 half, post-carve)
 Depends on: Phase 0's carve only (no architecture/UX gap).
 
-- [ ] Sprint Change Proposal drafted
-- [ ] Registered on backlog board
-- [ ] Story key(s) declared in the proposal, under Epic 1 (or 3, whichever the reusable
-      account element itself is homed under — confirm during drafting)
+- [x] Sprint Change Proposal drafted —
+      `sprint-change-proposal-2026-09-15-reusable-location-link.md`
+- [x] Registered on backlog board as **CC-021**
+- [x] Story key(s) declared in the proposal — **Story 1.6d** (`LocationLink` mechanism, Epic 1)
+      and **Story 1.6e** (event-detail-schedule adoption incl. IDEA-033's other two items, Epic 1)
+      and **Story 0.i6e** (`SubscribedAccountCard` adoption, IDEA-032). The reusable account
+      element (`SubscribedAccountCard`) turned out to be owned by neither Epic 1 nor Epic 3 as
+      this table assumed — direct code inspection found it governed by Epic 0's own improvement
+      epic **0.i6** ("One SubscribedAccountCard for every subscribed-account display"), so
+      Story 0.i6e amends that epic directly instead (see the proposal's Section 2 for the full
+      reasoning and the recorded assumption).
 
 ## Phase 3 — `bmad-create-story`
 

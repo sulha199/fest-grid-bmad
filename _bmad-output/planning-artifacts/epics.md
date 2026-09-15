@@ -1251,6 +1251,41 @@ Users can discover and browse events.
 
 **Depends on:** Story 1.3j (reuses its batched-schedules-query mechanism verbatim), Story 1.6 (patches `page.tsx`/`EventDetailWrapper.tsx`, and the `event`/`eventBySlug` resolvers it introduced via Story 1.3a).
 
+### Story 1.6d: Build the reusable LocationLink component
+
+**As a** developer,
+**I want** a reusable `LocationLink` component in `packages/ui/src/core/` that renders a pin icon plus a location's name, always opening a map in a new tab, with a confidence-based icon choice reusing the existing location-trustworthiness predicate,
+**So that** every place that displays a resolved location (the event-detail schedule, Story 1.6e, and the reusable account element, Story 0.i6e) stops duplicating Google-Maps-URL-building and confidence-gating logic, and a low-confidence match is never presented identically to a confirmed one.
+
+**Acceptance Criteria:**
+
+*   **Given** a `locationDetail` prop shaped `{ name: string; coordinates?: { lat: number; lng: number } | null; confidence?: number | null; matchType?: string | null }`, **when** `LocationLink` renders, **then** it displays a pin-location icon followed by `name` as text, the whole element wrapped in an `<a>` with `target="_blank" rel="noopener noreferrer"` — the entire component is always clickable and always opens a map in a new tab.
+*   **And** given `coordinates` is present and `isLocationTrustworthy({ confidence, matchType })` (imported directly from `@festgrid/domain/geolocation` — the exact predicate and `MIN_TRUSTWORTHY_CONFIDENCE`/`TRUSTWORTHY_MATCH_TYPE` threshold `apps/web`'s `mapper.ts` already uses to gate the event-detail map link, per Story 0.i7c) is `true`, **when** `LocationLink` computes its `href`, **then** it links directly to the coordinate (`https://www.google.com/maps/search/?api=1&query=<lat>,<lng>`) and renders a trailing open-in-new-tab icon.
+*   **And** given `coordinates` is absent, or present but `isLocationTrustworthy` is `false`, **when** `LocationLink` computes its `href`, **then** it links to a text-query search built from `name` (`https://www.google.com/maps/search/?api=1&query=<encodeURIComponent(name)>`) and renders a trailing search icon instead — never the open-in-new-tab icon.
+*   **And** the component is domain-agnostic beyond reusing `isLocationTrustworthy`: no `next-intl` import, no FestGrid-specific business logic; an optional `ariaLabel` prop lets a caller supply localized accessible text.
+*   **And** it is documented and exported from `packages/ui`'s public entry point for reuse across features.
+
+**Note:** Homed as `packages/ui/src/core/LocationLink.tsx` — a domain-agnostic `core/` primitive, not `features/events/` — because it has two known consumers from the start spanning two different feature areas (Story 1.6e's event-detail schedule, and Story 0.i6e's `SubscribedAccountCard`), matching this project's established `core/` (domain-agnostic, reused) vs. `features/<domain>/` (single-feature) placement convention (AD-9 Rule 3, `WeekPicker` precedent). Positioned under Epic 1 rather than Epic 0, per the single-story-origin convention already established by Story 1.3c/1.6b: built once, reused across epics, homed off the first story that needs it (IDEA-029's own capture lists the event-detail page/schedule first). Reuses `isLocationTrustworthy` (`packages/domain/src/geolocation/is-location-trustworthy.ts`, built by Epic 0.i7's Stories 0.i7a-0.i7c) rather than introducing a second confidence-gating implementation. Registered via `bmad-correct-course` as **CC-021** (`sprint-change-proposal-2026-09-15-reusable-location-link.md`).
+
+**Depends on:** None directly (pure presentational component consuming `@festgrid/domain/geolocation`'s already-shipped `isLocationTrustworthy`, Story 0.i7a/0.i7c).
+
+### Story 1.6e: Event-detail schedule refinements — smaller name, bigger add-to-calendar action, location link
+
+**As a** user,
+**I want** each event-detail schedule item to show a smaller schedule name, a bigger and more visible per-item add-to-calendar action, and its location as a proper map link,
+**So that** the schedule list is easier to scan and act on without opening the full add-to-calendar dialog just to add one schedule.
+
+**Acceptance Criteria:**
+
+*   **Given** the schedule item's title element (`EventDetailView.tsx`'s `h3`, ~line 412, `font-semibold text-lg`), **when** it renders, **then** the `text-lg` class is removed so the schedule name scales down alongside the now-smaller event title (IDEA-030 item 6's `text-2xl` change) rather than visually competing with it.
+*   **And** given each schedule item, **when** it renders, **then** the decorative `CalendarDays` icon next to its title (`EventDetailView.tsx` ~line 413, purely illustrative today) is replaced by a clickable, larger, more visually prominent `CalendarPlus` action icon (sized and styled to match the top-of-page add-to-calendar button's own prominence before IDEA-030 item 7 removes it) that, when activated, calls the existing `onAddToCalendar([schedule.id])` directly for that one schedule — reusing the exact prop/mutation path the top-of-page dialog already uses, not a new one — and reflects `schedule.isAddedToCalendar` with the same filled/active visual state the top-level button already uses (`fill-primary text-primary` when added).
+*   **And** given a schedule's `locationDetails` (already selected by `getEventBySlug`'s query — verified, no query change needed here), **when** the schedule item renders its location line (`EventDetailView.tsx` ~460-473, today a manually-built `<a href={schedule.mapUrl}>`), **then** it renders `LocationLink` (Story 1.6d) instead, passing `{ name: scheduleLocation, coordinates: schedule.locationDetails?.coordinates, confidence: schedule.locationDetails?.confidence, matchType: schedule.locationDetails?.matchType }` — `ScheduleDetail`'s `mapUrl: string | null` field is removed in favor of a `locationDetails` shape, and `apps/web/src/features/events/mapper.ts` stops pre-computing `mapUrl` itself (that computation now lives inside `LocationLink`, removing the duplicate implementation rather than adding a second one alongside it).
+*   **And** existing behavior is unchanged for a location that was already trustworthy or already untrustworthy under today's logic — regression tests confirm the rendered `href` for both cases matches what `mapper.ts`'s removed code produced.
+
+**Note:** Covers all three items of IDEA-033 in one story, since they are small, same-file, same-list-item changes to the schedule section rather than independently substantial concerns — matching this project's precedent for batching a small multi-item UI request into one story (e.g. Story 1.3b's TILL-badge amendment). Depends on Story 1.6d for the location-link mechanism. Registered via `bmad-correct-course` as **CC-021** (`sprint-change-proposal-2026-09-15-reusable-location-link.md`).
+
+**Depends on:** Story 1.6d (`LocationLink`), Story 1.6a (`EventDetailView`, amended in place).
+
 ### Story 1.6: View event details
 
 **As a** user,
@@ -4113,6 +4148,24 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Note:** Added 2026-09-11 as an adoption story — FIND-008 violates this epic's existing invariant directly, so it joins rather than forming anything new (gate §5, `adopt`). The epic's membership is otherwise unchanged.
 
+### Story 0.i6e: Replace the card's raw account-identifier line with a location link when confirmed
+
+**As a** developer,
+**I want** `SubscribedAccountCard`'s account-identifier fallback line replaced by a location link when the account's own default location is confirmed/good-confidence,
+**So that** a user sees where the account is actually based instead of an opaque identifier, on every surface that already renders this card with location data available (IDEA-032).
+
+**Acceptance Criteria:**
+
+*   **Given** `SubscribedAccountCard` receives a new optional `location: { name: string; coordinates?: { lat: number; lng: number } | null; confidence?: number | null; matchType?: string | null } | null` prop, and it is present with `isLocationTrustworthy(location)` (Story 1.6d's same imported predicate) `true`, **when** the card renders, **then** its account-identifier fallback line (`SubscribedAccountCard.tsx:29`, today `@{account.username}` — the identifier this card falls back to displaying beneath the account-page link) is replaced by `LocationLink` (Story 1.6d) rendering `location.name`.
+*   **And** given `location` is absent, or present but not trustworthy, **when** the card renders, **then** it falls back to today's `@{account.username}` line unchanged — matching IDEA-032's explicit fallback behavior.
+*   **And** `apps/web/src/features/events/mapper.ts`'s account-prop derivation (the block already producing `accountName`/`accountUsername`/`accountPlatform`/`accountId`/`accountHref`, ~lines 113-119) gains an `accountLocation` field derived from `event.sourceSocialMediaAccountProfile?.defaultLocation`, with `name` taken as `placeName || formattedAddress` (first non-empty) — threaded through `EventDetailViewProps` to `SubscribedAccountCard`'s new `location` prop.
+*   **And** `apps/web/src/features/events/queries.graphql`'s `getEventBySlug` document's `sourceSocialMediaAccountProfile` selection gains `defaultLocation { coordinates { lat lng } placeName formattedAddress confidence matchType }` (the field already exists on the `SocialMediaAccountProfile` GraphQL type, `social-media-accounts.graphql:12` — this is a query-selection-set gap, not a resolver gap, the same class of gap Story 0.i7c's own amendment note documents for this field family) — codegen is regenerated accordingly.
+*   **And** this does not change `SubscribedAccountCard`'s other adoption sites (Post Selection, Story 0.i6b; Subscribed Accounts settings, Story 0.i6c) — they simply omit the new `location` prop, and today's fallback line renders exactly as it does now, unaffected.
+
+**Note:** Homed under Epic 0's `SubscribedAccountCard` improvement epic rather than Epic 1 or Epic 3 — this is an internal-contract change to the card itself, the same class of change Story 0.i6d already set the precedent for joining this epic directly (its own note: "FIND-008 violates this epic's existing invariant directly, so it joins rather than forming anything new"). A deviation from `event-pages-followthrough-plan.md`'s original framing (which asked to confirm Epic 1 vs. Epic 3) — recorded here per `sprint-change-proposal-2026-09-15-reusable-location-link.md`'s Section 2, since direct code inspection found neither epic actually owns this component. Registered via `bmad-correct-course` as **CC-021**.
+
+**Depends on:** Story 1.6d (`LocationLink`), Story 0.i6a (the card's base contract).
+
 ### Story 0.i6z: Ratchet — no display surface bypasses the card
 
 **As a** developer,
@@ -4127,7 +4180,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **And** a test asserts the card renders a defined fallback for degenerate input.
 *   **And** a test asserts the `size="lg"` variant scales its adjacent text.
 
-**Depends on:** Stories 0.i6a, 0.i6b, 0.i6c, 0.i6d.
+**Depends on:** Stories 0.i6a, 0.i6b, 0.i6c, 0.i6d, 0.i6e.
 
 **Note:** Formed 2026-09-08 via `bmad-form-epics` from FIND-011 (fractional, see Story 0.i6a), BUG-005, FIND-012. Internal only for all three — UI consistency, no PRD/spine interface change.
 
