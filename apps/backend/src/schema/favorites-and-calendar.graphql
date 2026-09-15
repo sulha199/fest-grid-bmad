@@ -6,6 +6,7 @@ type Mutation {
 type ToggleFavoriteResult {
   eventId: ID!
   isFavorited: Boolean!
+  favoriteCount: Int!
 }
 
 type ToggleCalendarAdditionResult {

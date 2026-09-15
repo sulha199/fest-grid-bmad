@@ -1181,6 +1181,7 @@ export type ToggleCalendarAdditionResult = {
 export type ToggleFavoriteResult = {
   __typename?: 'ToggleFavoriteResult';
   eventId: Scalars['ID']['output'];
+  favoriteCount: Scalars['Int']['output'];
   isFavorited: Scalars['Boolean']['output'];
 };
 
@@ -2102,6 +2103,7 @@ export type ToggleCalendarAdditionResultResolvers<ContextType = GraphQLContext, 
 
 export type ToggleFavoriteResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ToggleFavoriteResult'] = ResolversParentTypes['ToggleFavoriteResult']> = ResolversObject<{
   eventId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  favoriteCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   isFavorited?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;

@@ -1208,6 +1208,7 @@ export type ToggleCalendarAdditionResult = {
 export type ToggleFavoriteResult = {
   __typename?: 'ToggleFavoriteResult';
   eventId: Scalars['ID']['output'];
+  favoriteCount: Scalars['Int']['output'];
   isFavorited: Scalars['Boolean']['output'];
 };
 
@@ -1448,7 +1449,7 @@ export type ToggleFavoriteMutationVariables = Exact<{
 }>;
 
 
-export type ToggleFavoriteMutation = { toggleFavorite: { eventId: string, isFavorited: boolean } };
+export type ToggleFavoriteMutation = { toggleFavorite: { eventId: string, isFavorited: boolean, favoriteCount: number } };
 
 export type ToggleCalendarAdditionMutationVariables = Exact<{
   eventId: string | number;
@@ -2257,6 +2258,7 @@ export const ToggleFavoriteDocument = new TypedDocumentString(`
   toggleFavorite(eventId: $eventId) {
     eventId
     isFavorited
+    favoriteCount
   }
 }
     `);

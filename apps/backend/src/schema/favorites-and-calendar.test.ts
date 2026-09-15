@@ -125,59 +125,77 @@ test('favorites and calendar additions resolvers integration', async (t) => {
     if (!testUser || !testEventId) return; // skip if no seed data
     mockUser = { userId: testUser.id, role: testUser.role };
 
+    // Reset favorites for this event to ensure a clean, single-user baseline for the count assertions
+    await db.delete(favorites).where(eq(favorites.eventId, testEventId));
+
     // 1. Toggle ON
     const res1 = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query: `mutation { toggleFavorite(eventId: "${testEventId}") { isFavorited } }`
+        query: `mutation { toggleFavorite(eventId: "${testEventId}") { isFavorited favoriteCount } }`
       })
     });
     const result1 = await res1.json();
     assert.ok(!result1.errors);
     assert.strictEqual(result1.data.toggleFavorite.isFavorited, true);
+    assert.strictEqual(result1.data.toggleFavorite.favoriteCount, 1);
 
     // Verify field resolver
     const queryRes1 = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: `{ event(id: "${testEventId}") { isFavorited } }` })
+      body: JSON.stringify({ query: `{ event(id: "${testEventId}") { isFavorited favoriteCount } }` })
     });
     const queryResult1 = await queryRes1.json();
     assert.strictEqual(queryResult1.data.event.isFavorited, true);
+    assert.strictEqual(queryResult1.data.event.favoriteCount, result1.data.toggleFavorite.favoriteCount);
 
     // 2. Toggle OFF
     const res2 = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query: `mutation { toggleFavorite(eventId: "${testEventId}") { isFavorited } }`
+        query: `mutation { toggleFavorite(eventId: "${testEventId}") { isFavorited favoriteCount } }`
       })
     });
     const result2 = await res2.json();
     assert.ok(!result2.errors);
     assert.strictEqual(result2.data.toggleFavorite.isFavorited, false);
+    assert.strictEqual(result2.data.toggleFavorite.favoriteCount, 0);
 
     // Verify field resolver
     const queryRes2 = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: `{ event(id: "${testEventId}") { isFavorited } }` })
+      body: JSON.stringify({ query: `{ event(id: "${testEventId}") { isFavorited favoriteCount } }` })
     });
     const queryResult2 = await queryRes2.json();
     assert.strictEqual(queryResult2.data.event.isFavorited, false);
+    assert.strictEqual(queryResult2.data.event.favoriteCount, result2.data.toggleFavorite.favoriteCount);
 
     // 3. Toggle ON again (re-toggle)
     const res3 = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query: `mutation { toggleFavorite(eventId: "${testEventId}") { isFavorited } }`
+        query: `mutation { toggleFavorite(eventId: "${testEventId}") { isFavorited favoriteCount } }`
       })
     });
     const result3 = await res3.json();
     assert.ok(!result3.errors);
     assert.strictEqual(result3.data.toggleFavorite.isFavorited, true);
+    assert.strictEqual(result3.data.toggleFavorite.favoriteCount, 1);
+
+    // Verify field resolver
+    const queryRes3 = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ event(id: "${testEventId}") { isFavorited favoriteCount } }` })
+    });
+    const queryResult3 = await queryRes3.json();
+    assert.strictEqual(queryResult3.data.event.isFavorited, true);
+    assert.strictEqual(queryResult3.data.event.favoriteCount, result3.data.toggleFavorite.favoriteCount);
   });
 
   await t.test('events filtering by isFavorited', async () => {

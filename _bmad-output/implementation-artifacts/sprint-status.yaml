@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-09-16T00:00:00Z
+# last_updated: 2026-09-16T00:00:02Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -736,7 +736,7 @@ development_status:
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass.
   # See planning-artifacts/epic-formation/formation-2026-09-08.md.
   epic-2-i1: in-progress
-  2-i1a-fix-eventdetailwrappers-four-onsuccess-handlers: ready-for-dev
+  2-i1a-fix-eventdetailwrappers-four-onsuccess-handlers: review
   2-i1b-adopt-the-fixed-pattern-to-the-other-favorite-mutation-call-sites: backlog
   2-i1c-add-the-missing-automated-tests-for-the-favorite-cache-sync-path: backlog
   2-i1z-ratchet-every-favorite-calendar-mutation-handler-follows-the-pattern: backlog

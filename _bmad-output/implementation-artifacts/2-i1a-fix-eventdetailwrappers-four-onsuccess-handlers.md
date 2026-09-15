@@ -1,10 +1,14 @@
+---
+baseline_commit: 954bc80e81250c7f743a792a6f2672b2cdfd3a99
+---
+
 # Story 2.i1a: Fix EventDetailWrapper's four onSuccess handlers
 
 ## Story Details
 
 - Epic: 2.i1 - One mutation-result handler for favorite/calendar toggles (improvement epic under Epic 2 - User Personalization)
 - Story ID: 2.i1a
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,35 +37,35 @@ so that BUG-007 (no partial-failure recovery), BUG-008 (unconditional delta), an
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Backend — extend `ToggleFavoriteResult` with an authoritative `favoriteCount` (AC2) — `apps/backend`
-  - [ ] Add `favoriteCount: Int!` to `ToggleFavoriteResult` in `apps/backend/src/schema/favorites-and-calendar.graphql`.
-  - [ ] In `apps/backend/src/schema/resolvers.ts`'s `toggleFavorite` resolver (inside the existing `db.transaction(async (tx) => {...})`, ~lines 1028-1059), after each of the three mutating branches (unfavorite/re-favorite/insert-new), run `const countRows = await tx.select({ count: count() }).from(favorites).where(and(eq(favorites.eventId, eventId), activeOnly(favorites))); const favoriteCount = countRows[0]?.count ?? 0;` and include `favoriteCount` in the returned object on all three branches. This mirrors the existing `Event.favoriteCount` field resolver (~line 3664) exactly, just reading through `tx` instead of `db` so it observes the just-committed row inside the same transaction.
-  - [ ] Run `pnpm run codegen` — confirm `apps/backend/src/generated/resolvers-types.ts` regenerates `ToggleFavoriteResult` with the new field. Do not hand-edit generated output.
-  - [ ] Extend `apps/backend/src/schema/favorites-and-calendar.test.ts`'s "toggleFavorite - toggle on, off, and on" test to assert the mutation response's `favoriteCount` at each step (0→1→0 for a single user), and cross-check parity with the existing "favoriteCount - aggregates across multiple users correctly" test's independent `Event.favoriteCount` query.
+- [x] Task 1: Backend — extend `ToggleFavoriteResult` with an authoritative `favoriteCount` (AC2) — `apps/backend`
+  - [x] Add `favoriteCount: Int!` to `ToggleFavoriteResult` in `apps/backend/src/schema/favorites-and-calendar.graphql`.
+  - [x] In `apps/backend/src/schema/resolvers.ts`'s `toggleFavorite` resolver (inside the existing `db.transaction(async (tx) => {...})`, ~lines 1028-1059), after each of the three mutating branches (unfavorite/re-favorite/insert-new), run `const countRows = await tx.select({ count: count() }).from(favorites).where(and(eq(favorites.eventId, eventId), activeOnly(favorites))); const favoriteCount = countRows[0]?.count ?? 0;` and include `favoriteCount` in the returned object on all three branches. This mirrors the existing `Event.favoriteCount` field resolver (~line 3664) exactly, just reading through `tx` instead of `db` so it observes the just-committed row inside the same transaction.
+  - [x] Run `pnpm run codegen` — confirm `apps/backend/src/generated/resolvers-types.ts` regenerates `ToggleFavoriteResult` with the new field. Do not hand-edit generated output.
+  - [x] Extend `apps/backend/src/schema/favorites-and-calendar.test.ts`'s "toggleFavorite - toggle on, off, and on" test to assert the mutation response's `favoriteCount` at each step (0→1→0 for a single user), and cross-check parity with the existing "favoriteCount - aggregates across multiple users correctly" test's independent `Event.favoriteCount` query.
 
-- [ ] Task 2: Frontend — consume `favoriteCount` from the mutation response (AC3) — `apps/web`
-  - [ ] Add `favoriteCount` to `toggleFavorite`'s selection set in `apps/web/src/features/events/mutations.graphql`.
-  - [ ] Run `pnpm run codegen` — confirm `apps/web/src/generated/graphql.ts` regenerates. Do not hand-edit generated output.
-  - [ ] In `EventDetailWrapper.tsx`'s `toggleFavorite` `onSuccess`, replace the `Math.max(0, typedOld.eventBySlug.favoriteCount + (data.toggleFavorite.isFavorited ? 1 : -1))` computation (the `getEventBySlug` detail-cache patch, ~line 117-120) with `data.toggleFavorite.favoriteCount` directly.
-  - [ ] Do the same inside `patchListCache`'s per-item `favoriteCount` computation (~line 148-151), which patches `["events"]`/`["favoriteEvents"]`.
+- [x] Task 2: Frontend — consume `favoriteCount` from the mutation response (AC3) — `apps/web`
+  - [x] Add `favoriteCount` to `toggleFavorite`'s selection set in `apps/web/src/features/events/mutations.graphql`.
+  - [x] Run `pnpm run codegen` — confirm `apps/web/src/generated/graphql.ts` regenerates. Do not hand-edit generated output.
+  - [x] In `EventDetailWrapper.tsx`'s `toggleFavorite` `onSuccess`, replace the `Math.max(0, typedOld.eventBySlug.favoriteCount + (data.toggleFavorite.isFavorited ? 1 : -1))` computation (the `getEventBySlug` detail-cache patch, ~line 117-120) with `data.toggleFavorite.favoriteCount` directly.
+  - [x] Do the same inside `patchListCache`'s per-item `favoriteCount` computation (~line 148-151), which patches `["events"]`/`["favoriteEvents"]`.
 
-- [ ] Task 3: Frontend — settle `handleAddToCalendar`'s multi-schedule mutations per item (AC4, AC5, AC6, AC7) — `apps/web`
-  - [ ] Replace `await Promise.all(changedIds.map((scheduleId) => toggleCalendarAddition({ eventId, scheduleId })))` (~line 478-480) with `const settled = await Promise.allSettled(changedIds.map((scheduleId) => toggleCalendarAddition({ eventId, scheduleId })))`.
-  - [ ] Derive `succeededIds`/`failedIds` (both `string[]`) from `changedIds` paired with `settled`'s per-index `.status`.
-  - [ ] Filter `addedIds` down to only ids also present in `succeededIds` before building the `/api/calendar/ics` query params, triggering `window.location.assign`, and firing `calendar_ics_downloaded` — a failed schedule must never appear in that download's `scheduleId` params even if other schedules in the same confirm succeeded.
-  - [ ] If `failedIds.length > 0`: keep the existing `console.error("Failed to update calendar additions", ...)` (extend the logged value to include which ids failed) and `throw` — do **not** call `toast.success`. Do not add a new "partial success" message; the existing per-mutation `onError` (`calendarErrorAnnouncement`) already announced the specific failure(s) when each rejected `toggleCalendarAddition` call ran its own `onError`.
-  - [ ] If `failedIds.length === 0`: proceed exactly as today (`toast.success(t("addToCalendarSuccessAnnouncement"))`), using the (now full) `succeededIds`-filtered `addedIds` for the download.
+- [x] Task 3: Frontend — settle `handleAddToCalendar`'s multi-schedule mutations per item (AC4, AC5, AC6, AC7) — `apps/web`
+  - [x] Replace `await Promise.all(changedIds.map((scheduleId) => toggleCalendarAddition({ eventId, scheduleId })))` (~line 478-480) with `const settled = await Promise.allSettled(changedIds.map((scheduleId) => toggleCalendarAddition({ eventId, scheduleId })))`.
+  - [x] Derive `succeededIds`/`failedIds` (both `string[]`) from `changedIds` paired with `settled`'s per-index `.status`.
+  - [x] Filter `addedIds` down to only ids also present in `succeededIds` before building the `/api/calendar/ics` query params, triggering `window.location.assign`, and firing `calendar_ics_downloaded` — a failed schedule must never appear in that download's `scheduleId` params even if other schedules in the same confirm succeeded.
+  - [x] If `failedIds.length > 0`: keep the existing `console.error("Failed to update calendar additions", ...)` (extend the logged value to include which ids failed) and `throw` — do **not** call `toast.success`. Do not add a new "partial success" message; the existing per-mutation `onError` (`calendarErrorAnnouncement`) already announced the specific failure(s) when each rejected `toggleCalendarAddition` call ran its own `onError`.
+  - [x] If `failedIds.length === 0`: proceed exactly as today (`toast.success(t("addToCalendarSuccessAnnouncement"))`), using the (now full) `succeededIds`-filtered `addedIds` for the download.
 
-- [ ] Task 4: Verify BUG-009 remains intact, no re-implementation (AC1)
-  - [ ] Re-read `EventDetailWrapper.tsx`'s `toggleFavorite`/`toggleCalendarAddition` `onSuccess` null-checks (currently ~lines 93-105, ~201-209) after Tasks 2/3 land — confirm the guard-and-throw shape from commit `e658eb4` is untouched (Task 2/3's edits are additive/adjacent, not overlapping these lines).
-  - [ ] Confirm `EventDetailWrapper.test.tsx`'s existing BUG-009 regression tests (~line 482 favorite null-data, ~line 622 calendar null-data) still pass unmodified.
+- [x] Task 4: Verify BUG-009 remains intact, no re-implementation (AC1)
+  - [x] Re-read `EventDetailWrapper.tsx`'s `toggleFavorite`/`toggleCalendarAddition` `onSuccess` null-checks (currently ~lines 93-105, ~201-209) after Tasks 2/3 land — confirm the guard-and-throw shape from commit `e658eb4` is untouched (Task 2/3's edits are additive/adjacent, not overlapping these lines).
+  - [x] Confirm `EventDetailWrapper.test.tsx`'s existing BUG-009 regression tests (~line 482 favorite null-data, ~line 622 calendar null-data) still pass unmodified.
 
-- [ ] Task 5: Testing (AC2-AC8) — `apps/web`, `apps/backend`
-  - [ ] New integration test (`EventDetailWrapper.test.tsx`): a multi-schedule confirm selecting one schedule that succeeds (existing default handler behavior) and one that fails (`scheduleId: "sched_fail"`, per the existing MSW handler convention) together — assert: dialog stays open; `window.location.assign` called with a `scheduleId` param for the succeeding id only; `calendar_ics_downloaded` fired with `scheduleIds` containing only the succeeding id; `calendarErrorAnnouncement` shown; `addToCalendarSuccessAnnouncement` never shown.
-  - [ ] New integration test (`EventDetailWrapper.test.tsx`): extend the `toggleFavorite` MSW handler to return a `favoriteCount` that would NOT match a naive ±1 computation (e.g. jump the mocked count by a value other than 1, or hold it constant), and assert the rendered favorite-count badge (`EventDetailView`'s `favoriteCount` display, already wired via `mapper.ts`) reflects the server-supplied number, proving the UI is reading `data.toggleFavorite.favoriteCount` and not computing a local delta.
-  - [ ] Confirm all pre-existing tests (full-success add-to-calendar, full single-schedule failure, both BUG-009 null-data cases) still pass unmodified — no behavior change for the already-covered single-schedule paths.
-  - [ ] Backend (`favorites-and-calendar.test.ts`): extend per Task 1.
-  - [ ] Manual: `pnpm build` / `pnpm lint` / `pnpm run codegen` clean at the repo root.
+- [x] Task 5: Testing (AC2-AC8) — `apps/web`, `apps/backend`
+  - [x] New integration test (`EventDetailWrapper.test.tsx`): a multi-schedule confirm selecting one schedule that succeeds (existing default handler behavior) and one that fails (`scheduleId: "sched_fail"`, per the existing MSW handler convention) together — assert: dialog stays open; `window.location.assign` called with a `scheduleId` param for the succeeding id only; `calendar_ics_downloaded` fired with `scheduleIds` containing only the succeeding id; `calendarErrorAnnouncement` shown; `addToCalendarSuccessAnnouncement` never shown (verified via a new `toast.success` spy, since no test in this file previously asserted the success-toast path).
+  - [x] New integration test (`EventDetailWrapper.test.tsx`): extend the `toggleFavorite` MSW handler to return a `favoriteCount` that would NOT match a naive ±1 computation (mocked constant `42`, vs. the seeded `favoriteCount: 3`), and assert the rendered favorite-count badge (`EventDetailView`'s `favoriteCount` display, already wired via `mapper.ts`) reflects the server-supplied number, proving the UI is reading `data.toggleFavorite.favoriteCount` and not computing a local delta.
+  - [x] Confirm all pre-existing tests (full-success add-to-calendar, full single-schedule failure, both BUG-009 null-data cases) still pass unmodified — no behavior change for the already-covered single-schedule paths. (The one pre-existing test whose premise WAS the removed ±1 arithmetic -- "patches list caches ... without double-counting favoriteCount" -- was updated in place to assert the server-supplied value is applied uniformly across all caches instead of a computed delta; this is Task 2's intended behavior change, not a regression.)
+  - [x] Backend (`favorites-and-calendar.test.ts`): extend per Task 1.
+  - [x] Manual: `pnpm build` / `pnpm lint` / `pnpm run codegen` clean at the repo root.
 
 ## Dev Notes
 
@@ -146,12 +150,12 @@ No `epic-2-i1-readiness.md` sweep report exists yet (only `epic-2-readiness.md`,
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmed: BUG-007 (`Promise.allSettled` + per-item outcome gating on download/toast, dialog-stays-open-on-any-failure) and BUG-008 (`favoriteCount` returned from the mutation response instead of computed via ±1, requiring one additive backend field) fixed in this story; BUG-009 verified already-shipped (commit `e658eb4`) and left untouched, not re-implemented.
-- [ ] Gate 1/2/3 prerequisites confirmed: all three ran fresh via `runSubagent` (no swept `epic-2-i1-readiness.md` exists) — no gap found in any (see Architecture & UX Gate Findings).
-- [ ] **BUG-008 approach accepted:** extend `ToggleFavoriteResult` with a real, server-computed `favoriteCount: Int!` rather than switching to confirm-then-refetch — per explicit user decision via `AskUserQuestion`, 2026-09-16.
-- [ ] **BUG-007 partial-outcome UX accepted:** keep the dialog open on ANY schedule failure within a multi-schedule confirm (not close-on-partial-success-with-a-new-toast) — per explicit user decision via `AskUserQuestion`, 2026-09-16; reuses existing full-failure messaging, no new copy/i18n keys.
-- [ ] Testing plan confirmed: backend `favorites-and-calendar.test.ts` extension (toggle-cycle `favoriteCount` assertions), frontend `EventDetailWrapper.test.tsx` mixed-outcome-confirm test and server-derived-count test.
-- [ ] Explicit human approval state (Default: **pending approval**)
+- [x] Scope confirmed: BUG-007 (`Promise.allSettled` + per-item outcome gating on download/toast, dialog-stays-open-on-any-failure) and BUG-008 (`favoriteCount` returned from the mutation response instead of computed via ±1, requiring one additive backend field) fixed in this story; BUG-009 verified already-shipped (commit `e658eb4`) and left untouched, not re-implemented.
+- [x] Gate 1/2/3 prerequisites confirmed: all three ran fresh via `runSubagent` (no swept `epic-2-i1-readiness.md` exists) — no gap found in any (see Architecture & UX Gate Findings).
+- [x] **BUG-008 approach accepted:** extend `ToggleFavoriteResult` with a real, server-computed `favoriteCount: Int!` rather than switching to confirm-then-refetch — per explicit user decision via `AskUserQuestion`, 2026-09-16.
+- [x] **BUG-007 partial-outcome UX accepted:** keep the dialog open on ANY schedule failure within a multi-schedule confirm (not close-on-partial-success-with-a-new-toast) — per explicit user decision via `AskUserQuestion`, 2026-09-16; reuses existing full-failure messaging, no new copy/i18n keys.
+- [x] Testing plan confirmed: backend `favorites-and-calendar.test.ts` extension (toggle-cycle `favoriteCount` assertions), frontend `EventDetailWrapper.test.tsx` mixed-outcome-confirm test and server-derived-count test.
+- [x] Explicit human approval state: **approved** (via `AskUserQuestion`, 2026-09-16, dev-story activation)
 
 ## Testing Requirements
 
@@ -188,13 +192,13 @@ No `epic-2-i1-readiness.md` sweep report exists yet (only `epic-2-readiness.md`,
 
 ## Completion Status
 
-- [ ] Not yet started (Status: ready-for-dev)
+- [x] Complete — all 5 tasks done, all 8 ACs satisfied, backend+frontend tests passing, `pnpm lint`/`pnpm build` clean at repo root (Status: review)
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled by the dev agent._
+Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
 
 ### Debug Log References
 
@@ -202,11 +206,25 @@ _To be filled by the dev agent._
 - Git-log check (per this project's "dev-story bookkeeping can lag shipped code" pattern) found BUG-009's fix already shipped in commit `e658eb4`, ahead of this story — documented above rather than re-implemented.
 - Two `AskUserQuestion` rounds confirmed before drafting (2026-09-16): (1) BUG-008's approach, given `ToggleFavoriteResult` has no `favoriteCount` field today — confirmed: extend the mutation response rather than switch to confirm-then-refetch; (2) BUG-007's partial-outcome UX — confirmed: keep the dialog open on any failure rather than close-and-toast-partial-success.
 - Gate 1/2/3 run fresh via `runSubagent` (no swept `epic-2-i1-readiness.md` exists for this epic) — all three returned "No gap found" (see Architecture & UX Gate Findings).
+- `bmad-dev-story` activation (2026-09-16): Pre-Coding Approval Gate was still unchecked (default pending-approval); ran a fresh `AskUserQuestion` confirming all 5 gate items as documented in the story before starting Task 1 — see updated `## Pre-Coding Approval Gate` checkboxes above. Prerequisite stories 2.1/2.1a/2.6b all confirmed at sprint-status `review` (not `done`) — accepted per this project's standing rule that a `review`-status prerequisite is safe to build against.
+- Verification Plan commands actually executed and confirmed passing before marking the story `review` (per this project's standing rule to execute, not just plan, the Verification Plan): `cross-env NODE_ENV=test node --import tsx --test --test-concurrency=1 src/schema/favorites-and-calendar.test.ts` (backend, 10/10 pass) and the same widened to also run `events.test.ts` (regression check, still 10/10 for the favorites/calendar suite); `npx vitest run src/features/events` (frontend, 10 files / 78 tests pass, includes `EventDetailWrapper.test.tsx`'s 33 tests); `pnpm lint` at repo root (0 errors, pre-existing warnings only); `pnpm build` at repo root (succeeds, all 38 pages generated); `pnpm run codegen` in both `apps/backend` and `apps/web` (both regenerated cleanly, diffs reviewed, not hand-edited).
 
 ### Completion Notes List
 
-_To be filled by the dev agent._
+- **Task 1 (Backend, AC2):** Added `favoriteCount: Int!` to `ToggleFavoriteResult` (`favorites-and-calendar.graphql`) and computed it inside `toggleFavorite`'s existing `db.transaction`, on all three branches (unfavorite/re-favorite/insert-new), via the same `count()` + `activeOnly(favorites)` idiom the sibling `Event.favoriteCount` field resolver already uses, read through `tx` so it observes the just-committed row. `pnpm run codegen` regenerated `resolvers-types.ts` cleanly. Extended `favorites-and-calendar.test.ts`'s "toggle on, off, and on" test to assert `favoriteCount` (1→0→1) at each step and cross-check parity against the independent `Event.favoriteCount` field-resolver query — added a leading cleanup delete so the assertions aren't polluted by other users' favorites seeded elsewhere in the suite.
+- **Task 2 (Frontend, AC3):** Added `favoriteCount` to `toggleFavorite`'s selection set in `mutations.graphql`; `pnpm run codegen` regenerated `graphql.ts` cleanly. Removed both `Math.max(0, old ± 1)` computations in `EventDetailWrapper.tsx` (the `getEventBySlug` detail-cache patch and `patchListCache`'s per-item computation) in favor of setting `favoriteCount` directly from `data.toggleFavorite.favoriteCount` — no arithmetic remains in the file.
+- **Task 3 (Frontend, AC4-AC7):** Replaced `Promise.all` with `Promise.allSettled` in `handleAddToCalendar`; derived `succeededIds`/`failedIds` from `changedIds` paired with `settled`'s per-index status. `addedIds` is filtered to `succeededIds` before building the ICS download URL and firing `calendar_ics_downloaded`, so a failed schedule is never included even when other schedules in the same confirm succeeded. On any failure, logs the failed ids and throws (no `toast.success`) so `AddToCalendarDialog` stays open via its existing `onConfirm`-throw/await/catch contract; on zero failures, behavior is unchanged (success toast, download, analytics for the full `succeededIds`-filtered `addedIds`).
+- **Task 4 (AC1, BUG-009 verification):** Re-read both `onSuccess` null-checks after Tasks 2/3 landed — the guard-and-throw shape from commit `e658eb4` is untouched (Task 2/3's edits are additive/adjacent, not overlapping). Both existing BUG-009 regression tests still pass unmodified.
+- **Task 5 (Testing, AC2-AC8):** Added two new `EventDetailWrapper.test.tsx` integration tests: (a) a mixed-outcome multi-schedule confirm (`sched_ok` + `sched_fail`) asserting dialog-stays-open, ICS download/`calendar_ics_downloaded` scoped to only the succeeding id, `calendarErrorAnnouncement` shown, and — via a newly added `sonner` mock/spy since no prior test in this file asserted the success-toast path — `toast.success` never called; (b) a server-derived-`favoriteCount` test proving the rendered badge shows the mocked `42` (not a naive `old+1` of `4`) after a toggle. Extended the `toggleFavorite` MSW handler to return a controllable `favoriteCount` (`mockToggleFavoriteCount`, reset to `42` in `beforeEach`) instead of a hardcoded response lacking the field. One pre-existing test ("patches list caches ... without double-counting favoriteCount") had its premise been the now-removed ±1 arithmetic — updated in place (not left broken) to assert the server-supplied value is applied uniformly across all four caches instead of a locally-computed delta; this is Task 2's intended behavior change, not a regression, and is called out explicitly rather than silently modified. All other pre-existing tests (full-success add-to-calendar, full single-schedule failure, both BUG-009 null-data cases, and all non-favorite/calendar tests in the file) pass unmodified. Backend `favorites-and-calendar.test.ts` extended per Task 1. `pnpm build` / `pnpm lint` / `pnpm run codegen` all clean at the repo root.
+- **Verification Plan executed live** (not just planned): see Debug Log References above for the exact commands run and their pass/fail outcome.
 
 ### File List
 
-_To be filled by the dev agent (predicted in Implementation Plan → File Change Plan above)._
+- **Modified:** `apps/backend/src/schema/favorites-and-calendar.graphql`
+- **Modified:** `apps/backend/src/schema/resolvers.ts`
+- **Modified:** `apps/backend/src/schema/favorites-and-calendar.test.ts`
+- **Modified (codegen output):** `apps/backend/src/generated/resolvers-types.ts`
+- **Modified:** `apps/web/src/features/events/mutations.graphql`
+- **Modified:** `apps/web/src/features/events/EventDetailWrapper.tsx`
+- **Modified:** `apps/web/src/features/events/EventDetailWrapper.test.tsx`
+- **Modified (codegen output):** `apps/web/src/generated/graphql.ts`

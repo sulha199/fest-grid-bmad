@@ -114,16 +114,12 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, (old: unknown) => {
         const typedOld = old as any
         if (!typedOld?.eventBySlug) return typedOld
-        const favoriteCount =
-          typeof typedOld.eventBySlug.favoriteCount === "number"
-            ? Math.max(0, typedOld.eventBySlug.favoriteCount + (data.toggleFavorite.isFavorited ? 1 : -1))
-            : typedOld.eventBySlug.favoriteCount
         return {
           ...typedOld,
           eventBySlug: {
             ...typedOld.eventBySlug,
             isFavorited: data.toggleFavorite.isFavorited,
-            favoriteCount,
+            favoriteCount: data.toggleFavorite.favoriteCount,
           },
         }
       })
@@ -145,11 +141,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
                   ...page.events,
                   items: page.events.items.map((item: any) => {
                     if (item.id !== variables.eventId) return item
-                    const favoriteCount =
-                      typeof item.favoriteCount === "number"
-                        ? Math.max(0, item.favoriteCount + (data.toggleFavorite.isFavorited ? 1 : -1))
-                        : item.favoriteCount
-                    return { ...item, isFavorited: data.toggleFavorite.isFavorited, favoriteCount }
+                    return { ...item, isFavorited: data.toggleFavorite.isFavorited, favoriteCount: data.toggleFavorite.favoriteCount }
                   }),
                 },
               }
@@ -474,33 +466,48 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
 
     if (changedIds.length === 0) return
 
-    try {
-      await Promise.all(
-        changedIds.map((scheduleId) => toggleCalendarAddition({ eventId, scheduleId }))
-      )
+    const settled = await Promise.allSettled(
+      changedIds.map((scheduleId) => toggleCalendarAddition({ eventId, scheduleId }))
+    )
 
-      if (addedIds.length > 0) {
-        const queryParams = new URLSearchParams()
-        queryParams.set("eventId", eventId)
-        addedIds.forEach((id) => {
-          queryParams.append("scheduleId", id)
-        })
-        window.location.assign(`/api/calendar/ics?${queryParams.toString()}`)
-
-        posthog.capture("calendar_ics_downloaded", {
-          eventId,
-          scheduleIds: addedIds,
-        })
+    const succeededIds: string[] = []
+    const failedIds: string[] = []
+    changedIds.forEach((scheduleId, index) => {
+      if (settled[index]?.status === "fulfilled") {
+        succeededIds.push(scheduleId)
+      } else {
+        failedIds.push(scheduleId)
       }
+    })
 
-      toast.success(t("addToCalendarSuccessAnnouncement"))
-    } catch (e) {
-      console.error("Failed to update calendar additions", e)
-      // Re-throw so the dialog's awaited onConfirm knows this failed and keeps
-      // itself open instead of closing on a false-success basis. The mutation's
-      // own onError above already surfaces the user-visible message.
-      throw e
+    const downloadIds = addedIds.filter((id) => succeededIds.includes(id))
+
+    if (downloadIds.length > 0) {
+      const queryParams = new URLSearchParams()
+      queryParams.set("eventId", eventId)
+      downloadIds.forEach((id) => {
+        queryParams.append("scheduleId", id)
+      })
+      window.location.assign(`/api/calendar/ics?${queryParams.toString()}`)
+
+      posthog.capture("calendar_ics_downloaded", {
+        eventId,
+        scheduleIds: downloadIds,
+      })
     }
+
+    if (failedIds.length > 0) {
+      // Do not toast success and re-throw so the dialog's awaited onConfirm knows
+      // this confirm failed (at least partially) and keeps itself open instead of
+      // closing on a false-success basis. Each failed schedule's own mutation
+      // onError above already surfaced the user-visible calendarErrorAnnouncement
+      // and rolled back its optimistic flip; succeeded schedules stick via the
+      // cache update above and the dialog's own prop-resync effect.
+      console.error("Failed to update calendar additions", { failedIds })
+      throw new Error("Failed to update calendar additions")
+    }
+
+    toast.success(t("addToCalendarSuccessAnnouncement"))
   }
 
   const mappedProps = data?.eventBySlug

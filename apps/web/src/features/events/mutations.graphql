@@ -2,6 +2,7 @@ mutation toggleFavorite($eventId: ID!) {
   toggleFavorite(eventId: $eventId) {
     eventId
     isFavorited
+    favoriteCount
   }
 }
 

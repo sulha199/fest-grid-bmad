@@ -1031,7 +1031,7 @@ Constraints and Guidelines:
       return await db.transaction(async (tx) => {
         const existingRows = await tx.select().from(favorites)
           .where(and(eq(favorites.userId, authUser.userId), eq(favorites.eventId, eventId)));
-        
+
         if (existingRows.length > 0) {
           const existing = existingRows[0];
           if (existing.deletedAt === null) {
@@ -1039,13 +1039,17 @@ Constraints and Guidelines:
             await tx.update(favorites)
               .set({ deletedAt: new Date() })
               .where(eq(favorites.id, existing.id));
-            return { eventId, isFavorited: false };
+            const countRows = await tx.select({ count: count() }).from(favorites).where(and(eq(favorites.eventId, eventId), activeOnly(favorites)));
+            const favoriteCount = countRows[0]?.count ?? 0;
+            return { eventId, isFavorited: false, favoriteCount };
           } else {
             // Re-favorite: clear deletedAt
             await tx.update(favorites)
               .set({ deletedAt: null })
               .where(eq(favorites.id, existing.id));
-            return { eventId, isFavorited: true };
+            const countRows = await tx.select({ count: count() }).from(favorites).where(and(eq(favorites.eventId, eventId), activeOnly(favorites)));
+            const favoriteCount = countRows[0]?.count ?? 0;
+            return { eventId, isFavorited: true, favoriteCount };
           }
         } else {
           // Insert new
@@ -1053,7 +1057,9 @@ Constraints and Guidelines:
             userId: authUser.userId,
             eventId,
           });
-          return { eventId, isFavorited: true };
+          const countRows = await tx.select({ count: count() }).from(favorites).where(and(eq(favorites.eventId, eventId), activeOnly(favorites)));
+          const favoriteCount = countRows[0]?.count ?? 0;
+          return { eventId, isFavorited: true, favoriteCount };
         }
       });
     },

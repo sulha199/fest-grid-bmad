@@ -31,6 +31,7 @@ Object.defineProperty(window, "matchMedia", {
   })),
 })
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { graphql, HttpResponse } from "msw"
 import { setupServer } from "msw/node"
 import { NuqsTestingAdapter } from "nuqs/adapters/testing"
@@ -58,6 +59,12 @@ vi.mock("@festgrid/analytics", () => ({
   usePostHog: () => ({
     capture: mockPosthogCapture,
   }),
+}))
+
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+  },
 }))
 
 let mockSession: any = null
@@ -95,6 +102,10 @@ let currentMockEvent = {
 }
 
 let currentMockSubscriptions: { id: string; account: { accountId: string } }[] = []
+
+// Deliberately not "old ± 1" -- proves the UI reads this server-supplied value
+// directly (AC3/BUG-008) rather than computing a local delta.
+let mockToggleFavoriteCount = 42
 
 const api = graphql.link("*/api/graphql")
 
@@ -199,6 +210,7 @@ const handlers = [
         toggleFavorite: {
           eventId,
           isFavorited: true,
+          favoriteCount: mockToggleFavoriteCount,
         },
       },
     })
@@ -278,6 +290,7 @@ describe("EventDetailWrapper", () => {
     mockSession = { user: { id: "u_1" } } // Default authenticated
     currentMockSubscriptions = []
     mockSearchParams = new URLSearchParams()
+    mockToggleFavoriteCount = 42
     currentMockEvent = {
       id: "evt_1",
       eventName: "Test Event",
@@ -414,10 +427,14 @@ describe("EventDetailWrapper", () => {
     expect(screen.getByRole("img", { name: "Test Event" })).toHaveAttribute("src", "https://example.com/evt.jpg")
   })
 
-  it("patches list caches (events, events/feed, favoriteEvents) when toggle favorite succeeds, without double-counting favoriteCount", async () => {
+  it("patches list caches (events, events/feed, favoriteEvents) when toggle favorite succeeds, using the server-supplied favoriteCount directly (not double-counted, no local ± 1 arithmetic -- BUG-008)", async () => {
     // events/feed's query key is a PREFIX-match of events's (["events", "feed", ...]
     // vs ["events", ...]), so a naive extra patch call targeting ["events", "feed"]
     // on top of ["events"] would double-apply the favoriteCount delta to this cache.
+    // The mock's mutation response deliberately does NOT match "old + 1" for any of
+    // the seeded caches below, so a stray ±1 computation anywhere in this file would
+    // make this assertion fail.
+    mockToggleFavoriteCount = 99
     queryClient.setQueryData(["events"], {
       pages: [{ events: { items: [{ id: "evt_1", isFavorited: false, favoriteCount: 5 }] } }],
     })
@@ -437,23 +454,47 @@ describe("EventDetailWrapper", () => {
     await waitFor(() => {
       const eventsCache = queryClient.getQueryData<any>(["events"])
       expect(eventsCache?.pages[0].events.items[0].isFavorited).toBe(true)
-      expect(eventsCache?.pages[0].events.items[0].favoriteCount).toBe(6)
+      expect(eventsCache?.pages[0].events.items[0].favoriteCount).toBe(99)
 
       const feedCache = queryClient.getQueryData<any>(["events", "feed"])
       expect(feedCache?.pages[0].events.items[0].isFavorited).toBe(true)
-      expect(feedCache?.pages[0].events.items[0].favoriteCount).toBe(6)
+      expect(feedCache?.pages[0].events.items[0].favoriteCount).toBe(99)
 
       const favCache = queryClient.getQueryData<any>(["favoriteEvents"])
       expect(favCache?.pages[0].events.items[0].isFavorited).toBe(true)
-      expect(favCache?.pages[0].events.items[0].favoriteCount).toBe(6)
+      expect(favCache?.pages[0].events.items[0].favoriteCount).toBe(99)
 
       // The detail page's own cache (currentMockEvent starts at favoriteCount: 3)
-      // must also bump, or the count next to the heart would silently go stale
-      // after the user's own toggle on this exact page.
+      // must also reflect the same server-supplied value, or the count next to the
+      // heart would silently go stale after the user's own toggle on this exact page.
       const detailCache = queryClient.getQueryData<any>(["getEventBySlug", { slug: "test-event" }])
       expect(detailCache?.eventBySlug?.isFavorited).toBe(true)
-      expect(detailCache?.eventBySlug?.favoriteCount).toBe(4)
+      expect(detailCache?.eventBySlug?.favoriteCount).toBe(99)
     })
+  })
+
+  it("reflects the server-supplied favoriteCount on the rendered badge rather than a locally-computed ±1 (AC3/BUG-008)", async () => {
+    // currentMockEvent starts at favoriteCount: 3; a naive ±1 computation would show
+    // 4 after one favorite toggle. The mock mutation instead returns 42 -- proving
+    // EventDetailWrapper reads data.toggleFavorite.favoriteCount directly.
+    mockToggleFavoriteCount = 42
+
+    renderComponent()
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const favBtn = await screen.findByRole("button", { name: "EventDetailsPage.favoriteButtonLabel" })
+    expect(await screen.findByText("3")).toBeInTheDocument()
+
+    fireEvent.click(favBtn)
+
+    await waitFor(() => {
+      expect(favBtn).toHaveAttribute("aria-pressed", "true")
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText("42")).toBeInTheDocument()
+    })
+    expect(screen.queryByText("4")).not.toBeInTheDocument()
   })
 
   it("redirects unauthenticated users to /login and does not fire mutation", async () => {
@@ -579,6 +620,80 @@ describe("EventDetailWrapper", () => {
         scheduleIds: ["sched_1"],
       })
     })
+  })
+
+  it("settles a mixed-outcome multi-schedule confirm per item: dialog stays open, download/analytics scoped to the succeeding id only, no success toast (BUG-007)", async () => {
+    const assignMock = vi.fn()
+    vi.stubGlobal("location", { assign: assignMock })
+
+    currentMockEvent.schedules = [
+      {
+        id: "sched_ok",
+        isMainSchedule: true,
+        eventStartDate: "2026-08-10T10:00:00Z",
+        eventEndDate: null,
+        eventStartTime: null,
+        eventEndTime: null,
+        timezone: null,
+        ticketPrice: null,
+        isAddedToCalendar: false,
+      },
+      {
+        id: "sched_fail",
+        isMainSchedule: false,
+        eventStartDate: "2026-08-11T14:00:00Z",
+        eventEndDate: null,
+        eventStartTime: null,
+        eventEndTime: null,
+        timezone: null,
+        ticketPrice: null,
+        isAddedToCalendar: false,
+      },
+    ] as any
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const calBtn = await screen.findByRole("button", { name: "EventDetailsPage.addToCalendarButtonLabel" })
+    fireEvent.click(calBtn)
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
+
+    const checkbox1 = screen.getByLabelText(/EventDetailsPage.defaultScheduleTitle 1/) as HTMLInputElement
+    const checkbox2 = screen.getByLabelText(/EventDetailsPage.defaultScheduleTitle 2/) as HTMLInputElement
+    fireEvent.click(checkbox1)
+    fireEvent.click(checkbox2)
+
+    const confirmBtn = screen.getByRole("button", { name: "EventDetailsPage.addToCalendarConfirmLabel" })
+    fireEvent.click(confirmBtn)
+
+    // Error is announced for the failed schedule
+    await waitFor(() => {
+      expect(screen.getByText("EventDetailsPage.calendarErrorAnnouncement")).toBeInTheDocument()
+    })
+
+    // Dialog stays open on partial failure -- succeeded schedules show as committed
+    // via the dialog's own prop-resync, failed ones revert via their own rollback.
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
+
+    // Download/analytics fire, scoped to the succeeding id only -- sched_fail never
+    // appears even though it was part of the same confirm.
+    await waitFor(() => {
+      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining("/api/calendar/ics?eventId=evt_1&scheduleId=sched_ok"))
+    })
+    expect(assignMock).not.toHaveBeenCalledWith(expect.stringContaining("scheduleId=sched_fail"))
+
+    await waitFor(() => {
+      expect(mockPosthogCapture).toHaveBeenCalledWith("calendar_ics_downloaded", {
+        eventId: "evt_1",
+        scheduleIds: ["sched_ok"],
+      })
+    })
+
+    // No success toast on a partial failure -- reuses the existing full-failure
+    // messaging path, no new "N of M succeeded" copy.
+    expect(toast.success).not.toHaveBeenCalled()
   })
 
   it("surfaces an error and keeps the dialog open when add to calendar mutation fails", async () => {
