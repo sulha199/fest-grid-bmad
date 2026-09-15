@@ -1295,6 +1295,111 @@ Users can discover and browse events.
 
 Note: Added 2026-08-01 at user request, scoped to Epic 1 (the only route it can apply to today is the Discovery/Home page). Establishes the `generateMetadata` convention future page stories (e.g. Story 1.6's event detail page) must follow — see `_bmad-output/implementation-artifacts/1-9-dynamic-browser-title-and-meta-tags.md` for the full gate analysis (no Epic 0 split needed; reuses existing next-intl/Next.js foundations).
 
+---
+
+## Epic 1 (Core App and Event Discovery) — improvement epics
+
+### Epic 1.i1: One card primitive for every event-card image slot and badge
+
+**Invariant:** Every card surface renders its image slot, thumbnail and favorite/date badge through the shared `event_card_*` primitive — never a local size, never a local fallback.
+
+### Story 1.i1a: Extend the shared event_card_* primitive to own thumbnail sizing and fallback
+
+**As a** developer,
+**I want** the `event_card_*` tokens already specified by the 2026-09-11 `bmad-ux` pass — `event_card_date_box.base_default`, `event_card_masonry.thumbnail_default`/`thumbnail_default_fallback`, `event_card_compact_thumbnail_fallback`, `event_card_favorite_count_badge_large` — implemented as one primitive that owns image-slot dimensions, fallback rendering and badge scale,
+**So that** every surface has one thing to adopt instead of re-deciding sizing and fallback locally.
+
+**Acceptance Criteria:**
+
+*   **Given** the shared primitive,
+*   **When** it renders an image slot,
+*   **Then** the slot's dimensions come from the surrounding chrome (date-box height / row height), never from the image, so nothing shifts when the image fails.
+*   **And** the favorite icon's size derives from the date badge's font-size token rather than a fixed class.
+*   **And** a missing or hotlink-expired image renders reserved-but-blank space — no placeholder text, no icon.
+
+**Note:** Establishes a new invariant — a new `AD-n` on the architecture spine is written in this story, not deferred to `z` (gate §6).
+
+### Story 1.i1b: Tie the favorite icon's size to the date badge token
+
+**As a** developer,
+**I want** `EventCard`'s hardcoded `w-5 h-5` Heart icon replaced by the primitive's badge-scale token,
+**So that** the icon and the date badge stop drifting out of proportion (BUG-023).
+
+**Acceptance Criteria:**
+
+*   **Given** `EventCard` at any date-badge font size,
+*   **When** the favorite icon renders,
+*   **Then** its size is derived from that font size through the shared token, with no fixed pixel class remaining.
+
+**Depends on:** Story 1.i1a.
+
+### Story 1.i1c: Replace the local broken-image placeholder with the shared fallback
+
+**As a** developer,
+**I want** `EventCard`'s `!imgError && imageUrl` else-branch — today a muted box reading "No image available" — replaced by the primitive's reserved-but-blank fallback,
+**So that** an expired hotlink shows nothing rather than placeholder text (FIND-023).
+
+**Acceptance Criteria:**
+
+*   **Given** an event whose image is absent or whose hotlinked URL has expired,
+*   **When** the card renders on masonry or the calendar row,
+*   **Then** the image area is blank and correctly sized, with no placeholder text or icon and no reflow.
+
+**Depends on:** Story 1.i1a.
+
+### Story 1.i1d: Adopt the primitive into WeeklyCalendarView's compact row
+
+**As a** developer,
+**I want** the calendar row card to render a thumbnail through the primitive, with the enlarged standalone favorite icon when the image is missing,
+**So that** the calendar surface stops being the one list view with no image at all (IDEA-016).
+
+**Acceptance Criteria:**
+
+*   **Given** the Weekly Calendar's compact row,
+*   **When** it renders,
+*   **Then** the thumbnail, fallback and favorite badge come from the primitive.
+*   **And** the row's date box shows till/end information, not a repeat of the start date its day header already anchors.
+
+**Depends on:** Stories 1.i1a, 1.i1c.
+
+**Note:** Which `WeeklyCalendarView.tsx` render path this attaches to was deliberately left open pending an architecture call from `bmad-epic-readiness-check` (IDEA-016's note, user-confirmed 2026-09-11). **Resolved 2026-09-13 via the Epic 1.i1 readiness sweep:** `WeeklyCalendarView.tsx` has exactly one per-schedule card component, `CalendarCard`, parameterized by `variant: 'grid' | 'list'`. `variant='list'` is used in exactly one place — the Mobile Vertical Day List (`mobile_day_list`, `data-testid="mobile-calendar-view"`), the grouped per-day compact row. `variant='grid'` drives the desktop grid cells and the "+N more" popover, which is a denser grid cell, not a row/card surface — there is no second, ungrouped compact-row surface anywhere in the file, so "both" is not an option. **This story attaches the primitive to `CalendarCard`'s `variant='list'` render path only.**
+
+### Story 1.i1e: Adopt the primitive into the masonry default state
+
+**As a** developer,
+**I want** `prominentPoster=false` to move its date box out of the poster overlay and beside a small thumbnail sized to the date box's own height, with the TILL badge repositioned and recolored,
+**So that** an expired image degrades gracefully instead of leaving a broken overlay on an empty poster (IDEA-017).
+
+**Acceptance Criteria:**
+
+*   **Given** `EventCard` with `prominentPoster=false`,
+*   **When** it renders,
+*   **Then** the date box sits beside a thumbnail sized to the date box's height, both from the primitive.
+*   **And** `prominentPoster=true` keeps its shipped full-width-poster treatment unchanged.
+*   **And** the TILL badge renders at the date box's top-left corner in the new amber treatment.
+
+**Depends on:** Stories 1.i1a, 1.i1c.
+
+### Story 1.i1z: Ratchet — no card surface sizes or falls back locally
+
+**As a** developer,
+**I want** an enforced, CI-wired guarantee that the invariant holds,
+**So that** a fifth card surface cannot reintroduce its own image sizing or its own fallback.
+
+**Acceptance Criteria:**
+
+*   **Given** the full codebase,
+*   **When** the repo-wide sweep test runs in CI,
+*   **Then** it fails if any component under `packages/ui/src/features/events` renders an image slot, thumbnail, favorite icon or date badge with a hardcoded dimension class instead of an `event_card_*` token.
+*   **And** it fails if the literal "No image available", or any other placeholder text or icon, appears inside an image-fallback branch anywhere outside the shared primitive.
+*   **And** a test asserts every card surface — masonry default, masonry prominent, and the calendar compact row — renders reserved-but-blank on image error with no layout shift.
+
+**Depends on:** Stories 1.i1a, 1.i1b, 1.i1c, 1.i1d, 1.i1e.
+
+**Note:** Formed 2026-09-11 via `bmad-form-epics` from BUG-023, FIND-023, IDEA-016, IDEA-017. **Proposed as a feature epic ("Epic 9") and reclassified to the improvement axis at the human checkpoint** — the members are not one journey (masonry shipping without the calendar thumbnail leaves the surfaces *inconsistent*, not the outcome incomplete), and a feature epic carries no mandatory ratchet, which is what "consistently across every surface" most needs. Reasoning in `planning-artifacts/epic-formation/checkpoint-2026-09-11.md` §2.
+
+---
+
 ### Epic 2: User Personalization
 
 Users can personalize their experience by saving favorite events and locations.
@@ -3539,6 +3644,8 @@ Today, `SocialMediaAccountProfile.isImageStorageOptedIn` (PRD §4.5) can only be
 
 The epics below were formed by clustering `backlog.yaml` rows that violate the same invariant, per `planning-artifacts/epic-formation-gate.md`. Unlike Epics 0-8, they did not originate in the PRD — evidence flows code → epic → spec reconciliation (gate §1), not the other way around. Each carries its invariant sentence, a mechanism story (`a`), adoption stories, and a mandatory ratchet (`z`) per gate §§3-4.
 
+**Epic 1.i1 relocated 2026-09-15:** moved to sit directly under Epic 1's own section above (single continuous read of that epic's specs), same heading/story keys/IDs — nothing renamed or renumbered. Every other improvement epic (0.i1-0.i7 below, 2.i1 after them) is still grouped here by formation order.
+
 ### Epic 0.i1: Templated, throttled moderator notifications
 
 **Invariant:** Every outbound moderator notification is sent through one templated, throttled helper whose rendering escapes HTML.
@@ -4079,109 +4186,6 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 **Note:** AC corrected 2026-09-13 (during this batch's own `bmad-create-story`/`bmad-dev-story` runs for 0.i7c/0.i7d) — the original wording named `resolve-account-and-locations.ts` and, later, five `apps/backend/src/schema/resolvers.ts` functions as places that must "check confidence/matchType," but none of them ever do: `formatLocationDetails()` and `resolve-account-and-locations.ts` both spread/pass the resolved object through unconditionally and never branch on these fields — by design, since the actual blind-trust protection happens upstream (0.i7b's re-ranking, before any consumer sees the result). `resolve-account-and-locations.ts` is dropped from this ratchet entirely (it supplies `countryBias` as an *input* to resolution, per 0.i7a — a different, already-covered concern, not a confidence *check* on the output). The five `resolvers.ts` functions' real obligation was never "read confidence" but "don't let the GraphQL layer discard it," which 0.i7d's `.graphql`-file guard tests already enforce mechanically (they run in the normal test suite) — restated above instead of pointing this ratchet at code that structurally cannot satisfy the original wording. User confirmed via AskUserQuestion (0.i7d's creation) to keep 0.i7d exposure-only rather than add a synthetic backend read to make the original wording literally true.
 
 **Note:** Formed 2026-09-11 via `bmad-form-epics` from BUG-027, BUG-017, IDEA-023. Invariant rewritten at the human checkpoint from an earlier two-clause form whose second half ("prefers a correct match over blindly trusting") was unfalsifiable; these `z` criteria test the replacement directly. See `planning-artifacts/epic-formation/checkpoint-2026-09-11.md` §2. Widened 2026-09-13 via `bmad-epic-readiness-check` (Gate 3): the original AC named only 2 of 7 known `resolveLocation()` call sites, understating what the epic's own unqualified invariant claims to cover. User confirmed via AskUserQuestion to widen to all 7 (new Story 0.i7d provides the 5 additional consumers something real to enforce) rather than carve out a subset as a different trust model.
-
----
-
-## Epic 1 (Core App and Event Discovery) — improvement epics
-
-### Epic 1.i1: One card primitive for every event-card image slot and badge
-
-**Invariant:** Every card surface renders its image slot, thumbnail and favorite/date badge through the shared `event_card_*` primitive — never a local size, never a local fallback.
-
-### Story 1.i1a: Extend the shared event_card_* primitive to own thumbnail sizing and fallback
-
-**As a** developer,
-**I want** the `event_card_*` tokens already specified by the 2026-09-11 `bmad-ux` pass — `event_card_date_box.base_default`, `event_card_masonry.thumbnail_default`/`thumbnail_default_fallback`, `event_card_compact_thumbnail_fallback`, `event_card_favorite_count_badge_large` — implemented as one primitive that owns image-slot dimensions, fallback rendering and badge scale,
-**So that** every surface has one thing to adopt instead of re-deciding sizing and fallback locally.
-
-**Acceptance Criteria:**
-
-*   **Given** the shared primitive,
-*   **When** it renders an image slot,
-*   **Then** the slot's dimensions come from the surrounding chrome (date-box height / row height), never from the image, so nothing shifts when the image fails.
-*   **And** the favorite icon's size derives from the date badge's font-size token rather than a fixed class.
-*   **And** a missing or hotlink-expired image renders reserved-but-blank space — no placeholder text, no icon.
-
-**Note:** Establishes a new invariant — a new `AD-n` on the architecture spine is written in this story, not deferred to `z` (gate §6).
-
-### Story 1.i1b: Tie the favorite icon's size to the date badge token
-
-**As a** developer,
-**I want** `EventCard`'s hardcoded `w-5 h-5` Heart icon replaced by the primitive's badge-scale token,
-**So that** the icon and the date badge stop drifting out of proportion (BUG-023).
-
-**Acceptance Criteria:**
-
-*   **Given** `EventCard` at any date-badge font size,
-*   **When** the favorite icon renders,
-*   **Then** its size is derived from that font size through the shared token, with no fixed pixel class remaining.
-
-**Depends on:** Story 1.i1a.
-
-### Story 1.i1c: Replace the local broken-image placeholder with the shared fallback
-
-**As a** developer,
-**I want** `EventCard`'s `!imgError && imageUrl` else-branch — today a muted box reading "No image available" — replaced by the primitive's reserved-but-blank fallback,
-**So that** an expired hotlink shows nothing rather than placeholder text (FIND-023).
-
-**Acceptance Criteria:**
-
-*   **Given** an event whose image is absent or whose hotlinked URL has expired,
-*   **When** the card renders on masonry or the calendar row,
-*   **Then** the image area is blank and correctly sized, with no placeholder text or icon and no reflow.
-
-**Depends on:** Story 1.i1a.
-
-### Story 1.i1d: Adopt the primitive into WeeklyCalendarView's compact row
-
-**As a** developer,
-**I want** the calendar row card to render a thumbnail through the primitive, with the enlarged standalone favorite icon when the image is missing,
-**So that** the calendar surface stops being the one list view with no image at all (IDEA-016).
-
-**Acceptance Criteria:**
-
-*   **Given** the Weekly Calendar's compact row,
-*   **When** it renders,
-*   **Then** the thumbnail, fallback and favorite badge come from the primitive.
-*   **And** the row's date box shows till/end information, not a repeat of the start date its day header already anchors.
-
-**Depends on:** Stories 1.i1a, 1.i1c.
-
-**Note:** Which `WeeklyCalendarView.tsx` render path this attaches to was deliberately left open pending an architecture call from `bmad-epic-readiness-check` (IDEA-016's note, user-confirmed 2026-09-11). **Resolved 2026-09-13 via the Epic 1.i1 readiness sweep:** `WeeklyCalendarView.tsx` has exactly one per-schedule card component, `CalendarCard`, parameterized by `variant: 'grid' | 'list'`. `variant='list'` is used in exactly one place — the Mobile Vertical Day List (`mobile_day_list`, `data-testid="mobile-calendar-view"`), the grouped per-day compact row. `variant='grid'` drives the desktop grid cells and the "+N more" popover, which is a denser grid cell, not a row/card surface — there is no second, ungrouped compact-row surface anywhere in the file, so "both" is not an option. **This story attaches the primitive to `CalendarCard`'s `variant='list'` render path only.**
-
-### Story 1.i1e: Adopt the primitive into the masonry default state
-
-**As a** developer,
-**I want** `prominentPoster=false` to move its date box out of the poster overlay and beside a small thumbnail sized to the date box's own height, with the TILL badge repositioned and recolored,
-**So that** an expired image degrades gracefully instead of leaving a broken overlay on an empty poster (IDEA-017).
-
-**Acceptance Criteria:**
-
-*   **Given** `EventCard` with `prominentPoster=false`,
-*   **When** it renders,
-*   **Then** the date box sits beside a thumbnail sized to the date box's height, both from the primitive.
-*   **And** `prominentPoster=true` keeps its shipped full-width-poster treatment unchanged.
-*   **And** the TILL badge renders at the date box's top-left corner in the new amber treatment.
-
-**Depends on:** Stories 1.i1a, 1.i1c.
-
-### Story 1.i1z: Ratchet — no card surface sizes or falls back locally
-
-**As a** developer,
-**I want** an enforced, CI-wired guarantee that the invariant holds,
-**So that** a fifth card surface cannot reintroduce its own image sizing or its own fallback.
-
-**Acceptance Criteria:**
-
-*   **Given** the full codebase,
-*   **When** the repo-wide sweep test runs in CI,
-*   **Then** it fails if any component under `packages/ui/src/features/events` renders an image slot, thumbnail, favorite icon or date badge with a hardcoded dimension class instead of an `event_card_*` token.
-*   **And** it fails if the literal "No image available", or any other placeholder text or icon, appears inside an image-fallback branch anywhere outside the shared primitive.
-*   **And** a test asserts every card surface — masonry default, masonry prominent, and the calendar compact row — renders reserved-but-blank on image error with no layout shift.
-
-**Depends on:** Stories 1.i1a, 1.i1b, 1.i1c, 1.i1d, 1.i1e.
-
-**Note:** Formed 2026-09-11 via `bmad-form-epics` from BUG-023, FIND-023, IDEA-016, IDEA-017. **Proposed as a feature epic ("Epic 9") and reclassified to the improvement axis at the human checkpoint** — the members are not one journey (masonry shipping without the calendar thumbnail leaves the surfaces *inconsistent*, not the outcome incomplete), and a feature epic carries no mandatory ratchet, which is what "consistently across every surface" most needs. Reasoning in `planning-artifacts/epic-formation/checkpoint-2026-09-11.md` §2.
 
 ---
 
