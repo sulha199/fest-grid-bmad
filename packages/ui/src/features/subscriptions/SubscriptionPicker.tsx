@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { MultiSelect } from '../../core/multi-select';
-import { Instagram, Link } from 'lucide-react';
+import { PlatformIcon } from '../../core/platform-icon';
 
 export interface SubscriptionAccountProfile {
   id: string;
@@ -24,14 +24,6 @@ export interface SubscriptionPickerProps {
     clearLabel?: string;
   };
 }
-
-const PlatformIcon = ({ platform, className }: { platform: string; className?: string }) => {
-  const norm = platform.toLowerCase();
-  if (norm === 'instagram') {
-    return <Instagram className={className} />;
-  }
-  return <Link className={className} />;
-};
 
 export function SubscriptionPicker({
   value,

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from "react"
-import { useGetEventBySlugQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useResolveScheduleTimezoneMutation, useMeQuery, useGetMySubscriptionsQuery, useSubscribeToAccountMutation } from "@/generated/graphql"
+import { useGetEventBySlugQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useResolveScheduleTimezoneMutation, useMeQuery, useGetMySubscriptionsQuery, useSubscribeToAccountMutation, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
@@ -55,7 +55,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     }
   )
 
-  const { data: subscriptionsData } = useGetMySubscriptionsQuery(
+  const { data: subscriptionsData, isPending: isSubscriptionsPending } = useGetMySubscriptionsQuery(
     graphqlClient,
     undefined,
     {
@@ -270,9 +270,27 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
       setLiveMessage(t("subscribeSuccessAnnouncement"))
+      posthog.capture("account_subscribed", {
+        eventId,
+        accountId: data?.eventBySlug?.sourceSocialMediaAccountProfile?.accountId,
+      })
     },
     onError: () => {
       setLiveMessage(t("subscribeErrorAnnouncement"))
+    }
+  })
+
+  const { mutate: unsubscribeFromAccount, isPending: isUnsubscribingFromAccount } = useRemoveSubscriptionMutation(graphqlClient, {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
+      setLiveMessage(t("unsubscribeSuccessAnnouncement"))
+      posthog.capture("account_unsubscribed", {
+        eventId,
+        accountId: data?.eventBySlug?.sourceSocialMediaAccountProfile?.accountId,
+      })
+    },
+    onError: () => {
+      setLiveMessage(t("unsubscribeErrorAnnouncement"))
     }
   })
 
@@ -285,9 +303,16 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     })
   }
 
-  const isSubscribedToAccount = subscriptionsData?.mySubscriptions?.some(
+  const handleUnsubscribeFromAccount = () => {
+    if (!matchedSubscription?.id) return
+    unsubscribeFromAccount({ id: matchedSubscription.id, action: SoftDeleteAction.Delete })
+  }
+
+  const matchedSubscription = subscriptionsData?.mySubscriptions?.find(
     s => s.account.accountId === data?.eventBySlug?.sourceSocialMediaAccountProfile?.accountId
   )
+  const isSubscribedToAccount = !!matchedSubscription
+  const isSubscriptionStatusLoading = !!session && isSubscriptionsPending
 
   const eventId = data?.eventBySlug?.id || ""
   const nav = useListNavigationForEvent(eventId, isModal)
@@ -521,6 +546,15 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
             return
           }
           handleSubscribeToAccount()
+        },
+        isSubscriptionStatusLoading,
+        isUnsubscribingFromAccount,
+        onUnsubscribeFromAccount: () => {
+          if (!session) {
+            router.push("/login")
+            return
+          }
+          handleUnsubscribeFromAccount()
         },
       }
     : null

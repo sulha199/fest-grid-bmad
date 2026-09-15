@@ -10,6 +10,7 @@ export * from './core/blocking-loader';
 export * from './core/page-container';
 export * from './core/page-header';
 export * from './core/account-avatar';
+export * from './core/platform-icon';
 
 export * from './core/grid-container';
 export * from './core/route-loader';

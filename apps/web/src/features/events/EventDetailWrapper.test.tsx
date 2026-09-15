@@ -94,7 +94,7 @@ let currentMockEvent = {
   schedules: [],
 }
 
-let currentMockSubscriptions: { account: { accountId: string } }[] = []
+let currentMockSubscriptions: { id: string; account: { accountId: string } }[] = []
 
 const api = graphql.link("*/api/graphql")
 
@@ -157,7 +157,7 @@ const handlers = [
     // the account as subscribed, matching real backend behavior.
     currentMockSubscriptions = [
       ...currentMockSubscriptions,
-      { account: { accountId: input.accountId } },
+      { id: `sub_${input.accountId}`, account: { accountId: input.accountId } },
     ]
     return HttpResponse.json({
       data: {
@@ -166,6 +166,19 @@ const handlers = [
           platform: input.platform,
           username: input.username,
           displayName: input.displayName,
+        }
+      }
+    })
+  }),
+  api.mutation("removeSubscription", ({ variables }) => {
+    const { id } = variables as any
+    // Reflect the removal so the post-mutation ["getMySubscriptions"] refetch
+    // actually shows the account as no longer subscribed.
+    currentMockSubscriptions = currentMockSubscriptions.filter((s) => s.id !== id)
+    return HttpResponse.json({
+      data: {
+        removeSubscription: {
+          id,
         }
       }
     })
@@ -907,7 +920,7 @@ describe("EventDetailWrapper", () => {
     expect(img).toHaveAttribute("src", "https://example.com/durable.jpg")
   })
 
-  it("renders SubscribedAccountCard with a Subscribe button when not subscribed to the source account", async () => {
+  it("renders SubscribedAccountCard with a not-subscribed toggle when not subscribed to the source account", async () => {
     currentMockEvent.sourceSocialMediaAccountProfile = {
       accountId: "123",
       platform: "instagram",
@@ -921,10 +934,11 @@ describe("EventDetailWrapper", () => {
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
     expect(screen.getByText("Org")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Subscribe" })).toBeInTheDocument()
+    const toggle = screen.getByTestId("subscribe-toggle")
+    expect(toggle).toHaveAttribute("aria-pressed", "false")
   })
 
-  it("clicking Subscribe calls the mutation and updates to Subscribed on success", async () => {
+  it("clicking the toggle calls the subscribe mutation and updates to the subscribed state on success", async () => {
     currentMockEvent.sourceSocialMediaAccountProfile = {
       accountId: "123",
       platform: "instagram",
@@ -936,8 +950,9 @@ describe("EventDetailWrapper", () => {
 
     renderComponent()
 
-    const subscribeBtn = await screen.findByRole("button", { name: "Subscribe" })
-    fireEvent.click(subscribeBtn)
+    const toggle = await screen.findByTestId("subscribe-toggle")
+    expect(toggle).toHaveAttribute("aria-pressed", "false")
+    fireEvent.click(toggle)
 
     await waitFor(() => {
       expect(screen.getByText("EventDetailsPage.subscribeSuccessAnnouncement")).toBeInTheDocument()
@@ -947,12 +962,13 @@ describe("EventDetailWrapper", () => {
     // announcement -- driven by the ["getMySubscriptions"] refetch the
     // mutation's onSuccess triggers.
     await waitFor(() => {
-      expect(screen.getByText("Subscribed")).toBeInTheDocument()
-      expect(screen.queryByRole("button", { name: "Subscribe" })).not.toBeInTheDocument()
+      expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "true")
     })
+
+    expect(mockPosthogCapture).toHaveBeenCalledWith("account_subscribed", { eventId: "evt_1", accountId: "123" })
   })
 
-  it("shows Subscribed (no button) when already subscribed to the source account", async () => {
+  it("shows the subscribed toggle state when already subscribed to the source account", async () => {
     currentMockEvent.sourceSocialMediaAccountProfile = {
       accountId: "123",
       platform: "instagram",
@@ -960,14 +976,80 @@ describe("EventDetailWrapper", () => {
       displayName: "Org",
       profileImageUrl: null,
     }
-    currentMockSubscriptions = [{ account: { accountId: "123" } }]
+    currentMockSubscriptions = [{ id: "sub_123", account: { accountId: "123" } }]
 
     renderComponent()
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getByText("Subscribed")).toBeInTheDocument()
+      expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "true")
     })
-    expect(screen.queryByRole("button", { name: "Subscribe" })).not.toBeInTheDocument()
+  })
+
+  it("clicking the toggle while subscribed calls removeSubscription and flips back to not-subscribed on success", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = {
+      accountId: "123",
+      platform: "instagram",
+      username: "org",
+      displayName: "Org",
+      profileImageUrl: null,
+    }
+    currentMockSubscriptions = [{ id: "sub_123", account: { accountId: "123" } }]
+
+    renderComponent()
+
+    const toggle = await screen.findByTestId("subscribe-toggle")
+    await waitFor(() => {
+      expect(toggle).toHaveAttribute("aria-pressed", "true")
+    })
+
+    fireEvent.click(toggle)
+
+    await waitFor(() => {
+      expect(screen.getByText("EventDetailsPage.unsubscribeSuccessAnnouncement")).toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
+    })
+
+    expect(mockPosthogCapture).toHaveBeenCalledWith("account_unsubscribed", { eventId: "evt_1", accountId: "123" })
+  })
+
+  it("shows the neutral/checking state (not the not-subscribed icon) while getMySubscriptions is still loading for an already-subscribed user (DW-009 regression)", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = {
+      accountId: "123",
+      platform: "instagram",
+      username: "org",
+      displayName: "Org",
+      profileImageUrl: null,
+    }
+    currentMockSubscriptions = [{ id: "sub_123", account: { accountId: "123" } }]
+
+    server.use(
+      api.query("getMySubscriptions", async () => {
+        // Deliberately delay resolution so the render can be observed mid-flight.
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        return HttpResponse.json({
+          data: {
+            mySubscriptions: currentMockSubscriptions,
+          },
+        })
+      })
+    )
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    // While the subscriptions query is still in flight, the toggle must show the
+    // neutral/checking state -- never the not-subscribed (aria-pressed=false) icon.
+    const toggle = screen.getByTestId("subscribe-toggle")
+    expect(toggle).not.toHaveAttribute("aria-pressed")
+    expect(toggle).toHaveAttribute("aria-busy", "true")
+
+    await waitFor(() => {
+      expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "true")
+    })
   })
 })

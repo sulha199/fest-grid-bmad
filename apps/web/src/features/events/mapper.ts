@@ -35,6 +35,11 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
     contentNoLongerAvailableLabel: t('contentNoLongerAvailableLabel'),
     embedLoadingLabel: t('embedLoadingLabel'),
     embedRegionLabel: t('embedRegionLabel'),
+    subscribeButtonLabel: t('subscribeButtonLabel'),
+    unsubscribeButtonLabel: t('unsubscribeButtonLabel'),
+    checkingSubscriptionLabel: t('checkingSubscriptionLabel'),
+    unsubscribeSuccessAnnouncement: t('unsubscribeSuccessAnnouncement'),
+    unsubscribeErrorAnnouncement: t('unsubscribeErrorAnnouncement'),
   };
 }
 

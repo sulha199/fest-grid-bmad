@@ -2,12 +2,14 @@
 
 import * as React from 'react';
 import { useState, useEffect } from 'react';
+import { PlatformIcon } from './platform-icon';
 
 export interface AccountAvatarProps {
   profileImageUrl?: string | null;
   displayName?: string | null;
   username?: string | null;
   size?: 'xs' | 'sm' | 'lg';
+  platform?: string;
 }
 
 const InstagramPlaceholder = ({ className }: { className?: string }) => (
@@ -32,6 +34,7 @@ export function AccountAvatar({
   displayName,
   username,
   size = 'sm',
+  platform,
 }: AccountAvatarProps) {
   const [hasError, setHasError] = useState(false);
 
@@ -61,7 +64,13 @@ export function AccountAvatar({
         aria-label={altText}
         data-testid="avatar-fallback-container"
       >
-        <InstagramPlaceholder className="w-full h-full" />
+        {platform ? (
+          <div className="w-full h-full flex items-center justify-center" data-testid="avatar-fallback-platform-icon">
+            <PlatformIcon platform={platform} className="w-full h-full text-pink-600 dark:text-pink-400" />
+          </div>
+        ) : (
+          <InstagramPlaceholder className="w-full h-full" />
+        )}
       </div>
     );
   }

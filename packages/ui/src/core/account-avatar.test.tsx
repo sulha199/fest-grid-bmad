@@ -185,4 +185,48 @@ describe('AccountAvatar', () => {
     const img = screen.getByTestId('avatar-image');
     expect(img).toHaveAttribute('alt', 'User avatar');
   });
+
+  it('renders the platform icon fallback when platform is provided and no profileImageUrl exists', () => {
+    render(
+      <AccountAvatar
+        profileImageUrl={null}
+        displayName="Jane Doe"
+        platform="instagram"
+      />
+    );
+
+    expect(screen.queryByTestId('avatar-image')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('avatar-fallback-placeholder')).not.toBeInTheDocument();
+    expect(screen.getByTestId('avatar-fallback-platform-icon')).toBeInTheDocument();
+  });
+
+  it('falls back to the platform icon when a provided image errors, when platform is set', () => {
+    render(
+      <AccountAvatar
+        profileImageUrl="https://example.com/broken.jpg"
+        displayName="Jane Doe"
+        platform="instagram"
+      />
+    );
+
+    const img = screen.getByTestId('avatar-image');
+    fireEvent.error(img);
+
+    expect(screen.queryByTestId('avatar-image')).not.toBeInTheDocument();
+    expect(screen.getByTestId('avatar-fallback-platform-icon')).toBeInTheDocument();
+    expect(screen.queryByTestId('avatar-fallback-placeholder')).not.toBeInTheDocument();
+  });
+
+  it('renders the generic link icon path (not a crash) for an unrecognized platform', () => {
+    render(
+      <AccountAvatar
+        profileImageUrl={null}
+        displayName="Jane Doe"
+        platform="tiktok"
+      />
+    );
+
+    expect(screen.getByTestId('avatar-fallback-platform-icon')).toBeInTheDocument();
+    expect(screen.queryByTestId('avatar-fallback-placeholder')).not.toBeInTheDocument();
+  });
 });

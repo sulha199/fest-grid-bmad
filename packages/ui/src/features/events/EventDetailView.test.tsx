@@ -476,7 +476,7 @@ describe('EventDetailView', () => {
     const link = screen.getByRole('link', { name: /@org/i });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', '/link');
-    const subscribeBtn = screen.getByRole('button', { name: /Subscribe/i });
+    const subscribeBtn = screen.getByTestId('subscribe-toggle');
     expect(subscribeBtn).toBeInTheDocument();
     fireEvent.click(subscribeBtn);
     expect(onSubscribe).toHaveBeenCalled();
@@ -485,15 +485,15 @@ describe('EventDetailView', () => {
   it('omits SubscribedAccountCard when essential account props are missing', () => {
     // Missing accountId
     const { rerender } = render(<EventDetailView {...minimalProps} accountPlatform="instagram" accountUsername="org" />);
-    expect(screen.queryByRole('button', { name: /Subscribe/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('subscribe-toggle')).not.toBeInTheDocument();
 
     // Missing accountPlatform
     rerender(<EventDetailView {...minimalProps} accountId="123" accountUsername="org" />);
-    expect(screen.queryByRole('button', { name: /Subscribe/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('subscribe-toggle')).not.toBeInTheDocument();
 
     // Missing accountUsername
     rerender(<EventDetailView {...minimalProps} accountId="123" accountPlatform="instagram" />);
-    expect(screen.queryByRole('button', { name: /Subscribe/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('subscribe-toggle')).not.toBeInTheDocument();
   });
 
   it('renders both SubscribedAccountCard and source post links simultaneously', () => {
@@ -503,10 +503,54 @@ describe('EventDetailView', () => {
     expect(screen.getByRole('link', { name: /View source/i })).toBeInTheDocument();
   });
 
-  it('shows a Subscribed indicator (no button) when already subscribed', () => {
-    render(<EventDetailView {...fullProps} isSubscribedToAccount={true} />);
-    expect(screen.getByText('Subscribed')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Subscribe/i })).not.toBeInTheDocument();
+  it('shows the subscribed toggle state (aria-pressed true) when already subscribed', () => {
+    render(<EventDetailView {...fullProps} isSubscribedToAccount={true} onUnsubscribeFromAccount={vi.fn()} />);
+    const toggle = screen.getByTestId('subscribe-toggle');
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('threads isSubscriptionStatusLoading/onUnsubscribeFromAccount/isUnsubscribingFromAccount to SubscribedAccountCard', () => {
+    const onUnsubscribe = vi.fn();
+    const { rerender } = render(
+      <EventDetailView
+        {...fullProps}
+        isSubscribedToAccount={true}
+        isSubscriptionStatusLoading={true}
+        onUnsubscribeFromAccount={onUnsubscribe}
+      />
+    );
+    let toggle = screen.getByTestId('subscribe-toggle');
+    expect(toggle).not.toHaveAttribute('aria-pressed');
+    expect(toggle).toHaveAttribute('aria-busy', 'true');
+
+    rerender(
+      <EventDetailView
+        {...fullProps}
+        isSubscribedToAccount={true}
+        isSubscriptionStatusLoading={false}
+        onUnsubscribeFromAccount={onUnsubscribe}
+      />
+    );
+    toggle = screen.getByTestId('subscribe-toggle');
+    fireEvent.click(toggle);
+    expect(onUnsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('isTogglePending is the OR of isSubscribingToAccount and isUnsubscribingFromAccount', () => {
+    const { rerender } = render(
+      <EventDetailView {...fullProps} isSubscribingToAccount={true} onUnsubscribeFromAccount={vi.fn()} />
+    );
+    expect(screen.getByTestId('subscribe-toggle')).toHaveAttribute('aria-busy', 'true');
+
+    rerender(
+      <EventDetailView {...fullProps} isSubscribingToAccount={false} isUnsubscribingFromAccount={true} onUnsubscribeFromAccount={vi.fn()} />
+    );
+    expect(screen.getByTestId('subscribe-toggle')).toHaveAttribute('aria-busy', 'true');
+
+    rerender(
+      <EventDetailView {...fullProps} isSubscribingToAccount={false} isUnsubscribingFromAccount={false} onUnsubscribeFromAccount={vi.fn()} />
+    );
+    expect(screen.getByTestId('subscribe-toggle')).toHaveAttribute('aria-busy', 'false');
   });
 
   // More Actions Menu Tests (Story 4.1, Task 3)

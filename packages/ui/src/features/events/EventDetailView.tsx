@@ -43,6 +43,9 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   isSubscribedToAccount,
   onSubscribeToAccount,
   isSubscribingToAccount,
+  isSubscriptionStatusLoading,
+  onUnsubscribeFromAccount,
+  isUnsubscribingFromAccount,
   loading = false,
   error = null,
   locale = 'en-US',
@@ -209,6 +212,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
     }
   };
 
+  const isTogglePending = isSubscribingToAccount || isUnsubscribingFromAccount;
   const hasTags = (types && types.length > 0) || (categories && categories.length > 0);
   const hasSourceAttribution = originalPostUrl || sourcePostUrl;
 
@@ -264,7 +268,14 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                   accountHref={accountHref}
                   isSubscribed={!!isSubscribedToAccount}
                   onSubscribe={onSubscribeToAccount}
-                  isSubscribing={isSubscribingToAccount}
+                  onUnsubscribe={onUnsubscribeFromAccount}
+                  isStatusLoading={isSubscriptionStatusLoading}
+                  isTogglePending={isTogglePending}
+                  labels={{
+                    subscribeLabel: labels.subscribeButtonLabel,
+                    unsubscribeLabel: labels.unsubscribeButtonLabel,
+                    checkingSubscriptionLabel: labels.checkingSubscriptionLabel,
+                  }}
                   size="sm"
                 />
               )}

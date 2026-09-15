@@ -39,6 +39,11 @@ export interface EventDetailViewLabels {
   addToCalendarConfirmLabel: string;
   addToCalendarCancelLabel: string;
   scheduleCheckboxLabel?: string;
+  subscribeButtonLabel?: string;
+  unsubscribeButtonLabel?: string;
+  checkingSubscriptionLabel?: string;
+  unsubscribeSuccessAnnouncement?: string;
+  unsubscribeErrorAnnouncement?: string;
   moreActionsButtonLabel: string;
   correctDataMenuItemLabel: string;
   reportMenuItemLabel?: string;
@@ -97,6 +102,9 @@ export interface EventDetailViewProps {
   isSubscribedToAccount?: boolean;
   onSubscribeToAccount?: () => void;
   isSubscribingToAccount?: boolean;
+  isSubscriptionStatusLoading?: boolean;
+  onUnsubscribeFromAccount?: () => void;
+  isUnsubscribingFromAccount?: boolean;
 
   // State overrides
   loading?: boolean;

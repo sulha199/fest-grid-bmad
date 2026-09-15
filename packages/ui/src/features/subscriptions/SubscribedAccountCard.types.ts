@@ -9,10 +9,13 @@ export interface SubscribedAccountCardProps {
   accountHref: string;
   isSubscribed: boolean;
   onSubscribe?: () => void;
-  isSubscribing?: boolean;
+  onUnsubscribe?: () => void;
+  isStatusLoading?: boolean;
+  isTogglePending?: boolean;
   labels?: {
     subscribeLabel?: string;
-    subscribedLabel?: string;
+    unsubscribeLabel?: string;
+    checkingSubscriptionLabel?: string;
   };
   size?: 'sm' | 'lg';
   className?: string;

@@ -22,7 +22,7 @@ describe('SubscribedAccountCard', () => {
 
   it('renders AccountAvatar with the account image props and link to accountHref', () => {
     render(<SubscribedAccountCard {...defaultProps} />);
-    
+
     // Check if link exists and has the right href
     const link = screen.getByRole('link');
     expect(link).toHaveAttribute('href', '/instagram/123');
@@ -36,7 +36,7 @@ describe('SubscribedAccountCard', () => {
     expect(img).toHaveAttribute('src', 'https://example.com/avatar.jpg');
   });
 
-  it('AccountAvatar fallback applies when profileImageUrl is missing', () => {
+  it('AccountAvatar renders the platform icon fallback when profileImageUrl is missing (platform is threaded through)', () => {
     const props = {
       ...defaultProps,
       account: {
@@ -45,43 +45,98 @@ describe('SubscribedAccountCard', () => {
       },
     };
     render(<SubscribedAccountCard {...props} />);
-    
-    // AccountAvatar should render its fallback container
-    expect(screen.getByTestId('avatar-fallback-container')).toBeInTheDocument();
+
+    // account.platform ('instagram') is threaded into AccountAvatar, so the
+    // platform-icon fallback renders instead of the old generic silhouette.
+    expect(screen.getByTestId('avatar-fallback-platform-icon')).toBeInTheDocument();
+    expect(screen.queryByTestId('avatar-fallback-placeholder')).not.toBeInTheDocument();
   });
 
-  it('shows Subscribe button and calls onSubscribe on click when isSubscribed is false', () => {
+  it('shows the not-subscribed toggle and calls onSubscribe on click when isSubscribed is false', () => {
     const onSubscribeMock = vi.fn();
     render(<SubscribedAccountCard {...defaultProps} onSubscribe={onSubscribeMock} />);
-    
-    const button = screen.getByRole('button', { name: 'Subscribe' });
+
+    const button = screen.getByTestId('subscribe-toggle');
     expect(button).toBeInTheDocument();
+    expect(button).toHaveAttribute('aria-label', 'Subscribe');
+    expect(button).toHaveAttribute('aria-pressed', 'false');
     expect(button).not.toBeDisabled();
-    
+
     fireEvent.click(button);
     expect(onSubscribeMock).toHaveBeenCalledTimes(1);
   });
 
-  it('shows Subscribed text (no button) when isSubscribed is true', () => {
-    render(<SubscribedAccountCard {...defaultProps} isSubscribed={true} />);
-    
-    expect(screen.getByText('Subscribed')).toBeInTheDocument();
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  it('shows the subscribed toggle and calls onUnsubscribe on click when isSubscribed is true', () => {
+    const onUnsubscribeMock = vi.fn();
+    render(
+      <SubscribedAccountCard
+        {...defaultProps}
+        isSubscribed={true}
+        onUnsubscribe={onUnsubscribeMock}
+      />
+    );
+
+    const button = screen.getByTestId('subscribe-toggle');
+    expect(button).toHaveAttribute('aria-label', 'Unsubscribe');
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(button);
+    expect(onUnsubscribeMock).toHaveBeenCalledTimes(1);
   });
 
-  it('button is disabled and onSubscribe is not called while isSubscribing is true', () => {
+  it('does not fire onSubscribe when clicking the toggle while isSubscribed is true', () => {
+    const onSubscribeMock = vi.fn();
+    const onUnsubscribeMock = vi.fn();
+    render(
+      <SubscribedAccountCard
+        {...defaultProps}
+        isSubscribed={true}
+        onSubscribe={onSubscribeMock}
+        onUnsubscribe={onUnsubscribeMock}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('subscribe-toggle'));
+    expect(onUnsubscribeMock).toHaveBeenCalledTimes(1);
+    expect(onSubscribeMock).not.toHaveBeenCalled();
+  });
+
+  it('renders the dimmed neutral pending state, omits aria-pressed, and does not fire a callback when isStatusLoading is true', () => {
+    const onSubscribeMock = vi.fn();
+    const onUnsubscribeMock = vi.fn();
+    render(
+      <SubscribedAccountCard
+        {...defaultProps}
+        isStatusLoading={true}
+        onSubscribe={onSubscribeMock}
+        onUnsubscribe={onUnsubscribeMock}
+      />
+    );
+
+    const button = screen.getByTestId('subscribe-toggle');
+    expect(button).toHaveAttribute('aria-label', 'Checking subscription status');
+    expect(button).not.toHaveAttribute('aria-pressed');
+    expect(button).toHaveAttribute('aria-busy', 'true');
+
+    fireEvent.click(button);
+    expect(onSubscribeMock).not.toHaveBeenCalled();
+    expect(onUnsubscribeMock).not.toHaveBeenCalled();
+  });
+
+  it('button is disabled and aria-busy while isTogglePending is true, preserving the pre-toggle icon', () => {
     const onSubscribeMock = vi.fn();
     render(
       <SubscribedAccountCard
         {...defaultProps}
         onSubscribe={onSubscribeMock}
-        isSubscribing={true}
+        isTogglePending={true}
       />
     );
-    
-    const button = screen.getByRole('button', { name: 'Subscribe' });
+
+    const button = screen.getByTestId('subscribe-toggle');
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute('aria-busy', 'true');
+    expect(button).toHaveAttribute('aria-label', 'Subscribe');
 
     fireEvent.click(button);
     expect(onSubscribeMock).not.toHaveBeenCalled();
@@ -90,7 +145,14 @@ describe('SubscribedAccountCard', () => {
   it('disables the button when onSubscribe is not provided, instead of a silent no-op click', () => {
     render(<SubscribedAccountCard {...defaultProps} />);
 
-    const button = screen.getByRole('button', { name: 'Subscribe' });
+    const button = screen.getByTestId('subscribe-toggle');
+    expect(button).toBeDisabled();
+  });
+
+  it('disables the button when onUnsubscribe is not provided while subscribed', () => {
+    render(<SubscribedAccountCard {...defaultProps} isSubscribed={true} />);
+
+    const button = screen.getByTestId('subscribe-toggle');
     expect(button).toBeDisabled();
   });
 
@@ -99,21 +161,23 @@ describe('SubscribedAccountCard', () => {
       <SubscribedAccountCard
         {...defaultProps}
         isSubscribed={false}
+        onSubscribe={vi.fn()}
         labels={{ subscribeLabel: 'Follow' }}
       />
     );
-    
-    expect(screen.getByRole('button', { name: 'Follow' })).toBeInTheDocument();
+
+    expect(screen.getByTestId('subscribe-toggle')).toHaveAttribute('aria-label', 'Follow');
 
     rerender(
       <SubscribedAccountCard
         {...defaultProps}
         isSubscribed={true}
-        labels={{ subscribedLabel: 'Following' }}
+        onUnsubscribe={vi.fn()}
+        labels={{ unsubscribeLabel: 'Following' }}
       />
     );
-    
-    expect(screen.getByText('Following')).toBeInTheDocument();
+
+    expect(screen.getByTestId('subscribe-toggle')).toHaveAttribute('aria-label', 'Following');
   });
 
   it('scales the displayName/username text when size="lg", unlike the default size', () => {
