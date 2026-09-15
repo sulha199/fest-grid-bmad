@@ -651,7 +651,8 @@ items:
      title: "Changing category/type filter a second time (or later) sometimes appends the next page instead of reloading the whole list",
      ref: [],
      touches: [web:events, pkg:ui],
-     note: "Reported by user on event-list-bug-fixes-pagination branch, same session as BUG-018. On subsequent filter changes, the event list occasionally fails to reset pagination state/cursor, so the next infinite-scroll load appends results from the old query instead of restarting from page 1 with the new filter, producing a mixed/incorrect list."}
+     note: "Reported by user on event-list-bug-fixes-pagination branch, same session as BUG-018. On subsequent filter changes, the event list occasionally fails to reset pagination state/cursor, so the next infinite-scroll load appends results from the old query instead of restarting from page 1 with the new filter, producing a mixed/incorrect list.
+     AMENDED 2026-09-15 (bmad-create-story, Story 0.i5a session): user explicitly asked to fold this bug into IDEA-011's story so its rule 'fixes BUG-019 as its concrete case.' Investigation found the pre-existing epic formation (2026-09-08 bmad-form-epics) already split that into two stories: 0.i5a builds the general reset-on-filter-change mechanism (does not touch this bug's concrete call site) and 0.i5b adopts it into Discovery's `home-content.tsx`, which is what actually closes this bug. Per `backlog-spec.md` §13, `stories` is not set here because 0.i5a is not the execution unit that changes this item's behavior — no new carve was created since Story 0.i5b already exists (`sprint-status.yaml`, currently `backlog`) as exactly that fix. This row should gain `stories: [0-i5b-adopt-the-controller-in-discovery-event-list-surfaces]` (deriving `promoted`) once `bmad-create-story` is run for 0.i5b. See Story 0-i5a's file for full reasoning."}
 
   BUG-020:
     {type: bug, status: triaged, created: 2026-09-07,
@@ -662,12 +663,14 @@ items:
      note: "Reported by user on event-list-bug-fixes-pagination branch. Affected pages: apps/web/src/app/[locale]/moderator/tools/unprocessed-payloads-content.tsx, actor-runs-content.tsx, and moderator-accounts-content.tsx. All three use cursor-based pagination but only render a single 'Load more' button (hasNextPage) with no way to go back to the previous page, and they do not surface totalCount or any 'current page' indicator. Fix should add a prev-page control alongside next, and display totalCount + current page info so moderators can orient themselves in the result set."}
 
   IDEA-011:
-    {type: idea, status: triaged, created: 2026-09-07,
+    {type: idea, status: promoted, created: 2026-09-07,
      impact: internal, effort: m, epic: epic-0-i5,
      title: "Define a standard rule for when filters apply (on Apply button vs. on change) across list/discovery UIs",
      ref: [],
+     stories: [0-i5a-build-the-shared-pagination-filter-controller],
      touches: [pkg:ui, web:events, web:moderation, cross:architecture, cross:ux-tokens],
-     note: "Reported by user on event-list-bug-fixes-pagination branch, in the same session as BUG-018/019/020. Currently inconsistent across the app — e.g. moderator filter panels call handleFilterChange on every onChange (apply-on-change), and BUG-019 shows that pattern can cause append-instead-of-reload bugs; meanwhile no documented rule says whether a filter should take effect immediately on change or only after an explicit Apply action. Need a cross-cutting decision (likely in project-context.md and/or a UX token/primitive) so all list, discovery, and moderation views behave the same way."}
+     note: "Reported by user on event-list-bug-fixes-pagination branch, in the same session as BUG-018/019/020. Currently inconsistent across the app — e.g. moderator filter panels call handleFilterChange on every onChange (apply-on-change), and BUG-019 shows that pattern can cause append-instead-of-reload bugs; meanwhile no documented rule says whether a filter should take effect immediately on change or only after an explicit Apply action. Need a cross-cutting decision (likely in project-context.md and/or a UX token/primitive) so all list, discovery, and moderation views behave the same way.
+     PROMOTED 2026-09-15 (bmad-create-story): Story 0.i5a settles this directly — new AD-18 (architecture spine) + project-context.md rule, confirmed against EXPERIENCE.md's Filter Hub spec ('updates in real-time with each selection') as codifying already-unanimous existing behavior. Per epics.md's own note on Story 0.i5a, this idea does not get a separate adoption story — 0.i5a's rule-writing task is its full implementation."}
 
   # ── 2026-09-07 (bmad-help bug-report session) ───────────────────────────────
   BUG-021:
