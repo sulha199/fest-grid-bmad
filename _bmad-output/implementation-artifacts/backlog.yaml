@@ -394,12 +394,12 @@ items:
      note: "DW-033. Matches an established but imperfect pattern already used by 3 other per-page favorite mutations."}
 
   BUG-009:
-    {type: bug, status: triaged, created: 2026-09-05,
+    {type: bug, status: done, created: 2026-09-05,
      impact: latent, effort: xs, epic: epic-2-i1,
      title: "toggleFavorite/toggleCalendarAddition onSuccess read response fields without null-checking",
-     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml, implementation-artifacts/spec-bug-009-toggle-onsuccess-null-check.md],
      touches: [web:events/EventDetailWrapper],
-     note: "DW-034. Four onSuccess handlers in EventDetailWrapper.tsx read data.toggleFavorite/toggleCalendarAddition unguarded; confirmed pre-existing."}
+     note: "DW-034. Two onSuccess handlers in EventDetailWrapper.tsx read data.toggleFavorite/toggleCalendarAddition unguarded; confirmed pre-existing. FIXED 2026-09-15 (bmad-quick-dev, commit e658eb4): each onSuccess now throws on a falsy data.toggleFavorite/toggleCalendarAddition instead of reading through -- TanStack Query v5 awaits onSuccess inside execute()'s try block, so the throw routes through the mutation's own onError (rolls back the optimistic update, announces the failure) rather than crashing or leaving stale optimistic state. For toggleCalendarAddition this also closes a latent false-success gap in handleAddToCalendar's Promise.all/try-catch, since mutateAsync now actually rejects. Added unhappy-path integration tests for both guards (EventDetailWrapper.test.tsx). Verified: eslint clean (0 errors, pre-existing warnings only), full EventDetailWrapper.test.tsx suite passing (29/29)."}
 
   BUG-010:
     {type: bug, status: done, created: 2026-09-05,
