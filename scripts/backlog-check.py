@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Deterministic runner for the backlog board's integrity checks and lenses.
 
-Implements checks 1-13 and the lens table from
-`_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-13 cover epic formation,
-skip classification and re-pricing — `planning-artifacts/epic-formation-gate.md`).
+Implements checks 1-14 and the lens table from
+`_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-13 follow
+`planning-artifacts/epic-formation-gate.md`; check 14 enforces §12's deferral-intake rule).
 `bmad-sprint-status` runs this rather than re-deriving the checks from prose: a subtly wrong
 reimplementation reports "clean" on a broken board, which is worse than no check.
 
@@ -22,6 +22,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMPL = os.path.join(ROOT, "_bmad-output", "implementation-artifacts")
 BOARD = os.path.join(IMPL, "backlog.yaml")
 SPRINT = os.path.join(IMPL, "sprint-status.yaml")
+DEFERRED_WORK = os.path.join(IMPL, "deferred-work.md")
+# §12 — sections dated through this day were folded into FIND-005 at the Phase F
+# handover; re-importing them would double-count. Anything later must be covered by
+# a row. Keep in sync with backlog-spec.md §12 "Do not".
+FOLD_IN_CUTOFF = "2026-09-01"
 
 # Spec §3 enums and §5 vocabulary. Keep in sync with backlog-spec.md.
 IMPACTS = {"user-visible", "compliance", "latent", "cosmetic", "internal"}
@@ -78,6 +83,26 @@ def resolve_ref(ref: str) -> str:
     if ref.startswith(BMAD_OUTPUT_TREES):
         return os.path.join(ROOT, "_bmad-output", ref)
     return os.path.join(ROOT, ref)
+
+
+def deferred_sections():
+    """`(heading, iso_date)` per `## Deferred from:` section in deferred-work.md.
+
+    The date comes from the heading's trailing parenthetical; None when absent —
+    an undated heading is treated as needing coverage, never exempted.
+    """
+    if not os.path.exists(DEFERRED_WORK):
+        return []
+    out = []
+    with open(DEFERRED_WORK, encoding="utf-8") as fh:
+        for line in fh:
+            m = re.match(r"^##\s+Deferred from:\s*(.+?)\s*$", line.rstrip("\n"))
+            if not m:
+                continue
+            heading = m.group(1).strip()
+            dm = re.search(r"\((\d{4}-\d{2}-\d{2})(?:[^)]*)\)\s*$", heading)
+            out.append((heading, dm.group(1) if dm else None))
+    return out
 
 
 def tag_prefix(tag: str) -> str:
@@ -187,6 +212,37 @@ def run_checks(items, tags, stories):
             fail(2, owner, f"{ref} claims backlog_id: {owner}, which is not a row")
         elif ref not in (items[owner].get("ref") or []):
             fail(2, owner, f"{ref} claims this row, but the row does not cite it back")
+
+    # §12 deferral intake, mechanically enforced. Every deferred-work.md section
+    # dated after the 2026-09-01 fold-in (or undated) must have a row that cites
+    # deferred-work.md AND quotes the section heading verbatim in its note — the
+    # only link back to the detail. FIND-005 covers the pre-cutoff sections as a
+    # batch, so they are exempt (re-importing them would double-count).
+    sections = deferred_sections()
+    deferral_rows = [
+        (k, r) for k, r in items.items()
+        if any("deferred-work.md" in ref for ref in (r.get("ref") or []))
+    ]
+    for heading, date in sections:
+        if date and date <= FOLD_IN_CUTOFF:
+            continue
+        if not any(heading in (r.get("note") or "") for _, r in deferral_rows):
+            fail(14, "-",
+                 f"deferred-work.md section {heading!r} has no row quoting it "
+                 f"(per §12 a row must cite implementation-artifacts/deferred-work.md "
+                 f"with this heading verbatim in its note)")
+
+    # Reverse direction: a deferral row's note is the link back, so a quoted
+    # heading that no longer exists in the file is a dangling link. Only rows that
+    # actually claim one are in scope — FIND-005's fold-in note quotes no heading.
+    headings = {h for h, _ in sections}
+    for key, row in deferral_rows:
+        note = row.get("note") or ""
+        if "Deferred from:" not in note:
+            continue
+        if not any(h in note for h in headings):
+            fail(14, key,
+                 "note claims a deferred-work.md section that does not exist")
 
     return failures
 
@@ -368,7 +424,7 @@ def main():
         for num, row, msg in sorted(failures):
             print(f"  check {num}  [{row}] {msg}")
     else:
-        print("checks 1-13: clean")
+        print("checks 1-14: clean")
 
     if args.quiet:
         return len(failures)

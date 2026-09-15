@@ -32,8 +32,10 @@ status and alongside the retrospective action items. Report, in this order:
    `backlog_id` is missing or disagrees with the row, `touches` tags absent from the
    registry, `stories` keys absent from `sprint-status.yaml`, open items whose stories are
    all terminal, `parent` ids that do not exist, open un-promoted rows missing `impact` or
-   `effort` or carrying a value outside the §3 enums, and `blocks` entries naming an id
-   that does not exist or one whose target is already terminal. Report only failures; say
+   `effort` or carrying a value outside the §3 enums, `blocks` entries naming an id
+   that does not exist or one whose target is already terminal, and `deferred-work.md`
+   sections dated after 2026-09-01 with no covering row (or deferral rows quoting a
+   section heading that no longer exists — check 14). Report only failures; say
    "clean" when there are none.
 
    An unranked open row is not a cosmetic omission — it cannot appear in any lens, so it

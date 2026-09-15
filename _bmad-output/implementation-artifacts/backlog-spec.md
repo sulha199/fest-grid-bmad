@@ -372,6 +372,14 @@ board — worse than running no check at all.
     repair but a **judgment that has come due**: re-score `effort` and clear `reprice_on`.
     It keeps firing until someone does, which is the point — `effort` is a judgment and no
     runner can make it. Also fires on a `reprice_on` naming an epic that does not exist.
+14. **Uncovered deferral** — a `deferred-work.md` section dated after the 2026-09-01
+    fold-in (or undated) with no row that both cites `implementation-artifacts/deferred-work.md`
+    and whose `note` quotes the section heading verbatim — §12's "writes to both" rule,
+    mechanically enforced. The pre-cutoff sections are exempt: FIND-005 folded them in as a
+    batch and re-importing them would double-count. Also fires on the reverse direction — a
+    deferral row whose `note` claims a section heading that no longer exists in the file is
+    a dangling link (the heading is the only link back to the detail). FIND-005 itself is
+    exempt by construction: its fold-in note quotes no single heading.
 
 Check 7 finds *candidates*, not conflicts. Semantic contradiction between items that
 touch no common surface is **not mechanically detectable** and needs a reading pass —
@@ -484,6 +492,10 @@ the same role DW ids play for the Phase E evidence.
   reserved for a decision to never do it, and needs a stated reason.
 - Do not migrate old `deferred-work.md` sections. Everything through 2026-09-01 is
   already folded in under FIND-005; re-importing them would double-count.
+- Do not stamp a `backlog_id` into `deferred-work.md`. It is a §8 **citation**, not an
+  owned artifact — several rows cite it and none owns it, so a single id would be false
+  (the same rule that keeps `backlog_id` off the PRD). Check 14 covers it instead, by
+  heading.
 
 ## 13. Promotion intake
 

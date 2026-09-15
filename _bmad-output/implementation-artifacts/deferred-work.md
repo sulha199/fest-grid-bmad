@@ -1,7 +1,3 @@
----
-backlog_id: FIND-005
----
-
 # Deferred Work
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
