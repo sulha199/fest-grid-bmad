@@ -64,10 +64,14 @@ Two proposals (can be one session, two documents, or combined — decide when dr
 Rows: BUG-030, BUG-033, BUG-034, BUG-035, FIND-027, FIND-028, FIND-030
 Depends on: Phase 1's architecture decision.
 
-- [ ] Sprint Change Proposal drafted
-- [ ] Registered on backlog board (proposal gets its own `CC-NNN`, per the correct-course
-      `on_complete` hook)
-- [ ] Story key(s) declared in the proposal, under Epic 1 plain numbering
+- [x] Sprint Change Proposal drafted —
+      `sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md`
+- [x] Registered on backlog board as **CC-020**
+- [x] Story key(s) declared in the proposal, under Epic 1 plain numbering — **Story 1.3j**
+      (`Query.events` batching: BUG-030, FIND-027, BUG-034, FIND-028) and **Story 1.6c**
+      (`eventBySlug`/event-detail hardening: BUG-033, BUG-035, FIND-030), both added to
+      `epics.md`'s Epic 1 section. BUG-035's fix shape (left open by AD-17) resolved via a live
+      `AskUserQuestion` during drafting: HydrationBoundary + `dehydrate` cache seeding.
 
 **2b. Reusable location-link mechanism**
 Rows: IDEA-029, IDEA-033, IDEA-032 (Epic-1/3 half, post-carve)

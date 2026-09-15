@@ -940,7 +940,7 @@ items:
     {type: bug, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: m,
      title: "getEvents N+1: schedules/favoriteCount/isFavorited resolved per-row instead of batched, on the highest-traffic query",
-     ref: [_bmad-output/project-context.md],
+     ref: [_bmad-output/project-context.md, planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
      touches: [app:backend, web:events/getEvents, pkg:graphql-select, cross:architecture],
      note: "Found via bmad-agent-architect review (2026-09-15) requested by user of getEvents and its Discovery/Feed/Favorites usage. buildOptimizedDrizzleSelect (packages/graphql-select/optimized-select.ts) only maps requested GraphQL fields to physical columns of the `events` Drizzle table, so it has no way to batch computed/virtual fields. The shared apps/web/src/features/events/queries.graphql `getEvents` document (used by Discovery, Feed, and Favorites' batched fetch) requests favoriteCount, isFavorited, and schedules{...} on every item; each falls through to its own per-parent Event.* field resolver in apps/backend/src/schema/resolvers.ts (schedules: line ~3619, isFavorited: ~3649, favoriteCount: ~3664), issuing one DB round trip per row per field — roughly 1+1+3N queries for a page of N events, up to `limit`'s max of 1000. The `events` resolver's own `fieldMap` (~2991-3018) already builds efficient EXISTS-subquery forms for isFavorited/isAddedToCalendar/isFromSubscribedAccount for WHERE-clause filtering — these are unused for output and should be reused (or a per-request DataLoader added) so the batch stays O(1) queries per page instead of O(N). Documented as a standing rule in _bmad-output/project-context.md's Database & Performance section and the PRD's NFR Performance section so future changes to this resolver don't add more per-row field resolvers."}
 
@@ -948,14 +948,14 @@ items:
     {type: finding, status: triaged, created: 2026-09-15,
      impact: internal, effort: xs,
      title: "getEvents computes totalCount via a second full query on every call, not gated by GraphQL field selection",
-     ref: [], touches: [app:backend, web:events/getEvents],
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md], touches: [app:backend, web:events/getEvents],
      note: "Found via bmad-agent-architect review (2026-09-15). apps/backend/src/schema/resolvers.ts's `events` resolver (~3163-3170) runs a second query (count() with two left joins) unconditionally, even when the client doesn't select `totalCount` — the code already has a `// Note:` comment acknowledging this. Not currently wasted (Discovery/Feed/Favorites all request totalCount today), but unlike the item-list select it isn't gated by `info` field selection, so it silently becomes dead work the moment any consumer drops the field. Fix: check `info` for `totalCount` selection the same way buildOptimizedDrizzleSelect already does for `items`."}
 
   FIND-028:
     {type: finding, status: triaged, created: 2026-09-15,
      impact: internal, effort: xs,
      title: "Discovery/Feed/Favorites getEvents queries have no staleTime, refetching the heaviest endpoint on every remount/refocus",
-     ref: [], touches: [web:events/getEvents],
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md], touches: [web:events/getEvents],
      note: "Found via bmad-agent-architect review (2026-09-15). The useInfiniteQuery/useQuery hooks in apps/web/src/app/[locale]/home-content.tsx, feed/feed-content.tsx, and favorites/favorites-content.tsx all omit `staleTime`, so React Query's default of 0 applies — every remount or window refocus on Discovery, Feed, or Favorites refires a request against getEvents, the highest-traffic endpoint in the app. A short staleTime (e.g. 30s) would cut request volume for normal tab-switching/navigation without materially staling the data."}
 
   BUG-031:
@@ -995,7 +995,7 @@ items:
     {type: bug, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: m,
      title: "eventBySlug's full resolver fan-out runs twice per page load — generateMetadata's server fetch is discarded, then EventDetailWrapper re-fetches the identical over-fetching query client-side",
-     ref: [_bmad-output/project-context.md],
+     ref: [_bmad-output/project-context.md, planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
      touches: [web:events/eventBySlug, app:backend, cross:architecture],
      note: "Found via bmad-agent-architect audit (2026-09-15), following up on AD-16's event-detail perf-priority rule. apps/web/src/app/[locale]/events/[slug]/page.tsx:21 and the modal's @modal/(.)events/[slug]/page.tsx:21 both call graphqlClient.request(GetEventBySlugDocument, {slug}) server-side inside generateMetadata — but only read eventName/description from the result (page.tsx:23-26) before discarding it entirely. EventDetailWrapper.tsx:45-48 then fires the identical useGetEventBySlugQuery/document client-side after hydration. No React.cache()/unstable_cache anywhere in apps/web/src (verified), lib/graphql-client.ts is a bare graphql-request client with no dedup, and no HydrationBoundary/dehydrate seeds the client cache from the server fetch — so the entire resolver chain (BUG-033/BUG-034 below, plus sourceSocialMediaAccountProfile/isFavorited/favoriteCount/isHiddenForCurrentUser) runs fully twice per pageview, on both the full-page and modal-intercepted routes. Compounds itself further: EventDetailWrapper.tsx:317-326's router.prefetch() for the adjacent next/prev event (full-page route only, per its own code comment at 303-316) speculatively triggers this same doubled+over-fetching chain for a page the user may never open, discarded if they don't navigate. generateMetadata itself also over-fetches independently of the duplication — it needs only 2 scalar fields but requests the full document (schedules, isFavorited, favoriteCount, instagramEmbed, etc.), so even a standalone fix to the duplication should also narrow generateMetadata's own query. Fix direction (not yet designed): either seed the client React Query cache from generateMetadata's/a shared server fetch via HydrationBoundary+dehydrate, or give generateMetadata its own minimal query requesting only eventName/description so at minimum the wasted server-side fetch is cheap. Not yet scoped into a story."}
 
@@ -1003,7 +1003,7 @@ items:
     {type: bug, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Schedule.isAddedToCalendar N+1 on the event-detail page — same shape as getEvents' BUG-030, scoped to one event's schedule list",
-     ref: [_bmad-output/project-context.md],
+     ref: [_bmad-output/project-context.md, planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
      touches: [app:backend, web:events/eventBySlug, pkg:graphql-select],
      note: "Found via bmad-agent-architect audit (2026-09-15). apps/backend/src/schema/resolvers.ts's Schedule.isAddedToCalendar field resolver (~3727-3741) is invoked once per schedule row returned by the schedules field (~3619-3625) — no DataLoader or batching exists anywhere in apps/backend/src (grepped, zero hits). For a multi-schedule (recurring/multi-day) event this is N separate DB round trips for a single eventBySlug call, doubled by BUG-035. Same defect class as BUG-030's getEvents N+1 (per-row field resolver instead of a batched/EXISTS-subquery form), just bounded by one event's schedule count instead of a full page of events — lower severity than BUG-030 but same fix pattern applies (batch via the schedule ids already known from the parent select, or a per-request DataLoader). Not yet scoped into a story."}
 
@@ -1011,7 +1011,7 @@ items:
     {type: bug, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: xs,
      title: "favorites has no index with eventId as a leading column — favoriteCount full-scans the table on every eventBySlug call",
-     ref: [_bmad-output/project-context.md],
+     ref: [_bmad-output/project-context.md, planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
      touches: [pkg:database, app:backend],
      note: "Found via bmad-agent-architect audit (2026-09-15). The favoriteCount field resolver (apps/backend/src/schema/resolvers.ts:3664-3672) queries `WHERE eventId = X AND deletedAt IS NULL`, but favorites (packages/database/schema.ts) only carries `unique(userId, eventId)` (:411) and a partial index on `userId` alone (`activeIdx`, :412) — neither has `eventId` as a leading/usable column for this query shape, forcing a full table scan of favorites on every single eventBySlug call. Doubled by BUG-035, and multiplied further by BUG-035's prefetch case. Fix: add a partial index on `(eventId)` scoped to `WHERE deleted_at IS NULL`, matching AD-8 rule 3's existing partial-index convention for this exact table family (subject to AD-8 rule 3's documented drizzle-kit WHERE-clause-dropping limitation — the migration will need the same hand-edit workaround already used for idx_favorites_active). Not yet scoped into a story."}
 
@@ -1019,7 +1019,7 @@ items:
     {type: finding, status: triaged, created: 2026-09-15,
      impact: internal, effort: xs,
      title: "useGetMySubscriptionsQuery fires unconditionally on session presence on the event-detail page, with no shell-level warm cache unlike useMeQuery",
-     ref: [], touches: [web:events/EventDetailWrapper, app:backend],
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md], touches: [web:events/EventDetailWrapper, app:backend],
      note: "Found via bmad-agent-architect audit (2026-09-15). EventDetailWrapper.tsx:58-64 calls useGetMySubscriptionsQuery gated only on `enabled: !!session`, regardless of whether the event even has a linked source account — it's consumed solely to compute isSubscribedToAccount for the 'subscribe to source account' button (EventDetailWrapper.tsx:259-270). Unlike useMeQuery (confirmed a genuine cache-hit — AppShellWrapper.tsx:31-33 fires the identical ['me']-keyed query in the root layout on every route, so EventDetailWrapper's copy is deduped by the shared QueryClient's 30s staleTime), no queryKey ['getMySubscriptions'] fetch exists at the shell level — only in feed-content.tsx:54, onboarding-subscribe-step.tsx:21, and subscriptions-content.tsx:39. A direct entry to event detail (share link, search result, Discover card) triggers a real, otherwise-unneeded network call for events with no linked account at all. Fix direction: gate the query on the event actually having a sourceSocialMediaAccountProfile, or lift it to shell-level like useMeQuery if it's cheap and commonly needed. Not yet scoped into a story."}
 
   FIND-031:
@@ -1086,4 +1086,15 @@ items:
      ref: [backlog/IDEA-033-event-detail-schedule.md],
      touches: [web:events, web:locations, pkg:ui],
      note: "Reported by user via bmad-help (2026-09-15). Event-detail schedule section, follow-up to IDEA-030's smaller event title: (1) shrink the schedule name by removing the `text-lg` class; (2) replace each schedule item's calendar icon with an add-to-calendar action icon that adds that specific schedule-item to the calendar — made bigger and more visible (distinct from IDEA-030 item 7, which removes the top-of-page icon); (3) show the schedule item's location via the reusable location link component (IDEA-029)."}
+
+  # ── 2026-09-15 (bmad-correct-course, event-pages follow-through Phase 2a) ───
+  CC-020:
+    {type: proposal, status: triaged, created: 2026-09-15,
+     impact: user-visible, effort: m,
+     title: "getEvents/eventBySlug performance hardening — batch computed fields, dedupe eventBySlug fetch, gate totalCount/staleTime/subscriptions query (AD-17)",
+     ref: [planning-artifacts/event-pages-followthrough-plan.md,
+           planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
+     touches: [app:backend, web:events/getEvents, web:events/eventBySlug, web:events/EventDetailWrapper,
+               pkg:graphql-select, pkg:database, cross:architecture],
+     note: "Amends Epic 1 directly (epics.md) with two new sequenced stories — 1.3j (Query.events batching: BUG-030, FIND-027, BUG-034, FIND-028) and 1.6c (eventBySlug/event-detail hardening: BUG-033, BUG-035, FIND-030) — per AD-17's decided mechanism (festgrid-architecture-spine.md) and this proposal's own resolution of BUG-035's fix shape (HydrationBoundary+dehydrate). Not yet promoted to a story file — bmad-create-story is Phase 3, a separate later session per event-pages-followthrough-plan.md."}
 
