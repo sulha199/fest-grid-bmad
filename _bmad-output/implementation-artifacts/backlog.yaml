@@ -363,7 +363,7 @@ items:
 
   # ── 2026-09-05 (deferred-work fold-in, FIND-005) ──────────────────────────────
   BUG-005:
-    {type: bug, status: backlog, created: 2026-09-05,
+    {type: bug, status: triaged, created: 2026-09-05,
      impact: latent, effort: s, epic: epic-0-i6,
      title: "Shared account components mishandle degenerate or missing input props",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
@@ -378,27 +378,27 @@ items:
      note: "DW-031. Verified 2026-09-05 against format-event-date.ts:66-71: getCalendarDayDifference anchors both sides to Date.UTC midnight from calendar-day parts, so diffMs is always an exact multiple of 86400000 and the floor is exact — no day-boundary defect exists in the product. The only real defect is the unmocked test clock, which is FIND-009. Kept as a row so the claim is not re-raised from the same evidence."}
 
   BUG-007:
-    {type: bug, status: backlog, created: 2026-09-05,
+    {type: bug, status: triaged, created: 2026-09-05,
      impact: latent, effort: s, epic: epic-2-i1,
      title: "handleAddToCalendar's Promise.all has no partial-failure recovery across multi-schedule events",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
-     touches: [web:events],
+     touches: [web:events/EventDetailWrapper],
      note: "DW-032. Predates ux-rework2 batch-2; that batch only added error announcement plus re-throw, not per-item success tracking."}
 
   BUG-008:
-    {type: bug, status: backlog, created: 2026-09-05,
+    {type: bug, status: triaged, created: 2026-09-05,
      impact: latent, effort: s, epic: epic-2-i1,
      title: "toggleFavorite onSuccess applies an unconditional favoriteCount +/-1 delta without state check",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
-     touches: [web:events],
+     touches: [web:events/EventDetailWrapper],
      note: "DW-033. Matches an established but imperfect pattern already used by 3 other per-page favorite mutations."}
 
   BUG-009:
-    {type: bug, status: backlog, created: 2026-09-05,
+    {type: bug, status: triaged, created: 2026-09-05,
      impact: latent, effort: xs, epic: epic-2-i1,
      title: "toggleFavorite/toggleCalendarAddition onSuccess read response fields without null-checking",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
-     touches: [web:events],
+     touches: [web:events/EventDetailWrapper],
      note: "DW-034. Four onSuccess handlers in EventDetailWrapper.tsx read data.toggleFavorite/toggleCalendarAddition unguarded; confirmed pre-existing."}
 
   BUG-010:
@@ -451,7 +451,7 @@ items:
      note: "DW-089. Now a live risk rather than a theoretical one, since the sibling IAM-grant fix means sends actually succeed."}
 
   FIND-006:
-    {type: finding, status: backlog, created: 2026-09-05,
+    {type: finding, status: triaged, created: 2026-09-05,
      impact: internal, effort: s, epic: epic-2-i1,
      title: "Two ux-rework2 fixes shipped without automated tests (favorite cache-sync, scroll-anchor)",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
@@ -483,7 +483,7 @@ items:
      note: "DW-008, DW-031. Missing vi.useFakeTimers()/setSystemTime; the known recurring trap. Absorbs BUG-006, which recorded the same defect as a product day-diff bug — disproved against format-event-date.ts:66-71, see that row. FIXED 2026-09-14 (bmad-quick-dev, commit 71e690b): pinned the wall clock in the packages/ui date-relative tests that relied on the real clock, matching the repo convention (vi.useFakeTimers()+vi.setSystemTime, 2026-08-12T12:00:00Z reference). EventCard.test.tsx: added beforeAll/afterAll fake-timer pinning to the 'Relative-day date display' block (Today/Tomorrow/weekday/absolute fallback + Masonry badge display) and the 'TILL badge (masonry, AC14)' block (which derives yesterday/today/tomorrow from the wall clock). WeeklyCalendarView.test.tsx: pinned the clock inline in 'opens the week picker and calls onSelectWeek with the picked date' (restored via useRealTimers in a finally) so the date-picker opens on August 2026 and day '10' resolves to the fixture's 2026-08-10 instead of drifting to the current month. Verified via targeted vitest: EventCard/WeeklyCalendarView/EventCardMediaPrimitives/EventListView (124 tests) and full src/features/events + useWeeklyCalendarController run (14 files, 263 tests) all pass. Product formatter untouched — confirmed this is a test-harness gap only (epic-formation verdict)."}
 
   FIND-010:
-    {type: finding, status: backlog, created: 2026-09-05,
+    {type: finding, status: triaged, created: 2026-09-05,
      impact: latent, effort: m,
      title: "ux-rework2 collapsible/sticky UI batches shipped without full focus or cleanup polish",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
@@ -491,11 +491,11 @@ items:
      note: "DW-009, DW-016, DW-017, DW-018, DW-019, DW-020, DW-027. A loading-state flash, unmanaged focus on expand/collapse, an unpruned dayOverrides map, a loose test assertion, and an unresolved desktop/mobile calendar-layout unification question."}
 
   FIND-011:
-    {type: finding, status: backlog, created: 2026-09-05,
+    {type: finding, status: triaged, created: 2026-09-05,
      impact: internal, effort: xs, epic: epic-0-i6,
      title: "SubscribedAccountCard/EventDetailView carry minor unused-prop and unscaled-variant cruft",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
-     touches: [pkg:ui, cross:i18n],
+     touches: [pkg:ui, cross:i18n, web:events/EventDetailView],
      note: "DW-011, DW-014. postedByLabel is unused outside its own test fixture; size=\"lg\" doesn't scale the adjacent text, with no current caller to validate against."}
 
   FIND-012:
@@ -531,7 +531,7 @@ items:
      note: "DW-042 (vague local Postgres setup), DW-051 (first ALTER TYPE ADD VALUE migration in the repo; Postgres has no DROP VALUE, no process doc flags the one-way-door risk), DW-052 (historical diff-hygiene note, not re-checkable), DW-058 (apps/backend's lint script dropped --max-warnings 0 against 868 pre-existing warnings)."}
 
   FIND-016:
-    {type: finding, status: backlog, created: 2026-09-05,
+    {type: finding, status: triaged, created: 2026-09-05,
      impact: internal, effort: m,
      title: "EventCategory/EventType enums and locale plumbing lack cross-source consistency checks",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
@@ -662,7 +662,7 @@ items:
      note: "Reported by user on event-list-bug-fixes-pagination branch. Affected pages: apps/web/src/app/[locale]/moderator/tools/unprocessed-payloads-content.tsx, actor-runs-content.tsx, and moderator-accounts-content.tsx. All three use cursor-based pagination but only render a single 'Load more' button (hasNextPage) with no way to go back to the previous page, and they do not surface totalCount or any 'current page' indicator. Fix should add a prev-page control alongside next, and display totalCount + current page info so moderators can orient themselves in the result set."}
 
   IDEA-011:
-    {type: proposal, status: backlog, created: 2026-09-07,
+    {type: idea, status: triaged, created: 2026-09-07,
      impact: internal, effort: m, epic: epic-0-i5,
      title: "Define a standard rule for when filters apply (on Apply button vs. on change) across list/discovery UIs",
      ref: [],
@@ -858,14 +858,14 @@ items:
      PROMOTED (2026-09-13 via bmad-create-story, subject-match per backlog-spec.md §13; escalated to the user via AskUserQuestion for confirmation, no response received in this session — proceeded per this workflow's established no-response default, flagged for explicit confirmation): the confidence-threshold gating half is fully covered by Story 0.i7c — `isLocationTrustworthy` implements the exact `confidence >= 0.5 AND match_type === 'full_match'` bar proposed above. The 'enriched place text'/disambiguated-fallback-string half is explicitly NOT covered — Story 0.i7c's AC (per epics.md) only asks for a plain text-query fallback, matching today's existing shape, since this item's own note says the fallback composition 'still needs to be finalized against real low-confidence examples ... not yet scoped into a story.' That uncovered remainder is carved into child row IDEA-024."}
 
   IDEA-024:
-    {type: idea, status: backlog, epic: epic-0-i7, created: 2026-09-13, parent: IDEA-023,
+    {type: idea, status: triaged, epic: epic-0-i7, created: 2026-09-13, parent: IDEA-023,
      impact: cosmetic, effort: s,
      title: "Build the event-detail map-link's untrusted-confidence fallback from the fullest known location context (place text + city/province/country), not the bare ambiguous string",
      ref: [], touches: [web:events],
      note: "Carved out of IDEA-023 via bmad-create-story (Story 0.i7c) — the child scope IDEA-023's own note originally proposed but explicitly deferred as unfinalized: once Story 0.i7c ships and confidence-gated map links are live in production, real low-confidence examples will exist to design/tune this against. Today's (and 0.i7c's) fallback is the bare `s.location` AI-extracted string — likely the very string that caused low confidence in the first place — handed straight to Google's own search. This item proposes instead composing the fallback from whatever richer context is available (the schedule's own location text, the account's `defaultLocation` city/province/country, or Geoapify's own `formattedAddress`), so an untrusted resolution gets a disambiguated search rather than a repeat of the original ambiguous one. Needs real low-confidence production examples before scoping into a story — do not implement speculatively."}
 
   IDEA-025:
-    {type: idea, status: backlog, epic: epic-1-i1, created: 2026-09-13, parent: IDEA-016,
+    {type: idea, status: triaged, epic: epic-1-i1, created: 2026-09-13, parent: IDEA-016,
      impact: cosmetic, effort: s,
      title: "Add status/nearby badges to the WeeklyCalendarView compact row's content column, reusing event_card_status_badge/event_card_nearby_badge as-is",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md],
@@ -901,16 +901,16 @@ items:
 
   # ── 2026-09-14 (bmad-quick-dev fix of eventcard-favorite-badge-clipping) ─
   FIND-025:
-    {type: finding, status: backlog, created: 2026-09-14,
+    {type: finding, status: triaged, created: 2026-09-14,
      impact: latent, effort: xs,
      title: "Favorite-badge min-height clamp may bleed into caption content on a very short date box; no lint guard against reintroducing a dynamically-interpolated Tailwind class",
      ref: [implementation-artifacts/deferred-work.md],
-     touches: [pkg:ui, cross:ux-tokens, cross:process],
+     touches: [pkg:ui, web:events/EventCard, cross:ux-tokens, cross:process],
      note: "Deferred from: quick-dev fix of eventcard-favorite-badge-clipping (2026-09-14). 2 findings, both from Blind Hunter adversarial review: (1) the wrapper's downward-only growth to fit the badge's 44px touch target could overlap the caption/badge_row below on an unobserved very-short date box — coupled to the still-open event_card_date_box.base_default sizing decision (PNG shows a large stacked date; DESIGN.md kept the old compact single-line format), revisit together; (2) no lint rule catches a future dynamically-interpolated Tailwind arbitrary-value class, the exact root cause of the dead-CSS bug this pass fixed."}
 
   # ── 2026-09-14 (bmad-png-to-html UX design pass — masonry/calendar-row/calendar-grid-item) ─
   FIND-026:
-    {type: finding, status: backlog, epic: epic-1-i1, created: 2026-09-14, parent: IDEA-026,
+    {type: finding, status: triaged, epic: epic-1-i1, created: 2026-09-14, parent: IDEA-026,
      impact: internal, effort: xs,
      title: "max_events_per_day=5 popover-overflow cap not reconsidered now that the popover shows a materially richer card",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
@@ -945,14 +945,14 @@ items:
      note: "Found via bmad-agent-architect review (2026-09-15) requested by user of getEvents and its Discovery/Feed/Favorites usage. buildOptimizedDrizzleSelect (packages/graphql-select/optimized-select.ts) only maps requested GraphQL fields to physical columns of the `events` Drizzle table, so it has no way to batch computed/virtual fields. The shared apps/web/src/features/events/queries.graphql `getEvents` document (used by Discovery, Feed, and Favorites' batched fetch) requests favoriteCount, isFavorited, and schedules{...} on every item; each falls through to its own per-parent Event.* field resolver in apps/backend/src/schema/resolvers.ts (schedules: line ~3619, isFavorited: ~3649, favoriteCount: ~3664), issuing one DB round trip per row per field — roughly 1+1+3N queries for a page of N events, up to `limit`'s max of 1000. The `events` resolver's own `fieldMap` (~2991-3018) already builds efficient EXISTS-subquery forms for isFavorited/isAddedToCalendar/isFromSubscribedAccount for WHERE-clause filtering — these are unused for output and should be reused (or a per-request DataLoader added) so the batch stays O(1) queries per page instead of O(N). Documented as a standing rule in _bmad-output/project-context.md's Database & Performance section and the PRD's NFR Performance section so future changes to this resolver don't add more per-row field resolvers."}
 
   FIND-027:
-    {type: finding, status: backlog, created: 2026-09-15,
+    {type: finding, status: triaged, created: 2026-09-15,
      impact: internal, effort: xs,
      title: "getEvents computes totalCount via a second full query on every call, not gated by GraphQL field selection",
      ref: [], touches: [app:backend, web:events/getEvents],
      note: "Found via bmad-agent-architect review (2026-09-15). apps/backend/src/schema/resolvers.ts's `events` resolver (~3163-3170) runs a second query (count() with two left joins) unconditionally, even when the client doesn't select `totalCount` — the code already has a `// Note:` comment acknowledging this. Not currently wasted (Discovery/Feed/Favorites all request totalCount today), but unlike the item-list select it isn't gated by `info` field selection, so it silently becomes dead work the moment any consumer drops the field. Fix: check `info` for `totalCount` selection the same way buildOptimizedDrizzleSelect already does for `items`."}
 
   FIND-028:
-    {type: finding, status: backlog, created: 2026-09-15,
+    {type: finding, status: triaged, created: 2026-09-15,
      impact: internal, effort: xs,
      title: "Discovery/Feed/Favorites getEvents queries have no staleTime, refetching the heaviest endpoint on every remount/refocus",
      ref: [], touches: [web:events/getEvents],
@@ -968,7 +968,7 @@ items:
 
   # ── 2026-09-14 (bmad-code-review of 2-7-automatically-hide-past-events) ────
   FIND-029:
-    {type: finding, status: backlog, created: 2026-09-14,
+    {type: finding, status: triaged, created: 2026-09-14,
      impact: internal, effort: s,
      title: "Four pre-existing gaps surfaced during Story 2.7's code review: settings-lookup race, missing schedule-uniqueness constraint, duplicated past-event threshold logic, Discovery page dynamic-export inconsistency",
      ref: [implementation-artifacts/deferred-work.md],
@@ -1016,17 +1016,17 @@ items:
      note: "Found via bmad-agent-architect audit (2026-09-15). The favoriteCount field resolver (apps/backend/src/schema/resolvers.ts:3664-3672) queries `WHERE eventId = X AND deletedAt IS NULL`, but favorites (packages/database/schema.ts) only carries `unique(userId, eventId)` (:411) and a partial index on `userId` alone (`activeIdx`, :412) — neither has `eventId` as a leading/usable column for this query shape, forcing a full table scan of favorites on every single eventBySlug call. Doubled by BUG-035, and multiplied further by BUG-035's prefetch case. Fix: add a partial index on `(eventId)` scoped to `WHERE deleted_at IS NULL`, matching AD-8 rule 3's existing partial-index convention for this exact table family (subject to AD-8 rule 3's documented drizzle-kit WHERE-clause-dropping limitation — the migration will need the same hand-edit workaround already used for idx_favorites_active). Not yet scoped into a story."}
 
   FIND-030:
-    {type: finding, status: backlog, created: 2026-09-15,
+    {type: finding, status: triaged, created: 2026-09-15,
      impact: internal, effort: xs,
      title: "useGetMySubscriptionsQuery fires unconditionally on session presence on the event-detail page, with no shell-level warm cache unlike useMeQuery",
-     ref: [], touches: [web:events, app:backend],
+     ref: [], touches: [web:events/EventDetailWrapper, app:backend],
      note: "Found via bmad-agent-architect audit (2026-09-15). EventDetailWrapper.tsx:58-64 calls useGetMySubscriptionsQuery gated only on `enabled: !!session`, regardless of whether the event even has a linked source account — it's consumed solely to compute isSubscribedToAccount for the 'subscribe to source account' button (EventDetailWrapper.tsx:259-270). Unlike useMeQuery (confirmed a genuine cache-hit — AppShellWrapper.tsx:31-33 fires the identical ['me']-keyed query in the root layout on every route, so EventDetailWrapper's copy is deduped by the shared QueryClient's 30s staleTime), no queryKey ['getMySubscriptions'] fetch exists at the shell level — only in feed-content.tsx:54, onboarding-subscribe-step.tsx:21, and subscriptions-content.tsx:39. A direct entry to event detail (share link, search result, Discover card) triggers a real, otherwise-unneeded network call for events with no linked account at all. Fix direction: gate the query on the event actually having a sourceSocialMediaAccountProfile, or lift it to shell-level like useMeQuery if it's cheap and commonly needed. Not yet scoped into a story."}
 
   FIND-031:
-    {type: finding, status: backlog, created: 2026-09-15,
+    {type: finding, status: triaged, created: 2026-09-15,
      impact: cosmetic, effort: xs,
      title: "Event-detail page client-side hygiene: unmemoized prop mapper, raw <img> instead of next/image on hero and carousel-peek images",
-     ref: [], touches: [web:events, pkg:ui],
+     ref: [], touches: [web:events/EventDetailWrapper, pkg:ui],
      note: "Found via bmad-agent-architect audit (2026-09-15), secondary to the backend findings above. mapGraphQLEventToDetailViewProps(...) runs unmemoized in EventDetailWrapper.tsx's render body (~461-463), rebuilding the schedules array on every re-render (dialog open/close, liveMessage updates) — likely cheap for a single event, but not memoized. Both the hero image (packages/ui/src/features/events/EventImage.tsx:88-91) and the carousel-peek images (event-preview-card.tsx:41-47) use raw <img>, not next/image — no responsive srcset/format optimization; the peek images additionally have no loading=\"lazy\". Low priority relative to BUG-032/033/034; bundled as one item since all three are event-detail-page client-side polish, not separate root causes. Not yet scoped into a story."}
 
   # ── 2026-09-15 (bmad-help backlog capture) ──────────────────────────────────
