@@ -11,7 +11,7 @@ description: 'Spawn a brand-new, empty-context Claude Code background session wi
 
 ## Usage
 
-Run the script at `scripts/spawn-remote-control-session.ps1`:
+The helper script lives at the **repository root** — `scripts/spawn-remote-control-session.ps1` — **not** inside this skill folder. This file is `.claude/skills/spawn-remote-session/SKILL.md`, and the script path is relative to the repo root (NOT to `.claude/skills/spawn-remote-session/`), so run it from the repo root:
 
 ```powershell
 ./scripts/spawn-remote-control-session.ps1 -Cwd "<working directory>" -Name "<session name>" [-PermissionMode <mode>] [-InitialPrompt "<prompt>"]
