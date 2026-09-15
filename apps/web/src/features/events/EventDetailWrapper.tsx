@@ -91,6 +91,18 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       setLiveMessage(t("favoriteErrorAnnouncement"))
     },
     onSuccess: (data, variables) => {
+      if (!data?.toggleFavorite) {
+        // Schema says this field is non-null, but a resolver/codegen mismatch could
+        // still slip a null payload through with a 200 response. Throwing here (rather
+        // than silently returning) routes this through the mutation's own onError
+        // above -- rolling back the optimistic flip and announcing the failure -- via
+        // TanStack Query's execute(), which calls onError for any error thrown out of
+        // onSuccess (see @tanstack/query-core mutation.ts). toggleCalendarAddition's
+        // equivalent guard below doesn't need its own console.error: its caller,
+        // handleAddToCalendar, already logs the propagated rejection in its catch.
+        console.error("toggleFavorite mutation returned no data", { eventId: variables.eventId })
+        throw new Error("toggleFavorite mutation returned no data")
+      }
       const cached = queryClient.getQueriesData({ queryKey: ["getEventBySlug"] })[0]?.[1] as unknown
       const typedCached = cached as any
       posthog.capture(data.toggleFavorite.isFavorited ? "event_favorited" : "event_unfavorited", {
@@ -187,6 +199,14 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       setLiveMessage(t("calendarErrorAnnouncement"))
     },
     onSuccess: (data, variables) => {
+      if (!data?.toggleCalendarAddition) {
+        // Same reasoning as toggleFavorite's guard above: throw so this routes through
+        // onError (rollback + announcement) and so the rejection propagates out of
+        // mutateAsync, which handleAddToCalendar's try/catch below depends on to know
+        // this schedule's toggle actually failed (it must not report success/download
+        // the .ics file for a toggle that silently returned no data).
+        throw new Error("toggleCalendarAddition mutation returned no data")
+      }
       queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, (old: unknown) => {
         const typedOld = old as any
         if (!typedOld?.eventBySlug) return typedOld

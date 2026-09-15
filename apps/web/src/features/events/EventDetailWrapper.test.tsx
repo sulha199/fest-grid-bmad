@@ -175,6 +175,12 @@ const handlers = [
     if (eventId === "evt_fail") {
       return HttpResponse.json({ errors: [{ message: "Mutation failed" }] })
     }
+    if (eventId === "evt_null_data") {
+      // Simulates a 200 response whose data.toggleFavorite is unexpectedly null
+      // (e.g. a resolver/codegen mismatch), with no top-level `errors` array --
+      // the exact shape BUG-009's guard defends against.
+      return HttpResponse.json({ data: { toggleFavorite: null } })
+    }
     return HttpResponse.json({
       data: {
         toggleFavorite: {
@@ -188,6 +194,9 @@ const handlers = [
     const { eventId, scheduleId } = variables as any
     if (scheduleId === "sched_fail") {
       return HttpResponse.json({ errors: [{ message: "Mutation failed" }] })
+    }
+    if (scheduleId === "sched_null_data") {
+      return HttpResponse.json({ data: { toggleCalendarAddition: null } })
     }
     return HttpResponse.json({
       data: {
@@ -470,6 +479,25 @@ describe("EventDetailWrapper", () => {
     })
   })
 
+  it("rolls back optimistic update and shows error when toggleFavorite succeeds with null data (BUG-009)", async () => {
+    currentMockEvent.id = "evt_null_data"
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const favBtn = await screen.findByRole("button", { name: "EventDetailsPage.favoriteButtonLabel" })
+    fireEvent.click(favBtn)
+
+    // Optimistic flip is rolled back and the error path is surfaced, exactly like a
+    // genuine mutation failure -- rather than crashing or leaving the UI stuck showing
+    // an unconfirmed favorited state.
+    await waitFor(() => {
+      expect(screen.getByText("EventDetailsPage.favoriteErrorAnnouncement")).toBeInTheDocument()
+    })
+    expect(favBtn).toHaveAttribute("aria-pressed", "false")
+  })
+
   it('uses favorites list context for next navigation when opened from favorites', async () => {
     mockSearchParams = new URLSearchParams('fromList=favorites&favoriteIds=evt_1,evt_2');
 
@@ -575,6 +603,46 @@ describe("EventDetailWrapper", () => {
     })
 
     // Dialog does not close on a false-success basis
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
+  })
+
+  it("surfaces an error and keeps the dialog open when toggleCalendarAddition succeeds with null data (BUG-009)", async () => {
+    currentMockEvent.schedules = [
+      {
+        id: "sched_null_data",
+        isMainSchedule: true,
+        eventStartDate: "2026-08-10T10:00:00Z",
+        eventEndDate: null,
+        eventStartTime: null,
+        eventEndTime: null,
+        timezone: null,
+        ticketPrice: null,
+        isAddedToCalendar: false,
+      },
+    ] as any
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const calBtn = await screen.findByRole("button", { name: "EventDetailsPage.addToCalendarButtonLabel" })
+    fireEvent.click(calBtn)
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
+
+    const checkbox = screen.getByLabelText(/EventDetailsPage.defaultScheduleTitle/) as HTMLInputElement
+    fireEvent.click(checkbox)
+
+    const confirmBtn = screen.getByRole("button", { name: "EventDetailsPage.addToCalendarConfirmLabel" })
+    fireEvent.click(confirmBtn)
+
+    // A null-data "success" response must not be mistaken for a real success: no
+    // false-success toast, no .ics download, and the dialog stays open exactly like
+    // the genuine-failure case above (this is the Promise.all/try-catch contract that
+    // handleAddToCalendar depends on to know a schedule toggle actually failed).
+    await waitFor(() => {
+      expect(screen.getByText("EventDetailsPage.calendarErrorAnnouncement")).toBeInTheDocument()
+    })
     expect(screen.getByRole("dialog")).toBeInTheDocument()
   })
 
