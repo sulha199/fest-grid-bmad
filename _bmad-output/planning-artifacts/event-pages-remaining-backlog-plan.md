@@ -73,11 +73,17 @@ one session:
 - **FIND-025** — EventCard favorite-badge clamp, coupled to an open `DESIGN.md`
   `event_card_date_box.base_default` sizing decision. Not an architecture call — needs whoever
   next runs a `bmad-ux`/`bmad-png-to-html` pass on that surface to resolve both together.
+  **RESOLVED as a UX question, 2026-09-16** — the sizing decision this row was waiting on
+  turned out to already be closed by DESIGN.md's own 2026-09-14 `base_default` correction
+  (large two-tier box clears the 44px touch-target min on its own). No UX work remains;
+  re-scoped in `backlog.yaml` to an implementation task (migrate `EventCardDateBox` to render
+  both `base`/`base_default` as distinct variants, kept in source, not collapsed to one) —
+  routes to `bmad-quick-dev`, not this cluster.
 
 - [ ] IDEA-003 UX pass
 - [ ] IDEA-019 UX pass
-- [ ] FIND-025 resolved alongside the next DESIGN.md date-box pass (opportunistic, not a
-      dedicated session — flag to whoever picks up IDEA-003/019 or the next card-surface pass)
+- [x] FIND-025 UX question resolved (2026-09-16, no design work needed — see backlog.yaml note);
+      remaining migration work re-routed to `bmad-quick-dev`, not part of this UX cluster
 
 ## Cluster D — Needs `bmad-architecture` + `bmad-ux` (large, separate initiative)
 
