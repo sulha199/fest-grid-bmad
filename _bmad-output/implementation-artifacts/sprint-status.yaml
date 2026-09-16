@@ -255,7 +255,7 @@ development_status:
   # verified AskUserQuestion answer -- see story file's own Dev Notes).
   # See story file's own "Why this story has no epics.md section" note
   # (mirrors Story 0.33's precedent).
-  0-34-harden-eventcategory-eventtype-cross-source-consistency: ready-for-dev
+  0-34-harden-eventcategory-eventtype-cross-source-consistency: review
   # added 2026-09-16 via bmad-create-story: split out of Story 0.34's
   # original draft (DW-048's EventCard.tsx "From Free" label-pairing fix)
   # per a verified AskUserQuestion answer recovered from this session's
