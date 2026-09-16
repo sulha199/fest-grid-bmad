@@ -1,10 +1,14 @@
+---
+baseline_commit: 41649849e41065ba1d23944204994bbd833723c1
+---
+
 # Story 0.36: Harden past-events visibility mechanism (settings race, schedule uniqueness, threshold duplication, Discovery SSR consistency)
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.36
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,32 +36,32 @@ so that the mechanism behind hiding past events is robust against races, schema 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Atomic upsert for `getOrCreateUserSettings` (AC: #1, #2)
-  - [ ] Rewrite `apps/backend/src/lib/user-settings/get-or-create-user-settings.ts` to the single-statement `onConflictDoUpdate` upsert described in AC1.
-  - [ ] Create `apps/backend/src/lib/user-settings/get-or-create-user-settings.test.ts` (new — no test file exists today), matching this project's `node:test`/real-test-DB backend convention (see `resolvers.test.ts` for setup/teardown pattern): covers (a) a brand-new `userId` creates and returns a settings row with default values, (b) an existing `userId` returns its existing row unmodified (including a non-default `hidePastEventsAfterDays`, proving the upsert's `DO UPDATE` doesn't reset it), (c) two concurrent calls for the same new `userId` (`Promise.all([...])`) both resolve without throwing and return equivalent rows (a single-process proof of the race fix — a true multi-connection race isn't reproducible in-process, but this proves the upsert is race-safe by construction, not by luck).
-  - [ ] Confirm (via existing `resolvers.test.ts` GraphQL-level tests already touching `Query.events` and `isExpiredForCurrentUser`, e.g. around line 2195) that both call sites still pass unmodified after the helper rewrite — no caller code changes are needed per AC2, but run the suite to prove it.
-- [ ] Task 2: `isMainSchedule` uniqueness migration (AC: #3, #4)
-  - [ ] Run the AC4 audit query against the local dev database and record the result (zero rows expected) in the Dev Agent Record's Debug Log before proceeding.
-  - [ ] Add the `schedules` index builder call to `packages/database/schema.ts` (closest expressible approximation — a plain, non-partial unique-looking entry per drizzle-kit's limits, same as `eventDateIdx`'s existing precedent) and run `drizzle-kit generate` to produce the migration scaffold.
-  - [ ] Hand-edit the generated SQL file to add the `WHERE is_main_schedule = true` clause (drizzle-kit drops it), with a comment mirroring `0055_fix_schedule_event_date_idx.sql`'s explanatory-comment style and citing this story + the AD-8 rule 3 precedent.
-  - [ ] Apply the migration locally and confirm it succeeds (proves AC4's audit was accurate).
-- [ ] Task 3: Ingestion-time `isMainSchedule` normalization (AC: #5)
-  - [ ] Add the normalization logic described in AC5 to `packages/domain/src/events/build-event-insert-values.ts` (pure, dependency-free — stays 100%-unit-tested per `packages/domain`'s testing rule).
-  - [ ] Extend `packages/domain/src/events/build-event-insert-values.test.ts` with cases: exactly-one-true (unchanged), multiple-true (only the first stays true), zero-true (earliest-dated promoted), zero-true with a start-time tiebreak, zero-true with all dates/times equal (stable — first array entry wins).
-- [ ] Task 4: Shared past-event threshold helper (AC: #6, #7)
-  - [ ] Create `packages/domain/src/events/computePastEventThreshold.ts` + `computePastEventThreshold.test.ts` (mirroring `buildDefaultEventVisibilityConditions.test.ts`'s existing fixed-`now` test style — default-N, custom-N, and UTC end-of-day boundary cases).
-  - [ ] Export it from `packages/domain/src/events/index.ts` (`export * from './computePastEventThreshold.js';`, matching the existing barrel pattern).
-  - [ ] Refactor `buildDefaultEventVisibilityConditions.ts` to call the new helper instead of its own inline computation, and to accept/thread the same `now` it already receives — confirm `buildDefaultEventVisibilityConditions.test.ts`'s existing exact-string assertions pass unmodified (no test edits needed if AC6 is implemented correctly).
-  - [ ] Refactor `resolvers.ts`'s `Query.events` local threshold computation (feeding `isPastEvent`'s SQL) and `Event.isExpiredForCurrentUser`'s computation to both call the new helper, removing the duplicated inline math from both.
-  - [ ] Implement AC7: pass `Query.events`' already-captured `now` into its `buildDefaultEventVisibilityConditions(...)` call.
-- [ ] Task 5: Discovery SSR-consistency fix (AC: #8)
-  - [ ] Add `export const dynamic = 'force-dynamic';` to `apps/web/src/app/[locale]/page.tsx`, positioned consistently with sibling `page.tsx` files (see e.g. `archive/page.tsx`'s placement after the imports, before `generateMetadata`).
-- [ ] Task 6: Full verification (AC: all)
-  - [ ] `pnpm --filter backend test` — full suite, including the new `get-or-create-user-settings.test.ts` and any `resolvers.test.ts` coverage touched.
-  - [ ] `pnpm --filter domain test` — full suite, including new/extended `build-event-insert-values.test.ts` and `computePastEventThreshold.test.ts`, and unmodified-and-passing `buildDefaultEventVisibilityConditions.test.ts`.
-  - [ ] `pnpm --filter web test` — full suite (no web-side logic changed beyond the one-line export, but confirms no regression).
-  - [ ] `pnpm lint` across `apps/backend`, `packages/domain`, `apps/web`.
-  - [ ] `pnpm build` (or the touched packages' build step) to confirm the new migration/schema/domain-export changes compile and the codegen'd artifacts (if any) stay consistent.
+- [x] Task 1: Atomic upsert for `getOrCreateUserSettings` (AC: #1, #2)
+  - [x] Rewrite `apps/backend/src/lib/user-settings/get-or-create-user-settings.ts` to the single-statement `onConflictDoUpdate` upsert described in AC1.
+  - [x] Create `apps/backend/src/lib/user-settings/get-or-create-user-settings.test.ts` (new — no test file exists today), matching this project's `node:test`/real-test-DB backend convention (see `resolvers.test.ts` for setup/teardown pattern): covers (a) a brand-new `userId` creates and returns a settings row with default values, (b) an existing `userId` returns its existing row unmodified (including a non-default `hidePastEventsAfterDays`, proving the upsert's `DO UPDATE` doesn't reset it), (c) two concurrent calls for the same new `userId` (`Promise.all([...])`) both resolve without throwing and return equivalent rows (a single-process proof of the race fix — a true multi-connection race isn't reproducible in-process, but this proves the upsert is race-safe by construction, not by luck).
+  - [x] Confirm (via existing `resolvers.test.ts` GraphQL-level tests already touching `Query.events` and `isExpiredForCurrentUser`, e.g. around line 2195) that both call sites still pass unmodified after the helper rewrite — no caller code changes are needed per AC2, but run the suite to prove it.
+- [x] Task 2: `isMainSchedule` uniqueness migration (AC: #3, #4)
+  - [x] Run the AC4 audit query against the local dev database and record the result (zero rows expected) in the Dev Agent Record's Debug Log before proceeding.
+  - [x] Add the `schedules` index builder call to `packages/database/schema.ts` (closest expressible approximation — a plain, non-partial unique-looking entry per drizzle-kit's limits, same as `eventDateIdx`'s existing precedent) and run `drizzle-kit generate` to produce the migration scaffold.
+  - [x] Hand-edit the generated SQL file to add the `WHERE is_main_schedule = true` clause (drizzle-kit drops it), with a comment mirroring `0055_fix_schedule_event_date_idx.sql`'s explanatory-comment style and citing this story + the AD-8 rule 3 precedent.
+  - [x] Apply the migration locally and confirm it succeeds (proves AC4's audit was accurate).
+- [x] Task 3: Ingestion-time `isMainSchedule` normalization (AC: #5)
+  - [x] Add the normalization logic described in AC5 to `packages/domain/src/events/build-event-insert-values.ts` (pure, dependency-free — stays 100%-unit-tested per `packages/domain`'s testing rule).
+  - [x] Extend `packages/domain/src/events/build-event-insert-values.test.ts` with cases: exactly-one-true (unchanged), multiple-true (only the first stays true), zero-true (earliest-dated promoted), zero-true with a start-time tiebreak, zero-true with all dates/times equal (stable — first array entry wins).
+- [x] Task 4: Shared past-event threshold helper (AC: #6, #7)
+  - [x] Create `packages/domain/src/events/computePastEventThreshold.ts` + `computePastEventThreshold.test.ts` (mirroring `buildDefaultEventVisibilityConditions.test.ts`'s existing fixed-`now` test style — default-N, custom-N, and UTC end-of-day boundary cases).
+  - [x] Export it from `packages/domain/src/events/index.ts` (`export * from './computePastEventThreshold.js';`, matching the existing barrel pattern).
+  - [x] Refactor `buildDefaultEventVisibilityConditions.ts` to call the new helper instead of its own inline computation, and to accept/thread the same `now` it already receives — confirm `buildDefaultEventVisibilityConditions.test.ts`'s existing exact-string assertions pass unmodified (no test edits needed if AC6 is implemented correctly).
+  - [x] Refactor `resolvers.ts`'s `Query.events` local threshold computation (feeding `isPastEvent`'s SQL) and `Event.isExpiredForCurrentUser`'s computation to both call the new helper, removing the duplicated inline math from both.
+  - [x] Implement AC7: pass `Query.events`' already-captured `now` into its `buildDefaultEventVisibilityConditions(...)` call.
+- [x] Task 5: Discovery SSR-consistency fix (AC: #8)
+  - [x] Add `export const dynamic = 'force-dynamic';` to `apps/web/src/app/[locale]/page.tsx`, positioned consistently with sibling `page.tsx` files (see e.g. `archive/page.tsx`'s placement after the imports, before `generateMetadata`).
+- [x] Task 6: Full verification (AC: all)
+  - [x] `pnpm --filter backend test` — full suite, including the new `get-or-create-user-settings.test.ts` and any `resolvers.test.ts` coverage touched.
+  - [x] `pnpm --filter domain test` — full suite, including new/extended `build-event-insert-values.test.ts` and `computePastEventThreshold.test.ts`, and unmodified-and-passing `buildDefaultEventVisibilityConditions.test.ts`.
+  - [x] `pnpm --filter web test` — full suite (no web-side logic changed beyond the one-line export, but confirms no regression).
+  - [x] `pnpm lint` across `apps/backend`, `packages/domain`, `apps/web`.
+  - [x] `pnpm build` (or the touched packages' build step) to confirm the new migration/schema/domain-export changes compile and the codegen'd artifacts (if any) stay consistent.
 
 ## Dev Notes
 
@@ -169,28 +173,28 @@ All three gates were run fresh via subagent (no `epic-0-readiness.md`-equivalent
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — this story covers FIND-029's 4 bundled findings (AC1-AC4, AC6-AC8) plus the AC5 ingestion-safety addition surfaced during drafting and explicitly approved via `AskUserQuestion` (see Dev Notes "Genuine tradeoffs resolved").
-- [ ] Architecture and boundary confirmation — no `packages/ui` changes, no new GraphQL schema/resolvers/mutations; `packages/domain` additions remain pure/dependency-free; migration follows the established hand-edit pipeline.
-- [ ] Testing plan confirmation — `node:test` (backend: new `get-or-create-user-settings.test.ts` + existing `resolvers.test.ts` regression), `node:test` (domain: extended `build-event-insert-values.test.ts`, new `computePastEventThreshold.test.ts`, unmodified `buildDefaultEventVisibilityConditions.test.ts`), full web suite regression, per Task 6.
-- [ ] Explicit human approval state — **pending.** All three genuine tradeoffs identified during drafting (upsert approach, story bundling, ingestion-safety scope) were already put to and answered by the user via `AskUserQuestion` during this drafting session; this checklist item tracks final sign-off on the complete story before `bmad-dev-story` begins implementation.
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates ran fresh via subagent with "no gap found" (see Dev Notes "Architecture & UX Gate Findings"); no prerequisite story needed.
-- [ ] AC4's pre-migration audit confirmed to return zero rows before the AC3 migration is applied to any shared/deployed database (local-only confirmation during dev-story is not sufficient for a later deploy to Supabase — re-run the audit against Supabase before that migration ships there, per this project's local/cloud DB split in `docs/infrastructure/3-database.md`).
+- [x] Scope confirmation — this story covers FIND-029's 4 bundled findings (AC1-AC4, AC6-AC8) plus the AC5 ingestion-safety addition surfaced during drafting and explicitly approved via `AskUserQuestion` (see Dev Notes "Genuine tradeoffs resolved").
+- [x] Architecture and boundary confirmation — no `packages/ui` changes, no new GraphQL schema/resolvers/mutations; `packages/domain` additions remain pure/dependency-free; migration follows the established hand-edit pipeline.
+- [x] Testing plan confirmation — `node:test` (backend: new `get-or-create-user-settings.test.ts` + existing `resolvers.test.ts` regression), `node:test` (domain: extended `build-event-insert-values.test.ts`, new `computePastEventThreshold.test.ts`, unmodified `buildDefaultEventVisibilityConditions.test.ts`), full web suite regression, per Task 6.
+- [x] Explicit human approval state — **approved.** All three genuine tradeoffs identified during drafting (upsert approach, story bundling, ingestion-safety scope) were already put to and answered by the user via `AskUserQuestion` during this drafting session; final sign-off to begin implementation was granted via `AskUserQuestion` at `bmad-dev-story` activation (2026-09-16).
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates ran fresh via subagent with "no gap found" (see Dev Notes "Architecture & UX Gate Findings"); no prerequisite story needed.
+- [x] AC4's pre-migration audit confirmed to return zero rows before the AC3 migration is applied to any shared/deployed database (local-only confirmation during dev-story is not sufficient for a later deploy to Supabase — re-run the audit against Supabase before that migration ships there, per this project's local/cloud DB split in `docs/infrastructure/3-database.md`). Local audit found one pre-existing violation, resolved before migration apply — see Dev Agent Record Debug Log.
 
 ## Testing Requirements
 
-- [ ] Integration tests — `node:test` (`apps/backend/src/lib/user-settings/get-or-create-user-settings.test.ts`, new; existing `apps/backend/src/schema/resolvers.test.ts` regression)
-- [ ] Unit tests (100% coverage, `packages/domain`) — `build-event-insert-values.test.ts` (extended), `computePastEventThreshold.test.ts` (new), `buildDefaultEventVisibilityConditions.test.ts` (unmodified, must still pass)
-- [ ] Full regression — `pnpm --filter backend test`, `pnpm --filter domain test`, `pnpm --filter web test`, `pnpm lint`, `pnpm build`
+- [x] Integration tests — `node:test` (`apps/backend/src/lib/user-settings/get-or-create-user-settings.test.ts`, new; existing `apps/backend/src/schema/resolvers.test.ts` regression)
+- [x] Unit tests (100% coverage, `packages/domain`) — `build-event-insert-values.test.ts` (extended), `computePastEventThreshold.test.ts` (new), `buildDefaultEventVisibilityConditions.test.ts` (unmodified, must still pass)
+- [x] Full regression — `pnpm --filter backend test`, `pnpm --filter domain test`, `pnpm --filter web test`, `pnpm lint`, `pnpm build`
 
 ## Deliverables Checklist
 
-- [ ] `getOrCreateUserSettings` rewritten to an atomic upsert; new test file covers new-user, existing-user, and concurrent-call cases
-- [ ] `idx_schedules_one_main_per_event` partial unique index migration created (hand-edited), applied locally, `schema.ts` updated
-- [ ] AC4 audit query run and its zero-row result recorded in the Dev Agent Record
-- [ ] `build-event-insert-values.ts` normalizes `isMainSchedule` to at most one `true`; tests extended for all 3 cases (one-true/multi-true/zero-true) plus tiebreak cases
-- [ ] `computePastEventThreshold` helper created, exported, and adopted by all 3 former duplicate-computation sites; `Query.events` threads its `now` into `buildDefaultEventVisibilityConditions`
-- [ ] Discovery's `page.tsx` has `export const dynamic = 'force-dynamic';`
-- [ ] `sprint-status.yaml` / `backlog.yaml` updated per this workflow's completion step
+- [x] `getOrCreateUserSettings` rewritten to an atomic upsert; new test file covers new-user, existing-user, and concurrent-call cases
+- [x] `idx_schedules_one_main_per_event` partial unique index migration created (hand-edited), applied locally, `schema.ts` updated
+- [x] AC4 audit query run and its result (one pre-existing violation, resolved) recorded in the Dev Agent Record
+- [x] `build-event-insert-values.ts` normalizes `isMainSchedule` to at most one `true`; tests extended for all 3 cases (one-true/multi-true/zero-true) plus tiebreak cases
+- [x] `computePastEventThreshold` helper created, exported, and adopted by all 3 former duplicate-computation sites; `Query.events` threads its `now` into `buildDefaultEventVisibilityConditions`
+- [x] Discovery's `page.tsx` has `export const dynamic = 'force-dynamic';`
+- [x] `sprint-status.yaml` / `backlog.yaml` updated per this workflow's completion step
 
 ## Out of Scope
 
@@ -202,30 +206,63 @@ All three gates were run fresh via subagent (no `epic-0-readiness.md`-equivalent
 
 ## Definition of Done
 
-- [ ] AC1-AC9 satisfied and verified
-- [ ] Required tests passing: `apps/backend` (new + existing), `packages/domain` (new/extended + existing, 100% coverage maintained), `apps/web` (existing, full regression)
-- [ ] Lint and type checks passing for `apps/backend`, `packages/domain`, `apps/web`
-- [ ] AC4's audit executed and recorded before the AC3 migration was applied
-- [ ] `sprint-status.yaml`/`backlog.yaml` updated
+- [x] AC1-AC9 satisfied and verified
+- [x] Required tests passing: `apps/backend` (new + existing), `packages/domain` (new/extended + existing, 100% coverage maintained), `apps/web` (existing, full regression)
+- [x] Lint and type checks passing for `apps/backend`, `packages/domain`, `apps/web`
+- [x] AC4's audit executed and recorded before the AC3 migration was applied
+- [x] `sprint-status.yaml`/`backlog.yaml` updated
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — ready for review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled by bmad-dev-story._
+Claude Sonnet 5 (claude-sonnet-5)
 
 ### Debug Log References
 
-_To be filled by bmad-dev-story — must include the AC4 audit query's actual output before the migration is applied._
+- **AC4 pre-migration audit** (run against the local `festgrid_test` DB before the AC3 migration was generated/applied): `SELECT event_id, COUNT(*) FROM schedules WHERE is_main_schedule = true GROUP BY event_id HAVING COUNT(*) > 1;` → **1 violation found**: `event_id = 40000000-0000-0000-0000-000000000003`, 2 rows both `is_main_schedule = true` (`id 50000000-0000-0000-0000-000000000004`, `event_start_date 2026-08-17`; `id 50000000-0000-0000-0000-000000000003`, `event_start_date 2027-11-15`, `event_start_time 10:00:00`). Resolved per AC4's specified remediation — kept the chronologically-earliest row (`2026-08-17`) as the main schedule, demoted the later one (`UPDATE schedules SET is_main_schedule = false WHERE id = '50000000-0000-0000-0000-000000000003'`). Re-ran the audit query after the fix: 0 rows. Migration then applied locally (`pnpm --filter database run migrate`) and succeeded, confirming the audit/fix were accurate. This is local-seed-data-only; the same audit must be re-run against Supabase before this migration is deployed there (see Pre-Coding Approval Gate's AC4 item).
+- `pnpm --filter backend test` → all passing except 2 pre-existing failures unrelated to this story: `apps/backend/src/lib/scraper/__tests__/trigger-brightdata-for-target.test.ts`'s `returns CAPACITY_EXHAUSTED when capacity unavailable` and `trigger-brightdata-for-target` — a real outbound HTTP call to Bright Data receiving `403 Forbidden` against this sandbox's fake credentials instead of exercising the test's own DB-state-only `CAPACITY_EXHAUSTED` path; confirmed via `git log` that neither `trigger-brightdata-for-target.ts` nor `brightdata-client.ts` has been touched by this story or Stories 0.34/0.35 — a missing-credentials sandbox environment gap, same class as Story 0.34's Playwright finding and Story 0.35's `geoapify-client` finding, not a defect introduced here.
+- `pnpm --filter domain test` → all passing, including extended `build-event-insert-values.test.ts` (new one-true/multi-true/zero-true/tiebreak cases) and new `computePastEventThreshold.test.ts`; `buildDefaultEventVisibilityConditions.test.ts`'s existing exact-string assertions pass unmodified, confirming AC6's refactor is behavior-preserving.
+- `pnpm --filter web test` → full suite passing, no regression from the one-line Discovery `page.tsx` export.
+- `pnpm lint` (repo root) → 6/6 tasks clean, zero errors.
+- `pnpm build` (repo root) → first attempt failed on `web#build` with the same transient `SELF_SIGNED_CERT_IN_CHAIN` Google-Fonts-fetch error already documented in Story 0.35's Dev Agent Record; fixed by adding `NODE_USE_ENV_PROXY=1` to `apps/web/package.json`'s `build` script so Next.js's font-fetch honors this sandbox's outbound proxy — confirmed via two subsequent clean `pnpm build` runs (7/7 tasks successful each time), not a flake dismissal.
 
 ### Completion Notes List
 
-_To be filled by bmad-dev-story._
+- Implemented AC1: `getOrCreateUserSettings` rewritten to a single `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` upsert (no-op `set: { userId }`), eliminating the prior select/insert/re-select race window. New `get-or-create-user-settings.test.ts` covers new-user creation, existing-user-unmodified (including a non-default `hidePastEventsAfterDays`), and a concurrent-call proof (`Promise.all` of two calls for the same new `userId`).
+- Implemented AC2: no null-guard added at either call site (`Query.events`, `Event.isExpiredForCurrentUser`) — proven unnecessary by AC1's structural guarantee; both existing call sites pass unmodified.
+- Implemented AC3/AC4: hand-edited migration `0057_same_kang.sql` adds `CREATE UNIQUE INDEX IF NOT EXISTS "idx_schedules_one_main_per_event" ON "schedules" ("event_id") WHERE "is_main_schedule" = true;`, following the AD-8 rule 3 / migration 0055 hand-edit precedent (`drizzle-kit generate` drops the `WHERE` predicate). `schema.ts`'s `oneMainPerEventIdx` builder call added as the closest expressible approximation, with a comment pointing at the migration file. AC4's audit was run and its one pre-existing violation resolved before the migration was applied — see Debug Log References.
+- Implemented AC5: `buildEventInsertValues` now calls a new private `normalizeMainSchedule` helper guaranteeing at most one `isMainSchedule: true` in its output, per the deterministic rule approved via `AskUserQuestion` (keep first `true` on multiple; promote chronologically-earliest on zero, tiebroken by stable array order). Extended `build-event-insert-values.test.ts` with all specified cases.
+- Implemented AC6/AC7: new `computePastEventThreshold({ now, hidePastEventsAfterDays })` in `packages/domain/src/events/`, exported from the barrel. `buildDefaultEventVisibilityConditions.ts` now delegates to it (existing exact-string test assertions pass unmodified). `resolvers.ts`'s `Query.events` and `Event.isExpiredForCurrentUser` both now call the shared helper instead of their own inline duplicated math; `Query.events` additionally threads its already-captured `now` explicitly into `buildDefaultEventVisibilityConditions(...)` (AC7), while `Event.isExpiredForCurrentUser` correctly keeps its own independent `now()` capture (separate resolver invocation, not sharing `Query.events`' request lifecycle).
+- Implemented AC8: `apps/web/src/app/[locale]/page.tsx` gains `export const dynamic = 'force-dynamic';`, matching every sibling route.
+- AC9 (no end-user-visible behavior change): confirmed by the full existing backend/domain/web suites passing with no regressions (see Debug Log References), plus the new targeted tests.
+- This story's implementation was originally produced across two orchestrator dispatches whose own closing steps (Dev Agent Record, task checkboxes, commit) did not complete — the mailbox-runner's `run-ritual.ts` returned an empty final result both times despite the underlying work being complete and verified (11+ successful tool calls each time, no failures). Rather than repeat a third automated dispatch against what appears to be a reproducible tooling/output-capture issue in this sandbox, the ritual-orchestrator session completing this batch independently re-verified every AC against the actual diff (reading each changed file against its AC), re-ran the full `pnpm lint`/`pnpm build`/`pnpm test` suite itself, and filled in this Dev Agent Record from that verification plus the tool-call history already visible in the mailbox request log (which is where AC4's audit numbers above are sourced from — not re-invented). No implementation code was written by the orchestrator session; only this story file's documentation and the commit are its own contribution.
+- A separate, unrelated build-script fix (`apps/web/package.json`'s `NODE_USE_ENV_PROXY=1` addition, see Debug Log References) was made by an auto-dispatched `bmad-quick-dev` session responding to `run-act-with-checks.ts`'s build-failure gate, and is included in this commit since it was required to get `pnpm build` green for this story's own verification.
 
 ### File List
 
-_To be filled by bmad-dev-story._
+- `apps/backend/src/lib/user-settings/get-or-create-user-settings.ts` (modified) — atomic upsert
+- `apps/backend/src/lib/user-settings/get-or-create-user-settings.test.ts` (new) — new-user/existing-user/concurrent-call cases
+- `apps/backend/src/schema/resolvers.ts` (modified) — `Query.events` and `Event.isExpiredForCurrentUser` both use `computePastEventThreshold`; `Query.events` threads `now` into `buildDefaultEventVisibilityConditions`
+- `packages/database/schema.ts` (modified) — `oneMainPerEventIdx` builder call added
+- `packages/database/migrations/0057_same_kang.sql` (new, hand-edited) — partial unique index
+- `packages/database/migrations/meta/0057_snapshot.json` (new, generated)
+- `packages/database/migrations/meta/_journal.json` (modified, generated)
+- `packages/domain/src/events/build-event-insert-values.ts` (modified) — `normalizeMainSchedule` helper
+- `packages/domain/src/events/build-event-insert-values.test.ts` (modified) — one-true/multi-true/zero-true/tiebreak cases
+- `packages/domain/src/events/computePastEventThreshold.ts` (new) — shared threshold helper
+- `packages/domain/src/events/computePastEventThreshold.test.ts` (new)
+- `packages/domain/src/events/buildDefaultEventVisibilityConditions.ts` (modified) — delegates to shared helper
+- `packages/domain/src/events/index.ts` (modified) — exports new helper
+- `apps/web/src/app/[locale]/page.tsx` (modified) — `dynamic = 'force-dynamic'`
+- `apps/web/package.json` (modified) — `NODE_USE_ENV_PROXY=1` added to `build` script (unrelated sandbox build-environment fix, see Completion Notes)
+- `_bmad-output/implementation-artifacts/0-36-harden-past-events-visibility-mechanism.md` (modified) — this story file
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified) — status `ready-for-dev` → `in-progress` → `review`
+
+## Change Log
+
+- 2026-09-16: Implemented AC1-AC9 (settings-race atomic upsert, schedules unique-index migration with pre-migration audit/fix, ingestion-time isMainSchedule normalization, shared past-event threshold helper adopted at all 3 former duplicate sites, Discovery SSR-consistency export); verified `pnpm --filter backend test`, `pnpm --filter domain test`, `pnpm --filter web test` (only 2 pre-existing unrelated failures, see Debug Log References), `pnpm lint` (0 errors), `pnpm build` (7/7, after an unrelated `NODE_USE_ENV_PROXY=1` build-script fix for a transient sandbox font-fetch TLS error) all green; status moved `ready-for-dev` → `review`.

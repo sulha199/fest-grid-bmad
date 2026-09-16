@@ -23,7 +23,7 @@ import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../l
 import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
-import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult } from '@festgrid/domain/events';
+import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold } from '@festgrid/domain/events';
 import { transformGeminiResponseToEventFilter } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
@@ -2908,21 +2908,20 @@ Constraints and Guidelines:
         hidePastEventsAfterDays = settings.hidePastEventsAfterDays;
       }
 
-      // Compute threshold precisely matching buildDefaultEventVisibilityConditions
+      // Compute threshold precisely matching buildDefaultEventVisibilityConditions --
+      // both now use the shared computePastEventThreshold helper (Story 0.36 AC6).
       const now = new Date();
-      const utcYear = now.getUTCFullYear();
-      const utcMonth = now.getUTCMonth();
-      const utcDate = now.getUTCDate();
-      const utcMidnight = new Date(Date.UTC(utcYear, utcMonth, utcDate));
-      utcMidnight.setUTCDate(utcMidnight.getUTCDate() - hidePastEventsAfterDays);
-      const threshold = `${utcMidnight.getUTCFullYear()}-${String(utcMidnight.getUTCMonth() + 1).padStart(2, '0')}-${String(utcMidnight.getUTCDate()).padStart(2, '0')}`;
+      const threshold = computePastEventThreshold({ now, hidePastEventsAfterDays });
 
       // Story 2.7 — the display/sort key uses the next-upcoming schedule,
       // defined as one whose (end ?? start) date is today or later (UTC),
       // picked by the earliest start date, falling back to the main schedule.
       const today = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
 
-      const defaultVisibilityConditions = buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays, userId });
+      // Story 0.36 AC7: pass the same `now` explicitly so isPastEvent (above) and the
+      // default-visibility gate always agree on the same instant within this request,
+      // instead of buildDefaultEventVisibilityConditions defaulting to its own new Date().
+      const defaultVisibilityConditions = buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays, userId, now });
 
       let baseQuery = query;
       if (filter) {
@@ -3708,13 +3707,10 @@ Constraints and Guidelines:
         const settings = await getOrCreateUserSettings(authUser.userId);
         const hidePastEventsAfterDays = settings.hidePastEventsAfterDays;
 
+        // Own independent `now()` capture — this is a separate resolver invocation/request,
+        // not sharing Query.events' request lifecycle (Story 0.36 AC7 Dev Notes).
         const now = new Date();
-        const utcYear = now.getUTCFullYear();
-        const utcMonth = now.getUTCMonth();
-        const utcDate = now.getUTCDate();
-        const utcMidnight = new Date(Date.UTC(utcYear, utcMonth, utcDate));
-        utcMidnight.setUTCDate(utcMidnight.getUTCDate() - hidePastEventsAfterDays);
-        const threshold = `${utcMidnight.getUTCFullYear()}-${String(utcMidnight.getUTCMonth() + 1).padStart(2, '0')}-${String(utcMidnight.getUTCDate()).padStart(2, '0')}`;
+        const threshold = computePastEventThreshold({ now, hidePastEventsAfterDays });
 
         // Negated past-event overlaps check
         const rows = await db.select({ id: schedules.id })
