@@ -1,10 +1,14 @@
+---
+baseline_commit: 526a84cb7076f16f7db661a1a76d753b5b8568fd
+---
+
 # Story 0.37: Extract and Display Event Links
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.37
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -84,93 +88,94 @@ the structured event fields.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extend Gemini extraction schema & prompt (AC: #1)
-  - [ ] 1.1 Add a `links` ARRAY-of-OBJECT property (`{url: STRING, label: STRING}`) to
+- [x] Task 1: Extend Gemini extraction schema & prompt (AC: #1)
+  - [x] 1.1 Add a `links` ARRAY-of-OBJECT property (`{url: STRING, label: STRING}`) to
         `geminiExtractionResponseSchema` in `build-gemini-request.ts`
-  - [ ] 1.2 Add a new numbered prompt instruction (e.g. "6b", after the existing
+  - [x] 1.2 Add a new numbered prompt instruction (e.g. "6b", after the existing
         contactInfo instructions 6/6a) telling the model to extract any explicit
         additional links (ticketing/RSVP/merch/linktree/etc.) mentioned in the caption or
         visible in the image, with an optional short label when the source text names the
         link (e.g. "Tickets:", "RSVP here")
-  - [ ] 1.3 Add a matching `links` property to `extractedEventSchema` in
+  - [x] 1.3 Add a matching `links` property to `extractedEventSchema` in
         `extracted-event.schema.ts`, mirroring `geminiScheduleSchema`'s nested
         array-of-objects pattern (not `contactInfo`'s flat string field): `type: 'array'`,
         `nullable: true`, `maxItems: 10`, items `{type: 'object', properties: {url:
         {type:'string'}, label: {type:'string', nullable:true}}, required: ['url'],
         additionalProperties: false}`
-  - [ ] 1.4 Add `EventLink { url: string; label?: string }` to
+  - [x] 1.4 Add `EventLink { url: string; label?: string }` to
         `packages/shared-types/src/index.ts`, co-located near `LocationDetails` following
         its doc-comment style
-  - [ ] 1.5 Add `links?: EventLink[]` to `GeminiExtractionPayload` in
+  - [x] 1.5 Add `links?: EventLink[]` to `GeminiExtractionPayload` in
         `packages/domain/src/events/types.ts` (import `EventLink` alongside the existing
         `EventType, EventCategory, LocationDetails` import)
-  - [ ] 1.6 **Rebase-risk note:** `build-gemini-request.ts`'s prompt/response schema is
+  - [x] 1.6 **Rebase-risk note:** `build-gemini-request.ts`'s prompt/response schema is
         also being edited by in-flight Stories 3.6i/3.6j/3.6k/3.6l (all `review` status
         per sprint-status.yaml, not yet merged) — confirmed by `epics.md` line ~2651's own
         cross-story warning. Whichever change lands second must rebase onto the other
         rather than silently reverting it; check current `main`/target-branch state of this
         file before editing.
-- [ ] Task 2: Domain sanitization (AC: #2)
-  - [ ] 2.1 Create `packages/domain/src/events/sanitize-event-links.ts` exporting
+- [x] Task 2: Domain sanitization (AC: #2)
+  - [x] 2.1 Create `packages/domain/src/events/sanitize-event-links.ts` exporting
         `sanitizeEventLinks(links: EventLink[] | undefined): EventLink[] | undefined` per
         AC2's exact rules (protocol allowlist, label trim, cap at 10, undefined-not-empty)
-  - [ ] 2.2 Add `sanitize-event-links.test.ts` with 100% coverage (packages/domain Testing
+  - [x] 2.2 Add `sanitize-event-links.test.ts` with 100% coverage (packages/domain Testing
         Rule): valid http/https kept; `javascript:`/`data:`/malformed URLs dropped;
         whitespace-only label treated as absent; >10 valid entries capped to first 10;
         `undefined`/empty-array input returns `undefined`
-  - [ ] 2.3 Add `links?: EventLink[]` to `ExtractedEventMessage` in `types.ts`; wire
+  - [x] 2.3 Add `links?: EventLink[]` to `ExtractedEventMessage` in `types.ts`; wire
         `sanitizeEventLinks(payload.links)` into `transform-gemini-response-to-event-info.ts`
         (as its own numbered step, alongside the existing contactInfo discard-at-classification
         step) and add/extend `transform-gemini-response-to-event-info.test.ts` coverage
-- [ ] Task 3: Storage (AC: #3)
-  - [ ] 3.1 Add `links?: EventLink[] | null` to `EventInsertValues` in `types.ts`; set
+- [x] Task 3: Storage (AC: #3)
+  - [x] 3.1 Add `links?: EventLink[] | null` to `EventInsertValues` in `types.ts`; set
         `links: message.links ?? null` in `build-event-insert-values.ts`; extend
         `build-event-insert-values.test.ts`
-  - [ ] 3.2 Add `links: jsonb('links').$type<EventLink[]>()` to the `events` pgTable in
+  - [x] 3.2 Add `links: jsonb('links').$type<EventLink[]>()` to the `events` pgTable in
         `packages/database/schema.ts` (import `EventLink` from `@festgrid/shared-types`
         alongside the existing `LocationDetails`/`ProposedEventCorrection` type imports
         used for other `.$type<...>()` columns in this file)
-  - [ ] 3.3 Generate the migration: `pnpm --filter @festgrid/database generate`; review the
+  - [x] 3.3 Generate the migration: `pnpm --filter @festgrid/database generate`; review the
         generated `NNNN_<name>.sql` + snapshot + journal entry before committing (a plain
         nullable-column add should not need the hand-edit workaround AD-8's partial indexes
         require)
-  - [ ] 3.4 Check `packages/database/seed.ts` and any fixture/test data asserting a full
+  - [x] 3.4 Check `packages/database/seed.ts` and any fixture/test data asserting a full
         `EventInsertValues`/events-row shape; add sample `links` data where it improves
-        local-dev/test realism (optional, not AC-gating)
-- [ ] Task 4: GraphQL (AC: #4)
-  - [ ] 4.1 Add `type EventLink { url: String! label: String }` (placed before `type Event`,
+        local-dev/test realism (optional, not AC-gating) — skipped: no existing seed
+        fixture data needed updating for this to be locally testable/realistic.
+- [x] Task 4: GraphQL (AC: #4)
+  - [x] 4.1 Add `type EventLink { url: String! label: String }` (placed before `type Event`,
         mirroring `LocationDetails`'s placement before `type Schedule`) and `links:
         [EventLink!]` on `Event` in `apps/backend/src/schema/events.graphql`
-  - [ ] 4.2 Regenerate backend codegen (repo's backend `codegen` script) →
+  - [x] 4.2 Regenerate backend codegen (repo's backend `codegen` script) →
         `apps/backend/src/generated/resolvers-types.ts`; do not hand-edit generated output
-  - [ ] 4.3 Add `links { url label }` to the `getEventBySlug` selection set in
+  - [x] 4.3 Add `links { url label }` to the `getEventBySlug` selection set in
         `apps/web/src/features/events/queries.graphql`, alongside the existing
         `contactInfo` field
-  - [ ] 4.4 Regenerate frontend codegen (repo's web `codegen` script) →
+  - [x] 4.4 Regenerate frontend codegen (repo's web `codegen` script) →
         `apps/web/src/generated/graphql.ts`; do not hand-edit generated output
-  - [ ] 4.5 Confirm no new entry is needed in the `Event: {...}` resolver map in
+  - [x] 4.5 Confirm no new entry is needed in the `Event: {...}` resolver map in
         `apps/backend/src/schema/resolvers.ts` (verified: `buildOptimizedDrizzleSelect`
         passthrough is sufficient, same as `contactInfo` today)
-- [ ] Task 5: Frontend display (AC: #5, #6)
-  - [ ] 5.1 Add `links?: EventLink[] | null` to `EventDetailViewProps` in
+- [x] Task 5: Frontend display (AC: #5, #6)
+  - [x] 5.1 Add `links?: EventLink[] | null` to `EventDetailViewProps` in
         `EventDetailView.types.ts` (import `EventLink` from `@festgrid/shared-types`)
-  - [ ] 5.2 Add `links: event.links` to the object mapped in
+  - [x] 5.2 Add `links: event.links` to the object mapped in
         `apps/web/src/features/events/mapper.ts`, alongside the existing `contactInfo:
         event.contactInfo`
-  - [ ] 5.3 Add the links row(s) JSX to `EventDetailView.tsx`: import a `Link` icon from
+  - [x] 5.3 Add the links row(s) JSX to `EventDetailView.tsx`: import a `Link` icon from
         `lucide-react` (add to the existing import list at line 2 — confirmed safe, this
         file has no `next/link` import to collide with, since `packages/ui` is
         framework-agnostic); render one `<a>` row per entry per AC5, gated on `links &&
         links.length > 0`, positioned directly after the existing Contact Info section
-  - [ ] 5.4 Extend `EventDetailView.test.tsx` (0 links → section absent; 1 link with label;
+  - [x] 5.4 Extend `EventDetailView.test.tsx` (0 links → section absent; 1 link with label;
         1 link without label falls back to rendering the raw url as text; N links → N
         distinct `<a>` rows; each row has `target="_blank"` and `rel="noopener noreferrer"`)
         and `mapper.test.ts` (links passthrough)
-- [ ] Task 6: Full-suite verification (AC: #1-#5)
-  - [ ] 6.1 Run domain, backend, web, ui package test suites; confirm no regression
-  - [ ] 6.2 Run lint + typecheck for every touched package (domain, shared-types, database,
+- [x] Task 6: Full-suite verification (AC: #1-#5)
+  - [x] 6.1 Run domain, backend, web, ui package test suites; confirm no regression
+  - [x] 6.2 Run lint + typecheck for every touched package (domain, shared-types, database,
         backend, web, ui)
-  - [ ] 6.3 Apply the new migration against local Postgres and confirm it runs cleanly
+  - [x] 6.3 Apply the new migration against local Postgres and confirm it runs cleanly
 
 ## Dev Notes
 
@@ -384,29 +389,29 @@ the structured event fields.
 
 ## Testing Requirements
 
-- [ ] Unit tests: `sanitize-event-links.ts` at 100% coverage (packages/domain rule)
-- [ ] Integration tests: `build-event-insert-values.test.ts`,
+- [x] Unit tests: `sanitize-event-links.ts` at 100% coverage (packages/domain rule)
+- [x] Integration tests: `build-event-insert-values.test.ts`,
       `transform-gemini-response-to-event-info.test.ts` extended for `links`
-- [ ] Component tests: `EventDetailView.test.tsx` (0/1-labeled/1-unlabeled/N-link cases),
+- [x] Component tests: `EventDetailView.test.tsx` (0/1-labeled/1-unlabeled/N-link cases),
       `mapper.test.ts` (links passthrough)
-- [ ] E2E tests: none new required — this is not a new critical user flow per the
-      project's "testing trophy"/Playwright-for-critical-flows-only philosophy; if an
-      existing event-detail-page E2E spec already exercises this view, confirm it still
-      passes unmodified
+- [x] E2E tests: none new required — this is not a new critical user flow per the
+      project's "testing trophy"/Playwright-for-critical-flows-only philosophy; no
+      existing event-detail-page E2E spec exercises this specific row, and none needed
+      modification since `links` is purely additive.
 
 ## Deliverables Checklist
 
-- [ ] Gemini extraction response schema + prompt instruction updated for `links`
-- [ ] AJV `extractedEventSchema` updated for `links`
-- [ ] `EventLink` interface added to `packages/shared-types`
-- [ ] `sanitize-event-links.ts` implemented with 100%-covered unit tests
-- [ ] `GeminiExtractionPayload` / `ExtractedEventMessage` / `EventInsertValues` threaded
+- [x] Gemini extraction response schema + prompt instruction updated for `links`
+- [x] AJV `extractedEventSchema` updated for `links`
+- [x] `EventLink` interface added to `packages/shared-types`
+- [x] `sanitize-event-links.ts` implemented with 100%-covered unit tests
+- [x] `GeminiExtractionPayload` / `ExtractedEventMessage` / `EventInsertValues` threaded
       with `links`
-- [ ] `events.links` jsonb column + migration committed
-- [ ] `EventLink` GraphQL type + `Event.links` field added; codegen regenerated both sides
-- [ ] `EventDetailViewProps.links` added; `mapper.ts` threaded
-- [ ] `EventDetailView.tsx` renders one row per link, correctly gated, no new locale keys
-- [ ] All new/extended tests passing; lint and typecheck clean across touched packages
+- [x] `events.links` jsonb column + migration committed
+- [x] `EventLink` GraphQL type + `Event.links` field added; codegen regenerated both sides
+- [x] `EventDetailViewProps.links` added; `mapper.ts` threaded
+- [x] `EventDetailView.tsx` renders one row per link, correctly gated, no new locale keys
+- [x] All new/extended tests passing; lint and typecheck clean across touched packages
 
 ## Out of Scope
 
@@ -425,27 +430,78 @@ the structured event fields.
 
 ## Definition of Done
 
-- [ ] AC1–AC7 satisfied
-- [ ] Required unit/integration/component tests passing;
+- [x] AC1–AC7 satisfied
+- [x] Required unit/integration/component tests passing;
       `sanitize-event-links.ts` at 100% coverage
-- [ ] Lint and type checks passing for every touched package (domain, shared-types,
+- [x] Lint and type checks passing for every touched package (domain, shared-types,
       database, backend, web, ui)
-- [ ] New migration applied cleanly against local Postgres
-- [ ] Codegen regenerated on both backend and frontend with no manual edits to generated
+- [x] New migration applied cleanly against local Postgres
+- [x] Codegen regenerated on both backend and frontend with no manual edits to generated
       output
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — ready for review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Sonnet 5 (claude-sonnet-5)
 
 ### Debug Log References
 
+- `pnpm --filter @festgrid/domain test -- --run --coverage --coverage-include='src/events/sanitize-event-links.ts'` → 100% coverage confirmed for the new file (protocol allowlist, label trim, 10-item cap, undefined-vs-empty-array behavior all exercised).
+- `pnpm --filter @festgrid/domain test` → full suite passing, including extended `build-event-insert-values.test.ts` and `transform-gemini-response-to-event-info.test.ts`.
+- `pnpm --filter backend test` → all passing except the 2 pre-existing, unrelated failures already documented in Story 0.36's Dev Agent Record (`trigger-brightdata-for-target.test.ts`'s `returns CAPACITY_EXHAUSTED when capacity unavailable` and `trigger-brightdata-for-target` — a live network call to Bright Data getting 403 against this sandbox's fake credentials, not a defect; confirmed via `git log` that neither file has been touched by this story).
+- `pnpm --filter web test` → full suite passing, including new `mapper.test.ts` links-passthrough cases.
+- `pnpm --filter ui test` → full suite passing, including extended `EventDetailView.test.tsx` (0/1-labeled/1-unlabeled/N-link render cases).
+- `pnpm lint` (repo root) → 6/6 tasks clean, zero errors.
+- `pnpm build` (repo root) → first attempt failed on `web#build` with the same transient `SELF_SIGNED_CERT_IN_CHAIN` Google-Fonts-fetch error already documented in Stories 0.35/0.36's Dev Agent Records. Root-caused this occurrence one step further: `next/font`'s fetch (via `undici`) does not pick up this sandbox's proxy CA trust from `NODE_USE_ENV_PROXY=1` alone — confirmed via a direct `curl`/Node `https.get` test to `fonts.googleapis.com` (both succeeded, proving general network/proxy connectivity was fine) versus the Next.js build's own `undici`-based fetch (still failing) — adding `NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt` for the verification run made `pnpm build` pass cleanly (7/7 tasks). This is a **sandbox-local diagnostic step only**, not a code change: that path is specific to this sandbox's proxy CA bundle and would break other environments if hard-coded into the committed `apps/web/package.json` build script, so it was intentionally **not** added there — Story 0.36's existing `NODE_USE_ENV_PROXY=1` fix is left as the portable, committed mitigation, and this occurrence's extra flakiness is recorded here for whoever investigates this flake next.
+- Migration `0058_nice_liz_osborn.sql` (`ALTER TABLE "events" ADD COLUMN "links" jsonb;`) applied cleanly against the local `festgrid_test` database via `pnpm --filter @festgrid/database migrate`; confirmed via `\d events` that the `links` column exists post-migration.
+- This story's implementation was produced correctly across a session-limit interruption and a subsequent Monitor-timeout interruption in the ritual-orchestrator sandbox's dispatch tooling (both are known, previously-documented tooling issues in this batch — see Story 0.36's Dev Agent Record and the batch state file for the fuller pattern) — the second interruption killed the dev-story session specifically during this Dev Agent Record write-up, after all of Task 6's verification had already completed successfully within that same dispatch (lint, build, and the full domain/backend/web/ui test suites all passed before the kill). The ritual-orchestrator session completing this batch re-ran every one of those checks itself from a clean state (see entries above) before filling in this Dev Agent Record and committing. No implementation code was written by the orchestrator session for this recovery step — only this story file's documentation, and the commit.
+
 ### Completion Notes List
+
+- Implemented AC1: `geminiExtractionResponseSchema` and the system-instruction prompt in `build-gemini-request.ts` now request a `links: {url, label?}[]` array (new instruction "6b", after the existing contactInfo instructions); `extractedEventSchema` in `extracted-event.schema.ts` declares a matching nullable, `additionalProperties: false`, `maxItems: 10` array-of-objects schema mirroring `geminiScheduleSchema`'s nested pattern (not `contactInfo`'s flat-string pattern). New `EventLink` interface added to `packages/shared-types/src/index.ts`; `GeminiExtractionPayload.links?: EventLink[]` added to `packages/domain/src/events/types.ts`.
+- Implemented AC2: new `sanitizeEventLinks` in `packages/domain/src/events/sanitize-event-links.ts` drops non-`http:`/`https:` URLs, trims/blanks-out whitespace-only labels, caps at the first 10 valid entries, and returns `undefined` (not `[]`) when nothing valid remains — with 100%-covered unit tests. Wired into `transform-gemini-response-to-event-info.ts` as its own step alongside the existing `contactInfo` discard-at-classification logic.
+- Implemented AC3: `EventInsertValues.links` set to `message.links ?? null` in `build-event-insert-values.ts`; new nullable `events.links jsonb` column (`links: jsonb('links').$type<EventLink[]>()`) added to `packages/database/schema.ts`, matching the `locationDetails`/`proposedData` typed-jsonb precedent (not `contactInfo`'s flat `text()` column, since `links` is an array of objects). Migration `0058_nice_liz_osborn.sql` generated via `drizzle-kit generate` (a plain column add — no hand-edit needed, unlike AD-8's partial-index precedent) and applied locally.
+- Implemented AC4: `apps/backend/src/schema/events.graphql` gains `type EventLink { url: String! label: String }` and `Event.links: [EventLink!]`; both backend (`resolvers-types.ts`) and frontend (`graphql.ts`) codegen regenerated (not hand-edited); `apps/web/src/features/events/queries.graphql`'s `getEventBySlug` selection set extended with `links { url label }`. Zero new resolver code — confirmed `buildOptimizedDrizzleSelect`'s column-key-to-GraphQL-field-name passthrough is sufficient, same mechanism already serving `contactInfo`.
+- Implemented AC5/AC6: `EventDetailViewProps.links?: EventLink[] | null` added; `apps/web/src/features/events/mapper.ts` threads `event.links` through (mapping a `null` label to `undefined` per the prop's shape); `EventDetailView.tsx` renders one clickable `<a target="_blank" rel="noopener noreferrer">` row per link (icon + `label || url` text + trailing `ExternalLink` icon), gated on `links && links.length > 0` with no empty-state placeholder, positioned directly after the existing Contact Info section. No new locale strings added (per AC6's explicit non-requirement).
+- AC7 (no "Correct Data" dialog wiring): confirmed by scope — `CorrectionForm.tsx`, `correction-dialog.tsx`, `ProposedEventCorrection`, `corrections.graphql`, and `proposed-event-correction.schema.ts` (both backend AJV and frontend Zod) were not touched. New backlog child row `IDEA-036` added tracking this as deferred future work.
+- Both genuine design tradeoffs flagged during story drafting (correction-dialog scope, multi-link layout) were confirmed by the user via `AskUserQuestion` through the ritual-orchestrator mailbox relay before implementation began — see the story's own Architecture & UX Gate Findings section for the full record and the exact answers.
+
+### File List
+
+- `apps/backend/src/lib/ai-processor/build-gemini-request.ts` (modified) — `links` added to the Gemini-native response schema + a new prompt instruction
+- `apps/backend/src/validation/extracted-event.schema.ts` (modified) — matching AJV `links` schema
+- `packages/shared-types/src/index.ts` (modified) — new `EventLink` interface
+- `packages/domain/src/events/types.ts` (modified) — `links` added to `GeminiExtractionPayload`, `ExtractedEventMessage`, `EventInsertValues`
+- `packages/domain/src/events/sanitize-event-links.ts` (new) — link sanitization/validation
+- `packages/domain/src/events/sanitize-event-links.test.ts` (new) — 100%-covered unit tests
+- `packages/domain/src/events/transform-gemini-response-to-event-info.ts` (modified) — wires `sanitizeEventLinks`
+- `packages/domain/src/events/transform-gemini-response-to-event-info.test.ts` (modified) — extended coverage
+- `packages/domain/src/events/build-event-insert-values.ts` (modified) — `links` threaded into insert values
+- `packages/domain/src/events/build-event-insert-values.test.ts` (modified) — extended coverage
+- `packages/domain/src/events/index.ts` (modified) — no functional change beyond what's already exported (verified during recovery — this file's diff is limited to what the barrel already needed)
+- `packages/database/schema.ts` (modified) — new `events.links` jsonb column
+- `packages/database/migrations/0058_nice_liz_osborn.sql` (new) — the migration
+- `packages/database/migrations/meta/0058_snapshot.json` (new, generated)
+- `packages/database/migrations/meta/_journal.json` (modified, generated)
+- `apps/backend/src/schema/events.graphql` (modified) — new `EventLink` type + `Event.links` field
+- `apps/backend/src/generated/resolvers-types.ts` (modified, regenerated)
+- `apps/web/src/features/events/queries.graphql` (modified) — `links { url label }` added to `getEventBySlug`
+- `apps/web/src/generated/graphql.ts` (modified, regenerated)
+- `apps/web/src/features/events/mapper.ts` (modified) — `links` threaded through
+- `apps/web/src/features/events/mapper.test.ts` (modified) — links-passthrough coverage
+- `packages/ui/src/features/events/EventDetailView.types.ts` (modified) — `links` prop added
+- `packages/ui/src/features/events/EventDetailView.tsx` (modified) — renders the links section
+- `packages/ui/src/features/events/EventDetailView.test.tsx` (modified) — 0/1-labeled/1-unlabeled/N-link cases
+- `_bmad-output/implementation-artifacts/0-37-extract-and-display-event-links.md` (modified) — this story file
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified) — status `ready-for-dev` → `in-progress` → `review`
+
+## Change Log
+
+- 2026-09-16: Implemented AC1-AC7 (Gemini extraction schema/prompt, domain sanitization, storage via a new jsonb column + migration, GraphQL type/field with zero new resolver code, read-only frontend display as one row per link). Verified `pnpm --filter domain/backend/web/ui test` (only 2 pre-existing unrelated failures, see Debug Log References), `pnpm lint` (0 errors), `pnpm build` (7/7, after a sandbox-local-only `NODE_EXTRA_CA_CERTS` diagnostic step for a transient font-fetch TLS flake — no code change) all green; status moved `ready-for-dev` → `review`.
 
 ### File List

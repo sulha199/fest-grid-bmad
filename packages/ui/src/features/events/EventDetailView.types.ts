@@ -1,3 +1,5 @@
+import { EventLink } from '@festgrid/shared-types';
+
 /**
  * Represents the details of a single schedule for an event.
  * All fields are optional except for the start date.
@@ -94,6 +96,9 @@ export interface EventDetailViewProps {
   // Contact info (Story 3.6i)
   contactInfo?: string | null;
   hasPrivateContact?: boolean | null;
+
+  // Additional links (Story 0.37)
+  links?: EventLink[] | null;
   accountName?: string | null;
   accountUsername?: string | null;
   accountPlatform?: string | null;

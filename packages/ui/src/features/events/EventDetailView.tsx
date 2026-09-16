@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus, MoreVertical, AlertCircle, Instagram, Phone } from 'lucide-react';
+import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus, MoreVertical, AlertCircle, Instagram, Phone, Link as LinkIcon } from 'lucide-react';
 import { detectPlatformFromUrl } from '@festgrid/domain';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from './EventDetailView.types';
 import { EventImage } from './EventImage';
@@ -34,6 +34,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   sourcePostUrl,
   contactInfo,
   hasPrivateContact,
+  links,
   accountName,
   accountUsername,
   accountPlatform,
@@ -410,6 +411,27 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
               <span>{contactInfo}</span>
             </div>
           )}
+        </section>
+      )}
+
+      {/* Additional Links (Story 0.37): one row per link, styled after the private-contact
+          Instagram-link markup above (actionable, not plain display-only text). Entirely
+          omitted when links is absent or empty -- no empty-state placeholder. */}
+      {links && links.length > 0 && (
+        <section className="flex flex-col gap-2">
+          {links.map((link, index) => (
+            <a
+              key={`${link.url}-${index}`}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400 hover:underline hover:text-primary"
+            >
+              <LinkIcon className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{link.label || link.url}</span>
+              <ExternalLink className="w-3 h-3 shrink-0 mt-0.5" />
+            </a>
+          ))}
         </section>
       )}
 

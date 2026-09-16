@@ -64,6 +64,7 @@ function buildEvent(
     favoriteCount: 0,
     isHiddenForCurrentUser: false,
     instagramEmbed: null,
+    links: null,
     sourceSocialMediaAccountProfile: null,
     schedules: [
       {
@@ -160,5 +161,31 @@ describe('mapGraphQLEventToDetailViewProps mapUrl gating (Story 0.i7c / 0.i7z)',
   it('yields a null mapUrl when there is neither locationDetails nor location (unchanged behavior)', () => {
     const event = buildEvent({ location: null });
     expect(toSchedule(event).mapUrl).toBeNull();
+  });
+});
+
+// Story 0.37 Task 5.2/5.4: `links` passthrough from the GraphQL event onto
+// `EventDetailViewProps`, normalizing GraphQL's `label: string | null` to the
+// shared-types `EventLink.label?: string` shape (undefined, not null).
+describe('mapGraphQLEventToDetailViewProps links passthrough (Story 0.37)', () => {
+  it('maps links to null when the event has no links', () => {
+    const event = buildEvent({});
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.links).toBeNull();
+  });
+
+  it('passes through links, converting a null label to undefined', () => {
+    const event = {
+      ...buildEvent({}),
+      links: [
+        { url: 'https://example.com/tickets', label: 'Tickets' },
+        { url: 'https://example.com/rsvp', label: null },
+      ],
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.links).toEqual([
+      { url: 'https://example.com/tickets', label: 'Tickets' },
+      { url: 'https://example.com/rsvp', label: undefined },
+    ]);
   });
 });

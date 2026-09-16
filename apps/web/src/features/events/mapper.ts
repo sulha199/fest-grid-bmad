@@ -111,6 +111,7 @@ export function mapGraphQLEventToDetailViewProps(
     originalPostUrl: event.originalPostUrl,
     sourcePostUrl: event.sourcePostUrl,
     contactInfo: event.contactInfo,
+    links: event.links?.map((link) => ({ url: link.url, label: link.label ?? undefined })) ?? null,
     hasPrivateContact: event.hasPrivateContact,
     isFavorited: event.isFavorited,
     favoriteCount: event.favoriteCount,

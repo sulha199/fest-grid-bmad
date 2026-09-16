@@ -64,6 +64,10 @@ query getEventBySlug($slug: String!) {
     organizerName
     contactInfo
     hasPrivateContact
+    links {
+      url
+      label
+    }
     isFavorited
     favoriteCount
     isHiddenForCurrentUser

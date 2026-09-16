@@ -469,6 +469,65 @@ describe('EventDetailView', () => {
     expect(screen.queryByText(minimalProps.labels.privateContactMessageLabel)).not.toBeInTheDocument();
   });
 
+  // Story 0.37 Task 5.4 Tests: additional links section
+  describe('additional links (Story 0.37, AC5)', () => {
+    it('renders nothing when links is absent', () => {
+      render(<EventDetailView {...minimalProps} />);
+      expect(screen.queryByRole('link', { name: /example\.com/i })).not.toBeInTheDocument();
+    });
+
+    it('renders nothing when links is an empty array', () => {
+      render(<EventDetailView {...minimalProps} links={[]} />);
+      expect(screen.queryAllByRole('link')).toHaveLength(0);
+    });
+
+    it('renders one row for a single link with a label', () => {
+      render(
+        <EventDetailView
+          {...minimalProps}
+          links={[{ url: 'https://example.com/tickets', label: 'Tickets' }]}
+        />
+      );
+      const link = screen.getByRole('link', { name: /Tickets/ });
+      expect(link).toHaveAttribute('href', 'https://example.com/tickets');
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+
+    it('renders the raw url as text when a link has no label', () => {
+      render(
+        <EventDetailView
+          {...minimalProps}
+          links={[{ url: 'https://example.com/rsvp' }]}
+        />
+      );
+      const link = screen.getByRole('link', { name: /https:\/\/example\.com\/rsvp/ });
+      expect(link).toHaveAttribute('href', 'https://example.com/rsvp');
+    });
+
+    it('renders N distinct rows for N links', () => {
+      render(
+        <EventDetailView
+          {...minimalProps}
+          links={[
+            { url: 'https://example.com/tickets', label: 'Tickets' },
+            { url: 'https://example.com/merch', label: 'Merch' },
+            { url: 'https://example.com/rsvp' },
+          ]}
+        />
+      );
+
+      const ticketsLink = screen.getByRole('link', { name: /Tickets/ });
+      const merchLink = screen.getByRole('link', { name: /Merch/ });
+      const rsvpLink = screen.getByRole('link', { name: /https:\/\/example\.com\/rsvp/ });
+
+      for (const link of [ticketsLink, merchLink, rsvpLink]) {
+        expect(link).toHaveAttribute('target', '_blank');
+        expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      }
+    });
+  });
+
   // AC16 Tests
   it('renders SubscribedAccountCard when accountId, platform, and username are present', () => {
     const onSubscribe = vi.fn();

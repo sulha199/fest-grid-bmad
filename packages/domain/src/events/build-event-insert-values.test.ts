@@ -54,6 +54,7 @@ test('buildEventInsertValues - maps fields correctly', () => {
     hasPrivateContact: false,
     description: 'A great music festival',
     confidenceScore: 0.95,
+    links: null,
   });
 
   assert.strictEqual(result.schedules.length, 1);
@@ -113,6 +114,37 @@ test('buildEventInsertValues - maps hasPrivateContact: true through explicitly',
   const result = buildEventInsertValues(message);
   assert.strictEqual(result.event.hasPrivateContact, true);
   assert.strictEqual(result.event.contactInfo, null);
+});
+
+test('buildEventInsertValues - passes links through when present on the message', () => {
+  const message: ExtractedEventMessage = {
+    postId: 'post-5',
+    sourceSocialMediaAccountId: 'account-5',
+    eventName: 'Event With Links',
+    types: [EventType.OTHER],
+    categories: [EventCategory.OTHER],
+    confidenceScore: 0.6,
+    schedules: [],
+    links: [{ url: 'https://example.com/tickets', label: 'Tickets' }],
+  };
+
+  const result = buildEventInsertValues(message);
+  assert.deepStrictEqual(result.event.links, [{ url: 'https://example.com/tickets', label: 'Tickets' }]);
+});
+
+test('buildEventInsertValues - defaults links to null when absent on the message', () => {
+  const message: ExtractedEventMessage = {
+    postId: 'post-6',
+    sourceSocialMediaAccountId: 'account-6',
+    eventName: 'Event Without Links',
+    types: [EventType.OTHER],
+    categories: [EventCategory.OTHER],
+    confidenceScore: 0.6,
+    schedules: [],
+  };
+
+  const result = buildEventInsertValues(message);
+  assert.strictEqual(result.event.links, null);
 });
 
 test('buildEventInsertValues - handles absent coordinates and timezone fields', () => {

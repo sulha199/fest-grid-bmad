@@ -16,6 +16,7 @@ export function buildEventInsertValues(message: ExtractedEventMessage): {
     hasPrivateContact: message.hasPrivateContact ?? false,
     description: message.description || null,
     confidenceScore: message.confidenceScore ?? null,
+    links: message.links ?? null,
   };
 
   const schedules: ScheduleInsertValues[] = (message.schedules || []).map((s: ExtractedScheduleMessage) => {

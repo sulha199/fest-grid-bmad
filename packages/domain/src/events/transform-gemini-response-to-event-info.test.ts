@@ -510,4 +510,48 @@ describe('transformGeminiResponseToEventInfo', () => {
       assert.deepStrictEqual(result.schedules[1].performers, ['Citra']);
     });
   });
+
+  describe('links sanitization (Story 0.37, AC2, Task 2)', () => {
+    const basePayload = {
+      isEvent: true,
+      eventName: 'Links Test Event',
+      types: ['OTHER'],
+      categories: ['OTHER'],
+      schedules: [],
+      confidenceScore: 0.9
+    };
+
+    it('threads sanitized links through when payload.links is a valid array', () => {
+      const payload: GeminiExtractionPayload = {
+        ...basePayload,
+        links: [
+          { url: 'https://example.com/tickets', label: 'Tickets' },
+          { url: 'javascript:alert(1)' }
+        ]
+      };
+
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+
+      assert.deepStrictEqual(result.links, [{ url: 'https://example.com/tickets', label: 'Tickets' }]);
+    });
+
+    it('leaves links undefined when payload.links is absent', () => {
+      const payload: GeminiExtractionPayload = { ...basePayload };
+
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+
+      assert.strictEqual(result.links, undefined);
+    });
+
+    it('leaves links undefined when payload.links contains only invalid entries', () => {
+      const payload: GeminiExtractionPayload = {
+        ...basePayload,
+        links: [{ url: 'not a url' }]
+      };
+
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+
+      assert.strictEqual(result.links, undefined);
+    });
+  });
 });
