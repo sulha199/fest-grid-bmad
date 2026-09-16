@@ -1,10 +1,12 @@
 import React from 'react';
-import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, CalendarPlus, MoreVertical, AlertCircle, Instagram, Phone, Link as LinkIcon } from 'lucide-react';
+import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, MoreVertical, AlertCircle, Instagram, Phone, Link as LinkIcon } from 'lucide-react';
 import { detectPlatformFromUrl } from '@festgrid/domain';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from './EventDetailView.types';
 import { EventImage } from './EventImage';
 import { InstagramEmbed } from './InstagramEmbed';
 import { SubscribedAccountCard } from '../subscriptions';
+import { PlatformIcon } from '../../core/platform-icon';
+import { formatShortEventDateTime } from './format-event-date';
 
 /**
  * EventDetailView is a reusable, presentation-only component that displays
@@ -22,6 +24,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   location,
   types,
   categories,
+  onTypeClick,
+  onCategoryClick,
   imageUrl,
   imageAlt,
   videoUrl,
@@ -32,6 +36,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   instagramEmbedDurableImageUrl,
   originalPostUrl,
   sourcePostUrl,
+  publishedAt,
   contactInfo,
   hasPrivateContact,
   links,
@@ -70,6 +75,14 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
 
   const [timezoneStates, setTimezoneStates] = React.useState<Record<string, { value: string }>>({})
 
+  const handleTriggerClick = () => {
+    if (!isAuthenticated && onAddToCalendar) {
+      onAddToCalendar([]);
+      return;
+    }
+    setIsDialogOpen(true);
+  };
+
   const menuActions = React.useMemo(() => {
     const list: { label: string; onClick: () => void }[] = [];
     if (onCorrectData) {
@@ -84,8 +97,14 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
         onClick: onReport,
       });
     }
+    if (onAddToCalendar) {
+      list.push({
+        label: labels.addToCalendarButtonLabel,
+        onClick: handleTriggerClick,
+      });
+    }
     return list;
-  }, [onCorrectData, onReport, labels.correctDataMenuItemLabel, labels.reportMenuItemLabel]);
+  }, [onCorrectData, onReport, onAddToCalendar, handleTriggerClick, labels.correctDataMenuItemLabel, labels.reportMenuItemLabel, labels.addToCalendarButtonLabel]);
 
   React.useEffect(() => {
     if (!isMenuOpen) return;
@@ -134,14 +153,6 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
       document.removeEventListener('pointerdown', handleOutsideClick);
     };
   }, [isMenuOpen]);
-
-  const handleTriggerClick = () => {
-    if (!isAuthenticated && onAddToCalendar) {
-      onAddToCalendar([]);
-      return;
-    }
-    setIsDialogOpen(true);
-  };
 
   if (loading) {
     return (
@@ -222,7 +233,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
     <article className="flex flex-col gap-6">
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
         {/* Left Column: Media */}
-        <div className="lg:col-span-3 min-w-0 flex flex-col gap-6">
+        <div className="order-2 lg:order-1 lg:col-span-3 min-w-0 flex flex-col gap-6">
           {instagramEmbedStatus ? (
             <InstagramEmbed
               status={instagramEmbedStatus}
@@ -254,7 +265,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
         </div>
 
         {/* Right Column: Details & Content */}
-        <div className="lg:col-span-2 min-w-0 flex flex-col gap-6">
+        <div className="order-1 lg:order-2 lg:col-span-2 min-w-0 flex flex-col gap-6">
           {/* Header controls */}
           <div className="flex justify-between items-center gap-3 mb-2">
             <div className="flex-1 min-w-0">
@@ -283,37 +294,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                 />
               )}
             </div>
-            {(onFavoriteToggle || onAddToCalendar || menuActions.length > 0) && (
+            {menuActions.length > 0 && (
               <div className="flex items-center gap-3 shrink-0">
-                {onFavoriteToggle && (
-                  <button
-                    onClick={onFavoriteToggle}
-                    className={`rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center ${
-                      favoriteCount !== undefined ? 'px-2.5 py-2 gap-1.5' : 'p-2'
-                    }`}
-                    aria-label={isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}
-                    aria-pressed={isFavorited}
-                  >
-                    <Heart className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
-                    {favoriteCount !== undefined && (
-                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 select-none">
-                        {favoriteCount}
-                      </span>
-                    )}
-                  </button>
-                )}
-                {onAddToCalendar && (
-                  <button
-                    ref={triggerRef}
-                    onClick={handleTriggerClick}
-                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    aria-label={labels.addToCalendarButtonLabel}
-                    aria-pressed={isAddedToCalendar}
-                >
-                  <CalendarPlus className={`w-6 h-6 ${isAddedToCalendar ? 'fill-primary text-primary' : 'text-gray-500'}`} />
-                </button>
-              )}
-              {menuActions.length > 0 && (
                 <div className="relative" ref={menuContainerRef}>
                   <button
                     ref={menuTriggerRef}
@@ -347,24 +329,66 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
           </div>
 
           <header className="flex flex-col gap-3">
-        <h1 className="text-3xl font-bold break-words text-gray-900 dark:text-gray-100">{eventName}</h1>
-        
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold break-words text-gray-900 dark:text-gray-100">{eventName}</h1>
+          {onFavoriteToggle && (
+            <button
+              onClick={onFavoriteToggle}
+              className={`rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center shrink-0 ${
+                favoriteCount !== undefined ? 'px-2.5 py-2 gap-1.5' : 'p-2'
+              }`}
+              aria-label={isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}
+              aria-pressed={isFavorited}
+            >
+              <Heart className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+              {favoriteCount !== undefined && (
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 select-none">
+                  {favoriteCount}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
+
         {hasTags && (
-          <ul className="flex flex-wrap gap-2" aria-label="Event categories and types">
+          <ul className="flex flex-wrap gap-2" aria-label={labels.categoriesAndTypesAriaLabel}>
             {categories?.map((category, idx) => (
-              <li key={`cat-${idx}`} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
-                {category}
+              <li key={`cat-${idx}`}>
+                {onCategoryClick ? (
+                  <button
+                    type="button"
+                    onClick={() => onCategoryClick(category.value)}
+                    className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium hover:bg-primary/20 transition-colors"
+                  >
+                    {category.label}
+                  </button>
+                ) : (
+                  <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium inline-block">
+                    {category.label}
+                  </span>
+                )}
               </li>
             ))}
             {types?.map((type, idx) => (
-              <li key={`type-${idx}`} className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full text-sm font-medium">
-                {type}
+              <li key={`type-${idx}`}>
+                {onTypeClick ? (
+                  <button
+                    type="button"
+                    onClick={() => onTypeClick(type.value)}
+                    className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    {type.label}
+                  </button>
+                ) : (
+                  <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full text-sm font-medium inline-block">
+                    {type.label}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -540,9 +564,23 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
       {hasSourceAttribution && (
         <section className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3 text-sm text-gray-500">
           <div className="flex items-center gap-4 flex-wrap">
+            {hasSourceAttribution && publishedAt && (
+              <span className="flex items-center gap-1">
+                <span className="sr-only">{labels.publishedLabel} </span>
+                {formatShortEventDateTime(locale, undefined, new Date(publishedAt), false, {
+                  today: labels.today,
+                  tomorrow: labels.tomorrow,
+                  yesterday: labels.yesterday,
+                })}
+                <span aria-hidden="true"> · </span>
+              </span>
+            )}
             {originalPostUrl && (
               <a href={originalPostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
-                <Instagram className="w-3 h-3 text-pink-600 dark:text-pink-400" />
+                <PlatformIcon
+                  platform={accountPlatform || detectPlatformFromUrl(originalPostUrl || sourcePostUrl || '') || 'instagram'}
+                  className="w-3 h-3 text-pink-600 dark:text-pink-400"
+                />
                 {labels.viewOriginalPostLabel} <ExternalLink className="w-3 h-3" />
               </a>
             )}
@@ -566,7 +604,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
           onConfirm={onAddToCalendar}
           locale={locale}
           formatScheduleDate={formatScheduleDate}
-          triggerEl={triggerRef.current}
+          triggerEl={triggerRef.current || menuTriggerRef.current}
         />
       )}
     </article>

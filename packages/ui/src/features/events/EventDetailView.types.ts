@@ -61,6 +61,21 @@ export interface EventDetailViewLabels {
   contentNoLongerAvailableLabel?: string;
   embedLoadingLabel?: string;
   embedRegionLabel?: string;
+  publishedLabel: string;
+  today?: string;
+  tomorrow?: string;
+  yesterday?: string;
+  categoriesAndTypesAriaLabel: string;
+}
+
+/**
+ * A category/type badge value paired with its already-translated display label
+ * (Story 1.6f) -- the raw enum value drives navigation (e.g. Discovery's
+ * `?categories=<value>` filter), the label is what renders.
+ */
+export interface EventDetailViewTagOption {
+  value: string;
+  label: string;
 }
 
 /**
@@ -76,8 +91,10 @@ export interface EventDetailViewProps {
   location: string;
   
   // Optional meta
-  types?: string[];
-  categories?: string[];
+  types?: EventDetailViewTagOption[];
+  categories?: EventDetailViewTagOption[];
+  onTypeClick?: (value: string) => void;
+  onCategoryClick?: (value: string) => void;
   imageUrl?: string | null;
   imageAlt?: string | null;
   videoUrl?: string | null;
@@ -92,6 +109,7 @@ export interface EventDetailViewProps {
   // External URLs (AC15, AC16)
   originalPostUrl?: string | null;
   sourcePostUrl?: string | null;
+  publishedAt?: string | null;
 
   // Contact info (Story 3.6i)
   contactInfo?: string | null;

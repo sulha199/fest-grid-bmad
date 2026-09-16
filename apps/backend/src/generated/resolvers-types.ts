@@ -271,6 +271,7 @@ export type Event = {
   organizerName?: Maybe<Scalars['String']['output']>;
   originalPostUrl?: Maybe<Scalars['String']['output']>;
   postId?: Maybe<Scalars['ID']['output']>;
+  publishedAt?: Maybe<Scalars['String']['output']>;
   schedules: Array<Schedule>;
   slug: Scalars['String']['output'];
   sourcePostUrl?: Maybe<Scalars['String']['output']>;
@@ -1717,6 +1718,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   organizerName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   originalPostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   postId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  publishedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   schedules?: Resolver<Array<ResolversTypes['Schedule']>, ParentType, ContextType>;
   slug?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   sourcePostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

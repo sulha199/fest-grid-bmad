@@ -3,6 +3,7 @@ import { render, screen, fireEvent, cleanup, within, waitFor } from '@testing-li
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { EventDetailView } from './EventDetailView';
+import { formatShortEventDateTime } from './format-event-date';
 
 describe('EventDetailView', () => {
   afterEach(() => {
@@ -34,6 +35,10 @@ describe('EventDetailView', () => {
       addToCalendarConfirmLabel: 'Confirm',
       addToCalendarCancelLabel: 'Cancel',
       privateContactMessageLabel: "Contact info isn't shown to protect the poster's privacy — see the original post for details.",
+      moreActionsButtonLabel: 'More actions',
+      correctDataMenuItemLabel: 'Correct Data',
+      publishedLabel: 'Published',
+      categoriesAndTypesAriaLabel: 'Event categories and types',
     },
   };
 
@@ -60,8 +65,8 @@ describe('EventDetailView', () => {
         // omitting location to test fallback
       },
     ],
-    types: ['Festival', 'Workshop'],
-    categories: ['Music', 'Art'],
+    types: [{ value: 'FESTIVAL', label: 'Festival' }, { value: 'WORKSHOP', label: 'Workshop' }],
+    categories: [{ value: 'MUSIC', label: 'Music' }, { value: 'ART', label: 'Art' }],
     imageUrl: 'https://example.com/image.jpg',
     imageAlt: 'Custom Alt Text',
     originalPostUrl: 'https://instagram.com/p/123',
@@ -106,12 +111,66 @@ describe('EventDetailView', () => {
     expect(locations.length).toBeGreaterThan(0);
   });
 
+  // Story 1.6f Task 1 (AC1): responsive layout reorder -- jsdom doesn't evaluate
+  // @media queries, so assert on the className string containing the expected
+  // order-*/lg:order-* tokens rather than a real layout measurement.
+  it('applies order-2 lg:order-1 to the media column and order-1 lg:order-2 to the details column', () => {
+    const { container } = render(<EventDetailView {...fullProps} />);
+    const grid = container.querySelector('.grid');
+    expect(grid).toBeTruthy();
+    const gridChildren = Array.from(grid!.children);
+    expect(gridChildren.length).toBe(2);
+    const mediaColumn = gridChildren[0] as HTMLElement;
+    const detailsColumn = gridChildren[1] as HTMLElement;
+    expect(mediaColumn.className).toContain('order-2');
+    expect(mediaColumn.className).toContain('lg:order-1');
+    expect(detailsColumn.className).toContain('order-1');
+    expect(detailsColumn.className).toContain('lg:order-2');
+  });
+
   it('renders tags when provided', () => {
     render(<EventDetailView {...fullProps} />);
     expect(screen.getByText('Music')).toBeInTheDocument();
     expect(screen.getByText('Art')).toBeInTheDocument();
     expect(screen.getByText('Festival')).toBeInTheDocument();
     expect(screen.getByText('Workshop')).toBeInTheDocument();
+  });
+
+  // Story 1.6f Task 4 (AC3, AC7): clickable category/type badges
+  describe('category/type badge click-through (Story 1.6f, AC3)', () => {
+    it('renders badges as plain, non-interactive text when no click handler is passed', () => {
+      render(<EventDetailView {...fullProps} />);
+      expect(screen.queryByRole('button', { name: 'Music' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Festival' })).not.toBeInTheDocument();
+      expect(screen.getByText('Music')).toBeInTheDocument();
+      expect(screen.getByText('Festival')).toBeInTheDocument();
+    });
+
+    it('renders a category badge as a button and fires onCategoryClick with the raw value', () => {
+      const onCategoryClick = vi.fn();
+      render(<EventDetailView {...fullProps} onCategoryClick={onCategoryClick} />);
+      const musicBtn = screen.getByRole('button', { name: 'Music' });
+      fireEvent.click(musicBtn);
+      expect(onCategoryClick).toHaveBeenCalledWith('MUSIC');
+    });
+
+    it('renders a type badge as a button and fires onTypeClick with the raw value', () => {
+      const onTypeClick = vi.fn();
+      render(<EventDetailView {...fullProps} onTypeClick={onTypeClick} />);
+      const festivalBtn = screen.getByRole('button', { name: 'Festival' });
+      fireEvent.click(festivalBtn);
+      expect(onTypeClick).toHaveBeenCalledWith('FESTIVAL');
+    });
+
+    it('uses the categoriesAndTypesAriaLabel from labels for the badge list', () => {
+      render(
+        <EventDetailView
+          {...fullProps}
+          labels={{ ...fullProps.labels, categoriesAndTypesAriaLabel: 'Custom badges label' }}
+        />
+      );
+      expect(screen.getByRole('list', { name: 'Custom badges label' })).toBeInTheDocument();
+    });
   });
 
   it('does not render tag lists if absent', () => {
@@ -263,22 +322,26 @@ describe('EventDetailView', () => {
     expect(screen.queryByRole('button', { name: /Calendar/i })).not.toBeInTheDocument();
   });
 
-  it('renders favorite and calendar controls when handlers are provided', () => {
+  // Story 1.6f Task 5 (AC4, AC5): favorite control moves beside the title; title shrinks to text-2xl
+  it('renders the favorite control inline beside the title, and no standalone calendar button, when handlers are provided', () => {
     const onFavoriteToggle = vi.fn();
     const onAddToCalendar = vi.fn();
     render(<EventDetailView {...minimalProps} onFavoriteToggle={onFavoriteToggle} onAddToCalendar={onAddToCalendar} isFavorited={true} isAddedToCalendar={false} />);
-    
+
     const favBtn = screen.getByRole('button', { name: 'Remove from Favorites' });
-    const calBtn = screen.getByRole('button', { name: 'Add to Calendar' });
-    
+    const heading = screen.getByRole('heading', { name: 'Test Event' });
+
     expect(favBtn).toBeInTheDocument();
     expect(favBtn).toHaveAttribute('aria-pressed', 'true');
-    
-    expect(calBtn).toBeInTheDocument();
-    expect(calBtn).toHaveAttribute('aria-pressed', 'false');
+    expect(heading.parentElement).toContainElement(favBtn);
+    expect(heading).toHaveClass('text-2xl');
+    expect(heading).not.toHaveClass('text-3xl');
 
     fireEvent.click(favBtn);
     expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
+
+    // AC6: no standalone top-level Add to Calendar button
+    expect(screen.queryByRole('button', { name: 'Add to Calendar' })).not.toBeInTheDocument();
   });
 
   it('shows the favorite count beside the icon when favoriteCount is provided', () => {
@@ -305,7 +368,29 @@ describe('EventDetailView', () => {
     expect(favBtn).toHaveTextContent('');
   });
 
-  it('opens add to calendar dialog on click and handles confirm', async () => {
+  // Story 1.6f Task 6 (AC6): the standalone top-level Add to Calendar button is gone;
+  // opening the (retained) AddToCalendarDialog now goes through the overflow "more
+  // actions" menu's "Add to Calendar" entry.
+  const openAddToCalendarFromMenu = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add to Calendar' }));
+  };
+
+  it('renders an "Add to Calendar" entry in the overflow menu which opens the retained AddToCalendarDialog', () => {
+    const onAddToCalendar = vi.fn();
+    render(<EventDetailView {...fullProps} onAddToCalendar={onAddToCalendar} />);
+
+    expect(screen.queryByRole('button', { name: 'Add to Calendar' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    const calendarItem = screen.getByRole('menuitem', { name: 'Add to Calendar' });
+    expect(calendarItem).toBeInTheDocument();
+
+    fireEvent.click(calendarItem);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('opens add to calendar dialog via the overflow menu and handles confirm', async () => {
     const onAddToCalendar = vi.fn();
     const testProps = {
       ...fullProps,
@@ -326,11 +411,8 @@ describe('EventDetailView', () => {
     };
     render(<EventDetailView {...testProps} onAddToCalendar={onAddToCalendar} isAddedToCalendar={true} />);
 
-    const calBtn = screen.getByRole('button', { name: 'Add to Calendar' });
-    expect(calBtn).toHaveAttribute('aria-pressed', 'true');
-
-    // Click to open dialog
-    fireEvent.click(calBtn);
+    // Open dialog via the overflow menu
+    openAddToCalendarFromMenu();
 
     // Verify dialog is open
     expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -362,17 +444,15 @@ describe('EventDetailView', () => {
     const onAddToCalendar = vi.fn();
     render(<EventDetailView {...fullProps} onAddToCalendar={onAddToCalendar} />);
 
-    const calBtn = screen.getByRole('button', { name: 'Add to Calendar' });
-    
     // Test Cancel button
-    fireEvent.click(calBtn);
+    openAddToCalendarFromMenu();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(onAddToCalendar).not.toHaveBeenCalled();
 
     // Test Escape key
-    fireEvent.click(calBtn);
+    openAddToCalendarFromMenu();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole('dialog').firstChild!, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -386,7 +466,7 @@ describe('EventDetailView', () => {
     );
     render(<EventDetailView {...fullProps} onAddToCalendar={onAddToCalendar} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add to Calendar' }));
+    openAddToCalendarFromMenu();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
@@ -429,6 +509,61 @@ describe('EventDetailView', () => {
     render(<EventDetailView {...minimalProps} />);
     expect(screen.queryByRole('link', { name: /View original post/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /View source/i })).not.toBeInTheDocument();
+  });
+
+  // Story 1.6f Task 3 (AC2, AC7): published-date prefix + PlatformIcon selection in Attributions
+  describe('published date + platform icon in Attributions (Story 1.6f)', () => {
+    const publishedAt = '2020-01-15T10:00:00.000Z';
+    const expectedDateText = formatShortEventDateTime('en-US', undefined, new Date(publishedAt), false, {
+      today: 'Today',
+      tomorrow: 'Tomorrow',
+      yesterday: 'Yesterday',
+    });
+
+    it('renders the formatted publishedAt prefix when hasSourceAttribution and publishedAt are both present', () => {
+      render(
+        <EventDetailView
+          {...minimalProps}
+          originalPostUrl="http://orig"
+          publishedAt={publishedAt}
+        />
+      );
+      expect(screen.getByText(expectedDateText)).toBeInTheDocument();
+      expect(screen.getByText(minimalProps.labels.publishedLabel)).toBeInTheDocument();
+    });
+
+    it('does not render the published-date prefix when hasSourceAttribution is false', () => {
+      render(<EventDetailView {...minimalProps} publishedAt={publishedAt} />);
+      expect(screen.queryByText(expectedDateText)).not.toBeInTheDocument();
+    });
+
+    it('does not render the published-date prefix when publishedAt is absent', () => {
+      render(<EventDetailView {...minimalProps} originalPostUrl="http://orig" />);
+      expect(screen.queryByText(minimalProps.labels.publishedLabel)).not.toBeInTheDocument();
+    });
+
+    it('uses PlatformIcon driven by accountPlatform for the originalPostUrl link', () => {
+      render(
+        <EventDetailView
+          {...minimalProps}
+          originalPostUrl="http://orig"
+          accountPlatform="instagram"
+        />
+      );
+      const link = screen.getByRole('link', { name: /View original post/i });
+      expect(link.querySelector('svg')).toBeInTheDocument();
+    });
+
+    it('falls back to detectPlatformFromUrl when no accountPlatform is present', () => {
+      render(
+        <EventDetailView
+          {...minimalProps}
+          originalPostUrl="https://instagram.com/p/abc123"
+        />
+      );
+      const link = screen.getByRole('link', { name: /View original post/i });
+      expect(link.querySelector('svg')).toBeInTheDocument();
+    });
   });
 
   // Story 3.6i Task 8 Tests: business contactInfo display + private-contact fallback

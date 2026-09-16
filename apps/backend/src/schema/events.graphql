@@ -112,6 +112,7 @@ type Event {
   instagramEmbed: InstagramEmbed
   sourcePostUrl: String
   originalPostUrl: String
+  publishedAt: String
   organizerName: String
   contactInfo: String
   hasPrivateContact: Boolean!

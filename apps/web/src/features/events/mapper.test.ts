@@ -39,6 +39,8 @@ const LABELS: EventDetailViewLabels = {
   contentNoLongerAvailableLabel: 'Unavailable',
   embedLoadingLabel: 'Loading embed',
   embedRegionLabel: 'Region',
+  publishedLabel: 'Published',
+  categoriesAndTypesAriaLabel: 'Event categories and types',
 };
 
 function buildEvent(
@@ -57,6 +59,7 @@ function buildEvent(
     videoUrl: null,
     originalPostUrl: null,
     sourcePostUrl: null,
+    publishedAt: null,
     organizerName: null,
     contactInfo: null,
     hasPrivateContact: false,
@@ -187,5 +190,51 @@ describe('mapGraphQLEventToDetailViewProps links passthrough (Story 0.37)', () =
       { url: 'https://example.com/tickets', label: 'Tickets' },
       { url: 'https://example.com/rsvp', label: undefined },
     ]);
+  });
+});
+
+// Story 1.6f Task 3 (AC2): publishedAt passthrough onto EventDetailViewProps.
+describe('mapGraphQLEventToDetailViewProps publishedAt passthrough (Story 1.6f)', () => {
+  it('passes through a non-null publishedAt unchanged', () => {
+    const event = { ...buildEvent({}), publishedAt: '2026-01-15T10:30:00.000Z' };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.publishedAt).toBe('2026-01-15T10:30:00.000Z');
+  });
+
+  it('passes through a null publishedAt as null (no linked post)', () => {
+    const event = buildEvent({});
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.publishedAt).toBeNull();
+  });
+});
+
+// Story 1.6f Task 4 (AC3): types/categories map to { value, label } pairs (raw
+// enum value + translated label) instead of translated-label-only strings, and
+// the pre-existing null-input cases still resolve to null/undefined (not []),
+// preserving EventDetailView.tsx's existing `hasTags` falsy-check.
+describe('mapGraphQLEventToDetailViewProps types/categories badge shape (Story 1.6f)', () => {
+  it('maps types/categories to { value, label } pairs, value the raw enum, label the translated string', () => {
+    const event = {
+      ...buildEvent({}),
+      types: ['FESTIVAL', 'WORKSHOP'],
+      categories: ['MUSIC'],
+    } as unknown as NonNullable<GetEventBySlugQuery['eventBySlug']>;
+    const tType = (k: string) => `Type:${k}`;
+    const tCategory = (k: string) => `Category:${k}`;
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', tType, tCategory);
+    expect(props.types).toEqual([
+      { value: 'FESTIVAL', label: 'Type:FESTIVAL' },
+      { value: 'WORKSHOP', label: 'Type:WORKSHOP' },
+    ]);
+    expect(props.categories).toEqual([{ value: 'MUSIC', label: 'Category:MUSIC' }]);
+  });
+
+  it('resolves types/categories to null/undefined (not []) when the event has neither (existing null-case regression)', () => {
+    const event = buildEvent({}); // types: null, categories: null per buildEvent's default fixture
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.types).toBeUndefined();
+    expect(props.categories).toBeUndefined();
+    expect(props.types).not.toEqual([]);
+    expect(props.categories).not.toEqual([]);
   });
 });

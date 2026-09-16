@@ -3252,6 +3252,7 @@ Constraints and Guidelines:
         videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
+        publishedAt: posts.publishedAt,
         isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
@@ -3333,6 +3334,7 @@ Constraints and Guidelines:
         videoUrl: posts.videoUrl,
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
+        publishedAt: posts.publishedAt,
         isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
@@ -3651,6 +3653,7 @@ Constraints and Guidelines:
     },
     sourcePostUrl: (parent: any) => parent.sourcePostUrl || null,
     originalPostUrl: (parent: any) => parent.originalPostUrl || null,
+    publishedAt: (parent: any) => parent.publishedAt instanceof Date ? parent.publishedAt.toISOString() : (parent.publishedAt || null),
     isFavorited: async (parent: any, _: any, context: any) => {
       try {
         const authUser = requireAuth(context);

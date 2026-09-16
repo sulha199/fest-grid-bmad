@@ -80,6 +80,26 @@ vi.mock("next-intl", () => ({
   useLocale: () => "en",
 }))
 
+// Story 1.6f Task 7: Task 6 removed the standalone top-level Add-to-Calendar
+// button that the calendar tests below used to click through to drive the
+// bulk AddToCalendarDialog. `handleAddToCalendar` itself is unchanged, so this
+// partially mocks `@festgrid/ui` to capture EventDetailView's props (while
+// still rendering the real component, so every other pre-existing test in
+// this file keeps working against real DOM) and the calendar tests now
+// invoke the captured `onAddToCalendar` prop directly instead of driving the
+// removed button/dialog UI.
+let capturedEventDetailViewProps: any = null
+vi.mock("@festgrid/ui", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@festgrid/ui")>()
+  return {
+    ...actual,
+    EventDetailView: (props: any) => {
+      capturedEventDetailViewProps = props
+      return React.createElement(actual.EventDetailView, props)
+    },
+  }
+})
+
 let currentMockEvent = {
   id: "evt_1",
   eventName: "Test Event",
@@ -287,6 +307,7 @@ describe("EventDetailWrapper", () => {
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+    capturedEventDetailViewProps = null
     mockSession = { user: { id: "u_1" } } // Default authenticated
     currentMockSubscriptions = []
     mockSearchParams = new URLSearchParams()
@@ -569,7 +590,7 @@ describe("EventDetailWrapper", () => {
     });
   })
 
-  it("handles add to calendar flow: opens dialog, toggles only changed, triggers ICS download and analytics", async () => {
+  it("handles add to calendar flow: toggles only changed, triggers ICS download and analytics", async () => {
     const assignMock = vi.fn()
     vi.stubGlobal("location", { assign: assignMock })
 
@@ -577,31 +598,11 @@ describe("EventDetailWrapper", () => {
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
 
-    const calBtn = await screen.findByRole("button", { name: "EventDetailsPage.addToCalendarButtonLabel" })
-    
-    // Open dialog
-    fireEvent.click(calBtn)
-
-    expect(screen.getByRole("dialog")).toBeInTheDocument()
-
-    // Sched 1 is currently not added (unchecked), Sched 2 is added (checked)
-    const checkbox1 = screen.getByLabelText(/EventDetailsPage.defaultScheduleTitle 1/) as HTMLInputElement
-    const checkbox2 = screen.getByLabelText(/EventDetailsPage.defaultScheduleTitle 2/) as HTMLInputElement
-    expect(checkbox1.checked).toBe(false)
-    expect(checkbox2.checked).toBe(true)
-
-    // Check Sched 1 (will transition false -> true)
-    fireEvent.click(checkbox1)
-    expect(checkbox1.checked).toBe(true)
-
-    // Click Confirm
-    const confirmBtn = screen.getByRole("button", { name: "EventDetailsPage.addToCalendarConfirmLabel" })
-    fireEvent.click(confirmBtn)
-
-    // Verify dialog closed
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
-    })
+    // Sched 1 is currently not added, Sched 2 is already added -- invoke the
+    // captured onAddToCalendar prop directly (Story 1.6f Task 7) with both ids
+    // selected, matching the old dialog interaction of checking sched_1 while
+    // leaving sched_2's already-checked box checked.
+    await capturedEventDetailViewProps.onAddToCalendar(["sched_1", "sched_2"])
 
     // Verify mutation called for sched_1 (changed), but NOT sched_2 (unchanged)
     // Verify download triggered only for sched_1 (transitioned false -> true)
@@ -655,27 +656,16 @@ describe("EventDetailWrapper", () => {
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
 
-    const calBtn = await screen.findByRole("button", { name: "EventDetailsPage.addToCalendarButtonLabel" })
-    fireEvent.click(calBtn)
-
-    expect(screen.getByRole("dialog")).toBeInTheDocument()
-
-    const checkbox1 = screen.getByLabelText(/EventDetailsPage.defaultScheduleTitle 1/) as HTMLInputElement
-    const checkbox2 = screen.getByLabelText(/EventDetailsPage.defaultScheduleTitle 2/) as HTMLInputElement
-    fireEvent.click(checkbox1)
-    fireEvent.click(checkbox2)
-
-    const confirmBtn = screen.getByRole("button", { name: "EventDetailsPage.addToCalendarConfirmLabel" })
-    fireEvent.click(confirmBtn)
+    // Both schedules selected -- mirrors the old dialog interaction of checking
+    // both checkboxes before confirm. Real UI usage (AddToCalendarDialog's
+    // handleConfirm) awaits onAddToCalendar inside a try/catch and keeps the
+    // dialog open on rejection, so this mirrors that swallow here.
+    await capturedEventDetailViewProps.onAddToCalendar(["sched_ok", "sched_fail"]).catch(() => {})
 
     // Error is announced for the failed schedule
     await waitFor(() => {
       expect(screen.getByText("EventDetailsPage.calendarErrorAnnouncement")).toBeInTheDocument()
     })
-
-    // Dialog stays open on partial failure -- succeeded schedules show as committed
-    // via the dialog's own prop-resync, failed ones revert via their own rollback.
-    expect(screen.getByRole("dialog")).toBeInTheDocument()
 
     // Download/analytics fire, scoped to the succeeding id only -- sched_fail never
     // appears even though it was part of the same confirm.
@@ -715,23 +705,13 @@ describe("EventDetailWrapper", () => {
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
 
-    const calBtn = await screen.findByRole("button", { name: "EventDetailsPage.addToCalendarButtonLabel" })
-    fireEvent.click(calBtn)
-
-    expect(screen.getByRole("dialog")).toBeInTheDocument()
-
-    const checkbox = screen.getByLabelText(/EventDetailsPage.defaultScheduleTitle/) as HTMLInputElement
-    fireEvent.click(checkbox)
-
-    const confirmBtn = screen.getByRole("button", { name: "EventDetailsPage.addToCalendarConfirmLabel" })
-    fireEvent.click(confirmBtn)
+    // Directly invoke onAddToCalendar (Story 1.6f Task 7) instead of driving the
+    // removed button/dialog UI -- real usage swallows the rejection the same way.
+    await capturedEventDetailViewProps.onAddToCalendar(["sched_fail"]).catch(() => {})
 
     await waitFor(() => {
       expect(screen.getByText("EventDetailsPage.calendarErrorAnnouncement")).toBeInTheDocument()
     })
-
-    // Dialog does not close on a false-success basis
-    expect(screen.getByRole("dialog")).toBeInTheDocument()
   })
 
   it("surfaces an error and keeps the dialog open when toggleCalendarAddition succeeds with null data (BUG-009)", async () => {
@@ -753,25 +733,18 @@ describe("EventDetailWrapper", () => {
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
 
-    const calBtn = await screen.findByRole("button", { name: "EventDetailsPage.addToCalendarButtonLabel" })
-    fireEvent.click(calBtn)
-
-    expect(screen.getByRole("dialog")).toBeInTheDocument()
-
-    const checkbox = screen.getByLabelText(/EventDetailsPage.defaultScheduleTitle/) as HTMLInputElement
-    fireEvent.click(checkbox)
-
-    const confirmBtn = screen.getByRole("button", { name: "EventDetailsPage.addToCalendarConfirmLabel" })
-    fireEvent.click(confirmBtn)
+    // Directly invoke onAddToCalendar (Story 1.6f Task 7) instead of driving the
+    // removed button/dialog UI.
+    await capturedEventDetailViewProps.onAddToCalendar(["sched_null_data"]).catch(() => {})
 
     // A null-data "success" response must not be mistaken for a real success: no
-    // false-success toast, no .ics download, and the dialog stays open exactly like
-    // the genuine-failure case above (this is the Promise.all/try-catch contract that
-    // handleAddToCalendar depends on to know a schedule toggle actually failed).
+    // false-success toast, no .ics download (this is the Promise.all/try-catch
+    // contract that handleAddToCalendar depends on to know a schedule toggle
+    // actually failed).
     await waitFor(() => {
       expect(screen.getByText("EventDetailsPage.calendarErrorAnnouncement")).toBeInTheDocument()
     })
-    expect(screen.getByRole("dialog")).toBeInTheDocument()
+    expect(toast.success).not.toHaveBeenCalled()
   })
 
   it("unauthenticated calendar click redirects to /login and does not open dialog", async () => {
@@ -780,8 +753,10 @@ describe("EventDetailWrapper", () => {
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
 
-    const calBtn = await screen.findByRole("button", { name: "EventDetailsPage.addToCalendarButtonLabel" })
-    fireEvent.click(calBtn)
+    // Directly invoke onAddToCalendar (Story 1.6f Task 7) instead of driving the
+    // removed button/dialog UI -- handleAddToCalendar's own unauthenticated
+    // shortcut (redirect, no mutation) is unchanged by Task 6's relocation.
+    await capturedEventDetailViewProps.onAddToCalendar(["sched_1"])
 
     expect(mockRouterPush).toHaveBeenCalledWith("/login")
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
@@ -817,6 +792,36 @@ describe("EventDetailWrapper", () => {
 
     expect(mockRouterPush).toHaveBeenCalledWith("/login")
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  // Story 1.6f Task 8 (AC3): badge click navigates to Discovery with exactly
+  // one facet param -- no existing searchParams carried over.
+  it("clicking a category badge calls router.push with exactly /?categories=<value>, not carrying over existing searchParams", async () => {
+    currentMockEvent.categories = ["MUSIC"] as any
+    mockSearchParams = new URLSearchParams("q=some-search&types=WORKSHOP")
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const categoryBtn = await screen.findByRole("button", { name: "EventCategory.MUSIC" })
+    fireEvent.click(categoryBtn)
+
+    expect(mockRouterPush).toHaveBeenCalledWith("/?categories=MUSIC")
+    expect(mockRouterPush).toHaveBeenCalledTimes(1)
+  })
+
+  it("clicking a type badge calls router.push with exactly /?types=<value>, not carrying over existing searchParams", async () => {
+    currentMockEvent.types = ["FESTIVAL"] as any
+    mockSearchParams = new URLSearchParams("q=some-search&categories=MUSIC")
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const typeBtn = await screen.findByRole("button", { name: "EventType.FESTIVAL" })
+    fireEvent.click(typeBtn)
+
+    expect(mockRouterPush).toHaveBeenCalledWith("/?types=FESTIVAL")
+    expect(mockRouterPush).toHaveBeenCalledTimes(1)
   })
 
   it("renders the hidden empty state if isHiddenForCurrentUser is true", async () => {

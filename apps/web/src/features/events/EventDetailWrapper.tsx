@@ -524,6 +524,12 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
           }
         },
         onAddToCalendar: handleAddToCalendar,
+        onCategoryClick: (value: string) => {
+          router.push(`/?categories=${encodeURIComponent(value)}`)
+        },
+        onTypeClick: (value: string) => {
+          router.push(`/?types=${encodeURIComponent(value)}`)
+        },
         onResolveScheduleTimezone: (scheduleId: string, timezone: string) => {
           if (!session) {
             router.push("/login")
