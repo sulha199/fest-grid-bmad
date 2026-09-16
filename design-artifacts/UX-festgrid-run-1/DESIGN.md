@@ -2,7 +2,7 @@
 title: "DESIGN.md: festgrid"
 status: "draft"
 created: "2026-07-13T22:33:00Z"
-updated: "2026-09-14T00:00:00Z"
+updated: "2026-09-16T00:00:00Z"
 sources:
   - "_bmad-output/planning-artifacts/prfaq-festgrid.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -290,7 +290,7 @@ components:
     caption: "p-3 flex-1 flex flex-col gap-2" # unchanged container -- badge_row (below) is now its first flex child, so the existing gap-2 spacing applies uniformly between badge_row, the title, and locationName with no separate wrapper needed
     title: "text-sm font-bold text-foreground leading-tight line-clamp-2" # New <bmad-ux pass, 2026-09-14>, user-directed -- previously used the generic {components.card.title} token (text-lg font-bold), single-line by default. Now an explicit masonry-specific override: wraps up to 2 lines, and the font size is deliberately smaller than {components.card.title} to leave room for a 2-line title in a narrow 2-col mobile tile (user: "the event name font size could be smaller compared to the screenshot").
     venue: "text-xs text-muted-foreground truncate" # New <bmad-ux pass, 2026-09-14>, user-directed -- explicit single-line truncation (was unstyled/unclamped, relying on default block wrapping).
-    badge_row: "flex items-center gap-1.5 flex-wrap" # status badge (event_card_status_badge, "happeningNow" now labeled "Now") always first, then event_card_nearby_badge -- REVISED <bmad-ux pass, 2026-09-14>, user-directed: the nearby/radius badge now REPLACES the category/type badge in this row entirely (distanceKm < 8 gated, omitted otherwise) rather than appending alongside it (AC15/AC16's original "status badge + nearby badge when present" pairing is unchanged in spirit -- what changed is that a category/type badge no longer competes for the same row at all). Sits below the top row (poster, or top_row_default below) against the card's own bg-card background, so unlike date_box/till_badge it uses solid fills, not glassmorphism
+    badge_row: "flex items-center gap-1.5 flex-wrap" # status badge (event_card_status_badge, "happeningNow" now labeled "Now") always first, then event_card_nearby_badge -- REVISED <bmad-ux pass, 2026-09-14>, user-directed: the nearby/radius badge now REPLACES the category/type badge in this row entirely (distanceKm < 8 gated, omitted otherwise) rather than appending alongside it (AC15/AC16's original "status badge + nearby badge when present" pairing is unchanged in spirit -- what changed is that a category/type badge no longer competes for the same row at all). Sits below the top row (poster, or top_row_default below) against the card's own bg-card background, so unlike date_box/till_badge it uses solid fills, not glassmorphism. REVISED <bmad-ux pass, 2026-09-16>, user-directed: order is now status badge, then event_card_repeat_badge (icon-only, gated on this card's featured schedule carrying applicableDaysOfWeek -- see EXPERIENCE.md Component Patterns > Day-of-Week Recurring Schedules), then event_card_nearby_badge.
     top_row_default:
       # New <bmad-ux pass, 2026-09-11>. Replaces "full-width poster with date box overlaid on top" for
       # prominentPoster=false ONLY -- the common case, where the poster image is hotlinked/scraped and can
@@ -500,6 +500,20 @@ components:
     #    category-badge behavior too.
     base: "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground"
     icon: "w-3 h-3" # lucide-react Navigation icon -- deliberately distinct from the caption's own MapPin (locationName row) so the two location-related glyphs never look identical in an already-dense card; confirm the exact icon name against the installed lucide-react version at implementation time (same caveat already applied to components.calendar.mobile_day_list.multi_day_badge's CalendarRange icon)
+  event_card_repeat_badge:
+    # Added <bmad-ux pass, 2026-09-16> -- extends the Mobile Multi-Day Calendar Spanning section
+    # (IDEA-003) to cover Schedule.applicableDaysOfWeek?: DayOfWeek[] (PRD Section 4.4, BUG-026's
+    # 2026-09-11 PRD amendment). Icon-only, no text label and no fill/pill background (unlike
+    # event_card_status_badge/event_card_nearby_badge) -- user-directed: "subtle, neutral color so
+    # it doesn't fight with the heart icon or distance badges". Marks any occurrence (an isolated
+    # single day, or a collapsed multi-day run) that originates from a day-of-week pattern rather
+    # than a genuine one-off schedule -- see EXPERIENCE.md Component Patterns > Day-of-Week
+    # Recurring Schedules for why position/span alone can no longer convey that distinction once
+    # collapsed. Always paired with a hover+focus tooltip (reusing WeeklyCalendarView.tsx's
+    # existing non-touch-gated tooltip mechanism) plus an aria-label, both carrying the schedule's
+    # actual matching weekdays translated through the project's existing DayOfWeek enum-translation
+    # convention (project-context.md Locale-Sensitive Data Rendering) -- never a raw enum string.
+    icon: "w-3.5 h-3.5 text-muted-foreground shrink-0" # lucide-react Repeat icon, 14px -- between event_card_nearby_badge's 12px and the favorite icon's 24px; confirm the exact icon name against the installed lucide-react version at implementation time (same caveat already applied to the multi_day_badge CalendarRange icon and event_card_nearby_badge's Navigation icon)
   event_card_favorite_count_badge:
     base: "flex items-center gap-1 text-xs font-medium" # count text rendered inline next to the existing Heart icon inside the favorite-toggle button, not a separate element -- reuses EventCard's existing top-right slot rather than adding a third overlay
     # Confirmed visually unchanged by the 2026-09-04 bmad-ux pass (sprint-change-proposal-2026-09-04.md Section 4.3 item 3) -- both reference screenshots show this top-right slot untouched by the new date_box/till_badge/badge_row additions.
