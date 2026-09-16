@@ -42,8 +42,10 @@ one session:
 - [ ] BUG-008 + FIND-006 story
 - [x] BUG-009 quick-dev
 - [x] FIND-011 quick-dev
-- [ ] FIND-016 story (scope: 5 bundled DW items — confirm during drafting whether it stays one
-      story or splits)
+- [x] FIND-016 story — split into Story 0.34 (DW-044/046/047/050) + Story 0.35 (DW-048) on
+      2026-09-16, both standalone Epic 0 stories (no formed epic exists for FIND-016) per a
+      confirmed AskUserQuestion answer — see Story 0.34's Dev Notes "Epic homing & scope
+      decision" for the full record
 - [ ] FIND-029 story (4 bundled findings)
 - [ ] IDEA-012 story
 - [ ] IDEA-030 story/stories (sequence item 3 after BUG-032 lands)

@@ -543,12 +543,13 @@ items:
      note: "DW-042 (vague local Postgres setup), DW-051 (first ALTER TYPE ADD VALUE migration in the repo; Postgres has no DROP VALUE, no process doc flags the one-way-door risk), DW-052 (historical diff-hygiene note, not re-checkable), DW-058 (apps/backend's lint script dropped --max-warnings 0 against 868 pre-existing warnings)."}
 
   FIND-016:
-    {type: finding, status: triaged, created: 2026-09-05,
+    {type: finding, status: promoted, created: 2026-09-05,
      impact: internal, effort: m,
      title: "EventCategory/EventType enums and locale plumbing lack cross-source consistency checks",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     stories: [0-34-harden-eventcategory-eventtype-cross-source-consistency, 0-35-fix-ticketprice-from-label-pairing-for-free-text-prices],
      touches: [cross:i18n, pkg:shared-types, web:events, app:backend],
-     note: "DW-044, DW-046, DW-047, DW-048, DW-050. The enums are hand-maintained in shared-types and generated/graphql.ts with nothing enforcing sync; no e2e proves locale actually flows to EventCard; no test builds the runtime-merged GraphQL schema; ticketPrice's 'From Free' pairing is unresolved."}
+     note: "DW-044, DW-046, DW-047, DW-048, DW-050. The enums are hand-maintained in shared-types and generated/graphql.ts with nothing enforcing sync; no e2e proves locale actually flows to EventCard; no test builds the runtime-merged GraphQL schema; ticketPrice's 'From Free' pairing is unresolved. PROMOTED 2026-09-16 (bmad-create-story), split per the confirmed AskUserQuestion answer: DW-044/046/047/050 -> Story 0.34 (enum/schema/locale consistency hardening); DW-048 -> Story 0.35 (EventCard.tsx 'From Free' label-pairing fix). Fully covered, no leftover chunk."}
 
   FIND-017:
     {type: finding, status: backlog, created: 2026-09-05,
