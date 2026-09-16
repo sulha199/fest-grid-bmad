@@ -357,6 +357,46 @@ describe('EventCard', () => {
     expect(screen.queryByText('$20')).not.toBeInTheDocument();
   });
 
+  // Story 0.35 (DW-048): the "From" label must only pair with a price value that reads as
+  // numeric/currency (contains a digit). Free-form status text (e.g. "Free") has no numeric
+  // amount, so pairing it with "From" reads as grammatically broken ("From Free").
+  describe('priceFrom "From" label pairing (Story 0.35)', () => {
+    it('renders free-form text with no "From" prefix when it contains no digit', () => {
+      render(<EventCard {...defaultProps} priceFrom="Free" />);
+
+      expect(screen.getByText('Free')).toBeInTheDocument();
+      expect(screen.queryByText('From')).not.toBeInTheDocument();
+    });
+
+    it('renders longer free-form text with no "From" prefix when it contains no digit', () => {
+      render(<EventCard {...defaultProps} priceFrom="Free with registration" />);
+
+      expect(screen.getByText('Free with registration')).toBeInTheDocument();
+      expect(screen.queryByText('From')).not.toBeInTheDocument();
+    });
+
+    it('still renders the "From" prefix for a currency-coded amount even though the code starts with letters', () => {
+      render(<EventCard {...defaultProps} priceFrom="IDR 150000" />);
+
+      expect(screen.getByText('IDR 150000')).toBeInTheDocument();
+      expect(screen.getByText('From')).toBeInTheDocument();
+    });
+
+    it('still renders the "From" prefix for a numeric priceFrom', () => {
+      render(<EventCard {...defaultProps} priceFrom={50} />);
+
+      expect(screen.getByText('50')).toBeInTheDocument();
+      expect(screen.getByText('From')).toBeInTheDocument();
+    });
+
+    it('still renders the "From" prefix for a currency string with a digit (e.g. "$20")', () => {
+      render(<EventCard {...defaultProps} priceFrom="$20" />);
+
+      expect(screen.getByText('$20')).toBeInTheDocument();
+      expect(screen.getByText('From')).toBeInTheDocument();
+    });
+  });
+
   describe('Relative-day date display', () => {
     // FIND-009: freeze the clock to a fixed reference instant so every relative-day
     // assertion ("Today"/"Tomorrow"/weekday/absolute fallback) is deterministic
