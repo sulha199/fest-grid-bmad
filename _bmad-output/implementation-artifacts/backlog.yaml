@@ -732,6 +732,14 @@ items:
      ref: [], touches: [cross:ai-extraction, app:backend, web:events, pkg:ui],
      note: "Carved out of IDEA-012 by bmad-create-story (Story 0.37). The story session's own direct AskUserQuestion calls hit a repeated 'Stream closed' tool error, but the ritual-orchestrator session running this batch relayed the same scope question through its mailbox instead and got a genuine, confirmed answer: 'Display-only now (Recommended)' — matches IDEA-012's stated scope exactly and the organizerName/contactInfo precedent (display-only first, correction support added later once a real correction-quality gap shows up). Story 0.37 covers AI extraction + read-only display of `links: {url, label?}[]` only; it does not touch CorrectionForm.tsx, correction-dialog.tsx, ProposedEventCorrection (packages/domain/src/events/types.ts), corrections.graphql, or proposed-event-correction.schema.ts (backend AJV + frontend Zod). This item is the follow-up: add a repeatable url+label input group to CorrectionForm.tsx (a real new UI, not a copy of contactInfo's single-text-field input), a new `linksLabel`-style key in the `EventCorrectionForm` locale namespace, and thread `links` through the ProposedEventCorrection type/schema/mutation so both manual user edits and AI-assisted re-extraction correction previews can carry it. Needs a UX pass (Gate 2, Freya) for the repeatable-input interaction pattern before story creation, since none exists in the app yet for an array-of-objects form field."}
 
+  IDEA-037:
+    {type: idea, status: backlog, parent: IDEA-030, created: 2026-09-16,
+     impact: user-visible, effort: s,
+     title: "Event-detail hashtags: display at bottom of event-main-content, clicking to Discovery",
+     ref: [backlog/IDEA-030-event-detail-ui.md],
+     touches: [web:events, web:posts, cross:ai-extraction],
+     note: "Carved out of IDEA-030 by bmad-create-story (Story 1.6f) — item 3 of that row's original capture note (full detail there): display the post's hashtags at the bottom of `event-main-content`, above the view-original link; clicking a hashtag opens Discovery with the clicked hashtag as an additional `search-text` param. Kept out of Story 1.6f (which covers IDEA-030's other 6 items) because it has no data to render yet — blocked on BUG-032 (hashtags not persisted into the posts table), which is in a separate, not-yet-started backlog cluster. Re-eligible for `bmad-create-story` once BUG-032 lands."}
+
   # ── 2026-09-11 (bmad-help scraper-ops session) ──────────────────────────────
   IDEA-013:
     {type: idea, status: done, created: 2026-09-11,
@@ -1063,11 +1071,11 @@ items:
   # ── 2026-09-15 (bmad-help backlog capture) ──────────────────────────────────
   BUG-032:
     {type: bug, status: triaged, created: 2026-09-15,
-     impact: user-visible, effort: s,
+     impact: user-visible, effort: s, blocks: [IDEA-037],
      title: "Hashtags not persisted into the posts table (investigate & fix)",
      ref: [backlog/BUG-032-hashtags-not-persisted-into-post-table.md],
      touches: [app:backend, pkg:database, cross:ai-extraction, web:posts],
-     note: "Reported by user via bmad-help (2026-09-15). Related sibling FIND-024 already documents the Bright Data path never captures/forwards hashtags to persistScrapedPost (brightdata-record-mapper.ts, process-brightdata-result.ts); verify whether this report is that same root cause or a separate persistence gap on the Apify path (instagram-adapter.ts / process-scrape-job.ts, which FIND-024 says do capture hashtags) before scoping. Then land the fix + a regression test so hashtag search/display (IDEA-030 item 3) has data."}
+     note: "Reported by user via bmad-help (2026-09-15). Related sibling FIND-024 already documents the Bright Data path never captures/forwards hashtags to persistScrapedPost (brightdata-record-mapper.ts, process-brightdata-result.ts); verify whether this report is that same root cause or a separate persistence gap on the Apify path (instagram-adapter.ts / process-scrape-job.ts, which FIND-024 says do capture hashtags) before scoping. Then land the fix + a regression test so hashtag search/display (IDEA-030 item 3, now tracked as IDEA-037) has data."}
 
   IDEA-029:
     {type: idea, status: triaged, created: 2026-09-15,
@@ -1079,12 +1087,14 @@ items:
      note: "Reported by user via bmad-help (2026-09-15). New reusable component taking a locationDetailObject prop: renders pin-location-icon + location name as text, always clickable and always opening the map in a new tab. Two confidence-based icon states: confirmed/acceptable confidence → open-in-new-tab icon (straight to the resolved map location); otherwise → search icon that opens the map with a query built from the location name. Consumers: event-detail page + its schedule (IDEA-033), and the reusable account element (IDEA-032)."}
 
   IDEA-030:
-    {type: idea, status: triaged, created: 2026-09-15,
+    {type: idea, status: promoted, created: 2026-09-15,
      impact: user-visible, effort: m,
      title: "Event detail UI refinements (layout, published info, hashtags, badges, favorite/title)",
      ref: [backlog/IDEA-030-event-detail-ui.md],
      touches: [web:events, web:posts, pkg:ui, cross:i18n],
-     note: "Reported by user via bmad-help (2026-09-15). Batched event-detail-page UI changes (full list in note file): (1) responsive layout — desktop keeps event-main-content on the right as today, mobile shows it at the top; (2) published-date inline with the view-original link in event-main-content using the existing short-date format (e.g. `Sep 7 · <Link><Platform-Icon> View Original ↗</Link>`), i18n'd; (3) hashtags at the bottom of event-main-content above the view-original link, each clicking to Discovery with the hashtag as an extra search-text param (needs BUG-032's data); (4) event-category/event-type badges clickable → Discovery with the related type/category; (5) favorite icon moved inlined to the right of the event title; (6) event title font smaller via `text-2xl`; (7) remove the top-of-page add-to-calendar icon. May fan into multiple stories."}
+     stories: [1-6f-event-detail-page-ui-refinements],
+     note: "Reported by user via bmad-help (2026-09-15). Batched event-detail-page UI changes (full list in note file): (1) responsive layout — desktop keeps event-main-content on the right as today, mobile shows it at the top; (2) published-date inline with the view-original link in event-main-content using the existing short-date format (e.g. `Sep 7 · <Link><Platform-Icon> View Original ↗</Link>`), i18n'd; (3) hashtags at the bottom of event-main-content above the view-original link, each clicking to Discovery with the hashtag as an extra search-text param (needs BUG-032's data); (4) event-category/event-type badges clickable → Discovery with the related type/category; (5) favorite icon moved inlined to the right of the event title; (6) event title font smaller via `text-2xl`; (7) remove the top-of-page add-to-calendar icon. May fan into multiple stories.
+     CARVED + PROMOTED 2026-09-16 (bmad-create-story): items 1,2,4,5,6,7 promoted to Story 1.6f. Item 3 (hashtags) split out to child IDEA-037 — blocked on BUG-032 (hashtag persistence), not yet landed — rather than bundled in or silently dropped."}
 
   IDEA-031:
     {type: idea, status: promoted, created: 2026-09-15,
