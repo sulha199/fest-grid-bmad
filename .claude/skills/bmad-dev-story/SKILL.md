@@ -95,18 +95,10 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
 
     <!-- Sprint-based story discovery -->
     <check if="{{sprint_status}} file exists">
-      <critical>MUST read COMPLETE sprint-status.yaml file from start to end to preserve order</critical>
-      <action>Load the FULL file: {{sprint_status}}</action>
-      <action>Read ALL lines from beginning to end - do not skip any content</action>
-      <action>Parse the development_status section completely to understand story order</action>
+      <action>Run `python3 {project-root}/scripts/sprint-status-tool.py next-with-status ready-for-dev` to find the first ready-for-dev story key in file order, without loading the file's full ~40k-token content into context. Store its stdout as {{story_key}} on exit 0.</action>
+      <action if="the script fails to run (e.g. python3 unavailable)">Fall back to reading COMPLETE {{sprint_status}} file from start to end and finding the FIRST story (by reading in order top to bottom) where: key matches pattern number-number-name (e.g., "1-2-user-auth"), is NOT an epic key (epic-X) or retrospective (epic-X-retrospective), and status value equals "ready-for-dev"</action>
 
-      <action>Find the FIRST story (by reading in order from top to bottom) where:
-        - Key matches pattern: number-number-name (e.g., "1-2-user-auth")
-        - NOT an epic key (epic-X) or retrospective (epic-X-retrospective)
-        - Status value equals "ready-for-dev"
-      </action>
-
-      <check if="no ready-for-dev or in-progress story found">
+      <check if="script exit code is 1 (no ready-for-dev story found)">
         <output>📋 No ready-for-dev stories found in sprint-status.yaml
 
           **Current Sprint Status:** {{sprint_status_summary}}
@@ -255,9 +247,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     <action>If story file YAML frontmatter already contains `baseline_commit`, preserve the existing value and do not overwrite it</action>
 
     <check if="{{sprint_status}} file exists">
-      <action>Load the FULL file: {{sprint_status}}</action>
-      <action>Read all development_status entries to find {{story_key}}</action>
-      <action>Set {{current_status}} to development_status[{{story_key}}]</action>
+      <action>Run `python3 {project-root}/scripts/sprint-status-tool.py get {{story_key}}` to read {{current_status}} without loading the full file. If the script fails to run, fall back to loading the FULL file and reading development_status[{{story_key}}] directly.</action>
     </check>
 
     <check if="{{sprint_status}} file does NOT exist">
@@ -272,8 +262,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
 
     <check if="{{sprint_status}} file exists">
       <check if="{{current_status}} == 'ready-for-dev' OR (review_continuation == true AND {{current_status}} != 'in-progress')">
-        <action>Update the story in the sprint status report to = "in-progress"</action>
-        <action>Update last_updated field to current date ONLY -- a bare ISO timestamp, no trailing comment, no narrative. Do NOT append rationale, precedent citations, or a summary of what happened -- that belongs in the story file's own Dev Agent Record / Change Log, not here. This file is read in full by every dev-story dispatch; an ever-growing inline narrative here is a repo-wide cost paid by every future session, not just this one. See sprint-history.md if you need to understand why this rule exists.</action>
+        <action>Run `python3 {project-root}/scripts/sprint-status-tool.py set {{story_key}} in-progress --expect {{current_status}}` -- this updates the status AND refreshes last_updated to a bare timestamp in one targeted line edit, without loading the full file. If the script fails to run, fall back to loading the FULL file, updating development_status[{{story_key}}] = "in-progress", and setting last_updated to a bare ISO timestamp ONLY -- no trailing comment, no narrative (that belongs in the story file's own Dev Agent Record / Change Log; see sprint-history.md for why this matters).</action>
         <output>🚀 Starting work on story {{story_key}}
           Status updated: {{current_status}} → in-progress
         </output>
@@ -429,12 +418,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
 
     <!-- Mark story ready for review - sprint status conditional -->
     <check if="{sprint_status} file exists AND {{current_sprint_status}} != 'no-sprint-tracking'">
-      <action>Load the FULL file: {sprint_status}</action>
-      <action>Find development_status key matching {{story_key}}</action>
-      <action>Verify current status is "in-progress" (expected previous state)</action>
-      <action>Update development_status[{{story_key}}] = "review"</action>
-      <action>Update last_updated field to current date ONLY -- a bare ISO timestamp, no trailing comment, no narrative. Do NOT append rationale, precedent citations, or a summary of what happened -- that belongs in the story file's own Dev Agent Record / Change Log, not here. This file is read in full by every dev-story dispatch; an ever-growing inline narrative here is a repo-wide cost paid by every future session, not just this one. See sprint-history.md if you need to understand why this rule exists.</action>
-      <action>Save file, preserving ALL comments and structure including STATUS DEFINITIONS</action>
+      <action>Run `python3 {project-root}/scripts/sprint-status-tool.py set {{story_key}} review --expect in-progress`. This atomically verifies the current status is "in-progress" (failing loudly with exit code 2 and no write if not -- do not proceed past a non-zero exit without investigating), updates it to "review", and refreshes last_updated to a bare timestamp, all in one targeted line edit that never loads the full ~40k-token file into context. If the script fails to run (not a status mismatch, but a real execution failure), fall back to loading the FULL file, verifying and updating development_status[{{story_key}}] manually, setting last_updated to a bare ISO timestamp ONLY -- no narrative (see sprint-history.md for why) -- and saving while preserving ALL comments and structure including STATUS DEFINITIONS.</action>
       <output>✅ Story status updated to "review" in sprint-status.yaml</output>
     </check>
 

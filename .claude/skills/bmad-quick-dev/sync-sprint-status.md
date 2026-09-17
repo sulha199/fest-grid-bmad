@@ -10,10 +10,10 @@ Skip this entire file (return to caller) if ANY of:
 
 ## Instructions
 
-1. Load the FULL `{sprint_status}` file.
-2. Find the `development_status` entry matching `{story_key}`. If not found, warn the user once (`"{story_key} not found in sprint-status; skipping sprint sync"`) and return to caller.
-3. **Idempotency check.** If `development_status[{story_key}]` is already at `{target_status}` or a later state (`review` is later than `in-progress`; `done` is later than both), return to caller — no write needed. Never regress a story's status.
-4. Set `development_status[{story_key}]` to `{target_status}`.
-5. **Epic lift (only when `{target_status}` = `in-progress`).** Derive the parent epic key as `epic-{N}` from the leading numeric segment of `{story_key}` (e.g., `3-2-digest-delivery` → `epic-3`). If that entry exists and is `backlog`, set it to `in-progress`. Leave it alone otherwise. Skip this sub-step entirely when `{target_status}` is not `in-progress`.
-6. Refresh `last_updated` to the current date -- a bare ISO timestamp ONLY, no trailing comment, no narrative. Do NOT append rationale or a summary of what happened; that belongs in the story file's own Dev Notes / Change Log. This file is read in full by every ritual dispatch, so an ever-growing inline narrative here is a cost every future session pays, not just this one.
-7. Save the file, preserving ALL comments and structure including STATUS DEFINITIONS and WORKFLOW NOTES.
+1. Run `python3 {project-root}/scripts/sprint-status-tool.py set {story_key} {target_status} --no-regress`. This single call, without ever loading the full ~40k-token file into context:
+   - looks up `development_status[{story_key}]` (exit 1, printed to stderr, if not found -- warn the user once with `"{story_key} not found in sprint-status; skipping sprint sync"` and return to caller);
+   - performs the idempotency check (`--no-regress` skips the write and exits 0 if the story is already at or past `{target_status}` in the standard lifecycle order -- never regresses a story's status);
+   - updates `development_status[{story_key}]` to `{target_status}`;
+   - refreshes `last_updated` to a bare ISO timestamp, no trailing comment, no narrative (narrative belongs in the story file's own Dev Notes / Change Log -- this file is read in full elsewhere in the ritual, so an ever-growing inline narrative here is a cost every future session pays).
+2. **Epic lift (only when `{target_status}` = `in-progress`).** Derive the parent epic key as `epic-{N}` from the leading numeric segment of `{story_key}` (e.g., `3-2-digest-delivery` → `epic-3`). Run `python3 {project-root}/scripts/sprint-status-tool.py set epic-{N} in-progress --expect backlog` -- a non-zero exit (epic not found, or not currently `backlog`) is expected and fine, just means no lift was needed; do not treat it as an error. Skip this sub-step entirely when `{target_status}` is not `in-progress`.
+3. **If the script fails to run** (not a normal non-zero exit from the checks above, but a real execution failure -- e.g. python3 unavailable): fall back to loading the FULL `{sprint_status}` file, finding `development_status[{story_key}]`, applying the same idempotency/update/epic-lift/timestamp rules by hand, and saving while preserving ALL comments and structure including STATUS DEFINITIONS and WORKFLOW NOTES.
