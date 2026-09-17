@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-17T16:39:56Z
+last_updated: 2026-09-17T17:05:29Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -297,7 +297,7 @@ development_status:
   0-i5a-build-the-shared-pagination-filter-controller: review
   0-i5b-adopt-the-controller-in-discovery-event-list-surfaces: review
   0-i5c-adopt-the-controller-in-the-moderator-tools-pages: backlog
-  0-i5d-sweep-add-the-temporal-filter-to-the-filterhub: backlog
+  0-i5d-sweep-add-the-temporal-filter-to-the-filterhub: ready-for-dev
   0-i5z-ratchet-no-list-surface-manages-pagination-filter-state-locally: backlog
   epic-0-i6: in-progress
   # corrected 2026-09-16 via bmad-dev-story: entry was stale at 'backlog' despite
