@@ -41,6 +41,11 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
     unknownAccountLabel: t('unknownAccountLabel'),
     unsubscribeSuccessAnnouncement: t('unsubscribeSuccessAnnouncement'),
     unsubscribeErrorAnnouncement: t('unsubscribeErrorAnnouncement'),
+    publishedLabel: t('publishedLabel'),
+    today: t('today'),
+    tomorrow: t('tomorrow'),
+    yesterday: t('yesterday'),
+    categoriesAndTypesAriaLabel: t('categoriesAndTypesAriaLabel'),
   };
 }
 
@@ -77,21 +82,27 @@ export function mapGraphQLEventToDetailViewProps(
     };
   });
 
-  const mappedTypes = (event.types || []).map((t) => {
-    try {
-      return tType(t);
-    } catch {
-      return t;
-    }
-  });
+  const mappedTypes = event.types?.map((t) => ({
+    value: t,
+    label: (() => {
+      try {
+        return tType(t);
+      } catch {
+        return t;
+      }
+    })(),
+  }));
 
-  const mappedCategories = (event.categories || []).map((c) => {
-    try {
-      return tCategory(c);
-    } catch {
-      return c;
-    }
-  });
+  const mappedCategories = event.categories?.map((c) => ({
+    value: c,
+    label: (() => {
+      try {
+        return tCategory(c);
+      } catch {
+        return c;
+      }
+    })(),
+  }));
 
   return {
     eventName: event.eventName,
@@ -110,7 +121,9 @@ export function mapGraphQLEventToDetailViewProps(
     videoAlt: event.eventName,
     originalPostUrl: event.originalPostUrl,
     sourcePostUrl: event.sourcePostUrl,
+    publishedAt: event.publishedAt,
     contactInfo: event.contactInfo,
+    links: event.links?.map((link) => ({ url: link.url, label: link.label ?? undefined })) ?? null,
     hasPrivateContact: event.hasPrivateContact,
     isFavorited: event.isFavorited,
     favoriteCount: event.favoriteCount,

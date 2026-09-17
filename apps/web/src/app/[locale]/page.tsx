@@ -4,6 +4,8 @@ import { HomeContent } from "./home-content"
 import { getTranslations } from "next-intl/server"
 import { buildPageMetadata } from "@/lib/metadata"
 
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const resolvedParams = await params;
   const t = await getTranslations({ locale: resolvedParams.locale, namespace: 'Metadata' });

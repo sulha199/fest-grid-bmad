@@ -1,0 +1,15 @@
+-- Story 0.36 AC3 — enforces at most one isMainSchedule=true row per event at the DB level.
+-- drizzle-kit 0.21.4's schema builder (packages/database/schema.ts) drops the WHERE predicate
+-- from generated migration SQL for a partial index -- same class of gap as the AD-8 rule 3
+-- partial-index precedent (idx_favorites_active, idx_calendar_additions_active, etc.) and the
+-- schedule_event_date_idx expression-index precedent (migration 0055). This migration is
+-- hand-edited rather than used as drizzle-kit generated it; schema.ts's `oneMainPerEventIdx`
+-- builder call is left as the closest expressible approximation, with a comment pointing here
+-- for the real index shape.
+--
+-- Pre-migration audit (Story 0.36 AC4) confirmed a pre-existing violation in the local test DB
+-- (event 40000000-0000-0000-0000-000000000003 had 2 schedules flagged is_main_schedule=true);
+-- resolved via a one-time data fix keeping the chronologically-earliest isMainSchedule=true row
+-- and demoting the rest, before this index was applied. See Dev Agent Record in
+-- 0-36-harden-past-events-visibility-mechanism.md for the full audit record.
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_schedules_one_main_per_event" ON "schedules" ("event_id") WHERE "is_main_schedule" = true;

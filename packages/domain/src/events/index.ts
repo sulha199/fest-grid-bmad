@@ -6,6 +6,7 @@ export * from './buildAccountCalendarQueryCondition.js';
 export * from './buildWeeklyCalendarQueryCondition.js';
 export * from './buildMyCalendarQueryCondition.js';
 export * from './buildDefaultEventVisibilityConditions.js';
+export * from './computePastEventThreshold.js';
 export * from './selectDisplaySchedule.js';
 export * from './types.js';
 export * from './transform-gemini-response-to-event-info.js';
@@ -18,6 +19,7 @@ export * from './resolveServedImageUrl.js';
 export * from './resolveInstagramEmbedResult.js';
 export * from './matches-childrens-data-keyword-filter.js';
 export * from './build-correction-classification-text.js';
+export * from './sanitize-event-links.js';
 
 export const DEFAULT_CANCELLED_REPORT_THRESHOLD = 3;
 export const DEFAULT_CANCELLED_REPORT_WINDOW_DAYS = 7;

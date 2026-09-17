@@ -69,6 +69,11 @@ type LocationDetails {
   venueType: String
 }
 
+type EventLink {
+  url: String!
+  label: String
+}
+
 type Schedule {
   id: ID!
   eventId: ID!
@@ -107,9 +112,11 @@ type Event {
   instagramEmbed: InstagramEmbed
   sourcePostUrl: String
   originalPostUrl: String
+  publishedAt: String
   organizerName: String
   contactInfo: String
   hasPrivateContact: Boolean!
+  links: [EventLink!]
   updatedAt: String!
   createdAt: String!
   schedules: [Schedule!]!

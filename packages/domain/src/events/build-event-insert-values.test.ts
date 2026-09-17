@@ -54,6 +54,7 @@ test('buildEventInsertValues - maps fields correctly', () => {
     hasPrivateContact: false,
     description: 'A great music festival',
     confidenceScore: 0.95,
+    links: null,
   });
 
   assert.strictEqual(result.schedules.length, 1);
@@ -115,6 +116,37 @@ test('buildEventInsertValues - maps hasPrivateContact: true through explicitly',
   assert.strictEqual(result.event.contactInfo, null);
 });
 
+test('buildEventInsertValues - passes links through when present on the message', () => {
+  const message: ExtractedEventMessage = {
+    postId: 'post-5',
+    sourceSocialMediaAccountId: 'account-5',
+    eventName: 'Event With Links',
+    types: [EventType.OTHER],
+    categories: [EventCategory.OTHER],
+    confidenceScore: 0.6,
+    schedules: [],
+    links: [{ url: 'https://example.com/tickets', label: 'Tickets' }],
+  };
+
+  const result = buildEventInsertValues(message);
+  assert.deepStrictEqual(result.event.links, [{ url: 'https://example.com/tickets', label: 'Tickets' }]);
+});
+
+test('buildEventInsertValues - defaults links to null when absent on the message', () => {
+  const message: ExtractedEventMessage = {
+    postId: 'post-6',
+    sourceSocialMediaAccountId: 'account-6',
+    eventName: 'Event Without Links',
+    types: [EventType.OTHER],
+    categories: [EventCategory.OTHER],
+    confidenceScore: 0.6,
+    schedules: [],
+  };
+
+  const result = buildEventInsertValues(message);
+  assert.strictEqual(result.event.links, null);
+});
+
 test('buildEventInsertValues - handles absent coordinates and timezone fields', () => {
   const message: ExtractedEventMessage = {
     postId: 'post-3',
@@ -136,4 +168,78 @@ test('buildEventInsertValues - handles absent coordinates and timezone fields', 
   assert.strictEqual(result.schedules[0].longitude, null);
   assert.strictEqual(result.schedules[0].timezone, null);
   assert.strictEqual(result.schedules[0].timezoneStatus, null);
+});
+
+// Story 0.36 AC5 — isMainSchedule normalization, so `schedules` never has more than one
+// isMainSchedule: true entry before it reaches the DB insert (which now enforces exactly
+// that via the idx_schedules_one_main_per_event partial unique index).
+function messageWithSchedules(schedules: ExtractedEventMessage['schedules']): ExtractedEventMessage {
+  return {
+    postId: 'post-main-schedule',
+    sourceSocialMediaAccountId: 'account-main-schedule',
+    eventName: 'Multi-Day Event',
+    types: [EventType.OTHER],
+    categories: [EventCategory.OTHER],
+    confidenceScore: 0.9,
+    schedules,
+  };
+}
+
+test('buildEventInsertValues - isMainSchedule normalization: exactly one true stays unchanged', () => {
+  const result = buildEventInsertValues(messageWithSchedules([
+    { isMainSchedule: false, eventStartDate: '2026-09-01' },
+    { isMainSchedule: true, eventStartDate: '2026-09-02' },
+    { isMainSchedule: false, eventStartDate: '2026-09-03' },
+  ]));
+
+  assert.deepStrictEqual(result.schedules.map((s) => s.isMainSchedule), [false, true, false]);
+});
+
+test('buildEventInsertValues - isMainSchedule normalization: multiple true keeps only the first', () => {
+  const result = buildEventInsertValues(messageWithSchedules([
+    { isMainSchedule: true, eventStartDate: '2026-09-01' },
+    { isMainSchedule: true, eventStartDate: '2026-09-02' },
+    { isMainSchedule: true, eventStartDate: '2026-09-03' },
+  ]));
+
+  assert.deepStrictEqual(result.schedules.map((s) => s.isMainSchedule), [true, false, false]);
+});
+
+test('buildEventInsertValues - isMainSchedule normalization: zero true promotes the chronologically-earliest by date', () => {
+  const result = buildEventInsertValues(messageWithSchedules([
+    { isMainSchedule: false, eventStartDate: '2026-09-03' },
+    { isMainSchedule: false, eventStartDate: '2026-09-01' },
+    { isMainSchedule: false, eventStartDate: '2026-09-02' },
+  ]));
+
+  assert.deepStrictEqual(result.schedules.map((s) => s.isMainSchedule), [false, true, false]);
+});
+
+test('buildEventInsertValues - isMainSchedule normalization: zero true with a same-date tiebreak by start time', () => {
+  const result = buildEventInsertValues(messageWithSchedules([
+    { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '20:00:00' },
+    { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '10:00:00' },
+    { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '15:00:00' },
+  ]));
+
+  assert.deepStrictEqual(result.schedules.map((s) => s.isMainSchedule), [false, true, false]);
+});
+
+test('buildEventInsertValues - isMainSchedule normalization: zero true, all dates/times equal, first array entry wins (stable)', () => {
+  const result = buildEventInsertValues(messageWithSchedules([
+    { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '10:00:00' },
+    { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '10:00:00' },
+    { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '10:00:00' },
+  ]));
+
+  assert.deepStrictEqual(result.schedules.map((s) => s.isMainSchedule), [true, false, false]);
+});
+
+test('buildEventInsertValues - isMainSchedule normalization: zero true, missing start times sort last (nulls last)', () => {
+  const result = buildEventInsertValues(messageWithSchedules([
+    { isMainSchedule: false, eventStartDate: '2026-09-01' },
+    { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '09:00:00' },
+  ]));
+
+  assert.deepStrictEqual(result.schedules.map((s) => s.isMainSchedule), [false, true]);
 });

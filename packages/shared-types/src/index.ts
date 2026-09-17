@@ -87,6 +87,15 @@ export interface LocationDetails {
   countryCode?: string;
 }
 
+/**
+ * A single additional link mentioned in an event's original social media post
+ * (ticketing, RSVP, merch, linktree, etc.), beyond the structured event fields.
+ */
+export interface EventLink {
+  url: string;
+  label?: string;
+}
+
 export interface Schedule {
   id: string;
   /**
