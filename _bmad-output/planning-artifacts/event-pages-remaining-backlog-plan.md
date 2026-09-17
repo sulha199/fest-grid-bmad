@@ -79,8 +79,10 @@ one session:
 - **IDEA-019** — happening-now/upcoming/all temporal filter, card view only. FilterHub's row is
   already tight on mobile per its own note — needs a real layout pass, not just a toggle
   dropped in. **DESIGNED, 2026-09-17** — see EXPERIENCE.md "Temporal Filter: Happening Now /
-  Upcoming / All (Card View Only)" and DESIGN.md `components.temporal_filter`. Backend
-  `EventQueryConditionInput` support flagged for `bmad-architecture`, not yet built.
+  Upcoming / All (Card View Only)" and DESIGN.md `components.temporal_filter`.
+  **ARCHITECTURE DONE, 2026-09-17** (Architecture Spine AD-20) — clock-time-precise `EventFilterInput.temporalFilter`
+  enum + new `drizzle-where.ts` DSL extension point, decided; not yet implemented in code (that's
+  now a normal `bmad-create-story` task, not an open architecture question).
 - **FIND-025** — EventCard favorite-badge clamp, coupled to an open `DESIGN.md`
   `event_card_date_box.base_default` sizing decision. Not an architecture call — needs whoever
   next runs a `bmad-ux`/`bmad-png-to-html` pass on that surface to resolve both together.
