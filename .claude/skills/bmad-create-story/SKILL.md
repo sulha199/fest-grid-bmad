@@ -459,8 +459,9 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     <action>Find development_status key matching {{story_key}}</action>
     <action>Verify current status is "backlog" (expected previous state)</action>
     <action>Update development_status[{{story_key}}] = "ready-for-dev"</action>
-    <action>Update last_updated field to current date</action>
+    <action>Update last_updated field to current date ONLY -- a bare ISO timestamp, no trailing comment, no narrative. Do NOT append rationale, precedent citations, or a summary of what happened -- that belongs in the story file's own Dev Notes / Change Log, not here. This file is read in full by every dev-story/create-story dispatch; an ever-growing inline narrative here is a repo-wide cost paid by every future session, not just this one. See sprint-history.md if you need to understand why this rule exists.</action>
     <action>Save file, preserving ALL comments and structure including STATUS DEFINITIONS</action>
+    <action>Run `python3 {project-root}/scripts/sprint-status-comment-check.py`; if it reports any offending line, fix it (move the narrative into this story's Dev Notes and shorten the comment) before proceeding</action>
   </check>
 
   <action>Report completion</action>

@@ -273,7 +273,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     <check if="{{sprint_status}} file exists">
       <check if="{{current_status}} == 'ready-for-dev' OR (review_continuation == true AND {{current_status}} != 'in-progress')">
         <action>Update the story in the sprint status report to = "in-progress"</action>
-        <action>Update last_updated field to current date</action>
+        <action>Update last_updated field to current date ONLY -- a bare ISO timestamp, no trailing comment, no narrative. Do NOT append rationale, precedent citations, or a summary of what happened -- that belongs in the story file's own Dev Agent Record / Change Log, not here. This file is read in full by every dev-story dispatch; an ever-growing inline narrative here is a repo-wide cost paid by every future session, not just this one. See sprint-history.md if you need to understand why this rule exists.</action>
         <output>🚀 Starting work on story {{story_key}}
           Status updated: {{current_status}} → in-progress
         </output>
@@ -405,6 +405,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     <action>Verify ALL tasks and subtasks are marked [x] (re-scan the story document now)</action>
     <action>Run the full regression suite (do not skip)</action>
     <critical>Re-run `pnpm lint` and `pnpm build` at the repo root, fresh, right before marking the story "review" -- a task that passed both in Step 7 can be broken by a later task's changes, so this final run is not redundant with Step 7's per-task check</critical>
+    <action>Run `python3 {project-root}/scripts/sprint-status-comment-check.py` after saving sprint-status.yaml; if it reports any offending line, fix it (move the narrative into this story's Dev Notes/Change Log and shorten the comment) before proceeding -- do not let last_updated's comment regrow into the essay-length narrative that sprint-history.md was extracted from</action>
     <action>Confirm File List includes every changed file</action>
     <action>Execute enhanced definition-of-done validation</action>
     <action>Update the story Status to: "review"</action>
@@ -432,7 +433,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
       <action>Find development_status key matching {{story_key}}</action>
       <action>Verify current status is "in-progress" (expected previous state)</action>
       <action>Update development_status[{{story_key}}] = "review"</action>
-      <action>Update last_updated field to current date</action>
+      <action>Update last_updated field to current date ONLY -- a bare ISO timestamp, no trailing comment, no narrative. Do NOT append rationale, precedent citations, or a summary of what happened -- that belongs in the story file's own Dev Agent Record / Change Log, not here. This file is read in full by every dev-story dispatch; an ever-growing inline narrative here is a repo-wide cost paid by every future session, not just this one. See sprint-history.md if you need to understand why this rule exists.</action>
       <action>Save file, preserving ALL comments and structure including STATUS DEFINITIONS</action>
       <output>✅ Story status updated to "review" in sprint-status.yaml</output>
     </check>

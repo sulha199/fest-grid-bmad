@@ -15,5 +15,5 @@ Skip this entire file (return to caller) if ANY of:
 3. **Idempotency check.** If `development_status[{story_key}]` is already at `{target_status}` or a later state (`review` is later than `in-progress`; `done` is later than both), return to caller — no write needed. Never regress a story's status.
 4. Set `development_status[{story_key}]` to `{target_status}`.
 5. **Epic lift (only when `{target_status}` = `in-progress`).** Derive the parent epic key as `epic-{N}` from the leading numeric segment of `{story_key}` (e.g., `3-2-digest-delivery` → `epic-3`). If that entry exists and is `backlog`, set it to `in-progress`. Leave it alone otherwise. Skip this sub-step entirely when `{target_status}` is not `in-progress`.
-6. Refresh `last_updated` to the current date.
+6. Refresh `last_updated` to the current date -- a bare ISO timestamp ONLY, no trailing comment, no narrative. Do NOT append rationale or a summary of what happened; that belongs in the story file's own Dev Notes / Change Log. This file is read in full by every ritual dispatch, so an ever-growing inline narrative here is a cost every future session pays, not just this one.
 7. Save the file, preserving ALL comments and structure including STATUS DEFINITIONS and WORKFLOW NOTES.
