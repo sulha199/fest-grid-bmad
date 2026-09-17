@@ -167,6 +167,7 @@ export function ArchiveContent() {
         }}
         sentinelRef={sentinelRef}
         isFetchingNextPage={isFetchingNextPage}
+        hasNextPage={hasNextPage}
         loadingMoreLabel={t("loadingMore")}
       />
 

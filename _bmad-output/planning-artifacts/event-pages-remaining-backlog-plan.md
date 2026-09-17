@@ -56,15 +56,42 @@ one session:
 
 ## Cluster B — Needs a diagnosis spike before scoping
 
-- **BUG-018 + BUG-031** — likely the *same* infinite-scroll defect (scroll-anchor / sentinel
-  handling in `useInfiniteScroll.ts`), reported 8 days apart with different symptoms. Spike
-  first: confirm single root cause or two, then one (or two) story.
+- **BUG-018 + BUG-031** — turned out **not** to be a single "spike first, then one story" case;
+  they were already two separately-tracked rows with a documented relationship. **BUG-018 was
+  already `promoted`→Story 0.i5b before this cluster's own framing was written** — but 0.i5b's own
+  dev notes explicitly caution that its fix (via `useListPaginationController`) targeted a
+  filter-driven-remount hypothesis that turned out **not** to be present in the code, so BUG-018's
+  actual scroll-anchor symptom was never independently verified fixed by that story — its notes
+  named **BUG-031** as the live tracking item for whatever the real symptom turns out to be.
+  **RESOLVED, 2026-09-17** (`bmad-quick-dev`, dispatched via a spawned child session): real root
+  cause confirmed for BUG-031 — the infinite-scroll sentinel's height collapsed once its loading
+  spinner disappeared between page loads, and that collapse is what triggered the browser's native
+  scroll-anchoring to jump (not the user's own original "reused/stale anchor" hypothesis, though a
+  plausible-sounding one — investigation found a different, simpler mechanism instead). Fix: a
+  stable `min-h-16` on `EventListView.tsx`'s sentinel (`packages/ui`), plus a "You've reached the
+  end of the list" indicator wired through `hasNextPage` (already available from `useInfiniteQuery`,
+  just not previously threaded through) across all 5 consumers (Discovery/Feed/Favorites/Archive/
+  Account). Lint/build green; the `@festgrid/ui` test suite passes in isolation (74 unrelated,
+  pre-existing `[backend]` test failures found during verification — confirmed unrelated, since
+  this change touches zero backend files). **This plausibly also closes BUG-018's original
+  symptom** (a collapsing sentinel losing viewport visibility matches "sentinel no longer in view,
+  must scroll up then down to re-trigger" almost exactly) — but per 0.i5b's own standing caution,
+  this has not been independently re-verified against BUG-018's exact original repro steps. See
+  backlog.yaml's BUG-018/BUG-031 notes (2026-09-17) for the full record.
 - **BUG-032 + FIND-024** — BUG-032's own note says to confirm whether it's FIND-024's Bright
   Data gap or a separate Apify-path issue before scoping. Spike first (small — root cause is
-  probably a one-line mapper fix once confirmed), then `bmad-quick-dev`.
+  probably a one-line mapper fix once confirmed), then `bmad-quick-dev`. **Not touched by this
+  session** — explicitly out of scope for the dispatch above.
 
-- [ ] BUG-018/BUG-031 diagnosis spike run, root cause confirmed
-- [ ] BUG-018/BUG-031 story/quick-dev
+- [x] BUG-018/BUG-031 diagnosis spike run, root cause confirmed (2026-09-17, see own note above —
+      BUG-031's own real root cause; BUG-018's original 0.i5b fix separately left unverified)
+- [x] BUG-018/BUG-031 fix applied (2026-09-17, `min-h-16` sentinel + end-of-list indicator) —
+      not yet re-verified against BUG-018's own exact original repro steps
+- [ ] BUG-032/FIND-024 root-cause check run
+- [ ] BUG-032/FIND-024 quick-dev
+
+- [x] BUG-018/BUG-031 diagnosis spike run, root cause confirmed (2026-09-17)
+- [x] BUG-018/BUG-031 story/quick-dev (2026-09-17, bmad-quick-dev, fixes applied)
 - [ ] BUG-032/FIND-024 root-cause check run
 - [ ] BUG-032/FIND-024 quick-dev
 

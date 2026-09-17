@@ -276,6 +276,7 @@ export function HomeContent() {
                 })}
                 sentinelRef={sentinelRef}
                 isFetchingNextPage={isFetchingNextPage}
+                hasNextPage={hasNextPage}
                 loadingMoreLabel={t('loadingMore')}
               />
             )

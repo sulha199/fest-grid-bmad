@@ -300,6 +300,7 @@ export function FeedContent() {
                 })}
                 sentinelRef={sentinelRef}
                 isFetchingNextPage={isFetchingNextPage}
+                hasNextPage={hasNextPage}
                 loadingMoreLabel={t("loadingMore")}
               />
             ),

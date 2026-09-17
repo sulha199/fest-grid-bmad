@@ -13,6 +13,7 @@ export function EventListView<TEvent extends EventListViewItem>({
   cardLabels,
   sentinelRef,
   isFetchingNextPage,
+  hasNextPage,
   loadingMoreLabel,
   skeletonCount = 6,
   className,
@@ -95,11 +96,23 @@ export function EventListView<TEvent extends EventListViewItem>({
           })}
         </GridContainer>
 
-        <div ref={sentinelRef} className="py-4 flex justify-center">
+        {/*
+          Infinite scroll sentinel: kept at consistent height to prevent scroll-anchoring jumps.
+          BUG-031 fix: the sentinel's height must not change between loading/loaded states,
+          otherwise the browser's scroll-anchoring algorithm can jump when the element shrinks.
+          Using min-h-16 ensures the sentinel is tall enough for either the spinner or the
+          end-of-list message, preventing height collapse on page load.
+        */}
+        <div ref={sentinelRef} className="min-h-16 py-4 flex justify-center items-center">
           {isFetchingNextPage && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
               <span>{loadingMoreLabel}</span>
+            </div>
+          )}
+          {!isFetchingNextPage && !hasNextPage && (
+            <div className="text-sm text-muted-foreground">
+              You've reached the end of the list.
             </div>
           )}
         </div>

@@ -289,6 +289,7 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
                 })}
                 sentinelRef={sentinelRef}
                 isFetchingNextPage={isFetchingNextPage}
+                hasNextPage={hasNextPage}
                 loadingMoreLabel={t("loadingMore")}
               />
             ),

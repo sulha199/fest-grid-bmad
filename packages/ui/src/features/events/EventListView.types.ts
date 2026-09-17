@@ -33,6 +33,7 @@ export interface EventListViewProps<TEvent extends EventListViewItem> {
   cardLabels?: EventCardLabels;
   sentinelRef: (node: Element | null) => void;
   isFetchingNextPage: boolean;
+  hasNextPage?: boolean; // whether there are more pages to load (BUG-031 fix: show end-of-list indicator)
   loadingMoreLabel: string;
   skeletonCount?: number; // default 6
   className?: string;
