@@ -264,9 +264,14 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
       Story 1.i1h (calendar-overflow dialog + per-day fair-fetch fix, per AD-23), IDEA-040 ->
       Story 0.39 (ambient viewer-location capability, Epic 0). Until 0.39 ships, 1.i1f's nearby
       badge only implements the "active filter location" branch.
-- [ ] IDEA-025 story (mobile compact-row badges, fixes masonry's pre-existing dead nearby badge
-      per AD-22) — after the plumbing decision, or as IDEA-026's explicit follow-on if scoped
-      that way
+- [x] IDEA-025 story — Story 1.i1j created 2026-09-17 (`ritual-orchestrator` batch), status
+      `ready-for-dev`, dispatched as IDEA-026's explicit follow-on. No HIL raised. Wires status +
+      nearby badges into WeeklyCalendarView's compact row, reusing Story 1.i1f's `distanceKm`
+      plumbing as-is. Gate 2 split out two more child rows, **not yet story-created**: IDEA-041 ->
+      Story 1.i1i (shared status/nearby badge primitive — prerequisite for 1.i1j), IDEA-042 ->
+      Story 1.i1k (EventCardDateBox two-tier chrome, independent, not a dependency). Story 1.i1j is
+      not yet implementable — its own Pre-Coding Approval Gate blocks `bmad-dev-story` until both
+      1.i1f and 1.i1i land.
 
 ## Full row checklist (verification)
 
@@ -278,7 +283,8 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
 - [x] BUG-019 — Story 0.i5b (`review`)
 - [ ] BUG-031
 - [ ] BUG-032
-- [ ] BUG-036 (new, 2026-09-17 — folds into IDEA-026's story per AD-23's sequencing)
+- [ ] BUG-036 (new, 2026-09-17 — Gate 2 routed it to Story 1.i1h alongside FIND-026's
+      overflow-dialog scope, not IDEA-026's own Story 1.i1f; 1.i1h not yet story-created)
 - [x] FIND-006 (closes via Story 2.i1a's BUG-008 coverage, not independently)
 - [ ] FIND-010
 - [x] FIND-011
@@ -292,7 +298,8 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
 - [x] IDEA-012 — Story 0.37 (`review`)
 - [x] IDEA-019 — Story 0.i5d (`ready-for-dev`); child row IDEA-038 carved for Feed/Favorites
 - [x] IDEA-020 — Stories 0.38a + 0.38 (`ready-for-dev`)
-- [ ] IDEA-025
+- [x] IDEA-025 — Story 1.i1j (`ready-for-dev`, blocked on 1.i1f + 1.i1i prerequisites); child rows
+      IDEA-041/IDEA-042 carved (Stories 1.i1i/1.i1k, not yet story-created)
 - [x] IDEA-026 — Story 1.i1f (`ready-for-dev`); child rows IDEA-039/BUG-036+FIND-026/IDEA-040
       carved for remaining desktop-grid wiring (Stories 1.i1g/1.i1h/0.39, not yet story-created)
 - [ ] IDEA-030
