@@ -279,7 +279,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     <action>Run ONLY Gate 2 — UI Complexity & Reusability
       Use `runSubagent` with persona Freya (`wds-agent-freya-ux`) or fallback Sally (`bmad-agent-ux-designer`).
       Evaluate if the story includes complex/reusable UI components or hooks that should be split into their own stories.
-      Make sure to locate and read relevant `DESIGN.md`/`EXPERIENCE.md` from `design-artifacts/`.
+      Include the DESIGN.md/EXPERIENCE.md content already loaded via `persistent_facts` directly in this subagent's prompt -- do NOT tell the subagent to independently "locate and read" those files itself, since that would just re-read content this session already has loaded.
     </action>
     <action>Lightweight guard (no subagent call): before finalizing, reason whether this specific story's scope contains anything the epic-wide sweep plausibly didn't anticipate (a new external service, a new data entity, a new infra dependency not covered by the sweep). If so, do not silently trust the sweep — run Gate 1 and/or Gate 3 fresh for this story only, and note in the story why the sweep was insufficient.</action>
   </check>
@@ -296,7 +296,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     <action>Gate 2 — UI Complexity & Reusability
       Use `runSubagent` with persona Freya (`wds-agent-freya-ux`) or fallback Sally (`bmad-agent-ux-designer`).
       Evaluate if the story includes complex/reusable UI components or hooks that should be split into their own stories.
-      Make sure to locate and read relevant `DESIGN.md`/`EXPERIENCE.md` from `design-artifacts/`.
+      Include the DESIGN.md/EXPERIENCE.md content already loaded via `persistent_facts` directly in this subagent's prompt -- do NOT tell the subagent to independently "locate and read" those files itself, since that would just re-read content this session already has loaded.
     </action>
 
     <action>Gate 3 — Foundational / Cross-Cutting Dependency Completeness
