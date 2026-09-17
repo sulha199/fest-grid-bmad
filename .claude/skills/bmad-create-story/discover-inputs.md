@@ -63,9 +63,17 @@ After applying the matching strategy, mark the pattern as **RESOLVED** and move 
 If no sharded matches were found OR no sharded pattern exists for this input:
 
 1. Attempt a glob match on the "whole" pattern (e.g., `{planning_artifacts}/*prd*.md`).
-2. If matches are found, load ALL matching files completely (no offset/limit).
-3. Store content in variable: `{pattern_name_content}` (e.g., `{prd_content}`).
-4. Mark pattern as **RESOLVED** and move to the next pattern.
+2. If the declared load strategy is **FULL_LOAD** (or unspecified), load ALL matching files completely (no offset/limit) -- this is correct and intentional for inputs that genuinely need the whole picture (e.g. bmad-retrospective/bmad-correct-course's own PRD/epics rows).
+3. **If the declared load strategy is SELECTIVE_LOAD or INDEX_GUIDED, do NOT fall back to a full load just because there's no sharded directory.** A single large whole file can still be read selectively via `scripts/md-outline.py`, which prints heading text and line ranges without ever printing body content:
+   - **SELECTIVE_LOAD with a resolvable template variable** (e.g. epics + `{{epic_num}}`, where headings are uniformly `### Epic N: ...` / `### Story N.M: ...`): run
+     `python3 {project-root}/scripts/md-outline.py find "^Epic {{epic_num}}:|^Story {{epic_num}}\." <file> --all`
+     to get every matching heading's line range in one call, then Read each range via `offset`/`limit` and concatenate. If this finds nothing (exit 1) -- heading conventions may not match what was assumed -- fall back to a full load rather than silently returning nothing.
+   - **SELECTIVE_LOAD with no resolvable template variable, or INDEX_GUIDED** (e.g. the PRD, whose sections don't key off `{{epic_num}}`): run
+     `python3 {project-root}/scripts/md-outline.py outline <file> --max-depth 3`
+     to get the full heading list cheaply (no body content), judge relevance from heading text the same way INDEX_GUIDED judges an index.md ("when in doubt, load it" still applies to this judgment call), then Read only the relevant ranges via `offset`/`limit`.
+   - If `scripts/md-outline.py` fails to run (not "no match," but a real execution failure), fall back to a full load.
+4. Store content in variable: `{pattern_name_content}` (e.g., `{prd_content}`), noting in the discovery report whether it was a full load or a selective range-read (so downstream steps know the content may be partial).
+5. Mark pattern as **RESOLVED** and move to the next pattern.
 
 ### 2c: Handle Not Found
 
