@@ -146,7 +146,12 @@
     "privateContactMessageLabel": "Contact info isn't shown to protect the poster's privacy — see the original post for details.",
     "contentNoLongerAvailableLabel": "This content is no longer available",
     "embedLoadingLabel": "Loading embedded post…",
-    "embedRegionLabel": "Embedded post"
+    "embedRegionLabel": "Embedded post",
+    "publishedLabel": "Published",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "yesterday": "Yesterday",
+    "categoriesAndTypesAriaLabel": "Event categories and types"
   },
   "EventReportForm": {
     "dialogTitle": "Report Event",

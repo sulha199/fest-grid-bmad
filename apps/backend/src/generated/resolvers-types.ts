@@ -266,10 +266,12 @@ export type Event = {
   isExpiredForCurrentUser: Scalars['Boolean']['output'];
   isFavorited: Scalars['Boolean']['output'];
   isHiddenForCurrentUser: Scalars['Boolean']['output'];
+  links?: Maybe<Array<EventLink>>;
   location?: Maybe<Scalars['String']['output']>;
   organizerName?: Maybe<Scalars['String']['output']>;
   originalPostUrl?: Maybe<Scalars['String']['output']>;
   postId?: Maybe<Scalars['ID']['output']>;
+  publishedAt?: Maybe<Scalars['String']['output']>;
   schedules: Array<Schedule>;
   slug: Scalars['String']['output'];
   sourcePostUrl?: Maybe<Scalars['String']['output']>;
@@ -330,6 +332,12 @@ export type EventFilterInput = {
   location?: InputMaybe<LocationFilterInput>;
   types?: InputMaybe<Array<EventType>>;
   venueType?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type EventLink = {
+  __typename?: 'EventLink';
+  label?: Maybe<Scalars['String']['output']>;
+  url: Scalars['String']['output'];
 };
 
 export type EventQueryConditionInput = {
@@ -1409,6 +1417,7 @@ export type ResolversTypes = ResolversObject<{
   EventConnection: ResolverTypeWrapper<EventConnection>;
   EventFilter: ResolverTypeWrapper<EventFilter>;
   EventFilterInput: EventFilterInput;
+  EventLink: ResolverTypeWrapper<EventLink>;
   EventQueryConditionInput: EventQueryConditionInput;
   EventType: EventType;
   ExtractEventDataFromUrlResult: ResolverTypeWrapper<ExtractEventDataFromUrlResult>;
@@ -1508,6 +1517,7 @@ export type ResolversParentTypes = ResolversObject<{
   EventConnection: EventConnection;
   EventFilter: EventFilter;
   EventFilterInput: EventFilterInput;
+  EventLink: EventLink;
   EventQueryConditionInput: EventQueryConditionInput;
   ExtractEventDataFromUrlResult: ExtractEventDataFromUrlResult;
   ExtractionQuota: ExtractionQuota;
@@ -1703,10 +1713,12 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   isExpiredForCurrentUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isFavorited?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   isHiddenForCurrentUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  links?: Resolver<Maybe<Array<ResolversTypes['EventLink']>>, ParentType, ContextType>;
   location?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   organizerName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   originalPostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   postId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  publishedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   schedules?: Resolver<Array<ResolversTypes['Schedule']>, ParentType, ContextType>;
   slug?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   sourcePostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -1735,6 +1747,12 @@ export type EventFilterResolvers<ContextType = GraphQLContext, ParentType extend
   location?: Resolver<Maybe<ResolversTypes['LocationFilter']>, ParentType, ContextType>;
   types?: Resolver<Maybe<Array<ResolversTypes['EventType']>>, ParentType, ContextType>;
   venueType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type EventLinkResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['EventLink'] = ResolversParentTypes['EventLink']> = ResolversObject<{
+  label?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2199,6 +2217,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Event?: EventResolvers<ContextType>;
   EventConnection?: EventConnectionResolvers<ContextType>;
   EventFilter?: EventFilterResolvers<ContextType>;
+  EventLink?: EventLinkResolvers<ContextType>;
   ExtractEventDataFromUrlResult?: ExtractEventDataFromUrlResultResolvers<ContextType>;
   ExtractionQuota?: ExtractionQuotaResolvers<ContextType>;
   InstagramEmbed?: InstagramEmbedResolvers<ContextType>;

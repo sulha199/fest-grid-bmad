@@ -1747,6 +1747,138 @@ test('events resolver integration via Yoga', async (t) => {
     });
   });
 
+  await t.test('Event.publishedAt resolver (Story 1.6f)', async (t) => {
+    let testProfile: any;
+    let testPost: any;
+    let testEvent: any;
+    let noPostEvent: any;
+
+    t.before(async () => {
+      const [p] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_profile_publishedat_1',
+        platform: 'instagram',
+        displayName: 'Resolver Test Profile PublishedAt',
+        username: 'resolver_test_profile_publishedat_1',
+      }).returning();
+      testProfile = p;
+
+      const [post] = await db.insert(posts).values({
+        accountId: testProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_post_publishedat_1',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_post_publishedat_1',
+        content: 'This is a test post for publishedAt',
+        publishedAt: new Date('2026-01-15T10:30:00.000Z'),
+        isExtracted: true,
+      }).returning();
+      testPost = post;
+
+      const [ev] = await db.insert(events).values({
+        eventName: 'Resolver Test Event PublishedAt',
+        postId: testPost.id,
+        location: 'Test location',
+      }).returning();
+      testEvent = ev;
+
+      const [ev2] = await db.insert(events).values({
+        eventName: 'Resolver Test Event No Post PublishedAt',
+        location: 'Test location',
+      }).returning();
+      noPostEvent = ev2;
+    });
+
+    t.after(async () => {
+      if (testEvent) await db.delete(events).where(eq(events.id, testEvent.id));
+      if (noPostEvent) await db.delete(events).where(eq(events.id, noPostEvent.id));
+      if (testPost) await db.delete(posts).where(eq(posts.id, testPost.id));
+      if (testProfile) await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfile.id));
+    });
+
+    await t.test('event(id) returns publishedAt as an ISO string for an event with a linked post', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventPublishedAt($id: ID!) {
+              event(id: $id) {
+                id
+                publishedAt
+              }
+            }
+          `,
+          variables: { id: testEvent.id }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.event.publishedAt, '2026-01-15T10:30:00.000Z');
+    });
+
+    await t.test('eventBySlug(slug) returns publishedAt as an ISO string for an event with a linked post', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventBySlugPublishedAt($slug: String!) {
+              eventBySlug(slug: $slug) {
+                id
+                publishedAt
+              }
+            }
+          `,
+          variables: { slug: testEvent.slug }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.eventBySlug.publishedAt, '2026-01-15T10:30:00.000Z');
+    });
+
+    await t.test('event(id) / eventBySlug(slug) return null publishedAt for an event with no linked post', async () => {
+      const responseById = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventPublishedAt($id: ID!) {
+              event(id: $id) {
+                id
+                publishedAt
+              }
+            }
+          `,
+          variables: { id: noPostEvent.id }
+        })
+      });
+      const resultById = await responseById.json();
+      assert.ok(!resultById.errors, JSON.stringify(resultById.errors));
+      assert.strictEqual(resultById.data.event.publishedAt, null);
+
+      const responseBySlug = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventBySlugPublishedAt($slug: String!) {
+              eventBySlug(slug: $slug) {
+                id
+                publishedAt
+              }
+            }
+          `,
+          variables: { slug: noPostEvent.slug }
+        })
+      });
+      const resultBySlug = await responseBySlug.json();
+      assert.ok(!resultBySlug.errors, JSON.stringify(resultBySlug.errors));
+      assert.strictEqual(resultBySlug.data.eventBySlug.publishedAt, null);
+    });
+  });
+
   await t.test('Event image serving and consent gates (Story 3.6h)', async (t) => {
     let testProfile: any;
     let testPost: any;

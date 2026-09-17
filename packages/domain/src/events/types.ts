@@ -1,4 +1,4 @@
-import { EventType, EventCategory, LocationDetails } from '@festgrid/shared-types';
+import { EventType, EventCategory, LocationDetails, EventLink } from '@festgrid/shared-types';
 
 export interface GeminiSchedulePayload {
   isMainSchedule: boolean;
@@ -24,6 +24,8 @@ export interface GeminiExtractionPayload {
   hasPrivateContact?: boolean;
   description?: string;
   confidenceScore: number;
+  // Story 0.37 — any explicit additional links found in the source content.
+  links?: EventLink[];
   // Story 3.6l — model-self-reported completeness signal, logging-only, never persisted
   // (absent from ExtractedEventMessage/EventInsertValues/schedules and any DB-facing type).
   minScheduleCount?: number;
@@ -65,6 +67,8 @@ export interface ExtractedEventMessage {
   hasPrivateContact?: boolean;
   description?: string;
   confidenceScore: number;
+  // Story 0.37 — sanitized via sanitizeEventLinks before reaching this message shape.
+  links?: EventLink[];
 }
 
 export interface EventInsertValues {
@@ -79,6 +83,7 @@ export interface EventInsertValues {
   hasPrivateContact: boolean;
   description?: string | null;
   confidenceScore?: number | null;
+  links?: EventLink[] | null;
 }
 
 export interface ScheduleInsertValues {

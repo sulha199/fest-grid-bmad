@@ -46,7 +46,11 @@ one session:
       2026-09-16, both standalone Epic 0 stories (no formed epic exists for FIND-016) per a
       confirmed AskUserQuestion answer — see Story 0.34's Dev Notes "Epic homing & scope
       decision" for the full record
-- [ ] FIND-029 story (4 bundled findings)
+- [x] FIND-029 story (4 bundled findings) — bundled as-is into Story 0.36
+      (0-36-harden-past-events-visibility-mechanism) on 2026-09-16, standalone Epic 0 story
+      (no formed epic exists for FIND-029), matching the FIND-016/0.34/0.35 precedent. Gained
+      a 5th AC (isMainSchedule ingestion-time normalization) surfaced only while scoping the
+      schedule-uniqueness migration — see Story 0.36's Dev Notes for the full record.
 - [ ] IDEA-012 story
 - [ ] IDEA-030 story/stories (sequence item 3 after BUG-032 lands)
 

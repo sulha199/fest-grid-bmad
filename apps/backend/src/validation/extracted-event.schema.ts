@@ -45,6 +45,22 @@ export const extractedEventSchema: JSONSchemaType<GeminiExtractionPayload> = {
     contactInfo: { type: 'string', nullable: true },
     hasPrivateContact: { type: 'boolean', nullable: true },
     description: { type: 'string', nullable: true },
+    // Story 0.37 — additional links mentioned in the source content ({url, label?}[]).
+    // Nested array-of-objects (mirrors geminiScheduleSchema), not a flat-string field.
+    links: {
+      type: 'array',
+      nullable: true,
+      maxItems: 10,
+      items: {
+        type: 'object',
+        properties: {
+          url: { type: 'string' },
+          label: { type: 'string', nullable: true }
+        },
+        required: ['url'],
+        additionalProperties: false
+      }
+    },
     confidenceScore: { type: 'number', minimum: 0, maximum: 1 },
     // Story 3.6l — model-self-reported completeness signal, logging-only, never persisted.
     // Load-bearing: `additionalProperties: false` below means real Gemini responses carrying

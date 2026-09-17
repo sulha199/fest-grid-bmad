@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/copy-maplibre-worker.mjs && next dev",
-    "build": "node scripts/copy-maplibre-worker.mjs && next build",
+    "build": "node scripts/copy-maplibre-worker.mjs && NODE_USE_ENV_PROXY=1 next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",

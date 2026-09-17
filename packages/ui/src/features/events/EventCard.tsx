@@ -416,7 +416,9 @@ export function EventCard({
 
             {priceFrom !== undefined && (
               <div className="flex items-center justify-between mt-2 pt-3 border-t">
-                <span className="text-sm font-medium">{defaultLabels.priceFrom}</span>
+                {(typeof priceFrom === 'number' || /\d/.test(String(priceFrom))) && (
+                  <span className="text-sm font-medium">{defaultLabels.priceFrom}</span>
+                )}
                 <span className="text-sm font-semibold">{priceFrom}</span>
               </div>
             )}

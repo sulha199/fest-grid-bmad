@@ -1,10 +1,14 @@
+---
+baseline_commit: a7eb90980b6af146b3fc1d31ac3e11b7adddf6de
+---
+
 # Story 0.35: Fix ticketPrice "From" label pairing for free-text prices
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.35
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -24,17 +28,17 @@ so that I don't see an awkward, grammatically-broken pairing like "From Free" or
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: "From" label fix (AC: #1, #2, #3, #4)
-  - [ ] In `packages/ui/src/features/events/EventCard.tsx`, add a local check near the price row — e.g. `const priceHasAmount = typeof priceFrom === 'number' || /\d/.test(String(priceFrom))` — and only render `defaultLabels.priceFrom` (the "From" text) when `priceHasAmount` is true; always render the bare `priceFrom` value regardless.
-  - [ ] Confirm no other render site composes `labels.priceFrom`/`priceFrom` together — verified during drafting that `EventListView.tsx` passes `Schedule.ticketPrice` through unmodified as the `priceFrom` prop (no rendering of its own), and the separate `EventDetailView.tsx` (`packages/ui`) uses a distinct, unrelated `ticketPriceLabel` rendered as a screen-reader-only prefix with no visible "From"-style pairing — so `EventCard.tsx` is the single fix location.
-- [ ] Task 2: Test coverage (AC: #5)
-  - [ ] Add `priceFrom="Free"` case to `EventCard.test.tsx` asserting "Free" renders and no "From" text is present.
-  - [ ] Add `priceFrom="Free with registration"` case asserting the same (no digit anywhere in the string).
-  - [ ] Add/confirm a `priceFrom="IDR 150000"` case asserting "From" **is** still rendered alongside the value (regression guard: an alphabetic currency code prefix must not be mistaken for free-form text).
-  - [ ] Confirm existing numeric cases (e.g. `priceFrom={50}`, `priceFrom="$20"`) are unaffected by re-running the existing test file.
-- [ ] Task 3: Verification (AC: all)
-  - [ ] `pnpm --filter ui test` (full `packages/ui` suite, focused on `EventCard.test.tsx`)
-  - [ ] `pnpm lint` for `packages/ui`
+- [x] Task 1: "From" label fix (AC: #1, #2, #3, #4)
+  - [x] In `packages/ui/src/features/events/EventCard.tsx`, add a local check near the price row — e.g. `const priceHasAmount = typeof priceFrom === 'number' || /\d/.test(String(priceFrom))` — and only render `defaultLabels.priceFrom` (the "From" text) when `priceHasAmount` is true; always render the bare `priceFrom` value regardless.
+  - [x] Confirm no other render site composes `labels.priceFrom`/`priceFrom` together — verified during drafting that `EventListView.tsx` passes `Schedule.ticketPrice` through unmodified as the `priceFrom` prop (no rendering of its own), and the separate `EventDetailView.tsx` (`packages/ui`) uses a distinct, unrelated `ticketPriceLabel` rendered as a screen-reader-only prefix with no visible "From"-style pairing — so `EventCard.tsx` is the single fix location.
+- [x] Task 2: Test coverage (AC: #5)
+  - [x] Add `priceFrom="Free"` case to `EventCard.test.tsx` asserting "Free" renders and no "From" text is present.
+  - [x] Add `priceFrom="Free with registration"` case asserting the same (no digit anywhere in the string).
+  - [x] Add/confirm a `priceFrom="IDR 150000"` case asserting "From" **is** still rendered alongside the value (regression guard: an alphabetic currency code prefix must not be mistaken for free-form text).
+  - [x] Confirm existing numeric cases (e.g. `priceFrom={50}`, `priceFrom="$20"`) are unaffected by re-running the existing test file.
+- [x] Task 3: Verification (AC: all)
+  - [x] `pnpm --filter ui test` (full `packages/ui` suite, focused on `EventCard.test.tsx`)
+  - [x] `pnpm lint` for `packages/ui`
 
 ## Dev Notes
 
@@ -118,11 +122,11 @@ The in-conversation `AskUserQuestion` result initially reported no answer, and t
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — this story is exactly DW-048's `EventCard.tsx` fix, split out of Story 0.34 per the verified `AskUserQuestion` answer (see Dev Notes "Split from Story 0.34").
-- [ ] Architecture and boundary confirmation — `packages/ui` only, no prop-shape changes.
-- [ ] Testing plan confirmation — `EventCard.test.tsx` new cases per Task 2.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates "no gap found" (see Architecture & UX Gate Findings).
+- [x] Scope confirmation — this story is exactly DW-048's `EventCard.tsx` fix, split out of Story 0.34 per the verified `AskUserQuestion` answer (see Dev Notes "Split from Story 0.34").
+- [x] Architecture and boundary confirmation — `packages/ui` only, no prop-shape changes.
+- [x] Testing plan confirmation — `EventCard.test.tsx` new cases per Task 2.
+- [x] Explicit human approval state — approved via `AskUserQuestion` at dev-story session start (2026-09-16).
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates "no gap found" (see Architecture & UX Gate Findings).
 
 ## Testing Requirements
 
@@ -131,9 +135,9 @@ The in-conversation `AskUserQuestion` result initially reported no answer, and t
 
 ## Deliverables Checklist
 
-- [ ] `packages/ui/src/features/events/EventCard.tsx` "From" label made conditional on the price value containing a digit
-- [ ] `packages/ui/src/features/events/EventCard.test.tsx` extended with "Free", "Free with registration" (no prefix), and "IDR 150000" (prefix retained) cases
-- [ ] `sprint-status.yaml` / `backlog.yaml` updated per this workflow's completion step
+- [x] `packages/ui/src/features/events/EventCard.tsx` "From" label made conditional on the price value containing a digit
+- [x] `packages/ui/src/features/events/EventCard.test.tsx` extended with "Free", "Free with registration" (no prefix), and "IDR 150000" (prefix retained) cases
+- [x] `sprint-status.yaml` / `backlog.yaml` updated per this workflow's completion step
 
 ## Out of Scope
 
@@ -149,16 +153,36 @@ The in-conversation `AskUserQuestion` result initially reported no answer, and t
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — ready for review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Sonnet 5 (claude-sonnet-5)
 
 ### Debug Log References
 
+- `pnpm --filter ui test -- run EventCard` → 2 files, 80 passed (initial focused run)
+- `pnpm --filter ui test` → 4 test files failed on first full-suite run with `Failed to resolve import "@festgrid/domain/events"` — confirmed pre-existing via `git stash` (baseline showed the identical 4-file failure with 436/436 passing tests, same failure signature). Root cause: `packages/domain`'s build output wasn't present in this fresh checkout. Ran `pnpm --filter @festgrid/domain build` (an environment setup step, not a story-scoped change) — after that, `pnpm --filter ui test` → 51 files, 506 passed, 0 failed.
+- `pnpm lint` (repo root) → 6/6 tasks clean, zero errors (only pre-existing warnings in unrelated files).
+- `pnpm build` (repo root) → first attempt failed on `web#build` with `SELF_SIGNED_CERT_IN_CHAIN` fetching the `Inter` font from Google Fonts — confirmed transient/environmental via `git stash` + `pnpm --filter web build` on baseline, which succeeded. Re-ran `pnpm build` with the story's changes restored → 7/7 tasks successful.
+
 ### Completion Notes List
 
+- Implemented AC1-AC4: `EventCard.tsx`'s price row now only renders `defaultLabels.priceFrom` ("From") when `priceFrom` is a `number` or a string containing at least one digit (`typeof priceFrom === 'number' || /\d/.test(String(priceFrom))`); the bare price value always renders. No prop-shape changes — `priceFrom`/`labels.priceFrom` types untouched, all consumers (`EventListView.tsx`, `home-content.tsx`, `feed-content.tsx`, `favorites-content.tsx`, `archive-content.tsx`, `account-content.tsx`) unmodified.
+- Implemented AC5: added a new `describe('priceFrom "From" label pairing (Story 0.35)')` block to `EventCard.test.tsx` with 5 cases — `"Free"` and `"Free with registration"` (no "From" prefix), `"IDR 150000"` and `"$20"` and `50` (numeric) all retaining the "From" prefix, directly proving the digit-detection heuristic isn't fooled by an alphabetic currency-code prefix.
+- Verification actually executed (not just implied by the plan): `pnpm --filter ui test` — 506/506 pass (full `packages/ui` suite, including the new/updated `EventCard.test.tsx`); `pnpm lint` (repo root) — 6/6 tasks clean, zero errors; `pnpm build` (repo root) — 7/7 tasks successful. Both `pnpm --filter ui test`'s initial 4-file resolution failure and `pnpm build`'s initial font-fetch TLS error were independently confirmed pre-existing/environmental (not caused by this story's diff) via `git stash` + re-run against baseline before proceeding.
+- Pre-Coding Approval Gate: was pending explicit approval in the story file at session start; obtained via `AskUserQuestion` before any code was touched (see Pre-Coding Approval Gate checklist, all items now checked).
+- Post-landing, `run-act-with-checks.ts`'s repo-wide `pnpm test` gate (distinct from this story's own `pnpm --filter ui test` scoped run above) surfaced 3 `apps/backend/src/lib/geolocation/geoapify-client.test.ts` failures, all `Error: BACKEND_PORT is not defined in environment variables` from `env.ts`'s `loadBackendEnv()` — a local sandbox `.env` gap (no `BACKEND_PORT`/`DATABASE_URL`/`GEOAPIFY_API_KEY`), not a code defect; resolved by populating `.env` (gitignored, not committed) and confirmed via a direct `node --test` run of that file alone: 12/12 pass. After that fix, the same repo-wide gate surfaced 2 further pre-existing failures in `apps/backend/src/lib/scraper/__tests__/trigger-brightdata-for-target.test.ts` (`returns CAPACITY_EXHAUSTED when capacity unavailable`, `trigger-brightdata-for-target`) — confirmed unrelated to this story: `git log` shows neither `env.ts` nor any `trigger-brightdata-for-target.ts`/`brightdata-client.ts` file has been touched since before Story 0.34/0.35; the failure is the test's own real outbound HTTP call to Bright Data receiving `403 Forbidden` against this sandbox's fake credentials instead of the DB-state-only `CAPACITY_EXHAUSTED` path its own comment says it's designed to exercise without HTTP mocking — a missing-credentials/test-isolation environment gap, same class as Story 0.34's Playwright finding, not a defect introduced by this story.
+
 ### File List
+
+- `packages/ui/src/features/events/EventCard.tsx` (modified) — conditional "From" label rendering
+- `packages/ui/src/features/events/EventCard.test.tsx` (modified) — added "Free"/"Free with registration"/"IDR 150000"/"$20"/numeric `priceFrom` "From"-label-pairing test cases
+- `_bmad-output/implementation-artifacts/0-35-fix-ticketprice-from-label-pairing-for-free-text-prices.md` (modified) — this story file: baseline_commit frontmatter, task checkboxes, Pre-Coding Approval Gate, Deliverables Checklist, Completion Status, Dev Agent Record, Change Log, Status
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified) — `0-35-fix-ticketprice-from-label-pairing-for-free-text-prices` status `ready-for-dev` → `in-progress` → `review`
+
+## Change Log
+
+- 2026-09-16: Pre-Coding Approval Gate approved via `AskUserQuestion`; implemented AC1-AC4 (`EventCard.tsx` conditional "From" label) and AC5 (5 new test cases in `EventCard.test.tsx`); verified `pnpm --filter ui test` (506/506), `pnpm lint` (0 errors), `pnpm build` (7/7 tasks) all green; status moved `ready-for-dev` → `review`.

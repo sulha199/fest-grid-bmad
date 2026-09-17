@@ -42,6 +42,19 @@ export const geminiExtractionResponseSchema = {
     contactInfo: { type: 'STRING' },
     hasPrivateContact: { type: 'BOOLEAN' },
     description: { type: 'STRING' },
+    // Story 0.37 — any explicit additional links mentioned in the post (ticketing/RSVP/
+    // merch/linktree/etc.), with an optional short label when the source text names them.
+    links: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          url: { type: 'STRING' },
+          label: { type: 'STRING' }
+        },
+        required: ['url']
+      }
+    },
     confidenceScore: { type: 'NUMBER' },
     // Model-self-reported completeness signal (Story 3.6l). Optional — never in `required`,
     // never persisted anywhere. `minScheduleCount` is a best-effort count of distinct
@@ -76,6 +89,7 @@ export async function buildGeminiExtractionRequest(
 5. Extract schedule(s) under schedules. For each schedule, isMainSchedule (boolean) and eventStartDate (YYYY-MM-DD) are required. Extract title, eventEndDate (YYYY-MM-DD), eventStartTime (HH:MM:SS), eventEndTime (HH:MM:SS), performers (array), location, and ticketPrice if available.
 6. Extract the top-level location, organizerName, contactInfo, and description if present.
 6a. Classify any contact information found: if it is business/official (a role-based email such as info@venue.com, or an official venue/PT office phone number), populate contactInfo as normal. If it is private/individual (a personal phone number, a personal email address, or a wa.me/<number> WhatsApp link), do NOT populate contactInfo with it -- instead set hasPrivateContact to true and leave contactInfo absent/empty for that value. Treat a wa.me link exactly like a raw personal phone number for this classification -- never describe it merely as "a link" or minimize it, since it directly encodes a reachable personal phone number. If no contact information is present at all, leave both contactInfo and hasPrivateContact absent.
+6b. Extract any explicit additional links mentioned in the caption or visible in the image under links (ticketing, RSVP, merch, linktree, or similar) as an array of {url, label}, where label is an optional short label taken directly from the source text when it names the link (e.g. "Tickets:", "RSVP here"). If no such links are present, leave links absent.
 7. Assign a confidenceScore between 0 and 1 indicating your confidence in the extraction.
 8. Use the provided account name metadata (if present) to help disambiguate ambiguous location or venue references in the post text.
 9. A performer's name must still be extracted normally into that schedule's performers array. However, any personal contact detail belonging to a specific performer (a phone number, an email address, or a booking/management link, including a wa.me link) or any photo/image reference or URL associated with a specific performer -- wherever it appears in the caption text or the image -- must never be copied into description, contactInfo, organizerName, or any schedule field (title, location, performers). If such a detail is present in the source, omit it entirely from the extraction rather than including it in any field.

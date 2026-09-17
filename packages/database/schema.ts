@@ -1,7 +1,7 @@
 import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, pgEnum, index, unique, uniqueIndex, customType as drizzleCustomType } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
-import { LocationDetails } from '@festgrid/shared-types';
+import { LocationDetails, EventLink } from '@festgrid/shared-types';
 import type { ProposedEventCorrection } from '@festgrid/domain/events';
 
 const generateSlug = () => randomBytes(6).toString('hex');
@@ -348,6 +348,10 @@ export const events = pgTable('events', {
   hasPrivateContact: boolean('has_private_contact').default(false).notNull(),
   description: text('description'),
   confidenceScore: doublePrecision('confidence_score'),
+  // Story 0.37 — additional links mentioned in the source post (ticketing/RSVP/merch/
+  // linktree/etc.), array of objects so it mirrors the locationDetails/proposedData typed-
+  // jsonb-array precedent below, not contactInfo's plain text() column.
+  links: jsonb('links').$type<EventLink[]>(),
   sourceSocialMediaAccountId: text('source_social_media_account_id'),
   postId: uuid('post_id').references(() => posts.id, { onDelete: 'set null' }),
   deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete support
@@ -399,6 +403,13 @@ export const schedules = pgTable('schedules', {
   // call alone would generate. Do not `drizzle-kit generate` over this — it will not detect
   // or preserve the expression index.
   eventDateIdx: index('schedule_event_date_idx').on(t.eventId, t.eventStartDate, t.eventEndDate),
+  // Story 0.36 AC3 — enforces at most one isMainSchedule=true row per event. Builder-level
+  // approximation only: drizzle-kit 0.21.4's index() builder drops the WHERE predicate from
+  // generated migration SQL (same class of gap as eventDateIdx/idx_favorites_active above).
+  // The index as actually created in the database (migration NNNN_*.sql) is a partial unique
+  // index — CREATE UNIQUE INDEX idx_schedules_one_main_per_event ON schedules (event_id)
+  // WHERE is_main_schedule = true — see that migration file for the real DB-enforced shape.
+  oneMainPerEventIdx: uniqueIndex('idx_schedules_one_main_per_event').on(t.eventId).where(sql`is_main_schedule = true`),
 }));
 
 export const favorites = pgTable('favorites', {

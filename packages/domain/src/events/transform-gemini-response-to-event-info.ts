@@ -1,6 +1,7 @@
 import { EventType, EventCategory, LocationDetails } from '@festgrid/shared-types';
 import { GeminiExtractionPayload, ExtractedEventMessage, ExtractedScheduleMessage, ScheduleTimezoneResolution } from './types.js';
 import { matchesChildrensDataKeywordFilter } from './matches-childrens-data-keyword-filter.js';
+import { sanitizeEventLinks } from './sanitize-event-links.js';
 
 export function transformGeminiResponseToEventInfo(
   payload: GeminiExtractionPayload,
@@ -61,6 +62,10 @@ export function transformGeminiResponseToEventInfo(
   // bound to honor it. The raw private value is never passed through.
   const contactInfo = payload.hasPrivateContact === true ? undefined : payload.contactInfo;
 
+  // 5. Sanitize any raw links Gemini extracted (Story 0.37, AC2): drops non-http(s) URLs,
+  // trims/discards empty labels, and caps at 10 entries.
+  const links = sanitizeEventLinks(payload.links);
+
   return {
     postId: context.postId,
     sourceSocialMediaAccountId: context.sourceSocialMediaAccountId,
@@ -73,6 +78,7 @@ export function transformGeminiResponseToEventInfo(
     contactInfo,
     hasPrivateContact: payload.hasPrivateContact,
     description: payload.description,
-    confidenceScore: payload.confidenceScore
+    confidenceScore: payload.confidenceScore,
+    links
   };
 }
