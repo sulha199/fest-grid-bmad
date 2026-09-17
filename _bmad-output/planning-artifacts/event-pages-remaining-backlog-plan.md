@@ -32,8 +32,13 @@ one session:
 - **IDEA-012** — event links extraction + display, fully scoped via file/line refs already in
   its own note.
 - **IDEA-030** — event-detail UI batch (7 items). Depends on BUG-032 (hashtag data, Cluster B)
-  for item 3 only and IDEA-029 (already shipping via CC-021) for its location-line items — the
-  rest can proceed independently. May fan into multiple stories per its own note.
+  for item 3 only — **now unblocked, BUG-032 fixed 2026-09-17** — and IDEA-029 for its
+  location-line items. **STALE CLAIM CORRECTED, 2026-09-17**: IDEA-029 is NOT "already shipping
+  via CC-021" — checked `event-pages-followthrough-plan.md` directly, which owns IDEA-029/CC-021:
+  its Phase 3 (`bmad-create-story`) is entirely unchecked, and IDEA-029's own `backlog.yaml`
+  status is still `triaged`, not `promoted`. IDEA-030's location-line items remain genuinely
+  blocked on IDEA-029 until that plan's Phase 3 runs — the rest of IDEA-030's 7 items can proceed
+  independently.
 
 - [ ] BUG-019 + IDEA-011 story/quick-dev
 - [x] FIND-010(DW-009) + IDEA-031 story — Story 0.i6f (2026-09-16, homed under Epic 0.i6 rather than "no epic", see its own note)
