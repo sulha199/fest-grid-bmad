@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-16T19:35:00Z # narrative history moved to sprint-history.md (2026-09-17 cleanup, see sprint-history.md header)
+last_updated: 2026-09-17T16:39:56Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -513,6 +513,10 @@ development_status:
   # status. No code change follows from this; left `done` since the story
   # itself was never reverted, only superseded.
   1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web: done
+  # added 2026-09-17 via bmad-create-story (IDEA-003, resolved via bmad-ux +
+  # bmad-architecture AD-19): day-of-week recurrence occurrence-expansion +
+  # event_card_repeat_badge across all 3 card families. See epics.md Story 1.3k.
+  1-3k-render-day-of-week-recurring-schedules-and-repeat-badge: ready-for-dev
   # Reopened 2026-08-24 via bmad-create-story: added AC9/Task 7 -- root
   # container drops its max-w-7xl cap in favor of full width
   # (ux-rework-2026-08-24.md item #1, missed by the original bmad-correct-
