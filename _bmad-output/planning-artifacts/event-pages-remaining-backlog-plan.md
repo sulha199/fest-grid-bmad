@@ -102,9 +102,15 @@ one session:
   Own note: "breadth ... suggests this needs bmad-architecture and/or bmad-ux before a story
   can be drafted." Not scoped further here — treat as its own initiative, not bundled with the
   event-pages work.
+  **ARCHITECTURE DONE, 2026-09-17** (Architecture Spine AD-21) — re-scoped after web-verifying a
+  page's service worker cannot cache a cross-origin iframe's own internal fetches, so "cache
+  Instagram CDN media" is infeasible for the current oEmbed+iframe approach. Decided: cache
+  `embed.js` itself (SW stale-while-revalidate) + `preconnect`/`dns-prefetch` resource hints; a
+  separate dedicated SW registered per-locale-scoped paths. PWA installability + iOS install UX
+  still need their own `bmad-ux` pass — not decided by AD-21.
 
-- [ ] IDEA-020 architecture pass
-- [ ] IDEA-020 UX pass
+- [x] IDEA-020 architecture pass (2026-09-17, see AD-21)
+- [ ] IDEA-020 UX pass (PWA installability + iOS install UX, still needed)
 
 ## Cluster E — WeeklyCalendarView badge data-plumbing (internal tension, resolve before acting)
 
@@ -121,11 +127,19 @@ All three already carry `epic: epic-1-i1` — correctly epic-routed already, no
 `bmad-correct-course`/epic-formation action needed. What's missing is the plumbing decision
 itself.
 
-- [ ] Resolve the IDEA-025/026 data-plumbing question (bmad-architecture: thread
-      `distanceKm`/status fields through `useWeeklyCalendarController`, or explicitly scope
-      IDEA-026's first story to ship without badges) — decide which before drafting either story
-- [ ] FIND-026's max_events_per_day product/UX call (can run alongside the above)
-- [ ] IDEA-026 story (desktop calendar grid) — after the plumbing decision
+**RESOLVED, 2026-09-17** (Architecture Spine AD-22) — computed-status needs no new plumbing at
+all (`WeeklyCalendarViewScheduleShape` already has the needed date/time fields). `distanceKm`
+turned out bigger than either item's own note suggested: verified it isn't computed *anywhere*
+in this codebase today — `EventCard`'s own nearby badge has never actually rendered in
+production for lack of a real caller ever populating it. Decided: build one shared
+`computeDistanceKm` utility now, wire it into both the new desktop calendar card *and* fix
+masonry's pre-existing dead badge in the same story (IDEA-026's first story), not a
+ship-without-badges deferral.
+
+- [x] Resolve the IDEA-025/026 data-plumbing question (2026-09-17, see AD-22 — shared
+      `computeDistanceKm` utility, wired to both surfaces in one story)
+- [ ] FIND-026's max_events_per_day product/UX call (explicitly deferred by AD-22 — still needed)
+- [ ] IDEA-026 story (desktop calendar grid) — plumbing decision now unblocks this
 - [ ] IDEA-025 story (mobile compact-row badges) — after the plumbing decision, or as
       IDEA-026's explicit follow-on if scoped that way
 
