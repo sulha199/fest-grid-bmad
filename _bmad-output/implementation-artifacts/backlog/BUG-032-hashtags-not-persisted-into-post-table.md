@@ -127,7 +127,9 @@ Once schema research confirms Bright Data's data availability, land the
 persistence fix plus a regression test so hashtag search / hashtag display
 (IDEA-030 item 3 → IDEA-037) has data to render.
 
-## Fix Applied (2026-09-17)
+## Fix Applied (2026-09-17 — 2 sessions)
+
+### Session 1: Hashtags gap fixed
 
 Phase 1's schema question resolved by user-supplied evidence — a real Bright
 Data record from a live scrape (`instagram.com/reel/DdS4MJ50EBV/`) confirming
@@ -147,8 +149,37 @@ Data record from a live scrape (`instagram.com/reel/DdS4MJ50EBV/`) confirming
   user-supplied record). Verified: lint/build green (backend filter), both
   touched test files 14/14 passing.
 
-**Intentionally NOT touched**: `locationName`/`ownerDisplayName`/
-`ownerUsername` (this row's other flagged Bright Data gaps) — no
-user-supplied evidence yet confirms Bright Data's schema includes those
-fields either. Scope stayed to what this row's own evidence confirmed
-(hashtags only); those three remain open under `FIND-024`.
+### Session 2: LocationName + OwnerUsername gaps fixed (continuation)
+
+Two additional user-supplied real Bright Data runs (backlog/brightdata-run-examples/) now
+confirm Bright Data's schema includes these fields:
+
+**Evidence sources:**
+- `location_details: { name, lat, lng, profile_pic_url, __typename }` — confirmed present
+  in slemancityhall run; `location_details.name` (e.g. `"Sleman City Hall"`) is the
+  locationName source. Guard for shape where location_details can exist but have only
+  profile_pic_url set (jogjacoffeeweek run shows this edge case).
+- `user_posted` (top-level string, e.g. `"slemancityhall"`) — the ownerUsername source.
+  Guard for malformed type (should be string).
+
+**Fixes applied:**
+
+- `brightdata-record-mapper.ts` (lines 37-39): Extract both fields with conditional-spread
+  pattern (mirror of instagram-adapter.ts:251-253):
+  - `locationName` from `location_details.name` when `location_details` exists AND
+    `location_details.name` is a string
+  - `ownerUsername` from `user_posted` when it's a string
+  - Both fields included in candidate only if truthy (existing optional-field pattern)
+- `process-brightdata-result.ts`: already passes both via lines 30 and 32 (added in
+  session 1, just weren't populated by mapper until now).
+- Regression tests added: `brightdata-record-mapper.test.ts` (7 new tests: locationName
+  extraction present/absent/malformed cases, ownerUsername extraction present/absent/
+  malformed cases, full-record integration test). `process-brightdata-result.test.ts`
+  (1 new end-to-end test using real slemancityhall run fixture with all three fields).
+  Verified: lint/build green (backend filter), total test count: 21 in brightdata-record-mapper,
+  6 in process-brightdata-result.
+
+**Still intentionally NOT touched**: `ownerDisplayName` — no confirmed source field in
+Bright Data schema yet. `tagged_users[].full_name` is not the poster's own displayName,
+only users tagged *in* the post. Carousel/multi-image capture (`childPosts`-equivalent)
+also left open — separate vendor-schema research required, not a mechanical Apify port.

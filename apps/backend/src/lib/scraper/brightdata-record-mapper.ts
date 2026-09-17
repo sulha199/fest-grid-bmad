@@ -32,6 +32,12 @@ export async function mapBrightDataRecordToScrapedPost(
   const videoUrl = Array.isArray(videos) && videos.length > 0 && typeof videos[0] === 'string' ? videos[0] : undefined;
   const hashtags = brightDataRecord.hashtags as unknown[] | null | undefined;
 
+  // Extract location details and owner metadata (FIND-024: locationName/ownerUsername now have
+  // confirming evidence from real Bright Data runs, 2026-09-17 onwards)
+  const locationDetails = brightDataRecord.location_details as Record<string, unknown> | null | undefined;
+  const locationName = locationDetails && typeof locationDetails.name === 'string' ? locationDetails.name : undefined;
+  const ownerUsername = typeof brightDataRecord.user_posted === 'string' ? brightDataRecord.user_posted : undefined;
+
   if (datePosted !== undefined && datePosted !== null && typeof datePosted !== 'string') {
     console.warn('Bright Data record date_posted is not a string, skipping');
     try {
@@ -77,6 +83,14 @@ export async function mapBrightDataRecordToScrapedPost(
     ...(Array.isArray(hashtags) && hashtags.length > 0 && {
       hashtags: hashtags.map((tag) => String(tag).replace(/^#/, '').toLowerCase()),
     }),
+    // FIND-024: Extract locationName and ownerUsername when available. Mirror Apify's
+    // conditional-spread pattern (instagram-adapter.ts:251-253). locationName sourced from
+    // location_details.name when present and populated (may be absent on some posts, or
+    // location_details may exist but have only profile_pic_url set -- confirmed via real
+    // jogjacoffeeweek run, 2026-09-17). ownerUsername sourced from top-level user_posted field.
+    // ownerDisplayName intentionally omitted -- no confirmed source field in Bright Data schema yet.
+    ...(locationName && { locationName }),
+    ...(ownerUsername && { ownerUsername }),
     // Always set: postUrl is guaranteed non-empty by the earlier guard above
     originalPostUrl: postUrl,
   };

@@ -324,4 +324,64 @@ test('process-brightdata-result tests', async (t) => {
     // videoUrl on the persisted post is null (skipped malformed element)
     assert.strictEqual(post.videoUrl, null);
   });
+
+  await t.test('persists locationName and ownerUsername end-to-end using real slemancityhall run data (FIND-024)', async () => {
+    const snapshotId = 'snapshot-location-username-' + Date.now();
+    const { id, webhookToken } = await createPendingJob({
+      profileId: testProfileId,
+      snapshotId,
+      webhookToken: randomBytes(24).toString('hex'),
+    });
+
+    const pendingJob: BrightdataPendingJob = {
+      id,
+      profileId: testProfileId,
+      snapshotId,
+      webhookToken,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 3600000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Real Bright Data record from slemancityhall account, 2026-09-17
+    const records = [
+      {
+        url: 'https://www.instagram.com/p/DdV_eGuk6_Z/',
+        user_posted: 'slemancityhall',
+        description: 'Celebrating 8th Anniversary Sleman City Hall: REBORN ✨\n\nDelapan tahun bukan sekadar perjalanan waktu, tapi tentang tiap tawa, cerita, dan kenangan yang tumbuh di sini. Reborn hadir sebagai simbol untuk Reset, Recharge, dan Reconnect menguatkan fondasi untuk terus melangkah dan memberikan yang terbaik untukmu.\n\n🎤 Special Performance: Pongki Barata (28 Oktober 2026)\n🎪 Circus Entertainment (28 Okt – 1 Nov 2026)\n🎨 Creative Workshop, Market, & Competition\n🎆 Spectacular Fireworks Show (1 Nov 2026)\n\n📍 Atrium & Plaza Rama, Sleman City Hall\n\nCatat Tanggalnya ya Sobat Slecy!\n\n#SlemanCityHall #PavilionOfJogja',
+        hashtags: ['#SlemanCityHall', '#PavilionOfJogja'],
+        num_comments: 22,
+        date_posted: '2026-09-16T09:43:47.000Z',
+        likes: 197,
+        photos: [
+          'https://scontent-mia3-1.cdninstagram.com/v/t51.82787-15/812535413_18368307058244188_2395505933426195636_n.jpg?stp=dst-jpg_e35_s640x640_tt6&_nc_cat=110&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiRkVFRC5iZXN0X2ltYWdlX3VybGdlbi5DMyJ9&_nc_ohc=18z1p8nhkN4Q7kNvwHywRBk&_nc_oc=AdoZ34uo_epnM9aSn5RQHJzauxBa8Wiqh_ujmtOx8T0Chrtx_F7KEX1rH9HKvSKEgsQ&_nc_zt=23&_nc_ht=scontent-mia3-1.cdninstagram.com&_nc_gid=UOC-9JygB-In_J38KYwDBg&_nc_ss=79a8c&oh=00_AQJWdJsvzQ0vk43HPmPp6iZh7AYQF28Z4f_hfp1vKSKJhQ&oe=6AB13C89',
+        ],
+        location: ['Sleman City Hall'],
+        location_details: {
+          pk: '133922430614626',
+          name: 'Sleman City Hall',
+          lat: -7.7210177,
+          lng: 110.3613807,
+          profile_pic_url: null,
+          __typename: 'XDTLocationDict',
+        },
+      },
+    ];
+
+    await processBrightDataResult(pendingJob, records);
+
+    const persistedPosts = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.accountId, testProfileId));
+
+    assert.strictEqual(persistedPosts.length, 1);
+    const post = persistedPosts[0];
+    assert.strictEqual(post.postUrl, 'https://www.instagram.com/p/DdV_eGuk6_Z/');
+    assert.strictEqual(post.locationName, 'Sleman City Hall');
+    assert.strictEqual(post.ownerUsername, 'slemancityhall');
+    assert.deepStrictEqual(post.hashtags, ['slemancityhall', 'pavilionofjogja']);
+    assert.ok(post.imageUrl);
+  });
 });

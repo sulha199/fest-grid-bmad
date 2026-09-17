@@ -137,11 +137,134 @@ test('brightdata-record-mapper tests', async (t) => {
     assert.strictEqual(candidate, null);
 
     const unprocessed = await db.select().from(unprocessedScraperPayloads);
-    
+
     assert.strictEqual(unprocessed.length - countStart, 1);
     const newPayload = unprocessed.find(p => (p.context as any)?.postUrl === 'https://www.instagram.com/p/invalid/');
     assert.ok(newPayload);
     const payloadContext = newPayload.context as any;
     assert.strictEqual(payloadContext.postUrl, 'https://www.instagram.com/p/invalid/');
+  });
+
+  await t.test('extracts locationName from location_details.name when present (FIND-024)', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/DdV_eGuk6_Z/',
+      description: 'A celebration event',
+      date_posted: '2026-09-16T09:43:47.000Z',
+      photos: ['https://example.com/cover.jpg'],
+      location_details: {
+        pk: '133922430614626',
+        name: 'Sleman City Hall',
+        lat: -7.7210177,
+        lng: 110.3613807,
+        profile_pic_url: null,
+        __typename: 'XDTLocationDict',
+      },
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.locationName, 'Sleman City Hall');
+  });
+
+  await t.test('omits locationName when location_details is missing entirely', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/no-location/',
+      description: 'Post with no location',
+      date_posted: '2026-08-08T00:00:00Z',
+      photos: ['https://example.com/img.jpg'],
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.locationName, undefined);
+  });
+
+  await t.test('omits locationName when location_details has no name field (only profile_pic_url)', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/minimal-location/',
+      description: 'Post with minimal location_details',
+      date_posted: '2026-09-17T10:00:00.000Z',
+      photos: ['https://example.com/img.jpg'],
+      location_details: {
+        profile_pic_url: null,
+      },
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.locationName, undefined);
+  });
+
+  await t.test('extracts ownerUsername from user_posted field (FIND-024)', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/DdV_eGuk6_Z/',
+      description: 'A post by someone',
+      date_posted: '2026-09-16T09:43:47.000Z',
+      photos: ['https://example.com/cover.jpg'],
+      user_posted: 'slemancityhall',
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.ownerUsername, 'slemancityhall');
+  });
+
+  await t.test('omits ownerUsername when user_posted is missing', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/no-username/',
+      description: 'Post with no owner',
+      date_posted: '2026-08-08T00:00:00Z',
+      photos: ['https://example.com/img.jpg'],
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.ownerUsername, undefined);
+  });
+
+  await t.test('omits ownerUsername when user_posted is not a string', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/bad-username-type/',
+      description: 'Post with malformed username',
+      date_posted: '2026-08-08T00:00:00Z',
+      photos: ['https://example.com/img.jpg'],
+      user_posted: 12345, // numeric instead of string
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.ownerUsername, undefined);
+  });
+
+  await t.test('includes both locationName and ownerUsername when both present (full record)', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/DdV_eGuk6_Z/',
+      description: 'Celebrating 8th Anniversary Sleman City Hall',
+      date_posted: '2026-09-16T09:43:47.000Z',
+      photos: ['https://example.com/cover.jpg'],
+      hashtags: ['#SlemanCityHall', '#PavilionOfJogja'],
+      location_details: {
+        pk: '133922430614626',
+        name: 'Sleman City Hall',
+        lat: -7.7210177,
+        lng: 110.3613807,
+        profile_pic_url: null,
+        __typename: 'XDTLocationDict',
+      },
+      user_posted: 'slemancityhall',
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.locationName, 'Sleman City Hall');
+    assert.strictEqual(candidate.ownerUsername, 'slemancityhall');
+    assert.deepStrictEqual(candidate.hashtags, ['slemancityhall', 'pavilionofjogja']);
   });
 });
