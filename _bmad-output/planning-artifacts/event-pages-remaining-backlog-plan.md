@@ -156,8 +156,12 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
 
 - [x] Resolve the IDEA-025/026 data-plumbing question (2026-09-17, see AD-22 — shared
       `computeDistanceKm` utility, wired to both surfaces in one story)
-- [x] FIND-026's max_events_per_day product/UX call (2026-09-17, see own note above; per-day
-      pagination mechanism still needs a `bmad-architecture` follow-up before it can be coded)
+- [x] FIND-026's max_events_per_day product/UX call (2026-09-17, see own note above)
+- [x] Per-day pagination architecture follow-up (2026-09-17, Architecture Spine AD-23) — fair
+      per-day windowed fetch + reuse of `Query.events` for the dialog's own pagination. Also
+      surfaced a real, pre-existing bug (BUG-036): the current flat `ORDER BY ... LIMIT 1000`
+      week-level fetch can silently starve a later day in the same week — tracked as its own
+      backlog row, sequenced into the same implementation story as this work.
 - [ ] IDEA-026 story (desktop calendar grid) — plumbing decision now unblocks this
 - [ ] IDEA-025 story (mobile compact-row badges) — after the plumbing decision, or as
       IDEA-026's explicit follow-on if scoped that way

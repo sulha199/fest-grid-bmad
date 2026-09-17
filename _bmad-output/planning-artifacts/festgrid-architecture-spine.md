@@ -903,6 +903,61 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Explicitly deferred, not decided here:** FIND-026 (whether `max_events_per_day`'s cap of 5
     is still right now that popover overflow shows a materially richer card) is a product/UX call,
     not an architecture question — left open per `EXPERIENCE.md`'s own existing flag on this.
+    *(Resolved by a subsequent `bmad-ux` pass — see `EXPERIENCE.md` § "Calendar Overflow: Scalable
+    Cap + Infinite-Scroll Popup" and AD-23 below.)*
+
+---
+
+### AD-23: Calendar Overflow Data-Fetching — Fair Per-Day Windowing + Reused `Query.events`
+
+*   **Binds:** `CalendarView.tsx`'s week-level fetch (`useGetEventsForCalendarQuery`, `limit: 1000`),
+    the `Query.events` resolver's default ordering (`resolvers.ts:3130-3157`, Story 2.7's
+    next-upcoming-date-ASC chain), and the `bmad-ux`-designed Calendar Overflow dialog
+    (`EXPERIENCE.md` § "Calendar Overflow: Scalable Cap + Infinite-Scroll Popup", resolving
+    FIND-026).
+*   **Prevents:**
+    1.  **A latent, pre-existing correctness bug found this session:** the flat `ORDER BY
+        next-upcoming-date ASC LIMIT 1000` week-level fetch can let one early, popular day in the
+        visible week consume most or all of the 1000-row budget, silently starving a later day in
+        the *same* week down to zero or artificially few events — with no signal to the client
+        that truncation happened at all. This is worse than the redesigned capped-day case (which
+        at least shows "+N more"), predates the FIND-026 redesign entirely, and is independent of
+        it.
+    2.  **A second, parallel query surface for the overflow dialog's own pagination** — AD-2's
+        existing mandate ("every event collection is retrieved through the primary event query
+        endpoint") already covers a single day's paginated overflow; it is just another
+        collection, not a new one.
+*   **Rule:**
+    1.  **The week-level fetch's ordering is replaced with a SQL window function partitioned per
+        day** (`ROW_NUMBER() OVER (PARTITION BY event_start_date ORDER BY event_start_time ASC
+        NULLS LAST, id ASC) <= N`), guaranteeing every day in the visible week gets its own fair
+        slice of the fetch budget instead of one global date-ordered cut. `N` is the same
+        real-dimension-derived per-day cap the `bmad-ux` pass already decided (`EXPERIENCE.md`),
+        not a second, independently-chosen number.
+    2.  **Multi-day segments and collapsed day-of-week runs are excluded from this
+        windowed/partitioned set** and fetched unconditionally alongside it — the same exempt-set
+        principle `EXPERIENCE.md` already established for rendering extends to the fetch itself;
+        neither is ever subject to the per-day window's own row-number cutoff.
+    3.  **The overflow dialog's own "load more for this day" pagination reuses `Query.events`
+        unchanged** — no new GraphQL field or query. It is called with a DSL condition narrowed to
+        that one specific date (`scheduleDateRange overlaps {date, date}`) plus `offset`/`limit`
+        picking up where the week-level windowed fetch's per-day `N` left off. **Correctness
+        precondition, caught by this pass's own reviewer gate:** the resolver's existing top-level
+        `ORDER BY` (`resolvers.ts:3130-3157`) only has a stable secondary sort *inside* the
+        subqueries that compute each event's coalesced next-upcoming date — once a DSL condition
+        narrows to one exact date, every matching row's computed date is identical, and nothing at
+        the outer query guarantees a stable tie-break. Offset-based pagination across two separate
+        calls (the windowed week-fetch's first page, then this dialog's own continuation) is only
+        correct if both share the *identical* fully-specified ordering. The windowed fetch (Rule 1)
+        and this reused endpoint must therefore apply the same explicit secondary sort —
+        `event_start_time ASC NULLS LAST, id ASC` — at the resolver's outer `ORDER BY` whenever the
+        active DSL condition resolves to a single exact date, not only inside the date-selecting
+        subquery.
+*   **Sequencing (user-confirmed):** the window-function fairness fix ships in the same story as
+    the overflow dialog's pagination, since both touch the same calendar data-fetch surface —
+    but is tracked as its own backlog `BUG` row too, not folded silently into FIND-026's own item,
+    since it is a real, independently-discovered pre-existing defect, not a byproduct of this
+    redesign.
 
 ---
 
