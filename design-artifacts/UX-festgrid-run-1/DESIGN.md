@@ -43,7 +43,9 @@ components:
     title: "text-3xl font-bold"
     action_label: "hidden sm:inline" # action button's label hides below sm:, icon-only on mobile
   temporal_filter:
-    # Added <bmad-ux pass, 2026-09-17> -- IDEA-019 (Happening now / Upcoming / All, card view only).
+    # Added <bmad-ux pass, 2026-09-17> -- IDEA-019 (Today / Upcoming / All, card view only;
+    # originally "Happening now" / Upcoming / All, renamed+redefined same day, see EXPERIENCE.md
+    # Temporal Filter section's amendment note).
     # New primitive: no existing packages/ui/src/core toggle-group/segmented-control component to
     # reuse (checked core/ui/ -- button, popover, calendar, badge, tabs only). role="radiogroup" of
     # three role="radio" options (single-select, roving tabindex, min-h-11 hit area per

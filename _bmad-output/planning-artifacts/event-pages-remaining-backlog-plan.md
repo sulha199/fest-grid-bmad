@@ -78,11 +78,17 @@ one session:
   this run's `.memlog.md`.
 - **IDEA-019** — happening-now/upcoming/all temporal filter, card view only. FilterHub's row is
   already tight on mobile per its own note — needs a real layout pass, not just a toggle
-  dropped in. **DESIGNED, 2026-09-17** — see EXPERIENCE.md "Temporal Filter: Happening Now /
+  dropped in. **DESIGNED, 2026-09-17** — see EXPERIENCE.md "Temporal Filter: Today /
   Upcoming / All (Card View Only)" and DESIGN.md `components.temporal_filter`.
-  **ARCHITECTURE DONE, 2026-09-17** (Architecture Spine AD-20) — clock-time-precise `EventFilterInput.temporalFilter`
+  **ARCHITECTURE DONE, 2026-09-17** (Architecture Spine AD-20) — `EventFilterInput.temporalFilter`
   enum + new `drizzle-where.ts` DSL extension point, decided; not yet implemented in code (that's
   now a normal `bmad-create-story` task, not an open architecture question).
+  **AMENDED same day, user-directed** — first bucket renamed "Happening Now" → "Today", redefined
+  from `started && !ended` to just `!ended` (a later-today not-yet-started event now qualifies —
+  the point is "what's on today," not "in progress this instant"); "Upcoming" redefined from
+  `!started` to "starts on a genuinely future day," keeping the two a clean non-overlapping
+  partition. Per-card status badge explicitly unchanged. This shrank AD-20's own mechanism —
+  `UPCOMING` now needs zero new backend code at all, only `TODAY`'s `!ended` check remains new.
 - **FIND-025** — EventCard favorite-badge clamp, coupled to an open `DESIGN.md`
   `event_card_date_box.base_default` sizing decision. Not an architecture call — needs whoever
   next runs a `bmad-ux`/`bmad-png-to-html` pass on that surface to resolve both together.

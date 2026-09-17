@@ -761,46 +761,61 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
-### AD-20: Temporal Filter (Happening Now / Upcoming) — Clock-Time-Precise, New DSL Extension Point
+### AD-20: Temporal Filter (Today / Upcoming) — `!ended`-Only DSL Extension Point
 
-*   **Binds:** IDEA-019's card-view temporal filter (`EXPERIENCE.md` § "Temporal Filter: Happening
-    Now / Upcoming / All"), `EventFilterInput` (`apps/backend/src/schema/events.graphql`),
+*   **Amended 2026-09-17 (same day as original), user-directed:** the filter's first bucket was
+    originally "Happening Now" (`started && !ended`, clock-time-strict on both boundaries) and its
+    second was "Upcoming" (`!started`). Renamed/redefined to **Today** (`!ended`, no longer
+    requiring `started` — a later-today event that hasn't started yet now qualifies) and
+    **Upcoming** (`eventStartDate > todayISO`, a genuinely future day — no longer merely
+    "not started yet"), so the two stay a non-overlapping partition. This amendment **shrinks**
+    the new-mechanism surface below (Rules 2–4 originally covered both a start-boundary and an
+    end-boundary clock-time check; only the end-boundary check survives). AD ID and Binds/Prevents
+    below are otherwise unchanged from the original pass; only the Rule is amended.
+*   **Binds:** IDEA-019's card-view temporal filter (`EXPERIENCE.md` § "Temporal Filter: Today /
+    Upcoming / All"), `EventFilterInput` (`apps/backend/src/schema/events.graphql`),
     `buildEventsQueryCondition.ts` (client-invoked per `home-content.tsx:178-183`), and
     `packages/graphql-select/drizzle-where.ts`'s field/operator dispatch.
-*   **Prevents:** Implementing this filter as a date-only condition on the existing AD-1
+*   **Prevents:** Implementing **Today** as a date-only condition on the existing AD-1
     `scheduleDateRange.overlaps` mechanism — verified that mechanism only compares Postgres `date`
     columns (`schedules.eventStartDate`/`eventEndDate`), with no time-of-day component at all,
-    which would make an event starting later today (badge: "In N hours", per `formatEventStatus`)
-    incorrectly match a date-only "Happening now" filter, visibly contradicting that same card's
-    own badge. Also prevents this filter becoming a second, independent reimplementation of
-    started/ended semantics that could silently diverge from `formatEventStatus`'s (the badge's)
-    existing JS definition on an edge case — missing `startTime`/`endTime`, `endDate` defaulting to
-    `startDate`.
+    which would incorrectly include an event that already fully finished earlier today (badge:
+    "Ended"), visibly contradicting that same card's own badge. Also prevents this filter becoming
+    a second, independent reimplementation of `ended` semantics that could silently diverge from
+    `formatEventStatus`'s (the badge's) existing JS definition on an edge case — missing
+    `endTime`, `endDate` defaulting to `startDate`. Also prevents over-building **Upcoming**: since
+    it no longer needs any clock-time precision (a pure date comparison), it must **not** get its
+    own new SQL mechanism — see Rule 3.
 *   **Rule:**
-    1.  **New `EventFilterInput.temporalFilter: TemporalFilter` enum** (`HAPPENING_NOW` |
-        `UPCOMING`), absent/null = "All" — matching every other optional `FilterHub` facet's
-        convention of "absent means unrestricted."
-    2.  **`buildEventsQueryCondition.ts` translates it into a new DSL condition whose value is a
-        client-resolved literal ISO instant** (`now.toISOString()`) — **not** a live SQL `NOW()` —
-        consistent with every other date/time value in this DSL already being resolved once
-        client-side before the query is sent. `buildDefaultEventVisibilityConditions` (Story 2.7)
-        already establishes the identical resolve-once-in-JS-then-embed-as-literal pattern,
-        server-side instead of client-side, for the past-events threshold.
-    3.  **`drizzle-where.ts` gains a new field/operator case,** extending the same
-        fieldMap-descriptor-to-`EXISTS`-subquery pattern `scheduleDateRange.overlaps` already uses,
-        whose descriptor combines `eventStartDate`+`eventStartTime` (and the end-date/time
-        equivalents) into a comparable timestamp expression inside an `EXISTS` subquery against
-        `schedules`, compared against the literal instant from Rule 2.
-    4.  **The started/ended boundary-case handling in this new SQL expression must exactly mirror
+    1.  **`EventFilterInput.temporalFilter: TemporalFilter` enum is `TODAY` | `UPCOMING`**
+        (renamed from `HAPPENING_NOW`), absent/null = "All" — matching every other optional
+        `FilterHub` facet's convention of "absent means unrestricted."
+    2.  **`TODAY` needs one new SQL capability: an `!ended` check.** `buildEventsQueryCondition.ts`
+        translates it into an `and` of (a) the **existing, unmodified** `scheduleDateRange.overlaps
+        {from: todayISO, to: todayISO}` condition (AD-1, already handles "today falls in this
+        schedule's date range" — no new code) and (b) one new `drizzle-where.ts` field/operator
+        case testing `!ended`, extending the same fieldMap-descriptor-to-`EXISTS`-subquery pattern
+        `scheduleDateRange.overlaps` already uses. Its descriptor combines `eventEndDate ??
+        eventStartDate` with `eventEndTime` into a comparable end-timestamp expression, compared
+        against a **client-resolved literal ISO instant** (`now.toISOString()`) — **not** a live
+        SQL `NOW()` — consistent with every other date/time value in this DSL already being
+        resolved once client-side before the query is sent (mirrors `buildDefaultEventVisibility
+        Conditions`' identical resolve-once-in-JS-then-embed-as-literal pattern, server-side
+        instead of client-side, for Story 2.7's past-events threshold).
+    3.  **`UPCOMING` needs no new SQL mechanism at all.** `eventStartDate > todayISO` is fully
+        expressible via the **existing, unmodified** `scheduleDateRange.overlaps {from:
+        tomorrowISO, to: null}` (the `to: null` open-ended-upper-bound capability Story 2.7 already
+        added) — `buildEventsQueryCondition.ts` translates `UPCOMING` straight into this DSL
+        condition, no `drizzle-where.ts` change, no clock-time instant needed.
+    4.  **The `ended` boundary-case handling in the new SQL expression (Rule 2) must exactly mirror
         `formatEventStatus`'s existing documented rules** (`format-event-date.ts`) — since JS and
         SQL can't literally share code across this boundary, this is enforced via a single shared
-        boundary-case fixture (e.g. `packages/domain/src/events/__fixtures__/started-ended-cases.ts`
-        — exact date/time/now inputs and their expected started/ended outcome, covering the
-        documented edge cases: missing `startTime`, missing `endTime`, `endDate` absent/falling
-        back to `startDate`) that **both** `formatEventStatus`'s unit tests and the new SQL
-        condition's integration tests import and assert against — not two independently-written
-        "matching" test suites, which two engineers working from the same prose description could
-        still drift on without ever comparing notes.
+        boundary-case fixture (e.g. `packages/domain/src/events/__fixtures__/ended-cases.ts` —
+        exact date/time/now inputs and their expected `ended` outcome, covering missing `endTime`
+        and `endDate` absent/falling back to `startDate`) that **both** `formatEventStatus`'s unit
+        tests and the new SQL condition's integration tests import and assert against — narrower
+        than the original pass's fixture scope, since `started` is no longer part of either
+        bucket's SQL condition at all.
 *   **Deferred, not decided here:** whether this new condition needs its own DB index. The
     existing `schedule_event_date_idx` is a hand-tuned expression index that already needed a
     manual migration edit (`drizzle-kit` cannot generate it — `packages/database/schema.ts`'s own
