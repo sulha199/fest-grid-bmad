@@ -7,14 +7,30 @@
  *
  * Usage:
  *   tsx src/run-check.ts --kind test|build|lint [--cwd C:/projects/portfolio/festgrid/bmad] \
- *       [--command "pnpm build"] [--timeout-ms 1200000] [--heartbeat-ms 30000] \
- *       [--log-file <path to save the full raw output>]
+ *       [--filter @festgrid/ui] [--command "pnpm build"] [--timeout-ms 1200000] \
+ *       [--heartbeat-ms 30000] [--log-file <path to save the full raw output>]
  *
  * --cwd defaults to the repo root (derived from this file's location). If
- * --command is omitted, defaults to "pnpm <kind>". Prints the summary to
- * stdout and exits 0 if the check passed, 1 if it failed or timed out. The
- * full raw output is always available via --log-file if the summary needs
- * cross-checking against the real log.
+ * neither --filter nor --command is given, defaults to "pnpm <kind>" (the
+ * full monorepo run). --filter scopes to one or more packages via turbo's
+ * own filter syntax (a bare package name like "@festgrid/ui", a path like
+ * "./apps/web", or turbo's "...@festgrid/ui" dependents-inclusive form) --
+ * routed through `pnpm exec turbo run <kind> --filter=<expr>` rather than
+ * `pnpm --filter <pkg> <kind>`, specifically so the output keeps turbo's own
+ * per-task line prefix and summary line that this script's summarizers
+ * parse against; a raw pnpm-filtered run would bypass turbo entirely and
+ * produce output neither summarizer recognizes. --command is a full
+ * override for anything --filter doesn't cover -- pass one or the other,
+ * not both. Prints the summary to stdout and exits 0 if the check passed, 1
+ * if it failed or timed out. The full raw output is always available via
+ * --log-file if the summary needs cross-checking against the real log.
+ *
+ * Scoping guidance: --filter is for `test` during iterative per-task work
+ * where the change is genuinely confined to one package -- lint and build
+ * should stay unfiltered (full monorepo) per this project's own rule that
+ * a change in one package can break another's build/lint, and the final
+ * pre-review check of all three should always be a full, unfiltered run
+ * regardless of how per-task checks were scoped.
  */
 
 import { spawn, execFile } from "node:child_process";
@@ -91,12 +107,28 @@ function parseArgs(argv: string[]): Args {
   };
   const kind = get("--kind");
   if (kind !== "test" && kind !== "build" && kind !== "lint") {
-    throw new Error(`Required: --kind test|build|lint [--cwd <repo-root>] [--command "pnpm <kind>"] [--timeout-ms N] [--heartbeat-ms N] [--log-file <path>]`);
+    throw new Error(
+      `Required: --kind test|build|lint [--cwd <repo-root>] [--filter <turbo-filter-expr>] [--command "pnpm <kind>"] [--timeout-ms N] [--heartbeat-ms N] [--log-file <path>]`
+    );
+  }
+  const filter = get("--filter");
+  const command = get("--command");
+  if (filter && command) {
+    throw new Error("Pass either --filter or --command, not both -- --command is a full override and would make --filter a no-op.");
   }
   return {
     kind,
     cwd: get("--cwd") ?? DEFAULT_REPO_ROOT,
-    command: get("--command") ?? `pnpm ${kind}`,
+    // --filter routes through `pnpm exec turbo run <kind> --filter=<expr>` rather than
+    // `pnpm --filter <pkg> <kind>` (which would call the package's own script
+    // directly) specifically so the output keeps turbo's "<pkg>:<kind>: " line
+    // prefix and "Tasks: X successful, Y total" summary line -- both
+    // test-output-summary.ts and build-lint-output-summary.ts parse against
+    // that exact shape, and a non-turbo run would silently produce zero
+    // matches (overallPass: undefined, no failures found, not "all passed").
+    // This also preserves turbo's own dependsOn graph (test depends on ^build),
+    // which a raw `pnpm --filter <pkg> test` would skip.
+    command: command ?? (filter ? `pnpm exec turbo run ${kind} --filter=${filter}` : `pnpm ${kind}`),
     timeoutMs: Number(get("--timeout-ms") ?? 20 * 60 * 1000), // 20 min default -- a full monorepo run is a genuinely long task
     heartbeatMs: Number(get("--heartbeat-ms") ?? 30 * 1000),
     logFile: get("--log-file"),
