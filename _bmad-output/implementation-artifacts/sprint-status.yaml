@@ -404,6 +404,35 @@ development_status:
   # window-fetch fix and the overflow dialog ship together). Full section in
   # epics.md; not yet drafted via its own bmad-create-story pass.
   1-i1h-shared-calendar-overflow-dialog-and-fair-per-day-fetching: backlog
+  # added 2026-09-17 via bmad-create-story (Gate 2 split off 1-i1j while drafting
+  # IDEA-025) -- status/nearby badge markup was about to become a third inline
+  # duplicate (EventCard.tsx masonry, Story 1.i1f's undrafted EventCardCalendarGridItem,
+  # 1-i1j's compact row), the same drift pattern (BUG-023/FIND-023) that forced this
+  # epic's own EventCardMediaPrimitives extraction. Full section in epics.md
+  # (backlog.yaml IDEA-041, child of IDEA-025); not yet drafted via its own
+  # bmad-create-story pass. 1-i1j depends on this story.
+  1-i1i-build-the-shared-event-card-status-and-nearby-badge-primitive: backlog
+  # added 2026-09-17 via bmad-create-story, sourced from backlog.yaml's IDEA-025
+  # (parent IDEA-016; direct follow-on to Story 1.i1f, promoted the same session).
+  # Gates 1/3 cited from epic-1-i1-readiness.md's sweep (no gap -- pure packages/ui
+  # presentational wiring, no resolver/query/mutation touched). Gate 2 run fresh:
+  # split off the shared badge primitive (-> 1-i1i, above, this story now depends on
+  # it) and an adjacent, previously-orphaned EventCardDateBox two-tier-chrome gap
+  # DESIGN.md flags twice as needing its own follow-up story (-> 1-i1k, below,
+  # independent, not a dependency). Also depends on 1-i1f for distanceKm. NEITHER
+  # 1-i1f NOR 1-i1i is implemented yet as of this story's creation -- see its own
+  # Pre-Coding Approval Gate blocking checklist item. Full record in this story's
+  # own Dev Notes.
+  1-i1j-add-status-and-nearby-badges-to-weeklycalendarviews-compact-row: ready-for-dev
+  # added 2026-09-17 via bmad-create-story (Gate 2 split off 1-i1j while drafting
+  # IDEA-025) -- DESIGN.md's 2026-09-14 pass documents this EventCardDateBox
+  # shape gap twice (event_card_date_box.base_default and event_card_compact.date_box
+  # comments, calling it "the same follow-up story"), owned nowhere in epics.md/
+  # backlog.yaml before now. Independent of 1-i1j (a shared-primitive shape fix, not
+  # a local detail of the compact row's badge content). Full section in epics.md
+  # (backlog.yaml IDEA-042, child of IDEA-025); not yet drafted via its own
+  # bmad-create-story pass.
+  1-i1k-give-eventcarddatebox-the-design-specified-two-tier-chrome: backlog
   # (dev-story 1.i1z: ready-for-dev -> review. Implemented — audit + traceability only per user-resolved
   # Design Decisions 1 & 2. AC 1-3 re-confirmed already-enforced by existing tests; AC 4 delivered as
   # AD-15 Rules 1/2 "Enforced by" citations + narrowed-scope sentence; AC 5 delivered as 5 ratchet-marking
