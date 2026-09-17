@@ -30,6 +30,7 @@ export async function processBrightDataResult(
         locationName: candidate.locationName || null,
         ownerDisplayName: candidate.ownerDisplayName || null,
         ownerUsername: candidate.ownerUsername || null,
+        hashtags: candidate.hashtags || null,
       });
     } catch (error) {
       console.error(`Failed to persist post from Bright Data: ${candidate.postUrl}`, error);

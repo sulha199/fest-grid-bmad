@@ -238,6 +238,47 @@ test('process-brightdata-result tests', async (t) => {
     assert.strictEqual(job.status, 'COMPLETED');
   });
 
+  await t.test('persists hashtags end-to-end, stripping # and lowercasing (BUG-032/FIND-024)', async () => {
+    const snapshotId = 'snapshot-hashtags-' + Date.now();
+    const { id, webhookToken } = await createPendingJob({
+      profileId: testProfileId,
+      snapshotId,
+      webhookToken: randomBytes(24).toString('hex'),
+    });
+
+    const pendingJob: BrightdataPendingJob = {
+      id,
+      profileId: testProfileId,
+      snapshotId,
+      webhookToken,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 3600000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const records = [
+      {
+        url: 'https://www.instagram.com/reel/DdS4MJ50EBV/',
+        description: 'A big thank you to Santari, our Official Sponsor of FRCC Week 2026!',
+        date_posted: '2026-09-15T04:44:18.000Z',
+        photos: ['https://example.com/cover.jpg'],
+        hashtags: ['#FRCC2026', '#Santari'],
+      },
+    ];
+
+    await processBrightDataResult(pendingJob, records);
+
+    const persistedPosts = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.accountId, testProfileId));
+
+    const post = persistedPosts.find(p => p.postUrl === 'https://www.instagram.com/reel/DdS4MJ50EBV/');
+    assert.ok(post);
+    assert.deepStrictEqual(post.hashtags, ['frcc2026', 'santari']);
+  });
+
   await t.test('malformed video array element still persists the post (with null videoUrl)', async () => {
     const snapshotId = 'snapshot-malformed-video-' + Date.now();
     const { id, webhookToken } = await createPendingJob({

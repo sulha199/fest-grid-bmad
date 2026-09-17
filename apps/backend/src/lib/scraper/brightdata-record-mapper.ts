@@ -30,6 +30,7 @@ export async function mapBrightDataRecordToScrapedPost(
   const datePosted = brightDataRecord.date_posted;
   const videos = brightDataRecord.videos as unknown[] | null | undefined;
   const videoUrl = Array.isArray(videos) && videos.length > 0 && typeof videos[0] === 'string' ? videos[0] : undefined;
+  const hashtags = brightDataRecord.hashtags as unknown[] | null | undefined;
 
   if (datePosted !== undefined && datePosted !== null && typeof datePosted !== 'string') {
     console.warn('Bright Data record date_posted is not a string, skipping');
@@ -67,6 +68,15 @@ export async function mapBrightDataRecordToScrapedPost(
     // Only include optional fields if they have values
     ...(imageUrl && { imageUrl }),
     ...(videoUrl && { videoUrl }),
+    // BUG-032/FIND-024 fix: Bright Data's raw record includes hashtags WITH a leading '#'
+    // (confirmed against a real record, 2026-09-17 -- e.g. "#frcc2026"), unlike Apify's
+    // already-bare tags -- strip it here so both scrape paths store the identical bare-tag
+    // convention the keyword-search handler already assumes (buildEventsQueryCondition.ts
+    // strips a user-typed leading '#' before matching against this column). Lowercased for
+    // the same case-insensitive exact-match reason as the Apify mapper (instagram-adapter.ts).
+    ...(Array.isArray(hashtags) && hashtags.length > 0 && {
+      hashtags: hashtags.map((tag) => String(tag).replace(/^#/, '').toLowerCase()),
+    }),
     // Always set: postUrl is guaranteed non-empty by the earlier guard above
     originalPostUrl: postUrl,
   };

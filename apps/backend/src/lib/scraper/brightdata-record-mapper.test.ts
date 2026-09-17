@@ -55,6 +55,34 @@ test('brightdata-record-mapper tests', async (t) => {
     assert.strictEqual(unprocessed.length - countStart, 0);
   });
 
+  await t.test('extracts hashtags, stripping leading # and lowercasing (BUG-032/FIND-024)', async () => {
+    const record = {
+      url: 'https://www.instagram.com/reel/DdS4MJ50EBV/',
+      description: 'A big thank you to Santari, our Official Sponsor of FRCC Week 2026!',
+      date_posted: '2026-09-15T04:44:18.000Z',
+      photos: ['https://example.com/cover.jpg'],
+      hashtags: ['#FRCC2026', '#SANTARI'],
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.deepStrictEqual(candidate.hashtags, ['frcc2026', 'santari']);
+  });
+
+  await t.test('omits hashtags field entirely when the raw record has none', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/no-hashtags/',
+      description: 'No hashtags here',
+      date_posted: '2026-08-08T00:00:00Z',
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.hashtags, undefined);
+  });
+
   await t.test('returns null and persists unprocessed payload for bad date_posted type', async () => {
     const record = {
       url: 'https://www.instagram.com/p/bad-date/',

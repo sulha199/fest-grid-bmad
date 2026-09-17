@@ -80,20 +80,29 @@ one session:
   backlog.yaml's BUG-018/BUG-031 notes (2026-09-17) for the full record.
 - **BUG-032 + FIND-024** — BUG-032's own note says to confirm whether it's FIND-024's Bright
   Data gap or a separate Apify-path issue before scoping. Spike first (small — root cause is
-  probably a one-line mapper fix once confirmed), then `bmad-quick-dev`. **Not touched by this
-  session** — explicitly out of scope for the dispatch above.
+  probably a one-line mapper fix once confirmed), then `bmad-quick-dev`.
+  **DIAGNOSED & FIXED, 2026-09-17** (two spawned child sessions — diagnosis-only, then fix once
+  the user supplied confirming evidence). Confirmed: Apify path works correctly end-to-end;
+  Bright Data path is the sole broken one (two-layer gap — mapper never extracted `hashtags`,
+  call site never forwarded it), so BUG-032 is a duplicate confirmation of FIND-024, not a
+  separate Apify issue. Schema question resolved by a real user-supplied Bright Data record
+  confirming `hashtags` exists but with a leading `#` (unlike Apify's bare tags) — fix strips it
+  before storing, so both scrape paths share the same bare-tag convention the keyword-search
+  handler already assumes. Fixed in `brightdata-record-mapper.ts` + `process-brightdata-result.ts`,
+  with regression tests (14/14 passing, lint/build green). `locationName`/`ownerDisplayName`/
+  `ownerUsername` (FIND-024's other two flagged gaps) intentionally left untouched — no
+  user-supplied evidence yet confirms Bright Data's schema includes those. See backlog.yaml's
+  BUG-032/FIND-024 notes and `backlog/BUG-032-hashtags-not-persisted-into-post-table.md` for the
+  full record.
 
 - [x] BUG-018/BUG-031 diagnosis spike run, root cause confirmed (2026-09-17, see own note above —
       BUG-031's own real root cause; BUG-018's original 0.i5b fix separately left unverified)
 - [x] BUG-018/BUG-031 fix applied (2026-09-17, `min-h-16` sentinel + end-of-list indicator) —
       not yet re-verified against BUG-018's own exact original repro steps
-- [ ] BUG-032/FIND-024 root-cause check run
-- [ ] BUG-032/FIND-024 quick-dev
-
-- [x] BUG-018/BUG-031 diagnosis spike run, root cause confirmed (2026-09-17)
-- [x] BUG-018/BUG-031 story/quick-dev (2026-09-17, bmad-quick-dev, fixes applied)
-- [ ] BUG-032/FIND-024 root-cause check run
-- [ ] BUG-032/FIND-024 quick-dev
+- [x] BUG-032/FIND-024 root-cause check run (2026-09-17, see own note above — Bright Data only,
+      Apify confirmed working end-to-end)
+- [x] BUG-032/FIND-024 quick-dev (2026-09-17, hashtags fixed; `locationName`/`ownerDisplayName`/
+      `ownerUsername` intentionally left open, no confirming evidence yet)
 
 ## Cluster C — Needs `bmad-ux` first
 
