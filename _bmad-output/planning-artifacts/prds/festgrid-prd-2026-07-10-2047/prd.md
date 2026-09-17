@@ -26,6 +26,8 @@ This document outlines the product requirements for FestDaily, a platform design
 
 ## 3. Features
 
+**Core Discovery & Personal Lists**
+
 ### 3.1 Event Discovery
 
 *   **Curated Listings:** Display a curated selection of local events.
@@ -64,6 +66,8 @@ This document outlines the product requirements for FestDaily, a platform design
 
 *   **3.5.1. Visual Distinction:** "Favorited" and "Added to Calendar" events will have a distinct visual treatment on the calendar.
 *   **3.5.2. View Toggles:** The calendar will have toggles to show/hide all "favorited" events and all "added" events.
+
+**Social Media Ingestion & Subscription**
 
 ### 3.7 Social Media Account Subscription
 
@@ -191,6 +195,8 @@ To provide users with greater control over their API quota usage and improve the
 *   **Menu Access:**
     *   Users can also access this feature via an "Extract event from post(s)" item in the user menu. If the user has not yet provided an API key or subscribed to any accounts, they will be guided through the necessary steps of the wizard first.
 
+**Onboarding & Global UX Patterns**
+
 ### 3.11 Getting Started and Onboarding
 
 FestDaily will be accessible as a web application from any browser. Users can sign up for free to immediately begin exploring events. For enhanced features, such as subscribing to social media accounts for event extraction, users have the option to integrate their own Isolated Bring Your Own Key (BYOK) Gemini API key. Users are responsible for the validity and quota management of their BYOK Gemini API keys. We will provide clear, step-by-step guides and direct links to assist users with the setup process, ensuring they can unlock FestDaily's full potential if they choose.
@@ -208,6 +214,8 @@ To ensure a high-quality, app-like experience, the following global UI patterns 
     *   This navigation operates within the exact context of the list the user originated from, respecting active search queries, filters, and sort orders.
     *   If a user clicks "Next" and reaches the end of the currently fetched page of data, the system will automatically fetch the next page of results in the background, ensuring uninterrupted navigation.
     *   *Exception:* This context-aware navigation is not required if the detail view is accessed via a direct deep-link URL (i.e., without prior list context).
+
+**Growth & Distribution**
 
 ### 3.13 Vote for Social Media Accounts
 
@@ -237,6 +245,8 @@ FestDaily's event discovery can be embedded as a public, unauthenticated iframe 
 
 > **Deferred to implementation:** whether domain *ownership* verification (proving the registrant actually controls a given domain, e.g. via DNS TXT record) is required in addition to the Public Suffix List check above — the PSL check prevents the shared-hosting whitelisting failure mode, but does not by itself confirm the registrant owns the specific domain they typed.
 
+**AI-Powered Filtering**
+
 ### 3.15 AI Prompt-Based Custom Event Filter
 
 As a faster alternative to operating FilterHub's manual controls (Section 3.1), a user can describe what they're looking for in a free-text prompt — e.g. "free jazz events in Kota Yogyakarta next week" — and immediately see matching Discovery results, serving the Engagement goal (Section 2) by lowering the effort to reach a precise result. This is an on-demand, single-shot capability: each prompt is extracted and applied independently, with no conversation memory, no follow-up refinement turn, and no chat interface. A recurring digest evaluated against a saved filter is deferred to Post-MVP (Section 8.4).
@@ -253,6 +263,8 @@ As a faster alternative to operating FilterHub's manual controls (Section 3.1), 
 > **Considered and rejected:** a general-purpose, open-dialogue chatbot — this would let a user's own BYOK Gemini API key (Section 3.11) be used as a free chat proxy through the app, an abuse vector the constrained, structured-output-only extraction task above avoids. Also rejected: a dedicated "AI mode" toggle that hides FilterHub entirely — the icon-only trigger above was chosen instead so manual and AI-driven filtering coexist without an app-wide mode switch.
 
 > **Deferred to implementation:** whether a future revision of the closed date grammar (Section 4.18) should add compound-day support (e.g. a `WEEKEND` anchor, or a set-valued day-of-week) so phrasing like "this weekend" resolves to a real filter instead of a caveat — not addressed in this pass since the grammar was deliberately locked closed during discovery.
+
+**Data Governance & Trust**
 
 ### 3.16 Scraping & Display Data Minimization
 
@@ -280,6 +292,10 @@ Today, `SocialMediaAccountProfile.isImageStorageOptedIn` (Section 4.5) can only 
 ## 4. Event Data Schema
 
 This section defines the data structure for events extracted and managed by FestDaily.
+
+*Interfaces below are grouped by domain rather than listed in original numeric/authoring order; each keeps its original number (e.g. `4.7`) so every existing "Section 4.N" reference elsewhere in this document stays valid. See `PRD-OUTLINE.md` for the full grouped map with one-line purposes.*
+
+**Core Event Data**
 
 ### 4.1. EventInfo Interface
 
@@ -421,6 +437,7 @@ interface EventInfo {
 }
 ```
 
+
 ### 4.2. Coordinates Interface
 
 ```typescript
@@ -432,6 +449,7 @@ interface Coordinates {
   longitude: number;
 }
 ```
+
 
 ### 4.3. LocationDetails Interface
 
@@ -490,6 +508,7 @@ interface LocationDetails {
   venueType?: string;
 }
 ```
+
 
 ### 4.4. Schedule Interface
 
@@ -574,6 +593,9 @@ interface Schedule {
    eventId: string;
   }
   ```
+
+
+**Social Media & Content Source**
 
 ### 4.5. SocialMediaAccountProfile Interface
 
@@ -669,41 +691,6 @@ interface SocialMediaAccountProfile {
 }
 ```
 
-### 4.6. UserLocationPreference Interface
-
-```typescript
-/**
- * Represents a user's saved location preference.
- */
-interface UserLocationPreference {
-  /**
-   * A unique identifier for the location preference, generated automatically as a UUID by the PostgreSQL database.
-   */
-  id: string;
-  /**
-   * The ID of the user who owns this preference.
-   */
-  userId: string;
-  /**
-   * A human-readable name for the location (e.g., "Home", "Work").
-   */
-  name: string;
-  /**
-   * The geographical coordinates of the location.
-   */
-  coordinates: Coordinates;
-  /**
-   * The search radius, Stored in meters for processing, displayed in kilometers (e.g., between 1 and 50).
-   */
-   radius: number; // 
-  /**
-   * Timestamp of a soft-delete (AD-8). Deleting sets this instead of removing the
-   * row, so the Soft Delete with Undo pattern (EXPERIENCE.md) can reverse an
-   * already-committed delete within its undo window.
-   */
-  deletedAt?: string;
-}
-```
 
 ### 4.7. Post Interface
 
@@ -776,6 +763,46 @@ interface Post {
 }
 ```
 
+
+**User & Personalization**
+
+### 4.6. UserLocationPreference Interface
+
+```typescript
+/**
+ * Represents a user's saved location preference.
+ */
+interface UserLocationPreference {
+  /**
+   * A unique identifier for the location preference, generated automatically as a UUID by the PostgreSQL database.
+   */
+  id: string;
+  /**
+   * The ID of the user who owns this preference.
+   */
+  userId: string;
+  /**
+   * A human-readable name for the location (e.g., "Home", "Work").
+   */
+  name: string;
+  /**
+   * The geographical coordinates of the location.
+   */
+  coordinates: Coordinates;
+  /**
+   * The search radius, Stored in meters for processing, displayed in kilometers (e.g., between 1 and 50).
+   */
+   radius: number; // 
+  /**
+   * Timestamp of a soft-delete (AD-8). Deleting sets this instead of removing the
+   * row, so the Soft Delete with Undo pattern (EXPERIENCE.md) can reverse an
+   * already-committed delete within its undo window.
+   */
+  deletedAt?: string;
+}
+```
+
+
 ### 4.8. User Interface
 
 ```typescript
@@ -812,6 +839,7 @@ interface User {
 }
 ```
 
+
 ### 4.9. Subscription Interface
 
 ```typescript
@@ -838,6 +866,7 @@ interface Subscription {
 }
 ```
 
+
 ### 4.10. Favorite Interface
 
 ```typescript
@@ -863,6 +892,7 @@ interface Favorite {
   deletedAt?: string;
 }
 ```
+
 
 ### 4.11. CalendarEntry Interface
 
@@ -896,6 +926,9 @@ interface CalendarEntry {
   deletedAt?: string;
 }
 ```
+
+
+**Moderation & Corrections**
 
 ### 4.12. Report Interface
 
@@ -937,47 +970,6 @@ interface Report {
 }
 ```
 
-### 4.13. ApiKey Interface
-
-```typescript
-enum ApiKeyStatus {
-  VALID,
-  INVALID,
-}
-
-/**
- * Represents a user-contributed BYOK API key (Section 3.7, 3.11). `encryptedKey`
- * is KMS ciphertext only — decrypted in memory at call time, never logged or
- * stored in plaintext (see Section 5, Security).
- */
-interface ApiKey {
-  id: string;
-  /**
-   * The ID of the owning `User` (Section 4.8).
-   */
-  userId: string;
-  /**
-   * The external AI service this key belongs to (e.g. "gemini"). A string rather
-   * than an enum so the Adapter pattern (Section 5) can add providers without a
-   * schema migration.
-   */
-  provider: string;
-  encryptedKey: string;
-  status: ApiKeyStatus;
-  /**
-   * Consecutive invalid-key attempts. Reset to 0 on successful extraction;
-   * triggers a notification at the configurable threshold `N` (default 5, Section 3.7).
-   */
-  consecutiveInvalidAttempts: number;
-  /**
-   * Internal usage count for the current billing cycle, feeding the Tier 2
-   * round-robin fairness algorithm (Section 3.7).
-   */
-  usageCountCurrentCycle: number;
-  billingCycleResetAt: string;
-  createdAt: string;
-}
-```
 
 ### 4.14. DefaultLocationChangeRequest Interface
 
@@ -1051,6 +1043,52 @@ interface DefaultLocationChangeRequest {
 }
 ```
 
+
+**Access & Growth**
+
+### 4.13. ApiKey Interface
+
+```typescript
+enum ApiKeyStatus {
+  VALID,
+  INVALID,
+}
+
+/**
+ * Represents a user-contributed BYOK API key (Section 3.7, 3.11). `encryptedKey`
+ * is KMS ciphertext only — decrypted in memory at call time, never logged or
+ * stored in plaintext (see Section 5, Security).
+ */
+interface ApiKey {
+  id: string;
+  /**
+   * The ID of the owning `User` (Section 4.8).
+   */
+  userId: string;
+  /**
+   * The external AI service this key belongs to (e.g. "gemini"). A string rather
+   * than an enum so the Adapter pattern (Section 5) can add providers without a
+   * schema migration.
+   */
+  provider: string;
+  encryptedKey: string;
+  status: ApiKeyStatus;
+  /**
+   * Consecutive invalid-key attempts. Reset to 0 on successful extraction;
+   * triggers a notification at the configurable threshold `N` (default 5, Section 3.7).
+   */
+  consecutiveInvalidAttempts: number;
+  /**
+   * Internal usage count for the current billing cycle, feeding the Tier 2
+   * round-robin fairness algorithm (Section 3.7).
+   */
+  usageCountCurrentCycle: number;
+  billingCycleResetAt: string;
+  createdAt: string;
+}
+```
+
+
 ### 4.15. AccountVote Interface
 
 ```typescript
@@ -1080,6 +1118,61 @@ interface AccountVote {
   deletedAt?: string;
 }
 ```
+
+
+### 4.20. AccountClaim Interface (added 2026-09-11, Section 3.17)
+
+```typescript
+enum AccountClaimStatus {
+  PENDING_VERIFICATION, // verificationCode issued, not yet confirmed present in the account's bio
+  VERIFIED,             // code confirmed; claimingUserId is now this account's verified owner
+  EXPIRED,              // codeExpiresAt elapsed before the code was confirmed -- an abandoned claim
+  REJECTED,             // a moderator determined the claimant does not own the account, before verification
+  REVOKED,              // a previously VERIFIED claim was later overturned by a moderator (a contested claim)
+}
+
+/**
+ * Records one user's attempt to verify ownership of a `SocialMediaAccountProfile`
+ * (Section 4.5) via the bio-code challenge described in Section 3.17. At most one
+ * `VERIFIED` AccountClaim exists per `accountId` at a time -- a newly `VERIFIED`
+ * claim for an already-claimed account first requires the prior claim to be
+ * `REVOKED` via moderator review (Section 3.17, Contested Claims).
+ */
+interface AccountClaim {
+  id: string;
+  /**
+   * The ID of the claimed `SocialMediaAccountProfile` (Section 4.5).
+   */
+  accountId: string;
+  /**
+   * The ID of the `User` (Section 4.8) attempting or holding the claim.
+   */
+  claimingUserId: string;
+  /**
+   * System-generated, unique per attempt. The claimant adds this to the
+   * account's public bio/description on the platform for verification.
+   */
+  verificationCode: string;
+  status: AccountClaimStatus;
+  /**
+   * End of the `PENDING_VERIFICATION` window, `CLAIM_VERIFICATION_WINDOW_HOURS`
+   * (default 24, Section 3.7 Note) after `createdAt`. Reaching this while still
+   * `PENDING_VERIFICATION` moves the claim to `EXPIRED`.
+   */
+  codeExpiresAt: string;
+  verifiedAt?: string;
+  /**
+   * The ID of the moderator `User` (role = MODERATOR) who resolved a
+   * `REJECTED` or `REVOKED` claim, if any (Section 3.17, Contested Claims).
+   */
+  resolvedByModeratorId?: string;
+  resolvedAt?: string;
+  createdAt: string;
+}
+```
+
+
+**Distribution & Filtering**
 
 ### 4.16. Widget Interface
 
@@ -1127,6 +1220,7 @@ interface Widget {
 }
 ```
 
+
 ### 4.17. EmbedDomain Interface
 
 ```typescript
@@ -1163,6 +1257,7 @@ interface EmbedDomain {
   deletedAt?: string;
 }
 ```
+
 
 ### 4.18. EventFilterInput Interface
 
@@ -1239,6 +1334,7 @@ interface EventFilterInput {
 }
 ```
 
+
 ### 4.19. AIEventFilter Interface
 
 ```typescript
@@ -1277,57 +1373,6 @@ interface AIEventFilter {
    * Timestamp of a soft-delete (AD-8).
    */
   deletedAt?: string;
-}
-```
-
-### 4.20. AccountClaim Interface (added 2026-09-11, Section 3.17)
-
-```typescript
-enum AccountClaimStatus {
-  PENDING_VERIFICATION, // verificationCode issued, not yet confirmed present in the account's bio
-  VERIFIED,             // code confirmed; claimingUserId is now this account's verified owner
-  EXPIRED,              // codeExpiresAt elapsed before the code was confirmed -- an abandoned claim
-  REJECTED,             // a moderator determined the claimant does not own the account, before verification
-  REVOKED,              // a previously VERIFIED claim was later overturned by a moderator (a contested claim)
-}
-
-/**
- * Records one user's attempt to verify ownership of a `SocialMediaAccountProfile`
- * (Section 4.5) via the bio-code challenge described in Section 3.17. At most one
- * `VERIFIED` AccountClaim exists per `accountId` at a time -- a newly `VERIFIED`
- * claim for an already-claimed account first requires the prior claim to be
- * `REVOKED` via moderator review (Section 3.17, Contested Claims).
- */
-interface AccountClaim {
-  id: string;
-  /**
-   * The ID of the claimed `SocialMediaAccountProfile` (Section 4.5).
-   */
-  accountId: string;
-  /**
-   * The ID of the `User` (Section 4.8) attempting or holding the claim.
-   */
-  claimingUserId: string;
-  /**
-   * System-generated, unique per attempt. The claimant adds this to the
-   * account's public bio/description on the platform for verification.
-   */
-  verificationCode: string;
-  status: AccountClaimStatus;
-  /**
-   * End of the `PENDING_VERIFICATION` window, `CLAIM_VERIFICATION_WINDOW_HOURS`
-   * (default 24, Section 3.7 Note) after `createdAt`. Reaching this while still
-   * `PENDING_VERIFICATION` moves the claim to `EXPIRED`.
-   */
-  codeExpiresAt: string;
-  verifiedAt?: string;
-  /**
-   * The ID of the moderator `User` (role = MODERATOR) who resolved a
-   * `REJECTED` or `REVOKED` claim, if any (Section 3.17, Contested Claims).
-   */
-  resolvedByModeratorId?: string;
-  resolvedAt?: string;
-  createdAt: string;
 }
 ```
 
