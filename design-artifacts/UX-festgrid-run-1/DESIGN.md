@@ -2,7 +2,7 @@
 title: "DESIGN.md: festgrid"
 status: "draft"
 created: "2026-07-13T22:33:00Z"
-updated: "2026-09-16T00:00:00Z"
+updated: "2026-09-17T00:00:00Z"
 sources:
   - "_bmad-output/planning-artifacts/prfaq-festgrid.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -42,6 +42,23 @@ components:
     base: "flex justify-between items-center flex-wrap" # added 2026-08-24 -- see packages/ui/src/core/page-header.tsx (Story 0.32)
     title: "text-3xl font-bold"
     action_label: "hidden sm:inline" # action button's label hides below sm:, icon-only on mobile
+  temporal_filter:
+    # Added <bmad-ux pass, 2026-09-17> -- IDEA-019 (Happening now / Upcoming / All, card view only).
+    # New primitive: no existing packages/ui/src/core toggle-group/segmented-control component to
+    # reuse (checked core/ui/ -- button, popover, calendar, badge, tabs only). role="radiogroup" of
+    # three role="radio" options (single-select, roving tabindex, min-h-11 hit area per
+    # components.nav.item_hit_area's existing convention) -- deliberately NOT EventDiscoveryPanel's
+    # own role="tablist"/"tab" view-switcher pattern (that control switches which content panel is
+    # displayed; this one filters data within one already-displayed panel, a different APG role).
+    # Color pairing reuses {components.button.primary}/{components.button.secondary}
+    # (bg-violet-600 text-white / bg-gray-200 text-gray-800) -- the same 2-state active/inactive
+    # convention already used for TabbedShell's tab bar (EXPERIENCE.md Account Settings & Moderator
+    # Tools Shells), rather than a third color pairing for what is functionally the same "which one
+    # of a few options is selected" idea.
+    base: "inline-flex items-center rounded-md border border-gray-200 p-0.5 gap-0.5 w-full sm:w-auto" # own row, full-width on mobile (matches SearchBar's own row width); sm:w-auto lets it collapse to its natural width once it becomes the leading control in the desktop facet row (see EXPERIENCE.md placement decision)
+    option: "flex-1 sm:flex-none min-h-11 px-3 py-1.5 rounded text-sm font-medium text-center transition-colors" # flex-1 only matters at the full-width mobile size, where it makes the 3 options divide the row evenly
+    option_active: "bg-violet-600 text-white"
+    option_inactive: "text-gray-600 hover:bg-gray-100"
   calendar:
     base: "border border-gray-200 rounded-lg"
     header: "flex items-center justify-between p-4 border-b border-gray-200"

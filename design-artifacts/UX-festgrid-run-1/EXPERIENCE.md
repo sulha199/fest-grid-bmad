@@ -2,7 +2,7 @@
 title: "EXPERIENCE.md: festgrid"
 status: "draft"
 created: "2026-07-20T10:59:00Z"
-updated: "2026-09-16T00:00:00Z"
+updated: "2026-09-17T00:00:00Z"
 sources:
   - "design-artifacts/UX-festgrid-run-1/DESIGN.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -287,6 +287,25 @@ The feeling of using FestDaily should be one of exciting discovery. Microcopy sh
 - Applies uniformly across all three families because `applicableDaysOfWeek` is a `Schedule`-level field and every consumer here (`EventCard`, `WeeklyCalendarView`'s list and grid variants) already renders one specific, single schedule per card — confirmed against `EventCard.tsx`'s own flat `startDate`/`startTime`/`endDate`/`endTime` props, not an aggregated multi-schedule shape — so there is no cross-schedule ambiguity (e.g. "which of this event's schedules is recurring") to resolve per card.
 
 **Flagged for `bmad-architecture`, not decided here.** Whether the client-side weekday-match check this section relies on (a calendar day's weekday ∈ `applicableDaysOfWeek`) should reuse/extend the weekday-enumeration utility BUG-026 already found living in `packages/domain/src/events/buildEventsQueryCondition.ts` (`getDays`, lines 73–83) rather than a third independent reimplementation in `packages/ui`'s `WeeklyCalendarView.tsx`. BUG-026's own note already flags the extraction layer and the backend filter layer as two inconsistent implementations of this same weekday-matching concept — adding this frontend occurrence-expansion as a third makes that worth resolving deliberately rather than by further accretion.
+
+### Temporal Filter: Happening Now / Upcoming / All (Card View Only)
+
+*Added via a targeted `bmad-ux` pass, 2026-09-17 — IDEA-019, a coaching-path session grounded directly in `EventDiscoveryPanel.tsx`/`FilterHub.tsx`/`format-event-date.ts`'s actual current code rather than the backlog note's own description alone.*
+
+**Format: a 3-way mutually exclusive segmented control (`{components.temporal_filter}`), not a dropdown or a 4th FilterHub facet — confirming the backlog note's own reasoning.** `role="radiogroup"` of three `role="radio"` options, single-select with roving tabindex — deliberately **not** `EventDiscoveryPanel`'s own `role="tablist"`/`"tab"` view-switcher pattern (`EventDiscoveryPanel.tsx` lines 111–134): that control switches which content panel is displayed, while this one filters data within whichever panel is already showing — different APG roles for a reason, not a styling choice.
+
+**Position: `EventDiscoveryPanel`'s own new row, between `SearchBar` and `FilterHub` — and the backlog note's own "implementation wrinkle" turns out not to be one.** The note worried that `activeView`/`currentViewId` (`EventDiscoveryPanel.tsx` lines 41–48) aren't exposed outside the component, but the toggle renders inside this same component's own JSX (a sibling of `SearchBar`/`FilterHub`, not something a parent renders) — gating it on `currentViewId === 'card'` is a plain local conditional, no state-lifting required. Full-width on mobile (its own row, same width as `SearchBar`), collapsing to its natural inline width as the leading control in the `FilterHub` facet row on desktop where width allows (matching the note's own suggested behavior).
+
+**Data flow: a new top-level `EventDiscoveryPanel` prop pair (e.g. `temporalFilter`/`onTemporalFilterChange`), not folded into `FilterHub`'s own `onChange`.** `FilterHub`'s `onChange` signature is `(types: string[], categories: string[]) => void` (`FilterHub.tsx:30`) — adding a third parameter there would conflate a genuinely separate control with `FilterHub`'s own facets. Each consuming page (`home-content.tsx`, `feed-content.tsx`, `favorites-content.tsx`) owns the committed value via `useListPaginationController`, per AD-18's rule that every filter's committed value is owned by that controller rather than a hand-rolled `useState` cursor.
+
+**Semantics, grounded in `formatEventStatus`'s existing `started`/`ended` computation (`format-event-date.ts:138–193`) — no new date logic:**
+- **Happening now**: `started && !ended`. User-confirmed to cover **both** the badge's own `Happening Now` state (ends on a future day) and its `Ends Today` state (ends the same day) — the filter answers "is this happening right now" in the plain-English sense, a broader question than the badge's own state-name granularity.
+- **Upcoming**: `!started`. Covers all 6 not-yet-started badge states (`In N hour(s)`, `Tomorrow`, a weekday name, `In N days`, and the badge's own narrower `Upcoming` state, 14+ days out). **Known, accepted label overlap (user-confirmed):** the filter option is also called "Upcoming" even though the per-card badge separately uses that exact word for only its 14+-day sub-state — a user filtering to "Upcoming" will see cards labeled `Tomorrow`/`In 2 hours`/a weekday name, not all labeled "Upcoming." Accepted as low-stakes since the two serve different jobs (bucket selection vs. precise per-card countdown) and aren't compared side by side.
+- **All** (default): no additional temporal narrowing beyond the app's existing default-hide-past-events rule (Story 2.7, `buildDefaultEventVisibilityConditions`, grace window configurable via `mySettings.hidePastEventsAfterDays`, default 7 days) — preserves current behavior for existing users/links, per the backlog note's own requirement. An event that ended within that grace window is therefore visible under "All" but under neither "Happening now" nor "Upcoming" — a real third bucket that doesn't need its own filter label, since "All" already covers it.
+
+**Card view only (backlog note's own rule, confirmed unchanged).** `WeeklyCalendarView` already expresses time structurally via its own day grid/day grouping — this toggle would be redundant there. It must not render, and must not apply, when `currentViewId === 'calendar'`.
+
+**Flagged for `bmad-architecture`, not decided here.** This needs to be a real backend `WHERE`-clause condition — matching every other `FilterHub` facet's convention (location/type/category are all server-side filters, never client-side post-filtering of an already-paginated page) — via a new field on `EventQueryConditionInput`, most likely a `started`/`ended` boundary check against `NOW()` similar in shape to Story 2.7's existing default-visibility past-event condition, not new date-math. Whether this needs its own DB index (mirroring the `hashtags`/`favorites` precedents project-context.md already calls out for other high-traffic `Query.events` filters) is also an architecture-pass question, not decided here.
 
 ## State Patterns
 

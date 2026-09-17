@@ -67,9 +67,16 @@ one session:
 ## Cluster C — Needs `bmad-ux` first
 
 - **IDEA-003** — mobile calendar multi-day-span rendering. Own note: "no UX design exists yet."
+  **PARTIALLY STALE, 2026-09-16** — the mobile-spanning design this note refers to already
+  shipped (EXPERIENCE.md "Mobile Multi-Day Calendar Spanning", 2026-08-24 pass); this pass
+  extended it to cover the previously-undesigned `Schedule.applicableDaysOfWeek` day-of-week
+  recurrence case (BUG-026) instead — see EXPERIENCE.md "Day-of-Week Recurring Schedules" and
+  this run's `.memlog.md`.
 - **IDEA-019** — happening-now/upcoming/all temporal filter, card view only. FilterHub's row is
   already tight on mobile per its own note — needs a real layout pass, not just a toggle
-  dropped in.
+  dropped in. **DESIGNED, 2026-09-17** — see EXPERIENCE.md "Temporal Filter: Happening Now /
+  Upcoming / All (Card View Only)" and DESIGN.md `components.temporal_filter`. Backend
+  `EventQueryConditionInput` support flagged for `bmad-architecture`, not yet built.
 - **FIND-025** — EventCard favorite-badge clamp, coupled to an open `DESIGN.md`
   `event_card_date_box.base_default` sizing decision. Not an architecture call — needs whoever
   next runs a `bmad-ux`/`bmad-png-to-html` pass on that surface to resolve both together.
@@ -80,8 +87,8 @@ one session:
   both `base`/`base_default` as distinct variants, kept in source, not collapsed to one) —
   routes to `bmad-quick-dev`, not this cluster.
 
-- [ ] IDEA-003 UX pass
-- [ ] IDEA-019 UX pass
+- [x] IDEA-003 UX pass (2026-09-16, scope extended to day-of-week recurrence, see own note above)
+- [x] IDEA-019 UX pass (2026-09-17, see own note above; backend query-condition work still pending)
 - [x] FIND-025 UX question resolved (2026-09-16, no design work needed — see backlog.yaml note);
       remaining migration work re-routed to `bmad-quick-dev`, not part of this UX cluster
 
