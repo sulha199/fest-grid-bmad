@@ -175,10 +175,12 @@ one session:
       the `Schedule.applicableDaysOfWeek` field addition, and `event_card_repeat_badge` across all
       3 card families.
 - [x] IDEA-019 UX pass (2026-09-17, see own note above; backend query-condition work still pending)
-- [ ] IDEA-019 story (temporal filter, backend + frontend) — UX + architecture (AD-20) both done,
-      ready for `bmad-create-story`; implementation story must also run AD-20's own deferred
-      `EXPLAIN ANALYZE` check (research prompt in backlog.yaml's IDEA-019 note) before deciding on
-      a new DB index
+- [x] IDEA-019 story (temporal filter, backend + frontend) — Story 0.i5d created 2026-09-17
+      (`ritual-orchestrator` batch), status `ready-for-dev`, no HIL raised. Ran AD-20's deferred
+      `EXPLAIN ANALYZE` check during creation: existing `schedule_event_date_idx` is sufficient (a
+      candidate expression index measured ~10% slower), so no new migration was added. Scoped to
+      Discovery's card view only; carved the Feed/Favorites extension into child row IDEA-038
+      (blocked on those pages adopting `useListPaginationController` + BUG-025).
 - [x] FIND-025 UX question resolved (2026-09-16, no design work needed — see backlog.yaml note);
       remaining migration work re-routed to `bmad-quick-dev`, not part of this UX cluster
 
@@ -279,7 +281,7 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
 - [x] IDEA-003 — Story 1.3k (`ready-for-dev`)
 - [x] IDEA-011 — Story 0.i5a (`review`)
 - [x] IDEA-012 — Story 0.37 (`review`)
-- [ ] IDEA-019
+- [x] IDEA-019 — Story 0.i5d (`ready-for-dev`); child row IDEA-038 carved for Feed/Favorites
 - [ ] IDEA-020
 - [ ] IDEA-025
 - [ ] IDEA-026
