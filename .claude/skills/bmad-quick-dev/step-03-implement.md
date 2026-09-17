@@ -38,7 +38,11 @@ Before leaving this step, verify every task in the `## Tasks & Acceptance` secti
 
 ### Lint, Build, Test Gate
 
-Run `pnpm lint`, `pnpm build`, and the project's test suite at the repo root. All three must pass with zero errors before proceeding to review — this is not conditional on whether the touched files "look" affected; a change in one package can break another package's build or lint. If any fails, fix it and re-run all three before continuing. Do not hand off to `step-04-review.md` with any of the three failing.
+Run all three via `npx tsx src/run-check.ts --kind <lint|build|test>` (cwd: `{project-root}/_bmad-output/specs/ritual-session-orchestrator/mailbox-runner`) — it gives heartbeat/timeout safety and a parsed pass/fail summary instead of a raw dump; fall back to bare `pnpm lint`/`pnpm build`/the repo's test command at the repo root if it fails to run (e.g. `node_modules/` missing there — run `npm install` once in that directory).
+
+`lint` and `build` are always unfiltered (no `--filter`) — a change in one package can break another package's build or lint, so this is not conditional on whether the touched files "look" affected. `test` may add `--filter <package-name>` when this change is genuinely confined to one package (no shared type/interface/util touched); otherwise run it unfiltered too.
+
+All three must pass with zero errors before proceeding to review. If any fails, fix it and re-run all three before continuing. Do not hand off to `step-04-review.md` with any of the three failing.
 
 ## NEXT
 

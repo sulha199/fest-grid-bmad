@@ -329,14 +329,13 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
 
   <step n="7" goal="Run validations and tests">
     <action>Determine how to run tests for this repo (infer test framework from project structure)</action>
-    <action>Run all existing tests to ensure no regressions</action>
-    <action>Run the new tests to verify implementation correctness</action>
-    <critical>Run `pnpm lint` and `pnpm build` at the repo root (not just the touched package) -- both are mandatory for every task in this repo, not conditional on whether they happen to be "configured"</critical>
+    <action>Run `npx tsx src/run-check.ts --kind test` (cwd: `{project-root}/_bmad-output/specs/ritual-session-orchestrator/mailbox-runner`) to run all existing tests plus the new ones together, one pass. If this task's changes are genuinely confined to one package (no shared type/interface/util touched), add `--filter <package-name>` to scope the run -- otherwise omit `--filter` for a full run. `run-check.ts` gives heartbeat/timeout safety and a parsed pass/fail summary instead of a raw dump; if it fails to run (e.g. `node_modules/` missing there -- run `npm install` once in that directory), fall back to running the repo's test command directly.</action>
+    <critical>Run `npx tsx src/run-check.ts --kind lint` and `--kind build` the same way (same cwd), unfiltered (no `--filter`) -- both are mandatory for every task in this repo, not conditional on whether they happen to be "configured", and a change in one package can break another's lint/build so these two never get package-scoped, only `test` may be. If `run-check.ts` fails to run, fall back to bare `pnpm lint`/`pnpm build` at the repo root.</critical>
     <action>Validate implementation meets ALL story acceptance criteria; enforce quantitative thresholds explicitly</action>
     <action if="regression tests fail">STOP and fix before continuing - identify breaking changes immediately</action>
     <action if="new tests fail">STOP and fix before continuing - ensure implementation correctness</action>
-    <action if="pnpm lint fails">STOP and fix before continuing - do not defer lint errors to a later task</action>
-    <action if="pnpm build fails">STOP and fix before continuing - a broken build blocks every subsequent task, not just this one</action>
+    <action if="lint fails">STOP and fix before continuing - do not defer lint errors to a later task</action>
+    <action if="build fails">STOP and fix before continuing - a broken build blocks every subsequent task, not just this one</action>
   </step>
 
   <step n="8" goal="Validate and mark task complete ONLY when fully done">
@@ -392,8 +391,8 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
 
   <step n="9" goal="Story completion and mark for review" tag="sprint-status">
     <action>Verify ALL tasks and subtasks are marked [x] (re-scan the story document now)</action>
-    <action>Run the full regression suite (do not skip)</action>
-    <critical>Re-run `pnpm lint` and `pnpm build` at the repo root, fresh, right before marking the story "review" -- a task that passed both in Step 7 can be broken by a later task's changes, so this final run is not redundant with Step 7's per-task check</critical>
+    <action>Run the full regression suite (do not skip) via `npx tsx src/run-check.ts --kind test` (cwd: `{project-root}/_bmad-output/specs/ritual-session-orchestrator/mailbox-runner`), unfiltered -- this final run is always full, even if Step 7's per-task test runs used `--filter`. Fall back to the repo's bare test command if `run-check.ts` fails to run.</action>
+    <critical>Re-run `npx tsx src/run-check.ts --kind lint` and `--kind build` the same way, fresh, unfiltered, right before marking the story "review" -- a task that passed both in Step 7 can be broken by a later task's changes, so this final run is not redundant with Step 7's per-task check. Fall back to bare `pnpm lint`/`pnpm build` at the repo root if `run-check.ts` fails to run.</critical>
     <action>Run `python3 {project-root}/scripts/sprint-status-comment-check.py` after saving sprint-status.yaml; if it reports any offending line, fix it (move the narrative into this story's Dev Notes/Change Log and shorten the comment) before proceeding -- do not let last_updated's comment regrow into the essay-length narrative that sprint-history.md was extracted from</action>
     <action>Confirm File List includes every changed file</action>
     <action>Execute enhanced definition-of-done validation</action>
@@ -407,8 +406,8 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
       - Integration tests for component interactions added when required
       - End-to-end tests for critical flows added when story demands them
       - All tests pass (no regressions, new tests successful)
-      - `pnpm lint` passes with zero errors at the repo root
-      - `pnpm build` passes with zero errors at the repo root
+      - lint passes with zero errors, unfiltered at the repo root
+      - build passes with zero errors, unfiltered at the repo root
       - File List includes every new/modified/deleted file (relative paths)
       - Dev Agent Record contains implementation notes
       - Change Log includes summary of changes
@@ -436,8 +435,8 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     <!-- Final validation gates -->
     <action if="any task is incomplete">HALT - Complete remaining tasks before marking ready for review</action>
     <action if="regression failures exist">HALT - Fix regression issues before completing</action>
-    <action if="pnpm lint fails">HALT - Fix lint errors before completing; do not mark the story "review" with a failing lint</action>
-    <action if="pnpm build fails">HALT - Fix build errors before completing; do not mark the story "review" with a failing build</action>
+    <action if="lint fails">HALT - Fix lint errors before completing; do not mark the story "review" with a failing lint</action>
+    <action if="build fails">HALT - Fix build errors before completing; do not mark the story "review" with a failing build</action>
     <action if="File List is incomplete">HALT - Update File List with all changed files</action>
     <action if="definition-of-done validation fails">HALT - Address DoD failures before completing</action>
   </step>
