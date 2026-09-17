@@ -132,18 +132,10 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
 
   <!-- Auto-discover from sprint status only if no user input -->
   <check if="no user input provided">
-    <critical>MUST read COMPLETE {sprint_status} file from start to end to preserve order</critical>
-    <action>Load the FULL file: {{sprint_status}}</action>
-    <action>Read ALL lines from beginning to end - do not skip any content</action>
-    <action>Parse the development_status section completely</action>
+    <action>Run `python3 {project-root}/scripts/sprint-status-tool.py next-with-status backlog` to find the first backlog story key in file order, without loading the file's full ~40k-token content into context. Store its stdout as the found story key on exit 0.</action>
+    <action if="the script fails to run (e.g. python3 unavailable)">Fall back to reading COMPLETE {sprint_status} file from start to end and finding the FIRST story (by reading in order top to bottom) where: key matches pattern number-number-name (e.g., "1-2-user-auth"), is NOT an epic key (epic-X) or retrospective (epic-X-retrospective), and status value equals "backlog"</action>
 
-    <action>Find the FIRST story (by reading in order from top to bottom) where:
-      - Key matches pattern: number-number-name (e.g., "1-2-user-auth")
-      - NOT an epic key (epic-X) or retrospective (epic-X-retrospective)
-      - Status value equals "backlog"
-    </action>
-
-    <check if="no backlog story found">
+    <check if="script exit code is 1 (no backlog story found)">
       <output>📋 No backlog stories found in sprint-status.yaml
 
         All stories are either already created, in progress, or done.
@@ -167,10 +159,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     <!-- Mark epic as in-progress if this is first story -->
     <action>Check if this is the first story in epic {{epic_num}} by looking for {{epic_num}}-1-* pattern</action>
     <check if="this is first story in epic {{epic_num}}">
-      <action>Load {{sprint_status}} and check epic-{{epic_num}} status</action>
-      <action>If epic status is "backlog" → update to "in-progress"</action>
-      <action>If epic status is "contexted" (legacy status) → update to "in-progress" (backward compatibility)</action>
-      <action>If epic status is "in-progress" → no change needed</action>
+      <action>Run `python3 {project-root}/scripts/sprint-status-tool.py get epic-{{epic_num}}` to read its status without loading the full file. If the script fails to run, fall back to loading {{sprint_status}} and checking epic-{{epic_num}} directly.</action>
       <check if="epic status is 'done'">
         <output>🚫 ERROR: Cannot create story in completed epic</output>
         <output>Epic {{epic_num}} is marked as 'done'. All stories are complete.</output>
@@ -185,67 +174,17 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
         <output>Please fix sprint-status.yaml manually or run sprint-planning to regenerate</output>
         <action>HALT - Cannot proceed</action>
       </check>
-      <output>📊 Epic {{epic_num}} status updated to in-progress</output>
+      <check if="epic status is 'backlog' or 'contexted' (legacy synonym, back-compat)">
+        <action>Run `python3 {project-root}/scripts/sprint-status-tool.py set epic-{{epic_num}} in-progress --expect {{epic_status}}` to update it in one targeted line edit. If the script fails to run, fall back to loading the FULL file, updating it manually, and saving while preserving ALL comments and structure.</action>
+        <output>📊 Epic {{epic_num}} status updated to in-progress</output>
+      </check>
+      <check if="epic status is already 'in-progress'">
+        <action>No change needed</action>
+      </check>
     </check>
 
     <action>GOTO step 2a</action>
   </check>
-  <action>Load the FULL file: {{sprint_status}}</action>
-  <action>Read ALL lines from beginning to end - do not skip any content</action>
-  <action>Parse the development_status section completely</action>
-
-  <action>Find the FIRST story (by reading in order from top to bottom) where:
-    - Key matches pattern: number-number-name (e.g., "1-2-user-auth")
-    - NOT an epic key (epic-X) or retrospective (epic-X-retrospective)
-    - Status value equals "backlog"
-  </action>
-
-  <check if="no backlog story found">
-    <output>No backlog stories found in sprint-status.yaml
-
-      All stories are either already created, in progress, or done.
-
-      **Options:**
-      1. Run sprint-planning to refresh story tracking
-      2. Load PM agent and run correct-course to add more stories
-      3. Check if current sprint is complete and run retrospective
-    </output>
-    <action>HALT</action>
-  </check>
-
-  <action>Extract from found story key (e.g., "1-2-user-authentication"):
-    - epic_num: first number before dash (e.g., "1")
-    - story_num: second number after first dash (e.g., "2")
-    - story_title: remainder after second dash (e.g., "user-authentication")
-  </action>
-  <action>Set {{story_id}} = "{{epic_num}}.{{story_num}}"</action>
-  <action>Store story_key for later use (e.g., "1-2-user-authentication")</action>
-
-  <!-- Mark epic as in-progress if this is first story -->
-  <action>Check if this is the first story in epic {{epic_num}} by looking for {{epic_num}}-1-* pattern</action>
-  <check if="this is first story in epic {{epic_num}}">
-    <action>Load {{sprint_status}} and check epic-{{epic_num}} status</action>
-    <action>If epic status is "backlog" → update to "in-progress"</action>
-    <action>If epic status is "contexted" (legacy status) → update to "in-progress" (backward compatibility)</action>
-    <action>If epic status is "in-progress" → no change needed</action>
-    <check if="epic status is 'done'">
-      <output>ERROR: Cannot create story in completed epic</output>
-      <output>Epic {{epic_num}} is marked as 'done'. All stories are complete.</output>
-      <output>If you need to add more work, either:</output>
-      <output>1. Manually change epic status back to 'in-progress' in sprint-status.yaml</output>
-      <output>2. Create a new epic for additional work</output>
-      <action>HALT - Cannot proceed</action>
-    </check>
-    <check if="epic status is not one of: backlog, contexted, in-progress, done">
-      <output>ERROR: Invalid epic status '{{epic_status}}'</output>
-      <output>Epic {{epic_num}} has invalid status. Expected: backlog, in-progress, or done</output>
-      <output>Please fix sprint-status.yaml manually or run sprint-planning to regenerate</output>
-      <action>HALT - Cannot proceed</action>
-    </check>
-    <output>Epic {{epic_num}} status updated to in-progress</output>
-  </check>
-
-  <action>GOTO step 2a</action>
 </step>
 
 <step n="2" goal="Load and analyze core artifacts">
@@ -340,7 +279,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     <action>Run ONLY Gate 2 — UI Complexity & Reusability
       Use `runSubagent` with persona Freya (`wds-agent-freya-ux`) or fallback Sally (`bmad-agent-ux-designer`).
       Evaluate if the story includes complex/reusable UI components or hooks that should be split into their own stories.
-      Make sure to locate and read relevant `DESIGN.md`/`EXPERIENCE.md` from `design-artifacts/`.
+      Include the DESIGN.md/EXPERIENCE.md content already loaded via `persistent_facts` directly in this subagent's prompt -- do NOT tell the subagent to independently "locate and read" those files itself, since that would just re-read content this session already has loaded.
     </action>
     <action>Lightweight guard (no subagent call): before finalizing, reason whether this specific story's scope contains anything the epic-wide sweep plausibly didn't anticipate (a new external service, a new data entity, a new infra dependency not covered by the sweep). If so, do not silently trust the sweep — run Gate 1 and/or Gate 3 fresh for this story only, and note in the story why the sweep was insufficient.</action>
   </check>
@@ -357,7 +296,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     <action>Gate 2 — UI Complexity & Reusability
       Use `runSubagent` with persona Freya (`wds-agent-freya-ux`) or fallback Sally (`bmad-agent-ux-designer`).
       Evaluate if the story includes complex/reusable UI components or hooks that should be split into their own stories.
-      Make sure to locate and read relevant `DESIGN.md`/`EXPERIENCE.md` from `design-artifacts/`.
+      Include the DESIGN.md/EXPERIENCE.md content already loaded via `persistent_facts` directly in this subagent's prompt -- do NOT tell the subagent to independently "locate and read" those files itself, since that would just re-read content this session already has loaded.
     </action>
 
     <action>Gate 3 — Foundational / Cross-Cutting Dependency Completeness
@@ -454,13 +393,8 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
 
   <!-- Update sprint status -->
   <check if="sprint status file exists">
-    <action>Update {{sprint_status}}</action>
-    <action>Load the FULL file and read all development_status entries</action>
-    <action>Find development_status key matching {{story_key}}</action>
-    <action>Verify current status is "backlog" (expected previous state)</action>
-    <action>Update development_status[{{story_key}}] = "ready-for-dev"</action>
-    <action>Update last_updated field to current date</action>
-    <action>Save file, preserving ALL comments and structure including STATUS DEFINITIONS</action>
+    <action>Run `python3 {project-root}/scripts/sprint-status-tool.py set {{story_key}} ready-for-dev --expect backlog`. This atomically verifies the current status is "backlog" (failing loudly with exit code 2 and no write if not -- investigate before retrying), updates it to "ready-for-dev", and refreshes last_updated to a bare timestamp, all in one targeted line edit that never loads the full ~40k-token file into context. If the script fails to run (not a status mismatch, but a real execution failure), fall back to loading the FULL file, verifying and updating development_status[{{story_key}}] manually, setting last_updated to a bare ISO timestamp ONLY -- no narrative (see sprint-history.md for why) -- and saving while preserving ALL comments and structure including STATUS DEFINITIONS.</action>
+    <action>Run `python3 {project-root}/scripts/sprint-status-comment-check.py`; if it reports any offending line, fix it (move the narrative into this story's Dev Notes and shorten the comment) before proceeding</action>
   </check>
 
   <action>Report completion</action>
