@@ -94,7 +94,13 @@ one session:
   routes to `bmad-quick-dev`, not this cluster.
 
 - [x] IDEA-003 UX pass (2026-09-16, scope extended to day-of-week recurrence, see own note above)
+- [ ] IDEA-003 story (day-of-week recurrence rendering) — UX + architecture (AD-19) both done,
+      ready for `bmad-create-story`
 - [x] IDEA-019 UX pass (2026-09-17, see own note above; backend query-condition work still pending)
+- [ ] IDEA-019 story (temporal filter, backend + frontend) — UX + architecture (AD-20) both done,
+      ready for `bmad-create-story`; implementation story must also run AD-20's own deferred
+      `EXPLAIN ANALYZE` check (research prompt in backlog.yaml's IDEA-019 note) before deciding on
+      a new DB index
 - [x] FIND-025 UX question resolved (2026-09-16, no design work needed — see backlog.yaml note);
       remaining migration work re-routed to `bmad-quick-dev`, not part of this UX cluster
 
@@ -117,6 +123,9 @@ one session:
 
 - [x] IDEA-020 architecture pass (2026-09-17, see AD-21)
 - [x] IDEA-020 UX pass (2026-09-17, see own note above)
+- [ ] IDEA-020 story (embed.js caching SW + preconnect hints + install banner/iOS modal) —
+      architecture + UX both done, ready for `bmad-create-story`; must keep
+      `event-details-instagram-csp.spec.ts` green (AD-21's own regression constraint)
 
 ## Cluster E — WeeklyCalendarView badge data-plumbing (internal tension, resolve before acting)
 
@@ -162,9 +171,13 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
       surfaced a real, pre-existing bug (BUG-036): the current flat `ORDER BY ... LIMIT 1000`
       week-level fetch can silently starve a later day in the same week — tracked as its own
       backlog row, sequenced into the same implementation story as this work.
-- [ ] IDEA-026 story (desktop calendar grid) — plumbing decision now unblocks this
-- [ ] IDEA-025 story (mobile compact-row badges) — after the plumbing decision, or as
-      IDEA-026's explicit follow-on if scoped that way
+- [ ] IDEA-026 story (desktop calendar grid + calendar-overflow dialog + BUG-036's per-day
+      windowing fix, per AD-23's sequencing) — plumbing decision now unblocks this; implementation
+      story must also confirm `Schedule.latitude`/`longitude` GraphQL exposure (research prompt in
+      backlog.yaml's IDEA-025 note) before wiring `computeDistanceKm`
+- [ ] IDEA-025 story (mobile compact-row badges, fixes masonry's pre-existing dead nearby badge
+      per AD-22) — after the plumbing decision, or as IDEA-026's explicit follow-on if scoped
+      that way
 
 ## Full row checklist (verification)
 
@@ -176,6 +189,7 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
 - [ ] BUG-019
 - [ ] BUG-031
 - [ ] BUG-032
+- [ ] BUG-036 (new, 2026-09-17 — folds into IDEA-026's story per AD-23's sequencing)
 - [ ] FIND-006 (closes via BUG-008/009, not independently)
 - [ ] FIND-010
 - [x] FIND-011
