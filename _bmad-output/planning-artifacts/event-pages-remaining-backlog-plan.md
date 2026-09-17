@@ -169,8 +169,11 @@ one session:
   routes to `bmad-quick-dev`, not this cluster.
 
 - [x] IDEA-003 UX pass (2026-09-16, scope extended to day-of-week recurrence, see own note above)
-- [ ] IDEA-003 story (day-of-week recurrence rendering) — UX + architecture (AD-19) both done,
-      ready for `bmad-create-story`
+- [x] IDEA-003 story (day-of-week recurrence rendering) — Story 1.3k created 2026-09-17
+      (`ritual-orchestrator` batch), status `ready-for-dev`, no HIL raised (Gate 1/2/3 findings all
+      resolved in-story). Covers getDays export/generalization, the GraphQL/domain enum mapping,
+      the `Schedule.applicableDaysOfWeek` field addition, and `event_card_repeat_badge` across all
+      3 card families.
 - [x] IDEA-019 UX pass (2026-09-17, see own note above; backend query-condition work still pending)
 - [ ] IDEA-019 story (temporal filter, backend + frontend) — UX + architecture (AD-20) both done,
       ready for `bmad-create-story`; implementation story must also run AD-20's own deferred
@@ -273,7 +276,7 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
 - [ ] FIND-025
 - [ ] FIND-026
 - [ ] FIND-029
-- [ ] IDEA-003
+- [x] IDEA-003 — Story 1.3k (`ready-for-dev`)
 - [x] IDEA-011 — Story 0.i5a (`review`)
 - [x] IDEA-012 — Story 0.37 (`review`)
 - [ ] IDEA-019
