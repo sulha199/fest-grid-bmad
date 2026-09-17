@@ -22,15 +22,33 @@ one session:
   concrete case. One story/quick-dev covers both; note BUG-019 as covered by IDEA-011's fix in
   its own row rather than a separate one, or carve if the rule alone doesn't reach BUG-019's
   specific call site.
+  **ALREADY STORIED, verified 2026-09-17** (`ritual-orchestrator` batch, pre-dispatch check) —
+  both rows were `promoted` in `backlog.yaml` on 2026-09-15, well before this batch was written:
+  IDEA-011 → Story 0.i5a (the AD-18 rule itself), BUG-019 → Story 0.i5b (adopts the controller
+  into Discovery, the concrete fix for BUG-019's exact symptom). Both stories are already at
+  `sprint-status.yaml` status `review` (past `bmad-create-story`, already dev'd). No dispatch
+  needed — this row's checkbox below was simply never updated after the 2026-09-15 work landed.
 - **FIND-010's DW-009 slice + IDEA-031** — both touch the event-detail subscribe element
   (loading flash + toggle redesign). One story.
 - **BUG-005, BUG-007, BUG-008 (+ FIND-006's test-gap coverage folded in), BUG-009** —
   independent EventDetailWrapper hardening fixes. FIND-006 is not its own story — its test-gap
   closes as part of BUG-008/009's story.
+  **ALREADY STORIED, verified 2026-09-17** (`ritual-orchestrator` batch, pre-dispatch check) —
+  BUG-005 is covered by Story 0.i6a (epic-0-i6; its epics.md AC and Dev Agent Record both cite
+  BUG-005 by name; all 6 tasks complete, tests/lint/build green). BUG-007 and BUG-008 (and
+  FIND-006's folded-in test gap) are both covered by the same existing Story 2.i1a
+  (`2-i1a-fix-eventdetailwrappers-four-onsuccess-handlers`, epic-2-i1). All three stories are at
+  `sprint-status.yaml` status `review`. No dispatch needed for any of BUG-005/007/008/FIND-006 —
+  same stale-checkbox situation as the BUG-019/IDEA-011 row above.
 - **FIND-011, FIND-016, FIND-029** — independent hardening/cleanup findings, each already fully
   scoped.
 - **IDEA-012** — event links extraction + display, fully scoped via file/line refs already in
   its own note.
+  **ALREADY STORIED, verified 2026-09-17** (`ritual-orchestrator` batch, pre-dispatch check) —
+  `backlog.yaml` shows IDEA-012 `promoted` 2026-09-16 to Story 0.37
+  (`0-37-extract-and-display-event-links`), status `review`. A follow-on child row (IDEA-036,
+  manual link editing in the Correct Data dialog) was carved out separately and is not part of
+  this batch. No dispatch needed.
 - **IDEA-030** — event-detail UI batch (7 items). Depends on BUG-032 (hashtag data, Cluster B)
   for item 3 only — **now unblocked, BUG-032 fixed 2026-09-17** — and IDEA-029 for its
   location-line items. **STALE CLAIM CORRECTED, 2026-09-17**: IDEA-029 is NOT "already shipping
@@ -40,11 +58,18 @@ one session:
   blocked on IDEA-029 until that plan's Phase 3 runs — the rest of IDEA-030's 7 items can proceed
   independently.
 
-- [ ] BUG-019 + IDEA-011 story/quick-dev
+- [x] BUG-019 + IDEA-011 story/quick-dev — already covered by Stories 0.i5a/0.i5b (created
+      2026-09-15, both `review`); confirmed already-done 2026-09-17 during `ritual-orchestrator`
+      batch pre-dispatch check, no new dispatch run
 - [x] FIND-010(DW-009) + IDEA-031 story — Story 0.i6f (2026-09-16, homed under Epic 0.i6 rather than "no epic", see its own note)
-- [ ] BUG-005 quick-dev
-- [ ] BUG-007 quick-dev
-- [ ] BUG-008 + FIND-006 story
+- [x] BUG-005 quick-dev — already covered by Story 0.i6a (`review`; Dev Agent Record cites
+      BUG-005 by name, tasks/tests/lint/build all complete); confirmed already-done 2026-09-17
+      during `ritual-orchestrator` batch pre-dispatch check, no new dispatch run
+- [x] BUG-007 quick-dev — already covered by Story 2.i1a (`review`); confirmed already-done
+      2026-09-17 during `ritual-orchestrator` batch pre-dispatch check, no new dispatch run
+- [x] BUG-008 + FIND-006 story — already covered by the same Story 2.i1a (`review`) as BUG-007;
+      confirmed already-done 2026-09-17 during `ritual-orchestrator` batch pre-dispatch check,
+      no new dispatch run
 - [x] BUG-009 quick-dev
 - [x] FIND-011 quick-dev
 - [x] FIND-016 story — split into Story 0.34 (DW-044/046/047/050) + Story 0.35 (DW-048) on
@@ -56,7 +81,9 @@ one session:
       (no formed epic exists for FIND-029), matching the FIND-016/0.34/0.35 precedent. Gained
       a 5th AC (isMainSchedule ingestion-time normalization) surfaced only while scoping the
       schedule-uniqueness migration — see Story 0.36's Dev Notes for the full record.
-- [ ] IDEA-012 story
+- [x] IDEA-012 story — already covered by Story 0.37 (`0-37-extract-and-display-event-links`,
+      `review`; follow-on child IDEA-036 carved separately); confirmed already-done 2026-09-17
+      during `ritual-orchestrator` batch pre-dispatch check, no new dispatch run
 - [ ] IDEA-030 story/stories (sequence item 3 after BUG-032 lands)
 
 ## Cluster B — Needs a diagnosis spike before scoping
@@ -229,16 +256,16 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
 
 ## Full row checklist (verification)
 
-- [ ] BUG-005
-- [ ] BUG-007
-- [ ] BUG-008
+- [x] BUG-005 — Story 0.i6a (`review`)
+- [x] BUG-007 — Story 2.i1a (`review`)
+- [x] BUG-008 — Story 2.i1a (`review`)
 - [x] BUG-009
 - [ ] BUG-018
-- [ ] BUG-019
+- [x] BUG-019 — Story 0.i5b (`review`)
 - [ ] BUG-031
 - [ ] BUG-032
 - [ ] BUG-036 (new, 2026-09-17 — folds into IDEA-026's story per AD-23's sequencing)
-- [ ] FIND-006 (closes via BUG-008/009, not independently)
+- [x] FIND-006 (closes via Story 2.i1a's BUG-008 coverage, not independently)
 - [ ] FIND-010
 - [x] FIND-011
 - [ ] FIND-016
@@ -247,8 +274,8 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
 - [ ] FIND-026
 - [ ] FIND-029
 - [ ] IDEA-003
-- [ ] IDEA-011
-- [ ] IDEA-012
+- [x] IDEA-011 — Story 0.i5a (`review`)
+- [x] IDEA-012 — Story 0.37 (`review`)
 - [ ] IDEA-019
 - [ ] IDEA-020
 - [ ] IDEA-025

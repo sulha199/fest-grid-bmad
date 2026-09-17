@@ -369,7 +369,8 @@ items:
      title: "Shared account components mishandle degenerate or missing input props",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [pkg:ui, web:subscriptions, web:events],
-     note: "DW-006, DW-010, DW-015. AccountAvatar's empty-displayName alt-text fallback and SubscribedAccountCard's all-or-nothing render guard are both unreachable via real data/current callers today, but nothing guards them if that changes."}
+     note: "DW-006, DW-010, DW-015. AccountAvatar's empty-displayName alt-text fallback and SubscribedAccountCard's all-or-nothing render guard are both unreachable via real data/current callers today, but nothing guards them if that changes.
+     VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): actually already resolved by Story 0.i6a (epic-0-i6), whose epics.md AC and Dev Agent Record both cite BUG-005 by name — all 6 tasks complete, tests/lint/build green, status `review` in sprint-status.yaml. `stories`/`status` not yet updated here to reflect this (still `triaged`, no `stories` field) — flagging for a future bmad-help/backlog-sync pass to correct rather than doing so mid-orchestrator-batch. No bmad-create-story dispatch run against this row."}
 
   BUG-006:
     {type: finding, status: superseded, created: 2026-09-05, superseded_by: FIND-009,
@@ -385,7 +386,8 @@ items:
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      stories: [2-i1a-fix-eventdetailwrappers-four-onsuccess-handlers],
      touches: [web:events/EventDetailWrapper],
-     note: "DW-032. Predates ux-rework2 batch-2; that batch only added error announcement plus re-throw, not per-item success tracking."}
+     note: "DW-032. Predates ux-rework2 batch-2; that batch only added error announcement plus re-throw, not per-item success tracking.
+     VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): event-pages-remaining-backlog-plan.md's Cluster A checkbox for this row was still unchecked and a bmad-create-story dispatch was about to be run against it; caught before dispatch — Story 2.i1a is already `review` in sprint-status.yaml. No new dispatch run. Plan doc checkbox corrected."}
 
   BUG-008:
     {type: bug, status: promoted, created: 2026-09-05,
@@ -394,7 +396,8 @@ items:
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      stories: [2-i1a-fix-eventdetailwrappers-four-onsuccess-handlers],
      touches: [web:events/EventDetailWrapper],
-     note: "DW-033. Matches an established but imperfect pattern already used by 3 other per-page favorite mutations. Story 2.i1a closes this via an additive ToggleFavoriteResult.favoriteCount field (backend) rather than a confirm-then-refetch rewrite -- per AskUserQuestion, 2026-09-16."}
+     note: "DW-033. Matches an established but imperfect pattern already used by 3 other per-page favorite mutations. Story 2.i1a closes this via an additive ToggleFavoriteResult.favoriteCount field (backend) rather than a confirm-then-refetch rewrite -- per AskUserQuestion, 2026-09-16.
+     VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): same stale-checkbox situation as BUG-007 — Story 2.i1a already `review` in sprint-status.yaml, and its scope covers this row plus FIND-006's folded-in test-gap coverage. No new dispatch run. Plan doc checkbox corrected."}
 
   BUG-009:
     {type: bug, status: done, created: 2026-09-05,
@@ -459,7 +462,8 @@ items:
      title: "Two ux-rework2 fixes shipped without automated tests (favorite cache-sync, scroll-anchor)",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [web:events, pkg:ui],
-     note: "DW-001, DW-003. The unfavorite/decrement path across all 4 patched favorite caches is untested; the overflow-anchor scroll-flicker fix has no Playwright spec since jsdom can't exercise CSS scroll anchoring."}
+     note: "DW-001, DW-003. The unfavorite/decrement path across all 4 patched favorite caches is untested; the overflow-anchor scroll-flicker fix has no Playwright spec since jsdom can't exercise CSS scroll anchoring.
+     VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): closes via Story 2.i1a (BUG-008's story) per event-pages-remaining-backlog-plan.md's own framing, already `review` in sprint-status.yaml. No dispatch run against this row (it was never independently storied)."}
 
   FIND-007:
     {type: finding, status: documented, created: 2026-09-05,
@@ -671,7 +675,8 @@ items:
      touches: [web:events, pkg:ui],
      note: "Reported by user on event-list-bug-fixes-pagination branch, same session as BUG-018. On subsequent filter changes, the event list occasionally fails to reset pagination state/cursor, so the next infinite-scroll load appends results from the old query instead of restarting from page 1 with the new filter, producing a mixed/incorrect list.
      AMENDED 2026-09-15 (bmad-create-story, Story 0.i5a session): user explicitly asked to fold this bug into IDEA-011's story so its rule 'fixes BUG-019 as its concrete case.' Investigation found the pre-existing epic formation (2026-09-08 bmad-form-epics) already split that into two stories: 0.i5a builds the general reset-on-filter-change mechanism (does not touch this bug's concrete call site) and 0.i5b adopts it into Discovery's `home-content.tsx`, which is what actually closes this bug. Per `backlog-spec.md` §13, `stories` is not set here because 0.i5a is not the execution unit that changes this item's behavior — no new carve was created since Story 0.i5b already exists (`sprint-status.yaml`, currently `backlog`) as exactly that fix. This row should gain `stories: [0-i5b-adopt-the-controller-in-discovery-event-list-surfaces]` (deriving `promoted`) once `bmad-create-story` is run for 0.i5b. See Story 0-i5a's file for full reasoning.
-     PROMOTED 2026-09-15 (bmad-create-story, Story 0.i5b): attached as anticipated above. 0.i5b splices the controller's `resetToken` into `home-content.tsx`'s `queryKey` and adds a direct regression test (Task 3) asserting a post-page-2 filter change resets the next request's `offset` to `0` — this is a concrete, verified fix for this bug's exact reported symptom on the Discovery surface, unlike BUG-018's more caveated closure (see BUG-018's note)."}
+     PROMOTED 2026-09-15 (bmad-create-story, Story 0.i5b): attached as anticipated above. 0.i5b splices the controller's `resetToken` into `home-content.tsx`'s `queryKey` and adds a direct regression test (Task 3) asserting a post-page-2 filter change resets the next request's `offset` to `0` — this is a concrete, verified fix for this bug's exact reported symptom on the Discovery surface, unlike BUG-018's more caveated closure (see BUG-018's note).
+     VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): event-pages-remaining-backlog-plan.md's Cluster A checkbox for this row was still unchecked and a bmad-create-story dispatch was about to be run against it; caught before dispatch — Story 0.i5b is already `review` in sprint-status.yaml. No new dispatch run. Plan doc checkbox corrected."}
 
   BUG-020:
     {type: bug, status: triaged, created: 2026-09-07,
@@ -689,7 +694,8 @@ items:
      stories: [0-i5a-build-the-shared-pagination-filter-controller],
      touches: [pkg:ui, web:events, web:moderation, cross:architecture, cross:ux-tokens],
      note: "Reported by user on event-list-bug-fixes-pagination branch, in the same session as BUG-018/019/020. Currently inconsistent across the app — e.g. moderator filter panels call handleFilterChange on every onChange (apply-on-change), and BUG-019 shows that pattern can cause append-instead-of-reload bugs; meanwhile no documented rule says whether a filter should take effect immediately on change or only after an explicit Apply action. Need a cross-cutting decision (likely in project-context.md and/or a UX token/primitive) so all list, discovery, and moderation views behave the same way.
-     PROMOTED 2026-09-15 (bmad-create-story): Story 0.i5a settles this directly — new AD-18 (architecture spine) + project-context.md rule, confirmed against EXPERIENCE.md's Filter Hub spec ('updates in real-time with each selection') as codifying already-unanimous existing behavior. Per epics.md's own note on Story 0.i5a, this idea does not get a separate adoption story — 0.i5a's rule-writing task is its full implementation."}
+     PROMOTED 2026-09-15 (bmad-create-story): Story 0.i5a settles this directly — new AD-18 (architecture spine) + project-context.md rule, confirmed against EXPERIENCE.md's Filter Hub spec ('updates in real-time with each selection') as codifying already-unanimous existing behavior. Per epics.md's own note on Story 0.i5a, this idea does not get a separate adoption story — 0.i5a's rule-writing task is its full implementation.
+     VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): same stale-checkbox situation as BUG-019 (its concrete-case row) — Story 0.i5a already `review` in sprint-status.yaml. No new dispatch run. Plan doc checkbox corrected."}
 
   # ── 2026-09-07 (bmad-help bug-report session) ───────────────────────────────
   BUG-021:
@@ -724,7 +730,8 @@ items:
      title: "Extract event links ({url, label?}[]) during AI extraction and display them in Event Detail",
      stories: [0-37-extract-and-display-event-links],
      ref: [], touches: [cross:ai-extraction, app:backend, web:events, pkg:ui],
-     note: "Reported by user via bmad-help. Two parts: (1) extend the AI extraction schema/prompt (apps/backend/src/validation/extracted-event.schema.ts, build-gemini-request.ts) to also return a `links: {url: string; label?: string}[]` field, threading it through storage/GraphQL (events.graphql, extraction.graphql) alongside the existing contactInfo field; (2) render it in EventDetailView.tsx as a new 'links' row styled identically to the existing Contact Info row (packages/ui/src/features/events/EventDetailView.tsx:367-401 — `flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400` with a leading icon), and — per the user's requirement — both the contact row and the new links row should only render when their field is non-empty, matching contactInfo's existing `(hasPrivateContact || contactInfo) &&` conditional pattern. PROMOTED 2026-09-16 via bmad-create-story (row id named directly): Story 0.37 covers extraction + storage + GraphQL + read-only display in full, mirroring the contactInfo pattern end-to-end (jsonb column, not text() — links is an array of objects) with zero new GraphQL resolver code (buildOptimizedDrizzleSelect passthrough). Manual link editing via the 'Correct Data' dialog was intentionally left uncovered — carved into child row IDEA-036."}
+     note: "Reported by user via bmad-help. Two parts: (1) extend the AI extraction schema/prompt (apps/backend/src/validation/extracted-event.schema.ts, build-gemini-request.ts) to also return a `links: {url: string; label?: string}[]` field, threading it through storage/GraphQL (events.graphql, extraction.graphql) alongside the existing contactInfo field; (2) render it in EventDetailView.tsx as a new 'links' row styled identically to the existing Contact Info row (packages/ui/src/features/events/EventDetailView.tsx:367-401 — `flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400` with a leading icon), and — per the user's requirement — both the contact row and the new links row should only render when their field is non-empty, matching contactInfo's existing `(hasPrivateContact || contactInfo) &&` conditional pattern. PROMOTED 2026-09-16 via bmad-create-story (row id named directly): Story 0.37 covers extraction + storage + GraphQL + read-only display in full, mirroring the contactInfo pattern end-to-end (jsonb column, not text() — links is an array of objects) with zero new GraphQL resolver code (buildOptimizedDrizzleSelect passthrough). Manual link editing via the 'Correct Data' dialog was intentionally left uncovered — carved into child row IDEA-036.
+     VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): event-pages-remaining-backlog-plan.md's Cluster A checkbox for this row was still unchecked and a bmad-create-story dispatch was about to be run against it; caught before dispatch — Story 0.37 already `review` in sprint-status.yaml. No new dispatch run. Plan doc checkbox corrected."}
 
   # ── 2026-09-16 (bmad-create-story, carved from IDEA-012) ────────────────────
   IDEA-036:
