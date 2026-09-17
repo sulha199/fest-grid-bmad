@@ -110,9 +110,13 @@ one session:
   `embed.js` itself (SW stale-while-revalidate) + `preconnect`/`dns-prefetch` resource hints; a
   separate dedicated SW registered per-locale-scoped paths. PWA installability + iOS install UX
   still need their own `bmad-ux` pass — not decided by AD-21.
+  **UX DONE, 2026-09-17** — see EXPERIENCE.md "PWA Install Prompt" and DESIGN.md
+  `pwa_install_banner`/`pwa_install_ios_modal`. Persistent dismissible banner, two dismiss
+  actions (permanent / 2-week cooldown), `localStorage`-based state, Settings fallback,
+  platform-split primary action (native prompt on Android/Chrome, step-by-step modal on iOS).
 
 - [x] IDEA-020 architecture pass (2026-09-17, see AD-21)
-- [ ] IDEA-020 UX pass (PWA installability + iOS install UX, still needed)
+- [x] IDEA-020 UX pass (2026-09-17, see own note above)
 
 ## Cluster E — WeeklyCalendarView badge data-plumbing (internal tension, resolve before acting)
 
@@ -138,9 +142,22 @@ production for lack of a real caller ever populating it. Decided: build one shar
 masonry's pre-existing dead badge in the same story (IDEA-026's first story), not a
 ship-without-badges deferral.
 
+**FIND-026 RESOLVED, 2026-09-17** (`bmad-ux`) — turned into a bigger, cross-surface correction:
+mobile's day-list previously rendered a day's full schedule list uncapped by design (2026-08-24);
+user flagged this as a real scalability risk at production scale, not just a desktop-vs-mobile
+layout question. Both surfaces now cap (sized from real card dimensions, not a fixed number —
+20-per-day flat fetch as an acceptable fallback shape), multi-day segments are exempt from the
+cap on both surfaces (mirroring desktop's existing spanning-bar exemption), and "+N more" now
+opens one shared, responsive infinite-scroll dialog/sheet instead of desktop's old static
+`max-h-56` popover. See EXPERIENCE.md "Calendar Overflow: Scalable Cap + Infinite-Scroll Popup"
+(supersedes the old no-cap mobile rule) and DESIGN.md `calendar_overflow_dialog`. Per-day
+pagination's actual data-fetch mechanism flagged for `bmad-architecture` — doesn't exist at all
+today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor).
+
 - [x] Resolve the IDEA-025/026 data-plumbing question (2026-09-17, see AD-22 — shared
       `computeDistanceKm` utility, wired to both surfaces in one story)
-- [ ] FIND-026's max_events_per_day product/UX call (explicitly deferred by AD-22 — still needed)
+- [x] FIND-026's max_events_per_day product/UX call (2026-09-17, see own note above; per-day
+      pagination mechanism still needs a `bmad-architecture` follow-up before it can be coded)
 - [ ] IDEA-026 story (desktop calendar grid) — plumbing decision now unblocks this
 - [ ] IDEA-025 story (mobile compact-row badges) — after the plumbing decision, or as
       IDEA-026's explicit follow-on if scoped that way

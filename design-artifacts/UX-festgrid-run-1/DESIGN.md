@@ -531,6 +531,33 @@ components:
     # actual matching weekdays translated through the project's existing DayOfWeek enum-translation
     # convention (project-context.md Locale-Sensitive Data Rendering) -- never a raw enum string.
     icon: "w-3.5 h-3.5 text-muted-foreground shrink-0" # lucide-react Repeat icon, 14px -- between event_card_nearby_badge's 12px and the favorite icon's 24px; confirm the exact icon name against the installed lucide-react version at implementation time (same caveat already applied to the multi_day_badge CalendarRange icon and event_card_nearby_badge's Navigation icon)
+  pwa_install_banner:
+    # Added <bmad-ux pass, 2026-09-17> -- IDEA-020's UX half. Persistent, dismissible bar at the
+    # top of <main>, below the global nav (packages/ui/src/core/app-shell/AppShell.tsx), across
+    # every route. Two distinct dismiss actions (not one) -- "Not now" (permanent) and "Remind me
+    # in 2 weeks" (cooldown) -- plus one primary action whose behavior differs by platform (see
+    # EXPERIENCE.md PWA Install Prompt): Android/Chrome calls the captured beforeinstallprompt's
+    # .prompt() directly; iOS opens pwa_install_ios_modal below instead.
+    base: "w-full flex items-center justify-between gap-4 px-4 py-3 bg-violet-50 border-b border-violet-200 text-sm"
+    primary_action: "{components.button.primary}" # "Install" (Android/Chrome) or "How to install" (iOS)
+    dismiss_permanent: "{components.button.secondary}" # "Not now"
+    dismiss_cooldown: "text-violet-700 underline text-xs font-medium" # "Remind me in 2 weeks" -- deliberately lower visual weight than the two real buttons either side of it, since it's a snooze not a decision
+  pwa_install_ios_modal:
+    # iOS Safari has no native install prompt to trigger (EXPERIENCE.md PWA Install Prompt) -- this
+    # is a richer step-by-step disclosure, not a restyled banner. Reuses {components.modal}'s
+    # overlay/dialog shape rather than inventing a second modal chrome.
+    dialog: "{components.modal.dialog}"
+    step: "flex items-center gap-3 py-2" # icon + instruction text per step, e.g. Share icon -> "Add to Home Screen"
+    step_number: "flex items-center justify-center w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold shrink-0"
+  calendar_overflow_dialog:
+    # Added <bmad-ux pass, 2026-09-17> -- resolves FIND-026, supersedes the mobile list's
+    # previous uncapped-always-render rule. ONE shared, responsive component for both surfaces
+    # (EXPERIENCE.md Calendar Overflow: Scalable Cap + Infinite-Scroll Popup) -- not two
+    # independently-styled popovers. Replaces the desktop grid's current small, non-paginated
+    # max-h-56 overflow-y-auto popover entirely.
+    sheet_mobile: "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-xl bg-white shadow-xl flex flex-col" # full-screen-ish bottom sheet, <md:
+    dialog_desktop: "{components.modal.dialog} max-h-[70vh] flex flex-col" # centered dialog, >=md:, larger than the superseded w-56 popover
+    scroll_region: "flex-1 overflow-y-auto flex flex-col gap-2 p-3" # infinite-scroll container -- real pagination, not the superseded static full-bucket render
   event_card_favorite_count_badge:
     base: "flex items-center gap-1 text-xs font-medium" # count text rendered inline next to the existing Heart icon inside the favorite-toggle button, not a separate element -- reuses EventCard's existing top-right slot rather than adding a third overlay
     # Confirmed visually unchanged by the 2026-09-04 bmad-ux pass (sprint-change-proposal-2026-09-04.md Section 4.3 item 3) -- both reference screenshots show this top-right slot untouched by the new date_box/till_badge/badge_row additions.
