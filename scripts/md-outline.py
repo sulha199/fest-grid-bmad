@@ -20,6 +20,11 @@ relevance judgment -- no index.md or sharding needed. The PRD's headings
 are more free-form, so `outline` (list everything, let the caller judge
 relevance from heading text) is the more useful mode there.
 
+Headings inside fenced code blocks (``` or ~~~) or HTML comments (<!-- -->)
+are never indexed -- a bash comment, a markdown-sample line, or a
+commented-out heading isn't a live section. Their content is still
+returned whole when the enclosing real section's line range is read.
+
 Subcommands:
     outline PATH [--max-depth N]
         Print every heading up to depth N (default 6) as one line each:
@@ -46,12 +51,41 @@ import re
 import sys
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(\S.*?)\s*$")
+FENCE_RE = re.compile(r"^\s*(```|~~~)")
 
 
 def parse_headings(lines: list[str], max_depth: int) -> list[tuple[int, int, str]]:
-    """Returns (line_no, level, text) for each ATX heading up to max_depth, 1-indexed."""
+    """Returns (line_no, level, text) for each ATX heading up to max_depth, 1-indexed.
+
+    Skips lines inside fenced code blocks (``` or ~~~, indented or not -- a
+    bash/python comment or a markdown-sample line like "# Heading" inside a
+    fence is not a real section) and inside HTML comments (<!-- ... -->,
+    including a comment that opens and closes on the same line, or spans
+    several lines -- a commented-out heading isn't a live section either).
+    Content inside a real section's body is unaffected either way: it's
+    still returned whole when that section's own line range is read, it's
+    just not indexed as a heading in its own right.
+    """
     headings = []
+    in_fence = False
+    in_comment = False
     for i, line in enumerate(lines, start=1):
+        if in_comment:
+            if "-->" in line:
+                in_comment = False
+            continue
+        if FENCE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        stripped = line.strip()
+        if stripped.startswith("<!--") and "-->" not in stripped:
+            in_comment = True
+            continue
+        if stripped.startswith("<!--"):
+            # opens and closes on the same line -- not a heading either way
+            continue
         m = HEADING_RE.match(line)
         if m and len(m.group(1)) <= max_depth:
             headings.append((i, len(m.group(1)), m.group(2)))
