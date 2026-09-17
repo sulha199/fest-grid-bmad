@@ -293,7 +293,7 @@ Today, `SocialMediaAccountProfile.isImageStorageOptedIn` (Section 4.5) can only 
 
 This section defines the data structure for events extracted and managed by FestDaily.
 
-*Interfaces below are grouped by domain rather than listed in original numeric/authoring order; each keeps its original number (e.g. `4.7`) so every existing "Section 4.N" reference elsewhere in this document stays valid. See `PRD-OUTLINE.md` for the full grouped map with one-line purposes.*
+*Interfaces below are grouped by domain rather than listed in original numeric/authoring order; each keeps its original number (e.g. `4.7`) so every existing "Section 4.N" reference elsewhere in this document stays valid. Run `scripts/md-outline.py outline prd.md --max-depth 4` for the current heading/line-range index.*
 
 **Core Event Data**
 
