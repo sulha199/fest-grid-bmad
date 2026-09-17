@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-09-15T00:00:00Z"
+updated: "2026-09-17T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -719,6 +719,190 @@ This document defines the core architectural invariants for the FestDaily applic
           0.i5a) proves the reset-on-filter-change contract in isolation; adoption at concrete
           call sites (Discovery's `home-content.tsx`, moderator tools) and the CI-enforced
           no-local-pagination-state ratchet land in Stories 0.i5b/0.i5c/0.i5d/0.i5z.
+
+---
+
+### AD-19: Day-of-Week Weekday-Match — Single Domain Mechanism
+
+*   **Binds:** Any code that must determine which calendar dates a `DayOfWeek`-scoped pattern
+    actually lands on — `Schedule.applicableDaysOfWeek?: DayOfWeek[]` (PRD §4.4, BUG-026's
+    2026-09-11 amendment) and `EventFilterInput.dayOfWeek` (existing). Today this logic exists at
+    `packages/domain/src/events/buildEventsQueryCondition.ts`'s module-local `getDays(fromStr,
+    toStr, dow)` (single `DayOfWeek` only, not exported) and, per the `bmad-ux` pass of
+    2026-09-16/17, needs a second consumer: `WeeklyCalendarView.tsx`'s new day-of-week occurrence
+    expansion (`EXPERIENCE.md` § "Day-of-Week Recurring Schedules").
+*   **Prevents:** A third independent reimplementation of weekday-matching logic — BUG-026 already
+    found the AI-extraction layer has none and the backend filter has this one; a frontend-only
+    version would make three. Also prevents relying on an unenforced string-value coincidence
+    between domain's own `DayOfWeek` enum (`packages/domain`, string-valued, `MON = 'MON'` etc.,
+    used internally for date math) and the GraphQL-generated `DayOfWeek` enum
+    (`@festgrid/shared-types`, what `Schedule.applicableDaysOfWeek`/`EventFilterInput.dayOfWeek`
+    actually arrive as client-side per AD-4's End-to-End Type Safety rule) — the two enums'
+    values happen to match today, but nothing enforces that they always will.
+*   **Rule:**
+    1.  **`getDays` is exported and generalized to accept `DayOfWeek[]`,** not just one — used by
+        both `buildEventsQueryCondition.ts`'s existing `EventFilterInput.dayOfWeek` path (wrapped
+        as a 1-element array) and the new frontend occurrence-expansion. `packages/ui` already
+        depends on `@festgrid/domain` (`EventListView.tsx`, `EventDetailView.tsx`,
+        `CorrectionForm.tsx` are existing consumers), so this crosses an already-exercised package
+        boundary, not a new one.
+    2.  **An explicit `Record<GqlDayOfWeek, DomainDayOfWeek>` mapping function is the one sanctioned
+        way** to convert a GraphQL-generated `DayOfWeek` value into domain's own `DayOfWeek` before
+        calling the shared function — chosen over relying on the two enums' string values happening
+        to already match, because a `Record` literal mapping every enum member gets TypeScript's
+        exhaustiveness checking for free: a future enum member added to either side without
+        updating the map fails the build, not silently drifts at runtime. Mirrors this project's
+        existing verify-don't-assume pattern (AD-14, AD-16) rather than introducing a new
+        implicit-coincidence one.
+    3.  **Domain's own `DayOfWeek` enum stays domain's internal vocabulary,** not replaced by the
+        GraphQL-generated one — keeps `packages/domain`'s pure date-math functions decoupled from
+        `GraphQL Code Generator`'s output, consistent with domain's existing framework-agnostic,
+        no-Node-only-deps posture (`project-context.md`'s Code Organization rules).
+
+---
+
+### AD-20: Temporal Filter (Happening Now / Upcoming) — Clock-Time-Precise, New DSL Extension Point
+
+*   **Binds:** IDEA-019's card-view temporal filter (`EXPERIENCE.md` § "Temporal Filter: Happening
+    Now / Upcoming / All"), `EventFilterInput` (`apps/backend/src/schema/events.graphql`),
+    `buildEventsQueryCondition.ts` (client-invoked per `home-content.tsx:178-183`), and
+    `packages/graphql-select/drizzle-where.ts`'s field/operator dispatch.
+*   **Prevents:** Implementing this filter as a date-only condition on the existing AD-1
+    `scheduleDateRange.overlaps` mechanism — verified that mechanism only compares Postgres `date`
+    columns (`schedules.eventStartDate`/`eventEndDate`), with no time-of-day component at all,
+    which would make an event starting later today (badge: "In N hours", per `formatEventStatus`)
+    incorrectly match a date-only "Happening now" filter, visibly contradicting that same card's
+    own badge. Also prevents this filter becoming a second, independent reimplementation of
+    started/ended semantics that could silently diverge from `formatEventStatus`'s (the badge's)
+    existing JS definition on an edge case — missing `startTime`/`endTime`, `endDate` defaulting to
+    `startDate`.
+*   **Rule:**
+    1.  **New `EventFilterInput.temporalFilter: TemporalFilter` enum** (`HAPPENING_NOW` |
+        `UPCOMING`), absent/null = "All" — matching every other optional `FilterHub` facet's
+        convention of "absent means unrestricted."
+    2.  **`buildEventsQueryCondition.ts` translates it into a new DSL condition whose value is a
+        client-resolved literal ISO instant** (`now.toISOString()`) — **not** a live SQL `NOW()` —
+        consistent with every other date/time value in this DSL already being resolved once
+        client-side before the query is sent. `buildDefaultEventVisibilityConditions` (Story 2.7)
+        already establishes the identical resolve-once-in-JS-then-embed-as-literal pattern,
+        server-side instead of client-side, for the past-events threshold.
+    3.  **`drizzle-where.ts` gains a new field/operator case,** extending the same
+        fieldMap-descriptor-to-`EXISTS`-subquery pattern `scheduleDateRange.overlaps` already uses,
+        whose descriptor combines `eventStartDate`+`eventStartTime` (and the end-date/time
+        equivalents) into a comparable timestamp expression inside an `EXISTS` subquery against
+        `schedules`, compared against the literal instant from Rule 2.
+    4.  **The started/ended boundary-case handling in this new SQL expression must exactly mirror
+        `formatEventStatus`'s existing documented rules** (`format-event-date.ts`) — since JS and
+        SQL can't literally share code across this boundary, this is enforced via a single shared
+        boundary-case fixture (e.g. `packages/domain/src/events/__fixtures__/started-ended-cases.ts`
+        — exact date/time/now inputs and their expected started/ended outcome, covering the
+        documented edge cases: missing `startTime`, missing `endTime`, `endDate` absent/falling
+        back to `startDate`) that **both** `formatEventStatus`'s unit tests and the new SQL
+        condition's integration tests import and assert against — not two independently-written
+        "matching" test suites, which two engineers working from the same prose description could
+        still drift on without ever comparing notes.
+*   **Deferred, not decided here:** whether this new condition needs its own DB index. The
+    existing `schedule_event_date_idx` is a hand-tuned expression index that already needed a
+    manual migration edit (`drizzle-kit` cannot generate it — `packages/database/schema.ts`'s own
+    documented limitation), and a time-aware condition likely needs something similar, but sizing
+    that requires real `EXPLAIN ANALYZE` evidence at the implementation story, not a guess here.
+
+---
+
+### AD-21: Instagram Embed Load Speed — Re-scoped Caching (PWA/iOS UX Excluded)
+
+*   **Binds:** `InstagramEmbed.tsx`'s `embed.js` loading (`loadInstagramEmbedScript`), and a new
+    dedicated caching service worker (a separate file/registration from
+    `apps/web/public/firebase-messaging-sw.js`). Does not bind PWA installability or iOS install
+    UX (see Excluded, below).
+*   **Prevents:** Assuming Instagram CDN media loaded *inside* the embed's own iframe can be
+    cached by our service worker. **Web-verified 2026-09-17**
+    ([github.com/emilisb/ff-iframe-sw-test](https://github.com/emilisb/ff-iframe-sw-test),
+    corroborated by MDN/W3C service worker scope semantics): a page's service worker can only
+    intercept fetches initiated by that page's own document/clients, never requests made by a
+    cross-origin iframe's own internal document — Instagram's iframe fetching its own
+    thumbnail/video from Instagram's CDN is invisible to our service worker entirely. This
+    invalidates IDEA-020 item (2)'s original premise ("cache Instagram CDN images/reel video") for
+    the current oEmbed+iframe approach (item (1)'s already-rejected fully-client-side
+    alternative) — a hard platform limitation, not a gap to design around. Also prevents
+    registering the new caching service worker at root scope, which would conflict with
+    `firebase-messaging-sw.js`'s existing default root-scope registration
+    (`push-notifications.ts:66`, no explicit scope passed).
+*   **Rule:**
+    1.  **Caching scope is narrowed to what's actually cacheable:** `embed.js` itself (fetched by
+        *our* page, not the iframe) gets a stale-while-revalidate fetch handler in the new
+        dedicated service worker. Instagram's own CDN media inside the iframe is not cached by us
+        under any part of this AD — deliberately out of scope, not deferred.
+    2.  **`<link rel="preconnect">`/`dns-prefetch` resource hints** to Instagram's CDN origins,
+        added to the event-detail route, are the lever for the genuinely uncacheable iframe-internal
+        fetch chain's connection-setup latency — no service worker involved, a separate,
+        complementary technique.
+    3.  **A separate, dedicated service worker** (user-directed — stronger separation of push vs.
+        asset-caching concerns, over the lower-friction option of extending the existing FCM
+        worker) is registered with an **explicit scope narrower than root**, so it coexists with
+        the FCM worker's root-scope registration rather than replacing it. Per this app's
+        locale-prefixed routing (AD-6) and since a static file under `apps/web/public/` always
+        serves at a fixed root-level URL regardless of Next.js's locale route prefixing, the
+        **same** caching-worker script file is registered **twice**, once per locale
+        (`scope: '/en/events/'`, `scope: '/id/events/'`) — not duplicated or relocated per locale.
+        This covers both the full event-detail page and the intercepted modal route, since AD-16
+        already established both update the visible URL to the same `/events/[slug]` path.
+    4.  **The existing CSP e2e guard** (`apps/web/e2e/event-details-instagram-csp.spec.ts`,
+        `frame-src`/`child-src` allowlisting `instagram.com`) is an unconditional regression
+        constraint on any change here — must stay green; this AD does not change where the iframe
+        loads from.
+*   **Excluded / deferred, explicitly, for a future `bmad-ux` pass:** PWA installability
+    (`manifest.json` — none exists today) and iOS-specific install UX (no `beforeinstallprompt` on
+    iOS Safari; needs a custom Share-to-Home-Screen banner gated on `navigator.standalone`/
+    `display-mode: standalone`). This AD does not decide whether or how the app becomes
+    installable — only how `embed.js` gets cached once a service worker exists.
+
+---
+
+### AD-22: Shared Distance Computation for Nearby Badges
+
+*   **Binds:** `EventCard.tsx`'s `distanceKm` prop (`{components.event_card_nearby_badge}`, Story
+    1.3b AC16, DESIGN.md's `<8km` threshold), the new `distanceKm` field this AD adds to
+    `WeeklyCalendarViewScheduleShape`, and whatever page-level code computes it
+    (`home-content.tsx`/`feed-content.tsx`/`favorites-content.tsx`, `CalendarView`).
+*   **Prevents:** Treating IDEA-025/026's data-plumbing question as calendar-specific. **Verified
+    2026-09-17** that `distanceKm` is not computed anywhere in this codebase today: `EventCard`/
+    `EventCardMediaPrimitives` define and consume the prop, but no real caller
+    (`home-content.tsx`, `feed-content.tsx`, `EventListView.tsx`) ever populates it — the shipped,
+    DESIGN.md/EXPERIENCE.md-documented nearby badge has never actually rendered in production
+    regardless of real distance. The only existing distance math anywhere is an inline SQL
+    haversine expression in `drizzle-where.ts`'s `withinRadius` filter operator (server-side,
+    filtering-only, not reusable client-side, not display-oriented). Also prevents a second,
+    independently-computed distance formula or threshold-priority ever diverging from the filter's
+    own definition of "N km away" between what a radius filter excludes and what a nearby badge
+    claims.
+*   **Rule:**
+    1.  **Computed status (Ended/Happening Now/etc.) needs no new plumbing and no adaptation.**
+        `WeeklyCalendarViewScheduleShape` already carries `eventStartDate`/`eventEndDate`/
+        `eventStartTime`/`eventEndTime` — exactly what `formatEventStatus` needs, and
+        `WeeklyCalendarView.tsx` already imports from that module for
+        `computeCalendarSegmentTillText`. Status is computed relative to real "now," not the
+        rendering day-cell, so there is no day-segment ambiguity the way there was for the
+        till-text (already solved separately by the `bmad-ux` pass).
+    2.  **A new shared pure function** (`packages/domain`, e.g. `computeDistanceKm(viewerCoord,
+        targetCoord)`) is the one sanctioned way to compute a display `distanceKm` — mirrors the
+        existing SQL haversine's formula/constants (6371 km radius) so client-displayed distance
+        and server-side radius-filter distance can never silently disagree about what a given km
+        figure means. Consumes the same source-of-truth priority `event_card_nearby_badge`'s own
+        threshold rule already established: active filter location if one is selected, else the
+        viewer's current location coordinate.
+    3.  **`WeeklyCalendarViewScheduleShape` gains `distanceKm?: number`,** computed and passed in
+        by the caller exactly like `EventCard` already receives it as a plain prop — neither
+        component computes it internally. The implementation story must confirm
+        `Schedule.latitude`/`longitude` (`schema.ts:385-386`) are actually exposed via the GraphQL
+        queries feeding both surfaces — not verified in this session.
+    4.  **Sequencing:** IDEA-026's own first story builds the shared utility and wires **both** the
+        new desktop calendar card and `EventCard`'s currently-dead masonry nearby badge in the same
+        pass, rather than shipping the calendar card without badges and leaving the pre-existing
+        masonry gap open as a separate follow-on.
+*   **Explicitly deferred, not decided here:** FIND-026 (whether `max_events_per_day`'s cap of 5
+    is still right now that popover overflow shows a materially richer card) is a product/UX call,
+    not an architecture question — left open per `EXPERIENCE.md`'s own existing flag on this.
 
 ---
 
