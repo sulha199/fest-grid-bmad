@@ -203,9 +203,12 @@ one session:
 
 - [x] IDEA-020 architecture pass (2026-09-17, see AD-21)
 - [x] IDEA-020 UX pass (2026-09-17, see own note above)
-- [ ] IDEA-020 story (embed.js caching SW + preconnect hints + install banner/iOS modal) —
-      architecture + UX both done, ready for `bmad-create-story`; must keep
-      `event-details-instagram-csp.spec.ts` green (AD-21's own regression constraint)
+- [x] IDEA-020 story (embed.js caching SW + preconnect hints + install banner/iOS modal) —
+      Stories 0.38a (shared PWA install-eligibility hook, prerequisite) + 0.38 (embed.js caching,
+      preconnect hints, PWA manifest/install banner/iOS modal) created 2026-09-17
+      (`ritual-orchestrator` batch), both status `ready-for-dev`, no HIL raised. Gate 2 split out
+      0.38a as a genuinely shared hook (mirrors the repo's existing 0.7/0.7a precedent). No child
+      row carved — CDN-media caching stays permanently out of scope per AD-21's platform limitation.
 
 ## Cluster E — WeeklyCalendarView badge data-plumbing (internal tension, resolve before acting)
 
@@ -282,7 +285,7 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
 - [x] IDEA-011 — Story 0.i5a (`review`)
 - [x] IDEA-012 — Story 0.37 (`review`)
 - [x] IDEA-019 — Story 0.i5d (`ready-for-dev`); child row IDEA-038 carved for Feed/Favorites
-- [ ] IDEA-020
+- [x] IDEA-020 — Stories 0.38a + 0.38 (`ready-for-dev`)
 - [ ] IDEA-025
 - [ ] IDEA-026
 - [ ] IDEA-030
