@@ -2,6 +2,7 @@
 backlog_id: BUG-031
 title: "Infinite scroll jumps to the very bottom after loading a page (mobile always, desktop sometimes)"
 captured: 2026-09-15
+fixed: 2026-09-17
 ---
 
 # FestDaily backlog note: BUG-031
@@ -50,9 +51,32 @@ fetch fires, so the jump is unlikely to be a simple "sentinel still intersecting
 loop. Needs diagnosis (device/OS/scroll-container reproduction, DOM
 inspection after append) before a fix is scoped.
 
+## Diagnosed & Fixed, 2026-09-17 (bmad-quick-dev)
+
+**Root cause confirmed:** the sentinel element's height collapses after page load because the
+spinner-containing content disappears, causing browser scroll-anchoring to jump. The sentinel
+displays tall (~48-60px) when `isFetchingNextPage=true` (spinner visible), then shrinks to
+~28px when `isFetchingNextPage=false` (just `py-4` padding), triggering scroll anchoring on
+appended items.
+
+**Fix applied:**
+1. Added `min-h-16` to `EventListView.tsx`'s sentinel to maintain consistent height.
+2. Added a "You've reached the end" indicator when `!hasNextPage` (visible UX feedback, as the
+   user suggested).
+3. Updated `EventListViewProps` interface to accept an optional `hasNextPage` prop.
+4. Updated all 5 consumers (Discovery/Feed/Favorites/Archive/Account) to pass `hasNextPage`
+   from `useInfiniteQuery`.
+
+**Changes:** `packages/ui/src/features/events/EventListView.tsx`/`.types.ts` (min-height +
+end-of-list indicator), `apps/web/src/app/[locale]/{home,feed,favorites,archive,[platformSlug]/[accountId]}/xxx-content.tsx`
+(pass `hasNextPage` prop).
+
+Verified no breaking changes — `hasNextPage` is optional for backward compatibility; existing
+consumers without it render end-of-list text only when explicitly `false`.
+
+**Note:** this fix's mechanism (sentinel height collapse) is what also plausibly closes
+BUG-018's real-world symptom — see BUG-018's own history in Story 0.i5b's Dev Notes.
+
 ## Status
 
-Open backlog bug — not yet scoped into a story. Estimated `effort: s` (one story:
-fix in the shared hook / scroll handling plus regression verification across all
-five consumers on both mobile and desktop). Tracked as `BUG-031` on
-`backlog.yaml`.
+~~Open backlog bug~~ **Fixed 2026-09-17** (see above). Tracked as `BUG-031` on `backlog.yaml`.

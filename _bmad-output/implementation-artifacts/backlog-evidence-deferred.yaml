@@ -672,7 +672,7 @@ records:
     still_live_evidence: "No timeZone prop/value found anywhere in apps/web/src/app/[locale]/layout.tsx"
     touches: [cross:i18n, pkg:ui]
     duplicate_of: null
-    notes: ""
+    notes: "FIXED 2026-09-14 (bmad-quick-dev, commit e138964, tracked as BUG-010): apps/web/src/app/[locale]/layout.tsx now passes a real, deterministic IANA timezone into the layout-root ScopedLocaleProvider via a new timezoneIntlMap mirroring localeIntlTagMap (en -> America/New_York, id -> Asia/Jakarta). useScopedTimezone() and everything downstream (EventCard's date/time formatting) now receives a value server-side; since the value is a compile-time constant identical on server and browser, the hydration-mismatch risk is removed. Route-locale-derived app-wide fallback only -- per-event LocationDetails.timezone remains a future pass, overriding this default via an explicit EventCard timezone prop when wired. Full detail in backlog.yaml's BUG-010 history."
 
   - id: DW-046
     section: "quick-dev fix of enum i18n rendering"
@@ -1047,7 +1047,7 @@ records:
     still_live_evidence: "EventCard.tsx:106 has an isNaN check, but only inside parseDateTime's internal date+time combining fallback -- the resulting dateObj is still passed unguarded into getEventDayDiff/formatRelativeDayOrDate at lines 112-113, so a bad dateStr can still propagate a NaN date into the formatting chain"
     touches: [pkg:ui, web:events]
     duplicate_of: null
-    notes: ""
+    notes: "FIXED 2026-09-14 (bmad-quick-dev, commit d9630b8, tracked as BUG-013): EventCard.tsx now derives a single `dateIsValid = !isNaN(combineDateTime(startDate, startTime).getTime())` guard and only calls getEventDayDiff/formatRelativeDayOrDate (and formatShortEventDateTime) when valid -- on an Invalid Date it degrades to a blank date instead of letting NaN reach the Intl formatters and throw. Both standard and masonry variants route through the guarded formattedDate/dateBoxText. Added EventCard.tsx regression tests (standard + masonry) asserting an invalid startDate renders without throwing. Scope kept strictly to this gap; BUG-010 (timezone wiring) and FIND-009 (test fake-timer rollover) left untouched. Full detail in backlog.yaml's BUG-013 history."
 
   - id: DW-071
     section: "quick-dev fix of scraper-provider-usage test pollution"

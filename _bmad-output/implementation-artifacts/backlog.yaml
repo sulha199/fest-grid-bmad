@@ -318,8 +318,8 @@ items:
     {type: idea, status: triaged, created: 2026-09-02, parent: CC-018,
      impact: user-visible, effort: l,
      title: "Epic 8 — self-service account claim and ownership verification",
-     ref: [], touches: [web:accounts, cross:prd],
-     note: "Placeholder only in epics.md (epic-8: backlog); needs its own bmad-prd pass before any story. 2026-09-11 (bmad-prd, joint pass with IDEA-008): PRD 3.17 (added) resolves the flow — bio-code-challenge verification (reuses Section 3.7's scraper-adapter/profile-lookup infra, no OAuth/DM dependency), 24h code window (`CLAIM_VERIFICATION_WINDOW_HOURS`, default 24), a VERIFIED claim grants only self-service `isImageStorageOptedIn`/`imageStorageOptInSource: 'ACCOUNT_OWNER'` (no new `defaultLocation` capability), contested claims go through Moderator Tools (`REVOKE`), abandoned claims silently `EXPIRE` with no moderator step. New `AccountClaim` interface at PRD 4.20; `SocialMediaAccountProfile.claimedByUserId`/`imageStorageOptInSource` comments updated to point here instead of epics.md. Interaction with IDEA-008's subscription cap resolved in PRD 6: a claimed account's own Subscription still counts against the cap — claiming and the moderator cap-exemption are explicitly two different mechanisms. epics.md's Epic 8 placeholder itself is unchanged (out of this pass's scope per CLAUDE.md's Planning Isolation guardrail); still needs bmad-create-epics-and-stories before any story."}
+     ref: [backlog/IDEA-006-account-claim-and-verification.md], touches: [web:accounts, cross:prd],
+     note: "Resolved via PRD 3.17 (bio-code-challenge claim/verify flow, 24h window, moderator REVOKE, silent EXPIRE). epics.md's Epic 8 placeholder still needs bmad-create-epics-and-stories. Full detail in backlog/IDEA-006-account-claim-and-verification.md."}
 
   FIND-004:
     {type: finding, status: backlog, created: 2026-09-02, parent: CC-018,
@@ -412,7 +412,7 @@ items:
      title: "EventCard renders server-side with no app-wide timezone wired at the layout root",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [cross:i18n, pkg:ui],
-     note: "DW-045. useScopedTimezone plumbing exists but layout.tsx passes no real timeZone value, risking a server/browser hydration mismatch. FIXED 2026-09-14 (bmad-quick-dev, commit e138964): apps/web/src/app/[locale]/layout.tsx now passes a real, deterministic IANA timezone into the layout-root ScopedLocaleProvider via a new timezoneIntlMap that mirrors the existing localeIntlTagMap (en -> America/New_York, id -> Asia/Jakarta), wired as timezone={timezoneIntlMap[locale]} on the ScopedLocaleProvider. useScopedTimezone() (and everything downstream, e.g. EventCard's date/time formatting) now actually receives a value server-side, and because the value is a compile-time constant identical on server and browser it removes the prior hydration-mismatch risk where EventCard fell back to the runtime default timezone. Route-locale-derived app-wide fallback only — per-event LocationDetails.timezone on the event's location remains the intended per-event source for a future pass, overriding this default via an explicit EventCard timezone prop when wired. Verified: layout.tsx lint clean, and tsc reports no errors for that file (the repo's other tsc errors are pre-existing and confined to test/e2e/generated files, untouched by this change)."}
+     note: "Fixed 2026-09-14 (commit e138964): layout.tsx now passes a real IANA timezone into ScopedLocaleProvider, removing the hydration-mismatch risk. Full detail in backlog-evidence-deferred.yaml's DW-045 notes."}
 
   BUG-011:
     {type: bug, status: backlog, created: 2026-09-05,
@@ -436,7 +436,7 @@ items:
      title: "EventCard date-formatting fallback chain can still propagate a NaN date past its own guard",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [pkg:ui, web:events],
-     note: "DW-070. The isNaN check only covers parseDateTime's internal fallback; the resulting dateObj is passed unguarded into getEventDayDiff/formatRelativeDayOrDate. FIXED 2026-09-14 (bmad-quick-dev, commit d9630b8): EventCard.tsx now derives a single `dateIsValid = !isNaN(combineDateTime(startDate, startTime).getTime())` guard and only calls getEventDayDiff/formatRelativeDayOrDate (and formatShortEventDateTime, which calls getEventDayDiff internally) when valid — on an Invalid Date it degrades to a blank date instead of letting NaN reach the Intl formatters and throw. Both the standard and masonry variants route through the guarded formattedDate/dateBoxText, so an invalid startDate can no longer propagate unguarded. Added EventCard.tsx regression tests (standard + masonry) asserting an invalid startDate renders the card without throwing. Scope strictly kept to BUG-013 (guarding the downstream propagation); BUG-010 (timezone wiring) and FIND-009 (test fake-timer rollover) left untouched."}
+     note: "Fixed 2026-09-14 (commit d9630b8): EventCard now guards dateIsValid before calling the date-formatting chain, degrading to blank instead of throwing on NaN. Full detail in backlog-evidence-deferred.yaml's DW-070 notes."}
 
 
   BUG-014:
@@ -625,9 +625,9 @@ items:
     {type: idea, status: triaged, created: 2026-09-06,
      impact: user-visible, effort: m,
      title: "Max 5 subscribed accounts (normal user), upgrade-account 'coming soon' CTA + PostHog event, moderator exempt",
-     ref: [],
+     ref: [backlog/IDEA-008-subscribed-account-cap.md],
      touches: [web:subscriptions, app:backend, pkg:analytics, cross:prd],
-     note: "From apps/ux-rework2.md L19-21, via ux-rework2-tracking.md item #7. PRD 8.2 (Phase 2 free_user tier) only vaguely caps accounts at 'e.g., 2' with no upgrade-CTA/PostHog/moderator-exemption language, and the number conflicts with this item's '5' — needs reconciling. Real feature work (server-side guard + upgrade UI flow + analytics), not polish; no backlog row or story existed before this audit. 2026-09-11 (bmad-prd, joint pass with IDEA-006): resolved to 5 — PRD 6 now states the cap plainly as `MAX_SUBSCRIBED_ACCOUNTS_FREE_USER` (default 5) with reasoning recorded (the old 'e.g., 2' was always a placeholder example, never a decided number; 5 is the only value actually arrived at deliberately, via this row's own ux-rework2 audit). PRD 6 also adds cap enforcement (counts active Subscription rows, not AccountVote), the moderator exemption (role-based, `UserRole.MODERATOR`, independent of tier), and the upgrade CTA + `subscription_cap_upgrade_cta_shown`/`_clicked` PostHog events in a defined 'coming soon' state. Interaction with IDEA-006's claim flow answered in the same PRD 6 edit: a claimed account's own Subscription still counts against the cap; the moderator exemption is a separate mechanism from a claimed owner's grant (PRD 3.17), not the same one. No open question remains on this row."}
+     note: "Resolved to 5 (MAX_SUBSCRIBED_ACCOUNTS_FREE_USER) via PRD 6, with cap enforcement, moderator exemption, and upgrade-CTA PostHog events. No open question remains. Full detail in backlog/IDEA-008-subscribed-account-cap.md."}
 
   IDEA-009:
     {type: idea, status: triaged, created: 2026-09-06,
@@ -687,9 +687,7 @@ items:
      ref: [],
      stories: [0-i5a-build-the-shared-pagination-filter-controller],
      touches: [pkg:ui, web:events, web:moderation, cross:architecture, cross:ux-tokens],
-     note: "Reported by user on event-list-bug-fixes-pagination branch, in the same session as BUG-018/019/020. Currently inconsistent across the app — e.g. moderator filter panels call handleFilterChange on every onChange (apply-on-change), and BUG-019 shows that pattern can cause append-instead-of-reload bugs; meanwhile no documented rule says whether a filter should take effect immediately on change or only after an explicit Apply action. Need a cross-cutting decision (likely in project-context.md and/or a UX token/primitive) so all list, discovery, and moderation views behave the same way.
-     PROMOTED 2026-09-15 (bmad-create-story): Story 0.i5a settles this directly — new AD-18 (architecture spine) + project-context.md rule, confirmed against EXPERIENCE.md's Filter Hub spec ('updates in real-time with each selection') as codifying already-unanimous existing behavior. Per epics.md's own note on Story 0.i5a, this idea does not get a separate adoption story — 0.i5a's rule-writing task is its full implementation.
-     VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): same stale-checkbox situation as BUG-019 (its concrete-case row) — Story 0.i5a already `review` in sprint-status.yaml. No new dispatch run. Plan doc checkbox corrected."}
+     note: "Story 0.i5a settles this directly (AD-18 + project-context.md rule); no separate adoption story needed. Full trail in Story 0.i5a's Dev Notes."}
 
   # ── 2026-09-07 (bmad-help bug-report session) ───────────────────────────────
   BUG-021:
@@ -755,8 +753,8 @@ items:
     {type: idea, status: done, created: 2026-09-11,
      impact: latent, effort: xs,
      title: "Bump cron-scrape SCRAPE_RESULTS_LIMIT from 10 to 30 so a missed/delayed cron cycle doesn't silently skip an account's older posts",
-     ref: [], touches: [app:backend, app:infrastructure],
-     note: "Reported by user via bmad-help. Both vendor triggers read env.scrapeResultsLimit (Apify's resultsLimit in trigger-apify-for-target.ts:41, Bright Data's numOfPosts in trigger-brightdata-for-target.ts:28), which defaulted to 10 in env.ts:157 when SCRAPE_RESULTS_LIMIT is unset. NOT a pure env-var change: festgrid-backend-stack.ts's scraperLambda (the Lambda EventBridge actually invokes for the daily batch) never forwarded SCRAPE_RESULTS_LIMIT into its environment block at all (only apiLambda did) — the cron path always ran on the code-level default regardless of any env var set elsewhere. Implemented 2026-09-11: (1) env.ts:157 default raised to 30, (2) SCRAPE_RESULTS_LIMIT added to scraperLambda's environment block in festgrid-backend-stack.ts with an explanatory comment, (3) .env.example/SETUP_WALKTHROUGH.md documented defaults updated, (4) instagram-adapter.test.ts's resultsLimit assertion updated to 30. Verified: infra CDK test (festgrid-backend-stack.test.ts) passes, backend typecheck clean, instagram-adapter.test.ts passes against the code default (only fails if a developer's local, gitignored .env still pins SCRAPE_RESULTS_LIMIT=10 — not a code defect). Not yet committed/deployed as of this note; deploy is via the normal push-to-master CI/CD path (ci.yml deploy-infrastructure, prod only)."}
+     ref: [backlog/IDEA-014-scrape-results-limit-bump.md], touches: [app:backend, app:infrastructure],
+     note: "Implemented 2026-09-11: default raised to 30 in env.ts, plus scraperLambda's environment block (previously missing SCRAPE_RESULTS_LIMIT entirely). Full detail in backlog/IDEA-014-scrape-results-limit-bump.md."}
 
   IDEA-015:
     {type: idea, status: triaged, created: 2026-09-11,
@@ -813,8 +811,8 @@ items:
     {type: bug, status: triaged, created: 2026-09-11,
      impact: user-visible, effort: s,
      title: "Feed and Favorites hardcode isAuthenticated=false and drop the location/AI-filter buttons Discovery has",
-     ref: [], touches: [web:events, pkg:ui],
-     note: "Reported by user via bmad-help ('feed, discovery, favorite has same set of buttons including location, ai-filter buttons'). Verified by comparing all 3 callers of EventDiscoveryPanel: home-content.tsx (Discovery) passes real `isAuthenticated`/`savedLocations`/`onSelectLocation` from `nearbyFilter` plus `showAITrigger={aiFilter.filterHubProps.showAITrigger}` — Type, Category, Location and AI-filter buttons all render (FilterHub.tsx only renders the Nearby-location popover when `isAuthenticated`, and the AI sparkle button only when `showAITrigger`). feed/feed-content.tsx hardcodes `isAuthenticated={false}`, `savedLocations={[]}`, `onSelectLocation={() => {}}` (line ~242-250) so the Location button never renders, but does pass `showAITrigger` — AI button present, Location button missing. favorites/favorites-content.tsx hardcodes the same `isAuthenticated={false}`/`savedLocations={[]}` (line ~314-322) AND never passes `showAITrigger` at all — both Location and AI-filter buttons missing, leaving only Type/Category. Fix: wire Feed and Favorites to real auth/saved-location state and an `aiFilter` instance the same way Discovery does, so Type/Category/Location/AI-filter render identically on all three surfaces."}
+     ref: [backlog/BUG-025-feed-favorites-missing-filter-buttons.md], touches: [web:events, pkg:ui],
+     note: "Fix: wire Feed and Favorites to real auth/saved-location state and an aiFilter instance the same way Discovery does. Not yet scoped into a story. Full detail in backlog/BUG-025-feed-favorites-missing-filter-buttons.md."}
 
   IDEA-019:
     {type: idea, status: promoted, epic: epic-0-i5, created: 2026-09-11,
@@ -901,8 +899,7 @@ items:
      title: "Extract EventCard's inline status/nearby badge markup into a shared packages/ui component before a third card family duplicates it",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md],
      touches: [pkg:ui, web:events/EventCard, web:events/WeeklyCalendarView],
-     note: "Carved out of IDEA-025 via bmad-create-story (Story 1.i1j's own Gate 2 finding, 2026-09-17): no EventCardStatusBadge/EventCardNearbyBadge component exists anywhere — EventCard.tsx's masonry branch computes formatEventStatus and renders both badges as inline JSX (bg-muted/bg-secondary spans, gated distanceKm<=5, the shipped un-fixed threshold), and Story 1.i1f's not-yet-built EventCardCalendarGridItem will need the same markup again. Story 1.i1j's own compact-row badges would have been a third independent copy — the same drift pattern (BUG-023/FIND-023) that already forced this epic's EventCardMediaPrimitives extraction (Story 1.i1a). Story 1.i1i builds the shared component (centralizing the corrected <8km threshold and DESIGN.md's happeningNow emerald treatment as its own default) and migrates EventCard.tsx's masonry branch onto it. Story 1.i1j depends on this story.
-     STORY DRAFTED, 2026-09-18 (bmad-create-story, ritual-orchestrator batch): Story 1.i1i fully drafted, sprint-status.yaml flipped to ready-for-dev. Architecture Spine AD-24 added, documenting the two independently-composable primitives, the happeningNow emerald exception, the <8km sanctioned threshold, and the non-interactive a11y rule. Story 1.i1j's dependency on this story is now satisfiable once 1.i1i's own bmad-dev-story lands."}
+     note: "Story 1.i1i builds the shared status/nearby-badge component (centralizing the <8km threshold + happeningNow emerald default, AD-24) and migrates EventCard's masonry branch onto it; Story 1.i1j depends on it. Full trail in Story 1.i1i's Dev Notes."}
 
   IDEA-042:
     {type: idea, status: promoted, epic: epic-1-i1, created: 2026-09-17, parent: IDEA-025,
@@ -944,8 +941,8 @@ items:
     {type: bug, status: done, epic: epic-1-i1, created: 2026-09-13,
      impact: user-visible, effort: xs,
      title: "WeeklyCalendarView's Previous-week navigation has no floor — users can browse arbitrarily far into the past",
-     ref: [], touches: [pkg:ui, web:events/WeeklyCalendarView],
-     note: "Raised by user via ritual HIL during the epic-1-i1 batch (2026-09-13), while discussing the desktop calendar redesign (IDEA-026). Verified: `useWeeklyCalendarController.ts`'s `handlePrevWeek` unconditionally shifted the displayed week back 7 days with no lower bound, and `WeeklyCalendarView.tsx`'s 'Previous week' button was never disabled. User confirmed the desired boundary: disable once the displayed week is today's week (or earlier) — 'Next' stays unbounded. FIXED same session (commit dc2d6bc, direct implementation, not routed through bmad-dev-story since it was small/unambiguous): `useWeeklyCalendarController` now returns `isPrevWeekDisabled` (computed from `weekStart <= getWeekStart(todayStr)`), `handlePrevWeek` itself no-ops defensively when disabled, `WeeklyCalendarView` gained an `isPrevWeekDisabled?` prop wired to the button's `disabled` attribute, and all 4 consumer pages (Discovery/CalendarView, Feed/FeedCalendarView, Account/AccountCalendarView, My Calendar) thread it through. Lint/build/full test suite verified green, including new dedicated tests for the boundary in both `useWeeklyCalendarController.test.tsx` and `WeeklyCalendarView.test.tsx`."}
+     ref: [backlog/BUG-028-weekly-calendar-previous-week-floor.md], touches: [pkg:ui, web:events/WeeklyCalendarView],
+     note: "Fixed same session (commit dc2d6bc): isPrevWeekDisabled floors Previous-week nav at today's week across all 4 consumer pages. Full detail in backlog/BUG-028-weekly-calendar-previous-week-floor.md."}
 
   # ── 2026-09-12 (bmad-create-story 3-3e persist-scraped-post call-site trace) ─
   FIND-024:
@@ -1021,9 +1018,9 @@ items:
     {type: bug, status: done, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Infinite scroll jumps to the very bottom after loading a page (mobile always, desktop sometimes)",
-     ref: [],
+     ref: [backlog/BUG-031-infinite-scroll-jumps-to-bottom.md],
      touches: [web:events, pkg:ui],
-     note: "Reported by user via bmad-help (2026-09-15). DIAGNOSED & FIXED 2026-09-17 (bmad-quick-dev). Root cause confirmed: sentinel element's height collapses after page load because the spinner-containing content disappears, causing browser scroll-anchoring to jump. The sentinel displays tall (~48-60px) when isFetchingNextPage=true (spinner visible), then shrinks to ~28px when isFetchingNextPage=false (just py-4 padding), triggering scroll anchoring on appended items. Fix applied: (1) Added min-h-16 to EventListView.tsx's sentinel to maintain consistent height; (2) Added 'You've reached the end' indicator when !hasNextPage (visible UX feedback as user suggested); (3) Updated EventListViewProps interface to accept optional hasNextPage prop; (4) Updated all 5 consumers (Discovery/Feed/Favorites/Archive/Account) to pass hasNextPage from useInfiniteQuery. Changes: packages/ui/src/features/events/EventListView.tsx/.types.ts (min-height + end-of-list indicator), apps/web/src/app/[locale]/{home,feed,favorites,archive,[platformSlug]/[accountId]}/xxx-content.tsx (pass hasNextPage prop). Verified no breaking changes — hasNextPage is optional for backward compatibility; existing consumers without it render end-of-list text only when explicitly false."}
+     note: "Diagnosed & fixed 2026-09-17: sentinel height collapse triggered scroll-anchoring; fixed via min-h-16 + end-of-list indicator across all 5 consumers. Full detail in backlog/BUG-031-infinite-scroll-jumps-to-bottom.md."}
 
   # ── 2026-09-14 (bmad-code-review of 2-7-automatically-hide-past-events) ────
   FIND-029:
@@ -1075,8 +1072,8 @@ items:
     {type: finding, status: triaged, created: 2026-09-15,
      impact: internal, effort: xs,
      title: "useGetMySubscriptionsQuery fires unconditionally on session presence on the event-detail page, with no shell-level warm cache unlike useMeQuery",
-     ref: [planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md], touches: [web:events/EventDetailWrapper, app:backend],
-     note: "Found via bmad-agent-architect audit (2026-09-15). EventDetailWrapper.tsx:58-64 calls useGetMySubscriptionsQuery gated only on `enabled: !!session`, regardless of whether the event even has a linked source account — it's consumed solely to compute isSubscribedToAccount for the 'subscribe to source account' button (EventDetailWrapper.tsx:259-270). Unlike useMeQuery (confirmed a genuine cache-hit — AppShellWrapper.tsx:31-33 fires the identical ['me']-keyed query in the root layout on every route, so EventDetailWrapper's copy is deduped by the shared QueryClient's 30s staleTime), no queryKey ['getMySubscriptions'] fetch exists at the shell level — only in feed-content.tsx:54, onboarding-subscribe-step.tsx:21, and subscriptions-content.tsx:39. A direct entry to event detail (share link, search result, Discover card) triggers a real, otherwise-unneeded network call for events with no linked account at all. Fix direction: gate the query on the event actually having a sourceSocialMediaAccountProfile, or lift it to shell-level like useMeQuery if it's cheap and commonly needed. Not yet scoped into a story."}
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md, backlog/FIND-030-unconditional-subscriptions-query-on-event-detail.md], touches: [web:events/EventDetailWrapper, app:backend],
+     note: "Fix direction: gate the query on the event having a sourceSocialMediaAccountProfile, or lift it to shell-level like useMeQuery. Not yet scoped into a story. Full trace in backlog/FIND-030-unconditional-subscriptions-query-on-event-detail.md."}
 
   FIND-031:
     {type: finding, status: triaged, created: 2026-09-15,
@@ -1110,8 +1107,7 @@ items:
      ref: [backlog/IDEA-030-event-detail-ui.md],
      touches: [web:events, web:posts, pkg:ui, cross:i18n],
      stories: [1-6f-event-detail-page-ui-refinements],
-     note: "Reported by user via bmad-help (2026-09-15). Batched event-detail-page UI changes (full list in note file): (1) responsive layout — desktop keeps event-main-content on the right as today, mobile shows it at the top; (2) published-date inline with the view-original link in event-main-content using the existing short-date format (e.g. `Sep 7 · <Link><Platform-Icon> View Original ↗</Link>`), i18n'd; (3) hashtags at the bottom of event-main-content above the view-original link, each clicking to Discovery with the hashtag as an extra search-text param (needs BUG-032's data); (4) event-category/event-type badges clickable → Discovery with the related type/category; (5) favorite icon moved inlined to the right of the event title; (6) event title font smaller via `text-2xl`; (7) remove the top-of-page add-to-calendar icon. May fan into multiple stories.
-     CARVED + PROMOTED 2026-09-16 (bmad-create-story): items 1,2,4,5,6,7 promoted to Story 1.6f. Item 3 (hashtags) split out to child IDEA-037 — blocked on BUG-032 (hashtag persistence), not yet landed — rather than bundled in or silently dropped."}
+     note: "Items 1,2,4,5,6,7 promoted to Story 1.6f; item 3 (hashtags) carved to child IDEA-037, blocked on BUG-032. Full detail in backlog/IDEA-030-event-detail-ui.md."}
 
   IDEA-031:
     {type: idea, status: promoted, created: 2026-09-15,
@@ -1120,8 +1116,7 @@ items:
      ref: [backlog/IDEA-031-event-detail-platform-account-element.md],
      stories: [0-i6f-platform-icon-fallback-and-functional-subscribe-unsubscribe-toggle],
      touches: [web:events, web:accounts, pkg:ui],
-     note: "Reported by user via bmad-help (2026-09-15). Event-detail platform account element: (1) when the account has no profile image, fall back to the colored platform icon; (2) replace the text 'subscribe' button with a subscribe/unsubscribe toggle — different icon per state, different icon color per state.
-     PROMOTED 2026-09-16 (bmad-create-story, Story 0.i6f): fully covered, bundled with FIND-010's DW-009 slice per event-pages-remaining-backlog-plan.md, homed under Epic 0.i6 (user-confirmed via AskUserQuestion) rather than that plan's original 'no epic' framing — same class of internal-contract-change-joins-directly precedent as Stories 0.i6d/0.i6e. Toggle built fully functional (real unsubscribe), not visual-only, per user's second AskUserQuestion confirmation. Corrected the note's platform-registry.ts pointer: that file has no icon/color mapping (slug/display-name only); the real reusable icon logic was SubscriptionPicker.tsx's private PlatformIcon, extracted to packages/ui/src/core/platform-icon.tsx by this story instead."}
+     note: "Promoted 2026-09-16 into Story 0.i6f, fully covered, bundled with FIND-010's DW-009 slice under Epic 0.i6. Full detail in backlog/IDEA-031-event-detail-platform-account-element.md."}
 
   IDEA-032:
     {type: idea, status: triaged, created: 2026-09-15,
@@ -1196,7 +1191,7 @@ items:
      title: "Lambda SQS event-source pollers run 24/7 on idle queues, burning free-tier request quota",
      ref: [backlog/FIND-034-sqs-lambda-poller-idle-cost.md],
      touches: [app:infrastructure, app:backend, web:posts, cross:ai-extraction, cross:architecture],
-     note: "854,420 of Sept's 867,586 SQS requests (98.5%) were empty long-polls from always-on Lambda SqsEventSource mappings on all 6 queues, including 3 dev queues with zero real traffic all month. Manual stopgap applied (dev ESMs disabled via CLI) won't survive cdk deploy. Fix agreed with user: stage-gate dev ESM enabled + replace all 3 prod ESMs with 5-min EventBridge scheduled poll-and-drain (user confirmed scraping/AI-extraction/data-ingestion all tolerate minutes of delay). Promoted 2026-09-18 via bmad-create-story into Story 0.40, which fully covers this row's settled design plus one extension: staging (unaddressed by the original design) is treated the same as dev rather than left on the old always-on ESM, resolved via AskUserQuestion with the user during story creation, alongside a second resolved gap (poll-and-drain loops until drained/time-budget, not a single fixed batch of 10). No uncovered remainder — no child row carved. Blocks BUG-002 remains UNRESOLVED until Story 0.40 reaches done (creating the story doesn't yet ship the fix): that row's missing-timeout gap is framed against the current ESM-invocation model this fix removes for aiProcessorLambda/ingestorLambda — resolve this first, then re-scope BUG-002 against the new scheduled poll-and-drain model."}
+     note: "Promoted 2026-09-18 via bmad-create-story into Story 0.40, covering the settled design plus staging treatment. Blocks BUG-002 until Story 0.40 reaches done. Full detail in backlog/FIND-034-sqs-lambda-poller-idle-cost.md."}
 
   # ── 2026-09-18 (bmad-create-story, drafting Story 1.i1k) ────────────────────
   FIND-035:
@@ -1232,7 +1227,7 @@ items:
     {type: bug, status: done, created: 2026-09-18,
      impact: user-visible, effort: xs,
      title: "createApiKey's duplicate-key check compared against every user's active keys, not just the caller's own",
-     ref: [],
+     ref: [backlog/BUG-037-createapikey-duplicate-check-cross-user.md],
      touches: [app:backend],
-     note: "resolvers.ts:434's activeKeys query for the DUPLICATE_API_KEY check had no apiKeys.userId filter -- decrypted and compared every active key for the given provider across ALL users on every createApiKey call, so User A could get a false DUPLICATE_API_KEY block because User B happens to have registered the identical key text, and every key-add unnecessarily decrypted other users' secrets into memory. Found incidentally: the BUG-015/FIND-020/FIND-017/IDEA-015 ritual-orchestrator quick-dev dispatch (2026-09-18) never actually implemented its own target scope (spec-only, no code landed) but its post-check auto-fix pass, triggered by 2 real pre-existing test failures, correctly root-caused and fixed this one plus an unrelated Story 4.8 test-isolation flake (resolvers.test.ts's 'events - includeMyArchived opt-in bypass' used fixed literal user IDs that collided with rows other tests create via unfiltered LIMIT N selects -- switched to crypto.randomUUID() + defensive accountVotes cleanup). Fix: added eq(apiKeys.userId, authUser.userId) to the activeKeys query. Verified independently: all 74 tests in resolvers.test.ts pass (targeted re-run, not the full suite)."}
+     note: "Fixed 2026-09-18: added eq(apiKeys.userId, authUser.userId) to the duplicate-key check, which previously compared across all users. Full detail in backlog/BUG-037-createapikey-duplicate-check-cross-user.md."}
 
