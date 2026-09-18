@@ -8,7 +8,7 @@ baseline_commit: 73aec34f7847672dc00f4a6456c9943705e7f706
 
 - Epic: 0
 - Story ID: 0.40
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -48,36 +48,36 @@ so that the account stops burning ~77% of its monthly AWS SQS free-tier request 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Confirm current state before starting (AC: 1, 3, 5, 6, 7, 8)
-  - [ ] Re-confirm `festgrid-backend-stack.ts`'s current unconditional `addEventSource` calls (lines ~391, ~406, ~411) and that no `grantConsumeMessages`/stage-gating exists anywhere yet.
-  - [ ] Re-confirm `ai-processor.ts`/`ingestor.ts` have zero event-shape branching today (flat `SQSEvent -> SQSBatchResponse`), and `scraper.ts`'s existing 3-way branch (`stale-job-sweep` / `Records` / daily-batch EventBridge), so the new branch is additive to each, not a rewrite.
-  - [ ] Re-confirm `aiProcessorLambda`'s environment lacks `AI_PROCESSING_QUEUE_URL` and `ingestorLambda`'s environment lacks any queue URL at all (AC7).
-  - [ ] Re-derive whether the manual stopgap (3 dev ESM UUIDs disabled via CLI, noted in `backlog/FIND-034-sqs-lambda-poller-idle-cost.md`) is still in effect at implementation time; note in Completion Notes either way (informational only — this story's `enabled: false` default (AC1) is what makes the fix durable across deploys, the manual stopgap itself needs no further action).
-- [ ] Task 2: Add the shared `pollAndDrainQueue` module (AC: 9, 10, 12)
-  - [ ] Create `apps/backend/src/lib/aws/poll-and-drain-queue.ts`: reassignable `receiveSqsMessages`/`setReceiveSqsMessages` and `deleteSqsMessage`/`setDeleteSqsMessage` (mirroring `send-sqs-message.ts`'s pattern exactly), and the `pollAndDrainQueue(queueUrl, handleMessage, opts?)` orchestration function implementing the loop-until-drained-or-time-budget semantics from AC9.
-  - [ ] Create `apps/backend/src/lib/aws/poll-and-drain-queue.test.ts` covering AC12(a)-(d).
-- [ ] Task 3: Add the new poll-and-drain branch to each handler (AC: 5, 6, 7, 13)
-  - [ ] `scraper.ts`: add the `event.jobType === 'poll-and-drain'` branch (4th branch), calling `pollAndDrainQueue(process.env.SCRAPING_QUEUE_URL!, ...)` wrapping the existing `JSON.parse` + `processScrapeJob` logic.
-  - [ ] `ai-processor.ts`: add event-shape branching (new — none exists today); the `{ jobType: 'poll-and-drain' }` branch calls `pollAndDrainQueue(process.env.AI_PROCESSING_QUEUE_URL!, ...)` wrapping `processAiJob`; update the handler's return type to `Promise<SQSBatchResponse | void>`.
-  - [ ] `ingestor.ts`: same as `ai-processor.ts`, using `process.env.DATA_INGESTION_QUEUE_URL!` and `processIngestionJob`.
-  - [ ] Create `scraper.test.ts`, `ai-processor.test.ts`, `ingestor.test.ts` (new files) covering AC13 for each handler's new branch only (not re-testing the pre-existing SQS-batch/daily-batch/stale-sweep branches, which are unchanged).
-- [ ] Task 4: Stage-gate the dev/staging ESM (AC: 1, 2, 4)
-  - [ ] In `festgrid-backend-stack.ts`, compute `const enableNonProdQueuePolling = stageName === 'prod' || this.node.tryGetContext('enableNonProdQueuePolling') === 'true';` and pass `{ enabled: enableNonProdQueuePolling }` into all 3 `addEventSource(new eventSources.SqsEventSource(queue, { enabled: enableNonProdQueuePolling, ...existing reportBatchItemFailures where present }))` calls, but only actually invoke `addEventSource` at all when `stageName !== 'prod'` (AC3 removes it entirely for prod).
-  - [ ] Note the deliberate naming choice: `enableNonProdQueuePolling`, not the backlog note's originally-suggested `enableDevQueuePolling` — renamed because, per this story's AskUserQuestion resolution, the same flag now gates **both** dev and staging, not just dev.
-- [ ] Task 5: Replace prod's ESM with scheduled poll-and-drain (AC: 3, 8)
-  - [ ] In `festgrid-backend-stack.ts`, when `stageName === 'prod'`, add `ScraperPollAndDrainRule-prod`/`AIProcessorPollAndDrainRule-prod`/`IngestorPollAndDrainRule-prod` (`events.Rule`, `Schedule.rate(Duration.minutes(5))`, `RuleTargetInput.fromObject({ jobType: 'poll-and-drain' })`), each targeting the corresponding Lambda, mirroring `staleJobSweepRule`'s exact construct shape.
-  - [ ] Add `AI_PROCESSING_QUEUE_URL`/`DATA_INGESTION_QUEUE_URL` environment entries per AC7.
-  - [ ] Add the 3 `grantConsumeMessages` calls per AC8 (unconditional, all stages).
-- [ ] Task 6: Add CDK infrastructure assertion tests (AC: 11)
-  - [ ] Extend `apps/infrastructure/lib/festgrid-backend-stack.test.ts`: dev-stack-no-context assertions (`Enabled: false` ×3), dev-stack-with-context assertions (`Enabled: true` ×3, constructed via a second `Template.fromStack` on a stack built with `app.node.setContext('enableNonProdQueuePolling', 'true')` or the stack-construction-time context mechanism this CDK version supports), and a new prod-stack test (setting the required `process.env` vars per the existing prod-required-vars check, then constructing `{ stageName: 'prod' }`) asserting zero `EventSourceMapping` for these 3 queues, 3 new `rate(5 minutes)` rules with the `poll-and-drain` marker, and the 3 `grantConsumeMessages`-derived IAM policy statements.
-- [ ] Task 7: Update `SETUP_WALKTHROUGH.md` (persistent fact: cloud/external service setup) (AC: 1, 2)
-  - [ ] Under the existing `## 2. Backend (AWS Serverless)` section, add a short note documenting the `enableNonProdQueuePolling` context flag and its default-off behavior for dev/staging, and that prod now uses scheduled poll-and-drain instead of a continuous ESM.
-- [ ] Task 8: Verification (AC: 1-14)
-  - [ ] `pnpm --filter infrastructure exec cdk synth` succeeds for all three stage instances.
-  - [ ] `pnpm --filter infrastructure test` (extended assertions from Task 6) passes.
-  - [ ] `pnpm --filter backend test` (new/extended unit tests from Tasks 2/3) passes.
-  - [ ] `pnpm build`/`pnpm lint` clean at the repo root for `apps/infrastructure` and `apps/backend`.
-  - [ ] Record in Completion Notes (deferred, not a failure, mirroring Stories 0.14/0.25/0.27's precedent): a real `cdk deploy` plus a live 5-minute-scheduled invocation against a real AWS account is not performed as part of this story's automated verification (no AWS credentials available in this development environment).
+- [x] Task 1: Confirm current state before starting (AC: 1, 3, 5, 6, 7, 8)
+  - [x] Re-confirm `festgrid-backend-stack.ts`'s current unconditional `addEventSource` calls (lines ~391, ~406, ~411) and that no `grantConsumeMessages`/stage-gating exists anywhere yet.
+  - [x] Re-confirm `ai-processor.ts`/`ingestor.ts` have zero event-shape branching today (flat `SQSEvent -> SQSBatchResponse`), and `scraper.ts`'s existing 3-way branch (`stale-job-sweep` / `Records` / daily-batch EventBridge), so the new branch is additive to each, not a rewrite.
+  - [x] Re-confirm `aiProcessorLambda`'s environment lacks `AI_PROCESSING_QUEUE_URL` and `ingestorLambda`'s environment lacks any queue URL at all (AC7).
+  - [x] Re-derive whether the manual stopgap (3 dev ESM UUIDs disabled via CLI, noted in `backlog/FIND-034-sqs-lambda-poller-idle-cost.md`) is still in effect at implementation time; note in Completion Notes either way (informational only — this story's `enabled: false` default (AC1) is what makes the fix durable across deploys, the manual stopgap itself needs no further action).
+- [x] Task 2: Add the shared `pollAndDrainQueue` module (AC: 9, 10, 12)
+  - [x] Create `apps/backend/src/lib/aws/poll-and-drain-queue.ts`: reassignable `receiveSqsMessages`/`setReceiveSqsMessages` and `deleteSqsMessage`/`setDeleteSqsMessage` (mirroring `send-sqs-message.ts`'s pattern exactly), and the `pollAndDrainQueue(queueUrl, handleMessage, opts?)` orchestration function implementing the loop-until-drained-or-time-budget semantics from AC9.
+  - [x] Create `apps/backend/src/lib/aws/poll-and-drain-queue.test.ts` covering AC12(a)-(d).
+- [x] Task 3: Add the new poll-and-drain branch to each handler (AC: 5, 6, 7, 13)
+  - [x] `scraper.ts`: add the `event.jobType === 'poll-and-drain'` branch (4th branch), calling `pollAndDrainQueue(process.env.SCRAPING_QUEUE_URL!, ...)` wrapping the existing `JSON.parse` + `processScrapeJob` logic.
+  - [x] `ai-processor.ts`: add event-shape branching (new — none exists today); the `{ jobType: 'poll-and-drain' }` branch calls `pollAndDrainQueue(process.env.AI_PROCESSING_QUEUE_URL!, ...)` wrapping `processAiJob`; update the handler's return type to `Promise<SQSBatchResponse | void>`.
+  - [x] `ingestor.ts`: same as `ai-processor.ts`, using `process.env.DATA_INGESTION_QUEUE_URL!` and `processIngestionJob`.
+  - [x] Create `scraper.test.ts`, `ai-processor.test.ts`, `ingestor.test.ts` (new files) covering AC13 for each handler's new branch only (not re-testing the pre-existing SQS-batch/daily-batch/stale-sweep branches, which are unchanged).
+- [x] Task 4: Stage-gate the dev/staging ESM (AC: 1, 2, 4)
+  - [x] In `festgrid-backend-stack.ts`, compute `const enableNonProdQueuePolling = stageName === 'prod' || this.node.tryGetContext('enableNonProdQueuePolling') === 'true';` and pass `{ enabled: enableNonProdQueuePolling }` into all 3 `addEventSource(new eventSources.SqsEventSource(queue, { enabled: enableNonProdQueuePolling, ...existing reportBatchItemFailures where present }))` calls, but only actually invoke `addEventSource` at all when `stageName !== 'prod'` (AC3 removes it entirely for prod).
+  - [x] Note the deliberate naming choice: `enableNonProdQueuePolling`, not the backlog note's originally-suggested `enableDevQueuePolling` — renamed because, per this story's AskUserQuestion resolution, the same flag now gates **both** dev and staging, not just dev.
+- [x] Task 5: Replace prod's ESM with scheduled poll-and-drain (AC: 3, 8)
+  - [x] In `festgrid-backend-stack.ts`, when `stageName === 'prod'`, add `ScraperPollAndDrainRule-prod`/`AIProcessorPollAndDrainRule-prod`/`IngestorPollAndDrainRule-prod` (`events.Rule`, `Schedule.rate(Duration.minutes(5))`, `RuleTargetInput.fromObject({ jobType: 'poll-and-drain' })`), each targeting the corresponding Lambda, mirroring `staleJobSweepRule`'s exact construct shape.
+  - [x] Add `AI_PROCESSING_QUEUE_URL`/`DATA_INGESTION_QUEUE_URL` environment entries per AC7.
+  - [x] Add the 3 `grantConsumeMessages` calls per AC8 (unconditional, all stages).
+- [x] Task 6: Add CDK infrastructure assertion tests (AC: 11)
+  - [x] Extend `apps/infrastructure/lib/festgrid-backend-stack.test.ts`: dev-stack-no-context assertions (`Enabled: false` ×3), dev-stack-with-context assertions (`Enabled: true` ×3, constructed via a second `Template.fromStack` on a stack built with `app.node.setContext('enableNonProdQueuePolling', 'true')` or the stack-construction-time context mechanism this CDK version supports), and a new prod-stack test (setting the required `process.env` vars per the existing prod-required-vars check, then constructing `{ stageName: 'prod' }`) asserting zero `EventSourceMapping` for these 3 queues, 3 new `rate(5 minutes)` rules with the `poll-and-drain` marker, and the 3 `grantConsumeMessages`-derived IAM policy statements.
+- [x] Task 7: Update `SETUP_WALKTHROUGH.md` (persistent fact: cloud/external service setup) (AC: 1, 2)
+  - [x] Under the existing `## 2. Backend (AWS Serverless)` section, add a short note documenting the `enableNonProdQueuePolling` context flag and its default-off behavior for dev/staging, and that prod now uses scheduled poll-and-drain instead of a continuous ESM.
+- [x] Task 8: Verification (AC: 1-14)
+  - [x] `pnpm --filter infrastructure exec cdk synth` succeeds for all three stage instances.
+  - [x] `pnpm --filter infrastructure test` (extended assertions from Task 6) passes.
+  - [x] `pnpm --filter backend test` (new/extended unit tests from Tasks 2/3) passes.
+  - [x] `pnpm build`/`pnpm lint` clean at the repo root for `apps/infrastructure` and `apps/backend`.
+  - [x] Record in Completion Notes (deferred, not a failure, mirroring Stories 0.14/0.25/0.27's precedent): a real `cdk deploy` plus a live 5-minute-scheduled invocation against a real AWS account is not performed as part of this story's automated verification (no AWS credentials available in this development environment).
 
 ## Dev Notes
 
@@ -159,34 +159,34 @@ so that the account stops burning ~77% of its monthly AWS SQS free-tier request 
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: stage-gate the dev/staging `SqsEventSource` (`enabled`, default off, opt-in via `enableNonProdQueuePolling` context flag) for all 3 queues; replace prod's `SqsEventSource` entirely with a 5-minute EventBridge scheduled poll-and-drain per queue, via a new shared `pollAndDrainQueue()` module; add the previously-missing `grantConsumeMessages` grants and queue-URL environment variables needed for the new mechanism to actually function; zero changes to any handler's underlying business logic.
-- [ ] Architecture and boundary confirmation: Gate 1 — no architecture-layer gap, two real end-to-end completeness gaps folded into this story's own ACs (AC7/AC8). Gate 2 — no gap (zero UI surface, grep-verified). Gate 3 — the EventBridge Rule+Target wiring is a 4th-6th occurrence of an already-declined-helper-extraction pattern (no gap); the receive/delete mechanism itself is a real shared-duplication risk, resolved by building it once within this story's own scope (not split into a separate prerequisite story, since all consumers are inside this story).
-- [ ] Testing plan confirmation: extended `festgrid-backend-stack.test.ts` CDK assertions (dev gated on/off, prod scheduled-poll wiring) plus new unit tests for `poll-and-drain-queue.ts` and all 3 handlers' new branches; a real `cdk deploy` and live scheduled invocation against real AWS is explicitly deferred (no AWS credentials in this environment).
-- [ ] Explicit human approval state: **pending** — awaiting user (shulha) sign-off before implementation begins.
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted: no prerequisite story exists or is needed; Gate 1's two completeness findings are resolved within this story's own scope (see Architecture & UX Gate Findings), Gate 2 found no gap, and Gate 3 found no gap (its shared-mechanism consideration is a within-story avoid-duplication decision, not a cross-story/cross-epic foundational dependency).
-- [ ] **Staging-treatment decision accepted:** user confirmed via AskUserQuestion (2026-09-18) that staging receives the same gated/default-off/opt-in treatment as dev, not prod's scheduled poll-and-drain mechanism.
-- [ ] **Poll-loop drain-depth decision accepted:** user confirmed via AskUserQuestion (2026-09-18) that the poll-and-drain branch loops until the queue is drained or a time budget is reached, not a single fixed batch of 10 per invocation.
+- [x] Scope confirmation: stage-gate the dev/staging `SqsEventSource` (`enabled`, default off, opt-in via `enableNonProdQueuePolling` context flag) for all 3 queues; replace prod's `SqsEventSource` entirely with a 5-minute EventBridge scheduled poll-and-drain per queue, via a new shared `pollAndDrainQueue()` module; add the previously-missing `grantConsumeMessages` grants and queue-URL environment variables needed for the new mechanism to actually function; zero changes to any handler's underlying business logic.
+- [x] Architecture and boundary confirmation: Gate 1 — no architecture-layer gap, two real end-to-end completeness gaps folded into this story's own ACs (AC7/AC8). Gate 2 — no gap (zero UI surface, grep-verified). Gate 3 — the EventBridge Rule+Target wiring is a 4th-6th occurrence of an already-declined-helper-extraction pattern (no gap); the receive/delete mechanism itself is a real shared-duplication risk, resolved by building it once within this story's own scope (not split into a separate prerequisite story, since all consumers are inside this story).
+- [x] Testing plan confirmation: extended `festgrid-backend-stack.test.ts` CDK assertions (dev gated on/off, prod scheduled-poll wiring) plus new unit tests for `poll-and-drain-queue.ts` and all 3 handlers' new branches; a real `cdk deploy` and live scheduled invocation against real AWS is explicitly deferred (no AWS credentials in this environment).
+- [x] Explicit human approval state: **approved** — user (shulha) signed off via AskUserQuestion on 2026-09-18 to start implementation as scoped.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted: no prerequisite story exists or is needed; Gate 1's two completeness findings are resolved within this story's own scope (see Architecture & UX Gate Findings), Gate 2 found no gap, and Gate 3 found no gap (its shared-mechanism consideration is a within-story avoid-duplication decision, not a cross-story/cross-epic foundational dependency).
+- [x] **Staging-treatment decision accepted:** user confirmed via AskUserQuestion (2026-09-18) that staging receives the same gated/default-off/opt-in treatment as dev, not prod's scheduled poll-and-drain mechanism.
+- [x] **Poll-loop drain-depth decision accepted:** user confirmed via AskUserQuestion (2026-09-18) that the poll-and-drain branch loops until the queue is drained or a time budget is reached, not a single fixed batch of 10 per invocation.
 
 ## Testing Requirements
 
-- [ ] Infrastructure assertion tests (required): extended `apps/infrastructure/lib/festgrid-backend-stack.test.ts` via `node:test`/`tsx --test` and `aws-cdk-lib/assertions`, proving the dev/staging gated-ESM `Enabled` toggle and prod's scheduled-poll-and-drain wiring, IAM grants, and environment variables (Task 6).
-- [ ] Unit tests (required): `poll-and-drain-queue.test.ts` (loop/drain/delete/error semantics) and `scraper.test.ts`/`ai-processor.test.ts`/`ingestor.test.ts` (new poll-and-drain branch wiring) via `node:test`, matching this codebase's existing `apps/backend` test convention (Task 2/3).
-- [ ] Synth verification (required): `cdk synth` succeeds for all three stage instances (Task 8).
-- [ ] Integration tests: Not applicable beyond the unit tests above — no GraphQL/resolver/frontend surface changes in this story.
-- [ ] E2E tests: Not applicable — no UI in this story.
-- [ ] Manual verification (deferred, tracked): a real `cdk deploy` plus a live EventBridge-triggered invocation, verified the first time CI's deploy job runs against a real AWS account after this story ships (no AWS credentials available in this development environment).
+- [x] Infrastructure assertion tests (required): extended `apps/infrastructure/lib/festgrid-backend-stack.test.ts` via `node:test`/`tsx --test` and `aws-cdk-lib/assertions`, proving the dev/staging gated-ESM `Enabled` toggle and prod's scheduled-poll-and-drain wiring, IAM grants, and environment variables (Task 6).
+- [x] Unit tests (required): `poll-and-drain-queue.test.ts` (loop/drain/delete/error semantics) and `scraper.test.ts`/`ai-processor.test.ts`/`ingestor.test.ts` (new poll-and-drain branch wiring) via `node:test`, matching this codebase's existing `apps/backend` test convention (Task 2/3).
+- [x] Synth verification (required): `cdk synth` succeeds for all three stage instances (Task 8).
+- [x] Integration tests: Not applicable beyond the unit tests above — no GraphQL/resolver/frontend surface changes in this story.
+- [x] E2E tests: Not applicable — no UI in this story.
+- [x] Manual verification (deferred, tracked): a real `cdk deploy` plus a live EventBridge-triggered invocation, verified the first time CI's deploy job runs against a real AWS account after this story ships (no AWS credentials available in this development environment).
 
 ## Deliverables Checklist
 
-- [ ] `festgrid-backend-stack.ts`'s 3 target Lambdas' `SqsEventSource` gated via `enableNonProdQueuePolling` (default off) for dev/staging.
-- [ ] Prod's 3 `SqsEventSource` calls removed entirely; replaced by 3 new `rate(5 minutes)` EventBridge rules with the `poll-and-drain` marker.
-- [ ] `grantConsumeMessages` added for all 3 Lambda/queue pairs (unconditional, all stages).
-- [ ] `AI_PROCESSING_QUEUE_URL`/`DATA_INGESTION_QUEUE_URL` environment entries added to `aiProcessorLambda`/`ingestorLambda`.
-- [ ] `apps/backend/src/lib/aws/poll-and-drain-queue.ts` implemented and unit-tested.
-- [ ] `scraper.ts`/`ai-processor.ts`/`ingestor.ts` each gain the new poll-and-drain branch, unit-tested.
-- [ ] Extended `festgrid-backend-stack.test.ts` assertions passing.
-- [ ] `SETUP_WALKTHROUGH.md` updated with the `enableNonProdQueuePolling` flag note.
-- [ ] `pnpm build`/`pnpm lint` pass at the repo root for `apps/infrastructure` and `apps/backend`.
+- [x] `festgrid-backend-stack.ts`'s 3 target Lambdas' `SqsEventSource` gated via `enableNonProdQueuePolling` (default off) for dev/staging.
+- [x] Prod's 3 `SqsEventSource` calls removed entirely; replaced by 3 new `rate(5 minutes)` EventBridge rules with the `poll-and-drain` marker.
+- [x] `grantConsumeMessages` added for all 3 Lambda/queue pairs (unconditional, all stages).
+- [x] `AI_PROCESSING_QUEUE_URL`/`DATA_INGESTION_QUEUE_URL` environment entries added to `aiProcessorLambda`/`ingestorLambda`.
+- [x] `apps/backend/src/lib/aws/poll-and-drain-queue.ts` implemented and unit-tested.
+- [x] `scraper.ts`/`ai-processor.ts`/`ingestor.ts` each gain the new poll-and-drain branch, unit-tested.
+- [x] Extended `festgrid-backend-stack.test.ts` assertions passing.
+- [x] `SETUP_WALKTHROUGH.md` updated with the `enableNonProdQueuePolling` flag note.
+- [x] `pnpm build`/`pnpm lint` pass at the repo root for `apps/infrastructure` and `apps/backend`.
 
 ## Out of Scope
 
@@ -198,32 +198,57 @@ so that the account stops burning ~77% of its monthly AWS SQS free-tier request 
 
 ## Definition of Done
 
-- [ ] AC 1-14 satisfied.
-- [ ] `cdk synth` succeeds for all three stage instances (Task 8).
-- [ ] `apps/infrastructure` assertion tests passing, including the new dev-gated/prod-scheduled assertions (Task 6).
-- [ ] `apps/backend` unit tests passing, including the new `poll-and-drain-queue.ts` and 3 handler-branch test files (Task 2/3).
-- [ ] `pnpm lint` and `pnpm build` passing for `apps/infrastructure` and `apps/backend`.
-- [ ] `SETUP_WALKTHROUGH.md` updated (Task 7).
-- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
+- [x] AC 1-14 satisfied.
+- [x] `cdk synth` succeeds for all three stage instances (Task 8).
+- [x] `apps/infrastructure` assertion tests passing, including the new dev-gated/prod-scheduled assertions (Task 6).
+- [x] `apps/backend` unit tests passing, including the new `poll-and-drain-queue.ts` and 3 handler-branch test files (Task 2/3).
+- [x] `pnpm lint` and `pnpm build` passing for `apps/infrastructure` and `apps/backend`.
+- [x] `SETUP_WALKTHROUGH.md` updated (Task 7).
+- [x] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete (implementation) — status set to "review" for code-review workflow
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled in by the dev agent._
+Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
 
 ### Debug Log References
 
-_To be filled in by the dev agent._
+- `pnpm --filter infrastructure test` — all 3 suites pass (original resource-count assertions + 2 new Story 0.40 suites: dev-no-context `Enabled: false` ×3, dev-with-context `Enabled: true` ×3, prod ESM-removed/scheduled-poll-and-drain/grants).
+- `apps/backend`: `poll-and-drain-queue.test.ts` (4/4), `scraper.test.ts` (2/2), `ai-processor.test.ts` (2/2), `ingestor.test.ts` (2/2) all pass.
+- `DEPLOY_STAGE=dev cdk synth`, `DEPLOY_STAGE=staging cdk synth`, and `DEPLOY_STAGE=prod cdk synth` (with the 5 required prod env vars stubbed) all exit 0; prod synth output confirmed 0 `AWS::Lambda::EventSourceMapping` and 3 `{"jobType":"poll-and-drain"}` rule targets for these 3 queues.
+- `pnpm build` (repo root, turbo, excludes `ai-dev-orchestrator`) — 7/7 tasks succeed, including `backend:build` (tsc) and `web:build`.
+- `pnpm lint` (repo root, turbo) — 0 errors (pre-existing warning-only baseline unchanged).
+- Full `apps/backend` test suite (`tsx --test --test-concurrency=1 "src/**/*.test.ts"`, 760 tests): 4 pre-existing failures unrelated to this story (`api-keys.test.ts` ×2 — real AWS KMS `InvalidCiphertextException` against a local dev environment with no working KMS decrypt path; `resolvers.test.ts`'s `events - includeMyArchived opt-in bypass` — a pre-existing test-isolation FK-violation on `account_votes`/`users` cleanup ordering). Verified pre-existing by stashing this story's 3 handler-file changes and re-running `api-keys.test.ts` in isolation — it fails identically with those changes absent. Neither failing suite imports or exercises anything this story touches (SQS/EventBridge/poll-and-drain code). Flagging per workflow instruction rather than silently proceeding; not fixed as part of this story (out of scope).
+- Local Postgres was missing a pending migration (`0058_nice_liz_osborn.sql`, adds `events.links`) going into this session; ran `packages/database`'s `migrate.ts` (additive-only, no drops) to bring the dev DB schema current — required for `ingestor.test.ts`'s real-DB integration test to exercise `processIngestionJob` correctly. Unrelated to this story's own scope but necessary for its own new tests to run.
 
 ### Completion Notes List
 
-_To be filled in by the dev agent._
+- Manual dev-ESM stopgap (3 dev event-source-mapping UUIDs disabled via `aws lambda update-event-source-mapping --no-enabled`, noted in `backlog/FIND-034-sqs-lambda-poller-idle-cost.md`) was not re-verified against a live AWS account in this session (no AWS credentials available). This is purely informational per Task 1 — AC1's `enabled: false` default is what makes the fix durable across future deploys regardless of the stopgap's current live state; no further action needed either way.
+- `pollAndDrainQueue()` implemented per AC9/AC10 in `apps/backend/src/lib/aws/poll-and-drain-queue.ts`, using the exact `receiveSqsMessages`/`setReceiveSqsMessages` + `deleteSqsMessage`/`setDeleteSqsMessage` reassignable-function/setter seam shape already established by `send-sqs-message.ts`. Loop semantics: always issues at least one `ReceiveMessageCommand` regardless of the time budget (so a short-lived invocation still does useful work), then continues until a call returns zero messages or the budget (default 270s) is exceeded after processing the current batch. A message is deleted only after its `handleMessage` callback resolves without throwing; a thrown error is caught, logged, and the message left undeleted so the queue's existing `maxReceiveCount: 3` redrive-to-DLQ policy still applies unchanged.
+- All 3 handlers (`scraper.ts`/`ai-processor.ts`/`ingestor.ts`) gained a new `{ jobType: 'poll-and-drain' }` branch per AC5/AC6, each forwarding to `pollAndDrainQueue()` against their own queue URL env var (`SCRAPING_QUEUE_URL` already existed; `AI_PROCESSING_QUEUE_URL`/`DATA_INGESTION_QUEUE_URL` are new per AC7) with a per-message callback mirroring each handler's existing SQS-Records parse-and-forward logic exactly. `ai-processor.ts`/`ingestor.ts`'s return type widened to `Promise<SQSBatchResponse | void>` per the story's plan.
+- **Implementation deviation from the story's literal task wording, discovered during Task 3 (documented here since Dev Notes/Tasks aren't editable post-approval):** the story's inline example (`'jobType' in event && event.jobType === 'poll-and-drain'`) does not type-check once a second/third union member also declares a `jobType` field (TS's `in`-narrowing + literal-comparison combination stops collapsing non-`jobType` members to `never`, producing real `tsc` errors — caught by this workflow's own build-gate in Step 7/9, not skipped). Replaced with a small local type-guard function per handler (`isPollAndDrainEvent`, plus `isStaleJobSweepEvent` in `scraper.ts`) using an `(event as { jobType?: unknown }).jobType === '...'` cast internally. Behaviorally identical at runtime to the story's literal example; purely a TypeScript control-flow-narrowing fix. `scraper.ts`'s event type also gained an explicit `StaleJobSweepEvent` union member (reflecting a `jobType` shape already used at runtime via `RuleTargetInput.fromObject({ jobType: 'stale-job-sweep' })` but previously untyped) — required for the new type guard's predicate to type-check.
+- `festgrid-backend-stack.ts`: `enableNonProdQueuePolling` computed once and applied to all 3 dev/staging `SqsEventSource` calls (each still gated `if (stageName !== 'prod')`); prod branch adds the 3 new `*PollAndDrainRule-prod` EventBridge rules (`rate(5 minutes)`, `{jobType:'poll-and-drain'}` marker, mirroring `staleJobSweepRule`'s shape exactly), the 2 new queue-URL environment entries, and all 3 `grantConsumeMessages` calls unconditionally (all stages) per AC8.
+- `SETUP_WALKTHROUGH.md`: added a new numbered item under "Backend (AWS Serverless) → Setup Steps" documenting the `enableNonProdQueuePolling` context flag and prod's scheduled poll-and-drain mechanism; renumbered the two following `### N.` sub-headings (`Credentials & Secrets Configuration`, `Legacy Stack Cleanup`) from 5/6 to 6/7 to stay sequential.
+- A real `cdk deploy` and live 5-minute-scheduled invocation against a real AWS account is deferred per this story's own Out of Scope/Testing Requirements — no AWS credentials available in this development environment, consistent with Stories 0.14/0.25/0.27's precedent.
 
 ### File List
 
-_To be filled in by the dev agent._
+**Modified:**
+- `apps/infrastructure/lib/festgrid-backend-stack.ts`
+- `apps/infrastructure/lib/festgrid-backend-stack.test.ts`
+- `apps/backend/src/lambdas/scraper.ts`
+- `apps/backend/src/lambdas/ai-processor.ts`
+- `apps/backend/src/lambdas/ingestor.ts`
+- `SETUP_WALKTHROUGH.md`
+
+**New:**
+- `apps/backend/src/lib/aws/poll-and-drain-queue.ts`
+- `apps/backend/src/lib/aws/poll-and-drain-queue.test.ts`
+- `apps/backend/src/lambdas/scraper.test.ts`
+- `apps/backend/src/lambdas/ai-processor.test.ts`
+- `apps/backend/src/lambdas/ingestor.test.ts`

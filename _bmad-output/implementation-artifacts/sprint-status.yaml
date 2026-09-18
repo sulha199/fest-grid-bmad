@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-18T00:00:00Z
+last_updated: 2026-09-18T02:37:41Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -298,7 +298,7 @@ development_status:
   # (epic-0-readiness.md's swept report stops at 0.19), and resolved two design gaps the
   # settled note left open via AskUserQuestion: staging treated like dev (not prod), and
   # the poll-and-drain branch loops until drained/time-budget rather than a single batch.
-  0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain: ready-for-dev
+  0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain: review
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
