@@ -32,7 +32,7 @@ The following documents contain detailed specifications, architectures, and desi
 - `_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md`
 
 ### Architecture & Infrastructure
-- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` *(1,000+ lines, but uniformly organized as one `### AD-N: Title` section per decision — when a rule above cites a specific AD (e.g. "see Architecture Spine AD-17"), run `python3 scripts/md-outline.py find "^AD-17:" _bmad-output/planning-artifacts/festgrid-architecture-spine.md` to get that section's exact line range, then read only that range, instead of loading the whole file. Only load it in full when the task genuinely requires cross-checking against every architectural decision at once, e.g. an epic-wide readiness sweep.)*
 - `docs/infrastructure/index.md` *(sharded — read the relevant section file under `docs/infrastructure/` only when the task touches that layer)*
 - `SETUP_WALKTHROUGH.md` *(Read only if you need to read/write related to deployment/setup to save token usage)*
 

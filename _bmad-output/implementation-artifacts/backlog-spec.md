@@ -43,6 +43,29 @@ places. Violating this is what produced the `1-3i` drift (marked `done` while it
 Detail scales with maturity. Most items die at tier 0 (row only) or tier 1. Do not
 create a note file for an item whose title says everything.
 
+### Top-level metadata
+
+`backlog.yaml` carries two scalar fields above `tags:`/`items:`: `generated` (set once,
+never touched again) and `last_updated`. **`last_updated` is a bare `YYYY-MM-DD` value
+only** — no parenthetical narrative, no session summary, no "what changed and why."
+That narrative belongs in the specific row's own tier-1/tier-2 file (or a one-line
+`note`, per the Field reference below), never in this shared top-level field: every
+skill that reads the board pays for whatever sits here, on every read, regardless of
+which row anyone actually cares about. This field was found holding 35KB of
+ever-appended history on 2026-09-18 — extracted to
+`implementation-artifacts/backlog-history.md` (historical record only, never re-read as
+part of normal board activation) — before this rule existed to prevent it.
+
+The same audit found 118 of 134 existing rows' `note` fields already past "one line"
+(several past 4,000 chars) — a pre-existing debt, not something this rule requires
+fixing before your next edit lands. Run
+`uv run --python 3.11 --with pyyaml scripts/backlog-history-check.py` after touching
+the board to see the current list; **the bar for your own change is narrower: don't
+make `last_updated` or the specific row(s) you touched any longer than they already
+were, and don't write a new multi-line `note` on a row you're creating.** Shrinking an
+existing offender you didn't otherwise touch is welcome but optional cleanup, not a
+blocker.
+
 ## 3. `backlog.yaml` schema
 
 ```yaml
