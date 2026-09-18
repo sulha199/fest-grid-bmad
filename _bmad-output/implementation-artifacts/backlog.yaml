@@ -1236,12 +1236,20 @@ items:
 
   # ── 2026-09-18 (user-reported, direct code investigation) ────────────────────
   FIND-035:
-    {type: finding, status: triaged, created: 2026-09-18,
+    {type: finding, status: done, created: 2026-09-18,
      impact: internal, effort: s,
      title: "Daily scraper batch cron re-requests a fixed 7-day window for every account every day instead of scraping incrementally",
-     ref: [backlog/FIND-035-scraper-batch-non-incremental-window.md],
+     ref: [backlog/FIND-035-scraper-batch-non-incremental-window.md, implementation-artifacts/spec-find-035-scraper-incremental-batch-window.md],
      touches: [app:backend, cross:process],
-     note: "scraper.ts's daily-batch path hardcodes a 7-day window every run instead of using the already-proven incremental pattern from process-scrape-job.ts. Fix: extend getBatchScrapeTargets() with a MAX(publishedAt) join. Full detail in backlog/FIND-035-scraper-batch-non-incremental-window.md."}
+     note: "Fixed 2026-09-18 via bmad-quick-dev: getBatchScrapeTargets() now attaches each target's newest posts.publishedAt, and scraper.ts uses it per-target instead of the old hardcoded window. See spec for detail; deferrals from review in FIND-038."}
+
+  FIND-038:
+    {type: finding, status: backlog, created: 2026-09-18,
+     impact: internal, effort: s,
+     title: "FIND-035 review findings: no DB seam/chunking/env-guard/interaction-test coverage around the new incremental-scrape query",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, cross:process],
+     note: "Deferred from: bmad-quick-dev FIND-035 review (2026-09-18). 4 findings."}
 
   # ── 2026-09-18 (found+fixed by a ritual-orchestrator quick-dev auto-fix dispatch) ──
   BUG-037:

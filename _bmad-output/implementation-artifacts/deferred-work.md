@@ -447,3 +447,18 @@ This file tracks work deferred from development stories, code reviews, and plann
 - source_spec: `_bmad-output/implementation-artifacts/2-7-automatically-hide-past-events.md`
   summary: Re-review of commit `f3e6188` — the narrowed `Query.events` auth-catch (`resolvers.ts:2880`) checks `extensions?.code` via duck-typing rather than an `instanceof GraphQLError` guard, and hardcodes the `'UNAUTHENTICATED'` literal with no shared constant tying it to `apps/backend/src/lib/auth/context.ts`'s throw site.
   evidence: Surfaced by Blind Hunter in this re-review. Functionally equivalent today — verified `requireAuth` only ever throws this exact shape — deferred as optional hardening against future drift, not required for correctness.
+
+## Deferred from: bmad-quick-dev FIND-035 review (2026-09-18)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-035-scraper-incremental-batch-window.md`
+  summary: The new FIND-035 wiring test in `scraper.test.ts` invokes the real `handler({}, {})`, which runs the actual `getBatchScrapeTargets()` against the full shared dev/test Postgres DB (not just the profiles the test creates) — every other currently-eligible real target in the DB also gets a (seamed, no-op) trigger attempt and contributes to the shared `scraper_batch_runs`/`scraperProviderHealth` audit rows during the test.
+  evidence: Surfaced by both Blind Hunter and Edge Case Hunter. No test seam exists for `getBatchScrapeTargets()` itself (unlike the vendor trigger functions, which are seamed `let` exports) — this matches the existing convention already accepted in `subscribe-to-account.test.ts`, and adding one is a broader test-infra change out of this fix's scope.
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-035-scraper-incremental-batch-window.md`
+  summary: `getBatchScrapeTargets()`'s new grouped `posts` query builds one `IN (...)` clause sized to the entire batch-target list with no chunking, and has no try/catch fallback to the old fixed-window behavior if it fails/times out.
+  evidence: Surfaced by Blind Hunter. Matches the same function's pre-existing unbounded `brightdataPendingJobs` query and pre-existing unguarded main `select` — not a new risk category introduced by this diff, but worth addressing together if the account base grows enough to matter.
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-035-scraper-incremental-batch-window.md`
+  summary: `env.scrapeInitialLookbackDays` (and `scraper.ts`'s new `lookbackFallback()` that consumes it) is not guarded against a misconfigured 0/negative/NaN value, which would compute a `newerThan` at or after "now" and silently zero out that account's scrape results.
+  evidence: Surfaced by Edge Case Hunter. Pre-existing risk already shared by `process-scrape-job.ts`'s identical unguarded use of the same env var — not newly introduced here.
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-035-scraper-incremental-batch-window.md`
+  summary: No test exercises the interaction between the new `newestPostPublishedAt` attachment and the existing exclusion filters (`isAdapterRegistered`, the recently-scraped `lastScrapedAt` cutoff) — i.e. nothing proves the field is correctly omitted/attached for a target filtered out for an unrelated reason.
+  evidence: Surfaced by Blind Hunter. Coverage nice-to-have; not required by the approved spec's I/O matrix, and each filter already has its own independent test coverage.

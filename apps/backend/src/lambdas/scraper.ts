@@ -16,6 +16,16 @@ import {
   tallyScraperProviderResults,
   type ScraperTargetProviderMarker,
 } from '../lib/scraper/tally-scraper-provider-results.js';
+import { loadBackendEnv } from '../env.js';
+
+// FIND-035: fallback window for a target with no `newestPostPublishedAt` (i.e. no posts
+// yet -- its first-ever scrape). Mirrors the fallback branch already proven correct in
+// process-scrape-job.ts's SQS-fallback path.
+function lookbackFallback(days: number): string {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  return cutoff.toISOString();
+}
 
 type PollAndDrainEvent = { jobType: 'poll-and-drain' };
 type StaleJobSweepEvent = { jobType: 'stale-job-sweep' };
@@ -86,9 +96,21 @@ export const handler = async (
       const targets = await getBatchScrapeTargets();
       console.log(`Found ${targets.length} distinct targets to scrape`);
 
+      // FIND-035: loaded once for the whole batch, not per-target inside the map below.
+      const env = loadBackendEnv();
+
       const results = await Promise.allSettled(
         targets.map(async (target): Promise<{ brightData: ScraperTargetProviderMarker; apify: ScraperTargetProviderMarker }> => {
-          const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          // FIND-035: incremental per-target window -- scrape from where we left off for
+          // this account (newestPostPublishedAt) instead of a hardcoded window re-requested
+          // by every account on every run. Only an account with no posts yet (first-ever
+          // scrape) falls back to the configured initial lookback.
+          const newerThan = target.newestPostPublishedAt?.toISOString()
+            ?? lookbackFallback(env.scrapeInitialLookbackDays);
+          // Observability for FIND-035: makes the actual per-account window visible in
+          // CloudWatch, so a regression back to a wide/hardcoded window is visible without
+          // needing to inspect vendor billing after the fact.
+          console.log(`Scraping ${target.username} for posts newer than ${newerThan}`);
 
           // Try Bright Data first for Instagram
           if (target.platform === 'instagram') {

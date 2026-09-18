@@ -1,9 +1,9 @@
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, subscriptions, brightdataPendingJobs } from '@festgrid/database';
+import { socialMediaAccountProfiles, subscriptions, brightdataPendingJobs, posts } from '@festgrid/database';
 import { activeOnly } from '@festgrid/graphql-select';
 import { ScrapablePlatform, isAdapterRegistered } from '@festgrid/domain';
 import { loadBackendEnv } from '../../env.js';
-import { and, eq, isNull, lt, or } from 'drizzle-orm';
+import { and, eq, isNull, lt, or, inArray, sql } from 'drizzle-orm';
 
 export interface ScrapeTarget {
   profileId: string;
@@ -11,6 +11,10 @@ export interface ScrapeTarget {
   accountId: string;
   username: string;
   isInitialNewSubscription?: boolean;
+  // Newest known `posts.publishedAt` for this account (FIND-035), used by the daily batch
+  // cron to scrape incrementally instead of re-requesting an overlapping fixed window every
+  // run. Undefined when the account has no posts yet (first-ever scrape).
+  newestPostPublishedAt?: Date;
 }
 
 export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {
@@ -56,6 +60,23 @@ export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {
   // TypeScript deduplication by profileId and filter pending
   const distinctRows = Array.from(new Map(rows.map(r => [r.profileId, r])).values()).filter(r => !pendingSet.has(r.profileId));
 
+  // Batch-fetch each target's newest post date in one grouped query (FIND-035) -- never
+  // per-target inside the loop below -- so the daily batch cron can scrape incrementally
+  // from where it left off, mirroring the already-proven pattern in process-scrape-job.ts's
+  // SQS-fallback path (newestPost.publishedAt, falling back to scrapeInitialLookbackDays
+  // only when the account has zero posts yet).
+  const profileIds = distinctRows.map(r => r.profileId);
+  const newestPostRows = profileIds.length > 0
+    ? await db.select({
+        accountId: posts.accountId,
+        newestPublishedAt: sql<Date>`max(${posts.publishedAt})`.mapWith((v: string | Date) => new Date(v)),
+      })
+        .from(posts)
+        .where(inArray(posts.accountId, profileIds))
+        .groupBy(posts.accountId)
+    : [];
+  const newestPostByProfileId = new Map(newestPostRows.map(r => [r.accountId, r.newestPublishedAt]));
+
   const targets: ScrapeTarget[] = [];
   for (const row of distinctRows) {
     // Only scrape platforms that have a registered scraper adapter (e.g., both 'instagram' and legacy 'twitter').
@@ -69,6 +90,7 @@ export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {
       platform: row.platform as ScrapablePlatform,
       accountId: row.accountId,
       username: row.username,
+      newestPostPublishedAt: newestPostByProfileId.get(row.profileId),
     });
   }
 
