@@ -2,6 +2,24 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: full `pnpm test` gate during bmad-quick-dev FIND-017 (2026-09-18)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-017-fk-cascade-and-iam-grant-walker.md`
+  summary: `apps/backend/src/schema/resolvers.test.ts`'s "queryModeratorAccountProfiles - Happy Path & Search filter" subtest (and the parent "setImageStorageOptIn and queryModeratorAccountProfiles integration tests" block) fails: `assert.ok(nodes.some((n) => n.id === seededAccount.id))` at `resolvers.test.ts:2952`, where `nodes` comes from a `first: 50`-capped query.
+  evidence: Reproduced identically on a clean `git stash` of this session's entire FIND-017 diff (schema.ts FK cascade, infra env-var removal, generalized IAM test) — same failure, same location. Not caused by, or in scope for, this FIND-017 fix (never touches `resolvers.ts`/moderator account profiles). Likely root cause: the same test-isolation class BUG-037 (commit `2083405`) already diagnosed and partly fixed elsewhere this session ("a fixed literal user ID collided with rows other tests create via unfiltered LIMIT N selects") — this local dev DB has accumulated many `social_media_account_profiles` rows across sessions, so a `first: 50` page may no longer contain this test's freshly-seeded row depending on sort order. Not independently confirmed (would need counting current row totals and the query's actual ORDER BY); worth a fresh look, likely same fix shape as BUG-037 (unique-per-run ID + defensive cleanup, or an explicit filter instead of relying on being within the first 50).
+
+## Deferred from: bmad-quick-dev FIND-017 review (2026-09-18)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-017-fk-cascade-and-iam-grant-walker.md`
+  summary: The FK-cascade fix (`onDelete: 'cascade'` on `brightdataPendingJobs.profileId`/`apifyPendingJobs.profileId`/`scraperActorRuns.profileId`) is incomplete for the realistic case: `scraperActorRuns.id` is itself referenced by `posts.scraperActorRunId`, `unprocessedScraperPayloads.scraperActorRunId`, and `brightdataPendingJobs.scraperActorRunId` (`schema.ts:99,286,739`), none of which have any `onDelete` action. Deleting a `social_media_account_profiles` row now cascades into `scraperActorRuns`, then hits an FK violation there whenever that profile's actor runs produced actual posts or unprocessed payloads — the common case, not an edge case. Tracked as new backlog row FIND-037.
+  evidence: Surfaced independently by both the Blind Hunter and Edge Case Hunter review passes on this diff; confirmed directly by reading `schema.ts`'s FK graph. The originally-authorized scope (from the approved batch spec, `spec-bug-015-find-020-find-017-idea-015-backend-resiliency-batch.md`) covered only the 3 direct `profileId` FKs — this deeper chain was out of view when that scope was set, and extending it (`set null` vs `cascade` on the 3 downstream refs) is a data-retention product decision, not inferred here.
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-017-fk-cascade-and-iam-grant-walker.md`
+  summary: `scraperActorRuns.pendingJobId` (`schema.ts:324`, `uuid('pending_job_id')`) has no `.references()` at all — zero referential integrity, in the same FK neighborhood this fix otherwise tightened.
+  evidence: Surfaced by the Blind Hunter review pass. Pre-existing, not touched by this diff; flagged since it's directly adjacent to the columns this fix does address.
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-017-fk-cascade-and-iam-grant-walker.md`
+  summary: The new generic IAM env-var/grant walker (`festgrid-backend-stack.test.ts`) asserts only that some `sqs:*` action exists on the matching queue ARN, not the specific direction (`SendMessage` vs `ReceiveMessage`/`DeleteMessage`) the Lambda's code actually needs — weaker than the exact `sqs:SendMessage` check it replaced for the one incident it names. A Lambda holding only a consume grant on a queue it needs to send to would pass.
+  evidence: Surfaced by the Blind Hunter review pass. Getting this right generically would need per-Lambda knowledge of whether each `*_QUEUE_URL` var is used to produce or consume, which isn't recoverable from the CDK template alone — out of scope for this pass; documented as a known limitation in the new test's own comments.
+
 ## Deferred from: bmad-quick-dev BUG-015,FIND-020 intent (2026-09-18)
 
 - source_spec: none

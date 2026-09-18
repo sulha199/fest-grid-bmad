@@ -276,8 +276,6 @@ export class FestgridBackendStack extends cdk.Stack {
         SCRAPE_INLINE_FALLBACK_ENABLED: process.env.SCRAPE_INLINE_FALLBACK_ENABLED,
         AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
         AI_PROCESSING_INLINE_FALLBACK_ENABLED: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED,
-        DATA_INGESTION_QUEUE_URL: dataIngestionQueue.queueUrl,
-        DATA_INGESTION_INLINE_FALLBACK_ENABLED: process.env.DATA_INGESTION_INLINE_FALLBACK_ENABLED,
         APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),
         SCRAPE_RESULTS_LIMIT: process.env.SCRAPE_RESULTS_LIMIT,
         SCRAPE_INITIAL_LOOKBACK_DAYS: process.env.SCRAPE_INITIAL_LOOKBACK_DAYS,

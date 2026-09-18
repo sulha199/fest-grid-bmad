@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import assert from 'node:assert';
 import * as cdk from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
 import { FestgridBackendStack } from './festgrid-backend-stack.js';
@@ -189,26 +190,6 @@ test('FestgridBackendStack provisions correct resources', () => {
     },
   });
 
-  // 13b. Assert L_API (apiLambda) holds an IAM grant to send onto AIProcessingQueue
-  // specifically (Resource scoped to that queue's own ARN, not merged with the
-  // adjacent ScrapingQueue grant statement) — regression test for a confirmed prod
-  // incident where AI_PROCESSING_QUEUE_URL was wired into apiLambda's environment
-  // (#9 above) with no matching grantSendMessages() call, causing every
-  // selectPostsForExtraction call to fail with SQS AccessDenied.
-  template.hasResourceProperties('AWS::IAM::Policy', {
-    PolicyDocument: {
-      Statement: Match.arrayWith([
-        Match.objectLike({
-          Action: Match.arrayWith(['sqs:SendMessage']),
-          Effect: 'Allow',
-          Resource: {
-            'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('^AIProcessingQueue')]),
-          },
-        }),
-      ]),
-    },
-  });
-
   // 14. Assert L_AI (aiProcessorLambda) environment contains the two new post-media vars.
   // Combined with Timeout: 300 + DATA_INGESTION_QUEUE_URL (already unique to this Lambda's
   // environment) to disambiguate it from the other 300s batch Lambdas (Scraper/Ingestor), which
@@ -230,6 +211,108 @@ test('FestgridBackendStack provisions correct resources', () => {
   template.allResourcesProperties('AWS::Lambda::EventSourceMapping', {
     Enabled: false,
   });
+});
+
+// FIND-017 Gap 3: generic env-var-to-grant walker — generalizes the old test 13b (previously:
+// apiLambda must hold an sqs:SendMessage grant on AIProcessingQueue specifically, a regression
+// test for a confirmed prod incident where AI_PROCESSING_QUEUE_URL was wired into apiLambda's
+// environment with no matching grantSendMessages() call) to the whole class: for every
+// synthesized Lambda's *_QUEUE_URL env var that is a direct `Ref` to a queue defined in this
+// template, assert some IAM::Policy attached to that Lambda's role grants an sqs:* action
+// scoped to that queue's ARN. Catches both a missing grant on an existing queue var (the
+// original incident shape) and a wired-but-ungranted var on any future Lambda — and would have
+// caught apiLambda's unused, ungranted DATA_INGESTION_QUEUE_URL (removed in this same diff) had
+// it carried an actual code dependency instead of being dead.
+//
+// Kept as its own top-level test (not appended to the 289-line resource-provisioning test above)
+// so a failure here can't silently mask/abort unrelated later assertions in that test.
+//
+// Scoped to queue env vars only: a secret's `secretValue.unsafeUnwrap()` synthesizes as a
+// `{{resolve:secretsmanager:...}}` dynamic-reference *string*, not a `Ref`/`Fn::GetAtt` object,
+// so it isn't mechanically walkable the same way — secrets stay covered only by their existing
+// per-secret `grantRead` calls. Also scoped to direct in-template `Ref`s: an imported/cross-stack
+// queue URL (a hardcoded string, or a `Fn::ImportValue`) is out of this walker's scope, same as
+// it was out of scope for the test it replaces.
+test('FestgridBackendStack: every Lambda queue-url env var has a matching SQS IAM grant (generalizes 13b / DW-088)', () => {
+  const app = new cdk.App();
+  const stack = new FestgridBackendStack(app, 'TestStackGrantWalker', {
+    stageName: 'dev',
+  });
+
+  const template = Template.fromStack(stack);
+  const resources = template.toJSON().Resources as Record<string, {
+    Type: string;
+    Properties?: Record<string, unknown>;
+  }>;
+
+  const queueLogicalIds = new Set(
+    Object.entries(resources)
+      .filter(([, r]) => r.Type === 'AWS::SQS::Queue')
+      .map(([id]) => id)
+  );
+
+  const lambdaEntries = Object.entries(resources).filter(([, r]) => r.Type === 'AWS::Lambda::Function');
+  assert.ok(lambdaEntries.length > 0, 'expected at least one AWS::Lambda::Function in the synthesized template');
+
+  let checkedCount = 0;
+
+  for (const [lambdaId, lambdaResource] of lambdaEntries) {
+    const props = lambdaResource.Properties ?? {};
+    const roleProp = props.Role as { 'Fn::GetAtt'?: [string, string] } | undefined;
+    const roleLogicalId = roleProp?.['Fn::GetAtt']?.[0];
+    const envVars = (props.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+
+    for (const [envKey, envVal] of Object.entries(envVars)) {
+      if (!envKey.endsWith('_QUEUE_URL')) continue;
+      const refLogicalId = (envVal as { Ref?: string } | undefined)?.Ref;
+      // Only a direct Ref to a queue defined in this template is a walkable case
+      // (e.g. a hardcoded/imported URL string is out of this walker's scope).
+      if (!refLogicalId || !queueLogicalIds.has(refLogicalId)) continue;
+
+      // A Lambda whose role isn't a direct in-template Fn::GetAtt (e.g. an imported role) can't
+      // be walked either — fail loudly naming the real cause, rather than silently matching an
+      // unrelated ungated policy statement via an undefined-to-undefined role comparison.
+      assert.ok(
+        roleLogicalId,
+        `Lambda "${lambdaId}" has env var "${envKey}" referencing queue "${refLogicalId}", but its Role could not be resolved to an in-template Fn::GetAtt for grant walking`
+      );
+
+      checkedCount += 1;
+
+      const matchingPolicy = Object.values(resources).find((r) => {
+        if (r.Type !== 'AWS::IAM::Policy') return false;
+        const policyProps = r.Properties ?? {};
+        const roles = (policyProps.Roles as Array<{ Ref?: string }> | undefined) ?? [];
+        const attachedToRole = roles.some((roleEntry) => roleEntry?.Ref === roleLogicalId);
+        if (!attachedToRole) return false;
+
+        const doc = policyProps.PolicyDocument as { Statement?: Array<Record<string, unknown>> } | undefined;
+        const statements = doc?.Statement ?? [];
+        return statements.some((stmt) => {
+          const rawAction = stmt.Action;
+          const actions = Array.isArray(rawAction) ? rawAction : [rawAction];
+          const isSqsAction = actions.some((a) => typeof a === 'string' && a.startsWith('sqs:'));
+          if (!isSqsAction || stmt.Effect !== 'Allow') return false;
+
+          const rawResource = stmt.Resource;
+          const resourceEntries = Array.isArray(rawResource) ? rawResource : [rawResource];
+          return resourceEntries.some((res) => {
+            const getAtt = (res as { 'Fn::GetAtt'?: [string, string] } | undefined)?.['Fn::GetAtt'];
+            return getAtt?.[0] === refLogicalId;
+          });
+        });
+      });
+
+      assert.ok(
+        matchingPolicy,
+        `Lambda "${lambdaId}" has env var "${envKey}" referencing queue "${refLogicalId}" with no matching sqs:* IAM grant on its role`
+      );
+    }
+  }
+
+  // Guards against a future rename of the `_QUEUE_URL` suffix convention silently reducing this
+  // walker to zero iterations (a vacuous pass that would still print green).
+  assert.ok(checkedCount > 0, 'expected at least one *_QUEUE_URL env var to be walked across all Lambdas');
 });
 
 test('FestgridBackendStack: dev stack with enableNonProdQueuePolling=true context enables the ESM (AC2)', () => {

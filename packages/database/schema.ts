@@ -91,7 +91,7 @@ export const accountTypeStatusEnum = pgEnum('account_type_status', ['CONFIRMED',
 
 export const brightdataPendingJobs = pgTable('brightdata_pending_jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
-  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id, { onDelete: 'cascade' }).notNull(),
   snapshotId: text('snapshot_id').notNull().unique(),
   webhookToken: text('webhook_token').notNull().unique(),
   status: brightdataJobStatusEnum('status').default('PENDING').notNull(),
@@ -106,7 +106,7 @@ export const apifyJobStatusEnum = pgEnum('apify_job_status', ['PENDING', 'COMPLE
 
 export const apifyPendingJobs = pgTable('apify_pending_jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
-  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id, { onDelete: 'cascade' }).notNull(),
   runId: text('run_id').notNull().unique(),
   webhookToken: text('webhook_token').notNull().unique(),
   status: apifyJobStatusEnum('status').default('PENDING').notNull(),
@@ -314,7 +314,7 @@ export const scraperActorRuns = pgTable('scraper_actor_runs', {
   id: uuid('id').defaultRandom().primaryKey(),
   vendor: scraperRunVendorEnum('vendor').notNull(),
   triggerMode: scraperRunTriggerModeEnum('trigger_mode').notNull(),
-  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id, { onDelete: 'cascade' }).notNull(),
   runId: text('run_id').notNull(),
   status: scraperRunStatusEnum('status').default('PENDING').notNull(),
   rawInput: jsonb('raw_input').notNull(),

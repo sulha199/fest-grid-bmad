@@ -556,12 +556,22 @@ items:
      note: "DW-044, DW-046, DW-047, DW-048, DW-050. The enums are hand-maintained in shared-types and generated/graphql.ts with nothing enforcing sync; no e2e proves locale actually flows to EventCard; no test builds the runtime-merged GraphQL schema; ticketPrice's 'From Free' pairing is unresolved. PROMOTED 2026-09-16 (bmad-create-story), split per the confirmed AskUserQuestion answer: DW-044/046/047/050 -> Story 0.34 (enum/schema/locale consistency hardening); DW-048 -> Story 0.35 (EventCard.tsx 'From Free' label-pairing fix). Fully covered, no leftover chunk."}
 
   FIND-017:
-    {type: finding, status: triaged, created: 2026-09-05,
+    {type: finding, status: done, created: 2026-09-05,
      impact: internal, effort: m, epic: epic-0-i3, reprice_on: epic-0-i2,
      title: "Backend/infra resiliency gaps found during scraper and infra work remain unhardened",
-     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml,
+           implementation-artifacts/spec-find-017-fk-cascade-and-iam-grant-walker.md],
      touches: [pkg:database, app:backend, app:infrastructure, cross:process],
-     note: "DW-063 (brightdata/apify pending-job FKs are ON DELETE no action, a deliberately left-open forward risk), DW-071 (capacity check uses a static heuristic instead of real Apify usage data), DW-088 (no systemic check that every queue/secret env var has a matching IAM grant; only one regression test exists, for the exact incident that already shipped). Triaged 2026-09-18 alongside FIND-034 (same infra-resiliency neighborhood)."}
+     note: "DW-063 and DW-088 fixed 2026-09-18 (Split B of the BUG-015/FIND-020/FIND-017/IDEA-015 batch): brightdata/apify pending-job + scraper-actor-run FKs now ON DELETE CASCADE on profileId; festgrid-backend-stack.test.ts's IAM-grant test generalized from one incident into a generic env-var-to-grant walker, which also caught and let us remove apiLambda's dead DATA_INGESTION_QUEUE_URL/DATA_INGESTION_INLINE_FALLBACK_ENABLED env vars. Review found the cascade fix incomplete for the realistic case (scraperActorRuns.id is also referenced by posts/unprocessedScraperPayloads/brightdataPendingJobs.scraperActorRunId with no cascade) -- split into new FIND-037 rather than expanding scope unilaterally. DW-071 (real Apify capacity check) was explicitly out of scope for this pass and stays open -- needs its own persistence/refresh-policy design; not yet re-triaged as its own row."}
+
+  FIND-037:
+    {type: finding, status: backlog, created: 2026-09-18,
+     impact: latent, effort: s,
+     title: "Profile deletion still fails one FK deeper: scraperActorRuns.id has no cascade/set-null from posts/unprocessedScraperPayloads/brightdataPendingJobs",
+     ref: [implementation-artifacts/spec-find-017-fk-cascade-and-iam-grant-walker.md,
+           implementation-artifacts/deferred-work.md],
+     touches: [pkg:database],
+     note: "Found via review during FIND-017's cascade fix (2026-09-18): brightdataPendingJobs/apifyPendingJobs/scraperActorRuns.profileId now correctly cascade on social_media_account_profiles deletion, but scraperActorRuns.id is itself referenced by posts.scraperActorRunId, unprocessedScraperPayloads.scraperActorRunId, and brightdataPendingJobs.scraperActorRunId with no onDelete action -- so deleting a profile whose actor runs produced actual posts/payloads (the common case) still fails, just one FK deeper. Needs a product decision: onDelete 'set null' on the 3 downstream refs (all already nullable; preserves posts/payloads, drops their audit-trail link) vs 'cascade' (deletes posts too -- bigger blast radius, posts are user-facing content)."}
 
   FIND-018:
     {type: finding, status: backlog, created: 2026-09-05,
