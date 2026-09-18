@@ -173,6 +173,64 @@ Per the escape hatch in `story-split-gate.md`: none of these three findings requ
 - [Source: `_bmad-output/planning-artifacts/epic-readiness/epic-1-i1-readiness.md` — cited for context, not relied on for Gate 1/3 verdicts per the escape-hatch guard above]
 - [Source: `_bmad-output/implementation-artifacts/1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row.md`, `1-i1e-adopt-the-primitive-into-the-masonry-default-state.md` — prior-story conventions this story follows]
 
+### Backlog row history (IDEA-026, verbatim, moved from backlog.yaml 2026-09-18)
+
+Raised by user via ritual HIL during the epic-1-i1 batch (2026-09-13), while confirming Story
+1.i1d's scope only covers `CalendarCard`'s `variant='list'` (mobile Vertical Day List,
+`md:hidden`). Today's desktop day-grid cells and the "+N more" popover both use
+`variant='grid'` — a small dense text-only pill (favorited heart icon + event name only, no
+image, no status/nearby badges), structurally unrelated to the row-shaped `variant='list'` card
+1.i1d built. User wants desktop to get a card similar to the new mobile row: a thumbnail via
+the shared `event_card_*` primitive, plus "Upcoming"/"Nearby"-style status badges (same ask as
+IDEA-025, for both surfaces) — but with the row's two-line `EventCardDateBox` compressed into
+flat inline text, positioned to the right of those badges rather than as its own boxed element.
+This is a genuinely new composition, not a port of 1.i1d's treatment: desktop's 7-column grid
+gives each cell far less width than the mobile row, so fitting a thumbnail + inline date text +
+two badges into that space is a real layout problem with no existing reference in
+DESIGN.md/EXPERIENCE.md at capture time. Depends on / shares data-plumbing needs with IDEA-025
+(distanceKm/computed-status fields on `WeeklyCalendarViewScheduleShape`).
+
+**SPEC COMPLETE (2026-09-14, bmad-png-to-html prototype pass):** built and screenshot-validated
+a new Calendar Grid Item Card (`event_card_calendar_grid_item` token block) at the real
+174x128px `day_cell` footprint and the real 200px "+N more" popover inner width (both computed
+from `WeeklyCalendarView.tsx`'s own `DAY_CELL_CLASS`/popover classes, not the reference PNG's
+arbitrary canvas size). Composition, several rounds of user revision: thumbnail + title/venue
+column + a right-side stack holding favorite count and badges together (`side_stack`,
+items-center); no boxed date box at all (the day-column header above it already anchors the
+date); category/type badge slot permanently replaced by `event_card_nearby_badge` (<8km,
+general rule shared with IDEA-016/IDEA-017); title wraps multi-line (no truncate), venue wraps
+up to 2 lines (line-clamp-2). Image is NOT a reserved slot like its sibling cards — it renders
+only for multi-day schedules with a non-errored image; single-day events never attempt one.
+Missing/multi-day-without-image state is a structurally different two-row grid
+(`no_image_base`/`title_row`/`location_row`), not the with-image layout minus its image column.
+Attachment, resolved in two parts after real-dimension validation showed the rich card cannot
+fit the fixed-height `day_cell`: single-day events are unchanged (`day_cell` direct + "+N more"
+popover overflow); multi-day events render as ONE card spanning N day-columns directly in
+`grid_weekly` (extending `multiDayRoundingClass`) — REVERSED from this pass's own first-round
+resolution of attaching multi-day to the popover too. Not yet coded at that point — flagged the
+`max_events_per_day=5` cap's continued relevance as open, tracked separately as FIND-026.
+
+**DATA-PLUMBING RESOLVED (bmad-architecture, 2026-09-17, Architecture Spine AD-22):** see
+IDEA-025's own note for the full finding (`distanceKm` computed nowhere in this codebase, one
+shared `computeDistanceKm` utility decided). This item's first story is confirmed to include
+building that utility and wiring both this card and masonry's dead nearby badge, not a
+ship-without-badges deferral.
+
+**PROMOTED (2026-09-17 via bmad-create-story, row id named directly by the user):** this story
+(1.i1f) delivers this row's shared-plumbing/badge scope — the `computeDistanceKm` utility, the
+masonry EventCard nearby-badge fix (dead prop → real, <8km), the
+`getEventsForCalendar`/`getEventsForMyCalendar` GraphQL coordinate exposure, and the new
+`EventCardCalendarGridItem` primitive (both compositions) — but NOT this row's full
+desktop-grid wiring. Gate 2 found the primitive's two non-trivial consumers (the multi-day
+spanning-bar mechanism; the shared overflow dialog + fair per-day fetch) should not be built
+alongside the primitive in one pass — carved into child rows IDEA-039 (parent: IDEA-026, →
+Story 1.i1g) and, for the overflow/fetch half, appended directly to the already-existing
+BUG-036/FIND-026 rows (→ Story 1.i1h) rather than a redundant new row. Gate 3 found the "else,
+viewer's current location" branch of AD-22's priority rule has no owning story for its
+passive/ambient coordinate source (a real consent/caching product decision, not a wiring gap) —
+carved into child row IDEA-040 (→ Story 0.39); until 0.39 ships, this story's badge only
+implements the "active filter location" branch and simply omits itself otherwise.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — Code Organization (packages/domain purity, generic-mechanism subfolder placement), Locale-Sensitive Data Rendering (N/A — no new locale-formatted numeric display beyond the existing badge's distance text, unchanged format), Database & Performance (`Query.events` per-row-cost caution — not touched by this story), State Management Architecture (distanceKm is plain-prop-derived server data, not client global state).

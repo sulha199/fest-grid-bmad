@@ -144,6 +144,41 @@ so that a user is never sent to a confidently-wrong pin (IDEA-023).
 - [Source: apps/web/src/features/events/queries.graphql.test.ts] (Story 3.7c AC1 guard — confirmed out of scope for `getEventBySlug`; precedent for direct Vitest unit-testing of pure/parsed logic in this same directory)
 - [Source: packages/ui/src/features/events/EventDetailView.types.ts, EventDetailView.tsx] (`ScheduleDetail.mapUrl` — confirmed unaffected, renders whatever string it's given)
 
+### Backlog row history (IDEA-023, verbatim, moved from backlog.yaml 2026-09-18)
+
+Raised by user via `bmad-help` in the same message as BUG-027 ("should we combine placename
+and coordinate on the google-map link"), then resolved into a concrete design in a follow-up
+message proposing a confidence-score threshold instead. Confirmed current behavior:
+`mapGraphQLEventToDetailViewProps` (`apps/web/src/features/events/mapper.ts:48-55`) built the
+schedule's map link as EITHER a coordinate query when `locationDetails.coordinates` exists, OR
+an encoded-place-text query as a fallback — never conditioned on match quality.
+
+Combining placeName + coordinates in one query was evaluated and set aside: Google's Maps URL
+Search API takes a single `query` plus an optional `query_place_id`, and `query_place_id`
+needs a Google Place ID, not the Geoapify place_id this app has (different namespace) — a
+concatenated string is not an officially supported combination.
+
+Adopted design instead (depends on BUG-027's confidence-field addition): once
+`LocationDetails.confidence`/`matchType` exist, gate the link — confidence >= threshold
+(proposed starting bar 0.5 + `match_type === 'full_match'`, see BUG-027) uses the coordinate
+query as before; below threshold, do NOT fall back to the bare AI-extracted place name alone —
+instead build the fallback query from the fullest available context (place text + whatever
+city/province/country IS known), so the fallback is a disambiguated search rather than a
+repeat of the original ambiguous one. Threshold value and exact fallback-string composition
+were flagged as still needing finalization against real low-confidence examples once BUG-027
+shipped the field.
+
+**PROMOTED (2026-09-13 via bmad-create-story, subject-match per backlog-spec.md §13;
+escalated to the user via AskUserQuestion for confirmation, no response received in this
+session — proceeded per this workflow's established no-response default, flagged for explicit
+confirmation):** the confidence-threshold gating half is fully covered by this story (0.i7c) —
+`isLocationTrustworthy` implements the exact `confidence >= 0.5 AND match_type === 'full_match'`
+bar proposed above. The "enriched place text"/disambiguated-fallback-string half is explicitly
+NOT covered — this story's AC only asks for a plain text-query fallback, matching the existing
+shape, since this item's own note said the fallback composition "still needs to be finalized
+against real low-confidence examples". That uncovered remainder is carved into child row
+IDEA-024.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — Code Organization (packages/domain: pure/dependency-free placement confirmed above; cross-package import precedent already exists), Testing Rules (100%-coverage rule for the new domain file; apps/web testing-trophy guidance and its documented local-precedent override for this specific, previously-untested file)

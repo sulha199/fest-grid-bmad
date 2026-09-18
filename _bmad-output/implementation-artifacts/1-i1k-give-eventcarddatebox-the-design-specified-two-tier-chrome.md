@@ -150,6 +150,68 @@ so that the masonry card's own date box and the compact row's date box — both 
 - [Source: _bmad-output/implementation-artifacts/backlog.yaml IDEA-042 (this story), FIND-025 (reconciled), FIND-035 (new, split off this story)]
 - [Source: git log -p 7bf99260 -- packages/ui/src/features/events/event-card-media-tokens.ts (the original dead-CSS bug pattern)]
 
+### Backlog row history (FIND-025, verbatim, moved from backlog.yaml 2026-09-18)
+
+Deferred from: quick-dev fix of eventcard-favorite-badge-clipping (2026-09-14). 2 findings,
+both from Blind Hunter adversarial review: (1) the wrapper's downward-only growth to fit the
+badge's 44px touch target could overlap the caption/badge_row below on an unobserved
+very-short date box — coupled to the still-open `event_card_date_box.base_default` sizing
+decision; (2) no lint rule catches a future dynamically-interpolated Tailwind arbitrary-value
+class, the exact root cause of the dead-CSS bug that pass fixed.
+
+**RE-SCOPED (bmad-ux pass, 2026-09-16):** finding (1)'s sizing decision was no longer open —
+DESIGN.md's `base_default` was already corrected to the large two-tier stacked box (~54px),
+which clears the 44px touch-target minimum on its own once `EventCardMediaPrimitives.tsx`'s
+`EventCardDateBox` actually adopts it. Remaining work: migrate `EventCardDateBox` to render
+both the `base_default` (two-tier, `prominentPoster=false`) and `base` (single-line chip,
+`prominentPoster=true`) shapes as distinct variants, keeping both in source rather than
+collapsing to one.
+
+**DUPLICATE FOUND, 2026-09-18:** this story's own Gate 2 (`bmad-create-story`, 2026-09-17)
+independently rediscovered this exact same gap from DESIGN.md's token comments, without
+cross-referencing this row, and carved it as IDEA-042 → this story. Finding (1) is superseded
+by IDEA-042/this story — not implemented twice. Finding (2) (no lint guard against a future
+dynamically-interpolated Tailwind arbitrary-value class) was NOT covered by IDEA-042's note at
+all — folded in explicitly below.
+
+**RESOLVED, 2026-09-18 (bmad-create-story, drafting this story, user-directed via the
+dispatching command's own explicit HIL instruction):** finding (2) folded directly into this
+story's own scope as an AC/Task (a package-local ESLint rule,
+`no-dynamic-tailwind-arbitrary-value`, scoped to `packages/ui/src/features/events/**`, guarding
+exactly the `` `w-[${expr}]` ``-shaped pattern that caused the 2026-09-14 dead-CSS bug). Both
+findings are fully addressed by this story; this row closes once this story is `done`. Wiring
+the new rule surfaced that `packages/ui` has no `lint` script/ESLint config at all — that
+separate, unbounded-size gap is tracked as its own new row, FIND-035 → Story 0.41 (renumbered
+from 0.40 on merge with master).
+
+### Backlog row history (IDEA-042, verbatim, moved from backlog.yaml 2026-09-18)
+
+Carved out of IDEA-025 via `bmad-create-story` (Story 1.i1j's own Gate 2 finding, 2026-09-17):
+DESIGN.md's 2026-09-14 pass documents, in two separate token comments
+(`event_card_date_box.base_default` and `event_card_compact.date_box`), that the shared
+EventCardDateBox primitive (used by both masonry's date box and the compact row's date box)
+still renders the pre-2026-09-14 single-line text-xs shape, not the two-tier stacked month/day
+chrome plus amber `till_label` corner tag the doc now specifies — explicitly calling this "the
+same follow-up story" in both places, doc-only pass, no code changed. Confirmed via grep: owned
+nowhere in epics.md/backlog.yaml before this. Not folded into Story 1.i1j since it changes a
+shared primitive's own shape (needed by masonry too), independent of that story's unrelated
+content-column badge scope. This story (1.i1k) delivers this; not a dependency of 1.i1j.
+
+**DUPLICATE RECONCILED, 2026-09-18:** this is the same gap FIND-025's finding (1) already
+tracked (created 2026-09-14, three days before this row) — FIND-025 marked superseded by this
+row for that finding. FIND-025's finding (2) is a distinct, still-open item this row's own note
+does NOT cover: no lint/CI guard against reintroducing a dynamically-interpolated Tailwind
+arbitrary-value class. This story must either fold that guard in when it's created, or
+explicitly carve it into its own tiny follow-up — not drop it silently. (It was folded in — see
+this story's other backlog row history section above, FIND-025.)
+
+**STORY DRAFTED, 2026-09-18 (bmad-create-story, ritual-orchestrator batch):** this story fully
+drafted, sprint-status.yaml flipped to `ready-for-dev`. FIND-025's finding (2) folded in
+directly as this story's own `no-dynamic-tailwind-arbitrary-value` lint guard — not dropped,
+not a separate follow-up. Drafting also surfaced that `packages/ui` has no lint config/script
+at all; split out as its own row, FIND-035 → Story 0.41, not folded into this story's narrower
+scope.
+
 ## Global Rules References
 
 - [ ] `_bmad-output/project-context.md` — UI Components rule (`packages/ui/src/features/events` placement, no new `packages/domain` logic); Locale-Sensitive Data Rendering rule (all new date content flows through `Intl.DateTimeFormat`/existing formatters, never raw interpolation); Testing Rules (testing-trophy integration + unit tests, no `packages/domain` touched, no new E2E needed for this additive/presentational change).

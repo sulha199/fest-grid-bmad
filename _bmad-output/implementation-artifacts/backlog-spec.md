@@ -97,7 +97,7 @@ items:
 | `parent` | no | Parent item ID, for carved-out children. See §6. |
 | `blocks` | no | IDs this row gates. One-directional — declared on the blocker only. |
 | `superseded_by` | no | Required when `status: superseded`. |
-| `note` | no | One line. Only for a fact that changes how the row is read. Not a description. |
+| `note` | no | One line. Only for a fact that changes how the row is read. Not a description. Mechanically enforced by check 15. |
 
 Rows are written as YAML flow mappings (one logical row per entry) to keep the board
 cheap to read. ~30 tokens per row, ~38 for an open row carrying `impact`/`effort`;
@@ -380,6 +380,18 @@ board — worse than running no check at all.
     deferral row whose `note` claims a section heading that no longer exists in the file is
     a dangling link (the heading is the only link back to the detail). FIND-005 itself is
     exempt by construction: its fold-in note quotes no single heading.
+15. **Note not one line** — a `note` exceeding 300 chars, or containing more than one
+    accumulation marker (`AMENDED`, `PROMOTED`, `RESOLVED`, `FIXED`, ...). §3 already says
+    `note` is one line, not a description; this is the mechanical backstop, mirroring
+    `scripts/sprint-status-comment-check.py`'s guard against `last_updated`'s own narrative
+    regrowth. The marker count catches the pattern one append before length alone would — a
+    note growing by repeated in-place edits is the exact mechanism that produced 120+ rows of
+    essay-length notes (2026-09-18 fold-in cleanup). On a hit: for a `promoted` row, move the
+    detail into the linked story's own Dev Notes (the row already degrades to a pointer once
+    promoted, per §1); for anything else, into a new or existing tier-1
+    `backlog/<ID>-slug.md` file. Leave one fact — the thing that changes how the row is read —
+    behind in `note`. Never summarize-and-discard: move the full text verbatim first, trim
+    second, so a bad one-liner is always recoverable from its new home.
 
 Check 7 finds *candidates*, not conflicts. Semantic contradiction between items that
 touch no common surface is **not mechanically detectable** and needs a reading pass —

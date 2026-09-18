@@ -97,8 +97,15 @@ at roughly 3% of the free-tier budget from idle polling instead of ~77%.
 
 ## Status
 
-Triaged — investigated, root-caused, fix agreed with user including interval
-(5 min) and scope (all 3 prod queues + stage-gated dev). Not yet scoped into
-a story. Estimated `effort: s` (one story: CDK schedule rewiring + 3 handler
-poll-and-drain branches + tests covering delete-on-success/leave-on-failure
-semantics). Tracked as `FIND-034` on `backlog.yaml`.
+~~Triaged~~ **Promoted, 2026-09-18 via `bmad-create-story`, into Story 0.40.**
+
+Story 0.40 fully covers this row's settled design (above) plus one extension: staging
+(unaddressed by the original design) is treated the same as dev rather than left on the old
+always-on ESM, resolved via AskUserQuestion with the user during story creation, alongside a
+second resolved gap (poll-and-drain loops until drained/time-budget, not a single fixed batch
+of 10). No uncovered remainder — no child row carved.
+
+**Blocks BUG-002 remains UNRESOLVED until Story 0.40 reaches `done`** (creating the story
+doesn't yet ship the fix): that row's missing-timeout gap is framed against the current
+ESM-invocation model this fix removes for `aiProcessorLambda`/`ingestorLambda` — resolve this
+first, then re-scope BUG-002 against the new scheduled poll-and-drain model.

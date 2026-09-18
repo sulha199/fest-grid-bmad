@@ -148,6 +148,34 @@ so that the calendar and card surfaces accurately reflect which days an event ac
   - [Source: packages/ui/src/features/events/WeeklyCalendarView.tsx, EventCard.tsx, EventCardMediaPrimitives.tsx, EventListView.tsx]
   - [Source: packages/database/schema.ts (schedules table), apps/backend/src/schema/events.graphql, apps/backend/src/schema/resolvers.ts (Event.schedules resolver)]
 
+### Backlog row history (IDEA-003, verbatim, moved from backlog.yaml 2026-09-18)
+
+CC-014 item #11, explicitly deferred to a future scoped `bmad-ux` pass.
+
+**TITLE STALE (found 2026-09-16):** the mobile-spanning design this row's title refers to
+already shipped via a targeted bmad-ux pass on 2026-08-24 (EXPERIENCE.md "Mobile Multi-Day
+Calendar Spanning") — this row was left stale after that landed, a recurring pattern on this
+project.
+
+**RESOLVED (bmad-ux, 2026-09-16 + bmad-architecture AD-19, 2026-09-17):** this row's actual
+remaining scope turned out to be `Schedule.applicableDaysOfWeek` day-of-week recurrence
+(BUG-026), which the 2026-08-24 pass never covered. UX: EXPERIENCE.md "Day-of-Week Recurring
+Schedules" — client-side occurrence expansion, `isFirstSegment`/`isLastSegment` generalized to
+per-run adjacency, new `event_card_repeat_badge` across all 3 card families. Architecture:
+AD-19 — exported/generalized `packages/domain` `getDays(DayOfWeek[])`, explicit Record-based
+enum mapping at the GraphQL/domain boundary (not an implicit string-value coincidence).
+
+**PROMOTED 2026-09-17 via bmad-create-story (row id named directly in the dispatch):** this
+story (1.3k) covers this row's entire remaining scope end-to-end — `getDays`
+export/generalization, the GraphQL/domain enum mapping, the `Schedule.applicableDaysOfWeek`
+DB/GraphQL field addition (Gate-1-cleared as an additive-field-on-an-already-optimized-query,
+same class as `Event.links`/`Event.publishedAt`), occurrence-narrowing + per-run adjacency, and
+the `event_card_repeat_badge` across all 3 card families. No leftover piece of this row remains
+uncovered, so no child row was carved out. BUG-026's own still-open items (AI-extraction
+population, `buildEventsQueryCondition.ts`/`drizzle-where.ts` filter-matching correctness) are
+that row's separate, pre-existing scope — untouched by this promotion, not carved from this
+one.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — Technology Stack, Locale-Sensitive Data Rendering, Code Organization (packages/domain vs packages/ui), State Management Architecture, Testing Rules

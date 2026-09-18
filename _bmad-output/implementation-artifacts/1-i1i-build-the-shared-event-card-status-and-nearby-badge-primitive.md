@@ -98,6 +98,25 @@ so that a third and future card surface (Story 1.i1f's `EventCardCalendarGridIte
 - [Source: packages/ui/src/features/events/format-event-date.ts] (`formatEventStatus`, lines 116-193 — 8-branch implementation, no existing state discriminant)
 - [Source: packages/ui/src/features/events/EventCardMediaPrimitives.tsx, EventCardMediaPrimitives.types.ts, event-card-media-tokens.ts] (file/naming/typing conventions to match)
 
+### Backlog row history (IDEA-041, verbatim, moved from backlog.yaml 2026-09-18)
+
+Carved out of IDEA-025 via `bmad-create-story` (Story 1.i1j's own Gate 2 finding, 2026-09-17):
+no `EventCardStatusBadge`/`EventCardNearbyBadge` component exists anywhere — `EventCard.tsx`'s
+masonry branch computes `formatEventStatus` and renders both badges as inline JSX
+(bg-muted/bg-secondary spans, gated `distanceKm<=5`, the shipped un-fixed threshold), and Story
+1.i1f's not-yet-built `EventCardCalendarGridItem` will need the same markup again. Story
+1.i1j's own compact-row badges would have been a third independent copy — the same drift
+pattern (BUG-023/FIND-023) that already forced this epic's `EventCardMediaPrimitives`
+extraction (Story 1.i1a). This story (1.i1i) builds the shared component (centralizing the
+corrected `<8km` threshold and DESIGN.md's `happeningNow` emerald treatment as its own default)
+and migrates `EventCard.tsx`'s masonry branch onto it. Story 1.i1j depends on this story.
+
+**STORY DRAFTED, 2026-09-18 (bmad-create-story, ritual-orchestrator batch):** this story fully
+drafted, sprint-status.yaml flipped to `ready-for-dev`. Architecture Spine AD-24 added,
+documenting the two independently-composable primitives, the `happeningNow` emerald exception,
+the `<8km` sanctioned threshold, and the non-interactive a11y rule. Story 1.i1j's dependency on
+this story is now satisfiable once this story's own `bmad-dev-story` lands.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — UI Components & Scalability rule (Domain Features → `packages/ui/src/features/<domain>/`, already the file's home); Locale-Sensitive Data Rendering (not newly triggered — badges keep the pre-existing unwired `labels` convention, no new `next-intl` integration this story).
