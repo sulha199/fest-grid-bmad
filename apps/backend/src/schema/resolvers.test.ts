@@ -7,7 +7,7 @@ import { resolvers, setEventsAuthProbe, eventsAuthProbe } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, unprocessedScraperPayloads, instagramOembedCache } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, unprocessedScraperPayloads, instagramOembedCache, accountVotes } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
 
 // read the generated schema for the yoga server
@@ -2254,10 +2254,15 @@ test('events resolver integration via Yoga', async (t) => {
   });
 
   await t.test('events - includeMyArchived opt-in bypass (Story 4.8)', async () => {
-    const userId = '88888888-8888-8888-8888-888888888888';
-    const otherUserId = '99999999-9999-9999-9999-999999999999';
+    // Use freshly-generated IDs rather than fixed literals: other suites grab
+    // "the first N users" via an unfiltered `select ... limit N`, so a fixed,
+    // well-known ID can get picked up by unrelated tests and accumulate FK
+    // references (account votes, widgets, ...) that block deleting it here.
+    const userId = crypto.randomUUID();
+    const otherUserId = crypto.randomUUID();
 
-    // Seed users
+    // Still clean up defensively in case a prior interrupted run left rows behind.
+    await db.delete(accountVotes).where(inArray(accountVotes.userId, [userId, otherUserId]));
     await db.delete(users).where(inArray(users.id, [userId, otherUserId]));
     await db.insert(users).values([
       { id: userId, email: 'user@test.com', role: 'user' },
@@ -2408,6 +2413,7 @@ test('events resolver integration via Yoga', async (t) => {
       await db.delete(favorites).where(inArray(favorites.eventId, [softDeletedEventId, pastEventId]));
       await db.delete(schedules).where(inArray(schedules.eventId, [softDeletedEventId, activeEventId, pastEventId]));
       await db.delete(events).where(inArray(events.id, [softDeletedEventId, activeEventId, pastEventId]));
+      await db.delete(accountVotes).where(inArray(accountVotes.userId, [userId, otherUserId]));
       await db.delete(users).where(inArray(users.id, [userId, otherUserId]));
     }
   });

@@ -432,7 +432,11 @@ Constraints and Guidelines:
       }
 
       const activeKeys = await db.select().from(apiKeys)
-        .where(and(eq(apiKeys.provider, input.provider.toLowerCase()), activeOnly(apiKeys)));
+        .where(and(
+          eq(apiKeys.userId, authUser.userId),
+          eq(apiKeys.provider, input.provider.toLowerCase()),
+          activeOnly(apiKeys)
+        ));
 
       for (const existingKey of activeKeys) {
         const plaintext = await decryptApiKey(existingKey.keyEncrypted);
