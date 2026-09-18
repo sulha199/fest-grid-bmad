@@ -167,6 +167,12 @@ one session:
   re-scoped in `backlog.yaml` to an implementation task (migrate `EventCardDateBox` to render
   both `base`/`base_default` as distinct variants, kept in source, not collapsed to one) —
   routes to `bmad-quick-dev`, not this cluster.
+  **DUPLICATE FOUND, 2026-09-18**: Story 1.i1j's own Gate 2 (`bmad-create-story`, part of the
+  Cluster C/D/E batch) independently rediscovered this exact same `EventCardDateBox` gap and
+  carved it as **IDEA-042 → Story 1.i1k** — see Cluster F below. FIND-025's finding (1) is now
+  superseded by that row; only finding (2) (no lint guard against a future dynamically-
+  interpolated Tailwind class) is still open and NOT covered by IDEA-042's own note — flagged
+  in `backlog.yaml` so whoever creates Story 1.i1k folds it in rather than dropping it.
 
 - [x] IDEA-003 UX pass (2026-09-16, scope extended to day-of-week recurrence, see own note above)
 - [x] IDEA-003 story (day-of-week recurrence rendering) — Story 1.3k created 2026-09-17
@@ -273,6 +279,51 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
       not yet implementable — its own Pre-Coding Approval Gate blocks `bmad-dev-story` until both
       1.i1f and 1.i1i land.
 
+## Cluster F — Child rows carved by the Cluster C/D/E `bmad-create-story` batch (2026-09-17)
+
+Every row below was surfaced by another story's own Gate 1/2/3 sweep during the batch, per
+`bmad-create-story`'s normal "found a real gap outside this story's scope, carve it" behavior.
+All are event-detail/event-list rows in this doc's own sense (touch `WeeklyCalendarView`,
+`EventCard`, or `FilterHub` directly) except IDEA-040, a general Epic 0 capability tracked here
+only because it's a named, blocking dependency of IDEA-026/Story 1.i1f's "ambient" branch — not
+because it needs its own event-pages cluster treatment. None are story-created yet; all sit at
+`backlog.yaml` `status: promoted` with a reserved `sprint-status.yaml` slot (`backlog`), one step
+short of an actual story file.
+
+- **IDEA-038** (parent IDEA-019) — extend the Today/Upcoming/All filter to Feed/Favorites.
+  Blocked in practice, not just unscheduled: Feed/Favorites haven't adopted
+  `useListPaginationController` yet, and are still missing FilterHub's Location/AI-filter
+  buttons per the still-open **BUG-025**. Not actionable as its own story until both land.
+- **IDEA-039** (parent IDEA-026) → Story 1.i1g — render multi-day schedules as one spanning
+  `EventCardCalendarGridItem` across day-columns. No blocker beyond Story 1.i1f (IDEA-026's own
+  story) landing first, since it builds the primitive this extends.
+- **BUG-036 + FIND-026** → Story 1.i1h — shared calendar-overflow dialog + AD-23's fair
+  per-day fetching fix. Already fully designed (this session's own `bmad-ux`/`bmad-architecture`
+  passes); no blocker beyond sequencing after 1.i1f.
+- **IDEA-040** (parent IDEA-026) → Story 0.39, Epic 0 — ambient, consent-aware viewer-location
+  capability. Genuinely undesigned, not just unimplemented: Gate 3 found this is a real
+  product/consent decision (permission-prompt timing, caching policy), not a narrow wiring gap —
+  may need its own `bmad-ux` pass before `bmad-create-story`, similar to IDEA-020's PWA-install
+  consent flow this session already designed. Until it ships, Story 1.i1f's nearby badge only
+  implements the "active filter location" branch and omits itself otherwise — not a regression,
+  a deliberately scoped partial ship.
+- **IDEA-041** (parent IDEA-025) → Story 1.i1i — extract a shared
+  `EventCardStatusBadge`/`EventCardNearbyBadge` primitive before a third card family duplicates
+  the inline markup. **Prerequisite for Story 1.i1j** (IDEA-025's own story) — 1.i1j cannot start
+  `bmad-dev-story` until this lands.
+- **IDEA-042** (parent IDEA-025) → Story 1.i1k — give the shared `EventCardDateBox` primitive
+  its DESIGN.md-specified two-tier chrome (still ships the pre-2026-09-14 single-line shape in
+  code). **Duplicate of FIND-025's finding (1)**, reconciled 2026-09-18 — see Cluster C above;
+  FIND-025's still-open finding (2), a lint guard, must fold into this story too. Independent of
+  1.i1i/1.i1j — no blocker.
+
+- [ ] IDEA-038 story (blocked on Feed/Favorites `useListPaginationController` adoption + BUG-025)
+- [ ] IDEA-039 story (Story 1.i1g) — after Story 1.i1f
+- [ ] BUG-036/FIND-026 story (Story 1.i1h) — after Story 1.i1f
+- [ ] IDEA-040 story (Story 0.39) — may need a `bmad-ux` consent-flow pass first
+- [ ] IDEA-041 story (Story 1.i1i) — prerequisite for Story 1.i1j's `bmad-dev-story`
+- [ ] IDEA-042 story (Story 1.i1k) — must fold in FIND-025's still-open finding (2)
+
 ## Full row checklist (verification)
 
 - [x] BUG-005 — Story 0.i6a (`review`)
@@ -304,6 +355,11 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
       carved for remaining desktop-grid wiring (Stories 1.i1g/1.i1h/0.39, not yet story-created)
 - [ ] IDEA-030
 - [x] IDEA-031 — Story 0.i6f (2026-09-16)
+- [ ] IDEA-038 (Story 0.i5d's own child, Cluster F) — blocked, not yet story-created
+- [ ] IDEA-039 (Story 1.i1f's own child, Cluster F) — Story 1.i1g, not yet story-created
+- [ ] IDEA-040 (Story 1.i1f's own child, Cluster F) — Story 0.39, may need `bmad-ux` first
+- [ ] IDEA-041 (Story 1.i1j's own child, Cluster F) — Story 1.i1i, not yet story-created
+- [ ] IDEA-042 (Story 1.i1j's own child, Cluster F) — Story 1.i1k, not yet story-created
 
 ## Explicitly not in this doc
 
