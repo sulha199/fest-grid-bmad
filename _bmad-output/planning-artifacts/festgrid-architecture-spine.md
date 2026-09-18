@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-09-17T00:00:00Z"
+updated: "2026-09-18T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -1031,6 +1031,71 @@ This document defines the core architectural invariants for the FestDaily applic
         Floor (that floor's focus/aria requirements are reserved for the future repeat badge only).
         - **Enforced by:** `EventCardMediaPrimitives.test.tsx`'s a11y assertions (no `aria-label`,
           no independent tab stop) for both components (Story 1.i1i).
+
+---
+
+### AD-25: Post-Account Association Table Shape
+
+*   **Binds:** The new `post_account_associations` table (`packages/database/schema.ts`) and its
+    two writers/readers — Story 3.15's CAP-3 ingestion write path (`persistScrapedPost` and its
+    lossless migration over existing `posts` rows) and Story 3.18's CAP-6 union-of-associations
+    feed filter (`Query.events`/`getEvents`). Resolves SPEC-post-coauthor-attribution's own Open
+    Questions item, which explicitly deferred the table's uniqueness DDL to architecture/epic
+    decomposition.
+*   **Prevents:**
+    1.  A `UNIQUE(post_id, account_id)` constraint — the naive dedupe-by-pair shape — which would
+        make it structurally impossible for one account to hold both a `PUBLISHER` and a
+        `SCRAPING_SOURCE` row on the same post, even though the spec explicitly requires that case
+        ("may equal the publisher").
+    2.  Two different accounts both being written as `PUBLISHER` (or both as `SCRAPING_SOURCE`) on
+        one post — a defect a bare 3-column unique constraint is silent on, since it keys on
+        `account_id` too and so allows unlimited distinct-account rows per role.
+    3.  A second, independently-drifting representation of scrape provenance (`vendor` + `runId`)
+        growing up alongside the `scraperActorRunId` FK `posts` already uses for the same fact.
+    4.  Story 3.18's filter join reopening the exact per-row-cost defect AD-17 already fixed
+        elsewhere (BUG-030/BUG-034's sequential-scan class) by shipping against a table with no
+        index serving the join's actual predicate column.
+*   **Rule:**
+    1.  **Base idempotency constraint:** `UNIQUE(post_id, account_id, role)` — one row per
+        (post, account, role) triple. This is what makes CAP-3's re-ingestion idempotency (the
+        spec's own Constraints section, and epics.md's Story 3.15 AC) hold: re-processing a post
+        can never append a duplicate role row, and the same account legitimately gets two rows
+        (`PUBLISHER` + `SCRAPING_SOURCE`) when it holds both roles on one post.
+    2.  **Per-post cardinality, two partial unique indexes** — the base constraint alone doesn't
+        cover this, since it keys on `account_id` too:
+        - `UNIQUE(post_id) WHERE role IN ('PUBLISHER', 'PUBLISHER_UNKNOWN')` — exactly one
+          publisher-or-unknown row per post.
+        - `UNIQUE(post_id) WHERE role = 'SCRAPING_SOURCE'` — exactly one scraping-source row per
+          post.
+        Direct precedent already in this schema: `schedules.oneMainPerEventIdx`
+        (`idx_schedules_one_main_per_event`, `UNIQUE(event_id) WHERE is_main_schedule = true`) is
+        the identical "exactly one X per parent" shape. The same build-time gotcha applies and must
+        carry into the migration: drizzle-kit 0.21.4's `index()`/`uniqueIndex()` builder drops the
+        `WHERE` predicate from generated migration SQL (same gap as that schedules precedent and
+        AD-8 rule 3's `idx_favorites_active`) — the builder call documents intent for
+        drizzle-orm's runtime/type layer only; the actual partial-unique DDL must be hand-added to
+        the generated migration file, not trusted to `drizzle-kit generate`.
+    3.  **Provenance is a nullable FK, not a denormalized copy:** `scraperActorRunId: uuid
+        references scraper_actor_runs.id` — the same column/pattern `posts.scraperActorRunId`
+        already uses, including reusing `persistScrapedPost`'s existing graceful FK-violation
+        fallback (insert with `scraperActorRunId: null` on a `23503`) for the association insert.
+        `vendor`/`runId` are read via one join to `scraper_actor_runs` (itself unique on
+        `vendor, runId`) rather than duplicated inline — one source of truth for "which scrape run
+        produced this."
+    4.  **CAP-6 filter index:** `INDEX(account_id, post_id)`, leading column `account_id` — matches
+        the filter's actual predicate (`WHERE account_id = ANY(subscribedAccountIds)` /
+        an `IN`-join), satisfying AD-17's per-row-cost discipline for Story 3.18's join. No
+        standalone `post_id`-only index is added: the base unique constraint's own index already
+        leads on `post_id` and serves "all associations for a post" (moderation/analytics) lookups.
+    5.  **No soft-delete.** The table is exempt from AD-8, on the same grounds AD-8 already exempts
+        `posts` itself and the append-only-log tables (`scraperBatchRuns`,
+        `scraperProviderHealth`): rows are only ever inserted, idempotently, via Rules 1–2 above —
+        never updated or deleted after the fact.
+    6.  **Cascade convention:** `postId` FK is `onDelete: 'cascade'` (matches
+        `schedules`/`favorites`/`calendarAdditions` → `events`'s convention for child rows with no
+        independent meaning without their parent). `accountId` FK carries no `onDelete` override,
+        mirroring `posts.accountId`/`subscriptions.accountId` exactly — `socialMediaAccountProfiles`
+        rows are never deleted in this codebase, so no cascade path is needed.
 
 ---
 
