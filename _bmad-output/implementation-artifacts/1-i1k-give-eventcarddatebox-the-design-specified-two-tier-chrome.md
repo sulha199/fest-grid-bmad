@@ -107,14 +107,14 @@ so that the masonry card's own date box and the compact row's date box — both 
   4. **Fold FIND-025 finding (2) in vs. carve a separate story (AC7/Task 6)** — decided directly per the dispatching command's own explicit instruction to use judgment on this exact question: folded in, since the guard is tiny (`effort: xs`), tightly scoped to the exact file family this story already modifies, and this story is the one reintroducing the size-variant/Tailwind-class surface area most likely to reach for the anti-pattern again.
   5. **`packages/ui` has no lint enforcement at all (discovered via Task 6's own prerequisite investigation) — NOT folded in, split into new Story 0.41 (renumbered from 0.40 on merge with master)** — a real, unbounded-size infra gap (unknown volume of pre-existing violations across the whole package if the full ruleset were retroactively enabled), a Gate-1-shaped tooling gap distinct from this story's own narrow, already-scoped guard. See Architecture & UX Gate Findings below.
 
-- **Backlog reconciliation (this story's own dispatching command context).** `IDEA-042` (this story's origin row) and `FIND-025` (created 2026-09-14, independently rediscovering the same gap 3 days earlier) are reconciled: `FIND-025`'s finding (1) — the two-tier chrome itself — was already marked superseded by `IDEA-042`/this story on 2026-09-18; finding (2) — the lint guard — is now folded into this story's own scope (AC7/Task 6, decision 4 above) and `FIND-025` is updated to `status: promoted, stories: [1-i1k-...]` in the same commit as this story file. Wiring finding (2)'s guard surfaced the `packages/ui`-has-no-lint-at-all gap, tracked as new row `FIND-035` → new Story `0.40` (decision 5 above) — both already added to `backlog.yaml`/`epics.md`/`sprint-status.yaml` in this same commit, not deferred to a later pass.
+- **Backlog reconciliation (this story's own dispatching command context).** `IDEA-042` (this story's origin row) and `FIND-025` (created 2026-09-14, independently rediscovering the same gap 3 days earlier) are reconciled: `FIND-025`'s finding (1) — the two-tier chrome itself — was already marked superseded by `IDEA-042`/this story on 2026-09-18; finding (2) — the lint guard — is now folded into this story's own scope (AC7/Task 6, decision 4 above) and `FIND-025` is updated to `status: promoted, stories: [1-i1k-...]` in the same commit as this story file. Wiring finding (2)'s guard surfaced the `packages/ui`-has-no-lint-at-all gap, tracked as new row `FIND-036` → new Story `0.40` (decision 5 above) — both already added to `backlog.yaml`/`epics.md`/`sprint-status.yaml` in this same commit, not deferred to a later pass.
 
 ### Architecture & UX Gate Findings
 
 `epic-1-i1-readiness.md`'s own `stories_covered` frontmatter lists only Stories 1.i1a-e/1.i1z (swept 2026-09-13, before Stories 1.i1f-k existed) — narrower than this story. Per the workflow's lightweight escape-hatch guard, reasoned fresh whether this story's scope contains anything the original sweep plausibly didn't anticipate:
 
 - **Gate 1 (Architecture/Infrastructure Completeness) — NO GAP for the story's core scope**, cited from `epic-1-i1-readiness.md`'s sweep and reconfirmed directly: this story is pure `packages/ui` presentational restyling plus new pure-formatting functions in the same file family already covered by the sweep's "pure presentational `packages/ui` work end to end" conclusion — no resolver/query/mutation, no DB/domain/external-service call, no new API surface. Sibling stories 1.i1f/1.i1i/1.i1j already established the precedent of citing this same sweep for later-added stories in this epic on the same reasoning.
-  - **However, a genuine NEW Gate-1-shaped gap WAS found**, not anticipated by the sweep (which predates this story's own Task 6): implementing AC7's lint guard required giving `packages/ui` its first-ever `lint` script, which revealed the package has **zero ESLint enforcement today** — no `eslint.config.mjs`, no `lint` script, unlike every other workspace package (`database`, `domain`, `graphql-select`, `shared-types`, `apps/backend`, `apps/web`). Retroactively enabling the full standard ruleset is a real, unbounded-size infrastructure gap (an unknown volume of pre-existing violations across `packages/ui`'s entire multi-epic source tree) — not something to silently absorb into this story's own tightly-scoped restyle-and-guard work. **Resolved by NOT absorbing it**: this story's own `eslint.config.mjs` (Task 6.2) is deliberately minimal and narrowly `files`-scoped to just the one new rule, and the broader gap is split into new **Story 0.41** (`epics.md`, new Epic 0 story per the tooling-gap numbering rule; renumbered from 0.40 on merge with master, which independently landed its own Story 0.40 for FIND-034 first) plus backlog row **`FIND-035`**. Story 0.41 is NOT a dependency of this story — this story's own guard is fully self-contained.
+  - **However, a genuine NEW Gate-1-shaped gap WAS found**, not anticipated by the sweep (which predates this story's own Task 6): implementing AC7's lint guard required giving `packages/ui` its first-ever `lint` script, which revealed the package has **zero ESLint enforcement today** — no `eslint.config.mjs`, no `lint` script, unlike every other workspace package (`database`, `domain`, `graphql-select`, `shared-types`, `apps/backend`, `apps/web`). Retroactively enabling the full standard ruleset is a real, unbounded-size infrastructure gap (an unknown volume of pre-existing violations across `packages/ui`'s entire multi-epic source tree) — not something to silently absorb into this story's own tightly-scoped restyle-and-guard work. **Resolved by NOT absorbing it**: this story's own `eslint.config.mjs` (Task 6.2) is deliberately minimal and narrowly `files`-scoped to just the one new rule, and the broader gap is split into new **Story 0.41** (`epics.md`, new Epic 0 story per the tooling-gap numbering rule; renumbered from 0.40 on merge with master, which independently landed its own Story 0.40 for FIND-034 first) plus backlog row **`FIND-036`**. Story 0.41 is NOT a dependency of this story — this story's own guard is fully self-contained.
 - **Gate 3 (Foundational/Cross-Cutting Dependency Completeness) — NO GAP**, cited from `epic-1-i1-readiness.md`'s sweep; independently reconfirmed no new global-shell/i18n-foundation/analytics/codegen dependency is introduced. The new `formatShortEventDateTimeParts`/`computeCalendarSegmentDateBoxContent` functions extend an already-established, project-context.md-compliant pattern (Intl-based, `packages/ui`-local date formatting — not a new foundational utility needing its own home).
 - **Gate 2 (UI Complexity & Reusability, Freya persona, run fresh) — NO GAP**, run via a fresh persona-lens review against this story's full draft scope (including the size-variant token recalibration, the new formatter functions, and the lint-guard addition). Findings:
   1. The two new date-formatter functions each have exactly one real consumer (`EventCard.tsx`/`WeeklyCalendarView.tsx` respectively) and are not complex (simple Intl-based splits, no debouncing/pagination/sorting) — correctly scoped inline to this story, matching this epic's own precedent (`computeCalendarSegmentTillText` itself was built directly inside its own adoption story, 1.i1d, not split out).
@@ -147,7 +147,7 @@ so that the masonry card's own date box and the compact row's date box — both 
 - [Source: packages/ui/src/features/events/EventCardMediaPrimitives.tsx, EventCardMediaPrimitives.types.ts, event-card-media-tokens.ts, EventCard.tsx, WeeklyCalendarView.tsx, format-event-date.ts]
 - [Source: _bmad-output/implementation-artifacts/deferred-work.md § "Deferred from: quick-dev fix of eventcard-favorite-badge-clipping (2026-09-14)"]
 - [Source: _bmad-output/implementation-artifacts/1-i1j-add-status-and-nearby-badges-to-weeklycalendarviews-compact-row.md]
-- [Source: _bmad-output/implementation-artifacts/backlog.yaml IDEA-042 (this story), FIND-025 (reconciled), FIND-035 (new, split off this story)]
+- [Source: _bmad-output/implementation-artifacts/backlog.yaml IDEA-042 (this story), FIND-025 (reconciled), FIND-036 (new, split off this story)]
 - [Source: git log -p 7bf99260 -- packages/ui/src/features/events/event-card-media-tokens.ts (the original dead-CSS bug pattern)]
 
 ### Backlog row history (FIND-025, verbatim, moved from backlog.yaml 2026-09-18)
@@ -181,7 +181,7 @@ story's own scope as an AC/Task (a package-local ESLint rule,
 exactly the `` `w-[${expr}]` ``-shaped pattern that caused the 2026-09-14 dead-CSS bug). Both
 findings are fully addressed by this story; this row closes once this story is `done`. Wiring
 the new rule surfaced that `packages/ui` has no `lint` script/ESLint config at all — that
-separate, unbounded-size gap is tracked as its own new row, FIND-035 → Story 0.41 (renumbered
+separate, unbounded-size gap is tracked as its own new row, FIND-036 → Story 0.41 (renumbered
 from 0.40 on merge with master).
 
 ### Backlog row history (IDEA-042, verbatim, moved from backlog.yaml 2026-09-18)
@@ -209,7 +209,7 @@ this story's other backlog row history section above, FIND-025.)
 drafted, sprint-status.yaml flipped to `ready-for-dev`. FIND-025's finding (2) folded in
 directly as this story's own `no-dynamic-tailwind-arbitrary-value` lint guard — not dropped,
 not a separate follow-up. Drafting also surfaced that `packages/ui` has no lint config/script
-at all; split out as its own row, FIND-035 → Story 0.41, not folded into this story's narrower
+at all; split out as its own row, FIND-036 → Story 0.41, not folded into this story's narrower
 scope.
 
 ## Global Rules References
@@ -250,7 +250,7 @@ scope.
 - [ ] `prominentPoster=true` overlay path completely unaffected (verified by test).
 - [ ] New `no-dynamic-tailwind-arbitrary-value` lint rule wired, running in CI (via `packages/ui`'s new, narrowly-scoped `lint` script), and verified to correctly fire/not-fire.
 - [ ] Full `packages/ui` test/lint/typecheck green.
-- [ ] `backlog.yaml`/`epics.md`/`sprint-status.yaml` reconciliation (`IDEA-042`/`FIND-025`/`FIND-035`/Story 0.41, renumbered from 0.40 on merge with master) already committed alongside this story file.
+- [ ] `backlog.yaml`/`epics.md`/`sprint-status.yaml` reconciliation (`IDEA-042`/`FIND-025`/`FIND-036`/Story 0.41, renumbered from 0.40 on merge with master) already committed alongside this story file.
 
 ## Out of Scope
 
@@ -258,7 +258,7 @@ scope.
 - The desktop Calendar Grid Item Card (`variant='grid'`) — Stories 1.i1f/1.i1g/1.i1h; per EXPERIENCE.md, that card has no date box at all (the day-column header already anchors the date), so this story's scope has no surface there.
 - Story 1.i1a's own `event_card_date_box.base` (`prominentPoster=true` overlay) — explicitly confirmed unaffected (AC6).
 - `EventDetailView.tsx`'s own use of the unchanged `formatShortEventDateTime` — a completely separate, unrelated consumer.
-- **`packages/ui`'s full standard ESLint ruleset (parity with every sibling package)** — a real, unbounded-size infra gap discovered while implementing this story's own narrow lint guard (Task 6); NOT folded in here — split into new **Story 0.41** (`epics.md`, renumbered from 0.40 on merge with master) / backlog row **`FIND-035`**, not a dependency of this story.
+- **`packages/ui`'s full standard ESLint ruleset (parity with every sibling package)** — a real, unbounded-size infra gap discovered while implementing this story's own narrow lint guard (Task 6); NOT folded in here — split into new **Story 0.41** (`epics.md`, renumbered from 0.40 on merge with master) / backlog row **`FIND-036`**, not a dependency of this story.
 - Wiring `next-intl` for any label prop in this file family — a pre-existing, cross-cutting gap spanning the whole card-label family (see Story 1.i1j's own Dev Notes), not this story's to close, and this story adds no new translatable label props of its own (the till label text itself is unchanged, already threaded via the existing `tillLabel`/`defaultLabels.tillLabel` props).
 
 ## Definition of Done
