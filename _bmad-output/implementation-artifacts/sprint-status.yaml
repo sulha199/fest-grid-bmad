@@ -2165,6 +2165,12 @@ development_status:
   # DONE 2026-08-24: AC6 merged (Wave 2, story/wave2-page-grid-adoption).
   5-3-display-and-enforce-api-quota: done
   5-4-inactive-account-warning: review
+  # Added 2026-09-19 via bmad-create-story from backlog IDEA-010 (promoted,
+  # epic-formation 2026-09-11 pass). Fixes Subscription.isInactive returning
+  # true for never-scraped/scrape-in-progress accounts, adds two new tab
+  # badges. Gate 1/2/3 run fresh (Story 5.6 postdates the epic-5 sweep): no
+  # gap, builds inline. See epics.md Story 5.4a.
+  5-4a-distinguish-inactive-in-progress-and-never-scraped-states: ready-for-dev
   # Reopened 2026-08-24 via bmad-correct-course: wizard steps extended with a
   # push-notification opt-in step (reusing Story 2.9's toggle), exitPath changed
   # to /feed. See sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.6.

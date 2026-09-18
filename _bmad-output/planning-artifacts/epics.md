@@ -3684,6 +3684,26 @@ Users are guided through the initial setup and can manually select posts for eve
 
 **Depends on:** Story 5.1a.
 
+### Story 5.4a: Distinguish inactive, in-progress, and never-scraped account states
+
+**As a** user,
+**I want** the Manual Post Selection screen to tell a genuinely-inactive account apart from one that has never been scraped yet or is being scraped right now,
+**So that** I'm never told to remove a subscription that simply hasn't had its first scrape completed, or that is actively being refreshed.
+
+**Acceptance Criteria:**
+
+*   **Given** the `Subscription.isInactive` resolver (Story 5.4/5.1a) currently returns `true` whenever an account has zero posts, regardless of whether a scrape has ever run,
+*   **When** the resolver is evaluated for an account whose `SocialMediaAccountProfile.lastScrapedAt` (Story 3.4) is `null` (no scrape has ever completed) or whose `SocialMediaAccountProfile.isScrapeInProgress` (Story 5.6) is `true`,
+*   **Then** `isInactive` returns `false` for that account — the existing 30-day-no-post rule only fires once at least one scrape has actually completed and none is currently in flight; no new GraphQL field is added, this is a resolver logic fix.
+*   **And** when a subscription's account has `isScrapeInProgress: true`, its tab shows a distinct in-progress badge (a neutral, non-alarming icon distinct from the existing `AlertCircle` "Inactive Account" and `Clock` "Pending Review" icons already used on this same tab bar) with a tooltip conveying a scrape is under way — this takes priority over the never-scraped state below when both would otherwise apply (e.g. right after a first scrape is triggered).
+*   **And** when a subscription's account has `lastScrapedAt: null` and is not currently `isScrapeInProgress`, its tab shows a distinct never-scraped badge (a different neutral icon from the in-progress badge and from every existing tab-badge icon) with a tooltip conveying no scrape has run yet.
+*   **And** neither the in-progress nor the never-scraped badge is accompanied by the "remove this inactive subscription" banner or CTA — that banner continues to render only when `isInactive` is `true` (unchanged condition, now correctly scoped by the fix above).
+*   **And** all new copy (both badge tooltips) is sourced through `next-intl`'s existing `ManualPostSelectionPage` namespace, present in both `en` and `id` — the in-progress badge reuses the existing `scrapeInProgressLabel` string (Story 5.6) rather than adding a duplicate key with identical meaning.
+
+**Note:** Sourced from backlog item `IDEA-010` ("Post Selection: distinguish genuinely-inactive account from scrape-run-in-progress or never-run"), disposed `promote` (standalone, `m` effort) by the 2026-09-11 epic-formation pass (`epic-formation/formation-2026-09-11.md` §2, §5) after being checked against IDEA-009 and found not to share a capability. Lettered `5.4a` (not a new whole-number story) because it is a direct correction/extension of Story 5.4's own `isInactive` computation, reusing Story 5.6's `isScrapeInProgress` mechanism (both already shipped) rather than adding any new backend capability — not a Gate-1/2/3-produced prerequisite; this story's own Gate 1/2/3 pass (run fresh via `bmad-create-story`, since Story 5.6 postdates `epic-5-readiness.md`'s 2026-08-12 sweep) found no gap on any of the three gates and confirmed the UI change builds inline into the existing `posts-select-content.tsx` tab bar, no new `packages/ui` component. The exact visual treatment of the two new badges (icon choice, whether either merits its own banner) was an open UX question with no existing `EXPERIENCE.md` precedent, resolved via `AskUserQuestion` during this story's own creation in favor of a fully distinct badge per state (see the story file's Dev Notes for the resolved design).
+
+**Depends on:** Story 5.1a, Story 5.4, Story 5.6.
+
 ### Story 5.5: Integrate manual post selection into the getting started wizard
 
 **As a** new user,

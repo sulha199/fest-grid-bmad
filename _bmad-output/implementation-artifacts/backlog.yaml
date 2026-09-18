@@ -648,12 +648,13 @@ items:
      note: "From apps/ux-rework2.md L23, via ux-rework2-tracking.md item #9. Cross-cutting: rate-limit-aware auto-triggering against a shared Gemini quota, plus a wizard-routing change. No backlog row or story existed before this audit."}
 
   IDEA-010:
-    {type: idea, status: triaged, created: 2026-09-06,
+    {type: idea, status: promoted, created: 2026-09-06,
      impact: user-visible, effort: m,
      title: "Post Selection: distinguish genuinely-inactive account from scrape-run-in-progress or never-run",
      ref: [],
+     stories: [5-4a-distinguish-inactive-in-progress-and-never-scraped-states],
      touches: [web:post-selection, app:backend],
-     note: "From apps/ux-rework2.md L6, dup. L18, via ux-rework2-tracking.md item #2 — deferred in the user's own words ('put to deferred for better planning'), never re-triaged since. Story 5.4 (inactive-account-warning) ships a simpler 30-day-no-post isInactive flag that doesn't cover run-status, so this nuance was never actually captured as its own row before this audit."}
+     note: "From ux-rework2-tracking.md item #2, deferred then untriaged until this 2026-09-06 audit. PROMOTED (2026-09-19 via bmad-create-story): fully covered by Story 5.4a (isInactive resolver fix + two new tab badges). No remaining scope; no child row carved. Full detail in Story 5.4a's Dev Notes."}
 
   BUG-017:
     {type: bug, status: promoted, epic: epic-0-i7, created: 2026-09-06,
