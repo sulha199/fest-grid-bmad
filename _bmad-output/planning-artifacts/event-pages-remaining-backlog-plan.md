@@ -169,13 +169,18 @@ one session:
   routes to `bmad-quick-dev`, not this cluster.
 
 - [x] IDEA-003 UX pass (2026-09-16, scope extended to day-of-week recurrence, see own note above)
-- [ ] IDEA-003 story (day-of-week recurrence rendering) — UX + architecture (AD-19) both done,
-      ready for `bmad-create-story`
+- [x] IDEA-003 story (day-of-week recurrence rendering) — Story 1.3k created 2026-09-17
+      (`ritual-orchestrator` batch), status `ready-for-dev`, no HIL raised (Gate 1/2/3 findings all
+      resolved in-story). Covers getDays export/generalization, the GraphQL/domain enum mapping,
+      the `Schedule.applicableDaysOfWeek` field addition, and `event_card_repeat_badge` across all
+      3 card families.
 - [x] IDEA-019 UX pass (2026-09-17, see own note above; backend query-condition work still pending)
-- [ ] IDEA-019 story (temporal filter, backend + frontend) — UX + architecture (AD-20) both done,
-      ready for `bmad-create-story`; implementation story must also run AD-20's own deferred
-      `EXPLAIN ANALYZE` check (research prompt in backlog.yaml's IDEA-019 note) before deciding on
-      a new DB index
+- [x] IDEA-019 story (temporal filter, backend + frontend) — Story 0.i5d created 2026-09-17
+      (`ritual-orchestrator` batch), status `ready-for-dev`, no HIL raised. Ran AD-20's deferred
+      `EXPLAIN ANALYZE` check during creation: existing `schedule_event_date_idx` is sufficient (a
+      candidate expression index measured ~10% slower), so no new migration was added. Scoped to
+      Discovery's card view only; carved the Feed/Favorites extension into child row IDEA-038
+      (blocked on those pages adopting `useListPaginationController` + BUG-025).
 - [x] FIND-025 UX question resolved (2026-09-16, no design work needed — see backlog.yaml note);
       remaining migration work re-routed to `bmad-quick-dev`, not part of this UX cluster
 
@@ -198,9 +203,12 @@ one session:
 
 - [x] IDEA-020 architecture pass (2026-09-17, see AD-21)
 - [x] IDEA-020 UX pass (2026-09-17, see own note above)
-- [ ] IDEA-020 story (embed.js caching SW + preconnect hints + install banner/iOS modal) —
-      architecture + UX both done, ready for `bmad-create-story`; must keep
-      `event-details-instagram-csp.spec.ts` green (AD-21's own regression constraint)
+- [x] IDEA-020 story (embed.js caching SW + preconnect hints + install banner/iOS modal) —
+      Stories 0.38a (shared PWA install-eligibility hook, prerequisite) + 0.38 (embed.js caching,
+      preconnect hints, PWA manifest/install banner/iOS modal) created 2026-09-17
+      (`ritual-orchestrator` batch), both status `ready-for-dev`, no HIL raised. Gate 2 split out
+      0.38a as a genuinely shared hook (mirrors the repo's existing 0.7/0.7a precedent). No child
+      row carved — CDN-media caching stays permanently out of scope per AD-21's platform limitation.
 
 ## Cluster E — WeeklyCalendarView badge data-plumbing (internal tension, resolve before acting)
 
@@ -246,13 +254,24 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
       surfaced a real, pre-existing bug (BUG-036): the current flat `ORDER BY ... LIMIT 1000`
       week-level fetch can silently starve a later day in the same week — tracked as its own
       backlog row, sequenced into the same implementation story as this work.
-- [ ] IDEA-026 story (desktop calendar grid + calendar-overflow dialog + BUG-036's per-day
-      windowing fix, per AD-23's sequencing) — plumbing decision now unblocks this; implementation
-      story must also confirm `Schedule.latitude`/`longitude` GraphQL exposure (research prompt in
-      backlog.yaml's IDEA-025 note) before wiring `computeDistanceKm`
-- [ ] IDEA-025 story (mobile compact-row badges, fixes masonry's pre-existing dead nearby badge
-      per AD-22) — after the plumbing decision, or as IDEA-026's explicit follow-on if scoped
-      that way
+- [x] IDEA-026 story — Story 1.i1f created 2026-09-17 (`ritual-orchestrator` batch), status
+      `ready-for-dev`, no HIL raised. Delivers AD-22's mandatory scope: the shared
+      `computeDistanceKm` utility, masonry EventCard's nearby-badge fix (dead prop -> real),
+      GraphQL coordinate exposure, and the new `EventCardCalendarGridItem` primitive (both
+      compositions). Gate 2/3 split the remaining desktop-grid wiring into 3 new backlog rows,
+      **not yet story-created** (their own future `bmad-create-story` pass, outside this batch's
+      scope): IDEA-039 -> Story 1.i1g (multi-day spanning-bar rendering), BUG-036/FIND-026 ->
+      Story 1.i1h (calendar-overflow dialog + per-day fair-fetch fix, per AD-23), IDEA-040 ->
+      Story 0.39 (ambient viewer-location capability, Epic 0). Until 0.39 ships, 1.i1f's nearby
+      badge only implements the "active filter location" branch.
+- [x] IDEA-025 story — Story 1.i1j created 2026-09-17 (`ritual-orchestrator` batch), status
+      `ready-for-dev`, dispatched as IDEA-026's explicit follow-on. No HIL raised. Wires status +
+      nearby badges into WeeklyCalendarView's compact row, reusing Story 1.i1f's `distanceKm`
+      plumbing as-is. Gate 2 split out two more child rows, **not yet story-created**: IDEA-041 ->
+      Story 1.i1i (shared status/nearby badge primitive — prerequisite for 1.i1j), IDEA-042 ->
+      Story 1.i1k (EventCardDateBox two-tier chrome, independent, not a dependency). Story 1.i1j is
+      not yet implementable — its own Pre-Coding Approval Gate blocks `bmad-dev-story` until both
+      1.i1f and 1.i1i land.
 
 ## Full row checklist (verification)
 
@@ -264,7 +283,8 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
 - [x] BUG-019 — Story 0.i5b (`review`)
 - [ ] BUG-031
 - [ ] BUG-032
-- [ ] BUG-036 (new, 2026-09-17 — folds into IDEA-026's story per AD-23's sequencing)
+- [ ] BUG-036 (new, 2026-09-17 — Gate 2 routed it to Story 1.i1h alongside FIND-026's
+      overflow-dialog scope, not IDEA-026's own Story 1.i1f; 1.i1h not yet story-created)
 - [x] FIND-006 (closes via Story 2.i1a's BUG-008 coverage, not independently)
 - [ ] FIND-010
 - [x] FIND-011
@@ -273,13 +293,15 @@ today (`WeeklyCalendarView` gets one fully-loaded week batch, no per-day cursor)
 - [ ] FIND-025
 - [ ] FIND-026
 - [ ] FIND-029
-- [ ] IDEA-003
+- [x] IDEA-003 — Story 1.3k (`ready-for-dev`)
 - [x] IDEA-011 — Story 0.i5a (`review`)
 - [x] IDEA-012 — Story 0.37 (`review`)
-- [ ] IDEA-019
-- [ ] IDEA-020
-- [ ] IDEA-025
-- [ ] IDEA-026
+- [x] IDEA-019 — Story 0.i5d (`ready-for-dev`); child row IDEA-038 carved for Feed/Favorites
+- [x] IDEA-020 — Stories 0.38a + 0.38 (`ready-for-dev`)
+- [x] IDEA-025 — Story 1.i1j (`ready-for-dev`, blocked on 1.i1f + 1.i1i prerequisites); child rows
+      IDEA-041/IDEA-042 carved (Stories 1.i1i/1.i1k, not yet story-created)
+- [x] IDEA-026 — Story 1.i1f (`ready-for-dev`); child rows IDEA-039/BUG-036+FIND-026/IDEA-040
+      carved for remaining desktop-grid wiring (Stories 1.i1g/1.i1h/0.39, not yet story-created)
 - [ ] IDEA-030
 - [x] IDEA-031 — Story 0.i6f (2026-09-16)
 

@@ -856,6 +856,23 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Depends on:** Story 0.28.
 
+### Story 0.39: Build an ambient, consent-aware viewer-location capability
+
+**As a** developer,
+**I want** a shared, reusable way for a page to obtain the viewer's current geographic coordinate passively (not only inside an explicit "use my location" click), with an explicit, designed policy for permission-prompt timing and caching,
+**So that** "nearby" features (starting with the distance badge on `EventCard`/the desktop calendar grid card, Story 1.i1f) can show a real distance when the viewer has no active location filter selected, without every feature re-deciding its own consent/caching approach.
+
+**Acceptance Criteria:**
+
+*   **Given** no global/app-shell "viewer location" context, provider, or persisted state exists anywhere in this codebase today (confirmed: only an imperative, one-shot `useCurrentLocationCapture()` wrapper around `navigator.geolocation.getCurrentPosition`, called exclusively from explicit user-initiated actions — the nearby-filter's own "current location" mode, and two location-picker forms),
+*   **When** this story ships,
+*   **Then** a new shared mechanism (e.g. a `ViewerLocationProvider`/`useViewerLocation()` pair, exact shape left to the implementation story) exists that a page can consume to obtain "the viewer's current coordinate, if available and permitted" without itself deciding consent timing.
+*   **And** the mechanism has an explicit, documented policy for **when** it may prompt for the browser geolocation permission (e.g. only after some existing signal of intent — never an unconditional prompt on first paint of every route) and for **caching/persistence** (e.g. in-memory for the session, or a short-TTL store) so it does not re-prompt or re-fetch on every render/remount.
+*   **And** a consumer that receives no coordinate (permission denied, unsupported, not yet granted) degrades to "no viewer coordinate" with no error thrown — callers (e.g. Story 1.i1f's nearby badge) already treat a missing coordinate as "omit the badge," not a failure state.
+*   **And** this story does not change the "active filter location" branch of the distance priority rule (Architecture Spine AD-22) at all — that branch is already implemented by Story 1.i1f via `useNearbyFilter`; this story only supplies the "else" branch's coordinate source.
+
+**Note:** Split via Gate 3 (`story-split-gate.md`) while drafting Story 1.i1f (`bmad-create-story`, 2026-09-17, backlog.yaml IDEA-040, parent IDEA-026). Architecture Spine AD-22 states the priority rule ("active filter location if one is selected, else the viewer's current location coordinate") but never designed how the "else" branch sources a coordinate passively — Gate 3 judged this a genuine cross-cutting, consent-sensitive product decision (permission-prompt timing, caching policy) reusable by future "distance from me" features, not a narrow wiring task belonging inside the feature story that first needed it. Until this story ships, any consumer's distance badge simply omits itself when no location filter is active (an accepted, documented interim limitation — see Story 1.i1f's Out of Scope).
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
@@ -1123,6 +1140,26 @@ Users can discover and browse events.
 **Note:** This story exists because of a `bmad-agent-architect` performance audit (2026-09-15) of `Query.events`, the app's highest-traffic query per the PRD's Performance NFR (added 2026-09-15, same session). The audit found BUG-030 (the N+1 itself), FIND-027 (an ungated `totalCount` query), BUG-034 (a missing index that blocks BUG-030's own fix from being viable), and FIND-028 (missing `staleTime`) — batched into one story per AD-17 Rule 5's explicit grouping, since all four touch the same resolver/query surface and FIND-027/FIND-028 are "trivial to include, not worth a separate story" in AD-17's own words. The batching mechanism itself (`virtualFields` extending `buildOptimizedDrizzleSelect`, reusing `fieldMap` rather than introducing DataLoader) was decided by a dedicated `bmad-architecture` pass — see Architecture Spine **AD-17**. Positioned as the last lettered suffix in the 1.3 family (after 1.3i), immediately before Story 1.3 — discovered after every other 1.3-family split, following this epic's "discovery order, not alphabetical" placement convention (per Story 1.3g's own note). Registered via `bmad-correct-course` as **CC-020** (`sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md`).
 
 **Depends on:** Story 1.3a (the `events` resolver this story amends), Story 0.8 (`buildOptimizedDrizzleSelect`, extended here).
+
+### Story 1.3k: Render day-of-week recurring schedules and the repeat badge across calendar and card surfaces
+
+**As a** Discovery/Calendar user,
+**I want** a schedule that only recurs on specific weekdays within its date span (e.g. "every Monday, Sep 7–28") to render only on those matching days, with a clear visual marker distinguishing it from a genuine one-off event or multi-day span,
+**So that** the calendar and card surfaces accurately reflect which days an event actually occurs on, instead of implying it happens every day inside its full date range.
+
+**Acceptance Criteria:**
+
+*   **Given** `packages/domain/src/events/buildEventsQueryCondition.ts`'s module-local `getDays(fromStr, toStr, dow: DayOfWeek | string)`, **when** generalized per Architecture Spine AD-19 Rule 1, **then** it is `export`ed with signature `getDays(fromStr: string, toStr: string, dow: DayOfWeek[]): string[]`, matching any weekday in the array (a union), with the existing `EventFilterInput.dayOfWeek` call site wrapped as a 1-element array and zero behavior change to today's single-weekday filter matching.
+*   **And**, per AD-19 Rule 2, an explicit `Record<GqlDayOfWeek, DomainDayOfWeek>` mapping (`apps/web/src/lib/day-of-week-mapping.ts`) converts the GraphQL-generated `DayOfWeek` enum (`apps/web/src/generated/graphql.ts`) into domain's own `DayOfWeek` enum before any shared weekday-matching function is called — never an implicit string-value assumption.
+*   **Given** `Schedule.applicableDaysOfWeek?: DayOfWeek[]` is PRD-decided (§4.4, BUG-026) but absent from both the DB schema and the GraphQL schema today, **when** this story ships, **then** `packages/database/schema.ts`'s `schedules` table gains a nullable `applicableDaysOfWeek: text().array()` column (matching the existing `events.types`/`events.categories` convention) via a Drizzle-kit-generated migration, and `Schedule.applicableDaysOfWeek: [DayOfWeek!]` is added to `apps/backend/src/schema/events.graphql`, resolved with zero new resolver code via the existing `buildOptimizedDrizzleSelect` passthrough already used by `Event.schedules` — the same additive-field class as Story 0.37's `Event.links`. AI-extraction population and `buildEventsQueryCondition.ts`'s filter-*matching*-correctness fix remain explicitly out of scope (BUG-026's own still-open items).
+*   **Given** `WeeklyCalendarView.tsx`'s `dayBuckets` computation (today: a schedule occupies every day in `[eventStartDate, eventEndDate]`), **when** a schedule's `applicableDaysOfWeek` is set and non-empty, **then** only days whose weekday is in that list count as occurrences (via the shared `getDays` utility); a schedule with the field unset/empty behaves exactly as today.
+*   **And** `isFirstSegment`/`isLastSegment` generalize from "equals the schedule's overall start/end" to "the immediately adjacent calendar day (±1), including days outside the visible week, is not also an occurrence" — collapsing calendar-adjacent occurrence days into one run (rendered identically to today's multi-day span, "Day X of N" keyed off the run's own length, never the schedule's overall span) and treating non-adjacent occurrences as isolated single-day segments.
+*   **And** a new icon-only `event_card_repeat_badge` (lucide `Repeat`, `DESIGN.md` token) renders wherever a card's schedule has `applicableDaysOfWeek` set and non-empty, across all 3 card families: masonry `EventCard` (`badge_row`, order status → repeat → nearby), and `WeeklyCalendarView`'s `CalendarCard` in both `variant='list'` and `variant='grid'` (leading-icon-then-title row, alongside `isFavorited`/`isAddedToCalendar`) — built as one shared `EventCardRepeatBadge` primitive in `EventCardMediaPrimitives.tsx`, not three duplicates. It always carries an `aria-label` listing the schedule's translated matching weekdays (new `DayOfWeek` next-intl namespace, en/id) and shows the same content in a tooltip triggered by each card's own already-interactive root (never an independently-focusable nested trigger, avoiding the interactive-nesting hazard Stories 1.i1d/1.i1e already had to solve for the favorite badge).
+*   **And** existing behavior for schedules without `applicableDaysOfWeek` is unchanged and regression-verified across `buildEventsQueryCondition.test.ts`, `WeeklyCalendarView.test.tsx`, `EventCard.test.tsx`, and `EventListView.test.tsx`.
+
+**Note:** This story implements IDEA-003's extended scope (originally "Mobile calendar multi-day-span rendering," resolved 2026-09-16/17 to cover `Schedule.applicableDaysOfWeek` day-of-week recurrence, per `EXPERIENCE.md`'s "Day-of-Week Recurring Schedules" section and Architecture Spine **AD-19**). Positioned as the next lettered suffix after 1.3j, immediately before Story 1.3, following this epic's established "discovery order, not alphabetical" placement convention. `epic-1-readiness.md`'s sweep (`swept: true`) predates this story's entire subject matter (BUG-026/AD-19 didn't exist until 2026-09-11/09-17), so Gates 1/2/3 were run fresh rather than cited from that report, matching the precedent already set by Stories 1.6e/0.36. Gate 1 found no gap (the DB/GraphQL field addition is the same additive-field class as Story 0.37's `Event.links`). Gate 2 found a real tooltip-trigger nesting hazard, resolved in-story (each card's own interactive root triggers the tooltip; the badge icon itself is never an independent focus stop). Gate 3 found a real gap — this story would otherwise triplicate `CalendarCard`'s existing hand-rolled hover+focus+Escape-dismiss tooltip state machine — resolved in-story via a scoped `useHoverFocusTooltip` hook extraction (not a full `packages/ui/src/core/` Tooltip design-system primitive, and not split into a new prerequisite story, since unlike the `PageContainer`/`GridContainer`/`PageHeader` precedent this story is what would *introduce* the duplication rather than cleaning up an already-systemic one). See the story file's Dev Notes for the full reasoning on all three gates.
+
+**Depends on:** Story 1.3b (`EventCard`), Story 1.3g (`WeeklyCalendarView`), Story 1.i1a-e (the shared `EventCardMediaPrimitives.tsx` primitives this story adds to).
 
 ### Story 1.3: Display a list of events on the main page
 
@@ -1475,6 +1512,124 @@ Note: Added 2026-08-01 at user request, scoped to Epic 1 (the only route it can 
 *   **And** the TILL badge renders at the date box's top-left corner in the new amber treatment.
 
 **Depends on:** Stories 1.i1a, 1.i1c.
+
+### Story 1.i1f: Shared distance badges and the Calendar Grid Item Card primitive
+
+**As a** developer,
+**I want** one shared `computeDistanceKm` utility wired into both `EventCard`'s currently-dead masonry nearby badge and a new `EventCardCalendarGridItem` primitive for the desktop calendar grid,
+**So that** "nearby" distance is computed the same way everywhere it's shown, and the desktop calendar grid gains the same thumbnail/badge treatment as its sibling card families (IDEA-026).
+
+**Acceptance Criteria:**
+
+*   **Given** the existing SQL haversine expression already used server-side by `withinRadius` (`packages/graphql-select/drizzle-where.ts`, spherical law of cosines, 6371km radius, clamped),
+*   **When** `computeDistanceKm(viewerCoord, targetCoord)` (`packages/domain/src/query/`) is implemented,
+*   **Then** it mirrors that exact formula/constants in pure TypeScript, with 100% unit test coverage.
+*   **And** `EventCard.tsx`'s nearby-badge gate is corrected from its currently-shipped `distanceKm <= 5` to DESIGN.md's `< 8` threshold, and actually receives a real, non-`undefined` `distanceKm` from the Discovery page (`home-content.tsx`) for the first time — computed from the display schedule's coordinates and the active nearby-filter's resolved coordinate (fixed in this story to also cover a *saved*-location filter, not only the ad-hoc "current location" mode).
+*   **And** when no nearby filter is active, the badge is simply omitted (not an error) — the "else, viewer's current location" branch of the priority rule is explicitly out of scope here (Gate 3, Story 0.39).
+*   **And** `feed-content.tsx`/`favorites-content.tsx` remain unwired (pre-existing `BUG-025`: no nearby-filter plumbing exists on those pages at all) — not a new gap introduced by this story.
+*   **And** `getEventsForCalendar`/`getEventsForMyCalendar` (`apps/web/src/features/events/queries.graphql`) select `locationDetails { coordinates { lat lng } }` on `Schedule`, matching `getEvents`' existing selection, and `WeeklyCalendarViewScheduleShape` gains `distanceKm?: number`, computed by `useWeeklyCalendarController` from that data plus `CalendarView.tsx`'s own nearby-filter coordinate (home page's calendar view only, same non-scope-creep rule as above).
+*   **And** a new `EventCardCalendarGridItem` primitive (`packages/ui/src/features/events/`) implements DESIGN.md's `event_card_calendar_grid_item` tokens: a with-image composition (multi-day schedules with a non-errored image only — never a reserved slot — thumbnail, title/venue column with no-truncate title and 2-line-clamp venue, and a right-side stack holding the large favorite control and the nearby badge, `items-center` aligned, no status badge), and a structurally distinct no-image composition (single-day events, or a multi-day event whose image errored — two stacked rows: title+favorite, then venue+nearby badge).
+*   **And** this primitive is built and unit/component-tested standalone — it is **not** wired into `WeeklyCalendarView.tsx`'s actual `variant='grid'` render path yet (which keeps rendering today's plain-text `CalendarCard` unchanged); adoption is deferred to Stories 1.i1g/1.i1h, matching this epic's own established build-primitive-then-adopt sequencing (1.i1a → 1.i1c/d/e).
+
+**Depends on:** Story 1.i1a (shared primitives it reuses, e.g. `EventCardFavoriteBadge`).
+
+**Note:** Implements backlog.yaml IDEA-026 (parent IDEA-016) and Architecture Spine AD-22 (Rule 4's mandatory pairing: the shared utility ships wired into both the masonry badge and the new desktop card in the same story — not split). Gate 1: no gap (verified fresh, not cited from `epic-1-i1-readiness.md`, since this story's resolver/query-selection touches directly contradict that sweep's own "no resolver, query, or mutation touched" conclusion — modifying existing selection sets/hooks under AD-1/AD-2 is not a new API surface). Gate 2: split — the primitive's two non-trivial adoption paths (the new multi-day spanning-bar mechanism, and the shared overflow dialog + fair per-day fetch) are pulled into Stories 1.i1g/1.i1h respectively, rather than built here alongside the primitive itself. Gate 3: split — the "viewer's current location" ambient fallback is carved into Story 0.39 (IDEA-040); the small `useNearbyFilter` saved-location-coordinate completion stays inline (a narrow, mechanical fix to a hook this story already touches, not a new mechanism). Full record, including the exact haversine formula and the coordinate-priority wiring, in this story's own Dev Notes. **Addendum (2026-09-17, while drafting Story 1.i1j/IDEA-025):** Story 1.i1i (new, Gate-2-split off 1.i1j, backlog.yaml IDEA-041) also migrates this story's masonry nearby-badge fix onto a new shared component — whichever of 1.i1f/1.i1i ships first should check the other before touching `EventCard.tsx`'s badge gate again (see this story's own Out of Scope addendum).
+
+### Story 1.i1g: Render multi-day schedules as a spanning Calendar Grid Item Card
+
+**As a** developer,
+**I want** a multi-day schedule to render as ONE `EventCardCalendarGridItem` (with-image composition) spanning across the day-columns it covers in `grid_weekly`, instead of N independent per-day-cell segments,
+**So that** the desktop calendar grid shows multi-day events with the same richer card the mobile/masonry surfaces already have, matching DESIGN.md/EXPERIENCE.md's finalized "Calendar View Cards: Attachment and Composition" spec.
+
+**Acceptance Criteria:**
+
+*   **Given** today's `WeeklyCalendarView.tsx` has no true cross-column spanning mechanism — a multi-day schedule currently renders as N independent `CalendarCard` instances, one per overlapping day, cosmetically joined via `multiDayRoundingClass`'s corner-rounding suppression at touching edges, not one spanning element,
+*   **When** this story ships,
+*   **Then** a multi-day schedule renders as exactly one `EventCardCalendarGridItem` (with-image composition) positioned to span its `N` day-columns (width `N * day_cell_width`) directly in `grid_weekly`, built via `Story 1.i1f`'s primitive.
+*   **And** single-day rendering in `grid_weekly`/`day_cell` is completely unchanged by this story (still today's plain-text `CalendarCard`, still capped at `event_rendering.discovery_view.max_events_per_day` (5)) — single-day adoption of the primitive belongs to Story 1.i1h's overflow-dialog work, not this one.
+*   **And** the superseded per-segment "Day X of N" badge and `multiDayRoundingClass`'s edge-suppression logic are removed for the multi-day case now that one spanning element's position already conveys its range (DESIGN.md, revised 2026-09-14).
+
+**Depends on:** Story 1.i1f.
+
+**Note:** Split from Story 1.i1f via Gate 2 (`bmad-create-story`, 2026-09-17) — a genuinely new, non-trivial CSS-grid-column-spanning render path scoped to one component (`WeeklyCalendarView.tsx`'s `grid_weekly`), independently testable from the primitive itself. Implements the multi-day half of backlog.yaml IDEA-026 and EXPERIENCE.md's "Calendar View Cards: Attachment and Composition."
+
+### Story 1.i1h: Shared calendar overflow dialog and fair per-day fetching
+
+**As a** developer,
+**I want** one shared, responsive overflow dialog (bottom sheet on mobile, centered dialog on desktop) with real infinite-scroll pagination, backed by a SQL window-function-partitioned week-level fetch that gives every day of the visible week a fair share of the row budget,
+**So that** neither calendar surface silently drops events (BUG-036), and "+N more" scales past a handful of events per day instead of rendering everything at once (FIND-026).
+
+**Acceptance Criteria:**
+
+*   **Given** `Query.events`' current flat `ORDER BY (COALESCE next-upcoming-date) ASC LIMIT` week-level fetch can let one popular day consume the whole 1000-row budget and silently starve a later day in the same week,
+*   **When** `CalendarView.tsx`'s week-level fetch runs,
+*   **Then** the resolver applies a SQL window function partitioned per day (`ROW_NUMBER() OVER (PARTITION BY event_start_date ORDER BY event_start_time ASC NULLS LAST, id ASC) <= N`), guaranteeing every day its own fair slice, with multi-day segments and collapsed day-of-week runs excluded from this windowed set and fetched unconditionally alongside it.
+*   **And** `N` is the EXPERIENCE.md-decided practical fallback (a flat 20 single-day/isolated occurrences per day), not a separately-chosen number.
+*   **And** a single shared `calendar_overflow_dialog` component (DESIGN.md) replaces desktop's old static `max-h-56` popover entirely and replaces mobile's previous uncapped-always-render day-list rule — both surfaces cap their inline count (desktop: unchanged `max_events_per_day` (5), since single-day events still render via today's plain-text `CalendarCard` in `day_cell`, only the overflow surface's contents change; mobile: the same flat-20 bound) and open the shared dialog when exceeded, showing `Story 1.i1f`'s `EventCardCalendarGridItem` (no-image composition) with real infinite scroll.
+*   **And** the dialog's own "load more for this day" pagination reuses `Query.events` unchanged (AD-2) — called with a DSL condition narrowed to that exact date (`scheduleDateRange overlaps {date, date}`) plus `offset`/`limit` continuing from the windowed fetch's per-day `N`.
+*   **And** whenever the active DSL condition resolves to a single exact date, the resolver's outer `ORDER BY` applies an explicit secondary tie-break (`event_start_time ASC NULLS LAST, id ASC`) — both for the windowed week-fetch and for this reused pagination endpoint — so offset-based pagination across the two separate calls stays stable (a correctness precondition AD-23's own reviewer gate caught: without it, nothing guarantees a stable order between rows sharing the same computed next-upcoming-date once narrowed to one day).
+*   **And** the precise per-render inline-cap measurement technique (e.g. `ResizeObserver`-based dynamic sizing) is explicitly deferred, not built here — EXPERIENCE.md itself sanctions the flat-bound fallback as an acceptable non-corner-cutting choice, not a shortcut around its own spec.
+
+**Depends on:** Story 1.i1f (consumes `EventCardCalendarGridItem`'s no-image composition).
+
+**Note:** Split from Story 1.i1f via Gate 2 (`bmad-create-story`, 2026-09-17) — the shared overflow dialog is a second non-trivial consumer of the primitive, independent of the spanning-bar work in Story 1.i1g. Implements Architecture Spine AD-23 in full (its own sequencing mandate — the window-fetch fix and the overflow dialog ship in the same story — is preserved intact by this split, not violated by it) and resolves backlog.yaml `BUG-036`/`FIND-026`.
+
+### Story 1.i1i: Build the shared event-card status/nearby badge primitive
+
+**As a** developer,
+**I want** the event/schedule status badge (`formatEventStatus`'s 8 states, including DESIGN.md's `happeningNow` emerald-accent exception) and the nearby-distance badge (`<8km` gated) extracted into a shared `packages/ui/src/features/events/` component rather than duplicated inline per card family,
+**So that** a third and future card surface stop re-implementing the same computation/markup independently, and DESIGN.md's `happeningNow` emerald correction has exactly one place to apply.
+
+**Acceptance Criteria:**
+
+*   **Given** `EventCard.tsx`'s masonry variant today computes `formatEventStatus` and renders both badges as inline JSX (lines ~202-215, ~356-367), gated on `distanceKm <= 5`,
+*   **When** this story ships,
+*   **Then** a new shared component (e.g. `EventCardStatusBadge`/`EventCardNearbyBadge`, or one combined component — exact naming is this story's own implementation decision) exists in `packages/ui/src/features/events/`, encoding: all 8 `formatEventStatus` states with DESIGN.md's neutral `bg-muted text-muted-foreground` base style, EXCEPT `happeningNow` which renders `bg-emerald-600 text-white`; and the nearby badge (`Navigation` icon + label) gated at `distanceKm < 8` (the corrected threshold, not the shipped `<= 5` bug), omitted entirely when `distanceKm` is null/undefined or `>= 8`.
+*   **And** `EventCard.tsx`'s masonry branch is migrated to consume this new shared component instead of its own inline computation/JSX, fixing the `<=5` → `<8` threshold bug and adding the `happeningNow` emerald treatment as a byproduct of the migration — not a separately-scoped bug fix.
+*   **And** the component accepts label props with the exact same defaults `EventCard.tsx`'s `defaultLabels` already uses (Ended/Happening Now/Ends Today/In {n} hour(s)/Tomorrow/In {n} days/Upcoming/Nearby) so no visual/text regression occurs for the existing consumer.
+*   **And** this primitive is **not** wired into `WeeklyCalendarView.tsx` or the not-yet-built `EventCardCalendarGridItem` in this story — adoption is deferred to Story 1.i1j (compact row) and Story 1.i1f's `EventCardCalendarGridItem` (once implemented), matching this epic's own build-then-adopt precedent.
+
+**Depends on:** Story 1.i1a (the `EventCardMediaPrimitives` file/pattern this story extends).
+
+**Note:** Split via Gate 2 (`bmad-create-story`, 2026-09-17) while drafting Story 1.i1j (backlog.yaml IDEA-025) — the status/nearby badge markup was about to become a third independent inline duplicate (`EventCard.tsx`'s shipped masonry branch, Story 1.i1f's not-yet-implemented `EventCardCalendarGridItem`, and Story 1.i1j's compact row), the exact drift pattern (BUG-023/FIND-023) that already motivated this epic's own `EventCardMediaPrimitives` extraction (Story 1.i1a). Implements backlog.yaml `IDEA-041` (child of `IDEA-025`). **Coordination flag:** whichever of this story or Story 1.i1f implements first should update the other's own nearby-badge-threshold task — Story 1.i1f's Task 2 ("Change `distanceKm <= 5` to `distanceKm < 8`") targets the exact `EventCard.tsx` line this story migrates away; once one of them ships, the other's task is either already done or needs re-pointing at the new shared component instead of the old inline JSX.
+
+### Story 1.i1j: Add status and nearby-distance badges to WeeklyCalendarView's compact row
+
+**As a** developer,
+**I want** the mobile compact-row card (`WeeklyCalendarView.tsx`'s `CalendarCard` `variant='list'`) to show the same computed status badge and nearby-distance badge masonry's `EventCard` already shows, reusing Story 1.i1i's shared badge component as-is,
+**So that** the calendar surface stops being the one card family with no status/nearby information at all (IDEA-025), matching DESIGN.md's `event_card_compact.content` token spec.
+
+**Acceptance Criteria:**
+
+*   **Given** `WeeklyCalendarViewScheduleShape` already carries `eventStartDate`/`eventEndDate`/`eventStartTime`/`eventEndTime` (unchanged since Story 1.i1d) and Story 1.i1f adds `distanceKm?: number` to the same shape,
+*   **When** `CalendarCard`'s `variant='list'` branch renders,
+*   **Then** it computes and shows a status badge (via Story 1.i1i's shared component, `formatEventStatus`-driven, including the `happeningNow` emerald treatment) and a nearby badge (same shared component, gated `distanceKm < 8`, omitted otherwise) inside the row's existing content column, appended as the last child after the multi-day badge line — no new data plumbing, no second inline badge copy.
+*   **And** `variant='grid'`'s existing test suite is completely unaffected.
+*   **And** new translatable label props are threaded through `WeeklyCalendarViewLabels` with English defaults matching `EventCard.tsx` verbatim, following Story 1.i1d's own established precedent of shipping unwired-to-`next-intl` label props (a pre-existing, cross-cutting i18n gap, not this story's to close).
+
+**Depends on:** Story 1.i1f (`distanceKm` data plumbing), Story 1.i1i (shared badge component).
+
+**Note:** Implements backlog.yaml `IDEA-025` (parent `IDEA-016`) and Architecture Spine AD-22 (Rule 1, status computation). Gate 1/3: no gap (cited from `epic-1-i1-readiness.md`'s sweep — pure `packages/ui` presentational wiring, no resolver/query/mutation, no new foundational dependency). Gate 2: split — the shared badge primitive is carved into prerequisite Story 1.i1i, and an adjacent, previously-orphaned `EventCardDateBox` two-tier chrome gap (DESIGN.md, not this story's own scope) is carved into sibling Story 1.i1k. Full record, including the exact prerequisite dependency chain and the deliberate i18n-gap deferral, in this story's own Dev Notes (`_bmad-output/implementation-artifacts/1-i1j-add-status-and-nearby-badges-to-weeklycalendarviews-compact-row.md`).
+
+### Story 1.i1k: Give EventCardDateBox the two-tier month/day chrome DESIGN.md specifies
+
+**As a** developer,
+**I want** the shared `EventCardDateBox` primitive (`packages/ui/src/features/events/EventCardMediaPrimitives.tsx`) restyled from its shipped single-line `text-xs` box into DESIGN.md's two-tier stacked chrome (a small uppercase month/weekday line over a large bold day number) plus an amber `till_label` corner tag reusing `event_card_till_badge`'s classes,
+**So that** the masonry card's own date box and the compact row's date box — both consumers of this one shared primitive — finally match the reference screenshots DESIGN.md's 2026-09-14 pass validated against, instead of the pre-2026-09-14 shape neither prior pass's doc correction was ever applied to in code.
+
+**Acceptance Criteria:**
+
+*   **Given** `EventCardMediaPrimitives.tsx`'s `EventCardDateBox` renders a single base/month/day treatment today, unchanged since Story 1.i1a,
+*   **When** this story ships,
+*   **Then** `EventCardDateBox`'s chrome matches DESIGN.md's `event_card_date_box.base_default` (masonry, `prominentPoster=false`) and `event_card_compact.date_box` (compact row) token blocks: `base` `"relative flex flex-col justify-center gap-0.5 ... bg-slate-800 text-white ... leading-none"`, `month` `"text-lg font-bold uppercase tracking-wide"` (masonry) / `"text-sm font-bold uppercase tracking-wide"` (compact row, slightly smaller), `day` `"text-5xl font-extrabold leading-none"` (masonry) / `"text-3xl font-extrabold leading-none"` (compact row).
+*   **And** `EventCardDateBox` exposes a size/variant prop (e.g. `size="default" | "compact"`) so both consumers get their own token-specified sizes from one component, not a second copy.
+*   **And** the amber `till_label` corner tag (`absolute -top-1.5 -left-1.5 z-20 ... bg-amber-700 ...`) is added as an optional slot on the compact-row's date box, reusing `event_card_till_badge`'s literal classes per DESIGN.md's own note that this is not a second independently-gated badge instance.
+*   **And** `event-card-media-tokens.ts`'s AD-15 icon-scale token (currently calibrated against the old `text-xs` size) is recalibrated to the new month/day text sizes.
+*   **And** Story 1.i1a's own `event_card_date_box.base` (`prominentPoster=true`, the overlay variant) is explicitly confirmed unaffected — this story only touches `base_default` (`prominentPoster=false`) and the compact row's `date_box`, per DESIGN.md's own scoping.
+
+**Depends on:** Story 1.i1a.
+
+**Note:** Split via Gate 2 (`bmad-create-story`, 2026-09-17) while drafting Story 1.i1j (backlog.yaml IDEA-025) — DESIGN.md's 2026-09-14 pass documents this gap twice (`event_card_date_box.base_default`'s own comment, and `event_card_compact.date_box`'s comment, which calls it "the same follow-up story"), explicitly deferring it as "doc-only pass, no code changed here... needs a follow-up story." No story anywhere in `epics.md`/`backlog.yaml` owned this before now. Not folded into Story 1.i1j since it changes the shared primitive's own shape (needed by both masonry and the compact row), not a local detail of the compact row's badge content — a shared-primitive fix has its own consumer set, independent of Story 1.i1j's unrelated content-column badge addition. Implements backlog.yaml `IDEA-042` (child of `IDEA-025`).
 
 ### Story 1.i1z: Ratchet — no card surface sizes or falls back locally
 
