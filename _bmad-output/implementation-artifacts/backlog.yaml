@@ -1251,12 +1251,13 @@ items:
 
   # ── 2026-09-17 (direct AWS CLI investigation) ────────────────────────────────
   FIND-034:
-    {type: finding, status: triaged, created: 2026-09-17,
+    {type: finding, status: promoted, created: 2026-09-17,
      impact: internal, effort: s, blocks: [BUG-002],
+     stories: [0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain],
      title: "Lambda SQS event-source pollers run 24/7 on idle queues, burning free-tier request quota",
      ref: [backlog/FIND-034-sqs-lambda-poller-idle-cost.md],
      touches: [app:infrastructure, app:backend, web:posts, cross:ai-extraction, cross:architecture],
-     note: "854,420 of Sept's 867,586 SQS requests (98.5%) were empty long-polls from always-on Lambda SqsEventSource mappings on all 6 queues, including 3 dev queues with zero real traffic all month. Manual stopgap applied (dev ESMs disabled via CLI) won't survive cdk deploy. Fix agreed with user: stage-gate dev ESM enabled + replace all 3 prod ESMs with 5-min EventBridge scheduled poll-and-drain (user confirmed scraping/AI-extraction/data-ingestion all tolerate minutes of delay). Not yet promoted to a story. Blocks BUG-002: that row's missing-timeout gap is framed against the current ESM-invocation model this fix removes for aiProcessorLambda/ingestorLambda — resolve this first, then re-scope BUG-002 against the new scheduled poll-and-drain model."}
+     note: "854,420 of Sept's 867,586 SQS requests (98.5%) were empty long-polls from always-on Lambda SqsEventSource mappings on all 6 queues, including 3 dev queues with zero real traffic all month. Manual stopgap applied (dev ESMs disabled via CLI) won't survive cdk deploy. Fix agreed with user: stage-gate dev ESM enabled + replace all 3 prod ESMs with 5-min EventBridge scheduled poll-and-drain (user confirmed scraping/AI-extraction/data-ingestion all tolerate minutes of delay). Promoted 2026-09-18 via bmad-create-story into Story 0.40, which fully covers this row's settled design plus one extension: staging (unaddressed by the original design) is treated the same as dev rather than left on the old always-on ESM, resolved via AskUserQuestion with the user during story creation, alongside a second resolved gap (poll-and-drain loops until drained/time-budget, not a single fixed batch of 10). No uncovered remainder — no child row carved. Blocks BUG-002 remains UNRESOLVED until Story 0.40 reaches done (creating the story doesn't yet ship the fix): that row's missing-timeout gap is framed against the current ESM-invocation model this fix removes for aiProcessorLambda/ingestorLambda — resolve this first, then re-scope BUG-002 against the new scheduled poll-and-drain model."}
 
   # ── 2026-09-17 (bmad-architecture, calendar overflow data-fetching session) ─
   BUG-036:

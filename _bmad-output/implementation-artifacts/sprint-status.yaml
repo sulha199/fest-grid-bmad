@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-17T19:05:00Z
+last_updated: 2026-09-18T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -292,6 +292,13 @@ development_status:
   # simply omitted (not an error) when no filter is active. See epics.md Story 0.39 and
   # backlog.yaml IDEA-040.
   0-39-ambient-viewer-location-capability: backlog
+  # Sourced from backlog.yaml FIND-034 via bmad-create-story. Settled design (stage-gate
+  # dev/staging ESM default-off + prod scheduled 5-min poll-and-drain) already agreed with
+  # the user in the backlog note; this story formalized it into ACs, ran Gate 1/2/3 fresh
+  # (epic-0-readiness.md's swept report stops at 0.19), and resolved two design gaps the
+  # settled note left open via AskUserQuestion: staging treated like dev (not prod), and
+  # the poll-and-drain branch loops until drained/time-budget rather than a single batch.
+  0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain: ready-for-dev
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
