@@ -117,7 +117,7 @@ records:
     still_live_evidence: "EventCard.test.tsx:324 still uses real `new Date()` with no fake timers; WeeklyCalendarView.test.tsx's 'opens the week picker' test (line 180) still has no useFakeTimers/setSystemTime and hardcodes '2026-08-10', while today is 2026-09-04 -- this test is very likely failing right now"
     touches: [pkg:ui, web:events]
     duplicate_of: null
-    notes: "The known trap item the handover flags explicitly; confirmed still live, not fixed."
+    notes: "The known trap item the handover flags explicitly; confirmed still live, not fixed as of capture. FIXED 2026-09-14 (bmad-quick-dev, commit 71e690b, tracked as FIND-009, absorbs DW-031 and BUG-006 — the latter recorded the same defect as a product day-diff bug, disproved against format-event-date.ts:66-71): pinned the wall clock (vi.useFakeTimers()+vi.setSystemTime, 2026-08-12T12:00:00Z reference) in the packages/ui date-relative tests that relied on the real clock. EventCard.test.tsx: beforeAll/afterAll fake-timer pinning added to the 'Relative-day date display' and 'TILL badge (masonry, AC14)' blocks. WeeklyCalendarView.test.tsx: clock pinned inline in the week-picker test (restored via useRealTimers in a finally) so the date-picker opens on August 2026 and day '10' resolves to the fixture's 2026-08-10. Verified via targeted vitest: EventCard/WeeklyCalendarView/EventCardMediaPrimitives/EventListView (124 tests) and the full src/features/events + useWeeklyCalendarController run (14 files, 263 tests) all pass. Product formatter untouched — confirmed this was a test-harness gap only."
 
   - id: DW-009
     section: "verification of ux-rework2-batch-8 (wire SubscribedAccountCard into Event Detail)"
@@ -417,7 +417,7 @@ records:
     still_live_evidence: "onboarding-api-key-step.tsx:56 still reads `catch (err: any) {`"
     touches: [web:onboarding, web:settings]
     duplicate_of: null
-    notes: ""
+    notes: "FIXED 2026-09-14 (bmad-quick-dev, commit 89c6b4e, tracked as FIND-014): onboarding-api-key-step.tsx's `catch (err: any)` is now bare `catch (err)`. See DW-030's notes for the full fix writeup covering all three of DW-028/DW-029/DW-030."
 
   - id: DW-029
     section: "verification of ux-rework2-batch-3 (dead link / error-message / duplicate-icon P0 fixes)"
@@ -432,7 +432,7 @@ records:
     still_live_evidence: "api-key-form-dialog.tsx still has two unguarded `const { toast } = await import(\"sonner\")` calls inside catch blocks (lines 69, 75)"
     touches: [web:settings]
     duplicate_of: null
-    notes: ""
+    notes: "FIXED 2026-09-14 (bmad-quick-dev, commit 89c6b4e, tracked as FIND-014): api-key-form-dialog.tsx's unguarded dynamic `await import(\"sonner\")` inside its catch/success blocks replaced with the codebase-wide static `import { toast } from \"sonner\"` used everywhere else (e.g. subscribe-account-dialog.tsx). See DW-030's notes for the full fix writeup."
 
   - id: DW-030
     section: "verification of ux-rework2-batch-3 (dead link / error-message / duplicate-icon P0 fixes)"
@@ -447,7 +447,7 @@ records:
     still_live_evidence: "Both files still read `err.response?.errors?.[0]?.message` exactly, only the first error"
     touches: [web:onboarding, web:settings]
     duplicate_of: null
-    notes: ""
+    notes: "FIXED 2026-09-14 (bmad-quick-dev, commit 89c6b4e, tracked as FIND-014, absorbs duplicate DW-036): normalized the two createApiKey call sites (onboarding-api-key-step.tsx, settings/account/api-key-form-dialog.tsx) to extract EVERY non-empty GraphQL error message off `err.response?.errors` and join them (`messages.join('; ')`) instead of reading only `errors?.[0]`, falling back to the generic i18n error toast only when there are no usable messages. Added multi-error regression tests to both onboarding-api-key-step.test.tsx and api-keys-content.test.tsx asserting a two-message ClientError surfaces as 'FIRST_ERROR; SECOND_ERROR'. Onboarding subscribe/notification steps left untouched (out of scope — only the two createApiKey sites were named). Verified via targeted vitest (13 tests pass) and next lint (no errors) on the changed files. Full detail in backlog.yaml's FIND-014 history / commit 89c6b4e."
 
   - id: DW-031
     section: "verification of ux-rework2-batch-2 (Add to Calendar / favorite-sync P0 fixes)"

@@ -184,6 +184,34 @@ the new rule surfaced that `packages/ui` has no `lint` script/ESLint config at a
 separate, unbounded-size gap is tracked as its own new row, FIND-035 → Story 0.41 (renumbered
 from 0.40 on merge with master).
 
+### Backlog row history (IDEA-042, verbatim, moved from backlog.yaml 2026-09-18)
+
+Carved out of IDEA-025 via `bmad-create-story` (Story 1.i1j's own Gate 2 finding, 2026-09-17):
+DESIGN.md's 2026-09-14 pass documents, in two separate token comments
+(`event_card_date_box.base_default` and `event_card_compact.date_box`), that the shared
+EventCardDateBox primitive (used by both masonry's date box and the compact row's date box)
+still renders the pre-2026-09-14 single-line text-xs shape, not the two-tier stacked month/day
+chrome plus amber `till_label` corner tag the doc now specifies — explicitly calling this "the
+same follow-up story" in both places, doc-only pass, no code changed. Confirmed via grep: owned
+nowhere in epics.md/backlog.yaml before this. Not folded into Story 1.i1j since it changes a
+shared primitive's own shape (needed by masonry too), independent of that story's unrelated
+content-column badge scope. This story (1.i1k) delivers this; not a dependency of 1.i1j.
+
+**DUPLICATE RECONCILED, 2026-09-18:** this is the same gap FIND-025's finding (1) already
+tracked (created 2026-09-14, three days before this row) — FIND-025 marked superseded by this
+row for that finding. FIND-025's finding (2) is a distinct, still-open item this row's own note
+does NOT cover: no lint/CI guard against reintroducing a dynamically-interpolated Tailwind
+arbitrary-value class. This story must either fold that guard in when it's created, or
+explicitly carve it into its own tiny follow-up — not drop it silently. (It was folded in — see
+this story's other backlog row history section above, FIND-025.)
+
+**STORY DRAFTED, 2026-09-18 (bmad-create-story, ritual-orchestrator batch):** this story fully
+drafted, sprint-status.yaml flipped to `ready-for-dev`. FIND-025's finding (2) folded in
+directly as this story's own `no-dynamic-tailwind-arbitrary-value` lint guard — not dropped,
+not a separate follow-up. Drafting also surfaced that `packages/ui` has no lint config/script
+at all; split out as its own row, FIND-035 → Story 0.41, not folded into this story's narrower
+scope.
+
 ## Global Rules References
 
 - [ ] `_bmad-output/project-context.md` — UI Components rule (`packages/ui/src/features/events` placement, no new `packages/domain` logic); Locale-Sensitive Data Rendering rule (all new date content flows through `Intl.DateTimeFormat`/existing formatters, never raw interpolation); Testing Rules (testing-trophy integration + unit tests, no `packages/domain` touched, no new E2E needed for this additive/presentational change).

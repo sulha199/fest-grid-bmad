@@ -167,6 +167,32 @@ present in the code) did not. Not re-verified against this row's exact original 
 whoever next touches Discovery's infinite scroll should confirm the original symptom is
 actually gone in practice before assuming this row is fully closed.
 
+### Backlog row history (BUG-019, verbatim, moved from backlog.yaml 2026-09-18)
+
+Reported by user on `event-list-bug-fixes-pagination` branch, same session as BUG-018. On
+subsequent filter changes, the event list occasionally fails to reset pagination state/cursor,
+so the next infinite-scroll load appends results from the old query instead of restarting from
+page 1 with the new filter, producing a mixed/incorrect list.
+
+**AMENDED 2026-09-15 (bmad-create-story, Story 0.i5a session):** user explicitly asked to fold
+this bug into IDEA-011's story so its rule "fixes BUG-019 as its concrete case." Investigation
+found the pre-existing epic formation (2026-09-08 bmad-form-epics) already split that into two
+stories: 0.i5a builds the general reset-on-filter-change mechanism (does not touch this bug's
+concrete call site) and this story (0.i5b) adopts it into Discovery's `home-content.tsx`, which
+is what actually closes this bug.
+
+**PROMOTED 2026-09-15 (bmad-create-story, this story):** this story splices the controller's
+`resetToken` into `home-content.tsx`'s `queryKey` and adds a direct regression test asserting a
+post-page-2 filter change resets the next request's `offset` to `0` — a concrete, verified fix
+for this bug's exact reported symptom on the Discovery surface, unlike BUG-018's more caveated
+closure (see BUG-018's own history above).
+
+**VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check):**
+`event-pages-remaining-backlog-plan.md`'s Cluster A checkbox for this row was still unchecked
+and a `bmad-create-story` dispatch was about to be run against it; caught before dispatch —
+this story is already `review` in sprint-status.yaml. No new dispatch run. Plan doc checkbox
+corrected.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — UI Patterns & UX Invariants (AD-18 / `useListPaginationController` adoption, this story's core requirement), State Management Architecture (AD-4 cross-check, see Dev Notes categorization)
