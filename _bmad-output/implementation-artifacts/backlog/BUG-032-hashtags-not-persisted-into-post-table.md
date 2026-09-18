@@ -183,3 +183,14 @@ confirm Bright Data's schema includes these fields:
 Bright Data schema yet. `tagged_users[].full_name` is not the poster's own displayName,
 only users tagged *in* the post. Carousel/multi-image capture (`childPosts`-equivalent)
 also left open — separate vendor-schema research required, not a mechanical Apify port.
+
+## Backlog row note (verbatim, moved from backlog.yaml 2026-09-18)
+
+Reported by user via `bmad-help` (2026-09-15). Investigated 2026-09-17 (bmad-quick-dev):
+confirmed as duplicate of FIND-024's Bright Data gap — see that finding's own tier-1 file,
+`backlog/FIND-024-bright-data-scrape-gaps.md`, for the shared root-cause trace. The
+session-by-session fix narrative above (Fix Applied, 2026-09-17) is this row's authoritative
+record; this section exists only so the original backlog-row capture is preserved verbatim
+rather than discarded on trim.
+
+Blocks `IDEA-037` (hashtag search/display) until this row is fully closed.

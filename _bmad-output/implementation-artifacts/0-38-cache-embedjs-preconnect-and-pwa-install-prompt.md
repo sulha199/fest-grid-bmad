@@ -510,6 +510,108 @@ non-intrusive path to install FestDaily as an app if I want to.
 - [Source: web.dev, "Establish network connections early to improve perceived page speed"
   — preconnect/dns-prefetch semantics]
 
+### Backlog row history (IDEA-020, verbatim, moved from backlog.yaml 2026-09-18)
+
+Requested by user via `bmad-help`, as a 3-part improvement. Verified current architecture
+first: `apps/backend/src/lib/instagram-oembed/adapter.ts`'s `resolveInstagramOEmbed()` calls
+Meta's tokenless oEmbed endpoint server-side, cached 24h (`cache-store.ts`,
+`INSTAGRAM_OEMBED_CACHE_TTL_MS`), and returns the raw oEmbed `html` string over GraphQL;
+`packages/ui/src/features/events/InstagramEmbed.tsx` then `dangerouslySetInnerHTML`'s that HTML
+client-side and separately injects Instagram's own `//www.instagram.com/embed.js` widget script
+(`loadInstagramEmbedScript`), which is what actually replaces the blockquote with a real iframe
+(watched via MutationObserver, 4s fallback timeout per `EMBED_READY_FALLBACK_TIMEOUT_MS`). The
+perceived slowness is most likely embed.js's own script-load-then-iframe-fetch chain against
+Instagram's CDN, not primarily the backend GraphQL round trip.
+
+**(1) Frontend-generated embed code** — researched 2026-09-11 via `bmad-help`, conclusion:
+don't drop the backend call. Confirmed Instagram's manual-embed pattern
+(`blockquote.instagram-media` + `data-instgrm-permalink` + embed.js +
+`instgrm.Embeds.process()`) works without ever calling Meta's oEmbed API — this repo's own
+`apps/web/e2e/event-details-instagram-csp.spec.ts:43` already builds exactly that shape for its
+CSP test, so it's proven to render here. BUT confirmed embed.js exposes no error/failure
+callback for a deleted/private post — it just silently fails to hydrate, which is exactly the
+gap `InstagramEmbed.tsx`'s existing MutationObserver+4s-timeout heuristic already works around
+as a backup signal. Going fully client-side would make that heuristic the ONLY availability
+signal instead of a backup to a deterministic backend check, directly weakening the
+AVAILABLE/UNAVAILABLE branch that decides whether to show the embed, the `durableImageUrl`
+fallback, or the "no longer available" placeholder (`resolveInstagramEmbedResult.ts`). Verdict:
+keep the backend oEmbed call for its deterministic status; the actual fix for perceived
+slowness is (2) below, not eliminating this call.
+
+**(1b)** Real root cause found instead, and split out to its own ready-to-implement item — see
+IDEA-022 (superseded by IDEA-028).
+
+**(2) Caching embed.js + Instagram CDN images/reel video** per "Meta's best practice":
+whoever picks this up should default to standard patterns (stale-while-revalidate for embed.js
+itself, since it's a shared static script; cache-first with a bounded TTL for images/video,
+since Instagram CDN URLs are typically signed and expire — this codebase already has separate
+precedent for that exact problem via the durable-image re-hosting pipeline, see 3-6e/3-6f,
+which may be a more relevant model here than browser caching of an expiring URL).
+
+**AMENDED (2026-09-11, same session):** user supplied 3 citations (elfsight.com blog,
+bluehost.com blog, developers.facebook.com oEmbed docs) — not independently
+fetched/verified by this session, but cross-checked against this repo's actual code where a
+concrete claim was checkable. Two of the three claims describe things this codebase already
+does correctly, not gaps: (i) "short-lived HTML caching, TTL of a few hours to a day" —
+`adapter.ts`'s `INSTAGRAM_OEMBED_CACHE_TTL_MS` is already 24h, already compliant; (ii) "load
+embed.js exactly once on the frontend to render all active embeds" — `InstagramEmbed.tsx`'s
+`loadInstagramEmbedScript` already dedups via `INSTAGRAM_EMBED_SCRIPT_SELECTOR` before
+injecting a second copy, already compliant. The third claim IS a real, verified gap and was
+small/independent enough to spin out on its own — see IDEA-021 (done). The "Meta does not
+return thumbnail_url/author_name" claim is a documented oEmbed response-shape limitation, not
+something to fix here — only relevant if/when (1) above (frontend-generated markup) is
+attempted, since a hand-built blockquote can't source those fields from the endpoint either
+way.
+
+**(3) Service worker + PWA install button + iOS UX:** verified the repo already registers
+exactly one service worker today — `apps/web/public/firebase-messaging-sw.js`, registered by
+`apps/web/src/lib/push-notifications.ts:66`, scoped solely to Firebase Cloud Messaging push
+notifications, not general asset caching. No `apps/web/public/manifest.json` (web app manifest)
+existed at capture time, so the app was not installable as a PWA at all — new scope, not an
+extension of existing infra. iOS Safari has no `beforeinstallprompt` event and no native
+install-prompt UI, so the Android/Chrome install-button pattern doesn't transfer directly — the
+standard workaround is a custom in-app banner/instructions directing users to Share → Add to
+Home Screen, typically gated on `navigator.standalone`/the `display-mode: standalone` media
+query.
+
+Also flagged: `apps/web/next.config.ts` carries a narrow CSP (`frame-src`/`child-src`
+allowlisting `https://www.instagram.com` only) specifically for the current embed.js/iframe
+pattern, guarded by `e2e/event-details-instagram-csp.spec.ts` — any change to how/where
+embed.js or its iframe loads from must keep that test green.
+
+**ARCHITECTURE RESOLVED (bmad-architecture, 2026-09-17, Architecture Spine AD-21):**
+web-verified a page's service worker cannot intercept a cross-origin iframe's own internal
+fetches, so item (2)'s "cache Instagram CDN images/reel video" is infeasible for the current
+oEmbed+iframe approach — not a design gap, a hard platform limitation. Re-scoped: cache
+embed.js itself (stale-while-revalidate, since it IS fetched by our own page) + preconnect/
+dns-prefetch resource hints to Instagram's CDN origins for the otherwise-uncacheable
+iframe-internal fetch chain's connection latency. A separate dedicated service worker
+(user-directed) is registered at locale-scoped paths (`/en/events/`, `/id/events/`) to coexist
+with the existing root-scoped `firebase-messaging-sw.js`. PWA installability and iOS-specific
+install UX were explicitly excluded from AD-21 — needed their own `bmad-ux` pass.
+
+**UX RESOLVED (bmad-ux, 2026-09-17):** persistent dismissible banner at top of `<main>`, below
+nav, every route; two dismiss actions (permanent "Not now" / 2-week-cooldown "Remind me in 2
+weeks"), state in browser localStorage not a backend setting (installability is per-device);
+permanent "Install App" fallback added to the existing Notifications settings tab;
+Android/Chrome primary action calls the captured `beforeinstallprompt`'s `.prompt()` directly,
+iOS opens a step-by-step Share-then-Add-to-Home-Screen modal instead. Not part of onboarding —
+web-verified Chrome's own `beforeinstallprompt` engagement gate (click/tap + 30s dwell + a
+fetch-handling SW) wouldn't be met that early. See EXPERIENCE.md "PWA Install Prompt" and
+DESIGN.md `pwa_install_banner`/`pwa_install_ios_modal`.
+
+**PROMOTED (2026-09-17 via bmad-create-story):** Gates 1/2/3 all ran fresh. Gate 1/3 returned no
+gap (one placement correction: platform detection cannot live in `packages/domain` since it
+needs `navigator`, unavailable to `apps/backend`/Lambda). Gate 2 found a real gap — the
+`beforeinstallprompt`-capture + localStorage dismiss/cooldown + iOS-engagement-heuristic logic
+is a complex hook genuinely shared by two unrelated consumers (the app-shell banner and the
+Settings-tab fallback) — split into a prerequisite story per this repo's existing 0.7/0.7a
+precedent: 0-38a (the eligibility hook, no UI) and this story, 0-38 (depends on 0-38a). No child
+row carved out — every remaining actionable part of this item's original three-part scope is
+covered by these two stories (item (2)'s CDN-media-caching half stays permanently out of scope
+per AD-21's hard platform-limitation finding, not deferred; items (1)/(1b) were already
+resolved/superseded before this promotion via IDEA-021/IDEA-022/IDEA-028).
+
 ## Global Rules References
 
 - [ ] `_bmad-output/project-context.md` — UI Components & Scalability (`packages/ui/core`

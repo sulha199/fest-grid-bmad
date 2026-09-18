@@ -130,6 +130,43 @@ Not applicable. This story introduces no new user-facing strings — no new rend
 - [Source: _bmad-output/planning-artifacts/festgrid-architecture-spine.md#AD-18] (Filter Apply-Timing Convention, rule 4: list/pagination consumers must own cursor state via `useListPaginationController` — the rule this story fulfills for Discovery)
 - [Source: _bmad-output/project-context.md#UI Patterns & UX Invariants] (AD-18 bullet; State Management Architecture AD-4 cross-check)
 
+### Backlog row history (BUG-018, verbatim, moved from backlog.yaml 2026-09-18)
+
+Reported by user on `event-list-bug-fixes-pagination` branch. When the list auto-loads the
+next page at the bottom, the viewport sometimes doesn't stay anchored on the previously-last
+item once new items render, so the bottom sentinel is no longer in view and the user must
+manually scroll up then down to re-trigger the next page load. Proposed fix to evaluate: a
+"next-page-placeholder" element that keeps the intersection/scroll anchor stable across page
+appends.
+
+**PROMOTED 2026-09-15 (bmad-create-story, this story):** attached per epics.md's own text
+("closes BUG-018... by construction") and Story 0.i5a's AC2, which attribute this bug's
+plausible root cause to a filter-driven `key` change forcing the `useInfiniteScroll` sentinel
+to unmount/remount — a structural guarantee 0.i5a's `useListPaginationController` now provides
+and this story consumes.
+
+**CAVEAT (read before treating this as verified-fixed):** reading `home-content.tsx`/
+`useInfiniteScroll.ts` in full for this story found that the remount anti-pattern was never
+actually present in this file's current (master) code — its IntersectionObserver effect deps
+never included a filter-keyed value. So this story's own test coverage verifies the
+filter-change/scroll-to-top and reset-to-offset-0 behaviors, NOT the literal
+anchor-loss-during-an-ordinary-page-append symptom this bug describes — that symptom was not
+independently reproduced or disproven on current code by this story. If it still occurs in
+practice, the live tracking item is BUG-031 (broader: same `useInfiniteScroll` hook, 5
+surfaces including Discovery, root cause unconfirmed at that point) — do not assume this row's
+`promoted`→eventual `done` transition means the user-visible symptom was empirically retested;
+it means the epic's own defined structural mechanism now applies to this surface.
+
+**BUG-031 RESOLVED 2026-09-17 (bmad-quick-dev, see BUG-031's own note):** real root cause
+confirmed and fixed: the sentinel's height collapsed once its spinner disappeared between page
+loads, and that collapse is what triggered the browser's native scroll-anchoring to jump — a
+mechanism fully consistent with THIS row's own original description. The fix (stable `min-h-16`
+on `EventListView.tsx`'s sentinel) plausibly closes this row's real symptom too, even though
+this story's own fix (targeting a filter-driven remount hypothesis that turned out not to be
+present in the code) did not. Not re-verified against this row's exact original repro steps —
+whoever next touches Discovery's infinite scroll should confirm the original symptom is
+actually gone in practice before assuming this row is fully closed.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — UI Patterns & UX Invariants (AD-18 / `useListPaginationController` adoption, this story's core requirement), State Management Architecture (AD-4 cross-check, see Dev Notes categorization)

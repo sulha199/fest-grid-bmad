@@ -128,6 +128,53 @@ so that every consumer downstream has a signal to read instead of trusting Geoap
 - [Source: apidocs.geoapify.com/docs/place-details/] (verified: no `rank` object in Place Details responses — Design Decision 2)
 - [Source: apidocs.geoapify.com/docs/geocoding/forward-geocoding/, reverse-geocoding/] (verified: `rank.confidence`/`rank.match_type` exist on geocode/reverse-geocode; `bias=countrycode:xx` parameter syntax, default `countrycode:auto`)
 
+### Backlog row history (BUG-027, verbatim, moved from backlog.yaml 2026-09-18)
+
+Raised by user via `bmad-help` ("some of schedule's map redirect to place outside of the
+country with similar name"). Confirmed: Geoapify is the only geolocation provider (CC-004) and
+IS what resolves schedule locations — `resolveAccountAndLocations()`
+(`apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts:44-66`) takes the
+AI-extracted `schedule.location` free-text string and geocodes it via `geoapify-client.ts`'s
+`geocodeAddress()`. That function's request URL was built from only `text`/`format`/`limit`/
+`apiKey` — no `filter=countrycode:` or `bias=countrycode:`/`bias=proximity:` param, so a venue
+name that also exists in another country could outrank the intended local match with nothing
+to disambiguate. This is best-effort enrichment (errors are swallowed) so it fails silently
+into a wrong-country pin rather than a visible error.
+
+**Scoping gap found:** there was no "account's country" to bias with. `LocationDetails`
+(`packages/shared-types/src/index.ts:60-71`) stored `city`/`province`/`adminArea` but no
+`country`/`countryCode` field, and none of the three `geoapify-client.ts` response mappers read
+Geoapify's own `result.country`/`result.country_code` fields even though Geoapify's API returns
+them. So this needed: (1) map `country`/`countryCode` through all three response shapes into
+`LocationDetails`, (2) decide the source of truth for "the account's country" — the country
+code already embedded in the account's own `defaultLocation`, and (3) thread that countryCode
+into `geocodeAddress()` as a `filter=countrycode:xx` (hard filter) or `bias=countrycode:xx`
+(soft preference) param. Open question at capture: hard filter vs soft bias — a hard filter
+would incorrectly exclude a genuine cross-border event, so soft bias was flagged as the likely
+safer default, needing a product call.
+
+Related: see IDEA-023 for the event-detail map-link question the user raised in the same
+message, partly a downstream symptom of this same root cause.
+
+**AMENDED (2026-09-11, same session):** user proposed also capturing a confidence score per
+resolved location. Confirmed feasible and cheap to fold into this same fix — Geoapify's
+geocode/search and /reverse responses already carry a `rank.confidence` (0-1) and
+`rank.match_type` (e.g. `full_match`, `inner_part`) per result, currently discarded entirely.
+Recommended: add `confidence?: number` (and ideally `matchType?: string`) to `LocationDetails`
+and map both through all three mappers in the same pass as the country field. Confidence is a
+complementary signal to the country-bias fix, not a substitute for it — a wrong-country match
+can still score high confidence, and a low-confidence match can equally occur inside the right
+country. Suggested starting bar: `confidence >= 0.5 AND match_type === 'full_match'` to treat a
+resolution as trustworthy, tuned from real data once shipped. See IDEA-023 for how this feeds
+the event-detail map link decision.
+
+**PROMOTED (2026-09-13 via bmad-create-story):** fully covered by this story (0.i7a) —
+country-bias threading (resolved as soft `bias=countrycode:` per the epic's AC wording, not
+`filter=`) and the confidence/matchType field mapping across all three `geoapify-client.ts`
+mappers are both in scope. No child row carved out — nothing in this item's ask falls outside
+this story. (Sibling stories 0.i7b/0.i7c/0.i7d/0.i7z cover BUG-017/IDEA-023/Gate-3 follow-through
+respectively, tracked separately.)
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — Code Organization (packages/domain has no new mechanism here), Testing Rules (informed the "follow existing `node:test` convention" note above)

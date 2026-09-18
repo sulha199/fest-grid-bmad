@@ -105,6 +105,48 @@ Per the escape hatch in `story-split-gate.md`: neither finding required user ove
 - [Source: packages/ui/src/features/events/format-event-date.ts] (`formatEventStatus`)
 - [Source: _bmad-output/implementation-artifacts/backlog.yaml IDEA-025 (this story), IDEA-041/IDEA-042 (child findings), IDEA-026/AD-22 (sibling desktop work)]
 
+### Backlog row history (IDEA-025, verbatim, moved from backlog.yaml 2026-09-18)
+
+Carved out of IDEA-016 via `bmad-create-story` (Story 1.i1d) — the child scope IDEA-016's own
+reference screenshots showed (status/nearby badges in the row's title/venue column) but Story
+1.i1d's actual epics.md AC set never required. DESIGN.md's `event_card_compact.content` token
+block says this composition should reuse `event_card_status_badge`/`event_card_nearby_badge`
+"as-is, no new badge design needed", but `WeeklyCalendarViewScheduleShape` had no computed
+status (relative-time state) or `distanceKm` data plumbed into it — EventCard's own
+status/nearby badges are masonry-variant-only and computed from data EventCard already
+receives, none of which WeeklyCalendarView's schedule shape carried.
+
+**AMENDED (2026-09-13, user via ritual HIL on epic-1-i1):** confirmed this badge treatment
+should also apply to the DESKTOP calendar surface, not just this row's mobile/list-variant
+scope — see sibling item IDEA-026 for the desktop half, since desktop's `CalendarCard
+variant='grid'` had no thumbnail/badge infrastructure at all and needed its own design pass.
+
+**ARCHITECTURE RESOLVED (bmad-architecture, 2026-09-17, Architecture Spine AD-22):**
+computed-status needed no new plumbing at all — `WeeklyCalendarViewScheduleShape` already
+carries `eventStartDate`/`eventEndDate`/`eventStartTime`/`eventEndTime`, exactly what
+`formatEventStatus` needs. `distanceKm` turned out to be a bigger, pre-existing gap, not
+calendar-specific: verified it is not computed anywhere in this codebase — `EventCard`'s own
+nearby badge had never actually rendered in production for lack of a real caller ever
+populating it. Decided: one shared `computeDistanceKm` utility (`packages/domain`, mirrors the
+existing SQL haversine's formula), wired into both surfaces (this item + IDEA-026) in the same
+story, fixing masonry's dead badge as part of the same work.
+
+**PROMOTED (2026-09-17 via bmad-create-story, row id named directly by the user as the
+explicit follow-on to Story 1.i1f/IDEA-026, dispatched the same session):** this story (1.i1j)
+delivers this row's full scope — status + nearby badges wired into WeeklyCalendarView's
+compact-row content column, reusing `formatEventStatus` (no new plumbing, AD-22 Rule 1) and
+consuming Story 1.i1f's `distanceKm`/`<8km` threshold as-is. Gate 2 found the badge markup was
+about to become a third independent inline duplicate (EventCard.tsx masonry, Story 1.i1f's
+undrafted EventCardCalendarGridItem, this row's compact row) — the same drift pattern
+(BUG-023/FIND-023) that forced this epic's own EventCardMediaPrimitives extraction — carved
+into child row IDEA-041 (→ Story 1.i1i, a new prerequisite this story depends on). Gate 2 also
+found an adjacent, previously-orphaned gap: DESIGN.md's 2026-09-14 pass twice calls out that
+the shared EventCardDateBox primitive still ships the old single-line shape instead of the
+now-specified two-tier month/day chrome — carved into child row IDEA-042 (→ Story 1.i1k,
+independent of this story, not a dependency). This story was NOT yet implementable as of
+promotion: neither Story 1.i1f nor the new Story 1.i1i existed in code yet — its own
+Pre-Coding Approval Gate blocks `bmad-dev-story` on both landing first.
+
 ## Global Rules References
 
 - [ ] `_bmad-output/project-context.md` — UI Components rule (`packages/ui/src/features/events` placement, consumes Story 1.i1i's component rather than a local copy), Locale-Sensitive Data Rendering rule (i18n gap flagged, not fixed here — see Dev Notes), Testing Rules (testing-trophy integration tests; no `packages/domain` touched)
