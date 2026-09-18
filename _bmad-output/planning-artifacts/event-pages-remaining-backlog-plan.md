@@ -332,8 +332,13 @@ short of an actual story file.
 - [ ] BUG-036/FIND-026 story (Story 1.i1h) — after Story 1.i1f
 - [x] IDEA-040 UX pass (2026-09-18, see own note above — ready for `bmad-create-story` now)
 - [ ] IDEA-040 story (Story 0.39)
-- [ ] IDEA-041 story (Story 1.i1i) — prerequisite for Story 1.i1j's `bmad-dev-story`
-- [ ] IDEA-042 story (Story 1.i1k) — must fold in FIND-025's still-open finding (2)
+- [x] IDEA-041 story (Story 1.i1i) — drafted 2026-09-18 (`ready-for-dev`); prerequisite for
+      Story 1.i1j's `bmad-dev-story`. AD-24 added to the architecture spine.
+- [x] IDEA-042 story (Story 1.i1k) — drafted 2026-09-18 (`ready-for-dev`); folded FIND-025's
+      still-open finding (2) in as a narrowly-scoped `no-dynamic-tailwind-arbitrary-value` lint
+      guard. Gate 1 surfaced that `packages/ui` has no lint config at all — carved out as new
+      Story 0.41 / backlog row FIND-035 (renumbered from 0.40 on merge with master, which
+      independently landed its own Story 0.40 for FIND-034 first), not folded into 1.i1k itself.
 
 ## Full row checklist (verification)
 
@@ -352,7 +357,8 @@ short of an actual story file.
 - [x] FIND-011
 - [ ] FIND-016
 - [ ] FIND-024
-- [ ] FIND-025
+- [x] FIND-025 — finding (1) superseded by IDEA-042/Story 1.i1k; finding (2) folded into
+      Story 1.i1k's own lint-guard scope (2026-09-18)
 - [ ] FIND-026
 - [ ] FIND-029
 - [x] IDEA-003 — Story 1.3k (`ready-for-dev`)
@@ -361,7 +367,7 @@ short of an actual story file.
 - [x] IDEA-019 — Story 0.i5d (`ready-for-dev`); child row IDEA-038 carved for Feed/Favorites
 - [x] IDEA-020 — Stories 0.38a + 0.38 (`ready-for-dev`)
 - [x] IDEA-025 — Story 1.i1j (`ready-for-dev`, blocked on 1.i1f + 1.i1i prerequisites); child rows
-      IDEA-041/IDEA-042 carved (Stories 1.i1i/1.i1k, not yet story-created)
+      IDEA-041/IDEA-042 carved (Stories 1.i1i/1.i1k, both `ready-for-dev` as of 2026-09-18)
 - [x] IDEA-026 — Story 1.i1f (`ready-for-dev`); child rows IDEA-039/BUG-036+FIND-026/IDEA-040
       carved for remaining desktop-grid wiring (Stories 1.i1g/1.i1h/0.39, not yet story-created)
 - [ ] IDEA-030
@@ -369,8 +375,8 @@ short of an actual story file.
 - [ ] IDEA-038 (Story 0.i5d's own child, Cluster F) — blocked, not yet story-created
 - [ ] IDEA-039 (Story 1.i1f's own child, Cluster F) — Story 1.i1g, not yet story-created
 - [ ] IDEA-040 (Story 1.i1f's own child, Cluster F) — Story 0.39, may need `bmad-ux` first
-- [ ] IDEA-041 (Story 1.i1j's own child, Cluster F) — Story 1.i1i, not yet story-created
-- [ ] IDEA-042 (Story 1.i1j's own child, Cluster F) — Story 1.i1k, not yet story-created
+- [x] IDEA-041 (Story 1.i1j's own child, Cluster F) — Story 1.i1i (`ready-for-dev`, 2026-09-18)
+- [x] IDEA-042 (Story 1.i1j's own child, Cluster F) — Story 1.i1k (`ready-for-dev`, 2026-09-18)
 
 ## Explicitly not in this doc
 

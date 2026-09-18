@@ -873,6 +873,24 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Note:** Split via Gate 3 (`story-split-gate.md`) while drafting Story 1.i1f (`bmad-create-story`, 2026-09-17, backlog.yaml IDEA-040, parent IDEA-026). Architecture Spine AD-22 states the priority rule ("active filter location if one is selected, else the viewer's current location coordinate") but never designed how the "else" branch sources a coordinate passively — Gate 3 judged this a genuine cross-cutting, consent-sensitive product decision (permission-prompt timing, caching policy) reusable by future "distance from me" features, not a narrow wiring task belonging inside the feature story that first needed it. Until this story ships, any consumer's distance badge simply omits itself when no location filter is active (an accepted, documented interim limitation — see Story 1.i1f's Out of Scope).
 
+### Story 0.41: Wire up packages/ui's standard ESLint configuration
+
+**As a** developer,
+**I want** `packages/ui` to have its own `eslint.config.mjs` (extending `@festgrid/eslint-config/react-internal`, matching every sibling package) and a `lint` script in its `package.json`, with the repo's existing `pnpm run lint`/CI pipeline (`turbo run lint`) actually running it,
+**So that** `packages/ui` — the package every shared UI primitive in this monorepo lives in — gets the same baseline static-analysis coverage every other workspace package (`database`, `domain`, `graphql-select`, `shared-types`, `apps/backend`, `apps/web`) already has, instead of silently having none at all.
+
+**Acceptance Criteria:**
+
+*   **Given** `packages/ui/package.json` has no `lint` script and no `eslint.config.mjs` exists anywhere in `packages/ui/` today (confirmed by direct read, 2026-09-18 — turbo's `lint` task silently no-ops for any workspace package lacking a `lint` script, so `packages/ui` has never been linted in CI),
+*   **When** this story ships,
+*   **Then** `packages/ui/eslint.config.mjs` exists, extending `@festgrid/eslint-config/react-internal` (the config purpose-built for "libraries that use React," matching `packages/ui`'s own nature), and `packages/ui/package.json` gains `"lint": "eslint . --max-warnings 0"` plus the `eslint`/`@festgrid/eslint-config` devDependencies every sibling package already carries.
+*   **And** `pnpm --filter @festgrid/ui lint` (and therefore `pnpm run lint` / CI's existing `Run lint` step) actually executes and passes with zero warnings against the real, current `packages/ui` source tree — not just an empty/trivial config.
+*   **And** any pre-existing violations the newly-enabled ruleset surfaces across `packages/ui`'s real (large, multi-year) source tree are triaged and fixed as part of this story, OR, if the volume is large enough that fixing all of it in one story is impractical, this story ships with a scoped, explicitly-justified, temporary `eslint.config.mjs` override (e.g. specific rules downgraded to `warn` with a tracking comment, never a blanket `ignores` on real source directories) — the choice and its rationale are recorded in this story's own Dev Notes, not silently decided.
+*   **And** Story 1.i1k's own narrow, file-scoped `no-dynamic-tailwind-arbitrary-value` custom rule (added directly to `packages/ui/eslint.config.mjs` by that story, ahead of this one) continues to apply unchanged — this story extends that file's config, it does not replace or narrow it.
+*   **And** this story adds zero new application/business logic — it is a tooling/config-only change.
+
+**Note:** Split via a Gate 1 finding (`story-split-gate.md`) surfaced while drafting Story 1.i1k (`bmad-create-story`, 2026-09-18, backlog.yaml FIND-035): wiring 1.i1k's own FIND-025-finding-(2) lint guard required giving `packages/ui` its first-ever `lint` script, which revealed the package has never been linted in CI at all. Retroactively enabling `packages/ui`'s full standard ruleset is a real, unbounded-size infrastructure gap (unknown volume of pre-existing violations across the whole package) — a tooling/infrastructure gap reusable/foundational by nature, not a narrow wiring task belonging inside Story 1.i1k's own tightly-scoped restyle-and-guard work. Numbered as a new Epic 0 story per the tooling-gap numbering rule (sequential after Epic 0's then-highest story, 0.39; renumbered from 0.40 to 0.41 when merging with master, which independently landed its own Story 0.40 for FIND-034 first). Not a dependency of Story 1.i1k — 1.i1k's own guard is fully self-contained via its own minimal, narrowly-scoped config addition and does not require this story to land first.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
