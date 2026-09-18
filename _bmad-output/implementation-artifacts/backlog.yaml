@@ -1192,21 +1192,25 @@ items:
      note: "Promoted 2026-09-18 via bmad-create-story into Story 0.40, covering the settled design plus staging treatment. Blocks BUG-002 until Story 0.40 reaches done. Full detail in backlog/FIND-034-sqs-lambda-poller-idle-cost.md."}
 
   # ── 2026-09-18 (bmad-create-story, drafting Story 1.i1k) ────────────────────
-  # NOTE (2026-09-18, note-bloat cleanup): this row was originally captured as
-  # FIND-035, colliding with the unrelated scraper-window finding independently
-  # captured the same day under the same id — a duplicate YAML key, silently
-  # resolving to whichever parses last. Renumbered to FIND-036 per §4 ("never
-  # reuse an id"); every cross-reference (1-i1k's Dev Notes, epics.md Story
-  # 0.41, sprint-status.yaml, event-pages-remaining-backlog-plan.md) updated
-  # to match in the same commit.
+  # NOTE: this row was originally captured as FIND-035, colliding with the
+  # unrelated scraper-window finding independently captured the same day
+  # under the same id (that commit, 5fe85a2, landed on master first at
+  # 03:00 UTC, ahead of this row's own originating commit 59c561e at
+  # 03:46 UTC) — a duplicate YAML key, silently resolving to whichever
+  # parses last. Renumbered to FIND-036 per §4 ("never reuse an id");
+  # every cross-reference (1-i1k's Dev Notes, epics.md Story 0.41,
+  # sprint-status.yaml, event-pages-remaining-backlog-plan.md) updated to
+  # match in the same commit. Independently rediscovered and fixed the
+  # same way by a concurrent master session — this merge reconciles both.
   FIND-036:
     {type: finding, status: promoted, created: 2026-09-18,
      impact: internal, effort: s,
      stories: [0-41-wire-up-packages-ui-eslint-configuration],
      title: "packages/ui has no lint script or ESLint config at all, unlike every sibling package",
-     ref: [implementation-artifacts/1-i1k-give-eventcarddatebox-the-design-specified-two-tier-chrome.md, backlog/FIND-036-packages-ui-no-lint-config.md],
+     ref: [implementation-artifacts/1-i1k-give-eventcarddatebox-the-design-specified-two-tier-chrome.md,
+           backlog/FIND-036-packages-ui-no-lint-config.md],
      touches: [pkg:ui, cross:process],
-     note: "Split into Story 0.41 (Epic 0 tooling gap, renumbered from 0.40). Story 1.i1k's own narrow guard deliberately doesn't fix this broadly. Full detail in backlog/FIND-036-packages-ui-no-lint-config.md."}
+     note: "Renumbered from FIND-035 -- that id's scraper-window finding (commit 5fe85a2) landed on master first. Split into Story 0.41 (renumbered from 0.40); Story 1.i1k's own narrow guard deliberately doesn't fix this broadly. Full detail in backlog/FIND-036-packages-ui-no-lint-config.md."}
 
   # ── 2026-09-17 (bmad-architecture, calendar overflow data-fetching session) ─
   BUG-036:

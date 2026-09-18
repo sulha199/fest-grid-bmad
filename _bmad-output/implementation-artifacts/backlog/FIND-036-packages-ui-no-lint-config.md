@@ -6,6 +6,14 @@ captured: 2026-09-18
 
 # FIND-036 — packages/ui has no lint config
 
+## Renumbered from FIND-035
+
+A real, separate FIND-035 (daily scraper cron re-requesting a non-incremental window, commit
+`5fe85a2`) landed on master first (03:00 UTC) via a concurrent session, before this row's own
+originating commit (`59c561e`, 03:46 UTC) — same collision-resolution precedent already used
+for this row's own Story 0.40 → 0.41 renumber ("master independently landed its own real Story
+0.40 for FIND-034 first").
+
 ## Capture
 
 Discovered while wiring Story 1.i1k's own narrow lint guard (FIND-025 finding 2):

@@ -1,0 +1,68 @@
+{
+  "_note": "Hand-authored plan (mixed skills, clustered to minimize dispatch count) -- NOT produced by resolve-targets.ts (these are raw backlog.yaml row ids with no epics.md stub yet). To resume: check sprint-status.yaml / backlog.yaml for each step's target and re-dispatch from the first one still 'pending'.",
+  "config": "all-claude-medium",
+  "cwd": "c:/projects/portfolio/festgrid/bmad",
+  "mailbox": "../mailbox",
+  "createdAt": "2026-09-18T00:00:00Z",
+  "batchPaused": "2026-09-18, per user request, right after the BUG-015,FIND-020 step finished/was reconciled. Next step to dispatch on resume: FIND-017,IDEA-015 (Split B). Before resuming, note the two ritual-quick-dev-stall anomalies below -- consider whether ritual dispatch is still the right tool for the remaining small/well-specified items vs. direct implementation.",
+  "hilPolicy": "Minimize human-in-the-loop. For any relayed AskUserQuestion that is a minor implementation decision (naming, file layout, which helper to reuse, test structure, sequencing, a Pre-Coding Approval Gate procedural check) -- the orchestrating session answers it directly, no relay to the real user. For any question that is a genuine architectural decision (schema shape, new cross-cutting mechanism, new external dependency), a UX/design decision (new UI copy, visual treatment, interaction pattern), or a scope change -- relay via the orchestrating session's own AskUserQuestion to the real user, same as the skill's normal design.",
+  "excluded": [
+    {"id": "BUG-002", "reason": "Blocked by FIND-034 (backlog.yaml blocks: [BUG-002]). BUG-002's missing-timeout framing is specific to the Lambda ESM invocation model FIND-034's fix removes for aiProcessorLambda/ingestorLambda. Re-scope and dispatch BUG-002 in a follow-up batch after FIND-034 ships."}
+  ],
+  "steps": [
+    {
+      "skill": "bmad-create-story",
+      "story": "FIND-034",
+      "status": "done -- commit 8520725, fanned into Story 0.40 (0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain), ready-for-dev, verified via verify-story.ts. No child row carved -- 2 real design gaps the backlog note left open (staging treatment, drain depth) resolved live via AskUserQuestion relay: staging treated like dev (gated opt-in, default off), handler loops until drained/time-budget instead of one fixed batch of 10 per tick. backlog.yaml FIND-034 blocks:[BUG-002] stays unresolved until Story 0.40 reaches done, not at story-creation.",
+      "context": "Full design already settled during investigation -- see backlog/FIND-034-sqs-lambda-poller-idle-cost.md for the complete plan (stage-gate dev ESM `enabled` behind a context flag + replace all 3 prod Lambda SqsEventSource mappings for scraping/ai-processing/data-ingestion queues with a 5-minute EventBridge scheduled poll-and-drain). Formalize into AC against that design; Gate 1/2/3 sweep still applies as normal."
+    },
+    {
+      "skill": "bmad-dev-story",
+      "story": "0.40",
+      "status": "done -- commit 47c6418, lint+build+test all passed, sprint-status=review, verified via verify-story.ts. No new stories surfaced (detect-new-stories.ts clean). BUG-002 stays blocked until 0.40 reaches done (not just review).",
+      "context": null
+    },
+    {
+      "skill": "bmad-quick-dev",
+      "story": "BUG-015,FIND-020,FIND-017,IDEA-015",
+      "status": "ABORTED -- session produced only the spec (spec-bug-015-find-020-find-017-idea-015-backend-resiliency-batch.md, untracked, still valid, left in place for reuse) but zero implementation code for any of the 4 items. Checks ran against ~unchanged code, surfaced 2 unrelated pre-existing test failures; the auto-fix quick-dev pass correctly fixed both (committed separately as BUG-037, commit 2083405) but never returned to the actual batch scope, and never committed. No session-id file was saved, so resume-by-label wasn't possible. Re-dispatching as 2 smaller splits below instead of retrying the same 4-in-1 shape blind.",
+      "context": null
+    },
+    {
+      "skill": "bmad-quick-dev",
+      "story": "BUG-015,FIND-020",
+      "status": "PARTIAL -- session split to a single-goal spec (BUG-015 only, FIND-020 deferred to deferred-work.md) after judging the 2-in-1 scope risky given the previous 4-in-1 attempt's stall. Checks (lint/build/test 11/11) passed, but AGAIN produced only a spec (spec-bug-015-select-posts-partial-failure.md) with zero implementation code -- 2nd stall in a row for this exact item across 2 different dispatch shapes. No session-id file saved either time (resume-by-label not possible). Given the spec was by this point extremely precise, implemented BUG-015 directly instead of a 3rd ritual attempt: resolvers.ts's selectPostsForExtraction reworked to Promise.allSettled per the spec exactly, new extraction.test.ts partial-failure case, backlog.yaml BUG-015 -> done. Independently verified (tsc --noEmit clean, full extraction.test.ts 18/18, pnpm --filter backend lint exit 0) and committed as 55a8b4e. FIND-020 still needs its own dispatch/implementation -- not yet attempted a 2nd time.",
+      "context": "Split A of the original 4-item cluster (see spec-bug-015-find-020-find-017-idea-015-backend-resiliency-batch.md for the full already-approved design -- reuse it, don't re-derive). Implement both as separate commits in this same session: BUG-015 (resolvers.ts:1984-1996's selectPostsForExtraction sequential enqueue loop has no partial-failure tracking on a mid-loop error -- rework to Promise.allSettled per the spec's I/O matrix: 3 postIds where the 2nd enqueue throws should return Posts for the 2 that succeeded, log the failure with postId+error, and only throw if zero succeeded). FIND-020 (scraper audit-trail alert can fire unbounded duplicate emails during a sustained outage -- add a DB-persisted cooldown per the spec's send-scraper-audit-alert.ts/scraper-provider-health-store.ts reference pattern and new SCRAPER_AUDIT_ALERT_COOLDOWN_MINUTES env var, default 15; also migrate send-dangerous-report-moderator-alerts.ts to reuse getModeratorEmails() for dedup). No UX/architectural decisions needed."
+    },
+    {
+      "skill": "bmad-quick-dev",
+      "story": "FIND-017,IDEA-015",
+      "status": "pending",
+      "context": "Split B of the original 4-item cluster (see spec-bug-015-find-020-find-017-idea-015-backend-resiliency-batch.md for the full already-approved design -- reuse it, don't re-derive). Implement both as separate commits in this same session: FIND-017 (2 of 3 sub-gaps only, per the spec's explicit scope -- DO NOT implement the real Apify capacity-check gap, deferred: (a) add onDelete:'cascade' to brightdataPendingJobs.profileId/apifyPendingJobs.profileId/scraperActorRuns.profileId via drizzle-kit generate, matching the existing cascade convention elsewhere in schema.ts, (b) generalize festgrid-backend-stack.test.ts's IAM-grant test into one generic env-var-to-grant walker instead of covering only the one past incident, and remove apiLambda's unused/ungranted DATA_INGESTION_QUEUE_URL env var). IDEA-015 (write scripts/scrape-batching-cost-research.sh + .mjs per the spec's apify-smoke-test.sh pattern reference -- zero writes to the app DB, call vendor REST APIs directly rather than importing attemptApifyAsyncTrigger/attemptBrightDataTrigger, gate any real-money-triggering call behind an explicit --yes/dry-run flag; if Bright Data's trigger endpoint rejects a multi-element input array outright, surface that as the research finding rather than silently pivoting scope). No UX/architectural decisions needed."
+    },
+    {
+      "skill": "bmad-quick-dev",
+      "story": "FIND-035",
+      "status": "pending",
+      "context": "User-reported mid-batch (2026-09-18): the daily scraper cron re-requests an overlapping date window every run instead of scraping incrementally. Root cause: scraper.ts's EventBridge daily-batch path hardcodes `newerThan = now - 7 days` for every account on every invocation (~6-day overlap with the previous day's window, forever -- real recurring Bright Data/Apify metered vendor cost, not AWS free-tier float). The correct incremental logic already exists in process-scrape-job.ts:132-139 (use newestPost.publishedAt from `SELECT publishedAt FROM posts WHERE accountId=... ORDER BY publishedAt DESC LIMIT 1`, falling back to env.scrapeInitialLookbackDays only when the account has zero posts yet) but is only wired into the SQS-fallback path, never the primary async-trigger path that drives the cron. Fix: extend getBatchScrapeTargets() (apps/backend/src/lib/scraper/get-scrape-targets.ts) with a MAX(publishedAt) GROUP BY accountId join against posts (single batched query, not N+1 per target), attach it to ScrapeTarget, then replace scraper.ts:91's hardcoded window with `target.newestPostPublishedAt?.toISOString() ?? lookbackFallback(env.scrapeInitialLookbackDays)`. Reuses an already-proven pattern from this same codebase -- no new mechanism, no architectural/UX ambiguity. Full evidence: backlog/FIND-035-scraper-batch-non-incremental-window.md. Prioritized ahead of FIND-024/FIND-022/IDEA-010 per user direction (low-risk, high-value)."
+    },
+    {
+      "skill": "bmad-quick-dev",
+      "story": "FIND-024",
+      "status": "pending",
+      "context": "Two gaps remain open per backlog.yaml's note (hashtags + locationName/ownerUsername already fixed 2026-09-17): (a) research whether Bright Data's Instagram Posts dataset schema exposes a real ownerDisplayName-equivalent field (tagged_users[].full_name is confirmed NOT it -- that's users tagged in the post, not the poster), (b) Bright Data carousel/childPosts-equivalent multi-image capture, which needs its own vendor-schema research first, not a mechanical port of Story 3.3e's Apify-specific logic. If (b) isn't cleanly scoped after research, stop and report rather than guessing at an unconfirmed schema shape."
+    },
+    {
+      "skill": "bmad-create-story",
+      "story": "FIND-022",
+      "status": "pending",
+      "context": "Effort is rated 'l' (multi-epic scale per backlog-spec.md) -- likely fans into 2+ stories touching app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui. Create-story only in this batch step; do NOT auto-chain into bmad-dev-story for whatever it produces -- hold for human review once this step completes, before any dev-story dispatch."
+    },
+    {
+      "skill": "bmad-create-story",
+      "story": "IDEA-010",
+      "status": "pending",
+      "context": "Distinguishing a genuinely-inactive account from one mid-scrape or never-run in Post Selection very likely needs a real UI-state design decision (how a three-state indicator/copy is represented). This is a UX decision -- if Gate 2 flags missing UX-spec coverage, or any tradeoff about how to represent the three states, STOP and surface it via AskUserQuestion rather than picking a default yourself. Create-story only in this batch step; hold bmad-dev-story for human review once this step completes."
+    }
+  ]
+}
