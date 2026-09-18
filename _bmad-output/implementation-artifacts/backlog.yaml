@@ -562,7 +562,7 @@ items:
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml,
            implementation-artifacts/spec-find-017-fk-cascade-and-iam-grant-walker.md],
      touches: [pkg:database, app:backend, app:infrastructure, cross:process],
-     note: "DW-063 and DW-088 fixed 2026-09-18 (Split B of the BUG-015/FIND-020/FIND-017/IDEA-015 batch): brightdata/apify pending-job + scraper-actor-run FKs now ON DELETE CASCADE on profileId; festgrid-backend-stack.test.ts's IAM-grant test generalized from one incident into a generic env-var-to-grant walker, which also caught and let us remove apiLambda's dead DATA_INGESTION_QUEUE_URL/DATA_INGESTION_INLINE_FALLBACK_ENABLED env vars. Review found the cascade fix incomplete for the realistic case (scraperActorRuns.id is also referenced by posts/unprocessedScraperPayloads/brightdataPendingJobs.scraperActorRunId with no cascade) -- split into new FIND-037 rather than expanding scope unilaterally. DW-071 (real Apify capacity check) was explicitly out of scope for this pass and stays open -- needs its own persistence/refresh-policy design; not yet re-triaged as its own row."}
+     note: "Fixed 2026-09-18 (DW-063/DW-088): FK cascades + generic IAM grant walker. Review found the fix one FK short -- split into FIND-037. Full detail in the spec's Spec Change Log."}
 
   FIND-037:
     {type: finding, status: backlog, created: 2026-09-18,
@@ -571,7 +571,7 @@ items:
      ref: [implementation-artifacts/spec-find-017-fk-cascade-and-iam-grant-walker.md,
            implementation-artifacts/deferred-work.md],
      touches: [pkg:database],
-     note: "Found via review during FIND-017's cascade fix (2026-09-18): brightdataPendingJobs/apifyPendingJobs/scraperActorRuns.profileId now correctly cascade on social_media_account_profiles deletion, but scraperActorRuns.id is itself referenced by posts.scraperActorRunId, unprocessedScraperPayloads.scraperActorRunId, and brightdataPendingJobs.scraperActorRunId with no onDelete action -- so deleting a profile whose actor runs produced actual posts/payloads (the common case) still fails, just one FK deeper. Needs a product decision: onDelete 'set null' on the 3 downstream refs (all already nullable; preserves posts/payloads, drops their audit-trail link) vs 'cascade' (deletes posts too -- bigger blast radius, posts are user-facing content)."}
+     note: "Deferred from: bmad-quick-dev FIND-017 review (2026-09-18). Deleting a profile with real actor-run posts/payloads still fails one FK deeper. Needs a product decision (set null vs cascade)."}
 
   FIND-018:
     {type: finding, status: backlog, created: 2026-09-05,
@@ -611,7 +611,7 @@ items:
      title: "Repost/coauthor posts are misattributed to the subscribed (scraping) account instead of the original-owner account",
      ref: [backlog/FIND-022-coauthor-content-issues.md],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
-     note: "Forged 2026-09-07: add normalized post-account roles and lossless legacy migration; create deduplicated unsubscribed profiles for verified identities, with internal-only provisional records; filter across publisher/coauthor/scraping associations; add posted-at/coauthor detail UI and confirmed accessible subscription toggle with success/failure analytics. Vendor-role normalization is a prerequisite (Bright Data evidence exists; Apify still needs verification). IDEA-008 owns cap value/guard/CTA; PRD '2' vs backlog '5' remains separate. Ready for bmad-spec."}
+     note: "Forged 2026-09-07: normalize post-account roles, dedupe subscribable profiles, add attribution UI. Spec+correct-course+architecture landed 2026-09-19 as CC-022. Full detail in backlog/FIND-022-coauthor-content-issues.md."}
 
   # ── undated intake ──────────────────────────────────────────────────────────
   IDEA-001:
@@ -773,7 +773,7 @@ items:
      ref: [backlog/IDEA-015-batched-scrape-request-research.md,
            implementation-artifacts/deferred-work.md],
      touches: [app:backend, cross:process],
-     note: "Tooling shipped 2026-09-18 (Split B of the BUG-015/FIND-020/FIND-017/IDEA-015 batch): scripts/scrape-batching-cost-research.sh + .mjs, mirroring apify-smoke-test.sh's pattern -- calls Apify/Bright Data REST APIs directly (no attemptApifyAsyncTrigger/attemptBrightDataTrigger, zero app-DB writes), gated behind --yes/--dry-run, surfaces a Bright Data multi-element input-array rejection as a research finding rather than pivoting scope. Verified via --dry-run (no live tokens for Bright Data in this environment) plus targeted arg-parsing/JSON-resilience checks; the actual live vendor-cost comparison run (real USD charges) has NOT been executed yet -- still low priority per the user (account count currently small), tool is ready whenever it's worth spending the money to run it."}
+     note: "Deferred from: bmad-quick-dev IDEA-015 review (2026-09-18). Tooling shipped, --dry-run verified. Live paid comparison run not yet executed (still low priority). Full detail in backlog/IDEA-015-batched-scrape-request-research.md."}
 
   # ── 2026-09-11 (bmad-help event-card screenshot audit) ──────────────────────
   FIND-023:
@@ -963,7 +963,7 @@ items:
      title: "Bright Data scrape path never captures or forwards hashtags (and has no carousel/childPosts equivalent) to persistScrapedPost",
      ref: [implementation-artifacts/3-3e-persist-all-carousel-image-urls-for-a-scraped-post.md, implementation-artifacts/backlog/BUG-032-hashtags-not-persisted-into-post-table.md, implementation-artifacts/backlog/FIND-024-bright-data-scrape-gaps.md],
      touches: [app:backend],
-     note: "All flagged Bright Data gaps resolved. hashtags/locationName/ownerUsername fixed via BUG-032. Carousel multi-image capture fixed 2026-09-18 (bmad-quick-dev): Bright Data has no childPosts-equivalent structure -- a Carousel record's top-level photos array already lists every slide, so mapper now extracts photos.slice(1) into additionalImageUrls (mirrors Story 3.3e's field) and process-brightdata-result.ts forwards it. ownerDisplayName confirmed unfixable -- no candidate field exists anywhere in Bright Data's schema (every key on 2 real run fixtures enumerated). Full detail in backlog/FIND-024-bright-data-scrape-gaps.md."}
+     note: "All flagged Bright Data gaps resolved: hashtags/locationName/ownerUsername via BUG-032, carousel multi-image 2026-09-18, ownerDisplayName confirmed unfixable. Full detail in backlog/FIND-024-bright-data-scrape-gaps.md."}
 
   # ── 2026-09-14 (bmad-quick-dev fix of eventcard-favorite-badge-clipping) ─
   FIND-025:
@@ -1306,4 +1306,12 @@ items:
            implementation-artifacts/deferred-work.md],
      touches: [app:infrastructure],
      note: "Deferred from: code review of 0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain (2026-09-19). Untested 'harmless no-op duplicate' IAM-grant claim; low-value, no correctness impact. See deferred-work.md and the story's own Review Findings section."}
+
+  FIND-043:
+    {type: finding, status: backlog, created: 2026-09-19,
+     impact: internal, effort: s,
+     title: "queryModeratorAccountProfiles's unfiltered first:50 page makes resolvers.test.ts flaky as social_media_account_profiles grows",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend],
+     note: "Deferred from: full `pnpm test` gate during bmad-quick-dev FIND-017 (2026-09-18). Confirmed 2026-09-19: 103 rows now push seeded test rows past the unfiltered page-1 LIMIT 50. Same fix shape as BUG-037."}
 

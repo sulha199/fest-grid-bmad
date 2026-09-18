@@ -32,3 +32,17 @@ grows, since a fixed per-request overhead cost scales linearly with account coun
 current one-request-per-account model.
 
 Triaged 2026-09-18 alongside FIND-034 (same scraper/request-cost neighborhood).
+
+## Closure (2026-09-18)
+
+Tooling shipped via bmad-quick-dev (Split B of the BUG-015/FIND-020/FIND-017/IDEA-015 batch):
+`scripts/scrape-batching-cost-research.sh` + `.mjs`, mirroring `apify-smoke-test.sh`'s pattern —
+calls the Apify/Bright Data REST APIs directly (no `attemptApifyAsyncTrigger`/
+`attemptBrightDataTrigger` imports, zero app-DB writes), gated behind `--yes`/`--dry-run`, and
+surfaces a Bright Data multi-element input-array rejection as a research finding rather than
+silently pivoting scope.
+
+Verified via `--dry-run` (no live Bright Data tokens available in this development environment)
+plus targeted arg-parsing/JSON-resilience checks. The actual live vendor-cost comparison run
+(real USD charges) has **not** been executed yet — still low priority per the user (account
+count currently small); the tool is ready to run whenever it's worth spending the money.
