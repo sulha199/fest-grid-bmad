@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-18T03:47:23Z
+last_updated: 2026-09-19T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -298,7 +298,11 @@ development_status:
   # (epic-0-readiness.md's swept report stops at 0.19), and resolved two design gaps the
   # settled note left open via AskUserQuestion: staging treated like dev (not prod), and
   # the poll-and-drain branch loops until drained/time-budget rather than a single batch.
-  0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain: review
+  # bmad-code-review 2026-09-19: 6 patch findings fixed, 1 retracted as a false positive
+  # (SETUP_WALKTHROUGH.md heading claim, disproven by reading the full doc structure), 3
+  # deferred to backlog as FIND-040/FIND-041/FIND-042. Re-verified via cdk synth (all 3
+  # stages), infra tests, targeted backend tests, full build, and lint before commit 086b563.
+  0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain: done
   # added 2026-09-18 via bmad-create-story while drafting 1-i1k: wiring that story's
   # own FIND-025-finding-(2) lint guard required giving packages/ui its first-ever
   # `lint` script, which revealed the package has never been linted in CI at all

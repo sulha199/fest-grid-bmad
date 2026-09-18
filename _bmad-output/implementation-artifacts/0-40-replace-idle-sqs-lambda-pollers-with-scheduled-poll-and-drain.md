@@ -8,7 +8,7 @@ baseline_commit: 73aec34f7847672dc00f4a6456c9943705e7f706
 
 - Epic: 0
 - Story ID: 0.40
-- Status: review
+- Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -222,6 +222,7 @@ so that the account stops burning ~77% of its monthly AWS SQS free-tier request 
 ## Completion Status
 
 - [x] Complete (implementation) — status set to "review" for code-review workflow
+- [x] Complete (code review) — bmad-code-review ran 2026-09-19; all 6 patch findings fixed, 1 retracted as a false positive, 3 deferred as FIND-040/041/042; status set to "done"
 
 ## Dev Agent Record
 
