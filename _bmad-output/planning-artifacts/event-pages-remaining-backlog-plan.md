@@ -337,7 +337,7 @@ short of an actual story file.
 - [x] IDEA-042 story (Story 1.i1k) — drafted 2026-09-18 (`ready-for-dev`); folded FIND-025's
       still-open finding (2) in as a narrowly-scoped `no-dynamic-tailwind-arbitrary-value` lint
       guard. Gate 1 surfaced that `packages/ui` has no lint config at all — carved out as new
-      Story 0.41 / backlog row FIND-035 (renumbered from 0.40 on merge with master, which
+      Story 0.41 / backlog row FIND-036 (renumbered from 0.40 on merge with master, which
       independently landed its own Story 0.40 for FIND-034 first), not folded into 1.i1k itself.
 
 ## Full row checklist (verification)

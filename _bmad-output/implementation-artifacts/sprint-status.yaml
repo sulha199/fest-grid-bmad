@@ -306,7 +306,7 @@ development_status:
   # full-ruleset enablement is a real, unbounded-size infra gap -- not folded into
   # 1-i1k's own narrowly-scoped guard. Renumbered 0.40 -> 0.41 on merge with master
   # (master independently landed its own real Story 0.40 for FIND-034 first). See
-  # epics.md Story 0.41 and backlog.yaml FIND-035.
+  # epics.md Story 0.41 and backlog.yaml FIND-036.
   0-41-wire-up-packages-ui-eslint-configuration: backlog
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:

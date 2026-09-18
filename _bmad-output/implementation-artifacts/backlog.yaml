@@ -961,7 +961,7 @@ items:
      title: "Favorite-badge min-height clamp may bleed into caption content on a very short date box; no lint guard against reintroducing a dynamically-interpolated Tailwind class",
      ref: [implementation-artifacts/deferred-work.md],
      touches: [pkg:ui, web:events/EventCard, cross:ux-tokens, cross:process],
-     note: "Deferred from: quick-dev fix of eventcard-favorite-badge-clipping (2026-09-14). Both findings folded into Story 1.i1k (date-box variant migration + no-dynamic-Tailwind lint rule). Surfaced FIND-035 (packages/ui has no lint config) -> Story 0.41. Full history in Story 1.i1k's Dev Notes."}
+     note: "Deferred from: quick-dev fix of eventcard-favorite-badge-clipping (2026-09-14). Both findings folded into Story 1.i1k (date-box variant migration + no-dynamic-Tailwind lint rule). Surfaced FIND-036 (packages/ui has no lint config) -> Story 0.41. Full history in Story 1.i1k's Dev Notes."}
 
   # ── 2026-09-14 (bmad-png-to-html UX design pass — masonry/calendar-row/calendar-grid-item) ─
   FIND-026:
@@ -1194,7 +1194,14 @@ items:
      note: "Promoted 2026-09-18 via bmad-create-story into Story 0.40, covering the settled design plus staging treatment. Blocks BUG-002 until Story 0.40 reaches done. Full detail in backlog/FIND-034-sqs-lambda-poller-idle-cost.md."}
 
   # ── 2026-09-18 (bmad-create-story, drafting Story 1.i1k) ────────────────────
-  FIND-035:
+  # NOTE (2026-09-18, note-bloat cleanup): this row was originally captured as
+  # FIND-035, colliding with the unrelated scraper-window finding independently
+  # captured the same day under the same id — a duplicate YAML key, silently
+  # resolving to whichever parses last. Renumbered to FIND-036 per §4 ("never
+  # reuse an id"); every cross-reference (1-i1k's Dev Notes, epics.md Story
+  # 0.41, sprint-status.yaml, event-pages-remaining-backlog-plan.md) updated
+  # to match in the same commit.
+  FIND-036:
     {type: finding, status: promoted, created: 2026-09-18,
      impact: internal, effort: s,
      stories: [0-41-wire-up-packages-ui-eslint-configuration],
