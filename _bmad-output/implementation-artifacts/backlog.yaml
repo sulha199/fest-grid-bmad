@@ -169,7 +169,7 @@ items:
      impact: latent, effort: s, epic: epic-0-i3,
      title: "aiProcessorLambda and ingestorLambda share 3.4f's missing-timeout gap — never folded in or decided",
      ref: [], touches: [app:infrastructure, app:backend],
-     note: "CC-011 explicitly left this undecided rather than scoping it into 3.4f. Triaged 2026-09-18 alongside FIND-034: same two Lambdas, same ESM-invocation model this gap is framed against. FIND-034 will replace that ESM model with scheduled poll-and-drain for both — re-scope this row's timeout framing once FIND-034 lands rather than fixing it against a mechanism about to be removed; see FIND-034's blocks."}
+     note: "CC-011 left this undecided. Unblocked 2026-09-19: FIND-034/Story 0.40 landed, replacing the ESM model this gap was framed against — needs its own re-scope/re-triage pass against poll-and-drain, not a fix against the removed model."}
 
   # ── 2026-08-16 ──────────────────────────────────────────────────────────────
   CC-012:
@@ -1195,13 +1195,13 @@ items:
 
   # ── 2026-09-17 (direct AWS CLI investigation) ────────────────────────────────
   FIND-034:
-    {type: finding, status: promoted, created: 2026-09-17,
-     impact: internal, effort: s, blocks: [BUG-002],
+    {type: finding, status: done, created: 2026-09-17, closed: 2026-09-19,
+     impact: internal, effort: s,
      stories: [0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain],
      title: "Lambda SQS event-source pollers run 24/7 on idle queues, burning free-tier request quota",
      ref: [backlog/FIND-034-sqs-lambda-poller-idle-cost.md],
      touches: [app:infrastructure, app:backend, web:posts, cross:ai-extraction, cross:architecture],
-     note: "Promoted 2026-09-18 via bmad-create-story into Story 0.40, covering the settled design plus staging treatment. Blocks BUG-002 until Story 0.40 reaches done. Full detail in backlog/FIND-034-sqs-lambda-poller-idle-cost.md."}
+     note: "Promoted 2026-09-18 into Story 0.40, which reached done 2026-09-19 — BUG-002 now unblocked (see that row). Full detail in backlog/FIND-034-sqs-lambda-poller-idle-cost.md."}
 
   # ── 2026-09-18 (bmad-create-story, drafting Story 1.i1k) ────────────────────
   # NOTE: this row was originally captured as FIND-035, colliding with the
@@ -1287,7 +1287,7 @@ items:
      ref: [implementation-artifacts/0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain.md,
            implementation-artifacts/deferred-work.md],
      touches: [app:backend],
-     note: "Deferred from: code review of Story 0.40 (2026-09-19). If deleteSqsMessage throws right after handleMessage resolved, the message stays undeleted and gets reprocessed on redelivery (duplicate side effects). Pre-existing, not introduced or worsened by this story -- SQS's inherent at-least-once-delivery characteristic, already true of every other consumer in this codebase (the pre-existing ESM-based branches carry the identical risk via Lambda's own auto-delete-on-success machinery). apps/backend/src/lib/aws/poll-and-drain-queue.ts:67-72."}
+     note: "Deferred from: code review of 0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain (2026-09-19). Pre-existing SQS at-least-once risk, not introduced by this story. See deferred-work.md and the story's own Review Findings section."}
 
   FIND-041:
     {type: finding, status: backlog, created: 2026-09-19,
@@ -1296,7 +1296,7 @@ items:
      ref: [implementation-artifacts/0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain.md,
            implementation-artifacts/deferred-work.md],
      touches: [app:backend],
-     note: "Deferred from: code review of Story 0.40 (2026-09-19). Persistent handleMessage failures (e.g. an expired Gemini API key) are only console.error-logged inside pollAndDrainQueue, never surfaced as a Lambda invocation error or CloudWatch Errors-metric signal, so no alarm fires until affected messages silently exhaust maxReceiveCount and land in the DLQ. No equivalent alarm exists for the old ESM/reportBatchItemFailures path either -- addressing it is an observability-strategy decision beyond Story 0.40's own scope. apps/backend/src/lib/aws/poll-and-drain-queue.ts:70-71."}
+     note: "Deferred from: code review of 0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain (2026-09-19). No alarm signal on persistent handleMessage failures; observability-strategy decision beyond this story's scope. See deferred-work.md and the story's own Review Findings section."}
 
   FIND-042:
     {type: finding, status: backlog, created: 2026-09-19,
@@ -1305,5 +1305,5 @@ items:
      ref: [implementation-artifacts/0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain.md,
            implementation-artifacts/deferred-work.md],
      touches: [app:infrastructure],
-     note: "Deferred from: code review of Story 0.40 (2026-09-19). The code comment justifying calling grantConsumeMessages unconditionally (all stages) alongside the ESM's own implicit grant as a 'harmless no-op duplicate' is not backed by a test proving dev/staging's synthesized template doesn't end up with a redundant IAM statement. Low-value gap, no correctness impact, not required by any AC. apps/infrastructure/lib/festgrid-backend-stack.ts:474-476."}
+     note: "Deferred from: code review of 0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain (2026-09-19). Untested 'harmless no-op duplicate' IAM-grant claim; low-value, no correctness impact. See deferred-work.md and the story's own Review Findings section."}
 
