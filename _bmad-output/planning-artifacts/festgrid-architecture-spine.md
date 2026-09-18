@@ -976,6 +976,64 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+### AD-24: Shared Event-Card Status/Nearby Badge Primitives
+
+*   **Binds:** The event/schedule status badge and the nearby-distance badge across the shared
+    `event_card_*` primitive (`packages/ui/src/features/events/EventCardMediaPrimitives.tsx` —
+    `EventCardStatusBadge`, `EventCardNearbyBadge`) and the consumers that adopt it: Story 1.i1i
+    (this story) migrates `EventCard.tsx`'s masonry branch off its own inline computation/JSX onto
+    the two shared components; future consumers are Story 1.i1f's `EventCardCalendarGridItem` and
+    Story 1.i1j's compact row (both build-then-adopt later, matching this epic's own precedent).
+    The badge_row insertion point between `EventCardStatusBadge` and `EventCardNearbyBadge` is
+    reserved for Story 1.3k's not-yet-built `EventCardRepeatBadge` (`EXPERIENCE.md`'s "Day-of-Week
+    Recurring Schedules" ordering: status → repeat → nearby). This is a new AD, not an amendment to
+    AD-15 — AD-15's own Binds list is scoped to the media slot/favorite badge/date box, a different
+    concern from status/nearby badge content.
+*   **Prevents:**
+    1.  **The status/nearby badge markup becoming a third independent inline duplicate**
+        (`EventCard.tsx`'s shipped masonry branch, Story 1.i1f's not-yet-implemented
+        `EventCardCalendarGridItem`, and Story 1.i1j's compact row) — the exact drift pattern
+        (BUG-023/FIND-023) that already motivated this epic's own `EventCardMediaPrimitives`
+        extraction (Story 1.i1a, AD-15).
+    2.  **A second, independently-chosen nearby-distance threshold.** `<8km` is the one sanctioned
+        gate (DESIGN.md's corrected value, replacing the shipped `<=5km` bug); no consumer may
+        hardcode or re-derive its own threshold — `EventCardNearbyBadge` self-gates on it.
+    3.  **A combined "badge row" primitive swallowing the insertion point** Story 1.3k needs —
+        `EventCardStatusBadge` and `EventCardNearbyBadge` are two independently composable
+        components, not a merged wrapper; the consumer (`EventCard.tsx`) keeps owning the badge-row
+        `<div>` and renders each as a sibling child.
+*   **Rule:**
+    1.  **One neutral style, one named exception.** `EventCardStatusBadge` renders all 8
+        `formatEventStatus` states with the neutral `bg-muted text-muted-foreground` base style,
+        except the `happeningNow` state, which renders `bg-emerald-600 text-white` instead — the
+        one sanctioned per-state override, not a general per-state styling mechanism. The
+        `happeningNow` discriminant is surfaced from `formatEventStatus`'s existing internal
+        `started && endDayDiff > 0` computation, never re-derived independently at the call site.
+        - **Enforced by:** `EventCardMediaPrimitives.test.tsx`'s `EventCardStatusBadge` coverage
+          (all 8-state neutral rendering; `happeningNow` emerald override) and
+          `format-event-date.test.ts`'s `isHappeningNow` branch assertions (Story 1.i1i).
+    2.  **`<8km` is the one sanctioned nearby-badge gate.** `EventCardNearbyBadge` self-gates,
+        returning `null` unless `distanceKm != null && distanceKm < 8` — callers no longer
+        precompute a `showNearbyBadge` boolean locally.
+        - **Enforced by:** `EventCardMediaPrimitives.test.tsx`'s boundary assertions
+          (`distanceKm=7.99` renders, `8` and above omit, `null`/`undefined` omit) and
+          `EventCard.test.tsx`'s rewritten masonry boundary test (Story 1.i1i).
+    3.  **Both badges stay independently composable, never a combined row.** Each primitive is
+        importable and renders on its own; the consumer's badge-row wrapper owns ordering and
+        spacing, preserving the slot Story 1.3k's `EventCardRepeatBadge` will later occupy between
+        them without modifying either.
+        - **Enforced by:** `EventCardMediaPrimitives.tsx`'s file structure itself (two exported
+          components, no combined-row export) plus `EventCard.tsx`'s masonry JSX rendering them as
+          separate sibling children of its existing badge-row `<div>` (Story 1.i1i).
+    4.  **Neither badge is independently focusable or interactive.** No `aria-label`, no tooltip, no
+        independent focus stop — both remain non-interactive supplementary metadata inside
+        `EventCard`'s single existing focusable card region, per `EXPERIENCE.md`'s Accessibility
+        Floor (that floor's focus/aria requirements are reserved for the future repeat badge only).
+        - **Enforced by:** `EventCardMediaPrimitives.test.tsx`'s a11y assertions (no `aria-label`,
+          no independent tab stop) for both components (Story 1.i1i).
+
+---
+
 
 ## Related Documents
 
