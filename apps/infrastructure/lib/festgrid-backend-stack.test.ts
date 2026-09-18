@@ -392,24 +392,34 @@ test('FestgridBackendStack: prod stack replaces the ESM with scheduled poll-and-
       ]),
     });
 
-    // AC7: aiProcessorLambda/ingestorLambda each gain their own input queue's URL.
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      Timeout: 300,
-      Environment: {
-        Variables: Match.objectLike({
-          AI_PROCESSING_QUEUE_URL: Match.anyValue(),
-          DATA_INGESTION_QUEUE_URL: Match.anyValue(),
-        }),
-      },
-    });
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      Timeout: 300,
-      Environment: {
-        Variables: Match.objectLike({
-          DATA_INGESTION_QUEUE_URL: Match.anyValue(),
-        }),
-      },
-    });
+    // AC7: aiProcessorLambda/ingestorLambda each gain their own input queue's URL. Scoped by
+    // logical ID prefix (not a bare hasResourceProperties match) since aiProcessorLambda
+    // already carries DATA_INGESTION_QUEUE_URL as its pre-existing *output*-queue var -- an
+    // unscoped match on that property alone would still pass even if ingestorLambda's own
+    // addEnvironment call for it were removed, since aiProcessorLambda independently
+    // satisfies the same property match (Review Finding, Story 0.40 code review).
+    const lambdaFunctions = template.findResources('AWS::Lambda::Function');
+    const findLambdaByPrefix = (prefix: string) => {
+      const entry = Object.entries(lambdaFunctions).find(([logicalId]) => logicalId.startsWith(prefix));
+      assert.ok(entry, `expected a "${prefix}*" function in the synthesized template`);
+      return entry![1].Properties.Environment.Variables as Record<string, unknown>;
+    };
+
+    const aiProcessorEnvVars = findLambdaByPrefix('AIProcessorLambda');
+    assert.ok(
+      'AI_PROCESSING_QUEUE_URL' in aiProcessorEnvVars,
+      'aiProcessorLambda should have its own new AI_PROCESSING_QUEUE_URL (input queue)'
+    );
+    assert.ok(
+      'DATA_INGESTION_QUEUE_URL' in aiProcessorEnvVars,
+      'aiProcessorLambda should retain its pre-existing DATA_INGESTION_QUEUE_URL (output queue)'
+    );
+
+    const ingestorEnvVars = findLambdaByPrefix('IngestorLambda');
+    assert.ok(
+      'DATA_INGESTION_QUEUE_URL' in ingestorEnvVars,
+      'ingestorLambda should have its own new DATA_INGESTION_QUEUE_URL (input queue)'
+    );
 
     // AC8: grantConsumeMessages-derived IAM policy statements exist for all 3 queues.
     template.hasResourceProperties('AWS::IAM::Policy', {

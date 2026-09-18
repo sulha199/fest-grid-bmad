@@ -433,13 +433,19 @@ export class FestgridBackendStack extends cdk.Stack {
       }));
     }
 
+    // Unconditional (all stages, not just prod): the poll-and-drain handler branch in each
+    // Lambda (scraper.ts/ai-processor.ts/ingestor.ts) is compiled for every stage regardless
+    // of which stage's EventBridge rule actually invokes it with { jobType: 'poll-and-drain' }
+    // (prod only, below) -- so these env vars must exist everywhere that branch could be
+    // reached (e.g. a manual/ops test invocation against dev or staging), not just in prod.
+    // Mirrors grantConsumeMessages' own unconditional treatment below for the same reason.
+    aiProcessorLambda.addEnvironment('AI_PROCESSING_QUEUE_URL', aiProcessingQueue.queueUrl);
+    ingestorLambda.addEnvironment('DATA_INGESTION_QUEUE_URL', dataIngestionQueue.queueUrl);
+
     // Prod-only: replace the continuous ESM with a 5-minute EventBridge-scheduled
     // poll-and-drain per queue, mirroring staleJobSweepRule's exact Rule+Target+marker-
     // payload shape (already a 3-occurrence pattern before this addition).
     if (stageName === 'prod') {
-      aiProcessorLambda.addEnvironment('AI_PROCESSING_QUEUE_URL', aiProcessingQueue.queueUrl);
-      ingestorLambda.addEnvironment('DATA_INGESTION_QUEUE_URL', dataIngestionQueue.queueUrl);
-
       const scraperPollAndDrainRule = new events.Rule(this, `ScraperPollAndDrainRule-${stageName}`, {
         schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
       });

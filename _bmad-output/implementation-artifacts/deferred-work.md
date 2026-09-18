@@ -462,3 +462,15 @@ This file tracks work deferred from development stories, code reviews, and plann
 - source_spec: `_bmad-output/implementation-artifacts/spec-find-035-scraper-incremental-batch-window.md`
   summary: No test exercises the interaction between the new `newestPostPublishedAt` attachment and the existing exclusion filters (`isAdapterRegistered`, the recently-scraped `lastScrapedAt` cutoff) — i.e. nothing proves the field is correctly omitted/attached for a target filtered out for an unrelated reason.
   evidence: Surfaced by Blind Hunter. Coverage nice-to-have; not required by the approved spec's I/O matrix, and each filter already has its own independent test coverage.
+
+## Deferred from: code review of 0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain (2026-09-19)
+
+- source_spec: `_bmad-output/implementation-artifacts/0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain.md`
+  summary: In `pollAndDrainQueue`, `handleMessage` succeeding but the following `deleteSqsMessage` call throwing leaves the message undeleted, so it gets reprocessed on redelivery (duplicate side effects).
+  evidence: Surfaced by the Edge Case Hunter review pass. This is SQS's inherent at-least-once-delivery characteristic, already true of every other consumer in this codebase (the pre-existing ESM-based branches carry the identical risk via Lambda's own auto-delete-on-success machinery) — not introduced or worsened by this story. [apps/backend/src/lib/aws/poll-and-drain-queue.ts:67-72]
+- source_spec: `_bmad-output/implementation-artifacts/0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain.md`
+  summary: Persistent `handleMessage` failures inside `pollAndDrainQueue` are only `console.error`-logged, never surfaced as a Lambda invocation error or CloudWatch Errors-metric signal, so a systemic downstream failure (e.g. an expired Gemini API key) triggers no alarm until affected messages silently exhaust `maxReceiveCount` and land in the DLQ.
+  evidence: Surfaced by the Blind Hunter review pass. No equivalent alarm exists for the old ESM/`reportBatchItemFailures` path either — addressing it is an observability-strategy decision beyond this story's scope. [apps/backend/src/lib/aws/poll-and-drain-queue.ts:70-71]
+- source_spec: `_bmad-output/implementation-artifacts/0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain.md`
+  summary: The code comment justifying calling `grantConsumeMessages` unconditionally alongside the ESM's own implicit grant as a "harmless no-op duplicate" is not backed by a test proving dev/staging's synthesized template doesn't end up with a redundant IAM statement.
+  evidence: Surfaced by the Blind Hunter review pass. Low-value gap, no correctness impact, not required by any AC. [apps/infrastructure/lib/festgrid-backend-stack.ts:474-476]
