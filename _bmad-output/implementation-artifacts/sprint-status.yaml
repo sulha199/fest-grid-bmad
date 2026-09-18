@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-17T19:05:00Z
+last_updated: 2026-09-18T03:47:23Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -439,7 +439,7 @@ development_status:
   # a local detail of the compact row's badge content). Full section in epics.md
   # (backlog.yaml IDEA-042, child of IDEA-025); not yet drafted via its own
   # bmad-create-story pass.
-  1-i1k-give-eventcarddatebox-the-design-specified-two-tier-chrome: backlog
+  1-i1k-give-eventcarddatebox-the-design-specified-two-tier-chrome: ready-for-dev
   # (dev-story 1.i1z: ready-for-dev -> review. Implemented — audit + traceability only per user-resolved
   # Design Decisions 1 & 2. AC 1-3 re-confirmed already-enforced by existing tests; AC 4 delivered as
   # AD-15 Rules 1/2 "Enforced by" citations + narrowed-scope sentence; AC 5 delivered as 5 ratchet-marking
