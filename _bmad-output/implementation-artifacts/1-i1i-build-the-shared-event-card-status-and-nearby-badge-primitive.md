@@ -57,8 +57,8 @@ so that a third and future card surface (Story 1.i1f's `EventCardCalendarGridIte
   - [ ] 4.3 `EventCard.test.tsx`: rewrite the "Status badge (masonry, AC15) and Nearby badge (AC16)" describe block's boundary test from the old `5`/`5.01` pair to `7.99`/`8` (AC8); add a test asserting the `happeningNow` state renders the emerald classes and the other 7 states keep the neutral classes.
   - [ ] 4.4 Run `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `pnpm --filter @festgrid/ui build` (or `tsc --noEmit`) and record results in Dev Agent Record.
 
-- [ ] Task 5 — Architecture spine (new invariant)
-  - [ ] 5.1 Append a new `### AD-24: Shared Event-Card Status/Nearby Badge Primitives` entry to `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (current highest is AD-23), following the existing Binds/Prevents/Rule format (see AD-15 for the closest precedent — a sibling `event_card_*` primitive invariant, but scoped to a different concern: image/media/favorite-badge, not status/nearby). Document: the two independently-composable primitives and their consumers (this story's `EventCard.tsx` migration; future consumers Story 1.i1f's `EventCardCalendarGridItem` and Story 1.i1j's compact row; the reserved insertion point for Story 1.3k's `EventCardRepeatBadge`); the `happeningNow` emerald exception; the `<8km` nearby threshold as the one sanctioned gate (never a second inline copy); and the non-interactive/no-tooltip a11y rule. This is deliberately a NEW AD, not an amendment to AD-15 — AD-15's own "Binds" list is scoped specifically to the media slot/favorite badge/date box, a different concern from status/nearby badge content.
+- [x] Task 5 — Architecture spine (new invariant)
+  - [x] 5.1 Append a new `### AD-24: Shared Event-Card Status/Nearby Badge Primitives` entry to `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (current highest is AD-23), following the existing Binds/Prevents/Rule format (see AD-15 for the closest precedent — a sibling `event_card_*` primitive invariant, but scoped to a different concern: image/media/favorite-badge, not status/nearby). Document: the two independently-composable primitives and their consumers (this story's `EventCard.tsx` migration; future consumers Story 1.i1f's `EventCardCalendarGridItem` and Story 1.i1j's compact row; the reserved insertion point for Story 1.3k's `EventCardRepeatBadge`); the `happeningNow` emerald exception; the `<8km` nearby threshold as the one sanctioned gate (never a second inline copy); and the non-interactive/no-tooltip a11y rule. This is deliberately a NEW AD, not an amendment to AD-15 — AD-15's own "Binds" list is scoped specifically to the media slot/favorite badge/date box, a different concern from status/nearby badge content.
 
 ## Dev Notes
 
@@ -151,7 +151,7 @@ so that a third and future card surface (Story 1.i1f's `EventCardCalendarGridIte
 - [ ] `EventCard.tsx`'s masonry branch migrated; `distanceKm <=5` → `<8` fixed; unused `Navigation` import removed
 - [ ] `EventCard.types.ts`'s stale threshold JSDoc corrected
 - [ ] `EventCardMediaPrimitives.test.tsx`, `format-event-date.test.ts`, `EventCard.test.tsx` updated/extended
-- [ ] `festgrid-architecture-spine.md` updated with `### AD-24`
+- [x] `festgrid-architecture-spine.md` updated with `### AD-24`
 
 ## Out of Scope
 
