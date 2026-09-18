@@ -355,6 +355,9 @@ development_status:
   0-i6c-adopt-the-card-into-subscribed-accounts-settings-and-settle-the-detail-surface-variant: backlog
   0-i6d-route-accountavatar-border-through-the-cards-tokens: backlog
   0-i6f-platform-icon-fallback-and-functional-subscribe-unsubscribe-toggle: review
+  # added 2026-09-18 via bmad-correct-course (FIND-022 spec CAP-7); depends on
+  # 3-15/3-16 in epic-3, so cannot start before those land.
+  0-i6g-event-post-detail-coauthor-attribution-ui-with-confirm-then-refetch-toggle: backlog
   0-i6z-ratchet-no-display-surface-bypasses-the-card: backlog
   epic-0-i7: in-progress
   0-i7a-carry-confidence-and-country-bias-through-every-geoapify-response-mapper: review
@@ -1789,6 +1792,16 @@ development_status:
   # story's creation in the same session. See 3-12-consolidate-account-
   # settings-into-a-tabbed-shell.md.
   3-12-consolidate-account-settings-into-a-tabbed-shell: review
+  # added 2026-09-18 via bmad-correct-course (FIND-022 spec, CAP-1..6/8). 3-15 is
+  # blocked pending a bmad-architecture pass on the post_account_associations
+  # table's uniqueness-constraint DDL -- see epics.md Story 3.15's Architecture note.
+  3-13-normalize-apify-vendor-coauthor-publisher-roles-during-ingestion: backlog
+  3-14-deduplicated-provenance-tracked-subscribable-profiles: backlog
+  3-15-post-account-association-table-lossless-migration: blocked
+  3-16-immediate-coauthor-publisher-subscribability: backlog
+  3-17-demand-gated-discovery-for-scrape-discovered-profiles: backlog
+  3-18-union-of-associations-account-filtering: backlog
+  3-19-sanitized-subscription-toggle-analytics: backlog
   epic-3-retrospective: optional
   epic-4: in-progress
   # regenerated 2026-08-11 via bmad-create-story: full context engine pass. Gate 1/3

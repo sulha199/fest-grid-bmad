@@ -688,6 +688,26 @@ interface SocialMediaAccountProfile {
    * `free_user` subscription cap (Section 6) if the owner also subscribes.
    */
   claimedByUserId?: string;
+  /**
+   * When this identity was first observed by any scrape/ingestion run, and when it was
+   * most recently re-observed (added 2026-09-18, `bmad-correct-course`, FIND-022 CAP-2,
+   * Story 3.14). Retained regardless of subscription status.
+   */
+  firstSeen?: string;
+  lastSeen?: string;
+  /**
+   * Which vendor/run first surfaced this identity — provenance for moderation/analytics
+   * (FIND-022 CAP-2, Story 3.14).
+   */
+  discoverySource?: { vendor: string; runId?: string };
+  /**
+   * Gates broad account autocomplete/ranked-discovery surfaces (FIND-022 CAP-5, Story
+   * 3.17). `false` for a freshly scrape-discovered profile until a subscribe or vote
+   * signals intentional demand — never blocks direct/contextual subscription (e.g. from
+   * an event/post detail page, Story 3.16). Defaults to `true` for a profile a user
+   * subscribed to directly (the pre-existing, non-discovered path).
+   */
+  isVerifiedForDiscovery: boolean;
 }
 ```
 
@@ -750,7 +770,13 @@ interface Post {
    */
   isExtracted?: boolean;
   /**
-   * The ID of the `SocialMediaAccountProfile` (Section 4.5) that published this post.
+   * The ID of the `SocialMediaAccountProfile` (Section 4.5) whose subscription/scrape job
+   * triggered this post's ingestion — the *scraping-source* account, which is not always
+   * the post's actual publisher (a repost/native-collab post can surface under a different
+   * account's feed than the one that authored it; added clarification 2026-09-18,
+   * `bmad-correct-course`, FIND-022 — this field's persisted meaning is unchanged, only
+   * this comment was corrected). See `PostAccountAssociation` (Section 4.7a) for the
+   * verified publisher/coauthor identities, added by Epic 3's FIND-022 stories (3.13-3.19).
    */
   accountId: string;
   /**
@@ -760,6 +786,35 @@ interface Post {
    * signal in a future pass.
    */
   hashtags?: string[];
+}
+```
+
+### 4.7a. PostAccountAssociation Interface
+
+```typescript
+/**
+ * One (post, account) role association — the normalized replacement for treating
+ * `Post.accountId` as a post's sole identity (added 2026-09-18, `bmad-correct-course`,
+ * FIND-022; see Epic 3 Stories 3.13-3.19). A post may have zero-or-more `COAUTHOR`
+ * associations, exactly one `PUBLISHER` (or `PUBLISHER_UNKNOWN` for pre-migration/legacy
+ * rows, Story 3.15) association, and exactly one `SCRAPING_SOURCE` association (may equal
+ * the publisher). Never inferred from vendor producer-array order — always read from each
+ * vendor's explicit role-bearing fields (Story 3.13).
+ */
+interface PostAccountAssociation {
+  id: string;
+  postId: string;
+  /**
+   * The ID of the associated `SocialMediaAccountProfile` (Section 4.5).
+   */
+  accountId: string;
+  role: 'PUBLISHER' | 'COAUTHOR' | 'SCRAPING_SOURCE' | 'PUBLISHER_UNKNOWN';
+  /**
+   * Which vendor/run surfaced this association — retained for moderation/analytics
+   * queries, not just for the account-filtering path (Story 3.18).
+   */
+  discoverySource?: { vendor: string; runId?: string };
+  createdAt: string;
 }
 ```
 

@@ -1260,3 +1260,22 @@ items:
      touches: [app:backend],
      note: "Fixed 2026-09-18: added eq(apiKeys.userId, authUser.userId) to the duplicate-key check, which previously compared across all users. Full detail in backlog/BUG-037-createapikey-duplicate-check-cross-user.md."}
 
+  # ── 2026-09-18 (bmad-correct-course, FIND-022's spec-post-coauthor-attribution) ──
+  CC-022:
+    {type: proposal, status: triaged, created: 2026-09-18,
+     title: "Land FIND-022's coauthor/publisher attribution spec as new stories in epic-3 and epic-0-i6",
+     ref: [backlog/FIND-022-coauthor-content-issues.md,
+           specs/spec-post-coauthor-attribution/SPEC.md,
+           planning-artifacts/sprint-change-proposal-2026-09-18.md],
+     touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
+     impact: user-visible, effort: l,
+     note: "Adds epics.md Stories 3.13-3.19 (CAP-1..6/8) + 0.i6g (CAP-7); amends 0.i6c/0.i6z; PRD Post.accountId comment fixed + new PostAccountAssociation interface. Story 3.15 blocked pending bmad-architecture (DDL). See FIND-039 for the carved-out Bright Data gap."}
+
+  FIND-039:
+    {type: finding, status: backlog, created: 2026-09-18, parent: CC-022,
+     impact: user-visible, effort: s,
+     title: "Bright Data's coauthor_producers field shape is unverified -- its cited fixture no longer exists on disk",
+     ref: [specs/spec-post-coauthor-attribution/vendor-role-mapping.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Carved from CC-022/FIND-022: explicitly out of scope for Story 3.13 (Apify-only). Needs a fresh real Bright-Data coauthored-post capture before any Bright-Data-side role-normalization story can be written."}
+

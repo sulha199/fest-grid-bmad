@@ -3064,6 +3064,138 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 0.29, Story 3.1b, Story 3.2, Story 3.9a, Story 5.1, Story 2.9, Story 2.8.
 
+### Story 3.13: Normalize Apify vendor coauthor/publisher roles during ingestion
+
+**As a** system,
+**I want** the ingestion pipeline to classify each Apify-sourced post's payload identities into the scraping-source, canonical-publisher, and coauthor axes using each vendor's explicit role-bearing fields — never producer-array order or position,
+**So that** a repost/native-collab post's actual publisher and coauthors are captured instead of being silently collapsed into the scraping-source account (FIND-022, CAP-1).
+
+**Acceptance Criteria:**
+
+*   **Given** a real `apify/instagram-post-scraper` payload with `ownerId`/`ownerUsername`/`ownerFullName` and a populated `coauthorProducers[]` array (verified evidence: `vendor-role-mapping.md`, runs `run-04`/`run-06`),
+*   **When** `mapApifyItemToScrapedPost` (`apps/backend/src/lib/scraper/instagram-adapter.ts`) processes it,
+*   **Then** the result carries a role-tagged canonical-publisher identity (from `ownerId`/`ownerUsername`/`ownerFullName`) distinct from each coauthor identity (from `coauthorProducers[]`) and from the triggering subscription/scraping-source account.
+*   **And** `taggedUsers[]` is never read as a coauthor source — confirmed a materially different (mentioned/tagged, not co-produced) relationship, per `vendor-role-mapping.md`.
+*   **And** a `coauthorProducers[]` entry missing a stable `id` is captured via the existing `persistUnprocessedPayload` mechanism (Story 3.4h) rather than silently dropped or defaulted.
+*   **And** Bright Data payloads are explicitly **not** touched by this story — `coauthor_producers`'s exact field shape is unverified (its cited fixture no longer exists on disk, per `vendor-role-mapping.md`); Bright Data-side role normalization is out of scope here and blocked on a fresh real-payload capture (see this story's Note).
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec (`_bmad-output/specs/spec-post-coauthor-attribution/`), CAP-1. Scoped to Apify only, matching the spec's own non-goal ("Verifying or re-deriving Bright Data's exact `coauthor_producers` field shape... Bright Data-side adapter work waits on a fresh real payload capture"). A follow-up Bright Data story should be raised once that capture exists — do not retrofit this story's Apify-derived role logic onto Bright Data's unverified shape by analogy.
+
+**Depends on:** Story 3.3c, Story 3.4d, Story 3.4h.
+
+### Story 3.14: Deduplicated, provenance-tracked subscribable profiles
+
+**As a** system,
+**I want** every publisher/coauthor identity with a stable platform account ID to get or reuse exactly one `SocialMediaAccountProfile` row (unique on `platform` + `accountId`), created unsubscribed by default and carrying `firstSeen`/`lastSeen`/`discoverySource` (PRD §4.5), while an identity with no stable accountId is retained only as an internal, non-public, non-subscribable, non-searchable provisional record,
+**So that** re-scraping the same coauthor across many posts never creates duplicate profiles, and a malformed/ambiguous identity is observable rather than silently discarded (FIND-022, CAP-2).
+
+**Acceptance Criteria:**
+
+*   **Given** Story 3.13's normalized publisher/coauthor identities for a post,
+*   **When** an identity with a stable `accountId` is processed,
+*   **Then** it gets-or-creates exactly one `social_media_account_profiles` row (Story 3.1a's lookup-or-create logic, extended) with `lastSeen` advanced to now and `firstSeen` left unchanged if the row already existed, or both set to now if newly created.
+*   **And** a newly created profile from this path defaults `isVerifiedForDiscovery: false` (PRD §4.5, wired into Story 3.17) and is unsubscribed by default — no `subscriptions` row is created for anyone.
+*   **And** `displayName` is populated via the existing `AccountProfileLookupResult` fallback chain (`item.fullName || item.displayName || item.name || item.username`, `instagram-adapter.ts`'s `lookupAccountProfile`) when Apify's `coauthorProducers` supplies no full name — never a null insert (PRD §4.5's `displayName` is `NOT NULL`).
+*   **And** an identity with no stable `accountId` (caption-only mention, or a malformed entry missing `id` per Story 3.13) never creates a public `social_media_account_profiles` row; it is retained only in the existing `persistUnprocessedPayload`/provisional-record path, backfillable into a real profile once a platform ID is later known.
+*   **And** `discoverySource` (`{ vendor, runId }`) is recorded on first creation and never overwritten by a later re-observation.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-2 (including the Pass-2 self-validate amendment folding in discovery provenance and observable-malformed-payload handling).
+
+**Depends on:** Story 3.13, Story 3.1a, Story 3.4h.
+
+### Story 3.15: Post-account association table + lossless migration
+
+**As a** system,
+**I want** a new `post_account_associations` table recording one row per (post, account) pair with an explicit role (`PUBLISHER`, `COAUTHOR`, `SCRAPING_SOURCE`, `PUBLISHER_UNKNOWN`) and provenance (PRD §4.7a), while `posts.accountId` stays unchanged for backward compatibility,
+**So that** a post's full set of verified identities is queryable for filtering (Story 3.18), moderation, and analytics — not collapsed into one column — without rewriting or reinterpreting any existing post's historical ownership (FIND-022, CAP-3).
+
+**Acceptance Criteria:**
+
+*   **Given** the `posts` table (Story 3.3a) and Story 3.14's deduplicated profiles,
+*   **When** the migration runs over existing production posts,
+*   **Then** it adds exactly one `SCRAPING_SOURCE`- or `PUBLISHER_UNKNOWN`-role association per existing row, derived only from `posts.accountId` — with zero data loss and no ownership rewritten or guessed from unavailable vendor evidence.
+*   **And** a newly ingested post (post-migration) gets exactly one `PUBLISHER` association plus N `COAUTHOR` associations matching Story 3.13/3.14's normalized identities, all independently queryable by role.
+*   **And** `posts.accountId` continues to be populated for new posts, but only from the verified canonical publisher after role normalization — never from producer-array order (unchanged behavior, now made explicit).
+*   **And** writing associations for a re-ingested post (matching `persistScrapedPost`'s existing dedupe-by-`postUrl` behavior) is idempotent — re-processing never appends duplicate role rows for the same (post, account, role).
+*   **And** association rows remain queryable independent of Story 3.18's filtering path, supporting moderation/analytics use.
+
+**Architecture note:** The table's exact uniqueness-constraint DDL (`post_id + account_id + role` vs. `post_id + account_id`) is deliberately left open by the spec and is the reason a `bmad-architecture` pass was requested for this slice before `bmad-create-story` elaborates this story — see this Sprint Change Proposal's Section 5 (Implementation Handoff). Only the idempotency-under-re-ingestion behavior above is fixed; the DDL shape is not.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-3.
+
+**Depends on:** Story 3.3a, Story 3.14, and the `bmad-architecture` output for this slice (DDL).
+
+### Story 3.16: Immediate coauthor/publisher subscribability
+
+**As a** user,
+**I want** to subscribe to a coauthor or publisher profile with a stable accountId directly from event/post detail (or a direct account-ID lookup), through the existing subscription contract,
+**So that** I don't have to wait for someone to separately discover and scrape that account before I can subscribe to it (FIND-022, CAP-4).
+
+**Acceptance Criteria:**
+
+*   **Given** a coauthor profile created via Story 3.14, never itself directly scraped,
+*   **When** a user subscribes to it via the existing `subscribeToAccount` mutation (Story 3.1a/3.1),
+*   **Then** the subscription succeeds through the unmodified existing contract.
+*   **And** that coauthor's own feed begins populating through the existing initial-scrape/classification flow (Stories 3.4/3.4a), triggered the same way a directly-added subscription triggers it today.
+*   **And** this story stays cap-agnostic per the spec's constraint — it does not implement or hardcode `MAX_SUBSCRIBED_ACCOUNTS_FREE_USER` (IDEA-008's scope) but does surface IDEA-008's typed cap error, if returned, through the same error-handling path Story 3.2's subscribe action already uses — no new shared-component redesign needed when IDEA-008 ships.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-4.
+
+**Depends on:** Story 3.2, Story 3.14.
+
+### Story 3.17: Demand-gated discovery for scrape-discovered profiles
+
+**As a** user,
+**I want** broad account autocomplete/ranked-discovery surfaces to exclude a verified scrape-discovered profile until a subscribe or vote signals real demand for it,
+**So that** discovery surfaces aren't polluted by every coauthor incidentally surfaced by scraping, while that profile stays immediately subscribable in its originating context (FIND-022, CAP-5).
+
+**Acceptance Criteria:**
+
+*   **Given** a freshly created coauthor profile (`isVerifiedForDiscovery: false`, Story 3.14),
+*   **When** any broad account autocomplete/ranked-discovery surface queries candidate accounts,
+*   **Then** the profile is excluded until at least one subscribe (Story 3.16) or vote event exists for it, at which point `isVerifiedForDiscovery` flips to `true` and it becomes eligible.
+*   **And** this exclusion never blocks contextual subscription from the originating event/post detail surface (Story 3.16, Story 0.i6g) — the gate applies only to broad discovery, not direct/contextual access.
+*   **And** a profile a user subscribed to directly (the pre-existing, non-discovery-sourced path) defaults `isVerifiedForDiscovery: true` and is unaffected by this gate.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-5. Explicitly not a new moderation system (spec non-goal) — this is a visibility gate, not content review.
+
+**Depends on:** Story 3.14, Story 3.16.
+
+### Story 3.18: Union-of-associations account filtering
+
+**As a** user,
+**I want** account-based filtering (e.g. the subscribed-accounts feed filter, Story 3.7b) to match the union of a post's active `PUBLISHER`, `COAUTHOR`, and `SCRAPING_SOURCE` associations, not just the legacy `posts.accountId` column,
+**So that** I see a coauthor's posts in my filtered feed even when I'm subscribed only to that coauthor and never to the scraping-source account (FIND-022, CAP-6).
+
+**Acceptance Criteria:**
+
+*   **Given** a user subscribed only to a coauthor account (Story 3.16), never to the post's scraping-source account,
+*   **When** that user applies an account filter to their feed (Story 3.7b's existing filter),
+*   **Then** the coauthor's co-authored posts appear in the filtered results, matched via the post's `COAUTHOR` association (Story 3.15) rather than `posts.accountId`.
+*   **And** existing subscribed-feed behavior for `PUBLISHER`/`SCRAPING_SOURCE`-only posts (today's only case) is unchanged — this is a strict addition, not a behavior change for posts without coauthors.
+*   **And** `Query.events`/`getEvents`'s existing per-row-cost discipline (Architecture Spine AD-17, `project-context.md`) is preserved — the association join must not introduce a new unconditional per-row secondary query; batch/join per the `buildOptimizedDrizzleSelect` pattern.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-6.
+
+**Depends on:** Story 3.15, Story 3.7b.
+
+### Story 3.19: Sanitized subscription-toggle analytics
+
+**As a** system,
+**I want** Story 0.i6g's subscribe/unsubscribe toggle to emit PostHog `subscription_toggle_succeeded`/`subscription_toggle_failed` events carrying only `action`, `platform`, `source`, and (on failure) a sanitized backend `errorCode`,
+**So that** toggle usage is measurable without ever capturing raw handles, account IDs, captions, or post content (FIND-022, CAP-8).
+
+**Acceptance Criteria:**
+
+*   **Given** a user activates Story 0.i6g's subscribe/unsubscribe toggle,
+*   **When** the mutation resolves,
+*   **Then** exactly one `subscription_toggle_succeeded` (on success) or `subscription_toggle_failed` (on failure, with a sanitized `errorCode`) PostHog event is emitted.
+*   **And** a schema/allowlist test asserts the captured payload for either event name contains only the four allowed fields (`action`, `platform`, `source`, `errorCode`) — no raw handle, account ID, caption, or post content field is present, even accidentally via a spread.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-8.
+
+**Depends on:** Story 0.i6g.
+
 ### Epic 4: Data Quality and Moderation
 
 Users can contribute to data quality by correcting event details and reporting issues.
@@ -4315,7 +4447,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 ### Story 0.i6c: Adopt the card into Subscribed Accounts settings, and settle the detail-surface variant
 
 **As a** developer,
-**I want** the Subscribed Accounts settings list to render through `SubscribedAccountCard` while keeping its shipped `SwipeToReveal`+`Trash2` delete affordance, and — if `SubscribedAccountCard` is also the component behind FIND-022's "shared-account-info" pattern on event/post detail — a context/variant prop so list context gets the swipe-to-reveal delete and detail context gets the subscribe/unsubscribe toggle,
+**I want** the Subscribed Accounts settings list to render through `SubscribedAccountCard` while keeping its shipped `SwipeToReveal`+`Trash2` delete affordance, plus a context/variant prop so list context gets the swipe-to-reveal delete and detail context gets the subscribe/unsubscribe toggle,
 **So that** the settings list's shipped convention is not disturbed, and the detail-surface convention (a separate, narrower question) is settled by a props decision rather than by picking one convention to win across both surfaces.
 
 **Acceptance Criteria:**
@@ -4323,7 +4455,9 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **Given** the Subscribed Accounts settings list,
 *   **When** it adopts the card,
 *   **Then** it keeps the shipped `SwipeToReveal`+`Trash2` delete affordance — this is not in tension with anything and is not replaced.
-*   **And** if the event/post-detail "shared-account-info" surface (FIND-022) uses the same card, it does so via a context/variant prop selecting the subscribe/unsubscribe toggle, not the swipe-to-reveal delete.
+*   **And** the card exposes a context/variant prop selecting the subscribe/unsubscribe toggle instead of the swipe-to-reveal delete, consumed by Story 0.i6g's event/post-detail attribution surface.
+
+**Update 2026-09-18 (`bmad-correct-course`, FIND-022):** This story's own conditional framing ("if `SubscribedAccountCard` is also the component behind FIND-022's 'shared-account-info' pattern...") is now resolved: it is. `SubscribedAccountCard` is confirmed as the component Story 0.i6g adopts for event/post-detail coauthor attribution — this story's context/variant prop is a direct prerequisite for 0.i6g, not a speculative branch.
 
 **Depends on:** Story 0.i6a.
 
@@ -4379,6 +4513,26 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** none (no code-level dependency on 0.i6a's narrowed remaining scope).
 
+### Story 0.i6g: Event/post-detail coauthor attribution UI with confirm-then-refetch toggle
+
+**As a** user,
+**I want** event/post detail to show the post's posted-at timestamp and render each coauthor below the original-post link as a `SubscribedAccountCard`, with a working subscribe/unsubscribe toggle for verified profiles,
+**So that** I can see and act on a post's actual coauthors, not just the account I happened to be subscribed to (FIND-022, CAP-7).
+
+**Acceptance Criteria:**
+
+*   **Given** an event/post detail view for a post with 2+ `COAUTHOR` associations (Story 3.15),
+*   **When** the page renders,
+*   **Then** it shows the post's posted-at timestamp via the existing locale-aware `Intl.DateTimeFormat` pattern (`project-context.md`'s Locale-Sensitive Data Rendering rule, `EventCard.tsx`'s `formattedDate`) — no new formatter.
+*   **And** each coauthor renders as a `SubscribedAccountCard` row below the original-post link, using the detail-context variant Story 0.i6c's context/variant prop provides (subscribe/unsubscribe toggle, not swipe-to-reveal delete).
+*   **And** a verified coauthor/publisher profile (Story 3.14) exposes an accessible subscribe/unsubscribe icon toggle that is **confirm-then-refetch**, not optimistic: confirming the mutation, refetching/invalidating authoritative state on success, and restoring prior state on failure — the scoped exception now ratified in `project-context.md`'s UI Patterns section (added by this same course-correction). This deviates deliberately from this app's default optimistic-mutation convention (e.g. `toggleFavorite`'s ±1 pattern, BUG-008/Story 2.i1a) for this toggle only.
+*   **And** a provisional identity (no stable accountId, Story 3.14) renders display-only — no toggle at all.
+*   **And** subscribing to a coauthor here calls Story 3.16's unmodified `subscribeToAccount` contract, not a duplicate mutation.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-7. Homed under Epic 0.i6 rather than Epic 3 or Epic 1 — this is an adoption of the shared card contract onto a new surface, the same class of change Stories 0.i6b/0.i6c/0.i6d/0.i6e/0.i6f already established as this epic's pattern, and epics.md's own prior note on Story 0.i6a anticipated exactly this landing spot. The confirm-then-refetch-vs-optimistic UI-convention conflict flagged as an open question in the spec is adjudicated by this same Sprint Change Proposal as a scoped exception (see `project-context.md`), not reopened as a broader convention change.
+
+**Depends on:** Story 0.i6c, Story 3.15, Story 3.16.
+
 ### Story 0.i6z: Ratchet — no display surface bypasses the card
 
 **As a** developer,
@@ -4389,13 +4543,13 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 *   **Given** the full codebase,
 *   **When** the repo-wide sweep test runs in CI,
-*   **Then** it fails if any file in post-selection, settings/account/subscriptions, or subscriptions renders raw account-avatar+name markup outside `SubscribedAccountCard`.
+*   **Then** it fails if any file in post-selection, settings/account/subscriptions, subscriptions, or event/post detail renders raw account-avatar+name markup outside `SubscribedAccountCard`.
 *   **And** a test asserts the card renders a defined fallback for degenerate input.
 *   **And** a test asserts the `size="lg"` variant scales its adjacent text.
 
-**Depends on:** Stories 0.i6a, 0.i6b, 0.i6c, 0.i6d, 0.i6e, 0.i6f.
+**Depends on:** Stories 0.i6a, 0.i6b, 0.i6c, 0.i6d, 0.i6e, 0.i6f, 0.i6g.
 
-**Note:** Formed 2026-09-08 via `bmad-form-epics` from FIND-011 (fractional, see Story 0.i6a), BUG-005, FIND-012. Internal only for all three — UI consistency, no PRD/spine interface change. Story 0.i6f added to this Depends-on list 2026-09-16 upon joining the epic (see its own Note).
+**Note:** Formed 2026-09-08 via `bmad-form-epics` from FIND-011 (fractional, see Story 0.i6a), BUG-005, FIND-012. Internal only for all three — UI consistency, no PRD/spine interface change. Story 0.i6f added to this Depends-on list 2026-09-16 upon joining the epic (see its own Note). Story 0.i6g (event/post-detail surface, FIND-022) added to this Depends-on list and to the sweep's covered-surfaces list 2026-09-18 via `bmad-correct-course`.
 
 ---
 
