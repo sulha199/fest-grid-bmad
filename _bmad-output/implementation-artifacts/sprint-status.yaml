@@ -292,6 +292,13 @@ development_status:
   # simply omitted (not an error) when no filter is active. See epics.md Story 0.39 and
   # backlog.yaml IDEA-040.
   0-39-ambient-viewer-location-capability: backlog
+  # added 2026-09-18 via bmad-create-story while drafting 1-i1k: wiring that story's
+  # own FIND-025-finding-(2) lint guard required giving packages/ui its first-ever
+  # `lint` script, which revealed the package has never been linted in CI at all
+  # (no eslint.config.mjs, no lint script, unlike every sibling package). Retroactive
+  # full-ruleset enablement is a real, unbounded-size infra gap -- not folded into
+  # 1-i1k's own narrowly-scoped guard. See epics.md Story 0.40 and backlog.yaml FIND-035.
+  0-40-wire-up-packages-ui-eslint-configuration: backlog
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
