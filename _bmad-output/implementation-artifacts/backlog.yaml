@@ -661,7 +661,7 @@ items:
      ref: [],
      stories: [0-i5b-adopt-the-controller-in-discovery-event-list-surfaces],
      touches: [web:events, pkg:ui],
-     note: "CAUTION: Story 0.i5b's fix targeted a remount hypothesis not actually present in the code -- original symptom not independently re-verified. Real root cause found/fixed via sibling BUG-031 (sentinel height collapse); not re-confirmed against this row's exact repro. Full trail in Story 0.i5b's Dev Notes."}
+     note: "CAUTION: Story 0.i5b's fix targeted a hypothesis not present in the code; symptom not independently re-verified. Real fix was via sibling BUG-031 (sentinel height collapse), not re-confirmed against this row's repro. Full trail in Story 0.i5b's Dev Notes."}
 
   BUG-019:
     {type: bug, status: promoted, created: 2026-09-07, epic: epic-0-i5,
@@ -773,7 +773,7 @@ items:
      title: "Broken/expired event image should render nothing, not the current 'image not available' placeholder",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [pkg:ui, web:events/EventCard, web:events/WeeklyCalendarView],
-     note: "Story 1.i1c closed the EventCard half (blank correctly-sized fallback, all variants). Masonry large-favorite-badge treatment tracked separately as IDEA-017->1.i1e; WeeklyCalendarView half as IDEA-016->1.i1d -- re-open only if either drops this finding's content. Full detail in Story 1.i1c's Dev Notes."}
+     note: "Story 1.i1c closed the EventCard half (blank correctly-sized fallback). Masonry badge treatment: IDEA-017->1.i1e; WeeklyCalendarView half: IDEA-016->1.i1d -- reopen only if either drops this content. Full detail in Story 1.i1c's Dev Notes."}
 
   IDEA-016:
     {type: idea, status: promoted, epic: epic-1-i1, created: 2026-09-11, parent: CC-019,
@@ -782,7 +782,7 @@ items:
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView, cross:ux-tokens],
      stories: [1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row],
-     note: "Story 1.i1d delivered thumbnail+fallback+date box on CalendarCard variant='list'; status/nearby badges explicitly out of scope, carved to IDEA-025. AMENDED 2026-09-14: 3 corrections found during prototyping (two-tier date box, 2-line title, no-reserved-slot fallback) not yet folded into a story amendment. Full detail in Story 1.i1d's Dev Notes."}
+     note: "Story 1.i1d delivered thumbnail+fallback+date box on CalendarCard variant='list'; badges carved to IDEA-025. AMENDED 2026-09-14: 3 prototyping corrections not yet folded into a story amendment. Full detail in Story 1.i1d's Dev Notes."}
 
   IDEA-017:
     {type: idea, status: promoted, epic: epic-1-i1, created: 2026-09-11, parent: CC-019,
@@ -791,7 +791,7 @@ items:
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [pkg:ui, web:events/EventCard, cross:ux-tokens],
      stories: [1-i1e-adopt-the-primitive-into-the-masonry-default-state],
-     note: "Story 1.i1e delivered the promoted scope (date-box-beside-thumbnail for prominentPoster=false + TILL-badge restyle both states); no residual scope, no child row. AMENDED 2026-09-14: 7 further refinements found during HTML/Tailwind prototyping (see CC-019's amendment note) post-date 1.i1e and are not yet folded into a story amendment. Full detail in Story 1.i1e's Dev Notes."}
+     note: "Story 1.i1e delivered the promoted scope (date-box-beside-thumbnail + TILL-badge restyle); no child row. AMENDED 2026-09-14: 7 prototyping refinements (see CC-019) post-date 1.i1e, not yet folded into a story amendment. Full detail in Story 1.i1e's Dev Notes."}
 
   # ── 2026-09-11 (bmad-help scraper-webhook-token-bug session) ────────────────
   IDEA-018:
@@ -893,7 +893,7 @@ items:
      title: "Add status/nearby badges to the WeeklyCalendarView compact row's content column, reusing event_card_status_badge/event_card_nearby_badge as-is",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView],
-     note: "Story 1.i1j delivers full scope (status+nearby badges on WeeklyCalendarView compact row, AD-22 computeDistanceKm). Carved: badge-markup dedup -> IDEA-041 (->1.i1i, new prerequisite); EventCardDateBox two-tier chrome -> IDEA-042 (->1.i1k). Not yet implementable pending 1.i1f/1.i1i. Full trail in Story 1.i1j's Dev Notes."}
+     note: "Story 1.i1j delivers full scope (status+nearby badges, AD-22 computeDistanceKm). Carved: badge-markup dedup -> IDEA-041 (1.i1i); date-box chrome -> IDEA-042 (1.i1k). Not yet implementable pending 1.i1f/1.i1i. Full trail in Story 1.i1j's Dev Notes."}
 
   IDEA-041:
     {type: idea, status: promoted, epic: epic-1-i1, created: 2026-09-17, parent: IDEA-025,
@@ -964,7 +964,7 @@ items:
      title: "Favorite-badge min-height clamp may bleed into caption content on a very short date box; no lint guard against reintroducing a dynamically-interpolated Tailwind class",
      ref: [implementation-artifacts/deferred-work.md],
      touches: [pkg:ui, web:events/EventCard, cross:ux-tokens, cross:process],
-     note: "Deferred from: quick-dev fix of eventcard-favorite-badge-clipping (2026-09-14). Both findings folded into Story 1.i1k's scope (EventCardDateBox variant migration + no-dynamic-Tailwind-arbitrary-value ESLint rule); closes when 1.i1k is done. Surfaced a separate gap (packages/ui has no lint config) tracked as FIND-035 -> Story 0.41. Full history in Story 1.i1k's Dev Notes."}
+     note: "Deferred from: quick-dev fix of eventcard-favorite-badge-clipping (2026-09-14). Both findings folded into Story 1.i1k (date-box variant migration + no-dynamic-Tailwind lint rule). Surfaced FIND-035 (packages/ui has no lint config) -> Story 0.41. Full history in Story 1.i1k's Dev Notes."}
 
   # ── 2026-09-14 (bmad-png-to-html UX design pass — masonry/calendar-row/calendar-grid-item) ─
   FIND-026:

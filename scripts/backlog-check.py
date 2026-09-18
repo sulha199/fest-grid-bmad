@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Deterministic runner for the backlog board's integrity checks and lenses.
 
-Implements checks 1-14 and the lens table from
+Implements checks 1-15 and the lens table from
 `_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-13 follow
-`planning-artifacts/epic-formation-gate.md`; check 14 enforces §12's deferral-intake rule).
+`planning-artifacts/epic-formation-gate.md`; check 14 enforces §12's deferral-intake rule;
+check 15 is the mechanical backstop for §3's "note is one line" rule -- see
+`scripts/sprint-status-comment-check.py`'s docstring for the sibling problem this mirrors:
+`sprint-status.yaml`'s `last_updated` comment grew the same way before that guardrail existed).
 `bmad-sprint-status` runs this rather than re-deriving the checks from prose: a subtly wrong
 reimplementation reports "clean" on a broken board, which is worse than no check.
 
@@ -40,6 +43,23 @@ STORY_UNSTARTED = {"backlog", "ready-for-dev"}
 
 # §5 — a skip states which kind it is; only a cost: skip can be reopened on price.
 SKIP_REASON = re.compile(r"^\s*(cost|value):", re.I)
+
+# Check 15 — mirrors scripts/sprint-status-comment-check.py's DEFAULT_MAX_LEN. A note past
+# this length is no longer "one line". Kept generous rather than tight: the point is to
+# catch essay-length drift early, not to fight over single-sentence phrasing.
+NOTE_MAX_LEN = 300
+
+# Check 15 — each of these markers is a session appending IN PLACE onto an existing note
+# rather than writing a fresh one-liner (the exact mechanism that produced the 8.6KB/5.9KB/
+# ...  essays trimmed 2026-09-18). One is normal — a row often gets exactly one status
+# update. Two or more means the note has become a running log; that history belongs in the
+# story's Dev Notes (promoted rows) or a tier-1 backlog/<ID>-slug.md file (everything else),
+# per backlog-spec.md §2/§3, not in the board.
+ACCUMULATION_MARKERS = re.compile(
+    r"\b(AMENDED|PROMOTED|RESOLVED|VERIFIED|FIXED|DONE|SUPERSEDED|RESEARCHED|IMPLEMENTED|"
+    r"EXTENDED|RE-SCOPED|RESCOPED|DUPLICATE|DRAFTED|ARCHITECTURE RESOLVED|UX RESOLVED|"
+    r"UX DESIGNED|OPEN RESEARCH ITEM)\b"
+)
 
 
 def load_board():
@@ -169,6 +189,22 @@ def run_checks(items, tags, stories):
         # Check 12 — a skip's note says which reason, because only a cost: skip reopens.
         if status == "skipped" and not SKIP_REASON.match(row.get("note") or ""):
             fail(12, key, "skipped note does not open with 'cost:' or 'value:'")
+
+        # Check 15 — note is one line, not a running log. Two triggers, either one fails:
+        # length past NOTE_MAX_LEN, or >1 accumulation marker (AMENDED/PROMOTED/...),
+        # since the marker count catches the pattern one append before length alone would.
+        note = row.get("note") or ""
+        note_len = len(note)
+        marker_hits = len(ACCUMULATION_MARKERS.findall(note))
+        if note_len > NOTE_MAX_LEN or marker_hits > 1:
+            reason = []
+            if note_len > NOTE_MAX_LEN:
+                reason.append(f"{note_len} chars > {NOTE_MAX_LEN}")
+            if marker_hits > 1:
+                reason.append(f"{marker_hits} accumulation markers")
+            fail(15, key, f"note is not one line ({'; '.join(reason)}) -- move detail to "
+                          f"the story's Dev Notes (if promoted) or backlog/<ID>-slug.md, "
+                          f"leave one fact here")
 
         # Checks 10-11 — epic formation (epic-formation-gate.md).
         epic = row.get("epic")
@@ -424,7 +460,7 @@ def main():
         for num, row, msg in sorted(failures):
             print(f"  check {num}  [{row}] {msg}")
     else:
-        print("checks 1-14: clean")
+        print("checks 1-15: clean")
 
     if args.quiet:
         return len(failures)
