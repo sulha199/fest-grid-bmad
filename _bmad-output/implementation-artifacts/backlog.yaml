@@ -1005,25 +1005,30 @@ items:
 
   # ── 2026-09-15 (bmad-agent-architect getEvents review) ──────────────────────
   BUG-030:
-    {type: bug, status: triaged, created: 2026-09-15,
+    {type: bug, status: promoted, created: 2026-09-15,
      impact: user-visible, effort: m,
      title: "getEvents N+1: schedules/favoriteCount/isFavorited resolved per-row instead of batched, on the highest-traffic query",
      ref: [_bmad-output/project-context.md, planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md, backlog/BUG-030-getevents-n-plus-1.md],
+     stories: [1-3j-batch-computed-event-fields-and-gate-totalcount-staletime],
      touches: [app:backend, web:events/getEvents, pkg:graphql-select, cross:architecture],
-     note: "Documented as a standing rule in project-context.md and the PRD's NFR Performance section; not yet scoped into a story. Full trace in backlog/BUG-030-getevents-n-plus-1.md."}
+     note: "Documented as a standing rule in project-context.md and the PRD's NFR Performance section. Full trace in backlog/BUG-030-getevents-n-plus-1.md."}
 
   FIND-027:
-    {type: finding, status: triaged, created: 2026-09-15,
+    {type: finding, status: promoted, created: 2026-09-15,
      impact: internal, effort: xs,
      title: "getEvents computes totalCount via a second full query on every call, not gated by GraphQL field selection",
-     ref: [planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md], touches: [app:backend, web:events/getEvents],
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
+     stories: [1-3j-batch-computed-event-fields-and-gate-totalcount-staletime],
+     touches: [app:backend, web:events/getEvents],
      note: "Found via bmad-agent-architect review (2026-09-15). apps/backend/src/schema/resolvers.ts's `events` resolver (~3163-3170) runs a second query (count() with two left joins) unconditionally, even when the client doesn't select `totalCount` — the code already has a `// Note:` comment acknowledging this. Not currently wasted (Discovery/Feed/Favorites all request totalCount today), but unlike the item-list select it isn't gated by `info` field selection, so it silently becomes dead work the moment any consumer drops the field. Fix: check `info` for `totalCount` selection the same way buildOptimizedDrizzleSelect already does for `items`."}
 
   FIND-028:
-    {type: finding, status: triaged, created: 2026-09-15,
+    {type: finding, status: promoted, created: 2026-09-15,
      impact: internal, effort: xs,
      title: "Discovery/Feed/Favorites getEvents queries have no staleTime, refetching the heaviest endpoint on every remount/refocus",
-     ref: [planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md], touches: [web:events/getEvents],
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
+     stories: [1-3j-batch-computed-event-fields-and-gate-totalcount-staletime],
+     touches: [web:events/getEvents],
      note: "Found via bmad-agent-architect review (2026-09-15). The useInfiniteQuery/useQuery hooks in apps/web/src/app/[locale]/home-content.tsx, feed/feed-content.tsx, and favorites/favorites-content.tsx all omit `staleTime`, so React Query's default of 0 applies — every remount or window refocus on Discovery, Feed, or Favorites refires a request against getEvents, the highest-traffic endpoint in the app. A short staleTime (e.g. 30s) would cut request volume for normal tab-switching/navigation without materially staling the data."}
 
   BUG-031:
@@ -1073,12 +1078,13 @@ items:
      note: "Same N+1 class as BUG-030, bounded to one event's schedule count; same fix pattern (batch via known schedule ids or a DataLoader). Not yet scoped into a story. Full detail in backlog/BUG-033-schedule-isaddedtocalendar-n-plus-1.md."}
 
   BUG-034:
-    {type: bug, status: triaged, created: 2026-09-15,
+    {type: bug, status: promoted, created: 2026-09-15,
      impact: user-visible, effort: xs,
      title: "favorites has no index with eventId as a leading column — favoriteCount full-scans the table on every eventBySlug call",
      ref: [_bmad-output/project-context.md, planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md, backlog/BUG-034-favorites-missing-eventid-index.md],
+     stories: [1-3j-batch-computed-event-fields-and-gate-totalcount-staletime],
      touches: [pkg:database, app:backend],
-     note: "Fix: add a partial index on (eventId) WHERE deleted_at IS NULL, matching AD-8 rule 3's convention. Not yet scoped into a story. Full detail in backlog/BUG-034-favorites-missing-eventid-index.md."}
+     note: "Fix: add a partial index on (eventId) WHERE deleted_at IS NULL, matching AD-8 rule 3's convention. Full detail in backlog/BUG-034-favorites-missing-eventid-index.md."}
 
   FIND-030:
     {type: finding, status: triaged, created: 2026-09-15,
@@ -1165,7 +1171,7 @@ items:
            planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
      touches: [app:backend, web:events/getEvents, web:events/eventBySlug, web:events/EventDetailWrapper,
                pkg:graphql-select, pkg:database, cross:architecture],
-     note: "Amends Epic 1 directly (epics.md) with two new sequenced stories — 1.3j (Query.events batching: BUG-030, FIND-027, BUG-034, FIND-028) and 1.6c (eventBySlug/event-detail hardening: BUG-033, BUG-035, FIND-030) — per AD-17's decided mechanism (festgrid-architecture-spine.md) and this proposal's own resolution of BUG-035's fix shape (HydrationBoundary+dehydrate). Not yet promoted to a story file — bmad-create-story is Phase 3, a separate later session per event-pages-followthrough-plan.md."}
+     note: "Amends Epic 1 directly (epics.md) with two new sequenced stories — 1.3j (Query.events batching: BUG-030, FIND-027, BUG-034, FIND-028) and 1.6c (eventBySlug/event-detail hardening: BUG-033, BUG-035, FIND-030) — per AD-17's decided mechanism (festgrid-architecture-spine.md) and this proposal's own resolution of BUG-035's fix shape (HydrationBoundary+dehydrate). Story 1.3j (this proposal's first half) was promoted via bmad-create-story on 2026-09-19 — see BUG-030/FIND-027/BUG-034/FIND-028's own rows, now individually promoted. Story 1.6c (the eventBySlug/event-detail half) is not yet promoted to a story file."}
 
   CC-021:
     {type: proposal, status: triaged, created: 2026-09-15,

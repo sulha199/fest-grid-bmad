@@ -611,6 +611,14 @@ development_status:
   # status. No code change follows from this; left `done` since the story
   # itself was never reverted, only superseded.
   1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web: done
+  # epics.md section added 2026-09-15 via bmad-correct-course (CC-020,
+  # sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md),
+  # which deferred sprint-status.yaml registration to a later bmad-create-story
+  # session. Registered here 2026-09-19. Batches BUG-030/FIND-027/BUG-034/
+  # FIND-028 (AD-17 Story sequence item A) -- extends buildOptimizedDrizzleSelect
+  # with virtualFields, batches schedules/isFavorited/favoriteCount/
+  # isAddedToCalendar, gates totalCount, adds staleTime. See epics.md Story 1.3j.
+  1-3j-batch-computed-event-fields-and-gate-totalcount-staletime: ready-for-dev
   # added 2026-09-17 via bmad-create-story (IDEA-003, resolved via bmad-ux +
   # bmad-architecture AD-19): day-of-week recurrence occurrence-expansion +
   # event_card_repeat_badge across all 3 card families. See epics.md Story 1.3k.
