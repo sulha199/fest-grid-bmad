@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Deterministic runner for the backlog board's integrity checks and lenses.
 
-Implements checks 1-15 and the lens table from
+Implements checks 1-16 and the lens table from
 `_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-13 follow
 `planning-artifacts/epic-formation-gate.md`; check 14 enforces §12's deferral-intake rule;
-check 15 is the mechanical backstop for §3's "note is one line" rule -- see
-`scripts/sprint-status-comment-check.py`'s docstring for the sibling problem this mirrors:
-`sprint-status.yaml`'s `last_updated` comment grew the same way before that guardrail existed).
+check 15 is the mechanical backstop for §3's "note is one line" rule; check 16 is the
+same rule applied to the board's own header `last_updated` field -- see
+`scripts/sprint-status-comment-check.py`'s docstring for the sibling problem both mirror:
+`sprint-status.yaml`'s `last_updated` comment grew the same way before that guardrail existed,
+and this board's own `last_updated` field grew the same way before check 16 existed).
 `bmad-sprint-status` runs this rather than re-deriving the checks from prose: a subtly wrong
 reimplementation reports "clean" on a broken board, which is worse than no check.
 
@@ -66,7 +68,7 @@ def load_board():
     with open(BOARD, encoding="utf-8") as fh:
         board = yaml.safe_load(fh)
     tags = {f"{ns}:{s}" for ns, slices in board["tags"].items() for s in slices}
-    return board["items"], tags
+    return board["items"], tags, board.get("last_updated")
 
 
 def load_sprint_status():
@@ -129,7 +131,7 @@ def tag_prefix(tag: str) -> str:
     return tag.split("/", 1)[0]
 
 
-def run_checks(items, tags, stories):
+def run_checks(items, tags, stories, last_updated=None):
     failures = []
 
     def fail(num, row, msg):
@@ -279,6 +281,18 @@ def run_checks(items, tags, stories):
         if not any(h in note for h in headings):
             fail(14, key,
                  "note claims a deferred-work.md section that does not exist")
+
+    # Check 16 — the file header's own `last_updated` is the same field-level
+    # narrative-regrowth risk check 15 guards against per-row (and the one
+    # sprint-status-comment-check.py already guards on sprint-status.yaml's
+    # equivalent field): a bare ISO timestamp only, no accumulated changelog.
+    # This board's own last_updated grew to a multi-thousand-word running log
+    # before this check existed (trimmed 2026-09-19) -- that history is fully
+    # recoverable from git log, never re-accumulate it here.
+    if last_updated is not None and len(str(last_updated)) > NOTE_MAX_LEN:
+        fail(16, "-",
+             f"last_updated is {len(str(last_updated))} chars > {NOTE_MAX_LEN} -- it must be a "
+             f"bare ISO timestamp only (git history already has the narrative)")
 
     return failures
 
@@ -436,7 +450,7 @@ def main():
                     help="epic-formation candidate axes instead of the full report")
     args = ap.parse_args()
 
-    items, tags = load_board()
+    items, tags, last_updated = load_board()
     SPRINT_STATUS = load_sprint_status()
 
     lens_table = lenses(items)
@@ -454,7 +468,7 @@ def main():
         print_clusters(items, SPRINT_STATUS)
         return 0
 
-    failures = run_checks(items, tags, SPRINT_STATUS)
+    failures = run_checks(items, tags, SPRINT_STATUS, last_updated)
     if failures:
         print("CHECK FAILURES")
         for num, row, msg in sorted(failures):
