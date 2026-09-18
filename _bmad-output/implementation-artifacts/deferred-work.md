@@ -2,6 +2,18 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: bmad-quick-dev IDEA-015 review (2026-09-18)
+
+- source_spec: none (one-shot route, no frozen spec)
+  summary: `scripts/scrape-batching-cost-research.sh`'s Bright Data batched-trigger path has no check that a "successful" (HTTP 2xx, valid `snapshot_id`) batched run actually returned data for every requested account — if Bright Data silently only processes the first URL in a multi-element `input` array instead of rejecting it outright, the script would report a clean batched success with a plausible-looking item count instead of catching the partial-success failure mode.
+  evidence: Surfaced by the Blind Hunter review pass. Detecting this reliably needs per-account attribution in the snapshot output, which Bright Data's dataset API doesn't obviously provide without live testing against real data — out of scope for this pass; the research report's raw JSON dump still lets a human operator manually check when reading results.
+- source_spec: none
+  summary: Same script's `--dry-run` requires `--accounts` to have at least 2 entries even when the user only wants to preview a single-account request shape, and gives a generic "need at least 2" error rather than explaining that's only required for the batched-vs-separate comparison.
+  evidence: Surfaced by the Blind Hunter review pass. Minor UX papercut for a research/iteration tool; not fixed to keep the diff focused.
+- source_spec: none
+  summary: `computeApifyCost`'s `totalChargeUsd === 0` case (a legitimate free run) is reported identically to "vendor hasn't billed yet" (`total: null`/"unavailable"), understating cost-data availability in the comparison table.
+  evidence: Surfaced by the Edge Case Hunter review pass. Low real-world likelihood for a paid actor run; not fixed.
+
 ## Deferred from: full `pnpm test` gate during bmad-quick-dev FIND-017 (2026-09-18)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-find-017-fk-cascade-and-iam-grant-walker.md`

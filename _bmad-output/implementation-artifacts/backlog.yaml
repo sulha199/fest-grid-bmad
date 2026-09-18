@@ -767,11 +767,13 @@ items:
      note: "Implemented 2026-09-11: default raised to 30 in env.ts, plus scraperLambda's environment block (previously missing SCRAPE_RESULTS_LIMIT entirely). Full detail in backlog/IDEA-014-scrape-results-limit-bump.md."}
 
   IDEA-015:
-    {type: idea, status: triaged, created: 2026-09-11,
+    {type: idea, status: done, created: 2026-09-11,
      impact: internal, effort: m,
      title: "Research: is batching multiple accounts into one scrape request cheaper/faster than one request per account?",
-     ref: [backlog/IDEA-015-batched-scrape-request-research.md], touches: [app:backend, cross:process],
-     note: "Low priority per the user (account count currently small); revisit as it grows. Full research brief in backlog/IDEA-015-batched-scrape-request-research.md."}
+     ref: [backlog/IDEA-015-batched-scrape-request-research.md,
+           implementation-artifacts/deferred-work.md],
+     touches: [app:backend, cross:process],
+     note: "Tooling shipped 2026-09-18 (Split B of the BUG-015/FIND-020/FIND-017/IDEA-015 batch): scripts/scrape-batching-cost-research.sh + .mjs, mirroring apify-smoke-test.sh's pattern -- calls Apify/Bright Data REST APIs directly (no attemptApifyAsyncTrigger/attemptBrightDataTrigger, zero app-DB writes), gated behind --yes/--dry-run, surfaces a Bright Data multi-element input-array rejection as a research finding rather than pivoting scope. Verified via --dry-run (no live tokens for Bright Data in this environment) plus targeted arg-parsing/JSON-resilience checks; the actual live vendor-cost comparison run (real USD charges) has NOT been executed yet -- still low priority per the user (account count currently small), tool is ready whenever it's worth spending the money to run it."}
 
   # ── 2026-09-11 (bmad-help event-card screenshot audit) ──────────────────────
   FIND-023:
