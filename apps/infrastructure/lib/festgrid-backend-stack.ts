@@ -387,8 +387,25 @@ export class FestgridBackendStack extends cdk.Stack {
     });
 
     // 4. Trigger Wiring
-    // ScrapingQueue -> L_Scrape
-    scraperLambda.addEventSource(new eventSources.SqsEventSource(scrapingQueue));
+    //
+    // AWS Free Tier incident (FIND-034, 2026-09-17): the 3 consumer Lambdas' continuous
+    // SqsEventSource long-polling burned ~77% of the account's monthly SQS free-tier request
+    // quota on empty long-polls against near-idle queues (854,420 of 867,586 September
+    // requests, 98.5%, were empty receives). Fix: dev/staging keep the ESM but gated off by
+    // default (opt-in via `enableNonProdQueuePolling` context, staging treated the same as
+    // dev since neither is CI-deployed today); prod drops the ESM entirely in favor of a
+    // 5-minute EventBridge-scheduled poll-and-drain (below), which is exactly one Lambda
+    // invocation every 5 minutes regardless of queue depth.
+    const enableNonProdQueuePolling =
+      stageName === 'prod' || this.node.tryGetContext('enableNonProdQueuePolling') === 'true';
+
+    // ScrapingQueue -> L_Scrape (dev/staging only; prod uses the scheduled poll-and-drain
+    // rule below instead of an SqsEventSource).
+    if (stageName !== 'prod') {
+      scraperLambda.addEventSource(new eventSources.SqsEventSource(scrapingQueue, {
+        enabled: enableNonProdQueuePolling,
+      }));
+    }
 
     // EventBridge Schedule -> L_Scrape (seed run)
     const scraperScheduleRule = new events.Rule(this, `ScraperScheduleRule-${stageName}`, {
@@ -402,17 +419,63 @@ export class FestgridBackendStack extends cdk.Stack {
     });
     notifierScheduleRule.addTarget(new targets.LambdaFunction(notifierLambda));
 
-    // AIProcessingQueue -> L_AI
-    aiProcessorLambda.addEventSource(new eventSources.SqsEventSource(aiProcessingQueue, {
-      reportBatchItemFailures: true,
-    }));
+    // AIProcessingQueue -> L_AI (dev/staging only; see above)
+    if (stageName !== 'prod') {
+      aiProcessorLambda.addEventSource(new eventSources.SqsEventSource(aiProcessingQueue, {
+        enabled: enableNonProdQueuePolling,
+        reportBatchItemFailures: true,
+      }));
+    }
 
-    // DataIngestionQueue -> L_Ingest
-    ingestorLambda.addEventSource(new eventSources.SqsEventSource(dataIngestionQueue, {
-      reportBatchItemFailures: true,
-    }));
+    // DataIngestionQueue -> L_Ingest (dev/staging only; see above)
+    if (stageName !== 'prod') {
+      ingestorLambda.addEventSource(new eventSources.SqsEventSource(dataIngestionQueue, {
+        enabled: enableNonProdQueuePolling,
+        reportBatchItemFailures: true,
+      }));
+    }
+
+    // Prod-only: replace the continuous ESM with a 5-minute EventBridge-scheduled
+    // poll-and-drain per queue, mirroring staleJobSweepRule's exact Rule+Target+marker-
+    // payload shape (already a 3-occurrence pattern before this addition).
+    if (stageName === 'prod') {
+      aiProcessorLambda.addEnvironment('AI_PROCESSING_QUEUE_URL', aiProcessingQueue.queueUrl);
+      ingestorLambda.addEnvironment('DATA_INGESTION_QUEUE_URL', dataIngestionQueue.queueUrl);
+
+      const scraperPollAndDrainRule = new events.Rule(this, `ScraperPollAndDrainRule-${stageName}`, {
+        schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
+      });
+      scraperPollAndDrainRule.addTarget(new targets.LambdaFunction(scraperLambda, {
+        event: events.RuleTargetInput.fromObject({ jobType: 'poll-and-drain' }),
+      }));
+
+      const aiProcessorPollAndDrainRule = new events.Rule(this, `AIProcessorPollAndDrainRule-${stageName}`, {
+        schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
+      });
+      aiProcessorPollAndDrainRule.addTarget(new targets.LambdaFunction(aiProcessorLambda, {
+        event: events.RuleTargetInput.fromObject({ jobType: 'poll-and-drain' }),
+      }));
+
+      const ingestorPollAndDrainRule = new events.Rule(this, `IngestorPollAndDrainRule-${stageName}`, {
+        schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
+      });
+      ingestorPollAndDrainRule.addTarget(new targets.LambdaFunction(ingestorLambda, {
+        event: events.RuleTargetInput.fromObject({ jobType: 'poll-and-drain' }),
+      }));
+    }
 
     // 5. IAM Permissions
+
+    // Explicit, unconditional (all stages) consume grants for the 3 queues' own Lambdas.
+    // Previously these permissions came entirely from addEventSource's implicit CDK-generated
+    // grant; removing the ESM for prod (above) would silently drop that grant too and leave
+    // prod's ReceiveMessage/DeleteMessage calls failing with AccessDenied. Granting explicitly
+    // and unconditionally makes correctness independent of whether a given stage also has an
+    // ESM -- a harmless no-op duplicate grant on dev/staging, where the ESM's implicit grant
+    // already covers the same actions.
+    scrapingQueue.grantConsumeMessages(scraperLambda);
+    aiProcessingQueue.grantConsumeMessages(aiProcessorLambda);
+    dataIngestionQueue.grantConsumeMessages(ingestorLambda);
     // Scraper needs to enqueue onto ScrapingQueue (self-enqueue) & API needs to enqueue for on-demand scrape
     scrapingQueue.grantSendMessages(scraperLambda);
     scrapingQueue.grantSendMessages(apiLambda);

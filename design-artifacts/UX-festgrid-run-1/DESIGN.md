@@ -2,7 +2,7 @@
 title: "DESIGN.md: festgrid"
 status: "draft"
 created: "2026-07-13T22:33:00Z"
-updated: "2026-09-17T00:00:00Z"
+updated: "2026-09-18T00:00:00Z"
 sources:
   - "_bmad-output/planning-artifacts/prfaq-festgrid.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -533,17 +533,39 @@ components:
     # actual matching weekdays translated through the project's existing DayOfWeek enum-translation
     # convention (project-context.md Locale-Sensitive Data Rendering) -- never a raw enum string.
     icon: "w-3.5 h-3.5 text-muted-foreground shrink-0" # lucide-react Repeat icon, 14px -- between event_card_nearby_badge's 12px and the favorite icon's 24px; confirm the exact icon name against the installed lucide-react version at implementation time (same caveat already applied to the multi_day_badge CalendarRange icon and event_card_nearby_badge's Navigation icon)
-  pwa_install_banner:
-    # Added <bmad-ux pass, 2026-09-17> -- IDEA-020's UX half. Persistent, dismissible bar at the
-    # top of <main>, below the global nav (packages/ui/src/core/app-shell/AppShell.tsx), across
-    # every route. Two distinct dismiss actions (not one) -- "Not now" (permanent) and "Remind me
-    # in 2 weeks" (cooldown) -- plus one primary action whose behavior differs by platform (see
-    # EXPERIENCE.md PWA Install Prompt): Android/Chrome calls the captured beforeinstallprompt's
-    # .prompt() directly; iOS opens pwa_install_ios_modal below instead.
+  ambient_capability_banner:
+    # Added <bmad-ux pass, 2026-09-18> -- extracted from pwa_install_banner (2026-09-17) once
+    # IDEA-040's ambient-location ask needed the identical shared-slot chrome (EXPERIENCE.md
+    # "Ambient Capability Ask: Shared Banner Slot"). One base shape, one dismiss-button pairing --
+    # every ambient ask (pwa_install_banner, ambient_location_banner, and any future one) extends
+    # this rather than each restyling its own bar. Persistent, dismissible bar at the top of
+    # <main>, below the global nav (packages/ui/src/core/app-shell/AppShell.tsx), across every
+    # route -- but only ONE ask ever renders here at a time (the shared slot's own rule).
     base: "w-full flex items-center justify-between gap-4 px-4 py-3 bg-violet-50 border-b border-violet-200 text-sm"
-    primary_action: "{components.button.primary}" # "Install" (Android/Chrome) or "How to install" (iOS)
-    dismiss_permanent: "{components.button.secondary}" # "Not now"
+    dismiss_permanent: "{components.button.secondary}" # "Not now" -- every ask's own permanent-suppression action
     dismiss_cooldown: "text-violet-700 underline text-xs font-medium" # "Remind me in 2 weeks" -- deliberately lower visual weight than the two real buttons either side of it, since it's a snooze not a decision
+  pwa_install_banner:
+    # Added <bmad-ux pass, 2026-09-17> -- IDEA-020's UX half. Retroactively rebased onto
+    # {components.ambient_capability_banner} 2026-09-18 -- base/dismiss classes now come from
+    # there; only the primary action is this ask's own. One primary action whose behavior differs
+    # by platform (see EXPERIENCE.md PWA Install Prompt): Android/Chrome calls the captured
+    # beforeinstallprompt's .prompt() directly; iOS opens pwa_install_ios_modal below instead.
+    base: "{components.ambient_capability_banner.base}"
+    primary_action: "{components.button.primary}" # "Install" (Android/Chrome) or "How to install" (iOS)
+    dismiss_permanent: "{components.ambient_capability_banner.dismiss_permanent}" # "Not now"
+    dismiss_cooldown: "{components.ambient_capability_banner.dismiss_cooldown}" # "Remind me in 2 weeks"
+  ambient_location_banner:
+    # Added <bmad-ux pass, 2026-09-18> -- IDEA-040. Second participant in the shared
+    # ambient_capability_banner slot (EXPERIENCE.md "Ambient Viewer-Location Consent"). Only
+    # renders when navigator.permissions.query({name:'geolocation'}) reports 'prompt' (never
+    # 'denied' -- that state permanently omits this ask entirely, not just visually, per the
+    # web-verified no-re-prompt constraint documented in EXPERIENCE.md) and this ask's own
+    # dismiss/cooldown state isn't active, and the shared slot's priority (location asks before
+    # PWA install) + one-at-a-time/session-gated-reveal rules allow it.
+    base: "{components.ambient_capability_banner.base}"
+    primary_action: "{components.button.primary}" # "Enable nearby distances" (exact copy TBD at implementation) -- calls the shared capture(), which is what actually triggers the browser's own native permission dialog for the first time
+    dismiss_permanent: "{components.ambient_capability_banner.dismiss_permanent}" # "Not now"
+    dismiss_cooldown: "{components.ambient_capability_banner.dismiss_cooldown}" # "Remind me in 2 weeks"
   pwa_install_ios_modal:
     # iOS Safari has no native install prompt to trigger (EXPERIENCE.md PWA Install Prompt) -- this
     # is a richer step-by-step disclosure, not a restyled banner. Reuses {components.modal}'s

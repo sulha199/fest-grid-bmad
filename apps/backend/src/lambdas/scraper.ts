@@ -3,6 +3,7 @@ import '../lib/scraper/register-adapters.js';
 import { getBatchScrapeTargets } from '../lib/scraper/get-scrape-targets.js';
 import { enqueueScrapeJob } from '../lib/scraper/enqueue-scrape-job.js';
 import { processScrapeJob } from '../lib/scraper/process-scrape-job.js';
+import { pollAndDrainQueue } from '../lib/aws/poll-and-drain-queue.js';
 import { attemptBrightDataTrigger } from '../lib/scraper/trigger-brightdata-for-target.js';
 import { attemptApifyAsyncTrigger } from '../lib/scraper/trigger-apify-for-target.js';
 import { runStaleJobSweep } from '../lib/scraper/stale-job-sweep.js';
@@ -16,16 +17,44 @@ import {
   type ScraperTargetProviderMarker,
 } from '../lib/scraper/tally-scraper-provider-results.js';
 
+type PollAndDrainEvent = { jobType: 'poll-and-drain' };
+type StaleJobSweepEvent = { jobType: 'stale-job-sweep' };
+type ScraperEvent = SQSEvent | EventBridgeEvent<string, unknown> | PollAndDrainEvent | StaleJobSweepEvent;
+
+// Dedicated type-guard functions (rather than inline `'jobType' in event && event.jobType ===
+// '...'` checks) so TypeScript's control-flow analysis can fully narrow `event` back down to
+// `SQSEvent | EventBridgeEvent<string, unknown>` in the code after these branches' `return`s --
+// a compound `&&` expression combining an `in` check with a literal-value comparison doesn't
+// get the same narrowing guarantee once more than one union member declares a `jobType` field.
+function isStaleJobSweepEvent(event: ScraperEvent): event is StaleJobSweepEvent {
+  return (event as { jobType?: unknown }).jobType === 'stale-job-sweep';
+}
+function isPollAndDrainEvent(event: ScraperEvent): event is PollAndDrainEvent {
+  return (event as { jobType?: unknown }).jobType === 'poll-and-drain';
+}
+
 export const handler = async (
-  event: SQSEvent | EventBridgeEvent<string, unknown>,
+  event: ScraperEvent,
   context: Context
 ): Promise<void> => {
   console.log('Scraper lambda invoked', JSON.stringify({ event }));
 
   // Check for stale job sweep EventBridge trigger
-  if ('jobType' in event && event.jobType === 'stale-job-sweep') {
+  if (isStaleJobSweepEvent(event)) {
     console.log('Running stale job sweep');
     await runStaleJobSweep();
+    return;
+  }
+
+  // Prod-only (AC3): the EventBridge-scheduled poll-and-drain trigger, replacing the
+  // continuous SqsEventSource poller. Mirrors the SQS-Records branch's per-message logic
+  // exactly, just fed by pollAndDrainQueue's explicit receive/delete loop instead.
+  if (isPollAndDrainEvent(event)) {
+    console.log('Running poll-and-drain for scraping queue');
+    await pollAndDrainQueue(process.env.SCRAPING_QUEUE_URL!, async (body) => {
+      const target = JSON.parse(body);
+      await processScrapeJob(target);
+    });
     return;
   }
 

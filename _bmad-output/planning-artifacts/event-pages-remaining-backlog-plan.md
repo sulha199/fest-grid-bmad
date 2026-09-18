@@ -307,6 +307,16 @@ short of an actual story file.
   consent flow this session already designed. Until it ships, Story 1.i1f's nearby badge only
   implements the "active filter location" branch and omits itself otherwise — not a regression,
   a deliberately scoped partial ship.
+  **UX DESIGNED, 2026-09-18** — see EXPERIENCE.md "Ambient Viewer-Location Consent". One shared
+  app-level viewer-location capability, migrating the 3 existing explicit-action consumers onto
+  it (also fixes their own coordinate-resets-on-remount bug). Web-verified: a real browser-level
+  denial can never be re-prompted, so the ask's own dismiss/cooldown state and the browser's
+  actual permission decision are two independently-tracked layers, gated via
+  `navigator.permissions.query` before ever calling `capture()`. Also retroactively generalized
+  the already-shipped PWA Install Prompt into a new shared "Ambient Capability Ask" banner slot
+  (both asks use the identical placement) — only one banner renders at a time, location asks take
+  priority over PWA install, dismissing one only reveals the next eligible ask next session. Ready
+  for `bmad-create-story` now.
 - **IDEA-041** (parent IDEA-025) → Story 1.i1i — extract a shared
   `EventCardStatusBadge`/`EventCardNearbyBadge` primitive before a third card family duplicates
   the inline markup. **Prerequisite for Story 1.i1j** (IDEA-025's own story) — 1.i1j cannot start
@@ -320,13 +330,15 @@ short of an actual story file.
 - [ ] IDEA-038 story (blocked on Feed/Favorites `useListPaginationController` adoption + BUG-025)
 - [ ] IDEA-039 story (Story 1.i1g) — after Story 1.i1f
 - [ ] BUG-036/FIND-026 story (Story 1.i1h) — after Story 1.i1f
-- [ ] IDEA-040 story (Story 0.39) — may need a `bmad-ux` consent-flow pass first
+- [x] IDEA-040 UX pass (2026-09-18, see own note above — ready for `bmad-create-story` now)
+- [ ] IDEA-040 story (Story 0.39)
 - [x] IDEA-041 story (Story 1.i1i) — drafted 2026-09-18 (`ready-for-dev`); prerequisite for
       Story 1.i1j's `bmad-dev-story`. AD-24 added to the architecture spine.
 - [x] IDEA-042 story (Story 1.i1k) — drafted 2026-09-18 (`ready-for-dev`); folded FIND-025's
       still-open finding (2) in as a narrowly-scoped `no-dynamic-tailwind-arbitrary-value` lint
       guard. Gate 1 surfaced that `packages/ui` has no lint config at all — carved out as new
-      Story 0.40 / backlog row FIND-035, not folded into 1.i1k itself.
+      Story 0.41 / backlog row FIND-035 (renumbered from 0.40 on merge with master, which
+      independently landed its own Story 0.40 for FIND-034 first), not folded into 1.i1k itself.
 
 ## Full row checklist (verification)
 

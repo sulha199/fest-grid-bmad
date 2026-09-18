@@ -88,7 +88,17 @@ The backend is built with TypeScript on a serverless architecture using AWS and 
    * `AWS_SECRET_ACCESS_KEY`: Your AWS secret access key.
    * `DATABASE_URL`: The production Supabase database connection string (injected into `L_API` and `L_Ingest` at deployment time).
 
-### 5. Credentials & Secrets Configuration (AWS Secrets Manager)
+5. **SQS Queue Polling (dev/staging vs. prod) — Story 0.40 / FIND-034:**
+
+   The 3 backend SQS consumer Lambdas (`L_Scrape`/`L_AI`/`L_Ingest`) do **not** poll their queues continuously by default outside of `prod`, to avoid burning the AWS Free Tier's SQS request quota on empty long-polls against near-idle queues.
+
+   * **`dev`/`staging`:** each Lambda's `SqsEventSource` is provisioned but disabled (`enabled: false`) by default. To opt into continuous polling for local/staging testing, pass the CDK context flag on deploy:
+     ```bash
+     pnpm --filter infrastructure exec cdk deploy FestgridBackendStack-dev -c enableNonProdQueuePolling=true
+     ```
+   * **`prod`:** there is no `SqsEventSource` at all. Instead, each Lambda is invoked every 5 minutes by its own EventBridge-scheduled rule (`*PollAndDrainRule-prod`) with a `{ jobType: 'poll-and-drain' }` payload, and drains its queue via the shared `pollAndDrainQueue()` helper (looping until the queue is empty or a ~270s time budget is reached) rather than processing a single fixed batch per invocation.
+
+### 6. Credentials & Secrets Configuration (AWS Secrets Manager)
 
 To adhere to strict credential security practices and avoid raw strings in IaC/CloudFormation templates, sensitive environment variables are stored in AWS Secrets Manager. 
 
@@ -143,7 +153,7 @@ aws secretsmanager put-secret-value --secret-id festgrid-brightdata-api-token-<s
 aws secretsmanager put-secret-value --secret-id festgrid-brightdata-webhook-secret-<stage> --secret-string "your_brightdata_webhook_secret"
 ```
 
-### 6. Legacy Stack Cleanup
+### 7. Legacy Stack Cleanup
 
 Story 0.25 reconciles the old, standalone `FestgridEmailStack` into `FestgridBackendStack`. If you have previously deployed the legacy `FestgridEmailStack` in any of your environments, you must destroy it first to avoid IAM Role resource collisions:
 

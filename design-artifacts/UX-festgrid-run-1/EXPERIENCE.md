@@ -2,7 +2,7 @@
 title: "EXPERIENCE.md: festgrid"
 status: "draft"
 created: "2026-07-20T10:59:00Z"
-updated: "2026-09-17T00:00:00Z"
+updated: "2026-09-18T00:00:00Z"
 sources:
   - "design-artifacts/UX-festgrid-run-1/DESIGN.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -321,9 +321,21 @@ The feeling of using FestDaily should be one of exciting discovery. Microcopy sh
 
 **Flagged for `bmad-architecture`, not decided here:** the actual data-fetching contract for per-day pagination. Today `WeeklyCalendarView` receives one already-fully-loaded batch of schedules for the entire visible week and buckets them client-side — there is no existing mechanism to fetch "the next page of single-day schedules for date X" at all. This pass states the UX/behavioral contract (capped inline count sized from real dimensions; multi-day-exempt; "+N more" opens a shared infinite-scroll dialog/sheet; a 20-per-day flat bound as an acceptable fallback shape) — the GraphQL query shape, cursor design, and whether the always-included multi-day set and the paginated single-day set are one query or two is an architecture decision, not a UX one.
 
+### Ambient Capability Ask: Shared Banner Slot
+
+*Added via a targeted `bmad-ux` pass, 2026-09-18 — IDEA-040 (ambient viewer-location consent) surfaced the same "persistent dismissible banner below nav" placement the already-shipped PWA Install Prompt (below) uses, which raised a question neither section originally answered: what happens when two unrelated ambient asks are eligible at the same time? Retroactively generalizes the PWA Install Prompt into the first of two participants in one shared mechanism, rather than letting each new ambient ask hardcode its own independent banner and risk literally stacking.*
+
+**One shared slot, never two banners at once.** `AppShell.tsx` owns exactly one "ambient capability ask" region (the same top-of-`<main>`, below-nav placement the PWA banner already established) — at most one ask renders there at a time, never stacked, regardless of how many capabilities are simultaneously eligible.
+
+**Fixed priority order among eligible asks, user-directed:** **ambient location consent first, then PWA install.** Location consent unblocks a feature already visible on the page the moment it's granted (the nearby badge); installability is a longer-term convenience with no immediately-blocked content. A future third ambient ask joins this same ordered list rather than inventing its own placement.
+
+**Dismissing an ask ends the slot's activity for that session — the next eligible ask (if any) only appears on a later session/page load, user-directed.** Revealing the next ask immediately after a dismissal would read as the app nagging back-to-back for a different reason instead of respecting the "not now." Each ask's own dismiss/cooldown state is still tracked independently (per the mechanics each ask's own section below defines) — this rule only governs *when the slot itself re-evaluates and shows something new*, not each ask's individual state.
+
+**Both current participants share this slot's own container/animation, not their own bespoke banner chrome** — `{components.pwa_install_banner}`'s existing base/dismiss-button tokens are the shared shape; a capability-specific banner only supplies its own icon, copy, and primary action.
+
 ### PWA Install Prompt
 
-*Added via a targeted `bmad-ux` pass, 2026-09-17 — IDEA-020's UX half, explicitly excluded from Architecture Spine AD-21 (which only decided `embed.js` caching + `preconnect` hints + a locale-scoped dedicated service worker). No `manifest.json` exists today, so the app is not installable as a PWA at all yet.*
+*Added via a targeted `bmad-ux` pass, 2026-09-17 — IDEA-020's UX half, explicitly excluded from Architecture Spine AD-21 (which only decided `embed.js` caching + `preconnect` hints + a locale-scoped dedicated service worker). No `manifest.json` exists today, so the app is not installable as a PWA at all yet. **Retroactively generalized 2026-09-18** into the first participant in the shared "Ambient Capability Ask" slot above — its own placement/dismiss mechanics are unchanged, only its container is now shared rather than bespoke.*
 
 **Not part of onboarding — web-verified reason.** Chrome will not even fire `beforeinstallprompt` until the user has clicked/tapped the page at least once *and* spent 30+ seconds on it (across any visit), over HTTPS, with a service worker exposing a `fetch` handler already registered (AD-21's caching worker satisfies this precondition) — [web.dev, "What does it take to be installable?"](https://web.dev/articles/install-criteria); [Chrome for Developers, "Revisiting Chrome's installability criteria"](https://developer.chrome.com/blog/update-install-criteria). The existing `OnboardingNotificationStep` pattern (a wizard step with a toggle, asking the user to grant a capability) does not transfer here — the browser's own engagement gate would not be satisfied that early, independent of general "don't ask before value is shown" UX guidance pointing the same direction. This is main-app-shell scope (`design-artifacts/UX-festgrid-run-1`), not the separate wizard-page UX workspace.
 
@@ -338,6 +350,24 @@ The feeling of using FestDaily should be one of exciting discovery. Microcopy sh
 **Two different primary actions, by platform:**
 - **Android/Chrome:** the banner's (and Settings action's) primary button calls `.prompt()` on the captured `beforeinstallprompt` event directly — the browser's own native install flow.
 - **iOS Safari (no native install prompt exists at all):** the primary action opens a dedicated, richer step-by-step modal — numbered instructions with the Share icon, then "Add to Home Screen" — rather than cramming instructions into the banner itself. The banner's own placement, copy-independent mechanics (two dismiss actions, `localStorage` state, Settings fallback) are otherwise identical to the Android/Chrome path; only what the primary action opens differs.
+
+### Ambient Viewer-Location Consent
+
+*Added via a targeted `bmad-ux` pass, 2026-09-18 — IDEA-040, carved out of Story 1.i1f's own Gate 3 finding (Architecture Spine AD-22's distance-priority rule never designed how its "else the viewer's current location" branch sources a coordinate passively). Second participant in the Ambient Capability Ask shared slot above. Grounded directly in `packages/ui/src/hooks/useCurrentLocationCapture.ts` and its three existing consumers (`use-nearby-filter.ts`, `set-default-location-dialog.tsx`, `location-form-dialog.tsx`) rather than inventing a parallel capture mechanism.*
+
+**One shared, app-level viewer-location capability — the three existing explicit-action consumers migrate onto it, user-directed.** Today each of the three call sites keeps its own local, ephemeral `useState` coordinate (confirmed in `use-nearby-filter.ts`'s `adHocCoords`, reset on every remount, never shared) — three independent copies of "did we already ask, what did we get" state for what is, underneath, the exact same browser capability. This pass introduces one app-level provider owning: the last captured coordinate, its capture timestamp, and the current `navigator.permissions` status — the three existing consumers become callers of this one shared capture function instead of each holding their own `useCurrentLocationCapture()` instance and local state.
+
+**Web-verified constraint that shapes the whole consent flow: a real browser-level denial can never be re-prompted.** Chrome (and browsers generally) never re-show the native geolocation permission dialog once denied for a site — [Chrome for Developers, "Permissions API for the Web"](https://developer.chrome.com/blog/permissions-api-for-the-web). This is a fundamentally different model from `beforeinstallprompt` (page-controlled timing) — here the *browser* permanently owns the decision once made. Consequence: our own ambient ask and the browser's actual permission decision are two separate, independently-tracked things, and must be designed as such (see the two-layer model below), never conflated.
+
+**Two-layer gating, checked in this order, before ever calling `capture()`:**
+1. **Query `navigator.permissions.query({ name: 'geolocation' })` first, always.** If status is already `granted` (the user said yes via any of the three existing explicit flows, or a prior ambient ask), the shared provider captures silently in the background — no banner, nothing to ask, the capability is already available. If status is `denied`, the ambient ask **never renders at all, permanently** — not a dismiss state we track ourselves, a real browser fact we defer to. Distance-dependent features (the nearby badge, any future "distance from me" feature) silently omit themselves, mirroring the nearby badge's own existing "omit entirely, no placeholder" convention when a coordinate isn't available.
+2. **Only when status is `prompt` (undecided)** does our own ask enter the picture at all — and even then, gated by our own dismiss/cooldown state (below) and the shared slot's priority/pacing rules above.
+
+**The ambient banner's own dismiss state is independent of the browser's permission state, user-directed.** Two dismiss actions, mirroring the PWA banner's own mechanics for one consistent shared-slot vocabulary: **"Not now"** (permanent — we stop asking via our own banner; distinct from the user ever having seen the browser's native dialog at all) and **"Remind me in 2 weeks"** (cooldown, same duration as the PWA ask for consistency — no signal this capability needs a different window). Clicking the banner's primary action calls `capture()`, which is what actually triggers the browser's own native dialog for the first time; only *that* moment can produce a real `denied`, which then permanently satisfies gate 1 above from then on — our own "Not now"/cooldown dismissals never touch the browser's permission state, they only govern whether we show our own ask again.
+
+**Coordinate freshness: capture once per session, no forced re-capture on every render.** A nearby badge (or any future distance feature) reads the shared provider's last-captured coordinate rather than triggering its own capture — repeatedly calling `getCurrentPosition` once per card render would be wasteful and could re-surface the browser's own rate-limiting/battery-impact behavior for no benefit. Exact staleness threshold (e.g. re-capture after N minutes vs. once per session unconditionally) is left to the implementation story — not load-bearing for this pass's own decisions, since even a coarse "once per session" already fixes today's actual bug (a coordinate that resets on every remount).
+
+**The three existing explicit-action consumers keep their own UI (dropdown option, form buttons) unchanged — only their state source changes.** This pass does not redesign the nearby-filter dropdown or either location-picker dialog; it only redirects what they read from and write to, so a coordinate captured via one entry point (e.g. the nearby filter) is immediately available to the others (e.g. a location-picker form opened right after) instead of each re-prompting independently.
 
 ## State Patterns
 

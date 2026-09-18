@@ -223,4 +223,156 @@ test('FestgridBackendStack provisions correct resources', () => {
       }),
     },
   });
+
+  // 15. Story 0.40 / FIND-034: dev stack with no context -- all 3 target Lambdas' ESM
+  // (scraper/aiProcessor/ingestor queues) exist but disabled by default (AC1).
+  template.resourceCountIs('AWS::Lambda::EventSourceMapping', 3);
+  template.allResourcesProperties('AWS::Lambda::EventSourceMapping', {
+    Enabled: false,
+  });
+});
+
+test('FestgridBackendStack: dev stack with enableNonProdQueuePolling=true context enables the ESM (AC2)', () => {
+  const app = new cdk.App({ context: { enableNonProdQueuePolling: 'true' } });
+  const stack = new FestgridBackendStack(app, 'TestStackDevPollingEnabled', {
+    stageName: 'dev',
+  });
+
+  const template = Template.fromStack(stack);
+
+  template.resourceCountIs('AWS::Lambda::EventSourceMapping', 3);
+  template.allResourcesProperties('AWS::Lambda::EventSourceMapping', {
+    Enabled: true,
+  });
+});
+
+test('FestgridBackendStack: prod stack replaces the ESM with scheduled poll-and-drain (AC3/AC7/AC8/AC11)', () => {
+  const originalEnv = {
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+    FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
+    SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS,
+    WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL,
+  };
+
+  try {
+    process.env.SUPABASE_URL = 'https://example.supabase.co';
+    process.env.FIREBASE_PROJECT_ID = 'test-project';
+    process.env.FIREBASE_CLIENT_EMAIL = 'test@example.com';
+    process.env.SES_FROM_EMAIL_ADDRESS = 'noreply@example.com';
+    process.env.WEB_APP_BASE_URL = 'https://example.com';
+
+    const app = new cdk.App();
+    const stack = new FestgridBackendStack(app, 'TestStackProd', {
+      stageName: 'prod',
+    });
+
+    const template = Template.fromStack(stack);
+
+    // AC3: zero EventSourceMapping resources for the 3 queues in prod.
+    template.resourceCountIs('AWS::Lambda::EventSourceMapping', 0);
+
+    // AC3: exactly 3 new rate(5 minutes) rules, each carrying the poll-and-drain marker
+    // payload and targeting one of the 3 Lambdas.
+    template.resourceCountIs('AWS::Events::Rule', 6); // 1 daily scraper + 1 daily notifier + 1 hourly stale-sweep + 3 new poll-and-drain
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'rate(5 minutes)',
+      Targets: Match.arrayWith([
+        Match.objectLike({
+          Arn: {
+            'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('^ScraperLambda')]),
+          },
+          Input: JSON.stringify({ jobType: 'poll-and-drain' }),
+        }),
+      ]),
+    });
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'rate(5 minutes)',
+      Targets: Match.arrayWith([
+        Match.objectLike({
+          Arn: {
+            'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('^AIProcessorLambda')]),
+          },
+          Input: JSON.stringify({ jobType: 'poll-and-drain' }),
+        }),
+      ]),
+    });
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'rate(5 minutes)',
+      Targets: Match.arrayWith([
+        Match.objectLike({
+          Arn: {
+            'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('^IngestorLambda')]),
+          },
+          Input: JSON.stringify({ jobType: 'poll-and-drain' }),
+        }),
+      ]),
+    });
+
+    // AC7: aiProcessorLambda/ingestorLambda each gain their own input queue's URL.
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Timeout: 300,
+      Environment: {
+        Variables: Match.objectLike({
+          AI_PROCESSING_QUEUE_URL: Match.anyValue(),
+          DATA_INGESTION_QUEUE_URL: Match.anyValue(),
+        }),
+      },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Timeout: 300,
+      Environment: {
+        Variables: Match.objectLike({
+          DATA_INGESTION_QUEUE_URL: Match.anyValue(),
+        }),
+      },
+    });
+
+    // AC8: grantConsumeMessages-derived IAM policy statements exist for all 3 queues.
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes']),
+            Effect: 'Allow',
+            Resource: {
+              'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('^ScrapingQueue')]),
+            },
+          }),
+        ]),
+      },
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes']),
+            Effect: 'Allow',
+            Resource: {
+              'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('^AIProcessingQueue')]),
+            },
+          }),
+        ]),
+      },
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes']),
+            Effect: 'Allow',
+            Resource: {
+              'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('^DataIngestionQueue')]),
+            },
+          }),
+        ]),
+      },
+    });
+  } finally {
+    process.env.SUPABASE_URL = originalEnv.SUPABASE_URL;
+    process.env.FIREBASE_PROJECT_ID = originalEnv.FIREBASE_PROJECT_ID;
+    process.env.FIREBASE_CLIENT_EMAIL = originalEnv.FIREBASE_CLIENT_EMAIL;
+    process.env.SES_FROM_EMAIL_ADDRESS = originalEnv.SES_FROM_EMAIL_ADDRESS;
+    process.env.WEB_APP_BASE_URL = originalEnv.WEB_APP_BASE_URL;
+  }
 });
