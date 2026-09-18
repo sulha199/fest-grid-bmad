@@ -411,7 +411,7 @@ development_status:
   # epic's own EventCardMediaPrimitives extraction. Full section in epics.md
   # (backlog.yaml IDEA-041, child of IDEA-025); not yet drafted via its own
   # bmad-create-story pass. 1-i1j depends on this story.
-  1-i1i-build-the-shared-event-card-status-and-nearby-badge-primitive: backlog
+  1-i1i-build-the-shared-event-card-status-and-nearby-badge-primitive: ready-for-dev
   # added 2026-09-17 via bmad-create-story, sourced from backlog.yaml's IDEA-025
   # (parent IDEA-016; direct follow-on to Story 1.i1f, promoted the same session).
   # Gates 1/3 cited from epic-1-i1-readiness.md's sweep (no gap -- pure packages/ui
