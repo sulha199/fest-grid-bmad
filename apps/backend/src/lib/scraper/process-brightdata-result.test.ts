@@ -384,4 +384,93 @@ test('process-brightdata-result tests', async (t) => {
     assert.deepStrictEqual(post.hashtags, ['slemancityhall', 'pavilionofjogja']);
     assert.ok(post.imageUrl);
   });
+
+  await t.test('persists additionalImageUrls end-to-end for a multi-photo carousel record (FIND-024)', async () => {
+    const snapshotId = 'snapshot-carousel-' + Date.now();
+    const { id, webhookToken } = await createPendingJob({
+      profileId: testProfileId,
+      snapshotId,
+      webhookToken: randomBytes(24).toString('hex'),
+    });
+
+    const pendingJob: BrightdataPendingJob = {
+      id,
+      profileId: testProfileId,
+      snapshotId,
+      webhookToken,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 3600000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const records = [
+      {
+        url: 'https://www.instagram.com/p/carousel-end-to-end/',
+        description: 'A carousel post from Bright Data',
+        date_posted: '2026-09-18T00:00:00Z',
+        content_type: 'Carousel',
+        photos: [
+          'https://example.com/cover.jpg',
+          'https://example.com/slide2.jpg',
+          'https://example.com/slide3.jpg',
+        ],
+      },
+    ];
+
+    await processBrightDataResult(pendingJob, records);
+
+    const persistedPosts = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.accountId, testProfileId));
+
+    const post = persistedPosts.find((p) => p.postUrl === 'https://www.instagram.com/p/carousel-end-to-end/');
+    assert.ok(post);
+    assert.strictEqual(post.imageUrl, 'https://example.com/cover.jpg');
+    assert.deepStrictEqual(post.additionalImageUrls, [
+      'https://example.com/slide2.jpg',
+      'https://example.com/slide3.jpg',
+    ]);
+  });
+
+  await t.test('persists null additionalImageUrls for a single-photo record', async () => {
+    const snapshotId = 'snapshot-no-carousel-' + Date.now();
+    const { id, webhookToken } = await createPendingJob({
+      profileId: testProfileId,
+      snapshotId,
+      webhookToken: randomBytes(24).toString('hex'),
+    });
+
+    const pendingJob: BrightdataPendingJob = {
+      id,
+      profileId: testProfileId,
+      snapshotId,
+      webhookToken,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 3600000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const records = [
+      {
+        url: 'https://www.instagram.com/p/single-photo-end-to-end/',
+        description: 'A single-photo post from Bright Data',
+        date_posted: '2026-09-18T00:00:00Z',
+        photos: ['https://example.com/only.jpg'],
+      },
+    ];
+
+    await processBrightDataResult(pendingJob, records);
+
+    const persistedPosts = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.accountId, testProfileId));
+
+    const post = persistedPosts.find((p) => p.postUrl === 'https://www.instagram.com/p/single-photo-end-to-end/');
+    assert.ok(post);
+    assert.strictEqual(post.additionalImageUrls, null);
+  });
 });

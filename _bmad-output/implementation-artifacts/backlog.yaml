@@ -958,12 +958,12 @@ items:
 
   # ── 2026-09-12 (bmad-create-story 3-3e persist-scraped-post call-site trace) ─
   FIND-024:
-    {type: finding, status: triaged, created: 2026-09-12,
+    {type: finding, status: done, created: 2026-09-12, closed: 2026-09-18,
      impact: user-visible, effort: xs,
      title: "Bright Data scrape path never captures or forwards hashtags (and has no carousel/childPosts equivalent) to persistScrapedPost",
      ref: [implementation-artifacts/3-3e-persist-all-carousel-image-urls-for-a-scraped-post.md, implementation-artifacts/backlog/BUG-032-hashtags-not-persisted-into-post-table.md, implementation-artifacts/backlog/FIND-024-bright-data-scrape-gaps.md],
      touches: [app:backend],
-     note: "Two of three flagged Bright Data gaps (hashtags, locationName/ownerUsername) fixed via BUG-032. ownerDisplayName and carousel/childPosts-equivalent capture remain open. Full trace in backlog/FIND-024-bright-data-scrape-gaps.md."}
+     note: "All flagged Bright Data gaps resolved. hashtags/locationName/ownerUsername fixed via BUG-032. Carousel multi-image capture fixed 2026-09-18 (bmad-quick-dev): Bright Data has no childPosts-equivalent structure -- a Carousel record's top-level photos array already lists every slide, so mapper now extracts photos.slice(1) into additionalImageUrls (mirrors Story 3.3e's field) and process-brightdata-result.ts forwards it. ownerDisplayName confirmed unfixable -- no candidate field exists anywhere in Bright Data's schema (every key on 2 real run fixtures enumerated). Full detail in backlog/FIND-024-bright-data-scrape-gaps.md."}
 
   # ── 2026-09-14 (bmad-quick-dev fix of eventcard-favorite-badge-clipping) ─
   FIND-025:
@@ -1100,7 +1100,7 @@ items:
      title: "Hashtags not persisted into the posts table (investigate & fix)",
      ref: [backlog/BUG-032-hashtags-not-persisted-into-post-table.md],
      touches: [app:backend, pkg:database, cross:ai-extraction, web:posts],
-     note: "Full investigation, fix, and two extension sessions (locationName/ownerUsername) documented in backlog/BUG-032-hashtags-not-persisted-into-post-table.md. ownerDisplayName and carousel/childPosts capture remain open -- see FIND-024."}
+     note: "Full investigation, fix, and two extension sessions (locationName/ownerUsername) documented in backlog/BUG-032-hashtags-not-persisted-into-post-table.md. FIND-024 (ownerDisplayName research + carousel/childPosts-equivalent capture) closed 2026-09-18 -- see FIND-024."}
 
   IDEA-029:
     {type: idea, status: triaged, created: 2026-09-15,

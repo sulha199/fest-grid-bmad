@@ -63,3 +63,47 @@ precedent). This finding's two of three flagged gaps are now closed.
   post.
 - No carousel/`childPosts`-equivalent multi-image capture for Bright Data — needs its own
   vendor-schema research, not a mechanical port of 3.3e's Apify-specific logic.
+
+## Carousel multi-image capture fixed; ownerDisplayName confirmed unfixable (2026-09-18, bmad-quick-dev)
+
+**ownerDisplayName — confirmed unfixable, closing this half of the finding.** Every top-level
+field on both real run examples (`brightdata-run-examples/`, ~35 keys each) was enumerated by
+hand: `user_posted` (username), `user_posted_id`, `profile_url`, `profile_image_link`,
+`followers`, `posts_count`, `is_verified`, `partnership_details` (all-null in both samples),
+`coauthor_producers`, `tagged_users[].full_name` (people/brands tagged *in* the post, not the
+poster). None represents the account's own display name distinct from its username. No further
+action possible without a different Bright Data dataset/API tier exposing that field — nothing
+left to implement here.
+
+**Carousel/multi-image capture — fixed.** Vendor-schema research against the two real run
+fixtures on hand (`slemancityhall` and `diamondprofessionalid`/`jogjacoffeeweek`, 9 carousel
+records total between them) found no evidence of an Apify-`childPosts`-equivalent nested
+structure: every `content_type: "Carousel"` record instead lists every slide's URL directly
+in the same top-level `photos` array the mapper already reads `photos[0]` from for `imageUrl`
+(counts of 2, 4, 5, 6, 9, 11, 18 photos observed). This is based on two accounts' historical
+scrape output, not a documented Bright Data API contract — if a future run surfaces a different
+shape (e.g. a nested carousel-item structure on some other content type), that would need its
+own follow-up. The extraction itself does not gate on `content_type` at all (deliberately —
+see the mapper's inline comment and the dedicated test proving independence from that field);
+it keys purely on `photos.length > 1`, which is simpler and doesn't depend on `content_type`
+being present or correctly labeled.
+
+Known limitation carried over from `persistScrapedPost`'s existing insert-only behavior
+(`onConflictDoNothing`, established by Story 3.3e for `additionalImageUrls` specifically): a
+post already persisted before this fix shipped will not be backfilled with its carousel slides
+on a later re-scrape of the same `postUrl` — only newly-inserted posts get this data. This
+matches the same limitation the Apify path already accepted for this exact field; not new to
+this fix.
+
+Fix shipped: `mapBrightDataRecordToScrapedPost` (`brightdata-record-mapper.ts`) now extracts
+`photos.slice(1)` (string entries only, defensively filtered) into `additionalImageUrls: string[]`
+— mirroring Story 3.3e's Apify field of the identical name/shape — and `process-brightdata-result.ts`
+forwards it to `persistScrapedPost` (same class of gap BUG-032 fixed for `hashtags` on this call
+site). No new schema/type/DB work was needed: `ScrapedPost`, `scrapedPostSchema`,
+`PersistScrapedPostParams`, and the `posts.additional_image_urls` column all already exist from
+3.3e; this was purely wiring the Bright Data vendor path into infrastructure that was already
+generic across vendors. 6 new tests added (4 mapper-level, 2 end-to-end), all passing; `tsc
+--noEmit` clean; lint clean (0 errors, pre-existing warnings only).
+
+Both of FIND-024's remaining gaps are now closed — one via a working fix, the other via
+confirmed research showing no fix is currently possible.

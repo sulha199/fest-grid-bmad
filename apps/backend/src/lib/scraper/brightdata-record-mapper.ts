@@ -26,6 +26,15 @@ export async function mapBrightDataRecordToScrapedPost(
   const postUrl = brightDataRecord.url as string;
   const photos = brightDataRecord.photos as unknown[] | null | undefined;
   const imageUrl = Array.isArray(photos) && photos.length > 0 && typeof photos[0] === 'string' ? photos[0] : undefined;
+  // FIND-024: Bright Data has no Apify childPosts-equivalent nested structure for carousel
+  // slides. Instead, a `content_type: "Carousel"` record simply lists every slide's URL in
+  // the same top-level `photos` array `imageUrl` already reads photos[0] from (confirmed
+  // against real runs, 2026-09-18: counts of 2, 4, 5, 6, 9, 11, 18 photos observed across
+  // carousel records). Every slide beyond the cover goes into additionalImageUrls, mirroring
+  // Story 3.3e's Apify field of the same name/shape.
+  const additionalImageUrls = Array.isArray(photos)
+    ? photos.slice(1).filter((url): url is string => typeof url === 'string')
+    : [];
   const caption = brightDataRecord.description as string;
   const datePosted = brightDataRecord.date_posted;
   const videos = brightDataRecord.videos as unknown[] | null | undefined;
@@ -91,6 +100,8 @@ export async function mapBrightDataRecordToScrapedPost(
     // ownerDisplayName intentionally omitted -- no confirmed source field in Bright Data schema yet.
     ...(locationName && { locationName }),
     ...(ownerUsername && { ownerUsername }),
+    // FIND-024: remaining `photos` entries beyond the cover, when present (see comment above).
+    ...(additionalImageUrls.length > 0 && { additionalImageUrls }),
     // Always set: postUrl is guaranteed non-empty by the earlier guard above
     originalPostUrl: postUrl,
   };
