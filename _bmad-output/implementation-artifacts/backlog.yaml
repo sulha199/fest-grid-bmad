@@ -363,13 +363,13 @@ items:
 
   # ── 2026-09-05 (deferred-work fold-in, FIND-005) ──────────────────────────────
   BUG-005:
-    {type: bug, status: triaged, created: 2026-09-05,
+    {type: bug, status: promoted, created: 2026-09-05,
      impact: latent, effort: s, epic: epic-0-i6,
+     stories: [0-i6a-finish-the-subscribedaccountcard-accountavatar-contract],
      title: "Shared account components mishandle degenerate or missing input props",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [pkg:ui, web:subscriptions, web:events],
-     note: "DW-006, DW-010, DW-015. AccountAvatar's empty-displayName alt-text fallback and SubscribedAccountCard's all-or-nothing render guard are both unreachable via real data/current callers today, but nothing guards them if that changes.
-     VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): actually already resolved by Story 0.i6a (epic-0-i6), whose epics.md AC and Dev Agent Record both cite BUG-005 by name — all 6 tasks complete, tests/lint/build green, status `review` in sprint-status.yaml. `stories`/`status` not yet updated here to reflect this (still `triaged`, no `stories` field) — flagging for a future bmad-help/backlog-sync pass to correct rather than doing so mid-orchestrator-batch. No bmad-create-story dispatch run against this row."}
+     note: "Verified 2026-09-17: already resolved by Story 0.i6a (all 6 tasks complete, review). stories/status corrected in this same pass (was stale triaged/no-stories). Full trail in Story 0.i6a's Dev Notes."}
 
   BUG-006:
     {type: finding, status: superseded, created: 2026-09-05, superseded_by: FIND-009,
@@ -404,7 +404,7 @@ items:
      title: "toggleFavorite/toggleCalendarAddition onSuccess read response fields without null-checking",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml, implementation-artifacts/spec-bug-009-toggle-onsuccess-null-check.md],
      touches: [web:events/EventDetailWrapper],
-     note: "DW-034. Two onSuccess handlers in EventDetailWrapper.tsx read data.toggleFavorite/toggleCalendarAddition unguarded; confirmed pre-existing. FIXED 2026-09-15 (bmad-quick-dev, commit e658eb4): each onSuccess now throws on a falsy data.toggleFavorite/toggleCalendarAddition instead of reading through -- TanStack Query v5 awaits onSuccess inside execute()'s try block, so the throw routes through the mutation's own onError (rolls back the optimistic update, announces the failure) rather than crashing or leaving stale optimistic state. For toggleCalendarAddition this also closes a latent false-success gap in handleAddToCalendar's Promise.all/try-catch, since mutateAsync now actually rejects. Added unhappy-path integration tests for both guards (EventDetailWrapper.test.tsx). Verified: eslint clean (0 errors, pre-existing warnings only), full EventDetailWrapper.test.tsx suite passing (29/29)."}
+     note: "Fixed 2026-09-15 (commit e658eb4): onSuccess handlers now throw on falsy response data instead of reading through, routing through the existing onError rollback path. Full detail in spec-bug-009-toggle-onsuccess-null-check.md."}
 
   BUG-010:
     {type: bug, status: done, created: 2026-09-05,
@@ -453,7 +453,7 @@ items:
      title: "selectPostsForExtraction's enqueue loop has no partial-failure tracking on a mid-loop error",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml, implementation-artifacts/spec-bug-015-select-posts-partial-failure.md],
      touches: [app:backend, web:posts],
-     note: "DW-089. Now a live risk rather than a theoretical one, since the sibling IAM-grant fix means sends actually succeed. Triaged 2026-09-18 alongside FIND-034 (same ai-processing enqueue path). DONE 2026-09-18: 2 ritual-orchestrator quick-dev dispatches (bundled with 3 others, then bundled with FIND-020) both stalled at spec-only with zero implementation despite green lint/build/test -- implemented directly instead, reusing the 2nd session's precise spec (resolvers.ts's selectPostsForExtraction reworked to Promise.allSettled, returns Posts for succeeded postIds only, logs failures, preserves the existing GraphQLError mapping when all fail; new extraction.test.ts case using a real isExtracted:true post as the failure trigger, no mocking). Verified independently: full extraction.test.ts (18/18), tsc --noEmit clean, pnpm --filter backend lint exit 0."}
+     note: "Done 2026-09-18: selectPostsForExtraction reworked to Promise.allSettled after 2 stalled ritual-orchestrator dispatches; implemented directly. Full detail in spec-bug-015-select-posts-partial-failure.md."}
 
   FIND-006:
     {type: finding, status: triaged, created: 2026-09-05,
@@ -575,9 +575,9 @@ items:
     {type: finding, status: done, created: 2026-09-05,
      impact: internal, effort: s,
      title: "ModeratorToolsContent test has no Accounts-tab coverage and an inaccurate test name",
-     ref: [implementation-artifacts/deferred-work.md],
+     ref: [implementation-artifacts/deferred-work.md, backlog/FIND-019-moderator-tools-accounts-tab-test.md],
      touches: [web:moderation],
-     note: "Deferred from: moderator-tools-test-missing-message (2026-09-05). 2 findings. FIXED 2026-09-14 (bmad-quick-dev, commit 3af8d50): mocked `./moderator-accounts-content` in moderator-tools-content.test.tsx the same way its sibling tab content components are already mocked (removing the inconsistent unmocked third tab), and added real assertions for the Accounts tab: its trigger renders and is labeled correctly (getByRole('tab', { name: /accounts/i })), it is not mounted by default, and it mounts `ModeratorAccountsContent` on tab-switch along with the URL-param update. Also renamed the `it(...)` description from the inaccurate \"renders both tab triggers...\" to \"renders all three tab triggers, matches active tab, and updates URL on tab switch\". Verified via targeted vitest (moderator/tools directory: 26 tests pass), lint clean (only two pre-existing any-type warnings)."}
+     note: "Deferred from: moderator-tools-test-missing-message (2026-09-05). Fixed 2026-09-14 (commit 3af8d50): Accounts tab mocked consistently + real coverage added. Full detail in backlog/FIND-019-moderator-tools-accounts-tab-test.md."}
 
   FIND-020:
     {type: finding, status: triaged, created: 2026-09-05,
@@ -697,7 +697,7 @@ items:
      ref: [],
      stories: [2-7-automatically-hide-past-events, 4-8-view-archived-hidden-personal-events],
      touches: [web:events, app:backend, pkg:domain],
-     note: "Reported by user via bmad-help. Verified NOT a new gap: Story 2.7 (buildDefaultEventVisibilityConditions.ts, wired into the events resolver's default query) already implements exactly this hiding rule, and Story 4.8 (Archive page) is its already-`done` escape hatch — but 2-7-automatically-hide-past-events itself is still status:review in sprint-status.yaml, not merged/released. status: triaged rather than backlog since this is very likely that in-review work simply not yet shipped, not an undiscovered defect — closing action is confirming/landing 2.7's review, not new dev work. AMENDED 2026-09-15 (bmad-help backlog session, check-5 cleanup): both stories 2-7 and 4-8 are now terminal (`done`) in sprint-status.yaml, so the §5-derived status is `done` — corrected from `promoted`, a pre-existing check-5 failure unrelated to BUG-031."}
+     note: "Not a new gap: Story 2-7's default visibility rule already covers this, Story 4-8 is the done escape hatch. AMENDED 2026-09-15: both stories now terminal, status corrected to done. Full trail in Story 2-7's Dev Notes."}
 
   BUG-022:
     {type: bug, status: promoted, created: 2026-09-07, parent: CC-019,
@@ -825,8 +825,8 @@ items:
     {type: idea, status: backlog, created: 2026-09-17, parent: IDEA-019,
      impact: user-visible, effort: m,
      title: "Extend the Today/Upcoming/All temporal filter to Feed and Favorites once they adopt useListPaginationController",
-     ref: [], touches: [web:events, pkg:ui],
-     note: "Carved out of IDEA-019 during its Story 0.i5d promotion (bmad-create-story, 2026-09-17). EXPERIENCE.md's 'Temporal Filter' section text says each consuming page (home-content.tsx, feed-content.tsx, favorites-content.tsx) owns the committed value via useListPaginationController, but Story 0.i5d only wires Discovery's card view — Feed/Favorites haven't adopted useListPaginationController at all yet (Story 0.i5b/0.i5c only cover Discovery/moderator-tools respectively), and Favorites/Feed are still missing FilterHub's Location/AI-filter buttons entirely per the still-open BUG-025. Blocked in practice on Feed/Favorites first adopting the pagination controller and BUG-025's fix landing — not actionable as its own story yet, hence effort:m (adoption work, not a one-file tweak) rather than xs."}
+     ref: [backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md], touches: [web:events, pkg:ui],
+     note: "Blocked in practice on Feed/Favorites adopting useListPaginationController first and BUG-025 landing; not actionable as its own story yet. Full detail in backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md."}
 
   # ── 2026-09-11 (bmad-help event-extraction-recurrence-bug session) ──────────
   BUG-026:
@@ -882,8 +882,8 @@ items:
     {type: idea, status: triaged, epic: epic-0-i7, created: 2026-09-13, parent: IDEA-023,
      impact: cosmetic, effort: s,
      title: "Build the event-detail map-link's untrusted-confidence fallback from the fullest known location context (place text + city/province/country), not the bare ambiguous string",
-     ref: [], touches: [web:events],
-     note: "Carved out of IDEA-023 via bmad-create-story (Story 0.i7c) — the child scope IDEA-023's own note originally proposed but explicitly deferred as unfinalized: once Story 0.i7c ships and confidence-gated map links are live in production, real low-confidence examples will exist to design/tune this against. Today's (and 0.i7c's) fallback is the bare `s.location` AI-extracted string — likely the very string that caused low confidence in the first place — handed straight to Google's own search. This item proposes instead composing the fallback from whatever richer context is available (the schedule's own location text, the account's `defaultLocation` city/province/country, or Geoapify's own `formattedAddress`), so an untrusted resolution gets a disambiguated search rather than a repeat of the original ambiguous one. Needs real low-confidence production examples before scoping into a story — do not implement speculatively."}
+     ref: [backlog/IDEA-024-map-link-fallback-context.md], touches: [web:events],
+     note: "Needs real low-confidence production examples before scoping into a story -- do not implement speculatively. Full detail in backlog/IDEA-024-map-link-fallback-context.md."}
 
   IDEA-025:
     {type: idea, status: promoted, epic: epic-1-i1, created: 2026-09-13, parent: IDEA-016,
@@ -923,9 +923,9 @@ items:
      impact: user-visible, effort: s,
      stories: [1-i1g-render-multi-day-schedules-as-a-spanning-calendar-grid-item-card],
      title: "Render multi-day schedules as one spanning EventCardCalendarGridItem across day-columns, instead of N independent per-day segments",
-     ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
+     ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md, backlog/IDEA-039-multi-day-spanning-grid-item.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView, cross:ux-tokens],
-     note: "Carved out of IDEA-026 via bmad-create-story (Story 1.i1f's own Gate 2 finding, 2026-09-17): today's WeeklyCalendarView.tsx has no true cross-column CSS-grid spanning mechanism for multi-day schedules — each overlapping day gets its own independent CalendarCard instance, cosmetically joined only via multiDayRoundingClass's corner-rounding suppression at touching edges, not one spanning element. Building a genuine single-spanning-element render path (width = N * day_cell_width) is non-trivial, scoped to one component, and independent of the primitive itself and of the overflow-dialog work (IDEA-026's other child, folded into BUG-036/FIND-026's own stories field instead of a separate row) — so it was pulled into its own story rather than built alongside Story 1.i1f's EventCardCalendarGridItem primitive. Story 1.i1g delivers this; single-day rendering is explicitly unaffected (stays with Story 1.i1h's overflow-dialog work)."}
+     note: "Story 1.i1g delivers the spanning-element render path; single-day rendering unaffected (stays with Story 1.i1h). Full detail in backlog/IDEA-039-multi-day-spanning-grid-item.md."}
 
   IDEA-040:
     {type: idea, status: promoted, epic: epic-0, created: 2026-09-17, parent: IDEA-026,
@@ -961,7 +961,7 @@ items:
      title: "Favorite-badge min-height clamp may bleed into caption content on a very short date box; no lint guard against reintroducing a dynamically-interpolated Tailwind class",
      ref: [implementation-artifacts/deferred-work.md],
      touches: [pkg:ui, web:events/EventCard, cross:ux-tokens, cross:process],
-     note: "Deferred from: quick-dev fix of eventcard-favorite-badge-clipping (2026-09-14). Both findings folded into Story 1.i1k (date-box variant migration + no-dynamic-Tailwind lint rule). Surfaced FIND-035 (packages/ui has no lint config) -> Story 0.41. Full history in Story 1.i1k's Dev Notes."}
+     note: "Deferred from: quick-dev fix of eventcard-favorite-badge-clipping (2026-09-14). Both findings folded into Story 1.i1k (date-box variant migration + no-dynamic-Tailwind lint rule). Surfaced FIND-036 (packages/ui has no lint config) -> Story 0.41. Full history in Story 1.i1k's Dev Notes."}
 
   # ── 2026-09-14 (bmad-png-to-html UX design pass — masonry/calendar-row/calendar-grid-item) ─
   FIND-026:
@@ -978,18 +978,17 @@ items:
     {type: bug, status: triaged, created: 2026-09-14,
      impact: user-visible, effort: s,
      title: "queryActorRuns returns HTTP 502 in production (moderator Actor Runs browser)",
-     ref: [implementation-artifacts/3-4j-capture-scraper-actor-run-audit-trail-and-replay-by-run-id.md,
-           implementation-artifacts/3-4k-moderator-actor-run-browser-and-replay-ui.md],
+     ref: [implementation-artifacts/3-4j-capture-scraper-actor-run-audit-trail-and-replay-by-run-id.md, implementation-artifacts/3-4k-moderator-actor-run-browser-and-replay-ui.md, backlog/BUG-029-query-actor-runs-502.md],
      touches: [web:moderation, app:backend],
-     note: "Reported by user via bmad-help (2026-09-14): calling the queryActorRuns GraphQL query (apps/backend/src/schema/resolvers.ts:3367, backs the Moderator Tools Actor Runs page built in Story 3.4k / apps/web/src/app/[locale]/moderator/tools/actor-runs-content.tsx) returns a 502 in production. Environment confirmed production; no filters/cursor, error log, or reproduction steps provided yet — logged as a bare unconfirmed report for triage. A 502 at this layer suggests an infra/gateway-level failure (Lambda timeout or crash, cold start, unhandled exception surfacing as a raw 5xx) rather than a GraphQL-level error, since a normal resolver throw would surface as a 200 with a GraphQL errors[] array, not a 502 — needs a prod log pull (CloudWatch or equivalent for the resolving Lambda) to confirm which. Not yet scoped into a story."}
+     note: "Bare unconfirmed prod report; likely infra/gateway-level (Lambda timeout/crash) rather than a GraphQL error. Needs a prod log pull to confirm. Not yet scoped. Full detail in backlog/BUG-029-query-actor-runs-502.md."}
 
   # ── 2026-09-15 (bmad-help) ──────────────────────────────────────────────────
   IDEA-027:
     {type: idea, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: m,
      title: "No UI for a user to view/edit their own account profile settings (display name, timezone, locale, email/password)",
-     ref: [], touches: [web:accounts, web:settings, cross:prd],
-     note: "Reported by user via bmad-help (2026-09-15). Verified: apps/web/src/app/[locale]/settings/account/account-settings-content.tsx's TabbedShell only has api-keys/subscriptions/posts/notifications tabs (locales/en.json AccountSettings namespace confirms no 5th tab). None of these let a user view or edit their own User record (PRD Section 4.8: displayName, timezone, locale, email) — timezone/locale in particular are read by the app (Section 3.7 timezone inference, Section 5 i18n) but have no self-service UI to set them; email/password changes would also route through Supabase Auth, unaddressed here. Not the same gap as CC-018/IDEA-006's account-claim self-service (that's for the social-media accounts a user subscribes to, not the user's own profile). Never scoped in the PRD or epics.md — needs a bmad-ux pass to design the tab (and confirm whether email/password edits go through Supabase Auth's own flow or a custom form) before a story can be created."}
+     ref: [backlog/IDEA-027-account-profile-settings-ui.md], touches: [web:accounts, web:settings, cross:prd],
+     note: "Never scoped in PRD/epics.md; needs a bmad-ux pass to design the tab before a story can be created. Full detail in backlog/IDEA-027-account-profile-settings-ui.md."}
 
   # ── 2026-09-15 (bmad-agent-architect getEvents review) ──────────────────────
   BUG-030:
@@ -1056,17 +1055,17 @@ items:
     {type: bug, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Schedule.isAddedToCalendar N+1 on the event-detail page — same shape as getEvents' BUG-030, scoped to one event's schedule list",
-     ref: [_bmad-output/project-context.md, planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
+     ref: [_bmad-output/project-context.md, planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md, backlog/BUG-033-schedule-isaddedtocalendar-n-plus-1.md],
      touches: [app:backend, web:events/eventBySlug, pkg:graphql-select],
-     note: "Found via bmad-agent-architect audit (2026-09-15). apps/backend/src/schema/resolvers.ts's Schedule.isAddedToCalendar field resolver (~3727-3741) is invoked once per schedule row returned by the schedules field (~3619-3625) — no DataLoader or batching exists anywhere in apps/backend/src (grepped, zero hits). For a multi-schedule (recurring/multi-day) event this is N separate DB round trips for a single eventBySlug call, doubled by BUG-035. Same defect class as BUG-030's getEvents N+1 (per-row field resolver instead of a batched/EXISTS-subquery form), just bounded by one event's schedule count instead of a full page of events — lower severity than BUG-030 but same fix pattern applies (batch via the schedule ids already known from the parent select, or a per-request DataLoader). Not yet scoped into a story."}
+     note: "Same N+1 class as BUG-030, bounded to one event's schedule count; same fix pattern (batch via known schedule ids or a DataLoader). Not yet scoped into a story. Full detail in backlog/BUG-033-schedule-isaddedtocalendar-n-plus-1.md."}
 
   BUG-034:
     {type: bug, status: triaged, created: 2026-09-15,
      impact: user-visible, effort: xs,
      title: "favorites has no index with eventId as a leading column — favoriteCount full-scans the table on every eventBySlug call",
-     ref: [_bmad-output/project-context.md, planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
+     ref: [_bmad-output/project-context.md, planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md, backlog/BUG-034-favorites-missing-eventid-index.md],
      touches: [pkg:database, app:backend],
-     note: "Found via bmad-agent-architect audit (2026-09-15). The favoriteCount field resolver (apps/backend/src/schema/resolvers.ts:3664-3672) queries `WHERE eventId = X AND deletedAt IS NULL`, but favorites (packages/database/schema.ts) only carries `unique(userId, eventId)` (:411) and a partial index on `userId` alone (`activeIdx`, :412) — neither has `eventId` as a leading/usable column for this query shape, forcing a full table scan of favorites on every single eventBySlug call. Doubled by BUG-035, and multiplied further by BUG-035's prefetch case. Fix: add a partial index on `(eventId)` scoped to `WHERE deleted_at IS NULL`, matching AD-8 rule 3's existing partial-index convention for this exact table family (subject to AD-8 rule 3's documented drizzle-kit WHERE-clause-dropping limitation — the migration will need the same hand-edit workaround already used for idx_favorites_active). Not yet scoped into a story."}
+     note: "Fix: add a partial index on (eventId) WHERE deleted_at IS NULL, matching AD-8 rule 3's convention. Not yet scoped into a story. Full detail in backlog/BUG-034-favorites-missing-eventid-index.md."}
 
   FIND-030:
     {type: finding, status: triaged, created: 2026-09-15,
@@ -1079,8 +1078,8 @@ items:
     {type: finding, status: triaged, created: 2026-09-15,
      impact: cosmetic, effort: xs,
      title: "Event-detail page client-side hygiene: unmemoized prop mapper, raw <img> instead of next/image on hero and carousel-peek images",
-     ref: [], touches: [web:events/EventDetailWrapper, pkg:ui],
-     note: "Found via bmad-agent-architect audit (2026-09-15), secondary to the backend findings above. mapGraphQLEventToDetailViewProps(...) runs unmemoized in EventDetailWrapper.tsx's render body (~461-463), rebuilding the schedules array on every re-render (dialog open/close, liveMessage updates) — likely cheap for a single event, but not memoized. Both the hero image (packages/ui/src/features/events/EventImage.tsx:88-91) and the carousel-peek images (event-preview-card.tsx:41-47) use raw <img>, not next/image — no responsive srcset/format optimization; the peek images additionally have no loading=\"lazy\". Low priority relative to BUG-032/033/034; bundled as one item since all three are event-detail-page client-side polish, not separate root causes. Not yet scoped into a story."}
+     ref: [backlog/FIND-031-event-detail-client-side-hygiene.md], touches: [web:events/EventDetailWrapper, pkg:ui],
+     note: "Low priority relative to BUG-032/033/034; bundled as one item (unmemoized mapper, raw <img> on hero/carousel-peek). Not yet scoped into a story. Full detail in backlog/FIND-031-event-detail-client-side-hygiene.md."}
 
   # ── 2026-09-15 (bmad-help backlog capture) ──────────────────────────────────
   BUG-032:
@@ -1125,8 +1124,7 @@ items:
      ref: [backlog/IDEA-032-platform-account.md,
            planning-artifacts/sprint-change-proposal-2026-09-15-reusable-location-link.md],
      touches: [web:accounts, web:locations, pkg:ui],
-     note: "Reported by user via bmad-help (2026-09-15). The reusable account element currently shows accountId beneath the link to the account page — replace accountId with <link-to-map>[Location name]<link-to-map> when the location is confirmed/good-confidence (IDEA-029 semantics), falling back to accountId otherwise.
-     CARVED 2026-09-15 (§6, event-pages follow-through plan Phase 0): this row's original capture bundled a second, unrelated surface — the Moderator Tools accounts-tab card's location edit/clear icons (Epic 4, Data Quality and Moderation) — which shares no mechanism with this row's reusable-element change (Epic 1/3, event pages). Split out as IDEA-034 so this row stays a clean member of the IDEA-029 location-link mechanism cluster (see planning-artifacts/event-pages-followthrough-plan.md)."}
+     note: "Carved 2026-09-15: Moderator Tools accounts-tab surface split to IDEA-034; this row stays the IDEA-029 location-link cluster member. Full detail in backlog/IDEA-032-platform-account.md."}
 
   IDEA-034:
     {type: idea, status: triaged, created: 2026-09-15, parent: IDEA-032,
@@ -1194,6 +1192,16 @@ items:
      note: "Promoted 2026-09-18 via bmad-create-story into Story 0.40, covering the settled design plus staging treatment. Blocks BUG-002 until Story 0.40 reaches done. Full detail in backlog/FIND-034-sqs-lambda-poller-idle-cost.md."}
 
   # ── 2026-09-18 (bmad-create-story, drafting Story 1.i1k) ────────────────────
+  # NOTE: this row was originally captured as FIND-035, colliding with the
+  # unrelated scraper-window finding independently captured the same day
+  # under the same id (that commit, 5fe85a2, landed on master first at
+  # 03:00 UTC, ahead of this row's own originating commit 59c561e at
+  # 03:46 UTC) — a duplicate YAML key, silently resolving to whichever
+  # parses last. Renumbered to FIND-036 per §4 ("never reuse an id");
+  # every cross-reference (1-i1k's Dev Notes, epics.md Story 0.41,
+  # sprint-status.yaml, event-pages-remaining-backlog-plan.md) updated to
+  # match in the same commit. Independently rediscovered and fixed the
+  # same way by a concurrent master session — this merge reconciles both.
   FIND-036:
     {type: finding, status: promoted, created: 2026-09-18,
      impact: internal, effort: s,
@@ -1202,7 +1210,7 @@ items:
      ref: [implementation-artifacts/1-i1k-give-eventcarddatebox-the-design-specified-two-tier-chrome.md,
            backlog/FIND-036-packages-ui-no-lint-config.md],
      touches: [pkg:ui, cross:process],
-     note: "Renumbered from FIND-035 (2026-09-18): a real, separate FIND-035 (scraper cron non-incremental window, commit 5fe85a2) landed on master first (03:00 UTC) via a concurrent session, before this row's own commit (03:46 UTC) -- same resolution precedent as this row's own Story 0.40->0.41 renumber. Discovered while wiring Story 1.i1k's own narrow lint guard (FIND-025 finding 2): packages/ui has no lint script/eslint.config.mjs at all, unlike every sibling package -- CI has silently skipped it for the package's whole life. Story 1.i1k deliberately scoped its own fix narrowly; this row tracks giving packages/ui full lint parity as Story 0.41's own reviewable change. Full detail: backlog/FIND-036-packages-ui-no-lint-config.md."}
+     note: "Renumbered from FIND-035 -- that id's scraper-window finding (commit 5fe85a2) landed on master first. Split into Story 0.41 (renumbered from 0.40); Story 1.i1k's own narrow guard deliberately doesn't fix this broadly. Full detail in backlog/FIND-036-packages-ui-no-lint-config.md."}
 
   # ── 2026-09-17 (bmad-architecture, calendar overflow data-fetching session) ─
   BUG-036:
@@ -1221,7 +1229,7 @@ items:
      title: "Daily scraper batch cron re-requests a fixed 7-day window for every account every day instead of scraping incrementally",
      ref: [backlog/FIND-035-scraper-batch-non-incremental-window.md],
      touches: [app:backend, cross:process],
-     note: "scraper.ts's EventBridge-triggered daily batch path hardcodes newerThan = now-7days for every account every run (~6-day overlap with the previous day's window, forever). The correct incremental logic already exists in this codebase at process-scrape-job.ts:132-139 (use newestPost.publishedAt, falling back to env.scrapeInitialLookbackDays only for a genuinely first-ever scrape) but is only wired into the SQS-fallback path, never the primary async-trigger path that actually drives the cron. Matters more than a queue-cost issue: this is recurring metered Bright Data/Apify vendor cost, not AWS free-tier float. Fix: extend getBatchScrapeTargets() with a MAX(publishedAt) GROUP BY accountId join, wire it into scraper.ts's newerThan calc. Prioritized ahead of FIND-024/FIND-022/IDEA-010 in the FIND-034 ritual-orchestrator batch (.batch-plan-find034-cluster.json) per user direction — low-risk, high-value, reuses a proven existing pattern, no architectural/UX ambiguity."}
+     note: "scraper.ts's daily-batch path hardcodes a 7-day window every run instead of using the already-proven incremental pattern from process-scrape-job.ts. Fix: extend getBatchScrapeTargets() with a MAX(publishedAt) join. Full detail in backlog/FIND-035-scraper-batch-non-incremental-window.md."}
 
   # ── 2026-09-18 (found+fixed by a ritual-orchestrator quick-dev auto-fix dispatch) ──
   BUG-037:

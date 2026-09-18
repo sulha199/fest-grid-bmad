@@ -157,6 +157,20 @@ Three rounds of real, non-mechanical tradeoffs were surfaced via `AskUserQuestio
 
 Recent commits (`26b0fca` "add user menu story", `6cdcab0`, `5702673` "add user settings management", `baf6139` "add nearby filter functionality", `5db3f7a` "add withinRadius condition handling") confirm Stories 2.5a (`withinRadius`) and 2.6a (user settings) landed in code recently and are the direct, already-shipped precedents this story builds on. No commit touches `overlaps`'s value shape, `packages/domain/src/events/`, or any past-event/visibility-named file — confirms this story's scope genuinely has not started implementation. Note: `sprint-status.yaml` and `apps/backend`'s resolver/test files reflect some story statuses (`2-6a`, `2-8`) that advanced mid-session from a concurrent working session outside this story-creation pass — read as current, informational context, not something this story needs to reconcile.
 
+### Backlog row history (BUG-021, verbatim, moved from backlog.yaml 2026-09-18)
+
+Reported by user via `bmad-help`. Verified NOT a new gap: this story
+(`buildDefaultEventVisibilityConditions.ts`, wired into the events resolver's default query)
+already implements exactly this hiding rule, and Story 4.8 (Archive page) is its already-`done`
+escape hatch — but this story itself was still `status:review` in sprint-status.yaml at capture
+time, not merged/released. Backlog `status: triaged` rather than `backlog` since this was very
+likely that in-review work simply not yet shipped, not an undiscovered defect — closing action
+was confirming/landing this story's review, not new dev work.
+
+**AMENDED (2026-09-15, bmad-help backlog session, check-5 cleanup):** both this story and Story
+4.8 are now terminal (`done`) in sprint-status.yaml, so the §5-derived backlog status is `done`
+— corrected from `promoted`, a pre-existing check-5 failure unrelated to BUG-031.
+
 ## Global Rules References
 
 - `_bmad-output/project-context.md` (Critical Implementation Rules → API & Data, Database & Performance; Code Quality & Style Rules → Code Organization; Testing Rules; General Architecture → Adapter Pattern)

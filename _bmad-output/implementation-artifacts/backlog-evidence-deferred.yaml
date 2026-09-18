@@ -507,7 +507,7 @@ records:
     still_live_evidence: "EventDetailWrapper.tsx:96 still reads `data.toggleFavorite.isFavorited` with no preceding null-check on data.toggleFavorite"
     touches: [web:events]
     duplicate_of: null
-    notes: ""
+    notes: "FIXED 2026-09-15 (bmad-quick-dev, commit e658eb4, tracked as BUG-009): each onSuccess now throws on a falsy data.toggleFavorite/toggleCalendarAddition instead of reading through -- TanStack Query v5 awaits onSuccess inside execute()'s try block, so the throw routes through the mutation's own onError (rolls back the optimistic update, announces the failure). Full detail in spec-bug-009-toggle-onsuccess-null-check.md."
 
   - id: DW-035
     section: "quick-dev planning of ux-rework2 P0 batch"
@@ -1332,4 +1332,4 @@ records:
     still_live_evidence: "resolvers.ts:1912-1915 still shows `for (const postId of postIds) { await enqueuePostForProcessing(postId); }` inside a single try/catch with no per-post result tracking"
     touches: [app:backend, web:posts]
     duplicate_of: null
-    notes: ""
+    notes: "FIXED 2026-09-18 (tracked as BUG-015): selectPostsForExtraction reworked to Promise.allSettled, returns Posts for succeeded postIds only, logs failures, preserves the existing GraphQLError mapping when all fail. Full detail in spec-bug-015-select-posts-partial-failure.md."
