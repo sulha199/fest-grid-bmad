@@ -2,6 +2,12 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: bmad-quick-dev BUG-015,FIND-020 intent (2026-09-18)
+
+- source_spec: none
+  summary: FIND-020 — add throttling/dedup to the scraper audit-trail alert (`send-scraper-audit-alert.ts`), reusing the `getModeratorEmails()` dedup helper and a DB-backed cooldown store modeled on `scraper-provider-health-store.ts`.
+  evidence: Split from a combined BUG-015+FIND-020 quick-dev intent per the multi-goal check — the two are independent, unrelated backend fixes touching different files with no shared dependency (BUG-015 is the enqueue loop's partial-failure tracking; FIND-020 is the audit-alert's throttling/dedup). User chose to split and do BUG-015 first since it's the live risk per the backlog note.
+
 ## Deferred from: find-011-cruft-cleanup (2026-09-15)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-find-011-cruft-cleanup.md`

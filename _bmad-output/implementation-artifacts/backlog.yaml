@@ -451,12 +451,12 @@ items:
      note: "DW-087. reprocessPayload no longer lies about success, but the actual SQS enqueue plus consumer path remains unimplemented."}
 
   BUG-015:
-    {type: bug, status: triaged, created: 2026-09-05,
+    {type: bug, status: done, created: 2026-09-05,
      impact: latent, effort: s,
      title: "selectPostsForExtraction's enqueue loop has no partial-failure tracking on a mid-loop error",
-     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml, implementation-artifacts/spec-bug-015-select-posts-partial-failure.md],
      touches: [app:backend, web:posts],
-     note: "DW-089. Now a live risk rather than a theoretical one, since the sibling IAM-grant fix means sends actually succeed. Triaged 2026-09-18 alongside FIND-034 (same ai-processing enqueue path)."}
+     note: "DW-089. Now a live risk rather than a theoretical one, since the sibling IAM-grant fix means sends actually succeed. Triaged 2026-09-18 alongside FIND-034 (same ai-processing enqueue path). DONE 2026-09-18: 2 ritual-orchestrator quick-dev dispatches (bundled with 3 others, then bundled with FIND-020) both stalled at spec-only with zero implementation despite green lint/build/test -- implemented directly instead, reusing the 2nd session's precise spec (resolvers.ts's selectPostsForExtraction reworked to Promise.allSettled, returns Posts for succeeded postIds only, logs failures, preserves the existing GraphQLError mapping when all fail; new extraction.test.ts case using a real isExtracted:true post as the failure trigger, no mocking). Verified independently: full extraction.test.ts (18/18), tsc --noEmit clean, pnpm --filter backend lint exit 0."}
 
   FIND-006:
     {type: finding, status: triaged, created: 2026-09-05,
@@ -588,7 +588,7 @@ items:
      title: "Scraper audit-trail alert lacks throttling/dedup, duplicates an existing moderator-notify pattern, and depends on the same DB it may be reporting on",
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend, pkg:domain],
-     note: "Deferred from: quick-dev fix of scraper-audit-trail-alerting (2026-09-05). 5 findings (excludes the HTML-escaping finding, tracked separately as FIND-021 per its user-visible impact). Triaged 2026-09-18 alongside FIND-034 (same scraper/infra-reliability neighborhood)."}
+     note: "Deferred from: quick-dev fix of scraper-audit-trail-alerting (2026-09-05). 5 findings (excludes the HTML-escaping finding, tracked separately as FIND-021 per its user-visible impact). Triaged 2026-09-18 alongside FIND-034 (same scraper/infra-reliability neighborhood). Deferred from: bmad-quick-dev BUG-015,FIND-020 intent (2026-09-18) -- split from a combined BUG-015+FIND-020 quick-dev pass (multi-goal check), user chose to do BUG-015 first since it was the live risk; this row's own scope (DB-persisted cooldown + getModeratorEmails() dedup reuse) is unchanged, still pending its own dispatch."}
 
   FIND-021:
     {type: finding, status: triaged, created: 2026-09-05,

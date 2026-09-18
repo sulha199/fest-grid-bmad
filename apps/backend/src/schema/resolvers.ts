@@ -1985,11 +1985,26 @@ Constraints and Guidelines:
         }
       }
 
-      try {
-        for (const postId of postIds) {
-          await enqueuePostForProcessing(postId);
+      const enqueueResults = await Promise.allSettled(
+        postIds.map((id: string) => enqueuePostForProcessing(id).then(() => id))
+      );
+
+      const succeededIds: string[] = [];
+      const failures: { postId: string; error: unknown }[] = [];
+      enqueueResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          succeededIds.push(result.value);
+        } else {
+          failures.push({ postId: postIds[index], error: result.reason });
         }
-      } catch (err: any) {
+      });
+
+      for (const failure of failures) {
+        console.error('Failed to enqueue post for extraction', failure);
+      }
+
+      if (succeededIds.length === 0) {
+        const err = failures[0]?.error as any;
         if (err instanceof PostAlreadyExtractedError) {
           throw new GraphQLError('Post has already been extracted', { extensions: { code: 'BAD_REQUEST' } });
         }
@@ -1999,7 +2014,7 @@ Constraints and Guidelines:
         throw err;
       }
 
-      const updatedPosts = await db.select().from(posts).where(inArray(posts.id, postIds));
+      const updatedPosts = await db.select().from(posts).where(inArray(posts.id, succeededIds));
       return updatedPosts.map(p => ({
         ...p,
         publishedAt: p.publishedAt.toISOString()

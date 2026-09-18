@@ -382,6 +382,8 @@ test('manual post selection & extraction integration tests', async (t) => {
   let otherUser: any;
   let otherPost: any;
   let otherApiKey: any;
+  let partialFailureSecondPost: any;
+  let partialFailureAlreadyExtractedPost: any;
 
   await t.test('setup - manual post selection test data', async () => {
     process.env.AI_PROCESSING_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789012/mock-queue';
@@ -441,6 +443,12 @@ test('manual post selection & extraction integration tests', async (t) => {
   });
 
   t.after(async () => {
+    if (partialFailureSecondPost) {
+      await db.delete(posts).where(eq(posts.id, partialFailureSecondPost.id));
+    }
+    if (partialFailureAlreadyExtractedPost) {
+      await db.delete(posts).where(eq(posts.id, partialFailureAlreadyExtractedPost.id));
+    }
     if (otherPost) {
       await db.delete(posts).where(eq(posts.id, otherPost.id));
     }
@@ -683,5 +691,51 @@ test('manual post selection & extraction integration tests', async (t) => {
     const result = await response.json();
     assert.ok(!result.errors, 'should not have errors');
     assert.strictEqual(result.data.selectPostsForExtraction[0].id, recentPost.id);
+  });
+
+  await t.test('selectPostsForExtraction returns Posts for the ones that succeed when one postId fails mid-loop (BUG-015)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const [insertedSecondPost] = await db.insert(posts).values({
+      accountId: testProfile.id,
+      platform: 'instagram',
+      content: 'A second post to enqueue',
+      postUrl: `https://instagram.com/p/partial123-${Date.now()}-${Math.random()}`,
+      publishedAt: new Date(),
+    }).returning();
+    partialFailureSecondPost = insertedSecondPost;
+
+    const [insertedAlreadyExtractedPost] = await db.insert(posts).values({
+      accountId: testProfile.id,
+      platform: 'instagram',
+      content: 'Already extracted post',
+      postUrl: `https://instagram.com/p/already-extracted123-${Date.now()}-${Math.random()}`,
+      publishedAt: new Date(),
+      isExtracted: true,
+    }).returning();
+    partialFailureAlreadyExtractedPost = insertedAlreadyExtractedPost;
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation SelectPosts($postIds: [ID!]!) {
+            selectPostsForExtraction(postIds: $postIds) {
+              id
+            }
+          }
+        `,
+        variables: { postIds: [recentPost.id, insertedSecondPost.id, insertedAlreadyExtractedPost.id] }
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, 'should not have errors -- partial success must not throw');
+    const returnedIds = result.data.selectPostsForExtraction.map((p: any) => p.id);
+    assert.strictEqual(returnedIds.length, 2, 'only the 2 non-extracted posts should be returned');
+    assert.ok(returnedIds.includes(recentPost.id));
+    assert.ok(returnedIds.includes(insertedSecondPost.id));
+    assert.ok(!returnedIds.includes(insertedAlreadyExtractedPost.id));
   });
 });
