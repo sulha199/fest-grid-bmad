@@ -840,7 +840,7 @@ items:
      impact: user-visible, effort: m,
      title: "Extend the Today/Upcoming/All temporal filter to Feed and Favorites once they adopt useListPaginationController",
      ref: [backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md], touches: [web:events, pkg:ui],
-     note: "Blocked in practice on Feed/Favorites adopting useListPaginationController first and BUG-025 landing; not actionable as its own story yet. Full detail in backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md."}
+     note: "AMENDED 2026-09-19: missing prerequisite carved to Story 0-i5e (ready-for-dev); still blocked on 0-i5e + 1-3l both landing. Full detail in backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md."}
 
   # ── 2026-09-11 (bmad-help event-extraction-recurrence-bug session) ──────────
   BUG-026:

@@ -4450,6 +4450,22 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Note:** Added 2026-09-11 as a **sweep** story (gate §5) — IDEA-019 shares this epic's FilterHub surface but is not epic-worthy on its own (criterion 5). It is new user-visible behaviour riding the epic's mechanism, not a violation of its invariant; the invariant and the other members are unchanged.
 
+### Story 0.i5e: Adopt the controller in Feed/Favorites
+
+**As a** developer,
+**I want** the Feed and Favorites event-list card views to use the shared controller,
+**So that** they gain the same filter-change-reset behavior Discovery has, `IDEA-038` (extending the Today/Upcoming/All temporal filter to Feed/Favorites) has a controller to attach its committed value to, and the epic's ratchet (Story 0.i5z) can eventually cover every list surface.
+
+**Acceptance Criteria:**
+
+*   **Given** the Feed and Favorites event-list card views,
+*   **When** they adopt the shared controller,
+*   **Then** their implicit, hand-assembled reset mechanism (relying on every filter field being remembered in the query key) is replaced by the canonical, structurally-guaranteed `resetToken` mechanism from the shared controller, matching the pattern established in Story 0.i5b for Discovery.
+
+**Depends on:** Story 0.i5a. Also depends in practice on Story 1.3l (BUG-025) landing first, since Feed/Favorites' current hardcoded `isAuthenticated=false`/missing location-AI-filter wiring must be fixed before the controller's filter-state plumbing has real `nearby`/`aiFilter` inputs to manage.
+
+**Note:** Surfaced 2026-09-19 via `bmad-create-story` while attempting to create `IDEA-038` (extend the temporal filter to Feed/Favorites) — `IDEA-038`'s own capture doc named "Feed/Favorites adopting `useListPaginationController`" as a blocking prerequisite, but no story in epic-0-i5 covered it (only Discovery `0.i5b` and moderator-tools `0.i5c` were scoped; `0.i5d`'s temporal-filter sweep is Discovery/card-view only). Added as a lettered suffix following the `0.i5b`/`0.i5c` "adopt the controller in X" precedent, positioned after `0.i5d` and before the `0.i5z` ratchet (which now also depends on this story, since its full-codebase sweep can't pass without Feed/Favorites in scope). EXPERIENCE.md's own Temporal Filter section already names `feed-content.tsx`/`favorites-content.tsx` as anticipated future `useListPaginationController` adopters, corroborating the gap.
+
 ### Story 0.i5z: Ratchet — no list surface manages pagination/filter state locally
 
 **As a** developer,
@@ -4464,9 +4480,9 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **And** a regression test asserts a filter change resets pagination to page 1 (BUG-019's exact case).
 *   **And** the on-change-vs-Apply rule is applied identically across every adopting surface, verified by the controller's own test suite rather than by per-surface convention.
 
-**Depends on:** Stories 0.i5a, 0.i5b, 0.i5c, 0.i5d.
+**Depends on:** Stories 0.i5a, 0.i5b, 0.i5c, 0.i5d, 0.i5e.
 
-**Note:** Formed 2026-09-08 via `bmad-form-epics` from BUG-018, BUG-019, BUG-020, and IDEA-011 (member — see Story 0.i5a's note on its absorption). This is a mixed-type improvement epic: bugs drive it, so it stays `epic-0-i5` rather than becoming a feature epic — one `proposal`-type member does not flip an epic's kind (gate §2 governs what the epic's kind IS from its driving rows, not a requirement that every member share one type).
+**Note:** Formed 2026-09-08 via `bmad-form-epics` from BUG-018, BUG-019, BUG-020, and IDEA-011 (member — see Story 0.i5a's note on its absorption). This is a mixed-type improvement epic: bugs drive it, so it stays `epic-0-i5` rather than becoming a feature epic — one `proposal`-type member does not flip an epic's kind (gate §2 governs what the epic's kind IS from its driving rows, not a requirement that every member share one type). **Depends-on amended 2026-09-19** to add `0.i5e` (Feed/Favorites adoption) — the ratchet's full-codebase sweep cannot pass while Feed/Favorites still manage pagination state outside the controller.
 
 ---
 
