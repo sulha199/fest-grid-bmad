@@ -27,6 +27,22 @@ implements both halves.
 DEPENDS ON Story 0.38a (split off THIS story by a Gate 2 finding during drafting — see
 Architecture & UX Gate Findings below): 0.38a must be done first. Both stories were
 authored together in the same bmad-create-story dispatch.
+
+**AMENDED 2026-09-19 (via bmad-create-story, while drafting Story 0.39):** this story now
+ALSO DEPENDS ON Story 0.42 (`0-42-build-the-shared-ambient-capability-ask-banner-slot-primitive`).
+EXPERIENCE.md's "Ambient Capability Ask: Shared Banner Slot" section (added 2026-09-18, one
+day after this story was originally drafted) retroactively generalized this story's own
+PWA install banner into the first of two participants in one shared slot mechanism (the
+second is Story 0.39's ambient viewer-location consent banner) -- DESIGN.md's
+`pwa_install_banner` token was updated the same pass to derive its `base`/dismiss classes
+from the new `ambient_capability_banner` token. Since this story had not yet been
+implemented (still `ready-for-dev`), AC10-AC12/Task 4 below are amended in place rather
+than left stale: `PwaInstallBanner` is no longer mounted directly as `AppShell.tsx`'s
+hardcoded first child -- it registers as a participant in Story 0.42's
+`useAmbientCapabilityAskSlot()` orchestration hook instead, and its `base`/`dismiss_permanent`/
+`dismiss_cooldown` classes are imported from Story 0.42's shared
+`ambient-capability-banner-tokens.ts` rather than hardcoded inline. See Story 0.42's own
+epics.md section and this story's own Architecture & UX Gate Findings for the full record.
 -->
 
 ## Story
@@ -140,34 +156,48 @@ non-intrusive path to install FestDaily as an app if I want to.
 ### PWA install banner (EXPERIENCE.md "PWA Install Prompt", DESIGN.md `pwa_install_banner`)
 
 10. Given Story 0.38a's `usePwaInstallPrompt()` hook (a **hard dependency** — do not begin
-    this section until 0.38a is done), when `canShow` is `true`, then a new
+    this section until 0.38a is done) and Story 0.42's shared slot primitive (**also a hard
+    dependency**, amended 2026-09-19 — see Dev Notes), when `canShow` is `true`, then a new
     `PwaInstallBanner` presentational component (`packages/ui/src/core/PwaInstallBanner.tsx`
     — a `core/` primitive per this codebase's established RouteLoader/PageContainer/
     GridContainer/PageHeader placement convention, since this banner is app-shell-level,
-    not tied to the `events` domain) renders as the **first child inside** `AppShell.tsx`'s
-    existing `<main>` element (i.e. immediately before `{children}`, so it sits below the
-    global nav and above all page content on every route, per EXPERIENCE.md's explicit
-    placement rule), implementing the `pwa_install_banner` DESIGN.md tokens exactly: `base`
-    styling, and — reading left to right — a permanent "Not now" button
-    (`dismiss_permanent`, `{components.button.secondary}`), then the lower-weight "Remind
-    me in 2 weeks" link (`dismiss_cooldown`) positioned **between** the two real buttons,
-    then the primary action button (`primary_action`, `{components.button.primary}`,
+    not tied to the `events` domain) implements the `pwa_install_banner` DESIGN.md tokens
+    exactly: `base` styling (imported from Story 0.42's shared
+    `ambient-capability-banner-tokens.ts`, not hardcoded inline), and — reading left to
+    right — a permanent "Not now" button (`dismiss_permanent`, `{components.button.secondary}`,
+    same shared-token import), then the lower-weight "Remind me in 2 weeks" link
+    (`dismiss_cooldown`, same shared-token import) positioned **between** the two real
+    buttons, then the primary action button (`primary_action`, `{components.button.primary}`,
     labeled "Install" on Android/Chrome or "How to install" on iOS) — matching DESIGN.md's
     explicit "deliberately lower visual weight than the two real buttons either side of it"
     ordering, not an arbitrary layout. `PwaInstallBanner` receives all copy strings,
     `platform`, and the three callbacks (`onInstallClick`, `onDismissPermanent`,
     `onRemindLater`) as plain props — no `next-intl`/`zustand` import inside
-    `packages/ui`, matching the existing `AppShell`/`AppShellWrapper` split.
+    `packages/ui`, matching the existing `AppShell`/`AppShellWrapper` split. **Amended
+    2026-09-19:** this component itself is no longer mounted as `AppShell.tsx`'s hardcoded
+    first child (superseded — see AC11); `AppShell.tsx`'s `<main>` mount point and its
+    `ambientBanner` prop are now owned by Story 0.42.
 11. Given `AppShellWrapper.tsx` (the `apps/web` owner of `AppShell`'s state, per the
-    existing split), when it renders `AppShell`, then it calls Story 0.38a's
-    `usePwaInstallPrompt()` and passes `canShow`/`platform` down, wiring
-    `onDismissPermanent`→`dismissPermanently()`, `onRemindLater`→`remindLater()`, and
-    `onInstallClick`→a handler that calls `promptInstall()` and, based on its resolved
+    existing split) and Story 0.42's `useAmbientCapabilityAskSlot()` orchestration hook,
+    when it renders `AppShell`, then it calls Story 0.38a's `usePwaInstallPrompt()`,
+    registers a `{ id: 'pwa-install', canShow }` participant descriptor with Story 0.42's
+    slot hook (lower priority than Story 0.39's `'location'` participant, per that story's
+    fixed ordering), and — only when this participant is the slot's winning `id` — renders
+    `PwaInstallBanner` as the `ReactNode` passed into `AppShell`'s new `ambientBanner` prop
+    (**amended 2026-09-19, supersedes the original "mounted directly as `AppShell`'s first
+    child" plan** — see Dev Notes), wiring `onDismissPermanent`→calls **both**
+    `dismissPermanently()` (this story's own persisted state, unchanged) **and** Story
+    0.42's `markDismissedThisSession()` (the shared slot's session-gating action — required
+    so a dismissed PWA banner doesn't leave the slot eligible to immediately show something
+    else the same session), `onRemindLater`→same dual-call pattern with `remindLater()`,
+    and `onInstallClick`→a handler that calls `promptInstall()` and, based on its resolved
     value (`'accepted' | 'dismissed' | 'ios-instructions' | 'unavailable'`), either does
     nothing further (`'accepted'`/`'dismissed'`, the native flow already completed) or
     opens `PwaInstallIosModal` (`'ios-instructions'`) — `'unavailable'` is a defensive
     no-op (should not occur if `canShow` gated the banner correctly, but must not throw
-    if it does).
+    if it does). Accepting/completing the native install flow (`'accepted'`) does **not**
+    call `markDismissedThisSession()` — that action only fires on an explicit dismiss, not
+    on a successful outcome, matching EXPERIENCE.md's "dismissing an ask" wording.
 12. Given the UX spec's explicit "not part of onboarding" rule (Chrome's own
     `beforeinstallprompt` engagement gate — click/tap + 30s dwell + this story's own
     AC1-AC4 fetch-handling service worker — would not be satisfied that early in the user
@@ -340,6 +370,18 @@ non-intrusive path to install FestDaily as an app if I want to.
   `usePwaInstallPrompt()`) until 0.38a's hook, store, and platform-detection helper exist
   and are tested. Tasks 1-3 (SW caching, preconnect, manifest/icons) have no dependency on
   0.38a and may be implemented first/in parallel.
+- **Amended 2026-09-19: also a hard dependency on Story 0.42** (the shared "Ambient
+  Capability Ask" banner slot primitive, split off during Story 0.39's `bmad-create-story`
+  drafting). Task 4.3/4.4 ("wire `PwaInstallBanner` into `AppShell.tsx` as the first child
+  of `<main>`") is **superseded** by AC10/AC11's amended text: `AppShell.tsx`'s `<main>`
+  mount point (`ambientBanner` prop) and the priority/one-at-a-time orchestration are now
+  owned by Story 0.42, not built here. Do not re-implement a bespoke mount/orchestration in
+  this story — register as a participant in Story 0.42's `useAmbientCapabilityAskSlot()`
+  hook instead, and import `pwa_install_banner`'s shared chrome classes from Story 0.42's
+  `ambient-capability-banner-tokens.ts` rather than hardcoding them. This story was
+  originally authored (2026-09-17) before EXPERIENCE.md's shared-slot design (2026-09-18)
+  existed; this amendment brings it in line without a full rewrite. See Story 0.42's own
+  epics.md section for the full rationale.
 - **Do not confuse the two `embed.js` files.** `apps/web/public/embed.js` is this
   project's own FestDaily widget-embedding script (Epic 6, `/widget/[id]` iframes) — a
   completely unrelated, same-origin static file. This story's caching target is Instagram's
@@ -410,7 +452,11 @@ non-intrusive path to install FestDaily as an app if I want to.
   **Split into Story 0.38a** (`0-38a-build-the-pwa-install-eligibility-hook.md`), following
   this codebase's existing 0.7/0.7a precedent for exactly this class of finding. This
   story's own scope was narrowed accordingly: it consumes 0.38a's hook rather than
-  building any capture/dismiss/platform-detection logic itself. Gate 2 additionally
+  building any capture/dismiss/platform-detection logic itself. **Amended 2026-09-19:** a
+  second Gate 2 gap, surfaced a day later by the `bmad-ux` pass that designed Story 0.39's
+  consent banner, generalized this story's own banner placement into a shared slot —
+  **split into Story 0.42** (see this story's Dev Notes amendment above and AC10/AC11).
+  Gate 2 additionally
   surfaced two UX-spec-vs-draft coverage gaps, both resolved directly in this story's ACs
   rather than deferred: (a) the iOS modal's Share-icon asset sourcing was unspecified in
   the original draft — resolved via AC13's explicit `lucide-react` icon choice; (b)
@@ -672,15 +718,17 @@ resolved/superseded before this promotion via IDEA-021/IDEA-022/IDEA-028).
       Instagram CDN media caching inside the iframe (AD-21, infeasible) and any onboarding
       integration (EXPERIENCE.md, explicit non-requirement).
 - [ ] Architecture and boundary confirmation — Gate 1/3 returned "No gap found" (with one
-      placement correction folded into Story 0.38a); Gate 2 returned "Gap found," acted on
-      via the Story 0.38a split (see Architecture & UX Gate Findings).
+      placement correction folded into Story 0.38a); Gate 2 returned "Gap found" twice, acted
+      on via the Story 0.38a split (hook) and, amended 2026-09-19, the Story 0.42 split
+      (shared banner slot) — see Architecture & UX Gate Findings.
 - [ ] Testing plan confirmation — component tests (`packages/ui`), integration/header
       tests, the CSP e2e regression re-run, and a manual installability audit all agreed
       per Testing Requirements below.
 - [ ] Explicit human approval state — **pending approval.**
 - [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — **Story 0.38a must be
-      `done` before Tasks 4-6 of this story begin.** Confirm 0.38a's status before starting
-      implementation past Task 3.
+      `done` before Tasks 4-6 of this story begin; Story 0.42 must be `done` before Task
+      4.3/4.4's amended slot-registration work begins.** Confirm both stories' status before
+      starting implementation past Task 3.
 - [ ] iOS modal icon names (`Share`/`PlusSquare` or `SquarePlus`) confirmed against the
       installed `lucide-react` version before implementation (AC13's own caveat).
 
