@@ -699,6 +699,19 @@ development_status:
   # schedule adoption) and Story 0.i6e (SubscribedAccountCard adoption),
   # both out of this story's own scope. See epics.md Story 1.6d.
   1-6d-build-the-reusable-locationlink-component: ready-for-dev
+  # epics.md section added 2026-09-15 via bmad-correct-course (CC-021, same
+  # proposal as 1-6d). sprint-status.yaml registration deferred to this
+  # bmad-create-story session (2026-09-19). Amends EventDetailView.tsx's
+  # schedule item: removes text-lg from the title, replaces the decorative
+  # CalendarDays icon with a functional per-schedule CalendarPlus
+  # add-to-calendar action (existing onAddToCalendar prop), and swaps the
+  # manual mapUrl link for LocationLink (Story 1.6d -- not yet implemented
+  # in code, confirmed via git log; this story's Pre-Coding Approval Gate
+  # requires 1.6d to ship first). epic-1-readiness.md predates this story
+  # (same as 1.6c/1.6d/1.6f) so it was not cited -- ran Gates 1/2/3 fresh via
+  # subagent dispatch, all three "no gap found." No prerequisite story
+  # added. See epics.md Story 1.6e.
+  1-6e-event-detail-schedule-refinements-smaller-name-bigger-add-to-calendar-action-location-link: ready-for-dev
   # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-
   # discovery-detail-calendar-ux.md Section 4.2: added AC13 (Carousel-chrome
   # navigation) and AC14 (icon-only modal close). Verified via git show that AC14

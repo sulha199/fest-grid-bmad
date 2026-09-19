@@ -1158,11 +1158,12 @@ items:
      note: "Carved 2026-09-15 from IDEA-032 (§6) — that row's original capture bundled two unrelated surfaces. Moderator Tools accounts tab (moderator/tools?tab=accounts) account card gains location info plus an edit-location icon (opens a select-location popup) and a clear-location icon (opens a confirmation to set the account location to empty). Epic 4 (Data Quality and Moderation) surface, distinct from IDEA-032's now-narrowed Epic 1/3 reusable-account-element scope — not part of the IDEA-029 location-link mechanism cluster."}
 
   IDEA-033:
-    {type: idea, status: triaged, created: 2026-09-15,
+    {type: idea, status: promoted, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Event detail schedule (smaller name, add-to-calendar action, location link)",
      ref: [backlog/IDEA-033-event-detail-schedule.md,
            planning-artifacts/sprint-change-proposal-2026-09-15-reusable-location-link.md],
+     stories: [1-6e-event-detail-schedule-refinements-smaller-name-bigger-add-to-calendar-action-location-link],
      touches: [web:events, web:locations, pkg:ui],
      note: "Reported by user via bmad-help (2026-09-15). Event-detail schedule section, follow-up to IDEA-030's smaller event title: (1) shrink the schedule name by removing the `text-lg` class; (2) replace each schedule item's calendar icon with an add-to-calendar action icon that adds that specific schedule-item to the calendar — made bigger and more visible (distinct from IDEA-030 item 7, which removes the top-of-page icon); (3) show the schedule item's location via the reusable location link component (IDEA-029)."}
 
