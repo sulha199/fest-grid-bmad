@@ -943,11 +943,12 @@ items:
   IDEA-040:
     {type: idea, status: promoted, epic: epic-0, created: 2026-09-17, parent: IDEA-026,
      impact: user-visible, effort: m,
-     stories: [0-39-ambient-viewer-location-capability],
+     stories: [0-39-ambient-viewer-location-capability,
+               0-42-build-the-shared-ambient-capability-ask-banner-slot-primitive],
      title: "Ambient, consent-aware viewer-current-location capability for distance-based features",
      ref: [planning-artifacts/festgrid-architecture-spine.md, backlog/IDEA-040-ambient-viewer-location.md],
      touches: [pkg:ui, web:events, cross:architecture],
-     note: "UX designed 2026-09-18 (ambient viewer-location consent + shared 'ambient capability ask' banner slot, unifies with IDEA-020's PWA install prompt). Ready for bmad-create-story via Story 0.39 (not yet drafted). Full design in backlog/IDEA-040-ambient-viewer-location.md."}
+     note: "UX designed 2026-09-18 (ambient viewer-location consent + shared banner slot, unifies with IDEA-020). Story 0.39 drafted 2026-09-19; its Gate 2 pass split the shared slot mechanism into Story 0.42 (also depended on by Story 0.38/IDEA-020). Full design in backlog/IDEA-040-ambient-viewer-location.md."}
 
   # ── 2026-09-13 (ritual-orchestrator epic-1-i1 batch, user HIL on Story 1.i1z) ─
   BUG-028:
