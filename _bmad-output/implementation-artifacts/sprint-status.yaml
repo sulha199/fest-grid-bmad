@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-19T10:00:00Z
+last_updated: 2026-09-19T04:14:16Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -423,9 +423,10 @@ development_status:
   # Gate 3: split -- the ambient/passive viewer-location fallback is carved into a new
   # prerequisite, 0-39 (see above). Full record in this story's own Dev Notes.
   1-i1f-wire-nearby-distance-badges-and-build-the-calendar-grid-item-card: ready-for-dev
-  # added 2026-09-17 via bmad-create-story (Gate 2 split off 1-i1f, see above). Full
-  # section in epics.md; not yet drafted via its own bmad-create-story pass.
-  1-i1g-render-multi-day-schedules-as-a-spanning-calendar-grid-item-card: backlog
+  # (create-story 1.i1g, 2026-09-19: backlog -> ready-for-dev. Gate 2 no split (AC9
+  # items-center added); Gate 1/3 no gap, reasoned fresh, sweep predates this story.
+  # Blocked on Story 1.i1f shipping EventCardCalendarGridItem -- see own Pre-Coding Gate.)
+  1-i1g-render-multi-day-schedules-as-a-spanning-calendar-grid-item-card: ready-for-dev
   # added 2026-09-17 via bmad-create-story (Gate 2 split off 1-i1f, see above; also
   # implements BUG-036 and FIND-026's "Calendar Overflow: Scalable Cap +
   # Infinite-Scroll Popup" resolution, per AD-23's sequencing mandate that the
