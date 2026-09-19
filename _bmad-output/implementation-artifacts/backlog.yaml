@@ -1141,13 +1141,14 @@ items:
      note: "Promoted 2026-09-16 into Story 0.i6f, fully covered, bundled with FIND-010's DW-009 slice under Epic 0.i6. Full detail in backlog/IDEA-031-event-detail-platform-account-element.md."}
 
   IDEA-032:
-    {type: idea, status: triaged, created: 2026-09-15,
+    {type: idea, status: promoted, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Reusable account element: replace raw accountId with a location link when confidence is good",
      ref: [backlog/IDEA-032-platform-account.md,
            planning-artifacts/sprint-change-proposal-2026-09-15-reusable-location-link.md],
      touches: [web:accounts, web:locations, pkg:ui],
-     note: "Carved 2026-09-15: Moderator Tools accounts-tab surface split to IDEA-034; this row stays the IDEA-029 location-link cluster member. Full detail in backlog/IDEA-032-platform-account.md."}
+     stories: [0-i6e-replace-the-cards-raw-account-identifier-line-with-a-location-link-when-confirmed],
+     note: "Carved 2026-09-15, cluster member of IDEA-029. Full detail in backlog/IDEA-032-platform-account.md. Promoted 2026-09-19 to Story 0.i6e (blocked on Story 1.6d)."}
 
   IDEA-034:
     {type: idea, status: triaged, created: 2026-09-15, parent: IDEA-032,

@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-19T00:00:00Z
+last_updated: 2026-09-19T10:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -358,6 +358,11 @@ development_status:
   0-i6b-adopt-the-card-into-post-selection: backlog
   0-i6c-adopt-the-card-into-subscribed-accounts-settings-and-settle-the-detail-surface-variant: backlog
   0-i6d-route-accountavatar-border-through-the-cards-tokens: backlog
+  # epics.md section added 2026-09-15 via bmad-correct-course (CC-021); sprint-status.yaml
+  # registration deferred to this bmad-create-story session (2026-09-19). Blocked on Story
+  # 1-6d (LocationLink, ready-for-dev, not yet implemented) -- see story file's own
+  # Pre-Coding Approval Gate.
+  0-i6e-replace-the-cards-raw-account-identifier-line-with-a-location-link-when-confirmed: ready-for-dev
   0-i6f-platform-icon-fallback-and-functional-subscribe-unsubscribe-toggle: review
   # added 2026-09-18 via bmad-correct-course (FIND-022 spec CAP-7); depends on
   # 3-15/3-16 in epic-3, so cannot start before those land.
