@@ -1330,3 +1330,11 @@ items:
      touches: [app:backend],
      note: "Deferred from: full `pnpm test` gate during bmad-quick-dev FIND-017 (2026-09-18). Confirmed 2026-09-19: 103 rows now push seeded test rows past the unfiltered page-1 LIMIT 50. Same fix shape as BUG-037."}
 
+  # ── 2026-09-19 (bmad-quick-dev, spec-curator-guide-frontend-gate-stale review) ──
+  FIND-044:
+    {type: finding, status: backlog, created: 2026-09-19,
+     impact: internal, effort: s,
+     title: "posts-select-content.tsx test/coverage gaps found while removing the stale CURATOR_GUIDE gate: unscoped mock, no gate+minimization composition test, single sprawling gated-account it(), and pre-existing xlinkTitle (not title) on the 3 remaining gate icons",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [web:posts],
+     note: "Deferred from: bmad-quick-dev spec-curator-guide-frontend-gate-stale review (2026-09-19). 4 findings."}
