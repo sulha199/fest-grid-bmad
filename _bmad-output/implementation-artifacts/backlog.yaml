@@ -821,11 +821,12 @@ items:
      note: "FIXED 2026-09-20: collapsed/expanded sticky header now toggles solid vs translucent background on isCollapsed. Kept as 'done (needs visual confirmation)' pending a human eyeball check. Full detail in backlog/BUG-024-collapsed-filter-header-background.md."}
 
   BUG-025:
-    {type: bug, status: triaged, created: 2026-09-11,
+    {type: bug, status: promoted, created: 2026-09-11, epic: epic-1,
      impact: user-visible, effort: s,
+     stories: [1-3l-wire-feed-and-favorites-to-real-auth-location-and-ai-filter-state],
      title: "Feed and Favorites hardcode isAuthenticated=false and drop the location/AI-filter buttons Discovery has",
      ref: [backlog/BUG-025-feed-favorites-missing-filter-buttons.md], touches: [web:events, pkg:ui],
-     note: "Fix: wire Feed and Favorites to real auth/saved-location state and an aiFilter instance the same way Discovery does. Not yet scoped into a story. Full detail in backlog/BUG-025-feed-favorites-missing-filter-buttons.md."}
+     note: "Scoped 2026-09-19 via bmad-create-story into Story 1.3l (also extends both pages' query-condition builders so the nearby filter isn't inert). Full detail in backlog/BUG-025-feed-favorites-missing-filter-buttons.md and the story's Dev Notes."}
 
   IDEA-019:
     {type: idea, status: promoted, epic: epic-0-i5, created: 2026-09-11,

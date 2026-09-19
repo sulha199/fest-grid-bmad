@@ -1198,6 +1198,26 @@ Users can discover and browse events.
 
 **Depends on:** Story 1.3b (`EventCard`), Story 1.3g (`WeeklyCalendarView`), Story 1.i1a-e (the shared `EventCardMediaPrimitives.tsx` primitives this story adds to).
 
+### Story 1.3l: Wire Feed and Favorites to real auth/location state and an AI filter instance
+
+**As a** signed-in user browsing the Feed or Favorites pages,
+**I want** the same Type/Category/Location/AI-filter controls that Discovery gives me, actually wired to my real saved locations and AI filter state,
+**So that** I get one consistent filtering experience across Discovery, Feed, and Favorites instead of two of the three surfaces silently hiding controls or rendering ones that do nothing (BUG-025).
+
+**Acceptance Criteria:**
+
+*   **Given** `feed-content.tsx` hardcodes `isAuthenticated={false}`/`savedLocations={[]}`/`onSelectLocation={() => {}}` on `EventDiscoveryPanel` today (while already correctly wiring `aiFilter.filterHubProps`), **when** this story ships, **then** `FeedContent` calls the existing `useNearbyFilter()` hook (already consumed by `home-content.tsx`) and passes its values straight through, matching Discovery's wiring exactly.
+*   **And** `buildFeedQueryCondition` (`packages/domain`) gains an optional `nearby` parameter, forwarded into `buildEventsQueryCondition` only in the manual-filter branch (never combined with an active AI filter, mirroring `buildEventsQueryCondition`'s existing mutual exclusivity) — so the location filter actually narrows Feed's results instead of rendering a functionally inert control.
+*   **And** Feed's `useInfiniteQuery` queryKey/queryFn include the resolved nearby filter so changing it triggers a refetch.
+*   **Given** `favorites-content.tsx` has neither `useNearbyFilter()` nor `useAIFilter()` wired at all today, **when** this story ships, **then** `FavoritesContent` calls both hooks and wires `EventDiscoveryPanel`'s location and AI-filter props, renders `<AIFilterOverlay>`/`<BlockingLoader>`, and adds the three missing AI-related `filterLabels` keys (sourced from already-existing translation keys, no new locale strings).
+*   **And** Favorites' local `buildFavoritesQueryCondition` helper gains the same `nearby`/`filter` branching as `buildFeedQueryCondition`, always AND-ing its mandatory `isFavorited: true` condition, applied consistently to both the favorited-ID snapshot query and the paginated results query so the two never disagree about which events match.
+*   **And** no new PostHog events are introduced — `useNearbyFilter()`'s existing instrumentation simply starts firing on Feed/Favorites the same way it already does on Discovery.
+*   **And** existing Feed/Favorites search/type/category/infinite-scroll/favoriting behavior is unchanged — zero visible regression.
+
+**Note:** Fixes BUG-025 (captured 2026-09-11 via `bmad-help`): Story 1.3e's retroactive `EventDiscoveryPanel` extraction carried Feed/Favorites' pre-existing hardcoded `isAuthenticated=false`/`savedLocations=[]` forward unchanged as an explicit "Zero visible behavior change," and Favorites never had `useAIFilter()` wired at all. Positioned as the next lettered suffix after 1.3k, immediately before Story 1.3, following this epic's established "discovery order, not alphabetical" placement convention. Gate 1/3 sourced from `epic-1-readiness.md` (`swept: true`) — this story's scope (reusing already-shipped hooks/components, extending an existing pure domain function) introduced nothing the sweep didn't anticipate. Gate 2 run fresh (`wds-agent-freya-ux` lens): no gap found — every UI element in scope is pre-existing/already-shipped (Stories 1.5/7.4/Discovery), and the query-builder changes are pure parameter-forwarding extensions of an existing pattern, not new reusable surfaces. This story is one of `IDEA-038`'s own two named blocking prerequisites (the other being Feed/Favorites' future `useListPaginationController` adoption, epic-0-i5) — it does not itself adopt that controller.
+
+**Depends on:** Story 1.3e (`EventDiscoveryPanel`, the component being wired correctly here).
+
 ### Story 1.3: Display a list of events on the main page
 
 **As a** user,
