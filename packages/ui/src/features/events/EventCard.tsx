@@ -82,6 +82,7 @@ export function EventCard({
   endTime,
   prominentPoster = false,
   distanceKm,
+  nearbyBadgeThreshold = 8,
 }: EventCardProps) {
   const defaultLabels = {
     loading: 'Loading event details',
@@ -211,8 +212,8 @@ export function EventCard({
     defaultLabels
   );
 
-  // AC16 — nearby badge (masonry only): renders only when distanceKm is known and <= 5.
-  const showNearbyBadge = distanceKm != null && distanceKm <= 5;
+  // AC5 (Story 1.i1f) — nearby badge (masonry only): renders only when distanceKm is known and < nearbyBadgeThreshold (default 8km).
+  const showNearbyBadge = distanceKm != null && distanceKm < nearbyBadgeThreshold;
 
   const RootTag = href ? 'a' : onClick ? 'button' : 'div';
   const interactiveProps = href 

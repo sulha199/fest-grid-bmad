@@ -934,6 +934,11 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
     );
   }
 
+  // TODO(1.i1g/1.i1h): this `variant === 'grid'` path stays exactly as-is (plain
+  // text-only pill) for this story. `EventCardCalendarGridItem` (Story 1.i1f, Task
+  // 7) is built and tested standalone but not yet wired in here — 1.i1g adopts it
+  // for the multi-day spanning-bar mechanism, 1.i1h for the single-day/overflow-
+  // dialog surface. See Story 1.i1f's Out of Scope section for the full split.
   return (
     <div className="relative w-full">
       <button

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, cleanup, renderHook, act, within } from '@testing-library/react';
 import { expect, describe, it, beforeAll, afterEach, afterAll, vi } from 'vitest';
 import { graphql, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
 import { HomeContent as Home } from './home-content';
+import { useNearbyFilter } from './use-nearby-filter';
 import enMessages from '../../../locales/en.json';
 
 // Mock next-intl/server
@@ -108,12 +109,18 @@ vi.mock('@/lib/graphql-client', async () => {
   };
 });
 
-// Mock infinite scroll
+// Mock infinite scroll + current-location capture (real geolocation is unavailable in jsdom)
+const mockCaptureCurrentLocation = vi.fn();
 vi.mock('@festgrid/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@festgrid/ui')>();
   return {
     ...actual,
     useInfiniteScroll: () => ({ sentinelRef: vi.fn() }),
+    useCurrentLocationCapture: () => ({
+      isCapturing: false,
+      error: null,
+      capture: mockCaptureCurrentLocation,
+    }),
   };
 });
 
@@ -136,6 +143,18 @@ vi.mock('@/generated/graphql', async (importOriginal) => {
               placeName: 'Jakarta',
               coordinates: { lat: -6.2, lng: 106.8 }
             }
+          },
+          {
+            id: 'loc-no-coords',
+            name: 'No Coords',
+            radius: 5000,
+            createdAt: '2026-08-02T00:00:00Z',
+            updatedAt: '2026-08-02T00:00:00Z',
+            locationDetails: {
+              formattedAddress: 'Unknown',
+              placeName: 'Unknown',
+              coordinates: null
+            }
           }
         ]
       },
@@ -149,7 +168,7 @@ vi.mock('@/generated/graphql', async (importOriginal) => {
 const mockEventsData = {
   events: {
     hasMore: false,
-    totalCount: 1,
+    totalCount: 2,
     items: [
       {
         id: '1',
@@ -163,7 +182,26 @@ const mockEventsData = {
             id: 's1',
             isMainSchedule: true,
             eventStartDate: new Date().toISOString(),
-            ticketPrice: '10'
+            ticketPrice: '10',
+            // Same coordinates as loc-1 (0km away) — Story 1.i1f distance-badge wiring.
+            locationDetails: { coordinates: { lat: -6.2, lng: 106.8 } }
+          }
+        ]
+      },
+      {
+        id: '2',
+        eventName: 'No Coordinates Event',
+        imageUrl: null,
+        location: 'Unknown',
+        types: ['FESTIVAL'],
+        categories: ['MUSIC'],
+        schedules: [
+          {
+            id: 's2',
+            isMainSchedule: true,
+            eventStartDate: new Date().toISOString(),
+            ticketPrice: '10',
+            locationDetails: null
           }
         ]
       }
@@ -182,6 +220,18 @@ const mockLocations = [
       formattedAddress: 'Jakarta, Indonesia',
       placeName: 'Jakarta',
       coordinates: { lat: -6.2, lng: 106.8 }
+    }
+  },
+  {
+    id: 'loc-no-coords',
+    name: 'No Coords',
+    radius: 5,
+    createdAt: '2026-08-02T00:00:00Z',
+    updatedAt: '2026-08-02T00:00:00Z',
+    locationDetails: {
+      formattedAddress: 'Unknown',
+      placeName: 'Unknown',
+      coordinates: null
     }
   }
 ];
@@ -230,6 +280,20 @@ function renderWithProviders(ui: React.ReactElement) {
     </QueryClientProvider>
   );
 }
+
+const Wrapper = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        {children}
+      </NextIntlClientProvider>
+    </QueryClientProvider>
+  );
+};
+
 
 describe('Nearby Filter Integration', () => {
   it('does not auto-apply nearby filter on fresh Discovery visit with no nearby param', async () => {
@@ -309,5 +373,121 @@ describe('Nearby Filter Integration', () => {
       (c: any) => c.field === 'scheduleCoordinates'
     );
     expect(nearbyCondition).toBeUndefined();
+  });
+});
+
+describe('Masonry distance-badge wiring (Story 1.i1f AC5-9, Task 5.4)', () => {
+  async function selectSavedLocationFilter() {
+    const triggers = await screen.findAllByRole('button', { name: /Nearby|km$/ });
+    const trigger = triggers.find((btn) => btn.getAttribute('aria-haspopup') === 'dialog');
+    fireEvent.click(trigger!);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Nearby')).toBeInTheDocument();
+    });
+    const select = screen.getByLabelText('Nearby') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'loc-1' } });
+
+    await waitFor(() => {
+      const nearbyCondition = lastQueryVariables?.query?.conditions?.find(
+        (c: any) => c.field === 'scheduleCoordinates'
+      );
+      expect(nearbyCondition).toBeDefined();
+    });
+  }
+
+  it('renders the badge for an event within 8km once a nearby filter is active', async () => {
+    renderWithProviders(<Home />);
+
+    await screen.findByText('Nearby Event 1');
+    await selectSavedLocationFilter();
+
+    // Re-query fresh: the query-key change triggers a refetch, which replaces
+    // the list's DOM nodes — a `card` reference captured before the filter was
+    // applied would go stale, so the title/card lookup happens after settling.
+    await waitFor(() => {
+      const title = screen.getByText('Nearby Event 1');
+      const card = title.closest('button') as HTMLElement;
+      expect(within(card).getByText('Nearby')).toBeInTheDocument();
+    });
+  });
+
+  it('does not render the badge for the same event when the filter is off', async () => {
+    renderWithProviders(<Home />);
+
+    const title = await screen.findByText('Nearby Event 1');
+    const card = title.closest('button') as HTMLElement;
+
+    expect(within(card).queryByText('Nearby')).not.toBeInTheDocument();
+  });
+
+  it('does not render the badge (and does not crash) for an event whose display schedule has no coordinates', async () => {
+    renderWithProviders(<Home />);
+
+    await screen.findByText('No Coordinates Event');
+    await selectSavedLocationFilter();
+
+    await waitFor(() => {
+      const title = screen.getByText('No Coordinates Event');
+      const card = title.closest('button') as HTMLElement;
+      expect(within(card).queryByText('Nearby')).not.toBeInTheDocument();
+    });
+  });
+});
+
+describe('useNearbyFilter (AC10-11)', () => {
+  it('off mode returns undefined activeFilterCoord', async () => {
+    const { result } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
+    
+    await waitFor(() => {
+      expect(result.current.isLoadingLocations).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.onSelectLocation('off');
+    });
+
+    expect(result.current.activeFilterCoord).toBeUndefined();
+  });
+
+  it('saved-location mode returns that location coordinate', async () => {
+    const { result } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
+    
+    await waitFor(() => {
+      expect(result.current.isLoadingLocations).toBe(false);
+      expect(result.current.savedLocations).toHaveLength(2);
+    });
+
+    await act(async () => {
+      await result.current.onSelectLocation('loc-1');
+    });
+
+    expect(result.current.activeFilterCoord).toEqual({ latitude: -6.2, longitude: 106.8 });
+  });
+
+  it('current-location mode returns adHocCoords', async () => {
+    mockCaptureCurrentLocation.mockResolvedValueOnce({ latitude: 1.23, longitude: 4.56 });
+
+    const { result } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
+    
+    await act(async () => {
+      await result.current.onSelectLocation('current');
+    });
+
+    expect(result.current.activeFilterCoord).toEqual({ latitude: 1.23, longitude: 4.56 });
+  });
+
+  it('saved location with no coordinate returns undefined gracefully', async () => {
+    const { result } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
+    
+    await waitFor(() => {
+      expect(result.current.isLoadingLocations).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.onSelectLocation('loc-no-coords');
+    });
+
+    expect(result.current.activeFilterCoord).toBeUndefined();
   });
 });

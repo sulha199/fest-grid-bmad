@@ -51,6 +51,8 @@ export function useNearbyFilter() {
         id: loc.id,
         name: loc.name,
         radiusKm: Math.round(loc.radius / 1000),
+        latitude: loc.locationDetails?.coordinates?.lat,
+        longitude: loc.locationDetails?.coordinates?.lng,
       }));
   }, [locationsData]);
 
@@ -122,6 +124,16 @@ export function useNearbyFilter() {
     };
   }, [session, nearby, nearbyRadiusKm, adHocCoords]);
 
+  const activeFilterCoord = useMemo(() => {
+    if (nearby === "off" || !nearby) return undefined;
+    if (nearby === "current") return adHocCoords ?? undefined;
+    const loc = savedLocations.find(l => l.id === nearby);
+    if (loc?.latitude != null && loc?.longitude != null) {
+      return { latitude: loc.latitude, longitude: loc.longitude };
+    }
+    return undefined;
+  }, [nearby, adHocCoords, savedLocations]);
+
   return {
     isAuthenticated: !!session,
     isLoadingLocations,
@@ -134,5 +146,6 @@ export function useNearbyFilter() {
     onSelectLocation: handleSelectLocation,
     onRadiusChange: handleRadiusChange,
     resolvedFilter,
+    activeFilterCoord,
   };
 }

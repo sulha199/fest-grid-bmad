@@ -800,14 +800,29 @@ describe('EventCard', () => {
   });
 
   describe('Status badge (masonry, AC15) and Nearby badge (AC16)', () => {
-    it('renders the nearby badge at the distanceKm=5 boundary and omits it just past it', () => {
+    it('renders the nearby badge just under the distanceKm=8 boundary and omits it at/past it (Story 1.i1f AC5)', () => {
       const { rerender } = render(
-        <EventCard {...defaultProps} variant="masonry" distanceKm={5} locale="en-US" />
+        <EventCard {...defaultProps} variant="masonry" distanceKm={7.99} locale="en-US" />
       );
       expect(screen.getByText('Nearby')).toBeInTheDocument();
 
-      rerender(<EventCard {...defaultProps} variant="masonry" distanceKm={5.01} locale="en-US" />);
+      rerender(<EventCard {...defaultProps} variant="masonry" distanceKm={8} locale="en-US" />);
       expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+
+      rerender(<EventCard {...defaultProps} variant="masonry" distanceKm={8.01} locale="en-US" />);
+      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+    });
+
+    it('respects a caller-supplied nearbyBadgeThreshold override', () => {
+      const { rerender } = render(
+        <EventCard {...defaultProps} variant="masonry" distanceKm={3} nearbyBadgeThreshold={2} locale="en-US" />
+      );
+      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+
+      rerender(
+        <EventCard {...defaultProps} variant="masonry" distanceKm={3} nearbyBadgeThreshold={4} locale="en-US" />
+      );
+      expect(screen.getByText('Nearby')).toBeInTheDocument();
     });
 
     it('omits the nearby badge when distanceKm is null or undefined', () => {

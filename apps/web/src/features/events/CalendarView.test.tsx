@@ -150,6 +150,7 @@ const mockCalendarEvents = {
             eventStartTime: '19:00:00',
             eventEndTime: '22:00:00',
             ticketPrice: '20.00',
+            locationDetails: { coordinates: { lat: -6.2, lng: 106.8 } },
           },
         ],
       },
@@ -282,5 +283,36 @@ describe('CalendarView', () => {
 
     expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
     expect(onFavoriteToggle).toHaveBeenCalledWith('evt-1');
+  });
+
+  it('accepts a viewerCoord prop (Story 1.i1f AC14) and still renders the fetched schedule', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NuqsTestingAdapter>
+          <CalendarView
+            q="jazz"
+            types={['MUSIC']}
+            categories={[]}
+            viewerCoord={{ latitude: -6.2, longitude: 106.8 }}
+          />
+        </NuqsTestingAdapter>
+      </QueryClientProvider>
+    );
+
+    const eventCard = await screen.findByText('Weekly Jazz Jam');
+    expect(eventCard).toBeInTheDocument();
+  });
+
+  it('renders the same content when viewerCoord is omitted (backward compatible)', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NuqsTestingAdapter>
+          <CalendarView q="jazz" types={['MUSIC']} categories={[]} />
+        </NuqsTestingAdapter>
+      </QueryClientProvider>
+    );
+
+    const eventCard = await screen.findByText('Weekly Jazz Jam');
+    expect(eventCard).toBeInTheDocument();
   });
 });

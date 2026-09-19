@@ -1,10 +1,14 @@
+---
+baseline_commit: 964bbec2201e114770563c0423360ff93d65829b
+---
+
 # Story 1.i1f: Shared Distance Badges and the Calendar Grid Item Card Primitive
 
 ## Story Details
 
 - Epic: 1.i1
 - Story ID: 1.i1f
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -18,14 +22,14 @@ so that "nearby" distance is computed identically everywhere it's shown (client 
 
 **Shared distance utility**
 
-1. **Given** the existing SQL haversine expression already used server-side by `withinRadius` (`packages/graphql-select/drizzle-where.ts`, spherical law of cosines: `6371 * acos(clamp(cos(rad(lat1))*cos(rad(lat2))*cos(rad(lng2-lng1)) + sin(rad(lat1))*sin(rad(lat2)), -1, 1))`, clamped via `LEAST(1, GREATEST(-1, ...))`), **when** `computeDistanceKm(viewerCoord, targetCoord)` is implemented in `packages/domain/src/query/computeDistanceKm.ts`, **then** it is a pure function mirroring that exact formula and the 6371km constant (clamp implemented as `Math.min(1, Math.max(-1, ...))`), returning a `number` (kilometers).
-2. **And** it has 100% unit test coverage (`packages/domain/src/query/computeDistanceKm.test.ts`, Node's native `node:test`/`assert` runner, matching this folder's own `resolveWithinRadiusConditions.test.ts` convention) — covering identical points (0km), antipodal/near-antipodal points (acos domain-clamp exercised), and at least one real-world pair cross-checked against a known distance.
-3. **And** it is exported from `packages/domain/src/query/index.ts` alongside the existing `queryDsl`/`resolveWithinRadiusConditions` exports (the established generic, cross-entity mechanism folder — not nested under `events/`).
-4. **And** a short comment cross-reference is added at `packages/graphql-select/drizzle-where.ts`'s `withinRadius` case pointing at `computeDistanceKm.ts` as its required client-side mirror (and vice versa), so a future edit to one formula prompts checking the other.
+1. **Given** the existing SQL haversine expression already used server-side by `withinRadius` (`packages/graphql-select/drizzle-where.ts`, spherical law of cosines: `6371 * acos(clamp(cos(rad(lat1))*cos(rad(lat2))*cos(rad(lng2-lng1)) + sin(rad(lat1))*sin(rad(lat2)), -1, 1))`, clamped via `LEAST(1, GREATEST(-1, ...))`), **when** `computeDistanceKm(viewerCoord, targetCoord)` is implemented in `packages/domain/src/geolocation/computeDistanceKm.ts`, **then** it is a pure function mirroring that exact formula and the 6371km constant (clamp implemented as `Math.min(1, Math.max(-1, ...))`), returning a `number` (kilometers). **PATH CORRECTED during implementation (2026-09-20):** originally specified as `packages/domain/src/query/`; moved to `packages/domain/src/geolocation/` instead — user-directed, this function's domain is geolocation math, not the generic query-DSL mechanism `packages/domain/src/query/` holds (see Project Structure Notes for the full rationale).
+2. **And** it has 100% unit test coverage (`packages/domain/src/geolocation/computeDistanceKm.test.ts`, Node's native `node:test`/`assert` runner, matching this folder's own `is-location-trustworthy.test.ts`/`select-best-candidate.test.ts` convention) — covering identical points (0km), antipodal/near-antipodal points (acos domain-clamp exercised), and at least one real-world pair cross-checked against a known distance.
+3. **And** it is exported from `packages/domain/src/geolocation/index.ts` alongside that folder's existing exports (`build-cache-key`, `validate-autocomplete-input`, `select-best-candidate`, `is-location-trustworthy`) — the geolocation domain folder, not `packages/domain/src/query/`'s generic cross-entity mechanism folder (see AC1's path correction).
+4. **And** a short comment cross-reference is added at `packages/graphql-select/drizzle-where.ts`'s `withinRadius` case pointing at `computeDistanceKm.ts` (`packages/domain/src/geolocation/computeDistanceKm.ts`) as its required client-side mirror (and vice versa), so a future edit to one formula prompts checking the other.
 
 **Masonry `EventCard` nearby badge (the pre-existing dead prop)**
 
-5. **Given** `EventCard.tsx`'s nearby badge is currently gated on `distanceKm != null && distanceKm <= 5` (line ~215) and no production caller has ever passed a real `distanceKm` (confirmed: only test files do), **when** this story ships, **then** the gate is corrected to DESIGN.md's revised `< 8` threshold, and the Discovery page (`home-content.tsx`) passes a real, computed `distanceKm` into `EventCard` via `EventListView`'s `getCardProps(event)` injection point for the first time.
+5. **Given** `EventCard.tsx`'s nearby badge is currently gated on `distanceKm != null && distanceKm <= 5` (line ~215) and no production caller has ever passed a real `distanceKm` (confirmed: only test files do), **when** this story ships, **then** the gate is corrected to DESIGN.md's revised `< 8` threshold, and the Discovery page (`home-content.tsx`) passes a real, computed `distanceKm` into `EventCard` via `EventListView`'s `getCardProps(event)` injection point for the first time. **REVISED during implementation (2026-09-20), user-directed:** the threshold is a new caller-supplied `nearbyBadgeThreshold?: number` prop on `EventCard` (default `8`, matching this AC's threshold unchanged) rather than a hardcoded literal — `EventCard.tsx` itself (`packages/ui`, framework-agnostic) reads no env vars; `home-content.tsx` (`apps/web`) sources an optional override from `process.env.NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM` and passes it down. (An initial draft used Vite's `import.meta.env`, which does not exist under Next.js's bundler and would have thrown at render time — corrected to the `NEXT_PUBLIC_`/`process.env` pattern already used elsewhere in `apps/web`.)
 6. **And** the distance is computed from the SAME schedule `EventListView.tsx` already selects as the card's display schedule (`selectDisplaySchedule(event.schedules)`, `packages/domain/src/events/selectDisplaySchedule.ts`) — specifically that schedule's `locationDetails.coordinates` — never a different schedule, so the shown distance always corresponds to the dates/venue already displayed on the same card.
 7. **And** the "viewer coordinate" side of the calculation follows this priority, exactly as decided by Architecture Spine AD-22: **the active nearby-filter's resolved coordinate, if a filter is currently selected on the Discovery page.** This story fixes `use-nearby-filter.ts` so this branch works for **both** filter modes it currently only half-supports (see AC9-10 below) — not only the ad-hoc "current location" mode.
 8. **And** when no nearby filter is active (`selectedValue === 'off'`) and no other viewer coordinate is resolvable, `distanceKm` is `undefined` and the badge is simply omitted — never an error, never a placeholder. (The "else, the viewer's ambient current-location coordinate" branch of AD-22's priority rule is explicitly out of scope for this story — see Out of Scope / Story 0.39.)
@@ -55,51 +59,51 @@ so that "nearby" distance is computed identically everywhere it's shown (client 
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Build `computeDistanceKm` (AC 1-4)**
-  - [ ] 1.1 Read `packages/graphql-select/drizzle-where.ts`'s `withinRadius` case in full; transcribe its exact formula/constants into `packages/domain/src/query/computeDistanceKm.ts` as a pure `computeDistanceKm(viewer: {latitude: number; longitude: number}, target: {latitude: number; longitude: number}): number` function.
-  - [ ] 1.2 Add `computeDistanceKm.test.ts` (colocated, `node:test`/`assert`, matching `resolveWithinRadiusConditions.test.ts`'s style) with the coverage in AC2.
-  - [ ] 1.3 Export from `packages/domain/src/query/index.ts`.
-  - [ ] 1.4 Add the cross-reference comment in `drizzle-where.ts` (AC4).
+- [x] **Task 1 — Build `computeDistanceKm` (AC 1-4)**
+  - [x] 1.1 Read `packages/graphql-select/drizzle-where.ts`'s `withinRadius` case in full; transcribe its exact formula/constants into `packages/domain/src/geolocation/computeDistanceKm.ts` (path corrected from the originally-specified `packages/domain/src/query/` — see AC1) as a pure `computeDistanceKm(viewer: {latitude: number; longitude: number}, target: {latitude: number; longitude: number}): number` function.
+  - [x] 1.2 Add `computeDistanceKm.test.ts` (colocated, `node:test`/`assert`) with the coverage in AC2. 100% line/branch/function coverage confirmed via `--experimental-test-coverage`.
+  - [x] 1.3 Export from `packages/domain/src/geolocation/index.ts`.
+  - [x] 1.4 Add the cross-reference comment in `drizzle-where.ts` (AC4), pointing at the corrected `geolocation/` path.
 
-- [ ] **Task 2 — Fix `EventCard.tsx`'s nearby badge threshold (AC5)**
-  - [ ] 2.1 Change `distanceKm <= 5` to `distanceKm < 8` at the `showNearbyBadge` gate (`EventCard.tsx` ~line 215).
-  - [ ] 2.2 Update/extend `EventCard.test.tsx` for the new threshold (boundary cases at exactly 8, just under 8, just over).
+- [x] **Task 2 — Fix `EventCard.tsx`'s nearby badge threshold (AC5)**
+  - [x] 2.1 Change `distanceKm <= 5` to `distanceKm < nearbyBadgeThreshold` (default `8`) at the `showNearbyBadge` gate (`EventCard.tsx` ~line 215) — see AC5's REVISED note for the caller-supplied-threshold addition.
+  - [x] 2.2 Update/extend `EventCard.test.tsx` for the new threshold (boundary cases at exactly 8, just under 8, just over) and added a `nearbyBadgeThreshold` override test.
 
-- [ ] **Task 3 — Fix `use-nearby-filter.ts` coordinate completeness (AC10-11)**
-  - [ ] 3.1 Extend `savedLocations`' mapped shape with `latitude`/`longitude` sourced from each location's `locationDetails.coordinates.{lat,lng}` (already fetched by `getMyLocations`, currently dropped in the `.map(...)` at lines ~46-55).
-  - [ ] 3.2 Add the new `activeFilterCoord` derived value per AC11's priority logic.
-  - [ ] 3.3 Add/extend unit tests for `useNearbyFilter` covering: current-location mode returns `adHocCoords`; saved-location mode returns that location's coordinate; `off` mode returns `undefined`; a saved location with no coordinate (e.g. never geocoded) returns `undefined` gracefully, not a thrown error.
+- [x] **Task 3 — Fix `use-nearby-filter.ts` coordinate completeness (AC10-11)**
+  - [x] 3.1 Extend `savedLocations`' mapped shape with `latitude`/`longitude` sourced from each location's `locationDetails.coordinates.{lat,lng}` (already fetched by `getMyLocations`, previously dropped in the `.map(...)`).
+  - [x] 3.2 Add the new `activeFilterCoord` derived value per AC11's priority logic.
+  - [x] 3.3 Add/extend unit tests for `useNearbyFilter` covering: current-location mode returns `adHocCoords`; saved-location mode returns that location's coordinate; `off` mode returns `undefined`; a saved location with no coordinate (e.g. never geocoded) returns `undefined` gracefully, not a thrown error.
 
-- [ ] **Task 4 — GraphQL exposure (AC12)**
-  - [ ] 4.1 Add `locationDetails { coordinates { lat lng } }` inside `schedules { ... }` in `getEventsForCalendar` (`apps/web/src/features/events/queries.graphql` ~line 149-157) and `getEventsForMyCalendar` (~line 164-189), matching `getEvents`' existing block exactly.
-  - [ ] 4.2 Regenerate GraphQL codegen (`apps/web/codegen.ts`) so `apps/web/src/generated/graphql.ts` reflects the new selection/types. Do not hand-edit the generated file.
-  - [ ] 4.3 Confirm no other consumer of these two queries breaks from the additive field (grep all usages; it's a pure addition, no removed/renamed fields).
+- [x] **Task 4 — GraphQL exposure (AC12)**
+  - [x] 4.1 Add `locationDetails { coordinates { lat lng } }` inside `schedules { ... }` in `getEventsForCalendar` and `getEventsForMyCalendar`, matching `getEvents`' existing block exactly.
+  - [x] 4.2 Regenerate GraphQL codegen so `apps/web/src/generated/graphql.ts` reflects the new selection/types (diff confirmed additive-only).
+  - [x] 4.3 Confirmed no other consumer of these two queries breaks from the additive field (full `apps/web` test suite green, 391/391).
 
-- [ ] **Task 5 — Wire masonry `distanceKm` end-to-end (AC5-9)**
-  - [ ] 5.1 In `home-content.tsx`'s `getCardProps(event)` closure, call `selectDisplaySchedule(event.schedules)` to get the same schedule `EventListView.tsx` independently selects; if it has `locationDetails.coordinates` **and** `nearbyFilter.activeFilterCoord` is resolved, compute `distanceKm = computeDistanceKm(activeFilterCoord, { latitude: coords.lat, longitude: coords.lng })` and add it to the returned props object; otherwise omit the key (leave `undefined`).
-  - [ ] 5.2 Do **not** modify `EventListView.tsx`/`EventListView.types.ts` — `getCardProps`'s return already overrides `derivedProps` via the existing `{...derivedProps, ...getCardProps(event)}` merge, so no change is needed there.
-  - [ ] 5.3 Explicitly verify (and note in a code comment) that `feed-content.tsx`/`favorites-content.tsx` are left untouched (AC9).
-  - [ ] 5.4 Add/extend integration tests on `home-content.tsx` (or its existing test file) verifying: a nearby filter active + an event with coordinates within 8km → badge renders; the same event when the filter is off → badge does not render; an event whose display schedule has no coordinates → badge does not render (no crash).
+- [x] **Task 5 — Wire masonry `distanceKm` end-to-end (AC5-9)**
+  - [x] 5.1 In `home-content.tsx`'s `getCardProps(event)` closure, call `selectDisplaySchedule(event.schedules ?? [])` (imported from `@festgrid/domain/events`) to get the same schedule `EventListView.tsx` independently selects; when it has `locationDetails.coordinates` **and** `nearbyFilter.activeFilterCoord` is resolved, compute `distanceKm = computeDistanceKm(activeFilterCoord, { latitude: coords.lat, longitude: coords.lng })` and add it (plus `nearbyBadgeThreshold`) to the returned props object; otherwise `distanceKm` stays `null`.
+  - [x] 5.2 `EventListView.tsx`/`EventListView.types.ts` left unmodified — `getCardProps`'s return overrides `derivedProps` via the existing `{...derivedProps, ...getCardProps(event)}` merge, confirmed in code.
+  - [x] 5.3 Verified and noted in a code comment (directly above `getCardProps`) that `feed-content.tsx`/`favorites-content.tsx` are left untouched (AC9) — confirmed via `git diff`, zero changes to those two files.
+  - [x] 5.4 Added integration tests in `nearby.test.tsx` (`Masonry distance-badge wiring` describe block) verifying: a nearby filter active + an event with coordinates within 8km → badge renders; the same event when the filter is off → badge does not render; an event whose display schedule has no coordinates → badge does not render (no crash).
 
-- [ ] **Task 6 — Wire calendar `distanceKm` data plumbing (AC13-14)**
-  - [ ] 6.1 Add `distanceKm?: number` to `WeeklyCalendarViewScheduleShape` (`WeeklyCalendarView.types.ts`).
-  - [ ] 6.2 Add a `viewerCoord?: { latitude: number; longitude: number }` option to `useWeeklyCalendarController`'s options type; in its `schedules` flatMap, compute `distanceKm` via `computeDistanceKm(viewerCoord, schedule.locationDetails.coordinates)` when both are present, else leave `undefined`.
-  - [ ] 6.3 In `CalendarView.tsx`, pass `viewerCoord={activeFilterCoord}` (the same value used for masonry, sourced from the same `useNearbyFilter()` instance in `home-content.tsx`, threaded down as a new `CalendarView` prop) into the controller.
-  - [ ] 6.4 Leave `FeedCalendarView.tsx`/`AccountCalendarView.tsx`/`my-calendar-content.tsx` unchanged (AC14) — document this explicitly in a code comment at the controller's option definition.
-  - [ ] 6.5 Add/extend `useWeeklyCalendarController.test.tsx` and `CalendarView.test.tsx` coverage for the new field being computed/passed correctly and safely omitted when absent.
+- [x] **Task 6 — Wire calendar `distanceKm` data plumbing (AC13-14)**
+  - [x] 6.1 Added `distanceKm?: number` to `WeeklyCalendarViewScheduleShape` (`WeeklyCalendarView.types.ts`).
+  - [x] 6.2 Added a `viewerCoord?: { latitude: number; longitude: number }` option to `useWeeklyCalendarController`'s options type; its `schedules` flatMap computes `distanceKm` via `computeDistanceKm` (imported from `@festgrid/domain/geolocation`, which `packages/ui` already depends on — see other existing `@festgrid/domain` imports in this package) when both `viewerCoord` and the schedule's `locationDetails.coordinates` are present, else leaves it `undefined`.
+  - [x] 6.3 In `CalendarView.tsx`, added a `viewerCoord` prop and passed it into the controller; `home-content.tsx` passes `viewerCoord={nearbyFilter.activeFilterCoord}` into `<CalendarView>`.
+  - [x] 6.4 `FeedCalendarView.tsx`/`AccountCalendarView.tsx`/`my-calendar-content.tsx` left unchanged (AC14) — documented via a comment on `WeeklyCalendarControllerOptions.viewerCoord`'s own JSDoc.
+  - [x] 6.5 Extended `useWeeklyCalendarController.test.tsx` (2 new tests: computes `distanceKm` when both inputs present including a null-coordinates schedule; leaves it `undefined` with no `viewerCoord`) and `CalendarView.test.tsx` (2 new smoke tests: renders correctly with and without `viewerCoord`).
 
-- [ ] **Task 7 — Build `EventCardCalendarGridItem` (AC15-16)**
-  - [ ] 7.1 Create `EventCardCalendarGridItem.types.ts` with props matching DESIGN.md's token block (schedule fields needed: `title`/`eventName`, `location`/venue, `imageUrl`, `isMultiDay`, favorite state/count + toggle handler, `distanceKm?`).
-  - [ ] 7.2 Implement the with-image composition (3-column row, `items-center`, thumbnail + content + side_stack) per AC15.
-  - [ ] 7.3 Implement the no-image composition (`no_image_base`/`title_row`/`location_row`) per AC15, including the image-errored-on-multi-day fallback path (reuse the same `onImagePresenceChange`/`imgError` detection pattern already established in `EventCardMediaPrimitives.tsx`/`EventCardMediaSlot`).
-  - [ ] 7.4 Reuse existing primitives where possible (`EventCardFavoriteBadge` from `EventCardMediaPrimitives.tsx` for the favorite control) rather than re-implementing favorite-toggle logic.
-  - [ ] 7.5 Write `EventCardCalendarGridItem.test.tsx` covering both compositions, the nearby-badge `<8km` gate boundary, favorite toggle, and title/venue wrap classes.
-  - [ ] 7.6 Do **not** wire this component into `WeeklyCalendarView.tsx`'s render branches in this story (AC16) — leave a `// TODO(1.i1g/1.i1h)`-style comment near the untouched `variant='grid'` branch pointing at the two follow-on stories, so the deferral is discoverable in the code, not only in this story file.
+- [x] **Task 7 — Build `EventCardCalendarGridItem` (AC15-16)**
+  - [x] 7.1 Created `EventCardCalendarGridItem.types.ts` with a standalone prop shape (not `WeeklyCalendarViewScheduleShape`, since this primitive isn't wired to the calendar shape in this story): `eventName`, `location`, `imageUrl`/`imageAlt`, `isMultiDay`, favorite state/count + `onFavoriteToggle`, `distanceKm?`, `labels?`.
+  - [x] 7.2 Implemented the with-image composition (3-column row, `items-center`, thumbnail + content + side_stack) per AC15/DESIGN.md tokens.
+  - [x] 7.3 Implemented the no-image composition (`no_image_base`/`title_row`/`location_row`) per AC15, including the image-errored-on-multi-day fallback path (same local `imgError` state + `onError` detection pattern `EventCard.tsx`/`EventCardMediaSlot` already use).
+  - [x] 7.4 Reused `EventCardFavoriteBadge` (`scale="large"`) from `EventCardMediaPrimitives.tsx` for the favorite control in both compositions, per DESIGN.md's "always the large shape" rule — no favorite-toggle logic re-implemented.
+  - [x] 7.5 Wrote `EventCardCalendarGridItem.test.tsx` (17 tests) covering both compositions, the with-image→no-image fallback on image error, the nearby-badge `<8km` gate boundary (in both compositions), favorite toggle, and title/venue wrap classes.
+  - [x] 7.6 Not wired into `WeeklyCalendarView.tsx`'s render branches in this story (AC16) — added a `// TODO(1.i1g/1.i1h)` comment directly above the untouched `variant === 'grid'` branch pointing at the two follow-on stories.
 
-- [ ] **Task 8 — Full verification (all ACs)**
-  - [ ] 8.1 Run `packages/domain`'s test script (`tsx --test`) and confirm `computeDistanceKm.test.ts` passes with 100% coverage of the new file.
-  - [ ] 8.2 Run `packages/ui`'s test suite (Vitest) and confirm all touched/added files pass, with no regression in existing `EventCard`/`WeeklyCalendarView`/`useWeeklyCalendarController` suites.
-  - [ ] 8.3 Run `apps/web`'s relevant test files (`home-content`, `CalendarView`, `use-nearby-filter`) and confirm green.
+- [x] **Task 8 — Full verification (all ACs)**
+  - [x] 8.1 `packages/domain`'s full test suite (`tsx --test`, 323 tests) passes; `computeDistanceKm.test.ts` confirmed at 100% line/branch/function coverage via `--experimental-test-coverage`.
+  - [x] 8.2 `packages/ui`'s full Vitest suite passes (538/538 tests, 52 files) — no regression in `EventCard`/`WeeklyCalendarView`/`useWeeklyCalendarController` or any other suite.
+  - [x] 8.3 `apps/web`'s full Vitest suite passes (391/391 tests, 60 files), including `nearby.test.tsx` (`home-content`/`use-nearby-filter` coverage) and `CalendarView.test.tsx`.
   - [ ] 8.4 `eslint` and `tsc --noEmit` clean (or no new errors beyond documented pre-existing ones, per this epic's established precedent) for every touched/added file.
   - [ ] 8.5 Confirm GraphQL codegen ran and the generated file's diff is additive-only (no unrelated regeneration noise beyond the two edited documents).
 
@@ -129,7 +133,7 @@ so that "nearby" distance is computed identically everywhere it's shown (client 
 - **Gate 3 (Foundational/Cross-Cutting Dependency Completeness, Winston persona) — GAP FOUND on one item, split applied; NO GAP on the rest.**
   - **Gap:** Architecture Spine AD-22's distance-priority rule ("active filter location if one is selected, else the viewer's current location coordinate") never designed how the "else" branch sources a coordinate passively. Verified: no global/app-shell viewer-location context/provider/persisted state exists anywhere in this codebase; the only geolocation capture mechanism (`useCurrentLocationCapture`, `packages/ui/src/hooks/useCurrentLocationCapture.ts`) is a bare imperative `navigator.geolocation.getCurrentPosition` wrapper, used exclusively behind explicit user-initiated actions (the nearby-filter's own "current location" click; two location-picker forms) — never ambient/passive. Gate 3's independent judgment: this is a real product/consent decision (permission-prompt timing, caching/persistence policy — silently prompting for geolocation with no explicit user intent would be a new, privacy-sensitive pattern for this app) and the capability is legitimately reusable by future "distance from me" features, not a narrow wiring gap belonging inside this feature story. **Split into Story 0.39** (Epic 0, tooling/infrastructure numbering rule), backlog.yaml `IDEA-040`. Until 0.39 ships, this story's badge implements only the "active filter location" branch (AC7-8) — an accepted, documented, temporary limitation, not a deferred bug.
   - **No gap:** the `use-nearby-filter.ts` saved-location-coordinate completion (AC10-11) is a narrow, mechanical fix to a hook this story already depends on for the same feature (retaining data its own existing query already fetches) — not a new mechanism, not reusable infrastructure in its own right. Inline.
-  - **No gap:** `computeDistanceKm`'s placement in `packages/domain/src/query/` matches an already-established convention (`resolveWithinRadiusConditions.ts` is the direct precedent for a generic, cross-entity geo mechanism living there) — not a new pattern needing its own foundational story.
+  - **No gap:** `computeDistanceKm`'s placement in `packages/domain` matches an already-established convention of pure, dependency-free geo/query math living in dedicated domain subfolders (`resolveWithinRadiusConditions.ts` in `query/` is the direct precedent for the pattern, though the exact subfolder was corrected during implementation to `geolocation/` — see AC1/Project Structure Notes) — not a new pattern needing its own foundational story.
   - **No gap:** no other project-context.md-mandated utility or architecture-spine item is referenced but orphaned by this story's scope (no SQL-window-function precedent gap, no per-day-cursor gap — those are Story 1.i1h's concern, already tracked via BUG-036/FIND-026).
 
 Per the escape hatch in `story-split-gate.md`: none of these three findings required user override — Gate 2's split preserves both of AD-22 Rule 4/AD-23's explicit user-confirmed "ship together" sequencing mandates intact (see above), and Gate 3's split is a straightforward application of the tooling/infrastructure numbering rule to a genuinely new, reusable capability. No `AskUserQuestion` was needed for either gate outcome.
@@ -147,7 +151,7 @@ Per the escape hatch in `story-split-gate.md`: none of these three findings requ
 
 - **Compatibility finding:** No database schema change of any kind — this story adds zero new columns/tables/migrations. It does add new fields to TypeScript types and widens two GraphQL selection sets (both purely additive, sourced from already-existing, already-resolvable data).
 - **Impacted fields/contracts:**
-  - `packages/domain/src/query/index.ts` — new export, `computeDistanceKm`.
+  - `packages/domain/src/geolocation/index.ts` — new export, `computeDistanceKm` (path corrected from `query/` — see AC1).
   - `apps/web/src/features/events/queries.graphql` → `apps/web/src/generated/graphql.ts` — `GetEventsForCalendarQuery`/`GetEventsForMyCalendarQuery` gain `schedules[].locationDetails.coordinates.{lat,lng}` (nullable, matching `LocationDetails.coordinates`'s existing nullability — `getEvents`' identical field is already nullable-safe in `EventListView.tsx`'s consumption).
   - `packages/ui/src/features/events/WeeklyCalendarView.types.ts` — `WeeklyCalendarViewScheduleShape.distanceKm?: number` (new optional field, backward compatible — every existing consumer that doesn't set it is unaffected).
   - `apps/web/src/app/[locale]/use-nearby-filter.ts` — `savedLocations`' mapped item shape gains optional `latitude`/`longitude`; new `activeFilterCoord` return value. Both additive; no existing consumer of `useNearbyFilter()`'s return shape breaks.
@@ -159,9 +163,9 @@ Per the escape hatch in `story-split-gate.md`: none of these three findings requ
 
 ### Project Structure Notes
 
-- `computeDistanceKm.ts`/`.test.ts` land in `packages/domain/src/query/` (generic cross-entity mechanism folder, existing precedent: `resolveWithinRadiusConditions.ts`) — **not** `packages/domain/src/events/`, since distance computation is not events-specific (project-context.md's Code Organization rule on generic mechanisms).
+- **PATH CORRECTED during implementation (2026-09-20), user-directed:** `computeDistanceKm.ts`/`.test.ts` land in `packages/domain/src/geolocation/` (the existing geolocation domain folder — alongside `is-location-trustworthy.ts`, `select-best-candidate.ts`, `build-cache-key.ts`, `validate-autocomplete-input.ts`) — **not** `packages/domain/src/query/` as originally planned. Rationale: this function's own domain is geolocation math (computing a distance between two coordinates), not the generic cross-entity query-DSL mechanism `packages/domain/src/query/` holds (`queryDsl.ts`, `resolveWithinRadiusConditions.ts` — condition-tree resolution, unrelated to distance arithmetic itself). It also remains, as originally required, **not** `packages/domain/src/events/`, since distance computation is not events-specific either (project-context.md's Code Organization rule on generic mechanisms still applies — geolocation is simply the more specific, better-fitting existing folder).
 - `EventCardCalendarGridItem.tsx`/`.types.ts`/`.test.tsx` land in `packages/ui/src/features/events/`, alongside `EventCard.tsx`/`EventCardMediaPrimitives.tsx`/`WeeklyCalendarView.tsx` — matching this epic's own established `features/events` convention (not `packages/ui/src/core/`, since this card's content is event-domain-specific, mirroring `epic-1-i1-readiness.md`'s own reasoning for why the shared primitive lives in `features/events` and not `core/`).
-- No new workspace package boundaries are crossed: `computeDistanceKm` (packages/domain, pure/dependency-free) is consumed by both `packages/ui` (via `apps/web`'s own import, since `packages/ui` itself must stay React-only/framework-light — confirm at implementation time whether `packages/domain` is already a dependency of `packages/ui` or whether the computation should instead happen at the `apps/web` call site and be passed down as a plain prop, consistent with "neither component computes it internally" per AD-22 Rule 3). **This story computes `distanceKm` at the `apps/web` page level (`home-content.tsx`, `CalendarView.tsx`) and passes it down as a plain prop to both `EventCard` and `WeeklyCalendarViewScheduleShape`/`EventCardCalendarGridItem`** — neither UI component imports `computeDistanceKm` or `packages/domain` directly. This avoids any question of whether `packages/ui` may depend on `packages/domain`.
+- No new workspace package boundaries are crossed: `computeDistanceKm` (packages/domain, pure/dependency-free) is consumed by both `packages/ui` and `apps/web`. **Confirmed at implementation time: `packages/ui` already depends on `@festgrid/domain`** (its `package.json` already lists it, and existing files — e.g. `EventListView.tsx` — already import from `@festgrid/domain/events`), resolving this note's own open question. Per this, the two consumers split as follows: masonry (`home-content.tsx`, AC5.1) computes `distanceKm` at the `apps/web` page level and passes it down as a plain prop to `EventCard`, exactly as originally planned; the calendar controller (`useWeeklyCalendarController.ts`, AC13/Task 6.2) computes `distanceKm` internally via a direct `computeDistanceKm` import from `@festgrid/domain/geolocation`, per AC13's own explicit instruction ("computed inside `useWeeklyCalendarController.ts`'s `schedules` flatMap via `computeDistanceKm`") — this directly supersedes this note's earlier blanket "neither UI component imports `computeDistanceKm` or `packages/domain` directly" framing, which predated confirming the dependency already exists. `EventCardCalendarGridItem` itself still does not import `computeDistanceKm` — it only ever receives an already-computed `distanceKm` prop, matching its standalone, not-yet-wired-in status this story (Task 7.6).
 - No detected conflicts with in-flight work: Stories 1.i1a-e/1.i1z are all `review` status (implemented, not yet code-reviewed to `done`) — this story only adds new files/fields alongside them, touching `EventCard.tsx` (already modified by 1.i1e) and `WeeklyCalendarView.types.ts`/`useWeeklyCalendarController.ts` (already modified by 1.i1d) at different, non-overlapping locations (threshold constant; new optional field/export respectively) — low collision risk, but confirm no merge conflicts against 1.i1e's `EventCard.tsx` diff at implementation time.
 
 ### References
@@ -241,40 +245,40 @@ implements the "active filter location" branch and simply omits itself otherwise
 ## Implementation Plan (Rule-Compliant)
 
 - **File Change Plan:**
-  - New: `packages/domain/src/query/computeDistanceKm.ts`, `packages/domain/src/query/computeDistanceKm.test.ts`, `packages/ui/src/features/events/EventCardCalendarGridItem.tsx`, `EventCardCalendarGridItem.types.ts`, `EventCardCalendarGridItem.test.tsx`.
-  - Modified: `packages/domain/src/query/index.ts`; `packages/graphql-select/drizzle-where.ts` (comment only); `packages/ui/src/features/events/EventCard.tsx` + `.test.tsx`; `apps/web/src/app/[locale]/use-nearby-filter.ts` + its test file; `apps/web/src/features/events/queries.graphql`; `apps/web/src/generated/graphql.ts` (regenerated); `packages/ui/src/features/events/WeeklyCalendarView.types.ts`; `packages/ui/src/hooks/useWeeklyCalendarController.ts` + `.types.ts` + test; `apps/web/src/features/events/CalendarView.tsx` + `.test.tsx`; `apps/web/src/app/[locale]/home-content.tsx` (+ its test file, if one exists).
+  - New: `packages/domain/src/geolocation/computeDistanceKm.ts`, `packages/domain/src/geolocation/computeDistanceKm.test.ts` (path corrected from `packages/domain/src/query/` — see AC1), `packages/ui/src/features/events/EventCardCalendarGridItem.tsx`, `EventCardCalendarGridItem.types.ts`, `EventCardCalendarGridItem.test.tsx`.
+  - Modified: `packages/domain/src/geolocation/index.ts`; `packages/graphql-select/drizzle-where.ts` (comment only); `packages/ui/src/features/events/EventCard.tsx` + `.types.ts` + `.test.tsx`; `packages/ui/src/features/events/index.ts` (barrel export); `packages/ui/src/features/events/WeeklyCalendarView.tsx` (TODO comment only); `apps/web/src/app/[locale]/use-nearby-filter.ts`; `apps/web/src/app/[locale]/nearby.test.tsx`; `apps/web/src/features/events/queries.graphql`; `apps/web/src/generated/graphql.ts` (regenerated); `packages/ui/src/features/events/WeeklyCalendarView.types.ts`; `packages/ui/src/hooks/useWeeklyCalendarController.ts` + `.types.ts` + `.test.tsx`; `apps/web/src/features/events/CalendarView.tsx` + `.test.tsx`; `apps/web/src/app/[locale]/home-content.tsx`.
 - **Rule Mapping:**
   - AD-1/AD-2 → no new API surface; only existing-query selection widening and existing-resolver internals (deferred to 1.i1h) — see Gate 1 finding.
   - AD-22 Rules 1-4 → Rule 1 needs no action (confirmed, not used by this card composition); Rule 2 → Task 1; Rule 3 → Tasks 4/6; Rule 4 → Tasks 2/5 kept in the same story as the utility, per mandate.
-  - project-context.md Code Organization → Task 1's `packages/domain/src/query/` placement; packages/domain purity preserved (no React, no DB/ORM import in `computeDistanceKm.ts`).
-  - project-context.md Testing Rules → 100% `packages/domain` unit coverage (Task 1.2); testing-trophy integration coverage for `apps/web`/`packages/ui` changes (Tasks 3.3, 5.4, 6.5, 7.5).
-- **Verification Plan:** Task 8's full test/lint/typecheck pass across `packages/domain`, `packages/ui`, and `apps/web`'s touched files; manual confirmation that the GraphQL codegen diff is additive-only; confirmation that `feed-content.tsx`/`favorites-content.tsx` are untouched (`git diff` should show zero changes to those two files).
+  - project-context.md Code Organization → Task 1's `packages/domain/src/geolocation/` placement (corrected from `query/` — see AC1/Project Structure Notes); packages/domain purity preserved (no React, no DB/ORM import in `computeDistanceKm.ts`).
+  - project-context.md Testing Rules → 100% `packages/domain` unit coverage (Task 1.2, confirmed via coverage tooling); testing-trophy integration coverage for `apps/web`/`packages/ui` changes (Tasks 3.3, 5.4, 6.5, 7.5).
+- **Verification Plan:** Task 8's full test/lint/typecheck pass across `packages/domain` (323/323 tests), `packages/ui` (538/538 tests), and `apps/web` (391/391 tests) — all green; `pnpm --filter web build` succeeds; `pnpm lint` at the repo root is clean (0 errors); `tsc --noEmit` in `apps/web` shows only pre-existing baseline errors, none in any file this story touches; GraphQL codegen diff confirmed additive-only; `feed-content.tsx`/`favorites-content.tsx` confirmed untouched via `git diff`.
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — this story builds `computeDistanceKm` + wires it into `EventCard`'s masonry badge + the calendar data plumbing, and builds (but does not yet wire into the live calendar grid) the new `EventCardCalendarGridItem` primitive. It does **not** build the multi-day spanning bar, the overflow dialog, or the BUG-036 backend fetch fix (Stories 1.i1g/1.i1h), and does **not** build an ambient viewer-location capability (Story 0.39) — the nearby badge only supports the "active filter location" branch until 0.39 ships.
-- [ ] Architecture and boundary confirmation — `computeDistanceKm` stays in `packages/domain` with zero React/DB/Node-only dependencies; `distanceKm` is computed at the `apps/web` page level and passed down as a plain prop to both `EventCard` and the calendar shape, per Project Structure Notes.
-- [ ] Testing plan confirmation — Task 8's coverage across `packages/domain` (100%), `packages/ui`, and `apps/web`.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1: no gap. Gate 2: gap accepted via split into Stories 1.i1g/1.i1h (both drafted as full `epics.md` sections + `sprint-status.yaml` backlog entries, not yet individually `bmad-create-story`'d). Gate 3: gap accepted via split into Story 0.39 (`epics.md` section + `sprint-status.yaml` backlog entry added); this story's badge deliberately omits the "ambient current location" branch until 0.39 ships — confirm this documented limitation is acceptable before implementation begins.
+- [x] Scope confirmation — this story builds `computeDistanceKm` + wires it into `EventCard`'s masonry badge + the calendar data plumbing, and builds (but does not yet wire into the live calendar grid) the new `EventCardCalendarGridItem` primitive. It does **not** build the multi-day spanning bar, the overflow dialog, or the BUG-036 backend fetch fix (Stories 1.i1g/1.i1h), and does **not** build an ambient viewer-location capability (Story 0.39) — the nearby badge only supports the "active filter location" branch until 0.39 ships.
+- [x] Architecture and boundary confirmation — `computeDistanceKm` stays in `packages/domain` with zero React/DB/Node-only dependencies (now in `packages/domain/src/geolocation/`, user-directed path correction — see AC1); `distanceKm` is computed at the `apps/web` page level for masonry and inside `useWeeklyCalendarController.ts` for the calendar (per AC13) and passed down as a plain prop to both `EventCard` and the calendar shape, per Project Structure Notes.
+- [x] Testing plan confirmation — Task 8's coverage across `packages/domain` (100%, confirmed via coverage tooling), `packages/ui` (538/538), and `apps/web` (391/391).
+- [x] Explicit human approval state — approval to continue coding was given explicitly by the user when resuming this story ("continue progress of story 1.i1f ... use the computeDistanceKm from packages/domain/src/geolocation"), which also directed the AC1/AC3 path correction and confirmed AC5's `nearbyBadgeThreshold` prop shape.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1: no gap. Gate 2: gap accepted via split into Stories 1.i1g/1.i1h (both drafted as full `epics.md` sections + `sprint-status.yaml` backlog entries). Gate 3: gap accepted via split into Story 0.39 (`epics.md` section + `sprint-status.yaml` backlog entry present); this story's badge implements only the "active filter location" branch until 0.39 ships — confirmed acceptable, unchanged from story creation.
 
 ## Testing Requirements
 
-- [ ] Integration tests — `home-content.tsx` masonry badge wiring (filter on/off, boundary distance); `CalendarView.tsx`/`useWeeklyCalendarController` distance-field plumbing; `use-nearby-filter.ts` coordinate-completeness across all three `selectedValue` modes.
-- [ ] Unit tests — `computeDistanceKm` (100% coverage, `packages/domain`'s mandatory rule); `EventCardCalendarGridItem` component tests for both compositions.
-- [ ] E2E tests — not required for this story (no new user-facing flow reachable outside existing component tests; the primitive is not yet live-rendered in the calendar grid, and the masonry badge fix is covered by integration tests). Revisit once Stories 1.i1g/1.i1h make the primitive actually visible in the calendar.
+- [x] Integration tests — `home-content.tsx` masonry badge wiring (filter on/off, boundary distance); `CalendarView.tsx`/`useWeeklyCalendarController` distance-field plumbing; `use-nearby-filter.ts` coordinate-completeness across all three `selectedValue` modes.
+- [x] Unit tests — `computeDistanceKm` (100% coverage, `packages/domain`'s mandatory rule); `EventCardCalendarGridItem` component tests for both compositions.
+- [x] E2E tests — not required for this story (no new user-facing flow reachable outside existing component tests; the primitive is not yet live-rendered in the calendar grid, and the masonry badge fix is covered by integration tests). Revisit once Stories 1.i1g/1.i1h make the primitive actually visible in the calendar.
 
 ## Deliverables Checklist
 
-- [ ] `computeDistanceKm` utility + 100%-covered unit tests, exported from `packages/domain/src/query/`.
-- [ ] `EventCard.tsx` nearby-badge threshold corrected to `<8km` and actually fed a real value from `home-content.tsx`.
-- [ ] `use-nearby-filter.ts` fixed to retain saved-location coordinates and expose `activeFilterCoord`.
-- [ ] `getEventsForCalendar`/`getEventsForMyCalendar` GraphQL documents + regenerated types include `locationDetails.coordinates`.
-- [ ] `WeeklyCalendarViewScheduleShape.distanceKm?` plumbed through `useWeeklyCalendarController`/`CalendarView.tsx`.
-- [ ] New `EventCardCalendarGridItem` primitive (both compositions), tested standalone, not yet wired into the live calendar grid.
-- [ ] `epics.md` sections for Stories 1.i1g, 1.i1h, and 0.39 (already added during this story's creation — verify present).
-- [ ] `sprint-status.yaml` backlog entries for 1-i1g, 1-i1h, 0-39 (already added during this story's creation — verify present).
-- [ ] `backlog.yaml` IDEA-026 promoted with this story's key; child rows IDEA-039/IDEA-040 added; BUG-036/FIND-026 updated with Story 1.i1h's key (already applied during this story's creation — verify present).
+- [x] `computeDistanceKm` utility + 100%-covered unit tests, exported from `packages/domain/src/geolocation/` (path corrected from `query/` during implementation — see AC1).
+- [x] `EventCard.tsx` nearby-badge threshold corrected to a caller-configurable `nearbyBadgeThreshold` prop (default `<8km`, per AC5's REVISED note) and actually fed a real value from `home-content.tsx`.
+- [x] `use-nearby-filter.ts` fixed to retain saved-location coordinates and expose `activeFilterCoord`.
+- [x] `getEventsForCalendar`/`getEventsForMyCalendar` GraphQL documents + regenerated types include `locationDetails.coordinates`.
+- [x] `WeeklyCalendarViewScheduleShape.distanceKm?` plumbed through `useWeeklyCalendarController`/`CalendarView.tsx`.
+- [x] New `EventCardCalendarGridItem` primitive (both compositions), tested standalone, not yet wired into the live calendar grid.
+- [x] `epics.md` sections for Stories 1.i1g, 1.i1h, and 0.39 (already added during this story's creation — verified present).
+- [x] `sprint-status.yaml` backlog entries for 1-i1g, 1-i1h, 0-39 (already added during this story's creation — verified present).
+- [x] `backlog.yaml` IDEA-026 promoted with this story's key; child rows IDEA-039/IDEA-040 added; BUG-036/FIND-026 updated with Story 1.i1h's key (already applied during this story's creation — verified present).
 
 ## Out of Scope
 
@@ -289,32 +293,66 @@ implements the "active filter location" branch and simply omits itself otherwise
 
 ## Definition of Done
 
-- [ ] All Acceptance Criteria satisfied.
-- [ ] All Task 8 tests passing (`packages/domain` 100% coverage on new file; `packages/ui`; `apps/web`).
-- [ ] Lint (`eslint`) and `tsc --noEmit` clean for every touched/added file (or no new errors beyond documented pre-existing baseline, per this epic's precedent).
-- [ ] GraphQL codegen regenerated and committed.
-- [ ] `epics.md`/`sprint-status.yaml`/`backlog.yaml` prerequisite entries for 1.i1g/1.i1h/0.39 present and correct (already applied during story creation).
+- [x] All Acceptance Criteria satisfied.
+- [x] All Task 8 tests passing (`packages/domain` 100% coverage on new file, 323/323 suite; `packages/ui` 538/538; `apps/web` 391/391).
+- [x] Lint (`eslint`) and `tsc --noEmit` clean for every touched/added file (repo-wide `pnpm lint`: 0 errors; `apps/web` `tsc --noEmit`: only pre-existing baseline errors, none in any file this story touches — confirmed identical before/after).
+- [x] GraphQL codegen regenerated and committed (diff confirmed additive-only).
+- [x] `epics.md`/`sprint-status.yaml`/`backlog.yaml` prerequisite entries for 1.i1g/1.i1h/0.39 present and correct (verified during this pass).
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — ready for code review.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled by the dev agent._
+Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
 
 ### Debug Log References
 
-### Completion Notes List
-
-- Ultimate context engine analysis completed — comprehensive developer guide created (`bmad-create-story`, 2026-09-17). Three parallel research subagents were used to extract exact current-code facts (frontend calendar/masonry components, backend resolver/DSL/SQL, prior-story conventions and `packages/domain` structure) plus a fourth for the nearby-filter/geolocation/prop-mapping gap analysis, before Gate 1/2/3 were each dispatched fresh (not cited from `epic-1-i1-readiness.md`, since this story's scope falsifies that sweep's own "no resolver touched" Gate 1 conclusion for the wider IDEA-026 item). Gate 2 and Gate 3 each found a real, independently-justified split; both are reflected in this story's reduced scope, in new `epics.md` sections for Stories 1.i1g/1.i1h/0.39, and in `sprint-status.yaml`/`backlog.yaml` updates made as part of this story's creation.
+- This story was resumed mid-implementation: a prior session had already produced substantial (uncommitted) code for Tasks 1-6 and had incorrectly marked `sprint-status.yaml`'s `1-i1f-...` entry `done` despite Task 7 (`EventCardCalendarGridItem`) not existing at all and the story file itself still showing `Status: ready-for-dev` with zero tasks checked. This session's first step was reconciling that drift (sprint-status overstating completion, the inverse of the usual "code shipped, story bookkeeping stale" drift) before continuing.
+- Auditing the prior session's uncommitted work surfaced several real defects, all fixed in this pass:
+  - `computeDistanceKm.ts` implemented the **haversine** formula (`2R·asin(√h)`), not the **spherical law of cosines** formula AC1 explicitly mandates (`6371·acos(clamp(...))`) — a different, non-interchangeable formula from the server's own SQL. It also rounded to the nearest integer and clamped to a 20000km max, neither specified nor desired (rounding would silently disagree with the server's unrounded comparison at boundary distances). Rewritten to mirror the SQL exactly; verified byte-for-byte against a manual Node computation of the same formula.
+  - `EventCard.tsx` computed its threshold default via `Number(import.meta.env.VITE_NEARBY_BADGE_DISTANCE_KM) || 8` — `import.meta.env` is a Vite-only global; this codebase has zero other `import.meta.env`/`VITE_` usages anywhere, and `packages/ui` has no Vite build step (consumed as raw TS, compiled by Next.js's own bundler). This would throw `Cannot read properties of undefined` the instant the card rendered in the real app — it only appeared to "work" because `packages/ui`'s own Vitest runner is Vite-based and populates `import.meta.env`, masking the defect in that package's own tests. Confirmed via `pnpm --filter web build`, which succeeds only after the fix (a full build was never run against the prior implementation). Flagged to the user via `AskUserQuestion`; user chose the `NEXT_PUBLIC_`-in-`apps/web` pattern (matching this codebase's existing convention), keeping the `nearbyBadgeThreshold` prop shape.
+  - `home-content.tsx` imported `selectDisplaySchedule` from `@festgrid/ui` instead of `@festgrid/domain/events` (wrong package — the function lives in and is exported from the domain package; every other consumer in this codebase, e.g. `EventListView.tsx`, imports it from `@festgrid/domain/events`).
+  - `use-nearby-filter.ts` read `locationsData?.getMyLocations`/`loc.radiusKm`, but the actual generated `GetMyLocationsQuery` type has `myLocations`/`radius` (meters, not km) — both would have been silently `undefined`, breaking every saved-location feature this hook powers (not just this story's addition), and the `radiusKm` mismatch would also have been a TypeScript compile error under strict typing.
+  - `nearby.test.tsx`'s new `useCurrentLocationCapture` mock called `vi.mocked(realHookFn).mockReturnValue(...)` on a function that was never created via `vi.fn()` (the file's `@festgrid/ui` mock only overrode `useInfiniteScroll`, spreading through the *real* `useCurrentLocationCapture`) — this throws at runtime; fixed by extending the existing mock properly, matching the pattern already established in `set-default-location-dialog.test.tsx`.
+- AC13 (`useWeeklyCalendarController.ts` computes `distanceKm` internally via `computeDistanceKm`) and this story's own "Project Structure Notes" (which said neither UI component imports `computeDistanceKm`/`packages/domain` directly) contradicted each other. Resolved in AC13's favor after confirming `packages/ui` already depends on `@festgrid/domain` (multiple existing files already import from it) — Project Structure Notes updated to record this resolution rather than silently picking one over the other.
+- A genuine test-timing bug was found and fixed in the new `nearby.test.tsx` integration tests during verification: capturing an event card's DOM node (`title.closest('button')`) *before* triggering a nearby-filter selection produced a stale reference once the resulting query-key change caused React Query to refetch and the list to remount its DOM nodes — the assertion then polled a detached node that would never update. Fixed by re-querying fresh inside each `waitFor`.
+- Deviated once from the story's own literal Task 5.1 wording where it named an internal variable name for masonry's `getCardProps`, and once from Task 6's original "no `packages/domain` import in `packages/ui`" framing — both are corrected/reconciled directly in this story's ACs/Dev Notes above, not just in this log.
+- Full verification: `packages/domain` 323/323 tests (`computeDistanceKm.test.ts` at 100% line/branch/function coverage); `packages/ui` 538/538 tests; `apps/web` 391/391 tests; `pnpm --filter web build` succeeds; repo-wide `pnpm lint` clean (0 errors); `apps/web tsc --noEmit` shows only pre-existing baseline errors (confirmed identical to the pre-story baseline, none in any file this story touches).
 
 ### File List
 
-_To be filled by the dev agent during implementation._
+**New:**
+- `packages/domain/src/geolocation/computeDistanceKm.ts`
+- `packages/domain/src/geolocation/computeDistanceKm.test.ts`
+- `packages/ui/src/features/events/EventCardCalendarGridItem.tsx`
+- `packages/ui/src/features/events/EventCardCalendarGridItem.types.ts`
+- `packages/ui/src/features/events/EventCardCalendarGridItem.test.tsx`
+
+**Modified:**
+- `packages/domain/src/geolocation/index.ts`
+- `packages/graphql-select/drizzle-where.ts`
+- `packages/ui/src/features/events/EventCard.tsx`
+- `packages/ui/src/features/events/EventCard.types.ts`
+- `packages/ui/src/features/events/EventCard.test.tsx`
+- `packages/ui/src/features/events/WeeklyCalendarView.tsx`
+- `packages/ui/src/features/events/WeeklyCalendarView.types.ts`
+- `packages/ui/src/features/events/index.ts`
+- `packages/ui/src/hooks/useWeeklyCalendarController.ts`
+- `packages/ui/src/hooks/useWeeklyCalendarController.types.ts`
+- `packages/ui/src/hooks/useWeeklyCalendarController.test.tsx`
+- `apps/web/src/app/[locale]/use-nearby-filter.ts`
+- `apps/web/src/app/[locale]/nearby.test.tsx`
+- `apps/web/src/app/[locale]/home-content.tsx`
+- `apps/web/src/features/events/queries.graphql`
+- `apps/web/src/features/events/CalendarView.tsx`
+- `apps/web/src/features/events/CalendarView.test.tsx`
+- `apps/web/src/generated/graphql.ts` (regenerated)
 
 ## Change Log
 
 - 2026-09-17: Story created via `bmad-create-story` from backlog.yaml IDEA-026 (Architecture Spine AD-22/AD-23). Gate 2/Gate 3 findings narrowed this story's scope and produced three new prerequisite/follow-on entries (Stories 1.i1g, 1.i1h, 0.39) — see Dev Notes for the full record.
+- 2026-09-20: Implementation completed via `bmad-dev-story` (resumed from a prior partial/uncommitted session). `computeDistanceKm` moved from the originally-specified `packages/domain/src/query/` to `packages/domain/src/geolocation/` (user-directed, AC1/AC3/Project Structure Notes updated accordingly). Fixed several defects found in the prior session's uncommitted work (wrong distance formula, a Vite-only `import.meta.env` reference that would have broken the real Next.js build, a wrong import path for `selectDisplaySchedule`, wrong GraphQL field names in `use-nearby-filter.ts`, and a broken test mock) — see Debug Log References for the full list. `EventCard`'s nearby-badge threshold became a caller-configurable `nearbyBadgeThreshold` prop (default 8, user-directed) sourced from `NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM` in `apps/web`. Built `EventCardCalendarGridItem` (Task 7) from scratch. All tasks complete; full verification green (`packages/domain` 323/323, `packages/ui` 538/538, `apps/web` 391/391, build + lint clean). `sprint-status.yaml`'s prematurely-set `done` entry corrected to `review`. Status set to `review`.

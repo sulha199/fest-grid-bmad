@@ -105,6 +105,9 @@ export interface EventCardProps {
   /** When true (masonry variant only), renders the enlarged/prominent poster treatment per PRD §3.16. Caller derives this from `durableImageUrl != null` — EventCard does not know about the opt-in concept itself. */
   prominentPoster?: boolean;
 
-  /** Caller-computed distance in kilometers from the viewer to this event (client-side geolocation math — EventCard performs no location/distance logic itself). A "Nearby" badge renders only when this is non-null and <= 5. Omit/null when the viewer has not granted location permission. */
+  /** Caller-computed distance in kilometers from the viewer to this event (client-side geolocation math — EventCard performs no location/distance logic itself). A "Nearby" badge renders only when this is non-null and < nearbyBadgeThreshold. Omit/null when the viewer has not granted location permission. */
   distanceKm?: number | null;
+
+  /** Distance threshold (km) below which the "Nearby" badge renders. Default: 8. Caller-supplied — EventCard reads no env vars itself (framework-agnostic package). */
+  nearbyBadgeThreshold?: number;
 }

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { computeDistanceKm } from '@festgrid/domain/geolocation';
 import { WeeklyCalendarControllerOptions, WeeklyCalendarControllerResult } from './useWeeklyCalendarController.types';
 
 const parseDateOnly = (dateStr: string) => {
@@ -45,6 +46,7 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
     queryError,
     onNavigate,
     errorStateLabel = 'An error occurred',
+    viewerCoord,
   } = options;
 
   const weekStart = useMemo(() => getWeekStart(week), [week]);
@@ -55,23 +57,32 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
   const schedules = useMemo(() => {
     const events = rawEvents ?? [];
     return events.flatMap((event: any) => {
-      return (event.schedules || []).map((schedule: any) => ({
-        id: schedule.id,
-        eventSlug: event.slug,
-        eventName: event.eventName,
-        isMainSchedule: schedule.isMainSchedule,
-        eventStartDate: schedule.eventStartDate,
-        eventEndDate: schedule.eventEndDate,
-        eventStartTime: schedule.eventStartTime,
-        eventEndTime: schedule.eventEndTime,
-        isFavorited: !!event.isFavorited,
-        favoriteCount: event.favoriteCount,
-        isAddedToCalendar: !!schedule.isAddedToCalendar,
-        eventId: event.id,
-        imageUrl: event.imageUrl,
-      }));
+      return (event.schedules || []).map((schedule: any) => {
+        const targetCoords = schedule.locationDetails?.coordinates;
+        const distanceKm =
+          viewerCoord && targetCoords
+            ? computeDistanceKm(viewerCoord, { latitude: targetCoords.lat, longitude: targetCoords.lng })
+            : undefined;
+
+        return {
+          id: schedule.id,
+          eventSlug: event.slug,
+          eventName: event.eventName,
+          isMainSchedule: schedule.isMainSchedule,
+          eventStartDate: schedule.eventStartDate,
+          eventEndDate: schedule.eventEndDate,
+          eventStartTime: schedule.eventStartTime,
+          eventEndTime: schedule.eventEndTime,
+          isFavorited: !!event.isFavorited,
+          favoriteCount: event.favoriteCount,
+          isAddedToCalendar: !!schedule.isAddedToCalendar,
+          eventId: event.id,
+          imageUrl: event.imageUrl,
+          distanceKm,
+        };
+      });
     });
-  }, [rawEvents]);
+  }, [rawEvents, viewerCoord]);
 
   const handlePrevWeek = () => {
     if (isPrevWeekDisabled) return;

@@ -14,6 +14,8 @@ export interface WeeklyCalendarViewScheduleShape {
   eventId?: string;
   /** Parent event's poster image URL, mapped from the already-fetched `event.imageUrl` (Story 1.i1d AC1/AC2). */
   imageUrl?: string;
+  /** Caller-computed distance in kilometers from the viewer to this schedule's location (Story 1.i1f AC13-14). Undefined when no viewer coordinate is resolvable. */
+  distanceKm?: number;
 }
 
 export interface WeeklyCalendarViewLabels {

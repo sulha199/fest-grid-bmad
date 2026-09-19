@@ -154,6 +154,12 @@ query getEventsForCalendar($limit: Int, $offset: Int, $query: EventQueryConditio
         eventStartTime
         eventEndTime
         ticketPrice
+        locationDetails {
+          coordinates {
+            lat
+            lng
+          }
+        }
       }
     }
     hasMore
@@ -182,6 +188,12 @@ query getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryCondit
         eventEndTime
         ticketPrice
         isAddedToCalendar
+        locationDetails {
+          coordinates {
+            lat
+            lng
+          }
+        }
       }
     }
     hasMore

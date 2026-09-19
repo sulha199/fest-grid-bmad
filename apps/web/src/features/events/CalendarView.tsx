@@ -17,10 +17,12 @@ interface CalendarViewProps {
   types: string[];
   categories: string[];
   nearby?: NearbyFilterInput;
+  /** Story 1.i1f AC13-14: the active nearby-filter's resolved coordinate, threaded into `useWeeklyCalendarController` for per-schedule `distanceKm`. `FeedCalendarView`/`AccountCalendarView`/`my-calendar-content` have no nearby-filter plumbing today and do not pass this. */
+  viewerCoord?: { latitude: number; longitude: number };
   onFavoriteToggle?: (eventId: string) => void;
 }
 
-export function CalendarView({ q, types, categories, nearby, onFavoriteToggle }: CalendarViewProps) {
+export function CalendarView({ q, types, categories, nearby, viewerCoord, onFavoriteToggle }: CalendarViewProps) {
   const t = useTranslations('DiscoveryPage');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -78,6 +80,7 @@ export function CalendarView({ q, types, categories, nearby, onFavoriteToggle }:
     queryStatus,
     queryError,
     errorStateLabel: t('calendarErrorState'),
+    viewerCoord,
     onNavigate: (direction, newWeek) => {
       posthog.capture('calendar_week_navigated', { direction, weekStart: newWeek });
     },

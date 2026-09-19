@@ -95,6 +95,80 @@ describe('useWeeklyCalendarController', () => {
     });
   });
 
+  it('computes distanceKm per schedule when viewerCoord and schedule coordinates are both present (Story 1.i1f AC13-14)', () => {
+    const setWeekMock = vi.fn();
+    const eventsWithCoords = [
+      {
+        id: 'event-1',
+        slug: 'event-one',
+        eventName: 'Event One',
+        isFavorited: false,
+        schedules: [
+          {
+            id: 'schedule-1',
+            isMainSchedule: true,
+            eventStartDate: '2026-08-10',
+            // Identical to viewerCoord below — expect distanceKm === 0.
+            locationDetails: { coordinates: { lat: -6.2, lng: 106.8 } },
+          },
+          {
+            id: 'schedule-2',
+            isMainSchedule: false,
+            eventStartDate: '2026-08-11',
+            locationDetails: null,
+          },
+        ],
+      },
+    ];
+
+    const { result } = renderHook(() =>
+      useWeeklyCalendarController({
+        week: '2026-08-10',
+        setWeek: setWeekMock,
+        todayStr: '2026-08-10',
+        rawEvents: eventsWithCoords,
+        queryStatus: 'success',
+        queryError: null,
+        viewerCoord: { latitude: -6.2, longitude: 106.8 },
+      })
+    );
+
+    expect(result.current.schedules[0]).toMatchObject({ id: 'schedule-1', distanceKm: 0 });
+    expect((result.current.schedules[1] as any).distanceKm).toBeUndefined();
+  });
+
+  it('leaves distanceKm undefined for every schedule when no viewerCoord is provided', () => {
+    const setWeekMock = vi.fn();
+    const eventsWithCoords = [
+      {
+        id: 'event-1',
+        slug: 'event-one',
+        eventName: 'Event One',
+        schedules: [
+          {
+            id: 'schedule-1',
+            isMainSchedule: true,
+            eventStartDate: '2026-08-10',
+            locationDetails: { coordinates: { lat: -6.2, lng: 106.8 } },
+          },
+        ],
+      },
+    ];
+
+    const { result } = renderHook(() =>
+      useWeeklyCalendarController({
+        week: '2026-08-10',
+        setWeek: setWeekMock,
+        todayStr: '2026-08-10',
+        rawEvents: eventsWithCoords,
+        queryStatus: 'success',
+        queryError: null,
+      })
+    );
+
+    expect((result.current.schedules[0] as any).distanceKm).toBeUndefined();
+  });
+
   it('navigates previous week, next week, today, and an arbitrary picked date, and fires callbacks', () => {
     const setWeekMock = vi.fn();
     const onNavigateMock = vi.fn();

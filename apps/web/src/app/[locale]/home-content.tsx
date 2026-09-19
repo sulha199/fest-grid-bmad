@@ -19,6 +19,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { LoginContent } from "./login/login-content"
 import { useNearbyFilter } from "./use-nearby-filter"
 import { useAIFilter } from "@/features/events/use-ai-filter"
+import { computeDistanceKm } from "@festgrid/domain/geolocation"
+import { selectDisplaySchedule } from "@festgrid/domain/events"
 
 // Falls back to the raw enum value if a translation key is missing, so a
 // locale file drifting out of sync with the enum degrades gracefully instead
@@ -41,6 +43,10 @@ export function HomeContent() {
   const tNearby = useTranslations('NearbyFilter')
   const { session } = useAuthSession()
   const nearbyFilter = useNearbyFilter()
+  // Env-configurable nearby-badge threshold (km); NEXT_PUBLIC_ is required for
+  // client-side availability in Next.js. Falls back to EventCard's own default (8)
+  // when unset or invalid.
+  const nearbyBadgeThreshold = Number(process.env.NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM) || 8
   const aiFilter = useAIFilter()
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
   const [types] = useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))
@@ -258,22 +264,40 @@ export function HomeContent() {
                   </div>
                 }
                 cardLabels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
-                getCardProps={(event) => ({
-                  isFavorited: event.isFavorited,
-                  favoriteCount: event.favoriteCount,
-                  onFavoriteToggle: () => {
-                    if (!session) {
-                      setIsLoginModalOpen(true)
-                      return
-                    }
-                    toggleFavorite({ eventId: event.id })
-                  },
-                  onClick: () => {
-                    const paramsStr = searchParams.toString()
-                    const url = `/events/${event.slug}?fromList=true${paramsStr ? `&${paramsStr}` : ''}`
-                    router.push(url)
-                  },
-                })}
+                // Story 1.i1f AC5-9: distanceKm is computed only on this (Discovery) page.
+                // feed-content.tsx/favorites-content.tsx are deliberately left unwired here —
+                // both hardcode isAuthenticated={false}/savedLocations={[]} and never render
+                // the Location filter button (pre-existing BUG-025, tracked separately).
+                getCardProps={(event) => {
+                  const displaySchedule = selectDisplaySchedule(event.schedules ?? []);
+                  const coords = displaySchedule?.locationDetails?.coordinates;
+                  let distanceKm: number | null = null;
+                  if (coords && nearbyFilter.activeFilterCoord) {
+                    distanceKm = computeDistanceKm(nearbyFilter.activeFilterCoord, {
+                      latitude: coords.lat,
+                      longitude: coords.lng,
+                    });
+                  }
+
+                  return {
+                    distanceKm,
+                    nearbyBadgeThreshold,
+                    isFavorited: event.isFavorited,
+                    favoriteCount: event.favoriteCount,
+                    onFavoriteToggle: () => {
+                      if (!session) {
+                        setIsLoginModalOpen(true)
+                        return
+                      }
+                      toggleFavorite({ eventId: event.id })
+                    },
+                    onClick: () => {
+                      const paramsStr = searchParams.toString()
+                      const url = `/events/${event.slug}?fromList=true${paramsStr ? `&${paramsStr}` : ''}`
+                      router.push(url)
+                    },
+                  };
+                }}
                 sentinelRef={sentinelRef}
                 isFetchingNextPage={isFetchingNextPage}
                 hasNextPage={hasNextPage}
@@ -285,7 +309,7 @@ export function HomeContent() {
             id: 'calendar',
             label: t('viewSwitcherCalendarLabel'),
             icon: <CalendarDays className="w-4 h-4" />,
-            content: <CalendarView q={q} types={types} categories={categories} nearby={resolvedNearby} onFavoriteToggle={(eventId) => {
+            content: <CalendarView q={q} types={types} categories={categories} nearby={resolvedNearby} viewerCoord={nearbyFilter.activeFilterCoord} onFavoriteToggle={(eventId) => {
               if (!session) {
                 setIsLoginModalOpen(true);
                 return;
