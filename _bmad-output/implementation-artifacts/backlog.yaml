@@ -1113,13 +1113,14 @@ items:
      note: "Full investigation, fix, and two extension sessions (locationName/ownerUsername) documented in backlog/BUG-032-hashtags-not-persisted-into-post-table.md. FIND-024 (ownerDisplayName research + carousel/childPosts-equivalent capture) closed 2026-09-18 -- see FIND-024."}
 
   IDEA-029:
-    {type: idea, status: triaged, created: 2026-09-15,
+    {type: idea, status: promoted, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Reusable location link component (pin icon + name, opens map in new tab)",
      ref: [backlog/IDEA-029-reusable-location-link-component.md,
            planning-artifacts/sprint-change-proposal-2026-09-15-reusable-location-link.md],
      touches: [pkg:ui, web:events, web:locations],
-     note: "Reported by user via bmad-help (2026-09-15). New reusable component taking a locationDetailObject prop: renders pin-location-icon + location name as text, always clickable and always opening the map in a new tab. Two confidence-based icon states: confirmed/acceptable confidence → open-in-new-tab icon (straight to the resolved map location); otherwise → search icon that opens the map with a query built from the location name. Consumers: event-detail page + its schedule (IDEA-033), and the reusable account element (IDEA-032)."}
+     stories: [1-6d-build-the-reusable-locationlink-component],
+     note: "Reported by user via bmad-help (2026-09-15). New reusable component taking a locationDetailObject prop: renders pin-location-icon + location name as text, always clickable and always opening the map in a new tab. Two confidence-based icon states: confirmed/acceptable confidence → open-in-new-tab icon (straight to the resolved map location); otherwise → search icon that opens the map with a query built from the location name. Fully promoted 2026-09-19 to Story 1.6d (packages/ui/src/core/LocationLink.tsx). Consumers (separate, not-yet-promoted rows): event-detail page + its schedule (IDEA-033, → future Story 1.6e), and the reusable account element (IDEA-032, → future Story 0.i6e)."}
 
   IDEA-030:
     {type: idea, status: promoted, created: 2026-09-15,

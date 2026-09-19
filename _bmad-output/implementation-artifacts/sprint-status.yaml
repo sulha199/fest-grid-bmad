@@ -686,6 +686,19 @@ development_status:
   # 1-3j (ready-for-dev, not yet implemented) -- see the story file's own
   # Pre-Coding Approval Gate. See epics.md Story 1.6c.
   1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query: ready-for-dev
+  # epics.md section added 2026-09-15 via bmad-correct-course (CC-021,
+  # sprint-change-proposal-2026-09-15-reusable-location-link.md), which
+  # deferred sprint-status.yaml registration to a later bmad-create-story
+  # session. Registered here 2026-09-19. Builds a reusable LocationLink
+  # component (packages/ui/src/core/LocationLink.tsx) reusing the existing
+  # isLocationTrustworthy predicate (packages/domain/src/geolocation, Story
+  # 0.i7a-0.i7c) for a confidence-gated map-link icon. epic-1-readiness.md
+  # predates this story (same as Stories 1.6c/1.6f) so it was not cited --
+  # ran Gates 1/2/3 fresh via subagent dispatch, all three "no gap found."
+  # No prerequisite story added. Depended on by Story 1.6e (event-detail
+  # schedule adoption) and Story 0.i6e (SubscribedAccountCard adoption),
+  # both out of this story's own scope. See epics.md Story 1.6d.
+  1-6d-build-the-reusable-locationlink-component: ready-for-dev
   # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-
   # discovery-detail-calendar-ux.md Section 4.2: added AC13 (Carousel-chrome
   # navigation) and AC14 (icon-only modal close). Verified via git show that AC14
