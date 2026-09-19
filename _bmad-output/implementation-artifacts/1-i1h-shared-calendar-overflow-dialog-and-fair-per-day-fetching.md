@@ -1,0 +1,265 @@
+# Story 1.i1h: Shared calendar overflow dialog and fair per-day fetching
+
+## Story Details
+
+- Epic: 1.i1
+- Story ID: 1.i1h
+- Status: ready-for-dev
+
+<!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
+
+## Story
+
+As a developer,
+I want one shared, responsive overflow dialog (bottom sheet on mobile, centered dialog on desktop) with real infinite-scroll pagination, backed by a SQL window-function-partitioned week-level fetch that gives every day of the visible week a fair share of the row budget,
+so that neither calendar surface silently drops events (BUG-036), and "+N more" scales past a handful of events per day instead of rendering everything at once (FIND-026).
+
+## Acceptance Criteria
+
+1. **Given** `Query.events`' current flat `ORDER BY (COALESCE next-upcoming-date) ASC LIMIT` week-level fetch can let one popular day consume the whole 1000-row budget and silently starve a later day in the same week, **when** `CalendarView.tsx`'s week-level fetch runs, **then** the resolver applies a SQL window function partitioned per day (`ROW_NUMBER() OVER (PARTITION BY schedules.event_start_date ORDER BY schedules.event_start_time ASC NULLS LAST, schedules.id ASC) <= N`), guaranteeing every day its own fair slice, with multi-day segments (and, once `Schedule.applicableDaysOfWeek` exists — see Dev Notes — collapsed day-of-week runs) excluded from this windowed set and fetched unconditionally alongside it.
+2. **And** `N` is the EXPERIENCE.md-decided practical fallback (a flat **20** single-day/isolated occurrences per day), not a separately-chosen number.
+3. **And** the windowing is triggered by a new optional `perDayLimit: Int` argument on `Query.events` (schema addition), sibling to `limit`/`offset`: when set, the resolver takes the new schedule-first windowed path described in Dev Notes instead of its current flat event-first `ORDER BY + LIMIT/OFFSET` path; when omitted (every other existing caller — Discovery, Feed, Favorites, My-Calendar's own list views, the archived-events query), behavior is **byte-for-byte unchanged**.
+4. **And** a single shared `calendar_overflow_dialog` component (DESIGN.md token, `packages/ui/src/features/events/CalendarOverflowDialog.tsx`) replaces desktop's old static `max-h-56` popover entirely and replaces mobile's previous uncapped-always-render day-list rule — both surfaces cap their inline count (desktop: **unchanged** `max_events_per_day` (5) — single-day events still render via today's plain-text `CalendarCard` in `day_cell`, only the overflow surface's contents/mechanics change; mobile: a **new** flat-20 bound, counting only single-day/isolated occurrences — multi-day segments stay exempt and always render inline regardless of count, per EXPERIENCE.md) and open the shared dialog when exceeded, showing `EventCardCalendarGridItem` (no-image composition, built by prerequisite Story 1.i1f) with real infinite scroll.
+5. **And** the dialog's own "load more for this day" pagination reuses `Query.events` unchanged (AD-2) — called **without** `perDayLimit`, with a DSL condition narrowed to that exact date (`scheduleDateRange overlaps {date, date}`) plus `offset`/`limit` continuing from the windowed fetch's per-day `N` (i.e. starting at `offset: 20`).
+6. **And** whenever the active DSL condition resolves to a single exact date (both the windowed week-fetch's per-partition order, and this reused single-date pagination endpoint's outer `ORDER BY`), the resolver applies an explicit secondary tie-break (`event_start_time ASC NULLS LAST, id ASC` at the schedule level) — so offset-based pagination across the two separate calls (the week-level windowed fetch's first 20, then the dialog's own continuation from offset 20) stays stable and never duplicates or skips a row.
+7. **And** the precise per-render inline-cap measurement technique (e.g. `ResizeObserver`-based dynamic sizing) is explicitly deferred, not built here — EXPERIENCE.md itself sanctions the flat-bound fallback as an acceptable non-corner-cutting choice, not a shortcut around its own spec.
+8. **And** (Gate 2 addition) the dialog implements full modal accessibility for both its infinite-scroll and its responsive-layout nature: a focus trap while open, focus returns to the triggering "+N more" button (desktop) / day-row toggle (mobile) on close, and newly-loaded infinite-scroll items are announced via an `aria-live="polite"` region so screen-reader users are not left unaware that more content appeared below the fold.
+9. **And** (Gate 3 addition, AD-5) opening the dialog and each successful "load more" fetch are instrumented via PostHog: `calendar_overflow_dialog_opened` (`{ date: string, surface: 'desktop' | 'mobile', inlineHiddenCount: number }`) fired when the dialog opens, and `calendar_overflow_more_loaded` (`{ date: string, offset: number, loadedCount: number }`) fired after each successful "load more" page resolves — matching this codebase's existing `calendar_week_navigated`/`calendar_visibility_toggled` naming convention (`apps/web/src/features/events/CalendarView.tsx`).
+10. **And** this story is scoped to `CalendarView.tsx` (the Discovery/home-page calendar) only, matching Story 1.i1f's own established non-scope-creep precedent — `FeedCalendarView.tsx`, `AccountCalendarView.tsx`, and `my-calendar-content.tsx` keep today's flat fetch and (since `WeeklyCalendarView` is shared) automatically inherit the new `CalendarOverflowDialog` component's mobile/desktop overflow UI once this story ships, but are **not** switched to `perDayLimit` windowing in this story — they keep calling `Query.events` without the new argument, so their BUG-036 exposure is unchanged (pre-existing, separately tracked, not introduced or worsened by this story).
+
+## Tasks / Subtasks
+
+- [ ] **Task 1 — Extend `buildOptimizedDrizzleSelect` for a nested path (AC1, AC5)**
+  - [ ] 1.1 In `packages/graphql-select/optimized-select.ts`, change `options?.path` handling to accept a dot-separated path (e.g. `'items.schedules'`) by splitting on `.` and traversing each segment iteratively through nested `fieldsByTypeName` lookups, instead of the current single-segment lookup. Keep the existing single-segment call sites (`{path: 'items'}` in `Query.events`, no-path calls elsewhere) working unchanged — this is a strict superset of current behavior.
+  - [ ] 1.2 Add/extend `optimized-select.test.ts` (or create one if none exists) covering a two-level nested path.
+
+- [ ] **Task 2 — Add `perDayLimit` to the GraphQL schema (AC3)**
+  - [ ] 2.1 Add `perDayLimit: Int` to the `events` field in `apps/backend/src/schema/events.graphql` (`events(query: ..., filter: ..., limit: Int, offset: Int, perDayLimit: Int, includeSoftDeleted: ..., includeMyArchived: ...): EventConnection!`).
+  - [ ] 2.2 Regenerate backend types if this project generates resolver arg types from schema (check `apps/backend`'s own codegen step, if any, alongside `apps/web/codegen.ts`).
+
+- [ ] **Task 3 — Implement the schedule-first windowed query path (AC1, AC2, AC3, AC6)**
+  - [ ] 3.1 In `Query.events`'s resolver (`apps/backend/src/schema/resolvers.ts`, ~line 2870-3200), branch on `perDayLimit != null` immediately after `whereClause`/`fieldMap` are built (the auth/visibility/filter logic above that point is fully shared and unchanged for both branches).
+  - [ ] 3.2 Windowed branch: build a **schedule-first** query, not a modification of the existing event-first `itemsQuery`:
+    ```ts
+    const isMultiDay = sql`(${schedules.eventEndDate} IS NOT NULL AND ${schedules.eventEndDate} <> ${schedules.eventStartDate})`;
+    // Day-of-week exemption intentionally omitted -- Schedule.applicableDaysOfWeek does not
+    // exist in the schema yet (BUG-026 still open, verified via full-codebase grep at story
+    // authoring time). Add `OR (schedules.applicable_days_of_week IS NOT NULL AND
+    // cardinality(schedules.applicable_days_of_week) > 0)` to isMultiDay's OR-clause once
+    // BUG-026 ships that column -- do not build speculative SQL against a column that doesn't
+    // exist.
+
+    const windowedCandidates = db.select({
+      ...requestedFields,               // buildOptimizedDrizzleSelect(events, info, {path: 'items'})
+      ...scheduleFields,                // buildOptimizedDrizzleSelect(schedules, info, {path: 'items.schedules'}) (Task 1)
+      eventId: events.id,
+      scheduleId: schedules.id,
+      // ...posts/socialMediaAccountProfiles columns, same as today's itemsQuery
+      rn: sql<number>`ROW_NUMBER() OVER (
+        PARTITION BY ${schedules.eventStartDate}
+        ORDER BY ${schedules.eventStartTime} ASC NULLS LAST, ${schedules.id} ASC
+      )`,
+    }).from(schedules)
+      .innerJoin(events, eq(schedules.eventId, events.id))
+      .leftJoin(posts, eq(events.postId, posts.id))
+      .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
+      .where(and(whereClause, activeOnly(events) /* + includeSoftDeleted logic, same as today */))
+      .$dynamic();
+    ```
+    Wrap this as a subquery (`.as('candidates')`) and select `* FROM candidates WHERE rn <= perDayLimit OR <isMultiDay>` UNION-style, OR equivalently filter with a single outer `WHERE (rn <= ${perDayLimit}) OR (<isMultiDay>)` — either is fine, but the exempt (`isMultiDay`) rows must **never** be subject to the `rn <= N` cutoff (they are always included, and `rn` is meaningless/irrelevant for them since they're never capped). Final `ORDER BY schedules.event_start_date ASC, schedules.event_start_time ASC NULLS LAST, schedules.id ASC` on the outer query so results arrive chronologically ordered across the whole week, not just correctly windowed within each day.
+  - [ ] 3.3 Build each returned row into the shape the rest of the resolver/GraphQL layer expects: an `Event`-shaped object carrying `__schedulesPreloaded: [<the one matched schedule, shaped from scheduleFields>]`. Do **not** attempt to merge multiple schedules per event row in this branch — if an event has 2 schedules both landing in the visible week, it appears as 2 separate `items` entries, each carrying exactly one schedule. This is intentional (see Dev Notes' "granularity" explanation) and matches what the frontend already expects (one calendar card per schedule).
+  - [ ] 3.4 In the `Event.schedules` field resolver (~line 3645), add a short-circuit guard as the **first** line: `if (parent.__schedulesPreloaded) return parent.__schedulesPreloaded;` — falls through to the existing unfiltered per-event fetch for every other caller (every non-windowed-mode `Event` object never has this property set, so this is a strict no-op for Discovery/Feed/Favorites/My-Calendar/the event-detail page).
+  - [ ] 3.5 `hasMore`/`totalCount` on the windowed-mode `EventConnection`: not consumed by `CalendarView.tsx` today (confirmed — it destructures only `data?.events?.items`), so these can be computed loosely (e.g. `hasMore: false`, `totalCount: items.length`) rather than building a second expensive query for a value nothing reads. Add a one-line comment explaining why, so a future reader doesn't "fix" it into an expensive COUNT query for no consumer.
+
+- [ ] **Task 4 — Single-exact-date tie-break for the reused pagination endpoint (AC6)**
+  - [ ] 4.1 Add a small helper (mirroring the existing `hasWithinRadiusCondition`/`hasFavoritedEqTrue` pattern in the same file) that walks the (already-merged) `finalCondition` tree and returns the single date string if it finds exactly one `{field: 'scheduleDateRange', operator: 'overlaps', value: {from, to}}` condition with `from === to`, else `undefined`.
+  - [ ] 4.2 In the **non-windowed** (`perDayLimit` unset) branch's `ORDER BY`, when that helper returns a date, append `, s2.event_start_time ASC NULLS LAST, s2.id ASC` (or the equivalent schedule-id tie-break) to the existing `COALESCE(...)` ordering, so two separate offset-paginated calls against the same single-day filter (the windowed fetch's first page conceptually, and this reused endpoint's continuation) produce a stable, non-overlapping, non-skipping sequence. Without this, nothing guarantees row order stability once every candidate row shares the exact same computed "next-upcoming date."
+
+- [ ] **Task 5 — Wire `CalendarView.tsx`'s week-level fetch to `perDayLimit` (AC1, AC3, AC10)**
+  - [ ] 5.1 In `apps/web/src/features/events/queries.graphql`, add `$perDayLimit: Int` to `getEventsForCalendar`'s operation signature and pass it through to `events(...)`. Regenerate codegen.
+  - [ ] 5.2 In `CalendarView.tsx`, change the `useGetEventsForCalendarQuery` call from `{ limit: 1000, query: queryCondition }` to `{ perDayLimit: 20, query: queryCondition }` (drop the `limit: 1000` — no longer meaningful in windowed mode, see Task 3.2/3.5).
+  - [ ] 5.3 Explicitly confirm (code comment + this story's own verification) that `FeedCalendarView.tsx`/`AccountCalendarView.tsx`/`my-calendar-content.tsx` are left untouched — they keep calling `getEventsForCalendar`/`getEventsForMyCalendar` without `perDayLimit`, so they keep today's flat `limit: 1000` behavior (AC10).
+
+- [ ] **Task 6 — Build `CalendarOverflowDialog` (AC4, AC8)**
+  - [ ] 6.1 New files: `packages/ui/src/features/events/CalendarOverflowDialog.tsx`, `.types.ts`, `.test.tsx`. Implements DESIGN.md's `calendar_overflow_dialog` token block verbatim: `sheet_mobile` (`<md:`, bottom sheet) and `dialog_desktop` (`>=md:`, centered dialog reusing `{components.modal.dialog}`), both wrapping a `scroll_region` (`flex-1 overflow-y-auto flex flex-col gap-2 p-3`).
+  - [ ] 6.2 Props (controlled by the caller — see Task 8 for why): `open: boolean`, `date: string | null`, `items: TSchedule[]`, `fetchNextPage: () => Promise<unknown> | void`, `hasNextPage: boolean`, `isFetchingNextPage: boolean`, `onClose: () => void`, plus the same `onScheduleClick`/`onFavoriteToggle`/label props `WeeklyCalendarView` already threads through to `CalendarCard`.
+  - [ ] 6.3 Renders each item via `EventCardCalendarGridItem`'s **no-image composition** (Story 1.i1f) — pass whatever props that component needs; it is not built in this story, only consumed.
+  - [ ] 6.4 Wire `useInfiniteScroll` (`packages/ui/src/hooks`, already exists — do **not** build a new infinite-scroll mechanism) for the scroll sentinel: `const { sentinelRef, error } = useInfiniteScroll({ fetchNextPage, hasNextPage, isFetchingNextPage })`.
+  - [ ] 6.5 Accessibility (AC8): focus trap while open (reuse/adapt the exact focus-trap logic already implemented for the superseded desktop popover, `WeeklyCalendarView.tsx` ~lines 397-462 — Tab/Shift+Tab cycling, Escape-to-close, outside-click-close), focus returns to the trigger element on close (the caller must supply/manage the trigger ref since the trigger lives outside this component — see Task 7), and an `aria-live="polite"` region (visually-hidden, e.g. `sr-only`) that announces e.g. "N more events loaded" after each successful `fetchNextPage` resolution.
+  - [ ] 6.6 Full component test coverage: both responsive layouts render (mobile sheet / desktop dialog via viewport/class assertions matching this codebase's existing responsive-testing convention), sentinel triggers `fetchNextPage`, focus trap, Escape close, focus-return, `aria-live` announcement fires on new-page-loaded.
+
+- [ ] **Task 7 — Wire the dialog into `WeeklyCalendarView.tsx`, both surfaces (AC4, AC10)**
+  - [ ] 7.1 Desktop (`variant='grid'`, ~lines 612-672): remove the existing inline `w-56 max-h-56 overflow-y-auto` popover JSX entirely. Keep the existing `openPopoverDayIdx`/`popoverTriggerRefs` local state for **which day's dialog is open** (rename as appropriate) — this UI-open/closed state stays local to `WeeklyCalendarView`, unchanged from today's ownership pattern. When a day's `hiddenCount > 0` "+N more" is clicked, call a new caller-supplied `onOverflowRequested(date: string)` prop (in addition to setting local open state) so the caller (Task 8) knows which day's data to start fetching.
+  - [ ] 7.2 Mobile (~lines 679-730): add the new flat-20 inline cap (single-day/isolated occurrences only — **exclude multi-day segments from this count**, matching EXPERIENCE.md's exemption rule; multi-day segments always render inline regardless of count, same principle already applied to desktop's `day_cell`). When exceeded, render a "+N more" affordance analogous to desktop's (new — mobile has none today) that opens the same shared dialog for that day.
+  - [ ] 7.3 Render `CalendarOverflowDialog` once (not once per day) at the top level of `WeeklyCalendarView`'s return, controlled by the lifted-up query-result props described in Task 8 (`overflowDialogData`), gated on `open={openOverflowDate != null}`.
+  - [ ] 7.4 On dialog close, return focus to the correct trigger — the desktop "+N more" button (`popoverTriggerRefs`, existing pattern) or the mobile day-row toggle (new ref, mirroring the same pattern).
+
+- [ ] **Task 8 — Wire `CalendarView.tsx`'s day-scoped "load more" data fetch (AC5, AC6, AC9)**
+  - [ ] 8.1 In `CalendarView.tsx`, add local state for the currently-open overflow date (`openOverflowDate: string | null`), set via a new `onOverflowRequested` callback passed into `WeeklyCalendarView`, cleared on the dialog's `onClose`.
+  - [ ] 8.2 When `openOverflowDate` is set, run a `useInfiniteQuery` (same established pattern as `home-content.tsx`'s Discovery pagination, `apps/web/src/app/[locale]/home-content.tsx` ~lines 167-190 — `graphqlClient.request` with the `GetEventsForCalendarDocument`, `initialPageParam: 20`, `getNextPageParam` reading `hasMore`), enabled only while `openOverflowDate != null`, `queryKey` including `openOverflowDate`, `queryFn` building the DSL condition as `{ field: 'scheduleDateRange', operator: 'overlaps', value: { from: openOverflowDate, to: openOverflowDate } }` and calling with `offset: pageParam, limit: 20` (**no** `perDayLimit` — this call takes the existing flat, non-windowed path, which is exactly what AC5/AD-2 mandates: reuse, don't re-window an already-single-day query).
+  - [ ] 8.3 Wire `useInfiniteScroll`-compatible `fetchNextPage`/`hasNextPage`/`isFetchingNextPage` plus the flattened `items` (merge the windowed week-fetch's own local bucket for that day — already available client-side from `schedules`/`dayBuckets` — with this query's additional pages) down into `WeeklyCalendarView` as `overflowDialogData`.
+  - [ ] 8.4 Fire the two PostHog events (AC9): `calendar_overflow_dialog_opened` when `onOverflowRequested` fires (include `surface` from which trigger called it — thread this through `onOverflowRequested(date, surface)`), `calendar_overflow_more_loaded` in `useInfiniteQuery`'s `onSuccess`/after `fetchNextPage` resolves for a page beyond the first.
+
+- [ ] **Task 9 — Full verification (all ACs)**
+  - [ ] 9.1 `apps/backend`: unit/integration tests for the windowed resolver path — a day with >20 single-day schedules only returns 20 plus any exempt multi-day rows; a day with ≤20 is unaffected; multi-day schedules always appear regardless of count; the `perDayLimit`-unset path is byte-for-byte unchanged (regression-test the existing `resolvers.test.ts` events suite passes with zero diffs); the single-exact-date tie-break produces a stable, gap-free, duplicate-free sequence across two sequential offset-paginated calls.
+  - [ ] 9.2 `packages/ui`: `CalendarOverflowDialog` component tests (Task 6.6); `WeeklyCalendarView` tests updated for the removed static popover and the new mobile cap/dialog trigger, plus regression coverage that `variant='grid'`'s existing roving-tabindex/keyboard-nav suite is unaffected.
+  - [ ] 9.3 `apps/web`: `CalendarView.test.tsx` coverage for the new `perDayLimit: 20` call shape, the day-scoped `useInfiniteQuery` wiring, and the two new PostHog events firing correctly.
+  - [ ] 9.4 `eslint`/`tsc --noEmit` clean for every touched/added file (or no new errors beyond this epic's documented pre-existing baseline).
+  - [ ] 9.5 Confirm GraphQL codegen diff is additive-only.
+
+## Dev Notes
+
+- **This story implements Architecture Spine AD-23 in full** (window-fetch fairness fix + overflow dialog ship together, per AD-23's own sequencing mandate) and resolves backlog.yaml `BUG-036`/`FIND-026`. It is the second of two adoption stories (alongside 1.i1g) built on top of Story 1.i1f's standalone `EventCardCalendarGridItem` primitive, following this epic's established build-primitive-then-adopt sequencing.
+- **Confirmed with the user before drafting (AskUserQuestion):** the resolver signals "calendar windowed mode" via a new, explicit, optional `perDayLimit: Int` GraphQL argument (Task 2) rather than inferring it implicitly from the DSL query shape — every other caller of `Query.events` is completely unaffected since they never pass it.
+- **Critical architectural finding, resolved during story drafting (Gate 1 subagent review), that materially changes the naive reading of AD-23's rule text:** `Query.events`' `items` array is **event-shaped** today — one row per `Event`, with `Event.schedules` resolved as a **separate, unfiltered, per-event field resolver** (fetches every schedule for that event, regardless of date range; a pre-existing N+1, tracked separately). But the calendar's actual per-day fairness problem operates at **schedule** granularity (`WeeklyCalendarView`'s `dayBuckets` flattens `event.schedules` into one calendar card per schedule, client-side). A naive `PARTITION BY event_start_date` bolted onto the existing event-first `itemsQuery` would be wrong wherever an event has more than one schedule landing on different visible days (schedule table is genuinely many-to-one against events — see `schedules.eventId` FK). **Resolution (Tasks 3-4):** windowed mode uses a **schedule-first** query (`FROM schedules JOIN events`, one row per matching schedule, not per event), and short-circuits `Event.schedules`' resolver via a `parent.__schedulesPreloaded` marker set only on these rows — every other caller's `Event.schedules` behavior is completely unaffected. This is a new, opt-in code path; it does not need to preserve the default path's row shape.
+- **Gate 2 finding baked into scope (not a split):** the dialog's infinite scroll must reuse the existing `useInfiniteScroll` hook (`packages/ui/src/hooks/useInfiniteScroll.ts`) — confirmed present and exactly fit for purpose (sentinel ref + `fetchNextPage`/`hasNextPage`/`isFetchingNextPage`). Do not build a second infinite-scroll mechanism. Modal accessibility (focus trap, focus return, `aria-live` announcement of newly-loaded items) was flagged as under-specified in the epics ACs and is now AC8/Task 6.5 explicitly.
+- **Gate 3 findings baked into scope (not a split):** (a) the dialog-open/load-more interactions need explicit PostHog instrumentation per AD-5 — now AC9/Task 8.4, naming matches this file's existing `calendar_week_navigated`/`calendar_visibility_toggled` convention. (b) The new SQL window-function pattern is correctly left as resolver-local, one-off SQL — YAGNI, no second consumer exists yet; extract to `packages/domain/src/query/` (matching the `resolveWithinRadiusConditions` precedent) only if/when a second "fair per-group pagination" need appears. (c) `calendar_overflow_dialog`'s literal component/token name stays as DESIGN.md specifies it (not renamed to something more generic) since the design token is authoritative, but its **props boundary** is kept generic-shaped (item list + pagination callbacks + a render-per-item slot) so a future non-calendar consumer would not force a rework, purely as good practice — not a requirement.
+- **State-management boundary (project-context.md's State Management Architecture rule — React Query/`@tanstack/react-query` strictly isolated to `apps/web`):** `CalendarOverflowDialog`/`WeeklyCalendarView` (both `packages/ui`) never call `useInfiniteQuery`/`graphqlClient` themselves. `WeeklyCalendarView` keeps owning the dialog's open/closed UI state locally (unchanged ownership pattern from today's popover) but calls a new `onOverflowRequested(date, surface)` prop when a day's overflow trigger is clicked; `CalendarView.tsx` (`apps/web`) owns the actual day-scoped `useInfiniteQuery` (Task 8, mirroring `home-content.tsx`'s existing Discovery-page pagination pattern) and threads the live query result (`items`/`fetchNextPage`/`hasNextPage`/`isFetchingNextPage`) back down as plain props. This is the same ownership split already established between `CalendarView.tsx` and `WeeklyCalendarView` for the week-level fetch, just extended to a second, day-scoped query.
+- **Why the dialog's "load more" doesn't need `useListPaginationController` (AD-18):** that hook exists specifically for filter-driven top-level list resets (its whole purpose is "reset the cursor when the filter changes, but never force a DOM remount"). The overflow dialog has no filter-reset semantics of its own — it is freshly opened per day, so a plain `useInfiniteQuery` keyed by the open date is sufficient and simpler; forcing `useListPaginationController` in here would be over-applying a mechanism built for a different problem.
+- **Why the windowed fetch doesn't over-fetch N+1 per partition to precompute per-day `hasMore`:** EXPERIENCE.md's own fallback design already accepts "over-fetch a generous flat bound, let the frontend decide the inline-vs-overflow split from that bound" — the dialog simply always offers a "load more" affordance for any day whose local bucket meets/exceeds the inline cap, and a day that happens to have exactly 20 events (no more) just resolves an empty/`hasMore:false` second page on first scroll. This is a one-time harmless round trip, not a correctness bug, and avoids doubling the per-partition row budget for a marginal UX polish that isn't required by any AC.
+- **Files read in full before drafting this story:**
+  - `packages/ui/src/features/events/WeeklyCalendarView.tsx` (984 lines, full read) — desktop's popover (~612-672, focus trap/Escape/outside-click at ~397-462) and mobile's uncapped day list (~679-730) are exactly as described above; `isMultiDay` detection (`schedule.eventEndDate && schedule.eventEndDate !== schedule.eventStartDate`, line 831) is the existing client-side signal this story's mobile cap-exemption reuses.
+  - `packages/ui/src/hooks/useWeeklyCalendarController.ts` (full read) — `schedules` flatMap (lines 55-74) never calls a GraphQL hook itself; this story doesn't need to change it (the additional dialog data is merged at the `WeeklyCalendarView`/`CalendarView.tsx` boundary, not inside this controller).
+  - `packages/ui/src/hooks/useInfiniteScroll.ts`/`.types.ts` (full read) — confirmed reusable as-is (Task 6.4).
+  - `packages/ui/src/hooks/useListPaginationController.ts` (full read) — confirmed not needed here (see above); its own doc comment explicitly says it "deliberately does NOT compose `useInfiniteScroll`," consistent with this story's own composition of the two independently.
+  - `apps/backend/src/schema/resolvers.ts` — `Query.events` resolver (~2870-3200) and `Event.schedules` field resolver (~3645-3652) both read in full; exact current auth/visibility/ordering/pagination logic documented above and in Tasks 3-4.
+  - `apps/backend/src/schema/events.graphql` — current `events(...)` field signature confirmed (Task 2).
+  - `packages/graphql-select/optimized-select.ts` (`buildOptimizedDrizzleSelect`, full read) — confirmed single-segment-only `path` traversal today, extended by Task 1.
+  - `packages/graphql-select/drizzle-where.ts` (`buildDrizzleWhere`, full read) — confirmed `overlaps`/DSL conditions reference columns by their own table+name (not FROM-relative), so `whereClause` is safely reusable unchanged across the event-first and schedule-first query shapes (Task 3.1).
+  - `apps/web/src/features/events/CalendarView.tsx` (full read) — current `{ limit: 1000, query: queryCondition }` call and `useWeeklyCalendarController` wiring exactly as described in Task 5.
+  - `apps/web/src/features/events/queries.graphql` — `getEventsForCalendar`'s current signature/selection confirmed (Task 5.1).
+  - `apps/web/src/app/[locale]/home-content.tsx` (~lines 150-200) — the established `useListPaginationController` + `useInfiniteQuery` + `useInfiniteScroll` pattern this story's Task 8 mirrors for the dialog's own day-scoped fetch (minus `useListPaginationController`, per the note above).
+  - Full-codebase grep confirmed **zero** references to `applicableDaysOfWeek` anywhere (schema, resolvers, domain, frontend) — the "collapsed day-of-week runs" half of AD-23 rule 2 is real per the architecture spine's own wording, but currently vacuous (no such data can exist), tracked separately as still-open in `BUG-026`. Task 3.2's code comment documents exactly what to add once that column ships.
+  - Full-codebase grep confirmed **zero** existing SQL window-function usage (`ROW_NUMBER()`/`OVER (PARTITION BY`) anywhere in `resolvers.ts` — this is the first; Gate 3 confirmed resolver-local placement is correct (YAGNI) rather than a premature shared-utility extraction.
+
+### Architecture & UX Gate Findings
+
+`epic-1-i1-readiness.md` (swept 2026-09-13) covers Stories 1.i1a-e/1.i1z only and concluded "no resolver, query, or mutation is touched anywhere in this epic." This story's own scope (a new GraphQL argument, a restructured resolver query path, a new resolver field-resolver short-circuit) directly falsifies that conclusion, so — matching the precedent already set by Stories 1.i1f and 1.i1g — all three gates were re-run fresh for this story rather than citing the stale sweep, per `story-split-gate.md`'s escape-hatch guard.
+
+- **Gate 1 (Architecture/Infrastructure Completeness, Winston persona) — NO SPLIT, but a real design gap resolved in-story.** Independently confirmed the event/schedule granularity mismatch described above is real (not a misreading), and independently produced the schedule-first-query + `Event.schedules` short-circuit resolution now specified in Tasks 3-4 — this is a scope clarification baked into the story, not a Gate 1 split, since it's confined entirely to the new opt-in `perDayLimit` branch, touches no migrations, and needs no shared infrastructure. All other Gate 1 trigger heuristics (direct DB/domain calls from `apps/web`/a UI package; external service calls from the frontend; a new API surface beyond the additive argument; auth/secrets in frontend code; infra with no IaC/deploy story) — **no gap**, confirmed with the explicit UI/data-fetching ownership boundary now specified above and in Task 8.
+- **Gate 2 (UI Complexity & Reusability, Freya persona, DESIGN.md/EXPERIENCE.md evidence) — NO SPLIT.** A single shared dialog covering both surfaces in one story is correct here — unlike this epic's primitive-then-per-surface-adoption precedent (1.i1a → 1.i1c/d/e), this story is a **simultaneous retirement** of two bespoke surface-specific implementations in favor of one identical shared component; splitting it would force an intermediate story shipping either a caller-less dialog or a half-migrated pair of surfaces, which can't actually satisfy the "ONE shared component" AC until both callers exist. Real gaps found and folded into scope (not split): reuse the existing `useInfiniteScroll` hook rather than building a new one (Task 6.4); explicit modal accessibility requirements — focus trap, focus return, `aria-live` load-more announcement — were absent from the original epics AC text and are now AC8/Task 6.5.
+- **Gate 3 (Foundational/Cross-Cutting Dependency Completeness, Winston persona) — NO GAP**, two non-blocking notes folded into scope: (a) dialog-open/load-more PostHog instrumentation, now AC9/Task 8.4 (AD-5's rule — real interactions should be tracked, this was a feature-scoped AC omission, not missing infrastructure). (b) The new window-function SQL pattern correctly stays resolver-local for now (YAGNI — first and only consumer today; extract only once a second "fair per-group pagination" need appears, following the `resolveWithinRadiusConditions` precedent). Confirmed no gap on: shell/i18n/GraphQL-codegen foundations (all pre-existing, this story only consumes them); this story's `CalendarView.tsx`-only scoping (Story 1.i1f already established this as the epic's accepted non-scope-creep pattern for the same underlying reason — the 3 sibling pages have no relevant existing plumbing, and leaving their pre-existing BUG-036 exposure unchanged is not a new gap this story introduces); no `project-context.md`-mandated utility referenced here lacks an owning story (`buildOptimizedDrizzleSelect`, AD-1/AD-2, AD-18's `useListPaginationController` are all pre-existing).
+
+Per the escape hatch in `story-split-gate.md`: none of these findings required a further `AskUserQuestion` round beyond the one already asked (the `perDayLimit` mechanism) — Gate 1's resolution is a concrete, singular, well-reasoned technical design (not a genuine fork between comparably-valid alternatives), and Gate 2/3's findings were folded directly into this story's own scope as explicit new ACs/Tasks rather than split into prerequisite stories.
+
+### Data Type Compatibility & Migration Requirements
+
+- **Compatibility finding:** No database schema change of any kind — no new columns, tables, or migrations. This story adds a new GraphQL argument (`perDayLimit: Int`, optional) and a new resolver code path over existing `schedules`/`events` columns only.
+- **Impacted fields/contracts:**
+  - `apps/backend/src/schema/events.graphql` → `events(..., perDayLimit: Int): EventConnection!` — additive, optional argument; every existing caller/generated type is unaffected (nullable, defaults to the current behavior when omitted).
+  - `apps/web/src/features/events/queries.graphql` → `getEventsForCalendar($perDayLimit: Int, ...)` — additive optional variable; `apps/web/src/generated/graphql.ts` regenerates additively.
+  - `packages/graphql-select/optimized-select.ts` → `buildOptimizedDrizzleSelect`'s `options.path` type/behavior widens from "single segment" to "dot-separated path" — backward compatible, existing single-segment call sites (`{path: 'items'}`) behave identically.
+  - `apps/backend/src/schema/resolvers.ts`'s internal `Event` object shape gains an optional, resolver-internal-only `__schedulesPreloaded` property (never exposed through the GraphQL schema itself — it's read and stripped by the `Event.schedules` field resolver, not a client-visible field).
+- **Required DB migration changes:** None.
+- **Required TypeScript type changes:** As listed above — all additive, no breaking changes to any existing interface, resolver signature, or generated type.
+- **Backward compatibility and rollout notes:** `perDayLimit` is optional and defaults to today's exact behavior when omitted (every caller except `CalendarView.tsx`'s own week-level fetch). The schedule-first windowed branch and the event-first flat branch are two independent code paths sharing only the upstream `whereClause`/`fieldMap` construction — a bug in one cannot regress the other by construction (they don't share query-building code past that point). Ship the schema change, resolver change, and `CalendarView.tsx`'s switch to `perDayLimit: 20` together (no useful intermediate state where only one half exists).
+- **Verification checks:** Task 9's full resolver test suite (windowed-mode day-capping correctness, multi-day exemption, tie-break stability, zero-diff regression on the unset-`perDayLimit` path); `CalendarOverflowDialog` component tests (Task 6.6); `CalendarView.test.tsx` integration coverage (Task 9.3); GraphQL codegen diff review confirming additive-only changes; explicit `git diff` confirmation that `FeedCalendarView.tsx`/`AccountCalendarView.tsx`/`my-calendar-content.tsx` are untouched.
+
+### Project Structure Notes
+
+- `CalendarOverflowDialog.tsx`/`.types.ts`/`.test.tsx` land in `packages/ui/src/features/events/`, alongside `WeeklyCalendarView.tsx`/`EventCardCalendarGridItem.tsx` — matching this epic's established `features/events` convention (event-domain-specific, not `packages/ui/src/core/`).
+- No new workspace package boundaries are crossed: the resolver change stays entirely in `apps/backend`; `packages/graphql-select`'s `buildOptimizedDrizzleSelect` extension stays a backend-only utility (already the case today); `packages/ui` gains one new component with zero new dependencies (reuses its own existing `useInfiniteScroll` hook); `apps/web` gains a new `useInfiniteQuery` call site in `CalendarView.tsx`, consistent with React Query's existing strict `apps/web`-only isolation.
+- No detected conflicts with in-flight work: Stories 1.i1a-e/1.i1z are `review` status; 1.i1f/1.i1g are `ready-for-dev` (not yet implemented). This story depends on 1.i1f's `EventCardCalendarGridItem` (consumed, not built, by `CalendarOverflowDialog` — Task 6.3) but is otherwise independent of 1.i1g's multi-day spanning-bar work (which touches `grid_weekly`'s rendering, not `day_cell`'s cap/overflow mechanics this story touches). **Sequencing note for `bmad-dev-story`:** if 1.i1f has not yet shipped `EventCardCalendarGridItem` when this story is implemented, Task 6.3 blocks — confirm 1.i1f's status before starting Task 6.
+
+### References
+
+- [Source: `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` §AD-23 (Calendar Overflow Data-Fetching), §AD-1/AD-2 (Unified Query DSL / Unified Event Querying), §AD-18 (`useListPaginationController`)]
+- [Source: `design-artifacts/UX-festgrid-run-1/EXPERIENCE.md` "Calendar Overflow: Scalable Cap + Infinite-Scroll Popup"]
+- [Source: `design-artifacts/UX-festgrid-run-1/DESIGN.md` `components.calendar_overflow_dialog`]
+- [Source: `_bmad-output/implementation-artifacts/backlog.yaml` `BUG-036`, `FIND-026`]
+- [Source: `_bmad-output/implementation-artifacts/1-i1f-wire-nearby-distance-badges-and-build-the-calendar-grid-item-card.md` — prerequisite story, `EventCardCalendarGridItem`'s no-image composition contract, and the `CalendarView.tsx`-only non-scope-creep precedent this story follows]
+- [Source: `_bmad-output/implementation-artifacts/1-i1g-render-multi-day-schedules-as-a-spanning-calendar-grid-item-card.md` — sibling adoption story, confirmed non-overlapping scope]
+- [Source: `apps/web/src/app/[locale]/home-content.tsx` — the established `useInfiniteQuery`/`useInfiniteScroll` pagination pattern this story's dialog fetch mirrors]
+
+## Global Rules References
+
+- [x] `_bmad-output/project-context.md` — API & Data (GraphQL/DSL, Drizzle types), Database & Performance (`Query.events` per-row-cost caution — explicitly reasoned through above given this story directly modifies that resolver), State Management Architecture (React Query strictly in `apps/web`, enforced via the callback/prop-threading design), UI Patterns & UX Invariants (List Navigation infinite-scroll mandate, satisfied via the existing `useInfiniteScroll` hook), Code Quality & Style Rules (Code Organization — no new `packages/domain`/`packages/ui` boundary violations), Testing Rules (testing-trophy integration coverage for `apps/backend`/`apps/web`/`packages/ui`).
+- [x] `_bmad-output/planning-artifacts/story-content-structure.md` — canonical section order followed.
+- [x] `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — AD-1, AD-2, AD-18, AD-23 (this story's primary mandate).
+- [x] `docs/infrastructure/index.md` — no new AWS/queue/EventBridge/DB-provisioning surface touched (this is an application-layer GraphQL/resolver/frontend change against already-provisioned infrastructure); no infra shard read required per the persistent-facts rule.
+
+## Implementation Plan (Rule-Compliant)
+
+- **File Change Plan:**
+  - New: `packages/ui/src/features/events/CalendarOverflowDialog.tsx`, `CalendarOverflowDialog.types.ts`, `CalendarOverflowDialog.test.tsx`.
+  - Modified: `packages/graphql-select/optimized-select.ts` (+ test); `apps/backend/src/schema/events.graphql`; `apps/backend/src/schema/resolvers.ts` (+ `resolvers.test.ts`); `packages/ui/src/features/events/WeeklyCalendarView.tsx` (+ `.test.tsx`) — remove static popover, add mobile cap/trigger, mount the new dialog; `apps/web/src/features/events/queries.graphql`; `apps/web/src/generated/graphql.ts` (regenerated); `apps/web/src/features/events/CalendarView.tsx` (+ `.test.tsx`) — `perDayLimit: 20`, new day-scoped `useInfiniteQuery`, new PostHog events.
+- **Rule Mapping:**
+  - AD-2/AD-1 → the dialog's "load more" reuses `Query.events` unchanged (no new endpoint) — Task 8.2.
+  - AD-23 Rules 1-3 → Rule 1 → Tasks 2-3; Rule 2 (multi-day/day-of-week exemption) → Task 3.2; Rule 3 (reuse + tie-break) → Tasks 4, 8.2.
+  - AD-18 → deliberately **not** invoked for the dialog's own pagination (see Dev Notes rationale) — an explicit, reasoned non-application, not an oversight.
+  - project-context.md State Management Architecture → Task 8's ownership split (React Query stays in `apps/web`).
+  - project-context.md UI Patterns (List Navigation) → Task 6.4's reuse of `useInfiniteScroll`.
+  - project-context.md AD-5 (analytics) → AC9/Task 8.4.
+  - project-context.md Testing Rules → testing-trophy integration coverage across all three touched packages (Task 9).
+- **Verification Plan:** Task 9's full test/lint/typecheck pass across `apps/backend`, `packages/ui`, `packages/graphql-select`, and `apps/web`'s touched files; manual confirmation the GraphQL codegen diff is additive-only; explicit confirmation (via `git diff`) that the 3 sibling calendar pages are untouched; manual QA pass verifying a real week with >20 single-day schedules on one day renders fairly across the whole week and the dialog paginates correctly on both mobile and desktop viewports.
+
+## Pre-Coding Approval Gate
+
+- [ ] Scope confirmation — this story: (1) adds an optional `perDayLimit` argument and a schedule-first windowed query path to `Query.events`, confined to a new opt-in branch; (2) builds one new shared `CalendarOverflowDialog` component replacing both surfaces' old overflow UI; (3) wires both into `CalendarView.tsx`/`WeeklyCalendarView.tsx` only (the 3 sibling calendar pages are explicitly untouched). It does **not** build `EventCardCalendarGridItem` (Story 1.i1f, prerequisite) or the multi-day spanning bar (Story 1.i1g, sibling, non-overlapping).
+- [ ] Architecture and boundary confirmation — React Query stays strictly in `apps/web` (Task 8's callback/prop-threading design); the resolver's windowed branch shares `whereClause`/`fieldMap` construction with the existing flat branch but diverges entirely in query shape past that point, confirmed safe per `buildDrizzleWhere`'s table-relative (not FROM-relative) column references.
+- [ ] Testing plan confirmation — Task 9's coverage across `apps/backend` (resolver correctness, including the granularity/short-circuit fix and the byte-for-byte-unchanged-default-path regression test), `packages/ui` (dialog + `WeeklyCalendarView` updates), `apps/web` (`CalendarView.tsx` wiring + analytics events).
+- [ ] Explicit human approval state (Default: pending approval)
+- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1: no split, granularity-mismatch design resolved in-story (Tasks 3-4). Gate 2: no split, `useInfiniteScroll` reuse + accessibility requirements folded into scope (AC8/Task 6). Gate 3: no gap, analytics instrumentation folded into scope (AC9/Task 8.4); window-function SQL correctly kept resolver-local (YAGNI). Confirm Story 1.i1f's status (must have shipped `EventCardCalendarGridItem`) before starting Task 6.3.
+
+## Testing Requirements
+
+- [ ] Integration tests — `apps/backend`: windowed-mode day-fairness correctness (a day with >20 schedules gets fairly capped, a day with ≤20 is unaffected, multi-day always included), the `Event.schedules` short-circuit only activates for windowed-mode rows, the non-windowed default path is a zero-diff regression; `apps/web`: `CalendarView.tsx`'s `perDayLimit: 20` wiring and day-scoped `useInfiniteQuery`/dialog-open flow, PostHog event firing.
+- [ ] Unit tests — `buildOptimizedDrizzleSelect`'s new nested-path support (`packages/graphql-select`); the resolver's single-exact-date tie-break helper.
+- [ ] Component tests — `CalendarOverflowDialog` (both responsive layouts, sentinel-triggered pagination, focus trap/return, `aria-live` announcement); `WeeklyCalendarView`'s updated desktop/mobile overflow triggers, with full regression coverage of the existing roving-tabindex/keyboard-nav suite (`variant='grid'` must be otherwise unaffected).
+- [ ] E2E tests — not required for this story per this epic's established precedent (Story 1.i1f); the underlying primitive/dialog behavior is fully covered by component + integration tests. Revisit once the full calendar-grid adoption chain (1.i1f/1.i1g/1.i1h) is complete and a real end-to-end calendar-browsing flow is worth covering at that level.
+
+## Deliverables Checklist
+
+- [ ] `buildOptimizedDrizzleSelect` extended to support a dot-separated nested `path`, backward compatible.
+- [ ] `perDayLimit: Int` added to `Query.events`'s GraphQL schema and resolver, fully additive/opt-in.
+- [ ] Schedule-first windowed query path implemented, with the `Event.schedules` short-circuit guard.
+- [ ] Single-exact-date `ORDER BY` tie-break implemented for the reused pagination endpoint.
+- [ ] `CalendarView.tsx` switched to `perDayLimit: 20`; the 3 sibling calendar pages confirmed untouched.
+- [ ] New shared `CalendarOverflowDialog` component (both responsive layouts, real infinite scroll via the existing `useInfiniteScroll` hook, full modal accessibility) replacing both surfaces' old overflow UI.
+- [ ] Mobile's new flat-20 inline cap (multi-day-exempt) and "+N more" trigger.
+- [ ] `calendar_overflow_dialog_opened`/`calendar_overflow_more_loaded` PostHog events wired.
+- [ ] `sprint-status.yaml`/`epics.md` unaffected by new gate findings (none required a split this time — verify no stray entries were added).
+
+## Out of Scope
+
+- **Story 1.i1f** — `EventCardCalendarGridItem` itself (both compositions); this story only consumes its no-image composition.
+- **Story 1.i1g** — the multi-day spanning-bar rendering mechanism in `grid_weekly`; non-overlapping with this story's `day_cell`/overflow-dialog scope.
+- **The precise `ResizeObserver`-based dynamic inline-cap measurement** — EXPERIENCE.md explicitly sanctions the flat-bound (5 desktop / 20 mobile) fallback instead; not built here (AC7).
+- **`BUG-026`** (`Schedule.applicableDaysOfWeek` / day-of-week recurring schedules) — pre-existing, separately tracked, still fully unimplemented in the schema. This story's day-of-week exemption logic is written as a documented no-op placeholder (Task 3.2's comment) rather than speculative SQL against a non-existent column; a follow-up touch to the windowed query's exempt predicate is needed once BUG-026 ships that column — not addressed here.
+- **`FeedCalendarView.tsx`, `AccountCalendarView.tsx`, `my-calendar-content.tsx`** — not switched to `perDayLimit` windowing in this story (AC10); they automatically inherit the new shared `CalendarOverflowDialog` component's UI (since `WeeklyCalendarView` is shared) but keep today's flat week-fetch and its pre-existing BUG-036 exposure, unchanged by this story. A future story would extend `perDayLimit` wiring to these three pages if/when they gain their own reason to need it (mirroring Story 1.i1f's identical precedent for `distanceKm`).
+- **Extracting the SQL window-function pattern into a shared `packages/domain/src/query/` utility** — correctly deferred per Gate 3's YAGNI finding; only one consumer exists today.
+- Any change to the domain-level `NearbyFilterInput`/DSL condition shape beyond using the already-existing `scheduleDateRange overlaps` operator.
+- Any i18n string changes beyond the dialog's own close-button/loading-state labels, which follow this codebase's existing `labels`-prop-with-English-defaults convention (matching `WeeklyCalendarView`'s established pattern) — no new locale keys are mandated by this story's ACs beyond that existing convention.
+
+## Definition of Done
+
+- [ ] All Acceptance Criteria satisfied.
+- [ ] All Task 9 tests passing across `apps/backend`, `packages/graphql-select`, `packages/ui`, and `apps/web`.
+- [ ] Lint (`eslint`) and `tsc --noEmit` clean for every touched/added file (or no new errors beyond this epic's documented pre-existing baseline).
+- [ ] GraphQL codegen regenerated and committed, diff confirmed additive-only.
+- [ ] `git diff` confirms `FeedCalendarView.tsx`/`AccountCalendarView.tsx`/`my-calendar-content.tsx` are untouched.
+- [ ] Manual QA: a real (or seeded) week with one day having >20 single-day schedules renders fairly across the whole week on both `CalendarView.tsx` and its dialog; dialog opens/paginates correctly on both mobile and desktop viewports; focus management verified with keyboard-only navigation.
+
+## Completion Status
+
+- [ ] Not started
+
+## Dev Agent Record
+
+### Agent Model Used
+
+_To be filled by the dev agent._
+
+### Debug Log References
+
+### Completion Notes List
+
+- Ultimate context engine analysis completed (`bmad-create-story`, 2026-09-19). Full reads of `WeeklyCalendarView.tsx`, `useWeeklyCalendarController.ts`, `useInfiniteScroll`/`useListPaginationController`, the `Query.events`/`Event.schedules` resolvers, `buildOptimizedDrizzleSelect`/`buildDrizzleWhere`, `CalendarView.tsx`/`queries.graphql`, and `home-content.tsx`'s established pagination pattern, plus the full architecture spine AD-23 and EXPERIENCE.md/DESIGN.md overflow-dialog specs. One `AskUserQuestion` round confirmed the `perDayLimit` GraphQL-argument mechanism before drafting. Gate 1/2/3 were each dispatched fresh via subagent (not cited from `epic-1-i1-readiness.md`, since this story's scope falsifies that sweep's "no resolver touched" conclusion, matching the precedent set by Stories 1.i1f/1.i1g). Gate 1 surfaced and resolved a real event/schedule-granularity mismatch in the resolver (schedule-first query + `Event.schedules` short-circuit, now Tasks 3-4) rather than requiring a split. Gate 2 confirmed reuse of the existing `useInfiniteScroll` hook and added explicit modal-accessibility requirements. Gate 3 added explicit analytics instrumentation and confirmed the new window-function SQL correctly stays resolver-local for now. No new prerequisite stories or `sprint-status.yaml`/`epics.md` entries were required — all findings were folded directly into this story's own ACs/Tasks.
+
+### File List
+
+_To be filled by the dev agent during implementation._
+
+## Change Log
+
+- 2026-09-19: Story created via `bmad-create-story` from its existing `epics.md` section (added 2026-09-17 via Story 1.i1f's Gate 2 split). Confirmed the `perDayLimit` mechanism with the user; Gate 1/2/3 re-run fresh (sweep predates this story); Gate 1 resolved a real event/schedule-granularity mismatch in-story rather than splitting; Gate 2/3 findings folded into new ACs/Tasks (accessibility, analytics, `useInfiniteScroll` reuse) rather than split into prerequisite stories.

@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-19T04:14:16Z
+last_updated: 2026-09-19T04:32:03Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -427,12 +427,13 @@ development_status:
   # items-center added); Gate 1/3 no gap, reasoned fresh, sweep predates this story.
   # Blocked on Story 1.i1f shipping EventCardCalendarGridItem -- see own Pre-Coding Gate.)
   1-i1g-render-multi-day-schedules-as-a-spanning-calendar-grid-item-card: ready-for-dev
-  # added 2026-09-17 via bmad-create-story (Gate 2 split off 1-i1f, see above; also
-  # implements BUG-036 and FIND-026's "Calendar Overflow: Scalable Cap +
-  # Infinite-Scroll Popup" resolution, per AD-23's sequencing mandate that the
-  # window-fetch fix and the overflow dialog ship together). Full section in
-  # epics.md; not yet drafted via its own bmad-create-story pass.
-  1-i1h-shared-calendar-overflow-dialog-and-fair-per-day-fetching: backlog
+  # (create-story 1.i1h, 2026-09-19: backlog -> ready-for-dev. perDayLimit arg
+  # confirmed w/ user via AskUserQuestion. Gate 1: no split -- resolved a real
+  # event/schedule granularity mismatch in-resolver (schedule-first query +
+  # Event.schedules short-circuit). Gate 2/3: no split -- reuse useInfiniteScroll,
+  # added a11y + PostHog ACs. Sweep predates this story. Blocked on 1.i1f shipping
+  # EventCardCalendarGridItem -- see own Pre-Coding Gate.)
+  1-i1h-shared-calendar-overflow-dialog-and-fair-per-day-fetching: ready-for-dev
   # added 2026-09-17 via bmad-create-story (Gate 2 split off 1-i1j while drafting
   # IDEA-025) -- status/nearby badge markup was about to become a third inline
   # duplicate (EventCard.tsx masonry, Story 1.i1f's undrafted EventCardCalendarGridItem,

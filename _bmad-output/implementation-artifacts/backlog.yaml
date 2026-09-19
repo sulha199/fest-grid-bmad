@@ -984,7 +984,7 @@ items:
      title: "max_events_per_day=5 popover-overflow cap not reconsidered now that the popover shows a materially richer card",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md, backlog/FIND-026-calendar-overflow-cap.md],
      touches: [web:events/WeeklyCalendarView, cross:ux-tokens],
-     note: "Per-day pagination fetch contract resolved by AD-23, to be delivered by Story 1.i1h (not yet drafted) alongside BUG-036. Full design (shared infinite-scroll overflow dialog, per-surface caps) in backlog/FIND-026-calendar-overflow-cap.md."}
+     note: "Per-day pagination fetch contract resolved by AD-23, delivered by Story 1.i1h (drafted 2026-09-19 via bmad-create-story, status ready-for-dev) alongside BUG-036. Full design (shared infinite-scroll overflow dialog, per-surface caps) in backlog/FIND-026-calendar-overflow-cap.md."}
 
   # ── 2026-09-14 (bmad-help bug report) ──────────────────────────────────────
   BUG-029:
@@ -1245,7 +1245,7 @@ items:
      title: "Query.events' flat ORDER BY next-upcoming-date ASC LIMIT 1000 can let one popular day silently starve a later day in the same visible week",
      ref: [planning-artifacts/festgrid-architecture-spine.md, backlog/BUG-036-per-day-window-function-fetch.md],
      touches: [app:backend, web:events/WeeklyCalendarView, cross:architecture],
-     note: "AD-23 decided the per-day window-function fetch fix; carved into Story 1.i1h alongside FIND-026, not yet implemented (story not yet drafted). Full design in backlog/BUG-036-per-day-window-function-fetch.md."}
+     note: "AD-23 decided the per-day window-function fetch fix; carved into Story 1.i1h alongside FIND-026, drafted 2026-09-19 via bmad-create-story (status ready-for-dev, not yet implemented). Full design in backlog/BUG-036-per-day-window-function-fetch.md."}
 
   # ── 2026-09-18 (user-reported, direct code investigation) ────────────────────
   FIND-035:
