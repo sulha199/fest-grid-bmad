@@ -672,6 +672,20 @@ development_status:
   # AccountLocationField fix) -- corrected before merge.
   1-6a-build-the-reusable-event-detail-view-component: done
   1-6b-build-the-context-aware-list-navigation-hook: done
+  # epics.md section added 2026-09-15 via bmad-correct-course (CC-020,
+  # sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md),
+  # which deferred sprint-status.yaml registration to a later bmad-create-story
+  # session. Registered here 2026-09-19 (same session that also registered
+  # this proposal's other half, Story 1-3j). Batches BUG-033 (Schedule.
+  # isAddedToCalendar N+1, reusing Story 1.3j's batched-schedules mechanism),
+  # BUG-035 (eventBySlug double-fetch, fixed via an AUTHENTICATED
+  # React.cache()+HydrationBoundary/dehydrate SSR seed -- resolved via
+  # AskUserQuestion in favor of correctness for logged-in visitors over the
+  # lower-risk anonymous-only alternative), and FIND-030 (gate the
+  # subscriptions query on sourceSocialMediaAccountProfile). Blocked on Story
+  # 1-3j (ready-for-dev, not yet implemented) -- see the story file's own
+  # Pre-Coding Approval Gate. See epics.md Story 1.6c.
+  1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query: ready-for-dev
   # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-
   # discovery-detail-calendar-ux.md Section 4.2: added AC13 (Carousel-chrome
   # navigation) and AC14 (icon-only modal close). Verified via git show that AC14

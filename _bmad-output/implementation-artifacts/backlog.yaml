@@ -1062,20 +1062,22 @@ items:
 
   # ── 2026-09-15 (bmad-agent-architect event-detail page perf audit) ──────────
   BUG-035:
-    {type: bug, status: triaged, created: 2026-09-15,
+    {type: bug, status: promoted, created: 2026-09-15,
      impact: user-visible, effort: m,
      title: "eventBySlug's full resolver fan-out runs twice per page load — generateMetadata's server fetch is discarded, then EventDetailWrapper re-fetches the identical over-fetching query client-side",
      ref: [_bmad-output/project-context.md, planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md, backlog/BUG-035-event-detail-double-fetch.md],
+     stories: [1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query],
      touches: [web:events/eventBySlug, app:backend, cross:architecture],
-     note: "Fix direction (HydrationBoundary/dehydrate seeding, or a minimal generateMetadata query) not yet designed or scoped into a story. Full trace in backlog/BUG-035-event-detail-double-fetch.md."}
+     note: "Fix: React.cache()+HydrationBoundary/dehydrate, SSR fetch authenticated (not anonymous-only) per the story's own Dev Notes -> Design Decision. Full trace in backlog/BUG-035-event-detail-double-fetch.md."}
 
   BUG-033:
-    {type: bug, status: triaged, created: 2026-09-15,
+    {type: bug, status: promoted, created: 2026-09-15,
      impact: user-visible, effort: s,
      title: "Schedule.isAddedToCalendar N+1 on the event-detail page — same shape as getEvents' BUG-030, scoped to one event's schedule list",
      ref: [_bmad-output/project-context.md, planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md, backlog/BUG-033-schedule-isaddedtocalendar-n-plus-1.md],
+     stories: [1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query],
      touches: [app:backend, web:events/eventBySlug, pkg:graphql-select],
-     note: "Same N+1 class as BUG-030, bounded to one event's schedule count; same fix pattern (batch via known schedule ids or a DataLoader). Not yet scoped into a story. Full detail in backlog/BUG-033-schedule-isaddedtocalendar-n-plus-1.md."}
+     note: "Fix: reuses Story 1.3j's batched-schedules IN(...) query mechanism verbatim (same code path), adding an isAddedToCalendar virtual field gated on userId — not a separate DataLoader/reimplementation. Full detail in backlog/BUG-033-schedule-isaddedtocalendar-n-plus-1.md."}
 
   BUG-034:
     {type: bug, status: promoted, created: 2026-09-15,
@@ -1087,11 +1089,12 @@ items:
      note: "Fix: add a partial index on (eventId) WHERE deleted_at IS NULL, matching AD-8 rule 3's convention. Full detail in backlog/BUG-034-favorites-missing-eventid-index.md."}
 
   FIND-030:
-    {type: finding, status: triaged, created: 2026-09-15,
+    {type: finding, status: promoted, created: 2026-09-15,
      impact: internal, effort: xs,
      title: "useGetMySubscriptionsQuery fires unconditionally on session presence on the event-detail page, with no shell-level warm cache unlike useMeQuery",
      ref: [planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md, backlog/FIND-030-unconditional-subscriptions-query-on-event-detail.md], touches: [web:events/EventDetailWrapper, app:backend],
-     note: "Fix direction: gate the query on the event having a sourceSocialMediaAccountProfile, or lift it to shell-level like useMeQuery. Not yet scoped into a story. Full trace in backlog/FIND-030-unconditional-subscriptions-query-on-event-detail.md."}
+     stories: [1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query],
+     note: "Fix: gated the query on the event having a sourceSocialMediaAccountProfile (not lifted to shell-level, since no other route needs it warmed). Full trace in backlog/FIND-030-unconditional-subscriptions-query-on-event-detail.md."}
 
   FIND-031:
     {type: finding, status: triaged, created: 2026-09-15,
@@ -1171,7 +1174,7 @@ items:
            planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
      touches: [app:backend, web:events/getEvents, web:events/eventBySlug, web:events/EventDetailWrapper,
                pkg:graphql-select, pkg:database, cross:architecture],
-     note: "Amends Epic 1 directly (epics.md) with two new sequenced stories — 1.3j (Query.events batching: BUG-030, FIND-027, BUG-034, FIND-028) and 1.6c (eventBySlug/event-detail hardening: BUG-033, BUG-035, FIND-030) — per AD-17's decided mechanism (festgrid-architecture-spine.md) and this proposal's own resolution of BUG-035's fix shape (HydrationBoundary+dehydrate). Story 1.3j (this proposal's first half) was promoted via bmad-create-story on 2026-09-19 — see BUG-030/FIND-027/BUG-034/FIND-028's own rows, now individually promoted. Story 1.6c (the eventBySlug/event-detail half) is not yet promoted to a story file."}
+     note: "Amends Epic 1 (epics.md) with two sequenced stories, both now promoted (2026-09-19): 1.3j (Query.events batching) and 1.6c (eventBySlug/event-detail hardening) — per AD-17's mechanism. See BUG-030/FIND-027/BUG-034/FIND-028 (1.3j) and BUG-033/BUG-035/FIND-030 (1.6c) rows for detail."}
 
   CC-021:
     {type: proposal, status: triaged, created: 2026-09-15,
