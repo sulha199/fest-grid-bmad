@@ -1330,6 +1330,15 @@ items:
      touches: [app:backend],
      note: "Deferred from: full `pnpm test` gate during bmad-quick-dev FIND-017 (2026-09-18). Confirmed 2026-09-19: 103 rows now push seeded test rows past the unfiltered page-1 LIMIT 50. Same fix shape as BUG-037."}
 
+  # ── 2026-09-19 (user-reported, live-reproduced against production via Playwright) ──
+  BUG-038:
+    {type: bug, status: done, created: 2026-09-19,
+     impact: user-visible, effort: s,
+     title: "Infinite-scroll pagination jumps the viewport to the new bottom of the list every time a page loads, instead of preserving scroll position",
+     ref: [backlog/BUG-038-infinite-scroll-jump-to-bottom-scroll-anchoring.md],
+     touches: [web:events, pkg:ui],
+     note: "Fixed 2026-09-19 via bmad-quick-dev: EventListView.tsx's card+sentinel subtree wrapped in a `display:contents` div carrying `overflow-anchor:none` (also duplicated directly on the sentinel), excluding the whole growing list from CSS scroll-anchoring's anchor selection. Root cause distinct from BUG-031 (which only fixed the sentinel-height-collapse trigger): the browser was anchoring near the viewport-bottom and chasing new content down on every page load. Lint+build passed; the automatic test gate's backend suite showed 165/279 failures but every one carries the identical exitCode 3221225794 (Windows STATUS_ACCESS_VIOLATION) across completely unrelated schema test files -- a pre-existing native-crash/environment issue, not caused by this frontend-only CSS change (zero backend files touched). Full repro evidence and validation in backlog/BUG-038-infinite-scroll-jump-to-bottom-scroll-anchoring.md."}
+
   # ── 2026-09-19 (bmad-quick-dev, spec-curator-guide-frontend-gate-stale review) ──
   FIND-044:
     {type: finding, status: backlog, created: 2026-09-19,
@@ -1338,3 +1347,4 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [web:posts],
      note: "Deferred from: bmad-quick-dev spec-curator-guide-frontend-gate-stale review (2026-09-19). 4 findings."}
+
