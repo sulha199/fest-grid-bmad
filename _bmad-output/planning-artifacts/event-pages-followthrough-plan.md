@@ -91,25 +91,49 @@ Depends on: Phase 0's carve only (no architecture/UX gap).
 
 ## Phase 3 — `bmad-create-story`
 
-- [ ] Story file(s) created for 2a
-- [ ] Story file(s) created for 2b
-- [ ] `sprint-status.yaml` updated (derived — via create-story, never by hand)
-- [ ] Each source row's `stories:` populated and `status` re-derives to `promoted`
-      (backlog-spec.md §5/§13) — re-run `backlog-check.py` to confirm no stale-target hits
+**DONE, 2026-09-19** (`ritual-orchestrator` batch, `all-claude-medium` preset — bmad-create-story
+routed to claude/sonnet-5/high effort). Dispatched in dependency order per `epics.md`'s own
+`Depends on:` lines (1.3j -> 1.6c -> 1.6d -> 1.6e -> 0.i6e; `resolve-targets.ts` confirmed this
+order). All 5 stories created, all `ready-for-dev`, all commits landed:
+
+- Story 1.3j (`a7d7510`), Story 1.6c (`81c07e4`), Story 1.6d (`0211b0e`),
+  Story 1.6e (`7ac24fd`), Story 0.i6e (`517737b`).
+
+Story 1.6c's own dispatch surfaced a real design gap not covered by CC-020's proposal or AD-17:
+the event-detail page's server-side GraphQL fetch has no user session, so seeding
+`HydrationBoundary`/`dehydrate` from it would show `isFavorited`/`isAddedToCalendar` as `false`
+for logged-in visitors too (masked up to 30s by the story's own `staleTime`). Resolved via
+`AskUserQuestion`, relayed to the user: authenticate the SSR fetch too, via
+`createSupabaseServerClient()` reading the session server-side and passing the token as a
+per-request header (never mutating the shared client singleton) — folded into Story 1.6c's own
+scope rather than shipped as a partial fix. Stories 1.3j/1.6d/0.i6e raised no questions; Story
+1.6e's own dispatch text confirmed no design tradeoff needed one.
+
+No new stories were carved outside this batch's own 5 targets (`detect-new-stories.ts` swept
+after each dispatch and at the end).
+
+- [x] Story file(s) created for 2a — 1.3j, 1.6c
+- [x] Story file(s) created for 2b — 1.6d, 1.6e, 0.i6e
+- [x] `sprint-status.yaml` updated (derived — via create-story, never by hand) — all 5 at
+      `ready-for-dev`, confirmed via `verify-story.ts`
+- [x] Each source row's `stories:` populated and `status` re-derives to `promoted`
+      (backlog-spec.md §5/§13) — confirmed directly against `backlog.yaml`; re-ran
+      `backlog-check.py`, clean of stale-target hits (its only failures are pre-existing
+      check-15 note-length warnings on ~28 unrelated rows, none introduced by this batch)
 
 ## Full row checklist (verification — every row must end up ticked)
 
-- [ ] BUG-030
-- [ ] BUG-033
-- [ ] BUG-034
-- [ ] BUG-035
-- [ ] FIND-027
-- [ ] FIND-028
-- [ ] FIND-030
-- [ ] IDEA-029
-- [ ] IDEA-032 (post-carve, Epic 1/3 half)
+- [x] BUG-030 — Story 1.3j (`ready-for-dev`)
+- [x] BUG-033 — Story 1.6c (`ready-for-dev`)
+- [x] BUG-034 — Story 1.3j (`ready-for-dev`)
+- [x] BUG-035 — Story 1.6c (`ready-for-dev`)
+- [x] FIND-027 — Story 1.3j (`ready-for-dev`)
+- [x] FIND-028 — Story 1.3j (`ready-for-dev`)
+- [x] FIND-030 — Story 1.6c (`ready-for-dev`)
+- [x] IDEA-029 — Story 1.6d (`ready-for-dev`)
+- [x] IDEA-032 (post-carve, Epic 1/3 half) — Story 0.i6e (`ready-for-dev`)
 - [ ] IDEA-034 (carved-out Epic 4 half — separate follow-up, not tracked further in this plan)
-- [ ] IDEA-033
+- [x] IDEA-033 — Story 1.6e (`ready-for-dev`)
 
 ## Explicitly out of scope for this plan (tracked elsewhere / no epic action needed)
 

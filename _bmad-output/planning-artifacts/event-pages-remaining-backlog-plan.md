@@ -57,6 +57,13 @@ one session:
   status is still `triaged`, not `promoted`. IDEA-030's location-line items remain genuinely
   blocked on IDEA-029 until that plan's Phase 3 runs — the rest of IDEA-030's 7 items can proceed
   independently.
+  **STALE CLAIM CORRECTED AGAIN, 2026-09-19**: the checkbox below was never updated after
+  IDEA-030 actually shipped. `backlog.yaml` shows IDEA-030 `promoted` -> **Story 1.6f**
+  ("Event detail page UI refinements"), already at `review` (past `bmad-create-story`, already
+  dev'd) — items 1, 2, 4, 5, 6, 7 covered there; item 3 (hashtags) correctly carved out
+  separately as **IDEA-037**. `event-pages-followthrough-plan.md`'s own Phase 3 also completed
+  2026-09-19 (IDEA-029 -> Story 1.6d, `ready-for-dev`), so the location-line dependency this note
+  worried about is moot either way.
 
 - [x] BUG-019 + IDEA-011 story/quick-dev — already covered by Stories 0.i5a/0.i5b (created
       2026-09-15, both `review`); confirmed already-done 2026-09-17 during `ritual-orchestrator`
@@ -84,7 +91,9 @@ one session:
 - [x] IDEA-012 story — already covered by Story 0.37 (`0-37-extract-and-display-event-links`,
       `review`; follow-on child IDEA-036 carved separately); confirmed already-done 2026-09-17
       during `ritual-orchestrator` batch pre-dispatch check, no new dispatch run
-- [ ] IDEA-030 story/stories (sequence item 3 after BUG-032 lands)
+- [x] IDEA-030 story/stories — already covered by Story 1.6f (`review`; items 1/2/4/5/6/7, item 3
+      carved separately as IDEA-037); confirmed already-done 2026-09-19, checkbox had simply never
+      been updated after the story shipped — see corrected note above
 
 ## Cluster B — Needs a diagnosis spike before scoping
 
@@ -294,6 +303,15 @@ short of an actual story file.
   Blocked in practice, not just unscheduled: Feed/Favorites haven't adopted
   `useListPaginationController` yet, and are still missing FilterHub's Location/AI-filter
   buttons per the still-open **BUG-025**. Not actionable as its own story until both land.
+  **PARTIALLY UNBLOCKED, 2026-09-19**: dispatched `bmad-create-story` directly against IDEA-038
+  to test whether it could proceed — it correctly declined (per `AskUserQuestion`, "create the
+  missing prerequisite story first") and instead: (1) promoted **BUG-025 → Story 1.3l**
+  (`ready-for-dev`), and (2) carved a brand-new prerequisite, **Story 0.i5e** (`ready-for-dev`,
+  epic-0-i5), for the Feed/Favorites `useListPaginationController` adoption that had no tracked
+  row anywhere before today. IDEA-038 itself intentionally stays `backlog.yaml` status `backlog`
+  — re-invoke `bmad-create-story IDEA-038` once both 1.3l and 0.i5e reach `done`. Full dependency
+  chain and dev-story dispatch order for all of this now tracked in the new companion doc
+  `event-pages-dev-story-tracking.md`.
 - **IDEA-039** (parent IDEA-026) → Story 1.i1g — render multi-day schedules as one spanning
   `EventCardCalendarGridItem` across day-columns. No blocker beyond Story 1.i1f (IDEA-026's own
   story) landing first, since it builds the primitive this extends.
@@ -327,11 +345,30 @@ short of an actual story file.
   FIND-025's still-open finding (2), a lint guard, must fold into this story too. Independent of
   1.i1i/1.i1j — no blocker.
 
-- [ ] IDEA-038 story (blocked on Feed/Favorites `useListPaginationController` adoption + BUG-025)
-- [ ] IDEA-039 story (Story 1.i1g) — after Story 1.i1f
-- [ ] BUG-036/FIND-026 story (Story 1.i1h) — after Story 1.i1f
+- [ ] IDEA-038 story — still blocked; its two prerequisites are now themselves storied and
+      `ready-for-dev` (Story 1.3l for BUG-025, Story 0.i5e for the controller adoption) — see
+      `event-pages-dev-story-tracking.md` for the dispatch order
+- [x] IDEA-039 story (Story 1.i1g) — created 2026-09-19 (`ritual-orchestrator` batch,
+      `all-claude-medium`), `ready-for-dev`. Gate raised 3 design questions (spanning-bar banner
+      layout, overlap stacking, keyboard nav), all resolved via `AskUserQuestion`: new banner row
+      above day cells (multi-day only, single-day events unaffected), each overlapping bar its own
+      full-width row uncapped, simple linear Tab order.
+- [x] BUG-036/FIND-026 story (Story 1.i1h) — created 2026-09-19 (same batch), `ready-for-dev`.
+      Gate 1 found a real event/schedule granularity mismatch resolved in-story (schedule-first
+      windowed query + `Event.schedules` short-circuit guard); one design question resolved via
+      `AskUserQuestion` — the flat-vs-windowed `Query.events` mode is now selected by a new
+      optional `perDayLimit: Int` arg (omitted = today's unchanged behavior for every other caller).
 - [x] IDEA-040 UX pass (2026-09-18, see own note above — ready for `bmad-create-story` now)
-- [ ] IDEA-040 story (Story 0.39)
+- [x] IDEA-040 story (Story 0.39) — created 2026-09-19 (same batch), `ready-for-dev`. Widened
+      from epics.md's original hook-only scope to the full EXPERIENCE.md/DESIGN.md consent-banner
+      design per user confirmation. Gate 2 found the shared "Ambient Capability Ask" banner slot
+      (needed by both this story and Story 0.38's still-unbuilt PWA install banner) doesn't exist
+      yet — split into new prerequisite **Story 0.42** (also `ready-for-dev`, same batch; Story
+      0.38 amended in place to depend on it instead of its original bespoke mount plan). The
+      0.42 dispatch itself hit a mid-session spend-limit crash after writing its story file but
+      before committing — resumed via `run-ritual.ts --resume-label` rather than redispatched
+      from scratch, which completed the sprint-status.yaml/backlog.yaml/epics.md updates and
+      committed cleanly (`c2f36ca`).
 - [x] IDEA-041 story (Story 1.i1i) — drafted 2026-09-18 (`ready-for-dev`); prerequisite for
       Story 1.i1j's `bmad-dev-story`. AD-24 added to the architecture spine.
 - [x] IDEA-042 story (Story 1.i1k) — drafted 2026-09-18 (`ready-for-dev`); folded FIND-025's
@@ -350,8 +387,8 @@ short of an actual story file.
 - [x] BUG-019 — Story 0.i5b (`review`)
 - [ ] BUG-031
 - [ ] BUG-032
-- [ ] BUG-036 (new, 2026-09-17 — Gate 2 routed it to Story 1.i1h alongside FIND-026's
-      overflow-dialog scope, not IDEA-026's own Story 1.i1f; 1.i1h not yet story-created)
+- [x] BUG-036 — Story 1.i1h (`ready-for-dev`), created 2026-09-19 alongside FIND-026's
+      overflow-dialog scope, per AD-23's fair per-day fetch fix
 - [x] FIND-006 (closes via Story 2.i1a's BUG-008 coverage, not independently)
 - [ ] FIND-010
 - [x] FIND-011
@@ -359,7 +396,7 @@ short of an actual story file.
 - [ ] FIND-024
 - [x] FIND-025 — finding (1) superseded by IDEA-042/Story 1.i1k; finding (2) folded into
       Story 1.i1k's own lint-guard scope (2026-09-18)
-- [ ] FIND-026
+- [x] FIND-026 — Story 1.i1h (`ready-for-dev`), created 2026-09-19, same story as BUG-036
 - [ ] FIND-029
 - [x] IDEA-003 — Story 1.3k (`ready-for-dev`)
 - [x] IDEA-011 — Story 0.i5a (`review`)
@@ -369,12 +406,15 @@ short of an actual story file.
 - [x] IDEA-025 — Story 1.i1j (`ready-for-dev`, blocked on 1.i1f + 1.i1i prerequisites); child rows
       IDEA-041/IDEA-042 carved (Stories 1.i1i/1.i1k, both `ready-for-dev` as of 2026-09-18)
 - [x] IDEA-026 — Story 1.i1f (`ready-for-dev`); child rows IDEA-039/BUG-036+FIND-026/IDEA-040
-      carved for remaining desktop-grid wiring (Stories 1.i1g/1.i1h/0.39, not yet story-created)
-- [ ] IDEA-030
+      carved for remaining desktop-grid wiring (Stories 1.i1g/1.i1h/0.39, all `ready-for-dev` as
+      of 2026-09-19)
+- [x] IDEA-030 — Story 1.6f (`review`); see corrected note in Cluster A above
 - [x] IDEA-031 — Story 0.i6f (2026-09-16)
-- [ ] IDEA-038 (Story 0.i5d's own child, Cluster F) — blocked, not yet story-created
-- [ ] IDEA-039 (Story 1.i1f's own child, Cluster F) — Story 1.i1g, not yet story-created
-- [ ] IDEA-040 (Story 1.i1f's own child, Cluster F) — Story 0.39, may need `bmad-ux` first
+- [ ] IDEA-038 (Story 0.i5d's own child, Cluster F) — still blocked, not yet story-created;
+      prerequisites Story 1.3l (BUG-025) and Story 0.i5e both `ready-for-dev` as of 2026-09-19
+- [x] IDEA-039 (Story 1.i1f's own child, Cluster F) — Story 1.i1g (`ready-for-dev`, 2026-09-19)
+- [x] IDEA-040 (Story 1.i1f's own child, Cluster F) — Story 0.39 (`ready-for-dev`, 2026-09-19);
+      also carved a new prerequisite Story 0.42 (shared banner-slot primitive, `ready-for-dev`)
 - [x] IDEA-041 (Story 1.i1j's own child, Cluster F) — Story 1.i1i (`ready-for-dev`, 2026-09-18)
 - [x] IDEA-042 (Story 1.i1j's own child, Cluster F) — Story 1.i1k (`ready-for-dev`, 2026-09-18)
 
