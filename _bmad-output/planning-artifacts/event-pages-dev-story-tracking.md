@@ -65,13 +65,13 @@ another story in this set.
 
 **Wave 1 — prerequisites (dispatch first, unlocks the most/heaviest downstream work):**
 
-- [ ] 1.i1f (m)
+- [x] 1.i1f (m)
 - [ ] 1.6d (s)
-- [ ] 0.42 (m)
-- [ ] 1.3l (s) — BUG-025
-- [ ] 1.3j (m)
+- [x] 0.42 (m)
+- [x] 1.3l (s) — BUG-025
+- [x] 1.3j (m)
 - [ ] 1.i1i (—)
-- [ ] 0.38a (l)
+- [x] 0.38a (l)
 
 **Wave 2 — standalone (no dependents waiting; slot anywhere, including interleaved with Wave 1 on business priority):**
 
@@ -81,13 +81,13 @@ another story in this set.
 
 **Wave 3 — dependents (only after their own prerequisite lands):**
 
-- [ ] 1.6c — needs 1.3j
+- [ ] 1.6c — needs 1.3j (1.3j now `review`, implementation landed — prerequisite satisfied)
 - [ ] 1.6e — needs 1.6d
 - [ ] 0.i6e — needs 1.6d
 - [ ] 1.i1g — needs 1.i1f
 - [ ] 1.i1h — needs 1.i1f
 - [ ] 1.i1j — needs 1.i1f + 1.i1i
-- [ ] 0.39 — needs 0.42 (epics.md gap, see above — verified via the story's own file)
+- [x] 0.39 — needs 0.42 (epics.md gap, see above — verified via the story's own file)
 - [ ] 0.38 — needs 0.38a + 0.42 (its own Tasks 1-3 have no prerequisite and could start early,
       but treat as gated since dispatch is whole-story)
 - [ ] 0.i5e — needs 0.i5a (already `review`, shipped) + 1.3l
@@ -110,24 +110,24 @@ and instead carved **Story 0.i5e** as a new prerequisite. Full chain:
 
 | Story | Backlog row(s) | Status | Notes |
 |---|---|---|---|
-| 1.3j | BUG-030, FIND-027, BUG-034, FIND-028 | `ready-for-dev` | |
-| 1.6c | BUG-033, BUG-035, FIND-030 | `ready-for-dev` | needs 1.3j |
+| 1.3j | BUG-030, FIND-027, BUG-034, FIND-028 | `review` | implementation landed (`8879447`); batch resumed 2026-09-20 with bookkeeping fix-up — run `code-review` before `done` |
+| 1.6c | BUG-033, BUG-035, FIND-030 | `ready-for-dev` | needs 1.3j (now `review` — prerequisite satisfied) |
 | 1.6d | IDEA-029 | `ready-for-dev` | |
 | 1.6e | IDEA-033 | `ready-for-dev` | needs 1.6d |
 | 0.i6e | IDEA-032 | `ready-for-dev` | needs 1.6d |
 | 1.3k | IDEA-003 (day-of-week extension) | `ready-for-dev` | standalone |
 | 0.i5d | IDEA-019 | `ready-for-dev` | standalone |
-| 1.i1f | IDEA-026 | `ready-for-dev` | standalone, highest fan-out |
+| 1.i1f | IDEA-026 | `review` | standalone, highest fan-out — implementation landed |
 | 1.i1i | IDEA-041 | `ready-for-dev` | standalone |
 | 1.i1j | IDEA-025 | `ready-for-dev` | needs 1.i1f + 1.i1i |
 | 1.i1k | IDEA-042 | `ready-for-dev` | standalone |
 | 1.i1g | IDEA-039 | `ready-for-dev` | needs 1.i1f |
 | 1.i1h | BUG-036, FIND-026 | `ready-for-dev` | needs 1.i1f |
-| 0.39 | IDEA-040 | `ready-for-dev` | needs 0.42 (epics.md gap) |
-| 0.42 | (carved from IDEA-040's create-story) | `ready-for-dev` | standalone |
-| 0.38a | (carved from IDEA-020) | `ready-for-dev` | standalone |
+| 0.39 | IDEA-040 | `review` | needs 0.42 (epics.md gap) — prerequisite satisfied, implementation landed |
+| 0.42 | (carved from IDEA-040's create-story) | `review` | standalone — implementation landed |
+| 0.38a | (carved from IDEA-020) | `review` | standalone — implementation landed |
 | 0.38 | IDEA-020 | `ready-for-dev` | needs 0.38a + 0.42 |
-| 1.3l | BUG-025 | `ready-for-dev` | standalone |
+| 1.3l | BUG-025 | `review` | standalone — implementation landed |
 | 0.i5e | (carved from IDEA-038's create-story) | `ready-for-dev` | needs 1.3l |
 | — | IDEA-038 | `backlog` (not yet storied) | blocked on 1.3l + 0.i5e reaching `done` |
 

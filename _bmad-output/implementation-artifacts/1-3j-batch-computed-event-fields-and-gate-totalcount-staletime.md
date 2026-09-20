@@ -241,12 +241,26 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 
 **Non-DB verification also clean:** backend build, backend lint (0 errors), `apps/web` lint (0 errors), `packages/graphql-select` 34/34. DB was recreated (corrupt `festgrid` dropped with `FORCE`, new OID 95149) then migrated (incl. 0060) and seeded to resolve the `58P01` corruption before tests.
 
+**Resumed-session bookkeeping pass (2026-09-20, follow-up `bmad-dev-story` run):** Re-verified the
+shipped state after the implementation commit (`8879447`) and the subsequent `master` merge
+(`725a39d`) by reading the code, not just the notes: `virtualFields`/`getRequestedFieldNames`/array
+`path` in `optimized-select.ts`, the `favoriteCount` correlated subquery in the `events` `fieldMap`,
+the batched-`schedules` `IN (...)` query, the `totalCount` gate, the four passthrough field
+resolvers, `eventIdIdx` in `packages/database/schema.ts`, and migration `0060`'s hand-edited
+`WHERE deleted_at IS NULL`. Two bookkeeping drifts were found and fixed here (no production code
+touched): (a) this story's File List was missing `apps/backend/src/db/client.ts` — the AC8
+query-count instrumentation hook that commit `8879447` did land; and (b)
+`_bmad-output/planning-artifacts/event-pages-dev-story-tracking.md` still listed 1.3j as
+unchecked/`ready-for-dev`, so it was ticked and its status row corrected to `review`.
+
 ### File List
 
 - `packages/graphql-select/optimized-select.ts` — `getRequestedFieldNames`, `virtualFields`, array `path` support
 - `packages/graphql-select/optimized-select.test.ts` — 3 new unit tests
 - `apps/backend/src/schema/resolvers.ts` — `favoriteCount` fieldMap, `virtualFields` wiring, batched `schedules`, `totalCount` gating, 4 passthrough resolvers
 - `apps/backend/src/schema/resolvers.test.ts` — new query-count integration test + `fullName`→`name`/`role` fix
+- `apps/backend/src/db/client.ts` — AC8 query-count instrumentation hook (`enableQueryDebug`/`resetExecutedQueryCount`/`getExecutedQueryCount`; inert unless a test enables it)
+
 - `packages/database/schema.ts` — `favorites` `eventIdIdx` partial index
 - `packages/database/migrations/0060_square_pretty_boy.sql` — new migration (new file)
 - `packages/database/migrations/meta/0060_snapshot.json` — Drizzle-kit meta (new file)
@@ -256,3 +270,11 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 - `apps/web/src/app/[locale]/favorites/favorites-content.tsx` — `staleTime: 30_000`
 - `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — AD-17 shipped note
 - `_bmad-output/implementation-artifacts/1-3j-batch-computed-event-fields-and-gate-totalcount-staletime.md` — this story file
+
+## Change Log
+
+| Date | Change | Commit |
+|---|---|---|
+| 2026-09-20 | Story implemented: `virtualFields`/array `path` in `buildOptimizedDrizzleSelect` + `getRequestedFieldNames`, `favoriteCount` fieldMap entry, batched `schedules`, gated `totalCount`, four passthrough `Event` field resolvers, `idx_favorites_event_id` partial index (migration `0060`), `staleTime: 30_000` on the three `getEvents` hooks, AC8 query-count instrumentation in `db/client.ts`, AD-17 shipped note. Status → `review`. | `8879447` |
+| 2026-09-20 | Resumed-session bookkeeping only (no production code): added the missing `apps/backend/src/db/client.ts` entry to File List; ticked 1.3j and corrected its status row in `event-pages-dev-story-tracking.md`. | pending |
+
