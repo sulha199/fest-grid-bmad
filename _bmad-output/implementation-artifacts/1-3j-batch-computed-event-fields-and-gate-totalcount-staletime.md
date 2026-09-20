@@ -276,5 +276,5 @@ unchecked/`ready-for-dev`, so it was ticked and its status row corrected to `rev
 | Date | Change | Commit |
 |---|---|---|
 | 2026-09-20 | Story implemented: `virtualFields`/array `path` in `buildOptimizedDrizzleSelect` + `getRequestedFieldNames`, `favoriteCount` fieldMap entry, batched `schedules`, gated `totalCount`, four passthrough `Event` field resolvers, `idx_favorites_event_id` partial index (migration `0060`), `staleTime: 30_000` on the three `getEvents` hooks, AC8 query-count instrumentation in `db/client.ts`, AD-17 shipped note. Status → `review`. | `8879447` |
-| 2026-09-20 | Resumed-session bookkeeping only (no production code): added the missing `apps/backend/src/db/client.ts` entry to File List; ticked 1.3j and corrected its status row in `event-pages-dev-story-tracking.md`. | pending |
+| 2026-09-20 | Resumed-session bookkeeping only (no production code): added the missing `apps/backend/src/db/client.ts` entry to File List; ticked 1.3j and corrected its status row in `event-pages-dev-story-tracking.md`. | `da94b44` |
 
