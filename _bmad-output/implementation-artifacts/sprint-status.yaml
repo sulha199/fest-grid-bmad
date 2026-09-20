@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-19T17:22:05Z
+last_updated: 2026-09-20T00:53:35Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -319,7 +319,7 @@ development_status:
   # builds it (0.38 predates the shared-slot UX pass; 0.39 only supplies its own banner
   # content). User confirmed the split via AskUserQuestion. Story 0.38 amended in place to
   # depend on this story. See epics.md Story 0.42 and Story 0.39's own Dev Notes.
-  0-42-build-the-shared-ambient-capability-ask-banner-slot-primitive: ready-for-dev
+  0-42-build-the-shared-ambient-capability-ask-banner-slot-primitive: review
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.

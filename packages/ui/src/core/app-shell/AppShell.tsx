@@ -14,6 +14,8 @@ import { CountBadge } from '../count-badge';
 
 export interface AppShellProps {
   children: ReactNode;
+  /** Story 0.42 — the resolved Ambient Capability Ask banner (PWA install, viewer-location consent, etc.), or `undefined` when none is winning. Rendered as `<main>`'s first child, before `children`. `AppShell` has no knowledge of what produced this node — a plain `ReactNode` slot, like `children`/`renderLink`. */
+  ambientBanner?: ReactNode;
   isAuthenticated: boolean;
   avatarUrl?: string;
   displayName?: string;
@@ -37,6 +39,7 @@ export interface AppShellProps {
 
 export function AppShell({
   children,
+  ambientBanner,
   isAuthenticated,
   avatarUrl,
   displayName,
@@ -202,6 +205,7 @@ export function AppShell({
 
       {/* Main Content Area with logical RTL-ready layout spacing */}
       <main className="flex-1 flex flex-col md:ps-16 xl:ps-56 pb-14 md:pb-0">
+        {ambientBanner}
         {children}
       </main>
     </div>

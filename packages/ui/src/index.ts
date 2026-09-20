@@ -14,6 +14,7 @@ export * from './core/platform-icon';
 
 export * from './core/grid-container';
 export * from './core/route-loader';
+export * from './core/ambient-capability-banner-tokens';
 export * from './core/WeekPicker';
 export * from './core/soft-delete-toaster';
 export * from './core/swipe-to-reveal';

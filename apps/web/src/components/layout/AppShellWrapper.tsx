@@ -9,6 +9,7 @@ import { AppShell, NavKey } from '@festgrid/ui';
 import { useMeQuery, useModeratorPendingItemCountQuery } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { useHasApiKey } from '@/features/onboarding/use-has-api-key';
+import { useAmbientCapabilityAskSlot, AmbientCapabilityAskParticipant } from '@/lib/hooks/useAmbientCapabilityAskSlot';
 
 // Any slug works here — the goal is only to warm the shared @modal
 // layout/loading JS chunks once per session (identical for every real event
@@ -46,6 +47,17 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
     router.prefetch(`/events/${MODAL_PREFETCH_WARMUP_SLUG}`);
   }, [router]);
 
+  // Story 0.42 — the shared Ambient Capability Ask slot. List position IS the
+  // priority order (index 0 highest). Empty until a real participant story
+  // (0.38 = 'pwa-install', 0.39 = 'location') registers itself here — each
+  // adds one array entry plus one `id -> <Banner .../>` case in the mapping
+  // below, never restructuring this wiring.
+  const ambientAskParticipants: AmbientCapabilityAskParticipant[] = [];
+  const ambientAskWinnerId = useAmbientCapabilityAskSlot(ambientAskParticipants);
+  const ambientBannerById: Record<string, React.ReactNode> = {};
+  const ambientBanner: React.ReactNode =
+    ambientAskWinnerId != null ? ambientBannerById[ambientAskWinnerId] : undefined;
+
   const labels: Record<NavKey, string> = {
     discover: t('discover'),
     feed: t('feed'),
@@ -71,6 +83,7 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
 
   return (
     <AppShell
+      ambientBanner={ambientBanner}
       isAuthenticated={isAuthenticated}
       avatarUrl={avatarUrl}
       displayName={displayName}
