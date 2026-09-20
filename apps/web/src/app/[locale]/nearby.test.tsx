@@ -111,6 +111,10 @@ vi.mock('@/lib/graphql-client', async () => {
 
 // Mock infinite scroll + current-location capture (real geolocation is unavailable in jsdom)
 const mockCaptureCurrentLocation = vi.fn();
+// Defaults to "no ambient permission granted" (undefined) — matches jsdom's real
+// behavior (no navigator.geolocation/permissions), overridden per-test below for
+// the ambient-fallback coverage.
+const mockCaptureIfPermissionGranted = vi.fn().mockResolvedValue(undefined);
 vi.mock('@festgrid/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@festgrid/ui')>();
   return {
@@ -120,6 +124,7 @@ vi.mock('@festgrid/ui', async (importOriginal) => {
       isCapturing: false,
       error: null,
       capture: mockCaptureCurrentLocation,
+      captureIfPermissionGranted: mockCaptureIfPermissionGranted,
     }),
   };
 });
@@ -257,6 +262,7 @@ afterEach(() => {
   lastQueryVariables = null;
   mockSession = { user: { email: 'test@example.com' } };
   sessionStorage.clear();
+  mockCaptureIfPermissionGranted.mockReset().mockResolvedValue(undefined);
   if ((global as any).__resetNuqsStore) {
     (global as any).__resetNuqsStore();
   }
@@ -373,6 +379,10 @@ describe('Nearby Filter Integration', () => {
       (c: any) => c.field === 'scheduleCoordinates'
     );
     expect(nearbyCondition).toBeUndefined();
+
+    // Story 1.i1f revision: the ambient current-location fallback must also
+    // never be attempted for an anonymous user.
+    expect(mockCaptureIfPermissionGranted).not.toHaveBeenCalled();
   });
 });
 
@@ -479,7 +489,7 @@ describe('useNearbyFilter (AC10-11)', () => {
 
   it('saved location with no coordinate returns undefined gracefully', async () => {
     const { result } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
-    
+
     await waitFor(() => {
       expect(result.current.isLoadingLocations).toBe(false);
     });
@@ -489,5 +499,53 @@ describe('useNearbyFilter (AC10-11)', () => {
     });
 
     expect(result.current.activeFilterCoord).toBeUndefined();
+  });
+});
+
+describe('Ambient current-location fallback (Story 1.i1f revision, interim step)', () => {
+  it('off mode falls back to the ambient coordinate when geolocation permission is already granted', async () => {
+    mockCaptureIfPermissionGranted.mockResolvedValue({ latitude: 9.87, longitude: 6.54 });
+
+    const { result } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(result.current.activeFilterCoord).toEqual({ latitude: 9.87, longitude: 6.54 });
+    });
+  });
+
+  it('off mode stays undefined when no ambient permission has been granted (the default)', async () => {
+    const { result } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(mockCaptureIfPermissionGranted).toHaveBeenCalled();
+    });
+    expect(result.current.activeFilterCoord).toBeUndefined();
+  });
+
+  it('an explicitly active filter (saved location) takes priority over the ambient fallback', async () => {
+    mockCaptureIfPermissionGranted.mockResolvedValue({ latitude: 9.87, longitude: 6.54 });
+
+    const { result } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
+    await waitFor(() => {
+      expect(result.current.isLoadingLocations).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.onSelectLocation('loc-1');
+    });
+
+    expect(result.current.activeFilterCoord).toEqual({ latitude: -6.2, longitude: 106.8 });
+  });
+
+  it('renders the masonry badge from the ambient fallback with no filter selected', async () => {
+    mockCaptureIfPermissionGranted.mockResolvedValue({ latitude: -6.2, longitude: 106.8 });
+
+    renderWithProviders(<Home />);
+
+    await waitFor(() => {
+      const title = screen.getByText('Nearby Event 1');
+      const card = title.closest('button') as HTMLElement;
+      expect(within(card).getByText('Nearby')).toBeInTheDocument();
+    });
   });
 });

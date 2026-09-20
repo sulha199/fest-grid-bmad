@@ -40,7 +40,30 @@ export function useNearbyFilter() {
     isCapturing: isCapturingCurrentLocation,
     error: currentLocationError,
     capture,
+    captureIfPermissionGranted,
   } = useCurrentLocationCapture();
+
+  // Ambient fallback (interim step ahead of Story 0.39's explicit consent-banner
+  // ask): when no nearby filter is active, silently reuse the viewer's current
+  // location ONLY if the browser already reports geolocation permission as
+  // granted (from some earlier explicit action, e.g. this filter's own "current
+  // location" option or a location-picker form elsewhere) — never prompts on its
+  // own. Session-gated so anonymous users are never queried (AC7).
+  const [ambientCoord, setAmbientCoord] = useState<{ latitude: number; longitude: number } | undefined>(undefined);
+
+  useEffect(() => {
+    if (!session) {
+      setAmbientCoord(undefined);
+      return;
+    }
+    let cancelled = false;
+    captureIfPermissionGranted().then((coord) => {
+      if (!cancelled) setAmbientCoord(coord);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session, captureIfPermissionGranted]);
 
   // Sort locations by createdAt ascending to identify primary
   const savedLocations = useMemo(() => {
@@ -125,14 +148,14 @@ export function useNearbyFilter() {
   }, [session, nearby, nearbyRadiusKm, adHocCoords]);
 
   const activeFilterCoord = useMemo(() => {
-    if (nearby === "off" || !nearby) return undefined;
+    if (nearby === "off" || !nearby) return ambientCoord;
     if (nearby === "current") return adHocCoords ?? undefined;
     const loc = savedLocations.find(l => l.id === nearby);
     if (loc?.latitude != null && loc?.longitude != null) {
       return { latitude: loc.latitude, longitude: loc.longitude };
     }
     return undefined;
-  }, [nearby, adHocCoords, savedLocations]);
+  }, [nearby, adHocCoords, savedLocations, ambientCoord]);
 
   return {
     isAuthenticated: !!session,
