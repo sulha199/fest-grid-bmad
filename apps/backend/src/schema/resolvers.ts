@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
 import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews } from '@festgrid/database';
-import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
+import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
@@ -3021,6 +3021,11 @@ Constraints and Guidelines:
               activeOnly(favorites)
             ))
         ) : sql`false`,
+        // Story 1.3j (AC1, AD-17 Rule 1) — correlated subquery count, wired as a
+        // `virtualFields` entry into the items select only when `favoriteCount` is requested,
+        // instead of a per-row field-resolver query. Uses the same `events.id` correlation and
+        // `deleted_at IS NULL` soft-delete guard as `isFavorited` above.
+        favoriteCount: sql`(SELECT count(*) FROM favorites WHERE favorites.event_id = ${events.id} AND favorites.deleted_at IS NULL)`,
         isAddedToCalendar: userId ? exists(
           db.select({ id: calendarAdditions.id })
             .from(calendarAdditions)
@@ -3103,6 +3108,16 @@ Constraints and Guidelines:
 
       const requestedFields = buildOptimizedDrizzleSelect(events, info, {
         path: 'items',
+        // Story 1.3j (AC1, AD-17 Rule 1) — computed/virtual fields resolved during the
+        // parent-row select instead of per-row field resolvers. Each expression is emitted
+        // only when its GraphQL field is actually requested. `isFavorited`/`isAddedToCalendar`
+        // reuse the exact `fieldMap` EXISTS expressions (previously used only for WHERE
+        // filtering); `favoriteCount` is the new correlated-subquery count added above.
+        virtualFields: {
+          isFavorited: fieldMap.isFavorited,
+          favoriteCount: fieldMap.favoriteCount,
+          isAddedToCalendar: fieldMap.isAddedToCalendar,
+        },
       });
 
       // Note: to filter on schedules' columns safely with a left join, or sort, we filter schedules in the join or where clause.
@@ -3184,14 +3199,41 @@ Constraints and Guidelines:
       const hasMore = fetchedItems.length > qLimit;
       const items = hasMore ? fetchedItems.slice(0, qLimit) : fetchedItems;
 
-      // Note: Count query could be expensive, but required by schema.
-      // If full schema optimization is needed, count should only be fetched if selected.
-      const totalCountRes = await db.select({ count: count() as any })
-        .from(events)
-        .leftJoin(schedules, mainSchedulesOnly)
-        .leftJoin(posts, eq(events.postId, posts.id))
-        .where(whereClause as any);
-      const totalCount = totalCountRes[0]?.count ?? 0;
+      // Story 1.3j (AC3, AD-17 Rule 2) — batch-resolve the `schedules` one-to-many relation as
+      // a single `IN (...)` query when requested (instead of one per-row query per Event), then
+      // group by eventId and attach to each parent row. The batched rows are pre-populated on
+      // the parent so `Event.schedules`'s passthrough (Task 4) reads them without an extra query.
+      if (getRequestedFieldNames(info, 'items').has('schedules') && items.length > 0) {
+        const scheduleRows = await db.select({
+          ...buildOptimizedDrizzleSelect(schedules, info, { path: ['items', 'schedules'] }),
+          eventId: schedules.eventId,
+        }).from(schedules).where(inArray(schedules.eventId, items.map(i => (i as any).id)));
+
+        const schedulesByEvent = new Map<string, any[]>();
+        for (const row of scheduleRows) {
+          const eventId = (row as any).eventId;
+          const list = schedulesByEvent.get(eventId) ?? [];
+          list.push(row);
+          schedulesByEvent.set(eventId, list);
+        }
+        for (const item of items) {
+          (item as any).schedules = schedulesByEvent.get((item as any).id) ?? [];
+        }
+      }
+
+      // Story 1.3j (AC4, FIND-027) — the `totalCount` count query (formerly unconditional) is
+      // gated on the field actually being requested, using the same info-driven signal
+      // `buildOptimizedDrizzleSelect` applies to `items`. `hasMore` above is computed from the
+      // fetched page length, not this query, so gating it off does not affect pagination.
+      let totalCount = 0;
+      if (getRequestedFieldNames(info).has('totalCount')) {
+        const totalCountRes = await db.select({ count: count() as any })
+          .from(events)
+          .leftJoin(schedules, mainSchedulesOnly)
+          .leftJoin(posts, eq(events.postId, posts.id))
+          .where(whereClause as any);
+        totalCount = totalCountRes[0]?.count ?? 0;
+      }
 
       return {
         items: items as any, // Cast since buildOptimizedDrizzleSelect returns partial shapes
@@ -3643,6 +3685,13 @@ Constraints and Guidelines:
       return (rows[0] as any) || null;
     },
     schedules: async (parent: any, args: any, context: any, info: any) => {
+      // Story 1.3j (AC3, AD-17 Rule 2) — passthrough: read the batched schedules already
+      // pre-populated on the parent by the `events` resolver. Fall back to the legacy per-row
+      // query only when absent (a defensive path for a caller that reaches this resolver
+      // without pre-population; never the expected path once this ships).
+      if (parent.schedules !== undefined) {
+        return parent.schedules as any;
+      }
       const requestedFields = buildOptimizedDrizzleSelect(schedules, info);
       const rows = await db.select({
         ...requestedFields,
@@ -3674,6 +3723,12 @@ Constraints and Guidelines:
     originalPostUrl: (parent: any) => parent.originalPostUrl || null,
     publishedAt: (parent: any) => parent.publishedAt instanceof Date ? parent.publishedAt.toISOString() : (parent.publishedAt || null),
     isFavorited: async (parent: any, _: any, context: any) => {
+      // Story 1.3j (AC1, AD-17 Rule 1) — passthrough: read the value pre-populated on the
+      // parent by the `events` resolver's batched select. Fall back to the legacy per-row
+      // query (with its anonymous/error → false shape preserved) only when absent.
+      if (parent.isFavorited !== undefined) {
+        return parent.isFavorited;
+      }
       try {
         const authUser = requireAuth(context);
         const rows = await db.select({ id: favorites.id })
@@ -3689,6 +3744,12 @@ Constraints and Guidelines:
       }
     },
     favoriteCount: async (parent: any) => {
+      // Story 1.3j (AC1, AD-17 Rule 1) — passthrough: read the value pre-populated on the
+      // parent by the `events` resolver's batched select. Fall back to the legacy per-row
+      // query only when absent.
+      if (parent.favoriteCount !== undefined) {
+        return parent.favoriteCount;
+      }
       const rows = await db.select({ count: count() })
         .from(favorites)
         .where(and(
@@ -3698,6 +3759,12 @@ Constraints and Guidelines:
       return rows[0]?.count ?? 0;
     },
     isAddedToCalendar: async (parent: any, _: any, context: any) => {
+      // Story 1.3j (AC1, AD-17 Rule 1) — passthrough: read the value pre-populated on the
+      // parent by the `events` resolver's batched select. Fall back to the legacy per-row
+      // query (with its anonymous/error → false shape preserved) only when absent.
+      if (parent.isAddedToCalendar !== undefined) {
+        return parent.isAddedToCalendar;
+      }
       try {
         const authUser = requireAuth(context);
         const rows = await db.select({ id: calendarAdditions.id })

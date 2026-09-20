@@ -679,6 +679,15 @@ This document defines the core architectural invariants for the FestDaily applic
     new and meaningfully more complex code shape with no precedent anywhere in this codebase,
     for a benefit (one fewer query) that doesn't move the needle relative to eliminating the
     O(N) per-row resolver calls, which Rule 2's simpler `IN (...)` query already fully achieves.
+*   **Status (2026-09-20):** **Story sequence item A has shipped** (Story **1.3j**,
+    `batch-computed-event-fields-and-gate-totalcount-staletime`, status `review`). The `events`
+    resolver now passes `isFavorited`/`favoriteCount`/`isAddedToCalendar` as
+    `virtualFields` into its items select (gated on `info`), batch-resolves `schedules` as one
+    `IN (...)` query, gates the `totalCount` count query on selection, the four `Event` field
+    resolvers became passthrough-with-fallback, the `idx_favorites_event_id` partial index
+    shipped (migration `0060_square_pretty_boy.sql`, hand-edited per AD-8 rule 3), and the three
+    `getEvents` hooks gained `staleTime: 30_000`. Story B (Story **1.6c**) reuses this landed
+    `virtualFields`/batched-schedules mechanism verbatim rather than reimplementing it.
 
 ---
 ### AD-18: Filter Apply-Timing Convention

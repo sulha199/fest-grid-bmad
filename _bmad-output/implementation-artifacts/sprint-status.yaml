@@ -634,7 +634,7 @@ development_status:
   # FIND-028 (AD-17 Story sequence item A) -- extends buildOptimizedDrizzleSelect
   # with virtualFields, batches schedules/isFavorited/favoriteCount/
   # isAddedToCalendar, gates totalCount, adds staleTime. See epics.md Story 1.3j.
-  1-3j-batch-computed-event-fields-and-gate-totalcount-staletime: ready-for-dev
+  1-3j-batch-computed-event-fields-and-gate-totalcount-staletime: review
   # added 2026-09-17 via bmad-create-story (IDEA-003, resolved via bmad-ux +
   # bmad-architecture AD-19): day-of-week recurrence occurrence-expansion +
   # event_card_repeat_badge across all 3 card families. See epics.md Story 1.3k.
@@ -705,7 +705,8 @@ development_status:
   # AskUserQuestion in favor of correctness for logged-in visitors over the
   # lower-risk anonymous-only alternative), and FIND-030 (gate the
   # subscriptions query on sourceSocialMediaAccountProfile). Blocked on Story
-  # 1-3j (ready-for-dev, not yet implemented) -- see the story file's own
+  # 1-3j (status: review as of 2026-09-20 -- implemented, full backend suite passes,
+  # so 1.6c's block on it is cleared) -- see the story file's own
   # Pre-Coding Approval Gate. See epics.md Story 1.6c.
   1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query: ready-for-dev
   # epics.md section added 2026-09-15 via bmad-correct-course (CC-021,

@@ -421,6 +421,14 @@ export const favorites = pgTable('favorites', {
 }, (t) => ({
   unq: unique().on(t.userId, t.eventId),
   activeIdx: index('idx_favorites_active').on(t.userId).where(sql`deleted_at IS NULL`),
+  // Story 1.3j (AC5, BUG-034) — eventId-leading partial index so Story 1.3j's per-row
+  // correlated subqueries (`favoriteCount`, and `isFavorited`/`isAddedToCalendar` EXISTS when
+  // driven via the items select) scan only the matching soft-live rows instead of the whole
+  // table once per output row. Builder-level approximation only: drizzle-kit 0.21.4 drops the
+  // WHERE predicate from generated migration SQL (same class of gap as `idx_favorites_active`
+  // and migration 0057), so the index as actually created in the DB is hand-edited in
+  // migration 0060_*.sql to append `WHERE deleted_at IS NULL`.
+  eventIdIdx: index('idx_favorites_event_id').on(t.eventId).where(sql`deleted_at IS NULL`),
 }));
 
 export const calendarAdditions = pgTable('calendar_additions', {

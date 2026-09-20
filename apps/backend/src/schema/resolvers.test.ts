@@ -6,7 +6,7 @@ import { GraphQLError } from 'graphql';
 import { resolvers, setEventsAuthProbe, eventsAuthProbe } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { db } from '../db/client.js';
+import { db, enableQueryDebug, resetExecutedQueryCount, getExecutedQueryCount } from '../db/client.js';
 import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, unprocessedScraperPayloads, instagramOembedCache, accountVotes } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
 
@@ -2975,4 +2975,137 @@ test('setImageStorageOptIn and queryModeratorAccountProfiles integration tests',
     assert.ok(searchNodes.some((n: any) => n.id === seededAccount.id));
     assert.strictEqual(searchNodes[0].displayName, 'Test Opt-In');
   });
+});
+
+test('events - query-count is a constant, not O(N), when batched fields are requested (Story 1.3j AC8)', async (t) => {
+  // Story 1.3j (AC8 / Performance NFR) — the events resolver used to cost `1 + 1 + 3N` DB
+  // queries per page (parent select + totalCount + per-row isFavorited/favoriteCount/
+  // isAddedToCalendar/schedules field resolvers). After this story it must cost a small
+  // constant: parent items select + one batched schedules select + one totalCount select.
+
+  const createdUser = await db.insert(users).values({
+    email: `qc-${crypto.randomUUID()}@example.com`,
+    name: 'Query Count User',
+    role: 'user',
+  }).returning();
+  const qcUser = createdUser[0];
+  mockUser = { userId: qcUser.id, role: 'user' };
+
+  const createdEventIds: string[] = [];
+  const createdFavoriteIds: string[] = [];
+
+  async function createEventWithSchedule(eventName: string) {
+    const [event] = await db.insert(events).values({
+      eventName,
+      location: 'Test City',
+    }).returning();
+    createdEventIds.push(event.id);
+    await db.insert(schedules).values({
+      eventId: event.id,
+      eventStartDate: '2030-09-10',
+      eventEndDate: '2030-09-11',
+      isMainSchedule: true,
+    });
+    return event;
+  }
+
+  t.after(async () => {
+    mockUser = null;
+    enableQueryDebug(false);
+    if (createdFavoriteIds.length) {
+      await db.delete(favorites).where(inArray(favorites.id, createdFavoriteIds));
+    }
+    if (createdEventIds.length) {
+      await db.delete(schedules).where(inArray(schedules.eventId, createdEventIds));
+      await db.delete(events).where(inArray(events.id, createdEventIds));
+    }
+    await db.delete(users).where(eq(users.id, qcUser.id));
+  });
+
+  // N = 3 parent events, each with >= 1 schedule, and a couple of favorites for the authed
+  // user so isFavorited/favoriteCount actually vary across rows.
+  const eventA = await createEventWithSchedule('1.3j qc - event A');
+  const eventB = await createEventWithSchedule('1.3j qc - event B');
+  const eventC = await createEventWithSchedule('1.3j qc - event C');
+
+  for (const ev of [eventA, eventB]) {
+    const [fav] = await db.insert(favorites).values({
+      userId: qcUser.id,
+      eventId: ev.id,
+    }).returning();
+    createdFavoriteIds.push(fav.id);
+  }
+
+  const baseQuery = `
+    query {
+      events(limit: 10) {
+        items {
+          id
+          schedules { id }
+          isFavorited
+          favoriteCount
+          isAddedToCalendar
+        }
+        totalCount
+        hasMore
+      }
+    }
+  `;
+  const queryWithoutTotalCount = `
+    query {
+      events(limit: 10) {
+        items {
+          id
+          schedules { id }
+          isFavorited
+          favoriteCount
+          isAddedToCalendar
+        }
+        hasMore
+      }
+    }
+  `;
+
+  async function runEventsQuery(q: string) {
+    enableQueryDebug(true);
+    resetExecutedQueryCount();
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ query: q }),
+    });
+    const count = getExecutedQueryCount();
+    enableQueryDebug(false);
+    const result = await response.json();
+    return { result, count };
+  }
+
+  // AC8: constant, not O(N). Previously this was `1 + 1 + 3N` = 11 for N=3; after batching it
+  // must be a small constant (parent select + schedules batch + totalCount select ≈ 3).
+  const { result, count } = await runEventsQuery(baseQuery);
+  assert.ok(!result.errors, `GraphQL errors returned: ${JSON.stringify(result.errors)}`);
+  const items = (result.data.events.items as any[]);
+  assert.ok(items.length >= 3, 'should return the 3 seeded events');
+  const withCount = count;
+  assert.ok(count >= 3, `expected at least 3 queries, got ${count}`);
+  assert.ok(count <= 4, `expected a small constant query count (<= 4) but got ${count}`);
+
+  // Sanity: batched fields are actually populated per row via the parent select.
+  const favorited = items.filter((i: any) => i.isFavorited === true);
+  assert.strictEqual(favorited.length, 2, 'two authed events should read isFavorited=true from parent select');
+  for (const item of items) {
+    assert.ok(Array.isArray(item.schedules), 'batched schedules should be attached to each parent');
+    assert.ok(item.schedules.length >= 1, 'each seeded event should have at least one schedule');
+    assert.ok(typeof item.favoriteCount === 'number', 'favoriteCount should be pre-populated');
+  }
+
+  // AC4: dropping `totalCount` from the selection set skips that query entirely (count drops by
+  // exactly 1), proving the gate.
+  const second = await runEventsQuery(queryWithoutTotalCount);
+  assert.ok(!second.result.errors, `GraphQL errors returned (no totalCount): ${JSON.stringify(second.result.errors)}`);
+  assert.strictEqual(second.count, withCount - 1, 'removing totalCount should drop the query count by exactly 1');
+  assert.ok(second.count >= 2, 'items + schedules selects should still run');
 });

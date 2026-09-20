@@ -1,0 +1,15 @@
+-- Story 1.3j (AC5, BUG-034) — eventId-leading partial index on favorites.
+-- drizzle-kit 0.21.4's schema builder (packages/database/schema.ts) drops the WHERE predicate
+-- from generated migration SQL for a partial index -- same class of gap as the AD-8 rule 3
+-- partial-index precedent (idx_favorites_active, migration 0057's idx_schedules_one_main_per_event,
+-- etc.). This migration is hand-edited rather than used as drizzle-kit generated it; schema.ts's
+-- `eventIdIdx` builder call is left as the closest expressible approximation, with a comment
+-- pointing here for the real index shape.
+--
+-- Why partial: the scanner only joins soft-live favorites (`deleted_at IS NULL`, per AD-8), which
+-- is exactly the predicate this index covers. This is the eventId-leading index that makes Story
+-- 1.3j's per-row correlated subqueries (favoriteCount, isFavorited/isAddedToCalendar EXISTS
+-- driven through the items select) viable at all -- without it they would force a sequential scan
+-- of favorites once per output row inside a single query execution, worse than the pre-fix
+-- separate per-row queries.
+CREATE INDEX IF NOT EXISTS "idx_favorites_event_id" ON "favorites" ("event_id") WHERE "deleted_at" IS NULL;

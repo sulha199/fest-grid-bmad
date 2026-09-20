@@ -421,6 +421,13 @@
       "when": 1789735998920,
       "tag": "0059_dapper_doctor_strange",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "6",
+      "when": 1789892990574,
+      "tag": "0060_square_pretty_boy",
+      "breakpoints": true
     }
   ]
 }

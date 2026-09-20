@@ -148,6 +148,9 @@ export function FeedContent() {
       });
     },
     initialPageParam: 0,
+    // Story 1.3j (AC6, FIND-028) — cut refetch volume on remount/window-refocus without
+    // materially staling Feed data.
+    staleTime: 30_000,
     getNextPageParam: (lastPage, allPages) => {
       return lastPage.events.hasMore ? allPages.length * 10 : undefined;
     },

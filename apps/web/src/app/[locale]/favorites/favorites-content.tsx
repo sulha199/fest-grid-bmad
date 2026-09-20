@@ -277,6 +277,10 @@ export function FavoritesContent() {
       }
     },
     initialPageParam: 0,
+    // Story 1.3j (AC6, FIND-028) — cut refetch volume on remount/window-refocus without
+    // materially staling Favorites data. (The separate `GetFavoritedEventIdsQuery` hook above
+    // does not call GetEventsDocument, so it is intentionally left untouched.)
+    staleTime: 30_000,
     getNextPageParam: (_lastPage, allPages) => {
       const nextOffset = allPages.length * PAGE_SIZE
       return nextOffset < frozenIds.length ? nextOffset : undefined
