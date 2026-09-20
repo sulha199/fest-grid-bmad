@@ -37,6 +37,12 @@ vi.mock('@/components/providers/auth-session-provider', () => ({
   }),
 }));
 
+// Favorites wires useAIFilter (via EventDiscoveryPanel's showAITrigger). Mock the
+// API-key gate so the AI trigger actually renders under the same conditions Discovery's does.
+vi.mock('@/features/onboarding/use-has-api-key', () => ({
+  useApiKeyStatus: () => ({ hasApiKey: true, isLoading: false }),
+}));
+
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -82,6 +88,7 @@ vi.mock('nuqs', () => {
       return [state, setSharedState];
     },
     parseAsString: { withDefault: (val: any) => ({ defaultValue: val }) },
+    parseAsInteger: { withDefault: (val: any) => ({ defaultValue: val }) },
     parseAsArrayOf: () => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
     parseAsStringLiteral: (allowed: any) => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
   };
@@ -250,6 +257,11 @@ describe('FavoritesContent', () => {
 
     expect(snapshotCalls.length).toBeGreaterThan(0);
     expect(eventsCalls.length).toBeGreaterThan(0);
+
+    // AC#4/#5 wiring: the nearby-location popover trigger and the AI filter trigger now
+    // render in the authenticated favorites page (no longer permanently absent as before 1.3l).
+    expect(screen.getByText(/Nearby/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Filter with AI' })).toBeInTheDocument();
 
     const firstBatchTitleNodes = screen.getAllByRole('heading', { level: 3 });
     expect(firstBatchTitleNodes[0]).toHaveTextContent('Event evt-1');

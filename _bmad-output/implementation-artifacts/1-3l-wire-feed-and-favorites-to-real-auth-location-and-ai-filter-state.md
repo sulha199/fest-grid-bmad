@@ -27,29 +27,29 @@ so that I get one consistent filtering experience across Discovery, Feed, and Fa
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Wire Feed to real nearby-filter state (AC: #1, #3)
+- [x] Task 1: Wire Feed to real nearby-filter state (AC: #1, #3)
   - [ ] Import and call `useNearbyFilter()` in `FeedContent` (`apps/web/src/app/[locale]/feed/feed-content.tsx`), relative import `../use-nearby-filter`.
   - [ ] Replace the hardcoded `isAuthenticated={false}` / `isLoadingLocations={false}` / `locationsError={false}` / `savedLocations={[]}` / `selectedValue="off"` / `radiusKm={10}` / `isCapturingCurrentLocation={false}` / `currentLocationError={null}` / `onSelectLocation={() => {}}` / `onRadiusChange={() => {}}` props on `EventDiscoveryPanel` with the corresponding `nearbyFilter.*` values.
   - [ ] Add `resolvedNearby = nearbyFilter.resolvedFilter` to the `useInfiniteQuery` queryKey and to `queryCondition`'s memo dependency array; pass it into `buildFeedQueryCondition`.
-- [ ] Task 2: Extend `buildFeedQueryCondition` to accept and forward `nearby` (AC: #2, #10)
+- [x] Task 2: Extend `buildFeedQueryCondition` to accept and forward `nearby` (AC: #2, #10)
   - [ ] Add `nearby?: NearbyFilterInput` to `BuildFeedQueryConditionInput` (`packages/domain/src/events/buildFeedQueryCondition.ts`), importing the type from `./buildEventsQueryCondition.js` (already exported there).
   - [ ] Forward `nearby` into the `buildEventsQueryCondition({ search, types, categories, nearby })` call in the `else` (non-AI-filter) branch only; leave the `filter`-set branch untouched.
   - [ ] Extend `buildFeedQueryCondition.test.ts` with cases covering both branches (`nearby` forwarded when no AI filter is active; `nearby` ignored when an AI filter is active), keeping the file at 100% coverage.
-- [ ] Task 3: Wire Favorites to real nearby-filter and AI-filter state (AC: #4, #5)
+- [x] Task 3: Wire Favorites to real nearby-filter and AI-filter state (AC: #4, #5)
   - [ ] Import and call `useNearbyFilter()` (relative import `../use-nearby-filter`) and `useAIFilter()` (`@/features/events/use-ai-filter`) in `FavoritesContent` (`apps/web/src/app/[locale]/favorites/favorites-content.tsx`).
   - [ ] Add `AIFilterOverlay`, `BlockingLoader` to the existing `@festgrid/ui` import list.
   - [ ] Replace the hardcoded location props on `EventDiscoveryPanel` (same set as Task 1) with `nearbyFilter.*` values; add `showAITrigger` / `onAITriggerClick` / `aiFilterSummary` / `aiCaveatsText` / `onAIClear` / `onAIExpand` from `aiFilter.filterHubProps`.
   - [ ] Render `<AIFilterOverlay {...aiFilter.overlayProps} />` and `<BlockingLoader active={aiFilter.isLoading} />` before the closing `</PageContainer>`.
   - [ ] Add `aiTriggerTooltip: tFilterHub('aiTriggerTooltip')`, `aiClearLabel: tFilterHub('aiClearLabel')`, `aiExpandLabel: tFilterHub('aiExpandLabel')` to Favorites' `filterLabels` memo.
-- [ ] Task 4: Extend `buildFavoritesQueryCondition` and Favorites' query keys (AC: #6, #7)
+- [x] Task 4: Extend `buildFavoritesQueryCondition` and Favorites' query keys (AC: #6, #7)
   - [ ] Add a `nearby?: NearbyFilterInput` parameter to the local `buildFavoritesQueryCondition` helper; branch `dynamicQuery` the same way `buildFeedQueryCondition` does (`filter ? buildEventsQueryCondition({filter}) : buildEventsQueryCondition({search, types, categories, nearby})`), always AND-ing `isFavorited: true`.
   - [ ] Pass `aiFilter.activeFilter` and `nearbyFilter.resolvedFilter` into every call site of `buildFavoritesQueryCondition`/inline `buildEventsQueryCondition` in this file (the `idSnapshotData` query's `favoritesQuery` memo, and the paginated `favoriteEvents` queryFn's `filterCondition` construction).
   - [ ] Add both resolved values to the `["favoriteIds", ...]` and `["favoriteEvents", ...]` queryKeys.
-- [ ] Task 5: Update existing tests for the new wiring (AC: #9, #10)
+- [x] Task 5: Update existing tests for the new wiring (AC: #9, #10)
   - [ ] Update `feed-content.test.tsx` and `favorites-content.test.tsx` assertions/mocks that currently exercise or assert on the hardcoded `isAuthenticated=false`/`savedLocations=[]` props, following `home-content.test.tsx`'s existing pattern for exercising `useNearbyFilter()`/`useAIFilter()` under the shared in-memory `nuqs` mock (no bespoke mocking of `useNearbyFilter`/`useAIFilter` needed beyond what the existing `@/lib/graphql-client` and `nuqs` mocks already provide — confirm this holds for Favorites' newly-added hook calls, since `favorites-content.test.tsx` did not previously exercise either hook).
   - [ ] Add coverage confirming Feed's and Favorites' location popover and AI trigger now render under the same conditions Discovery's does (i.e. no longer permanently absent).
   - [ ] Run `pnpm --filter @festgrid/domain test`, `pnpm --filter web test` (or this repo's equivalent test commands) and confirm green.
-- [ ] Task 6: Lint and type-check touched packages (AC: all)
+- [x] Task 6: Lint and type-check touched packages (AC: all)
   - [ ] `pnpm --filter @festgrid/domain lint && pnpm --filter @festgrid/domain typecheck` (or repo-equivalent).
   - [ ] `pnpm --filter web lint && pnpm --filter web typecheck` (or repo-equivalent).
 
@@ -129,17 +129,17 @@ so that I get one consistent filtering experience across Discovery, Feed, and Fa
 
 ## Testing Requirements
 
-- [ ] Integration tests (`feed-content.test.tsx`, `favorites-content.test.tsx`) updated for real hook wiring
-- [ ] Unit tests (`buildFeedQueryCondition.test.ts`) at 100% coverage including new `nearby` branches
-- [ ] E2E tests: not required — this is an existing-page prop-wiring + query-condition fix, no new user flow; covered by the "testing trophy" integration-test tier per `project-context.md`'s Testing Rules
+- [x] Integration tests (`feed-content.test.tsx`, `favorites-content.test.tsx`) updated for real hook wiring
+- [x] Unit tests (`buildFeedQueryCondition.test.ts`) at 100% coverage including new `nearby` branches
+- [x] E2E tests: not required — this is an existing-page prop-wiring + query-condition fix, no new user flow; covered by the "testing trophy" integration-test tier per `project-context.md`'s Testing Rules
 
 ## Deliverables Checklist
 
-- [ ] `FeedContent` renders the location popover and AI trigger identically to Discovery
-- [ ] `FavoritesContent` renders the location popover and AI trigger identically to Discovery (both previously entirely absent)
-- [ ] Selecting a location filter on Feed or Favorites actually narrows results (query-condition builders extended)
-- [ ] Selecting an AI filter on Favorites actually replaces results (previously impossible — no `useAIFilter()` call existed)
-- [ ] All updated/added tests green; lint and typecheck clean for `apps/web` and `packages/domain`
+- [x] `FeedContent` renders the location popover and AI trigger identically to Discovery
+- [x] `FavoritesContent` renders the location popover and AI trigger identically to Discovery (both previously entirely absent)
+- [x] Selecting a location filter on Feed or Favorites actually narrows results (query-condition builders extended)
+- [x] Selecting an AI filter on Favorites actually replaces results (previously impossible — no `useAIFilter()` call existed)
+- [x] All updated/added tests green; lint and typecheck clean for `apps/web` and `packages/domain`
 
 ## Out of Scope
 
@@ -150,22 +150,35 @@ so that I get one consistent filtering experience across Discovery, Feed, and Fa
 
 ## Definition of Done
 
-- [ ] All Acceptance Criteria satisfied
-- [ ] Required tests passing (`packages/domain` unit tests at 100% coverage for touched code; `apps/web` integration tests for both pages)
-- [ ] Lint and type checks passing for `apps/web` and `packages/domain`
+- [x] All Acceptance Criteria satisfied
+- [x] Required tests passing (`packages/domain` unit tests at 100% coverage for touched code; `apps/web` integration tests for both pages)
+- [x] Lint and type checks passing for `apps/web` and `packages/domain`
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Implemented and verified 2026-09-20 (dev + review handoff). All Tasks 1-6 complete; status moved to `review` in `sprint-status.yaml`.
+  - Tasks 1-4 (Feed/Favorites wiring of `useNearbyFilter`/`useAIFilter`, plus `buildFeedQueryCondition`/`buildFavoritesQueryCondition` forwards) implemented in the uncommitted working tree.
+  - Task 5 (test fix): the four failing assertions in `feed-content.test.tsx` / `favorites-content.test.tsx` were resolved. Root cause traced to the nearby-location trigger rendering `Nearby · 5 km` (active-radius suffix) rather than exactly `Nearby`, so the exact-string `getByText('Nearby')` matcher failed. Fixed by tightening to `getByText(/Nearby/)` in both files; the `Filter with AI` role assertions already matched.
+  - Task 6 verification: `pnpm --filter domain test` 326 pass/0 fail; `pnpm --filter web test` 70 files/485 tests pass; domain + web lint clean; `pnpm --filter web build` succeeds (had to rebuild `packages/domain` `dist` first — its `buildFeedQueryCondition.d.ts` was stale and missing the new `nearby` field).
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Cline (AI coding agent) — completion of Story 1.3l Task 5/6 + review handoff (2026-09-20).
 
 ### Debug Log References
 
+- `apps/web/src/app/[locale]/feed/feed-content.test.tsx` — `getByText('Nearby')` failure (element text was `Nearby · 5 km`).
+- Diagnostic render confirmed the location trigger and `Filter with AI` button are both present in the authenticated feed (no `Show filters` click required — the filter row renders in jsdom).
+
 ### Completion Notes List
 
+- The `Show filters` collapse hypothesis from earlier triage was disproven: the filter row (Type/Category/Nearby/AI) is present in the DOM; only the exact text match was wrong.
+- Web build initially failed with `'nearby' does not exist in type 'BuildFeedQueryConditionInput'` because `packages/domain/dist` was stale; running `pnpm --filter domain build` regenerated the `.d.ts` and unblocked the build.
+
 ### File List
+
+- Edited to fix failing tests: `apps/web/src/app/[locale]/feed/feed-content.test.tsx`, `apps/web/src/app/[locale]/favorites/favorites-content.test.tsx` (changed `getByText('Nearby')` → `getByText(/Nearby/)`).
+- Story implementation (already in working tree): `apps/web/src/app/[locale]/feed/feed-content.tsx`, `apps/web/src/app/[locale]/favorites/favorites-content.tsx`, `packages/domain/src/events/buildFeedQueryCondition.ts`, `packages/domain/src/events/buildFeedQueryCondition.test.ts`.
+- Rebuilt (build artifact): `packages/domain/dist/**`.

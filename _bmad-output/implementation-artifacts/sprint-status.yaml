@@ -640,7 +640,11 @@ development_status:
   # event_card_repeat_badge across all 3 card families. See epics.md Story 1.3k.
   1-3k-render-day-of-week-recurring-schedules-and-repeat-badge: ready-for-dev
   # added 2026-09-19 via bmad-create-story (BUG-025). See epics.md Story 1.3l.
-  1-3l-wire-feed-and-favorites-to-real-auth-location-and-ai-filter-state: ready-for-dev
+  # Implemented + verified 2026-09-20 (cline): Tasks 1-6 complete. Feed/Favorites now
+  # wire useNearbyFilter/useAIFilter; buildFeedQueryCondition/buildFavoritesQueryCondition
+  # forward `nearby`. Tests green (domain 326/326, web 485/485), lint clean, web build OK
+  # (required rebuilding packages/domain dist -- its d.ts was stale for the new `nearby` field).
+  1-3l-wire-feed-and-favorites-to-real-auth-location-and-ai-filter-state: review
   # Reopened 2026-08-24 via bmad-create-story: added AC9/Task 7 -- root
   # container drops its max-w-7xl cap in favor of full width
   # (ux-rework-2026-08-24.md item #1, missed by the original bmad-correct-

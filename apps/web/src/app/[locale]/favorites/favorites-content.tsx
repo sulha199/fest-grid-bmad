@@ -8,6 +8,8 @@ import {
   useInfiniteScroll,
   EventDiscoveryPanel,
   PageContainer,
+  AIFilterOverlay,
+  BlockingLoader,
 } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
@@ -25,7 +27,9 @@ import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
-import { buildEventsQueryCondition } from "@festgrid/domain/events"
+import { buildEventsQueryCondition, EventFilterInput, NearbyFilterInput } from "@festgrid/domain/events"
+import { useAIFilter } from "@/features/events/use-ai-filter"
+import { useNearbyFilter } from "../use-nearby-filter"
 
 const PAGE_SIZE = 10
 
@@ -44,9 +48,13 @@ function buildEnumLabels(values: string[], translate: (key: string) => string) {
 function buildFavoritesQueryCondition(
   q: string,
   types: string[],
-  categories: string[]
+  categories: string[],
+  filter?: EventFilterInput | null,
+  nearby?: NearbyFilterInput
 ): EventQueryConditionInput {
-  const dynamicQuery = buildEventsQueryCondition({ search: q, types, categories }) as
+  const dynamicQuery = (filter
+    ? buildEventsQueryCondition({ filter })
+    : buildEventsQueryCondition({ search: q, types, categories, nearby })) as
     | EventQueryConditionInput
     | undefined
 
@@ -84,6 +92,9 @@ export function FavoritesContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { session, isLoading } = useAuthSession()
+  const aiFilter = useAIFilter()
+  const nearbyFilter = useNearbyFilter()
+  const resolvedNearby = nearbyFilter.resolvedFilter
   const [unfavoritedIds, setUnfavoritedIds] = useState<Set<string>>(new Set())
   const { mutateAsync: toggleFavoriteAsync } = useToggleFavoriteMutation(graphqlClient)
   const queryClient = useQueryClient()
@@ -99,6 +110,9 @@ export function FavoritesContent() {
       typeLabel: tFilterHub("typeLabel"),
       categoryLabel: tFilterHub("categoryLabel"),
       clearLabel: tFilterHub("clearLabel"),
+      aiTriggerTooltip: tFilterHub("aiTriggerTooltip"),
+      aiClearLabel: tFilterHub("aiClearLabel"),
+      aiExpandLabel: tFilterHub("aiExpandLabel"),
       locationFilterLabels: {
         filterLabel: tNearby("filterLabel"),
         offOptionLabel: tNearby("offOptionLabel"),
@@ -134,8 +148,9 @@ export function FavoritesContent() {
   )
 
   const favoritesQuery = useMemo(
-    () => buildFavoritesQueryCondition(q, types, categories),
-    [q, types, categories]
+    () =>
+      buildFavoritesQueryCondition(q, types, categories, aiFilter.activeFilter ?? undefined, resolvedNearby),
+    [q, types, categories, aiFilter.activeFilter, resolvedNearby]
   )
 
   // AC1: do not fetch any data if user is unauthenticated.
@@ -146,8 +161,8 @@ export function FavoritesContent() {
   }, [isLoading, session, router])
 
   const snapshotQueryKey = useMemo(
-    () => JSON.stringify({ q, types, categories }),
-    [q, types, categories]
+    () => JSON.stringify({ q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }),
+    [q, types, categories, aiFilter.activeFilter, resolvedNearby]
   )
   const previousSnapshotKeyRef = useRef(snapshotQueryKey)
 
@@ -165,7 +180,7 @@ export function FavoritesContent() {
     status: idSnapshotStatus,
     error: idSnapshotError,
   } = useQuery<GetFavoritedEventIdsQuery, Error>({
-    queryKey: ["favoriteIds", { q, types, categories }],
+    queryKey: ["favoriteIds", { q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }],
     queryFn: async () => {
       return graphqlClient.request<GetFavoritedEventIdsQuery>(GetFavoritedEventIdsDocument, {
         query: favoritesQuery,
@@ -205,7 +220,7 @@ export function FavoritesContent() {
     status,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["favoriteEvents", { ids: frozenIds, q, types, categories }],
+    queryKey: ["favoriteEvents", { ids: frozenIds, q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }],
     queryFn: async ({ pageParam }) => {
       const start = pageParam as number
       const batchIds = frozenIds.slice(start, start + PAGE_SIZE)
@@ -226,7 +241,9 @@ export function FavoritesContent() {
         value: batchIds,
       }]
 
-      const filterCondition = buildEventsQueryCondition({ search: q, types, categories }) as
+      const filterCondition = (aiFilter.activeFilter
+        ? buildEventsQueryCondition({ filter: aiFilter.activeFilter })
+        : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby })) as
         | EventQueryConditionInput
         | undefined
 
@@ -311,16 +328,22 @@ export function FavoritesContent() {
         filterLabels={filterLabels}
         types={typesOptions}
         categories={categoriesOptions}
-        isAuthenticated={false}
-        isLoadingLocations={false}
-        locationsError={false}
-        savedLocations={[]}
-        selectedValue="off"
-        radiusKm={10}
-        isCapturingCurrentLocation={false}
-        currentLocationError={null}
-        onSelectLocation={() => {}}
-        onRadiusChange={() => {}}
+        isAuthenticated={nearbyFilter.isAuthenticated}
+        isLoadingLocations={nearbyFilter.isLoadingLocations}
+        locationsError={nearbyFilter.locationsError}
+        savedLocations={nearbyFilter.savedLocations}
+        selectedValue={nearbyFilter.selectedValue}
+        radiusKm={nearbyFilter.radiusKm}
+        isCapturingCurrentLocation={nearbyFilter.isCapturingCurrentLocation}
+        currentLocationError={nearbyFilter.currentLocationError}
+        onSelectLocation={nearbyFilter.onSelectLocation}
+        onRadiusChange={nearbyFilter.onRadiusChange}
+        showAITrigger={aiFilter.filterHubProps.showAITrigger}
+        onAITriggerClick={aiFilter.filterHubProps.onAITriggerClick}
+        aiFilterSummary={aiFilter.filterHubProps.aiFilterSummary}
+        aiCaveatsText={aiFilter.filterHubProps.aiCaveatsText}
+        onAIClear={aiFilter.filterHubProps.onAIClear}
+        onAIExpand={aiFilter.filterHubProps.onAIExpand}
         views={[
           {
             id: "card",
@@ -468,6 +491,8 @@ export function FavoritesContent() {
         ]}
       />
 
+      <AIFilterOverlay {...aiFilter.overlayProps} />
+      <BlockingLoader active={aiFilter.isLoading} />
     </PageContainer>
   )
 }

@@ -16,6 +16,7 @@ import { buildFeedQueryCondition } from "@festgrid/domain/events";
 import { FeedCalendarView } from "./FeedCalendarView";
 import { SubscriptionPicker } from "@festgrid/ui";
 import { useAIFilter } from "@/features/events/use-ai-filter";
+import { useNearbyFilter } from "../use-nearby-filter";
 
 function buildEnumLabels(values: string[], translate: (key: string) => string) {
   return Object.fromEntries(
@@ -41,6 +42,7 @@ export function FeedContent() {
   const { session, isLoading } = useAuthSession();
   const queryClient = useQueryClient();
   const aiFilter = useAIFilter();
+  const nearbyFilter = useNearbyFilter();
 
   const [q, setQ] = useQueryState("q", parseAsString.withDefault(""));
   const [types] = useQueryState("types", parseAsArrayOf(parseAsString).withDefault([]));
@@ -116,15 +118,18 @@ export function FeedContent() {
     [categoryLabels]
   );
 
+  const resolvedNearby = nearbyFilter.resolvedFilter;
+
   const queryCondition = useMemo(() => {
     return buildFeedQueryCondition({
       search: q,
       types,
       categories,
       subscriptions: subscriptionsQuery,
+      nearby: resolvedNearby,
       filter: aiFilter.activeFilter ?? undefined,
     });
-  }, [q, types, categories, subscriptionsQuery, aiFilter.activeFilter]);
+  }, [q, types, categories, subscriptionsQuery, resolvedNearby, aiFilter.activeFilter]);
 
   const {
     data,
@@ -134,7 +139,7 @@ export function FeedContent() {
     status: listStatus,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, aiFilter: aiFilter.activeFilter }],
+    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
@@ -239,16 +244,16 @@ export function FeedContent() {
         filterLabels={filterLabels}
         types={typesOptions}
         categories={categoriesOptions}
-        isAuthenticated={false}
-        isLoadingLocations={false}
-        locationsError={false}
-        savedLocations={[]}
-        selectedValue="off"
-        radiusKm={10}
-        isCapturingCurrentLocation={false}
-        currentLocationError={null}
-        onSelectLocation={() => {}}
-        onRadiusChange={() => {}}
+        isAuthenticated={nearbyFilter.isAuthenticated}
+        isLoadingLocations={nearbyFilter.isLoadingLocations}
+        locationsError={nearbyFilter.locationsError}
+        savedLocations={nearbyFilter.savedLocations}
+        selectedValue={nearbyFilter.selectedValue}
+        radiusKm={nearbyFilter.radiusKm}
+        isCapturingCurrentLocation={nearbyFilter.isCapturingCurrentLocation}
+        currentLocationError={nearbyFilter.currentLocationError}
+        onSelectLocation={nearbyFilter.onSelectLocation}
+        onRadiusChange={nearbyFilter.onRadiusChange}
         showAITrigger={aiFilter.filterHubProps.showAITrigger}
         onAITriggerClick={aiFilter.filterHubProps.onAITriggerClick}
         aiFilterSummary={aiFilter.filterHubProps.aiFilterSummary}
