@@ -165,7 +165,7 @@ test('submitCorrection resolver integration', async (t) => {
     });
 
     const result = await response.json();
-    assert.ok(!result.errors);
+    assert.ok(!result.errors, JSON.stringify(result.errors));
     assert.strictEqual(result.data.submitCorrection.status, 'rejected');
     const errors = result.data.submitCorrection.validationErrors;
     assert.ok(errors.some((e: any) => e.field === 'eventName'));
@@ -206,7 +206,7 @@ test('submitCorrection resolver integration', async (t) => {
     });
 
     const result = await response.json();
-    assert.ok(!result.errors);
+    assert.ok(!result.errors, JSON.stringify(result.errors));
     assert.strictEqual(result.data.submitCorrection.status, 'rejected');
     const errors = result.data.submitCorrection.validationErrors;
     assert.ok(errors.some((e: any) => e.field === 'schedules[0].eventEndDate'));
@@ -248,7 +248,7 @@ test('submitCorrection resolver integration', async (t) => {
     });
 
     const result = await response.json();
-    assert.ok(!result.errors);
+    assert.ok(!result.errors, JSON.stringify(result.errors));
     assert.strictEqual(result.data.submitCorrection.status, 'rejected');
     const errors = result.data.submitCorrection.validationErrors;
     assert.ok(errors.some((e: any) => e.field === 'schedules[0].id'));
@@ -300,7 +300,7 @@ test('submitCorrection resolver integration', async (t) => {
     });
 
     const result = await response.json();
-    assert.ok(!result.errors);
+    assert.ok(!result.errors, JSON.stringify(result.errors));
     assert.strictEqual(result.data.submitCorrection.status, 'applied');
     assert.deepEqual(result.data.submitCorrection.validationErrors, []);
 
@@ -359,7 +359,7 @@ test('submitCorrection resolver integration', async (t) => {
     });
 
     const result = await response.json();
-    assert.ok(!result.errors);
+    assert.ok(!result.errors, JSON.stringify(result.errors));
     assert.strictEqual(result.data.submitCorrection.status, 'awaiting_verification');
     assert.strictEqual(result.data.submitCorrection.guardianPermissionConfirmed, true);
     assert.deepEqual(result.data.submitCorrection.validationErrors, []);
@@ -420,7 +420,7 @@ test('submitCorrection resolver integration', async (t) => {
     });
 
     const result = await response.json();
-    assert.ok(!result.errors);
+    assert.ok(!result.errors, JSON.stringify(result.errors));
     assert.strictEqual(result.data.submitCorrection.status, 'applied');
     assert.strictEqual(result.data.submitCorrection.guardianPermissionConfirmed, false);
 
