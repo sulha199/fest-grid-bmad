@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-20T00:53:35Z
+last_updated: 2026-09-20T01:17:11Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -291,7 +291,7 @@ development_status:
   # 1-i1f's own badge only implements the "active filter location" branch; the badge is
   # simply omitted (not an error) when no filter is active. See epics.md Story 0.39 and
   # backlog.yaml IDEA-040.
-  0-39-ambient-viewer-location-capability: ready-for-dev
+  0-39-ambient-viewer-location-capability: review
   # Sourced from backlog.yaml FIND-034 via bmad-create-story. Settled design (stage-gate
   # dev/staging ESM default-off + prod scheduled 5-min poll-and-drain) already agreed with
   # the user in the backlog note; this story formalized it into ACs, ran Gate 1/2/3 fresh

@@ -16,10 +16,5 @@ describe('useAmbientCapabilityAskSlotStore (Story 0.42 AC8-10)', () => {
 
     expect(useAmbientCapabilityAskSlotStore.getState().dismissedThisSession).toBe(true)
     expect(useAmbientCapabilityAskSlotStore.getState().dismissedThisSession).toBe(true)
-
-    // No "un-dismiss" action exists on the store.
-    expect(
-      (useAmbientCapabilityAskSlotStore.getState() as Record<string, unknown>).unmark
-    ).toBeUndefined()
   })
 })

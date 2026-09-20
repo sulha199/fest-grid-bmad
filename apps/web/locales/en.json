@@ -514,6 +514,12 @@
     "locationsErrorLabel": "Couldn't load your saved locations.",
     "noSavedLocationsHint": "Save a location in My Locations to filter by a specific place."
   },
+  "AmbientLocationBanner": {
+    "message": "Enable your location to see how far away events are.",
+    "enableButtonLabel": "Enable nearby distances",
+    "notNowButtonLabel": "Not now",
+    "remindLaterButtonLabel": "Remind me in 2 weeks"
+  },
   "UserMenu": {
     "profile": "Profile",
     "locations": "Locations",

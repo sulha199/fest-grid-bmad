@@ -514,6 +514,12 @@
     "locationsErrorLabel": "Gagal memuat lokasi tersimpan Anda.",
     "noSavedLocationsHint": "Simpan lokasi di Lokasi Saya untuk memfilter berdasarkan tempat tertentu."
   },
+  "AmbientLocationBanner": {
+    "message": "Aktifkan lokasi Anda untuk melihat seberapa jauh jarak acara.",
+    "enableButtonLabel": "Aktifkan jarak terdekat",
+    "notNowButtonLabel": "Nanti saja",
+    "remindLaterButtonLabel": "Ingatkan saya dalam 2 minggu"
+  },
   "UserMenu": {
     "profile": "Profil",
     "locations": "Lokasi",

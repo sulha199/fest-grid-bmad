@@ -32,17 +32,13 @@ vi.mock('@festgrid/analytics', () => ({
   }),
 }));
 
-vi.mock('@festgrid/ui', async () => {
-  const actual = await vi.importActual<any>('@festgrid/ui');
-  return {
-    ...actual,
-    useCurrentLocationCapture: () => ({
-      isAvailable: true,
-      isCapturing: false,
-      capture: mockCaptureGeo,
-    }),
-  };
-});
+vi.mock('@/lib/hooks/useViewerLocation', () => ({
+  useViewerLocation: () => ({
+    isAvailable: true,
+    isCapturing: false,
+    captureExplicit: mockCaptureGeo,
+  }),
+}));
 
 import { SetDefaultLocationDialog } from './set-default-location-dialog';
 

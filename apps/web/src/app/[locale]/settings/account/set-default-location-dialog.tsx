@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { BlockingLoader, useDebounce, useCurrentLocationCapture, type GeolocationCaptureError, LocationPickerField } from "@festgrid/ui"
+import { BlockingLoader, useDebounce, type GeolocationCaptureError, LocationPickerField } from "@festgrid/ui"
+import { useViewerLocation } from "@/lib/hooks/useViewerLocation"
 import { graphqlClient } from "@/lib/graphql-client"
 import {
   useSetAccountDefaultLocationMutation,
@@ -63,12 +64,12 @@ export function SetDefaultLocationDialog({ accountId, isOpen, onClose, mode = "s
 
   const debouncedSearch = useDebounce(addressSearch, 300)
 
-  // Geolocation Hook
+  // Geolocation Hook — Story 0.39: shared source, always a fresh capture via captureExplicit
   const {
     isAvailable: isGeoAvailable,
     isCapturing: isGeoCapturing,
-    capture: captureGeo,
-  } = useCurrentLocationCapture()
+    captureExplicit: captureGeo,
+  } = useViewerLocation()
 
   // Autocomplete Query
   const { data: autocompleteData, isLoading: isAutocompleteLoading } = useAddressAutocompleteQuery(

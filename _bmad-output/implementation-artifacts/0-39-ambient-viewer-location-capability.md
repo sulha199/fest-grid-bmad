@@ -8,7 +8,7 @@ baseline_commit: b9d8f1fa6f9b471547a869aafdab3f283be8b72f
 
 - Epic: 0
 - Story ID: 0.39
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -233,89 +233,97 @@ same underlying browser capability.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Viewer-location Zustand store and permission-status tracking (AC: #1, #2)
-  - [ ] 1.1 Create `apps/web/src/lib/state/viewer-location-store.ts` exporting
-        `useViewerLocationStore` (AD-4-compliant interface: `{ coordinate:
-        {latitude,longitude} | null; capturedAt: number | null; permissionStatus:
-        'granted' | 'denied' | 'prompt' | 'unsupported'; setCoordinate: (...) => void;
-        setPermissionStatus: (...) => void }`)
-  - [ ] 1.2 Create `apps/web/src/lib/location/query-geolocation-permission.ts` exporting
-        `queryGeolocationPermissionStatus()` -- wraps `navigator.permissions.query({name:
-        'geolocation'})`, degrades to `'unsupported'` on throw/unavailable, and a
-        `subscribeToGeolocationPermissionChanges(onChange)` helper wiring the returned
-        `PermissionStatus`'s `change` event
-  - [ ] 1.3 Add a module-level guard so the permission query + change-subscription happens
-        at most once regardless of how many components call `useViewerLocation()` (Task 3)
-  - [ ] 1.4 Add `query-geolocation-permission.test.ts`: covers granted/denied/prompt
-        results, the unsupported/throw degrade path, and the change-event subscription
-        firing a store update
-- [ ] Task 2: Dismiss/cooldown localStorage helpers (AC: #9)
-  - [ ] 2.1 Create `apps/web/src/lib/location/viewer-location-storage.ts` exporting
+- [x] Task 1: Viewer-location Zustand store and permission-status tracking (AC: #1, #2)
+  - [x] 1.1 Created `apps/web/src/lib/state/viewer-location-store.ts` exporting
+        `useViewerLocationStore` (AD-4-compliant interface: `coordinate`, `capturedAt`,
+        `permissionStatus`, `setCoordinate`, `setPermissionStatus`).
+  - [x] 1.2 Created `apps/web/src/lib/location/query-geolocation-permission.ts` exporting
+        `queryGeolocationPermissionStatus()` and `subscribeToGeolocationPermissionChanges(onChange)`,
+        both degrading to `'unsupported'` on throw/unavailable, never throwing.
+  - [x] 1.3 Added the module-level guard (`permissionQueryStarted`, in `useViewerLocation.ts`
+        — the file that actually composes the query into the hook multiple components call)
+        so the permission query + change-subscription runs at most once.
+  - [x] 1.4 Added `query-geolocation-permission.test.ts` (10 tests): granted/denied/prompt,
+        the unsupported/throw degrade path (both functions), and the change-event
+        subscription firing `onChange` with the updated status.
+- [x] Task 2: Dismiss/cooldown localStorage helpers (AC: #9)
+  - [x] 2.1 Created `apps/web/src/lib/location/viewer-location-storage.ts` exporting
         `isPermanentlyDismissed()`, `dismissPermanently()`, `getRemindCooldownExpiry()`,
-        `startRemindCooldown()` -- each wrapped in try/catch degrading per AC9, mirroring
-        Story 0.38a's `pwa-install-storage.ts` structure exactly (same function shapes,
-        same degrade contract)
-  - [ ] 2.2 Add `viewer-location-storage.test.ts` covering every AC9 branch including the
-        storage-throws degrade path via a mocked `localStorage` that throws
-- [ ] Task 3: The composed `useViewerLocation()` hook (AC: #3, #4, #5, #10)
-  - [ ] 3.1 Create `apps/web/src/lib/hooks/useViewerLocation.ts` composing Tasks 1-2 plus
+        `startRemindCooldown()`, each degrading per AC9 (no existing `pwa-install-storage.ts`
+        to mirror — 0.38a is unimplemented — so this story's own shape is the first
+        real precedent; documented as such in its own header comment).
+  - [x] 2.2 Added `viewer-location-storage.test.ts` (12 tests) covering every AC9 branch
+        including a throwing-`localStorage` degrade path for all four functions.
+- [x] Task 3: The composed `useViewerLocation()` hook (AC: #3, #4, #5, #10)
+  - [x] 3.1 Created `apps/web/src/lib/hooks/useViewerLocation.ts` composing Tasks 1-2 plus
         the existing `useCurrentLocationCapture()` (`@festgrid/ui`) into: `coordinate`,
         `permissionStatus`, `canShowAmbientAsk`, `captureAmbient()`, `captureExplicit()`,
-        `dismissPermanently()`, `remindLater()`
-  - [ ] 3.2 Implement AC3's silent-capture-when-granted path (`captureAmbient()` internal
-        use) and AC10's `captureExplicit()` contract (always forces a fresh
-        `getCurrentPosition` call, updates the shared store)
-  - [ ] 3.3 Add `useViewerLocation.test.ts` using `@testing-library/react`'s `renderHook`
-        (+ `act`), per this codebase's existing hook-testing convention (see
-        `useCurrentLocationCapture.test.ts`, `usePwaInstallPrompt.test.ts`): cover
+        `dismissPermanently()`, `remindLater()` — plus `isAvailable`/`isCapturing`/`error`
+        forwarded from the underlying capture primitive (see Data Type Compatibility note
+        below: a necessary superset of the documented contract, not a deviation from it).
+  - [x] 3.2 Implemented AC3's silent-capture-when-granted path and AC10's
+        `captureExplicit()` contract (always forces a fresh `getCurrentPosition` call).
+  - [x] 3.3 Added `useViewerLocation.test.ts` (13 tests) via `renderHook` with
+        `vi.resetModules()` per test (to isolate the module-level guard/store):
         granted/denied/prompt/unsupported branches, `captureAmbient()` vs
-        `captureExplicit()`'s distinct cache-bypass behavior, and dismiss/cooldown wiring
-- [ ] Task 4: Migrate the three existing consumers (AC: #10, #11, #12)
-  - [ ] 4.1 `apps/web/src/app/[locale]/use-nearby-filter.ts`: replace the local
-        `useCurrentLocationCapture()` call with `useViewerLocation()`'s `captureExplicit`
-        in `handleSelectLocation`'s `"current"` branch; remove or reconcile the now-partly-
-        redundant local `adHocCoords` state with the shared store per AC12 (confirm at
-        implementation time whether `adHocCoords` can be fully removed in favor of reading
-        `useViewerLocation().coordinate`, or must stay as this hook's own
-        `nuqs`/URL-state-adjacent snapshot -- do not silently change `resolvedFilter`'s
-        existing DSL-shape output)
-  - [ ] 4.2 `set-default-location-dialog.tsx`: swap `useCurrentLocationCapture()` for
-        `useViewerLocation()`'s `captureExplicit`; update
-        `set-default-location-dialog.test.tsx`'s mock from `@festgrid/ui`'s
-        `useCurrentLocationCapture` to the new `apps/web/src/lib/hooks/useViewerLocation`
-        module
-  - [ ] 4.3 `location-form-dialog.tsx`: same swap; update
-        `location-form-dialog.test.tsx`'s mock identically
-  - [ ] 4.4 Re-run all three consumers' existing test suites, confirming zero behavioral
-        regression (same error branching, same disabled-state logic, same analytics calls)
-- [ ] Task 5: `AmbientLocationBanner` component and slot wiring (AC: #6, #7, #8, #13) --
-      **depends on Story 0.42 being done**
-  - [ ] 5.1 Create `packages/ui/src/core/AmbientLocationBanner.tsx` implementing
+        `captureExplicit()`'s distinct cache-bypass behavior, AC3's silent self-capture, and
+        `canShowAmbientAsk`/dismiss/cooldown wiring.
+- [x] Task 4: Migrate the three existing consumers (AC: #10, #11, #12)
+  - [x] 4.1 `use-nearby-filter.ts`: replaced `useCurrentLocationCapture()` with
+        `useViewerLocation()`'s `captureExplicit`/`coordinate`. **`adHocCoords` was fully
+        removed** in favor of reading `useViewerLocation().coordinate` directly (resolved
+        the Task's own open question) — this also fixes the pre-existing "resets on
+        remount" duplication (AC12) as a direct side effect, with zero change to
+        `resolvedFilter`'s DSL-shape output (only its coordinate *source* changed).
+  - [x] 4.2 `set-default-location-dialog.tsx`: swapped `useCurrentLocationCapture()` for
+        `useViewerLocation()`'s `captureExplicit` (renamed to local `captureGeo`, zero other
+        line changes); updated its test's mock target to `@/lib/hooks/useViewerLocation`.
+  - [x] 4.3 `location-form-dialog.tsx`: identical swap. Its own test file needed **no** mock
+        changes — it exercises the real hook chain against a stubbed `navigator.geolocation`
+        already, and `captureExplicit()` always bypasses any cached/shared state.
+  - [x] 4.4 Re-ran all three consumers' existing test suites: `location-form-dialog.test.tsx`
+        12/12, `set-default-location-dialog.test.tsx` 3/3, and `use-nearby-filter.ts`'s own
+        suite (`nearby.test.tsx`) 14/14 — zero behavioral regression (same error branching,
+        same disabled-state logic, same analytics calls). One test's own title/assertion in
+        `nearby.test.tsx` was corrected, not regressed — see Debug Log References.
+- [x] Task 5: `AmbientLocationBanner` component and slot wiring (AC: #6, #7, #8, #13) —
+      Story 0.42 completed first as its prerequisite.
+  - [x] 5.1 Created `packages/ui/src/core/AmbientLocationBanner.tsx` implementing
         `ambient_location_banner` DESIGN.md tokens via Story 0.42's shared
-        `ambient-capability-banner-tokens.ts`; props-only (`onEnableClick`,
-        `onDismissPermanent`, `onRemindLater`, `isPending`, copy strings)
-  - [ ] 5.2 Add `AmbientLocationBanner.test.tsx`: renders with correct button
-        labels/order; each callback fires on its respective control; pending state
-        disables the primary action; hidden entirely when not rendered by the parent
-        (presentational only, per AC7)
-  - [ ] 5.3 Wire `AppShellWrapper.tsx`: call `useViewerLocation()`, register `{ id:
-        'location', canShow: canShowAmbientAsk }` with Story 0.42's
-        `useAmbientCapabilityAskSlot()` at higher priority than the `'pwa-install'`
-        participant (Story 0.38), and render `AmbientLocationBanner` when `'location'`
-        wins, wiring `onEnableClick`→`captureExplicit()` (unmount handled by AC7's
-        `permissionStatus` transition, not by this callback), `onDismissPermanent`/
-        `onRemindLater`→the dual-call pattern from AC8
-- [ ] Task 6: Analytics (AC: #14)
-  - [ ] 6.1 Add the four new `capturePostHogEvent`/`posthog.capture` call sites listed in
-        AC14 at the correct interaction points in `AppShellWrapper.tsx`
-- [ ] Task 7: i18n (AC: #15)
-  - [ ] 7.1 Add the new `AmbientLocationBanner` namespace with all required keys to both
-        `apps/web/locales/en.json` and `apps/web/locales/id.json`
-- [ ] Task 8: Full-suite verification (AC: #1-#15)
-  - [ ] 8.1 Run `pnpm --filter web test` and `pnpm --filter ui test`; confirm no regression,
-        including the three migrated consumers' existing suites (Task 4.4)
-  - [ ] 8.2 Run `pnpm lint` and typecheck clean across `web`/`ui`
-  - [ ] 8.3 Run `pnpm build` and confirm no build-time errors
+        `ambientCapabilityBannerTokens`; props-only (`labels`, `onEnableClick`,
+        `onDismissPermanent`, `onRemindLater`, `isPending`).
+  - [x] 5.2 Added `AmbientLocationBanner.test.tsx` (6 tests): button labels/order; each
+        callback fires on its own control; pending state disables the primary action;
+        enabled by default when `isPending` is omitted.
+  - [x] 5.3 Wired `AppShellWrapper.tsx`: calls `useViewerLocation()`, registers `{ id:
+        'location', canShow: canShowAmbientAsk }` as the sole (for now) entry in Story
+        0.42's `ambientAskParticipants` array — positioned first, ahead of where Story
+        0.38's `'pwa-install'` entry will later be added — and renders
+        `AmbientLocationBanner` when `'location'` wins, wiring `onEnableClick` to
+        `captureExplicit()` (unmount handled by `canShowAmbientAsk` turning `false` once
+        `permissionStatus` resolves, not by this callback) and both dismiss actions to the
+        dual-call pattern (own persisted dismissal + Story 0.42's
+        `markDismissedThisSession()`).
+- [x] Task 6: Analytics (AC: #14)
+  - [x] 6.1 Added all four PostHog event call sites in `AppShellWrapper.tsx` via
+        `usePostHog().capture()`: `viewer_location_ambient_banner_shown` (once, via a
+        ref-guarded effect keyed on the slot winner becoming `'location'`),
+        `viewer_location_ambient_consent_resolved` (`{outcome: 'granted'|'denied'}`, on the
+        primary action's `captureExplicit()` resolving/rejecting),
+        `viewer_location_ambient_dismissed_permanent`/`_cooldown` (on their respective
+        dismiss handlers).
+- [x] Task 7: i18n (AC: #15)
+  - [x] 7.1 Added the `AmbientLocationBanner` namespace (`message`, `enableButtonLabel`,
+        `notNowButtonLabel`, `remindLaterButtonLabel`) to both `apps/web/locales/en.json`
+        and `apps/web/locales/id.json`.
+- [x] Task 8: Full-suite verification (AC: #1-#15)
+  - [x] 8.1 `pnpm --filter web test` (445/445, 66 files) and `pnpm --filter ui test`
+        (554/554, 55 files) — no regression, including all three migrated consumers.
+  - [x] 8.2 `pnpm lint` clean (0 errors, repo-wide); `apps/web tsc --noEmit` shows only
+        pre-existing baseline errors (13, identical set confirmed before/after), none in any
+        file this story touches (one incidental `TS2352` this story's own new test
+        introduced was found and fixed during this pass).
+  - [x] 8.3 `pnpm --filter web build` succeeds, no build-time errors.
 
 ## Dev Notes
 
@@ -561,54 +569,58 @@ same underlying browser capability.
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation -- shared coordinate store + two-layer permission gating +
+- [x] Scope confirmation -- shared coordinate store + two-layer permission gating +
       ambient consent banner + 3-consumer migration (EXPERIENCE.md "Ambient
       Viewer-Location Consent"), explicitly excluding `computeDistanceKm`/nearby-badge
       adoption (Story 1.i1f's own scope) and reverse-geocoding (Gate 1, out of scope
-      entirely).
-- [ ] Architecture and boundary confirmation -- Gate 1/3 returned "No gap found" (two
+      entirely). **Addendum (2026-09-20):** the user separately directed rewiring Story
+      1.i1f's own `use-nearby-filter.ts` onto this story's shared `coordinate` (superseding
+      1.i1f's own prior interim fix) in the same session -- done as an edit to 1.i1f's own
+      file (Task 4.1), not a scope change to this story's own deliverables; see Out of
+      Scope's own addendum below.
+- [x] Architecture and boundary confirmation -- Gate 1/3 returned "No gap found" (two
       layering/scope constraints folded into ACs 13 and Dev Notes); Gate 2 returned "Gap
       found" for the shared slot (already resolved via `AskUserQuestion`, split into Story
       0.42) plus two absorbable correctness gaps folded into AC7/AC10 -- see Architecture &
       UX Gate Findings.
-- [ ] Testing plan confirmation -- unit tests (store/storage/hook), component tests
+- [x] Testing plan confirmation -- unit tests (store/storage/hook), component tests
       (`AmbientLocationBanner`), and the three migrated consumers' existing suites re-run,
       all agreed per Testing Requirements below.
-- [ ] Explicit human approval state -- **pending approval.**
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted -- **Story 0.42 must be
-      `done` before Task 5 begins.** Tasks 1-4 have no such prerequisite and may proceed
-      immediately. Confirm 0.42's status before starting implementation past Task 4.
+- [x] Explicit human approval state -- given explicitly by the user via `AskUserQuestion`
+      ("Build 0.42 too, then all of 0.39") when resuming Story 1.i1f's follow-on work.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted -- **Story 0.42 completed
+      first**, in the same session, before this story's Task 5 began.
 
 ## Testing Requirements
 
-- [ ] Unit tests: `query-geolocation-permission.test.ts` (permission-status matrix +
-      unsupported/throw degrade + change-event subscription), `viewer-location-storage.test.ts`
-      (dismiss/cooldown + throw-degrade), `useViewerLocation.test.ts` (composed behavior via
-      `renderHook`, incl. `captureAmbient`/`captureExplicit` cache-bypass distinction and
-      fake-timers cooldown expiry)
-- [ ] Integration tests: `set-default-location-dialog.test.tsx`/`location-form-dialog.test.tsx`
-      re-extended with the new mock target, confirming zero behavioral regression (Task 4.4)
-- [ ] Component tests: `AmbientLocationBanner.test.tsx`
-- [ ] E2E tests: none new -- no route/page is newly introduced by this story; the banner's
-      real end-to-end mount is proven at the integration level via Story 0.42's own
-      `AppShellWrapper.tsx` wiring test plus this story's component tests
+- [x] Unit tests: `query-geolocation-permission.test.ts` (10 tests: permission-status
+      matrix + unsupported/throw degrade + change-event subscription),
+      `viewer-location-storage.test.ts` (12 tests: dismiss/cooldown + throw-degrade),
+      `useViewerLocation.test.ts` (13 tests via `renderHook`, incl.
+      `captureAmbient`/`captureExplicit` cache-bypass distinction)
+- [x] Integration tests: `set-default-location-dialog.test.tsx`/`location-form-dialog.test.tsx`
+      re-run with the new mock target (or, for the latter, no mock change needed at all),
+      confirming zero behavioral regression (Task 4.4)
+- [x] Component tests: `AmbientLocationBanner.test.tsx` (6 tests)
+- [x] E2E tests: none new, as planned -- no route/page was newly introduced by this story.
 
 ## Deliverables Checklist
 
-- [ ] `viewer-location-store.ts` (Zustand store, AD-4-compliant) implemented and tested
-- [ ] `query-geolocation-permission.ts` implemented with full status-matrix + degrade-path
+- [x] `viewer-location-store.ts` (Zustand store, AD-4-compliant) implemented and tested
+- [x] `query-geolocation-permission.ts` implemented with full status-matrix + degrade-path
       test coverage
-- [ ] `viewer-location-storage.ts` (dismiss/cooldown helpers) implemented and tested,
+- [x] `viewer-location-storage.ts` (dismiss/cooldown helpers) implemented and tested,
       including a throwing-`localStorage` degrade path
-- [ ] `useViewerLocation.ts` composed hook implemented, matching this story's exact
-      documented public surface, with `renderHook`-based tests
-- [ ] `AmbientLocationBanner.tsx` implemented per DESIGN.md tokens (via Story 0.42's shared
+- [x] `useViewerLocation.ts` composed hook implemented, matching this story's exact
+      documented public surface (plus `isAvailable`/`isCapturing`/`error` forwarding — see
+      Data Type Compatibility note), with `renderHook`-based tests
+- [x] `AmbientLocationBanner.tsx` implemented per DESIGN.md tokens (via Story 0.42's shared
       constants) and wired into `AppShellWrapper.tsx`/Story 0.42's slot
-- [ ] All three existing consumers migrated with zero behavioral regression, own test
+- [x] All three existing consumers migrated with zero behavioral regression, own test
       suites green with updated mocks
-- [ ] Four new PostHog events wired at the correct interaction points
-- [ ] New `AmbientLocationBanner` locale namespace added to both `en.json`/`id.json`
-- [ ] All new/extended tests passing; lint, typecheck, and build clean
+- [x] Four new PostHog events wired at the correct interaction points
+- [x] New `AmbientLocationBanner` locale namespace added to both `en.json`/`id.json`
+- [x] All new/extended tests passing; lint, typecheck, and build clean
 
 ## Out of Scope
 
@@ -626,26 +638,102 @@ same underlying browser capability.
   scope (amended separately, 2026-09-19, to also depend on Story 0.42).
 - Any redesign of the three migrated consumers' own UI, error copy, or analytics -- AC11
   explicitly preserves them unchanged; only the state source moves.
+- **ADDENDUM (2026-09-20):** the user-directed rewiring of Story 1.i1f's masonry nearby
+  badge onto this story's shared `coordinate` (superseding 1.i1f's own prior interim
+  "already-granted-permission" fix) was done as part of this same session, but as an edit
+  to **Story 1.i1f's own file** (`use-nearby-filter.ts`, already in that story's File
+  Change Plan) — not a deliverable of this story. This story still ships only the
+  coordinate *source*; see Story 1.i1f's own Change Log for its side of this update.
 
 ## Definition of Done
 
-- [ ] AC1-AC15 satisfied
-- [ ] Story 0.42 is `done` before this story's Task 5 was implemented
-- [ ] Required unit/component tests passing (store, storage, hook, banner, migrated
+- [x] AC1-AC15 satisfied
+- [x] Story 0.42 is `done` before this story's Task 5 was implemented
+- [x] Required unit/component tests passing (store, storage, hook, banner, migrated
       consumers)
-- [ ] Lint and type checks passing for the `web` and `ui` packages
-- [ ] `pnpm build` succeeds
+- [x] Lint and type checks passing for the `web` and `ui` packages
+- [x] `pnpm build` succeeds
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — ready for code review.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
+
 ### Debug Log References
+
+- Implemented in the same session as, and immediately after, Story 0.42 (its Task 5
+  prerequisite) — user request: "0.39 and also wire the current location into story 1.i1f".
+- `isAvailable`, `isCapturing`, and `error` were added to `useViewerLocation()`'s return
+  beyond the story's own documented "cross-file contract" list (`coordinate`,
+  `permissionStatus`, `canShowAmbientAsk`, `captureAmbient`, `captureExplicit`,
+  `dismissPermanently`, `remindLater`). This was necessary, not a deviation: all three
+  migrated consumers' existing UI (disabled/loading states in the two dialogs;
+  `currentLocationError` returned from `use-nearby-filter.ts` for `LocationRadiusFilter`'s
+  own error messaging) read these fields directly, and AC11 explicitly requires their UI to
+  stay unchanged. Forwarding them straight from the internal `useCurrentLocationCapture()`
+  instance was the only way to satisfy that requirement without rewriting each consumer's
+  own local error-handling into something new.
+- `use-nearby-filter.ts`'s migration (Task 4.1) resolved its own open question: `adHocCoords`
+  was fully removable in favor of `useViewerLocation().coordinate`, since `captureExplicit()`
+  already updates the shared store synchronously with the same value the old local state
+  captured — no behavior gap, and it fixes AC12's cross-entry-point staleness as a direct
+  side effect (not a separate bugfix).
+- `location-form-dialog.test.tsx` needed **zero** mock changes despite the underlying hook
+  swap: it already exercises the real `useCurrentLocationCapture()`/`getCurrentPosition`
+  chain against a stubbed `navigator.geolocation`, and `captureExplicit()` always bypasses
+  any cached/shared coordinate — the shared store's cross-test persistence (module-singleton
+  Zustand state, unlike the old per-mount local `useState`) turned out not to leak into any
+  assertion, confirmed by running the full 12-test file rather than assuming it from AC10's
+  design intent alone.
+- One test in `nearby.test.tsx` (`Nearby Filter Integration`'s AC7 anonymous-user test) had
+  to be corrected, not just re-mocked: `useViewerLocation()` (and its ambient banner) is
+  intentionally app-wide/session-agnostic by this story's own design — Story 1.i1f's prior
+  interim fix had session-gated its own ambient fallback, but that gate doesn't exist in the
+  new shared architecture (an anonymous visitor who already granted permission on a prior
+  visit can still see a nearby badge). The test's title and assertion were updated to check
+  what's still actually true (the saved-location filter UI/query stay auth-gated) rather than
+  a no-longer-applicable "zero geolocation querying" claim.
+- Full verification: `packages/ui` 554/554 tests, `apps/web` 445/445 tests, `pnpm --filter
+  web build` succeeds, repo-wide `pnpm lint` clean (0 errors), `apps/web tsc --noEmit` shows
+  only the same 13 pre-existing baseline errors confirmed at session start (one incidental
+  `TS2352` this story's own new test introduced was found and fixed during verification).
 
 ### Completion Notes List
 
+- All 8 tasks complete. Built the full Story 0.39 stack (Zustand store, permission-status
+  query/subscription with a module-level once-guard, dismiss/cooldown localStorage helpers,
+  the composed `useViewerLocation()` hook, the `AmbientLocationBanner` component, and its
+  `AppShellWrapper.tsx` wiring into Story 0.42's slot) and migrated all three existing
+  "use my current location" consumers onto it. Rewired Story 1.i1f's own
+  `use-nearby-filter.ts` onto the new shared `coordinate` per the user's explicit follow-on
+  request, superseding its prior narrow interim fix.
+
 ### File List
+
+**New:**
+- `apps/web/src/lib/state/viewer-location-store.ts`
+- `apps/web/src/lib/location/query-geolocation-permission.ts`
+- `apps/web/src/lib/location/query-geolocation-permission.test.ts`
+- `apps/web/src/lib/location/viewer-location-storage.ts`
+- `apps/web/src/lib/location/viewer-location-storage.test.ts`
+- `apps/web/src/lib/hooks/useViewerLocation.ts`
+- `apps/web/src/lib/hooks/useViewerLocation.test.ts`
+- `packages/ui/src/core/AmbientLocationBanner.tsx`
+- `packages/ui/src/core/AmbientLocationBanner.test.tsx`
+
+**Modified:**
+- `apps/web/src/app/[locale]/use-nearby-filter.ts`
+- `apps/web/src/app/[locale]/nearby.test.tsx`
+- `apps/web/src/app/[locale]/settings/account/set-default-location-dialog.tsx`
+- `apps/web/src/app/[locale]/settings/account/set-default-location-dialog.test.tsx`
+- `apps/web/src/app/[locale]/settings/locations/location-form-dialog.tsx`
+- `apps/web/src/components/layout/AppShellWrapper.tsx`
+- `apps/web/src/components/layout/AppShellWrapper.test.tsx`
+- `apps/web/locales/en.json`
+- `apps/web/locales/id.json`
+- `packages/ui/src/index.ts`

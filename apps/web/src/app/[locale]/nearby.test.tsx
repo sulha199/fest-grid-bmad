@@ -109,25 +109,34 @@ vi.mock('@/lib/graphql-client', async () => {
   };
 });
 
-// Mock infinite scroll + current-location capture (real geolocation is unavailable in jsdom)
-const mockCaptureCurrentLocation = vi.fn();
-// Defaults to "no ambient permission granted" (undefined) — matches jsdom's real
-// behavior (no navigator.geolocation/permissions), overridden per-test below for
-// the ambient-fallback coverage.
-const mockCaptureIfPermissionGranted = vi.fn().mockResolvedValue(undefined);
+// Mock infinite scroll (real geolocation is unavailable in jsdom)
 vi.mock('@festgrid/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@festgrid/ui')>();
   return {
     ...actual,
     useInfiniteScroll: () => ({ sentinelRef: vi.fn() }),
-    useCurrentLocationCapture: () => ({
-      isCapturing: false,
-      error: null,
-      capture: mockCaptureCurrentLocation,
-      captureIfPermissionGranted: mockCaptureIfPermissionGranted,
-    }),
   };
 });
+
+// Story 0.39 — use-nearby-filter.ts now reads the shared useViewerLocation()
+// hook (coordinate + captureExplicit) instead of a local capture instance.
+// Whether `coordinate` got there via an explicit click (AC10) or the ambient
+// silent-capture-when-granted path (AC3) is useViewerLocation's own internal
+// concern (see its own useViewerLocation.test.ts) — from this hook's
+// perspective there's just one shared coordinate value to read.
+let mockCoordinate: { latitude: number; longitude: number } | null = null;
+const mockCaptureExplicit = vi.fn(async () => {
+  if (!mockCoordinate) throw new Error('no coordinate configured for this test');
+  return mockCoordinate;
+});
+vi.mock('@/lib/hooks/useViewerLocation', () => ({
+  useViewerLocation: () => ({
+    coordinate: mockCoordinate,
+    isCapturing: false,
+    error: null,
+    captureExplicit: mockCaptureExplicit,
+  }),
+}));
 
 // Mock getMyLocations react-query hook to avoid MSW/network issues
 vi.mock('@/generated/graphql', async (importOriginal) => {
@@ -262,7 +271,8 @@ afterEach(() => {
   lastQueryVariables = null;
   mockSession = { user: { email: 'test@example.com' } };
   sessionStorage.clear();
-  mockCaptureIfPermissionGranted.mockReset().mockResolvedValue(undefined);
+  mockCoordinate = null;
+  mockCaptureExplicit.mockClear();
   if ((global as any).__resetNuqsStore) {
     (global as any).__resetNuqsStore();
   }
@@ -364,7 +374,7 @@ describe('Nearby Filter Integration', () => {
     });
   });
 
-  it('behaves exactly as today without rendering or querying geolocation for anonymous users (AC7)', async () => {
+  it('does not offer the saved-location nearby filter UI/query to anonymous users (AC7)', async () => {
     mockSession = null; // simulate anonymous
 
     renderWithProviders(<Home />);
@@ -374,15 +384,20 @@ describe('Nearby Filter Integration', () => {
       expect(screen.queryByLabelText('Nearby')).not.toBeInTheDocument();
     });
 
-    // Query should not contain scheduleCoordinates condition
+    // Query should not contain scheduleCoordinates condition — resolvedFilter
+    // (the server-side query condition) stays session-gated regardless of
+    // Story 0.39's shared, app-wide ambient-location architecture below.
     const nearbyCondition = lastQueryVariables?.query?.conditions?.find(
       (c: any) => c.field === 'scheduleCoordinates'
     );
     expect(nearbyCondition).toBeUndefined();
 
-    // Story 1.i1f revision: the ambient current-location fallback must also
-    // never be attempted for an anonymous user.
-    expect(mockCaptureIfPermissionGranted).not.toHaveBeenCalled();
+    // Story 0.39 note: useViewerLocation() (and its ambient ask banner) is
+    // intentionally app-wide, not session-gated — an anonymous visitor who
+    // already granted geolocation permission on a prior visit can still see
+    // a nearby badge. Only the saved-location filter UI/query stay
+    // auth-gated, asserted above and via `isAuthenticated`/`isModerator`-style
+    // gating elsewhere.
   });
 });
 
@@ -475,15 +490,16 @@ describe('useNearbyFilter (AC10-11)', () => {
     expect(result.current.activeFilterCoord).toEqual({ latitude: -6.2, longitude: 106.8 });
   });
 
-  it('current-location mode returns adHocCoords', async () => {
-    mockCaptureCurrentLocation.mockResolvedValueOnce({ latitude: 1.23, longitude: 4.56 });
+  it('current-location mode reads the shared coordinate via captureExplicit', async () => {
+    mockCoordinate = { latitude: 1.23, longitude: 4.56 };
 
     const { result } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
-    
+
     await act(async () => {
       await result.current.onSelectLocation('current');
     });
 
+    expect(mockCaptureExplicit).toHaveBeenCalledTimes(1);
     expect(result.current.activeFilterCoord).toEqual({ latitude: 1.23, longitude: 4.56 });
   });
 
@@ -502,9 +518,9 @@ describe('useNearbyFilter (AC10-11)', () => {
   });
 });
 
-describe('Ambient current-location fallback (Story 1.i1f revision, interim step)', () => {
-  it('off mode falls back to the ambient coordinate when geolocation permission is already granted', async () => {
-    mockCaptureIfPermissionGranted.mockResolvedValue({ latitude: 9.87, longitude: 6.54 });
+describe('Ambient current-location fallback (Story 0.39, wired into Story 1.i1f)', () => {
+  it('off mode falls back to the shared viewer-location coordinate when one is already available', async () => {
+    mockCoordinate = { latitude: 9.87, longitude: 6.54 };
 
     const { result } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
 
@@ -513,17 +529,17 @@ describe('Ambient current-location fallback (Story 1.i1f revision, interim step)
     });
   });
 
-  it('off mode stays undefined when no ambient permission has been granted (the default)', async () => {
+  it('off mode stays undefined when no shared coordinate is available (the default)', async () => {
     const { result } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(mockCaptureIfPermissionGranted).toHaveBeenCalled();
+      expect(result.current.isLoadingLocations).toBe(false);
     });
     expect(result.current.activeFilterCoord).toBeUndefined();
   });
 
   it('an explicitly active filter (saved location) takes priority over the ambient fallback', async () => {
-    mockCaptureIfPermissionGranted.mockResolvedValue({ latitude: 9.87, longitude: 6.54 });
+    mockCoordinate = { latitude: 9.87, longitude: 6.54 };
 
     const { result } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
     await waitFor(() => {
@@ -538,7 +554,7 @@ describe('Ambient current-location fallback (Story 1.i1f revision, interim step)
   });
 
   it('renders the masonry badge from the ambient fallback with no filter selected', async () => {
-    mockCaptureIfPermissionGranted.mockResolvedValue({ latitude: -6.2, longitude: 106.8 });
+    mockCoordinate = { latitude: -6.2, longitude: 106.8 };
 
     renderWithProviders(<Home />);
 

@@ -1,8 +1,8 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useEffect } from "react";
 import { useQueryState, parseAsString, parseAsInteger } from "nuqs";
 import { useGetMyLocationsQuery } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
-import { useCurrentLocationCapture } from "@festgrid/ui";
+import { useViewerLocation } from "@/lib/hooks/useViewerLocation";
 import { useAuthSession } from "@/components/providers/auth-session-provider";
 import { usePostHog } from "@festgrid/analytics";
 
@@ -20,8 +20,6 @@ export function useNearbyFilter() {
   const [nearby, setNearby] = useQueryState("nearby", parseAsString);
   const [nearbyRadiusKm, setNearbyRadiusKm] = useQueryState("nearbyRadiusKm", parseAsInteger);
 
-  const [adHocCoords, setAdHocCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-
   // Fetch locations
   const { data: locationsData, isLoading: isLoadingLocations, isError: locationsError, error: locationsQueryError } = useGetMyLocationsQuery(
     graphqlClient,
@@ -35,35 +33,18 @@ export function useNearbyFilter() {
     }
   }, [locationsQueryError]);
 
-  // Geolocation Hook
+  // Story 0.39 — the shared viewer-location coordinate/permission source.
+  // `coordinate` covers both this filter's own explicit "current location"
+  // mode (AC10's captureExplicit) AND the ambient fallback for when no filter
+  // is active at all (AC3's silent capture-when-granted path, AC7-8) — both
+  // read the same underlying value, since the "viewer's current location" is
+  // one concept regardless of which UI path populated it.
   const {
+    coordinate,
     isCapturing: isCapturingCurrentLocation,
     error: currentLocationError,
-    capture,
-    captureIfPermissionGranted,
-  } = useCurrentLocationCapture();
-
-  // Ambient fallback (interim step ahead of Story 0.39's explicit consent-banner
-  // ask): when no nearby filter is active, silently reuse the viewer's current
-  // location ONLY if the browser already reports geolocation permission as
-  // granted (from some earlier explicit action, e.g. this filter's own "current
-  // location" option or a location-picker form elsewhere) — never prompts on its
-  // own. Session-gated so anonymous users are never queried (AC7).
-  const [ambientCoord, setAmbientCoord] = useState<{ latitude: number; longitude: number } | undefined>(undefined);
-
-  useEffect(() => {
-    if (!session) {
-      setAmbientCoord(undefined);
-      return;
-    }
-    let cancelled = false;
-    captureIfPermissionGranted().then((coord) => {
-      if (!cancelled) setAmbientCoord(coord);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [session, captureIfPermissionGranted]);
+    captureExplicit,
+  } = useViewerLocation();
 
   // Sort locations by createdAt ascending to identify primary
   const savedLocations = useMemo(() => {
@@ -87,8 +68,7 @@ export function useNearbyFilter() {
       posthog.capture("nearby_filter_applied", { mode: "off" });
     } else if (value === "current") {
       try {
-        const coords = await capture();
-        setAdHocCoords(coords);
+        await captureExplicit();
         await setNearby("current");
         const rad = nearbyRadiusKm || 5;
         await setNearbyRadiusKm(rad);
@@ -133,10 +113,10 @@ export function useNearbyFilter() {
     const rad = nearbyRadiusKm || 5;
 
     if (nearby === "current") {
-      if (!adHocCoords) return undefined;
+      if (!coordinate) return undefined;
       return {
-        latitude: adHocCoords.latitude,
-        longitude: adHocCoords.longitude,
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
         radiusKm: rad,
       };
     }
@@ -145,17 +125,16 @@ export function useNearbyFilter() {
       locationPreferenceId: nearby,
       radiusKm: rad,
     };
-  }, [session, nearby, nearbyRadiusKm, adHocCoords]);
+  }, [session, nearby, nearbyRadiusKm, coordinate]);
 
   const activeFilterCoord = useMemo(() => {
-    if (nearby === "off" || !nearby) return ambientCoord;
-    if (nearby === "current") return adHocCoords ?? undefined;
+    if (nearby === "off" || !nearby || nearby === "current") return coordinate ?? undefined;
     const loc = savedLocations.find(l => l.id === nearby);
     if (loc?.latitude != null && loc?.longitude != null) {
       return { latitude: loc.latitude, longitude: loc.longitude };
     }
     return undefined;
-  }, [nearby, adHocCoords, savedLocations, ambientCoord]);
+  }, [nearby, coordinate, savedLocations]);
 
   return {
     isAuthenticated: !!session,
